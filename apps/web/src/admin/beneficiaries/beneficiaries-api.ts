@@ -15,6 +15,7 @@ export const FILTER_KEYS = [
   'upazilaId',
   'unionId',
   'type',
+  'gender',
   'projectId',
   'year',
   'blocked',

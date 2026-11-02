@@ -51,8 +51,15 @@ Logo files for the ERP: docs/ui/brand/logo.png (PNG with transparency, 300 by 19
 | color-status-warning | #B9770E | constitution section 12 | Status only, always with an icon and a label |
 | color-status-danger | #C0392B | constitution section 12 | Status only, always with an icon and a label |
 | color-status-info | #2B6CB0 | constitution section 12 | Status only, always with an icon and a label |
+| color-bg-brand-tint | #EBF6F0 | derived (D-145) | Icon squares and quiet highlights: brand primary at 8 % on white |
+| color-bg-subtle | #FAFBFB | derived (D-145) | Table header row and quiet fills: ink at 2 % on white |
+| color-sidebar-text | #CAD0CE | derived (D-145) | Sidebar labels on ink: white at 78 % on ink |
+| color-sidebar-heading | #A4AEAA | derived (D-145) | Sidebar group headings: white at 62 % on ink |
+| color-sidebar-hover | #223A32 | derived (D-145) | Sidebar hover: white at 8 % on ink |
+| color-sidebar-divider | #2C433B | derived (D-145) | Sidebar hairlines: white at 12 % on ink |
+| color-sidebar-count | #3F482D | derived (D-145) | Sidebar count pill: accent at 22 % on ink |
 
-Status colours are not from the website. They stay as set in the constitution.
+Status colours are not from the website. They stay as set in the constitution. The seven D-145 tokens come from the owner's own design prototype (2026-11-01), redrawn in these brand colours: each is a brand colour mixed into white or ink, so no new hue appears.
 
 ## 3. Contrast (WCAG 2.x)
 
@@ -88,6 +95,14 @@ Normal text needs 4.5:1 for AA. Large text (24 px, or 18.66 px bold) and the bou
 | White text on status danger | #FFFFFF on #C0392B | 5.44 | pass | pass |
 | Website required-field red on surface | #FF3B30 on #FFFFFF | 3.55 | fail | pass |
 | Website category blue on surface | #4597E8 on #FFFFFF | 3.07 | fail | pass |
+| Ink on brand tint (D-145) | #0F2920 on #EBF6F0 | 13.97 | pass | pass |
+| Brand green dark icon on brand tint | #007B3E on #EBF6F0 | 4.86 | pass | pass |
+| Text secondary on subtle | #526961 on #FAFBFB | 5.70 | pass | pass |
+| Sidebar text on ink | #CAD0CE on #0F2920 | 9.88 | pass | pass |
+| Sidebar heading on ink | #A4AEAA on #0F2920 | 6.78 | pass | pass |
+| Sidebar text on sidebar hover | #CAD0CE on #223A32 | 7.81 | pass | pass |
+| Accent on the sidebar count pill | #E8B65D on #3F482D | 5.18 | pass | pass |
+| Sidebar text on brand green dark | #CAD0CE on #007B3E | 3.44 | fail | pass |
 
 What this means:
 - The website's own buttons, white text on #008E48, reach 4.23:1. That passes only for large text. The ERP therefore uses #007B3E for filled buttons and links that carry small text, and keeps #008E48 for large surfaces, icons and charts.
@@ -95,6 +110,7 @@ What this means:
 - The website's hairline #919EAB is too faint to mark an input. The ERP uses #7F8E9D for control boundaries.
 - The website's soft button, green text on #EEF2F0, reaches 3.75:1 and fails for small text. The ERP uses the dark green for that text.
 - Amber fills reach only 1.86:1 against white. They are decoration and never mark the boundary of a control.
+- The sidebar's active item is white on the dark green; its grey sidebar text would reach only 3.44:1 there (D-145).
 - The constitution's warning colour reaches 3.68:1 on white. Use status colours for icons, borders and tinted backgrounds, and keep the label text of a status badge in ink.
 
 ## 4. Typography

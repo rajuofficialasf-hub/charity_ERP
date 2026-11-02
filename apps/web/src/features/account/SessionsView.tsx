@@ -1,7 +1,7 @@
 import type { DeviceSession } from '@css/shared/auth';
 import { formatCount, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState } from '@css/ui';
+import { Alert, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Text } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleCheck, Laptop, Smartphone } from 'lucide-react';
 import { useState } from 'react';
@@ -18,10 +18,18 @@ export function SessionsView() {
   const t = useTranslations('auth.sessions');
   // The list loads only inside the signed-in frame, after the session has been restored.
   return (
-    <AccountPage title={() => t('title')}>
+    <AccountPage
+      title={() => t('title')}
+      eyebrow={t('eyebrow')}
+      description={t('description')}
+      wide
+    >
       {() => (
         <>
           <DocumentTitle title={t('title')} />
+          <Card accent title={t('unknown_note.title')} headingLevel={2}>
+            <Text tone="muted">{t('unknown_note.body')}</Text>
+          </Card>
           <SessionList />
         </>
       )}

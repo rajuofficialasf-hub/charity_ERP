@@ -135,6 +135,11 @@ describe('the duplicates list', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'সম্ভাব্য ডুপ্লিকেট' }),
     ).toBeVisible();
+    expect(screen.getByText('ডেটা গুণমান')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'উপকারভোগীতে ফিরুন' })).toHaveAttribute(
+      'href',
+      '/admin/beneficiaries',
+    );
     expect((await screen.findAllByText('একই নাম, পিতা/স্বামী ও মোবাইল')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('একই মোবাইল নম্বর').length).toBeGreaterThan(0);
     const compare = screen.getAllByRole('link', { name: 'তুলনা করুন' })[0]!;

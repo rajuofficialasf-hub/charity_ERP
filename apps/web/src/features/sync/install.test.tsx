@@ -53,7 +53,7 @@ describe('the install hint', () => {
     watchInstall();
     const user = userEvent.setup();
     openHome();
-    await screen.findByRole('heading', { level: 1, name: /^স্বাগতম/ });
+    await screen.findByRole('heading', { level: 1, name: 'আমার কাজ' });
     expect(screen.queryByText('অ্যাপটি ফোনে ইনস্টল করুন')).toBeNull();
     const prompt = offerPrompt('accepted');
     const hint = (await screen.findByText('অ্যাপটি ফোনে ইনস্টল করুন')).closest('.ui-alert')!;
@@ -83,7 +83,7 @@ describe('the install hint', () => {
     userAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gecko/20100101 Firefox/130.0');
     const user = userEvent.setup();
     openHome();
-    await screen.findByRole('heading', { level: 1, name: /^স্বাগতম/ });
+    await screen.findByRole('heading', { level: 1, name: 'আমার কাজ' });
     expect(screen.queryByText('অ্যাপটি ফোনে ইনস্টল করুন')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'প্রোফাইল মেনু' }));
     expect(screen.queryByRole('menuitem', { name: 'অ্যাপ ইনস্টল করুন' })).toBeNull();

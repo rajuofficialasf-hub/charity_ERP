@@ -1,7 +1,7 @@
 /*
- * The app shell (docs/ui/DESIGN_SYSTEM.md, section "App shell"): the app bar on top, then the
- * sidebar (an official on a desktop), the side rail (a tablet, or a volunteer on a desktop) or the
- * bottom tabs (a phone) beside or under the content. Tokens only.
+ * The app shell (docs/ui/DESIGN_SYSTEM.md, section "App shell"): an official's dark sidebar at full
+ * height on a desktop with the app bar beside it; elsewhere the app bar on top, then the side rail
+ * (a tablet, or a volunteer on a desktop) or the bottom tabs (a phone). Tokens only.
  */
 .app-shell {
   min-height: 100dvh;
@@ -15,12 +15,26 @@
 .app-shell-sidebar {
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
 }
+.app-shell-sidebar .app-sidebar {
+  grid-column: 1;
+  grid-row: 1 / -1;
+}
+.app-shell-sidebar .app-bar,
+.app-shell-sidebar .app-main {
+  grid-column: 2;
+}
 .app-shell-rail {
   grid-template-columns: 88px minmax(0, 1fr);
 }
-.app-shell-sidebar .app-bar,
 .app-shell-rail .app-bar {
   grid-column: 1 / -1;
+}
+/* beside the sidebar the bar is a quiet strip over the canvas, not a raised card */
+.app-shell-sidebar .app-bar {
+  padding-inline: var(--space-5);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: none;
+  backdrop-filter: blur(12px);
 }
 
 .app-bar {
@@ -59,6 +73,11 @@
   box-shadow: var(--focus-ring);
   border-radius: var(--radius-sm);
 }
+/* the trail beside the sidebar sits on the bar's line, not above a page */
+.app-bar-crumbs {
+  min-width: 0;
+  margin: 0;
+}
 .app-bar-actions {
   display: flex;
   flex: none;
@@ -66,7 +85,6 @@
   gap: var(--space-2);
 }
 
-.app-sidebar,
 .app-rail {
   position: sticky;
   top: var(--app-bar-height);
@@ -75,22 +93,113 @@
   background: var(--color-bg-surface);
   border-right: 1px solid var(--border-subtle);
 }
+
+/* the official's sidebar on the brand ink, from the top of the window to its bottom */
 .app-sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-3);
+  background: var(--color-brand-ink);
+  color: var(--color-sidebar-text);
+  /* a slim scrollbar in the sidebar's own colours, not the system's white one */
+  scrollbar-color: var(--color-sidebar-divider) transparent;
+  scrollbar-width: thin;
+}
+.app-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-sidebar-divider);
+  color: var(--color-text-on-brand);
+  text-decoration: none;
+  outline: none;
+}
+.app-sidebar-brand:focus-visible {
+  outline: 2px solid var(--color-brand-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+/* the logo keeps its own colours on a light square (docs/ui/brand/colors.md, "Usage rules") */
+.app-sidebar-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+}
+.app-sidebar-names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+.app-sidebar-names strong {
+  font-size: var(--text-body);
+}
+.app-sidebar-names small {
+  color: var(--color-sidebar-heading);
+  font-size: var(--text-caption);
+}
+.app-sidebar-nav {
   display: grid;
   align-content: start;
   gap: var(--space-4);
-  padding: var(--space-3) var(--space-2);
+  padding-top: var(--space-4);
 }
 .app-nav-group {
   display: grid;
-  gap: var(--space-1);
+  gap: 2px;
 }
 .app-nav-group-title {
-  padding: 0 var(--space-3);
-  color: var(--color-text-secondary);
+  padding: 0 var(--space-3) var(--space-1);
+  color: var(--color-sidebar-heading);
   font-size: var(--text-caption);
   font-weight: var(--font-weight-bold);
 }
+.app-sidebar-foot {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-4);
+}
+.app-help {
+  padding: var(--space-3);
+  border: 1px solid var(--color-sidebar-divider);
+  border-radius: var(--radius-md);
+  color: var(--color-sidebar-heading);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
+.app-help p {
+  margin: 0;
+}
+.app-help-title {
+  margin-bottom: 2px;
+  color: var(--color-text-on-brand);
+  font-weight: var(--font-weight-bold);
+}
+.app-sidebar-person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2) 0;
+  border-top: 1px solid var(--color-sidebar-divider);
+}
+.app-sidebar-person-name {
+  overflow: hidden;
+  color: var(--color-text-on-brand);
+  font-weight: var(--font-weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app-rail {
   display: grid;
   align-content: start;
@@ -139,7 +248,23 @@
   gap: var(--space-1);
 }
 
-/* on a phone the profile button shows its icon only (its name stays in the label) */
+/* the profile chip: the person's letter, then the name over the kind */
+.app-profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-inline: var(--space-1) var(--space-2);
+  text-align: left;
+}
+.app-user-name {
+  max-width: 14rem;
+  overflow: hidden;
+  font-weight: var(--font-weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* on a phone the profile chip shows the letter only (the name stays in the label) */
 @media (max-width: 639px) {
   .app-user-name {
     display: none;

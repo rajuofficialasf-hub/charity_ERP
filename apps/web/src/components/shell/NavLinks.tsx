@@ -7,9 +7,14 @@ import { isCurrent, type NavDestination } from '../../admin/navigation';
 export function NavLinks({
   items,
   variant,
+  surface,
+  counts,
 }: {
   items: readonly NavDestination[];
   variant?: NavItemProps['variant'];
+  surface?: NavItemProps['surface'];
+  /** What waits beside each destination. */
+  counts?: Partial<Record<NavDestination['key'], number>>;
 }) {
   const t = useTranslations('nav');
   const { pathname } = useLocation();
@@ -17,10 +22,12 @@ export function NavLinks({
     <NavItem
       key={item.key}
       variant={variant}
+      surface={surface}
       icon={item.icon}
       label={t(item.key)}
       href={item.href}
       active={isCurrent(item, pathname)}
+      badge={counts?.[item.key]}
     />
   ));
 }

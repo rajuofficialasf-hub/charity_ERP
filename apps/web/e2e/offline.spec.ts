@@ -305,8 +305,8 @@ test.describe('the offline journeys', () => {
     await onDesk(browser, async (desk) => {
       await signIn(desk, RPM);
       await desk.goto(`/admin/applications/${id}`);
-      await expect(desk.getByRole('heading', { level: 1, name: 'নাম দেওয়া হয়নি' })).toBeVisible();
-      await expect(desk.getByText(name)).toBeVisible();
+      // a held entry is titled by the name typed on the phone until it is linked to a profile
+      await expect(desk.getByRole('heading', { level: 1, name })).toBeVisible();
       await expect(desk.getByText('এই নম্বরের একটি প্রোফাইল আগে থেকেই আছে।')).toBeVisible();
       await desk.getByRole('button', { name: 'যাচাই করুন' }).click();
       const dialog = desk.getByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });

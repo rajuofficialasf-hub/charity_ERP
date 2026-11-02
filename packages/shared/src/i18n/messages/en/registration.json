@@ -180,7 +180,9 @@
       "active": "Active",
       "blocked": "Blocked",
       "deactivated": "Deactivated"
-    }
+    },
+    "eyebrow": "My account",
+    "description": "Your identity, contact, address and work details."
   },
   "lists": {
     "volunteering_area": {

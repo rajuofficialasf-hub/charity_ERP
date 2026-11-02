@@ -1,14 +1,17 @@
 import type { Me } from '@css/shared/auth';
-import { OfflineBanner, type OfflineBannerProps } from '@css/ui';
-import { useState } from 'react';
+import { type BreadcrumbItem, IconTile, OfflineBanner, type OfflineBannerProps } from '@css/ui';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
-import { sidebarFor } from '../../admin/navigation';
+import { attentionCounts, placeOf, sidebarFor } from '../../admin/navigation';
+import { ATTENTION_KEY, attention } from '../../features/home/home-api';
 import { RequireAuth } from '../../lib/auth';
 import { useOffline } from '../../offline/OfflineProvider';
 import type { SyncStatus } from '../../offline/sync-engine';
 import { AppProviders } from '../AppProviders';
 import { AppBar } from './AppBar';
+import { CrumbsProvider, useCrumbsHolder } from './breadcrumb';
 import { BottomTabs } from './BottomTabs';
 import { MoreSheet } from './MoreSheet';
 import { NavLinks } from './NavLinks';
@@ -42,12 +45,14 @@ function Shell({ me }: { me: Me }) {
     setMoreOpen(false);
   }
   const sidebar = width === 'desktop' && me.kind !== 'volunteer';
+  const crumbs = useCrumbsHolder(sidebar);
+  const trail = useTrail(me, pathname, sidebar, crumbs.items);
   return (
     <AppProviders navigate={(href) => void navigate(href)}>
       <div
         className={`app-shell app-shell-${sidebar ? 'sidebar' : width === 'phone' ? 'tabs' : 'rail'}`}
       >
-        <AppBar me={me} phone={width === 'phone'} />
+        <AppBar me={me} phone={width === 'phone'} withBrand={!sidebar} trail={trail} />
         {sidebar ? (
           <Sidebar me={me} />
         ) : (
@@ -76,13 +81,60 @@ function Shell({ me }: { me: Me }) {
             />
           )}
           <main id="main" className="app-content">
-            <Outlet />
+            <CrumbsProvider value={crumbs.value}>
+              <Outlet />
+            </CrumbsProvider>
           </main>
         </div>
         <MoreSheet me={me} isOpen={moreOpen} onClose={() => setMoreOpen(false)} />
       </div>
     </AppProviders>
   );
+}
+
+/** How often the sidebar's counts are read while a page stays open, as the bell's count is. */
+const COUNTS_REFRESH_MS = 60_000;
+
+/**
+ * What waits for the person, as the home counts it (the same cached list): read again every
+ * minute and on every move to another page, so a decision made a moment ago leaves its count.
+ */
+function useWaiting() {
+  const { pathname } = useLocation();
+  const queryClient = useQueryClient();
+  const waiting = useQuery({
+    queryKey: ATTENTION_KEY,
+    queryFn: attention,
+    refetchInterval: COUNTS_REFRESH_MS,
+    staleTime: COUNTS_REFRESH_MS / 2,
+  });
+  const shown = useRef(pathname);
+  useEffect(() => {
+    if (shown.current === pathname) return;
+    shown.current = pathname;
+    void queryClient.invalidateQueries({ queryKey: ATTENTION_KEY });
+  }, [pathname, queryClient]);
+  return waiting.data ?? [];
+}
+
+/**
+ * The trail of the app bar beside the sidebar: the destination's group, then the page's own
+ * crumbs, or the destination itself when the page has none. None without the sidebar.
+ */
+function useTrail(
+  me: Me,
+  pathname: string,
+  sidebar: boolean,
+  pageCrumbs: BreadcrumbItem[] | null,
+): BreadcrumbItem[] | null {
+  const t = useTranslations('nav');
+  if (!sidebar) return null;
+  const place = placeOf(me, pathname);
+  const items: BreadcrumbItem[] = [
+    ...(place ? [{ id: 'group', label: t(`group.${place.group}`) }] : []),
+    ...(pageCrumbs ?? (place ? [{ id: 'page', label: t(place.item.key) }] : [])),
+  ];
+  return items.length > 1 ? items : null;
 }
 
 type Banner = Pick<OfflineBannerProps, 'state' | 'pendingCount' | 'onHidden'>;
@@ -114,23 +166,50 @@ function useBanner(online: boolean, status: SyncStatus, volunteer: boolean): Ban
   return null;
 }
 
+/**
+ * The official's sidebar on a desktop, on the brand ink: the Foundation's mark and name, the
+ * destinations by group, a help card and the signed-in person at the bottom.
+ */
 function Sidebar({ me }: { me: Me }) {
   const t = useTranslations('nav');
+  const ta = useTranslations('common.app');
+  const counts = attentionCounts(me, useWaiting());
   return (
-    <nav className="app-sidebar" aria-label={t('label')}>
-      {sidebarFor(me).map(({ group, items }) => (
-        <div
-          key={group}
-          role="group"
-          aria-labelledby={`nav-group-${group}`}
-          className="app-nav-group"
-        >
-          <span id={`nav-group-${group}`} className="app-nav-group-title">
-            {t(`group.${group}`)}
-          </span>
-          <NavLinks items={items} />
+    <aside className="app-sidebar" aria-label={t('sidebar')} data-testid="sidebar">
+      <a href="/" className="app-sidebar-brand">
+        <span className="app-sidebar-mark">
+          <img src="/brand/logo.svg" alt="" width={30} height={19} />
+        </span>
+        <span className="app-sidebar-names">
+          <strong>{ta('organization')}</strong>
+          <small>{ta('name')}</small>
+        </span>
+      </a>
+      <nav className="app-sidebar-nav" aria-label={t('label')}>
+        {sidebarFor(me).map(({ group, items }) => (
+          <div
+            key={group}
+            role="group"
+            aria-labelledby={`nav-group-${group}`}
+            className="app-nav-group"
+          >
+            <span id={`nav-group-${group}`} className="app-nav-group-title">
+              {t(`group.${group}`)}
+            </span>
+            <NavLinks items={items} surface="dark" counts={counts} />
+          </div>
+        ))}
+      </nav>
+      <div className="app-sidebar-foot">
+        <div className="app-help">
+          <p className="app-help-title">{t('help.title')}</p>
+          <p>{t('help.text')}</p>
         </div>
-      ))}
-    </nav>
+        <div className="app-sidebar-person">
+          <IconTile name={me.displayName} size="sm" />
+          <span className="app-sidebar-person-name">{me.displayName}</span>
+        </div>
+      </div>
+    </aside>
   );
 }

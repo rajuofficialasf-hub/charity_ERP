@@ -145,7 +145,17 @@ describe('the beneficiary tab', () => {
     const { container } = openList();
     const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
     expect(await within(counts).findByText('20,00,000')).toBeInTheDocument();
-    expect(within(counts).getByRole('button', { name: 'ব্লক করা 12' })).toHaveAttribute(
+    // the page header: the area and what the page is for, above the known title
+    expect(screen.getByText('উপকারভোগী সেবা')).toBeInTheDocument();
+    expect(
+      screen.getByText('নিবন্ধন, যাচাই, সহায়তা এবং সেবার ইতিহাস এক জায়গা থেকে পরিচালনা করুন।'),
+    ).toBeInTheDocument();
+    // the name opens the person's profile
+    expect(screen.getAllByRole('link', { name: 'নমুনা উপকারভোগী' })[0]).toHaveAttribute(
+      'href',
+      expect.stringMatching(/^\/admin\/beneficiaries\/[0-9a-f-]+$/),
+    );
+    expect(within(counts).getByRole('button', { name: 'ব্লক লিস্ট 12' })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -192,7 +202,7 @@ describe('the beneficiary tab', () => {
       screen.queryByRole('columnheader', { name: 'পিতা বা স্বামীর নাম' }),
     ).not.toBeInTheDocument();
     const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
-    expect(within(counts).queryByText('ব্লক করা')).not.toBeInTheDocument();
+    expect(within(counts).queryByText('ব্লক লিস্ট')).not.toBeInTheDocument();
   });
 
   it('filters by the blocked count without narrowing the counts, shows the assisted count as a number, and offers the profile from the row menu', async () => {
@@ -206,7 +216,7 @@ describe('the beneficiary tab', () => {
     expect(
       within(counts).queryByRole('button', { name: /^এই বছর সহায়তা পেয়েছেন/ }),
     ).not.toBeInTheDocument();
-    await user.click(within(counts).getByRole('button', { name: 'ব্লক করা 1', pressed: false }));
+    await user.click(within(counts).getByRole('button', { name: 'ব্লক লিস্ট 1', pressed: false }));
     await waitFor(() => expect(router.state.location.search).toBe('?blocked=true'));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('blocked')).toBe('true'));
     expect(statUrls.at(-1)?.searchParams.get('blocked')).toBeNull();
@@ -216,6 +226,40 @@ describe('the beneficiary tab', () => {
       'href',
       expect.stringContaining('/admin/beneficiaries/'),
     );
+  });
+
+  it('counts the men and the women, and a press on one filters the list without narrowing the counts', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, { total: 30, assistedThisYear: 2, blocked: 1, male: 12, female: 18 });
+    const user = userEvent.setup();
+    const { router } = openList();
+    const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
+    expect(await within(counts).findByRole('button', { name: 'পুরুষ 12' })).toBeInTheDocument();
+    // everyone, the men, the women, those assisted this year, the blocklist
+    expect(
+      [...counts.querySelectorAll('.ui-statfilter-label')].map((label) => label.textContent),
+    ).toEqual(['মোট উপকারভোগী', 'পুরুষ', 'মহিলা', 'এই বছর সহায়তা পেয়েছেন', 'ব্লক লিস্ট']);
+    await user.click(within(counts).getByRole('button', { name: 'মহিলা 18', pressed: false }));
+    await waitFor(() => expect(router.state.location.search).toBe('?gender=female'));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('gender')).toBe('female'));
+    expect(statUrls.at(-1)?.searchParams.get('gender')).toBeNull();
+    expect(within(counts).getByRole('button', { name: 'মহিলা 18' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // the chosen gender is a filter chip too, and the chip takes it away
+    await user.click(screen.getByRole('button', { name: /লিঙ্গ: মহিলা/ }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+  });
+
+  it('shows no gender counts to a caller who does not see the gender', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, { total: 30, assistedThisYear: 2 });
+    openList();
+    const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
+    expect(await within(counts).findByText('মোট উপকারভোগী')).toBeInTheDocument();
+    expect(within(counts).queryByText('পুরুষ')).toBeNull();
+    expect(within(counts).queryByText('মহিলা')).toBeNull();
   });
 
   it('shows the forbidden content to a volunteer', async () => {

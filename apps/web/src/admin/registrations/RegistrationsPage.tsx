@@ -1,10 +1,20 @@
 import type { Locale } from '@css/shared/i18n';
 import { formatDateTime } from '@css/shared/format';
-import { Alert, Badge, EmptyState, ErrorState, Table, Tabs, type TableColumn } from '@css/ui';
+import {
+  Alert,
+  Badge,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  PersonCell,
+  Table,
+  type TableColumn,
+  Tabs,
+} from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
-import { UserCheck } from 'lucide-react';
+import { FilePen, UserCheck } from 'lucide-react';
 import { useState } from 'react';
-import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -12,8 +22,15 @@ import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canApproveStaff, canDecideEdits } from '../roles';
+import { StatisticsBar } from '../StatisticsBar';
 import { EditRequests } from './EditRequests';
-import { LIST_KEY, type PendingRegistration, pendingStaffRegistrations } from './registrations-api';
+import {
+  EDITS_KEY,
+  editRequests,
+  LIST_KEY,
+  type PendingRegistration,
+  pendingStaffRegistrations,
+} from './registrations-api';
 
 /** A message handed over by the detail page after a final decision (the row has left the list). */
 export interface ListNotice {
@@ -46,7 +63,8 @@ export function RegistrationsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
+      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('description')} />
+      <WaitingCounts staff={staff} edits={edits} />
       {notice && (
         <Alert
           tone="success"
@@ -75,6 +93,50 @@ export function RegistrationsPage() {
   );
 }
 
+/** How many registrations and edit requests wait, for the lists the caller decides. */
+function WaitingCounts({ staff, edits }: { staff: boolean; edits: boolean }) {
+  const t = useTranslations('admin.registrations');
+  // the same reads as the lists below (the staff registrations only), so a tab opens on rows
+  // already loaded
+  const pending = useQuery({
+    queryKey: LIST_KEY,
+    queryFn: pendingStaffRegistrations,
+    enabled: staff,
+  });
+  const requests = useQuery({ queryKey: EDITS_KEY, queryFn: editRequests, enabled: edits });
+  return (
+    <StatisticsBar
+      label={t('stats.label')}
+      loading={(staff && pending.isPending) || (edits && requests.isPending)}
+      items={[
+        // a list that could not be read shows its error below, never a count of zero
+        ...(staff && !pending.error
+          ? [
+              {
+                key: 'pending',
+                label: t('tabs.pending'),
+                value: pending.data?.length ?? 0,
+                icon: UserCheck,
+                tone: 'warning' as const,
+              },
+            ]
+          : []),
+        ...(edits && !requests.error
+          ? [
+              {
+                key: 'edits',
+                label: t('tabs.edits'),
+                value: requests.data?.length ?? 0,
+                icon: FilePen,
+                tone: 'info' as const,
+              },
+            ]
+          : []),
+      ]}
+    />
+  );
+}
+
 function PendingList() {
   const t = useTranslations('admin.registrations');
   const tc = useTranslations('common');
@@ -86,7 +148,7 @@ function PendingList() {
   const type = (r: PendingRegistration) =>
     r.volunteerType ? tr(r.volunteerType as 'general') : (r.designation ?? '');
   const name = (r: PendingRegistration) => (
-    <Link to={`/admin/registrations/${r.userId}`}>{r.displayName}</Link>
+    <PersonCell name={r.displayName} href={`/admin/registrations/${r.userId}`} />
   );
   const status = (r: PendingRegistration) => (
     <Badge
@@ -116,6 +178,7 @@ function PendingList() {
   ];
   return (
     <Table
+      layout="panel"
       label={t('tabs.pending')}
       columns={columns}
       rows={list.data ?? []}

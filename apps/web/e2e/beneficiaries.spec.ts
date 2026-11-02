@@ -31,8 +31,10 @@ test.describe('the beneficiary tab', () => {
     await signIn(page, official(info));
     await openTab(page, TAB);
     const counts = page.getByRole('group', { name: 'উপকারভোগীর হিসাব' });
-    await expect(counts.getByText('মোট')).toBeVisible();
-    await expect(counts.getByText('ব্লক করা')).toBeVisible();
+    await expect(counts.getByText('মোট উপকারভোগী')).toBeVisible();
+    await expect(counts.getByText('পুরুষ')).toBeVisible();
+    await expect(counts.getByText('মহিলা')).toBeVisible();
+    await expect(counts.getByText('ব্লক লিস্ট')).toBeVisible();
 
     await filterBy(page, info, [
       ['বিভাগ', 'রংপুর'],
@@ -70,9 +72,10 @@ test.describe('the beneficiary tab', () => {
     await expect(select(page, 'উপজেলা')).toBeVisible();
     for (const label of ['ধরন', 'ব্লকলিস্ট', 'ইউনিয়ন'])
       await expect(select(page, label)).toHaveCount(0);
-    await expect(
-      page.getByRole('group', { name: 'উপকারভোগীর হিসাব' }).getByText('ব্লক করা'),
-    ).toHaveCount(0);
+    // the blocklist and the gender counts are details this team does not see
+    const masked = page.getByRole('group', { name: 'উপকারভোগীর হিসাব' });
+    for (const label of ['ব্লক লিস্ট', 'পুরুষ', 'মহিলা'])
+      await expect(masked.getByText(label)).toHaveCount(0);
     await expect(rows(page).getByText(/^017000010\d\d$/)).toHaveCount(0);
 
     await rows(page).getByRole('link').first().click();

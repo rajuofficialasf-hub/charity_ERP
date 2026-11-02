@@ -61,6 +61,8 @@ const beneficiaryStatistics = z.object({
   total: count(),
   assistedThisYear: count(),
   blocked: care(count()),
+  male: detail(count()),
+  female: detail(count()),
 });
 
 const at = () => z.iso.datetime({ offset: true });

@@ -241,3 +241,34 @@ export function isCurrent(item: NavDestination, pathname: string): boolean {
     href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`),
   );
 }
+
+/** The sidebar destination of the page shown and its group, for the trail in the app bar. */
+export function placeOf(
+  me: Pick<Me, 'kind' | 'roles'>,
+  pathname: string,
+): { group: NavGroup; item: NavDestination } | null {
+  for (const { group, items } of sidebarFor(me)) {
+    const item = items.find((i) => isCurrent(i, pathname));
+    if (item) return { group, item };
+  }
+  return null;
+}
+
+/**
+ * The counts of the home's "needs your attention" list beside the sidebar destinations that hold
+ * them: each item's page is matched to a destination, and the counts of one destination add up.
+ */
+export function attentionCounts(
+  me: Pick<Me, 'kind' | 'roles'>,
+  items: readonly { href: string; count: number }[],
+): Partial<Record<NavDestination['key'], number>> {
+  const destinations = sidebarFor(me).flatMap((g) => g.items);
+  const counts: Partial<Record<NavDestination['key'], number>> = {};
+  for (const item of items) {
+    const path = item.href.split('?')[0] ?? item.href;
+    // My Work is the home itself and never holds a count of its own
+    const destination = destinations.find((d) => d.href !== '/' && isCurrent(d, path));
+    if (destination) counts[destination.key] = (counts[destination.key] ?? 0) + item.count;
+  }
+  return counts;
+}

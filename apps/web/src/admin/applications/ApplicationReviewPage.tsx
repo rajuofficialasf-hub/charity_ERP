@@ -13,6 +13,7 @@ import {
   Timeline,
   type TimelineStep,
   VisuallyHidden,
+  PageHeader,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -237,7 +238,7 @@ function Review() {
           {notice.text}
         </Alert>
       ) : null}
-      <h1 className="admin-title">{a.beneficiaryName ?? t('unnamed')}</h1>
+      <PageHeader title={a.beneficiaryName ?? t('unnamed')} />
       <Card
         title={a.appNo ?? t('no_number')}
         headingLevel={2}

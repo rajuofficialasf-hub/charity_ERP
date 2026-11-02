@@ -79,4 +79,13 @@ describe('StatFilterBar', () => {
     expect(screen.queryByRole('group')).toBeNull();
     expect(screen.getAllByRole('status').length).toBeGreaterThan(0);
   });
+
+  it('shows the icon of each count on a soft square of its tone, hidden from readers, with English digits', () => {
+    renderWithUi(<Harness />, { locale: 'bn' });
+    const active = screen.getByRole('button', { name: /Active/ });
+    const tile = active.querySelector('.ui-icon-tile');
+    expect(tile).toHaveClass('t-success');
+    expect(tile).toHaveAttribute('aria-hidden', 'true');
+    expect(active).toHaveTextContent('21');
+  });
 });

@@ -25,6 +25,15 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 - **Layouts.** Phone below 640 px, tablet 640 to 1023 px, desktop 1024 px and up (DS §2.8, §4).
 - **Phase and task.** The roadmap phase (constitution §8) and the PLAN task that builds the screen.
 - **Role labels.** Tables use short labels for the roles of `permissions.yaml`: Head = Department Head (`department_head`), Monitoring = Monitoring Team (`monitoring_team`), PM = Program Manager, RPM = Regional Program Manager, Executive = Project Executive, Finance, Procurement and Media = the Finance, Procurement and Media Teams; volunteer types use their full names (General Volunteer, Local দায়ী, দাঈ-স্বেচ্ছাসেবক (both), Team Member, Paid Volunteer).
+- **Look of the designed pages (D-145, plan `docs/plans/2026-11-01-1549-feat-visual-redesign-plan.md`).** The owner's prototype gives every signed-in page one anatomy:
+  - The shell: a dark green sidebar on a computer (the brand, the destinations in groups with their waiting counts, a help card and the person), an app bar with the page's trail, and the bottom tabs and the "আরও" sheet on a phone.
+  - The page header: a small green area label, the title, one line on what the page is for (true to what the page does), and the page's buttons on the right (`PageHeader`).
+  - Count cards with an icon above a list, where the page already reads the numbers; a card that filters the list is outlined when chosen. A count that could not be read is left out, never shown as 0.
+  - Lists in one white card with the search and the filters (lined up at their labels) above the table, a letter or photo tile beside each name (`PersonCell`), the state as a soft dot badge, and the row buttons on one line under the header "অ্যাকশন".
+  - A side column (`page-split`, from 1024 px) for a note that states a real rule of the page (the template copies, the publishing steps, the handover and deactivation rule, the least access, the safety tip), or for a setting beside a list; amber-edged notes are information, never status.
+  - Profiles head with the dark green banner: the person, the state, the key facts as chips and the actions.
+  - Figures the prototype shows without data behind them (budget use, teams, monthly reviews, the role matrix, session totals) are left out until a feature supplies them.
+  - Screenshots of the 24 designed pages at 1280, 768 and 360 px come from `apps/web/e2e/screens.spec.ts` into `apps/web/test-results/screens/`.
 - **Detail level.**
   - Section 3 to 9 entries are full specifications.
   - Section 10 rows are short and are expanded into full entries at the start of their phase, together with their mockups (DESIGN_BRIEF §6).
@@ -907,6 +916,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The central list of beneficiary profiles across years and projects (blueprint A7 "beneficiary tab").
 - **T1.10.** Built in T1.10 (O-67; `apps/web/src/admin/beneficiaries/`, E2E `apps/web/e2e/beneficiaries.spec.ts`; the 360° shell at `/admin/beneficiaries/:beneficiaryId`, merge in T2.2): `/admin/beneficiaries`, the same filter pattern (area, type, project, year, blocklisted), search by name, by mobile with the contact class, by NID inside the `beneficiary.view_nid` scope; statistics (total, assisted this year, blocked). The Media and Procurement Teams get the limited view of BR-253.
 - **Layout (UX-21, 2026-10-20).** The owner's reference layout: count cards with an icon, the label and the number: total and blocked filter the list (the blocklist filter), assisted this year (approved help) is a number only because no list filter matches it, and a chosen card never narrows the counts; one white panel with the search, a "ফিল্টার" button that opens the filters in place grouped as এলাকা and অন্যান্য (a bottom sheet on phones), the active filters as removable chips with "সব মুছুন", the table (a letter avatar or the photo, the name in bold with a muted line under it, the status as a coloured dot with its word, a dash for an empty value, a ⋮ action button per row with the profile) and numbered pages of ten with "1–10 দেখানো হচ্ছে · মোট N জন" (page numbers inside the counted range, D-105). Plan `docs/plans/2026-10-20-1500-feat-people-list-redesign-plan.md`.
+- **Gender cards (D-146, 2026-11-02).** In the owner's order the cards are মোট উপকারভোগী, পুরুষ, মহিলা, এই বছর সহায়তা পেয়েছে and ব্লক লিস্ট; the men and the women filter the list by gender, only for officials who see the profile details (the filter is refused and the two counts are masked for the others).
 - **Roles.**
   - Officials with `beneficiary.view_all`.
   - Media Team (masked).

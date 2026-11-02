@@ -11,3 +11,22 @@
   align-items: center;
   justify-content: center;
 }
+
+/* a list or a search beside a narrow column of notes; one column below 1024 px */
+.page-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .page-split {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  }
+}
+.page-split-main,
+.page-split-side {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}

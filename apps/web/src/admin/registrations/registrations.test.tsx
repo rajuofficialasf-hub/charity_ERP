@@ -380,6 +380,28 @@ describe('registration list', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('counts what waits in each list above the tabs', async () => {
+    renderPage(HEAD);
+    expect(await screen.findByText('যাচাই ও অনুমোদন')).toBeInTheDocument();
+    const counts = within(await screen.findByRole('region', { name: 'অপেক্ষমাণ কাজ' }));
+    const card = (label: string) => counts.getByText(label).closest('.ui-card')!;
+    // the staff row only: the volunteer one waits in the volunteer tab
+    await waitFor(() => expect(card('অপেক্ষমাণ নিবন্ধন')).toHaveTextContent('1'));
+    expect(card('পরিবর্তনের অনুরোধ')).toBeInTheDocument();
+  });
+
+  it('leaves out the count of a list that could not be read, never showing zero', async () => {
+    server.use(
+      http.get('*/api/v1/edit-requests', () =>
+        HttpResponse.json({ error: { code: 'rate_limited', requestId: 'req_e' } }, { status: 429 }),
+      ),
+    );
+    renderPage(HEAD);
+    const counts = within(await screen.findByRole('region', { name: 'অপেক্ষমাণ কাজ' }));
+    await waitFor(() => expect(counts.getByText('অপেক্ষমাণ নিবন্ধন')).toBeInTheDocument());
+    await waitFor(() => expect(counts.queryByText('পরিবর্তনের অনুরোধ')).not.toBeInTheDocument());
+  });
+
   it('sends an older link to the volunteer registrations to the volunteer tab', async () => {
     renderPage(HEAD, 'bn', '/admin/registrations?kind=volunteer');
     // the volunteer tab renders inside the shell after the redirect

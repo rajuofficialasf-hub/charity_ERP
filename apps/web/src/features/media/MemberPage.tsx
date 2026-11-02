@@ -1,14 +1,4 @@
-import {
-  Breadcrumb,
-  Card,
-  DescriptionList,
-  ErrorState,
-  Grid,
-  Skeleton,
-  StatCard,
-  Stack,
-  Text,
-} from '@css/ui';
+import { Card, DescriptionList, ErrorState, Grid, Skeleton, StatCard, Stack, Text } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router';
 import { useTranslations } from 'use-intl';
@@ -20,6 +10,7 @@ import { useAuth } from '../../lib/auth';
 import { MEDIA_KEY, mediaMember } from './media-api';
 import { MediaWorksSection } from './MediaWorksSection';
 import './media.css';
+import { PageCrumbs } from '../../components/shell/breadcrumb';
 
 const ROLE_KEYS = ['media_team', 'media_director', 'media_assistant_director'] as const;
 type MediaRole = (typeof ROLE_KEYS)[number];
@@ -48,7 +39,7 @@ export function MemberPage() {
   if (member.error || !member.data)
     return (
       <Stack gap={2}>
-        <Breadcrumb items={crumbs} />
+        <PageCrumbs items={crumbs} />
         <ErrorState
           title={tc('state.error.text')}
           requestId={member.error instanceof ApiFailure ? member.error.requestId : undefined}
@@ -61,7 +52,7 @@ export function MemberPage() {
   return (
     <Grid gap={3}>
       <DocumentTitle title={m.name} />
-      <Breadcrumb items={[...crumbs, { id: 'member', label: m.name }]} />
+      <PageCrumbs items={[...crumbs, { id: 'member', label: m.name }]} />
       <Stack gap={1}>
         <h1 className="media-title">{m.name}</h1>
         <Text tone="muted">{[m.designation, ...roles].filter(Boolean).join(' · ')}</Text>

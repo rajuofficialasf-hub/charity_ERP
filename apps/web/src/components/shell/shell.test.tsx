@@ -13,6 +13,7 @@ import { OfflineProvider } from '../../offline/OfflineProvider';
 import { enqueue } from '../../offline/outbox';
 import type { SyncEngine, SyncStatus } from '../../offline/sync-engine';
 import { AppShell } from './AppShell';
+import { PageCrumbs } from './breadcrumb';
 
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const PM: Me = { ...ME, roles: ['program_manager'] };
@@ -41,6 +42,20 @@ const PAGES = [
   { path: 'my-projects', element: <h1>প্রকল্প পাতা</h1> },
   { path: 'account/profile', element: <h1>প্রোফাইল পাতা</h1> },
   { path: 'sync', element: <h1>সিঙ্ক পাতা</h1> },
+  {
+    path: 'admin/staff/x',
+    element: (
+      <>
+        <PageCrumbs
+          items={[
+            { id: 'list', label: 'কর্মীদের তালিকা', href: '/admin/staff' },
+            { id: 'profile', label: 'রহিম উদ্দিন' },
+          ]}
+        />
+        <h1>কর্মীর পাতা</h1>
+      </>
+    ),
+  },
 ];
 const renderShell = (path = '/', locale: 'bn' | 'en' = 'bn') =>
   renderApp(<AppShell />, locale, { path: '/', initialPath: path, children: PAGES });
@@ -107,18 +122,28 @@ describe('app shell', () => {
       'href',
       '/admin/audit',
     );
-    // the app bar: the logo with the system name, the bell, the language and the profile menu
+    // the dark sidebar carries the Foundation's mark and name, a help card and the person
+    const sidebar = screen.getByTestId('sidebar');
+    expect(
+      within(sidebar).getByRole('link', {
+        name: /আস-সুন্নাহ ফাউন্ডেশন.*চ্যারিটি ও সোশ্যাল সার্ভিস/,
+      }),
+    ).toHaveAttribute('href', '/');
+    expect(within(sidebar).getByText('সহায়তা প্রয়োজন?')).toBeInTheDocument();
+    expect(within(sidebar).getByText('ডিপার্টমেন্ট হেড (নমুনা)')).toBeInTheDocument();
+    // the person is named alone, without a role or kind
+    expect(within(sidebar).queryByText('কর্মকর্তা')).toBeNull();
+    // the app bar beside it: the bell, the language and the profile menu, no second logo
     const bar = screen.getByRole('banner');
-    expect(within(bar).getByRole('link', { name: /চ্যারিটি ও সোশ্যাল সার্ভিস/ })).toHaveAttribute(
-      'href',
-      '/',
-    );
-    expect(within(bar).getByRole('img', { name: 'আস-সুন্নাহ ফাউন্ডেশন' })).toBeInTheDocument();
+    expect(within(bar).queryByRole('img', { name: 'আস-সুন্নাহ ফাউন্ডেশন' })).toBeNull();
     expect(within(bar).getByRole('link', { name: 'নোটিফিকেশন' })).toBeInTheDocument();
     // an official keeps nothing on the device: no sync chip
     expect(within(bar).queryByRole('link', { name: /সিঙ্কের অবস্থা/ })).toBeNull();
     expect(within(bar).getByRole('radiogroup', { name: 'ভাষা' })).toBeInTheDocument();
-    expect(within(bar).getByRole('button', { name: 'প্রোফাইল মেনু' })).toBeInTheDocument();
+    // the profile chip: the person's letter and name
+    const chip = within(bar).getByRole('button', { name: 'প্রোফাইল মেনু' });
+    expect(chip).toHaveTextContent(/ডিপার্টমেন্ট হেড \(নমুনা\)/);
+    expect(chip).not.toHaveTextContent(/কর্মকর্তা/);
     expect(screen.queryByRole('button', { name: 'আরও' })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
@@ -143,6 +168,99 @@ describe('app shell', () => {
       'page',
     );
     expect(within(nav).getByRole('link', { name: 'আমার কাজ' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('counts what waits beside its destination in the sidebar', async () => {
+    atWidth(1280);
+    refreshAs(HEAD);
+    server.use(
+      http.get('*/api/v1/me/attention', () =>
+        HttpResponse.json({
+          data: [
+            { kind: 'registrations_pending', count: 3, href: '/admin/volunteers?state=pending' },
+            { kind: 'staff_registrations_pending', count: 2, href: '/admin/registrations' },
+            { kind: 'edit_requests_pending', count: 1, href: '/admin/registrations?tab=edits' },
+          ],
+          meta: { requestId: 'test' },
+        }),
+      ),
+    );
+    renderShell('/admin/audit');
+    const nav = await mainMenu();
+    expect(
+      await within(nav).findByRole('link', { name: 'স্বেচ্ছাসেবক, 3টি অপেক্ষমাণ' }),
+    ).toHaveAttribute('href', '/admin/volunteers');
+    expect(within(nav).getByRole('link', { name: 'নিবন্ধন, 3টি অপেক্ষমাণ' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'অডিট লগ' })).toBeInTheDocument();
+  });
+
+  it('reads the counts again when the person moves to another page', async () => {
+    atWidth(1280);
+    refreshAs(HEAD);
+    let waiting = 3;
+    server.use(
+      http.get('*/api/v1/me/attention', () =>
+        HttpResponse.json({
+          data: waiting
+            ? [
+                {
+                  kind: 'staff_registrations_pending',
+                  count: waiting,
+                  href: '/admin/registrations',
+                },
+              ]
+            : [],
+          meta: { requestId: 'test' },
+        }),
+      ),
+    );
+    renderShell('/');
+    const nav = await mainMenu();
+    expect(await within(nav).findByRole('link', { name: 'নিবন্ধন, 3টি অপেক্ষমাণ' })).toBeVisible();
+    // the last registration was decided elsewhere; the next page shows the count without it
+    waiting = 0;
+    await userEvent.setup().click(within(nav).getByRole('link', { name: 'অডিট লগ' }));
+    expect(await within(nav).findByRole('link', { name: 'নিবন্ধন' })).toBeVisible();
+  });
+
+  it('names the group and the page in the app bar on a desktop', async () => {
+    atWidth(1280);
+    refreshAs(HEAD);
+    renderShell('/admin/audit');
+    await mainMenu();
+    const trail = within(screen.getByRole('banner')).getByRole('navigation', { name: 'অবস্থান' });
+    expect(trail).toHaveTextContent('প্রশাসন');
+    expect(within(trail).getByText('অডিট লগ').closest('[aria-current]')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it('puts the crumbs of a page in the app bar on a desktop, and keeps them on the page on a phone', async () => {
+    atWidth(1280);
+    refreshAs(HEAD);
+    const { unmount } = renderShell('/admin/staff/x');
+    await screen.findByRole('heading', { name: 'কর্মীর পাতা' });
+    const bar = screen.getByRole('banner');
+    const trail = await within(bar).findByRole('navigation', { name: 'অবস্থান' });
+    expect(trail).toHaveTextContent('মানুষ');
+    expect(within(trail).getByRole('link', { name: 'কর্মীদের তালিকা' })).toHaveAttribute(
+      'href',
+      '/admin/staff',
+    );
+    expect(within(trail).getByText('রহিম উদ্দিন')).toBeInTheDocument();
+    expect(within(screen.getByRole('main')).queryByRole('navigation')).toBeNull();
+    unmount();
+
+    atWidth(375);
+    renderShell('/admin/staff/x');
+    await screen.findByRole('heading', { name: 'কর্মীর পাতা' });
+    const main = screen.getByRole('main');
+    expect(within(main).getByRole('link', { name: 'কর্মীদের তালিকা-এ ফিরে যান' })).toHaveAttribute(
+      'href',
+      '/admin/staff',
+    );
+    expect(within(screen.getByRole('banner')).queryByRole('navigation')).toBeNull();
   });
 
   it('gives a volunteer no sidebar: the rail holds home, my projects, my applications, notifications and more', async () => {

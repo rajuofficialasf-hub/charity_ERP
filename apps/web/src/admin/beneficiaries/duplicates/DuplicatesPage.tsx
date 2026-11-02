@@ -3,16 +3,16 @@ import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
   Badge,
-  Breadcrumb,
   Button,
   EmptyState,
   ErrorState,
+  PageHeader,
   Table,
   type TableColumn,
   Tabs,
 } from '@css/ui';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { GitCompare, GitMerge, Users, UserX } from 'lucide-react';
+import { ArrowLeft, GitCompare, GitMerge, Users, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -33,6 +33,7 @@ import {
   mergeProposals,
   type MergeView,
 } from './merge-api';
+import { PageCrumbs } from '../../../components/shell/breadcrumb';
 
 /**
  * The suggested duplicate profiles in the caller's scope, with the rules each pair meets: an
@@ -48,13 +49,22 @@ export function DuplicatesPage() {
   return (
     <>
       <DocumentTitle title={t('duplicates.title')} />
-      <Breadcrumb
+      <PageCrumbs
         items={[
           { id: 'list', label: t('profile.back'), href: '/admin/beneficiaries' },
           { id: 'duplicates', label: t('duplicates.title') },
         ]}
       />
-      <h1 className="admin-title">{t('duplicates.title')}</h1>
+      <PageHeader
+        eyebrow={t('duplicates.eyebrow')}
+        title={t('duplicates.title')}
+        description={t('duplicates.description')}
+        actions={
+          <Button variant="secondary" icon={ArrowLeft} href="/admin/beneficiaries">
+            {t('duplicates.back')}
+          </Button>
+        }
+      />
       {notice && (
         <Alert tone="success" live="status" onDismiss={dismiss}>
           {notice}

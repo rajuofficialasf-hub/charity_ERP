@@ -47,6 +47,13 @@ All tokens are CSS custom properties on `:root`, defined once in `packages/ui` (
 | `--color-status-warning`     | #B9770E | constitution §12    | Status icons, borders and fills only. Never text                                     |
 | `--color-status-danger`      | #C0392B | constitution §12    | Status icons, borders, destructive button fill                                       |
 | `--color-status-info`        | #2B6CB0 | constitution §12    | Status icons, borders and fills only                                                 |
+| `--color-bg-brand-tint` | #EBF6F0 | derived (D-145) | Icon squares of the brand tone, quiet highlights. Brand primary at 8 % on white |
+| `--color-bg-subtle` | #FAFBFB | derived (D-145) | Table header row, quiet fills inside a card. Ink at 2 % on white |
+| `--color-sidebar-text` | #CAD0CE | derived (D-145) | Sidebar labels and icons on ink. White at 78 % on ink |
+| `--color-sidebar-heading` | #A4AEAA | derived (D-145) | Sidebar group headings, the help card's text, the person's role. White at 62 % on ink |
+| `--color-sidebar-hover` | #223A32 | derived (D-145) | Sidebar item hover. White at 8 % on ink |
+| `--color-sidebar-divider` | #2C433B | derived (D-145) | Sidebar hairlines and the help card's border. White at 12 % on ink |
+| `--color-sidebar-count` | #3F482D | derived (D-145) | The count pill beside a sidebar item, its digits in `--color-brand-accent`. Accent at 22 % on ink |
 
 The four soft status tints are the status colour mixed 12 percent into white, precomputed as hex so older browsers without `color-mix()` render them (O-40). Their contrast, computed with the WCAG 2.x formula in task T0.19:
 
@@ -67,6 +74,24 @@ Contrast rules (from colors.md §3 and §6):
 4. Warning is never a text colour (3.68:1). A warning label is ink beside a warning icon.
 5. Input boundaries use `--color-border-strong` (3.36:1 on surface, 3.03:1 on canvas). `--color-border-default` is decorative and never the only boundary of a control.
 6. The logo keeps its own colours and is never tinted. Its orange and lime are not interface colours.
+
+The redesign's tints (D-145, the owner's prototype in the brand's colours) are brand colours mixed into white or into ink, precomputed as hex like the status tints. Their contrast, computed with the same formula:
+
+| Pair | Colours | Ratio |
+| --- | --- | --- |
+| Ink on brand tint | #0F2920 on #EBF6F0 | 13.97 |
+| Text secondary on brand tint | #526961 on #EBF6F0 | 5.34 |
+| Brand green dark icon on brand tint | #007B3E on #EBF6F0 | 4.86 |
+| Text secondary on subtle (table header) | #526961 on #FAFBFB | 5.70 |
+| Sidebar text on ink | #CAD0CE on #0F2920 | 9.88 |
+| Sidebar text on sidebar hover | #CAD0CE on #223A32 | 7.81 |
+| Sidebar heading on ink | #A4AEAA on #0F2920 | 6.78 |
+| White on the active sidebar item | #FFFFFF on #007B3E | 5.38 |
+| Accent count on the count pill | #E8B65D on #3F482D | 5.18 |
+| Sidebar text on the active item (not allowed) | #CAD0CE on #007B3E | 3.44 |
+
+7. On the sidebar's active item (`--color-brand-primary-dark`) the label and icon are white; the sidebar text colour reaches only 3.44:1 there.
+8. Text on a brand-tint icon square is ink or secondary; the icon is `--color-brand-primary-dark`.
 
 Overlays and shadows use ink at an alpha, so no new hue appears: scrim `rgba(15, 41, 32, 0.48)`, shadows as in §2.6.
 
@@ -131,7 +156,7 @@ Layered shadows tinted with brand ink (UX-14): a tight contact shadow plus a sof
 | Token               | Value                                                                                                    | Use                                                                                 |
 | ------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `--elevation-0`     | none                                                                                                     | Flat content, table rows, page regions                                              |
-| `--elevation-1`     | `0 1px 2px rgba(15, 41, 32, 0.04), 0 2px 8px rgba(15, 41, 32, 0.05)` with a 1px `--border-subtle` border | Cards, stat cards, attention items, tables, inputs (contact shadow only)            |
+| `--elevation-1`     | `0 1px 2px rgba(15, 41, 32, 0.04), 0 8px 24px rgba(15, 41, 32, 0.06)` with a 1px `--border-subtle` border; the wide soft ambient shadow of the owner's prototype (D-145) | Cards, stat cards, attention items, tables, inputs (contact shadow only)            |
 | `--elevation-2`     | `0 2px 4px rgba(15, 41, 32, 0.05), 0 8px 24px rgba(15, 41, 32, 0.09)`                                    | Menus, dropdowns, drawers, bottom sheets, the split-view panel                      |
 | `--elevation-3`     | `0 4px 8px rgba(15, 41, 32, 0.06), 0 20px 48px rgba(15, 41, 32, 0.16)`                                   | Modals, confirm dialogs, toasts, the login card                                     |
 | `--elevation-hover` | `0 4px 8px rgba(15, 41, 32, 0.06), 0 14px 32px rgba(15, 41, 32, 0.12)`                                   | Hover on clickable cards and attention items (pointer devices)                      |
@@ -210,6 +235,8 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
   --color-bg-warning-soft: #f7efe2;
   --color-bg-danger-soft: #f7e7e6;
   --color-bg-info-soft: #e6edf6;
+  --color-bg-brand-tint: #ebf6f0;
+  --color-bg-subtle: #fafbfb;
   --color-border-default: #dfe3e8;
   --color-border-strong: #7f8e9d;
   --color-text-primary: #0f2920;
@@ -220,6 +247,12 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
   --color-status-danger: #c0392b;
   --color-status-info: #2b6cb0;
   --color-scrim: rgba(15, 41, 32, 0.48);
+  /* the dark sidebar (D-145): white, or amber for the count, mixed into brand ink */
+  --color-sidebar-text: #cad0ce;
+  --color-sidebar-heading: #a4aeaa;
+  --color-sidebar-hover: #223a32;
+  --color-sidebar-divider: #2c433b;
+  --color-sidebar-count: #3f482d;
 
   /* spacing */
   --space-1: 4px;
@@ -251,7 +284,7 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
 
   /* elevation (UX-14): soft layered shadows tinted with brand ink; never pure black */
   --elevation-0: none;
-  --elevation-1: 0 1px 2px rgba(15, 41, 32, 0.04), 0 2px 8px rgba(15, 41, 32, 0.05);
+  --elevation-1: 0 1px 2px rgba(15, 41, 32, 0.04), 0 8px 24px rgba(15, 41, 32, 0.06);
   --elevation-2: 0 2px 4px rgba(15, 41, 32, 0.05), 0 8px 24px rgba(15, 41, 32, 0.09);
   --elevation-3: 0 4px 8px rgba(15, 41, 32, 0.06), 0 20px 48px rgba(15, 41, 32, 0.16);
   --elevation-hover: 0 4px 8px rgba(15, 41, 32, 0.06), 0 14px 32px rgba(15, 41, 32, 0.12);
@@ -361,16 +394,16 @@ From DESIGN_BRIEF §5. Officials work equally on desktop and phone (UX-03); setu
 
 ### 4.1 App shell
 
-- **App bar** (all sizes): logo and system name, then on the right the sync indicator, the notification bell with an unread count, the language switch and the profile menu (profile, device sessions, logout). On phones the language switch moves into the profile menu.
+- **App bar** (all sizes): logo and system name, then on the right the sync indicator, the notification bell with an unread count, the language switch and the profile menu (profile, device sessions, logout). On phones the language switch moves into the profile menu. From 1024 px, beside the sidebar, the app bar shows the page's breadcrumb on its left instead of the logo (D-145), and the profile menu opens from a chip with the person's initials, name and role. There is no global search box.
 - **Phone bottom tab bar:** four role-dependent tabs plus "more". Volunteers: home, applications, today's work, notifications, more. Officials: home, review, people (volunteers and beneficiaries), projects, more. Phase 1 (D-100) shows only destinations that exist: volunteers home, my projects, notifications, more; officials home, people, projects, notifications, more, a tab the official may not use hidden; applications, today's work and review join with their modules. Tabs are links with an icon and a label, never icon only. The bar respects `env(safe-area-inset-bottom)`.
 - **Tablet side rail:** the same destinations as icons with labels underneath, collapsible to icons with tooltips. Volunteers have no sidebar; from 640 px their four destinations sit in the rail (D-100).
-- **Desktop sidebar:** grouped destinations (My Work, projects, review, volunteers, beneficiaries, dashboards, administration), each item an icon and a label; the active item uses `--color-bg-brand-soft` with a 4 px green left bar. The sidebar may use the ink surface with white text.
+- **Desktop sidebar (D-145):** the ink surface. At the top the Foundation's mark and the system name; then the destinations in their groups, each group under a small heading (`--color-sidebar-heading`, Label), each item an icon and a label in `--color-sidebar-text`, hover `--color-sidebar-hover`; the active item is `--color-brand-primary-dark` with a white label and icon and a 3 px `--color-brand-accent` bar on its left edge. A destination shows a count only where the home's "needs your attention" list already counts it (`--color-sidebar-count` pill, English digits). At the bottom a short help card ("সহায়তা প্রয়োজন?" and one line to contact the admin team, no link) and the signed-in person's initials, name and role, above a `--color-sidebar-divider` hairline.
 - **Banners** sit between the app bar and the content: offline, update available, iOS storage warning, install guidance (§7, §8).
 - Navigation is built from the user's effective permissions; a destination the user cannot use is not shown. The server still denies by default.
 
 ### 4.2 Page structure
 
-- Page header: breadcrumb (tablet and desktop), page title (Display), a one-line context (project and area), primary action on the right. On phones the primary action becomes a sticky bottom button or a floating action button only when the screen has one dominant action (new application).
+- Page header (`PageHeader`, §5.3a; D-145): a small area label (the eyebrow), the page title (Display), one line saying what the page is for or its context (project and area), and the page's actions on the right, wrapping under the title on phones. The breadcrumb sits in the app bar (§4.1), not in the page. On phones the primary action becomes a sticky bottom button or a floating action button only when the screen has one dominant action (new application).
 - Page gutter: 16 px on phones, 24 px from 640 px. Content width: forms and detail at most 720 px; lists, dashboards and split views up to 1280 px.
 - Cards stack with 16 px gaps on phones and sit in a 12-column grid from 1024 px.
 
@@ -395,9 +428,8 @@ Since T1.15 (D-100) the admin pages sit inside the app shell of §4.1: its app b
 
 The management screens and admin settings live under `/admin` (`apps/web/src/admin/`), loaded as their own route chunk. They use this design system and `packages/ui` like every other screen; no second UI library is used (the MUI Minimal template was not adopted, UX-15).
 
-- Top bar: the system name (link to the admin home), then the signed-in user ("লগইন করা: name"), the language switch and log out.
-- Sidebar from 640 px: destinations as `NavItem` (icon and label, active item per §5.5), sticky below the top bar; on phones the destinations sit in a scrolling row above the content.
-- Content: page title (Display), then cards; maximum width `--content-max`.
+- The admin pages use the app bar and the sidebar of §4.1; the separate admin top bar and admin sidebar of UX-15 are gone.
+- Content: the page header of §4.2, then cards; maximum width `--content-max`.
 - Phones: the "best on a larger screen" Alert of §4.4 is shown under 768 px; the pages stay readable.
 - Audience: Department Head, Monitoring Team and Program Managers; any other signed-in user sees a "no access" page. Navigation only hides; the server enforces every admin permission.
 
@@ -407,7 +439,7 @@ Every base component of constitution §12, built once in `packages/ui` (T1.4) an
 
 **Premium finish (UX-14).** Every component below follows the same finish, implemented in the refreshed mockups (`docs/ui/mockups/components.css`):
 
-- **Surfaces:** cards, tables, attention items and panels use `--elevation-1` with `--border-subtle`; clickable cards lift 2 px with `--elevation-hover` on hover; stat cards carry the `--gradient-accent-line` top line and a 24 px (phone) / 28 px (desktop) value in brand ink.
+- **Surfaces:** cards, tables, attention items and panels use `--elevation-1` with `--border-subtle`; clickable cards lift 2 px with `--elevation-hover` on hover; stat cards without an icon square carry the `--gradient-accent-line` top line (an icon square carries the colour instead, D-145) and a 24 px (phone) / 28 px (desktop) value in brand ink.
 - **Buttons:** primary on #007B3E with a 6 % sheen and `--elevation-brand`, lifting 1 px on hover and pressing to 98 % on tap; secondary on surface with a translucent dark-green border, brand-soft on hover; danger with a red-tinted shadow.
 - **Fields:** a contact shadow at rest, darker border on hover, `--color-brand-primary-dark` border plus `--ring-brand` glow on focus; checkboxes and radios are restyled native inputs (dark-green fill with a white check, radio as a thick ring) that stay keyboard- and screen-reader-native.
 - **Choice controls:** the segmented control is a muted track with a raised white segment; chips are pills, the selected chip uses `--gradient-soft`; tabs get a 3 px brand-gradient underline; the switch thumb has a soft shadow and eases with `--ease-out`.
@@ -451,7 +483,8 @@ Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 1
 | `label` | i18n key or bilingual data value                           |
 | `size`  | `md` (24 px high), `sm` (20 px, dense tables)              |
 
-- Look: tinted background (`--color-bg-*-soft`, brand-soft for `brand`, muted for `neutral`), ink label (`--text-label`), icon in the status colour, `--radius-sm` (colors.md §6 rule 6).
+- Look: a pill (`--radius-full`) on the tinted background (`--color-bg-*-soft`, brand tint for `brand`, muted for `neutral`), ink label (`--text-label`), icon in the status colour (colors.md §6 rule 6).
+- `variant="dot"` (dense lists, D-145): the same soft pill with a 6 px dot in the tone's colour before the ink word, the prototype's status pill; the word always shows, so the status never rests on colour.
 - Workflow state mapping (WORKFLOW_ENGINE.md, common cycle), used by every list and detail:
 
 | State                           | Tone    | Icon                           |
@@ -485,11 +518,27 @@ Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 1
 | `loading`                          | boolean, shows a skeleton                |
 
 - `default`: surface, `--elevation-1`, `--radius-lg`, padding 12 px on phones and 16 px from 640 px.
-- `stat`: label (Label), value (Display, tabular digits), optional target and a Progress bar ("1,240 of 2,000"). Progress-first dashboards (UX-10) use stat cards in their first row.
+- `stat`: label (Label), value (Display, tabular digits), optional target and a Progress bar ("1,240 of 2,000"), and an optional icon on a 36 px soft square at the top right (D-145): `tone` `brand` on `--color-bg-brand-tint` with a `--color-brand-primary-dark` icon, or `info`, `warning`, `danger`, `success` on their soft tint with the status icon colour. One line of plain context may sit under the value. No card compares with an earlier period until the app computes one (`delta` stays unused). Progress-first dashboards (UX-10) use stat cards in their first row.
+- A `default` card's head (D-145): the title (Title), an optional one-line description (Caption, secondary), and an optional link or action on the right of the title.
 - `attention`: a "needs your attention" item: status-colour left border (4 px), icon, one-line reason, due or waiting time, one action. Used on every My Work home.
 - `accent`: amber left border or amber header strip for a decorative highlight (announcements). Text stays ink.
 - Accessibility: a linked card is one `<a>` with the title as its name; nested interactive controls are not allowed inside a linked card. Stat values are announced with their label ("approved: 1,240 of 2,000").
 - Do not: nest cards; give cards heavy shadows; colour a whole card with a status colour.
+
+### 5.3a Page header (D-145)
+
+| Prop | Values |
+| --- | --- |
+| `eyebrow` | the area label, short text |
+| `title` | the page title, the page's only `h1` |
+| `meta` | a badge or a status beside the title |
+| `description` | one line: what the page is for, or its context |
+| `actions` | the page's buttons |
+
+- Look: the eyebrow in Label, `--color-brand-primary-dark`, after a 6 px brand dot with a 3 px brand-tint halo; the title in Display; the description in Body, secondary. The actions sit on the right, aligned to the title's baseline, and wrap under the title below 768 px.
+- A page the owner has not designed yet keeps its title and actions and has no eyebrow or description until its mockup (D-145); an intro line it already had becomes its description.
+- The public pages keep `PageBand` (UX-16), the visitor's centred title band.
+- Accessibility: the title is the page's only `h1`; the eyebrow and the description are plain text read in order.
 
 ### 5.4 Field
 
@@ -563,7 +612,8 @@ Switch: track 44 by 24 px (`--radius-full`), on = `--color-brand-primary-dark`, 
 | `cardRenderer`                   | how a row renders as a card on phones                                                                                                                                                                                                                 |
 | `emptyState`, `loading`, `error` | §8 states                                                                                                                                                                                                                                             |
 
-- Desktop: sticky header, zebra rows in `--color-bg-muted` optional, hover row highlight, selected row brand-soft, row actions as ghost buttons or a menu at the row end.
+- Desktop: sticky header, zebra rows in `--color-bg-muted` optional, hover row highlight, selected row brand-soft, row actions as ghost buttons or a menu at the row end, under a header named "অ্যাকশন" / "Actions" at the end of the header row (owner, 2026-11-02); the buttons keep their words on one line.
+- The list card (D-145): the table sits in one card with the list's search, filters and export in a toolbar row above it; the header row is `--color-bg-subtle` with secondary Label text; rows are divided by `--border-subtle`; a person or record cell (`PersonCell`) shows an initials or icon tile (32 px, `--radius-md`, brand tint) beside the name and a muted second line (an id, a family size, a code).
 - Tablet: only priority 1 and 2 columns; the rest in the drawer detail.
 - Phone: rows become cards (`cardRenderer`): title line (name), meta line (app number, area), status badge, one primary action. Filters move into a bottom sheet behind a "filter" button that shows the active filter count. Search stays at the top.
 - Pagination follows the API: 25 per page, cursor-based, "load more" on phones, next/previous on desktop; never a page-number jump.
@@ -633,7 +683,7 @@ Props: `items` (id, label, count), `value`, `onChange`, `variant` (`line`, `segm
 
 ### 5.14 Breadcrumb
 
-Props: `items` (label, href). Shown on tablet and desktop; on phones replaced by a back button with the parent's name. Long Bengali labels clamp to one line with the full text in a tooltip. Accessibility: `<nav aria-label>` with an ordered list; the current page has `aria-current="page"`.
+Props: `items` (label, href). Since D-145 the app bar renders it from the destination's group and the page, and a detail page adds its own last crumbs; pages do not render their own. Shown on tablet and desktop; on phones replaced by a back button with the parent's name. Long Bengali labels clamp to one line with the full text in a tooltip. Accessibility: `<nav aria-label>` with an ordered list; the current page has `aria-current="page"`.
 
 ### 5.15 Empty / Loading / Error states
 

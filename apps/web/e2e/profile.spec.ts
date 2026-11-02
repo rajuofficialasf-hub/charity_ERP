@@ -37,7 +37,7 @@ async function signIn(page: Page, loginId: string) {
     .first()
     .fill(PASSWORD);
   await page.getByRole('button', { name: 'লগইন', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
 }
 
 test.describe('own profile', () => {

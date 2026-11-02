@@ -1,38 +1,13 @@
 /*
- * The own profile (SCR-006, UX-18, T1.9d): a header with the person, the sections as a navigation
- * (a column from 768 px, a scrolling row of chips on phones) and one section's details in a card;
+ * The own profile (docs/ui/SCREENS.md, "My profile, edit request, device sessions, language"):
+ * the set's banner with the person, the sections as a navigation (a column from 768 px, a
+ * scrolling row of chips on phones) and one section's details in a card;
  * the edit mode of a section lists its details with a checkbox each. Tokens only.
  */
 .profile {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-.profile-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3) var(--space-4);
-}
-.profile-head .profile-avatar {
-  width: 72px;
-  height: 72px;
-  font-size: 24px;
-}
-.profile-who {
-  flex: 1 1 12rem;
-  min-width: 0;
-}
-.profile-name {
-  margin: 0;
-  font-size: var(--text-display);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--leading-heading);
-  overflow-wrap: anywhere;
-}
-.profile-type {
-  margin: var(--space-1) 0 0;
-  color: var(--color-text-secondary);
 }
 .profile-layout {
   display: grid;

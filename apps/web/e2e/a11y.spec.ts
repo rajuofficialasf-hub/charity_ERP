@@ -42,7 +42,7 @@ async function signInAs(page: Page, loginId: string, lang: Lang): Promise<void> 
   expect(login.ok(), `login as ${loginId}: ${login.status()}`).toBe(true);
   // the app restores the session from the refresh cookie with one silent refresh
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1, name: /^(স্বাগতম|Welcome), / })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /^(আমার কাজ|My Work)$/ })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', lang);
 }
 

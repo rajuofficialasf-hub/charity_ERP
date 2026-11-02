@@ -1,4 +1,4 @@
-import { Alert, ErrorState, Skeleton, Tabs } from '@css/ui';
+import { Alert, ErrorState, Skeleton, Tabs, PageHeader } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -71,7 +71,7 @@ export function SettingsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
+      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('description')} />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}

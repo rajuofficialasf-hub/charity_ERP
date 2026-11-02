@@ -60,67 +60,68 @@ export interface ProfileFact {
 }
 
 export interface ProfileHeaderProps {
-  /** The person's name, the page's level-1 heading. */
+  /** The person's name, the page's level-1 heading unless `headingLevel` says otherwise. */
   name: string;
+  /** 2 when the page has its own title above the banner (the own profile). */
+  headingLevel?: 1 | 2;
   /** The photo or the initial avatar. */
   avatar: ReactNode;
   /** The state badges beside the name. */
   status?: ReactNode;
   /** The key facts as chips under the name; leave out what the caller may not see. */
   facts?: ProfileFact[];
-  /** Beside the facts on a desktop, under them on a phone: the documents. */
-  aside?: ReactNode;
-  /** The action panel: beside the card on a desktop, under it on a phone. */
+  /** The actions: on the right of the banner on a desktop, under the person on a phone. */
   actions?: ReactNode;
   /** Name of the action panel ("Actions"). */
   actionsLabel?: string;
   className?: string;
 }
 
-/** The header card of a profile: who, the state, the key facts, the documents and the actions. */
+/**
+ * The banner of a profile on the brand's dark green: who, the state, the key facts as light
+ * chips, and the actions on the right.
+ */
 export function ProfileHeader({
   name,
   avatar,
   status,
   facts = [],
-  aside,
   actions,
   actionsLabel,
+  headingLevel = 1,
   className,
 }: ProfileHeaderProps) {
+  const Heading = headingLevel === 1 ? 'h1' : 'h2';
   return (
     <div className={cx('ui-profile-head', actions ? 'has-actions' : undefined, className)}>
-      <div className="ui-profile-card">
-        <div className="ui-profile-who">
-          <div className="ui-profile-avatar">{avatar}</div>
-          <div className="ui-profile-main">
-            <div className="ui-profile-title">
-              <h1>{name}</h1>
-              {status}
-            </div>
-            {facts.length > 0 && (
-              <ul className="ui-profile-facts">
-                {facts.map((fact) => (
-                  <li key={fact.id} className="ui-profile-fact" title={fact.label}>
-                    {fact.icon && <Icon icon={fact.icon} size="sm" />}
-                    {fact.showLabel ? (
-                      <span>
-                        {fact.label}: {fact.value}
-                      </span>
-                    ) : (
-                      <span>
-                        <span className="ui-sr-only">{fact.label}: </span>
-                        {fact.value}
-                      </span>
-                    )}
-                    {fact.copy && <CopyButton value={fact.value} label={fact.label} />}
-                  </li>
-                ))}
-              </ul>
-            )}
+      <div className="ui-profile-who">
+        <div className="ui-profile-avatar">{avatar}</div>
+        <div className="ui-profile-main">
+          <div className="ui-profile-title">
+            <Heading className="ui-profile-name">{name}</Heading>
+            {status}
           </div>
+          {facts.length > 0 && (
+            <ul className="ui-profile-facts">
+              {facts.map((fact) => (
+                <li key={fact.id} className="ui-profile-fact" title={fact.label}>
+                  {fact.icon && <Icon icon={fact.icon} size="sm" />}
+                  {fact.showLabel ? (
+                    <span>
+                      {fact.label}: {fact.value}
+                    </span>
+                  ) : (
+                    <span>
+                      <span className="ui-sr-only">{fact.label}: </span>
+                      {fact.value}
+                    </span>
+                  )}
+                  {fact.copy && <CopyButton value={fact.value} label={fact.label} />}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {aside && <div className="ui-profile-aside">{aside}</div>}
       </div>
       {actions && (
         <div className="ui-profile-actions" role="group" aria-label={actionsLabel}>
@@ -212,14 +213,14 @@ export function ContactList({ items, className }: { items: ContactItem[]; classN
           <span className="ui-contact-icon" aria-hidden="true">
             <Icon icon={item.icon} size="md" />
           </span>
-          <span className="ui-contact-value">
-            <span className="ui-sr-only">{item.label}: </span>
-            {item.value}
+          <span className="ui-contact-text">
+            <span className="ui-contact-label">{item.label}</span>
+            <span className="ui-contact-value">{item.value}</span>
           </span>
           {item.copy && <CopyButton value={item.value} label={item.label} />}
           {item.href && item.actionLabel && (
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
               icon={item.icon}
               href={item.href}

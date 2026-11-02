@@ -13,6 +13,9 @@ import {
   AttentionCard,
   Avatar,
   Badge,
+  IconTile,
+  PageHeader,
+  PersonCell,
   Breadcrumb,
   BulkList,
   BulkRow,
@@ -265,13 +268,12 @@ function GalleryBody() {
 
   return (
     <main className="gallery">
-      <header className="gallery-head">
-        <div>
-          <h1>{t('title')}</h1>
-          <p className="gallery-muted">{t('intro')}</p>
-        </div>
-        <LanguageSwitch />
-      </header>
+      <PageHeader
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('intro')}
+        actions={<LanguageSwitch />}
+      />
 
       <Stack gap={6}>
         <Section id="type" title={t('sections.type')}>
@@ -341,9 +343,33 @@ function GalleryBody() {
             <Badge label={t('project_code')} tone="brand" />
             <StatusBadge status="approved" label={statusLabel('approved')} size="sm" />
           </Row>
+          <Row>
+            <Badge variant="dot" tone="success" label={statusLabel('approved')} />
+            <Badge variant="dot" tone="warning" label={statusLabel('waitlisted')} />
+            <Badge variant="dot" tone="info" label={statusLabel('under_review')} />
+            <Badge variant="dot" tone="danger" label={statusLabel('rejected')} />
+            <Badge variant="dot" label={statusLabel('draft')} />
+          </Row>
+          <Row>
+            <PersonCell name={t('card.personName')} href="#badge" secondary={t('card.personSub')} />
+            <PersonCell name={t('card.personName2')} secondary={t('card.personSub2')} />
+            <IconTile icon={Users} />
+            <IconTile icon={Clock} tone="warning" size="lg" />
+          </Row>
         </Section>
 
         <Section id="card" title={t('sections.card')}>
+          <div className="gallery-stats">
+            <StatCard
+              label={t('card.statApplications')}
+              value={1840}
+              icon={ClipboardList}
+              context={t('card.thisWeek', { count: count(120) })}
+            />
+            <StatCard label={t('card.statPending')} value={42} icon={Clock} tone="warning" />
+            <StatCard label={t('card.statVolunteers')} value={312} icon={Users} tone="info" />
+            <StatCard label={t('card.statBlocked')} value={3} icon={TriangleAlert} tone="danger" />
+          </div>
           <div className="gallery-stats">
             <StatCard
               label={t('card.statApplications')}
@@ -872,9 +898,20 @@ function GalleryBody() {
         </Section>
 
         <Section id="offline" title={t('sections.offline')}>
-          <OfflineBanner state="offline" pendingCount={7} onOpenOutbox={() => {}} />
-          <OfflineBanner state="syncing" pendingCount={3} />
-          <OfflineBanner state="sync_failed" pendingCount={2} onOpenOutbox={() => {}} />
+          {/* each example names its landmark, as one page holds only one of a name */}
+          <OfflineBanner
+            state="offline"
+            pendingCount={7}
+            onOpenOutbox={() => {}}
+            label={t('offline_examples.offline')}
+          />
+          <OfflineBanner state="syncing" pendingCount={3} label={t('offline_examples.syncing')} />
+          <OfflineBanner
+            state="sync_failed"
+            pendingCount={2}
+            onOpenOutbox={() => {}}
+            label={t('offline_examples.sync_failed')}
+          />
         </Section>
 
         <Section id="bulk" title={t('sections.bulk')}>

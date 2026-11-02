@@ -1,7 +1,17 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Badge, Button, EmptyState, ErrorState, Table, type TableColumn } from '@css/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  PersonCell,
+  Table,
+  type TableColumn,
+} from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Layers, Pencil } from 'lucide-react';
+import { CircleCheck, CircleOff, Layers, Pencil, Plus, UserRoundX } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -9,6 +19,7 @@ import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canManagePrograms, canSeePrograms } from '../roles';
+import { StatisticsBar } from '../StatisticsBar';
 import { ProgramDialog } from './ProgramDialog';
 import { type Program, PROGRAMS_KEY, programs } from './programs-api';
 
@@ -34,20 +45,17 @@ export function ProgramsPage() {
   if (!canSeePrograms(me)) return <ForbiddenContent />;
   const manage = canManagePrograms(me);
 
+  const rows = list.data ?? [];
+  const name = (p: Program) => <PersonCell name={localized(p.name, locale)} secondary={p.code} />;
   const columns: TableColumn<Program>[] = [
-    { id: 'code', header: t('column.code'), cell: (p) => p.code },
-    {
-      id: 'name',
-      header: t('column.name'),
-      cell: (p) => localized(p.name, locale),
-      isRowHeader: true,
-    },
+    { id: 'name', header: t('column.name'), cell: name, isRowHeader: true },
     { id: 'pm', header: t('column.pm'), cell: (p) => p.pmName ?? t('no_pm'), priority: 2 },
     {
       id: 'state',
       header: t('column.state'),
       cell: (p) => (
         <Badge
+          variant="dot"
           tone={p.active ? 'success' : 'neutral'}
           label={p.active ? t('state.active') : t('state.inactive')}
         />
@@ -63,19 +71,55 @@ export function ProgramsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title')}</h1>
-        {manage && <Button onPress={() => setDialog({})}>{t('new')}</Button>}
-      </div>
+      <PageHeader
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('description')}
+        actions={
+          manage && (
+            <Button icon={Plus} onPress={() => setDialog({})}>
+              {t('new')}
+            </Button>
+          )
+        }
+      />
+      {list.data && (
+        <StatisticsBar
+          label={t('stats.label')}
+          items={[
+            {
+              key: 'active',
+              label: t('stats.active'),
+              value: rows.filter((p) => p.active).length,
+              icon: CircleCheck,
+              tone: 'brand',
+            },
+            {
+              key: 'inactive',
+              label: t('stats.inactive'),
+              value: rows.filter((p) => !p.active).length,
+              icon: CircleOff,
+            },
+            {
+              key: 'no_pm',
+              label: t('stats.no_pm'),
+              value: rows.filter((p) => !p.pmName).length,
+              icon: UserRoundX,
+              tone: 'warning',
+            },
+          ]}
+        />
+      )}
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
       <Table
+        layout="panel"
         label={t('table')}
         columns={columns}
-        rows={list.data ?? []}
+        rows={rows}
         rowKey={(p) => p.id}
         rowLabel={(p) => localized(p.name, locale)}
         loading={list.isPending}
@@ -106,10 +150,10 @@ export function ProgramsPage() {
         }
         cardRenderer={(p) => (
           <div className="admin-permission-card">
-            <strong>{localized(p.name, locale)}</strong>
-            <span>{p.code}</span>
+            {name(p)}
             <span>{p.pmName ?? t('no_pm')}</span>
             <Badge
+              variant="dot"
               tone={p.active ? 'success' : 'neutral'}
               label={p.active ? t('state.active') : t('state.inactive')}
             />

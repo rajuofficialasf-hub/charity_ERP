@@ -164,6 +164,7 @@ signed-in person adds when it is not cached yet, without failing on it.
 | 2026-10-22 (T2.4): after T2.2 to T2.4; the Bengali catalogue at start is 35.8 KB with the form screens' texts | 222.2 KB | 19 |
 | 2026-10-22 (T2.4b): after the builder redesign; the builder's new texts (types, groups, sentences) sit in the catalogue the first route carries, `@dnd-kit` stays in the builder's lazy chunk | 223.7 KB | 19 |
 | 2026-11-01 (T2.8): after T2.5 to T2.8b and the export dialog; the dialog and its column picker load in their own lazy chunk when someone opens them, and the export words add 1.9 KB to the catalogue the first route carries | 243.2 KB | 23 |
+| 2026-11-02 (the visual redesign, D-145): the area labels, descriptions and notes of the designed pages add 3.3 KB to the Bengali catalogue the first route carries; the shell, the set's new pieces and the pages stay in their lazy chunks. The margin to the budget is 3.5 KB | 246.5 KB | 25 |
 
 What a signed-in page adds on top of the first route when it is not yet cached (static import
 closure of its chunks, gzip): the home with the shell 76.0 KB, my projects with the shell 72.1 KB,
@@ -173,7 +174,7 @@ Since D-104 the entry loads only the device language's catalogue (the Bengali on
 gzip, is counted in the first route) and fetches the other when the person switches. With the
 component set on MUI core (D-103) the login's fields are native elements and MUI's theme, button
 and style engine are the only MUI code on the first route; the home of a signed-in person adds
-63.9 KB on top (it was 76.0 KB with React Aria; 62.6 KB on 2026-10-22). The form builder and the public application page load in their own lazy chunks and add nothing to the first route. The next step if the first route grows past the
+74.4 KB on top on 2026-11-02 with the redesigned shell and home (63.9 KB before; it was 76.0 KB with React Aria; 62.6 KB on 2026-10-22). The form builder and the public application page load in their own lazy chunks and add nothing to the first route. The next step if the first route grows past the
 budget is the gallery namespace, which only the gallery build needs.
 
 Lighthouse 12 on the mobile profile against the production build (`vite preview`, simulated slow

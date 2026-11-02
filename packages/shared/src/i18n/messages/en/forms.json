@@ -536,7 +536,7 @@
   },
   "ready": {
     "title": "Ready forms",
-    "intro": "The Monitoring Team builds and publishes forms here. A PM places a published form on a project.",
+    "intro": "Forms are built and published here. A PM places a published form on a project.",
     "new": "New ready form",
     "edit_library": "Edit the question library",
     "none": "No ready form yet.",
@@ -544,14 +544,23 @@
     "state_published": "Version {n} published",
     "state_draft": "Draft, not published yet",
     "has_draft": "A new draft is open",
-    "open": "Open {title}",
     "kind": "Form type",
     "kind_hint": "A beneficiary application form publishes only once its seven identity questions are marked.",
     "start": "Start",
     "start_blank": "Empty form",
     "start_copy": "Copy of another ready form",
     "copy_from": "Form to copy",
-    "copy_none": "No published ready form to copy."
+    "copy_none": "No published ready form to copy.",
+    "eyebrow": "Forms and data collection",
+    "table": "Ready forms",
+    "column": {
+      "form": "Form",
+      "state": "State"
+    },
+    "steps": {
+      "title": "Steps to publish",
+      "body": "Draft → arrange the questions → preview → publish. A published version never changes; a change makes a new version, and earlier applications keep their version."
+    }
   },
   "place": {
     "button": "Place a ready form",

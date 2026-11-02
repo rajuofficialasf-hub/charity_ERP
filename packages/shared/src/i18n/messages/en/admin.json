@@ -55,7 +55,15 @@
     "end_title": "End permission",
     "end_body": "This permission given in the panel will end: {permission}",
     "end_confirm": "End it",
-    "ended": "Permission ended"
+    "ended": "Permission ended",
+    "eyebrow": "Access control",
+    "description": "Choose a user to see their roles and effective permissions, and grant or end a permission. Every change is kept in the audit log.",
+    "pick_title": "Choose a user",
+    "pick_message": "Their roles and permissions show here once you choose them.",
+    "rule": {
+      "title": "Only what is needed",
+      "body": "Grant only what the work needs. Keep the permission to see NIDs and personal documents separate and narrow."
+    }
   },
   "registrations": {
     "title": "Registrations",
@@ -152,6 +160,11 @@
       "approved": "The new value was applied",
       "rejected": "The request was refused",
       "photo": "New photo"
+    },
+    "eyebrow": "Checks and approvals",
+    "description": "Check the staff registrations and the volunteers' requests to change their details.",
+    "stats": {
+      "label": "Waiting work"
     }
   },
   "handover": {
@@ -188,7 +201,24 @@
     "deactivate_confirm": "Deactivate the account",
     "deactivated": "The account was deactivated",
     "already": "This account is deactivated.",
-    "reason": "Reason"
+    "reason": "Reason",
+    "eyebrow": "Handover of duties",
+    "description": "When an official moves or changes duties, give their projects, applications and open work to the right person.",
+    "pick_title": "Choose an official",
+    "pick_message": "Their pending work shows here once you choose them.",
+    "rule": {
+      "title": "Before an account is closed",
+      "body": "An official's account cannot be deactivated until all their pending work is handed over. The handover record is kept."
+    },
+    "steps": {
+      "title": "Steps of a handover",
+      "find": "Find the official",
+      "find_hint": "By name, email or mobile number",
+      "assign": "Hand over the pending work",
+      "assign_hint": "The receiver needs a fitting role",
+      "complete": "Complete the handover",
+      "complete_hint": "Then deactivate the account with a reason"
+    }
   },
   "forbidden": {
     "title": "No access",
@@ -332,7 +362,9 @@
       "unblock": "Lift block",
       "sessions": "Devices and sessions",
       "sessions_title": "Devices of {name}"
-    }
+    },
+    "eyebrow": "People and field coordination",
+    "description": "Registration, skills, availability and project assignments in one place."
   },
   "beneficiaries": {
     "title": "Beneficiaries",
@@ -340,9 +372,11 @@
     "search": "Search by name, number or BEN number",
     "stats": {
       "label": "Beneficiary counts",
-      "total": "Total",
+      "total": "All beneficiaries",
       "assisted": "Assisted this year",
-      "blocked": "Blocked"
+      "blocked": "Blocklist",
+      "male": "Male",
+      "female": "Female"
     },
     "column": {
       "name": "Name",
@@ -359,7 +393,8 @@
       "blocked_yes": "Blocked",
       "blocked_no": "Not blocked",
       "group_area": "Area",
-      "group_other": "Other"
+      "group_other": "Other",
+      "gender": "Gender"
     },
     "types": {
       "elderly": "Elderly",
@@ -569,7 +604,10 @@
         "proposed_at": "Proposed on",
         "open": "Review and merge",
         "empty": "No merge proposal is waiting."
-      }
+      },
+      "eyebrow": "Data quality",
+      "description": "Review the identities that match. Compare every detail and the help history before a merge.",
+      "back": "Back to beneficiaries"
     },
     "merge": {
       "title": "Compare profiles",
@@ -602,7 +640,9 @@
       "revert": "Revert merge",
       "revert_title": "Revert the merge with {benNo}?",
       "reverted": "Merge reverted"
-    }
+    },
+    "eyebrow": "Beneficiary services",
+    "description": "Registration, verification, support and service history in one place."
   },
   "programs": {
     "title": "Programs",
@@ -636,6 +676,14 @@
       "pm": "Program Manager",
       "pm_hint": "Search by name; only a Program Manager can be chosen.",
       "active": "Active (takes new projects)"
+    },
+    "eyebrow": "Program management",
+    "description": "Manage the Foundation's programs and the Program Manager of each.",
+    "stats": {
+      "label": "Program counts",
+      "active": "Active programs",
+      "inactive": "Inactive programs",
+      "no_pm": "Programs without a PM"
     }
   },
   "projects": {
@@ -1049,6 +1097,12 @@
       "done": "{count} applications are handed over.",
       "done_team": "{count} applications are handed over, and {team} team members moved under the new volunteer.",
       "done_over_limit": "The new volunteer is now over the project's application limit."
+    },
+    "eyebrow": "Project management",
+    "description": "See each project's state, find projects by program and year, and open one to manage its setup and applications.",
+    "stats": {
+      "label": "Projects by state",
+      "all": "All projects"
     }
   },
   "templates": {
@@ -1089,6 +1143,17 @@
       "replace_hint": "The template keeps its name; its contents become this project's setup.",
       "submit": "Save",
       "notice": "Template saved: {name}"
+    },
+    "eyebrow": "Project management",
+    "description": "Keep the setup of recurring projects and use it again for a new project.",
+    "stats": {
+      "label": "Template counts",
+      "active": "Active templates",
+      "inactive": "Inactive templates"
+    },
+    "rules": {
+      "title": "How templates work",
+      "body": "Choose a template when you create a new project. What a project takes from a template is its own copy, so changing or deactivating a template never changes an earlier project."
     }
   },
   "staff": {
@@ -1238,7 +1303,9 @@
       "call": "Call",
       "send_email": "Email",
       "none": "Not given"
-    }
+    },
+    "eyebrow": "People",
+    "description": "See the officials' profiles, roles and programs, and add a new official."
   },
   "settings": {
     "title": "Settings",
@@ -1358,7 +1425,9 @@
       "endpoint": "Endpoint",
       "endpoint_hint": "An https address, without the key",
       "enabled": "SMS on"
-    }
+    },
+    "eyebrow": "System configuration",
+    "description": "Manage the organisation's details, the language, the alert thresholds, the lists and the notification channels."
   },
   "nisab": {
     "title": "Nisab",
@@ -1397,6 +1466,16 @@
       "effective_hint": "Today or later, at most a year ahead, after the latest version",
       "basis": "Basis",
       "basis_hint": "For example: by the price of silver"
+    },
+    "eyebrow": "Policies and limits",
+    "description": "Keep the zakat nisab and the date it takes effect from.",
+    "stats": {
+      "label": "Nisab figures",
+      "versions": "Versions kept"
+    },
+    "history": {
+      "title": "History of changes",
+      "body": "Each new value is kept as its own version and an earlier value is never erased, so the nisab in force on any date can always be seen."
     }
   },
   "audit": {
@@ -1441,6 +1520,12 @@
       "new": "New value",
       "nothing": "Nothing",
       "history": "The whole history of this entity"
+    },
+    "eyebrow": "Accountability",
+    "description": "Who changed or viewed what, and when: permission changes, views of sensitive data and important actions.",
+    "note": {
+      "title": "Read only",
+      "body": "No entry of the audit log can be changed or deleted. Secret values such as passwords or tokens are never shown."
     }
   },
   "sessions": {
@@ -1459,7 +1544,6 @@
     "ended": "The session of {name} has been ended.",
     "column": {
       "person": "Person",
-      "kind": "Account",
       "device": "Device",
       "version": "App version",
       "last_seen": "Last seen",
@@ -1469,7 +1553,8 @@
       "all": "All",
       "staff": "Officials",
       "volunteer": "Volunteers"
-    }
+    },
+    "eyebrow": "Security"
   },
   "health": {
     "title": "System health",
@@ -1481,7 +1566,6 @@
     },
     "up": "Up",
     "down": "Down",
-    "version": "Version",
     "environment": "Environment",
     "audit_partitions": "Audit log partitions reach the month",
     "unknown": "Not known",
@@ -1501,7 +1585,10 @@
       "count": "Count",
       "size": "Size",
       "growth": "Last month"
-    }
+    },
+    "eyebrow": "Administration",
+    "description": "The state of the database, the file storage and the job queue, and how the storage grows.",
+    "build": "Version {version}"
   },
   "notification_templates": {
     "title": "Notification templates",
@@ -1540,7 +1627,8 @@
     "preview_title": "Preview with sample values",
     "save": "Save as new version",
     "cancel": "Cancel",
-    "saved": "{key} saved as version {version}."
+    "saved": "{key} saved as version {version}.",
+    "eyebrow": "Messages"
   },
   "deliveries": {
     "title": "Message deliveries",
@@ -1576,6 +1664,7 @@
     "to": "To",
     "empty": "No messages.",
     "system": "System",
-    "attempts": "Attempts: {count}"
+    "attempts": "Attempts: {count}",
+    "eyebrow": "Delivery audit"
   }
 }

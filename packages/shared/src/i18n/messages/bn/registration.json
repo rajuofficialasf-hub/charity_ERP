@@ -180,7 +180,9 @@
       "active": "সক্রিয়",
       "blocked": "ব্লক করা",
       "deactivated": "নিষ্ক্রিয়"
-    }
+    },
+    "eyebrow": "আমার অ্যাকাউন্ট",
+    "description": "আপনার পরিচিতি, যোগাযোগ, ঠিকানা আর কাজের তথ্য।"
   },
   "lists": {
     "volunteering_area": {

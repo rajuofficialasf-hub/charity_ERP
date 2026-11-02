@@ -131,4 +131,44 @@
   .ui-nav-sheet {
     min-height: 48px;
   }
+
+  /* the desktop sidebar on the brand ink: white on the dark green when active, an amber bar */
+  .ui-nav-dark {
+    min-height: 40px;
+    color: var(--color-sidebar-text);
+  }
+  .ui-nav-dark .ui-icon {
+    color: var(--color-sidebar-text);
+  }
+  .ui-nav-dark:hover {
+    background: var(--color-sidebar-hover);
+    color: var(--color-text-on-brand);
+  }
+  .ui-nav-dark:hover .ui-icon {
+    color: var(--color-text-on-brand);
+  }
+  .ui-nav-dark:focus-visible {
+    outline-color: var(--color-brand-accent);
+  }
+  .ui-nav-dark[aria-current='page'] {
+    background: var(--color-brand-primary-dark);
+    color: var(--color-text-on-brand);
+  }
+  .ui-nav-dark[aria-current='page'] .ui-icon {
+    color: var(--color-text-on-brand);
+  }
+  .ui-nav-dark[aria-current='page']::before {
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    background: var(--color-brand-accent);
+    box-shadow: none;
+  }
+  .ui-nav-dark .ui-nav-badge {
+    background: var(--color-sidebar-count);
+    color: var(--color-brand-accent);
+  }
+  .ui-nav-dark[aria-current='page'] .ui-nav-badge {
+    background: var(--color-brand-ink);
+  }
 }

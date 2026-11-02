@@ -1,5 +1,5 @@
 import { localized, type Locale } from '@css/shared/i18n';
-import { Button, EmptyState, ErrorState, Skeleton, Stack } from '@css/ui';
+import { Button, EmptyState, ErrorState, Skeleton, Stack, PageHeader } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -49,17 +49,19 @@ export function FormsPage() {
   return (
     <>
       <DocumentTitle title={t('forms_title')} />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('forms_title')}</h1>
-        <Stack direction="row" gap={2} wrap>
-          {builder ? (
-            <Button variant="secondary" onPress={() => setDialog('new')}>
-              {t('new_form')}
-            </Button>
-          ) : null}
-          {placer ? <Button onPress={() => setDialog('place')}>{tp('button')}</Button> : null}
-        </Stack>
-      </div>
+      <PageHeader
+        title={t('forms_title')}
+        actions={
+          <Stack direction="row" gap={2} wrap>
+            {builder ? (
+              <Button variant="secondary" onPress={() => setDialog('new')}>
+                {t('new_form')}
+              </Button>
+            ) : null}
+            {placer ? <Button onPress={() => setDialog('place')}>{tp('button')}</Button> : null}
+          </Stack>
+        }
+      />
       {list.data.length === 0 ? (
         <EmptyState title={t('none')} />
       ) : (

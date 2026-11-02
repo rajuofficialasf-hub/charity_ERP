@@ -102,27 +102,50 @@
     margin-top: 3px;
     color: var(--color-text-secondary);
   }
-  /* a profile section: muted labels, two pairs side by side on a desktop */
-  .ui-dl-two {
-    column-gap: var(--space-5);
+  /* a profile section: the label small above its value, two to a row, a hairline under each */
+  .ui-dl-two,
+  .ui-dl-two.ui-dl-sm,
+  .ui-dl-two.ui-dl-md,
+  .ui-dl-two.ui-dl-lg {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .ui-dl-two .ui-dl-item {
+    display: grid;
+    gap: 2px;
+    align-content: start;
+    min-width: 0;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .ui-dl-two .ui-dl-item:last-child {
+    border-bottom: 0;
   }
   .ui-dl-two dt {
     color: var(--color-text-secondary);
+    font-size: var(--text-caption);
     font-weight: var(--font-weight-regular);
   }
+  /* the labels speak for themselves here; their icons only crowd the row */
+  .ui-dl-two .ui-dl-icon {
+    display: none;
+  }
   .ui-dl-two dd {
+    margin: 0;
+    font-weight: var(--font-weight-bold);
     overflow-wrap: anywhere;
   }
-  @media (min-width: 1024px) {
-    /* two pairs share the width, so the labels take less of it than in one column */
-    .ui-dl-two.ui-dl-sm {
-      grid-template-columns: 8rem minmax(0, 1fr) 8rem minmax(0, 1fr);
-    }
-    .ui-dl-two.ui-dl-md {
-      grid-template-columns: 9.5rem minmax(0, 1fr) 9.5rem minmax(0, 1fr);
-    }
+  @media (min-width: 640px) {
+    .ui-dl-two,
+    .ui-dl-two.ui-dl-sm,
+    .ui-dl-two.ui-dl-md,
     .ui-dl-two.ui-dl-lg {
-      grid-template-columns: 11rem minmax(0, 1fr) 11rem minmax(0, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: var(--space-5);
+    }
+    /* the last row has no hairline under it, whether it holds one item or two */
+    .ui-dl-two .ui-dl-item:nth-last-child(2):nth-child(odd) {
+      border-bottom: 0;
     }
   }
 

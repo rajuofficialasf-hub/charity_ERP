@@ -65,7 +65,7 @@ test.describe('app shell', () => {
     await context.setOffline(true);
     try {
       await page.reload();
-      await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible({
+      await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible({
         timeout: 15_000,
       });
       await expect(page.getByText(/আপনি অফলাইনে আছেন/)).toBeVisible();
@@ -85,13 +85,13 @@ test.describe('app shell', () => {
   }, info) => {
     test.skip(!isPhone(info), 'the offline open is for the phones');
     await signIn(page, 'head@example.org');
-    await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
     await context.setOffline(true);
     try {
       await page.reload();
-      await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible({
+      await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible({
         timeout: 15_000,
       });
       // the banner by its landmark name: the loading blocks of the home are status regions too

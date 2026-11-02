@@ -4,14 +4,17 @@ import {
   Alert,
   Badge,
   Button,
+  Card,
   EmptyState,
   ErrorState,
+  PageHeader,
   Switch,
   Table,
   type TableColumn,
+  Text,
 } from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LayoutTemplate, Pencil } from 'lucide-react';
+import { CircleOff, LayoutTemplate, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -19,6 +22,7 @@ import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canCreateProjects } from '../roles';
+import { StatisticsBar } from '../StatisticsBar';
 import { TemplateDialog } from './TemplateDialog';
 import { type Template, templates, TEMPLATES_KEY } from './templates-api';
 
@@ -43,12 +47,19 @@ export function TemplatesPage() {
     queryFn: () => templates(inactive),
     enabled: allowed,
   });
+  // the counts read every template, the inactive ones too, whatever the switch shows
+  const all = useQuery({
+    queryKey: [...TEMPLATES_KEY, true],
+    queryFn: () => templates(true),
+    enabled: allowed,
+  });
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
 
   const name = (row: Template) => localized(row.name, locale);
   const state = (row: Template) => (
     <Badge
+      variant="dot"
       tone={row.active ? 'success' : 'neutral'}
       label={row.active ? t('state.active') : t('state.inactive')}
     />
@@ -73,18 +84,43 @@ export function TemplatesPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title')}</h1>
-        <Switch isSelected={inactive} onChange={setInactive}>
-          {t('show_inactive')}
-        </Switch>
-      </div>
+      <PageHeader
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('description')}
+        actions={
+          <Switch isSelected={inactive} onChange={setInactive}>
+            {t('show_inactive')}
+          </Switch>
+        }
+      />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
+      {all.data && (
+        <StatisticsBar
+          label={t('stats.label')}
+          items={[
+            {
+              key: 'active',
+              label: t('stats.active'),
+              value: all.data.filter((r) => r.active).length,
+              icon: LayoutTemplate,
+              tone: 'brand',
+            },
+            {
+              key: 'inactive',
+              label: t('stats.inactive'),
+              value: all.data.filter((r) => !r.active).length,
+              icon: CircleOff,
+            },
+          ]}
+        />
+      )}
       <Table
+        layout="panel"
         label={t('table')}
         columns={columns}
         rows={list.data ?? []}
@@ -114,6 +150,9 @@ export function TemplatesPage() {
           </div>
         )}
       />
+      <Card accent title={t('rules.title')} headingLevel={2}>
+        <Text tone="muted">{t('rules.body')}</Text>
+      </Card>
       {editing && (
         <TemplateDialog
           key={editing.id}

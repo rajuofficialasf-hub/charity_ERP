@@ -71,6 +71,18 @@ describe('the template library', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('counts the active and the inactive templates and says how a template is used', async () => {
+    refreshAs(PM);
+    serve();
+    open();
+    expect(await screen.findByText('প্রকল্প পরিচালনা')).toBeInTheDocument();
+    const counts = within(await screen.findByRole('region', { name: 'টেমপ্লেটের হিসাব' }));
+    const card = (label: string) => counts.getByText(label).closest('.ui-card')!;
+    await waitFor(() => expect(card('সক্রিয় টেমপ্লেট')).toHaveTextContent('1'));
+    expect(card('নিষ্ক্রিয় টেমপ্লেট')).toHaveTextContent('1');
+    expect(screen.getByText('টেমপ্লেট ব্যবহারের নিয়ম')).toBeInTheDocument();
+  });
+
   it('renames a template and deactivates it', async () => {
     refreshAs(PM);
     serve();

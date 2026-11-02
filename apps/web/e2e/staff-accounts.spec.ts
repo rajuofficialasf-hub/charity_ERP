@@ -79,7 +79,8 @@ test.describe('officials created by the admin', () => {
       .first()
       .fill(NEW_PASSWORD);
     await person.getByRole('button', { name: 'লগইন', exact: true }).click();
-    await expect(person.getByRole('heading', { level: 1, name: `স্বাগতম, ${name}` })).toBeVisible();
+    await expect(person.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
+    await expect(person.getByTestId('profile-name')).toHaveText(name);
 
     // the link works once
     await person.goto(`/invite${new URL(link).hash}`);

@@ -27,6 +27,15 @@ describe('ChangePasswordView', () => {
     );
     const { container } = renderApp(<ChangePasswordView />);
     const fresh = await screen.findByLabelText(/^নতুন পাসওয়ার্ড(?! আবার)/, { selector: 'input' });
+    expect(screen.getByText('আমার অ্যাকাউন্ট')).toBeInTheDocument();
+    // the tip beside the form leads to the devices the change logs out
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'নিরাপত্তার পরামর্শ' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'আমার ডিভাইস দেখুন' })).toHaveAttribute(
+      'href',
+      '/account/sessions',
+    );
     await user.type(
       screen.getByLabelText(/^বর্তমান পাসওয়ার্ড/, { selector: 'input' }),
       'Nadi kul 2026',

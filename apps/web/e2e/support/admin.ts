@@ -36,7 +36,7 @@ export async function signIn(page: Page, loginId: string): Promise<void> {
     .first()
     .fill(PASSWORD);
   await page.getByRole('button', { name: 'লগইন', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
 }
 
 /**
@@ -81,6 +81,10 @@ export async function apiAs(
 /** The navigation of the app shell: the sidebar, the rail or the bottom tabs. */
 export const mainMenu = (page: Page) => page.getByRole('navigation', { name: 'প্রধান মেনু' });
 
+/** A destination's link by its label, alone or followed by the count of what waits there. */
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const destinationName = (label: string) => new RegExp(`^${escapeRegExp(label)}(, .*)?$`);
+
 /**
  * Opens a destination from the app shell: from the menu, else from "more", else (the volunteer or
  * beneficiary list on a phone) from the people tab.
@@ -88,7 +92,8 @@ export const mainMenu = (page: Page) => page.getByRole('navigation', { name: '�
 export async function openDestination(page: Page, name: string): Promise<void> {
   const nav = mainMenu(page);
   await expect(nav).toBeVisible();
-  const direct = nav.getByRole('link', { name, exact: true });
+  // a destination with something waiting is named with its count ("প্রকল্প, 4টি অপেক্ষমাণ")
+  const direct = nav.getByRole('link', { name: destinationName(name) });
   if ((await direct.count()) > 0) await direct.click();
   else {
     await nav.getByRole('button', { name: 'আরও' }).click();

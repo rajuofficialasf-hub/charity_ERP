@@ -1868,6 +1868,8 @@ components:
         total: { type: integer, minimum: 0 }
         assistedThisYear: { type: integer, minimum: 0 }
         blocked: { type: integer, minimum: 0, x-sensitive-class: beneficiary.care }
+        male: { type: integer, minimum: 0, x-sensitive-class: beneficiary.profile_detail }
+        female: { type: integer, minimum: 0, x-sensitive-class: beneficiary.profile_detail }
     BeneficiaryStatisticsResponse:
       type: object
       required: [data, meta]
@@ -6364,6 +6366,10 @@ paths:
           in: query
           description: The beneficiary type (class code)
           schema: { type: string, pattern: '^[a-z][a-z0-9_]{0,49}$' }
+        - name: gender
+          in: query
+          description: The gender, one of the two the list counts; 403 without the beneficiary.profile_detail class (D-146)
+          schema: { type: string, enum: [male, female] }
         - name: projectId
           in: query
           description: Beneficiaries with an application in the project
@@ -6394,7 +6400,8 @@ paths:
       summary: Counts of the beneficiary tab for the filters in use (masks per role)
       description: >-
         The same filters as the list (O-67): everyone, those with an application approved or later in
-        a project of this year, and the blocked (only with the beneficiary.care class).
+        a project of this year, the blocked (only with the beneficiary.care class), and the men and
+        the women (only with the beneficiary.profile_detail class, D-146).
       x-permission: beneficiary.view_all
       x-scope: beneficiary
       x-audit: none
@@ -6414,6 +6421,10 @@ paths:
           in: query
           description: The beneficiary type (class code)
           schema: { type: string, pattern: '^[a-z][a-z0-9_]{0,49}$' }
+        - name: gender
+          in: query
+          description: The gender, one of the two the list counts; 403 without the beneficiary.profile_detail class (D-146)
+          schema: { type: string, enum: [male, female] }
         - name: projectId
           in: query
           description: Beneficiaries with an application in the project

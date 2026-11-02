@@ -1,5 +1,5 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, ErrorState, Skeleton } from '@css/ui';
+import { Alert, Button, Card, ErrorState, Skeleton, PageHeader } from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
@@ -64,10 +64,14 @@ export function ProjectOverviewPage() {
     <>
       <DocumentTitle title={localized(p.name, locale)} />
       {back}
-      <div className="admin-title-row">
-        <h1 className="admin-title">{localized(p.name, locale)}</h1>
-        <ProjectStatusBadge status={p.status} />
-      </div>
+      <PageHeader
+        title={localized(p.name, locale)}
+        meta={
+          <span data-testid="project-state">
+            <ProjectStatusBadge status={p.status} />
+          </span>
+        }
+      />
       {notice && (
         <Alert
           tone="success"

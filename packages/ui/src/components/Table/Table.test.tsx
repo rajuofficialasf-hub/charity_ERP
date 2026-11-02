@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations, renderWithUi } from '../../testing/index.js';
 import { StatusBadge } from '../Badge/Badge.js';
 import { BulkList, BulkRow } from '../BulkRow/BulkRow.js';
+import { Button } from '../Button/Button.js';
 import { MenuButton } from '../Menu/MenuButton.js';
 import { EmptyState } from '../States/States.js';
 import { Table, TableToolbar, type TableColumn } from './Table.js';
@@ -150,6 +151,19 @@ describe('Table (DESIGN_SYSTEM 5.7)', () => {
     // the next stop is past the grid (the phone card list, which CSS hides on a desktop)
     await user.tab();
     expect(grid).not.toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it('names the column of the row actions in its header', () => {
+    renderWithUi(
+      <Table
+        {...base}
+        rowActions={(row) => <Button variant="ghost">{`Edit ${row.name}`}</Button>}
+      />,
+    );
+    const headers = within(screen.getByRole('grid')).getAllByRole('columnheader');
+    // the last header names the buttons under it, as plain text everyone sees
+    expect(headers.at(-1)).toHaveTextContent('Actions');
+    expect(within(headers.at(-1)!).getByText('Actions')).not.toHaveClass('ui-sr-only');
   });
 
   it('a click in a menu opened from a row never opens the row', async () => {

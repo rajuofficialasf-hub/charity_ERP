@@ -21,7 +21,6 @@ describe('the profile pieces', () => {
           { id: 'mobile', label: 'Mobile', value: '01700005600', icon: Phone, copy: true },
           { id: 'gender', label: 'Gender', value: 'Male', icon: User },
         ]}
-        aside={<p>Documents</p>}
         actions={<Button variant="primary">Approve</Button>}
         actionsLabel="Actions"
       />,
@@ -37,6 +36,18 @@ describe('the profile pieces', () => {
       screen.getByRole('button', { name: 'Approve' }),
     );
     await expectNoAxeViolations(container);
+  });
+
+  it('names the person at the second level under a page title of its own', () => {
+    renderWithUi(
+      <ProfileHeader
+        name="Sample Volunteer"
+        headingLevel={2}
+        avatar={<Avatar name="Sample Volunteer" size="lg" letters={1} />}
+      />,
+    );
+    expect(screen.getByRole('heading', { level: 2, name: 'Sample Volunteer' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
   });
 
   it('copies a value and says so', async () => {

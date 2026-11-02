@@ -11,6 +11,7 @@ const LABELS = {
   q: 'exports.pdf.filter.q',
   year: 'exports.pdf.filter.year',
   type: 'exports.pdf.filter.type',
+  gender: 'exports.pdf.filter.gender',
   state: 'exports.pdf.filter.state',
   category: 'exports.pdf.filter.category',
   blocked: 'exports.pdf.filter.blocked',
@@ -31,6 +32,7 @@ function codedSource(list: ExportList, key: string): CodedSource | null {
   if (key === 'status') return 'application.status';
   if (key === 'type')
     return list === 'volunteers' ? 'volunteer.type' : 'reference.beneficiary_class';
+  if (key === 'gender') return 'reference.gender';
   return null;
 }
 

@@ -161,6 +161,7 @@ describe('the settings page', () => {
     serve();
     const { container } = open();
     const phone = await screen.findByRole('textbox', { name: /^যোগাযোগের মোবাইল/ });
+    expect(screen.getByText('সিস্টেম কনফিগারেশন')).toBeInTheDocument();
     expect(screen.getByText('এখনও ডিফল্ট মান চলছে।')).toBeInTheDocument();
     const user = userEvent.setup();
     await user.clear(phone);

@@ -40,10 +40,10 @@
     top: 0;
     z-index: 1;
     padding: 10px var(--space-3);
-    border-bottom: 1px solid var(--color-border-default);
-    /* the brand's soft green marks the header row (owner, 2026-10-20) */
-    background: var(--color-bg-brand-soft);
-    color: var(--color-brand-ink);
+    border-bottom: 1px solid var(--border-subtle);
+    /* a quiet header row keeps the eye on the rows and their status pills */
+    background: var(--color-bg-subtle);
+    color: var(--color-text-secondary);
     /* body size: Bengali at the label size is too small to read in a header */
     font-size: var(--text-body);
     font-weight: var(--font-weight-bold);
@@ -72,8 +72,11 @@
     width: 48px;
     padding-right: 0;
   }
+  /* the actions column is as narrow as its buttons; its name stands at the end, above them */
   .ui-th-actions {
     width: 1%;
+    text-align: end;
+    white-space: nowrap;
   }
   .ui-tr {
     outline: none;
@@ -122,10 +125,15 @@
   .ui-table .cell-title {
     font-weight: var(--font-weight-bold);
   }
+  /* the buttons keep their words on one line; the column grows instead */
   .ui-row-actions {
     display: inline-flex;
     justify-content: flex-end;
     gap: 2px;
+    white-space: nowrap;
+  }
+  .ui-row-actions > * {
+    flex-shrink: 0;
   }
   /* inline row actions: visible on hover or keyboard focus on desktop, always on touch screens */
   @media (hover: hover) and (min-width: 1024px) {
@@ -284,14 +292,18 @@
   .ui-search[data-empty] .ui-search-clear {
     display: none;
   }
+  /* the fields line up at their labels, so a hint under one field never shifts the others */
   .ui-toolbar-filters {
     display: none;
     flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 0 var(--space-3);
+    align-items: flex-start;
+    gap: var(--space-2) var(--space-3);
+  }
+  .ui-toolbar-filters > * {
+    flex: 1 1 160px;
+    min-width: 0;
   }
   .ui-toolbar-filters > .ui-field {
-    flex: 1 1 200px;
     margin-bottom: 0;
   }
   @media (min-width: 640px) {
@@ -354,7 +366,7 @@
 
   /* panel layout: one white card for the toolbar, the table and the pager */
   .ui-table-panel {
-    border: 1px solid var(--color-border-default);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
     background: var(--color-bg-surface);
     box-shadow: var(--elevation-1);
@@ -363,7 +375,7 @@
   .ui-table-panel > .ui-toolbar {
     margin: 0;
     padding: var(--space-4);
-    border-bottom: 1px solid var(--color-border-default);
+    border-bottom: 1px solid var(--border-subtle);
   }
   .ui-table-panel .ui-table-wrap {
     border: 0;
@@ -380,7 +392,7 @@
   }
   .ui-table-panel > .ui-pager {
     padding: var(--space-3) var(--space-4);
-    border-top: 1px solid var(--color-border-default);
+    border-top: 1px solid var(--border-subtle);
   }
   .ui-table-panel > .ui-card-list {
     padding: var(--space-3);

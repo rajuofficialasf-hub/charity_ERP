@@ -110,7 +110,9 @@ describe('the active sessions', () => {
     serve();
     const { container } = renderApp(<SessionsPage />, 'bn', { path: '/admin/sessions' });
     const table = await screen.findByRole('grid', { name: 'সক্রিয় সেশন' });
-    expect(within(table).getAllByText('মেইন অ্যাডমিন').length).toBeGreaterThan(0);
+    expect(screen.getByText('নিরাপত্তা')).toBeInTheDocument();
+    // the kind of each person, and the main admin marked beside it
+    expect(within(table).getAllByText('অফিসিয়াল · মেইন অ্যাডমিন').length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'স্বেচ্ছাসেবক' }));
@@ -214,6 +216,11 @@ describe('the system health', () => {
     serve();
     const { container } = renderApp(<HealthPage />, 'bn', { path: '/admin/health' });
     expect(await screen.findByText('ডামি OTP চালু আছে')).toBeInTheDocument();
+    expect(screen.getByText('প্রশাসনিক পর্যবেক্ষণ')).toBeInTheDocument();
+    // a tile per service, and the environment with its version
+    const checks = within(screen.getByRole('list', { name: 'সেবাগুলোর অবস্থা' }));
+    expect(checks.getAllByRole('listitem')).toHaveLength(4);
+    expect(checks.getByText(/^ভার্সন /)).toBeInTheDocument();
     const storage = screen.getByText('ফাইল স্টোরেজ').closest('li') as HTMLElement;
     expect(within(storage).getByText('বন্ধ')).toBeInTheDocument();
     const database = screen.getByText('ডাটাবেস').closest('li') as HTMLElement;

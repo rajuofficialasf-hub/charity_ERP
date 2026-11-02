@@ -2,7 +2,8 @@ import { ChevronDown } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
-import { Icon, type IconComponent } from '../Icon/Icon.js';
+import type { IconComponent } from '../Icon/Icon.js';
+import { IconTile, type IconTileTone } from '../IconTile/IconTile.js';
 import { MenuButton } from '../Menu/MenuButton.js';
 import { Skeleton } from '../Skeleton/Skeleton.js';
 
@@ -12,7 +13,7 @@ export interface StatFilterItem {
   value: number;
   icon: IconComponent;
   /** The colour of the icon tile; neutral by default. */
-  tone?: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info';
+  tone?: IconTileTone;
   /** false for a count that is not a filter of the list (shown, never chosen). */
   selectable?: boolean;
 }
@@ -43,9 +44,7 @@ function CardContent({
 }) {
   return (
     <>
-      <span className={cx('ui-statfilter-icon', `t-${item.tone ?? 'neutral'}`)} aria-hidden="true">
-        <Icon icon={item.icon} size="md" />
-      </span>
+      <IconTile icon={item.icon} tone={item.tone ?? 'neutral'} className="ui-statfilter-icon" />
       <span className="ui-statfilter-text">
         <span className="ui-statfilter-label">{item.label}</span>
         {/* a space, so the label and the number are read as two words */}{' '}

@@ -19,6 +19,8 @@
   --color-bg-warning-soft: #f7efe2;
   --color-bg-danger-soft: #f7e7e6;
   --color-bg-info-soft: #e6edf6;
+  --color-bg-brand-tint: #ebf6f0;
+  --color-bg-subtle: #fafbfb;
   --color-border-default: #dfe3e8;
   --color-border-strong: #7f8e9d;
   --color-text-primary: #0f2920;
@@ -29,6 +31,12 @@
   --color-status-danger: #c0392b;
   --color-status-info: #2b6cb0;
   --color-scrim: rgba(15, 41, 32, 0.48);
+  /* the dark sidebar (D-145): white, or amber for the count, mixed into brand ink */
+  --color-sidebar-text: #cad0ce;
+  --color-sidebar-heading: #a4aeaa;
+  --color-sidebar-hover: #223a32;
+  --color-sidebar-divider: #2c433b;
+  --color-sidebar-count: #3f482d;
 
   /* spacing */
   --space-1: 4px;
@@ -60,7 +68,7 @@
 
   /* elevation (UX-14): soft layered shadows tinted with brand ink; never pure black */
   --elevation-0: none;
-  --elevation-1: 0 1px 2px rgba(15, 41, 32, 0.04), 0 2px 8px rgba(15, 41, 32, 0.05);
+  --elevation-1: 0 1px 2px rgba(15, 41, 32, 0.04), 0 8px 24px rgba(15, 41, 32, 0.06);
   --elevation-2: 0 2px 4px rgba(15, 41, 32, 0.05), 0 8px 24px rgba(15, 41, 32, 0.09);
   --elevation-3: 0 4px 8px rgba(15, 41, 32, 0.06), 0 20px 48px rgba(15, 41, 32, 0.16);
   --elevation-hover: 0 4px 8px rgba(15, 41, 32, 0.06), 0 14px 32px rgba(15, 41, 32, 0.12);

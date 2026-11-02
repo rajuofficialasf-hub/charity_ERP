@@ -5,7 +5,6 @@ import {
   Alert,
   Avatar,
   Badge,
-  Breadcrumb,
   Button,
   type ContactItem,
   ContactList,
@@ -48,6 +47,7 @@ import { LinkDialog } from './LinkDialog';
 import { OfficialDialog } from './OfficialDialog';
 import { RenewLinkDialog } from './RenewLinkDialog';
 import { STAFF_KEY, type StaffDetail, staffDetail, staffDetailKey } from './staff-api';
+import { PageCrumbs } from '../../components/shell/breadcrumb';
 
 /**
  * One official's profile in the one profile layout, from the existing user API: the header card with the Job ID and
@@ -204,7 +204,7 @@ function Profile({
   return (
     <Grid gap={4}>
       <DocumentTitle title={u.displayName} />
-      <Breadcrumb
+      <PageCrumbs
         items={[
           { id: 'list', label: t('back'), href: '/admin/staff' },
           { id: 'profile', label: u.displayName },

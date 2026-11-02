@@ -79,11 +79,11 @@ const nidOf = async (id: string) =>
   (await h.db.query('SELECT nid FROM beneficiaries WHERE id = $1', [id])).rows[0].nid as string;
 
 describe('the beneficiary list', () => {
-  it('filters by the area cascade, type, project, year and the blocked flag', async () => {
+  it('filters by the area cascade, type, gender, project, year and the blocked flag', async () => {
     const tree = await f.locationTree(h.db);
     const widow = await person(tree, { class_code: 'widow' });
     const blocked = await person(tree, { is_blocked: true });
-    const applicant = await person(tree);
+    const applicant = await person(tree, { gender_code: 'male' });
     const project = await f.project(h.db, { year: 2024 });
     await applyTo(project, tree, applicant);
     const head = await as(world.users.head);
@@ -97,11 +97,17 @@ describe('the beneficiary list', () => {
     ] as [string, string][])
       expect(ids(await list(head, { [column]: value })).length, column).toBe(3);
     expect(ids(await list(head, { unionId: tree.union, type: 'widow' }))).toEqual([widow]);
+    expect(ids(await list(head, { unionId: tree.union, gender: 'male' }))).toEqual([applicant]);
+    expect(ids(await list(head, { unionId: tree.union, gender: 'female' })).sort()).toEqual(
+      [widow, blocked].sort(),
+    );
     expect(ids(await list(head, { projectId: project.id }))).toEqual([applicant]);
     expect(ids(await list(head, { unionId: tree.union, year: '2024' }))).toEqual([applicant]);
     expect(ids(await list(head, { unionId: tree.union, blocked: 'true' }))).toEqual([blocked]);
     expect((await list(head, { year: '1999' })).status).toBe(422);
     expect((await list(head, { type: 'Widow!' })).status).toBe(422);
+    expect((await list(head, { gender: 'Male!' })).status).toBe(422);
+    expect((await list(head, { gender: 'other' })).status).toBe(422);
   });
 
   it('searches by name, by mobile for those who see it, and by NID only inside the NID scope', async () => {
@@ -134,10 +140,12 @@ describe('the beneficiary list', () => {
       'classCode',
     ])
       expect(row, key).not.toHaveProperty(key);
-    for (const query of [{ unionId: tree.union }, { blocked: 'true' }, { type: 'widow' }] as Record<
-      string,
-      string
-    >[]) {
+    for (const query of [
+      { unionId: tree.union },
+      { blocked: 'true' },
+      { type: 'widow' },
+      { gender: 'female' },
+    ] as Record<string, string>[]) {
       const refused = await list(media, query);
       expect(refused.status).toBe(403);
       expect(refused.body.error.code).toBe('permission.denied');
@@ -209,16 +217,26 @@ describe('the beneficiary list', () => {
 });
 
 describe('the statistics of the beneficiary tab', () => {
-  it('count everyone, those assisted this year and the blocked, inside the caller scope', async () => {
+  it('count everyone, those assisted this year, the blocked, the men and the women, inside the caller scope', async () => {
     const tree = await f.locationTree(h.db);
     const assisted = await person(tree);
     await person(tree, { is_blocked: true });
-    await person(tree);
+    await person(tree, { gender_code: 'male' });
     await applyTo(house, tree, assisted);
     const head = await as(world.users.head);
     const res = await statistics(head, { districtId: tree.district });
     expect(res.headers['cache-control']).toBe('no-store');
-    expect(res.body.data).toEqual({ total: 3, assistedThisYear: 1, blocked: 1 });
+    expect(res.body.data).toEqual({
+      total: 3,
+      assistedThisYear: 1,
+      blocked: 1,
+      male: 1,
+      female: 2,
+    });
+    // the counts follow the filters in use, the gender among them
+    expect(
+      (await statistics(head, { districtId: tree.district, gender: 'male' })).body.data,
+    ).toEqual({ total: 1, assistedThisYear: 0, blocked: 0, male: 1, female: 0 });
     const media = await staff('media_team');
     expect((await statistics(media, { districtId: tree.district })).body.data).toEqual({
       total: 3,

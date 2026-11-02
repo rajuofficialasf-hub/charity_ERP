@@ -128,6 +128,9 @@ describe('ProfileView of a pending registrant', () => {
     serve(profile(), () => rows);
     const { container } = renderApp(<ProfileView />, 'bn', { path: '/account/profile' });
     expect(await screen.findByText('আপনি এখনো কোনো প্রজেক্টে যুক্ত হননি।')).toBeInTheDocument();
+    expect(screen.getByText('আমার অ্যাকাউন্ট')).toBeInTheDocument();
+    // the page title stays the one level-1 heading; the person heads the banner below it
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(await screen.findByRole('heading', { name: 'সংশোধনের অনুরোধ' })).toBeInTheDocument();
     // the own NID and bank details in full (DECISION_LOG D-081)
     expect(screen.getByText('1000000000301')).toBeInTheDocument();
@@ -185,9 +188,12 @@ describe('ProfileView of an approved volunteer', () => {
     const user = userEvent.setup();
     serve(profile({ state: 'active', inAnyProject: true }), () => []);
     const { container } = renderApp(<ProfileView />, 'en', { path: '/account/profile' });
-    const header = await screen.findByRole('region', { name: 'নমুনা স্বেচ্ছাসেবক' });
-    expect(within(header).getByText('General volunteer')).toBeInTheDocument();
-    expect(within(header).getByText('Active')).toBeInTheDocument();
+    // the banner names the person under the page title, with the state and the type
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'নমুনা স্বেচ্ছাসেবক' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('General volunteer')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Profile sections' });
     expect(
       within(nav)

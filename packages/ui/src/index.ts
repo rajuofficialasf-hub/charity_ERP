@@ -11,6 +11,9 @@ export { Icon, type IconComponent, type IconProps } from './components/Icon/Icon
 export { VisuallyHidden, type VisuallyHiddenProps } from './components/VisuallyHidden.js';
 export { Alert, type AlertProps, type AlertTone } from './components/Alert/Alert.js';
 export { Avatar, type AvatarProps } from './components/Avatar/Avatar.js';
+export { IconTile, type IconTileProps, type IconTileTone } from './components/IconTile/IconTile.js';
+export { PersonCell, type PersonCellProps } from './components/PersonCell/PersonCell.js';
+export { PageHeader, type PageHeaderProps } from './components/PageHeader/PageHeader.js';
 export {
   Badge,
   StatusBadge,

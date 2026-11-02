@@ -17,6 +17,7 @@ import {
   type TableColumn,
   TableToolbar,
   Text,
+  PageHeader,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList } from 'lucide-react';
@@ -87,9 +88,7 @@ export function ApplicationsPage() {
     <>
       <DocumentTitle title={name ? `${t('title')} · ${name}` : t('title')} />
       <Link to={`/admin/projects/${projectId}`}>{t('back')}</Link>
-      <div className="admin-title-row">
-        <h1 className="admin-title">{name ? `${t('title')}: ${name}` : t('title')}</h1>
-      </div>
+      <PageHeader title={name ? `${t('title')}: ${name}` : t('title')} />
       <ApplicationTab projectId={projectId} />
     </>
   );

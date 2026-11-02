@@ -61,7 +61,8 @@ describe('My Work home', () => {
     server.use(http.get('*/api/v1/me/projects', () => ok([PROJECT])));
     const { container } = openHome(VOLUNTEER);
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'স্বাগতম, স্বেচ্ছাসেবক (নমুনা)' }),
+      // the page is named for what it holds, without a greeting
+      await screen.findByRole('heading', { level: 1, name: 'আমার কাজ' }),
     ).toBeInTheDocument();
     const attention = screen.getByRole('region', { name: 'এখন আপনার কাজ' });
     expect(
@@ -223,6 +224,35 @@ describe('My Work home', () => {
     // every role has a home
     for (const role of Object.keys(ROLE_WIDGETS))
       expect(widgetsFor({ roles: [role], state: 'active' }).length).toBeGreaterThan(0);
+  });
+
+  it('opens with the area label, the line of purpose and the day summed up from what waits', async () => {
+    attentionIs([
+      { kind: 'unread_notifications', count: 2, href: '/notifications' },
+      { kind: 'projects_draft', count: 4, href: '/admin/projects?status=draft' },
+      { kind: 'handovers_open', count: 2, href: '/admin/handover' },
+    ]);
+    const { container } = openHome({ ...ME, roles: ['department_head'] });
+    expect(await screen.findByText('কাজের কেন্দ্র')).toBeInTheDocument();
+    expect(screen.getByText('আপনার কাজ, অনুমোদন ও অগ্রগতি এক জায়গায় দেখুন।')).toBeInTheDocument();
+    const today = screen.getByRole('region', { name: 'আজকের সারসংক্ষেপ' });
+    // the unread notifications are counted on their own, not among the tasks
+    expect(
+      await within(today).findByText('আজ আপনার জন্য 6টি কাজ অপেক্ষা করছে।'),
+    ).toBeInTheDocument();
+    expect(within(today).getByText('অপেক্ষমাণ কাজ').parentElement).toHaveTextContent('6');
+    expect(within(today).getByText('না-পড়া নোটিফিকেশন').parentElement).toHaveTextContent('2');
+    await expectNoAxeViolations(container);
+  });
+
+  it('says the day is clear when nothing waits', async () => {
+    attentionIs([]);
+    openHome({ ...ME, roles: ['department_head'] });
+    const today = await screen.findByRole('region', { name: 'আজকের সারসংক্ষেপ' });
+    expect(
+      await within(today).findByText('আজ আপনার জন্য কোনো কাজ অপেক্ষায় নেই।'),
+    ).toBeInTheDocument();
+    expect(within(today).getByText('অপেক্ষমাণ কাজ').parentElement).toHaveTextContent('0');
   });
 
   it('says calmly when nothing waits', async () => {

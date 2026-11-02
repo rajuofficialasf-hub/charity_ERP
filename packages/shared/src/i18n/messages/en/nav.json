@@ -36,5 +36,10 @@
   "deliveries": "Deliveries",
   "media": "Media work",
   "sync": "Sync",
-  "exports": "My exports"
+  "exports": "My exports",
+  "help": {
+    "title": "Need help?",
+    "text": "If something in the system gets in your way, contact the admin team."
+  },
+  "sidebar": "Sidebar"
 }

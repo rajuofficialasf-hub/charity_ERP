@@ -4,15 +4,18 @@ import {
   Alert,
   Badge,
   Button,
+  Card,
   ConfirmDialog,
+  EmptyState,
   ErrorState,
   Grid,
   Skeleton,
   Stack,
   Text,
+  PageHeader,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRightLeft, CheckCheck, UserX } from 'lucide-react';
+import { ArrowRightLeft, CheckCheck, UserSearch as FindIcon, UserX } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -65,14 +68,49 @@ export function HandoverPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
-      <UserSearch
-        label={t('search')}
-        helper={t('search_hint')}
-        selected={official}
-        onSelect={setOfficial}
-      />
-      {official && <Handover key={official.id} official={official} />}
+      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('description')} />
+      <div className="page-split">
+        <div className="page-split-main">
+          <Card>
+            <div className="admin-panel-section">
+              <UserSearch
+                label={t('search')}
+                helper={t('search_hint')}
+                selected={official}
+                onSelect={setOfficial}
+              />
+              {!official && (
+                <EmptyState
+                  icon={FindIcon}
+                  title={t('pick_title')}
+                  message={t('pick_message')}
+                  headingLevel={2}
+                />
+              )}
+            </div>
+          </Card>
+          {official && (
+            <Card>
+              <Handover key={official.id} official={official} />
+            </Card>
+          )}
+        </div>
+        <aside className="page-split-side" aria-label={t('steps.title')}>
+          <Card accent title={t('rule.title')} headingLevel={2}>
+            <Text tone="muted">{t('rule.body')}</Text>
+          </Card>
+          <Card title={t('steps.title')} headingLevel={2}>
+            <ol className="admin-steps">
+              {(['find', 'assign', 'complete'] as const).map((step) => (
+                <li key={step}>
+                  <span className="admin-step-name">{t(`steps.${step}`)}</span>
+                  <span className="admin-step-hint">{t(`steps.${step}_hint`)}</span>
+                </li>
+              ))}
+            </ol>
+          </Card>
+        </aside>
+      </div>
     </>
   );
 }

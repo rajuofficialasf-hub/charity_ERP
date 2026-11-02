@@ -2,14 +2,19 @@ import { formatDate, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
+  Badge,
   Button,
+  Card,
   DateField,
   EmptyState,
   ErrorState,
   Table,
   type TableColumn,
   TableToolbar,
+  Text,
   TextField,
+  PageHeader,
+  PersonCell,
 } from '@css/ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Eye, ScrollText } from 'lucide-react';
@@ -104,7 +109,7 @@ export function AuditPage() {
       cell: (e) => formatDateTime(e.createdAt, locale),
       isRowHeader: true,
     },
-    { id: 'actor', header: t('column.actor'), cell: actorName },
+    { id: 'actor', header: t('column.actor'), cell: (e) => <PersonCell name={actorName(e)} /> },
     { id: 'action', header: t('column.action'), cell: (e) => <code lang="en">{e.action}</code> },
     {
       id: 'entity',
@@ -135,12 +140,22 @@ export function AuditPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
-      {meta && (
-        <p className="admin-muted">
-          {t('range', { from: formatDate(meta.from), to: formatDate(meta.to) })}
-        </p>
-      )}
+      <PageHeader
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('description')}
+        meta={
+          meta && (
+            <Badge
+              tone="neutral"
+              label={t('range', { from: formatDate(meta.from), to: formatDate(meta.to) })}
+            />
+          )
+        }
+      />
+      <Card accent title={t('note.title')} headingLevel={2}>
+        <Text tone="muted">{t('note.body')}</Text>
+      </Card>
       {filters.entityId && (
         <Alert
           tone="info"
@@ -160,6 +175,7 @@ export function AuditPage() {
         </Alert>
       )}
       <Table
+        layout="panel"
         label={t('table')}
         columns={columns}
         rows={rows}

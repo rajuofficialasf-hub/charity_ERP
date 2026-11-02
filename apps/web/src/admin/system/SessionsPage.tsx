@@ -2,15 +2,15 @@ import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
   ConfirmDialog,
   EmptyState,
   ErrorState,
-  Stack,
   Table,
   type TableColumn,
   TableToolbar,
+  PageHeader,
+  PersonCell,
 } from '@css/ui';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LogOut, MonitorSmartphone } from 'lucide-react';
@@ -68,14 +68,15 @@ export function SessionsPage() {
   const device = (s: ActiveSession) =>
     [s.deviceName ?? t('unknown_device'), s.platform].filter(Boolean).join(' · ');
   const person = (s: ActiveSession) => (
-    <Stack direction="row" wrap align="center" gap={2} as="span">
-      <strong>{s.person.name}</strong>
-      {s.person.systemOwner && <Badge tone="info" label={t('main_admin')} />}
-    </Stack>
+    <PersonCell
+      name={s.person.name}
+      secondary={[t(`kind.${s.person.kind}`), s.person.systemOwner && t('main_admin')]
+        .filter(Boolean)
+        .join(' · ')}
+    />
   );
   const columns: TableColumn<ActiveSession>[] = [
     { id: 'person', header: t('column.person'), cell: person, isRowHeader: true },
-    { id: 'kind', header: t('column.kind'), cell: (s) => t(`kind.${s.person.kind}`), priority: 2 },
     { id: 'device', header: t('column.device'), cell: device },
     { id: 'version', header: t('column.version'), cell: (s) => s.appVersion ?? '—', priority: 3 },
     {
@@ -99,14 +100,14 @@ export function SessionsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
-      <p className="admin-muted">{t('intro')}</p>
+      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('intro')} />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
       <Table
+        layout="panel"
         label={t('table')}
         columns={columns}
         rows={rows}

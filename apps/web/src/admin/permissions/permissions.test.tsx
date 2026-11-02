@@ -98,6 +98,14 @@ describe('permission panel', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'পারমিশন প্যানেল' }),
     ).toBeInTheDocument();
+    expect(screen.getByText('অ্যাক্সেস কন্ট্রোল')).toBeInTheDocument();
+    // before a choice: what to do, and the rule of the least access beside it
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'একজন ব্যবহারকারী বেছে নিন' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'যতটুকু দরকার, ততটুকু' }),
+    ).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'প্রধান মেনু' });
     expect(within(nav).getByRole('link', { name: 'পারমিশন' })).toHaveAttribute(
       'aria-current',

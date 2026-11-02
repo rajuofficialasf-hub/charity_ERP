@@ -81,7 +81,14 @@
   gap: var(--space-4);
 }
 .account-page-wide {
-  max-width: 960px;
+  max-width: var(--content-max);
+  margin: 0;
+  padding: var(--space-4);
+}
+@media (min-width: 640px) {
+  .account-page-wide {
+    padding: var(--space-5);
+  }
 }
 .account-page h1 {
   font-size: var(--text-display);

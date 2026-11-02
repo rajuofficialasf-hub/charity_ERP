@@ -14,5 +14,5 @@ const TONE: Record<ProjectStatus, BadgeTone> = {
 export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
   const t = useTranslations('admin.projects.status');
   // eslint-disable-next-line security/detect-object-injection -- a ProjectStatus key of a constant table
-  return <Badge tone={TONE[status]} label={t(status)} />;
+  return <Badge variant="dot" tone={TONE[status]} label={t(status)} />;
 }
