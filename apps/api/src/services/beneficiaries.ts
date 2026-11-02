@@ -73,6 +73,8 @@ export class BeneficiariesService {
     if (filter.unionId && !sees(ADDRESS)) this.refuse(viewer, ADDRESS);
     if (filter.blocked && !sees(CARE)) this.refuse(viewer, CARE);
     if (filter.type && !sees(DETAIL)) this.refuse(viewer, DETAIL);
+    // the gender is a profile detail too, so its filter would tell what the caller may not see
+    if (filter.gender && !sees(DETAIL)) this.refuse(viewer, DETAIL);
     const and: Prisma.BeneficiaryWhereInput[] = [
       beneficiaryWhere(viewer.scope),
       { mergedIntoId: null },
@@ -83,6 +85,7 @@ export class BeneficiariesService {
       if (value) and.push({ [column]: value });
     }
     if (filter.type) and.push({ classCode: filter.type });
+    if (filter.gender) and.push({ genderCode: filter.gender });
     if (filter.blocked) and.push({ isBlocked: filter.blocked === 'true' });
     if (filter.projectId || filter.year) {
       // a project-scoped caller filters only among its own projects, so the filter never tells it
@@ -186,8 +189,9 @@ export class BeneficiariesService {
   }
 
   /**
-   * The counts for the filters in use: everyone, those assisted this year, the blocked; one read,
-   * so the three counts share a snapshot and a connection.
+   * The counts for the filters in use: everyone, those assisted this year, the blocked, the men
+   * and the women; one read, so the counts share a snapshot and a connection. The response mask
+   * leaves out the counts of a class the caller does not see.
    */
   async statistics(filter: BeneficiaryFilter, viewer: BeneficiaryViewer) {
     const where = await this.where(filter, viewer);
@@ -211,6 +215,8 @@ export class BeneficiariesService {
         },
       }),
       blocked: await tx.beneficiary.count({ where: { AND: [where, { isBlocked: true }] } }),
+      male: await tx.beneficiary.count({ where: { AND: [where, { genderCode: 'male' }] } }),
+      female: await tx.beneficiary.count({ where: { AND: [where, { genderCode: 'female' }] } }),
     }));
   }
 

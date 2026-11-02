@@ -344,7 +344,9 @@
       "label": "উপকারভোগীর হিসাব",
       "total": "মোট",
       "assisted": "এই বছর সহায়তা পেয়েছেন",
-      "blocked": "ব্লক করা"
+      "blocked": "ব্লক করা",
+      "male": "পুরুষ",
+      "female": "মহিলা"
     },
     "column": {
       "name": "নাম",
@@ -361,7 +363,8 @@
       "blocked_yes": "ব্লক করা",
       "blocked_no": "ব্লক নয়",
       "group_area": "এলাকা",
-      "group_other": "অন্যান্য"
+      "group_other": "অন্যান্য",
+      "gender": "লিঙ্গ"
     },
     "types": {
       "elderly": "বৃদ্ধ",

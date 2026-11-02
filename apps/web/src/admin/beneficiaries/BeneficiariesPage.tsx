@@ -21,7 +21,16 @@ import {
   PersonCell,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Ban, Copy, EllipsisVertical, HandHeart, Search, User, Users } from 'lucide-react';
+import {
+  Ban,
+  Copy,
+  EllipsisVertical,
+  HandHeart,
+  Search,
+  User,
+  UserRound,
+  Users,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -110,7 +119,9 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
   const locale = useLocale() as Locale;
   // a filter the role may not use is never read from the URL (an older or shared link)
   const keys = FILTER_KEYS.filter(
-    (key) => (details || (key !== 'type' && key !== 'blocked')) && (union || key !== 'unionId'),
+    (key) =>
+      (details || (key !== 'type' && key !== 'blocked' && key !== 'gender')) &&
+      (union || key !== 'unionId'),
   );
   const { filters, setFilters, change, q, onSearch, page, cursor, goTo, activeCount } =
     useTabView(keys);
@@ -121,7 +132,11 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
   });
   // a count card filters the list, not the counts: every card keeps its number when one is chosen
   const blockedCard = filters.blocked === 'true';
-  const statFilters = { ...filters, blocked: blockedCard ? undefined : filters.blocked };
+  const statFilters = {
+    ...filters,
+    blocked: blockedCard ? undefined : filters.blocked,
+    gender: undefined,
+  };
   const stats = useQuery({
     queryKey: [...BENEFICIARIES_KEY, 'statistics', statFilters, q],
     queryFn: () => beneficiaryStatistics(statFilters, q),
@@ -149,11 +164,36 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
         ...(counts.blocked === undefined
           ? []
           : [{ id: 'blocked', label: t('stats.blocked'), value: counts.blocked, icon: Ban }]),
+        // the men and the women, only where the caller sees the gender
+        ...(counts.male === undefined || counts.female === undefined
+          ? []
+          : [
+              {
+                id: 'male',
+                label: t('stats.male'),
+                value: counts.male,
+                icon: User,
+                tone: 'info',
+              } satisfies StatFilterItem,
+              {
+                id: 'female',
+                label: t('stats.female'),
+                value: counts.female,
+                icon: UserRound,
+                tone: 'brand',
+              } satisfies StatFilterItem,
+            ]),
       ]
     : [];
-  const selectedCount = blockedCard ? 'blocked' : 'all';
+  const genderCard =
+    filters.gender === 'male' || filters.gender === 'female' ? filters.gender : null;
+  const selectedCount = blockedCard ? 'blocked' : (genderCard ?? 'all');
+  // one card is chosen at a time: a gender card clears the blocked card and the other way round
   const selectCount = (id: string) =>
-    change({ blocked: id === 'blocked' ? 'true' : blockedCard ? undefined : filters.blocked });
+    change({
+      blocked: id === 'blocked' ? 'true' : blockedCard ? undefined : filters.blocked,
+      gender: id === 'male' || id === 'female' ? id : undefined,
+    });
 
   const rows = list.data?.data ?? [];
   const typeLabel = (code: string | null | undefined) =>
@@ -220,6 +260,15 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
             id: 'type',
             label: `${t('filter.type')}: ${typeLabel(filters.type)}`,
             onRemove: () => change({ type: undefined }),
+          },
+        ]
+      : []),
+    ...(genderCard
+      ? [
+          {
+            id: 'gender',
+            label: `${t('filter.gender')}: ${t(`stats.${genderCard}`)}`,
+            onRemove: () => change({ gender: undefined }),
           },
         ]
       : []),

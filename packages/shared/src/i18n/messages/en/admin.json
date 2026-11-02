@@ -344,7 +344,9 @@
       "label": "Beneficiary counts",
       "total": "Total",
       "assisted": "Assisted this year",
-      "blocked": "Blocked"
+      "blocked": "Blocked",
+      "male": "Male",
+      "female": "Female"
     },
     "column": {
       "name": "Name",
@@ -361,7 +363,8 @@
       "blocked_yes": "Blocked",
       "blocked_no": "Not blocked",
       "group_area": "Area",
-      "group_other": "Other"
+      "group_other": "Other",
+      "gender": "Gender"
     },
     "types": {
       "elderly": "Elderly",

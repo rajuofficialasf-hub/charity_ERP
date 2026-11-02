@@ -228,6 +228,36 @@ describe('the beneficiary tab', () => {
     );
   });
 
+  it('counts the men and the women, and a press on one filters the list without narrowing the counts', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, { total: 30, assistedThisYear: 2, blocked: 1, male: 12, female: 18 });
+    const user = userEvent.setup();
+    const { router } = openList();
+    const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
+    expect(await within(counts).findByRole('button', { name: 'পুরুষ 12' })).toBeInTheDocument();
+    await user.click(within(counts).getByRole('button', { name: 'মহিলা 18', pressed: false }));
+    await waitFor(() => expect(router.state.location.search).toBe('?gender=female'));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('gender')).toBe('female'));
+    expect(statUrls.at(-1)?.searchParams.get('gender')).toBeNull();
+    expect(within(counts).getByRole('button', { name: 'মহিলা 18' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // the chosen gender is a filter chip too, and the chip takes it away
+    await user.click(screen.getByRole('button', { name: /লিঙ্গ: মহিলা/ }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+  });
+
+  it('shows no gender counts to a caller who does not see the gender', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, { total: 30, assistedThisYear: 2 });
+    openList();
+    const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
+    expect(await within(counts).findByText('মোট')).toBeInTheDocument();
+    expect(within(counts).queryByText('পুরুষ')).toBeNull();
+    expect(within(counts).queryByText('মহিলা')).toBeNull();
+  });
+
   it('shows the forbidden content to a volunteer', async () => {
     refreshAs({ ...ME, kind: 'volunteer', roles: ['volunteer_general'] });
     serve(fullRow, {});

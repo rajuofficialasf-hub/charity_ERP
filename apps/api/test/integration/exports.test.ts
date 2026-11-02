@@ -580,6 +580,7 @@ describe('what an export keeps to itself', () => {
     expect(outside).not.toContain(project.rows[0]!.name_bn);
     expect(outside).toContain('বছর: 2026');
     expect(outside).toContain('ব্লক করা: হ্যাঁ');
+    expect(await heading(0, null, { gender: 'male' })).toContain('লিঙ্গ: পুরুষ');
     expect(await heading(2, null, { projectId: world.b1.id })).toContain(project.rows[0]!.name_bn);
     expect(await heading(0, world.b1.id, {})).toContain(project.rows[0]!.name_bn);
   });

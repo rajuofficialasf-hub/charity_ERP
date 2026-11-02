@@ -75,6 +75,7 @@
       "q": "Search",
       "year": "Year",
       "type": "Type",
+      "gender": "Gender",
       "state": "State",
       "category": "Category",
       "blocked": "Blocked",

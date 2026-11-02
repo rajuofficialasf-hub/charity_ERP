@@ -137,7 +137,12 @@ export async function beneficiary(
   loc: Awaited<ReturnType<typeof locationTree>>,
   over: Record<string, unknown> = {},
 ) {
-  await referenceCode(db, 'gender', 'female');
+  // the gender list holds whichever gender the test gives the person
+  await referenceCode(
+    db,
+    'gender',
+    typeof over.gender_code === 'string' ? over.gender_code : 'female',
+  );
   return insert(db, 'beneficiaries', {
     id: randomUUID(),
     nid: fakeNid(),

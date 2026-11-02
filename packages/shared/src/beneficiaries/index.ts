@@ -20,6 +20,11 @@ export const beneficiaryFilterSchema = z.strictObject({
     .string()
     .regex(/^[a-z][a-z0-9_]{0,49}$/)
     .optional(),
+  /** The gender (a code of the gender reference list, e.g. male, female). */
+  gender: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,49}$/)
+    .optional(),
   projectId: z.uuid().optional(),
   year: z.coerce.number().int().min(2000).max(2100).optional(),
   blocked: z.enum(['true', 'false']).optional(),
@@ -50,4 +55,7 @@ export interface BeneficiaryStatistics {
   total: number;
   assistedThisYear: number;
   blocked?: number;
+  /** The men and the women; only for callers who see the gender. */
+  male?: number;
+  female?: number;
 }
