@@ -93,13 +93,14 @@ export function NotificationTemplatesPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader title={t('title')} description={t('intro')} />
+      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('intro')} />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
       <Table
+        layout="panel"
         label={t('table')}
         columns={columns}
         rows={list.data ?? []}

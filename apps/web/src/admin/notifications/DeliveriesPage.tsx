@@ -117,8 +117,9 @@ export function DeliveriesPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader title={t('title')} description={t('intro')} />
+      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('intro')} />
       <Table
+        layout="panel"
         label={t('table')}
         columns={columns}
         rows={rows}

@@ -15,7 +15,7 @@ import {
   PageHeader,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Scale, Undo2 } from 'lucide-react';
+import { History, Plus, Scale, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -107,8 +107,14 @@ export function NisabPage() {
     <>
       <DocumentTitle title={t('title')} />
       <PageHeader
+        eyebrow={t('eyebrow')}
         title={t('title')}
-        actions={<Button onPress={() => setAdding(true)}>{t('new')}</Button>}
+        description={t('description')}
+        actions={
+          <Button icon={Plus} onPress={() => setAdding(true)}>
+            {t('new')}
+          </Button>
+        }
       />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
@@ -116,12 +122,17 @@ export function NisabPage() {
         </Alert>
       )}
       {current ? (
-        <StatCard
-          label={t('in_force')}
-          prefix={TAKA_SIGN}
-          value={Number(current.value)}
-          delta={t('since', { date: formatDate(current.effectiveFrom) })}
-        />
+        <section aria-label={t('stats.label')} className="admin-stats">
+          <StatCard
+            label={t('in_force')}
+            prefix={TAKA_SIGN}
+            value={Number(current.value)}
+            icon={Scale}
+            tone="warning"
+            context={t('since', { date: formatDate(current.effectiveFrom) })}
+          />
+          <StatCard label={t('stats.versions')} value={rows.length} icon={History} tone="info" />
+        </section>
       ) : (
         !list.isPending && (
           <Card>
@@ -130,6 +141,7 @@ export function NisabPage() {
         )
       )}
       <Table
+        layout="panel"
         label={t('table')}
         columns={columns}
         rows={rows}
@@ -161,6 +173,9 @@ export function NisabPage() {
           </div>
         )}
       />
+      <Card accent title={t('history.title')} headingLevel={2}>
+        <Text tone="muted">{t('history.body')}</Text>
+      </Card>
       {adding && (
         <NisabDialog
           latest={latestLive}

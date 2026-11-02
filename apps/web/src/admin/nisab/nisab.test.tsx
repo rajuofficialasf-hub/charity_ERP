@@ -106,7 +106,15 @@ describe('the nisab page', () => {
     serve();
     const { container } = open();
     const table = await screen.findByRole('grid', { name: 'নিসাবের ভার্সন' });
-    expect(screen.getByText('আজ কার্যকর নিসাব')).toBeInTheDocument();
+    expect(screen.getByText('নীতিমালা ও সীমা')).toBeInTheDocument();
+    const counts = within(screen.getByRole('region', { name: 'নিসাবের হিসাব' }));
+    expect(counts.getByText('আজ কার্যকর নিসাব')).toBeInTheDocument();
+    expect(counts.getByText('সংরক্ষিত ভার্সন').closest('.ui-card')).toHaveTextContent(
+      String(within(table).getAllByRole('row').length - 1),
+    );
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'পরিবর্তনের ইতিহাস' }),
+    ).toBeInTheDocument();
     const [d, m, y] = [day(-10).slice(8), day(-10).slice(5, 7), day(-10).slice(0, 4)];
     expect(within(table).getByText(`${d}-${m}-${y}`)).toBeInTheDocument();
     expect(within(table).getByText('কার্যকর')).toBeInTheDocument();

@@ -81,12 +81,7 @@
 .admin-pre-line {
   white-space: pre-line;
 }
-/* The facts of the system health card, below its checks. */
-.admin-health-facts {
-  margin-top: var(--space-4);
-}
-
-/* The counts above a nationwide tab: two cards a row on a phone, more as the width allows. */
+/* The counts above a list: two cards a row on a phone, four from 1024 px. */
 .admin-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -444,6 +439,70 @@
   font-weight: var(--font-weight-bold);
 }
 .admin-step-hint {
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+}
+
+/* the health of each service as a tile: its name, an icon and its state in large text */
+.admin-health-checks {
+  padding: 0;
+  list-style: none;
+}
+.admin-health-tile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  box-shadow: var(--elevation-1);
+}
+.admin-health-label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+}
+.admin-health-value {
+  grid-column: 1 / -1;
+  font-size: var(--text-display);
+  font-weight: var(--font-weight-bold);
+}
+.admin-health-value.is-down {
+  color: var(--color-status-danger);
+}
+.admin-health-note {
+  grid-column: 1 / -1;
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+}
+
+/* the storage added per month as thin bars on one baseline; an empty month keeps a stub */
+.admin-month-bars {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 2px;
+  align-items: end;
+  block-size: 7rem;
+  margin: var(--space-3) 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-month-bars > li {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  justify-items: center;
+  block-size: 100%;
+}
+.admin-month-bar {
+  align-self: end;
+  inline-size: min(100%, 1.5rem);
+  block-size: max(2px, var(--bar));
+  border-radius: 4px 4px 0 0;
+  background: var(--color-brand-primary);
+}
+.admin-month-name {
+  margin-top: var(--space-1);
   color: var(--color-text-secondary);
   font-size: var(--text-caption);
 }

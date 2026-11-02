@@ -105,6 +105,7 @@ describe('NotificationTemplatesPage', () => {
     const { container } = renderApp(<NotificationTemplatesPage />, 'en');
     expect((await screen.findAllByText('handover_items_assigned')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Email, version 2').length).toBeGreaterThan(0);
+    expect(screen.getByText('Messages')).toBeInTheDocument();
     await expectNoAxeViolations(container);
 
     await user.click(screen.getAllByRole('button', { name: 'Edit handover_items_assigned' })[0]!);
@@ -188,6 +189,7 @@ describe('DeliveriesPage', () => {
     );
     const { container } = renderApp(<DeliveriesPage />, 'en', { path: '/admin/deliveries' });
     expect(await screen.findAllByText('r***@example.org')).not.toHaveLength(0);
+    expect(screen.getByText('Delivery audit')).toBeInTheDocument();
     expect(screen.getAllByText('Failed').length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);
     await user.click(screen.getByRole('button', { name: 'Failed', pressed: false }));

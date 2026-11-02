@@ -71,7 +71,7 @@ export function SettingsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader title={t('title')} />
+      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('description')} />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}

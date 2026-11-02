@@ -66,6 +66,8 @@ describe('the audit viewer', () => {
     const table = await screen.findByRole('grid', { name: 'অডিট লগের এন্ট্রি' });
     expect(within(table).getAllByText('settings.change').length).toBeGreaterThan(0);
     expect(screen.getByText('সময়সীমা: 17-09-2026 থেকে 17-10-2026')).toBeInTheDocument();
+    expect(screen.getByText('জবাবদিহি')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'শুধু পড়ার জন্য' })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
