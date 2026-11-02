@@ -10,6 +10,14 @@ import { PermissionVersionService } from './auth/permission-version.service';
 import { SESSION_RULES, SessionService } from './auth/session.service';
 import { TokenService } from './auth/token.service';
 import type { Env } from './config/env';
+import { ExportQuestions } from './exports/questions';
+import { ExportRows } from './exports/rows';
+import { PdfRenderer } from './exports/pdf/renderer';
+import { ExportRecords } from './exports/records';
+import { ExportsService } from './exports/service';
+import { ExportRunner } from './jobs/export-run';
+import { ExportSweep } from './jobs/export-sweep';
+import { ExportEvents } from './notifications/export-events';
 import { type Clock, systemClock } from './core/clock';
 import { REDACT_PATHS } from './core/logging';
 import { PrismaService } from './core/prisma.service';
@@ -167,6 +175,14 @@ export interface Container {
   workflow: WorkflowEngine;
   scoring: ScoringService;
   applications: ApplicationsService;
+  exportRows: ExportRows;
+  exportQuestions: ExportQuestions;
+  pdf: PdfRenderer;
+  exports: ExportsService;
+  exportRecords: ExportRecords;
+  exportRunner: ExportRunner;
+  exportEvents: ExportEvents;
+  exportSweep: ExportSweep;
   bulkReview: BulkReviewService;
   waitlist: WaitlistService;
   unlocks: UnlocksService;
@@ -563,6 +579,18 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     fileProcessor:
       o.fileProcessor ?? new FileProcessor(prisma, storage, createScanner(env), logger),
   };
+  // an export reads exactly the rows its list shows, through the lists' own filters
+  const exportRows =
+    o.exportRows ??
+    new ExportRows(prisma, clock, access, built.volunteerList, built.beneficiaries, applications);
+  const exportQuestions = o.exportQuestions ?? new ExportQuestions(prisma);
+  // one browser per process, started on the first PDF
+  const pdf = o.pdf ?? new PdfRenderer({ logger });
+  // a record's PDF reads the record through the same services as its page
+  const exportRecords =
+    o.exportRecords ??
+    new ExportRecords(prisma, access, exportRows, built.beneficiaries, applications);
+  const exportEvents = o.exportEvents ?? new ExportEvents(notifications);
   return {
     ...built,
     // the transfer assigns the new volunteer through the assignments above
@@ -591,11 +619,31 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         built.projects,
         built.unlocks,
       ),
+    exportRows,
+    exportQuestions,
+    pdf,
+    exportRecords,
+    exports:
+      o.exports ??
+      new ExportsService(prisma, audit, jobs, clock, exportRows, exportQuestions, exportRecords),
+    exportEvents,
+    exportRunner:
+      o.exportRunner ??
+      new ExportRunner(prisma, storage, clock, exportRows, exportQuestions, pdf, {
+        logger,
+        events: exportEvents,
+      }),
+    exportSweep: o.exportSweep ?? new ExportSweep(prisma, storage, clock, logger, exportEvents),
   };
 }
 
 /** Closes what the container opened (Prisma, pg-boss); used by server.ts and the tests. */
 export async function closeContainer(c: Container): Promise<void> {
-  await c.jobs.stop();
-  await c.prisma.$disconnect();
+  try {
+    await c.jobs.stop();
+    // a browser that will not close never keeps the database connections open
+    await c.pdf.close().catch((error: unknown) => c.logger.error({ err: error }, 'pdf browser'));
+  } finally {
+    await c.prisma.$disconnect();
+  }
 }

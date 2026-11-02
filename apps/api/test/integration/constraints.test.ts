@@ -1510,3 +1510,131 @@ describe('the media referrals and works', () => {
     }
   });
 });
+
+describe('export jobs', () => {
+  /** A job row of the given shape, by a fresh official. */
+  const job = async (over: Record<string, unknown> = {}) => {
+    const requester = await f.user(db);
+    const row = {
+      id: randomUUID(),
+      requested_by: requester,
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name', 'mobile'],
+      access: JSON.stringify({ actorId: requester, classes: ['beneficiary.contact'] }),
+      ...over,
+    };
+    const keys = Object.keys(row);
+    return db.query(
+      `INSERT INTO export_jobs (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`,
+      Object.values(row),
+    );
+  };
+
+  it('keeps the chosen columns and the access the request froze', async () => {
+    const { rows } = await job();
+    expect(rows[0]).toMatchObject({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name', 'mobile'],
+      rows_done: 0,
+      rows_total: null,
+      error_code: null,
+      finished_at: null,
+    });
+    expect(rows[0].access).toMatchObject({ classes: ['beneficiary.contact'] });
+  });
+
+  it('takes the three lists and the two records as kinds, and the three formats', async () => {
+    for (const kind of [
+      'volunteers',
+      'beneficiaries',
+      'applications',
+      'beneficiary_profile',
+      'application',
+    ])
+      await job({ kind });
+    for (const format of ['csv', 'xlsx', 'pdf']) await job({ format });
+    await expectSqlError(
+      job({ kind: 'donors' }),
+      SQLSTATE.checkViolation,
+      /export_jobs_kind_check/,
+    );
+    await expectSqlError(
+      job({ format: 'docx' }),
+      SQLSTATE.checkViolation,
+      /export_jobs_format_check/,
+    );
+  });
+
+  it('needs the chosen columns of a list, but none for a record printed whole', async () => {
+    await expectSqlError(
+      job({ kind: 'volunteers', columns: [] }),
+      SQLSTATE.checkViolation,
+      /export_jobs_columns_check/,
+    );
+    const { rows } = await job({ kind: 'beneficiary_profile', columns: [] });
+    expect(rows[0].columns).toEqual([]);
+  });
+
+  it('refuses a job written without its format, columns or frozen access', async () => {
+    for (const missing of ['format', 'columns', 'access']) {
+      const requester = await f.user(db);
+      const row: Record<string, unknown> = {
+        id: randomUUID(),
+        requested_by: requester,
+        kind: 'beneficiaries',
+        format: 'csv',
+        columns: ['name'],
+        access: '{}',
+      };
+      delete row[missing];
+      const keys = Object.keys(row);
+      await expectSqlError(
+        db.query(
+          `INSERT INTO export_jobs (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')})`,
+          Object.values(row),
+        ),
+        SQLSTATE.notNullViolation,
+        new RegExp(`"${missing}"`),
+      );
+    }
+  });
+
+  it('refuses a negative progress, a finished job without its file, and a failed one without its reason', async () => {
+    await expectSqlError(
+      job({ rows_done: -1 }),
+      SQLSTATE.checkViolation,
+      /export_jobs_progress_check/,
+    );
+    await expectSqlError(
+      job({ rows_total: -1 }),
+      SQLSTATE.checkViolation,
+      /export_jobs_progress_check/,
+    );
+    await expectSqlError(
+      job({ status: 'done' }),
+      SQLSTATE.checkViolation,
+      /export_jobs_done_file_check/,
+    );
+    await expectSqlError(
+      job({ status: 'failed' }),
+      SQLSTATE.checkViolation,
+      /export_jobs_failed_reason_check/,
+    );
+    const failed = await job({ status: 'failed', error_code: 'export.timed_out' });
+    expect(failed.rows[0].status).toBe('failed');
+  });
+
+  it('keeps a finished job with its file', async () => {
+    const owner = await f.user(db);
+    const fileId = randomUUID();
+    await db.query(
+      `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, uploaded_by, source, virus_scan)
+       VALUES ($1, 'exports', $2, 'export', 'text/csv', 12, $3, $4, 'system', 'clean')`,
+      [fileId, `2026/11/${fileId}/list.csv`, 'a'.repeat(64), owner],
+    );
+    const { rows } = await job({ status: 'done', file_id: fileId, rows_total: 3, rows_done: 3 });
+    expect(rows[0]).toMatchObject({ status: 'done', file_id: fileId, rows_done: 3 });
+  });
+});

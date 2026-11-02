@@ -760,6 +760,35 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
       },
     ),
   },
+  // ---- exports: the requester alone hears about their own file ----
+  {
+    key: 'export_ready',
+    variables: ['list_name'],
+    channels: inApp(
+      {
+        title: 'এক্সপোর্ট তৈরি',
+        body: '"{{list_name}}" এক্সপোর্ট তৈরি হয়েছে। "আমার এক্সপোর্ট" থেকে নামিয়ে নিন। ফাইলটি 30 দিন থাকবে।',
+      },
+      {
+        title: 'Export ready',
+        body: 'The "{{list_name}}" export is ready. Download it from "My exports". The file is kept for 30 days.',
+      },
+    ),
+  },
+  {
+    key: 'export_failed',
+    variables: ['list_name'],
+    channels: inApp(
+      {
+        title: 'এক্সপোর্ট হয়নি',
+        body: '"{{list_name}}" এক্সপোর্ট তৈরি করা যায়নি। "আমার এক্সপোর্ট" থেকে কারণ দেখে আবার চেষ্টা করুন।',
+      },
+      {
+        title: 'Export failed',
+        body: 'The "{{list_name}}" export could not be made. See why in "My exports" and try again.',
+      },
+    ),
+  },
 ];
 
 /** Variables that name a person; an in-app text never uses them (only emails to officials may). */
@@ -803,6 +832,7 @@ export const TEMPLATE_SAMPLES: Record<string, string | number | { bn: string; en
   result: { bn: 'সম্মতি দিয়েছেন', en: 'accepted' },
   new_date: '31-12-2026',
   work_title: 'সেলাই মেশিনে ঘুরে দাঁড়ানো',
+  list_name: { bn: 'উপকারভোগীর তালিকা', en: 'Beneficiary list' },
 };
 
 /** A {{name}} placeholder; the renderer and the editor's check read the same pattern. */
@@ -836,6 +866,8 @@ export const IN_APP_PARAMS: readonly string[] = [
   'applicationId',
   'work_title',
   'referralId',
+  'list_name',
+  'jobId',
 ];
 
 export function inAppParams<T>(params: Record<string, T>): Record<string, T> {

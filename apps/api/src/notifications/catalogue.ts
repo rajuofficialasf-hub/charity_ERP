@@ -62,6 +62,8 @@ export const NOTIFICATION_CATALOGUE: Readonly<Record<string, CatalogueEntry>> = 
   media_member_added: entry('work'),
   media_review_waiting: entry('work'),
   media_published: entry('info'),
+  export_ready: entry('info'),
+  export_failed: entry('info'),
   ops_alert: { ...entry('alert'), countsEvents: true },
 };
 

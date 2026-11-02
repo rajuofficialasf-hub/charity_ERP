@@ -216,7 +216,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 | audit_log | id; actor user_id and role; action; entity_type; entity_id; old (JSONB); new (JSONB); reason; ip; device_session_id; client_uuid; at | append-only; no update or delete | B2; B8; BR-177…179 |
 | sync_batches | id; user_id; device_session_id; idempotency_key (unique); received_at; record_count; results (JSONB) | device_sessions 1 — n | OFFLINE_SYNC §4; BR-194 |
 | alerts | id; kind; severity; project_id; subject_type; subject_id; status open/acknowledged/resolved; details (JSONB); raised_at; resolved_at | projects 1 — n | BD-42; BR-173 (addition) |
-| export_jobs | id; requested_by; kind; filters (JSONB); sensitive; status; file_id; row_count; created_at | users 1 — n; files 1 — 0..1 | NFR-10; BR-224 (addition) |
+| export_jobs | id; requested_by; kind (three lists, two records); format; columns; filters (JSONB); access (JSONB, frozen at the request, D-143); sensitive; status; rows_done, rows_total; error_code; file_id; row_count; created_at, finished_at | users 1 — n; files 1 — 0..1 | NFR-10; BR-224 (addition) |
 | storage_stats | id; captured_at; bucket; project_id (nullable); bytes; objects; database_bytes | — | BD-46; BR-208 (addition) |
 | id_sequences | scope_key (`app:<project id>`); last_value | — (counter per project for `applications.app_no`) | O-03; technical table added in T0.16 (DATABASE_SCHEMA.md §4) |
 

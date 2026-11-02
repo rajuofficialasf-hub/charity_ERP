@@ -14,6 +14,12 @@ const ROLES: { role: string; loginId: string; page: string; api: string }[] = [
   {
     role: 'a General Volunteer',
     loginId: '01700000103',
+    page: '/admin/beneficiaries',
+    api: '/exports/columns?list=beneficiaries',
+  },
+  {
+    role: 'a General Volunteer',
+    loginId: '01700000103',
     page: '/admin/permissions',
     api: '/users',
   },

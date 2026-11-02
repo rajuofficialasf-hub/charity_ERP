@@ -181,6 +181,8 @@ test.describe('accessibility of the Phase 1 screens', () => {
         '/admin/permissions',
         // the Media Team's home; its work page is checked by the media journey
         '/media',
+        // the person's own exports
+        '/account/exports',
       ])
         await sweep(page, path, lang);
       const media = await (await apiAs(request, HEAD)).get('/users?q=media%40example.org');
@@ -192,6 +194,13 @@ test.describe('accessibility of the Phase 1 screens', () => {
         await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
         await sweep(page, await firstRecord(page, list), lang);
       }
+      // the export dialog of a list, with its columns loaded
+      await page.goto('/admin/beneficiaries');
+      await page
+        .getByRole('button', { name: lang === 'bn' ? 'এক্সপোর্ট' : 'Export', exact: true })
+        .click();
+      await expect(page.getByRole('dialog').getByRole('checkbox').first()).toBeVisible();
+      expect((await scan(page)).violations, `the export dialog (${lang})`).toEqual([]);
       // the project's forms and the builder of its form (the open public form is checked by the
       // form builder's journey, whose project takes applications today)
       const forms = await (await apiAs(request, HEAD)).get(`/projects/${projectId}/forms`);

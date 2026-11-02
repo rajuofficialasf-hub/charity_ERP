@@ -1748,16 +1748,23 @@ Constraints: partial UNIQUE (kind, subject_type, subject_id) WHERE status <> 're
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | requested_by | uuid | no | — | FK users |
-| kind | text | no | — | export type |
+| kind | text | no | — | volunteers, beneficiaries, applications (a list), beneficiary_profile, application (one record, its id in `filters`) (D-143) |
 | locale | text | no | 'bn' | L-locale; the requester's language at request time, reused on retry (I18N.md §5, O-44) |
-| filters | jsonb | no | '{}' | — |
+| filters | jsonb | no | '{}' | the list's filters and sort, or the record's id |
 | sensitive | boolean | no | false | audited when true |
-| status | text | no | 'queued' | L-job-status |
-| file_id | uuid | yes | — | FK files |
-| row_count | integer | yes | — | — |
+| status | text | no | 'queued' | L-job-status; `done` needs `file_id`, `failed` needs `error_code` |
+| file_id | uuid | yes | — | FK files (kind `export`, bucket `exports`) |
+| row_count | integer | yes | — | rows counted at the request |
+| format | text | no | — | csv, xlsx, pdf |
+| columns | text[] | no | — | the column ids the person chose, in the file's order; at least one for a list, empty for a record's PDF |
+| access | jsonb | no | — | the scope instances and field classes frozen at the request; the job never reads live access (D-143) |
+| rows_done | integer | no | 0 | progress, ≥ 0 |
+| rows_total | integer | yes | — | the rows the job will write, ≥ 0 |
+| error_code | text | yes | — | why a job failed (`export.timed_out` for a job the sweep stopped) |
+| finished_at | timestamptz | yes | — | when the job ended, done or failed |
 | [A] | | | | |
 
-Index: (requested_by, created_at desc).
+Index: (requested_by, created_at desc); (status, created_at) for the daily sweep of stuck jobs and expired files.
 
 ### storage_stats
 | Column | Type | Null | Default | Comment |

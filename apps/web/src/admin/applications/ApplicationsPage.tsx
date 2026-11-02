@@ -41,10 +41,12 @@ import {
   type ApplicationSummary,
   type BulkRowResult,
   bulkReview,
+  applicationListFilters,
   FILTER_KEYS,
 } from './applications-api';
 import { QuotaBars } from './QuotaBars';
 import './applications.css';
+import { ExportButton } from '../../features/exports/ExportButton';
 
 /** The states the status filter offers, in the order of the cycle. */
 const STATES = [
@@ -283,6 +285,11 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       <QuotaBars
         projectId={projectId}
         area={{ unionId: filters.unionId, districtId: filters.districtId }}
+      />
+      <ExportButton
+        list="applications"
+        projectId={projectId}
+        filters={{ ...applicationListFilters(filters), q }}
       />
       <Table
         layout="panel"

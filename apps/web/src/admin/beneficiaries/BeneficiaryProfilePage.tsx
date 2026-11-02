@@ -52,7 +52,7 @@ import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { telLink } from '../contact-links';
 import { BlocklistAction } from '../registrations/Blocklist';
-import { canSeeBeneficiaries } from '../roles';
+import { canPrintProfile, canSeeBeneficiaries } from '../roles';
 import { useHandedNotice } from '../use-handed-notice';
 import {
   BENEFICIARIES_KEY,
@@ -67,6 +67,7 @@ import { CorrectionDialog } from './CorrectionDialog';
 import { RevertMergeAction } from './duplicates/RevertMergeAction';
 import { ContactLog, Corrections, useFileKind } from './ProfileHistory';
 import { MediaWorksSection } from '../../features/media/MediaWorksSection';
+import { RecordPdfButton } from '../../features/exports/RecordPdfButton';
 
 /**
  * The 360° profile of one beneficiary in the one profile layout: the header card with the key facts,
@@ -124,6 +125,8 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
   const tf = useTranslations('registration');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
+  const { me } = useAuth();
+  const printable = !!me && canPrintProfile(me);
   const fileKind = useFileKind();
   const [dialog, setDialog] = useState<'contact' | 'correction' | null>(null);
   const { notice, setNotice, dismiss: dismissNotice } = useHandedNotice();
@@ -205,6 +208,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
 
   const actions = (
     <>
+      <RecordPdfButton kind="beneficiary_profile" id={p.id} />
       {a.editContact && (
         <Button variant="secondary" icon={PencilLine} onPress={() => setDialog('contact')}>
           {tp('edit_contact')}
@@ -226,7 +230,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
       )}
     </>
   );
-  const hasActions = a.editContact || a.requestCorrection || a.block || a.unblock;
+  const hasActions = printable || a.editContact || a.requestCorrection || a.block || a.unblock;
   const showCorrections = p.corrections.length > 0 || a.requestCorrection || a.decideCorrection;
 
   return (

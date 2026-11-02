@@ -64,7 +64,8 @@ const beneficiaryStatistics = z.object({
 });
 
 const at = () => z.iso.datetime({ offset: true });
-const beneficiaryProfile = z.object({
+/** The 360° profile, also read by its PDF through the same mask. */
+export const beneficiaryProfile = z.object({
   id: z.uuid(),
   benNo: benNo(),
   mergedInto: z.object({ id: z.uuid(), benNo: benNo() }).nullable(),

@@ -7,8 +7,9 @@ import { checkDestructiveDbAccess } from '../src/config/db-guard';
 
 // The API for Playwright (T1.7): recreates the css_erp_test_e2e database, migrates it, installs
 // the job schema, loads the base and demo seed (docs/testing/DEMO_ACCOUNTS.md) and starts the built
-// API on port 4100 with the dummy OTP. Development and test only: the database guard refuses
-// anything but css_erp_test* and NODE_ENV=production. The values below are E2E-only placeholders.
+// API on port 4100 with the dummy OTP, and a worker for the export jobs alone. Development and test
+// only: the database guard refuses anything but css_erp_test* and NODE_ENV=production. The values
+// below are E2E-only placeholders.
 const DATABASE_URL =
   process.env.E2E_DATABASE_URL ?? 'postgresql://css:css_dev_only@127.0.0.1:5433/css_erp_test_e2e';
 const PORT = process.env.E2E_API_PORT ?? '4100';
@@ -74,10 +75,29 @@ async function main(): Promise<void> {
   run('pnpm', ['run', 'jobs:install'], env);
   run('pnpm', ['run', 'db:seed', '--set', 'all'], env);
   const api = spawn(process.execPath, ['dist/server.js'], { cwd: root, env, stdio: 'inherit' });
-  const stop = () => api.kill('SIGTERM');
+  // the export journeys need their jobs run; nothing else of the run consumes a queue
+  const exportWorker = spawn(
+    process.execPath,
+    ['--import', 'tsx', '--conditions=@css/source', 'scripts/e2e-export-worker.ts'],
+    { cwd: root, env, stdio: 'inherit' },
+  );
+  const stop = () => {
+    exportWorker.kill('SIGTERM');
+    api.kill('SIGTERM');
+  };
+  // a worker that dies stops the run at once rather than leaving the export journeys to time out
+  exportWorker.on('exit', (code) => {
+    if (code) {
+      api.kill('SIGTERM');
+      process.exit(code);
+    }
+  });
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
-  api.on('exit', (code) => process.exit(code ?? 0));
+  api.on('exit', (code) => {
+    exportWorker.kill('SIGTERM');
+    process.exit(code ?? 0);
+  });
 }
 
 void main().catch((error: unknown) => {

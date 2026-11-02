@@ -3061,6 +3061,16 @@ model ExportJob {
   status         String   @default("queued")
   fileId         String?  @map("file_id") @db.Uuid
   rowCount       Int?     @map("row_count")
+  /// csv, xlsx or pdf
+  format         String
+  /// the column ids the person chose, in the file's order; empty only for a record's PDF
+  columns        String[]
+  /// the scope instances and field classes the request froze; the job never reads live access
+  access         Json
+  rowsDone       Int      @default(0) @map("rows_done")
+  rowsTotal      Int?     @map("rows_total")
+  errorCode      String?  @map("error_code")
+  finishedAt     DateTime? @map("finished_at") @db.Timestamptz(6)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy      String?  @map("created_by") @db.Uuid
   updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -3071,6 +3081,7 @@ model ExportJob {
   updatedByRef   User?    @relation("export_jobs_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([requestedBy, createdAt(sort: Desc)], map: "export_jobs_requested_by_created_at_idx")
+  @@index([status, createdAt], map: "export_jobs_status_created_at_idx")
   @@index([fileId], map: "export_jobs_file_id_idx")
   @@index([createdBy], map: "export_jobs_created_by_idx")
   @@index([updatedBy], map: "export_jobs_updated_by_idx")

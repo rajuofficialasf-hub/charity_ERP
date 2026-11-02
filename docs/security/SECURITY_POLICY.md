@@ -76,7 +76,8 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 - No query is built by string concatenation; Prisma or bound parameters only.
 - React escapes output; `dangerouslySetInnerHTML` is forbidden except for story text rendered after server-side sanitization with an allow-list of tags.
 - Uploaded file names are kept as metadata only; storage keys are generated (FILES_AND_DOCUMENTS), so a name can never become a path.
-- CSV exports neutralize cells starting with `=`, `+`, `-` or `@` to prevent formula injection in spreadsheets.
+- CSV exports neutralize free-text cells starting with `=`, `+`, `-`, `@`, a tab or a return with a leading apostrophe to prevent formula injection; Excel exports write every text as a plain text cell, never a formula or a link (T2.8).
+- PDF exports are printed from server-built HTML with every value escaped by a sandboxed headless Chromium (never `--no-sandbox`, never as root), with JavaScript off, a page CSP that loads nothing, and every request refused; a host that cannot give the sandbox keeps PDFs off with `export.pdf_unavailable` while Excel and CSV keep working (D-143). The worker host opens unprivileged user namespaces to Chromium alone through the AppArmor profile `infra/apparmor/css-erp-chromium`, not host-wide (D-144).
 
 ## 7. Web and transport security
 

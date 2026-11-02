@@ -12,6 +12,7 @@ import type { Prisma } from '../generated/prisma/client';
 import type { PageMeta } from '../http/send';
 import { NEAR_DUPLICATE_BITS } from '../files/images-process';
 import { loadUploadRecord, scopeReachesRecord } from '../files/records';
+import { type ExportDownload, exportDownload, exportFileName } from '../exports/download';
 import { ApiError } from '../i18n/api-error';
 import { knownBucket, NotFoundError, type StorageDriver } from '../storage';
 
@@ -164,6 +165,9 @@ export class FilesService {
     res: Response,
     variant?: FileVariant,
   ): Promise<void> {
+    // an export file is its job's: its own checks, an expiry answered as 410, and a download name
+    const exported = await exportDownload(this.prisma, this.access, principal, fileId);
+    if (exported) return this.streamExport(exported, res, variant);
     const file = await this.findFile(fileId);
     const owner = await this.viewer(principal, file);
     this.refuseQuarantined(file);
@@ -203,6 +207,40 @@ export class FilesService {
     res.setHeader('Content-Type', type);
     res.setHeader('Content-Length', String(size));
     res.setHeader('Content-Disposition', disposition(type, file.id));
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    await pipeline(body, res);
+  }
+
+  /** An export file to its requester, as an attachment; a sensitive one's download is audited. */
+  private async streamExport(
+    exported: ExportDownload,
+    res: Response,
+    variant: FileVariant | undefined,
+  ): Promise<void> {
+    if (variant) throw new ApiError('permission.not_found', 404);
+    const { file, job } = exported;
+    let body;
+    try {
+      body = await this.storage.get(knownBucket(file.bucket), file.objectKey);
+    } catch (error) {
+      if (error instanceof NotFoundError) throw new ApiError('permission.not_found', 404);
+      throw error;
+    }
+    // the trace of a download that is about to happen, never of one that could not
+    if (job.sensitive)
+      await this.prisma.$transaction((tx) =>
+        this.audit.record(tx, {
+          action: 'file.download_sensitive',
+          entityType: 'file',
+          entityId: file.id,
+          new: { jobId: job.id, kind: job.kind, format: job.format, rowCount: job.rowCount },
+        }),
+      );
+    res.status(200);
+    res.setHeader('Content-Type', file.mime);
+    res.setHeader('Content-Length', String(Number(file.sizeBytes)));
+    res.setHeader('Content-Disposition', `attachment; filename="${exportFileName(job)}"`);
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     await pipeline(body, res);
@@ -418,6 +456,11 @@ export class FilesService {
    * registration photo, which the NID audit names.
    */
   private async viewer(principal: Principal, file: StoredFile): Promise<string | null> {
+    // an export file belongs to its job, whose own checks decide who reads it
+    if (file.kind === 'export') {
+      await exportDownload(this.prisma, this.access, principal, file.id);
+      return null;
+    }
     // a photo on an application (a beneficiary's NID photo, say) follows the application, never
     // the registration rule of a volunteer's own photos
     const onApplication =

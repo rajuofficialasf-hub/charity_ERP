@@ -15,6 +15,8 @@ async function main(): Promise<void> {
     mergeCandidates: container.beneficiaryMergeCandidates,
     fileProcessor: container.fileProcessor,
     delivery: container.delivery,
+    exportRunner: container.exportRunner,
+    exportSweep: container.exportSweep,
   }).register();
   logger.info('worker started');
 

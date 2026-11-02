@@ -9,6 +9,8 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { BeneficiariesPage } from './BeneficiariesPage';
 import { BeneficiaryProfilePage } from './BeneficiaryProfilePage';
+import type { MessageKey } from '@css/shared/i18n';
+import { expectOnScreenColumns, serveExports } from '../../../test/msw/exports';
 
 // The beneficiary tab and the 360° shell (SCR-044, SCR-045; DECISION_LOG O-67, D-094): counts,
 // filters in the URL, the limited view of the Media Team and the sections. Test data only.
@@ -123,6 +125,20 @@ afterEach(() => {
 });
 
 describe('the beneficiary tab', () => {
+  it('offers the export, with the table’s own columns ticked first, in its order', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, { total: 2, assistedThisYear: 1, blocked: 0 });
+    serveExports('beneficiaries');
+    const user = userEvent.setup();
+    openList();
+    // the BEN number's column is the page's "ben"
+    await expectOnScreenColumns(
+      user,
+      'beneficiaries',
+      (id) => `admin.beneficiaries.column.${id === 'ben_no' ? 'ben' : id}` as MessageKey,
+    );
+  });
+
   it('shows the counts and the rows, without accessibility violations', async () => {
     refreshAs(HEAD);
     serve(fullRow, { total: 2000000, assistedThisYear: 125000, blocked: 12 });

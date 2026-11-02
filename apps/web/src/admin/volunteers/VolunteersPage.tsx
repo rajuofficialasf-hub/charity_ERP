@@ -62,6 +62,7 @@ import {
 import { useTabView } from '../use-tab-view';
 import { VolunteerSessions } from './VolunteerSessions';
 import { FILTER_KEYS, VOLUNTEERS_KEY, volunteerPage, volunteerStatistics } from './volunteers-api';
+import { ExportButton } from '../../features/exports/ExportButton';
 
 const CATEGORIES = ['A', 'B', 'C', 'D', 'inactive'] as const;
 
@@ -366,6 +367,7 @@ function VolunteerTab({ categories }: { categories: boolean }) {
           loading={stats.isPending}
         />
       )}
+      <ExportButton list="volunteers" filters={{ ...filters, q }} />
       <Table
         layout="panel"
         label={t('table')}

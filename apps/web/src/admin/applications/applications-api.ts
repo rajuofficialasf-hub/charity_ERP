@@ -100,6 +100,15 @@ export type FilterValues = Partial<Record<FilterKey, string>>;
 export const APPLICATIONS_KEY = ['admin', 'applications'] as const;
 export const applicationKey = (id: string) => ['admin', 'applications', id] as const;
 
+/**
+ * The filters the application list's API reads: the division and the upazila only narrow the
+ * address picker on the page, the district and the union filter the rows.
+ */
+export function applicationListFilters(filters: FilterValues): FilterValues {
+  const { divisionId: _division, upazilaId: _upazila, ...sent } = filters;
+  return sent;
+}
+
 export function applicationPage(
   projectId: string,
   filters: FilterValues,
@@ -107,7 +116,7 @@ export function applicationPage(
   page: number,
   cursor: string | null,
 ) {
-  const { divisionId: _division, upazilaId: _upazila, ...sent } = filters;
+  const sent = applicationListFilters(filters);
   return api<{ data: ApplicationSummary[]; meta: PageMeta }>(
     `/projects/${projectId}/applications${listQuery({
       ...sent,

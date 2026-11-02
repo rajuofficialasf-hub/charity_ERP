@@ -25,7 +25,7 @@ import {
   type Scope,
   teamLeadsOf,
 } from '../access/scope';
-import type { AccessService } from '../access/service';
+import type { AccessService, RequestAccess } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { Env } from '../config/env';
@@ -834,6 +834,30 @@ export class ApplicationsService {
   }
 
   /**
+   * The query of a project's list as `list` reads it, for an export: the same reach of the
+   * project, the same filter inside the caller's scope and the same order, built with the caller's
+   * access of this moment. A blocked caller's query matches nothing, as the list shows nothing.
+   */
+  async listQuery(
+    viewer: ApplicationViewer,
+    projectId: string,
+    query: ApplicationFilter & { sort?: string },
+    loaded?: RequestAccess,
+  ): Promise<{ where: Prisma.ApplicationWhereInput; byScore: boolean }> {
+    // the caller's access of the same moment as its other checks, when it has it already
+    const access = loaded ?? (await this.access.load(viewer.principal.userId));
+    const projectScope = await this.access.scopeFor(
+      viewer.principal,
+      access,
+      'application.view',
+      'project',
+    );
+    await this.reachedProject(viewer.principal, projectScope, projectId);
+    const byScore = this.byScore(viewer, query.sort);
+    return { where: await this.listFilter(viewer, { projectId }, query), byScore };
+  }
+
+  /**
    * The caller's own applications across their projects (a volunteer's "my applications"): the
    * ones their volunteer owns and the ones they created while the owner is still their team lead
    * there, whatever else their scope reaches.
@@ -915,15 +939,9 @@ export class ApplicationsService {
       : undefined;
     const direction = cursor?.d ?? 'next';
     const offset = pageOffset(query);
-    if (byScore && this.audienceOf(viewer) !== 'official')
-      throw new ApiError('validation.failed', 422, undefined, [
-        { path: 'sort', code: 'validation.option_unknown' },
-      ]);
+    this.byScore(viewer, query.sort);
     const sort = byScore ? SCORE_SORT : parseSort(query.sort, LIST_SORT_FIELDS, DEFAULT_SORT);
-    const blocked = await this.blockedCaller(this.prisma, viewer.principal);
-    const filter: Prisma.ApplicationWhereInput = blocked
-      ? { id: { in: [] } }
-      : { AND: [base, applicationWhere(viewer.scope), this.filterOf(query)] };
+    const filter = await this.listFilter(viewer, base, query);
     const now = this.clock.now();
     const { fetched, total } = await boundedRead(this.prisma, async (tx) => ({
       fetched: await tx.application.findMany({
@@ -950,6 +968,26 @@ export class ApplicationsService {
       },
     );
     return { rows, meta };
+  }
+
+  /** Whether a list is read in the score order; that order is the office's alone. */
+  private byScore(viewer: ApplicationViewer, sort: string | undefined): boolean {
+    const byScore = sort === '-score';
+    if (byScore && this.audienceOf(viewer) !== 'official')
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'sort', code: 'validation.option_unknown' },
+      ]);
+    return byScore;
+  }
+
+  /** The rows of a list: the base, inside the caller's scope, filtered; none for a blocked caller. */
+  private async listFilter(
+    viewer: ApplicationViewer,
+    base: Prisma.ApplicationWhereInput,
+    query: ApplicationFilter,
+  ): Promise<Prisma.ApplicationWhereInput> {
+    if (await this.blockedCaller(this.prisma, viewer.principal)) return { id: { in: [] } };
+    return { AND: [base, applicationWhere(viewer.scope), this.filterOf(query)] };
   }
 
   private filterOf(query: ApplicationFilter): Prisma.ApplicationWhereInput {

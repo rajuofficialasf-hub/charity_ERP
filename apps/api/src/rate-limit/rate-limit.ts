@@ -17,7 +17,8 @@ export type RateLimitClass =
   | 'list'
   | 'sync'
   | 'upload'
-  | 'lookup';
+  | 'lookup'
+  | 'export';
 
 export interface RateWindow {
   limit: number;
@@ -148,4 +149,6 @@ export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
     { limit: 60, ttlMs: MINUTE, key: caller, shared: true },
     { limit: 600, ttlMs: DAY, key: caller, shared: true },
   ],
+  // An export reads up to 100,000 rows in the worker: a person starts at most 30 an hour.
+  export: [{ limit: 30, ttlMs: HOUR, key: caller, shared: true }],
 };

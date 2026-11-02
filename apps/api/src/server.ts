@@ -28,6 +28,8 @@ void startInlineConsumers(env, container.jobs, logger, {
   mergeCandidates: container.beneficiaryMergeCandidates,
   fileProcessor: container.fileProcessor,
   delivery: container.delivery,
+  exportRunner: container.exportRunner,
+  exportSweep: container.exportSweep,
 });
 
 const server = createServer(app);

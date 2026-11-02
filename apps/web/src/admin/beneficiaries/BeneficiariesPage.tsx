@@ -52,6 +52,7 @@ import {
   FILTER_KEYS,
 } from './beneficiaries-api';
 import { DUPLICATES_PATH } from './duplicates/merge-api';
+import { ExportButton } from '../../features/exports/ExportButton';
 
 /** The years offered by the year filter: this one and the five before it. */
 const yearsBack = () => {
@@ -270,6 +271,7 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
           loading={stats.isPending}
         />
       )}
+      <ExportButton list="beneficiaries" filters={{ ...filters, q }} />
       <Table
         layout="panel"
         label={t('table')}

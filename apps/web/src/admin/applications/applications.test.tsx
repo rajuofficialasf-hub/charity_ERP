@@ -10,6 +10,8 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { ApplicationReviewPage } from './ApplicationReviewPage';
 import { ApplicationsPage } from './ApplicationsPage';
+import type { MessageKey } from '@css/shared/i18n';
+import { expectOnScreenColumns, serveExports, tickedColumns } from '../../../test/msw/exports';
 
 // The office's application screens: the list with its filters in the address and the bulk
 // actions, and the review page with the signals, the answers, the steps with their actors, the
@@ -21,6 +23,7 @@ const VERSION = '01900000-0000-7000-8000-0000000000c2';
 const A1 = '01900000-0000-7000-8000-0000000000e1';
 const A2 = '01900000-0000-7000-8000-0000000000e2';
 const DISTRICT = '01900000-0000-7000-8000-0000000000a2';
+const DIVISION = '01900000-0000-7000-8000-0000000000a1';
 const UNION = '01900000-0000-7000-8000-0000000000a4';
 const form = {
   id: VERSION,
@@ -266,6 +269,46 @@ const openReview = (locale: 'bn' | 'en' = 'bn') =>
   });
 
 describe('the list', () => {
+  it('offers the export, with the table’s own columns ticked first, in its order', async () => {
+    refreshAs(EXECUTIVE);
+    // an official sees the score, so the page shows its column
+    serve([row(A1, { totalScore: 42 })]);
+    const { columnUrls } = serveExports('applications');
+    const user = userEvent.setup();
+    openList();
+    // the application number sits in the person's cell
+    await expectOnScreenColumns(
+      user,
+      'applications',
+      (id) => `applications.office.column.${id === 'app_no' ? 'person' : id}` as MessageKey,
+    );
+    expect(columnUrls[0]?.searchParams.get('projectId')).toBe(PROJECT);
+  });
+
+  it('exports the rows the list shows, with the filters its API reads', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    const { bodies } = serveExports('applications');
+    const user = userEvent.setup();
+    openList(
+      `/admin/projects/${PROJECT}/applications?status=submitted&divisionId=${DIVISION}&districtId=${DISTRICT}`,
+    );
+    await user.click(await screen.findByRole('button', { name: 'এক্সপোর্ট' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(tickedColumns(dialog).length).toBeGreaterThan(0));
+    await user.click(within(dialog).getByRole('button', { name: 'এক্সপোর্ট শুরু করুন' }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    // the division only narrows the page's address picker; the list's API never reads it
+    expect(bodies[0]).toMatchObject({
+      kind: 'applications',
+      projectId: PROJECT,
+      filters: { status: 'submitted', districtId: DISTRICT },
+    });
+    expect((bodies[0] as { filters: Record<string, string> }).filters).not.toHaveProperty(
+      'divisionId',
+    );
+  });
+
   it('keeps the filters in the address, lists the rows and starts the review of the ticked ones in one request', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);

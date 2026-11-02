@@ -116,6 +116,15 @@ In the app only; a notice names the work, the program and the project, never the
 | A work waits for the final review | media director | A | `media_review_waiting` | 2 |
 | A work is published | the referrer | A | `media_published` | 2 |
 
+### 4.8 Exports (T2.8, D-143)
+
+In the app only, to the person who asked for the export; the notice names the list, never a row of it, and leads to "My exports" (`/account/exports`). Published in the transaction that ends the job: `export_failed` only after the last attempt, or when the daily sweep fails a job stuck past 30 minutes (`export.timed_out`).
+
+| Event | Recipients | Channels | Template key | Phase |
+|---|---|---|---|---|
+| An export file is ready | the requester | A | `export_ready` | 2 |
+| An export failed | the requester | A | `export_failed` | 2 |
+
 ### 4.4 Field activities, money and stock (Phases 3–4)
 
 | Event | Recipients | Channels | Template key | Phase |

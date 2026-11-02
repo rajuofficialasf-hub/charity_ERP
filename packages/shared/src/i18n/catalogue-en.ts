@@ -6,6 +6,7 @@ import en_auth from './messages/en/auth.json' with { type: 'json' };
 import en_codes from './messages/en/codes.json' with { type: 'json' };
 import en_common from './messages/en/common.json' with { type: 'json' };
 import en_errors from './messages/en/errors.json' with { type: 'json' };
+import en_exports from './messages/en/exports.json' with { type: 'json' };
 import en_forms from './messages/en/forms.json' with { type: 'json' };
 import en_gallery from './messages/en/gallery.json' with { type: 'json' };
 import en_home from './messages/en/home.json' with { type: 'json' };
@@ -25,6 +26,7 @@ export const en: Messages = {
   codes: en_codes,
   common: en_common,
   errors: en_errors,
+  exports: en_exports,
   forms: en_forms,
   gallery: en_gallery,
   home: en_home,

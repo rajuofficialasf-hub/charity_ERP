@@ -1,0 +1,22 @@
+# AppArmor profile for the export worker's Chromium (DECISION_LOG D-144; docs/ops/DEPLOYMENT.md,
+# section 4, "Exports"). Ubuntu 23.10 and later keep unprivileged user namespaces closed; Chromium
+# needs one for the sandbox that keeps a PDF's page away from the worker's files and secrets. This
+# profile opens user namespaces to the two Chromium programs of playwright-core alone, installed
+# under PLAYWRIGHT_BROWSERS_PATH=/opt/css-erp/ms-playwright, and changes nothing else on the host:
+# the system-wide setting kernel.apparmor_restrict_unprivileged_userns stays 1.
+#
+# Install as root:
+#   cp infra/apparmor/css-erp-chromium /etc/apparmor.d/css-erp-chromium
+#   apparmor_parser -r /etc/apparmor.d/css-erp-chromium
+# After an upgrade of playwright-core the folders keep the same shape (only their numbers change),
+# so the profile needs no edit.
+
+abi <abi/4.0>,
+include <tunables/global>
+
+profile css-erp-chromium /opt/css-erp/ms-playwright/chromium{,_headless_shell}-*/chrome-{linux64,headless-shell-linux64}/{chrome,chrome-headless-shell} flags=(unconfined) {
+  userns,
+
+  # site-specific additions and overrides
+  include if exists <local/css-erp-chromium>
+}

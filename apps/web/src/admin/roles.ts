@@ -174,6 +174,39 @@ export const HANDOVER_ROLES: readonly string[] = ['department_head', 'monitoring
 const holds = (me: Pick<Me, 'roles'>, roles: readonly string[]) =>
   me.roles.some((role) => roles.includes(role));
 
+/**
+ * The lists' export (`export.list`): the roles whose defaults hold it, and the two global roles.
+ * A volunteer never sees the button; the server checks the permission, its scope and every
+ * protected column again.
+ */
+export const EXPORT_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+  'regional_program_manager',
+  'project_executive',
+  'implementer',
+  'official_daee',
+  'finance_team',
+  'media_team',
+  'media_director',
+  'media_assistant_director',
+  'procurement_team',
+];
+
+/** The beneficiary's 360° profile as a PDF (`report.beneficiary_journey`) and the global roles. */
+export const JOURNEY_PDF_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+  'regional_program_manager',
+  'project_executive',
+  'official_daee',
+];
+
+export const canExport = (me: Pick<Me, 'roles'>) => holds(me, EXPORT_ROLES);
+export const canPrintProfile = (me: Pick<Me, 'roles'>) => holds(me, JOURNEY_PDF_ROLES);
+
 export const canManagePermissions = (me: Pick<Me, 'roles'>) => holds(me, PERMISSION_PANEL_ROLES);
 export const canAdministerSystem = (me: Pick<Me, 'roles'>) => holds(me, SYSTEM_ADMIN_ROLES);
 export const canKeepNisab = (me: Pick<Me, 'roles'>) => holds(me, NISAB_ROLES);
