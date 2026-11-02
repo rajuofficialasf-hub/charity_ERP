@@ -225,6 +225,25 @@ describe('My Work home', () => {
       expect(widgetsFor({ roles: [role], state: 'active' }).length).toBeGreaterThan(0);
   });
 
+  it('opens with the area label, the line of purpose and the day summed up from what waits', async () => {
+    attentionIs([
+      { kind: 'unread_notifications', count: 2, href: '/notifications' },
+      { kind: 'projects_draft', count: 4, href: '/admin/projects?status=draft' },
+      { kind: 'handovers_open', count: 2, href: '/admin/handover' },
+    ]);
+    const { container } = openHome({ ...ME, roles: ['department_head'] });
+    expect(await screen.findByText('কাজের কেন্দ্র')).toBeInTheDocument();
+    expect(screen.getByText('আপনার কাজ, অনুমোদন ও অগ্রগতি এক জায়গায় দেখুন।')).toBeInTheDocument();
+    const today = screen.getByRole('region', { name: 'আজকের সারসংক্ষেপ' });
+    // the unread notifications are counted on their own, not among the tasks
+    expect(
+      await within(today).findByText('আজ আপনার জন্য 6টি কাজ অপেক্ষা করছে।'),
+    ).toBeInTheDocument();
+    expect(within(today).getByText('অপেক্ষমাণ কাজ').parentElement).toHaveTextContent('6');
+    expect(within(today).getByText('না-পড়া নোটিফিকেশন').parentElement).toHaveTextContent('2');
+    await expectNoAxeViolations(container);
+  });
+
   it('says calmly when nothing waits', async () => {
     openHome({ ...ME, roles: ['finance_team'] });
     expect(await screen.findByText('এখন অপেক্ষায় কিছু নেই')).toBeInTheDocument();

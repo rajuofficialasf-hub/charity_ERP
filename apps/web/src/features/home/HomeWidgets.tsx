@@ -1,15 +1,29 @@
 import type { Me } from '@css/shared/auth';
 import { formatCount, formatDate, formatDateTime } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Badge, Button, Card, ErrorState, Icon, type IconComponent, StatCard, Text } from '@css/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  ErrorState,
+  Icon,
+  type IconComponent,
+  type IconTileTone,
+  StatCard,
+  Text,
+} from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
   Bell,
   CircleAlert,
+  CirclePlay,
   Clock,
   Dot,
+  FilePen,
+  Hourglass,
   IdCard,
   KeyRound,
+  Lock,
   ScrollText,
   Settings,
 } from 'lucide-react';
@@ -131,6 +145,14 @@ function OfficialProjects() {
   );
 }
 
+/** The icon and tone of each project state's card. */
+const STATE_LOOK: Record<HomeProjectState, { icon: IconComponent; tone: IconTileTone }> = {
+  draft: { icon: FilePen, tone: 'neutral' },
+  active: { icon: CirclePlay, tone: 'brand' },
+  closing: { icon: Hourglass, tone: 'warning' },
+  closed: { icon: Lock, tone: 'neutral' },
+};
+
 /** One count per project state, each opening the list of that state. */
 function StateCount({ status }: { status: HomeProjectState }) {
   const t = useTranslations('admin.projects.status');
@@ -146,20 +168,24 @@ function StateCount({ status }: { status: HomeProjectState }) {
       value={count.data ?? 0}
       loading={count.isPending}
       href={`/admin/projects?status=${status}`}
+      // eslint-disable-next-line security/detect-object-injection -- a state key of a constant table
+      {...STATE_LOOK[status]}
     />
   );
 }
 
-function ProjectStates() {
+/** A Program Manager's projects by state, a card each, across the top of the home. */
+export function ProjectStates() {
   const t = useTranslations('home.widget');
   return (
-    <Card title={t('project_states')} headingLevel={2}>
-      <div className="my-work-stats">
-        {HOME_PROJECT_STATES.map((s) => (
-          <StateCount key={s} status={s} />
-        ))}
-      </div>
-    </Card>
+    <section className="my-work-states" aria-labelledby="project-states-title">
+      <h2 id="project-states-title" className="ui-sr-only">
+        {t('project_states')}
+      </h2>
+      {HOME_PROJECT_STATES.map((s) => (
+        <StateCount key={s} status={s} />
+      ))}
+    </section>
   );
 }
 

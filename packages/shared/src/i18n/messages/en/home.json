@@ -102,5 +102,16 @@
       "title": "Issues to resolve",
       "text": "Issues of the house-construction projects will show here."
     }
+  },
+  "page": {
+    "eyebrow": "Work centre",
+    "description": "Your work, approvals and progress in one place."
+  },
+  "today": {
+    "title": "Today at a glance",
+    "waiting": "{n, plural, one {{count} task is waiting for you today.} other {{count} tasks are waiting for you today.}}",
+    "clear": "Nothing is waiting for you today.",
+    "tasks": "Tasks waiting",
+    "unread": "Unread notifications"
   }
 }
