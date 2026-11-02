@@ -43,6 +43,7 @@ import { createScanner } from './files/scanner';
 import { AccountEvents } from './notifications/account-events';
 import { DeliveriesService } from './services/deliveries';
 import { AttentionService } from './services/attention';
+import { OwnProfileService } from './services/own-profile';
 import { InboxService } from './services/inbox';
 import { NotificationTemplatesService } from './services/notification-templates';
 import { ProjectEvents } from './notifications/project-events';
@@ -142,6 +143,7 @@ export interface Container {
   auth: AuthService;
   deviceSessions: SessionsService;
   users: UsersService;
+  ownProfile: OwnProfileService;
   staffAccounts: StaffAccountsService;
   organogram: OrganogramService;
   accessPanel: AccessPanelService;
@@ -401,6 +403,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       o.deviceSessions ?? new SessionsService(sessions, prisma, audit, access, accountEvents),
     users:
       o.users ?? new UsersService(env, prisma, audit, sessions, permissionVersions, clock, access),
+    ownProfile: o.ownProfile ?? new OwnProfileService(prisma),
     staffAccounts:
       o.staffAccounts ??
       new StaffAccountsService(

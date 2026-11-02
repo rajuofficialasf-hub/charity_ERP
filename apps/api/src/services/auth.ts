@@ -24,6 +24,7 @@ import type { Principal } from '../auth/principal';
 import { type SessionService } from '../auth/session.service';
 import { type TokenService } from '../auth/token.service';
 import type { AccountEvents } from '../notifications/account-events';
+import { staffPhotos } from './staff-photos';
 
 /** What the controller needs to answer a login or refresh: the body and the cookie values. */
 export interface IssuedSession {
@@ -372,9 +373,13 @@ export class AuthService {
         permissionVersion: true,
         passwordChangeRequired: true,
         userRolesUser: { where: { revokedAt: null }, select: { roleKey: true } },
-        volunteersUser: { select: { id: true } },
+        volunteersUser: { select: { id: true, photoFileId: true } },
       },
     });
+    const photo =
+      user.kind === 'staff'
+        ? ((await staffPhotos(this.prisma, [user.id])).get(user.id) ?? null)
+        : (user.volunteersUser?.photoFileId ?? null);
     return {
       id: user.id,
       displayName: user.displayName,
@@ -386,6 +391,7 @@ export class AuthService {
       passwordChangeRequired: user.passwordChangeRequired,
       blockMessage: null,
       volunteerId: user.volunteersUser?.id ?? null,
+      photoFileId: photo,
     };
   }
 

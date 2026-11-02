@@ -757,6 +757,10 @@ components:
           description: true until the person sets a new password (a staff role with global scope was approved); every other operation answers 403 auth.password_change_required
         blockMessage: { type: [string, 'null'] }
         volunteerId: { type: [string, 'null'], format: uuid }
+        photoFileId:
+          type: [string, 'null']
+          format: uuid
+          description: The person's uploaded photo (a volunteer's or an official's), shown in the app bar; null shows the initial (D-147)
     TokenPair:
       type: object
       required: [accessToken, expiresAt, me, deviceKey]
@@ -844,6 +848,50 @@ components:
         awaitingPassword:
           type: boolean
           description: An official created by the admin who has not used the set-password link yet
+        photoFileId:
+          type: [string, 'null']
+          format: uuid
+          description: The official's uploaded photo, readable by those who may see the staff list; null shows the initial (D-147)
+    OwnStaffProfile:
+      type: object
+      required: [id, displayName, jobId, designation, roles, affiliation, affiliationUnit, program, division, supervisor, mobile, email, state, lastLoginAt, photoFileId]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        jobId: { type: [string, 'null'] }
+        designation: { type: [string, 'null'] }
+        roles: { type: array, items: { type: string } }
+        affiliation: { type: [string, 'null'], enum: [department, foundation, external, null] }
+        affiliationUnit: { type: [string, 'null'] }
+        program:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [id, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                name: { $ref: '#/components/schemas/Bilingual' }
+        division:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [id, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                name: { $ref: '#/components/schemas/Bilingual' }
+        supervisor:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [id, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                name: { type: string }
+        mobile: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        state: { type: string, enum: [pending, active, blocked, deactivated] }
+        lastLoginAt: { type: [string, 'null'], format: date-time }
+        photoFileId: { type: [string, 'null'], format: uuid }
     User:
       allOf:
         - $ref: '#/components/schemas/UserSummary'
@@ -1861,6 +1909,7 @@ components:
         village: { type: string, x-sensitive-class: beneficiary.address_detail }
         mobile: { type: string, x-sensitive-class: beneficiary.contact }
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
+        photoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: beneficiary.profile_detail }
     BeneficiaryStatistics:
       type: object
       required: [total, assistedThisYear]
@@ -10158,6 +10207,33 @@ paths:
                         href: { type: string, description: A fixed route of the PWA }
                   meta: { $ref: '#/components/schemas/Meta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /me/profile:
+    get:
+      tags: [auth]
+      operationId: auth.me.profile
+      summary: "An official's own profile: identity, workplace, contact and account"
+      description: >-
+        The caller's own record as an official (D-147, BR-288): name, job ID, designation, roles,
+        affiliation and unit, program, division, supervisor, mobile, email, state, last login and
+        photo. A volunteer has no official profile (404; their own profile is GET /volunteers/me).
+      x-permission: authenticated
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The official's own profile
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: '#/components/schemas/OwnStaffProfile' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /me/preferences:
     get:
       tags: [notifications]

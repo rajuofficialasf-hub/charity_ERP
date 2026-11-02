@@ -54,6 +54,7 @@ const beneficiaryRow = z.object({
   village: address(z.string()),
   mobile: contact(z.string()),
   isBlocked: care(z.boolean()),
+  photoFileId: detail(z.uuid().nullable()),
 });
 
 const count = () => z.number().int().min(0);

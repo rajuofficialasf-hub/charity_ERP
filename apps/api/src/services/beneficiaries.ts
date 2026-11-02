@@ -171,6 +171,7 @@ export class BeneficiariesService {
           village: true,
           mobile: true,
           isBlocked: true,
+          photoFileId: true,
         },
       }),
       total: query.include === 'total' ? await tx.beneficiary.count({ where: filter }) : undefined,

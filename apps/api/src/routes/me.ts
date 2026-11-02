@@ -6,7 +6,10 @@ import { ok } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 
 /** The signed-in user's own settings (openapi tag auth, `/me/...`). */
-export function meRouter(deps: RouteDeps, c: Pick<Container, 'auth' | 'attention'>): Router {
+export function meRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'auth' | 'attention' | 'ownProfile'>,
+): Router {
   const router = Router();
 
   defineRoute<LanguageRequest>(router, deps, {
@@ -47,6 +50,21 @@ export function meRouter(deps: RouteDeps, c: Pick<Container, 'auth' | 'attention
       const items = await c.attention.items(principalOf(req));
       return ok(items, { limit: items.length, nextCursor: null, prevCursor: null });
     },
+  });
+
+  defineRoute(router, deps, {
+    method: 'get',
+    path: '/me/profile',
+    operationId: 'auth.me.profile',
+    tag: 'auth',
+    summary: "An official's own profile: identity, workplace, contact and account",
+    permission: 'authenticated',
+    scope: 'self',
+    audit: 'none',
+    idempotency: 'none',
+    rateLimit: 'default',
+    responses: { 200: null, 401: null, 404: null },
+    handler: async ({ req }) => ok(await c.ownProfile.read(principalOf(req))),
   });
 
   return router;

@@ -118,3 +118,28 @@ export interface InvitationIssued {
   expiresAt: string;
   emailed: boolean;
 }
+
+/** A name in both languages (a program, a division). */
+interface Named {
+  id: string;
+  name: { bn: string; en: string };
+}
+
+/** An official's own profile (`GET /me/profile`): who they are, where they work, how to reach them. */
+export interface OwnStaffProfile {
+  id: string;
+  displayName: string;
+  jobId: string | null;
+  designation: string | null;
+  roles: string[];
+  affiliation: Affiliation | null;
+  affiliationUnit: string | null;
+  program: Named | null;
+  division: Named | null;
+  supervisor: { id: string; name: string } | null;
+  mobile: string | null;
+  email: string | null;
+  state: 'pending' | 'active' | 'blocked' | 'deactivated';
+  lastLoginAt: string | null;
+  photoFileId: string | null;
+}
