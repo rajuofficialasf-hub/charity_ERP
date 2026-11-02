@@ -122,10 +122,15 @@
   .ui-table .cell-title {
     font-weight: var(--font-weight-bold);
   }
+  /* the buttons keep their words on one line; the column grows instead */
   .ui-row-actions {
     display: inline-flex;
     justify-content: flex-end;
     gap: 2px;
+    white-space: nowrap;
+  }
+  .ui-row-actions > * {
+    flex-shrink: 0;
   }
   /* inline row actions: visible on hover or keyboard focus on desktop, always on touch screens */
   @media (hover: hover) and (min-width: 1024px) {

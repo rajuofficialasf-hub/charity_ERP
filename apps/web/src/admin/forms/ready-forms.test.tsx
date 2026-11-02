@@ -127,9 +127,10 @@ describe('the ready forms page', () => {
   it('lists each ready form with what it is for and how far it is published', async () => {
     api();
     renderApp(<ReadyFormsPage />, 'bn', { path: '/admin/ready-forms' });
-    const list = within(await screen.findByRole('list'));
-    const [first, second] = list.getAllByRole('listitem');
-    expect(within(first!).getByRole('link', { name: 'স্বাবলম্বী আবেদন খুলুন' })).toHaveAttribute(
+    expect(await screen.findByText('ফর্ম ও তথ্য সংগ্রহ')).toBeInTheDocument();
+    const table = within(await screen.findByRole('grid', { name: 'তৈরি ফর্মের তালিকা' }));
+    const [, first, second] = table.getAllByRole('row');
+    expect(within(first!).getByRole('link', { name: 'স্বাবলম্বী আবেদন' })).toHaveAttribute(
       'href',
       `/admin/ready-forms/${READY}`,
     );
@@ -137,6 +138,7 @@ describe('the ready forms page', () => {
     expect(within(first!).getByText('খসড়া, এখনো প্রকাশিত হয়নি')).toBeInTheDocument();
     expect(within(second!).getByText('অন্যান্য')).toBeInTheDocument();
     expect(within(second!).getByText('সংস্করণ 1 প্রকাশিত')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'প্রকাশের ধাপ' })).toBeInTheDocument();
   });
 
   it('starts a new application form and opens it in the builder', async () => {

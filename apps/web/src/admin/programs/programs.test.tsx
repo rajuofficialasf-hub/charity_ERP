@@ -86,6 +86,22 @@ describe('the programs page', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('counts the active and inactive programs and those without a PM', async () => {
+    refreshAs(HEAD);
+    serve([
+      PROGRAM,
+      { ...PROGRAM, id: 'p2', code: 'ERR', pmUserId: null, pmName: null },
+      { ...PROGRAM, id: 'p3', code: 'OLD', active: false },
+    ]);
+    open();
+    expect(await screen.findByText('কর্মসূচি পরিচালনা')).toBeInTheDocument();
+    const counts = within(await screen.findByRole('region', { name: 'প্রোগ্রামের হিসাব' }));
+    const card = (label: string) => counts.getByText(label).closest('.ui-card')!;
+    await waitFor(() => expect(card('সক্রিয় প্রোগ্রাম')).toHaveTextContent('2'));
+    expect(card('নিষ্ক্রিয় প্রোগ্রাম')).toHaveTextContent('1');
+    expect(card('পিএম ছাড়া প্রোগ্রাম')).toHaveTextContent('1');
+  });
+
   it('offers the new program and the edit only to the global roles', async () => {
     refreshAs(PM);
     serve();

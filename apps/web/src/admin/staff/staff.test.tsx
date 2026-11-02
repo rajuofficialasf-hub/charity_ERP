@@ -168,6 +168,8 @@ describe('the officials page', () => {
     serve();
     const { container } = open();
     expect(await screen.findByRole('heading', { level: 1, name: 'কর্মী' })).toBeInTheDocument();
+    expect(screen.getByText('মানবসম্পদ')).toBeInTheDocument();
+    expect(screen.getByText(/কর্মীদের প্রোফাইল, ভূমিকা ও প্রোগ্রাম দেখুন/)).toBeInTheDocument();
     expect((await screen.findAllByText('CSS-201')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('পাসওয়ার্ডের অপেক্ষায়').length).toBeGreaterThan(0);
     expect(listQueries[0]!.get('kind')).toBe('staff');

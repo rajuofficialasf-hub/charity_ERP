@@ -1,6 +1,6 @@
 import type { Me } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@css/ui/testing';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -77,6 +77,9 @@ function serve(rows: unknown[] = [project(), project({ id: 'c2', code: 'IF', sta
   );
 }
 
+// the list pages, not the counts of the state cards (one row each)
+const pages = () => listUrls.filter((u) => u.searchParams.get('limit') !== '1');
+
 const open = (initialPath = '/admin/projects') =>
   renderApp(<ProjectsPage />, 'bn', { path: '/admin/projects', initialPath });
 
@@ -90,6 +93,8 @@ describe('the project list', () => {
     serve();
     const { container } = open();
     expect(await screen.findByRole('heading', { level: 1, name: 'প্রকল্প' })).toBeInTheDocument();
+    expect(screen.getByText('প্রকল্প ব্যবস্থাপনা')).toBeInTheDocument();
+    expect(screen.getByText(/প্রকল্পের অবস্থা দেখুন/)).toBeInTheDocument();
     expect((await screen.findAllByText('খসড়া')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('সক্রিয়').length).toBeGreaterThan(0);
     expect((await screen.findAllByText('মানবিক সহায়তা')).length).toBeGreaterThan(0);
@@ -101,22 +106,41 @@ describe('the project list', () => {
     serve();
     const user = userEvent.setup();
     const { router } = open(`/admin/projects?programId=${PROGRAM.id}&year=2026`);
-    await waitFor(() => expect(listUrls.length).toBeGreaterThan(0));
-    expect(listUrls[0]!.searchParams.get('programId')).toBe(PROGRAM.id);
-    expect(listUrls[0]!.searchParams.get('year')).toBe('2026');
-    await user.click(await screen.findByRole('button', { name: 'বন্ধ হচ্ছে', pressed: false }));
+    await waitFor(() => expect(pages().length).toBeGreaterThan(0));
+    expect(pages()[0]!.searchParams.get('programId')).toBe(PROGRAM.id);
+    expect(pages()[0]!.searchParams.get('year')).toBe('2026');
+    const states = within(await screen.findByRole('group', { name: 'অবস্থা অনুযায়ী প্রকল্প' }));
+    await user.click(await states.findByRole('button', { name: /^বন্ধ হচ্ছে/, pressed: false }));
     await waitFor(() => expect(router.state.location.search).toContain('status=closing'));
     expect(router.state.location.search).toContain('year=2026');
-    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('status')).toBe('closing'));
+    await waitFor(() => expect(pages().at(-1)?.searchParams.get('status')).toBe('closing'));
+    expect(states.getByRole('button', { name: /^বন্ধ হচ্ছে/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('counts the projects of each state for the program and year chosen', async () => {
+    refreshAs(PM);
+    serve();
+    open(`/admin/projects?year=2026&status=active`);
+    const states = within(await screen.findByRole('group', { name: 'অবস্থা অনুযায়ী প্রকল্প' }));
+    expect(states.getByRole('button', { name: 'সব প্রকল্প 2' })).toBeInTheDocument();
+    const counts = listUrls.filter((u) => u.searchParams.get('limit') === '1');
+    // one count per state and one for every project; none narrowed by the chosen state
+    expect(counts.map((u) => u.searchParams.get('status')).sort()).toEqual(
+      [null, 'active', 'cancelled', 'closed', 'closing', 'draft'].sort(),
+    );
+    expect(counts.every((u) => u.searchParams.get('year') === '2026')).toBe(true);
   });
 
   it('asks for the windows ending soon when the link of the home carries that filter', async () => {
     refreshAs(PM);
     serve();
     open('/admin/projects?status=active&endingSoon=true');
-    await waitFor(() => expect(listUrls.length).toBeGreaterThan(0));
-    expect(listUrls[0]!.searchParams.get('endingSoon')).toBe('true');
-    expect(listUrls[0]!.searchParams.get('status')).toBe('active');
+    await waitFor(() => expect(pages().length).toBeGreaterThan(0));
+    expect(pages()[0]!.searchParams.get('endingSoon')).toBe('true');
+    expect(pages()[0]!.searchParams.get('status')).toBe('active');
   });
 
   it('offers a new project only to those who may create one', async () => {

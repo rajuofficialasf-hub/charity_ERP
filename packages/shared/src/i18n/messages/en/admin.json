@@ -152,6 +152,11 @@
       "approved": "The new value was applied",
       "rejected": "The request was refused",
       "photo": "New photo"
+    },
+    "eyebrow": "Checks and approvals",
+    "description": "Check the staff registrations and the volunteers' requests to change their details.",
+    "stats": {
+      "label": "Waiting work"
     }
   },
   "handover": {
@@ -188,7 +193,24 @@
     "deactivate_confirm": "Deactivate the account",
     "deactivated": "The account was deactivated",
     "already": "This account is deactivated.",
-    "reason": "Reason"
+    "reason": "Reason",
+    "eyebrow": "Handover of duties",
+    "description": "When an official moves or changes duties, give their projects, applications and open work to the right person.",
+    "pick_title": "Choose an official",
+    "pick_message": "Their pending work shows here once you choose them.",
+    "rule": {
+      "title": "Before an account is closed",
+      "body": "An official's account cannot be deactivated until all their pending work is handed over. The handover record is kept."
+    },
+    "steps": {
+      "title": "Steps of a handover",
+      "find": "Find the official",
+      "find_hint": "By name, email or mobile number",
+      "assign": "Hand over the pending work",
+      "assign_hint": "The receiver needs a fitting role",
+      "complete": "Complete the handover",
+      "complete_hint": "Then deactivate the account with a reason"
+    }
   },
   "forbidden": {
     "title": "No access",
@@ -574,7 +596,10 @@
         "proposed_at": "Proposed on",
         "open": "Review and merge",
         "empty": "No merge proposal is waiting."
-      }
+      },
+      "eyebrow": "Data quality",
+      "description": "Review the identities that match. Compare every detail and the help history before a merge.",
+      "back": "Back to beneficiaries"
     },
     "merge": {
       "title": "Compare profiles",
@@ -643,6 +668,14 @@
       "pm": "Program Manager",
       "pm_hint": "Search by name; only a Program Manager can be chosen.",
       "active": "Active (takes new projects)"
+    },
+    "eyebrow": "Program management",
+    "description": "Manage the Foundation's programs and the Program Manager of each.",
+    "stats": {
+      "label": "Program counts",
+      "active": "Active programs",
+      "inactive": "Inactive programs",
+      "no_pm": "Programs without a PM"
     }
   },
   "projects": {
@@ -1056,6 +1089,12 @@
       "done": "{count} applications are handed over.",
       "done_team": "{count} applications are handed over, and {team} team members moved under the new volunteer.",
       "done_over_limit": "The new volunteer is now over the project's application limit."
+    },
+    "eyebrow": "Project management",
+    "description": "See each project's state, find projects by program and year, and open one to manage its setup and applications.",
+    "stats": {
+      "label": "Projects by state",
+      "all": "All projects"
     }
   },
   "templates": {
@@ -1096,6 +1135,17 @@
       "replace_hint": "The template keeps its name; its contents become this project's setup.",
       "submit": "Save",
       "notice": "Template saved: {name}"
+    },
+    "eyebrow": "Project management",
+    "description": "Keep the setup of recurring projects and use it again for a new project.",
+    "stats": {
+      "label": "Template counts",
+      "active": "Active templates",
+      "inactive": "Inactive templates"
+    },
+    "rules": {
+      "title": "How templates work",
+      "body": "Choose a template when you create a new project. What a project takes from a template is its own copy, so changing or deactivating a template never changes an earlier project."
     }
   },
   "staff": {
@@ -1245,7 +1295,9 @@
       "call": "Call",
       "send_email": "Email",
       "none": "Not given"
-    }
+    },
+    "eyebrow": "People",
+    "description": "See the officials' profiles, roles and programs, and add a new official."
   },
   "settings": {
     "title": "Settings",

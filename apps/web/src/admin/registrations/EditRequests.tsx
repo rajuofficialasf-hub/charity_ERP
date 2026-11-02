@@ -141,6 +141,7 @@ export function EditRequests() {
         </Alert>
       )}
       <Table
+        layout="panel"
         label={tr('tabs.edits')}
         columns={columns}
         rows={list.data ?? []}

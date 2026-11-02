@@ -6,13 +6,13 @@ import {
   Button,
   EmptyState,
   ErrorState,
+  PageHeader,
   Table,
   type TableColumn,
   Tabs,
-  PageHeader,
 } from '@css/ui';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { GitCompare, GitMerge, Users, UserX } from 'lucide-react';
+import { ArrowLeft, GitCompare, GitMerge, Users, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -55,7 +55,16 @@ export function DuplicatesPage() {
           { id: 'duplicates', label: t('duplicates.title') },
         ]}
       />
-      <PageHeader title={t('duplicates.title')} />
+      <PageHeader
+        eyebrow={t('duplicates.eyebrow')}
+        title={t('duplicates.title')}
+        description={t('duplicates.description')}
+        actions={
+          <Button variant="secondary" icon={ArrowLeft} href="/admin/beneficiaries">
+            {t('duplicates.back')}
+          </Button>
+        }
+      />
       {notice && (
         <Alert tone="success" live="status" onDismiss={dismiss}>
           {notice}

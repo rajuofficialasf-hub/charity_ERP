@@ -13,9 +13,21 @@ import {
   TableToolbar,
   Tabs,
   PageHeader,
+  type IconComponent,
+  type IconTileTone,
 } from '@css/ui';
 import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleCheck, Clock, IdCard, Link2, Pencil, UserPlus } from 'lucide-react';
+import {
+  Building2,
+  CircleCheck,
+  Clock,
+  Handshake,
+  IdCard,
+  Link2,
+  Pencil,
+  UserPlus,
+  Users,
+} from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -35,6 +47,13 @@ import { StaffViewSwitch } from './StaffViewSwitch';
 import './staff.css';
 
 const ALL = 'all';
+
+/** The icon of each affiliation's count card. */
+const AFFILIATION_LOOK: Record<Affiliation, { icon: IconComponent; tone: IconTileTone }> = {
+  department: { icon: Users, tone: 'brand' },
+  foundation: { icon: Building2, tone: 'info' },
+  external: { icon: Handshake, tone: 'warning' },
+};
 
 /**
  * The officials (DECISION_LOG D-097, SCR-063): the counts by affiliation, then the department's
@@ -82,7 +101,9 @@ export function StaffPage() {
     <>
       <DocumentTitle title={t('title')} />
       <PageHeader
+        eyebrow={t('eyebrow')}
         title={t('title')}
+        description={t('description')}
         actions={
           <>
             <StaffViewSwitch value="list" />
@@ -101,6 +122,8 @@ export function StaffPage() {
           key: a,
           label: t(`tabs.${a}`),
           value: counts.at(i)?.data ?? 0,
+          // eslint-disable-next-line security/detect-object-injection -- an affiliation of a constant table
+          ...AFFILIATION_LOOK[a],
         }))}
       />
       {notice && (
@@ -276,6 +299,7 @@ function StaffList({
   return (
     <>
       <Table
+        layout="panel"
         label={t(`tabs.${affiliation}`)}
         toolbar={
           <TableToolbar
