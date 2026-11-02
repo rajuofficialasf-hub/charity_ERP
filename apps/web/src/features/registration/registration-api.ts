@@ -9,6 +9,7 @@ import {
   type RegistrationVerifyResult,
 } from '@css/shared/registration';
 import { api, ApiFailure } from '../../lib/api';
+import { orCached } from '../../lib/or-cached';
 
 /**
  * The calls of the registration before login (AUTH.md 2; DECISION_LOG D-082). The draft token
@@ -66,8 +67,16 @@ export const uploadDraftPhoto = async (
 export const submitRegistration = (draft: Draft, body: RegistrationSubmitRequest) =>
   api<Me>('/auth/register/submit', { method: 'POST', body, headers: tokenHeader(draft) }, false);
 
+/**
+ * The children of a location (the divisions without a parent): from the server, or from the
+ * phone's locations master when the network is away, so the address cascade of an application
+ * taken offline still offers its lists.
+ */
 export const locations = (parentId?: string) =>
-  api<Location[]>(`/locations${parentId ? `?parentId=${parentId}` : ''}`, {}, false);
+  orCached(
+    () => api<Location[]>(`/locations${parentId ? `?parentId=${parentId}` : ''}`, {}, false),
+    async () => (await import('../../offline/snapshot')).cachedChildren(parentId ?? null),
+  );
 
 /** Field errors of a 422 answer by field name, and the first message for everything else. */
 export function failureOf(error: unknown, offline: string) {

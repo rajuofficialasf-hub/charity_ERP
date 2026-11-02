@@ -7,7 +7,13 @@ import {
   type WorkflowDefinition,
   workflowDefinitionSchema,
 } from '@css/shared';
-import { type Answer, type Audience, type FormDefinition, identityColumn } from '@css/shared/forms';
+import {
+  type Answer,
+  type Audience,
+  type FormDefinition,
+  identityColumn,
+  split,
+} from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
 import { type EffectiveAccess, WORKING_ASSIGNMENT, workingTeamProjects } from '../access/effective';
@@ -60,7 +66,10 @@ import { type CommentReason, commentReasons } from './decision-rules';
 import type { Replayable } from '../services/uploads';
 import type { WorkflowEngine } from '../workflow/engine';
 import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards';
-import type { BuiltGuard } from '../workflow/registry';
+import { pendingSlotsOf, slotParts } from './pending-photos';
+import { lateSync, staleVersion } from '../sync/rules';
+import { namesMatch } from '@css/shared/sync';
+import { type BuiltGuard, isBuiltGuard } from '../workflow/registry';
 import { readActivities } from './activities';
 import { readChanges, readTimeline } from './history';
 import type { SubmissionWriter } from './submission';
@@ -74,6 +83,7 @@ import {
   nisabOption,
   readAnswers,
   textOf,
+  typedName,
   writeAnswers,
 } from './answers';
 import {
@@ -91,6 +101,25 @@ export interface ApplicationViewer {
   /** The route's scope: the applications the caller reaches, or the projects for a create. */
   scope: Scope;
   fieldClasses: ReadonlySet<string>;
+}
+
+/** What an offline record adds to a write: the photo slots the phone still holds, and the sync rules. */
+export interface WriteOptions {
+  pendingPhotos?: string[];
+  /**
+   * The record came through the offline sync (docs/architecture/OFFLINE_SYNC.md "Conflict rules at
+   * sync"): the device time of its making, moved onto the server's clock, decides a late or a
+   * stale record, and a known number under another name waits for the office instead of linking.
+   */
+  sync?: { createdAt: Date };
+  /** The phone's edit won over a later server edit of the draft: what lost goes on record with the write. */
+  conflict?: LastWriteConflict;
+}
+
+export interface LastWriteConflict {
+  clientUpdatedAt: string;
+  serverUpdatedAt: string;
+  serverAnswers: Prisma.InputJsonValue;
 }
 
 /** What a read answers, with the version the next write carries back in If-Match. */
@@ -208,6 +237,7 @@ const ROW_SELECT = {
   formVersionId: true,
   beneficiaryId: true,
   beneficiary: { select: { name: true } },
+  applicantName: true,
   candidateBeneficiaryId: true,
   ownerVolunteerId: true,
   createdByUserId: true,
@@ -217,6 +247,8 @@ const ROW_SELECT = {
   stage: true,
   outcome: true,
   flags: true,
+  pendingPhotos: true,
+  clientCreatedAt: true,
   districtId: true,
   unionId: true,
   submittedAt: true,
@@ -235,11 +267,16 @@ const ROW_SELECT = {
 
 type Row = Prisma.ApplicationGetPayload<{ select: typeof ROW_SELECT }>;
 
+/** More own applications than a volunteer can have: a safety cap on the id list of a snapshot. */
+const OWN_IDS_MAX = 10_000;
+
 type Person = {
   beneficiaryId: string | null;
   identityKind: 'nid' | 'birth_reg' | null;
   number: string | null;
   answers: Answer[];
+  /** The profile the number belongs to when the typed names did not match it (a sync record). */
+  candidate?: string | null;
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -277,6 +314,7 @@ export class ApplicationsService {
     viewer: ApplicationViewer,
     projectId: string,
     body: ApplicationCreate,
+    options: WriteOptions = {},
   ): Promise<Replayable<ApplicationRead>> {
     if (body.projectId !== projectId)
       throw new ApiError('validation.failed', 422, undefined, [
@@ -288,15 +326,11 @@ export class ApplicationsService {
     const project = await this.reachedProject(viewer.principal, viewer.scope, projectId);
     const earlier = await this.earlier(viewer, projectId, body.clientUuid);
     if (earlier) return { replay: true, value: earlier };
-    const version = await this.prisma.formVersion.findFirst({
-      where: {
-        id: body.formVersionId,
-        status: 'published',
-        form: { projectId, kind: 'beneficiary_application' },
-      },
-      select: { id: true },
-    });
-    if (!version) throw new ApiError('application.form_not_published', 422);
+    const version = await this.versionFor(projectId, body.formVersionId, options.sync);
+    const held: string[] = [...version.flags];
+    // a record made while the window was open and synced after it closed waits for the office
+    if (options.sync && lateSync(options.sync.createdAt, this.clock.now(), project.applyTo))
+      held.push('late_sync');
     const audience = this.audienceOf(viewer);
     const definition = await readDefinition(this.prisma, version.id, audience);
     const { checked, chain } = await this.checked(definition, body.answers, audience, true);
@@ -308,7 +342,10 @@ export class ApplicationsService {
         // one draft of an owner at a time, so parallel creates cannot pass the limit together
         if (owner.ownerVolunteerId)
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`application-owner:${projectId}:${owner.ownerVolunteerId}`}))`;
-        const person = await this.resolvePerson(tx, definition, checked.answers);
+        const person = await this.resolvePerson(tx, definition, checked.answers, null, {
+          nameMatch: options.sync !== undefined,
+        });
+        if (person.candidate) held.push('existing_identity');
         await this.assertOnePerProject(tx, projectId, person, null);
         await this.assertMobile(tx, actor, checked.standard, owner.ownerUserId);
         const id = uuidv7();
@@ -324,8 +361,12 @@ export class ApplicationsService {
           status: 'draft',
           zakatDecision: null,
           updatedAt: this.clock.now(),
+          pendingPhotos: options.pendingPhotos ?? [],
+          flags: held,
+          clientCreatedAt: options.sync?.createdAt ?? null,
           project: { ...project, approval: null },
         });
+        const status = held.length ? 'needs_verification' : 'draft';
         await assertUploadsOwn(tx, actor, null, person.answers);
         const [regionLocationId, districtId, , unionId] = chain;
         await tx.application.create({
@@ -334,15 +375,21 @@ export class ApplicationsService {
             projectId,
             formVersionId: version.id,
             beneficiaryId: person.beneficiaryId,
+            candidateBeneficiaryId: person.candidate ?? null,
+            // an entry held at its creation is named by what was typed until the office links it
+            applicantName: held.length ? typedName(checked.standard) : null,
             identityKind: person.identityKind,
             ownerVolunteerId: owner.ownerVolunteerId,
             createdByUserId: actor,
-            status: 'draft',
+            status,
+            flags: held,
+            ...(held.length ? { submittedAt: this.clock.now() } : {}),
             regionLocationId,
             districtId,
             unionId,
             clientUuid: body.clientUuid,
             clientCreatedAt: body.clientCreatedAt ? new Date(body.clientCreatedAt) : null,
+            pendingPhotos: options.pendingPhotos ?? [],
             createdBy: actor,
             updatedBy: actor,
           },
@@ -355,8 +402,10 @@ export class ApplicationsService {
           clientUuid: body.clientUuid,
           new: {
             projectId,
-            status: 'draft',
+            status,
+            flags: held,
             beneficiaryId: person.beneficiaryId,
+            candidateBeneficiaryId: person.candidate ?? null,
             ownerVolunteerId: owner.ownerVolunteerId,
           },
         });
@@ -409,6 +458,7 @@ export class ApplicationsService {
     applicationId: string,
     body: ApplicationUpdate,
     ifMatch: string | undefined,
+    options: WriteOptions = {},
   ): Promise<ApplicationRead> {
     const actor = viewer.principal.userId;
     const access = await this.access.load(actor);
@@ -485,6 +535,16 @@ export class ApplicationsService {
             regionLocationId,
             districtId,
             unionId,
+            ...(options.pendingPhotos
+              ? {
+                  pendingPhotos: await mergedSlots(
+                    tx,
+                    applicationId,
+                    options.pendingPhotos,
+                    person.answers,
+                  ),
+                }
+              : {}),
             updatedAt: now,
             updatedBy: actor,
           },
@@ -503,6 +563,13 @@ export class ApplicationsService {
               kind: 'review_edit',
               createdBy: actor,
             })),
+          });
+        if (options.conflict)
+          await this.audit.record(tx, {
+            action: 'sync.conflict_last_write',
+            entityType: 'application',
+            entityId: applicationId,
+            new: { kept: 'client', ...options.conflict },
           });
         await this.audit.record(tx, {
           action: 'application.update',
@@ -524,6 +591,91 @@ export class ApplicationsService {
       if (isUniqueViolation(error)) throw new ApiError('beneficiary.already_applied', 409);
       throw error;
     }
+    return this.read(viewer, access, applicationId);
+  }
+
+  /**
+   * Holds a draft for the office instead of submitting it: a send made while the window was open
+   * that arrives after it closed (docs/architecture/OFFLINE_SYNC.md "Conflict rules at sync").
+   * The send's permission and every guard of the submit move but the window run first, so only a
+   * record that could have gone in time waits; the window is then judged at the send's device time.
+   */
+  async holdForVerification(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    ifMatch: string | undefined,
+    flags: readonly string[],
+    sentAt: Date,
+  ): Promise<ApplicationRead> {
+    const actor = viewer.principal.userId;
+    const access = await this.access.load(actor);
+    const row = await this.reachedRow(viewer.principal, access, applicationId, 'application.view');
+    if (row.status !== 'draft') throw new ApiError('application.not_editable', 409);
+    const project = await this.prisma.project.findUniqueOrThrow({
+      where: { id: row.projectId },
+      select: PROJECT_SELECT,
+    });
+    const definition = workflowDefinitionSchema.parse(
+      project.workflowSnapshot ?? project.workflowDefinition.definition,
+    );
+    const submit = (definition.transitions ?? []).find(
+      (t) => t.from === 'draft' && t.to === 'submitted',
+    );
+    if (!submit?.permission) throw new ApiError('workflow.transition_not_allowed', 409);
+    await this.assertMay(viewer.principal, access, submit.permission, applicationId);
+    assertIfMatch(ifMatch, row.updatedAt);
+    const now = this.clock.now();
+    // a draft made online carries no device time: the send's stands for it
+    const madeAt = row.clientCreatedAt ?? sentAt;
+    const held = [...new Set([...row.flags, ...flags])];
+    await this.prisma.$transaction(async (tx) => {
+      await this.runGuards(
+        tx,
+        viewer.principal,
+        access,
+        {
+          id: row.id,
+          projectId: row.projectId,
+          formVersionId: row.formVersionId,
+          beneficiaryId: row.beneficiaryId,
+          ownerVolunteerId: row.ownerVolunteerId,
+          createdByUserId: row.createdByUserId,
+          createdBy: row.createdBy,
+          submittedBy: row.submittedBy,
+          status: row.status,
+          zakatDecision: row.zakatDecision,
+          updatedAt: row.updatedAt,
+          pendingPhotos: row.pendingPhotos,
+          flags: held,
+          clientCreatedAt: madeAt,
+          project: { ...project, approval: null },
+        },
+        (submit.guards ?? []).filter(isBuiltGuard).filter((g) => g !== 'deadline.open'),
+        'submitted',
+      );
+      // the entry waits without a profile: the lists name it by the typed name meanwhile
+      const form = await readDefinition(tx, row.formVersionId, 'official');
+      const { standard } = split(form, await readAnswers(tx, applicationId, form));
+      await tx.application.update({
+        where: { id: applicationId },
+        data: {
+          status: 'needs_verification',
+          applicantName: typedName(standard),
+          flags: held,
+          clientCreatedAt: madeAt,
+          submittedAt: now,
+          updatedAt: now,
+          updatedBy: actor,
+        },
+      });
+      await this.audit.record(tx, {
+        action: 'application.held_for_verification',
+        entityType: 'application',
+        entityId: applicationId,
+        old: { status: row.status },
+        new: { status: 'needs_verification', flags: held, sentAt: sentAt.toISOString() },
+      });
+    });
     return this.read(viewer, access, applicationId);
   }
 
@@ -699,6 +851,55 @@ export class ApplicationsService {
     );
   }
 
+  /**
+   * The caller's own applications changed at or after a time (all of them without one), oldest
+   * change first and at most `limit`; `afterId` names the last row of the page before, and the
+   * database positions the next page after it by its own stamp and id, so rows changed in the
+   * same moment (a bulk review) page through too. With them come the ids of every own application
+   * the server still lists, so the phone's copy drops what left (a transfer, a deletion). Both
+   * reads see one snapshot of the database. A blocked volunteer has none.
+   */
+  async listMineSince(
+    viewer: ApplicationViewer,
+    window: { since?: Date; afterId?: string },
+    limit: number,
+  ): Promise<{ changed: ApplicationSummary[]; ids: string[]; hasMore: boolean }> {
+    const userId = viewer.principal.userId;
+    if (await this.blockedCaller(this.prisma, viewer.principal))
+      return { changed: [], ids: [], hasMore: false };
+    const own: Prisma.ApplicationWhereInput = {
+      AND: [
+        { OR: ownApplicationsWhere(userId, await teamLeadsOf(this.prisma, userId)) },
+        applicationWhere(viewer.scope),
+        { status: { not: 'deleted' } },
+      ],
+    };
+    const now = this.clock.now();
+    const [rows, ids] = await this.prisma.$transaction([
+      this.prisma.application.findMany({
+        // at or after: the phone's time has milliseconds, the rows microseconds, so the first row
+        // of a window may come again, never go missing
+        where: window.since ? { AND: [own, { updatedAt: { gte: window.since } }] } : own,
+        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+        ...(window.afterId ? { cursor: { id: window.afterId }, skip: 1 } : {}),
+        take: limit + 1,
+        select: ROW_SELECT,
+      }),
+      this.prisma.application.findMany({
+        where: own,
+        select: { id: true },
+        orderBy: { id: 'asc' },
+        take: OWN_IDS_MAX,
+      }),
+    ]);
+    const hasMore = rows.length > limit;
+    return {
+      changed: rows.slice(0, limit).map((r) => this.summaryOf(r, now)),
+      ids: ids.map((r) => r.id),
+      hasMore,
+    };
+  }
+
   private async page(
     viewer: ApplicationViewer,
     binding: string,
@@ -785,7 +986,7 @@ export class ApplicationsService {
       appNo: r.appNo,
       projectId: r.projectId,
       beneficiaryId: r.beneficiaryId,
-      beneficiaryName: r.beneficiary?.name ?? null,
+      beneficiaryName: r.beneficiary?.name ?? r.applicantName ?? null,
       ownerVolunteerId: r.ownerVolunteerId,
       status: statusSchema.parse(r.status),
       stage: r.stage,
@@ -796,6 +997,7 @@ export class ApplicationsService {
       unionId: r.unionId,
       submittedAt: iso(r.submittedAt),
       waitingDays: Math.max(0, Math.floor((now.getTime() - r.updatedAt.getTime()) / DAY_MS)),
+      pendingPhotos: pendingSlotsOf(r.pendingPhotos).length,
       etag: etagOf(r.updatedAt),
     };
   }
@@ -887,6 +1089,32 @@ export class ApplicationsService {
     if (found.found && found.blocked) throw new ApiError('beneficiary.blocked', 409);
   }
 
+  /**
+   * The version a new record is written under: the published one; through sync also a retired one
+   * the phone still had, kept as the record's own version, and flagged for the office when the
+   * record was made after the newer version came.
+   */
+  private async versionFor(
+    projectId: string,
+    formVersionId: string,
+    sync: WriteOptions['sync'],
+  ): Promise<{ id: string; flags: string[] }> {
+    const version = await this.prisma.formVersion.findFirst({
+      where: { id: formVersionId, form: { projectId, kind: 'beneficiary_application' } },
+      select: { id: true, status: true, formId: true },
+    });
+    if (!version) throw new ApiError('application.form_not_published', 422);
+    if (version.status === 'published') return { id: version.id, flags: [] };
+    if (!sync || version.status !== 'retired')
+      throw new ApiError('application.form_not_published', 422);
+    const successor = await this.prisma.formVersion.findFirst({
+      where: { formId: version.formId, status: 'published' },
+      select: { publishedAt: true },
+    });
+    const stale = staleVersion(sync.createdAt, successor?.publishedAt ?? null);
+    return { id: version.id, flags: stale ? ['stale_form_version'] : [] };
+  }
+
   /** Whose application a draft is: the volunteer's own, a team member's lead's, nobody's for an official. */
   private async ownerFor(
     tx: Tx,
@@ -931,6 +1159,7 @@ export class ApplicationsService {
     definition: FormDefinition,
     answers: Answer[],
     boundTo: string | null = null,
+    options: { nameMatch?: boolean } = {},
   ): Promise<Person> {
     const field = fieldByColumn(definition, IDENTITY_COLUMN);
     const number = field ? textOf(answers, field.fieldKey) : null;
@@ -963,6 +1192,18 @@ export class ApplicationsService {
       where: { id: live },
       select: { nid: true, birthReg: true, name: true, fatherOrHusbandName: true },
     });
+    // a record typed by hand offline: the names must be the profile's, else the office looks
+    if (options.nameMatch && !boundTo) {
+      const typed = (column: string) => {
+        const f = fieldByColumn(definition, column);
+        return f ? textOf(answers, f.fieldKey) : null;
+      };
+      if (
+        !namesMatch(typed('name'), profile.name) ||
+        !namesMatch(typed('father_or_husband_name'), profile.fatherOrHusbandName)
+      )
+        return { beneficiaryId: null, identityKind: kind, number, answers, candidate: live };
+    }
     const values: Record<(typeof LOCKED_COLUMNS)[number], string> = {
       [IDENTITY_COLUMN]: profile.nid ?? profile.birthReg ?? number,
       name: profile.name,
@@ -1047,17 +1288,51 @@ export class ApplicationsService {
     access: EffectiveAccess,
     application: EngineApplication,
   ): Promise<void> {
+    await this.runGuards(tx, principal, access, application, CREATE_GUARDS, 'draft');
+  }
+
+  /** The named built guards against the application, as the engine runs them for a move to `to`. */
+  private async runGuards(
+    tx: Tx,
+    principal: Principal,
+    access: EffectiveAccess,
+    application: EngineApplication,
+    names: readonly BuiltGuard[],
+    to: string,
+  ): Promise<void> {
     const ctx = new GuardContext(
       tx,
       application,
       { userId: principal.userId, kind: principal.kind, access },
       {},
       this.clock,
-      'draft',
+      to,
     );
-    for (const name of CREATE_GUARDS)
+    for (const name of names)
       if ((await GUARDS[name](ctx)) !== true)
         throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
+  }
+
+  /**
+   * Whether the caller may edit the record in its state: the state's permission within the
+   * caller's reach, and never for a blocked caller.
+   */
+  async mayEdit(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    status: string,
+  ): Promise<boolean> {
+    const permission = EDIT_PERMISSION[status];
+    if (!permission) return false;
+    if (await this.blockedCaller(this.prisma, viewer.principal)) return false;
+    const access = await this.access.load(viewer.principal.userId);
+    try {
+      await this.assertMay(viewer.principal, access, permission, applicationId);
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) return false;
+      throw error;
+    }
   }
 
   /**
@@ -1094,6 +1369,11 @@ export class ApplicationsService {
   }
 
   /** A volunteer on the blocklist reaches no application. */
+  /** Whether the caller is a volunteer on the blocklist, who no longer sees their applications. */
+  isBlocked(principal: Principal): Promise<boolean> {
+    return this.blockedCaller(this.prisma, principal);
+  }
+
   private async blockedCaller(db: Tx | PrismaService, principal: Principal): Promise<boolean> {
     return principal.kind === 'volunteer' && isBlockedVolunteer(db, principal.userId);
   }
@@ -1228,6 +1508,7 @@ export class ApplicationsService {
         formVersionId: row.formVersionId,
         candidateBeneficiaryId: row.candidateBeneficiaryId,
         createdByUserId: row.createdByUserId,
+        clientCreatedAt: iso(row.clientCreatedAt),
         identityKind: identityKindSchema.parse(row.identityKind),
         rejectionMessage: row.rejectionMessage,
         answers: answers.map((a) => ({ ...a, repeatIndex: a.repeatIndex ?? 0 })),
@@ -1325,4 +1606,34 @@ export class ApplicationsService {
     }
     return actions;
   }
+}
+
+/**
+ * The slots an edited record still waits for: the ones it names now, plus the earlier ones whose
+ * question the edit did not answer with a real photo; a slot goes only when its photo arrives or
+ * its question is answered.
+ */
+async function mergedSlots(
+  tx: Tx,
+  applicationId: string,
+  named: readonly string[],
+  answers: readonly Answer[],
+): Promise<string[]> {
+  const row = await tx.application.findUnique({
+    where: { id: applicationId },
+    select: { pendingPhotos: true },
+  });
+  const answered = new Set(
+    answers
+      .filter((a) => {
+        const v = a.value as { t?: unknown; v?: unknown };
+        return v && v.t === 'photo' && Array.isArray(v.v) && v.v.length > 0;
+      })
+      .map((a) => `${a.fieldKey}${a.repeatIndex ? `#${a.repeatIndex}` : ''}`),
+  );
+  const kept = pendingSlotsOf(row?.pendingPhotos).filter((slot) => {
+    const { fieldKey, repeatIndex } = slotParts(slot);
+    return !answered.has(`${fieldKey}${repeatIndex ? `#${repeatIndex}` : ''}`);
+  });
+  return [...new Set([...kept, ...named])];
 }

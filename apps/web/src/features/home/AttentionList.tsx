@@ -7,8 +7,10 @@ import {
   ArrowRightLeft,
   Bell,
   CalendarClock,
+  Camera,
   CircleCheck,
   Clapperboard,
+  CloudOff,
   FilePenLine,
   FileText,
   FolderPen,
@@ -19,6 +21,7 @@ import {
   UserRoundCheck,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
+import { useSyncAttention } from '../sync/use-sync-store';
 import { ATTENTION_KEY, attention } from './home-api';
 import { Loaded } from './Loaded';
 
@@ -40,18 +43,23 @@ const LOOK: Record<AttentionKind, { icon: IconComponent; tone: 'info' | 'warning
   media_review_waiting: { icon: Clapperboard, tone: 'info' },
   media_sent_back: { icon: Clapperboard, tone: 'warning' },
   media_on_hold: { icon: PauseCircle, tone: 'warning' },
+  sync_failed: { icon: CloudOff, tone: 'warning' },
+  sync_verifying: { icon: UserCheck, tone: 'info' },
+  photos_pending: { icon: Camera, tone: 'warning' },
 };
 
 /**
  * "Needs your attention", the first widget of every home: what waits for the person now, each
  * item linking to the list that holds it; a calm empty state when nothing waits. A module's own
- * home passes its `kinds`.
+ * home passes its `kinds`. A volunteer's items of this phone (records that could not be sent,
+ * records under verification, photos still to go) come first, before the server's.
  */
 export function AttentionList({ kinds }: { kinds?: readonly AttentionKind[] } = {}) {
   const t = useTranslations('home.attention');
   const locale = useLocale() as Locale;
   // a page of one module shows only its own items
   const shown = (item: { kind: AttentionKind }) => !kinds || kinds.includes(item.kind);
+  const local = useSyncAttention().filter(shown);
   // asked again each time the home opens: the person may just have acted on an item
   const items = useQuery({
     queryKey: ATTENTION_KEY,
@@ -68,11 +76,11 @@ export function AttentionList({ kinds }: { kinds?: readonly AttentionKind[] } = 
         query={items}
         empty={t('empty')}
         emptyIcon={CircleCheck}
-        isEmpty={(data) => data.filter(shown).length === 0}
+        isEmpty={(data) => data.filter(shown).length + local.length === 0}
       >
         {(data) => (
           <ul className="my-work-list">
-            {data.filter(shown).map((item) => (
+            {[...local, ...data.filter(shown)].map((item) => (
               <li key={item.kind}>
                 <AttentionCard
                   {...LOOK[item.kind]}

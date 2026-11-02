@@ -61,6 +61,11 @@
       "types": "./dist/media/index.d.ts",
       "default": "./dist/media/index.js"
     },
+    "./sync": {
+      "@css/source": "./src/sync/index.ts",
+      "types": "./dist/sync/index.d.ts",
+      "default": "./dist/sync/index.js"
+    },
     "./beneficiaries": {
       "@css/source": "./src/beneficiaries/index.ts",
       "types": "./dist/beneficiaries/index.d.ts",

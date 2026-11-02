@@ -1,4 +1,10 @@
 import { answerValueSchema } from '@css/shared';
+import {
+  pendingSlotsOf,
+  photoFieldKeys,
+  slotParts,
+  slotPath,
+} from '../applications/pending-photos';
 import { type Answer, type FormDefinition, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
 import type { EffectiveAccess } from '../access/effective';
@@ -22,6 +28,12 @@ export interface EngineApplication {
   status: string;
   zakatDecision: string | null;
   updatedAt: Date;
+  /** The photo slots an offline record still waits for; each counts as answered. */
+  pendingPhotos?: unknown;
+  /** The record's flags; a late sync is judged against the window at the time it was made. */
+  flags?: readonly string[];
+  /** The device time an offline record was made, moved onto the server's clock. */
+  clientCreatedAt?: Date | null;
   project: {
     status: string;
     applyFrom: Date | null;
@@ -84,18 +96,36 @@ export class GuardContext {
    * section neither fail nor count for them.
    */
   async validation() {
-    const audience = this.actor.kind === 'volunteer' ? 'volunteer' : 'official';
+    const audience =
+      this.actor.kind === 'volunteer' ? ('volunteer' as const) : ('official' as const);
     const definition =
       audience === 'official'
         ? await this.definition()
         : await readDefinition(this.tx, this.application.formVersionId, audience);
     const keys = new Set(definition.sections.flatMap((s) => s.fields.map((f) => f.fieldKey)));
     const answers = (await this.answers()).filter((a) => keys.has(a.fieldKey));
-    return validate(definition, answers, {
-      audience,
-      today: isoDateInDhaka(this.clock.now()),
-      previous: answers,
-    });
+    const options = { audience, today: isoDateInDhaka(this.clock.now()), previous: answers };
+    const result = validate(definition, answers, options);
+    // a photo still on the phone is on its way: its slot is not a missing answer; only a photo
+    // question of this form may be such a slot, in the path the validator reports it by
+    const photos = photoFieldKeys(definition);
+    const grouped = new Set(
+      definition.sections.flatMap((s) =>
+        s.fields.filter((f) => f.settings?.repeat?.group).map((f) => f.fieldKey),
+      ),
+    );
+    const pending = new Set(
+      pendingSlotsOf(this.application.pendingPhotos)
+        .filter((slot) => photos.has(slotParts(slot).fieldKey))
+        .map((slot) => slotPath(slot, grouped.has(slotParts(slot).fieldKey))),
+    );
+    if (result.ok || pending.size === 0) return result;
+    const errors = result.errors.filter(
+      (e) => !(e.code === 'validation.required' && pending.has(e.path)),
+    );
+    if (errors.length) return { ok: false, errors };
+    // only the waiting photos were missing: the answers pass as a draft's do, with the computed values
+    return validate(definition, answers, { ...options, draft: true });
   }
 }
 
@@ -133,9 +163,13 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
   'project.active': async (ctx) => ctx.application.project.status === 'active',
   'project.not_closed': async (ctx) =>
     !['closed', 'cancelled'].includes(ctx.application.project.status),
-  // an unset date leaves that side open, as the public link reads the window
+  // an unset date leaves that side open, as the public link reads the window; a record held as
+  // a late sync was made inside the window on the phone, and the office's verification keeps it
   'deadline.open': async (ctx) => {
-    const today = isoDateInDhaka(ctx.clock.now());
+    const { flags, clientCreatedAt } = ctx.application;
+    const madeAt =
+      flags?.includes('late_sync') && clientCreatedAt ? clientCreatedAt : ctx.clock.now();
+    const today = isoDateInDhaka(madeAt);
     const from = day(ctx.application.project.applyFrom);
     const to = day(ctx.application.project.applyTo);
     return (from === null || from <= today) && (to === null || today <= to);

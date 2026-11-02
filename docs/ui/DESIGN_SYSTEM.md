@@ -647,7 +647,7 @@ Full rules in §8.
 
 ### 5.16 Offline banner
 
-Props: `state` (`offline`, `back_online`, `syncing`, `sync_failed`), `pendingCount`, `onOpenOutbox`. A banner under the app bar: offline (neutral tint, `cloud-off` icon, "you are offline; your work is saved on this phone", pending count), back online (success, auto-hides after 4 seconds), syncing (info with progress), failed (danger with "see details"). It never covers content or the action bar. Accessibility: `role="status"`, announced once per change, not on every count change.
+Props: `state` (`offline`, `back_online`, `syncing`, `sync_failed`), `pendingCount`, `onOpenOutbox`, `text` (words in place of the state's own; the app gives an official offline "the lists, the review and the approvals need the connection", since nothing of theirs is kept on the device, D-142). A banner under the app bar: offline (neutral tint, `cloud-off` icon, "you are offline; your work is saved on this phone", pending count), back online (success, auto-hides after 4 seconds), syncing (info with progress), failed (danger with "see details"). It never covers content or the action bar. Accessibility: `role="status"`, announced once per change, not on every count change.
 
 ### 5.17 Bulk-update list row
 

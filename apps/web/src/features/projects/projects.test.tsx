@@ -4,9 +4,12 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ME, refreshAs, renderApp } from '../../../test/auth';
+import { ME, refreshAs, renderApp, TEST_SESSION_ID } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
+import { afterSignIn } from '../../offline/keys';
+import { applySnapshot } from '../../offline/snapshot';
+import type { SnapshotView } from '../../offline/sync-api';
 import { MyProjectPage } from './MyProjectPage';
 import { MyProjectsPage } from './MyProjectsPage';
 import { TeamPage } from './TeamPage';
@@ -138,6 +141,46 @@ describe('a project that is not available', () => {
       '/my-projects',
     );
     await expectNoAxeViolations(container);
+  });
+});
+
+describe('a project without network', () => {
+  /** The phone holds the data set of the last sign-in, with this project in it. */
+  const seedPhone = async (over: Record<string, unknown>) => {
+    await afterSignIn({ sessionId: TEST_SESSION_ID, userId: ME.id, deviceKey: 'k'.repeat(43) });
+    const view: SnapshotView = {
+      serverTime: '2026-10-31T10:00:00.000Z',
+      nextSince: '2026-10-31T09:59:00.000Z',
+      nextAfterId: null,
+      hasMore: false,
+      projects: [{ ...base, ...over } as SnapshotView['projects'][number]],
+      formVersions: [],
+      applications: [],
+      applicationIds: [],
+      locationsVersion: '1.0',
+    };
+    await applySnapshot(view, new Date());
+  };
+  const awayFromServer = () =>
+    server.use(http.get(`*/api/v1/me/projects/${ID}`, () => HttpResponse.error()));
+
+  it('opens from the phone’s copy, with the way to a new application', async () => {
+    await seedPhone({ consentStatus: 'accepted' });
+    awayFromServer();
+    openProject();
+    expect(
+      await screen.findByRole('link', { name: 'নতুন আবেদন' }, { timeout: 5000 }),
+    ).toHaveAttribute('href', `/my-projects/${ID}/apply`);
+  });
+
+  it('says the consent needs the network when the rules are not on the phone', async () => {
+    await seedPhone({ consentStatus: 'pending' });
+    awayFromServer();
+    openProject();
+    expect(
+      await screen.findByText(/নিয়মাবলি পড়তে ও সম্মতি দিতে নেট লাগবে/, {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /সম্মতি/ })).toBeNull();
   });
 });
 

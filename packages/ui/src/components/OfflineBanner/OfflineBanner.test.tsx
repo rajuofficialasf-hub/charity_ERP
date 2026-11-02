@@ -15,6 +15,10 @@ describe('Offline banner (DESIGN_SYSTEM 5.16)', () => {
     );
     const status = screen.getByRole('status');
     expect(status).toHaveTextContent('আপনি অফলাইনে আছেন');
+    // the whole banner is one landmark, so nothing in it stands outside the page's regions
+    expect(screen.getByRole('complementary', { name: 'সংযোগ ও সিঙ্কের অবস্থা' })).toContainElement(
+      status,
+    );
     expect(status).not.toHaveTextContent('3');
     expect(screen.getByText('3টি সিঙ্কের অপেক্ষায়')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'বিস্তারিত দেখুন' }));
@@ -22,6 +26,13 @@ describe('Offline banner (DESIGN_SYSTEM 5.16)', () => {
     await expectNoAxeViolations(container);
     rerender(<OfflineBanner state="sync_failed" pendingCount={3} />);
     expect(screen.getByRole('status')).toHaveTextContent('সিঙ্ক হয়নি');
+  });
+
+  it('says the words it is given in place of the state’s own', () => {
+    renderWithUi(<OfflineBanner state="offline" text="নেট লাগবে" />, { locale: 'bn' });
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('নেট লাগবে');
+    expect(status).not.toHaveTextContent('সংরক্ষিত');
   });
 
   it('hides "back online" after 4 seconds', () => {

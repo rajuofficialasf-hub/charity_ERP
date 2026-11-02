@@ -4,9 +4,14 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ME, pair, refreshAs, renderApp } from '../../../test/auth';
+import { ME, pair, refreshAs, renderApp, TEST_SESSION_ID } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { login, resetClientForTests } from '../../lib/api';
+import { announceUpdate, resetUpdateForTests } from '../../lib/app-update';
+import { afterSignIn } from '../../offline/keys';
+import { OfflineProvider } from '../../offline/OfflineProvider';
+import { enqueue } from '../../offline/outbox';
+import type { SyncEngine, SyncStatus } from '../../offline/sync-engine';
 import { AppShell } from './AppShell';
 
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
@@ -30,17 +35,46 @@ function atWidth(px: number) {
   }));
 }
 
+const PAGES = [
+  { index: true, element: <h1>হোম পাতা</h1> },
+  { path: 'admin/audit', element: <h1>অডিট পাতা</h1> },
+  { path: 'my-projects', element: <h1>প্রকল্প পাতা</h1> },
+  { path: 'account/profile', element: <h1>প্রোফাইল পাতা</h1> },
+  { path: 'sync', element: <h1>সিঙ্ক পাতা</h1> },
+];
 const renderShell = (path = '/', locale: 'bn' | 'en' = 'bn') =>
-  renderApp(<AppShell />, locale, {
-    path: '/',
-    initialPath: path,
-    children: [
-      { index: true, element: <h1>হোম পাতা</h1> },
-      { path: 'admin/audit', element: <h1>অডিট পাতা</h1> },
-      { path: 'my-projects', element: <h1>প্রকল্প পাতা</h1> },
-      { path: 'account/profile', element: <h1>প্রোফাইল পাতা</h1> },
-    ],
-  });
+  renderApp(<AppShell />, locale, { path: '/', initialPath: path, children: PAGES });
+
+const IDLE: SyncStatus = {
+  state: 'idle',
+  pending: 0,
+  syncing: 0,
+  failed: 0,
+  lastSyncAt: null,
+  lastError: null,
+};
+/** An engine standing still at the given status, so the shell's reading of it can be checked. */
+const engineAt = (status: Partial<SyncStatus>) => {
+  const fixed = { ...IDLE, ...status };
+  return {
+    status: fixed,
+    subscribe(listener: (s: SyncStatus) => void) {
+      listener(fixed);
+      return () => undefined;
+    },
+    start: () => undefined,
+    stop: () => undefined,
+    flush: () => Promise.resolve(),
+  } as unknown as SyncEngine;
+};
+const renderShellWith = (engine: SyncEngine, path = '/') =>
+  renderApp(
+    <OfflineProvider engine={engine}>
+      <AppShell />
+    </OfflineProvider>,
+    'bn',
+    { path: '/', initialPath: path, children: PAGES },
+  );
 
 const mainMenu = () => screen.findByRole('navigation', { name: 'প্রধান মেনু' });
 const linkNames = (nav: HTMLElement) =>
@@ -54,6 +88,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  resetUpdateForTests();
 });
 
 describe('app shell', () => {
@@ -80,6 +115,8 @@ describe('app shell', () => {
     );
     expect(within(bar).getByRole('img', { name: 'আস-সুন্নাহ ফাউন্ডেশন' })).toBeInTheDocument();
     expect(within(bar).getByRole('link', { name: 'নোটিফিকেশন' })).toBeInTheDocument();
+    // an official keeps nothing on the device: no sync chip
+    expect(within(bar).queryByRole('link', { name: /সিঙ্কের অবস্থা/ })).toBeNull();
     expect(within(bar).getByRole('radiogroup', { name: 'ভাষা' })).toBeInTheDocument();
     expect(within(bar).getByRole('button', { name: 'প্রোফাইল মেনু' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'আরও' })).not.toBeInTheDocument();
@@ -281,11 +318,106 @@ describe('app shell', () => {
       vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
       window.dispatchEvent(new Event('offline'));
     });
-    expect(await screen.findByRole('status')).toHaveTextContent(/অফলাইন/);
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent(/অফলাইন/);
+    // an official keeps no work on the device: the banner says what needs the connection
+    expect(status).toHaveTextContent('তালিকা, পর্যালোচনা ও অনুমোদনের জন্য নেট লাগবে');
     act(() => {
       window.dispatchEvent(new Event('online'));
     });
     await waitFor(() => expect(screen.queryByText(/অফলাইন/)).toBeNull());
+  });
+
+  it('gives a volunteer the sync chip with the counts, opening the sync centre, also under "more"', async () => {
+    atWidth(360);
+    refreshAs(VOLUNTEER);
+    const user = userEvent.setup();
+    const { container } = renderShellWith(engineAt({ pending: 2, failed: 1 }));
+    const bar = await screen.findByRole('banner');
+    const chip = await within(bar).findByRole('link', {
+      name: 'সিঙ্কের অবস্থা: 3টি বাকি, 1টি পাঠানো যায়নি',
+    });
+    expect(chip).toHaveAttribute('href', '/sync');
+    expect(within(bar).getByText('3')).toBeInTheDocument();
+    // a sync that failed: the banner under the bar leads to the centre too
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('সিঙ্ক হয়নি');
+    expect(screen.getByText('3টি সিঙ্কের অপেক্ষায়')).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+    await user.click(screen.getByRole('button', { name: 'বিস্তারিত দেখুন' }));
+    expect(await screen.findByRole('heading', { name: 'সিঙ্ক পাতা' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'আরও' }));
+    const sheet = await screen.findByRole('dialog', { name: 'আরও' });
+    expect(within(sheet).getByRole('link', { name: 'সিঙ্ক' })).toHaveAttribute('href', '/sync');
+  });
+
+  it('tells a volunteer offline how much waits, then that the connection is back', async () => {
+    atWidth(1280);
+    refreshAs(VOLUNTEER);
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    renderShellWith(engineAt({ state: 'offline', pending: 2 }));
+    await mainMenu();
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent(/অফলাইন/);
+    expect(screen.getByText('2টি সিঙ্কের অপেক্ষায়')).toBeInTheDocument();
+    act(() => {
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(await screen.findByRole('status')).toHaveTextContent('আবার অনলাইনে');
+  });
+
+  it('warns a volunteer who logs out with records still on the phone, twice, and sends the count', async () => {
+    atWidth(1280);
+    refreshAs(VOLUNTEER);
+    await afterSignIn({
+      sessionId: TEST_SESSION_ID,
+      userId: VOLUNTEER.id,
+      deviceKey: 'k'.repeat(43),
+    });
+    for (const n of [1, 2])
+      await enqueue({
+        kind: 'application_draft',
+        projectId: '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c01',
+        formVersionId: '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4d01',
+        payload: { answers: [], n },
+      });
+    let body: unknown = null;
+    server.use(
+      http.post('*/api/v1/auth/logout', async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderShellWith(engineAt({ pending: 2 }));
+    await user.click(await screen.findByRole('button', { name: 'প্রোফাইল মেনু' }));
+    await user.click(screen.getByRole('menuitem', { name: 'লগআউট' }));
+    const first = await screen.findByRole('alertdialog', { name: 'না পাঠানো কাজ আছে' });
+    expect(first).toHaveTextContent('2টি রেকর্ড এখনো অফিসে পৌঁছায়নি');
+    expect(within(first).getByRole('button', { name: 'এখনই সিঙ্ক করুন' })).toBeInTheDocument();
+    expect(screen.queryByTestId('location')).toBeNull();
+    await user.click(within(first).getByRole('button', { name: 'তবুও লগআউট করুন' }));
+    const second = await screen.findByRole('alertdialog', { name: 'সত্যিই লগআউট করবেন?' });
+    expect(second).toHaveTextContent('2টি রেকর্ড চিরতরে হারিয়ে যাবে');
+    await user.click(within(second).getByRole('button', { name: 'হ্যাঁ, মুছে লগআউট করুন' }));
+    expect(await screen.findByTestId('location')).toHaveTextContent('/login?ended=logout');
+    expect(body).toEqual({ pendingCount: 2 });
+  });
+
+  it('offers the reload once a new version waits, and only the tap takes it', async () => {
+    atWidth(1280);
+    refreshAs(PM);
+    const user = userEvent.setup();
+    renderShell();
+    await mainMenu();
+    expect(screen.queryByText('অ্যাপের নতুন সংস্করণ এসেছে।')).toBeNull();
+    const reload = vi.fn();
+    act(() => announceUpdate(reload));
+    expect(await screen.findByText('অ্যাপের নতুন সংস্করণ এসেছে।')).toBeInTheDocument();
+    expect(reload).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'রিলোড করুন' }));
+    expect(reload).toHaveBeenCalledOnce();
   });
 
   it('is accessible in English', async () => {

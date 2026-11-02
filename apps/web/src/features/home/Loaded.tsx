@@ -3,6 +3,7 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
+import { failedOnTheWay } from '../../lib/or-cached';
 
 /** The loading, error and empty states every data widget of the home shares. */
 export function Loaded<T>({
@@ -23,7 +24,12 @@ export function Loaded<T>({
   if (query.error)
     return (
       <ErrorState
-        title={tc('state.error.text')}
+        // without network the read never reached the server: say so, not "something went wrong"
+        title={
+          !navigator.onLine && failedOnTheWay(query.error)
+            ? tc('state.offline.text')
+            : tc('state.error.text')
+        }
         requestId={query.error instanceof ApiFailure ? query.error.requestId : undefined}
         onRetry={() => void query.refetch()}
       />

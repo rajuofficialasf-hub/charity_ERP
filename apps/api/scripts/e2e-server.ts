@@ -53,6 +53,7 @@ async function main(): Promise<void> {
     JWT_SECRET: 'e2e-only-jwt-secret-0123456789abcdef0123',
     AUTH_CSRF_SECRET: 'e2e-only-csrf-secret-0123456789abcdef01',
     OTP_SECRET: 'e2e-only-otp-secret-0123456789abcdef0123',
+    LOCAL_KEY_SECRET: 'e2e-only-local-key-secret-0123456789abcdef',
     OTP_DUMMY_ENABLED: 'true',
     OTP_DUMMY_CODE: process.env.E2E_OTP_CODE ?? '123456',
     // The E2E build is served over plain http. Chromium treats 127.0.0.1 as a secure context and

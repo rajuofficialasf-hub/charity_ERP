@@ -277,9 +277,13 @@ Indexes: (user_id) WHERE revoked_at IS NULL; (permission_name, scope_type, scope
 | revoked_at | timestamptz | yes | — | — |
 | revoked_by | uuid | yes | — | FK users |
 | revoke_reason | text | yes | — | — |
+| local_key | bytea | yes | — | the device key sealed under `LOCAL_KEY_SECRET` and bound to the id (AUTH.md §5, T2.7); null after logout, revocation or the nightly cleanup |
+| local_key_recovered_at | timestamptz | yes | — | when the key was first handed back after the session ended; asked again only within 15 minutes, dropped by the cleanup a day later (T2.7) |
+| pending_count | integer | yes | — | records the device reported as still waiting (≥ 0), with pending_reported_at (T2.7) |
+| pending_reported_at | timestamptz | yes | — | — |
 | [L] | | | | |
 
-Indexes: (user_id) WHERE revoked_at IS NULL; UNIQUE (refresh_token_hash).
+Indexes: (user_id) WHERE revoked_at IS NULL; UNIQUE (refresh_token_hash). The status-log guard also lets local_key, local_key_recovered_at, pending_count and pending_reported_at change.
 
 ### otp_codes
 | Column | Type | Null | Default | Comment |
@@ -952,6 +956,8 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | district_id | uuid | no | — | FK locations (for district split and quotas) |
 | union_id | uuid | no | — | FK locations (union quotas) |
 | client_uuid | uuid | yes | — | UNIQUE (offline records) |
+| pending_photos | jsonb | no | '[]' | the photo slots an offline record still waits for; the upload for a slot fills the answer and removes it (OFFLINE_SYNC §5, T2.7) |
+| applicant_name | text | yes | — | the name typed on an entry that waits for verification (a public entry, or an offline entry whose number belongs to a profile with other names); every list and the record show it in the profile's place until the office links the entry; null on rows that never waited (D-141) |
 | client_created_at | timestamptz | yes | — | device time, offset-corrected |
 | submitted_at, reviewed_at, approved_at, completed_at | timestamptz | yes | — | — |
 | submitted_by, reviewed_by, approved_by, completed_by | uuid | yes | — | FK users; written by the workflow `actor_recorded_as` setting (WORKFLOW_ENGINE §5) |

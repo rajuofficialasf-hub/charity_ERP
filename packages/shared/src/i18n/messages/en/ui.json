@@ -93,7 +93,8 @@
     "syncing": "Syncing",
     "syncFailed": "Sync failed",
     "pending": "{count} waiting to sync",
-    "openOutbox": "See details"
+    "openOutbox": "See details",
+    "banner": "Connection and sync"
   },
   "feedback": {
     "requestId": "Request id: {id}",

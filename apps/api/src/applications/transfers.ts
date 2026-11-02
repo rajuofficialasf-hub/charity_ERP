@@ -106,12 +106,18 @@ export class TransfersService {
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       take: MAX_MOVED,
-      select: { id: true, appNo: true, status: true, beneficiary: { select: { name: true } } },
+      select: {
+        id: true,
+        appNo: true,
+        status: true,
+        beneficiary: { select: { name: true } },
+        applicantName: true,
+      },
     });
     return rows.map((r) => ({
       id: r.id,
       appNo: r.appNo,
-      beneficiaryName: r.beneficiary?.name ?? null,
+      beneficiaryName: r.beneficiary?.name ?? r.applicantName ?? null,
       status: r.status,
     }));
   }

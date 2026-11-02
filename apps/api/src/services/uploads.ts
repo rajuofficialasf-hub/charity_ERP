@@ -1,4 +1,5 @@
 import type { Logger } from 'pino';
+import { attachPendingPhoto } from '../applications/pending-photos';
 import { z } from 'zod';
 import { uuidv7 } from '@css/shared';
 import {
@@ -328,6 +329,16 @@ export class UploadsService {
       where: { id: session.id },
       data: { finalizedFileId: declared.fileId },
     });
+    // an application that synced with this photo still on the phone takes it into its answer now
+    if (declared.entityType === 'application' && record.applicationId)
+      await attachPendingPhoto(tx, this.audit, {
+        applicationId: record.applicationId,
+        slot: declared.slot,
+        fileId: declared.fileId,
+        uploader: principal,
+        flags,
+        now: this.clock.now(),
+      });
     // the position is personal data: the audit entry names the record and the file, never the place
     await this.audit.record(tx, {
       action: 'file.uploaded',

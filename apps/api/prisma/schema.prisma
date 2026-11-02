@@ -428,6 +428,13 @@ model DeviceSession {
   lastSeenAt                     DateTime           @default(now()) @map("last_seen_at") @db.Timestamptz(6)
   lastIp                         String?            @map("last_ip") @db.Inet
   idleTimeout                    Boolean            @default(false) @map("idle_timeout")
+  /// the device key sealed under the server's secret; dropped on logout, revocation and after thirty days
+  localKey                       Bytes?             @map("local_key")
+  /// when the key was first handed back after the session ended; asked again only for a short while
+  localKeyRecoveredAt            DateTime?          @map("local_key_recovered_at") @db.Timestamptz(6)
+  /// records the device reported as still waiting, and when
+  pendingCount                   Int?               @map("pending_count")
+  pendingReportedAt              DateTime?          @map("pending_reported_at") @db.Timestamptz(6)
   expiresAt                      DateTime           @map("expires_at") @db.Timestamptz(6)
   revokedAt                      DateTime?          @map("revoked_at") @db.Timestamptz(6)
   revokedBy                      String?            @map("revoked_by") @db.Uuid
@@ -1737,6 +1744,10 @@ model Application {
   regionLocationId                String                @map("region_location_id") @db.Uuid
   districtId                      String                @map("district_id") @db.Uuid
   unionId                         String                @map("union_id") @db.Uuid
+  /// the photo slots an offline record still waits for; the upload for a slot fills the answer
+  pendingPhotos                   Json                  @default("[]") @map("pending_photos")
+  /// the name typed on an entry that waits for verification; the lists show it until the entry links to a profile
+  applicantName                   String?               @map("applicant_name")
   clientUuid                      String?               @map("client_uuid") @db.Uuid
   clientCreatedAt                 DateTime?             @map("client_created_at") @db.Timestamptz(6)
   submittedAt                     DateTime?             @map("submitted_at") @db.Timestamptz(6)

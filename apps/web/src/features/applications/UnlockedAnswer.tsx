@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
 import { FieldInput } from '../forms/FieldInput';
 import { answerText } from './AnswerList';
-import { fillUnlock, type Unlock } from './applications-api';
+import type { Unlock } from './applications-api';
 
 /** A stored value read as an answer value, or nothing when it is empty or not one. */
 export function valueOf(value: unknown): AnswerValue | undefined {
@@ -29,15 +29,19 @@ export function AnswerValueText({ field, value }: { field: FormField; value: unk
 /**
  * One answer opened for correction, as the person who gives the new value sees it: the previous
  * answer, the question drawn as in the form with that answer to start from, and "পাঠান"; once
- * sent, the new answer waiting for the office's verification.
+ * sent, the new answer waiting for the office's verification. The screen that owns the record
+ * says how the value travels (through the outbox for a volunteer).
  */
 export function UnlockedAnswer({
   unlock,
   field,
+  fill,
   onSent,
 }: {
   unlock: Unlock;
   field: FormField;
+  /** Sends the new value; a refusal throws with its reason. */
+  fill: (value: AnswerValue | null) => Promise<unknown>;
   onSent: () => Promise<unknown> | void;
 }) {
   const t = useTranslations('applications.unlock');
@@ -46,7 +50,7 @@ export function UnlockedAnswer({
   const old = valueOf(unlock.oldValue);
   const [value, setValue] = useState<AnswerValue | null>(old ?? null);
   const send = useMutation({
-    mutationFn: () => fillUnlock(unlock.id, value),
+    mutationFn: () => fill(value),
     onSuccess: async () => {
       await onSent();
     },
@@ -54,9 +58,11 @@ export function UnlockedAnswer({
   const failure =
     send.error instanceof ApiFailure
       ? (send.error.details[0]?.message ?? send.error.message)
-      : send.error
-        ? tc('state.error.text')
-        : undefined;
+      : send.error instanceof Error
+        ? send.error.message
+        : send.error
+          ? tc('state.error.text')
+          : undefined;
   const unchanged = JSON.stringify(value) === JSON.stringify(old ?? null);
   return (
     <Stack gap={2} as="section" aria-labelledby={`unlock-${unlock.id}`}>
