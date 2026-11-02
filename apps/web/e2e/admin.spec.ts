@@ -26,7 +26,7 @@ async function signIn(page: Page, loginId: string): Promise<string> {
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
   // the chip's name is in the page on a phone too, where only its letter shows
-  return (await page.locator('.app-user-name').textContent()) ?? '';
+  return (await page.getByTestId('profile-name').textContent()) ?? '';
 }
 
 const mainMenu = (page: Page) => page.getByRole('navigation', { name: 'প্রধান মেনু' });

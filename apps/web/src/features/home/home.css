@@ -5,7 +5,7 @@
  * from 1024 px, the widgets on the left. Tokens only.
  */
 
-/* the day at a glance: the brand's dark green with the amber glow (DESIGN_SYSTEM 2.6a) */
+/* the day at a glance: the brand's dark green with the amber glow (docs/ui/DESIGN_SYSTEM.md, section "Gradients and glow") */
 .my-work-today {
   display: flex;
   flex-wrap: wrap;
@@ -28,7 +28,7 @@
   font-size: var(--text-title);
   font-weight: var(--font-weight-bold);
 }
-/* white at 94 % on the banner keeps 4.95:1 at its lightest stop (DESIGN_SYSTEM 2.6a) */
+/* white at 94 % on the banner keeps 4.95:1 at its lightest stop (docs/ui/DESIGN_SYSTEM.md, section "Gradients and glow") */
 .my-work-today-line {
   margin: var(--space-1) 0 0;
   color: rgba(255, 255, 255, 0.94);

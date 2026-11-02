@@ -93,7 +93,9 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
     <>
       <MenuButton label={t('profile_menu')} items={items} className="app-profile-chip">
         <IconTile name={me.displayName} size="sm" />
-        <span className="app-user-name">{me.displayName}</span>
+        <span className="app-user-name" data-testid="profile-name">
+          {me.displayName}
+        </span>
       </MenuButton>
       {warning !== null && (
         <LogoutWarning

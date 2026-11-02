@@ -21,7 +21,6 @@ describe('the profile pieces', () => {
           { id: 'mobile', label: 'Mobile', value: '01700005600', icon: Phone, copy: true },
           { id: 'gender', label: 'Gender', value: 'Male', icon: User },
         ]}
-        aside={<p>Documents</p>}
         actions={<Button variant="primary">Approve</Button>}
         actionsLabel="Actions"
       />,

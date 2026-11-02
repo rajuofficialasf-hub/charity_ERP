@@ -131,7 +131,7 @@ describe('app shell', () => {
     ).toHaveAttribute('href', '/');
     expect(within(sidebar).getByText('সহায়তা প্রয়োজন?')).toBeInTheDocument();
     expect(within(sidebar).getByText('ডিপার্টমেন্ট হেড (নমুনা)')).toBeInTheDocument();
-    // the person is named without a role or kind (owner, 2026-11-02)
+    // the person is named alone, without a role or kind
     expect(within(sidebar).queryByText('কর্মকর্তা')).toBeNull();
     // the app bar beside it: the bell, the language and the profile menu, no second logo
     const bar = screen.getByRole('banner');

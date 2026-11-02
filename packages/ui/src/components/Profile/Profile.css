@@ -1,6 +1,6 @@
 /* The profile pieces: header card, section cards, contact rows, copy button. */
 @layer components {
-  /* the banner: the brand's dark green with the amber glow, white text (DESIGN_SYSTEM 2.6a) */
+  /* the banner: the brand's dark green with the amber glow, white text (docs/ui/DESIGN_SYSTEM.md, section "Gradients and glow") */
   .ui-profile-head {
     position: relative;
     display: grid;
@@ -83,7 +83,7 @@
     padding: 0;
     list-style: none;
   }
-  /* light chips on the banner: at most 8 % white, so white text keeps 4.6:1 (DESIGN_SYSTEM 2.6a) */
+  /* light chips on the banner: at most 8 % white, so white text keeps 4.6:1 (docs/ui/DESIGN_SYSTEM.md, section "Gradients and glow") */
   .ui-profile-fact {
     display: inline-flex;
     gap: var(--space-1);
@@ -127,11 +127,6 @@
       align-items: stretch;
       min-width: 12rem;
     }
-  }
-  .ui-profile-aside {
-    grid-column: 1 / -1;
-    padding-top: var(--space-4);
-    border-top: 1px solid rgba(255, 255, 255, 0.16);
   }
 
   .ui-profile-section {

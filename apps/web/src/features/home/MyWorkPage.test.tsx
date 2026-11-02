@@ -61,7 +61,7 @@ describe('My Work home', () => {
     server.use(http.get('*/api/v1/me/projects', () => ok([PROJECT])));
     const { container } = openHome(VOLUNTEER);
     expect(
-      // the page is named for what it holds, without a greeting (owner, 2026-11-02)
+      // the page is named for what it holds, without a greeting
       await screen.findByRole('heading', { level: 1, name: 'আমার কাজ' }),
     ).toBeInTheDocument();
     const attention = screen.getByRole('region', { name: 'এখন আপনার কাজ' });
@@ -243,6 +243,16 @@ describe('My Work home', () => {
     expect(within(today).getByText('অপেক্ষমাণ কাজ').parentElement).toHaveTextContent('6');
     expect(within(today).getByText('না-পড়া নোটিফিকেশন').parentElement).toHaveTextContent('2');
     await expectNoAxeViolations(container);
+  });
+
+  it('says the day is clear when nothing waits', async () => {
+    attentionIs([]);
+    openHome({ ...ME, roles: ['department_head'] });
+    const today = await screen.findByRole('region', { name: 'আজকের সারসংক্ষেপ' });
+    expect(
+      await within(today).findByText('আজ আপনার জন্য কোনো কাজ অপেক্ষায় নেই।'),
+    ).toBeInTheDocument();
+    expect(within(today).getByText('অপেক্ষমাণ কাজ').parentElement).toHaveTextContent('0');
   });
 
   it('says calmly when nothing waits', async () => {

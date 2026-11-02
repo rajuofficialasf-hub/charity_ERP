@@ -68,8 +68,6 @@ export interface ProfileHeaderProps {
   status?: ReactNode;
   /** The key facts as chips under the name; leave out what the caller may not see. */
   facts?: ProfileFact[];
-  /** Under the person, across the banner: the documents. */
-  aside?: ReactNode;
   /** The actions: on the right of the banner on a desktop, under the person on a phone. */
   actions?: ReactNode;
   /** Name of the action panel ("Actions"). */
@@ -79,14 +77,13 @@ export interface ProfileHeaderProps {
 
 /**
  * The banner of a profile on the brand's dark green: who, the state, the key facts as light
- * chips, the actions on the right, and the documents across the bottom when given.
+ * chips, and the actions on the right.
  */
 export function ProfileHeader({
   name,
   avatar,
   status,
   facts = [],
-  aside,
   actions,
   actionsLabel,
   className,
@@ -127,7 +124,6 @@ export function ProfileHeader({
           {actions}
         </div>
       )}
-      {aside && <div className="ui-profile-aside">{aside}</div>}
     </div>
   );
 }
