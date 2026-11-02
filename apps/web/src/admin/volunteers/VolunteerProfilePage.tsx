@@ -542,6 +542,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
         </ProfileSection>
         <ProfileSection title={t('sections.address')} icon={MapPin}>
           <DescriptionList
+            columns={2}
             items={[
               { label: tf('form.address'), value: <AddressNames address={p} /> },
               { label: tf('form.address_line'), value: p.addressLine ?? empty },
@@ -554,6 +555,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
         </ProfileSection>
         <ProfileSection title={t('education_skills')} icon={GraduationCap}>
           <DescriptionList
+            columns={2}
             items={[
               {
                 label: tf('form.education_group'),
@@ -577,6 +579,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
         </ProfileSection>
         <ProfileSection title={t('work_section')} icon={Briefcase}>
           <DescriptionList
+            columns={2}
             items={[
               {
                 label: tf('form.profession_group'),
