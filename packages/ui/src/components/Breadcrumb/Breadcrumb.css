@@ -42,7 +42,8 @@
   }
   .ui-breadcrumb-item + .ui-breadcrumb-item::before {
     content: '\203A';
-    margin: 0 var(--space-1);
+    /* the trail's own gap already sits before the chevron */
+    margin-right: var(--space-1);
     color: var(--color-text-secondary);
   }
   .ui-breadcrumb-link {

@@ -3,7 +3,6 @@ import { type Locale, localized } from '@css/shared/i18n';
 import {
   Avatar,
   Badge,
-  Breadcrumb,
   Button,
   EmptyState,
   ErrorState,
@@ -34,6 +33,7 @@ import './organogram.css';
 import { type Organogram, type OrganogramNode, organogram, STAFF_KEY } from './staff-api';
 import './staff.css';
 import { StaffViewSwitch } from './StaffViewSwitch';
+import { PageCrumbs } from '../../components/shell/breadcrumb';
 
 const ALL = 'all';
 /** The zoom of the chart: never below 40 %, never above 150 %, in steps of 10 %. */
@@ -362,7 +362,7 @@ export function OrganogramPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <Breadcrumb
+      <PageCrumbs
         items={[
           { id: 'staff', label: ts('title'), href: '/admin/staff' },
           { id: 'chart', label: t('title') },

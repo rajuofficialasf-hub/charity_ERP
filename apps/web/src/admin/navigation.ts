@@ -241,3 +241,15 @@ export function isCurrent(item: NavDestination, pathname: string): boolean {
     href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`),
   );
 }
+
+/** The sidebar destination of the page shown and its group, for the trail in the app bar. */
+export function placeOf(
+  me: Pick<Me, 'kind' | 'roles'>,
+  pathname: string,
+): { group: NavGroup; item: NavDestination } | null {
+  for (const { group, items } of sidebarFor(me)) {
+    const item = items.find((i) => isCurrent(i, pathname));
+    if (item) return { group, item };
+  }
+  return null;
+}

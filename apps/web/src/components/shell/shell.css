@@ -73,6 +73,11 @@
   box-shadow: var(--focus-ring);
   border-radius: var(--radius-sm);
 }
+/* the trail beside the sidebar sits on the bar's line, not above a page */
+.app-bar-crumbs {
+  min-width: 0;
+  margin: 0;
+}
 .app-bar-actions {
   display: flex;
   flex: none;

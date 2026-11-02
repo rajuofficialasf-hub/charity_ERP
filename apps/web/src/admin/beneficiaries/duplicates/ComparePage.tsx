@@ -4,7 +4,6 @@ import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
   Badge,
-  Breadcrumb,
   Button,
   Card,
   DescriptionList,
@@ -34,6 +33,7 @@ import {
 import { BeneficiaryArea } from '../BeneficiaryArea';
 import { MergeDialog, type MergeMode } from './MergeDialog';
 import { DUPLICATES_KEY, DUPLICATES_PATH, type MergeView, mergeProposals } from './merge-api';
+import { PageCrumbs } from '../../../components/shell/breadcrumb';
 
 /**
  * Two beneficiary profiles side by side (a suggested pair or a proposal): the official chooses the
@@ -80,7 +80,7 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
   const [dialog, setDialog] = useState(false);
 
   const crumbs = (
-    <Breadcrumb
+    <PageCrumbs
       items={[
         { id: 'list', label: t('duplicates.title'), href: DUPLICATES_PATH },
         { id: 'compare', label: tm('title') },

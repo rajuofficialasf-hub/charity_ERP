@@ -1,14 +1,15 @@
 import type { Me } from '@css/shared/auth';
-import { IconTile, OfflineBanner, type OfflineBannerProps } from '@css/ui';
+import { type BreadcrumbItem, IconTile, OfflineBanner, type OfflineBannerProps } from '@css/ui';
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
-import { sidebarFor } from '../../admin/navigation';
+import { placeOf, sidebarFor } from '../../admin/navigation';
 import { RequireAuth } from '../../lib/auth';
 import { useOffline } from '../../offline/OfflineProvider';
 import type { SyncStatus } from '../../offline/sync-engine';
 import { AppProviders } from '../AppProviders';
 import { AppBar } from './AppBar';
+import { CrumbsProvider, useCrumbsHolder } from './breadcrumb';
 import { BottomTabs } from './BottomTabs';
 import { MoreSheet } from './MoreSheet';
 import { NavLinks } from './NavLinks';
@@ -42,12 +43,14 @@ function Shell({ me }: { me: Me }) {
     setMoreOpen(false);
   }
   const sidebar = width === 'desktop' && me.kind !== 'volunteer';
+  const crumbs = useCrumbsHolder(sidebar);
+  const trail = useTrail(me, pathname, sidebar, crumbs.items);
   return (
     <AppProviders navigate={(href) => void navigate(href)}>
       <div
         className={`app-shell app-shell-${sidebar ? 'sidebar' : width === 'phone' ? 'tabs' : 'rail'}`}
       >
-        <AppBar me={me} phone={width === 'phone'} withBrand={!sidebar} />
+        <AppBar me={me} phone={width === 'phone'} withBrand={!sidebar} trail={trail} />
         {sidebar ? (
           <Sidebar me={me} />
         ) : (
@@ -76,13 +79,35 @@ function Shell({ me }: { me: Me }) {
             />
           )}
           <main id="main" className="app-content">
-            <Outlet />
+            <CrumbsProvider value={crumbs.value}>
+              <Outlet />
+            </CrumbsProvider>
           </main>
         </div>
         <MoreSheet me={me} isOpen={moreOpen} onClose={() => setMoreOpen(false)} />
       </div>
     </AppProviders>
   );
+}
+
+/**
+ * The trail of the app bar beside the sidebar: the destination's group, then the page's own
+ * crumbs, or the destination itself when the page has none. None without the sidebar.
+ */
+function useTrail(
+  me: Me,
+  pathname: string,
+  sidebar: boolean,
+  pageCrumbs: BreadcrumbItem[] | null,
+): BreadcrumbItem[] | null {
+  const t = useTranslations('nav');
+  if (!sidebar) return null;
+  const place = placeOf(me, pathname);
+  const items: BreadcrumbItem[] = [
+    ...(place ? [{ id: 'group', label: t(`group.${place.group}`) }] : []),
+    ...(pageCrumbs ?? (place ? [{ id: 'page', label: t(place.item.key) }] : [])),
+  ];
+  return items.length > 1 ? items : null;
 }
 
 type Banner = Pick<OfflineBannerProps, 'state' | 'pendingCount' | 'onHidden'>;

@@ -5,7 +5,6 @@ import {
   Alert,
   Avatar,
   Badge,
-  Breadcrumb,
   Button,
   ContactList,
   DescriptionList,
@@ -68,6 +67,7 @@ import { RevertMergeAction } from './duplicates/RevertMergeAction';
 import { ContactLog, Corrections, useFileKind } from './ProfileHistory';
 import { MediaWorksSection } from '../../features/media/MediaWorksSection';
 import { RecordPdfButton } from '../../features/exports/RecordPdfButton';
+import { PageCrumbs } from '../../components/shell/breadcrumb';
 
 /**
  * The 360° profile of one beneficiary in the one profile layout: the header card with the key facts,
@@ -236,7 +236,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
   return (
     <Grid gap={4}>
       <DocumentTitle title={p.name} />
-      <Breadcrumb
+      <PageCrumbs
         items={[
           { id: 'list', label: tp('back'), href: '/admin/beneficiaries' },
           { id: 'profile', label: p.name },

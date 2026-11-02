@@ -4,7 +4,6 @@ import {
   Alert,
   Avatar,
   Badge,
-  Breadcrumb,
   type ContactItem,
   ContactList,
   DescriptionList,
@@ -73,6 +72,7 @@ import {
   VOLUNTEERS_KEY,
 } from './volunteers-api';
 import { VolunteerSessions } from './VolunteerSessions';
+import { PageCrumbs } from '../../components/shell/breadcrumb';
 
 /**
  * One volunteer for an official in the one profile layout: the header card with the key facts, the
@@ -315,7 +315,7 @@ function Profile({
   return (
     <Grid gap={4}>
       <DocumentTitle title={p.displayName} />
-      <Breadcrumb
+      <PageCrumbs
         items={[
           {
             id: 'list',

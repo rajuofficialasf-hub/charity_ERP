@@ -3,7 +3,6 @@ import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
   Badge,
-  Breadcrumb,
   Button,
   EmptyState,
   ErrorState,
@@ -34,6 +33,7 @@ import {
   mergeProposals,
   type MergeView,
 } from './merge-api';
+import { PageCrumbs } from '../../../components/shell/breadcrumb';
 
 /**
  * The suggested duplicate profiles in the caller's scope, with the rules each pair meets: an
@@ -49,7 +49,7 @@ export function DuplicatesPage() {
   return (
     <>
       <DocumentTitle title={t('duplicates.title')} />
-      <Breadcrumb
+      <PageCrumbs
         items={[
           { id: 'list', label: t('profile.back'), href: '/admin/beneficiaries' },
           { id: 'duplicates', label: t('duplicates.title') },

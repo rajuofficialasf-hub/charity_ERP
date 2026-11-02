@@ -1,4 +1,4 @@
-import { Alert, Badge, Breadcrumb, ErrorState, Grid, Skeleton, Stack, Text } from '@css/ui';
+import { Alert, Badge, ErrorState, Grid, Skeleton, Stack, Text } from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router';
@@ -17,6 +17,7 @@ import { StagePanel } from './StagePanel';
 import { useMediaLabels } from './use-media-lists';
 import { WorkComments, WorkHistory } from './WorkHistory';
 import './media.css';
+import { PageCrumbs } from '../../components/shell/breadcrumb';
 
 /**
  * One referral and its work on one page (docs/ui/SCREENS.md, the media work page): the referral and
@@ -54,7 +55,7 @@ export function WorkPage() {
   if (one.error || !one.data)
     return (
       <Stack gap={2}>
-        <Breadcrumb items={crumbs} />
+        <PageCrumbs items={crumbs} />
         <ErrorState
           title={tc('state.error.text')}
           requestId={one.error instanceof ApiFailure ? one.error.requestId : undefined}
@@ -68,7 +69,7 @@ export function WorkPage() {
   return (
     <Grid gap={3}>
       <DocumentTitle title={title} />
-      <Breadcrumb items={[...crumbs, { id: 'work', label: title }]} />
+      <PageCrumbs items={[...crumbs, { id: 'work', label: title }]} />
       <Stack gap={1}>
         <h1 className="media-title">{title}</h1>
         <Stack direction="row" gap={2} wrap>

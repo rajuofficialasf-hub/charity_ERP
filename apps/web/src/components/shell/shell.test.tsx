@@ -13,6 +13,7 @@ import { OfflineProvider } from '../../offline/OfflineProvider';
 import { enqueue } from '../../offline/outbox';
 import type { SyncEngine, SyncStatus } from '../../offline/sync-engine';
 import { AppShell } from './AppShell';
+import { PageCrumbs } from './breadcrumb';
 
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const PM: Me = { ...ME, roles: ['program_manager'] };
@@ -41,6 +42,20 @@ const PAGES = [
   { path: 'my-projects', element: <h1>প্রকল্প পাতা</h1> },
   { path: 'account/profile', element: <h1>প্রোফাইল পাতা</h1> },
   { path: 'sync', element: <h1>সিঙ্ক পাতা</h1> },
+  {
+    path: 'admin/staff/x',
+    element: (
+      <>
+        <PageCrumbs
+          items={[
+            { id: 'list', label: 'কর্মীদের তালিকা', href: '/admin/staff' },
+            { id: 'profile', label: 'রহিম উদ্দিন' },
+          ]}
+        />
+        <h1>কর্মীর পাতা</h1>
+      </>
+    ),
+  },
 ];
 const renderShell = (path = '/', locale: 'bn' | 'en' = 'bn') =>
   renderApp(<AppShell />, locale, { path: '/', initialPath: path, children: PAGES });
@@ -152,6 +167,46 @@ describe('app shell', () => {
       'page',
     );
     expect(within(nav).getByRole('link', { name: 'আমার কাজ' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('names the group and the page in the app bar on a desktop', async () => {
+    atWidth(1280);
+    refreshAs(HEAD);
+    renderShell('/admin/audit');
+    await mainMenu();
+    const trail = within(screen.getByRole('banner')).getByRole('navigation', { name: 'অবস্থান' });
+    expect(trail).toHaveTextContent('প্রশাসন');
+    expect(within(trail).getByText('অডিট লগ').closest('[aria-current]')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it('puts the crumbs of a page in the app bar on a desktop, and keeps them on the page on a phone', async () => {
+    atWidth(1280);
+    refreshAs(HEAD);
+    const { unmount } = renderShell('/admin/staff/x');
+    await screen.findByRole('heading', { name: 'কর্মীর পাতা' });
+    const bar = screen.getByRole('banner');
+    const trail = await within(bar).findByRole('navigation', { name: 'অবস্থান' });
+    expect(trail).toHaveTextContent('মানুষ');
+    expect(within(trail).getByRole('link', { name: 'কর্মীদের তালিকা' })).toHaveAttribute(
+      'href',
+      '/admin/staff',
+    );
+    expect(within(trail).getByText('রহিম উদ্দিন')).toBeInTheDocument();
+    expect(within(screen.getByRole('main')).queryByRole('navigation')).toBeNull();
+    unmount();
+
+    atWidth(375);
+    renderShell('/admin/staff/x');
+    await screen.findByRole('heading', { name: 'কর্মীর পাতা' });
+    const main = screen.getByRole('main');
+    expect(within(main).getByRole('link', { name: 'কর্মীদের তালিকা-এ ফিরে যান' })).toHaveAttribute(
+      'href',
+      '/admin/staff',
+    );
+    expect(within(screen.getByRole('banner')).queryByRole('navigation')).toBeNull();
   });
 
   it('gives a volunteer no sidebar: the rail holds home, my projects, my applications, notifications and more', async () => {
