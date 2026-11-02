@@ -124,7 +124,7 @@
   outline-offset: 2px;
   border-radius: var(--radius-md);
 }
-/* the logo keeps its own colours on a light square (colors.md, usage rule 5) */
+/* the logo keeps its own colours on a light square (docs/ui/brand/colors.md, "Usage rules") */
 .app-sidebar-mark {
   display: grid;
   flex: none;

@@ -33,7 +33,8 @@ describe('NavItem', () => {
     );
     const current = screen.getByRole('link', { name: /Registrations/ });
     expect(current).toHaveClass('ui-nav-dark');
-    expect(current.getAttribute('aria-label')).toMatch(/4/);
+    expect(current).toHaveAccessibleName('Registrations, 4 pending');
+    expect(current.querySelector('.ui-nav-badge')).toHaveTextContent(/^4$/);
     expect(screen.getByRole('link', { name: 'Projects' })).toHaveClass('ui-nav-dark');
     await expectNoAxeViolations(container);
   });

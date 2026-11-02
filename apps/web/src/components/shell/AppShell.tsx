@@ -1,7 +1,7 @@
 import type { Me } from '@css/shared/auth';
 import { type BreadcrumbItem, IconTile, OfflineBanner, type OfflineBannerProps } from '@css/ui';
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { attentionCounts, placeOf, sidebarFor } from '../../admin/navigation';
@@ -92,6 +92,31 @@ function Shell({ me }: { me: Me }) {
   );
 }
 
+/** How often the sidebar's counts are read while a page stays open, as the bell's count is. */
+const COUNTS_REFRESH_MS = 60_000;
+
+/**
+ * What waits for the person, as the home counts it (the same cached list): read again every
+ * minute and on every move to another page, so a decision made a moment ago leaves its count.
+ */
+function useWaiting() {
+  const { pathname } = useLocation();
+  const queryClient = useQueryClient();
+  const waiting = useQuery({
+    queryKey: ATTENTION_KEY,
+    queryFn: attention,
+    refetchInterval: COUNTS_REFRESH_MS,
+    staleTime: COUNTS_REFRESH_MS / 2,
+  });
+  const shown = useRef(pathname);
+  useEffect(() => {
+    if (shown.current === pathname) return;
+    shown.current = pathname;
+    void queryClient.invalidateQueries({ queryKey: ATTENTION_KEY });
+  }, [pathname, queryClient]);
+  return waiting.data ?? [];
+}
+
 /**
  * The trail of the app bar beside the sidebar: the destination's group, then the page's own
  * crumbs, or the destination itself when the page has none. None without the sidebar.
@@ -148,9 +173,7 @@ function useBanner(online: boolean, status: SyncStatus, volunteer: boolean): Ban
 function Sidebar({ me }: { me: Me }) {
   const t = useTranslations('nav');
   const ta = useTranslations('common.app');
-  // the same counted list as the home's, read from its cache when the home already loaded it
-  const waiting = useQuery({ queryKey: ATTENTION_KEY, queryFn: attention });
-  const counts = attentionCounts(me, waiting.data ?? []);
+  const counts = attentionCounts(me, useWaiting());
   return (
     <aside className="app-sidebar" aria-label={t('sidebar')} data-testid="sidebar">
       <a href="/" className="app-sidebar-brand">

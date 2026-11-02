@@ -193,6 +193,35 @@ describe('app shell', () => {
     expect(within(nav).getByRole('link', { name: 'অডিট লগ' })).toBeInTheDocument();
   });
 
+  it('reads the counts again when the person moves to another page', async () => {
+    atWidth(1280);
+    refreshAs(HEAD);
+    let waiting = 3;
+    server.use(
+      http.get('*/api/v1/me/attention', () =>
+        HttpResponse.json({
+          data: waiting
+            ? [
+                {
+                  kind: 'staff_registrations_pending',
+                  count: waiting,
+                  href: '/admin/registrations',
+                },
+              ]
+            : [],
+          meta: { requestId: 'test' },
+        }),
+      ),
+    );
+    renderShell('/');
+    const nav = await mainMenu();
+    expect(await within(nav).findByRole('link', { name: 'নিবন্ধন, 3টি অপেক্ষমাণ' })).toBeVisible();
+    // the last registration was decided elsewhere; the next page shows the count without it
+    waiting = 0;
+    await userEvent.setup().click(within(nav).getByRole('link', { name: 'অডিট লগ' }));
+    expect(await within(nav).findByRole('link', { name: 'নিবন্ধন' })).toBeVisible();
+  });
+
   it('names the group and the page in the app bar on a desktop', async () => {
     atWidth(1280);
     refreshAs(HEAD);

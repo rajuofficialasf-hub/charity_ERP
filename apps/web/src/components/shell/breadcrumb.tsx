@@ -1,5 +1,5 @@
 import { Breadcrumb, type BreadcrumbItem } from '@css/ui';
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from 'react';
 
 /**
  * The page's own crumbs and where they show (docs/ui/DESIGN_SYSTEM.md, section "Breadcrumb"):
@@ -28,9 +28,10 @@ export function PageCrumbs({ items }: { items: BreadcrumbItem[] }) {
   const crumbs = useContext(CrumbsContext);
   const inBar = crumbs?.inBar ?? false;
   const set = crumbs?.set;
-  // the items are compared by their text, so a new array with the same crumbs changes nothing
+  // the items are compared by their text, so a new array with the same crumbs changes nothing;
+  // they reach the app bar before the page is painted, so its trail never shows the shorter one
   const key = JSON.stringify(items);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!inBar || !set) return;
     set(JSON.parse(key) as BreadcrumbItem[]);
     return () => set(null);
