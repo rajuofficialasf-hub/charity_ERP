@@ -35,8 +35,10 @@
   .ui-card-accent {
     border-left: 4px solid var(--color-brand-accent);
   }
+  /* the actions stand beside the title and drop under it when both do not fit (a phone) */
   .ui-card-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--space-3);
@@ -58,7 +60,8 @@
   }
   .ui-card-actions {
     display: flex;
-    flex: none;
+    flex: 0 1 auto;
+    min-width: 0;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
