@@ -28,10 +28,10 @@ describe('PageHeader', () => {
   });
 
   it('shows the title alone when a page has no area label, description or actions yet', () => {
-    const { container } = renderWithUi(<PageHeader title="Audit log" />);
+    renderWithUi(<PageHeader title="Audit log" actions={false} description={undefined} />);
     expect(screen.getByRole('heading', { level: 1, name: 'Audit log' })).toBeInTheDocument();
-    expect(container.querySelector('.ui-page-header-eyebrow')).toBeNull();
-    expect(container.querySelector('.ui-page-header-description')).toBeNull();
-    expect(container.querySelector('.ui-page-header-actions')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByRole('paragraph')).toBeNull();
+    expect(document.body).toHaveTextContent(/^Audit log$/);
   });
 });

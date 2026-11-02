@@ -131,7 +131,7 @@ function WizardHead({
   return (
     <header className="admin-wizard-head">
       {back}
-      <PageHeader title={title} meta={badge} />
+      <PageHeader title={title} meta={badge && <span data-testid="project-state">{badge}</span>} />
       <Stepper
         label={t('steps')}
         steps={steps.map((s) => ts(s))}

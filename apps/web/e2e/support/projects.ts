@@ -13,7 +13,7 @@ export const code = () =>
 export const section = (page: Page, name: string): Locator => page.getByRole('region', { name });
 /** The state badge beside the project's name. */
 export const state = (page: Page, badge: string): Locator =>
-  page.locator('.admin-title-row').getByText(badge, { exact: true });
+  page.getByTestId('project-state').getByText(badge, { exact: true });
 export const next = (page: Page) => page.getByRole('button', { name: 'পরের ধাপ' });
 
 /** Picks an option of a Select inside a part of the page. */

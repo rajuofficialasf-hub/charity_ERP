@@ -66,7 +66,11 @@ export function ProjectOverviewPage() {
       {back}
       <PageHeader
         title={localized(p.name, locale)}
-        meta={<ProjectStatusBadge status={p.status} />}
+        meta={
+          <span data-testid="project-state">
+            <ProjectStatusBadge status={p.status} />
+          </span>
+        }
       />
       {notice && (
         <Alert
