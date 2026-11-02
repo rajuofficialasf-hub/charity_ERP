@@ -8,32 +8,51 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
+import { orCached } from '../../lib/or-cached';
+import type { SyncInfo } from '../../offline/applications-store';
 import { MY_PROJECTS_KEY, myProjects } from '../projects/my-projects-api';
 import { type ApplicationSummary, MY_APPLICATIONS_KEY, myApplications } from './applications-api';
 import { type Tab, TABS, toneOf } from './status';
+import { SyncBadge } from './SyncBadge';
+import { loadStore, useLocalRecords } from './use-local-records';
 import './applications.css';
 
 const TAB_IDS = Object.keys(TABS) as Tab[];
 
 /**
  * The volunteer's own applications by state (docs/ui/SCREENS.md, "My applications and application detail"): drafts, the ones
- * waiting at the office, the approved and the refused; each card opens the record.
+ * waiting at the office, the approved and the refused; each card opens the record. The lists come
+ * from the server while there is network and from the phone's data set otherwise; the drafts the
+ * server does not know yet sit first among the drafts, and a record on its way carries its badge.
  */
 export function MyApplicationsPage() {
   const t = useTranslations('applications.list');
   return <AccountPage title={() => t('title')}>{() => <Lists />}</AccountPage>;
 }
 
+/** The server's list, or the phone's when the network is away. */
+const listOf = (tab: Tab) =>
+  orCached(
+    () => myApplications(TABS[tab].join(',')),
+    async () => {
+      const cached = await (await loadStore()).cachedList(TABS[tab]);
+      return cached ? { data: cached, meta: { total: cached.length } } : null;
+    },
+  );
+
+const projectsOf = () => orCached(myProjects, async () => (await loadStore()).cachedProjects());
+
 function Lists() {
   const t = useTranslations('applications.list');
   const [params, setParams] = useSearchParams();
   const chosen = (params.get('tab') as Tab | null) ?? 'pending';
   const tab = TAB_IDS.includes(chosen) ? chosen : 'pending';
-  const projects = useQuery({ queryKey: MY_PROJECTS_KEY, queryFn: myProjects });
+  const projects = useQuery({ queryKey: MY_PROJECTS_KEY, queryFn: projectsOf });
+  const local = useLocalRecords();
   const queries = useQueries({
     queries: TAB_IDS.map((id) => ({
       queryKey: [...MY_APPLICATIONS_KEY, id],
-      queryFn: () => myApplications(TABS[id].join(',')),
+      queryFn: () => listOf(id),
     })),
   });
   const lists = TAB_IDS.map((id, i) => ({ id, query: queries[i]! }));
@@ -45,20 +64,32 @@ function Lists() {
         label={t('tabs')}
         selectedId={tab}
         onChange={(id) => setParams({ tab: id })}
-        items={lists.map(({ id, query }) => ({
-          id,
-          label: t(id),
-          count: query.data?.meta.total,
-          content: (
-            <List
-              rows={query.data?.data}
-              pending={query.isPending}
-              error={query.error}
-              retry={() => void query.refetch()}
-              nameOf={(projectId) => names.get(projectId) ?? null}
-            />
-          ),
-        }))}
+        items={lists.map(({ id, query }) => {
+          const own = id === 'draft' ? local.drafts : [];
+          // the phone's own drafts show even when the server's list could not be read and the
+          // phone holds no data set yet (a first application taken offline)
+          const rows = query.data
+            ? [...own, ...query.data.data]
+            : query.error && own.length
+              ? own
+              : undefined;
+          const total = query.data?.meta.total;
+          return {
+            id,
+            label: t(id),
+            count: total === undefined ? undefined : total + own.length,
+            content: (
+              <List
+                rows={rows}
+                pending={query.isPending}
+                error={rows ? undefined : query.error}
+                retry={() => void query.refetch()}
+                nameOf={(projectId) => names.get(projectId) ?? null}
+                syncOf={(row) => ('sync' in row ? row.sync : local.syncOf.get(row.id))}
+              />
+            ),
+          };
+        })}
       />
     </>
   );
@@ -70,12 +101,14 @@ function List({
   error,
   retry,
   nameOf,
+  syncOf,
 }: {
   rows: ApplicationSummary[] | undefined;
   pending: boolean;
   error: unknown;
   retry: () => void;
   nameOf: (projectId: string) => { bn: string; en: string } | null;
+  syncOf: (row: ApplicationSummary & { sync?: SyncInfo }) => SyncInfo | undefined;
 }) {
   const t = useTranslations('applications');
   const locale = useLocale() as Locale;
@@ -116,6 +149,7 @@ function List({
                         : r.status
                     }
                   />
+                  <SyncBadge sync={syncOf(r)} />
                 </div>
                 {name ? <Text>{localized(name, locale)}</Text> : null}
                 {r.submittedAt ? <Text tone="muted">{formatDate(r.submittedAt)}</Text> : null}

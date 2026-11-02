@@ -98,7 +98,8 @@ The Phase 1 checklist (T1.16): each journey of the gate and the Playwright spec 
 | Language switch that persists | `registration.spec.ts` (the registration page switches to English from the bar and keeps it), `gallery.spec.ts` (the language switch turns the gallery to English and back, and the choice persists) |
 | Device revocation ends the session | `auth.spec.ts` (lists the devices and logs out another one, which then has to log in again) |
 | A threshold changed and audited; nisab versions | `admin-settings.spec.ts` |
-| The shell: bottom tabs, sidebar, profile menu, offline banner; each role's home | `shell.spec.ts`, `home.spec.ts` |
+| The shell: bottom tabs, sidebar, profile menu, offline banner; each role's home; the installed app opening offline from its cache with the fonts (the mobile and iphone projects) | `shell.spec.ts`, `home.spec.ts` |
+| Offline capture and sync (T2.7): an application with a photo taken without network goes to the office over a slow link with a cut upload part; an offline entry on a known number with another name waits for the office, which links it; a draft edited on both sides keeps the phone's later edit; a logout with work left warns twice and a step back keeps the work; a device the office signs out wipes the phone | `offline.spec.ts` (the mobile project, serial on one phone, volunteer 11 and the Dhaka RPM; helpers in `e2e/support/offline.ts`: the network off and on, a 3G throttle through CDP, the data set's arrival) |
 
 ### 3.5 Load (NFR-01, NFR-02)
 
@@ -142,6 +143,8 @@ The Phase 1 checklist (T1.16): each journey of the gate and the Playwright spec 
 ### 3.10 Offline and sync
 
 All cases of OFFLINE_SYNC.md §13 and O-29: offline capture and sync, drops mid-batch and mid-chunk, `Retry-After`, authentication expiry with pending records, storage exhaustion, conflict rules of BD-48, iOS eviction simulation; device-matrix steps in the UAT script.
+
+As run in T2.7 (2026-10-31): the unit, API, component and E2E layers are listed in OFFLINE_SYNC.md §13 ("As run"); the register lines of BR-104, BR-194 to BR-200, BR-202, BR-222 and BR-236 to BR-238 in BUSINESS_RULES.md section 19 name the tests. The device matrix (installed app on Android Chrome and on an iPhone, the Safari tab, the persist request, the eviction and the slow network) is the owner's checklist `docs/testing/uat/OFFLINE_DEVICE_CHECKLIST_BN.md`, run before the Phase 2 gate; the E2E API runs no scan job, so a photo uploaded in a journey reads as waiting for its check on the office page and the journey proves the attached file through the API instead.
 
 ### 3.11 Localization
 

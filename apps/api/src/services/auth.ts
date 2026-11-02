@@ -176,6 +176,8 @@ export class AuthService {
         ? await this.hasher.hash(input.password)
         : undefined;
     const session = await this.prisma.$transaction(async (tx) => {
+      // before the new session, so the device limit never evicts the one being recovered
+      const previousKey = await this.recoverOutbox(tx, user.id, input);
       await tx.user.update({
         where: { id: user.id },
         data: {
@@ -203,9 +205,71 @@ export class AuthService {
           appVersion: input.device?.appVersion ?? null,
         },
       });
-      return created;
+      return { ...created, previousKey };
     });
-    return this.issue(user.id, session.id, session.refreshToken, session.expiresAt);
+    return this.issue(
+      user.id,
+      session.id,
+      session.refreshToken,
+      session.expiresAt,
+      session.localKey,
+      session.previousKey,
+    );
+  }
+
+  /**
+   * The outbox the phone kept under an earlier session (docs/architecture/OFFLINE_SYNC.md "Local
+   * storage security"): its key comes back when that session merely ended, and the phone's report
+   * of what it lost is audited so the loss is on record, never silent. The counts are the phone's
+   * own claim; a session id the caller does not own is never written as the audit's entity.
+   */
+  private async recoverOutbox(
+    tx: Tx,
+    userId: string,
+    input: LoginRequest,
+  ): Promise<string | undefined> {
+    const { recoverSessionId, lostPending } = input;
+    const recovered = recoverSessionId
+      ? await this.sessions.recoverKey(tx, recoverSessionId, userId)
+      : null;
+    const own =
+      recovered && recovered.key === null && ['unknown', 'foreign'].includes(recovered.reason)
+        ? null
+        : (recoverSessionId ?? null);
+    if (lostPending?.reason === 'logout')
+      await this.audit.record(tx, {
+        action: 'auth.logout_with_pending',
+        entityType: 'device_session',
+        entityId: own,
+        actorUserId: userId,
+        new: { count: lostPending.count, claimed: true },
+      });
+    if (recovered?.key) {
+      await this.audit.record(tx, {
+        action: 'auth.outbox_recovered',
+        entityType: 'device_session',
+        entityId: own,
+        actorUserId: userId,
+      });
+      return recovered.key;
+    }
+    const lostOnServer =
+      recovered !== null &&
+      recovered.key === null &&
+      ['gone', 'unopenable', 'revoked'].includes(recovered.reason);
+    if (lostPending?.reason === 'unrecoverable' || lostOnServer)
+      await this.audit.record(tx, {
+        action: 'sync.outbox_unrecoverable',
+        entityType: 'device_session',
+        entityId: own,
+        actorUserId: userId,
+        new: {
+          count: lostPending?.count ?? 0,
+          claimed: true,
+          ...(recovered && recovered.key === null ? { reason: recovered.reason } : {}),
+        },
+      });
+    return undefined;
   }
 
   private lockedError(until: Date, now: Date): ApiError {
@@ -224,6 +288,8 @@ export class AuthService {
     sessionId: string,
     refreshToken: string,
     refreshExpiresAt: Date,
+    deviceKey: string,
+    previousDeviceKey?: string,
   ): Promise<IssuedSession> {
     const me = await this.me(userId);
     const access = await this.tokens.signAccess({
@@ -233,7 +299,13 @@ export class AuthService {
       pv: me.permissionVersion,
     });
     return {
-      pair: { accessToken: access.token, expiresAt: access.expiresAt.toISOString(), me },
+      pair: {
+        accessToken: access.token,
+        expiresAt: access.expiresAt.toISOString(),
+        me,
+        deviceKey,
+        ...(previousDeviceKey ? { previousDeviceKey } : {}),
+      },
       refreshToken,
       csrfToken: this.tokens.csrfToken(sessionId),
       refreshExpiresAt,
@@ -253,11 +325,21 @@ export class AuthService {
     });
     if (user.state === 'deactivated') throw new ApiError('auth.session_revoked', 401);
     if (user.state === 'blocked') throw new ApiError('auth.account_blocked', 403);
-    return this.issue(rotated.userId, rotated.sessionId, rotated.refreshToken, rotated.expiresAt);
+    return this.issue(
+      rotated.userId,
+      rotated.sessionId,
+      rotated.refreshToken,
+      rotated.expiresAt,
+      rotated.localKey,
+    );
   }
 
-  async logout(principal: Principal): Promise<void> {
+  /** Ends the session; a logout that leaves records unsent on the device is on record too. */
+  async logout(principal: Principal, pendingCount = 0): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      // what the device leaves behind, on the row the device lists show; before the revocation
+      if (pendingCount > 0)
+        await this.sessions.reportPending(tx, principal.sessionId, pendingCount, this.clock.now());
       await this.sessions.revoke(tx, principal.sessionId, {
         by: principal.userId,
         reason: 'logout',
@@ -267,6 +349,13 @@ export class AuthService {
         entityType: 'device_session',
         entityId: principal.sessionId,
       });
+      if (pendingCount > 0)
+        await this.audit.record(tx, {
+          action: 'auth.logout_with_pending',
+          entityType: 'device_session',
+          entityId: principal.sessionId,
+          new: { count: pendingCount },
+        });
     });
   }
 

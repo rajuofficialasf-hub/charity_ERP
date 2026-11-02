@@ -128,6 +128,8 @@ export interface UiMessages {
     /** "{count} waiting to sync". */
     pending: string;
     openOutbox: string;
+    /** The name of the banner as a landmark ("connection and sync"). */
+    banner: string;
   };
   feedback: {
     /** "Request id: {id}". */

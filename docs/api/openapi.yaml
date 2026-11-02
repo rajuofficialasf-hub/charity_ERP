@@ -723,6 +723,23 @@ components:
               enum: [android, ios, desktop, other]
               description: Staff sessions on desktop get the 12-hour idle timeout (O-25, D-070)
             appVersion: { type: string, maxLength: 32 }
+        recoverSessionId:
+          type: string
+          format: uuid
+          description: The ended device session whose key the phone asks back once, to re-key the encrypted outbox it kept (OFFLINE_SYNC.md, local storage security)
+        lostPending:
+          type: object
+          additionalProperties: false
+          required: [count, reason]
+          description: Records the phone lost before this login; audited as auth.logout_with_pending or sync.outbox_unrecoverable
+          properties:
+            count: { type: integer, minimum: 0, maximum: 100000 }
+            reason: { type: string, enum: [logout, unrecoverable] }
+    LogoutRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        pendingCount: { type: integer, minimum: 0, maximum: 100000, description: Records left unsent on the device; audited as auth.logout_with_pending when above zero }
     Me:
       type: object
       required: [id, displayName, kind, state, roles, language, permissionVersion]
@@ -741,11 +758,19 @@ components:
         volunteerId: { type: [string, 'null'], format: uuid }
     TokenPair:
       type: object
-      required: [accessToken, expiresAt, me]
+      required: [accessToken, expiresAt, me, deviceKey]
       properties:
         accessToken: { type: string }
         expiresAt: { type: string, format: date-time }
         me: { $ref: '#/components/schemas/Me' }
+        deviceKey:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{43}$'
+          description: The session's device key (32 bytes, base64url) that wraps the phone's offline store key; kept in memory only, returned by login and by every refresh (AUTH.md 5)
+        previousDeviceKey:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{43}$'
+          description: The key of the ended session named by recoverSessionId, handed back once so the phone can re-key its outbox
     TokenResponse:
       type: object
       required: [data, meta]
@@ -791,6 +816,8 @@ components:
         lastSeenAt: { type: string, format: date-time }
         current: { type: boolean }
         revokedAt: { type: [string, 'null'], format: date-time }
+        pendingCount: { type: [integer, 'null'], minimum: 0, description: Records the device last reported as still waiting on it (a sync batch or a logout); null before any report }
+        pendingReportedAt: { type: [string, 'null'], format: date-time }
     DeviceSessionList:
       type: object
       required: [data, meta]
@@ -1804,7 +1831,9 @@ components:
             properties:
               id: { $ref: '#/components/schemas/Uuid' }
               appNo: { type: [string, 'null'] }
-              beneficiaryName: { type: [string, 'null'] }
+              beneficiaryName:
+                type: [string, 'null']
+                description: The profile's name; while the entry waits for verification, the name typed on the application.
               status: { type: string }
         meta: { $ref: '#/components/schemas/Meta' }
 
@@ -3027,7 +3056,9 @@ components:
         appNo: { type: [string, 'null'] }
         projectId: { $ref: '#/components/schemas/Uuid' }
         beneficiaryId: { type: [string, 'null'], format: uuid }
-        beneficiaryName: { type: [string, 'null'] }
+        beneficiaryName:
+          type: [string, 'null']
+          description: The profile's name; while the entry waits for verification, the name typed on the application.
         ownerVolunteerId: { type: [string, 'null'], format: uuid }
         status: { type: string, enum: [draft, needs_verification, submitted, under_review, reviewed, waitlisted, approved, rejected, implementation, completed, closed, deleted] }
         stage: { type: [string, 'null'] }
@@ -3038,6 +3069,7 @@ components:
         unionId: { $ref: '#/components/schemas/Uuid' }
         submittedAt: { type: [string, 'null'], format: date-time }
         waitingDays: { type: [integer, 'null'], description: Days in the current state (UX-07 stuck approvals) }
+        pendingPhotos: { type: integer, minimum: 0, description: Photo slots an offline record still waits for; the office sees the record without them }
         etag: { type: string, description: "The version of the row, carried back by a bulk action's row as its If-Match" }
     Answer:
       type: object
@@ -3083,6 +3115,7 @@ components:
           properties:
             formVersionId: { $ref: '#/components/schemas/Uuid' }
             candidateBeneficiaryId: { type: [string, 'null'], format: uuid }
+            clientCreatedAt: { type: [string, 'null'], format: date-time, description: "The device time the record was made, when it came from a phone; its late_sync, stale_form_version or existing_identity flag says why it waits" }
             createdByUserId: { type: [string, 'null'], format: uuid, description: The account that created it (a team member's own records) }
             identityKind: { type: [string, 'null'], enum: [nid, birth_reg, null], description: Which number identifies the person }
             rejectionMessage: { type: [string, 'null'], description: The words written for the volunteer at a rejection; the office's reason stays in decisionComment }
@@ -3723,6 +3756,15 @@ components:
         serverId: { type: [string, 'null'], format: uuid }
         status: { type: [string, 'null'] }
         stage: { type: [string, 'null'] }
+        pendingPhotos: { type: integer, minimum: 0, description: Photo slots the server still waits for after this record (sync) }
+        conflict:
+          type: object
+          additionalProperties: false
+          required: [kept]
+          description: What the server kept when the record met a change made elsewhere (sync)
+          properties:
+            kept: { type: string, enum: [server, client] }
+            serverValue: { description: "The server's value of a locked field, only when the caller may see that field" }
     BulkResponse:
       type: object
       required: [data, meta]
@@ -4317,24 +4359,40 @@ components:
     # ---------------- sync ----------------
     SyncRecord:
       type: object
-      required: [clientUuid, kind, payload, clientCreatedAt]
+      additionalProperties: false
+      required: [clientUuid, kind, projectId, formVersionId, payload, clientCreatedAt, clientUpdatedAt]
+      description: "One offline write; the kinds of the other modules (activities, stock, expenses, vouchers, consent, edit requests, contact updates) join with those modules"
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
-        kind: { type: string, enum: [application_draft, application_submit, application_update, field_update, activity, stock_receive, stock_reconcile, expense_claim, voucher_submit, consent_accept, edit_request, profile_contact_update] }
-        target: { type: [string, 'null'], format: uuid }
+        kind: { type: string, enum: [application_draft, application_update, application_submit, field_update] }
+        target:
+          anyOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+          description: "The application or unlock the record acts on; absent for a new draft, which the dependency names"
         projectId: { $ref: '#/components/schemas/Uuid' }
         formVersionId: { $ref: '#/components/schemas/Uuid' }
-        templateVersion: { type: integer }
-        payload: { type: object, description: Validated with the shared schema of the record kind }
+        baseVersion:
+          anyOf:
+            - { type: string, maxLength: 64 }
+            - { type: 'null' }
+          description: "The ETag the edit started from; the current one is taken when absent"
+        payload:
+          type: object
+          propertyNames: { type: string }
+          additionalProperties: {}
+          description: "Validated by the service of the record kind: { answers } for a draft and an update (a photo still on the phone travels as { pendingPhoto: true, slot }), {} for a submit, { unlockId, value } for a field update"
         clientCreatedAt: { type: string, format: date-time }
         clientUpdatedAt: { type: string, format: date-time }
-        dependencies: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        dependencies: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/Uuid' }, description: "Client ids this record needs synced first; a failed one fails this record" }
     SyncBatchRequest:
       type: object
+      additionalProperties: false
       required: [deviceTime, records]
       properties:
-        deviceTime: { type: string, format: date-time }
+        deviceTime: { type: string, format: date-time, description: "The phone's clock, so the server can move the records' times onto its own" }
         records: { type: array, minItems: 1, maxItems: 50, items: { $ref: '#/components/schemas/SyncRecord' } }
+        pendingAfter: { type: integer, minimum: 0, maximum: 100000, description: "Records still waiting on the device after this batch, shown on the sessions screens" }
     SyncBatchResponse:
       type: object
       required: [data, meta]
@@ -4352,15 +4410,26 @@ components:
       properties:
         data:
           type: object
-          required: [serverTime]
+          required: [serverTime, nextSince, nextAfterId, hasMore, projects, formVersions, applications, applicationIds, locationsVersion]
           properties:
-            serverTime: { type: string, format: date-time }
-            projects: { type: array, items: { $ref: '#/components/schemas/Project' } }
-            formVersions: { type: array, items: { $ref: '#/components/schemas/FormVersion' } }
-            applications: { type: array, items: { $ref: '#/components/schemas/ApplicationSummary' } }
-            beneficiaries: { type: array, items: { $ref: '#/components/schemas/BeneficiarySummary' } }
-            locationsVersion: { type: integer }
-            removedIds: { type: array, items: { $ref: '#/components/schemas/Uuid' }, description: Records no longer in the caller's scope }
+            serverTime: { type: string, format: date-time, description: The database clock when the answer was built }
+            nextSince: { type: string, format: date-time, description: "What the phone asks since next: the same window while more wait, else a minute before now (a repeated row is harmless)" }
+            nextAfterId: { type: [string, 'null'], format: uuid, description: "While more wait, the last row of this page, carried as afterId by the next ask" }
+            hasMore: { type: boolean, description: More changed applications wait beyond this page }
+            projects: { type: array, items: { $ref: '#/components/schemas/MyProject' }, description: "The volunteer's consented projects; empty for an official" }
+            formVersions:
+              type: array
+              description: "The published application form of each project, as the caller's audience sees it, each with the project it belongs to"
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/FormVersion'
+                  - type: object
+                    required: [projectId]
+                    properties:
+                      projectId: { $ref: '#/components/schemas/Uuid' }
+            applications: { type: array, items: { $ref: '#/components/schemas/ApplicationSummary' }, description: "The own applications changed at or after the given time, oldest change first, at most 500 per page" }
+            applicationIds: { type: array, items: { $ref: '#/components/schemas/Uuid' }, description: "Every own application the server still lists; the phone drops what is missing" }
+            locationsVersion: { type: string, description: "Changes with any location row; the phone pulls /locations/all again when it differs" }
         meta: { $ref: '#/components/schemas/Meta' }
 
 paths:
@@ -4634,9 +4703,15 @@ paths:
       x-audit: auth.logout
       x-idempotency: none
       x-rate-limit: default
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LogoutRequest' }
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /auth/me:
     get:
       tags: [auth]
@@ -10012,7 +10087,7 @@ paths:
                       properties:
                         kind:
                           type: string
-                          enum: [unread_notifications, consent_pending, corrections, edit_answered, registrations_pending, staff_registrations_pending, edit_requests_pending, projects_draft, deadlines_soon, handovers_open, unlocks_to_fill, unlocks_to_verify, verifications_pending, media_referrals_new, media_review_waiting, media_sent_back, media_on_hold]
+                          enum: [unread_notifications, consent_pending, corrections, edit_answered, registrations_pending, staff_registrations_pending, edit_requests_pending, projects_draft, deadlines_soon, handovers_open, unlocks_to_fill, unlocks_to_verify, verifications_pending, media_referrals_new, media_review_waiting, media_sent_back, media_on_hold, sync_failed, sync_verifying, photos_pending]
                         count: { type: integer, minimum: 1 }
                         href: { type: string, description: A fixed route of the PWA }
                   meta: { $ref: '#/components/schemas/Meta' }
@@ -10717,9 +10792,7 @@ paths:
     post:
       tags: [sync]
       operationId: sync.batch.submit
-      summary: >-
-        Submit up to 50 offline text records; each is processed through its normal service with the
-        originating user as actor; per-record results (OFFLINE_SYNC section 4)
+      summary: Submit up to 50 offline text records; each is processed through its normal service with the originating user as actor; per-record results
       x-permission: sync.batch
       x-scope: self
       x-audit: sync.batch
@@ -10742,15 +10815,39 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/SyncBatchResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
         '426': { $ref: '#/components/responses/UpgradeRequired' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
-        '503': { $ref: '#/components/responses/ServerError' }
+  /locations/all:
+    get:
+      tags: [reference]
+      operationId: reference.location.listAll
+      summary: Every active location of the four levels in one answer, with an ETag, for the phone's offline copy
+      security: []
+      x-permission: public
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: reference-read
+      responses:
+        '200':
+          description: Every active location
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LocationList' }
+        '304':
+          description: Not modified
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /sync/snapshot:
     get:
       tags: [sync]
       operationId: sync.snapshot.get
-      summary: Offline data set deltas since a timestamp, masked like every other read (O-07)
+      summary: Offline data set deltas since a timestamp, masked like every other read
       x-permission: sync.batch
       x-scope: self
       x-audit: none
@@ -10761,9 +10858,11 @@ paths:
         - name: since
           in: query
           schema: { type: string, format: date-time }
-        - name: projectId
+          description: The nextSince of the last pull; absent on the first pull
+        - name: afterId
           in: query
           schema: { type: string, format: uuid }
+          description: The nextAfterId of the page before, while hasMore was on
       responses:
         '200':
           description: Snapshot delta
@@ -10775,4 +10874,6 @@ paths:
         '304':
           description: Not modified
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
         '426': { $ref: '#/components/responses/UpgradeRequired' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }

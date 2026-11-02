@@ -442,7 +442,7 @@ describe('submitting', () => {
     expect(JSON.stringify(res.body).match(UUID)).toEqual([id]);
     const row = await h.db.query(
       `SELECT status, flags, region_location_id, district_id, union_id, beneficiary_id, owner_volunteer_id,
-              created_by_user_id, client_uuid, submitted_at
+              created_by_user_id, client_uuid, submitted_at, applicant_name
        FROM applications WHERE id = $1`,
       [id],
     );
@@ -456,6 +456,8 @@ describe('submitting', () => {
       owner_volunteer_id: null,
       created_by_user_id: null,
       client_uuid: body.clientUuid,
+      // the lists name the entry by the typed name until the office links it
+      applicant_name: 'নমুনা আবেদনকারী',
     });
     expect(row.rows[0].submitted_at).not.toBeNull();
     const stored = await h.db.query(

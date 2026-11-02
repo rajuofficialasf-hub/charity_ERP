@@ -37,6 +37,8 @@ export const applicationSummary = z.object({
   unionId: uuid,
   submittedAt: z.string().nullable(),
   waitingDays: z.int().nullable(),
+  /** Photo slots an offline record still waits for; the office sees the record without them. */
+  pendingPhotos: z.int().min(0),
   /** The version of the row, carried back by a bulk action's row as its If-Match. */
   etag: z.string(),
 });
@@ -58,6 +60,8 @@ export const applicationView = applicationSummary.extend({
   formVersionId: uuid,
   candidateBeneficiaryId: nullableUuid,
   createdByUserId: nullableUuid,
+  /** The device time the record was made, when it came from a phone; its late or stale flags say why it waits. */
+  clientCreatedAt: z.string().nullable(),
   identityKind: z.enum(['nid', 'birth_reg']).nullable(),
   rejectionMessage: z.string().nullable(),
   answers: z.array(answerView),

@@ -145,6 +145,7 @@ Licences:
 3. Text on amber is ink. Small text on green is white on the dark green only.
 4. Dark surfaces use ink with white text.
 5. The logo keeps its own colours and is never tinted.
+7. The app icon (the home-screen and browser-tab image of the installed app) is the logo centred on a white square, built by `apps/web/scripts/icons.mjs` from `apps/web/public/brand/logo.svg` into `apps/web/public/icons/`: `icon.svg`, `icon-192.png` and `icon-512.png` with rounded corners (manifest `purpose: any`), `icon-maskable-512.png` with the logo at 60 % of the width so Android's own mask keeps it whole (`purpose: maskable`), and `apple-touch-icon.png` at 180 px for iOS. The owner chose the logo on 2026-11-01 (D-140); a new logo file is followed by `pnpm --filter @css/web icons`.
 6. A status badge is a tinted background, an ink label and a coloured icon.
 
 ## 7. CSS variables

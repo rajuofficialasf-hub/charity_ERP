@@ -18,6 +18,7 @@ const base = {
   JWT_SECRET: 'j'.repeat(32),
   AUTH_CSRF_SECRET: 'c'.repeat(32),
   OTP_SECRET: 'o'.repeat(32),
+  LOCAL_KEY_SECRET: 'l'.repeat(32),
 };
 const env = (over: Record<string, string> = {}) => loadEnv({ ...base, ...over });
 const clockAt = (t: number) => ({ now: () => new Date(t) });

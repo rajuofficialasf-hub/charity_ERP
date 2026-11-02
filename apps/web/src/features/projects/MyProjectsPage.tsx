@@ -7,11 +7,13 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
+import { orCached } from '../../lib/or-cached';
 import { MY_PROJECTS_KEY, myProjects, type MyProject } from './my-projects-api';
 
 /**
  * A volunteer's running projects (BR-039; DECISION_LOG D-096): each project waits for the consent
- * to its rules until the volunteer reads and accepts them, and opens for work after.
+ * to its rules until the volunteer reads and accepts them, and opens for work after. Without
+ * network the list comes from the phone's data set.
  */
 export function MyProjectsPage() {
   const t = useTranslations('projects.mine');
@@ -27,11 +29,15 @@ export function MyProjectsPage() {
   );
 }
 
+/** The server's list, or the phone's when the network is away. */
+const projectsOf = () =>
+  orCached(myProjects, async () => (await import('../../offline/snapshot')).cachedProjects());
+
 function ProjectList() {
   const t = useTranslations('projects.mine');
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
-  const list = useQuery({ queryKey: MY_PROJECTS_KEY, queryFn: myProjects });
+  const list = useQuery({ queryKey: MY_PROJECTS_KEY, queryFn: projectsOf });
   if (list.isPending) return <Skeleton shape="card" />;
   if (list.error)
     return (

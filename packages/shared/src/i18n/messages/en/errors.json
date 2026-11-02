@@ -137,11 +137,15 @@
     "locked_on_server": "The record is locked or approved on the server; the server value was kept."
   },
   "sync": {
+    "batch_in_progress": "This batch is still being processed. It will be tried again shortly.",
+    "dependency_failed": "An earlier record this one depends on failed.",
+    "target_unknown": "The record this change belongs to was not found on the server.",
     "batch_too_large": "Too much data was sent at once.",
     "deadline_passed": "The project deadline has passed.",
     "limit_exceeded": "Your application limit has been reached.",
     "project_closed": "The project is closed.",
     "not_permitted": "You no longer have permission for this action.",
+    "held_for_verification": "The office is checking this record; it cannot change until the office has decided.",
     "retry_exhausted": "Sync failed after many attempts. See the details."
   },
   "file": {
@@ -316,6 +320,7 @@
     "form_not_published": "The project's application form is not published.",
     "team_lead_missing": "You have no lead volunteer on this project.",
     "number_in_project": "An application with this number already exists in this project.",
+    "photo_slot_invalid": "A photo still on the phone can only stand for a photo question of the form.",
     "upload_not_own": "This file is not your upload.",
     "not_editable": "The application cannot be edited in its current state.",
     "not_unlockable": "Only an answer of an approved application can be opened for correction.",

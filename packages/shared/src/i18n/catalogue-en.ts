@@ -14,6 +14,7 @@ import en_nav from './messages/en/nav.json' with { type: 'json' };
 import en_notifications from './messages/en/notifications.json' with { type: 'json' };
 import en_projects from './messages/en/projects.json' with { type: 'json' };
 import en_registration from './messages/en/registration.json' with { type: 'json' };
+import en_sync from './messages/en/sync.json' with { type: 'json' };
 import en_ui from './messages/en/ui.json' with { type: 'json' };
 
 /** English must have exactly the keys of bn: a missing key fails the typecheck here. */
@@ -32,5 +33,6 @@ export const en: Messages = {
   notifications: en_notifications,
   projects: en_projects,
   registration: en_registration,
+  sync: en_sync,
   ui: en_ui,
 };

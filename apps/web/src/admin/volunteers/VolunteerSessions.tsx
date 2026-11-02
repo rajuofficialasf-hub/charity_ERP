@@ -1,5 +1,5 @@
 import type { DeviceSession } from '@css/shared/auth';
-import { formatDateTime } from '@css/shared/format';
+import { formatCount, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import { Alert, Button, ConfirmDialog, ErrorState, Grid, Skeleton, Stack, Text } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -41,6 +41,15 @@ export function VolunteerSessions({ userId, canRevoke }: { userId: string; canRe
       />
     );
   const device = (s: DeviceSession) => s.deviceName ?? t('unknown_device');
+  /** What the device last said it still holds, or null when it never said. */
+  const pendingOf = (s: DeviceSession, key: 'pending' | 'revoke_pending') =>
+    s.pendingCount && s.pendingReportedAt
+      ? t(key, {
+          n: s.pendingCount,
+          count: formatCount(s.pendingCount, locale),
+          time: formatDateTime(s.pendingReportedAt, locale),
+        })
+      : null;
   const failure = revoke.error instanceof ApiFailure ? revoke.error : null;
   return (
     <>
@@ -59,6 +68,9 @@ export function VolunteerSessions({ userId, canRevoke }: { userId: string; canRe
               <span className="admin-muted">
                 {t('last_seen', { date: formatDateTime(s.lastSeenAt, locale) })}
               </span>
+              {pendingOf(s, 'pending') !== null && (
+                <span className="admin-muted">{pendingOf(s, 'pending')}</span>
+              )}
               {canRevoke && (
                 <Button size="sm" variant="secondary" icon={LogOut} onPress={() => setTarget(s)}>
                   {t('revoke')}
@@ -72,7 +84,14 @@ export function VolunteerSessions({ userId, canRevoke }: { userId: string; canRe
         isOpen={target !== null}
         title={target ? t('revoke_title', { device: device(target) }) : ''}
         message={
-          failure && <p className="admin-error">{failure.details[0]?.message ?? failure.message}</p>
+          <>
+            {target && pendingOf(target, 'revoke_pending') && (
+              <p>{pendingOf(target, 'revoke_pending')}</p>
+            )}
+            {failure && (
+              <p className="admin-error">{failure.details[0]?.message ?? failure.message}</p>
+            )}
+          </>
         }
         tone="danger"
         reasonRequired

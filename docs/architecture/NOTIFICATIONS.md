@@ -100,7 +100,7 @@ Channels: **A** in-app · **E** email · **S** SMS · **P** optional Web Push (i
 | Applications transferred away (the count only, never which; built T2.6) | old volunteer | A | `application_transferred_away` | 2 |
 | Application completed | owner | A | `application_completed` | 2 |
 | Sync result: records failed or need verification | the volunteer (in-app inbox and sync centre) | A | `sync_attention` | 2 |
-| Pending-sync reminder (24 h, then daily; O-29) | the volunteer | A (local notice on the device) | `sync_reminder` | 2 |
+| Pending-sync reminder (24 h, then daily; O-29) | the volunteer | A (local notice on the device; built in T2.7 as an alert of the home and the sync centre, `apps/web/src/features/sync/SyncReminder.tsx`, no server message and no template row) | `sync_reminder` | 2 |
 | Approval pending too long (5 days, O-04) | approvers(region); monitoring | A, E | `alert_approval_pending` | 5 |
 | Review pending too long (7 days, O-04) | reviewers(region); monitoring | A, E | `alert_review_pending` | 5 |
 

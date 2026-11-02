@@ -1,4 +1,5 @@
 import { UPLOAD_RULES, type FileKind, type FileSource } from '@css/shared/files';
+import { isTransientStatus } from '@css/shared/sync';
 import { api, ApiFailure } from './api';
 
 /** An upload in progress as the server holds it. */
@@ -47,7 +48,7 @@ export const PART_RETRY_DELAYS_MS = [1_000, 5_000, 30_000];
 /** A failure worth sending again: the network, a timeout, a busy or failing server. */
 function isTransient(error: unknown): boolean {
   if (!(error instanceof ApiFailure)) return true;
-  return error.status === 0 || error.status === 429 || error.status >= 500;
+  return isTransientStatus(error.status);
 }
 
 /** The SHA-256 of the bytes, in lower-case hex, as the server compares it. */

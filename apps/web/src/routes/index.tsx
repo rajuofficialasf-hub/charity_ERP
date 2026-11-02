@@ -127,6 +127,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   .ApplicationFormPage,
               }),
             },
+            {
+              path: '/sync',
+              lazy: async () => ({
+                Component: (await import('../features/sync/SyncCentrePage')).SyncCentrePage,
+              }),
+            },
             // the Media Team's screens are their own chunks, like the volunteer's pages
             {
               path: '/media',

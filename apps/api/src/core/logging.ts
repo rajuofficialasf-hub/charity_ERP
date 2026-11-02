@@ -16,6 +16,8 @@ export const SENSITIVE_KEYS = [
   'token',
   'accessToken',
   'refreshToken',
+  'deviceKey',
+  'previousDeviceKey',
   'authorization',
   'cookie',
   'otp',

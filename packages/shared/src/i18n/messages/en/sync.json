@@ -1,0 +1,84 @@
+{
+  "photo": {
+    "queued": "The photo is kept on this phone; it goes once the application has reached the office.",
+    "budget_warn": "Photos waiting on this phone take {used} MB of {budget} MB. Sync now.",
+    "budget_full": "No room left for photos on this phone ({budget} MB). Free the space of the photos already sent, or sync first.",
+    "free_space": "Free space"
+  },
+  "chip": {
+    "label": "Sync status",
+    "label_count": "Sync status: {count} waiting",
+    "label_failed": "Sync status: {count} waiting, {failed} could not be sent"
+  },
+  "centre": {
+    "title": "Sync",
+    "sync_now": "Sync now",
+    "syncing": "Sending…",
+    "last_sync": "Last sync: {time}",
+    "never_synced": "This phone has not synced yet.",
+    "offline": "No network right now. Everything goes by itself when it returns.",
+    "signed_out": "Log in again and the saved work will be sent.",
+    "empty": "Everything has been sent",
+    "empty_hint": "Nothing is waiting on this phone.",
+    "group": {
+      "failed": "Could not be sent",
+      "waiting": "Waiting to be sent",
+      "verifying": "The office is checking",
+      "photos": "Photos still to go"
+    },
+    "retry": "Send again",
+    "retry_all": "Send everything again",
+    "edit": "Edit",
+    "open": "Open",
+    "delete": "Delete",
+    "delete_title": "Delete this draft?",
+    "delete_body": "{name}: this draft and its photos will be removed from this phone. The office never received it.",
+    "delete_confirm": "Delete draft",
+    "deleted": "The draft was deleted.",
+    "unnamed": "No name given",
+    "verifying_note": "The office is checking this record. The decision will show on your application.",
+    "kind": {
+      "application_draft": "New application",
+      "application_update": "Change to an application",
+      "application_submit": "Sending to the office",
+      "field_update": "Correction of an answer"
+    },
+    "saved_at": "Saved: {time}",
+    "reason_unknown": "The reason is not known. Try sending it again.",
+    "next_retry": "Next try: {time}",
+    "photos_waiting": "{n, plural, one {{count} photo waiting ({size})} other {{count} photos waiting ({size})}}",
+    "photos_uploaded": "{n, plural, one {{count} photo sent ({size})} other {{count} photos sent ({size})}}",
+    "budget": "Space for photos",
+    "budget_used": "{used} MB of {budget} MB used",
+    "freed": "{size} freed.",
+    "sent": "Sent."
+  },
+  "banner": {
+    "official_offline": "You are offline. Lists, review and approval need a connection."
+  },
+  "reminder": {
+    "title": "Saved work still to send",
+    "body": "{n, plural, one {{count} record has waited {days} days on this phone. Sync now while there is network.} other {{count} records have waited {days} days on this phone. Sync now while there is network.}}",
+    "open": "Open sync"
+  },
+  "logout": {
+    "title": "Work not yet sent",
+    "body": "{n, plural, one {{count} record has not reached the office yet. Logging out removes it from this phone.} other {{count} records have not reached the office yet. Logging out removes them from this phone.}}",
+    "sync_first": "Sync now",
+    "continue": "Log out anyway",
+    "title_final": "Really log out?",
+    "body_final": "{n, plural, one {{count} record will be lost for good. This cannot be undone.} other {{count} records will be lost for good. This cannot be undone.}}",
+    "confirm_final": "Yes, delete and log out"
+  },
+  "install": {
+    "title": "Install the app on your phone",
+    "body": "Installed, the app opens without network and keeps your saved work safe.",
+    "button": "Install",
+    "ios_steps": "On an iPhone, tap Safari’s Share button, then choose “Add to Home Screen”. Offline work is safe only in the installed app.",
+    "menu": "Install the app"
+  },
+  "update": {
+    "ready": "A new version of the app is here.",
+    "reload": "Reload"
+  }
+}

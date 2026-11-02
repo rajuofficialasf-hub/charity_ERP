@@ -1,7 +1,18 @@
+import Dexie from 'dexie';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiError, ME, pair } from '../../test/auth';
 import { server } from '../../test/msw/server';
+import { closeOfflineDb, OFFLINE_DB_NAME, offlineDb } from '../offline/db';
+import {
+  afterSignIn,
+  clearLostPending,
+  currentDataKey,
+  forgetKeys,
+  noteLostPending,
+  storedSessionId,
+} from '../offline/keys';
+import { cachedMe, rememberMe } from '../offline/snapshot';
 import {
   api,
   ApiFailure,
@@ -11,6 +22,7 @@ import {
   onSessionChange,
   refreshSession,
   resetClientForTests,
+  storeSettled,
 } from './api';
 
 // The PWA's API client (API_STANDARDS 11, AUTH.md 5 and 8).
@@ -18,9 +30,20 @@ beforeEach(() => {
   resetClientForTests();
   document.cookie = 'css_csrf=nonce.mac; path=/';
 });
-afterEach(() => {
+afterEach(async () => {
   document.cookie = 'css_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+  forgetKeys();
+  clearLostPending();
+  closeOfflineDb();
+  await Dexie.delete(OFFLINE_DB_NAME);
 });
+
+/** The store opens for a volunteer's session only; an official keeps nothing on the device. */
+const VOLUNTEER = { ...ME, kind: 'volunteer' as const };
+const SESSION_A = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b01';
+const SESSION_B = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b02';
+/** A token shaped like the server's, carrying only the session claim. */
+const tokenOf = (sessionId: string) => `h.${btoa(JSON.stringify({ sid: sessionId }))}.s`;
 
 describe('API client', () => {
   it('logs in, keeps the token in memory and sends it with the language and version', async () => {
@@ -99,26 +122,228 @@ describe('API client', () => {
     onSessionChange((me, ended) => events.push(me ? 'in' : ended));
     window.sessionStorage.setItem('draft', 'x');
     server.use(
-      http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(), meta: {} })),
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({ data: pair(VOLUNTEER, tokenOf(SESSION_A)), meta: {} }),
+      ),
       http.get('*/api/v1/auth/me', () => apiError(401, 'auth.session_revoked', 'revoked')),
     );
     await login('a', 'b');
+    expect(currentDataKey()).not.toBeNull();
+    await offlineDb().meta.put({ key: 'since', value: 'x' });
     await expect(api('/auth/me')).rejects.toBeInstanceOf(ApiFailure);
     expect(currentMe()).toBeNull();
     expect(window.sessionStorage.getItem('draft')).toBeNull();
+    expect(currentDataKey()).toBeNull();
+    expect(await Dexie.exists(OFFLINE_DB_NAME)).toBe(false);
     expect(events).toEqual(['in', 'revoked']);
   });
 
-  it('keeps local data when the refresh token only expired (O-29)', async () => {
-    const events: (string | undefined)[] = [];
-    onSessionChange((me, ended) => events.push(me ? 'in' : ended));
-    window.sessionStorage.setItem('draft', 'x');
+  it('opens the store keys for the session, asks the earlier session’s key back and reports lost records', async () => {
+    const bodies: Record<string, unknown>[] = [];
     server.use(
+      http.post('*/api/v1/auth/login', async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        bodies.push(body);
+        return HttpResponse.json({
+          data: {
+            ...pair(VOLUNTEER, tokenOf(bodies.length === 1 ? SESSION_A : SESSION_B)),
+            ...(body.recoverSessionId ? { previousDeviceKey: 'k'.repeat(43) } : {}),
+          },
+          meta: {},
+        });
+      }),
+    );
+    await login('a', 'b');
+    expect(bodies[0]).not.toHaveProperty('recoverSessionId');
+    expect(await storedSessionId()).toBe(SESSION_A);
+    // the session expired, the app was reopened, and records were lost at an offline logout
+    resetClientForTests();
+    forgetKeys();
+    noteLostPending({ count: 2, reason: 'logout' });
+    await login('a', 'b');
+    expect(bodies[1]).toMatchObject({
+      recoverSessionId: SESSION_A,
+      lostPending: { count: 2, reason: 'logout' },
+    });
+    expect(await storedSessionId()).toBe(SESSION_B);
+    expect(currentDataKey()).not.toBeNull();
+    expect(window.localStorage.getItem('css_lost_pending')).toBeNull();
+  });
+
+  it('keeps the store keys closed for a token without a session claim', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(), meta: {} })),
+    );
+    await login('a', 'b');
+    expect(currentDataKey()).toBeNull();
+  });
+
+  it('keeps local data, but forgets the open key, when the refresh token only expired (O-29)', async () => {
+    const events: (string | undefined)[] = [];
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({ data: pair(VOLUNTEER, tokenOf(SESSION_A)), meta: {} }),
+      ),
       http.post('*/api/v1/auth/refresh', () => apiError(401, 'auth.refresh_invalid', 'again')),
     );
+    await login('a', 'b');
+    expect(currentDataKey()).not.toBeNull();
+    onSessionChange((me, ended) => events.push(me ? 'in' : ended));
+    window.sessionStorage.setItem('draft', 'x');
+    await offlineDb().meta.put({ key: 'since', value: 'x' });
     expect(await refreshSession()).toBeNull();
     expect(window.sessionStorage.getItem('draft')).toBe('x');
+    expect(await offlineDb().meta.get('since')).toEqual({ key: 'since', value: 'x' });
+    expect(currentDataKey()).toBeNull();
     expect(events).toEqual(['expired']);
+  });
+
+  it('opens the store keys on a refresh before it publishes the session', async () => {
+    let keyWhenPublished: CryptoKey | null | undefined;
+    onSessionChange((me) => {
+      if (me) keyWhenPublished = currentDataKey();
+    });
+    server.use(
+      http.post('*/api/v1/auth/refresh', () =>
+        HttpResponse.json({ data: pair(VOLUNTEER, tokenOf(SESSION_A)), meta: {} }),
+      ),
+    );
+    expect(await refreshSession()).not.toBeNull();
+    expect(keyWhenPublished).not.toBeNull();
+    expect(keyWhenPublished).toBeDefined();
+    expect(await storedSessionId()).toBe(SESSION_A);
+  });
+
+  it('signs in even when the store will not open', async () => {
+    const table = offlineDb().keys;
+    const broken = vi.spyOn(table, 'get').mockRejectedValue(new Error('store closed'));
+    try {
+      server.use(
+        http.post('*/api/v1/auth/login', () =>
+          HttpResponse.json({ data: pair(VOLUNTEER, tokenOf(SESSION_A)), meta: {} }),
+        ),
+      );
+      expect(await login('a', 'b')).toEqual(VOLUNTEER);
+      expect(currentMe()).toEqual(VOLUNTEER);
+      expect(currentDataKey()).toBeNull();
+    } finally {
+      broken.mockRestore();
+    }
+  });
+
+  it('opens a volunteer’s session from the phone’s store when the server cannot be reached', async () => {
+    // the last sign-in left the ring and the cached me; the app was closed since (no key in memory)
+    await afterSignIn({ sessionId: SESSION_A, userId: VOLUNTEER.id, deviceKey: 'k'.repeat(43) });
+    await rememberMe(VOLUNTEER);
+    forgetKeys();
+    server.use(http.post('*/api/v1/auth/refresh', () => HttpResponse.error()));
+    const seen: unknown[] = [];
+    onSessionChange((me) => seen.push(me));
+    await expect(refreshSession()).rejects.toThrow();
+    expect(currentMe()).toEqual(VOLUNTEER);
+    expect(seen).toEqual([VOLUNTEER]);
+    expect(currentDataKey()).not.toBeNull();
+    // the first request with network refreshes first, then goes with the new token
+    let refreshes = 0;
+    server.use(
+      http.post('*/api/v1/auth/refresh', () => {
+        refreshes += 1;
+        return HttpResponse.json({ data: pair(VOLUNTEER, tokenOf(SESSION_A)), meta: {} });
+      }),
+      http.get('*/api/v1/ping-sample', ({ request }) =>
+        request.headers.get('authorization') === `Bearer ${tokenOf(SESSION_A)}`
+          ? HttpResponse.json({ data: { pong: true }, meta: {} })
+          : apiError(401, 'auth.token_missing', 'login'),
+      ),
+    );
+    expect(await api('/ping-sample')).toEqual({ pong: true });
+    expect(refreshes).toBe(1);
+  });
+
+  it('opens the store keys for an official too, with the profile alone kept on the device', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+      ),
+    );
+    // the official's sign-in does not wait for the store: the profile is there once it settles
+    await login('head@example.org', 'secret 123');
+    expect(currentMe()).toEqual(ME);
+    await storeSettled();
+    expect(await storedSessionId()).toBe(SESSION_A);
+    expect(currentDataKey()).not.toBeNull();
+    expect(await cachedMe()).toEqual(ME);
+  });
+
+  it('wipes an official’s profile even when the logout comes before the store has settled', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+      ),
+      http.post('*/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
+    );
+    await login('head@example.org', 'secret 123');
+    await logout();
+    expect(currentMe()).toBeNull();
+    expect(await cachedMe()).toBeNull();
+    expect(currentDataKey()).toBeNull();
+  });
+
+  it('opens an official’s session from the phone’s store when the server cannot be reached', async () => {
+    await afterSignIn({ sessionId: SESSION_A, userId: ME.id, deviceKey: 'k'.repeat(43) });
+    await rememberMe(ME);
+    forgetKeys();
+    server.use(http.post('*/api/v1/auth/refresh', () => HttpResponse.error()));
+    await expect(refreshSession()).rejects.toThrow();
+    expect(currentMe()).toEqual(ME);
+    expect(currentDataKey()).not.toBeNull();
+  });
+
+  it('finishes a logout the network cut short at the next refresh, instead of signing in again', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(), meta: {} })),
+      http.post('*/api/v1/auth/logout', () => HttpResponse.error()),
+    );
+    await login('a', 'b');
+    await expect(logout(3)).rejects.toThrow();
+    expect(currentMe()).toBeNull();
+    // the network is back: the refresh cookie buys one token, which revokes the session
+    let logoutBody: unknown = null;
+    let refreshes = 0;
+    server.use(
+      http.post('*/api/v1/auth/refresh', () => {
+        refreshes += 1;
+        return HttpResponse.json({ data: pair(), meta: {} });
+      }),
+      http.post('*/api/v1/auth/logout', async ({ request }) => {
+        logoutBody = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    expect(await refreshSession()).toBeNull();
+    expect(currentMe()).toBeNull();
+    expect(logoutBody).toEqual({ pendingCount: 3 });
+    // once finished, a later refresh is an ordinary one again
+    expect(await refreshSession()).not.toBeNull();
+    expect(refreshes).toBe(2);
+  });
+
+  it('stays signed out without network when this device holds no store', async () => {
+    server.use(http.post('*/api/v1/auth/refresh', () => HttpResponse.error()));
+    await expect(refreshSession()).rejects.toThrow();
+    expect(currentMe()).toBeNull();
+  });
+
+  it('sends the pending count with a logout that leaves records on the phone', async () => {
+    let body: unknown;
+    server.use(
+      http.post('*/api/v1/auth/logout', async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await logout(4);
+    expect(body).toEqual({ pendingCount: 4 });
   });
 
   it('does not ask the server without the CSRF cookie (no session on this device)', async () => {

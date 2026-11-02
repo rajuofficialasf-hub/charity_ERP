@@ -28,6 +28,11 @@ export const ATTENTION_ROUTES = {
   media_review_waiting: '/media?stage=ready_to_publish',
   media_sent_back: '/media?stage=in_review',
   media_on_hold: '/media?stage=on_hold',
+  // the device's own items: records that could not be sent and photos still to go open the
+  // sync centre; records the office is verifying open the volunteer's waiting list
+  sync_failed: '/sync',
+  sync_verifying: '/my-applications?tab=pending',
+  photos_pending: '/sync',
 } as const;
 
 export type AttentionKind = keyof typeof ATTENTION_ROUTES;

@@ -4,8 +4,15 @@
  * an adapter (the builder's preview) those questions take nothing.
  */
 export interface UploadAdapter {
-  /** Sends one file of a question; `clientUuid` names the application it belongs to. */
-  upload: (file: File, fieldKey: string, clientUuid: string) => Promise<{ fileId: string }>;
+  /**
+   * Sends one file of a question; `clientUuid` names the application it belongs to. A photo kept
+   * on the phone for later answers with its queue id and a preview to show meanwhile.
+   */
+  upload: (
+    file: File,
+    fieldKey: string,
+    clientUuid: string,
+  ) => Promise<{ fileId: string; previewUrl?: string }>;
   /** Accepted MIME types, and the largest size in bytes, checked before anything is sent. */
   accept: string[];
   maxSize: number;
@@ -17,5 +24,5 @@ export interface UploadAdapter {
 
 /** The adapter as a question uses it: the renderer has already named the application. */
 export type FieldUpload = Omit<UploadAdapter, 'upload'> & {
-  upload: (file: File, fieldKey: string) => Promise<{ fileId: string }>;
+  upload: (file: File, fieldKey: string) => Promise<{ fileId: string; previewUrl?: string }>;
 };

@@ -4,9 +4,12 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { apiError, ME, refreshAs, renderInShell } from '../../../test/auth';
+import { apiError, ME, refreshAs, renderInShell, TEST_SESSION_ID } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
+import { afterSignIn } from '../../offline/keys';
+import { apply, applyResult, enqueue } from '../../offline/outbox';
+import { add as addPhoto } from '../../offline/photo-queue';
 import { MyWorkPage } from './MyWorkPage';
 import { ROLE_WIDGETS, widgetsFor } from './widgets';
 
@@ -84,6 +87,55 @@ describe('My Work home', () => {
     // ratings and categories are never shown to volunteers
     expect(document.body).not.toHaveTextContent(/রেটিং|ক্যাটাগরি/);
     await expectNoAxeViolations(container);
+  });
+
+  it('lists what this phone holds first: a refused record, photos still to go, and the day-old reminder once', async () => {
+    server.use(http.get('*/api/v1/me/projects', () => ok([])));
+    await afterSignIn({ sessionId: TEST_SESSION_ID, userId: ME.id, deviceKey: 'k'.repeat(43) });
+    const yesterday = new Date(Date.now() - 25 * 60 * 60_000);
+    const failed = await enqueue({
+      kind: 'application_draft',
+      projectId: PROJECT.projectId,
+      formVersionId: '01900000-0000-7000-8000-0000000000c2',
+      payload: { answers: [] },
+      now: yesterday,
+    });
+    await apply([failed.clientUuid], { type: 'flush', at: yesterday });
+    await applyResult(
+      { clientUuid: failed.clientUuid, result: 'failed', code: 'sync.deadline_passed' },
+      yesterday,
+    );
+    const waiting = await enqueue({
+      kind: 'application_draft',
+      projectId: PROJECT.projectId,
+      formVersionId: '01900000-0000-7000-8000-0000000000c2',
+      payload: { answers: [], second: true },
+    });
+    await addPhoto({
+      clientUuid: waiting.clientUuid,
+      slot: 'house_photo',
+      blob: new Blob([new Uint8Array(512)], { type: 'image/jpeg' }),
+      facts: { name: 'h.jpg', mime: 'image/jpeg', source: 'camera' },
+    });
+    const first = openHome(VOLUNTEER);
+    const attention = await screen.findByRole('region', { name: 'এখন আপনার কাজ' });
+    expect(
+      await within(attention).findByRole('link', { name: /1টি রেকর্ড পাঠানো যায়নি/ }),
+    ).toHaveAttribute('href', '/sync');
+    expect(within(attention).getByRole('link', { name: /1টি ছবি এখনো যায়নি/ })).toHaveAttribute(
+      'href',
+      '/sync',
+    );
+    const reminder = await screen.findByText('জমা কাজ পাঠানো বাকি');
+    expect(reminder.closest('.ui-alert')).toHaveTextContent(
+      '2টি রেকর্ড 1 দিন ধরে এই ফোনে অপেক্ষায়',
+    );
+    expect(screen.getByRole('link', { name: 'সিঙ্ক দেখুন' })).toHaveAttribute('href', '/sync');
+    first.unmount();
+    // the reminder came today already: the next open of the home does not repeat it
+    openHome(VOLUNTEER);
+    await screen.findByRole('link', { name: /1টি রেকর্ড পাঠানো যায়নি/ });
+    expect(screen.queryByText('জমা কাজ পাঠানো বাকি')).toBeNull();
   });
 
   it('gives a Local দায়ী today’s class as a card that comes later', async () => {

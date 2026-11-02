@@ -8,6 +8,8 @@ const KNOWN_FLAGS = [
   'existing_identity',
   'identity_blocked',
   'identity_repeated',
+  'late_sync',
+  'stale_form_version',
 ] as const;
 
 /**

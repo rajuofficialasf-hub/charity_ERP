@@ -9,7 +9,8 @@
     "read_rules": "Read the rules",
     "open_project": "Open the project",
     "back": "Back to my projects",
-    "not_found": "This project is not available to you now. It will show here once it is running and you are on it."
+    "not_found": "This project is not available to you now. It will show here once it is running and you are on it.",
+    "consent_needs_network": "Reading the rules and giving your consent needs network. Come back to this page when it returns."
   },
   "detail": {
     "window": "Application window",

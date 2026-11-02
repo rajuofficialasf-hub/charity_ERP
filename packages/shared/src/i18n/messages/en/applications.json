@@ -28,7 +28,8 @@
     "fix_named": "Some answers need fixing; the reason is under each question.",
     "upload_failed": "The photo could not be sent. Try again.",
     "team_note": "As a team member you can keep a draft; the main volunteer sends it to the office.",
-    "edit_title": "Edit the draft"
+    "edit_title": "Edit the draft",
+    "photos_need_network": "Adding photos needs network. The draft stays on this phone; add the photos when there is network."
   },
   "list": {
     "title": "My applications",
@@ -95,6 +96,7 @@
     "waiting": "{days} days",
     "summary": "Showing {from}–{to} · {total} applications in all",
     "column": {
+      "device_time": "Taken on the phone at",
       "person": "Beneficiary",
       "area": "Area",
       "status": "Status",
@@ -166,6 +168,8 @@
       "flag": {
         "public_entry": "An entry from the public link; verify it and link it to a profile, or refuse it.",
         "public_entry_short": "Public entry",
+        "late_sync": "Taken on a phone before the deadline and sent after it; check it and verify.",
+        "stale_form_version": "Taken on a phone with an older version of the form; check whether the new questions matter.",
         "existing_identity": "A profile with this number already exists.",
         "identity_blocked": "The profile with this number is blocklisted.",
         "identity_repeated": "The same number or mobile came through this link again within a day."
@@ -264,5 +268,16 @@
     "office_fills": "The office gives this answer.",
     "volunteer_fills": "The volunteer gives the new answer.",
     "empty": "No answer"
+  },
+  "sync": {
+    "pending": "Waiting to be sent",
+    "syncing": "Being sent",
+    "failed": "Could not be sent",
+    "verifying": "The office is checking it",
+    "photos_pending": "Photos still to go",
+    "saved_on_phone": "Saved on this phone. It will go to the office when there is network.",
+    "queued_title": "Saved on this phone",
+    "store_unavailable": "Nothing can be kept on this phone right now, and there is no network. Try again when there is network.",
+    "record_on_its_way": "This record is on its way to the office; it can be removed once the office has answered."
   }
 }

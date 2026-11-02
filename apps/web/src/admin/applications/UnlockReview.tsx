@@ -4,7 +4,7 @@ import { Alert, Badge, Button, Card, DescriptionList, Stack, Text } from '@css/u
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import type { Unlock } from '../../features/applications/applications-api';
+import { fillUnlock, type Unlock } from '../../features/applications/applications-api';
 import { AnswerValueText, UnlockedAnswer } from '../../features/applications/UnlockedAnswer';
 import { ApiFailure } from '../../lib/api';
 import { cancelUnlock, decideUnlock } from './applications-api';
@@ -63,7 +63,12 @@ export function UnlockReview({
           return (
             <Stack key={unlock.id} gap={2} className="admin-unlock">
               {unlock.mayFill ? (
-                <UnlockedAnswer unlock={unlock} field={field} onSent={() => onChanged(t('sent'))} />
+                <UnlockedAnswer
+                  unlock={unlock}
+                  field={field}
+                  fill={(value) => fillUnlock(unlock.id, value)}
+                  onSent={() => onChanged(t('sent'))}
+                />
               ) : (
                 <>
                   <Text as="strong" weight="bold">
