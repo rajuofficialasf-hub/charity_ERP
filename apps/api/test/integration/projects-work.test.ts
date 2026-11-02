@@ -12,8 +12,8 @@ import {
 import * as f from './support/fixtures';
 
 // An official's projects by year and the figures of their work there, and who may see them
-// (docs/DECISION_LOG.md D-147; docs/BUSINESS_RULES.md, "An official's projects" and the rules
-// after it).
+// (docs/DECISION_LOG.md, the official's own profile of 2026-11-02; docs/BUSINESS_RULES.md,
+// "An official's projects" and the rules after it).
 let h: AuthHarness;
 const api = () => request(h.server());
 

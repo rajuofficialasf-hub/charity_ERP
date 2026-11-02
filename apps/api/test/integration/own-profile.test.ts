@@ -6,7 +6,7 @@ import { account, authHarness, type AuthHarness, bearer, login } from './support
 import * as f from './support/fixtures';
 
 // An official's own profile and the photos of officials wherever a person is shown
-// (docs/DECISION_LOG.md D-147; docs/BUSINESS_RULES.md, "An official's own profile").
+// (docs/DECISION_LOG.md, the official's own profile of 2026-11-02; docs/BUSINESS_RULES.md).
 let h: AuthHarness;
 const api = () => request(h.server());
 

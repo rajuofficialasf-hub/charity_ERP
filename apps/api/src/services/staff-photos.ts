@@ -19,7 +19,8 @@ export async function staffPhotos(
 
 /**
  * Links a new photo to an official: their link is moved to the new file (the API role cannot
- * delete rows), so the earlier photo stays with the draft or request that brought it (BD-46).
+ * delete rows), so the earlier photo stays with the draft or request that brought it: photos are
+ * kept for good.
  */
 export async function linkStaffPhoto(tx: Tx, userId: string, fileId: string): Promise<void> {
   const moved = await tx.fileLink.updateMany({

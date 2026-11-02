@@ -24,8 +24,6 @@ const REACHING_PERMISSIONS = [
   'volunteer.view_all',
   'registration.approve',
   'staff.registration.approve',
-  // the staff list and an official's profile show the official's photo
-  'permission.view',
 ] as const;
 
 /**

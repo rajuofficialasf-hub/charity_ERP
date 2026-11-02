@@ -415,8 +415,9 @@ export function registrationsRouter(
       ),
   });
 
-  // An official's own requests (DECISION_LOG D-147): the same codes and photo upload, and
-  // deciders of their own, the Department Head and the Monitoring Team
+  // An official's own requests (docs/DECISION_LOG.md, the official's own profile of 2026-11-02):
+  // the same codes and photo upload, and deciders of their own, the Department Head and the
+  // Monitoring Team
   const staffEditOp = {
     tag: 'registration',
     scope: 'self',

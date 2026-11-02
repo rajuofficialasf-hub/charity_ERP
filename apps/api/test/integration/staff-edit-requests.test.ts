@@ -14,8 +14,8 @@ import * as f from './support/fixtures';
 import { DUMMY_CODE } from './support/registration';
 
 // An official's requests to change their own details, decided by the Department Head or the
-// Monitoring Team (docs/DECISION_LOG.md D-147; docs/BUSINESS_RULES.md, "An official asks for a
-// change").
+// Monitoring Team (docs/DECISION_LOG.md, the official's own profile of 2026-11-02;
+// docs/BUSINESS_RULES.md, "An official asks for a change").
 let h: AuthHarness;
 const api = () => request(h.server());
 
@@ -242,5 +242,25 @@ describe('a new email and a new photo', () => {
     expect((await decide(s, created.body.data.id, { decision: 'approve' })).status).toBe(200);
     const me = await api().get('/api/v1/auth/me').set(bearer(rpm.session));
     expect(me.body.data.photoFileId).toBe(fileId);
+  });
+
+  it('is fixed once uploaded, and a new request replaces one that never got its photo', async () => {
+    const rpm = await official();
+    const upload = (id: string) =>
+      api()
+        .post(`/api/v1/me/photos/photo?requestId=${id}&source=camera`)
+        .set(bearer(rpm.session))
+        .set('Content-Type', 'image/jpeg')
+        .send(jpeg());
+    const abandoned = await ask(rpm.session, { field: 'photo' });
+    const fresh = await ask(rpm.session, { field: 'photo' });
+    expect(fresh.status).toBe(201);
+    const closed = await h.db.query('SELECT status FROM volunteer_change_requests WHERE id = $1', [
+      abandoned.body.data.id,
+    ]);
+    expect(closed.rows[0].status).toBe('closed');
+    expect((await upload(fresh.body.data.id)).status).toBe(201);
+    // the deciders see this photo: a second upload cannot swap it
+    expect((await upload(fresh.body.data.id)).status).toBe(404);
   });
 });

@@ -105,10 +105,11 @@ const view = (row: Parameters<typeof changeView>[0]) => ({
 });
 
 /**
- * An official's requests to change their own details (DECISION_LOG D-147; docs/BUSINESS_RULES.md,
- * "An official asks for a change"): kept in the change-request table without a volunteer, a new
- * mobile or email first verified by its code, a photo by the own upload; the Department Head or
- * the Monitoring Team decides, never the person who asked. An approval writes the change at once.
+ * An official's requests to change their own details (docs/DECISION_LOG.md, the official's own
+ * profile of 2026-11-02; docs/BUSINESS_RULES.md, "An official asks for a change"): kept in the
+ * change-request table without a volunteer, a new mobile or email first verified by its code, a
+ * photo by the own upload; the Department Head or the Monitoring Team decides, never the person
+ * who asked. An approval writes the change at once.
  */
 export class StaffChangeRequestsService {
   constructor(
@@ -132,8 +133,9 @@ export class StaffChangeRequestsService {
         field === 'photo'
           ? null
           : await this.checkedValue(tx, principal.userId, { ...body, field });
-      // a contact still waiting for its code is replaced (a mistyped number would else block it)
-      if (isContact(field))
+      // a contact still waiting for its code, or a photo for its upload, is replaced (a mistyped
+      // number or a failed upload would else block the field)
+      if (isContact(field) || field === 'photo')
         await tx.volunteerChangeRequest.updateMany({
           where: { userId: principal.userId, volunteerId: null, kind: EDIT, field, status: 'open' },
           data: { status: 'closed', decidedAt: this.clock.now() },

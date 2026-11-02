@@ -310,10 +310,10 @@ export const PHOTO_FIELDS = PHOTO_SLOTS;
  * namespace): the screens and the notifications name a field the same way.
  */
 /**
- * The details an official may ask to change about themself (DECISION_LOG D-147): the name, the
- * designation, the contacts (a code to the new value first), the photo (the own upload fills it)
- * and the workplace; the Department Head or the Monitoring Team decides. A program, division or
- * supervisor of null asks to clear it.
+ * The details an official may ask to change about themself (docs/DECISION_LOG.md, the official's
+ * own profile of 2026-11-02): the name, the designation, the contacts (a code to the new value
+ * first), the photo (the own upload fills it) and the workplace; the Department Head or the
+ * Monitoring Team decides. A program, division or supervisor of null asks to clear it.
  */
 export const STAFF_EDIT_FIELD_VALUES = {
   displayName: z.string().trim().min(1, { message: 'validation.required' }).max(200),
