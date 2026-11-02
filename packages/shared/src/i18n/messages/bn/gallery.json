@@ -84,7 +84,14 @@
     "attentionReason": "শুক্রবারের আগে পর্যালোচনা করুন",
     "attentionMeta": "{duration} ধরে অপেক্ষমাণ",
     "attention2Title": "{n, plural, other {{count}টি বিতরণের ছবি বাকি}}",
-    "open": "খুলুন"
+    "open": "খুলুন",
+    "statPending": "পর্যালোচনার অপেক্ষায়",
+    "statVolunteers": "সক্রিয় স্বেচ্ছাসেবক",
+    "statBlocked": "ব্লক করা",
+    "personName": "রহিমা খাতুন",
+    "personSub": "BEN-2026-00142 · 5 জনের পরিবার",
+    "personName2": "করিম উদ্দিন",
+    "personSub2": "সাধারণ স্বেচ্ছাসেবক"
   },
   "field": {
     "name": "উপকারভোগীর নাম",

@@ -23,7 +23,7 @@
     color: var(--color-text-secondary);
   }
   .ui-badge.t-brand {
-    background: var(--color-bg-brand-soft);
+    background: var(--color-bg-brand-tint);
     box-shadow: inset 0 0 0 1px rgba(0, 123, 62, 0.18);
   }
   .ui-badge.t-brand .ui-icon {
@@ -54,31 +54,54 @@
     color: var(--color-status-info);
   }
 
-  /* the dot form: a dot in the tone's colour before the word, the word in the text colour */
+  /* the dot form: a soft pill with a dot in the tone's colour before the word, the word in ink */
   .ui-status-dot {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: 6px;
+    min-height: 24px;
+    padding: 0 10px 0 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-muted);
+    color: var(--color-text-primary);
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--leading-heading);
     white-space: nowrap;
   }
   .ui-status-dot-mark {
     flex: none;
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: var(--radius-full);
     background: var(--color-text-secondary);
+  }
+  .ui-status-dot.t-success {
+    background: var(--color-bg-success-soft);
   }
   .ui-status-dot.t-success .ui-status-dot-mark {
     background: var(--color-status-success);
   }
+  .ui-status-dot.t-warning {
+    background: var(--color-bg-warning-soft);
+  }
   .ui-status-dot.t-warning .ui-status-dot-mark {
     background: var(--color-status-warning);
+  }
+  .ui-status-dot.t-danger {
+    background: var(--color-bg-danger-soft);
   }
   .ui-status-dot.t-danger .ui-status-dot-mark {
     background: var(--color-status-danger);
   }
+  .ui-status-dot.t-info {
+    background: var(--color-bg-info-soft);
+  }
   .ui-status-dot.t-info .ui-status-dot-mark {
     background: var(--color-status-info);
+  }
+  .ui-status-dot.t-brand {
+    background: var(--color-bg-brand-tint);
   }
   .ui-status-dot.t-brand .ui-status-dot-mark {
     background: var(--color-brand-primary);

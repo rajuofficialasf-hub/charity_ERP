@@ -45,6 +45,18 @@ describe('Card / Stat (DESIGN_SYSTEM 5.3)', () => {
     expect(screen.getByText('5,00,000-এর মধ্যে 3,00,000')).toBeInTheDocument();
   });
 
+  it('stat card shows its icon on a soft square of its tone and one line of context', async () => {
+    const { container } = renderWithUi(
+      <StatCard label="pending" value={12} icon={Clock} tone="warning" context="oldest 6 days" />,
+    );
+    const tile = container.querySelector('.ui-stat .ui-icon-tile');
+    expect(tile).toHaveClass('t-warning');
+    expect(tile).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('oldest 6 days')).toHaveClass('ui-stat-context');
+    expect(screen.getByText('12')).toHaveClass('ui-stat-value');
+    await expectNoAxeViolations(container);
+  });
+
   it('shows a skeleton while loading', () => {
     renderWithUi(<StatCard label="approved" value={0} loading />);
     expect(screen.getByRole('status')).toHaveTextContent('Loading');

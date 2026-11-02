@@ -150,7 +150,7 @@ The owner finds the current app unpolished and disordered ("কোন প্র�
 - **Depends on:** U1
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U3. The page header on every page
 - **Goal:** every page opens with the same header (R3).
@@ -386,8 +386,8 @@ The owner finds the current app unpolished and disordered ("কোন প্র�
 
 ## Progress
 - **Branch:** `feat/visual-redesign` (from `main` after PRs #34, #35 and #36 were merged)
-- **Updated:** 2026-11-02 (U1 done)
-- **Next:** U2: the set's components on the new tokens (Card head, StatCard and StatFilterBar icon and tone, the Badge pill, the table's list card and `PersonCell`, the Breadcrumb), then the gallery
+- **Updated:** 2026-11-02 (U2 done)
+- **Next:** checkpoint C1 (test and review of the base..HEAD range), then U3: `PageHeader` in the set and on every page
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** U1: the prototype's 7 to 11 px text is not used (DESIGN_SYSTEM §2.4 stays, R14); the prototype's status dot is the badge's icon (a status keeps its icon and ink label); the sidebar's active item must be white on #007B3E (its grey text is 3.44:1). The owner said on 2026-11-02 "ধাপে ধাপে অল্প অল্প করে কর। যেন খুবই প্রিমিয়াম ফিল হয়। আর কোন ভুল ও না হয়": small steps, a report after each unit, and the shell's screenshots shown after U4 before any page is restyled.
+- **Notes:** U2: one `IconTile` (icon, letter or photo on a soft square) serves the stat card, the counts that filter and `PersonCell`; the initials helper moved to `packages/ui/src/utils/initials.ts`. The table's header row is now quiet (`--color-bg-subtle`, secondary text) instead of the brand-soft green the owner chose on 2026-10-20: the owner's prototype (D-145) shows it quiet; told to the owner in the U2 report. The badge's dot form is a soft pill. The sidebar's `NavItem` look moves to U4, where it is checked with the shell. U1: the prototype's 7 to 11 px text is not used (DESIGN_SYSTEM §2.4 stays, R14); the prototype's status dot is the badge's icon (a status keeps its icon and ink label); the sidebar's active item must be white on #007B3E (its grey text is 3.44:1). The owner said on 2026-11-02 "ধাপে ধাপে অল্প অল্প করে কর। যেন খুবই প্রিমিয়াম ফিল হয়। আর কোন ভুল ও না হয়": small steps, a report after each unit, and the shell's screenshots shown after U4 before any page is restyled.

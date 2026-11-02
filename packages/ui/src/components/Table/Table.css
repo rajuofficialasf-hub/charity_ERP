@@ -40,10 +40,10 @@
     top: 0;
     z-index: 1;
     padding: 10px var(--space-3);
-    border-bottom: 1px solid var(--color-border-default);
-    /* the brand's soft green marks the header row (owner, 2026-10-20) */
-    background: var(--color-bg-brand-soft);
-    color: var(--color-brand-ink);
+    border-bottom: 1px solid var(--border-subtle);
+    /* a quiet header row keeps the eye on the rows and their status pills */
+    background: var(--color-bg-subtle);
+    color: var(--color-text-secondary);
     /* body size: Bengali at the label size is too small to read in a header */
     font-size: var(--text-body);
     font-weight: var(--font-weight-bold);
@@ -354,7 +354,7 @@
 
   /* panel layout: one white card for the toolbar, the table and the pager */
   .ui-table-panel {
-    border: 1px solid var(--color-border-default);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
     background: var(--color-bg-surface);
     box-shadow: var(--elevation-1);
@@ -363,7 +363,7 @@
   .ui-table-panel > .ui-toolbar {
     margin: 0;
     padding: var(--space-4);
-    border-bottom: 1px solid var(--color-border-default);
+    border-bottom: 1px solid var(--border-subtle);
   }
   .ui-table-panel .ui-table-wrap {
     border: 0;
@@ -380,7 +380,7 @@
   }
   .ui-table-panel > .ui-pager {
     padding: var(--space-3) var(--space-4);
-    border-top: 1px solid var(--color-border-default);
+    border-top: 1px solid var(--border-subtle);
   }
   .ui-table-panel > .ui-card-list {
     padding: var(--space-3);

@@ -439,7 +439,7 @@ Every base component of constitution §12, built once in `packages/ui` (T1.4) an
 
 **Premium finish (UX-14).** Every component below follows the same finish, implemented in the refreshed mockups (`docs/ui/mockups/components.css`):
 
-- **Surfaces:** cards, tables, attention items and panels use `--elevation-1` with `--border-subtle`; clickable cards lift 2 px with `--elevation-hover` on hover; stat cards carry the `--gradient-accent-line` top line and a 24 px (phone) / 28 px (desktop) value in brand ink.
+- **Surfaces:** cards, tables, attention items and panels use `--elevation-1` with `--border-subtle`; clickable cards lift 2 px with `--elevation-hover` on hover; stat cards without an icon square carry the `--gradient-accent-line` top line (an icon square carries the colour instead, D-145) and a 24 px (phone) / 28 px (desktop) value in brand ink.
 - **Buttons:** primary on #007B3E with a 6 % sheen and `--elevation-brand`, lifting 1 px on hover and pressing to 98 % on tap; secondary on surface with a translucent dark-green border, brand-soft on hover; danger with a red-tinted shadow.
 - **Fields:** a contact shadow at rest, darker border on hover, `--color-brand-primary-dark` border plus `--ring-brand` glow on focus; checkboxes and radios are restyled native inputs (dark-green fill with a white check, radio as a thick ring) that stay keyboard- and screen-reader-native.
 - **Choice controls:** the segmented control is a muted track with a raised white segment; chips are pills, the selected chip uses `--gradient-soft`; tabs get a 3 px brand-gradient underline; the switch thumb has a soft shadow and eases with `--ease-out`.
@@ -483,7 +483,8 @@ Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 1
 | `label` | i18n key or bilingual data value                           |
 | `size`  | `md` (24 px high), `sm` (20 px, dense tables)              |
 
-- Look: tinted background (`--color-bg-*-soft`, brand-soft for `brand`, muted for `neutral`), ink label (`--text-label`), icon in the status colour, `--radius-sm` (colors.md §6 rule 6).
+- Look: a pill (`--radius-full`) on the tinted background (`--color-bg-*-soft`, brand tint for `brand`, muted for `neutral`), ink label (`--text-label`), icon in the status colour (colors.md §6 rule 6).
+- `variant="dot"` (dense lists, D-145): the same soft pill with a 6 px dot in the tone's colour before the ink word, the prototype's status pill; the word always shows, so the status never rests on colour.
 - Workflow state mapping (WORKFLOW_ENGINE.md, common cycle), used by every list and detail:
 
 | State                           | Tone    | Icon                           |

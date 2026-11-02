@@ -7,6 +7,7 @@ import { fill } from '../../provider/messages.js';
 import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
 import { Icon, type IconComponent } from '../Icon/Icon.js';
+import { IconTile, type IconTileTone } from '../IconTile/IconTile.js';
 import { ProgressBar } from '../ProgressBar/ProgressBar.js';
 import { Skeleton } from '../Skeleton/Skeleton.js';
 
@@ -96,12 +97,20 @@ export interface StatCardProps {
   prefix?: string;
   /** Change text prepared by the caller, for example "+12 this week". */
   delta?: string;
+  /** An icon on a soft square at the top right; brand by default. */
+  icon?: IconComponent;
+  tone?: IconTileTone;
+  /** One line of plain context under the value, prepared by the caller ("oldest 6 days"). */
+  context?: string;
   href?: string;
   loading?: boolean;
   className?: string;
 }
 
-/** Stat card: label, big tabular value, optional target with progress; amber-green top line. */
+/**
+ * Stat card: label, big tabular value, optional target with progress and one line of context; an
+ * icon on a soft square at the top right, or else the amber-green top line.
+ */
 export function StatCard({
   label,
   value,
@@ -109,17 +118,29 @@ export function StatCard({
   unit,
   prefix,
   delta,
+  icon,
+  tone,
+  context,
   href,
   loading,
   className,
 }: StatCardProps) {
   const { messages, formatNumber } = useUi();
-  const classes = cx('ui-card', 'ui-stat', href && 'ui-card-link', className);
+  const classes = cx(
+    'ui-card',
+    'ui-stat',
+    icon && 'ui-stat-with-icon',
+    href && 'ui-card-link',
+    className,
+  );
   const content = loading ? (
     <Skeleton shape="stat" />
   ) : (
     <>
-      <p className="ui-stat-label">{label}</p>
+      <div className="ui-stat-head">
+        <p className="ui-stat-label">{label}</p>
+        {icon && <IconTile icon={icon} tone={tone} />}
+      </div>
       <p className="ui-stat-value">
         {prefix && <span className="ui-stat-unit">{prefix} </span>}
         {formatNumber(value)}
@@ -146,6 +167,7 @@ export function StatCard({
           {delta}
         </p>
       )}
+      {context && <p className="ui-stat-context">{context}</p>}
     </>
   );
   return href ? (

@@ -84,7 +84,14 @@
     "attentionReason": "Review before Friday",
     "attentionMeta": "Waiting {duration}",
     "attention2Title": "{n, plural, one {{count} distribution photo missing} other {{count} distribution photos missing}}",
-    "open": "Open"
+    "open": "Open",
+    "statPending": "Waiting for review",
+    "statVolunteers": "Active volunteers",
+    "statBlocked": "Blocked",
+    "personName": "Rahima Khatun",
+    "personSub": "BEN-2026-00142 · family of 5",
+    "personName2": "Karim Uddin",
+    "personSub2": "General volunteer"
   },
   "field": {
     "name": "Beneficiary name",

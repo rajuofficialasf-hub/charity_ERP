@@ -13,6 +13,8 @@ import {
   AttentionCard,
   Avatar,
   Badge,
+  IconTile,
+  PersonCell,
   Breadcrumb,
   BulkList,
   BulkRow,
@@ -341,9 +343,33 @@ function GalleryBody() {
             <Badge label={t('project_code')} tone="brand" />
             <StatusBadge status="approved" label={statusLabel('approved')} size="sm" />
           </Row>
+          <Row>
+            <Badge variant="dot" tone="success" label={statusLabel('approved')} />
+            <Badge variant="dot" tone="warning" label={statusLabel('waitlisted')} />
+            <Badge variant="dot" tone="info" label={statusLabel('under_review')} />
+            <Badge variant="dot" tone="danger" label={statusLabel('rejected')} />
+            <Badge variant="dot" label={statusLabel('draft')} />
+          </Row>
+          <Row>
+            <PersonCell name={t('card.personName')} href="#badge" secondary={t('card.personSub')} />
+            <PersonCell name={t('card.personName2')} secondary={t('card.personSub2')} />
+            <IconTile icon={Users} />
+            <IconTile icon={Clock} tone="warning" size="lg" />
+          </Row>
         </Section>
 
         <Section id="card" title={t('sections.card')}>
+          <div className="gallery-stats">
+            <StatCard
+              label={t('card.statApplications')}
+              value={1840}
+              icon={ClipboardList}
+              context={t('card.thisWeek', { count: count(120) })}
+            />
+            <StatCard label={t('card.statPending')} value={42} icon={Clock} tone="warning" />
+            <StatCard label={t('card.statVolunteers')} value={312} icon={Users} tone="info" />
+            <StatCard label={t('card.statBlocked')} value={3} icon={TriangleAlert} tone="danger" />
+          </div>
           <div className="gallery-stats">
             <StatCard
               label={t('card.statApplications')}
