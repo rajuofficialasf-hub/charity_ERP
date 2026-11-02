@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
 import type { IconComponent } from '../Icon/Icon.js';
-import { IconTile } from '../IconTile/IconTile.js';
+import { IconTile, type IconTileTone } from '../IconTile/IconTile.js';
 import { MenuButton } from '../Menu/MenuButton.js';
 import { Skeleton } from '../Skeleton/Skeleton.js';
 
@@ -13,7 +13,7 @@ export interface StatFilterItem {
   value: number;
   icon: IconComponent;
   /** The colour of the icon tile; neutral by default. */
-  tone?: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info';
+  tone?: IconTileTone;
   /** false for a count that is not a filter of the list (shown, never chosen). */
   selectable?: boolean;
 }

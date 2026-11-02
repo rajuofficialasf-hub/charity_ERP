@@ -12,7 +12,7 @@ export interface IconTileProps {
   src?: string;
   /** brand by default; the status tones use their soft tint and icon colour. */
   tone?: IconTileTone;
-  /** sm 32 px for a table row, md 36 px for a stat card, lg 44 px for a count that filters. */
+  /** sm 32 px for a table row, md 36 px for a stat card and a count that filters, lg 44 px for a larger heading. */
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
