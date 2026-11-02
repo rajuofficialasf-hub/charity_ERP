@@ -6368,8 +6368,8 @@ paths:
           schema: { type: string, pattern: '^[a-z][a-z0-9_]{0,49}$' }
         - name: gender
           in: query
-          description: The gender (a code of the gender reference list); 403 without the beneficiary.profile_detail class (D-146)
-          schema: { type: string, pattern: '^[a-z][a-z0-9_]{0,49}$' }
+          description: The gender, one of the two the list counts; 403 without the beneficiary.profile_detail class (D-146)
+          schema: { type: string, enum: [male, female] }
         - name: projectId
           in: query
           description: Beneficiaries with an application in the project
@@ -6423,8 +6423,8 @@ paths:
           schema: { type: string, pattern: '^[a-z][a-z0-9_]{0,49}$' }
         - name: gender
           in: query
-          description: The gender (a code of the gender reference list); 403 without the beneficiary.profile_detail class (D-146)
-          schema: { type: string, pattern: '^[a-z][a-z0-9_]{0,49}$' }
+          description: The gender, one of the two the list counts; 403 without the beneficiary.profile_detail class (D-146)
+          schema: { type: string, enum: [male, female] }
         - name: projectId
           in: query
           description: Beneficiaries with an application in the project

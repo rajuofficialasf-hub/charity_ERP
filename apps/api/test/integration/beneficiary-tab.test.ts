@@ -107,6 +107,7 @@ describe('the beneficiary list', () => {
     expect((await list(head, { year: '1999' })).status).toBe(422);
     expect((await list(head, { type: 'Widow!' })).status).toBe(422);
     expect((await list(head, { gender: 'Male!' })).status).toBe(422);
+    expect((await list(head, { gender: 'other' })).status).toBe(422);
   });
 
   it('searches by name, by mobile for those who see it, and by NID only inside the NID scope', async () => {

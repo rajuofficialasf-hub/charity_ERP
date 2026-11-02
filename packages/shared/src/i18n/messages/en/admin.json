@@ -342,9 +342,9 @@
     "search": "Search by name, number or BEN number",
     "stats": {
       "label": "Beneficiary counts",
-      "total": "Total",
+      "total": "All beneficiaries",
       "assisted": "Assisted this year",
-      "blocked": "Blocked",
+      "blocked": "Blocklist",
       "male": "Male",
       "female": "Female"
     },

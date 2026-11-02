@@ -20,11 +20,8 @@ export const beneficiaryFilterSchema = z.strictObject({
     .string()
     .regex(/^[a-z][a-z0-9_]{0,49}$/)
     .optional(),
-  /** The gender (a code of the gender reference list, e.g. male, female). */
-  gender: z
-    .string()
-    .regex(/^[a-z][a-z0-9_]{0,49}$/)
-    .optional(),
+  /** The gender: the two the list counts, so a filter never hides behind no card. */
+  gender: z.enum(['male', 'female']).optional(),
   projectId: z.uuid().optional(),
   year: z.coerce.number().int().min(2000).max(2100).optional(),
   blocked: z.enum(['true', 'false']).optional(),

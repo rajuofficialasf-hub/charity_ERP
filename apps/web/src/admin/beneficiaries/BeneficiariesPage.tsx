@@ -152,18 +152,6 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
   const statItems: StatFilterItem[] = counts
     ? [
         { id: 'all', label: t('stats.total'), value: counts.total, icon: Users },
-        {
-          id: 'assisted',
-          label: t('stats.assisted'),
-          value: counts.assistedThisYear,
-          icon: HandHeart,
-          tone: 'success',
-          // approved help this year: no list filter matches it, so the card is a number only
-          selectable: false,
-        },
-        ...(counts.blocked === undefined
-          ? []
-          : [{ id: 'blocked', label: t('stats.blocked'), value: counts.blocked, icon: Ban }]),
         // the men and the women, only where the caller sees the gender
         ...(counts.male === undefined || counts.female === undefined
           ? []
@@ -183,6 +171,18 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
                 tone: 'brand',
               } satisfies StatFilterItem,
             ]),
+        {
+          id: 'assisted',
+          label: t('stats.assisted'),
+          value: counts.assistedThisYear,
+          icon: HandHeart,
+          tone: 'success',
+          // approved help this year: no list filter matches it, so the card is a number only
+          selectable: false,
+        },
+        ...(counts.blocked === undefined
+          ? []
+          : [{ id: 'blocked', label: t('stats.blocked'), value: counts.blocked, icon: Ban }]),
       ]
     : [];
   const genderCard =
