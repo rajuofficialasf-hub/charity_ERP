@@ -151,7 +151,9 @@ describe('the beneficiary tab', () => {
       screen.getByText('নিবন্ধন, যাচাই, সহায়তা এবং সেবার ইতিহাস এক জায়গা থেকে পরিচালনা করুন।'),
     ).toBeInTheDocument();
     // a person's name sits beside the letter of the name and over the second line
-    expect(screen.getAllByRole('link', { name: 'নমুনা উপকারভোগী' })[0]).toHaveClass('ui-person-name');
+    expect(screen.getAllByRole('link', { name: 'নমুনা উপকারভোগী' })[0]).toHaveClass(
+      'ui-person-name',
+    );
     expect(within(counts).getByRole('button', { name: 'ব্লক করা 12' })).toHaveAttribute(
       'aria-pressed',
       'false',
