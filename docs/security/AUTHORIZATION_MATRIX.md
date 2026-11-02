@@ -230,7 +230,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | PUT /admin/notification-templates/:key/:channel | notification.template.manage | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /admin/deliveries | notification.delivery.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
-## Permissions no endpoint uses yet (77, D-077)
+## Permissions no endpoint uses yet (80, D-077)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -293,6 +293,9 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `progress.update`
 - `site_verification.decide`
 - `site_verification.record`
+- `staff.work.view`
+- `staff_edit_request.approve`
+- `staff_edit_request.submit`
 - `stock.dispatch`
 - `stock.receive`
 - `stock.reconcile`

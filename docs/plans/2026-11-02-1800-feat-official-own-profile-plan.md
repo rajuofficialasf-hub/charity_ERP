@@ -26,10 +26,10 @@ An official opens "আমার প্রোফাইল" and sees who they are,
 
 ## Scope
 - In: the above.
-- Out: a table comparing officials side by side, exports of the figures, and the distribution, photo and class figures (the Phase 5 work summary, BD-41, T5.3); a rename of `volunteer_change_requests`; any change to the volunteer's own flow beyond sharing the table.
+- Out: a table comparing officials side by side, exports of the figures, and the distribution, photo and class figures (the Phase 5 work summary, BD-41, T5.2); a rename of `volunteer_change_requests`; any change to the volunteer's own flow beyond sharing the table.
 
 ## Key decisions
-- D-147 (owner in chat, 2026-11-02): the sections, the change requests and their fields, photos everywhere, my projects by year with the work figures, who sees them, the comparison table left to T5.3; the first slice of BD-41 brought forward.
+- D-147 (owner in chat, 2026-11-02): the sections, the change requests and their fields, photos everywhere, my projects by year with the work figures, who sees them, the comparison table left to T5.2; the first slice of BD-41 brought forward.
 - One change-request table for both kinds of person: `user_id` (the person) added, `volunteer_id` nullable with a check.
 - An official's photo stays a `file_links` row (entity `user`, slot `photo`), as the self-registration already stores it.
 
@@ -42,9 +42,9 @@ An official opens "আমার প্রোফাইল" and sees who they are,
 ## Implementation units
 
 ### U1. The decision, the rules and the permissions
-- **Files:** `docs/DECISION_LOG.md` (D-147), `docs/BUSINESS_RULES.md` (the rules of R2 to R7 and R9), `docs/security/permissions.yaml`, `docs/ui/SCREENS.md` (SCR-006, SCR-063, SCR-076), `docs/MODULE_CATALOG.md` and `docs/PLAN.md` (T5.3 notes the slice brought forward).
+- **Files:** `docs/DECISION_LOG.md` (D-147), `docs/BUSINESS_RULES.md` (the rules of R2 to R7 and R9), `docs/security/permissions.yaml`, `docs/ui/SCREENS.md` (SCR-006, SCR-063, SCR-076), `docs/MODULE_CATALOG.md` and `docs/PLAN.md` (T5.2 notes the slice brought forward).
 - **Tests:** `pnpm docs:check` (the permissions file and the rule register).
-- **Depends on:** none · **Size:** S · **Risk area:** permissions · **Status:** todo
+- **Depends on:** none · **Size:** S · **Risk area:** permissions · **Status:** done
 
 ### U2. The shared change-request table
 - **Files:** `apps/api/prisma/schema.prisma`, a migration with `down.sql`, `apps/api/src/services/change-requests.ts` and `registrations.ts` (write `user_id`), their tests.
@@ -106,7 +106,7 @@ An official opens "আমার প্রোফাইল" and sees who they are,
 ## Progress
 - **Branch:** `feat/official-own-profile` (from `main` after PR #37)
 - **Updated:** 2026-11-02
-- **Next:** U1
+- **Next:** U2: the shared change-request table (migration with `down.sql`)
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner's answers of 2026-11-02 are in the Goal and the Key decisions.
+- **Notes:** the owner's answers of 2026-11-02 are in the Goal and the Key decisions. U1: the work summary is T5.2 in PLAN.md (not T5.3); `work_summary.view` (T5.2) also grants an RPM in their own region, which the owner did not choose for these figures, so `staff.work.view` is its own permission. The seed test compared the permission names in two orders (Postgres vs `localeCompare`); `staff.` and `staff_` exposed it, and both sides now sort by code point.

@@ -140,6 +140,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: alerts, settings (alerts.* thresholds), followup_evaluations, work_summary (computed).
 - Depends on: M08, M09, M12, M13, M10, M16, M17.
 - B1: 9 Monitoring & Follow-up. Phase: 5. Blueprint: A10 (control centre, alerts, work summary), A6 (follow-up), Q-33; BD-19, BD-41, BD-42. Tasks: T5.2, T5.3.
+- First slice brought forward (D-147, Phase 2): an official's projects and the application figures of their work on their profile (BR-291 to BR-293).
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 4 (thresholds), 23 (follow-up template).
 
 ### M15 Audit Log
