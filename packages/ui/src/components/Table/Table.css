@@ -72,8 +72,11 @@
     width: 48px;
     padding-right: 0;
   }
+  /* the actions column is as narrow as its buttons; its name stands at the end, above them */
   .ui-th-actions {
     width: 1%;
+    text-align: end;
+    white-space: nowrap;
   }
   .ui-tr {
     outline: none;

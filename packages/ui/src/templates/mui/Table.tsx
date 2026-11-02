@@ -294,7 +294,7 @@ export function Table<T>({
                       tabIndex={tabStop(HEADER, actionsCell)}
                       className="ui-th ui-th-actions"
                     >
-                      <span className="ui-sr-only">{messages.table.rowActions}</span>
+                      {messages.table.rowActions}
                     </TableCell>
                   )}
                 </TableRow>

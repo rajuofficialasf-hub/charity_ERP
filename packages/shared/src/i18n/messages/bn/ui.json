@@ -69,7 +69,7 @@
     "selectAll": "সব বেছে নিন",
     "select": "বেছে নিন",
     "selectRow": "{name} বেছে নিন",
-    "rowActions": "কাজ",
+    "rowActions": "অ্যাকশন",
     "pagination": "পাতা বদল",
     "page": "পাতা {page}",
     "range": "{from}–{to} দেখানো হচ্ছে · মোট {total}",
