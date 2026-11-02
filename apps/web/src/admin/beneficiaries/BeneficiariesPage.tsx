@@ -3,7 +3,6 @@ import { formatCount } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   type ActiveFilter,
-  Avatar,
   Badge,
   Button,
   EmptyState,
@@ -19,6 +18,7 @@ import {
   type TableColumn,
   TableToolbar,
   PageHeader,
+  PersonCell,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Ban, Copy, EllipsisVertical, HandHeart, Search, User, Users } from 'lucide-react';
@@ -77,7 +77,9 @@ export function BeneficiariesPage() {
     <>
       <DocumentTitle title={t('title')} />
       <PageHeader
+        eyebrow={t('eyebrow')}
         title={t('title')}
+        description={t('description')}
         actions={
           (canLookUpBeneficiaries(me) || canReviewDuplicates(me)) && (
             <Stack direction="row" wrap gap={2}>
@@ -159,15 +161,11 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
       ? t(`types.${code as 'other'}`)
       : (code ?? '');
   const person = (r: BeneficiaryRow) => (
-    <span className="admin-person">
-      <Avatar name={r.name} letters={1} size="sm" />
-      <span className="admin-person-text">
-        <Link to={`/admin/beneficiaries/${r.id}`} className="admin-person-name">
-          {r.name}
-        </Link>
-        {r.classCode && <span className="admin-person-meta">{typeLabel(r.classCode)}</span>}
-      </span>
-    </span>
+    <PersonCell
+      name={r.name}
+      href={`/admin/beneficiaries/${r.id}`}
+      secondary={r.classCode ? typeLabel(r.classCode) : undefined}
+    />
   );
   const status = (r: BeneficiaryRow) => (
     <span className="admin-badges">

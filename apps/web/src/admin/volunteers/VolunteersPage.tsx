@@ -5,7 +5,6 @@ import type { VolunteerRow } from '@css/shared/volunteers';
 import {
   type ActiveFilter,
   Alert,
-  Avatar,
   Badge,
   EmptyState,
   ErrorState,
@@ -19,6 +18,7 @@ import {
   type TableColumn,
   TableToolbar,
   PageHeader,
+  PersonCell,
 } from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -38,7 +38,7 @@ import {
   UserX,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -84,7 +84,7 @@ export function VolunteersPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader title={t('title')} />
+      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('description')} />
       {notice && (
         <Alert
           tone="success"
@@ -207,17 +207,7 @@ function VolunteerTab({ categories }: { categories: boolean }) {
   const rows = list.data?.data ?? [];
   const showCategory = rows.some((r) => 'category' in r);
   const none = <EmptyValue label={t('none')} />;
-  const person = (r: VolunteerRow) => (
-    <span className="admin-person">
-      <RowAvatar row={r} />
-      <span className="admin-person-text">
-        <Link to={`/admin/volunteers/${r.id}`} className="admin-person-name">
-          {r.displayName}
-        </Link>
-        <span className="admin-person-meta">{tr(r.type)}</span>
-      </span>
-    </span>
-  );
+  const person = (r: VolunteerRow) => <RowPerson row={r} type={tr(r.type)} />;
   const state = (r: VolunteerRow) => (
     <span className="admin-badges">
       <Badge variant="dot" tone={STATE_TONE[r.state] ?? 'neutral'} label={t(`state.${r.state}`)} />
@@ -511,17 +501,17 @@ const STATE_TONE: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> =
 };
 
 /** The volunteer's own photo beside the name, or the first letter of the name without one. */
-function RowAvatar({ row }: { row: VolunteerRow }) {
-  return row.photoFileId ? (
-    <PhotoAvatar name={row.displayName} fileId={row.photoFileId} />
-  ) : (
-    <Avatar name={row.displayName} letters={1} size="sm" />
+/** The volunteer's name beside the photo (or the name's letter) and over the type. */
+function RowPerson({ row, type }: { row: VolunteerRow; type: string }) {
+  const photo = useFileDataUrl(row.photoFileId ?? null);
+  return (
+    <PersonCell
+      name={row.displayName}
+      href={`/admin/volunteers/${row.id}`}
+      secondary={type}
+      photo={photo.data ?? undefined}
+    />
   );
-}
-
-function PhotoAvatar({ name, fileId }: { name: string; fileId: string }) {
-  const photo = useFileDataUrl(fileId);
-  return <Avatar name={name} letters={1} size="sm" src={photo.data ?? undefined} />;
 }
 
 /** The district and upazila of a row, in the page language. */

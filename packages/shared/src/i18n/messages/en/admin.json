@@ -332,7 +332,9 @@
       "unblock": "Lift block",
       "sessions": "Devices and sessions",
       "sessions_title": "Devices of {name}"
-    }
+    },
+    "eyebrow": "People and field coordination",
+    "description": "Registration, skills, availability and project assignments in one place."
   },
   "beneficiaries": {
     "title": "Beneficiaries",
@@ -602,7 +604,9 @@
       "revert": "Revert merge",
       "revert_title": "Revert the merge with {benNo}?",
       "reverted": "Merge reverted"
-    }
+    },
+    "eyebrow": "Beneficiary services",
+    "description": "Registration, verification, support and service history in one place."
   },
   "programs": {
     "title": "Programs",

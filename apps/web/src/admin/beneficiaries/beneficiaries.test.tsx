@@ -145,6 +145,13 @@ describe('the beneficiary tab', () => {
     const { container } = openList();
     const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
     expect(await within(counts).findByText('20,00,000')).toBeInTheDocument();
+    // the page header: the area and what the page is for, above the known title
+    expect(screen.getByText('উপকারভোগী সেবা')).toBeInTheDocument();
+    expect(
+      screen.getByText('নিবন্ধন, যাচাই, সহায়তা এবং সেবার ইতিহাস এক জায়গা থেকে পরিচালনা করুন।'),
+    ).toBeInTheDocument();
+    // a person's name sits beside the letter of the name and over the second line
+    expect(screen.getAllByRole('link', { name: 'নমুনা উপকারভোগী' })[0]).toHaveClass('ui-person-name');
     expect(within(counts).getByRole('button', { name: 'ব্লক করা 12' })).toHaveAttribute(
       'aria-pressed',
       'false',

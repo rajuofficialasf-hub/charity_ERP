@@ -152,6 +152,10 @@ describe('the volunteer tab', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' }),
     ).toBeInTheDocument();
+    expect(screen.getByText('মানবসম্পদ ও মাঠপর্যায়ের সমন্বয়')).toBeInTheDocument();
+    expect(
+      screen.getByText('নিয়োগ, দক্ষতা, প্রাপ্যতা এবং কর্মসূচিতে দায়িত্ব বণ্টন করুন।'),
+    ).toBeInTheDocument();
     const counts = await screen.findByRole('group', { name: 'স্বেচ্ছাসেবকের হিসাব' });
     expect(await within(counts).findByRole('button', { name: 'সব 1,250' })).toHaveAttribute(
       'aria-pressed',
