@@ -192,22 +192,12 @@
   padding: var(--space-3) var(--space-2) 0;
   border-top: 1px solid var(--color-sidebar-divider);
 }
-.app-sidebar-person-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.35;
-}
 .app-sidebar-person-name {
   overflow: hidden;
   color: var(--color-text-on-brand);
   font-weight: var(--font-weight-bold);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.app-sidebar-person-kind {
-  color: var(--color-sidebar-heading);
-  font-size: var(--text-caption);
 }
 
 .app-rail {
@@ -266,12 +256,6 @@
   padding-inline: var(--space-1) var(--space-2);
   text-align: left;
 }
-.app-user-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.3;
-}
 .app-user-name {
   max-width: 14rem;
   overflow: hidden;
@@ -279,15 +263,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.app-user-kind {
-  color: var(--color-text-secondary);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-regular);
-}
 
 /* on a phone the profile chip shows the letter only (the name stays in the label) */
 @media (max-width: 639px) {
-  .app-user-text {
+  .app-user-name {
     display: none;
   }
   .app-bar {

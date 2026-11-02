@@ -131,7 +131,8 @@ describe('app shell', () => {
     ).toHaveAttribute('href', '/');
     expect(within(sidebar).getByText('সহায়তা প্রয়োজন?')).toBeInTheDocument();
     expect(within(sidebar).getByText('ডিপার্টমেন্ট হেড (নমুনা)')).toBeInTheDocument();
-    expect(within(sidebar).getByText('কর্মকর্তা')).toBeInTheDocument();
+    // the person is named without a role or kind (owner, 2026-11-02)
+    expect(within(sidebar).queryByText('কর্মকর্তা')).toBeNull();
     // the app bar beside it: the bell, the language and the profile menu, no second logo
     const bar = screen.getByRole('banner');
     expect(within(bar).queryByRole('img', { name: 'আস-সুন্নাহ ফাউন্ডেশন' })).toBeNull();
@@ -139,10 +140,10 @@ describe('app shell', () => {
     // an official keeps nothing on the device: no sync chip
     expect(within(bar).queryByRole('link', { name: /সিঙ্কের অবস্থা/ })).toBeNull();
     expect(within(bar).getByRole('radiogroup', { name: 'ভাষা' })).toBeInTheDocument();
-    // the profile chip: the person's letter, name and kind
+    // the profile chip: the person's letter and name
     const chip = within(bar).getByRole('button', { name: 'প্রোফাইল মেনু' });
     expect(chip).toHaveTextContent(/ডিপার্টমেন্ট হেড \(নমুনা\)/);
-    expect(chip).toHaveTextContent(/কর্মকর্তা/);
+    expect(chip).not.toHaveTextContent(/কর্মকর্তা/);
     expect(screen.queryByRole('button', { name: 'আরও' })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
   });

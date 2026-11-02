@@ -41,9 +41,5 @@
     "title": "Need help?",
     "text": "If something in the system gets in your way, contact the admin team."
   },
-  "kind": {
-    "staff": "Official",
-    "volunteer": "Volunteer"
-  },
   "sidebar": "Sidebar"
 }

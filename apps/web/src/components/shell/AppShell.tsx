@@ -207,10 +207,7 @@ function Sidebar({ me }: { me: Me }) {
         </div>
         <div className="app-sidebar-person">
           <IconTile name={me.displayName} size="sm" />
-          <span className="app-sidebar-person-text">
-            <span className="app-sidebar-person-name">{me.displayName}</span>
-            <span className="app-sidebar-person-kind">{t(`kind.${me.kind}`)}</span>
-          </span>
+          <span className="app-sidebar-person-name">{me.displayName}</span>
         </div>
       </div>
     </aside>
