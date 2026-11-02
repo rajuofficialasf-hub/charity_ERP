@@ -152,7 +152,7 @@ function Sidebar({ me }: { me: Me }) {
   const waiting = useQuery({ queryKey: ATTENTION_KEY, queryFn: attention });
   const counts = attentionCounts(me, waiting.data ?? []);
   return (
-    <div className="app-sidebar" data-testid="sidebar">
+    <aside className="app-sidebar" aria-label={t('sidebar')} data-testid="sidebar">
       <a href="/" className="app-sidebar-brand">
         <span className="app-sidebar-mark">
           <img src="/brand/logo.svg" alt="" width={30} height={19} />
@@ -190,6 +190,6 @@ function Sidebar({ me }: { me: Me }) {
           </span>
         </div>
       </div>
-    </div>
+    </aside>
   );
 }
