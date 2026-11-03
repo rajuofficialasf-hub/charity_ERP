@@ -19,27 +19,35 @@ import { fill, useLabels } from './labels';
 /** Bengali digits as English digits, so numbers are stored and compared one way. */
 const toEnglishDigits = (text: string) => text.replace(/[\u09E6-\u09EF]/g, (digit) => String(digit.charCodeAt(0) - 0x09e6));
 
+type Kind = NonNullable<TextFieldExtendedProps['type']>;
+
 /** What each kind keeps of the typed text. */
-const CLEAN: Partial<Record<NonNullable<TextFieldExtendedProps['type']>, (text: string) => string>> = {
-  integer: (text) => toEnglishDigits(text).replace(/\D/g, ''),
-  nid: (text) => toEnglishDigits(text).replace(/\D/g, ''),
-  tel: (text) => toEnglishDigits(text).replace(/[^\d+]/g, ''),
-  decimal: decimal,
-  money: decimal,
-};
+const CLEAN = new Map<Kind, (text: string) => string>([
+  ['integer', (text) => toEnglishDigits(text).replace(/\D/g, '')],
+  ['nid', (text) => toEnglishDigits(text).replace(/\D/g, '')],
+  ['tel', (text) => toEnglishDigits(text).replace(/[^\d+]/g, '')],
+  ['decimal', decimal],
+  ['money', decimal],
+]);
 
 function decimal(text: string) {
   const [whole = '', ...rest] = toEnglishDigits(text).replace(/[^\d.]/g, '').split('.');
   return rest.length ? `${whole}.${rest.join('').slice(0, 2)}` : whole;
 }
 
-const KEYPAD: Partial<Record<NonNullable<TextFieldExtendedProps['type']>, 'numeric' | 'decimal' | 'tel'>> = {
-  integer: 'numeric',
-  nid: 'numeric',
-  decimal: 'decimal',
-  money: 'decimal',
-  tel: 'tel',
-};
+const KEYPAD = new Map<Kind, 'numeric' | 'decimal' | 'tel'>([
+  ['integer', 'numeric'],
+  ['nid', 'numeric'],
+  ['decimal', 'decimal'],
+  ['money', 'decimal'],
+  ['tel', 'tel'],
+]);
+
+/** The longest an identity number or a mobile number with its country code can be. */
+const MAX_LENGTH = new Map<Kind, number>([
+  ['nid', 17],
+  ['tel', 14],
+]);
 
 /** The marks under a field: locked with its correction link, changed with the previous value, officials only. */
 function FieldMarks({ locked, onRequestCorrection, previousValue, officialOnly }: FieldStates) {
@@ -110,9 +118,8 @@ export function TextField({
   const ownId = useId();
   const labels = useLabels();
   const [shown, setShown] = useState(false);
-  const clean = CLEAN[type];
+  const clean = CLEAN.get(type);
   const native = type === 'password' ? (shown ? 'text' : 'password') : clean ? (type === 'tel' ? 'tel' : 'text') : type;
-  const lengths: Partial<Record<string, number>> = { nid: 17, tel: 14 };
   const start: ReactNode =
     type === 'search' ? (
       <InputAdornment position="start" sx={{ color: 'text.disabled' }}>
@@ -155,8 +162,8 @@ export function TextField({
         slotProps={{
           input: { startAdornment: start, endAdornment: end },
           htmlInput: {
-            maxLength: maxLength ?? lengths[type],
-            inputMode: inputMode ?? KEYPAD[type],
+            maxLength: maxLength ?? MAX_LENGTH.get(type),
+            inputMode: inputMode ?? KEYPAD.get(type),
             lang,
             readOnly: readOnly || states.locked,
             style: clean ? { fontVariantNumeric: 'tabular-nums' } : undefined,
