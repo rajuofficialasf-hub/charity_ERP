@@ -140,7 +140,7 @@ describe('app shell', () => {
     expect(within(bar).getByRole('link', { name: 'নোটিফিকেশন' })).toBeInTheDocument();
     // an official keeps nothing on the device: no sync chip
     expect(within(bar).queryByRole('link', { name: /সিঙ্কের অবস্থা/ })).toBeNull();
-    expect(within(bar).getByRole('radiogroup', { name: 'ভাষা' })).toBeInTheDocument();
+    expect(within(bar).getByRole('group', { name: 'ভাষা' })).toBeInTheDocument();
     // the profile chip: the person's letter and name
     const chip = within(bar).getByRole('button', { name: 'প্রোফাইল মেনু' });
     expect(chip).toHaveTextContent(/ডিপার্টমেন্ট হেড \(নমুনা\)/);

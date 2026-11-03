@@ -625,6 +625,10 @@ export type PageExtendedProps = PageProps & {
   breadcrumbs?: readonly Crumb[];
   /** A "Back" link above the heading, for sub-pages such as a form. */
   back?: { label: string; to: string };
+  /** A short area label above the title, for example "Work centre". */
+  eyebrow?: string;
+  /** False when the app sets the document title itself, in its own words and language. */
+  documentTitle?: boolean;
 };
 
 // ---------------------------------------------------------------------------------------------

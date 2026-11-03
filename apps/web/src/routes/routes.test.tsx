@@ -58,6 +58,6 @@ describe('routes', () => {
 
   it('shows the error boundary for an unknown path', async () => {
     mount('/no/such/page', false);
-    expect(await screen.findByRole('heading', { level: 3 })).toHaveTextContent('Nothing here yet');
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Nothing here yet');
   });
 });

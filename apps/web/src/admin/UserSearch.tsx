@@ -1,4 +1,4 @@
-import { Combobox } from '@css/ui';
+import { Combobox } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -58,11 +58,13 @@ export function UserSearch({
   return (
     <Combobox
       label={label}
-      helper={helper}
-      options={users.map((u) => ({ id: u.id, label: optionLabel(u) }))}
+      hint={helper}
+      options={users.map((u) => ({ value: u.id, label: optionLabel(u) }))}
       value={selected?.id ?? null}
+      valueLabel={selected ? optionLabel(selected) : undefined}
       onInputChange={setText}
       serverSearch
+      loading={results.isFetching}
       onChange={(id) => onSelect(users.find((u) => u.id === id) ?? null)}
     />
   );

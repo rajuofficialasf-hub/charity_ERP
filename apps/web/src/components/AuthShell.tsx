@@ -1,4 +1,4 @@
-import { Card } from '@css/ui';
+import { Card } from '@/ui';
 import { useTranslations } from 'use-intl';
 import type { ReactNode } from 'react';
 import './auth-shell.css';
@@ -23,9 +23,11 @@ export function AuthShell({ title, children }: { title: string; children: ReactN
             <h1>{t('name')}</h1>
             <p>{t('organization')}</p>
           </div>
-          <Card title={title} headingLevel={2} className="auth-shell-card">
-            {children}
-          </Card>
+          <div className="auth-shell-card">
+            <Card title={title} headingLevel={2}>
+              {children}
+            </Card>
+          </div>
         </main>
       </div>
     </>

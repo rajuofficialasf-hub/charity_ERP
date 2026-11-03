@@ -374,12 +374,12 @@ describe('the public application page', () => {
     wide();
     page();
     expect(await screen.findByText('প্রয়োজন')).toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: 'English' }));
+    await user.click(screen.getByRole('button', { name: 'English' }));
     expect(await screen.findByText('Need')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 1, name: 'Winter clothing 2026' }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: 'বাংলা' }));
+    await user.click(screen.getByRole('button', { name: 'বাংলা' }));
     expect(await screen.findByText('প্রয়োজন')).toBeInTheDocument();
   });
 
@@ -388,7 +388,7 @@ describe('the public application page', () => {
     page();
     await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র 2026' });
     await expectNoAxeViolations(document.body);
-    await userEvent.setup().click(screen.getByRole('radio', { name: 'English' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'English' }));
     await screen.findByRole('heading', { level: 1, name: 'Winter clothing 2026' });
     await expectNoAxeViolations(document.body);
   });

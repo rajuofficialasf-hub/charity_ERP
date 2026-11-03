@@ -23,11 +23,11 @@ describe('LanguageSwitch (I18N 2, D-067)', () => {
     refreshAs(null);
     const user = userEvent.setup();
     const { container } = renderApp(<LanguageSwitch />);
-    expect(screen.getByRole('radiogroup', { name: 'ভাষা' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'বাংলা' })).toBeChecked();
+    expect(screen.getByRole('group', { name: 'ভাষা' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'বাংলা' })).toHaveAttribute('aria-pressed', 'true');
     await expectNoAxeViolations(container);
-    await user.click(screen.getByRole('radio', { name: 'English' }));
-    expect(await screen.findByRole('radiogroup', { name: 'Language' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'English' }));
+    expect(await screen.findByRole('group', { name: 'Language' })).toBeInTheDocument();
     expect(document.cookie).toContain('css_locale=en');
     expect(window.localStorage.getItem('css_locale')).toBe('en');
     expect(document.documentElement.lang).toBe('en');
@@ -44,11 +44,11 @@ describe('LanguageSwitch (I18N 2, D-067)', () => {
     );
     const user = userEvent.setup();
     renderApp(<LanguageSwitch />);
-    await waitFor(() => expect(screen.getByRole('radio', { name: 'English' })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'English' })).toBeEnabled());
     // wait for the silent refresh to sign the user in
     await waitFor(() => expect(document.cookie).toContain('css_csrf'));
     await new Promise((r) => setTimeout(r, 50));
-    await user.click(screen.getByRole('radio', { name: 'English' }));
+    await user.click(screen.getByRole('button', { name: 'English' }));
     await waitFor(() => expect(body).toEqual({ language: 'en' }));
   });
 });

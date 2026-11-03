@@ -70,10 +70,10 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
   );
 }
 
-export function Page({ title, description, actions, children, breadcrumbs, back }: PageExtendedProps) {
+export function Page({ title, description, actions, children, breadcrumbs, back, eyebrow, documentTitle = true }: PageExtendedProps) {
   return (
     <>
-      <title>{title === APP_NAME ? title : `${title} | ${APP_NAME}`}</title>
+      {documentTitle && <title>{title === APP_NAME ? title : `${title} | ${APP_NAME}`}</title>}
       {back && (
         <Box
           component={Link}
@@ -86,6 +86,11 @@ export function Page({ title, description, actions, children, breadcrumbs, back 
       )}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: { xs: 3, md: 5 } }}>
         <Box sx={{ flex: '1 1 320px', minWidth: 0 }}>
+          {eyebrow && (
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, mb: 0.75, typography: 'overline', color: 'primary.main', '&::before': { content: '""', width: 6, height: 6, borderRadius: '50%', bgcolor: 'primary.main' } }}>
+              {eyebrow}
+            </Box>
+          )}
           <Box component="h1" sx={{ m: 0, typography: 'h4', textWrap: 'balance' }}>
             {title}
           </Box>

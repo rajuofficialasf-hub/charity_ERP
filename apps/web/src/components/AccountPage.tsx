@@ -1,12 +1,12 @@
 import type { Me } from '@css/shared/auth';
-import { PageHeader } from '@css/ui';
+import { Page } from '@/ui';
 import type { ReactNode } from 'react';
 import './auth-shell.css';
 import { RequireAuth } from '../lib/auth';
 
 /**
- * A signed-in page of the account and the volunteer's work inside the app shell: the page header
- * (docs/ui/DESIGN_SYSTEM.md, section "Page header") and the page. Only for signed-in users.
+ * A signed-in page of the account and the volunteer's work inside the app shell: the asf page
+ * heading and the page; the page sets its own document title. Only for signed-in users.
  */
 export function AccountPage({
   title,
@@ -28,8 +28,9 @@ export function AccountPage({
     <RequireAuth>
       {(me) => (
         <div className={wide ? 'account-page account-page-wide' : 'account-page'}>
-          <PageHeader title={title(me)} eyebrow={eyebrow} description={description} />
-          {children(me)}
+          <Page title={title(me)} eyebrow={eyebrow} description={description} documentTitle={false}>
+            {children(me)}
+          </Page>
         </div>
       )}
     </RequireAuth>

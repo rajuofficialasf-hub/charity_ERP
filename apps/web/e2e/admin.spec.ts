@@ -58,13 +58,13 @@ test.describe('admin area', () => {
       await page.getByRole('banner').getByRole('button', { name: 'Profile menu' }).click();
       await page.getByRole('menuitem', { name: 'বাংলা' }).click();
     } else {
-      const toggle = page.getByRole('banner').getByRole('radiogroup', { name: 'ভাষা' });
-      await toggle.getByRole('radio', { name: 'English' }).click({ force: true });
+      const toggle = page.getByRole('banner').getByRole('group', { name: 'ভাষা' });
+      await toggle.getByRole('button', { name: 'English' }).click({ force: true });
       await expect(page.getByRole('heading', { level: 1, name: 'Beneficiaries' })).toBeVisible();
       await page
         .getByRole('banner')
-        .getByRole('radiogroup', { name: 'Language' })
-        .getByRole('radio', { name: 'বাংলা' })
+        .getByRole('group', { name: 'Language' })
+        .getByRole('button', { name: 'বাংলা' })
         .click({ force: true });
     }
     await expect(page.getByRole('heading', { level: 1, name: 'উপকারভোগী' })).toBeVisible();

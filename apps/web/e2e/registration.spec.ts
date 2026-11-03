@@ -344,9 +344,9 @@ test.describe('team members', () => {
 test.describe('language toggle in the top bar', () => {
   test('the registration page switches to English from the bar and keeps it', async ({ page }) => {
     await page.goto('/register');
-    const toggle = page.getByRole('banner').getByRole('radiogroup', { name: 'ভাষা' });
+    const toggle = page.getByRole('banner').getByRole('group', { name: 'ভাষা' });
     await expect(toggle).toBeVisible();
-    await toggle.getByRole('radio', { name: 'English' }).click({ force: true });
+    await toggle.getByRole('button', { name: 'English' }).click({ force: true });
     await expect(
       page.getByRole('heading', { level: 1, name: 'Volunteer registration' }),
     ).toBeVisible();
