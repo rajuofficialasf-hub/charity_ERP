@@ -70,12 +70,80 @@ let created: unknown[];
 let renewed: unknown[];
 let profiles: { body: unknown; ifMatch: string | null }[];
 
+const PHOTO = '01900000-0000-7000-8000-0000000000f1';
+const WORK_PROJECT = '01900000-0000-7000-8000-0000000000f2';
+let workAnswer: 'list' | 'not_found' = 'list';
+let workReads = 0;
+
 function serve() {
   listQueries = [];
   created = [];
   renewed = [];
   profiles = [];
+  workAnswer = 'list';
+  workReads = 0;
   server.use(
+    http.get(`*/api/v1/files/${PHOTO}/content`, () =>
+      HttpResponse.arrayBuffer(new Uint8Array([137, 80, 78, 71]).buffer, {
+        headers: { 'Content-Type': 'image/png' },
+      }),
+    ),
+    http.get('*/api/v1/users/:userId/projects-work', () => {
+      workReads += 1;
+      if (workAnswer === 'not_found')
+        return HttpResponse.json(
+          { error: { code: 'permission.not_found', message: 'Not found.', requestId: 'r' } },
+          { status: 404 },
+        );
+      return HttpResponse.json({
+        data: {
+          everyProject: false,
+          years: [
+            {
+              year: 2026,
+              projects: [
+                {
+                  id: WORK_PROJECT,
+                  code: 'WC26',
+                  name: { bn: 'শীতবস্ত্র ২০২৬', en: 'Winter clothing 2026' },
+                  year: 2026,
+                  status: 'active',
+                  program: { id: PROGRAM.id, name: PROGRAM.name },
+                  applyFrom: null,
+                  applyTo: null,
+                  roles: [
+                    {
+                      key: 'regional_program_manager',
+                      name: { bn: 'রিজিওনাল প্রোগ্রাম ম্যানেজার', en: 'Regional Program Manager' },
+                    },
+                  ],
+                  areas: [{ id: DIVISION.id, name: DIVISION.name }],
+                  wholeProject: false,
+                  figures: {
+                    area: {
+                      received: 120,
+                      waiting: 3,
+                      approved: 80,
+                      rejected: 1,
+                      waitlisted: 2,
+                      volunteers: 12,
+                    },
+                    mine: {
+                      reviewed: 5,
+                      approved: 80,
+                      rejected: 1,
+                      waitlisted: 0,
+                      medianDays: 2.5,
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        meta: { requestId: 'r' },
+      });
+    }),
     http.get('*/api/v1/programs', () => HttpResponse.json({ data: [PROGRAM], meta: {} })),
     http.get('*/api/v1/roles', () =>
       HttpResponse.json({
@@ -500,6 +568,60 @@ describe('the official profile', () => {
     await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
     expect(screen.queryByRole('group', { name: 'কাজ' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'ডিভাইস' })).not.toBeInTheDocument();
+  });
+
+  it("shows the official's photo and their projects with the figures to the Department Head", async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.get(`*/api/v1/users/${official().id}`, () =>
+        HttpResponse.json(
+          {
+            data: {
+              ...official({ photoFileId: PHOTO }),
+              mobile: null,
+              email: null,
+              lastLoginAt: null,
+              isSystemOwner: false,
+            },
+            meta: { requestId: 'r' },
+          },
+          { headers: { ETag: '"1"' } },
+        ),
+      ),
+    );
+    const { container } = openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    await waitFor(() =>
+      expect(container.querySelector('img[src^="data:image/png"]')).not.toBeNull(),
+    );
+    const work = await screen.findByRole('region', { name: 'প্রকল্প ও কাজ' });
+    expect(await within(work).findByText('শীতবস্ত্র ২০২৬')).toBeInTheDocument();
+    expect(within(work).getByText('তাঁর সিদ্ধান্ত')).toBeInTheDocument();
+  });
+
+  it("shows the projects section to the official's PM, and leaves it out outside their programs", async () => {
+    refreshAs(PM);
+    serve();
+    openProfile(official().id);
+    expect(await screen.findByRole('region', { name: 'প্রকল্প ও কাজ' })).toBeInTheDocument();
+    serve();
+    workAnswer = 'not_found';
+    openProfile(official().id);
+    await waitFor(() => expect(workReads).toBe(1));
+    await waitFor(() =>
+      expect(screen.getAllByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' })).toHaveLength(2),
+    );
+    expect(screen.getAllByRole('region', { name: 'প্রকল্প ও কাজ' })).toHaveLength(1);
+  });
+
+  it('does not ask for the projects of an official for an RPM', async () => {
+    refreshAs(RPM);
+    serve();
+    openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    expect(screen.queryByRole('region', { name: 'প্রকল্প ও কাজ' })).not.toBeInTheDocument();
+    expect(workReads).toBe(0);
   });
 
   it('shows the devices to the Monitoring Team', async () => {

@@ -18,8 +18,8 @@ import {
   type TableColumn,
   TableToolbar,
   PageHeader,
-  PersonCell,
 } from '@css/ui';
+import { PhotoPersonCell } from '../../components/PersonPhoto';
 import { useQuery } from '@tanstack/react-query';
 import {
   Ban,
@@ -201,7 +201,8 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
       ? t(`types.${code as 'other'}`)
       : (code ?? '');
   const person = (r: BeneficiaryRow) => (
-    <PersonCell
+    <PhotoPersonCell
+      fileId={r.photoFileId}
       name={r.name}
       href={`/admin/beneficiaries/${r.id}`}
       secondary={r.classCode ? typeLabel(r.classCode) : undefined}

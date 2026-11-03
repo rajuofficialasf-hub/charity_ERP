@@ -1067,7 +1067,7 @@ components:
             - { type: 'null' }
     OrganogramNode:
       type: object
-      required: [userId, displayName, jobId, designation, roles, state, homeDivisionId, reports]
+      required: [userId, displayName, jobId, designation, roles, state, homeDivisionId, photoFileId, reports]
       properties:
         userId: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
@@ -1076,6 +1076,7 @@ components:
         roles: { type: array, items: { type: string } }
         state: { type: string, enum: [pending, active, blocked] }
         homeDivisionId: { type: [string, 'null'], format: uuid }
+        photoFileId: { type: [string, 'null'], format: uuid, description: 'The uploaded photo; null shows the initial (D-147)' }
         reports: { type: array, items: { $ref: '#/components/schemas/OrganogramNode' } }
     Organogram:
       type: object

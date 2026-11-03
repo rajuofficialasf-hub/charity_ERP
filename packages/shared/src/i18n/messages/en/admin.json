@@ -1305,7 +1305,8 @@
         "place": "Role and place",
         "account": "Account",
         "contact": "Contact",
-        "devices": "Devices"
+        "devices": "Devices",
+        "work": "Projects and work"
       },
       "last_login": "Last sign-in",
       "never": "Not signed in yet",

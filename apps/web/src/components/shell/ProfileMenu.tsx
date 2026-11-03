@@ -1,5 +1,6 @@
 import type { Me } from '@css/shared/auth';
-import { IconTile, type MenuAction, MenuButton } from '@css/ui';
+import { type MenuAction, MenuButton } from '@css/ui';
+import { PersonTile } from '../PersonPhoto';
 import {
   Download,
   FileDown,
@@ -92,7 +93,7 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
   return (
     <>
       <MenuButton label={t('profile_menu')} items={items} className="app-profile-chip">
-        <IconTile name={me.displayName} size="sm" />
+        <PersonTile name={me.displayName} fileId={me.photoFileId} size="sm" />
         <span className="app-user-name" data-testid="profile-name">
           {me.displayName}
         </span>

@@ -1,5 +1,6 @@
 import type { Me } from '@css/shared/auth';
-import { type BreadcrumbItem, IconTile, OfflineBanner, type OfflineBannerProps } from '@css/ui';
+import { type BreadcrumbItem, OfflineBanner, type OfflineBannerProps } from '@css/ui';
+import { PersonTile } from '../PersonPhoto';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
@@ -206,7 +207,7 @@ function Sidebar({ me }: { me: Me }) {
           <p>{t('help.text')}</p>
         </div>
         <div className="app-sidebar-person">
-          <IconTile name={me.displayName} size="sm" />
+          <PersonTile name={me.displayName} fileId={me.photoFileId} size="sm" />
           <span className="app-sidebar-person-name">{me.displayName}</span>
         </div>
       </div>

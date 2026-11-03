@@ -232,6 +232,16 @@ export const canReviewDuplicates = (me: Pick<Me, 'roles'>) => holds(me, DUPLICAT
 export const canApproveStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_APPROVER_ROLES);
 export const canDecideEdits = (me: Pick<Me, 'roles'>) => holds(me, EDIT_REQUEST_ROLES);
 export const canDecideStaffEdits = (me: Pick<Me, 'roles'>) => holds(me, STAFF_EDIT_DECIDER_ROLES);
+/**
+ * Who sees an official's projects and the figures of their work (`staff.work.view`): the two
+ * global roles, and the Program Manager for the projects of their program (the server narrows it).
+ */
+export const STAFF_WORK_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+];
+export const canSeeStaffWork = (me: Pick<Me, 'roles'>) => holds(me, STAFF_WORK_ROLES);
 export const canBlock = (me: Pick<Me, 'roles'>) => holds(me, BLOCKLIST_ROLES);
 export const canHandOver = (me: Pick<Me, 'roles'>) => holds(me, HANDOVER_ROLES);
 export const canEndSessions = (me: Pick<Me, 'roles'>) => holds(me, SESSION_ROLES);

@@ -1,15 +1,7 @@
 import { formatPercent } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import {
-  Avatar,
-  Badge,
-  Button,
-  EmptyState,
-  ErrorState,
-  Select,
-  Skeleton,
-  PageHeader,
-} from '@css/ui';
+import { Badge, Button, EmptyState, ErrorState, Select, Skeleton, PageHeader } from '@css/ui';
+import { PersonAvatar } from '../../components/PersonPhoto';
 import { useQuery } from '@tanstack/react-query';
 import {
   ChevronsDownUp,
@@ -141,7 +133,7 @@ export function OrganogramPage() {
     const isFolded = folded.has(n.userId);
     return (
       <div className={`org-card org-tone-${tone(n.roles)}`}>
-        <Avatar name={n.displayName} size="md" />
+        <PersonAvatar name={n.displayName} fileId={n.photoFileId} size="md" />
         <div className="org-card-text">
           <strong>{n.displayName}</strong>
           {n.designation && <span className="org-meta">{n.designation}</span>}
