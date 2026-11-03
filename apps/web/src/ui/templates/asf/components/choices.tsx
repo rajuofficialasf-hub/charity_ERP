@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { SwitchProps, OtherChoice, ChoiceOption, CheckboxProps, ComboboxProps, RadioGroupProps, CheckboxGroupProps } from '@/ui/contract';
 
-import { useId } from 'react';
+import { useId, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Radio from '@mui/material/Radio';
@@ -22,7 +22,7 @@ import { useLabels } from './labels';
 // ----------------------------------------------------------------------
 
 /** The text box an "other" choice opens, inside the same field. */
-function OtherText({ other, disabled }: { other: OtherChoice; disabled?: boolean }) {
+export function OtherText({ other, disabled }: { other: OtherChoice; disabled?: boolean }) {
   const labels = useLabels();
   return (
     <TextField
@@ -186,9 +186,13 @@ export function Combobox({
   serverSearch,
   loading,
   freeText,
+  valueLabel,
 }: ComboboxProps) {
   const labels = useLabels();
-  const selected = options.find((option) => option.value === value) ?? null;
+  // the last option chosen here, shown while a server search answers without it
+  const [chosen, setChosen] = useState<ChoiceOption | null>(null);
+  const known = options.find((option) => option.value === value) ?? (chosen?.value === value ? chosen : null);
+  const selected = known ?? (value !== null && valueLabel !== undefined ? { value, label: valueLabel } : null);
   return (
     <Autocomplete<ChoiceOption, false, false, boolean>
       options={options}
@@ -200,7 +204,11 @@ export function Combobox({
       getOptionDisabled={(option) => Boolean(option.disabled)}
       isOptionEqualToValue={(option, current) => typeof current !== 'string' && option.value === current.value}
       filterOptions={serverSearch ? (all) => all : undefined}
-      onChange={(_, next) => onChange(next && typeof next !== 'string' ? next.value : null)}
+      onChange={(_, next) => {
+        if (typeof next === 'string') return onChange(freeText ? next : null);
+        setChosen(next);
+        onChange(next?.value ?? null);
+      }}
       onInputChange={(_, text) => onInputChange?.(text)}
       onBlur={onBlur}
       noOptionsText={labels.noResults}

@@ -27,9 +27,19 @@ const STATE_LOOK = new Map<UploadState, Look>([
   ['rejected', { tone: 'error', icon: 'warning', label: 'uploadRejected' }],
 ]);
 
+/**
+ * The type the browser reports. This check only spares the person a wasted upload: the API reads the
+ * real type from the file's bytes and enforces the size, so it is no defence on its own.
+ */
 function accepts(file: File, accept?: readonly string[]) {
   if (!accept?.length) return true;
-  return accept.some((type) => (type.endsWith('/*') ? file.type.startsWith(type.slice(0, -1)) : file.type === type));
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return accept.some((entry) => {
+    const wanted = entry.toLowerCase();
+    if (wanted.startsWith('.')) return name.endsWith(wanted);
+    return wanted.endsWith('/*') ? type.startsWith(wanted.slice(0, -1)) : type === wanted;
+  });
 }
 
 /**
@@ -163,7 +173,9 @@ export function FileUpload({
       else if (maxSize !== undefined && file.size > maxSize) onReject?.(file, fill(labels.fileTooLarge, { name: file.name, max: maxSizeText ?? String(maxSize) }));
       else passed.push(file);
     }
-    const kept = passed.slice(0, multiple ? room : Math.min(room, 1));
+    const fits = multiple ? room : Math.min(room, 1);
+    for (const file of passed.slice(fits)) onReject?.(file, fill(labels.fileLimit, { name: file.name, max: maxFiles ?? 1 }));
+    const kept = passed.slice(0, fits);
     if (kept.length > 0) onAdd(kept);
   };
 

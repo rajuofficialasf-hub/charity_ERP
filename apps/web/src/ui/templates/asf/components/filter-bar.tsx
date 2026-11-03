@@ -25,16 +25,24 @@ const fieldsSx = {
   alignItems: 'start',
 } as const;
 
-/** Waits until typing stops, then hands over the term, or '' while it is shorter than 2 characters. */
-function useSearch(onSearch: ((term: string) => void) | undefined) {
-  const [term, setTerm] = useState('');
+/**
+ * Waits until typing stops, then hands over the term, or '' while it is shorter than 2 characters;
+ * only a term that differs from the last one sent, so nothing is sent on load.
+ */
+function useSearch(onSearch: ((term: string) => void) | undefined, initial = '') {
+  const [term, setTerm] = useState(initial);
   const latest = useRef(onSearch);
+  const sent = useRef(initial.trim().length >= 2 ? initial.trim() : '');
   useEffect(() => {
     latest.current = onSearch;
   });
   useEffect(() => {
-    if (!latest.current) return undefined;
-    const timer = setTimeout(() => latest.current?.(term.trim().length >= 2 ? term.trim() : ''), 300);
+    const next = term.trim().length >= 2 ? term.trim() : '';
+    if (!latest.current || next === sent.current) return undefined;
+    const timer = setTimeout(() => {
+      sent.current = next;
+      latest.current?.(next);
+    }, 300);
     return () => clearTimeout(timer);
   }, [term]);
   return [term, setTerm] as const;
@@ -48,6 +56,7 @@ export function FilterBar({
   children,
   label,
   onSearch,
+  initialSearch,
   searchPlaceholder,
   chips,
   activeChip,
@@ -58,7 +67,7 @@ export function FilterBar({
 }: FilterBarProps) {
   const labels = useLabels();
   const phone = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'), { noSsr: true });
-  const [term, setTerm] = useSearch(onSearch);
+  const [term, setTerm] = useSearch(onSearch, initialSearch);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const panelId = useId();

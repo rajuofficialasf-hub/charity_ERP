@@ -66,6 +66,7 @@ export const DEFAULT_LABELS: UiLabels = {
   fileCount: '{count} of {max} files',
   fileTooLarge: '{name} is larger than {max}',
   fileWrongType: '{name}: this file type is not accepted',
+  fileLimit: '{name}: no more than {max} files can be added',
   uploadSelected: 'Selected',
   uploadCompressing: 'Compressing',
   uploadQueued: 'Waiting (offline)',

@@ -176,3 +176,21 @@ describe('the error summary and the form section', () => {
     await expectNoAxeViolations(container);
   });
 });
+
+describe('the error summary while the person corrects', () => {
+  it('leaves the focus in the field as the errors change, and takes it again on the next submit', () => {
+    const view = (message: string, submits: number) => (
+      <UiProvider>
+        <ErrorSummary focusKey={submits} errors={[{ fieldId: 'mobile', message }]} />
+        <TextField id="mobile" label="Mobile" value="" onChange={() => {}} error={message} />
+      </UiProvider>
+    );
+    const { rerender } = render(view('Enter 11 digits', 1));
+    expect(screen.getByRole('alert')).toHaveFocus();
+    screen.getByRole('textbox', { name: 'Mobile' }).focus();
+    rerender(view('Start with 01', 1));
+    expect(screen.getByRole('textbox', { name: 'Mobile' })).toHaveFocus();
+    rerender(view('Start with 01', 2));
+    expect(screen.getByRole('alert')).toHaveFocus();
+  });
+});

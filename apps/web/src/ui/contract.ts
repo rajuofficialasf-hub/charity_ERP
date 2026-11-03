@@ -436,6 +436,8 @@ export type UiLabels = {
   fileTooLarge: string;
   /** For example "report.exe: this file type is not accepted". */
   fileWrongType: string;
+  /** For example "photo.jpg: no more than 5 files can be added". */
+  fileLimit: string;
   uploadSelected: string;
   uploadCompressing: string;
   uploadQueued: string;
@@ -576,7 +578,7 @@ export type Pagination = {
   onPageChange: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: readonly number[];
-  /** Numbered page buttons beside the range, for lists people page through. */
+  /** Numbered page buttons beside the range, for lists people page through; it has no page-size choice. */
   showPageNumbers?: boolean;
 };
 
@@ -620,7 +622,10 @@ export type DataTableExtendedProps<Row> = Omit<DataTableProps<Row>, "columns"> &
   /** Below the md breakpoint the rows show as these cards instead of the table. */
   cardRenderer?: (row: Row) => ReactNode;
   selectionMode?: "none" | "single" | "multiple";
-  /** The selected rows' ids when the caller keeps them; otherwise the table keeps its own. */
+  /**
+   * The selected rows' ids when the caller keeps them; otherwise the table keeps its own. Rows chosen
+   * on other pages stay chosen and are counted; "select all" adds or removes the rows shown.
+   */
   selectedIds?: ReadonlySet<string>;
   onSelectionChange?: (ids: Set<string>) => void;
   /** Beside the count of selected rows while any is selected, for example "Approve". */
@@ -656,6 +661,8 @@ export type FilterBarProps = {
   label?: string;
   /** A search box first in the bar, called 300 ms after typing stops, with '' under 2 characters. */
   onSearch?: (term: string) => void;
+  /** The search the list starts with, for example from the address. */
+  initialSearch?: string;
   searchPlaceholder?: string;
   /** One-tap status choices under the bar; the one with `activeChip`'s id is pressed. */
   chips?: readonly FilterChip[];
@@ -750,10 +757,13 @@ export type ComboboxProps = FieldBase & {
   placeholder?: string;
   /** Called with the typed text, for a server search or free text. */
   onInputChange?: (text: string) => void;
+  /** The chosen value's label while it is not among the options, such as a saved record before a search. */
+  valueLabel?: string;
   /** The options come from a server search on the typed text and are not filtered again here. */
   serverSearch?: boolean;
   /** True while the server search runs. */
   loading?: boolean;
+  /** Text that is not one of the options is kept; `onChange` then receives the text itself. */
   freeText?: boolean;
 };
 
@@ -795,7 +805,15 @@ export type TextFieldExtendedProps = Omit<TextFieldProps, "type"> &
 export type ErrorSummaryItem = { fieldId: string; message: string };
 
 /** The errors of a submitted form, each a link to its field; it takes focus when they appear. */
-export type ErrorSummaryProps = { errors: readonly ErrorSummaryItem[]; title?: string };
+export type ErrorSummaryProps = {
+  errors: readonly ErrorSummaryItem[];
+  title?: string;
+  /**
+   * It takes focus when errors appear, and again when this changes, for example the form's submit
+   * count; never while the person corrects a field.
+   */
+  focusKey?: string | number;
+};
 
 /** A part of a long form: a fieldset named by its title. */
 export type FormSectionProps = { title: string; description?: string; children: ReactNode };
@@ -877,7 +895,7 @@ export type UploadItem = {
 export type FileUploadProps = Omit<FieldBase, "name"> & {
   /** The camera, the gallery, either, or any file, from the project's photo-source setting. */
   source?: "camera" | "gallery" | "camera_or_gallery" | "file";
-  /** Accepted types, for example ["image/jpeg", "image/png"] or ["image/*"]. */
+  /** Accepted types, for example ["image/jpeg", "image/png"], ["image/*"] or [".pdf"]. */
   accept?: readonly string[];
   /** The largest accepted size in bytes, and its text such as "5 MB". */
   maxSize?: number;

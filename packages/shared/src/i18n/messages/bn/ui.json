@@ -181,6 +181,7 @@
     "uploadQuarantined": "যাচাই চলছে",
     "uploadReady": "তৈরি",
     "uploadFailed": "আপলোড হয়নি",
-    "uploadRejected": "গ্রহণযোগ্য নয়"
+    "uploadRejected": "গ্রহণযোগ্য নয়",
+    "fileLimit": "{name}: {max}টির বেশি ফাইল দেওয়া যায় না"
   }
 }

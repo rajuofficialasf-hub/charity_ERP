@@ -131,7 +131,8 @@ export function DataTable<Row>({
   const span = columns.length + (multiple ? 1 : 0) + (rowActions ? 1 : 0);
   const state = error ?? (loading ? <LoadingState /> : rows.length === 0 ? <EmptyState title={emptyTitle} description={emptyDescription} action={emptyAction} /> : null);
   const framed = Boolean(title || toolbar || pagination || cursorPagination);
-  const selectedCount = ids.filter((id) => selection.has(id)).length;
+  // the selection may hold rows of other pages: the count and the bulk actions cover all of it
+  const selectedCount = selection.size;
 
   const table = (
     <Box sx={{ overflowX: 'auto' }}>
@@ -144,7 +145,15 @@ export function DataTable<Row>({
                   checked={allSelected}
                   indeterminate={!allSelected && someSelected}
                   disabled={rows.length === 0}
-                  onChange={() => select(allSelected ? new Set() : new Set(ids))}
+                  onChange={() => {
+                    // only the rows shown join or leave; rows chosen on other pages stay chosen
+                    const next = new Set(selection);
+                    for (const id of ids) {
+                      if (allSelected) next.delete(id);
+                      else next.add(id);
+                    }
+                    select(next);
+                  }}
                   slotProps={{ input: { 'aria-label': labels.selectAll } }}
                 />
               </TableCell>
@@ -356,8 +365,9 @@ function RangePager(pagination: PaginationProps) {
 function NumberedPager({ page, pageSize, total, onPageChange, phone }: PaginationProps & { phone: boolean }) {
   const labels = useLabels();
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to = Math.min(total, page * pageSize);
+  const shown = Math.min(Math.max(1, page), pageCount);
+  const from = total === 0 ? 0 : (shown - 1) * pageSize + 1;
+  const to = Math.min(total, shown * pageSize);
   return (
     <Box sx={pagerSx}>
       <Box component="span" sx={{ typography: 'body2', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
@@ -366,7 +376,7 @@ function NumberedPager({ page, pageSize, total, onPageChange, phone }: Paginatio
       <Pagination
         aria-label={labels.pages}
         count={pageCount}
-        page={page}
+        page={shown}
         shape="rounded"
         siblingCount={phone ? 0 : 1}
         onChange={(_, next) => onPageChange(next)}

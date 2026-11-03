@@ -253,21 +253,26 @@ describe('the filter bar', () => {
     );
   }
 
-  it('searches 300 ms after typing stops, and not for one letter', () => {
+  it('searches 300 ms after typing stops, not on load and not for one letter', () => {
     stubWidth(false);
     vi.useFakeTimers();
     try {
       const onSearch = vi.fn();
       render(<Bar onSearch={onSearch} />);
       const box = screen.getByRole('searchbox', { name: 'Name or mobile' });
+      act(() => vi.advanceTimersByTime(300));
+      expect(onSearch).not.toHaveBeenCalled();
+      fireEvent.change(box, { target: { value: 'a' } });
+      act(() => vi.advanceTimersByTime(300));
+      expect(onSearch).not.toHaveBeenCalled();
+      fireEvent.change(box, { target: { value: 'am' } });
+      act(() => vi.advanceTimersByTime(299));
+      expect(onSearch).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(1));
+      expect(onSearch).toHaveBeenLastCalledWith('am');
       fireEvent.change(box, { target: { value: 'a' } });
       act(() => vi.advanceTimersByTime(300));
       expect(onSearch).toHaveBeenLastCalledWith('');
-      fireEvent.change(box, { target: { value: 'am' } });
-      act(() => vi.advanceTimersByTime(299));
-      expect(onSearch).not.toHaveBeenLastCalledWith('am');
-      act(() => vi.advanceTimersByTime(1));
-      expect(onSearch).toHaveBeenLastCalledWith('am');
     } finally {
       vi.useRealTimers();
     }
@@ -302,5 +307,55 @@ describe('the filter bar', () => {
     stubWidth(false);
     const { container } = render(<Bar />);
     await expectNoAxeViolations(container);
+  });
+});
+
+describe('the table across pages', () => {
+  it('keeps and counts rows chosen on another page, and selects all only on the page shown', async () => {
+    stubWidth(false);
+    const user = userEvent.setup();
+    const onSelectionChange = vi.fn();
+    const later: Person[] = [
+      { id: 'p3', name: 'Salma Begum', district: 'Sylhet', applications: 7 },
+      { id: 'p4', name: 'Karim Mia', district: 'Khulna', applications: 1 },
+    ];
+    const { rerender } = renderTable({ selectionMode: 'multiple', onSelectionChange });
+    await user.click(screen.getByRole('checkbox', { name: 'Select Amina Khatun' }));
+    rerender({ selectionMode: 'multiple', onSelectionChange, rows: later });
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: 'Select Salma Begum' }));
+    expect(onSelectionChange).toHaveBeenLastCalledWith(new Set(['p1', 'p3']));
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: 'Select all' }));
+    expect(onSelectionChange).toHaveBeenLastCalledWith(new Set(['p1', 'p3', 'p4']));
+    await user.click(screen.getByRole('checkbox', { name: 'Select all' }));
+    expect(onSelectionChange).toHaveBeenLastCalledWith(new Set(['p1']));
+  });
+
+  it('shows the last page when a filter leaves the page past it', () => {
+    stubWidth(false);
+    renderTable({ pagination: { page: 5, pageSize: 2, total: 3, onPageChange: () => {}, showPageNumbers: true } });
+    expect(screen.getByText('3–3 of 3')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page');
+  });
+});
+
+describe('the filter bar with a search to start from', () => {
+  it('shows it and does not send it again', () => {
+    stubWidth(false);
+    vi.useFakeTimers();
+    try {
+      const onSearch = vi.fn();
+      render(
+        <UiProvider>
+          <FilterBar onSearch={onSearch} searchPlaceholder="Name or mobile" initialSearch="amina" />
+        </UiProvider>
+      );
+      expect(screen.getByRole('searchbox', { name: 'Name or mobile' })).toHaveValue('amina');
+      act(() => vi.advanceTimersByTime(600));
+      expect(onSearch).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

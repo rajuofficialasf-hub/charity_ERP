@@ -6,7 +6,7 @@
         "components/shell/color-mode-button.tsx",
         "components/index.ts"
       ],
-      "note": "the asf shell's light and dark switch, exported as a piece of its own, so an app's own shell can carry it (CSS ERP, D-150)",
+      "note": "the asf shell's light and dark switch, exported as a piece of its own, so an app's own shell can carry it; built for the CSS ERP",
       "screenshot": "docs/ui/asf-pieces/color-mode-button.png"
     },
     {
@@ -18,7 +18,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the lists of an ERP: cards on phones (cardRenderer), row selection with a bulk bar, sort, row open and row actions, column priority and numeric columns, numbered pages and cursor paging with load more; the filter bar adds a delayed search, status chips, removable active filters and a filters panel on phones (CSS ERP, D-150)",
+      "note": "the lists of an ERP: cards on phones (cardRenderer), row selection with a bulk bar, sort, row open and row actions, column priority and numeric columns, numbered pages and cursor paging with load more; the filter bar adds a delayed search, status chips, removable active filters and a filters panel on phones; built for the CSS ERP",
       "screenshot": "docs/ui/asf-pieces/data-table.png",
       "screenshotPhone": "docs/ui/asf-pieces/data-table-phone.png"
     },
@@ -31,7 +31,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the choices of the ERP's forms: an \"other\" choice opening a text box inside the same field, disabled options, a select that becomes a combobox above 10 options, and a combobox for server search or free text (CSS ERP, D-150); screenshot in the gallery step",
+      "note": "the choices of the ERP's forms: an \"other\" choice opening a text box inside the same field, disabled options, a select that becomes a combobox above 10 options, and a combobox for server search or free text; built for the CSS ERP, screenshot to come",
       "screenshot": null
     },
     {
@@ -43,7 +43,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the text kinds of the ERP's forms (identity number, integer, decimal, money with the taka sign, mobile number, password with a show button; Bengali digits typed become English digits), a record field's states (locked with a correction link, changed with its previous value, officials only), an action inside a field's end, the error summary that links to each field, and the form section as a fieldset (CSS ERP, D-150); screenshot in the gallery step",
+      "note": "the text kinds of the ERP's forms (identity number, integer, decimal, money with the taka sign, mobile number, password with a show button; Bengali digits typed become English digits), a record field's states (locked with a correction link, changed with its previous value, officials only), an action inside a field's end, the error summary that links to each field, and the form section as a fieldset; built for the CSS ERP, screenshot to come",
       "screenshot": null
     },
     {
@@ -56,7 +56,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the overlays of the ERP: a dialog that stays open while saving and fills a phone for a long form, a confirm dialog with what follows, a required reason and a busy confirm, a menu of links and actions for rows and profiles, and the drawer as a bottom sheet on phones (CSS ERP, D-150); screenshot in the gallery step",
+      "note": "the overlays of the ERP: a dialog that stays open while saving and fills a phone for a long form, a confirm dialog with what follows, a required reason and a busy confirm, a menu of links and actions for rows and profiles, and the drawer as a bottom sheet on phones; built for the CSS ERP, screenshot to come",
       "screenshot": null
     },
     {
@@ -67,7 +67,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "photos and files for field work: the camera, the gallery or any file by the project's setting, a drop zone, the type and size checks with the reason in words, the number of files left, and each file's state (made smaller, waiting offline, uploading with its progress, being checked, ready, failed with a retry) with its preview and capture details (CSS ERP, D-150); screenshot in the gallery step",
+      "note": "photos and files for field work: the camera, the gallery or any file by the project's setting, a drop zone, the type and size checks with the reason in words, the number of files left, and each file's state (made smaller, waiting offline, uploading with its progress, being checked, ready, failed with a retry) with its preview and capture details; built for the CSS ERP, screenshot to come",
       "screenshot": null
     }
   ]

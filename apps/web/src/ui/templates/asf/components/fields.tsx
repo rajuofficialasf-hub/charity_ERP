@@ -11,7 +11,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import MuiTextField from '@mui/material/TextField';
 
 import { Icon } from './icon';
-import { Combobox } from './choices';
+import { Combobox, OtherText } from './choices';
 import { fill, useLabels } from './labels';
 
 // ----------------------------------------------------------------------
@@ -193,17 +193,7 @@ export function SelectField({
 }: SelectFieldExtendedProps) {
   const id = useId();
   const labels = useLabels();
-  const otherBox = other && value === other.value && (
-    <MuiTextField
-      size="small"
-      fullWidth
-      label={other.label ?? labels.otherSpecify}
-      value={other.text}
-      onChange={(event) => other.onTextChange(event.target.value)}
-      disabled={disabled}
-      sx={{ mt: 1.5 }}
-    />
-  );
+  const otherBox = other && value === other.value && <OtherText other={other} disabled={disabled} />;
   if (searchable) {
     return (
       <Box>

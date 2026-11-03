@@ -51,14 +51,16 @@ describe('the file upload', () => {
     expect(onReject).toHaveBeenCalledWith(expect.objectContaining({ name: 'notes.exe' }), 'notes.exe: this file type is not accepted');
   });
 
-  it('takes no more than the files left, and counts them', async () => {
+  it('takes no more than the files left, counts them, and says why the rest stay out', async () => {
     const user = userEvent.setup();
     const onAdd = vi.fn();
+    const onReject = vi.fn();
     const value: UploadItem[] = [{ id: 'f1', name: 'one.jpg', state: 'ready' }];
-    render(<Upload source="gallery" multiple maxFiles={2} value={value} onAdd={onAdd} />);
+    render(<Upload source="gallery" multiple maxFiles={2} value={value} onAdd={onAdd} onReject={onReject} />);
     expect(screen.getByText('1 of 2 files')).toBeInTheDocument();
     await user.upload(screen.getByLabelText('Choose from gallery', { selector: 'input' }), [photo('two.jpg'), photo('three.jpg')]);
     expect(onAdd).toHaveBeenCalledWith([expect.objectContaining({ name: 'two.jpg' })]);
+    expect(onReject).toHaveBeenCalledWith(expect.objectContaining({ name: 'three.jpg' }), 'three.jpg: no more than 2 files can be added');
   });
 
   it('takes files dropped on it', () => {
@@ -105,5 +107,15 @@ describe('the file upload', () => {
     ];
     const { container } = render(<Upload source="camera_or_gallery" value={value} onRemove={() => {}} onRetry={() => {}} hint="JPEG or PNG" />);
     await expectNoAxeViolations(container);
+  });
+});
+
+describe('the accepted types', () => {
+  it('takes a type by its extension, in any case', async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const onAdd = vi.fn();
+    render(<Upload source="file" accept={['.pdf', 'IMAGE/JPEG']} onAdd={onAdd} multiple />);
+    await user.upload(screen.getByLabelText('Choose file', { selector: 'input' }), [photo('Deed.PDF', 10, ''), photo('door.jpg')]);
+    expect(onAdd).toHaveBeenCalledWith([expect.objectContaining({ name: 'Deed.PDF' }), expect.objectContaining({ name: 'door.jpg' })]);
   });
 });

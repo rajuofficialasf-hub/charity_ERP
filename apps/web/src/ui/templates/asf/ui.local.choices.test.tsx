@@ -266,3 +266,55 @@ describe('the choices together', () => {
     await expectNoAxeViolations(container);
   });
 });
+
+describe('the combobox with a server search', () => {
+  it('keeps showing the chosen option while the next answer does not hold it', async () => {
+    const user = userEvent.setup();
+    function Search() {
+      const [value, setValue] = useState<string | null>(null);
+      const [options, setOptions] = useState<ChoiceOption[]>([{ value: 'u2', label: 'Mohammadpur' }]);
+      return (
+        <UiProvider>
+          <Combobox
+            label="Union"
+            options={options}
+            value={value}
+            serverSearch
+            onChange={(next) => {
+              setValue(next);
+              // the next server answer no longer holds the chosen option
+              setOptions([]);
+            }}
+          />
+        </UiProvider>
+      );
+    }
+    render(<Search />);
+    await user.click(screen.getByRole('combobox', { name: 'Union' }));
+    await user.click(screen.getByRole('option', { name: 'Mohammadpur' }));
+    // leaving the field would empty a text that no chosen option backs
+    await user.tab();
+    expect(screen.getByRole('combobox', { name: 'Union' })).toHaveValue('Mohammadpur');
+  });
+
+  it('names a saved value that is not among the options yet', () => {
+    render(
+      <UiProvider>
+        <Combobox label="Union" options={[]} value="u9" valueLabel="Savar" onChange={() => {}} />
+      </UiProvider>
+    );
+    expect(screen.getByRole('combobox', { name: 'Union' })).toHaveValue('Savar');
+  });
+
+  it('hands over free text as the value', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <UiProvider>
+        <Combobox label="Village" options={[{ value: 'v1', label: 'Uttarpara' }]} value={null} onChange={onChange} freeText />
+      </UiProvider>
+    );
+    await user.type(screen.getByRole('combobox', { name: 'Village' }), 'Dakshinpara{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith('Dakshinpara');
+  });
+});

@@ -13,15 +13,16 @@ import { useLabels } from './labels';
 
 /**
  * The errors of a submitted form at its top, each a link that moves to its field. It takes focus
- * when its errors change, so a screen reader reads them at once.
+ * when errors appear and when `focusKey` changes, so a screen reader reads them at once, but not
+ * while the person corrects a field and the list shrinks.
  */
-export function ErrorSummary({ errors, title }: ErrorSummaryProps) {
+export function ErrorSummary({ errors, title, focusKey }: ErrorSummaryProps) {
   const labels = useLabels();
   const ref = useRef<HTMLDivElement>(null);
-  const signature = errors.map((error) => `${error.fieldId}:${error.message}`).join('|');
+  const shown = errors.length > 0;
   useEffect(() => {
-    if (signature) ref.current?.focus();
-  }, [signature]);
+    if (shown) ref.current?.focus();
+  }, [shown, focusKey]);
   if (errors.length === 0) return null;
   return (
     <MuiAlert ref={ref} severity="error" tabIndex={-1} icon={<Icon name="error" size={22} />} sx={{ outline: 'none', '&:focus-visible': { outline: '2px solid', outlineOffset: 2 } }}>

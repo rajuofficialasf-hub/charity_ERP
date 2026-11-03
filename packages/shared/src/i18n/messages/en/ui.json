@@ -181,6 +181,7 @@
     "uploadQuarantined": "Being checked",
     "uploadReady": "Ready",
     "uploadFailed": "Upload failed",
-    "uploadRejected": "Not accepted"
+    "uploadRejected": "Not accepted",
+    "fileLimit": "{name}: no more than {max} files can be added"
   }
 }
