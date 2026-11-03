@@ -1,18 +1,36 @@
-import type { Crumb, PageExtendedProps } from '@/ui/contract';
+import type { BreadcrumbsProps, PageExtendedProps } from '@/ui/contract';
 
 import { Link } from 'react-router';
+
+import type { Theme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import Box from '@mui/material/Box';
 
 import { Icon } from './icon';
-import { useLabels } from './labels';
+import { fill, useLabels } from './labels';
 import { APP_NAME } from '../config';
 
 // ----------------------------------------------------------------------
 
-/** The trail to this page, dot separated. The last step is the current page, so it is not a link. */
-function Breadcrumbs({ items }: { items: readonly Crumb[] }) {
+/**
+ * The trail to this page, dot separated. The last step is the current page, so it is not a link.
+ * A phone has no room for the trail: it shows the way back to the nearest page above instead.
+ */
+export function Breadcrumbs({ items }: BreadcrumbsProps) {
   const labels = useLabels();
+  const phone = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'), { noSsr: true });
+  const parent = items.slice(0, -1).findLast((crumb) => crumb.to);
+  if (phone && parent?.to) {
+    return (
+      <Box component="nav" aria-label={labels.breadcrumb}>
+        <Box component={Link} to={parent.to} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, typography: 'body2', color: 'text.secondary', textDecoration: 'none' }}>
+          <Icon name="arrow-left" size={18} />
+          {fill(labels.backTo, { parent: parent.label })}
+        </Box>
+      </Box>
+    );
+  }
   return (
     <Box component="nav" aria-label={labels.breadcrumb}>
       <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', typography: 'body2' }}>

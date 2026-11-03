@@ -9,7 +9,7 @@ export { BulkRow, BulkList, Disclosure, IconButton, StatusChip, ChoiceTiles, Att
 export { Dialog, ConfirmDialog } from './dialog';
 export { Drawer } from './drawer';
 export { Tabs } from './tabs';
-export { Page } from './page';
+export { Page, Breadcrumbs } from './page';
 export { Text, Heading } from './text';
 export { useToast } from './toast-context';
 export { UiProvider } from './ui-provider';

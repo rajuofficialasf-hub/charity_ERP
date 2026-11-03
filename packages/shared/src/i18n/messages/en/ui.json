@@ -204,6 +204,7 @@
     "moreActions": "More actions",
     "showDetails": "Show details",
     "hideDetails": "Hide details",
-    "countName": "{label}, {count} pending"
+    "countName": "{label}, {count} pending",
+    "backTo": "Back to {parent}"
   }
 }

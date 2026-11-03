@@ -95,6 +95,8 @@ export function AppShell({ children, navigation, headerActions, brand, search = 
       {wide && (
         <Box
           component="aside"
+          // named, so a page's own side column is a landmark apart from it
+          aria-label={labels.mainNavigation}
           sx={{
             position: 'fixed',
             inset: '0 auto 0 0',

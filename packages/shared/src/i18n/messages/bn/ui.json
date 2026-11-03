@@ -204,6 +204,7 @@
     "moreActions": "আরও কাজ",
     "showDetails": "বিস্তারিত দেখুন",
     "hideDetails": "বিস্তারিত লুকান",
-    "countName": "{label}, {count}টি অপেক্ষমাণ"
+    "countName": "{label}, {count}টি অপেক্ষমাণ",
+    "backTo": "{parent}-এ ফিরে যান"
   }
 }

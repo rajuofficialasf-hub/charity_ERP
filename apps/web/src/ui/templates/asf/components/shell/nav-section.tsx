@@ -1,6 +1,6 @@
 import type { ExtendedNavItem, ExtendedNavGroup } from '@/ui/contract';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router';
 
 import Box from '@mui/material/Box';
@@ -139,12 +139,20 @@ function NavRow({ item, depth, onNavigate }: { item: ExtendedNavItem; depth: num
 /** The full navigation: group titles, links, and parents that open their children. */
 export function NavSection({ groups, onNavigate }: { groups: ExtendedNavGroup[]; onNavigate?: () => void }) {
   const labels = useLabels();
+  const navId = useId();
   return (
     <Box component="nav" aria-label={labels.mainNavigation} sx={{ px: 2, pb: 2 }}>
       {groups.map((group, index) => (
-        <Box key={group.title ?? index} sx={{ mt: index === 0 ? 0 : 2 }}>
+        <Box
+          key={group.title ?? index}
+          role={group.title ? 'group' : undefined}
+          aria-labelledby={group.title ? `${navId}-group-${index}` : undefined}
+          sx={{ mt: index === 0 ? 0 : 2 }}
+        >
           {group.title && (
-            <Box sx={{ typography: 'overline', textTransform: 'uppercase', color: 'text.disabled', px: 1.5, py: 1 }}>{group.title}</Box>
+            <Box id={`${navId}-group-${index}`} sx={{ typography: 'overline', textTransform: 'uppercase', color: 'text.disabled', px: 1.5, py: 1 }}>
+              {group.title}
+            </Box>
           )}
           <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 0.5 }}>
             {group.items.map((item) => (

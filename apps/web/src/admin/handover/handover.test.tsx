@@ -9,6 +9,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { AdminLayout } from '../AdminLayout';
 import { HandoverPage } from './HandoverPage';
+import { stubScreen } from '../../../test/match-media';
 
 // The handover page (SCR-105, BD-08, BR-034; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14). Test data only.
@@ -129,6 +130,9 @@ async function pick(user: ReturnType<typeof userEvent.setup>, label: RegExp, tex
   await user.paste(text);
   await user.click(await screen.findByRole('option', { name: new RegExp(text) }));
 }
+
+// the shell's sidebar, which these tests read, shows on a desktop screen
+beforeEach(() => stubScreen());
 
 beforeEach(() => {
   resetClientForTests();

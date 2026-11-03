@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderInShell } from '../../test/auth';
 import { resetClientForTests } from '../lib/api';
 import { AdminLayout } from './AdminLayout';
+import { stubScreen } from '../../test/match-media';
 
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const VOLUNTEER: Me = {
@@ -26,6 +27,9 @@ const renderAdmin = (locale: 'bn' | 'en' = 'bn') =>
     '/admin/page',
     locale,
   );
+
+// the shell's sidebar, which these tests read, shows on a desktop screen
+beforeEach(() => stubScreen());
 
 beforeEach(() => {
   resetClientForTests();

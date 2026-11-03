@@ -12,6 +12,7 @@ import { RegistrationDetail } from './RegistrationDetail';
 import { RegistrationsPage } from './RegistrationsPage';
 import { VolunteerProfilePage } from '../volunteers/VolunteerProfilePage';
 import { VolunteersPage } from '../volunteers/VolunteersPage';
+import { stubScreen } from '../../../test/match-media';
 
 // The registration admin page (SCR-040, BR-028 to BR-031, BD-06; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U13). Test data only.
@@ -344,6 +345,9 @@ async function openRow(user: ReturnType<typeof userEvent.setup>, name: string) {
   await user.click((await screen.findAllByRole('link', { name }))[0]!);
   await screen.findByRole('heading', { level: 1, name });
 }
+
+// the shell's sidebar, which these tests read, shows on a desktop screen
+beforeEach(() => stubScreen());
 
 beforeEach(() => {
   resetClientForTests();

@@ -554,6 +554,8 @@ export type UiLabels = {
   hideDetails: string;
   /** A link with a count, for example "Registrations, 3 pending". */
   countName: string;
+  /** A phone's trail, for example "Back to Staff". */
+  backTo: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -563,6 +565,9 @@ export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLab
 
 /** One step in a breadcrumb trail. The last step is the current page and has no `to`. */
 export type Crumb = { label: string; to?: string };
+
+/** The trail to a page; the last step is the page itself and is not a link. */
+export type BreadcrumbsProps = { items: readonly Crumb[] };
 
 /** A parent with `children` opens and closes its group, so its own `to` is optional. */
 export type ExtendedNavItem = Omit<NavItem, "icon" | "children" | "to"> & {
@@ -1493,6 +1498,7 @@ export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "P
   AttentionCard: ComponentType<AttentionCardProps>;
   IconButton: ComponentType<IconButtonProps>;
   BottomNav: ComponentType<BottomNavProps>;
+  Breadcrumbs: ComponentType<BreadcrumbsProps>;
   AccountMenu: ComponentType<AccountMenuProps>;
   LanguageSwitch: ComponentType<LanguageSwitchProps>;
   PublicShell: ComponentType<PublicShellProps>;

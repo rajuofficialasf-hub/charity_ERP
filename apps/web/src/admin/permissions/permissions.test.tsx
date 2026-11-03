@@ -9,6 +9,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { AdminLayout } from '../AdminLayout';
 import { PermissionsPage } from './PermissionsPage';
+import { stubScreen } from '../../../test/match-media';
 
 // The permission panel screen (SCR-062, RBAC.md 7; plan
 // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U8). Test data only.
@@ -83,6 +84,9 @@ async function chooseExecutive(user: ReturnType<typeof userEvent.setup>) {
   await user.paste('executive@example.org');
   await user.click(await screen.findByRole('option', { name: /প্রজেক্ট এক্সিকিউটিভ \(নমুনা\)/ }));
 }
+
+// the shell's sidebar, which these tests read, shows on a desktop screen
+beforeEach(() => stubScreen());
 
 beforeEach(() => {
   resetClientForTests();
