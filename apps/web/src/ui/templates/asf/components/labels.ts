@@ -30,6 +30,18 @@ export const DEFAULT_LABELS: UiLabels = {
   darkMode: 'Switch to dark mode',
   signOut: 'Sign out',
   filters: 'Filters',
+  filtersActive: '{count} active',
+  clearFilters: 'Clear filters',
+  applyFilters: 'Apply filters',
+  removeFilter: 'Remove {label}',
+  clearAll: 'Clear all',
+  selectAll: 'Select all',
+  selectRow: 'Select {name}',
+  selectedCount: '{count} selected',
+  rowActions: 'Actions',
+  loadMore: 'Load more',
+  pages: 'Pages',
+  page: 'Page {page}',
 };
 
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);

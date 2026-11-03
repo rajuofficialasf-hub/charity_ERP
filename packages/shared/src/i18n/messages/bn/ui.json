@@ -137,6 +137,18 @@
     "lightMode": "আলো মোডে যান",
     "darkMode": "অন্ধকার মোডে যান",
     "signOut": "লগআউট",
-    "filters": "ফিল্টার"
+    "filters": "ফিল্টার",
+    "filtersActive": "{count}টি চালু",
+    "clearFilters": "ফিল্টার মুছুন",
+    "applyFilters": "ফিল্টার প্রয়োগ",
+    "removeFilter": "{label} সরান",
+    "clearAll": "সব মুছুন",
+    "selectAll": "সব বেছে নিন",
+    "selectRow": "{name} বেছে নিন",
+    "selectedCount": "{count}টি বেছে নেওয়া হয়েছে",
+    "rowActions": "অ্যাকশন",
+    "loadMore": "আরও দেখুন",
+    "pages": "পাতা বদল",
+    "page": "পাতা {page}"
   }
 }

@@ -137,6 +137,18 @@
     "lightMode": "Switch to light mode",
     "darkMode": "Switch to dark mode",
     "signOut": "Log out",
-    "filters": "Filters"
+    "filters": "Filters",
+    "filtersActive": "{count} active",
+    "clearFilters": "Clear filters",
+    "applyFilters": "Apply filters",
+    "removeFilter": "Remove {label}",
+    "clearAll": "Clear all",
+    "selectAll": "Select all",
+    "selectRow": "Select {name}",
+    "selectedCount": "{count} selected",
+    "rowActions": "Actions",
+    "loadMore": "Load more",
+    "pages": "Pagination",
+    "page": "Page {page}"
   }
 }

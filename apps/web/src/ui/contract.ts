@@ -382,6 +382,25 @@ export type UiLabels = {
   darkMode: string;
   signOut: string;
   filters: string;
+  /** For example "2 active", beside the filters button. */
+  filtersActive: string;
+  clearFilters: string;
+  applyFilters: string;
+  /** For example "Remove District: Dhaka". */
+  removeFilter: string;
+  clearAll: string;
+  selectAll: string;
+  /** For example "Select Amina Khatun". */
+  selectRow: string;
+  /** For example "3 selected". */
+  selectedCount: string;
+  /** The header of the row actions column. */
+  rowActions: string;
+  loadMore: string;
+  /** The name of the page numbers' navigation. */
+  pages: string;
+  /** For example "Page 3". */
+  page: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -514,9 +533,36 @@ export type Pagination = {
   onPageChange: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: readonly number[];
+  /** Numbered page buttons beside the range, for lists people page through. */
+  showPageNumbers?: boolean;
 };
 
-export type DataTableExtendedProps<Row> = DataTableProps<Row> & {
+/** Previous and next for a list read by cursor, where the total may only be known as "10000+". */
+export type CursorPagination = {
+  /** The count line in the caller's words, for example "1–10 of 10000+". */
+  summary?: string;
+  hasPrevious?: boolean;
+  hasNext?: boolean;
+  onPrevious?: () => void;
+  onNext?: () => void;
+  /** Phones show "load more" instead of previous and next when this is given. */
+  onLoadMore?: () => void;
+};
+
+export type DataTableSort = { columnId: string; direction: "asc" | "desc" };
+
+export type DataTableExtendedColumn<Row> = DataTableColumn<Row> & {
+  /** 1 always shown, 2 from the sm breakpoint, 3 from lg. */
+  priority?: 1 | 2 | 3;
+  /** Right-aligned with tabular digits. */
+  numeric?: boolean;
+  sortable?: boolean;
+  /** The column that names the row for screen readers, usually the name. */
+  isRowHeader?: boolean;
+};
+
+export type DataTableExtendedProps<Row> = Omit<DataTableProps<Row>, "columns"> & {
+  columns: readonly DataTableExtendedColumn<Row>[];
   /** Shown above the table; the table then sits in its own card. `label` still names the table. */
   title?: string;
   description?: string;
@@ -525,10 +571,59 @@ export type DataTableExtendedProps<Row> = DataTableProps<Row> & {
   /** Above the header row, usually a FilterBar. */
   toolbar?: ReactNode;
   pagination?: Pagination;
+  cursorPagination?: CursorPagination;
+  /** A row's name for its checkbox and its card's open button. */
+  rowLabel?: (row: Row) => string;
+  /** Below the md breakpoint the rows show as these cards instead of the table. */
+  cardRenderer?: (row: Row) => ReactNode;
+  selectionMode?: "none" | "single" | "multiple";
+  /** The selected rows' ids when the caller keeps them; otherwise the table keeps its own. */
+  selectedIds?: ReadonlySet<string>;
+  onSelectionChange?: (ids: Set<string>) => void;
+  /** Beside the count of selected rows while any is selected, for example "Approve". */
+  bulkActions?: ReactNode;
+  sort?: DataTableSort;
+  onSortChange?: (sort: DataTableSort) => void;
+  /** Opens a row: a click on it, or Enter while it has focus. */
+  onRowOpen?: (row: Row) => void;
+  /** Buttons or a menu at the row's end, under the header labels.rowActions. */
+  rowActions?: (row: Row) => ReactNode;
+  dense?: boolean;
+  /** Shown instead of the rows, for example an error with a retry. */
+  error?: ReactNode;
+  /** In the empty state, for example "Add the first project". */
+  emptyAction?: ReactNode;
 };
 
-/** Filter fields in one responsive row above a list: a `group` named by `label` (default: labels.filters). */
-export type FilterBarProps = { children: ReactNode; label?: string };
+export type FilterChip = { id: string; label: string; count?: number };
+
+export type ActiveFilter = {
+  id: string;
+  /** What is filtered, in words, for example "District: Dhaka". */
+  label: string;
+  onRemove: () => void;
+};
+
+/**
+ * Filter fields in one responsive row above a list: a `group` named by `label` (default:
+ * labels.filters). On phones the fields sit behind a filters button, in a panel.
+ */
+export type FilterBarProps = {
+  children?: ReactNode;
+  label?: string;
+  /** A search box first in the bar, called 300 ms after typing stops, with '' under 2 characters. */
+  onSearch?: (term: string) => void;
+  searchPlaceholder?: string;
+  /** One-tap status choices under the bar; the one with `activeChip`'s id is pressed. */
+  chips?: readonly FilterChip[];
+  activeChip?: string;
+  onChipChange?: (id: string) => void;
+  /** The filters in force as removable chips, with "clear all" after them. */
+  activeFilters?: readonly ActiveFilter[];
+  onClearFilters?: () => void;
+  /** The fields stay behind the filters button on wide screens too, opening in place. */
+  collapsible?: boolean;
+};
 
 // ---------------------------------------------------------------------------------------------
 // Overlays

@@ -8,6 +8,19 @@
       ],
       "note": "the asf shell's light and dark switch, exported as a piece of its own, so an app's own shell can carry it (CSS ERP, D-150)",
       "screenshot": "docs/ui/asf-pieces/color-mode-button.png"
+    },
+    {
+      "name": "DataTable and FilterBar (extended)",
+      "files": [
+        "components/data-table.tsx",
+        "components/filter-bar.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the lists of an ERP: cards on phones (cardRenderer), row selection with a bulk bar, sort, row open and row actions, column priority and numeric columns, numbered pages and cursor paging with load more; the filter bar adds a delayed search, status chips, removable active filters and a filters panel on phones (CSS ERP, D-150)",
+      "screenshot": "docs/ui/asf-pieces/data-table.png",
+      "screenshotPhone": "docs/ui/asf-pieces/data-table-phone.png"
     }
   ]
 }
