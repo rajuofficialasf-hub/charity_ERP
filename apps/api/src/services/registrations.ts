@@ -108,7 +108,8 @@ function pendingView(u: PendingRow) {
 
 type ChangeRow = {
   id: string;
-  volunteerId: string;
+  userId: string;
+  volunteerId: string | null;
   kind: string;
   field: string;
   newValue: string | null;
@@ -121,6 +122,7 @@ type ChangeRow = {
 export function changeView(row: ChangeRow, withValue: boolean) {
   return {
     id: row.id,
+    userId: row.userId,
     volunteerId: row.volunteerId,
     kind: row.kind,
     field: row.field,
@@ -133,7 +135,10 @@ export function changeView(row: ChangeRow, withValue: boolean) {
   };
 }
 
-/** The address and the bank details are stored as JSON text; every other field as the text. */
+/**
+ * The address, the bank details and the other objects of a volunteer, and an official's workplace
+ * and references (a reference may be null), are stored as JSON text; every other field as the text.
+ */
 export const OBJECT_FIELDS = new Set([
   'address',
   'bank',
@@ -141,6 +146,10 @@ export const OBJECT_FIELDS = new Set([
   'skills',
   'educationDetails',
   'permanentAddress',
+  'workplace',
+  'homeProgramId',
+  'homeDivisionId',
+  'supervisorUserId',
 ]);
 function storedValue(field: string, text: string): unknown {
   if (!OBJECT_FIELDS.has(field)) return text;
@@ -518,6 +527,7 @@ export class RegistrationsService {
           await tx.volunteerChangeRequest.create({
             data: {
               id: uuidv7(),
+              userId,
               volunteerId: volunteer.id,
               kind: CORRECTION,
               field,
@@ -594,7 +604,7 @@ export class RegistrationsService {
   /** The caller's own open correction and edit requests, with their values (own data, D-081). */
   async ownRequests(principal: Principal) {
     const rows = await this.prisma.volunteerChangeRequest.findMany({
-      where: { volunteer: { userId: principal.userId }, status: { in: UNFINISHED } },
+      where: { userId: principal.userId, status: { in: UNFINISHED } },
       orderBy: { createdAt: 'asc' },
     });
     return rows.map((r) => changeView(r, true));
@@ -641,7 +651,9 @@ export class RegistrationsService {
         volunteer: { userId: principal.userId, user: { state: 'pending' } },
       },
     });
-    if (!row) throw new ApiError('permission.not_found', 404);
+    // a correction always names its volunteer (the table's person check)
+    if (!row?.volunteerId) throw new ApiError('permission.not_found', 404);
+    const volunteerId = row.volunteerId;
     const field = row.field as CorrectionField;
     const schema = CORRECTION_FIELD_VALUES[field];
     const parsed = schema?.safeParse(body.newValue);
@@ -668,11 +680,11 @@ export class RegistrationsService {
     const updated = await this.prisma.$transaction(async (tx) => {
       if (field === 'nid') {
         const taken = await tx.volunteer.count({
-          where: { nid: value as string, NOT: { id: row.volunteerId } },
+          where: { nid: value as string, NOT: { id: volunteerId } },
         });
         if (taken) throw new ApiError('registration.nid_exists', 409);
       }
-      await applyField(tx, principal.userId, row.volunteerId, field, value);
+      await applyField(tx, principal.userId, volunteerId, field, value);
       const saved = await tx.volunteerChangeRequest.update({
         where: { id: row.id },
         data: {

@@ -182,6 +182,7 @@ model User {
   volunteerChangeRequestsDecidedBy     VolunteerChangeRequest[]   @relation("volunteer_change_requests_decided_by")
   volunteerChangeRequestsCreatedBy     VolunteerChangeRequest[]   @relation("volunteer_change_requests_created_by")
   volunteerChangeRequestsUpdatedBy     VolunteerChangeRequest[]   @relation("volunteer_change_requests_updated_by")
+  volunteerChangeRequestsUser          VolunteerChangeRequest[]   @relation("volunteer_change_requests_user_id")
   workAssignmentsAssigneeUser          WorkAssignment[]           @relation("work_assignments_assignee_user_id")
   workAssignmentsCreatedBy             WorkAssignment[]           @relation("work_assignments_created_by")
   workAssignmentsUpdatedBy             WorkAssignment[]           @relation("work_assignments_updated_by")
@@ -1668,7 +1669,10 @@ model Blocklist {
 
 model VolunteerChangeRequest {
   id             String    @id @db.Uuid
-  volunteerId    String    @map("volunteer_id") @db.Uuid
+  /// the person the request is about: a volunteer's user or an official
+  userId         String    @map("user_id") @db.Uuid
+  /// set for a volunteer's request, null for an official's
+  volunteerId    String?   @map("volunteer_id") @db.Uuid
   kind           String
   field          String
   newValue       String?   @map("new_value")
@@ -1681,12 +1685,14 @@ model VolunteerChangeRequest {
   createdBy      String?   @map("created_by") @db.Uuid
   updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   updatedBy      String?   @map("updated_by") @db.Uuid
-  volunteer      Volunteer @relation("volunteer_change_requests_volunteer_id", fields: [volunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  user           User      @relation("volunteer_change_requests_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  volunteer      Volunteer? @relation("volunteer_change_requests_volunteer_id", fields: [volunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   requestedByRef User      @relation("volunteer_change_requests_requested_by", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   decidedByRef   User?     @relation("volunteer_change_requests_decided_by", fields: [decidedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdByRef   User?     @relation("volunteer_change_requests_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   updatedByRef   User?     @relation("volunteer_change_requests_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
+  @@index([userId, status], map: "volunteer_change_requests_user_id_status_idx")
   @@index([volunteerId, status], map: "volunteer_change_requests_volunteer_id_status_idx")
   @@index([requestedBy], map: "volunteer_change_requests_requested_by_idx")
   @@index([decidedBy], map: "volunteer_change_requests_decided_by_idx")

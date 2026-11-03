@@ -2,7 +2,6 @@ import { type Affiliation, AFFILIATIONS, type InvitationIssued } from '@css/shar
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
-  Avatar,
   Badge,
   Button,
   EmptyState,
@@ -16,6 +15,7 @@ import {
   type IconComponent,
   type IconTileTone,
 } from '@css/ui';
+import { PersonAvatar } from '../../components/PersonPhoto';
 import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
@@ -241,7 +241,7 @@ function StaffList({
 
   const person = (u: StaffMember) => (
     <span className="staff-person">
-      <Avatar name={u.displayName} size="sm" />
+      <PersonAvatar name={u.displayName} fileId={u.photoFileId} size="sm" />
       <span className="staff-person-text">
         <Link to={`/admin/staff/${u.id}`} className="admin-person-name">
           {u.displayName}

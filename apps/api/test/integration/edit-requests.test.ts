@@ -69,6 +69,12 @@ describe('edit requests', () => {
       field: 'address',
       status: 'submitted',
     });
+    // the request names the person it is about as well as the volunteer
+    const stored = await h.db.query(
+      'SELECT user_id, volunteer_id FROM volunteer_change_requests WHERE id = $1',
+      [created.body.data.id],
+    );
+    expect(stored.rows[0]).toEqual({ user_id: v.account.id, volunteer_id: v.volunteerId });
     const rpm = await as(world.users.rpmDhaka);
     const pending = await api().get('/api/v1/edit-requests').set(bearer(rpm));
     expect(pending.body.data.map((r: { id: string }) => r.id)).toContain(created.body.data.id);
@@ -88,6 +94,34 @@ describe('edit requests', () => {
     const told = await notificationsOf(h.db, 'edit_request_approved', v.account.id);
     expect(told).toHaveLength(1);
     expect(told[0]!.params.field_name).toMatchObject({ en: expect.any(String) });
+  });
+
+  it('an official’s waiting request stays out of the volunteer requests, even for the Department Head', async () => {
+    const head = await as(world.users.head);
+    const pendingCount = async () =>
+      (
+        (await api().get('/api/v1/me/attention').set(bearer(head))).body.data as {
+          kind: string;
+          count: number;
+        }[]
+      ).find((i) => i.kind === 'edit_requests_pending')?.count ?? 0;
+    const before = await pendingCount();
+    const official = await f.user(h.db);
+    const id = randomUUID();
+    await h.db.query(
+      `INSERT INTO volunteer_change_requests (id, user_id, kind, field, new_value, requested_by, status)
+       VALUES ($1, $2, 'profile_edit', 'designation', 'সিনিয়র অফিসার', $2, 'submitted')`,
+      [id, official],
+    );
+    const listed = await api().get('/api/v1/edit-requests').set(bearer(head));
+    expect(listed.status).toBe(200);
+    expect(listed.body.data.map((r: { id: string }) => r.id)).not.toContain(id);
+    expect(await pendingCount()).toBe(before);
+    expect((await decide(head, id, { decision: 'approve' })).status).toBe(404);
+    const kept = await h.db.query('SELECT status FROM volunteer_change_requests WHERE id = $1', [
+      id,
+    ]);
+    expect(kept.rows[0].status).toBe('submitted');
   });
 
   it('a refusal needs a reason and changes nothing', async () => {
@@ -186,12 +220,30 @@ describe('edit requests', () => {
     const mine = await api().get('/api/v1/me/change-requests').set(bearer(v.session));
     const row = mine.body.data.find((r: { id: string }) => r.id === created.body.data.id);
     expect(row).toMatchObject({ status: 'submitted', newValue: upload.body.data.fileId });
+    // the approver decides on this photo: a second upload cannot swap it
+    const again = await api()
+      .post(`/api/v1/me/photos/photo?requestId=${created.body.data.id}&source=camera`)
+      .set(bearer(v.session))
+      .set('Content-Type', 'image/jpeg')
+      .send(jpeg());
+    expect(again.status).toBe(404);
     const rpm = await as(world.users.rpmDhaka);
     expect((await decide(rpm, created.body.data.id, { decision: 'approve' })).status).toBe(200);
     const saved = await h.db.query('SELECT photo_file_id FROM volunteers WHERE id = $1', [
       v.volunteerId,
     ]);
     expect(saved.rows[0].photo_file_id).toBe(upload.body.data.fileId);
+  });
+
+  it('a new photo request closes one that never got its photo', async () => {
+    const v = await approvedVolunteer();
+    const abandoned = await ask(v.session, { field: 'photo' });
+    const fresh = await ask(v.session, { field: 'photo' });
+    expect(fresh.status).toBe(201);
+    const closed = await h.db.query('SELECT status FROM volunteer_change_requests WHERE id = $1', [
+      abandoned.body.data.id,
+    ]);
+    expect(closed.rows[0].status).toBe('closed');
   });
 
   it('the bank details with a branch are added later through a request, and only the bank class sees them', async () => {

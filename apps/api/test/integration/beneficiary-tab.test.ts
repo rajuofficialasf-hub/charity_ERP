@@ -138,6 +138,7 @@ describe('the beneficiary list', () => {
       'isBlocked',
       'fatherOrHusbandName',
       'classCode',
+      'photoFileId',
     ])
       expect(row, key).not.toHaveProperty(key);
     for (const query of [
@@ -151,6 +152,29 @@ describe('the beneficiary list', () => {
       expect(refused.body.error.code).toBe('permission.denied');
       expect((await statistics(media, query)).status).toBe(403);
     }
+  });
+
+  it('carries the photo of a beneficiary in the row, and none for one without a photo', async () => {
+    const tree = await f.locationTree(h.db);
+    const photo = await f.insert(h.db, 'files', {
+      id: randomUUID(),
+      bucket: 'photos',
+      object_key: `beneficiaries/${randomUUID()}.jpg`,
+      kind: 'profile_photo',
+      mime: 'image/jpeg',
+      size_bytes: 10,
+      sha256: randomUUID().replace(/-/g, '').padEnd(64, '0'),
+      source: 'camera',
+    });
+    const pictured = await person(tree, { photo_file_id: photo });
+    const plain = await person(tree);
+    const head = await as(world.users.head);
+    const rows = (await list(head, { unionId: tree.union })).body.data as {
+      id: string;
+      photoFileId: string | null;
+    }[];
+    expect(rows.find((r) => r.id === pictured)?.photoFileId).toBe(photo);
+    expect(rows.find((r) => r.id === plain)?.photoFileId).toBeNull();
   });
 
   it('gives the Procurement Team only the beneficiaries of its house-construction projects', async () => {

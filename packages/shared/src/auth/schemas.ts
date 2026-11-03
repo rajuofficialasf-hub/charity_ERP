@@ -89,6 +89,8 @@ export interface Me {
   passwordChangeRequired?: boolean;
   blockMessage?: string | null;
   volunteerId?: string | null;
+  /** The person's uploaded photo (a volunteer's or an official's); null shows the initial. */
+  photoFileId?: string | null;
 }
 
 export interface TokenPair {

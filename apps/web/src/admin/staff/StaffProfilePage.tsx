@@ -3,7 +3,6 @@ import { formatDateTime } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
-  Avatar,
   Badge,
   Button,
   type ContactItem,
@@ -21,6 +20,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Briefcase,
+  FolderKanban,
   IdCard,
   KeyRound,
   Link2,
@@ -41,13 +41,22 @@ import { ForbiddenContent } from '../AdminLayout';
 import { mailLink, telLink } from '../contact-links';
 import { PROGRAMS_KEY, programs } from '../programs/programs-api';
 import { roles } from '../registrations/registrations-api';
-import { canEndStaffSessions, canManageOfficials, canSeeStaff } from '../roles';
+import {
+  canEndStaffSessions,
+  canManageOfficials,
+  canSeeProjects,
+  canSeeStaff,
+  canSeeStaffWork,
+} from '../roles';
 import { VolunteerSessions } from '../volunteers/VolunteerSessions';
 import { LinkDialog } from './LinkDialog';
 import { OfficialDialog } from './OfficialDialog';
 import { RenewLinkDialog } from './RenewLinkDialog';
 import { STAFF_KEY, type StaffDetail, staffDetail, staffDetailKey } from './staff-api';
 import { PageCrumbs } from '../../components/shell/breadcrumb';
+import { PersonAvatar } from '../../components/PersonPhoto';
+import { ProjectsWork } from '../../features/account/ProjectsWork';
+import { projectsWorkOf } from '../../features/account/profile-api';
 
 /**
  * One official's profile in the one profile layout, from the existing user API: the header card with the Job ID and
@@ -102,6 +111,8 @@ export function StaffProfilePage() {
       official={official.data}
       manage={canManageOfficials(me)}
       sessions={canEndStaffSessions(me)}
+      work={canSeeStaffWork(me)}
+      projectLinks={canSeeProjects(me)}
     />
   );
 }
@@ -110,10 +121,15 @@ function Profile({
   official: u,
   manage,
   sessions,
+  work,
+  projectLinks,
 }: {
   official: StaffDetail;
   manage: boolean;
   sessions: boolean;
+  /** The viewer may see the official's projects and the figures of their work. */
+  work: boolean;
+  projectLinks: boolean;
 }) {
   const t = useTranslations('admin.staff.profile');
   const ts = useTranslations('admin.staff');
@@ -212,7 +228,7 @@ function Profile({
       />
       <ProfileHeader
         name={u.displayName}
-        avatar={<Avatar name={u.displayName} letters={1} size="lg" />}
+        avatar={<PersonAvatar name={u.displayName} fileId={u.photoFileId} letters={1} size="lg" />}
         status={
           <>
             {u.affiliation && <Badge label={ts(`affiliation.${u.affiliation}`)} />}
@@ -299,6 +315,7 @@ function Profile({
               ]}
             />
           </ProfileSection>
+          {work && <WorkSection userId={u.id} projectLinks={projectLinks} />}
           <ProfileSection title={t('sections.account')} icon={KeyRound}>
             <DescriptionList
               items={[
@@ -347,5 +364,25 @@ function Profile({
       )}
       {link && <LinkDialog name={u.displayName} issued={link} onClose={() => setLink(null)} />}
     </Grid>
+  );
+}
+
+/**
+ * The official's projects by year with the figures of their work, for the two global roles and the
+ * official's Program Manager; a PM outside the official's programs is answered "not found", and
+ * the section is left out.
+ */
+function WorkSection({ userId, projectLinks }: { userId: string; projectLinks: boolean }) {
+  const t = useTranslations('admin.staff.profile');
+  const work = useQuery({
+    queryKey: ['admin', 'staff', userId, 'projects-work'],
+    queryFn: () => projectsWorkOf(userId),
+    retry: false,
+  });
+  if (work.error instanceof ApiFailure && [403, 404].includes(work.error.status)) return null;
+  return (
+    <ProfileSection title={t('sections.work')} icon={FolderKanban}>
+      <ProjectsWork query={work} own={false} projectLinks={projectLinks} />
+    </ProfileSection>
   );
 }

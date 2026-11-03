@@ -72,8 +72,8 @@ describe('GET /me/attention', () => {
       );
     await h.db.query(`UPDATE projects SET status = 'active' WHERE id = $1`, [world.a1.id]);
     await h.db.query(
-      `INSERT INTO volunteer_change_requests (id, volunteer_id, kind, field, note, requested_by, status)
-       VALUES ($1, $2, 'registration_correction', 'education', 'আরও লিখুন', $3, 'open')`,
+      `INSERT INTO volunteer_change_requests (id, user_id, volunteer_id, kind, field, note, requested_by, status)
+       VALUES ($1, (SELECT user_id FROM volunteers WHERE id = $2), $2, 'registration_correction', 'education', 'আরও লিখুন', $3, 'open')`,
       [randomUUID(), va, world.users.rpmDhaka],
     );
     await h.db.query(
@@ -126,8 +126,8 @@ describe('GET /me/attention', () => {
   it('lets a pending registrant read their own corrections', async () => {
     const { userId, volunteerId } = await pendingVolunteer(world.dhaka);
     await h.db.query(
-      `INSERT INTO volunteer_change_requests (id, volunteer_id, kind, field, note, requested_by, status)
-       VALUES ($1, $2, 'registration_correction', 'education', 'আরও লিখুন', $3, 'open')`,
+      `INSERT INTO volunteer_change_requests (id, user_id, volunteer_id, kind, field, note, requested_by, status)
+       VALUES ($1, (SELECT user_id FROM volunteers WHERE id = $2), $2, 'registration_correction', 'education', 'আরও লিখুন', $3, 'open')`,
       [randomUUID(), volunteerId, world.users.rpmDhaka],
     );
     // an unread notification is not offered: the inbox opens after the approval
@@ -146,8 +146,8 @@ describe('GET /me/attention', () => {
     const volunteerId = await f.volunteer(h.db, world.dhaka, a.id, { approved_at: new Date() });
     const request = (status: string, decidedAt: Date | null) =>
       h.db.query(
-        `INSERT INTO volunteer_change_requests (id, volunteer_id, kind, field, new_value, requested_by, status, decided_at)
-         VALUES ($1, $2, 'profile_edit', 'education', 'স্নাতক', $3, $4, $5)`,
+        `INSERT INTO volunteer_change_requests (id, user_id, volunteer_id, kind, field, new_value, requested_by, status, decided_at)
+         VALUES ($1, (SELECT user_id FROM volunteers WHERE id = $2), $2, 'profile_edit', 'education', 'স্নাতক', $3, $4, $5)`,
         [randomUUID(), volunteerId, a.id, status, decidedAt],
       );
     const rangpurBefore = countOf(await attention(world.users.rpmRangpur), 'edit_requests_pending');

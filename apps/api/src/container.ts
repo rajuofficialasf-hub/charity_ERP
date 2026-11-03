@@ -43,6 +43,8 @@ import { createScanner } from './files/scanner';
 import { AccountEvents } from './notifications/account-events';
 import { DeliveriesService } from './services/deliveries';
 import { AttentionService } from './services/attention';
+import { OwnProfileService } from './services/own-profile';
+import { ProjectsWorkService } from './services/projects-work';
 import { InboxService } from './services/inbox';
 import { NotificationTemplatesService } from './services/notification-templates';
 import { ProjectEvents } from './notifications/project-events';
@@ -103,6 +105,7 @@ import { PublicPhotosService } from './services/public-photos';
 import { ProjectSetupService } from './services/project-setup';
 import { RegistrationsService } from './services/registrations';
 import { ChangeRequestsService } from './services/change-requests';
+import { StaffChangeRequestsService } from './services/staff-change-requests';
 import { BlocklistService } from './services/blocklist';
 import { HandoverService } from './services/handover';
 import { RegistrationService } from './services/registration';
@@ -142,6 +145,8 @@ export interface Container {
   auth: AuthService;
   deviceSessions: SessionsService;
   users: UsersService;
+  ownProfile: OwnProfileService;
+  projectsWork: ProjectsWorkService;
   staffAccounts: StaffAccountsService;
   organogram: OrganogramService;
   accessPanel: AccessPanelService;
@@ -220,6 +225,7 @@ export interface Container {
   templates: TemplatesService;
   registrations: RegistrationsService;
   changeRequests: ChangeRequestsService;
+  staffChangeRequests: StaffChangeRequestsService;
   blocklist: BlocklistService;
   handover: HandoverService;
 }
@@ -401,6 +407,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       o.deviceSessions ?? new SessionsService(sessions, prisma, audit, access, accountEvents),
     users:
       o.users ?? new UsersService(env, prisma, audit, sessions, permissionVersions, clock, access),
+    ownProfile: o.ownProfile ?? new OwnProfileService(prisma),
+    projectsWork: o.projectsWork ?? new ProjectsWorkService(prisma, access),
     staffAccounts:
       o.staffAccounts ??
       new StaffAccountsService(
@@ -568,6 +576,17 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         audit,
         otp,
         access,
+        permissionVersions,
+        sessions,
+        accountEvents,
+      ),
+    staffChangeRequests:
+      o.staffChangeRequests ??
+      new StaffChangeRequestsService(
+        env,
+        prisma,
+        clock,
+        audit,
         permissionVersions,
         sessions,
         accountEvents,

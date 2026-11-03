@@ -23,6 +23,8 @@ export interface StaffMember {
   supervisorUserId: string | null;
   /** Created by the admin and the set-password link not used yet. */
   awaitingPassword: boolean;
+  /** The official's uploaded photo; null shows the initial. */
+  photoFileId: string | null;
 }
 
 export interface StaffPage {
@@ -108,6 +110,8 @@ export interface OrganogramNode {
   roles: string[];
   state: 'pending' | 'active' | 'blocked';
   homeDivisionId: string | null;
+  /** The official's uploaded photo; null shows the initial. */
+  photoFileId: string | null;
   reports: OrganogramNode[];
 }
 

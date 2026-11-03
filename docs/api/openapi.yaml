@@ -757,6 +757,10 @@ components:
           description: true until the person sets a new password (a staff role with global scope was approved); every other operation answers 403 auth.password_change_required
         blockMessage: { type: [string, 'null'] }
         volunteerId: { type: [string, 'null'], format: uuid }
+        photoFileId:
+          type: [string, 'null']
+          format: uuid
+          description: The person's uploaded photo (a volunteer's or an official's), shown in the app bar; null shows the initial (D-147)
     TokenPair:
       type: object
       required: [accessToken, expiresAt, me, deviceKey]
@@ -844,6 +848,133 @@ components:
         awaitingPassword:
           type: boolean
           description: An official created by the admin who has not used the set-password link yet
+        photoFileId:
+          type: [string, 'null']
+          format: uuid
+          description: The official's uploaded photo, readable by those who may see the staff list; null shows the initial (D-147)
+    OwnStaffProfile:
+      type: object
+      required: [id, displayName, jobId, designation, roles, affiliation, affiliationUnit, program, division, supervisor, mobile, email, state, lastLoginAt, photoFileId]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        jobId: { type: [string, 'null'] }
+        designation: { type: [string, 'null'] }
+        roles:
+          type: array
+          items:
+            type: object
+            required: [key, name]
+            properties:
+              key: { type: string }
+              name: { $ref: '#/components/schemas/Bilingual' }
+        affiliation: { type: [string, 'null'], enum: [department, foundation, external, null] }
+        affiliationUnit: { type: [string, 'null'] }
+        program:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [id, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                name: { $ref: '#/components/schemas/Bilingual' }
+        division:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [id, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                name: { $ref: '#/components/schemas/Bilingual' }
+        supervisor:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [id, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                name: { type: string }
+        mobile: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        state: { type: string, enum: [pending, active, blocked, deactivated] }
+        lastLoginAt: { type: [string, 'null'], format: date-time }
+        photoFileId: { type: [string, 'null'], format: uuid }
+    ProjectsWork:
+      type: object
+      required: [everyProject, years]
+      description: >-
+        An official's projects by year, newest first, each with their roles and areas there and the
+        figures of their work (D-147, BR-291 to BR-293). A person whom every project is open to
+        (everyProject) gets no list.
+      properties:
+        everyProject: { type: boolean }
+        years:
+          type: array
+          items:
+            type: object
+            required: [year, projects]
+            properties:
+              year: { type: integer }
+              projects: { type: array, items: { $ref: '#/components/schemas/ProjectWork' } }
+    ProjectWork:
+      type: object
+      required: [id, code, name, year, status, program, applyFrom, applyTo, roles, areas, wholeProject, figures]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        code: { type: string }
+        name: { $ref: '#/components/schemas/Bilingual' }
+        year: { type: integer }
+        status: { type: string, enum: [draft, active, closing, closed, cancelled] }
+        program:
+          type: object
+          required: [id, name]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            name: { $ref: '#/components/schemas/Bilingual' }
+        applyFrom: { type: [string, 'null'], format: date }
+        applyTo: { type: [string, 'null'], format: date }
+        roles:
+          type: array
+          items:
+            type: object
+            required: [key, name]
+            properties:
+              key: { type: string }
+              name: { $ref: '#/components/schemas/Bilingual' }
+        areas:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              name: { $ref: '#/components/schemas/Bilingual' }
+        wholeProject: { type: boolean }
+        figures:
+          type: object
+          required: [area, mine]
+          properties:
+            area:
+              type: object
+              description: In the official's areas, or the whole project for its PM or an access without an area
+              required: [received, waiting, approved, rejected, waitlisted, volunteers]
+              properties:
+                received: { type: integer, minimum: 0 }
+                waiting: { type: integer, minimum: 0 }
+                approved: { type: integer, minimum: 0 }
+                rejected: { type: integer, minimum: 0 }
+                waitlisted: { type: integer, minimum: 0 }
+                volunteers: { type: integer, minimum: 0 }
+            mine:
+              type: object
+              description: The official's own decisions on the project
+              required: [reviewed, approved, rejected, waitlisted, medianDays]
+              properties:
+                reviewed: { type: integer, minimum: 0 }
+                approved: { type: integer, minimum: 0 }
+                rejected: { type: integer, minimum: 0 }
+                waitlisted: { type: integer, minimum: 0 }
+                medianDays: { type: [number, 'null'], minimum: 0 }
     User:
       allOf:
         - $ref: '#/components/schemas/UserSummary'
@@ -936,7 +1067,7 @@ components:
             - { type: 'null' }
     OrganogramNode:
       type: object
-      required: [userId, displayName, jobId, designation, roles, state, homeDivisionId, reports]
+      required: [userId, displayName, jobId, designation, roles, state, homeDivisionId, photoFileId, reports]
       properties:
         userId: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
@@ -945,6 +1076,7 @@ components:
         roles: { type: array, items: { type: string } }
         state: { type: string, enum: [pending, active, blocked] }
         homeDivisionId: { type: [string, 'null'], format: uuid }
+        photoFileId: { type: [string, 'null'], format: uuid, description: 'The uploaded photo; null shows the initial (D-147)' }
         reports: { type: array, items: { $ref: '#/components/schemas/OrganogramNode' } }
     Organogram:
       type: object
@@ -1377,6 +1509,42 @@ components:
         field: { type: string, enum: [name, fatherName, motherName, nid, whatsapp, address, addressLine, education, experience, workDescription, previousProjects, facebookId, bloodGroup, dateOfBirth, tshirtSize, volunteeringArea, profession, skills, educationDetails, permanentAddress, bank, photo, nid_photo, nid_photo_back, mobile, email] }
         newValue: { $ref: '#/components/schemas/ChangeValue' }
         note: { type: string, maxLength: 1000 }
+    StaffEditRequestCreate:
+      type: object
+      additionalProperties: false
+      required: [field]
+      description: >-
+        An official's own change (D-147, BR-289). The new value is required except for the photo,
+        which the own photo upload fills; the workplace is an object with the affiliation and its
+        unit; a program or division of null asks to clear it. The supervisor is not asked for
+        (D-148).
+      properties:
+        field: { type: string, enum: [displayName, designation, mobile, email, workplace, homeProgramId, homeDivisionId, photo] }
+        newValue:
+          anyOf:
+            - { type: string, maxLength: 2000 }
+            - { type: object, propertyNames: { type: string }, additionalProperties: {} }
+            - { type: 'null' }
+        note: { type: string, maxLength: 1000 }
+    StaffChangeRequest:
+      allOf:
+        - $ref: '#/components/schemas/ChangeRequest'
+        - type: object
+          required: [personName, personJobId, currentValue, names]
+          properties:
+            personName: { type: string }
+            personJobId: { type: [string, 'null'] }
+            currentValue: { description: "The person's value of the field now, in the shape of newValue" }
+            names:
+              type: object
+              description: The names of the program or division the two values name, by id
+              additionalProperties: { $ref: '#/components/schemas/Bilingual' }
+    StaffChangeRequestList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/StaffChangeRequest' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
     ChangeRequestAnswer:
       type: object
       additionalProperties: false
@@ -1391,10 +1559,11 @@ components:
         code: { type: string, pattern: '^[0-9]{6}$' }
     ChangeRequest:
       type: object
-      required: [id, volunteerId, kind, field, status]
+      required: [id, userId, volunteerId, kind, field, status]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
-        volunteerId: { $ref: '#/components/schemas/Uuid' }
+        userId: { $ref: '#/components/schemas/Uuid' }
+        volunteerId: { type: [string, 'null'], format: uuid, description: 'Null on an official''s own request (D-147)' }
         kind: { type: string, enum: [registration_correction, profile_edit] }
         field: { type: string }
         newValue: { description: 'Absent for NID, bank, mobile and email values towards anyone but the owner and allowed officials' }
@@ -1861,6 +2030,7 @@ components:
         village: { type: string, x-sensitive-class: beneficiary.address_detail }
         mobile: { type: string, x-sensitive-class: beneficiary.contact }
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
+        photoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: beneficiary.profile_detail }
     BeneficiaryStatistics:
       type: object
       required: [total, assistedThisYear]
@@ -5091,6 +5261,37 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /users/{userId}/projects-work:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [users]
+      operationId: users.user.projectsWork
+      summary: "An official's projects by year with the figures of their work there"
+      description: >-
+        Another official's projects and figures (D-147, BR-293): every project for the Department
+        Head and the Monitoring Team, the projects of the caller's own programs for a Program
+        Manager; an official outside the caller's programs is not found.
+      x-permission: staff.work.view
+      x-scope: user
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The official's projects and figures
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: '#/components/schemas/ProjectsWork' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /users/{userId}/profile:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -5724,6 +5925,175 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+  /me/staff-change-requests:
+    post:
+      tags: [registration]
+      operationId: registration.staffEditRequest.submit
+      summary: "Ask for a change of an official's own name, designation, contact, photo or workplace (D-147)"
+      description: >-
+        A text, workplace or reference reaches the Department Head and the Monitoring Team at once;
+        a new mobile or email only after the code to it, a photo after the own upload
+        (POST /me/photos/photo?requestId=). A volunteer holds no grant (403).
+      x-permission: staff_edit_request.submit
+      x-scope: self
+      x-audit: auth.edit_requested
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffEditRequestCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChangeRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/staff-change-requests/choices:
+    get:
+      tags: [registration]
+      operationId: registration.staffEditRequest.choices
+      summary: The programs an official may ask to move to, by name
+      description: >-
+        Every active program by its name (D-148), since an official's own program scope may not
+        hold the one they move to; the division comes from GET /locations. A volunteer holds no
+        grant (403).
+      x-permission: staff_edit_request.submit
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The choices
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [programs]
+                    properties:
+                      programs:
+                        type: array
+                        items:
+                          type: object
+                          required: [id, name]
+                          properties:
+                            id: { $ref: '#/components/schemas/Uuid' }
+                            name: { $ref: '#/components/schemas/Bilingual' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /me/staff-change-requests/{requestId}/otp:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    post:
+      tags: [registration]
+      operationId: registration.staffContactChange.sendOtp
+      summary: "Send a code to the new mobile or email of an official's own contact request"
+      x-permission: staff_edit_request.submit
+      x-scope: self
+      x-audit: auth.otp_sent
+      x-idempotency: none
+      x-rate-limit: otp-request
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /me/staff-change-requests/{requestId}/otp/verify:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    post:
+      tags: [registration]
+      operationId: registration.staffContactChange.verifyOtp
+      summary: "Verify the code of an official's own contact request; only then does it reach the deciders"
+      x-permission: staff_edit_request.submit
+      x-scope: self
+      x-audit: auth.otp_verified
+      x-idempotency: none
+      x-rate-limit: otp-verify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OtpCodeRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /staff-edit-requests:
+    get:
+      tags: [registration]
+      operationId: registration.staffEditRequest.list
+      summary: "Officials' own change requests waiting for a decision"
+      description: >-
+        For the Department Head and the Monitoring Team (D-147, BR-289): each request with the
+        person, their current value and the names of the program or division named.
+      x-permission: staff_edit_request.approve
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Waiting requests
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffChangeRequestList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /staff-edit-requests/{requestId}/decision:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    post:
+      tags: [registration]
+      operationId: registration.staffEditRequest.decide
+      summary: "Approve (the change applies at once) or reject with a reason an official's own request; never one's own"
+      description: >-
+        An approval writes the change: a new contact ends the person's sessions, a new program or
+        division moves their permission version on (D-147, BR-289). The person who asked gets 403.
+      x-permission: staff_edit_request.approve
+      x-scope: global
+      x-audit: auth.edit_request_decided
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DecisionRequest' }
+      responses:
+        '200':
+          description: Decision recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChangeRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /edit-requests:
     get:
       tags: [registration]
@@ -10158,6 +10528,62 @@ paths:
                         href: { type: string, description: A fixed route of the PWA }
                   meta: { $ref: '#/components/schemas/Meta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /me/profile:
+    get:
+      tags: [auth]
+      operationId: auth.me.profile
+      summary: "An official's own profile: identity, workplace, contact and account"
+      description: >-
+        The caller's own record as an official (D-147, BR-288): name, job ID, designation, roles,
+        affiliation and unit, program, division, supervisor, mobile, email, state, last login and
+        photo. A volunteer has no official profile (404; their own profile is GET /volunteers/me).
+      x-permission: authenticated
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The official's own profile
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: '#/components/schemas/OwnStaffProfile' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /me/projects-work:
+    get:
+      tags: [auth]
+      operationId: auth.me.projectsWork
+      summary: "An official's own projects by year with the figures of their work there"
+      description: >-
+        The projects the caller works on as an official (a PM through the program, an RPM through
+        the areas, any other official through an active project access), cancelled ones left out,
+        with the applications in their area and their own decisions (D-147, BR-291, BR-292). A
+        volunteer gets 404.
+      x-permission: authenticated
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The official's projects and figures
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: '#/components/schemas/ProjectsWork' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /me/preferences:
     get:
       tags: [notifications]

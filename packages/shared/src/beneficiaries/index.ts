@@ -45,6 +45,8 @@ export interface BeneficiaryRow {
   village?: string;
   mobile?: string;
   isBlocked?: boolean;
+  /** The uploaded photo, with the personal-details class; null shows the initial. */
+  photoFileId?: string | null;
 }
 
 /** The counts above the beneficiary tab for the filters in use. */

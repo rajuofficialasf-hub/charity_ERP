@@ -15,8 +15,10 @@ import {
   type RequestField,
   resubmit,
   sendContactCode,
+  sendStaffContactCode,
   uploadOwnPhoto,
   verifyContactCode,
+  verifyStaffContactCode,
 } from './profile-api';
 import { cleanValue, ValueEditor } from './ValueEditor';
 
@@ -139,24 +141,31 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
   );
 }
 
-/** An open edit beside its detail: the code a new contact waits for, or the photo to upload. */
+/**
+ * An open edit beside its detail: the code a new contact waits for, or the photo to upload. An
+ * official's request sends and checks its code through the official's own routes.
+ */
 export function RequestState({
   row,
   field,
   label,
+  official = false,
 }: {
   row: ChangeRequest;
-  field: RequestField;
+  field: string;
   label: string;
+  official?: boolean;
 }) {
   const t = useTranslations('registration');
   const messageOf = useMessageOf();
   const refresh = useRefresh();
   const [code, setCode] = useState('');
   // each action clears the other's result, so an old message never hides a new one
-  const send = useMutation({ mutationFn: () => sendContactCode(row.id) });
+  const send = useMutation({
+    mutationFn: () => (official ? sendStaffContactCode : sendContactCode)(row.id),
+  });
   const verify = useMutation({
-    mutationFn: () => verifyContactCode(row.id, code),
+    mutationFn: () => (official ? verifyStaffContactCode : verifyContactCode)(row.id, code),
     onSuccess: refresh,
   });
   if (isPhoto(field))

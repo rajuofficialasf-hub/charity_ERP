@@ -285,6 +285,26 @@ permissions:
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_team_member, scope: SELF }
       - { role: volunteer_paid, scope: SELF }
+  - name: staff_edit_request.submit
+    description: Ask for a change of one's own official details (name, designation, contact, photo, workplace)
+    module: M03
+    sensitive: false
+    default:
+      - { role: program_manager, scope: SELF }
+      - { role: regional_program_manager, scope: SELF }
+      - { role: project_executive, scope: SELF }
+      - { role: implementer, scope: SELF }
+      - { role: official_daee, scope: SELF }
+      - { role: procurement_team, scope: SELF }
+      - { role: media_team, scope: SELF }
+      - { role: media_director, scope: SELF }
+      - { role: media_assistant_director, scope: SELF }
+      - { role: finance_team, scope: SELF }
+  - name: staff_edit_request.approve
+    description: Decide an official's request to change their own details (never one's own request)
+    module: M03
+    sensitive: false
+    default: []
 
   # ---- M04 Volunteer Management --------------------------------------------------------------------
   - name: volunteer.view_all
@@ -1126,6 +1146,12 @@ permissions:
     default:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION, condition: own_region }
+  - name: staff.work.view
+    description: An official's projects and the figures of their work there (the person's own figures need no grant)
+    module: M14
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
 
   # ---- M15 Audit Log -------------------------------------------------------------------------------
   - name: audit.view

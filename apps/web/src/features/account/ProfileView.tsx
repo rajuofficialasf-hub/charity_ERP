@@ -16,8 +16,10 @@ import { useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { Corrections } from './ChangeRequests';
 import { EditSection } from './EditSection';
+import { OfficialProfile } from './OfficialProfile';
 import { DetailRow, hasValue, LEGACY_FIELDS, type ProfileField } from './ProfileDetails';
 import { ProfileHeader } from './ProfileHeader';
 import { ProfileNav } from './ProfileNav';
@@ -67,17 +69,20 @@ const SECTIONS = [
  */
 export function ProfileView() {
   const t = useTranslations('registration.profile');
+  const { me } = useAuth();
+  // an official's own profile has its own sections (the official's own profile of 2026-11-02)
+  const official = me?.kind === 'staff';
   return (
     <AccountPage
       title={() => t('title')}
       eyebrow={t('eyebrow')}
-      description={t('description')}
+      description={official ? t('official.description') : t('description')}
       wide
     >
       {() => (
         <>
           <DocumentTitle title={t('title')} />
-          <Profile />
+          {official ? <OfficialProfile /> : <Profile />}
         </>
       )}
     </AccountPage>

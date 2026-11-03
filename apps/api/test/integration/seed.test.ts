@@ -118,7 +118,9 @@ describe('base set', () => {
         .sort((a, b) => a.key.localeCompare(b.key)),
     );
     const permissions = (
-      await db.query('SELECT name, module, sensitive, description FROM permissions ORDER BY name')
+      await db.query(
+        'SELECT name, module, sensitive, description FROM permissions ORDER BY name COLLATE "C"',
+      )
     ).rows;
     expect(permissions).toEqual(
       file.permissions
@@ -128,10 +130,11 @@ describe('base set', () => {
           sensitive: p.sensitive,
           description: p.description,
         }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        // the code-point order of the database's "C" collation, so '.' and '_' sort alike on both sides
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
     );
     expect(roles).toHaveLength(17);
-    expect(permissions).toHaveLength(154);
+    expect(permissions).toHaveLength(157);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {

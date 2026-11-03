@@ -190,3 +190,110 @@
     align-items: center;
   }
 }
+
+/* An official's own profile: the account links, and the projects with the figures of their work. */
+.profile-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+}
+.work-every {
+  display: grid;
+  gap: var(--space-3);
+}
+.work-years {
+  display: grid;
+  gap: var(--space-4);
+}
+.work-year {
+  display: grid;
+  gap: var(--space-3);
+}
+.work-year-title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-bold);
+}
+.work-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.work-card-body {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.work-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.work-card-title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-bold);
+  overflow-wrap: anywhere;
+}
+.work-meta {
+  display: grid;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.work-meta > div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.work-meta dt,
+.work-figure-label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+}
+.work-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.work-group {
+  display: grid;
+  gap: var(--space-2);
+}
+.work-group-title {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-bold);
+}
+.work-figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+.work-figure {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  min-width: 0;
+}
+.work-figure-value {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-bold);
+}
+
+@media (min-width: 768px) {
+  .work-meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .work-figures {
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  }
+}

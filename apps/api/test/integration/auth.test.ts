@@ -306,6 +306,7 @@ describe('access tokens on every request', () => {
       passwordChangeRequired: false,
       blockMessage: null,
       volunteerId: null,
+      photoFileId: null,
     });
   });
 });

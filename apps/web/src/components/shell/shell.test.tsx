@@ -148,6 +148,26 @@ describe('app shell', () => {
     await expectNoAxeViolations(container);
   });
 
+  it("shows the person's own photo in the profile chip and the sidebar", async () => {
+    atWidth(1280);
+    const photo = '01900000-0000-7000-8000-0000000000f9';
+    server.use(
+      http.get(`*/api/v1/files/${photo}/content`, () =>
+        HttpResponse.arrayBuffer(new Uint8Array([137, 80, 78, 71]).buffer, {
+          headers: { 'Content-Type': 'image/png' },
+        }),
+      ),
+    );
+    refreshAs({ ...HEAD, photoFileId: photo });
+    renderShell();
+    await mainMenu();
+    const chip = within(screen.getByRole('banner')).getByRole('button', { name: 'প্রোফাইল মেনু' });
+    await waitFor(() => expect(chip.querySelector('img[src^="data:image/png"]')).not.toBeNull());
+    expect(
+      screen.getByTestId('sidebar').querySelector('img[src^="data:image/png"]'),
+    ).not.toBeNull();
+  });
+
   it('shows a Program Manager no administration destinations', async () => {
     atWidth(1280);
     refreshAs(PM);

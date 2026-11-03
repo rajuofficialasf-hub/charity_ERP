@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { runSeed } from '../../seed/run';
-import { beneficiary, locationTree } from './support/fixtures';
+import { beneficiary, locationTree, user, volunteer } from './support/fixtures';
 import {
   createDatabase,
   dropDatabase,
@@ -256,6 +256,34 @@ describe('migrations', () => {
         )
       ).rows;
       expect(rows).toEqual([{ same: true }, { same: true }]);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('the change requests of officials keep every earlier request with its person', async () => {
+    const dirs = migrationDirs();
+    const at = dirs.indexOf('20261102180000_change_requests_of_officials');
+    expect(at).toBeGreaterThan(0);
+    const db = await freshDatabase('chreq');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const apply = (dir: string) =>
+        client.query(readFileSync(join(MIGRATIONS_DIR, dir, 'migration.sql'), 'utf8'));
+      for (const dir of dirs.slice(0, at)) await apply(dir);
+      const person = await user(client, { kind: 'volunteer', email: null, mobile: '01700009911' });
+      const volunteerId = await volunteer(client, await locationTree(client), person);
+      await client.query(
+        `INSERT INTO volunteer_change_requests (id, volunteer_id, kind, field, requested_by, status)
+         VALUES (gen_random_uuid(), $1, 'profile_edit', 'education', $2, 'submitted')`,
+        [volunteerId, person],
+      );
+      await apply(dirs[at]!);
+      const rows = (
+        await client.query('SELECT user_id, volunteer_id FROM volunteer_change_requests')
+      ).rows;
+      expect(rows).toEqual([{ user_id: person, volunteer_id: volunteerId }]);
     } finally {
       await client.end();
     }

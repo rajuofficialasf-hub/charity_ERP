@@ -24,6 +24,8 @@ const VOLUNTEER_USER = '01900000-0000-7000-8000-0000000000a1';
 const VOLUNTEER_ID = '01900000-0000-7000-8000-0000000000a2';
 const STAFF_USER = '01900000-0000-7000-8000-0000000000a3';
 const EDIT_ID = '01900000-0000-7000-8000-0000000000a4';
+const STAFF_EDIT_ID = '01900000-0000-7000-8000-0000000000a5';
+const PROGRAM = '01900000-0000-7000-8000-0000000000a6';
 const DIVISION = '01900000-0000-7000-8000-0000000000d1';
 const DISTRICT = '01900000-0000-7000-8000-0000000000d2';
 const UPAZILA = '01900000-0000-7000-8000-0000000000d3';
@@ -130,6 +132,7 @@ let calls: { method: string; url: string; body: unknown }[];
 let pending: unknown[];
 let detail: Record<string, unknown>;
 let edits: unknown[];
+let staffEdits: unknown[];
 
 async function record(request: Request) {
   const body = await request.json().catch(() => null);
@@ -265,6 +268,12 @@ function serve() {
       }),
     ),
     http.get('*/api/v1/edit-requests', () => HttpResponse.json({ data: edits, meta })),
+    http.get('*/api/v1/staff-edit-requests', () => HttpResponse.json({ data: staffEdits, meta })),
+    http.post('*/api/v1/staff-edit-requests/:requestId/decision', async ({ request }) => {
+      await record(request);
+      staffEdits = [];
+      return HttpResponse.json({ data: { id: STAFF_EDIT_ID } });
+    }),
     http.post('*/api/v1/registrations/:userId/approve', async ({ request }) => {
       await record(request);
       pending = pending.filter((p) => p !== pendingVolunteer);
@@ -357,6 +366,7 @@ beforeEach(() => {
       volunteerName: 'অনুমোদিত স্বেচ্ছাসেবক (নমুনা)',
     },
   ];
+  staffEdits = [];
   serve();
 });
 
@@ -811,5 +821,65 @@ describe('edit requests', () => {
     await user.click(confirm);
     expect(await screen.findByText('অনুরোধ নাকচ করা হয়েছে')).toBeInTheDocument();
     expect(calls[0]!.body).toEqual({ decision: 'reject', reason: 'সনদ দেখান' });
+  });
+});
+
+describe("officials' own requests", () => {
+  const request = (over: Record<string, unknown> = {}) => ({
+    id: STAFF_EDIT_ID,
+    userId: STAFF_USER,
+    volunteerId: null,
+    kind: 'profile_edit',
+    field: 'homeProgramId',
+    newValue: PROGRAM,
+    note: 'নতুন দায়িত্ব',
+    status: 'submitted',
+    decidedAt: null,
+    personName: 'আঞ্চলিক কর্মকর্তা (নমুনা)',
+    personJobId: 'CSS-0042',
+    currentValue: null,
+    names: { [PROGRAM]: { bn: 'মানবিক কার্যক্রম', en: 'Humanitarian Program' } },
+    ...over,
+  });
+
+  it('wait for the Head in their own tab, with the value now beside the new one', async () => {
+    const user = userEvent.setup();
+    staffEdits = [request()];
+    const { container } = renderPage(HEAD, 'bn', '/admin/registrations?tab=staff-edits');
+    const table = await screen.findByRole('grid', { name: 'অফিসিয়ালের অনুরোধ' });
+    const row = within(table)
+      .getByText('আঞ্চলিক কর্মকর্তা (নমুনা)')
+      .closest<HTMLElement>('[role="row"]')!;
+    expect(within(row).getByText('প্রোগ্রাম')).toBeInTheDocument();
+    expect(within(row).getByText('নেই')).toBeInTheDocument();
+    expect(within(row).getByText('মানবিক কার্যক্রম')).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+    await user.click(
+      within(row).getByRole('button', {
+        name: 'আঞ্চলিক কর্মকর্তা (নমুনা)-এর প্রোগ্রাম অনুমোদন',
+      }),
+    );
+    expect(await screen.findByText('নতুন মান প্রয়োগ হয়েছে')).toBeInTheDocument();
+    expect(calls).toEqual([
+      {
+        method: 'POST',
+        url: `/api/v1/staff-edit-requests/${STAFF_EDIT_ID}/decision`,
+        body: { decision: 'approve' },
+      },
+    ]);
+  });
+
+  it("leave the decider's own request without buttons", async () => {
+    staffEdits = [request({ userId: HEAD.id, personName: HEAD.displayName })];
+    renderPage(HEAD, 'bn', '/admin/registrations?tab=staff-edits');
+    const table = await screen.findByRole('grid', { name: 'অফিসিয়ালের অনুরোধ' });
+    expect(within(table).getByText('আপনার নিজের অনুরোধ')).toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: /অনুমোদন/ })).not.toBeInTheDocument();
+  });
+
+  it('are not a tab for an RPM, who decides the volunteers only', async () => {
+    renderPage(RPM);
+    await screen.findByRole('grid', { name: 'পরিবর্তনের অনুরোধ' });
+    expect(screen.queryByRole('tab', { name: 'অফিসিয়ালের অনুরোধ' })).not.toBeInTheDocument();
   });
 });

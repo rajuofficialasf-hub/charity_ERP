@@ -117,7 +117,9 @@
     "edu_status": "Status",
     "emergency_full_time": "Can you give full time in an emergency?",
     "emergency_full_time_short": "Full time in an emergency",
-    "permanent_suffix": "(permanent)"
+    "permanent_suffix": "(permanent)",
+    "workplace": "Workplace",
+    "home_program": "Program"
   },
   "done": {
     "title": "Registration submitted",
@@ -182,7 +184,56 @@
       "deactivated": "Deactivated"
     },
     "eyebrow": "My account",
-    "description": "Your identity, contact, address and work details."
+    "description": "Your identity, contact, address and work details.",
+    "official": {
+      "description": "Who you are, where you work, how you are reached and the projects you work on.",
+      "not_official": "This page is for an official’s profile.",
+      "sections": {
+        "identity": "Identity and workplace",
+        "contact": "Contact and account",
+        "projects": "My projects"
+      },
+      "change_password": "Change password",
+      "devices": "My devices",
+      "sent": "Request sent. The Department Head or the Monitoring Team will decide."
+    },
+    "work": {
+      "every_own": "Every project is open to you, so there is no separate list here.",
+      "every_other": "Every project is open to this official, so there is no separate list here.",
+      "all_projects": "Project list",
+      "empty_own": "You do not work on any project yet.",
+      "empty_other": "This official does not work on any project yet.",
+      "decisions_note": "The decision counts include decisions that were changed later.",
+      "year": "{year}",
+      "code": "Code",
+      "program": "Program",
+      "roles": "Role",
+      "areas": "Area",
+      "whole_project": "Whole project",
+      "window": "Application period",
+      "window_value": "{from} to {to}",
+      "no_window": "Not set",
+      "area_title": "Applications in the area",
+      "mine_title_own": "Your decisions",
+      "mine_title_other": "Their decisions",
+      "area": {
+        "received": "Received",
+        "waiting": "Waiting",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "waitlisted": "Waitlisted",
+        "volunteers": "Volunteers"
+      },
+      "mine": {
+        "reviewed": "Reviewed",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "waitlisted": "Waitlisted",
+        "median": "Time to decide (median)"
+      },
+      "median_value": "{days} days",
+      "median_none": "—"
+    }
   },
   "lists": {
     "volunteering_area": {

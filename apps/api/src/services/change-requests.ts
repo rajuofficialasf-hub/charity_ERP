@@ -36,8 +36,26 @@ import { applyField, changeView, OBJECT_FIELDS } from './registrations';
 const EDIT = 'profile_edit';
 
 /** The edit requests waiting for a decision in a scope: the approvers' list and its count. */
+// a volunteer's requests only: an official's has no volunteer, and an empty scope filter (a
+// global role's) would not keep it out
 const waitingWhere = (scope: Scope) =>
-  ({ kind: EDIT, status: 'submitted', volunteer: volunteerWhere(scope) }) as const;
+  ({
+    kind: EDIT,
+    status: 'submitted',
+    volunteerId: { not: null },
+    volunteer: volunteerWhere(scope),
+  }) as const;
+/** A new mobile or email is refused while another account holds it. */
+export async function assertContactFree(db: Tx, field: string, value: string, userId: string) {
+  const taken = await db.user.count({
+    where: {
+      ...(field === 'mobile' ? { mobile: value } : { email: value }),
+      NOT: { id: userId },
+    },
+  });
+  if (taken) throw new ApiError('registration.account_exists', 409);
+}
+
 /** Contact-change codes one account may send per hour, across all its requests. */
 const CODES_PER_ACCOUNT_HOUR = 5;
 const isContact = (field: string): field is (typeof CONTACT_FIELDS)[number] =>
@@ -105,8 +123,9 @@ export class ChangeRequestsService {
     const value = isPhoto(body.field) ? null : await this.checkedValue(principal, body);
     const row = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM volunteers WHERE id = ${volunteer.id}::uuid FOR UPDATE`;
-      // a contact still waiting for its code is replaced (a mistyped number would else block the field)
-      if (isContact(body.field))
+      // a contact still waiting for its code, or a photo for its upload, is replaced (a mistyped
+      // number or a failed upload would else block the field)
+      if (isContact(body.field) || isPhoto(body.field))
         await tx.volunteerChangeRequest.updateMany({
           where: { volunteerId: volunteer.id, kind: EDIT, field: body.field, status: 'open' },
           data: { status: 'closed', decidedAt: this.clock.now() },
@@ -123,6 +142,7 @@ export class ChangeRequestsService {
       const created = await tx.volunteerChangeRequest.create({
         data: {
           id: uuidv7(),
+          userId: principal.userId,
           volunteerId: volunteer.id,
           kind: EDIT,
           field: body.field,
@@ -173,24 +193,17 @@ export class ChangeRequestsService {
     return value;
   }
 
-  private async assertContactFree(db: Tx, field: string, value: string, userId: string) {
-    const taken = await db.user.count({
-      where: {
-        ...(field === 'mobile' ? { mobile: value } : { email: value }),
-        NOT: { id: userId },
-      },
-    });
-    if (taken) throw new ApiError('registration.account_exists', 409);
-  }
-
-  /** An own contact edit that still waits for its code; 404 for anyone else's (no leak). */
+  /**
+   * An own contact edit that still waits for its code, a volunteer's or an official's; 404 for
+   * anyone else's (no leak).
+   */
   private async ownOpenContact(principal: Principal, requestId: string) {
     const row = await this.prisma.volunteerChangeRequest.findFirst({
       where: {
         id: requestId,
         kind: EDIT,
         field: { in: [...CONTACT_FIELDS] },
-        volunteer: { userId: principal.userId },
+        userId: principal.userId,
       },
     });
     if (!row || !row.newValue) throw new ApiError('permission.not_found', 404);
@@ -245,7 +258,7 @@ export class ChangeRequestsService {
     await this.prisma.$transaction(async (tx) => {
       if (!(await this.otp.consume(tx, otpId))) throw new ApiError('otp.invalid', 422);
       // the caller now owns the new contact: only now may the answer say it is taken
-      await this.assertContactFree(tx, row.field, row.newValue, principal.userId);
+      await assertContactFree(tx, row.field, row.newValue, principal.userId);
       const moved = await tx.volunteerChangeRequest.updateMany({
         where: { id: row.id, status: 'open' },
         data: { status: 'submitted' },
@@ -283,7 +296,7 @@ export class ChangeRequestsService {
       where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
       orderBy: orderBy(sort, direction),
       take: query.limit + 1,
-      include: { volunteer: { select: { user: { select: { displayName: true } } } } },
+      include: { user: { select: { displayName: true } } },
     });
     const { rows, meta } = buildPage(fetched, {
       limit: query.limit,
@@ -297,7 +310,7 @@ export class ChangeRequestsService {
       // the approver sees who asked
       rows: rows.map((r) => ({
         ...editView(r, visible(r.field, classes)),
-        volunteerName: r.volunteer.user.displayName,
+        volunteerName: r.user.displayName,
       })),
       meta,
     };
@@ -319,15 +332,20 @@ export class ChangeRequestsService {
     const row = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM volunteer_change_requests WHERE id = ${requestId}::uuid FOR UPDATE`;
       const found = await tx.volunteerChangeRequest.findFirst({
-        where: { id: requestId, kind: EDIT, volunteer: volunteerWhere(scope) },
-        include: { volunteer: { select: { userId: true } } },
+        where: {
+          id: requestId,
+          kind: EDIT,
+          volunteerId: { not: null },
+          volunteer: volunteerWhere(scope),
+        },
       });
-      if (!found) {
+      // a request with no volunteer is an official's, which this volunteer path never decides
+      if (!found?.volunteerId) {
         this.access.denied(actor.userId, scope.permission, scope.entity);
         throw new ApiError('permission.not_found', 404);
       }
       if (found.status !== 'submitted') throw new ApiError('user.transition_not_allowed', 409);
-      const owner = found.volunteer.userId;
+      const owner = found.userId;
       const field = editField.parse(found.field);
       if (body.decision === 'approve')
         await this.apply(tx, owner, found.volunteerId, field, found.newValue);
@@ -371,7 +389,7 @@ export class ChangeRequestsService {
   ) {
     if (stored === null) throw new ApiError('user.transition_not_allowed', 409);
     if (isContact(field)) {
-      await this.assertContactFree(tx, field, stored, userId);
+      await assertContactFree(tx, field, stored, userId);
       await tx.user.update({
         where: { id: userId },
         data: field === 'mobile' ? { mobile: stored } : { email: stored },

@@ -25,6 +25,7 @@ import type { PrismaService, Tx } from '../core/prisma.service';
 import { currentContext } from '../core/request-context';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
+import { linkStaffPhoto } from './staff-photos';
 import { registrationDetailsColumns } from './volunteer-details';
 import type { AccountEvents } from '../notifications/account-events';
 
@@ -341,7 +342,7 @@ export class RegistrationService {
             update: profile,
           });
         } else if (draft.photoFileId) {
-          await this.linkStaffPhoto(tx, id, draft.photoFileId);
+          await linkStaffPhoto(tx, id, draft.photoFileId);
         }
         await tx.registrationDraft.update({
           where: { id: draft.id },
@@ -379,21 +380,6 @@ export class RegistrationService {
       throw error;
     }
     return userId;
-  }
-
-  /**
-   * The staff photo link: a returning official's link is moved to the new photo (the API role
-   * cannot delete rows); the earlier photo stays with the earlier submitted draft (BD-46).
-   */
-  private async linkStaffPhoto(tx: Tx, userId: string, fileId: string): Promise<void> {
-    const moved = await tx.fileLink.updateMany({
-      where: { entityType: 'user', entityId: userId, slot: 'photo' },
-      data: { fileId },
-    });
-    if (moved.count === 0)
-      await tx.fileLink.create({
-        data: { id: uuidv7(), fileId, entityType: 'user', entityId: userId, slot: 'photo' },
-      });
   }
 
   /**
