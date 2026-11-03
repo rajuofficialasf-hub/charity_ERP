@@ -84,6 +84,14 @@ describe('the shell on a wide screen', () => {
     expect(screen.queryByRole('button', { name: 'Open navigation' })).not.toBeInTheDocument();
   });
 
+  it('keeps the counts and the current page in the folded sidebar', () => {
+    window.localStorage.setItem('asf-nav-collapsed', '1');
+    renderShell(1280);
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    expect(within(nav).getByRole('link', { name: 'Registrations, 3 pending' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'Projects, 140 pending' })).toHaveAttribute('aria-current', 'page');
+  });
+
   it('puts the header start, the banner and the page in place', () => {
     renderShell(1280, { headerStart: <nav aria-label="Breadcrumb">Work / Projects</nav>, banner: <p role="status">Offline</p> });
     expect(screen.getByRole('banner')).toContainElement(screen.getByRole('navigation', { name: 'Breadcrumb' }));

@@ -169,6 +169,7 @@ export function NavSection({ groups, onNavigate }: { groups: ExtendedNavGroup[];
 // ----------------------------------------------------------------------
 
 function MiniRow({ item }: { item: ExtendedNavItem }) {
+  const labels = useLabels();
   const { pathname } = useLocation();
   const active = isActive(item, pathname);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
