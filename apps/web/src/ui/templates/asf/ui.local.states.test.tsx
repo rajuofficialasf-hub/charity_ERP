@@ -1,0 +1,292 @@
+// @vitest-environment jsdom
+// The state, count and list pieces this app added to the asf template (listed in local.json): the
+// status chip, the counts that filter a list, the offline banner, the disclosure, the choice tiles,
+// the bulk rows, the attention card, the icon button and the small button.
+import '@testing-library/jest-dom/vitest';
+
+import type { ReactNode } from 'react';
+
+import { useState } from 'react';
+import userEvent from '@testing-library/user-event';
+import { createMemoryRouter, RouterProvider } from 'react-router';
+import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
+import { act, render, screen, within, cleanup } from '@testing-library/react';
+
+import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
+import { Button, BulkRow, BulkList, Disclosure, IconButton, UiProvider, StatusChip, ChoiceTiles, AttentionCard, OfflineBanner, StatFilterBar } from './index';
+
+beforeEach(() => stubWidth(false));
+
+afterEach(() => {
+  cleanup();
+  resetPage();
+});
+
+function renderInApp(ui: ReactNode) {
+  const router = createMemoryRouter(
+    [
+      { path: '/applications', element: <h1>Applications to review</h1> },
+      { path: '*', element: ui },
+    ],
+    { initialEntries: ['/'] }
+  );
+  return render(
+    <UiProvider>
+      <RouterProvider router={router} />
+    </UiProvider>
+  );
+}
+
+describe('the status chip', () => {
+  it('shows its words with an icon, never the colour alone', () => {
+    const { container } = render(
+      <UiProvider>
+        <StatusChip status="approved" label="Approved" />
+      </UiProvider>
+    );
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(container.firstElementChild).toHaveAttribute('data-status', 'approved');
+  });
+});
+
+describe('the counts that filter a list', () => {
+  const items = [
+    { id: 'all', label: 'All', value: 1240, icon: 'users' as const },
+    { id: 'pending', label: 'Pending', value: 12, icon: 'hourglass' as const, tone: 'warning' as const },
+    { id: 'total_year', label: 'This year', value: 300, icon: 'calendar' as const, selectable: false },
+    { id: 'blocked', label: 'Blocked', value: 4, icon: 'shield' as const, tone: 'error' as const },
+  ];
+
+  it('presses the chosen count and reports a new choice', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(
+      <UiProvider>
+        <StatFilterBar label="Volunteer counts" items={items} selectedId="all" onSelect={onSelect} moreLabel="More" moreValue={(hidden) => `${hidden} more`} />
+      </UiProvider>
+    );
+    const group = screen.getByRole('group', { name: 'Volunteer counts' });
+    expect(within(group).getByRole('button', { name: 'All 1,240' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(within(group).getByRole('button', { name: 'Pending 12' }));
+    expect(onSelect).toHaveBeenCalledWith('pending');
+    expect(within(group).queryByRole('button', { name: /This year/ })).not.toBeInTheDocument();
+    expect(within(group).getByText('This year')).toBeInTheDocument();
+  });
+
+  it('puts the counts past the visible ones behind a last card', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(
+      <UiProvider>
+        <StatFilterBar label="Counts" items={items} visible={2} selectedId="all" onSelect={onSelect} moreLabel="More states" moreValue={(hidden) => `${hidden} more`} />
+      </UiProvider>
+    );
+    await user.click(screen.getByRole('button', { name: 'More states' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Blocked 4' }));
+    expect(onSelect).toHaveBeenCalledWith('blocked');
+  });
+});
+
+describe('the offline banner', () => {
+  it('is a named landmark whose state is read out, with the records waiting', async () => {
+    const user = userEvent.setup();
+    const onOpenOutbox = vi.fn();
+    render(
+      <UiProvider>
+        <OfflineBanner state="offline" pendingCount={3} onOpenOutbox={onOpenOutbox} />
+      </UiProvider>
+    );
+    const banner = screen.getByRole('region', { name: 'Connection and sync' });
+    expect(within(banner).getByRole('status')).toHaveTextContent('You are offline; your work is saved on this phone');
+    expect(banner).toHaveTextContent('3 waiting to sync');
+    await user.click(within(banner).getByRole('button', { name: 'See details' }));
+    expect(onOpenOutbox).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides "back online" by itself after 4 seconds', () => {
+    vi.useFakeTimers();
+    try {
+      const onHidden = vi.fn();
+      render(
+        <UiProvider>
+          <OfflineBanner state="back_online" onHidden={onHidden} />
+        </UiProvider>
+      );
+      expect(screen.getByRole('status')).toHaveTextContent('Back online');
+      act(() => vi.advanceTimersByTime(4000));
+      expect(onHidden).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole('region')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('the disclosure', () => {
+  it('opens by its title, with its hint beside it', async () => {
+    const user = userEvent.setup();
+    render(
+      <UiProvider>
+        <Disclosure title="Scoring" hint="optional" headingLevel={3}>
+          <p>Points per answer</p>
+        </Disclosure>
+      </UiProvider>
+    );
+    const toggle = screen.getByRole('button', { name: /Scoring/ });
+    expect(screen.getByRole('heading', { level: 3 })).toContainElement(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('optional')).toBeInTheDocument();
+    await user.click(toggle);
+    expect(screen.getByText('Points per answer')).toBeVisible();
+  });
+
+  it('follows the page when opened from outside', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(
+      <UiProvider>
+        <Disclosure title="Logic" open onToggle={onToggle}>
+          <p>Show when</p>
+        </Disclosure>
+      </UiProvider>
+    );
+    await user.click(screen.getByRole('button', { name: 'Logic' }));
+    expect(onToggle).toHaveBeenCalledWith(false);
+    expect(screen.getByText('Show when')).toBeVisible();
+  });
+});
+
+describe('the choice tiles', () => {
+  it('chooses one tile under its group title', async () => {
+    const user = userEvent.setup();
+    function Start() {
+      const [value, setValue] = useState<string | null>(null);
+      return (
+        <UiProvider>
+          <ChoiceTiles
+            label="How to start"
+            value={value}
+            onChange={setValue}
+            tiles={[
+              { title: 'New', tiles: [{ id: 'blank', title: 'Blank', description: 'Start from nothing', icon: 'add' }] },
+              { title: 'Copy', tiles: [{ id: 'template', title: 'From a template' }, { id: 'project', title: 'From a project', disabled: true }] },
+            ]}
+          />
+          <output>{value}</output>
+        </UiProvider>
+      );
+    }
+    render(<Start />);
+    const group = screen.getByRole('radiogroup', { name: 'How to start' });
+    expect(within(group).getByText('Copy')).toBeInTheDocument();
+    await user.click(within(group).getByRole('radio', { name: /Blank/ }));
+    expect(screen.getByRole('status')).toHaveTextContent('blank');
+    expect(within(group).getByRole('radio', { name: /From a project/ })).toBeDisabled();
+  });
+});
+
+describe('the bulk rows', () => {
+  it('chooses rows, acts on one at once, and opens its details', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const onSelectAll = vi.fn();
+    const distributed = vi.fn();
+    const absent = vi.fn();
+    const onExpandedChange = vi.fn();
+    render(
+      <UiProvider>
+        <BulkList label="Today's distribution" selectAllLabel="Select all remaining" onSelectAll={onSelectAll} selectedCount={1} someSelected>
+          <BulkRow
+            title="Amina Khatun"
+            meta="APP-0012 · Uttarpara"
+            selected
+            onSelect={onSelect}
+            state={{ status: 'approved', label: 'Approved' }}
+            syncState={{ status: 'sync_pending', label: 'Waiting to sync' }}
+            quickAction={{ label: 'Distributed', icon: 'check', onClick: distributed }}
+            menuActions={[{ id: 'absent', label: 'Absent', onSelect: absent }]}
+            onExpandedChange={onExpandedChange}
+          >
+            <p>Blankets: 2</p>
+          </BulkRow>
+        </BulkList>
+      </UiProvider>
+    );
+    const list = screen.getByRole('list', { name: "Today's distribution" });
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: 'Select all remaining' }));
+    expect(onSelectAll).toHaveBeenCalledWith(true);
+    const row = within(list).getByRole('listitem');
+    expect(within(row).getByText('Approved')).toBeInTheDocument();
+    expect(within(row).getByText('Waiting to sync')).toBeInTheDocument();
+    await user.click(within(row).getByRole('checkbox', { name: 'Amina Khatun' }));
+    expect(onSelect).toHaveBeenCalledWith(false);
+    await user.click(within(row).getByRole('button', { name: 'Distributed' }));
+    expect(distributed).toHaveBeenCalledTimes(1);
+    await user.click(within(row).getByRole('button', { name: 'More actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Absent' }));
+    expect(absent).toHaveBeenCalledTimes(1);
+    await user.click(within(row).getByRole('button', { name: 'Show details' }));
+    expect(onExpandedChange).toHaveBeenCalledWith(true);
+  });
+});
+
+describe('the attention card', () => {
+  it('is one link to its list, with why and how long', async () => {
+    const user = userEvent.setup();
+    renderInApp(<AttentionCard tone="warning" icon="hourglass" title="12 applications to review" reason="Older than 3 days" meta="oldest 6 days" to="/applications" />);
+    const link = screen.getByRole('link', { name: /12 applications to review/ });
+    expect(link).toHaveTextContent('Older than 3 days');
+    expect(link).toHaveTextContent('oldest 6 days');
+    await user.click(link);
+    expect(await screen.findByRole('heading', { name: 'Applications to review' })).toBeInTheDocument();
+  });
+
+  it('carries one action instead of a link', () => {
+    renderInApp(<AttentionCard icon="warning" title="Sync failed" action={<button type="button">Try again</button>} />);
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+});
+
+describe('the icon button and the small button', () => {
+  it('names an icon-only button by its label', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(
+      <UiProvider>
+        <IconButton label="Remove member" icon="delete" tone="danger" onClick={onClick} />
+        <Button variant="text" size="small" onClick={() => {}}>
+          Edit
+        </Button>
+      </UiProvider>
+    );
+    await user.click(screen.getByRole('button', { name: 'Remove member' }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Edit' })).toHaveClass('MuiButton-sizeSmall');
+  });
+});
+
+describe('the state pieces together', () => {
+  it.each(['light', 'dark'] as const)('pass axe, %s', async (mode) => {
+    window.localStorage.setItem('asf-mode', mode);
+    const { container } = renderInApp(
+      <>
+        <OfflineBanner state="sync_failed" pendingCount={2} onOpenOutbox={() => {}} />
+        <StatFilterBar label="Counts" items={[{ id: 'a', label: 'All', value: 3, icon: 'users' }]} selectedId="a" onSelect={() => {}} moreLabel="More" moreValue={() => ''} />
+        <StatusChip status="rejected" label="Rejected" />
+        <Disclosure title="More">
+          <p>x</p>
+        </Disclosure>
+        <ChoiceTiles label="Start" value="a" onChange={() => {}} tiles={[{ id: 'a', title: 'Blank' }]} />
+        <BulkList label="Rows">
+          <BulkRow title="Amina" selected={false} onSelect={() => {}} quickAction={{ label: 'Done', onClick: () => {} }} />
+        </BulkList>
+        <AttentionCard icon="bell" title="New notices" to="/applications" />
+        <IconButton label="Close" icon="close" />
+      </>
+    );
+    await expectNoAxeViolations(container);
+  });
+});

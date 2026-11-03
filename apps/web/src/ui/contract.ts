@@ -461,6 +461,18 @@ export type UiLabels = {
   copyFailed: string;
   /** The name of a profile's action panel. */
   actions: string;
+  offline: string;
+  backOnline: string;
+  syncing: string;
+  syncFailed: string;
+  /** For example "3 waiting to sync". */
+  pendingSync: string;
+  openOutbox: string;
+  /** The name of the offline banner's landmark. */
+  connectionStatus: string;
+  moreActions: string;
+  showDetails: string;
+  hideDetails: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -1067,6 +1079,157 @@ export type ContactItem = {
 
 export type ContactListProps = { items: readonly ContactItem[] };
 
+// ---------------------------------------------------------------------------------------------
+// States, counts and lists of the app
+
+/** Every state a record shows, each with its own colour and icon; the words come from the page. */
+export type StatusKey =
+  | "draft"
+  | "needs_verification"
+  | "submitted"
+  | "under_review"
+  | "reviewed"
+  | "waitlisted"
+  | "approved"
+  | "rejected"
+  | "implementation"
+  | "completed"
+  | "closed"
+  | "deleted"
+  | "sync_pending"
+  | "sync_syncing"
+  | "sync_synced"
+  | "sync_failed"
+  | "photo_verified"
+  | "photo_flagged"
+  | "photo_pending"
+  | "blocklisted";
+
+/** A state as a soft chip with its icon and its words, never colour alone. */
+export type StatusChipProps = { status: StatusKey; label: string; size?: "small" | "medium"; lang?: string };
+
+export type StatFilterItem = {
+  id: string;
+  label: string;
+  value: number;
+  icon: ExtendedIconName;
+  tone?: ColorTone;
+  /** False for a count that is shown but does not filter the list. */
+  selectable?: boolean;
+};
+
+/** Counts above a list that filter it when chosen; past `visible`, the rest sit behind a last card. */
+export type StatFilterBarProps = {
+  label: string;
+  items: readonly StatFilterItem[];
+  selectedId?: string;
+  onSelect?: (id: string) => void;
+  visible?: number;
+  /** The last card's label, for example "More states". */
+  moreLabel: string;
+  /** The last card's figure for the hidden counts, for example "4 more". */
+  moreValue: (hidden: number) => string;
+  loading?: boolean;
+};
+
+export type OfflineState = "offline" | "back_online" | "syncing" | "sync_failed";
+
+/** The connection and sync state under the app bar; "back online" hides itself after 4 seconds. */
+export type OfflineBannerProps = {
+  state: OfflineState;
+  /** Records waiting in the outbox; shown, not announced on each change. */
+  pendingCount?: number;
+  onOpenOutbox?: () => void;
+  onHidden?: () => void;
+  /** Words in place of the state's own. */
+  text?: string;
+  /** The landmark's name in place of labels.connectionStatus. */
+  label?: string;
+};
+
+/** A part of a page that opens and closes by its title; open from outside with `open` and `onToggle`. */
+export type DisclosureProps = {
+  title: string;
+  /** A short note beside the title: a count, "optional". */
+  hint?: string;
+  icon?: ExtendedIconName;
+  defaultOpen?: boolean;
+  open?: boolean;
+  onToggle?: (open: boolean) => void;
+  headingLevel?: 2 | 3 | 4;
+  children: ReactNode;
+};
+
+export type ChoiceTile = { id: string; title: string; description?: string; icon?: ExtendedIconName; disabled?: boolean };
+
+export type ChoiceTileGroup = { title: string; tiles: readonly ChoiceTile[] };
+
+/** One choice among a few larger tiles, each with a line on what it means; flat or under group titles. */
+export type ChoiceTilesProps = FieldBase & {
+  tiles: readonly ChoiceTile[] | readonly ChoiceTileGroup[];
+  value: string | null;
+  onChange: (id: string) => void;
+  columns?: 1 | 2;
+};
+
+export type BulkState = { status: StatusKey; label: string };
+
+/** One row of a day's work on a phone: choose it, act on it at once, or open its details. */
+export type BulkRowProps = {
+  title: string;
+  /** The application number and village, as the page words them. */
+  meta?: string;
+  selected?: boolean;
+  onSelect?: (selected: boolean) => void;
+  state?: BulkState;
+  photoState?: BulkState;
+  syncState?: BulkState;
+  quickAction?: { label: string; icon?: ExtendedIconName; onClick: () => void; disabled?: boolean };
+  /** The other outcomes (absent, later, not distributed, damaged, partial), behind labels.moreActions. */
+  menuActions?: readonly { id: string; label: string; onSelect: () => void }[];
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
+  /** The row's details: quantities and a note. */
+  children?: ReactNode;
+};
+
+/** The list of bulk rows with "select all remaining" and the count chosen. */
+export type BulkListProps = {
+  label: string;
+  selectAllLabel?: string;
+  allSelected?: boolean;
+  someSelected?: boolean;
+  onSelectAll?: (selected: boolean) => void;
+  selectedCount?: number;
+  children: ReactNode;
+};
+
+/** An item that needs the person: why, how long it has waited, and a link or one action. */
+export type AttentionCardProps = {
+  tone?: Tone;
+  icon: ExtendedIconName;
+  title: string;
+  reason?: string;
+  /** For example "waiting 6 days". */
+  meta?: string;
+  /** The whole card is a link to this app path. */
+  to?: string;
+  action?: ReactNode;
+};
+
+/** A button that shows only its icon; `label` is its name and its tooltip. */
+export type IconButtonProps = {
+  label: string;
+  icon: ExtendedIconName;
+  onClick?: () => void;
+  disabled?: boolean;
+  tone?: "default" | "danger";
+  size?: "small" | "medium";
+};
+
+/** `text` is the quiet button of row actions and links in a sentence; `small` for dense rows. */
+export type ButtonExtendedProps = ButtonProps & { size?: "small" | "medium" };
+
 /** The signed-in user's button in the header and the panel it opens. */
 export type AccountMenuProps = {
   user: { name: string; email?: string; avatarSrc?: string };
@@ -1158,7 +1321,8 @@ export type ColorModeButtonProps = Record<string, never>;
 
 // ---------------------------------------------------------------------------------------------
 
-export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "Page" | "Icon" | "DataTable" | "SelectField" | "TextField" | "Dialog"> & {
+export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "Page" | "Icon" | "DataTable" | "SelectField" | "TextField" | "Dialog" | "Button"> & {
+  Button: ComponentType<ButtonExtendedProps>;
   Dialog: ComponentType<DialogExtendedProps>;
   TextField: ComponentType<TextFieldExtendedProps>;
   SelectField: ComponentType<SelectFieldExtendedProps>;
@@ -1203,6 +1367,15 @@ export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "P
   ProfileBanner: ComponentType<ProfileBannerProps>;
   ProfileSection: ComponentType<ProfileSectionProps>;
   ContactList: ComponentType<ContactListProps>;
+  StatusChip: ComponentType<StatusChipProps>;
+  StatFilterBar: ComponentType<StatFilterBarProps>;
+  OfflineBanner: ComponentType<OfflineBannerProps>;
+  Disclosure: ComponentType<DisclosureProps>;
+  ChoiceTiles: ComponentType<ChoiceTilesProps>;
+  BulkList: ComponentType<BulkListProps>;
+  BulkRow: ComponentType<BulkRowProps>;
+  AttentionCard: ComponentType<AttentionCardProps>;
+  IconButton: ComponentType<IconButtonProps>;
   AccountMenu: ComponentType<AccountMenuProps>;
   LanguageSwitch: ComponentType<LanguageSwitchProps>;
   PublicShell: ComponentType<PublicShellProps>;

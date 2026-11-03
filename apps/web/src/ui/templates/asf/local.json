@@ -91,6 +91,18 @@
       ],
       "note": "people and profiles: a tinted tile with an icon, initial or photo, the first cell of a people list with the name as a link, a copy button that announces each copy, the dark profile banner with state chips, key facts with copy buttons and an action panel, profile sections that open and close by their title with an edit button beside it, and a contact list with call, message and copy; built for the CSS ERP, screenshot to come",
       "screenshot": null
+    },
+    {
+      "name": "StatusChip, StatFilterBar, OfflineBanner, Disclosure, ChoiceTiles, BulkList, BulkRow, AttentionCard, IconButton, Button size",
+      "files": [
+        "components/status.tsx",
+        "components/button.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the states and lists of an ERP: a status chip per record state with its own colour and icon, counts above a list that filter it with the rest behind a last card, the offline and sync banner that hides \"back online\" by itself, a disclosure that opens by its title, larger choice tiles under group titles, the bulk rows of a day's distribution with a quick action, the other outcomes in a menu and details, an attention card that links to its list, an icon-only button named by its tooltip, and a small button; built for the CSS ERP, screenshot to come",
+      "screenshot": null
     }
   ]
 }

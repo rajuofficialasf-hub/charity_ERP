@@ -1,5 +1,5 @@
 import type { ButtonProps as MuiButtonProps } from '@mui/material/Button';
-import type { ButtonProps, LinkButtonProps } from '@/ui/contract';
+import type { LinkButtonProps, ButtonExtendedProps } from '@/ui/contract';
 
 import { Link as RouterLink } from 'react-router';
 
@@ -10,7 +10,7 @@ import { useSurface } from './surface-context';
 
 // ----------------------------------------------------------------------
 
-type Look = Pick<ButtonProps, 'variant' | 'startIcon' | 'fullWidth'>;
+type Look = Pick<ButtonExtendedProps, 'variant' | 'startIcon' | 'fullWidth'>;
 
 /** The contract's look as MUI props. Primary is dark on admin screens and the brand colour on public pages. */
 function useLook({ variant = 'primary', startIcon, fullWidth }: Look): Pick<MuiButtonProps, 'variant' | 'color' | 'sx' | 'fullWidth' | 'startIcon'> {
@@ -42,10 +42,10 @@ function useLook({ variant = 'primary', startIcon, fullWidth }: Look): Pick<MuiB
   }
 }
 
-export function Button({ children, onClick, type = 'button', disabled, loading, ...look }: ButtonProps) {
+export function Button({ children, onClick, type = 'button', disabled, loading, size = 'medium', ...look }: ButtonExtendedProps) {
   const props = useLook(look);
   return (
-    <MuiButton {...props} type={type} onClick={onClick} disabled={disabled} loading={loading}>
+    <MuiButton {...props} type={type} onClick={onClick} disabled={disabled} loading={loading} size={size}>
       {children}
     </MuiButton>
   );

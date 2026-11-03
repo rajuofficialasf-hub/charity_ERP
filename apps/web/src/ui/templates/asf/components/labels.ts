@@ -86,6 +86,16 @@ export const DEFAULT_LABELS: UiLabels = {
   copied: '{label} copied',
   copyFailed: '{label} could not be copied',
   actions: 'Actions',
+  offline: 'You are offline; your work is saved on this phone',
+  backOnline: 'Back online',
+  syncing: 'Syncing',
+  syncFailed: 'Sync failed',
+  pendingSync: '{count} waiting to sync',
+  openOutbox: 'See details',
+  connectionStatus: 'Connection and sync',
+  moreActions: 'More actions',
+  showDetails: 'Show details',
+  hideDetails: 'Hide details',
 };
 
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);

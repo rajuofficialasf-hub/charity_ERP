@@ -193,6 +193,16 @@
     "copy": "{label} কপি করুন",
     "copied": "{label} কপি হয়েছে",
     "copyFailed": "{label} কপি করা যায়নি",
-    "actions": "অ্যাকশন"
+    "actions": "অ্যাকশন",
+    "offline": "আপনি অফলাইনে আছেন; আপনার কাজ এই ফোনে সংরক্ষিত আছে",
+    "backOnline": "আবার অনলাইনে",
+    "syncing": "সিঙ্ক হচ্ছে",
+    "syncFailed": "সিঙ্ক হয়নি",
+    "pendingSync": "{count}টি সিঙ্কের অপেক্ষায়",
+    "openOutbox": "বিস্তারিত দেখুন",
+    "connectionStatus": "সংযোগ ও সিঙ্কের অবস্থা",
+    "moreActions": "আরও কাজ",
+    "showDetails": "বিস্তারিত দেখুন",
+    "hideDetails": "বিস্তারিত লুকান"
   }
 }
