@@ -339,5 +339,32 @@
     "offline": "Offline example",
     "syncing": "Syncing example",
     "sync_failed": "Sync failed example"
+  },
+  "asf": {
+    "eyebrow": "asf UI system",
+    "title": "asf piece gallery",
+    "intro": "Every piece built for the app on the new UI system, in both languages and in light and dark (development only).",
+    "sections": {
+      "buttons": "Buttons",
+      "states": "States and counts",
+      "fields": "Text fields and forms",
+      "choices": "Choices",
+      "table": "Table and filters",
+      "progress": "Steps, history and progress",
+      "people": "People and profiles",
+      "overlays": "Dialogs, panels and menus",
+      "lists": "The day's work, attention and uploads"
+    },
+    "tiles": {
+      "blank": "Start blank",
+      "blankText": "Set it up from scratch",
+      "copy": "From an earlier project",
+      "copyText": "Its parts are copied"
+    },
+    "open": "Open",
+    "dialogText": "This dialog stays open while saving.",
+    "attention": "12 applications waiting for review",
+    "attentionReason": "Older than 3 days",
+    "attentionMeta": "The oldest has waited 6 days"
   }
 }

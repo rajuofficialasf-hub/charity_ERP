@@ -37,10 +37,11 @@ import { count, srOnly, appPath } from './shared';
 
 // ----------------------------------------------------------------------
 
-/** The soft tint behind a tone's dark ink, as on the asf chips; light ink in dark mode. */
+/** The soft tint behind a tone's darkest ink; light ink in dark mode. */
 function soft(tone: ColorTone) {
-  if (tone === 'neutral') return { bgcolor: 'action.hover', color: 'text.secondary' };
-  return { bgcolor: `rgba(var(--asf-palette-${tone}-mainChannel) / 0.16)`, color: `${tone}.dark` };
+  if (tone === 'neutral') return { bgcolor: 'action.hover', color: 'text.primary' };
+  // the darkest shade reads on the tint in light mode; the light shade takes over in dark mode
+  return { bgcolor: `rgba(var(--asf-palette-${tone}-mainChannel) / 0.16)`, color: `${tone}.darker` };
 }
 
 const STATUS_LOOK = new Map<StatusKey, { tone: ColorTone; icon: ExtendedIconName }>([
@@ -85,7 +86,7 @@ export function StatusChip({ status, label, size = 'small', lang }: StatusChipPr
         fontWeight: 700,
         whiteSpace: 'nowrap',
         ...soft(look.tone),
-        ...theme.applyStyles('dark', { color: look.tone === 'neutral' ? 'text.secondary' : `${look.tone}.light` }),
+        ...theme.applyStyles('dark', { color: look.tone === 'neutral' ? 'text.primary' : `${look.tone}.light` }),
       })}
     >
       <Icon name={look.icon} size={size === 'small' ? 14 : 16} />
@@ -126,7 +127,7 @@ export function StatFilterBar({ label, items, selectedId, onSelect, visible = it
           <>
             <IconTile icon={item.icon} tone={item.tone ?? 'neutral'} />
             <Box sx={{ minWidth: 0 }}>
-              <Box component="span" sx={{ display: 'block', typography: 'body2', color: 'text.secondary' }}>
+              <Box component="span" sx={{ display: 'block', typography: 'body2', color: pressed ? 'text.primary' : 'text.secondary' }}>
                 {item.label}
               </Box>{' '}
               <Box component="span" sx={{ display: 'block', typography: 'h5', fontVariantNumeric: 'tabular-nums' }}>
@@ -321,7 +322,7 @@ export function ChoiceTiles({ label, name, error, hint, required, disabled, tile
                       {tile.title}
                     </Box>
                     {tile.description && (
-                      <Box component="span" sx={{ display: 'block', typography: 'body2', color: 'text.secondary' }}>
+                      <Box component="span" sx={{ display: 'block', typography: 'body2', color: checked ? 'text.primary' : 'text.secondary' }}>
                         {tile.description}
                       </Box>
                     )}
@@ -386,7 +387,7 @@ export function BulkRow({ title, meta, selected, onSelect, state, photoState, sy
         {onSelect && <Checkbox ariaLabel={title} checked={Boolean(selected)} onChange={onSelect} />}
         <Box sx={{ flex: 1, minWidth: 0, pt: 0.75 }}>
           <Box sx={{ typography: 'subtitle2' }}>{title}</Box>
-          {meta && <Box sx={{ typography: 'caption', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{meta}</Box>}
+          {meta && <Box sx={{ typography: 'caption', color: selected ? 'text.primary' : 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{meta}</Box>}
           {(state || photoState || syncState) && (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
               {state && <StatusChip status={state.status} label={state.label} />}

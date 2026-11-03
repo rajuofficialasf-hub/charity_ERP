@@ -62,7 +62,7 @@ export function EmptyState({ title, description, action, icon }: EmptyStateProps
         {title}
       </Box>
       {description && (
-        <Box component="p" sx={{ m: 0, typography: 'body2', color: 'text.disabled', maxWidth: '48ch' }}>
+        <Box component="p" sx={{ m: 0, typography: 'body2', color: 'text.secondary', maxWidth: '48ch' }}>
           {description}
         </Box>
       )}

@@ -121,7 +121,7 @@ function FileRow({ item, onRemove, onRetry }: { item: UploadItem; onRemove?: (id
           </Box>
         )}
         {item.reason && (
-          <Box component="span" sx={{ typography: 'caption', color: 'error.main' }}>
+          <Box component="span" sx={(theme) => ({ typography: 'caption', color: 'error.dark', ...theme.applyStyles('dark', { color: 'error.light' }) })}>
             {item.reason}
           </Box>
         )}

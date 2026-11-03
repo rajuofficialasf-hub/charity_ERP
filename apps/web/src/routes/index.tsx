@@ -8,6 +8,7 @@ export const GALLERY_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEV_G
 
 // Constant-folded at build time, so a normal production build has no gallery chunk at all.
 const GalleryPage = GALLERY_ENABLED ? lazy(() => import('../dev/GalleryPage')) : null;
+const AsfGalleryPage = GALLERY_ENABLED ? lazy(() => import('../dev/AsfGalleryPage')) : null;
 
 /**
  * Every screen of the PWA: the sign-in pages alone, every signed-in page inside the app shell.
@@ -397,13 +398,21 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
             },
           ],
         },
-        ...(gallery && GalleryPage
+        ...(gallery && GalleryPage && AsfGalleryPage
           ? [
               {
                 path: '/dev/components',
                 element: (
                   <Suspense fallback={null}>
                     <GalleryPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: '/dev/asf',
+                element: (
+                  <Suspense fallback={null}>
+                    <AsfGalleryPage />
                   </Suspense>
                 ),
               },

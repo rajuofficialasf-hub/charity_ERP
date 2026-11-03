@@ -134,7 +134,7 @@ export function ProfileBanner({ name, headingLevel = 1, photo, status, facts, ac
         gap: 2.5,
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, flex: 1, minWidth: 0 }}>
         <Avatar name={name} src={photo} size="xlarge" decorative />
         <Box sx={{ minWidth: 0, display: 'grid', gap: 1 }}>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
@@ -153,7 +153,7 @@ export function ProfileBanner({ name, headingLevel = 1, photo, status, facts, ac
                 >
                   {fact.icon && <Icon name={fact.icon} size={16} />}
                   {fact.showLabel ? `${fact.label}: ` : <Box component="span" sx={srOnly}>{`${fact.label}: `}</Box>}
-                  <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                  <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
                     {fact.value}
                   </Box>
                   {fact.copy && <CopyButton value={fact.value} label={fact.label} />}

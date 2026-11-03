@@ -6,6 +6,7 @@ import { Link as RouterLink } from 'react-router';
 import MuiButton from '@mui/material/Button';
 
 import { Icon } from './icon';
+import { dangerButton } from './shared';
 import { useSurface } from './surface-context';
 
 // ----------------------------------------------------------------------
@@ -24,7 +25,8 @@ function useLook({ variant = 'primary', startIcon, fullWidth }: Look): Pick<MuiB
     case 'text':
       return { ...common, variant: 'text', color: 'inherit' };
     case 'danger':
-      return { ...common, variant: 'contained', color: 'error' };
+      // the main red with white text reads 3.0:1; the dark red reads with it
+      return { ...common, variant: 'contained', color: 'inherit', sx: dangerButton };
     default:
       return surface === 'public'
         ? { ...common, variant: 'contained', color: 'primary', sx: roomy }

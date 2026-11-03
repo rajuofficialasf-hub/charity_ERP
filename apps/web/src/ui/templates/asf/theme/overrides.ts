@@ -68,7 +68,13 @@ export function componentOverrides(theme: Theme, tokens: ThemeTokens): Component
     // Fields: outlined with a floating label, hairline border, dark border when focused.
     MuiInputLabel: {
       styleOverrides: {
-        root: { color: theme.vars.palette.text.disabled, '&.Mui-focused': { color: theme.vars.palette.text.primary } },
+        // the secondary grey reads on white and on the dark page; the disabled grey does not (2.7:1)
+        root: {
+          color: theme.vars.palette.text.secondary,
+          '&.Mui-focused': { color: theme.vars.palette.text.primary },
+          '&.Mui-error': { color: theme.vars.palette.error.dark },
+          ...dark({ '&.Mui-error': { color: theme.vars.palette.error.light } }),
+        },
         shrink: { fontWeight: 600, color: theme.vars.palette.text.secondary },
       },
     },
@@ -95,7 +101,17 @@ export function componentOverrides(theme: Theme, tokens: ThemeTokens): Component
         },
       },
     },
-    MuiFormHelperText: { styleOverrides: { root: { marginInline: 12 } } },
+    // the main red is too light for small text on white (3.2:1): errors take the dark red, the
+    // light red on the dark page
+    MuiFormHelperText: {
+      styleOverrides: {
+        root: {
+          marginInline: 12,
+          '&.Mui-error': { color: theme.vars.palette.error.dark },
+          ...dark({ '&.Mui-error': { color: theme.vars.palette.error.light } }),
+        },
+      },
+    },
     MuiMenu: {
       styleOverrides: {
         paper: { borderRadius: radius.medium + 2, boxShadow: shadows.dropdown(n['500']), padding: 4, ...dark({ boxShadow: shadows.dropdown('#000000') }) },

@@ -31,8 +31,8 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the choices of the ERP's forms: an \"other\" choice opening a text box inside the same field, disabled options, a select that becomes a combobox above 10 options, and a combobox for server search or free text; built for the CSS ERP, screenshot to come",
-      "screenshot": null
+      "note": "the choices of the ERP's forms: an \"other\" choice opening a text box inside the same field, disabled options, a select that becomes a combobox above 10 options, and a combobox for server search or free text; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-choices.png"
     },
     {
       "name": "TextField (extended), ErrorSummary, FormSection",
@@ -43,8 +43,8 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the text kinds of the ERP's forms (identity number, integer, decimal, money with the taka sign, mobile number, password with a show button; Bengali digits typed become English digits), a record field's states (locked with a correction link, changed with its previous value, officials only), an action inside a field's end, the error summary that links to each field, and the form section as a fieldset; built for the CSS ERP, screenshot to come",
-      "screenshot": null
+      "note": "the text kinds of the ERP's forms (identity number, integer, decimal, money with the taka sign, mobile number, password with a show button; Bengali digits typed become English digits), a record field's states (locked with a correction link, changed with its previous value, officials only), an action inside a field's end, the error summary that links to each field, and the form section as a fieldset; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-fields.png"
     },
     {
       "name": "Dialog (extended), ConfirmDialog, Menu, Drawer (bottom sheet)",
@@ -56,8 +56,8 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the overlays of the ERP: a dialog that stays open while saving and fills a phone for a long form, a confirm dialog with what follows, a required reason and a busy confirm, a menu of links and actions for rows and profiles, and the drawer as a bottom sheet on phones; built for the CSS ERP, screenshot to come",
-      "screenshot": null
+      "note": "the overlays of the ERP: a dialog that stays open while saving and fills a phone for a long form, a confirm dialog with what follows, a required reason and a busy confirm, a menu of links and actions for rows and profiles, and the drawer as a bottom sheet on phones; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-overlays.png"
     },
     {
       "name": "FileUpload",
@@ -67,8 +67,8 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "photos and files for field work: the camera, the gallery or any file by the project's setting, a drop zone, the type and size checks with the reason in words, the number of files left, and each file's state (made smaller, waiting offline, uploading with its progress, being checked, ready, failed with a retry) with its preview and capture details; built for the CSS ERP, screenshot to come",
-      "screenshot": null
+      "note": "photos and files for field work: the camera, the gallery or any file by the project's setting, a drop zone, the type and size checks with the reason in words, the number of files left, and each file's state (made smaller, waiting offline, uploading with its progress, being checked, ready, failed with a retry) with its preview and capture details; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-lists.png"
     },
     {
       "name": "Stepper, Timeline, ProgressBar, Skeleton",
@@ -78,8 +78,8 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "progress for an ERP: a stepper whose steps can carry their own done or still-needed mark and open themselves, a record's history as a vertical timeline or a strip of stages with each state read out, a progress bar with its numbers written and up to four stacked parts with a legend, and loading shapes that say they are loading; built for the CSS ERP, screenshot to come",
-      "screenshot": null
+      "note": "progress for an ERP: a stepper whose steps can carry their own done or still-needed mark and open themselves, a record's history as a vertical timeline or a strip of stages with each state read out, a progress bar with its numbers written and up to four stacked parts with a legend, and loading shapes that say they are loading; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-progress.png"
     },
     {
       "name": "IconTile, PersonCell, CopyButton, ProfileBanner, ProfileSection, ContactList",
@@ -89,8 +89,8 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "people and profiles: a tinted tile with an icon, initial or photo, the first cell of a people list with the name as a link, a copy button that announces each copy, the dark profile banner with state chips, key facts with copy buttons and an action panel, profile sections that open and close by their title with an edit button beside it, and a contact list with call, message and copy; built for the CSS ERP, screenshot to come",
-      "screenshot": null
+      "note": "people and profiles: a tinted tile with an icon, initial or photo, the first cell of a people list with the name as a link, a copy button that announces each copy, the dark profile banner with state chips, key facts with copy buttons and an action panel, profile sections that open and close by their title with an edit button beside it, and a contact list with call, message and copy; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-people.png"
     },
     {
       "name": "StatusChip, StatFilterBar, OfflineBanner, Disclosure, ChoiceTiles, BulkList, BulkRow, AttentionCard, IconButton, Button size",
@@ -101,8 +101,8 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the states and lists of an ERP: a status chip per record state with its own colour and icon, counts above a list that filter it with the rest behind a last card, the offline and sync banner that hides \"back online\" by itself, a disclosure that opens by its title, larger choice tiles under group titles, the bulk rows of a day's distribution with a quick action, the other outcomes in a menu and details, an attention card that links to its list, an icon-only button named by its tooltip, and a small button; built for the CSS ERP, screenshot to come",
-      "screenshot": null
+      "note": "the states and lists of an ERP: a status chip per record state with its own colour and icon, counts above a list that filter it with the rest behind a last card, the offline and sync banner that hides \"back online\" by itself, a disclosure that opens by its title, larger choice tiles under group titles, the bulk rows of a day's distribution with a quick action, the other outcomes in a menu and details, an attention card that links to its list, an icon-only button named by its tooltip, and a small button; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-states.png"
     },
     {
       "name": "Icons for an ERP (79 more Solar icons)",
@@ -113,7 +113,7 @@
         "../../icon-map.md"
       ],
       "note": "the icons an ERP's pages need beyond the kit's set (lock and unlock, copy, crossed eye, people states, project, transfer, merge, history, devices, camera, the record states and more), from the pinned @iconify-json/solar 1.2.13; the build script refuses a body that holds more than a drawing, and icon-map.md names the asf icon for each Lucide icon the app used; built for the CSS ERP",
-      "screenshot": null
+      "screenshot": "docs/ui/asf-pieces/gallery-buttons.png"
     },
     {
       "name": "AppShell (extended) and BottomNav",
@@ -125,7 +125,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the shell of a field app: the phone's tabs and the tablet's rail in place of the drawer (and the rail on every width for a person without sidebar groups), a count beside a link and in its name (99+ above 99), the app's own rule for the current page, a slot left in the header for the trail or the brand, a banner slot under the header, and a footer under the sidebar's links; built for the CSS ERP, screenshot to come",
+      "note": "the shell of a field app: the phone's tabs and the tablet's rail in place of the drawer (and the rail on every width for a person without sidebar groups), a count beside a link and in its name (99+ above 99), the app's own rule for the current page, a slot left in the header for the trail or the brand, a banner slot under the header, and a footer under the sidebar's links; built for the CSS ERP; its look is in the shell spec's pictures of the running app",
       "screenshot": null
     }
   ]

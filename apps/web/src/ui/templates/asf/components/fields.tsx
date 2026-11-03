@@ -13,6 +13,7 @@ import MuiTextField from '@mui/material/TextField';
 import { Icon } from './icon';
 import { Combobox, OtherText } from './choices';
 import { fill, useLabels } from './labels';
+import { brandInk } from './shared';
 
 // ----------------------------------------------------------------------
 
@@ -63,12 +64,12 @@ function FieldMarks({ locked, onRequestCorrection, previousValue, officialOnly }
         </Box>
       )}
       {locked && onRequestCorrection && (
-        <Button size="small" variant="text" onClick={onRequestCorrection} sx={{ minWidth: 0, px: 0.5, typography: 'caption', fontWeight: 600 }}>
+        <Button size="small" variant="text" color="inherit" onClick={onRequestCorrection} sx={{ minWidth: 0, px: 0.5, typography: 'caption', fontWeight: 600, ...brandInk }}>
           {labels.requestCorrection}
         </Button>
       )}
       {previousValue !== undefined && (
-        <Box component="span" sx={{ ...mark, color: 'warning.dark' }}>
+        <Box component="span" sx={(theme) => ({ ...mark, color: 'warning.darker', ...theme.applyStyles('dark', { color: 'warning.light' }) })}>
           <Icon name="refresh" size={16} />
           {labels.changed}
         </Box>
@@ -79,7 +80,7 @@ function FieldMarks({ locked, onRequestCorrection, previousValue, officialOnly }
         </Box>
       )}
       {officialOnly && (
-        <Box component="span" sx={{ ...mark, color: 'info.dark' }}>
+        <Box component="span" sx={(theme) => ({ ...mark, color: 'info.darker', ...theme.applyStyles('dark', { color: 'info.light' }) })}>
           <Icon name="eye" size={16} />
           {labels.officialOnly}
         </Box>

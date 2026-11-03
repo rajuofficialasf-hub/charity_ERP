@@ -4,9 +4,14 @@ import type { Theme } from '@mui/material/styles';
 // digits, the looks that keep text readable, and the checks that keep a page's data from becoming a
 // link or an image source that runs or loads something else.
 
-/** Read by screen readers, not shown. */
+/**
+ * Read by screen readers, not shown. Pinned to the top left of its positioned parent, so where its
+ * words would sit never widens the page.
+ */
 export const srOnly = {
   position: 'absolute',
+  top: 0,
+  left: 0,
   width: 1,
   height: 1,
   p: 0,
