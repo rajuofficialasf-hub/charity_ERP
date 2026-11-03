@@ -3,6 +3,7 @@ export { Stack } from './stack';
 export { Alert } from './alert';
 export { Menu } from './menu';
 export { FileUpload } from './file-upload';
+export { Stepper, Timeline, Skeleton, ProgressBar } from './progress';
 export { Dialog, ConfirmDialog } from './dialog';
 export { Drawer } from './drawer';
 export { Tabs } from './tabs';

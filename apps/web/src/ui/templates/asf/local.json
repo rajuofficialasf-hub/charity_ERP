@@ -69,6 +69,17 @@
       ],
       "note": "photos and files for field work: the camera, the gallery or any file by the project's setting, a drop zone, the type and size checks with the reason in words, the number of files left, and each file's state (made smaller, waiting offline, uploading with its progress, being checked, ready, failed with a retry) with its preview and capture details; built for the CSS ERP, screenshot to come",
       "screenshot": null
+    },
+    {
+      "name": "Stepper, Timeline, ProgressBar, Skeleton",
+      "files": [
+        "components/progress.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "progress for an ERP: a stepper whose steps can carry their own done or still-needed mark and open themselves, a record's history as a vertical timeline or a strip of stages with each state read out, a progress bar with its numbers written and up to four stacked parts with a legend, and loading shapes that say they are loading; built for the CSS ERP, screenshot to come",
+      "screenshot": null
     }
   ]
 }

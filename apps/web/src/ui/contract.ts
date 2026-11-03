@@ -446,6 +446,15 @@ export type UiLabels = {
   uploadReady: string;
   uploadFailed: string;
   uploadRejected: string;
+  /** Read after a step that still needs something. */
+  stepMissing: string;
+  stepDone: string;
+  stepCurrent: string;
+  stepUpcoming: string;
+  stepSkipped: string;
+  stepRejected: string;
+  /** For example "1,240 of 2,000 (62%)". */
+  progressText: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -911,6 +920,65 @@ export type FileUploadProps = Omit<FieldBase, "name"> & {
   onRetry?: (id: string) => void;
 };
 
+// ---------------------------------------------------------------------------------------------
+// Progress and steps
+
+/** A step's own mark, for a wizard that knows what each step still needs. */
+export type StepMark = "complete" | "missing" | undefined;
+
+/** The steps of a task in order, the current one marked; given `onSelect`, each step opens itself. */
+export type StepperProps = {
+  /** The accessible name of the list, for example "Registration steps". */
+  label: string;
+  steps: readonly string[];
+  /** The current step's index, from 0. */
+  current: number;
+  /** Without marks the steps before the current one count as done. */
+  marks?: readonly StepMark[];
+  onSelect?: (index: number) => void;
+};
+
+export type TimelineStatus = "done" | "current" | "upcoming" | "skipped" | "rejected";
+
+export type TimelineStep = {
+  id: string;
+  title: string;
+  /** Who acted; shown only with `showActor`, which a page sets for officials. */
+  actor?: string;
+  /** The time as the page words it, in English digits. */
+  time?: string;
+  comment?: ReactNode;
+  status: TimelineStatus;
+};
+
+/** What happened to a record, in order: a vertical history, or a short strip of stages. */
+export type TimelineProps = {
+  label: string;
+  steps: readonly TimelineStep[];
+  orientation?: "vertical" | "horizontal";
+  showActor?: boolean;
+};
+
+/** One part of a stacked bar, for example "spent". */
+export type ProgressSegment = { label: string; value: number };
+
+/** How far a figure is towards its target; the numbers are always written beside the bar. */
+export type ProgressBarProps = {
+  /** The visible label and the accessible name. */
+  label: string;
+  value: number;
+  max: number;
+  showValue?: boolean;
+  /** primary by default; warning or error for a budget overrun or a quota exceeded. */
+  tone?: "primary" | "success" | "warning" | "error";
+  size?: "small" | "medium";
+  /** Up to four stacked parts with a written legend. */
+  segments?: readonly ProgressSegment[];
+};
+
+/** Grey shapes in the layout of what is loading: a line of text, a list row, a card or a figure. */
+export type SkeletonProps = { shape?: "text" | "row" | "card" | "stat"; count?: number };
+
 /** The signed-in user's button in the header and the panel it opens. */
 export type AccountMenuProps = {
   user: { name: string; email?: string; avatarSrc?: string };
@@ -1037,6 +1105,10 @@ export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "P
   ConfirmDialog: ComponentType<ConfirmDialogProps>;
   Menu: ComponentType<MenuProps>;
   FileUpload: ComponentType<FileUploadProps>;
+  Stepper: ComponentType<StepperProps>;
+  Timeline: ComponentType<TimelineProps>;
+  ProgressBar: ComponentType<ProgressBarProps>;
+  Skeleton: ComponentType<SkeletonProps>;
   AccountMenu: ComponentType<AccountMenuProps>;
   LanguageSwitch: ComponentType<LanguageSwitchProps>;
   PublicShell: ComponentType<PublicShellProps>;

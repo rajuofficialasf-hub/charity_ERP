@@ -182,6 +182,13 @@
     "uploadReady": "Ready",
     "uploadFailed": "Upload failed",
     "uploadRejected": "Not accepted",
-    "fileLimit": "{name}: no more than {max} files can be added"
+    "fileLimit": "{name}: no more than {max} files can be added",
+    "stepMissing": "still needed",
+    "stepDone": "Done",
+    "stepCurrent": "Current",
+    "stepUpcoming": "Upcoming",
+    "stepSkipped": "Skipped",
+    "stepRejected": "Rejected",
+    "progressText": "{value} of {max} ({percent}%)"
   }
 }

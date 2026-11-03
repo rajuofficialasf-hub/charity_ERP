@@ -75,6 +75,13 @@ export const DEFAULT_LABELS: UiLabels = {
   uploadReady: 'Ready',
   uploadFailed: 'Upload failed',
   uploadRejected: 'Not accepted',
+  stepMissing: 'still needed',
+  stepDone: 'Done',
+  stepCurrent: 'Current',
+  stepUpcoming: 'Upcoming',
+  stepSkipped: 'Skipped',
+  stepRejected: 'Rejected',
+  progressText: '{value} of {max} ({percent}%)',
 };
 
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);

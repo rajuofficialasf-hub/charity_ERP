@@ -182,6 +182,13 @@
     "uploadReady": "তৈরি",
     "uploadFailed": "আপলোড হয়নি",
     "uploadRejected": "গ্রহণযোগ্য নয়",
-    "fileLimit": "{name}: {max}টির বেশি ফাইল দেওয়া যায় না"
+    "fileLimit": "{name}: {max}টির বেশি ফাইল দেওয়া যায় না",
+    "stepMissing": "বাকি আছে",
+    "stepDone": "সম্পন্ন",
+    "stepCurrent": "চলমান",
+    "stepUpcoming": "বাকি",
+    "stepSkipped": "বাদ পড়েছে",
+    "stepRejected": "প্রত্যাখ্যাত",
+    "progressText": "{max}-এর মধ্যে {value} ({percent}%)"
   }
 }
