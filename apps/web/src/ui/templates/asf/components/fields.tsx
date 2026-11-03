@@ -1,12 +1,15 @@
-import type { TextFieldProps, SelectFieldProps } from '@/ui/contract';
+import type { TextFieldProps, SelectFieldExtendedProps } from '@/ui/contract';
 
 import { useId } from 'react';
 
+import Box from '@mui/material/Box';
 import MenuItem from '@mui/material/MenuItem';
 import InputAdornment from '@mui/material/InputAdornment';
 import MuiTextField from '@mui/material/TextField';
 
 import { Icon } from './icon';
+import { useLabels } from './labels';
+import { Combobox } from './choices';
 
 // ----------------------------------------------------------------------
 
@@ -60,37 +63,98 @@ export function TextField({
   );
 }
 
-export function SelectField({ label, name, error, hint, required, disabled, value, onChange, onBlur, options }: SelectFieldProps) {
+/** A select over a short list; above 10 options, or with `searchable`, a combobox to type into. */
+export function SelectField({
+  label,
+  name,
+  error,
+  hint,
+  required,
+  disabled,
+  value,
+  onChange,
+  onBlur,
+  options,
+  placeholder,
+  searchable = options.length > 10,
+  other,
+}: SelectFieldExtendedProps) {
   const id = useId();
-  return (
+  const labels = useLabels();
+  const otherBox = other && value === other.value && (
     <MuiTextField
-      id={id}
-      select
+      size="small"
       fullWidth
-      label={label}
-      name={name}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      onBlur={onBlur}
-      error={Boolean(error)}
-      helperText={error ?? hint}
-      required={required}
+      label={other.label ?? labels.otherSpecify}
+      value={other.text}
+      onChange={(event) => other.onTextChange(event.target.value)}
       disabled={disabled}
-      slotProps={{
-        select: {
-          IconComponent: (props: { className?: string }) => (
-            <span {...props} style={{ right: 12, display: 'inline-flex' }}>
-              <Icon name="chevron-down" size={18} />
-            </span>
-          ),
-        },
-      }}
-    >
-      {options.map((option) => (
-        <MenuItem key={option.value} value={option.value}>
-          {option.label}
-        </MenuItem>
-      ))}
-    </MuiTextField>
+      sx={{ mt: 1.5 }}
+    />
+  );
+  if (searchable) {
+    return (
+      <Box>
+        <Combobox
+          label={label}
+          name={name}
+          error={error}
+          hint={hint}
+          required={required}
+          disabled={disabled}
+          options={options}
+          value={value === '' ? null : value}
+          onChange={(next) => onChange(next ?? '')}
+          onBlur={onBlur}
+          placeholder={placeholder}
+        />
+        {otherBox}
+      </Box>
+    );
+  }
+  const empty = placeholder ?? labels.selectPlaceholder;
+  return (
+    <Box>
+      <MuiTextField
+        id={id}
+        select
+        fullWidth
+        label={label}
+        name={name}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        error={Boolean(error)}
+        helperText={error ?? hint}
+        required={required}
+        disabled={disabled}
+        slotProps={{
+          inputLabel: placeholder ? { shrink: true } : undefined,
+          select: {
+            displayEmpty: Boolean(placeholder),
+            renderValue: (selected) =>
+              selected === '' ? (
+                <Box component="span" sx={{ color: 'text.disabled' }}>
+                  {empty}
+                </Box>
+              ) : (
+                (options.find((option) => option.value === selected)?.label ?? String(selected))
+              ),
+            IconComponent: (props: { className?: string }) => (
+              <span {...props} style={{ right: 12, display: 'inline-flex' }}>
+                <Icon name="chevron-down" size={18} />
+              </span>
+            ),
+          },
+        }}
+      >
+        {options.map((option) => (
+          <MenuItem key={option.value} value={option.value} disabled={option.disabled}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </MuiTextField>
+      {otherBox}
+    </Box>
   );
 }

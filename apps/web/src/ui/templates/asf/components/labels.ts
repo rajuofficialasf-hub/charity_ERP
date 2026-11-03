@@ -42,6 +42,11 @@ export const DEFAULT_LABELS: UiLabels = {
   loadMore: 'Load more',
   pages: 'Pages',
   page: 'Page {page}',
+  otherSpecify: 'If other, please specify',
+  selectPlaceholder: 'Select',
+  noResults: 'No results',
+  showOptions: 'Show options',
+  clear: 'Clear',
 };
 
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);

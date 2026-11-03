@@ -6,45 +6,18 @@ import '@testing-library/jest-dom/vitest';
 import type { ReactNode } from 'react';
 import type { UiLabels, DataTableExtendedProps, DataTableExtendedColumn } from '@/ui/contract';
 
-import axe from 'axe-core';
 import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { vi, it, expect, describe, afterEach } from 'vitest';
 import { act, render, screen, within, cleanup, waitFor, fireEvent } from '@testing-library/react';
 
 import { FilterBar, DataTable, UiProvider, ColorModeButton } from './index';
-
-/** A device whose media queries answer by `matches`, with the older listener API MUI still calls. */
-function stubMatchMedia(matches: (query: string) => boolean) {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: matches(query),
-    media: query,
-    onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => false,
-  }));
-}
-
-/** A phone below the md breakpoint, or a wide screen; the device stays light. */
-function stubWidth(phone: boolean) {
-  stubMatchMedia((query) => !query.includes('dark') && (query.includes('max-width') ? phone : !phone));
-}
+import { resetPage, stubWidth, stubMatchMedia, expectNoAxeViolations } from './local-test-support';
 
 afterEach(() => {
   cleanup();
-  vi.unstubAllGlobals();
-  window.localStorage.clear();
-  document.documentElement.removeAttribute('data-color-scheme');
+  resetPage();
 });
-
-async function expectNoAxeViolations(container: HTMLElement) {
-  // jsdom lays nothing out, so colour contrast is checked in the browser runs instead
-  const result = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
-  expect(result.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.html).join(' | ')}`)).toEqual([]);
-}
 
 describe('colour mode', () => {
   it('takes the device dark mode while the person has not picked one', async () => {

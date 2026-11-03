@@ -149,6 +149,11 @@
     "rowActions": "Actions",
     "loadMore": "Load more",
     "pages": "Pagination",
-    "page": "Page {page}"
+    "page": "Page {page}",
+    "otherSpecify": "If other, please specify",
+    "selectPlaceholder": "Select",
+    "noResults": "No results",
+    "showOptions": "Show options",
+    "clear": "Clear"
   }
 }

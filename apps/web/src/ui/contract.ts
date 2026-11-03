@@ -401,6 +401,15 @@ export type UiLabels = {
   pages: string;
   /** For example "Page 3". */
   page: string;
+  /** The text box an "other" choice opens. */
+  otherSpecify: string;
+  /** An empty select's text. */
+  selectPlaceholder: string;
+  noResults: string;
+  /** The button that opens a combobox's list. */
+  showOptions: string;
+  /** The button that empties a combobox. */
+  clear: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -638,6 +647,81 @@ export type DrawerProps = {
   side?: "left" | "right";
 };
 
+// ---------------------------------------------------------------------------------------------
+// Choices
+
+/** A choice of a select, combobox, radio or checkbox group. */
+export type ChoiceOption = SelectOption & { disabled?: boolean };
+
+/**
+ * The choice that means "other" opens a text box inside the same field, labelled
+ * labels.otherSpecify unless `label` is given.
+ */
+export type OtherChoice = { value: string; text: string; onTextChange: (text: string) => void; label?: string };
+
+/** One checkbox: a visible `label`, or `ariaLabel` when the label is elsewhere (a table row). */
+export type CheckboxProps = {
+  label?: string;
+  ariaLabel?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  indeterminate?: boolean;
+  disabled?: boolean;
+  hint?: string;
+  name?: string;
+};
+
+export type CheckboxGroupProps = FieldBase & {
+  options: readonly ChoiceOption[];
+  value: readonly string[];
+  onChange: (value: string[]) => void;
+  /** Two columns from the sm breakpoint. */
+  columns?: 1 | 2;
+  other?: OtherChoice;
+};
+
+export type RadioGroupProps = FieldBase & {
+  options: readonly ChoiceOption[];
+  value: string | null;
+  onChange: (value: string) => void;
+  orientation?: "vertical" | "horizontal";
+  other?: OtherChoice;
+};
+
+/** An on/off setting that applies at once, unlike a checkbox in a form that is saved later. */
+export type SwitchProps = {
+  label?: string;
+  ariaLabel?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  hint?: string;
+};
+
+/** A select with the app's extras; `searchable` turns it into a combobox, on by default above 10 options. */
+export type SelectFieldExtendedProps = Omit<SelectFieldProps, "options"> & {
+  options: readonly ChoiceOption[];
+  placeholder?: string;
+  searchable?: boolean;
+  other?: OtherChoice;
+};
+
+/** Type to narrow a long list; `freeText` keeps text that is not one of the options. */
+export type ComboboxProps = FieldBase & {
+  options: readonly ChoiceOption[];
+  value: string | null;
+  onChange: (value: string | null) => void;
+  onBlur?: () => void;
+  placeholder?: string;
+  /** Called with the typed text, for a server search or free text. */
+  onInputChange?: (text: string) => void;
+  /** The options come from a server search on the typed text and are not filtered again here. */
+  serverSearch?: boolean;
+  /** True while the server search runs. */
+  loading?: boolean;
+  freeText?: boolean;
+};
+
 /** The signed-in user's button in the header and the panel it opens. */
 export type AccountMenuProps = {
   user: { name: string; email?: string; avatarSrc?: string };
@@ -729,7 +813,8 @@ export type ColorModeButtonProps = Record<string, never>;
 
 // ---------------------------------------------------------------------------------------------
 
-export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "Page" | "Icon" | "DataTable"> & {
+export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "Page" | "Icon" | "DataTable" | "SelectField"> & {
+  SelectField: ComponentType<SelectFieldExtendedProps>;
   UiProvider: ComponentType<UiProviderExtendedProps>;
   AppShell: ComponentType<AppShellExtendedProps>;
   Page: ComponentType<PageExtendedProps>;
@@ -751,6 +836,11 @@ export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "P
   FormTimeField: ComponentType<FormTimeFieldProps>;
   FilterBar: ComponentType<FilterBarProps>;
   Drawer: ComponentType<DrawerProps>;
+  Checkbox: ComponentType<CheckboxProps>;
+  CheckboxGroup: ComponentType<CheckboxGroupProps>;
+  RadioGroup: ComponentType<RadioGroupProps>;
+  Switch: ComponentType<SwitchProps>;
+  Combobox: ComponentType<ComboboxProps>;
   AccountMenu: ComponentType<AccountMenuProps>;
   LanguageSwitch: ComponentType<LanguageSwitchProps>;
   PublicShell: ComponentType<PublicShellProps>;

@@ -14,6 +14,7 @@ export { SignInLayout } from './sign-in-layout';
 export { AppShell } from './shell/app-shell';
 export { Button, LinkButton } from './button';
 export { TextField, SelectField } from './fields';
+export { Switch, Checkbox, Combobox, RadioGroup, CheckboxGroup } from './choices';
 export { DataTable } from './data-table';
 export { FilterBar } from './filter-bar';
 export { EmptyState, LoadingState } from './states';

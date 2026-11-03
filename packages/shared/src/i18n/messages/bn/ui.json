@@ -149,6 +149,11 @@
     "rowActions": "অ্যাকশন",
     "loadMore": "আরও দেখুন",
     "pages": "পাতা বদল",
-    "page": "পাতা {page}"
+    "page": "পাতা {page}",
+    "otherSpecify": "অন্যান্য হলে লিখুন",
+    "selectPlaceholder": "বেছে নিন",
+    "noResults": "কিছু পাওয়া যায়নি",
+    "showOptions": "বিকল্পগুলো দেখুন",
+    "clear": "মুছুন"
   }
 }
