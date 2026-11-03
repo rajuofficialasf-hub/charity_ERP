@@ -123,8 +123,9 @@ export class ChangeRequestsService {
     const value = isPhoto(body.field) ? null : await this.checkedValue(principal, body);
     const row = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM volunteers WHERE id = ${volunteer.id}::uuid FOR UPDATE`;
-      // a contact still waiting for its code is replaced (a mistyped number would else block the field)
-      if (isContact(body.field))
+      // a contact still waiting for its code, or a photo for its upload, is replaced (a mistyped
+      // number or a failed upload would else block the field)
+      if (isContact(body.field) || isPhoto(body.field))
         await tx.volunteerChangeRequest.updateMany({
           where: { volunteerId: volunteer.id, kind: EDIT, field: body.field, status: 'open' },
           data: { status: 'closed', decidedAt: this.clock.now() },

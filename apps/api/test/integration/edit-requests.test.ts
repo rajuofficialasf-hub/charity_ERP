@@ -220,12 +220,30 @@ describe('edit requests', () => {
     const mine = await api().get('/api/v1/me/change-requests').set(bearer(v.session));
     const row = mine.body.data.find((r: { id: string }) => r.id === created.body.data.id);
     expect(row).toMatchObject({ status: 'submitted', newValue: upload.body.data.fileId });
+    // the approver decides on this photo: a second upload cannot swap it
+    const again = await api()
+      .post(`/api/v1/me/photos/photo?requestId=${created.body.data.id}&source=camera`)
+      .set(bearer(v.session))
+      .set('Content-Type', 'image/jpeg')
+      .send(jpeg());
+    expect(again.status).toBe(404);
     const rpm = await as(world.users.rpmDhaka);
     expect((await decide(rpm, created.body.data.id, { decision: 'approve' })).status).toBe(200);
     const saved = await h.db.query('SELECT photo_file_id FROM volunteers WHERE id = $1', [
       v.volunteerId,
     ]);
     expect(saved.rows[0].photo_file_id).toBe(upload.body.data.fileId);
+  });
+
+  it('a new photo request closes one that never got its photo', async () => {
+    const v = await approvedVolunteer();
+    const abandoned = await ask(v.session, { field: 'photo' });
+    const fresh = await ask(v.session, { field: 'photo' });
+    expect(fresh.status).toBe(201);
+    const closed = await h.db.query('SELECT status FROM volunteer_change_requests WHERE id = $1', [
+      abandoned.body.data.id,
+    ]);
+    expect(closed.rows[0].status).toBe('closed');
   });
 
   it('the bank details with a branch are added later through a request, and only the bank class sees them', async () => {
