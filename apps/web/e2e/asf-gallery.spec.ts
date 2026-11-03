@@ -1,10 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-// The asf pieces built for the app (docs/architecture/ADR/ADR-016-asf-ui-system.md), in their
-// dev-only gallery: every piece in both languages and both modes, at 360 px on the mobile project
-// and 1280 px on the desktop project, with no sideways scroll and no axe violation, the colour
-// contrast included. The desktop's light Bengali run keeps each piece's picture for the kit.
+// The asf pieces built for the app (docs/architecture/ADR/ADR-016-asf-ui-system.md, "Decision"), in
+// their dev-only gallery: every piece in both languages and both modes, at 360 px on the mobile
+// project and 1280 px on the desktop project, with no sideways scroll and no axe violation, the
+// colour contrast included, the dialog and the drawer open as well. The desktop's light Bengali run
+// leaves a picture of each piece in its output folder; the pictures in docs/ui/asf-pieces/ are
+// copied from there by hand when a piece changes.
 const PIECES = [
   'buttons',
   'states',
@@ -38,17 +40,17 @@ for (const lang of ['bn', 'en'] as const) {
       await page.goto('/dev/asf');
       await expect(page.locator('html')).toHaveAttribute('lang', lang);
       await expect(page.locator('html')).toHaveAttribute('data-color-scheme', mode);
-      for (const id of PIECES) await expect(page.locator(`[data-piece="${id}"]`)).toBeVisible();
+      for (const id of PIECES) await expect(page.getByTestId(`piece-${id}`)).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
 
       // the widest piece wider than the screen, named, when anything scrolls sideways
       const wide = await page.evaluate(() =>
-        [...document.querySelectorAll<HTMLElement>('[data-piece] *')]
+        [...document.querySelectorAll<HTMLElement>('[data-testid^="piece-"] *')]
           .filter((element) => element.getBoundingClientRect().right > window.innerWidth + 1)
           .slice(0, 3)
           .map(
             (element) =>
-              `${element.closest('[data-piece]')?.getAttribute('data-piece')}: ${element.outerHTML.slice(0, 100)}`,
+              `${element.closest('[data-testid^="piece-"]')?.getAttribute('data-testid')}: ${element.outerHTML.slice(0, 100)}`,
           ),
       );
       expect(wide).toEqual([]);
@@ -61,10 +63,36 @@ for (const lang of ['bn', 'en'] as const) {
         ),
       ).toEqual([]);
 
+      // the dialog and the drawer open, each checked on its own
+      const overlays = page.getByTestId('piece-overlays').getByRole('button');
+      for (const index of [0, 2]) {
+        await overlays.nth(index).click();
+        const panel = page.getByRole('dialog');
+        await expect(panel).toBeVisible();
+        // axe measures colours: the panel's own slide and fade must have ended (the spinner and
+        // the loading shapes elsewhere never end)
+        await panel.evaluate((element) =>
+          Promise.all(
+            element
+              .getAnimations({ subtree: true })
+              .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+              .map((animation) => animation.finished),
+          ),
+        );
+        const open = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
+        expect(
+          open.violations.flatMap((v) =>
+            v.nodes.map((n) => `${v.id}: ${n.html.slice(0, 120)} | ${n.failureSummary ?? ''}`),
+          ),
+        ).toEqual([]);
+        await page.keyboard.press('Escape');
+        await expect(panel).toBeHidden();
+      }
+
       if (info.project.name === 'desktop' && lang === 'bn' && mode === 'light')
         for (const id of PIECES)
           await page
-            .locator(`[data-piece="${id}"]`)
+            .getByTestId(`piece-${id}`)
             .screenshot({ path: info.outputPath(`asf-${id}.png`) });
     });
   }

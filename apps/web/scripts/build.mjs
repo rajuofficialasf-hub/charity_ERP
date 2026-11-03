@@ -19,6 +19,11 @@ const env = {
       }
     : {}),
 };
+// a normal build never takes the gallery or the dummy-OTP hint from the caller's environment
+if (!e2e) {
+  delete env.VITE_DEV_GALLERY;
+  delete env.VITE_OTP_DUMMY;
+}
 // node runs without a shell (the repository path may contain spaces); tsc and vite are .cmd
 // shims on Windows and need one.
 const steps = [

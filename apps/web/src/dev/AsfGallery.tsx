@@ -66,10 +66,14 @@ const STATUSES: StatusKey[] = [
   'blocklisted',
 ];
 
-/** One piece of the gallery: a titled card the E2E finds by `data-piece` for its screenshot. */
+/** One piece of the gallery: a titled card the E2E finds by its test id for its screenshot. */
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section data-piece={id} aria-labelledby={`piece-${id}`} className="asf-gallery-section">
+    <section
+      data-testid={`piece-${id}`}
+      aria-labelledby={`piece-${id}`}
+      className="asf-gallery-section"
+    >
       <h2 id={`piece-${id}`} className="asf-gallery-title">
         {title}
       </h2>
