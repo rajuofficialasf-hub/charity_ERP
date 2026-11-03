@@ -1,6 +1,6 @@
 import type { OwnStaffProfile, ProjectsWork } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@css/ui/testing';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -100,15 +100,44 @@ const WORK: ProjectsWork = {
   ],
 };
 
-function serve(profile: OwnStaffProfile, work: ProjectsWork = WORK) {
+let calls: { method: string; url: string; body: unknown }[] = [];
+
+function serve(profile: OwnStaffProfile, work: ProjectsWork = WORK, requests: unknown[] = []) {
   server.use(
     http.get('*/api/v1/me/profile', () => HttpResponse.json({ data: profile })),
     http.get('*/api/v1/me/projects-work', () => HttpResponse.json({ data: work })),
+    http.get('*/api/v1/me/change-requests', () =>
+      HttpResponse.json({
+        data: requests,
+        meta: { requestId: 'r', limit: 50, nextCursor: null, prevCursor: null },
+      }),
+    ),
+    http.post('*/api/v1/me/staff-change-requests*', async ({ request }) => {
+      const body = await request.json().catch(() => null);
+      calls.push({ method: 'POST', url: new URL(request.url).pathname, body });
+      if (request.url.includes('/otp')) return new HttpResponse(null, { status: 204 });
+      return HttpResponse.json(
+        {
+          data: {
+            id: '01900000-0000-7000-8000-0000000000f1',
+            userId: ME.id,
+            volunteerId: null,
+            kind: 'profile_edit',
+            field: (body as { field: string }).field,
+            note: null,
+            status: 'submitted',
+            decidedAt: null,
+          },
+        },
+        { status: 201 },
+      );
+    }),
   );
 }
 
 beforeEach(() => {
   resetClientForTests();
+  calls = [];
   refreshAs({ ...ME, kind: 'staff', roles: ['regional_program_manager'] });
 });
 
@@ -201,5 +230,66 @@ describe("an official's own profile", () => {
     await screen.findByRole('heading', { level: 2, name: 'রহিম উদ্দিন' });
     await user.click(screen.getByRole('button', { name: 'My projects' }));
     expect(await screen.findByText('You do not work on any project yet.')).toBeInTheDocument();
+  });
+});
+
+describe("an official's own change request", () => {
+  it('asks for a new designation from the edit mode and says who decides', async () => {
+    const user = userEvent.setup();
+    serve(official());
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await screen.findByRole('heading', { level: 2, name: 'রহিম উদ্দিন' });
+    await user.click(await screen.findByRole('button', { name: 'Edit Identity and workplace' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Change Designation' }));
+    const field = screen.getByRole('textbox', { name: 'Designation' });
+    await user.clear(field);
+    await user.type(field, 'প্রোগ্রাম অফিসার');
+    await user.click(screen.getByRole('button', { name: 'Send request' }));
+    expect(
+      await screen.findByText(
+        'Request sent. The Department Head or the Monitoring Team will decide.',
+      ),
+    ).toBeInTheDocument();
+    expect(calls).toEqual([
+      {
+        method: 'POST',
+        url: '/api/v1/me/staff-change-requests',
+        body: { field: 'designation', newValue: 'প্রোগ্রাম অফিসার' },
+      },
+    ]);
+  });
+
+  it("sends a new mobile's code through the official's own route, its section marked", async () => {
+    const user = userEvent.setup();
+    serve(official(), WORK, [
+      {
+        id: '01900000-0000-7000-8000-0000000000f2',
+        userId: ME.id,
+        volunteerId: null,
+        kind: 'profile_edit',
+        field: 'mobile',
+        newValue: '01700000499',
+        note: null,
+        status: 'open',
+        decidedAt: null,
+      },
+    ]);
+    const { container } = renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await screen.findByRole('heading', { level: 2, name: 'রহিম উদ্দিন' });
+    const nav = screen.getByRole('navigation', { name: 'Profile sections' });
+    const contact = within(nav).getByRole('button', { name: 'Contact and account' });
+    await waitFor(() => expect(contact).toHaveAttribute('aria-describedby'));
+    await user.click(contact);
+    await user.click(await screen.findByRole('button', { name: 'Send code' }));
+    await waitFor(() =>
+      expect(calls).toEqual([
+        {
+          method: 'POST',
+          url: '/api/v1/me/staff-change-requests/01900000-0000-7000-8000-0000000000f2/otp',
+          body: null,
+        },
+      ]),
+    );
+    await expectNoAxeViolations(container);
   });
 });

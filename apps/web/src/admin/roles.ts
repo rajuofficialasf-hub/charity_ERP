@@ -97,6 +97,12 @@ export const REGISTRATION_ROLES: readonly string[] = ADMIN_ROLES;
 /** Staff registration approvers (`staff.registration.approve`, BR-028). */
 export const STAFF_APPROVER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 
+/**
+ * Who decides an official's own change request (`staff_edit_request.approve`; docs/DECISION_LOG.md,
+ * the official's own profile of 2026-11-02): the two global roles, never the person who asked.
+ */
+export const STAFF_EDIT_DECIDER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+
 /** Edit request approvers (`edit_request.approve`, BR-031 as amended by DECISION_LOG D-085). */
 export const EDIT_REQUEST_ROLES: readonly string[] = [
   'department_head',
@@ -225,6 +231,7 @@ export const canLookUpBeneficiaries = (me: Pick<Me, 'roles'>) =>
 export const canReviewDuplicates = (me: Pick<Me, 'roles'>) => holds(me, DUPLICATE_ROLES);
 export const canApproveStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_APPROVER_ROLES);
 export const canDecideEdits = (me: Pick<Me, 'roles'>) => holds(me, EDIT_REQUEST_ROLES);
+export const canDecideStaffEdits = (me: Pick<Me, 'roles'>) => holds(me, STAFF_EDIT_DECIDER_ROLES);
 export const canBlock = (me: Pick<Me, 'roles'>) => holds(me, BLOCKLIST_ROLES);
 export const canHandOver = (me: Pick<Me, 'roles'>) => holds(me, HANDOVER_ROLES);
 export const canEndSessions = (me: Pick<Me, 'roles'>) => holds(me, SESSION_ROLES);

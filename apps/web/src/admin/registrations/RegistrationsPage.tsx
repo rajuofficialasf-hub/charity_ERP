@@ -12,7 +12,7 @@ import {
   Tabs,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
-import { FilePen, UserCheck } from 'lucide-react';
+import { FilePen, UserCheck, UserPen } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -21,15 +21,18 @@ import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { canApproveStaff, canDecideEdits } from '../roles';
+import { canApproveStaff, canDecideEdits, canDecideStaffEdits } from '../roles';
 import { StatisticsBar } from '../StatisticsBar';
 import { EditRequests } from './EditRequests';
+import { StaffEditRequests } from './StaffEditRequests';
 import {
   EDITS_KEY,
   editRequests,
   LIST_KEY,
   type PendingRegistration,
   pendingStaffRegistrations,
+  STAFF_EDITS_KEY,
+  staffEditRequests,
 } from './registrations-api';
 
 /** A message handed over by the detail page after a final decision (the row has left the list). */
@@ -40,8 +43,9 @@ export interface ListNotice {
 /**
  * The registrations page of the admin area (SCR-040; plan
  * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R7, R10): the pending
- * registrations in the approver's scope and, for edit approvers, the edit requests of approved
- * volunteers. The server decides what each list contains (scope, staff rows only for staff
+ * registrations in the approver's scope, for edit approvers the edit requests of approved
+ * volunteers, and for the Department Head and the Monitoring Team the officials' own change
+ * requests. The server decides what each list contains (scope, staff rows only for staff
  * approvers) and refuses every action outside it.
  */
 export function RegistrationsPage() {
@@ -51,20 +55,29 @@ export function RegistrationsPage() {
   const navigate = useNavigate();
   const notice = (location.state as ListNotice | null)?.notice;
   const [params] = useSearchParams();
-  // the home's edit-request item opens the second tab
-  const [tab, setTab] = useState(params.get('tab') === 'edits' ? 'edits' : 'pending');
+  // the home's edit-request item opens its tab
+  const asked = params.get('tab');
+  const [tab, setTab] = useState(asked === 'edits' || asked === 'staff-edits' ? asked : 'pending');
   // the volunteer registrations live in the volunteer tab now (an older link lands there)
   if (params.get('kind') === 'volunteer')
     return <Navigate to="/admin/volunteers?state=pending" replace />;
   if (!me) return null;
   const staff = canApproveStaff(me);
   const edits = canDecideEdits(me);
-  if (!staff && !edits) return <ForbiddenContent />;
+  const staffEdits = canDecideStaffEdits(me);
+  if (!staff && !edits && !staffEdits) return <ForbiddenContent />;
+  const items = [
+    ...(staff ? [{ id: 'pending', label: t('tabs.pending'), content: <PendingList /> }] : []),
+    ...(edits ? [{ id: 'edits', label: t('tabs.edits'), content: <EditRequests /> }] : []),
+    ...(staffEdits
+      ? [{ id: 'staff-edits', label: t('tabs.staff_edits'), content: <StaffEditRequests /> }]
+      : []),
+  ];
   return (
     <>
       <DocumentTitle title={t('title')} />
       <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('description')} />
-      <WaitingCounts staff={staff} edits={edits} />
+      <WaitingCounts staff={staff} edits={edits} staffEdits={staffEdits} />
       {notice && (
         <Alert
           tone="success"
@@ -74,27 +87,30 @@ export function RegistrationsPage() {
           {notice}
         </Alert>
       )}
-      {staff && edits ? (
+      {items.length > 1 ? (
         <Tabs
           label={t('tabs.label')}
-          selectedId={tab}
+          selectedId={items.some((i) => i.id === tab) ? tab : items[0]!.id}
           onChange={setTab}
-          items={[
-            { id: 'pending', label: t('tabs.pending'), content: <PendingList /> },
-            { id: 'edits', label: t('tabs.edits'), content: <EditRequests /> },
-          ]}
+          items={items}
         />
-      ) : staff ? (
-        <PendingList />
       ) : (
-        <EditRequests />
+        items[0]!.content
       )}
     </>
   );
 }
 
 /** How many registrations and edit requests wait, for the lists the caller decides. */
-function WaitingCounts({ staff, edits }: { staff: boolean; edits: boolean }) {
+function WaitingCounts({
+  staff,
+  edits,
+  staffEdits,
+}: {
+  staff: boolean;
+  edits: boolean;
+  staffEdits: boolean;
+}) {
   const t = useTranslations('admin.registrations');
   // the same reads as the lists below (the staff registrations only), so a tab opens on rows
   // already loaded
@@ -104,10 +120,19 @@ function WaitingCounts({ staff, edits }: { staff: boolean; edits: boolean }) {
     enabled: staff,
   });
   const requests = useQuery({ queryKey: EDITS_KEY, queryFn: editRequests, enabled: edits });
+  const staffRequests = useQuery({
+    queryKey: STAFF_EDITS_KEY,
+    queryFn: staffEditRequests,
+    enabled: staffEdits,
+  });
   return (
     <StatisticsBar
       label={t('stats.label')}
-      loading={(staff && pending.isPending) || (edits && requests.isPending)}
+      loading={
+        (staff && pending.isPending) ||
+        (edits && requests.isPending) ||
+        (staffEdits && staffRequests.isPending)
+      }
       items={[
         // a list that could not be read shows its error below, never a count of zero
         ...(staff && !pending.error
@@ -128,6 +153,17 @@ function WaitingCounts({ staff, edits }: { staff: boolean; edits: boolean }) {
                 label: t('tabs.edits'),
                 value: requests.data?.length ?? 0,
                 icon: FilePen,
+                tone: 'info' as const,
+              },
+            ]
+          : []),
+        ...(staffEdits && !staffRequests.error
+          ? [
+              {
+                key: 'staff-edits',
+                label: t('tabs.staff_edits'),
+                value: staffRequests.data?.length ?? 0,
+                icon: UserPen,
                 tone: 'info' as const,
               },
             ]

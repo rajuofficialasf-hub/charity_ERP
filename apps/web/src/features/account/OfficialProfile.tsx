@@ -1,12 +1,11 @@
 import type { OwnStaffProfile } from '@css/shared/auth';
-import { formatDateTime } from '@css/shared/format';
-import { type Locale, localized } from '@css/shared/i18n';
 import {
+  Alert,
   Avatar,
   Badge,
   Button,
   Card,
-  DescriptionList,
+  ConfirmDialog,
   EmptyState,
   ErrorState,
   ProfileHeader as Banner,
@@ -14,16 +13,42 @@ import {
   Skeleton,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Briefcase, FolderKanban, IdCard, KeyRound, MonitorSmartphone, Phone } from 'lucide-react';
-import { type ReactNode, useId, useState } from 'react';
-import { useLocale, useTranslations } from 'use-intl';
+import {
+  Briefcase,
+  FolderKanban,
+  IdCard,
+  KeyRound,
+  MonitorSmartphone,
+  PencilLine,
+  Phone,
+} from 'lucide-react';
+import { useId, useState } from 'react';
+import { useTranslations } from 'use-intl';
 import { useFileDataUrl } from '../../components/FileImage';
 import { canSeeProjects } from '../../admin/roles';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import {
+  fieldLabelKey,
+  fieldsOf,
+  FixedRows,
+  OFFICIAL_FIELDS,
+  OfficialEditSection,
+  type OfficialSection,
+  OfficialRow,
+  OfficialValue,
+} from './OfficialDetails';
 import { ProfileNav } from './ProfileNav';
 import { ProjectsWork } from './ProjectsWork';
-import { OWN_WORK_KEY, ownProjectsWork, ownStaffProfile, STAFF_PROFILE_KEY } from './profile-api';
+import {
+  type ChangeRequest,
+  OWN_WORK_KEY,
+  ownProjectsWork,
+  ownRequests,
+  ownStaffProfile,
+  REQUESTS_KEY,
+  STAFF_PROFILE_KEY,
+} from './profile-api';
 
 const SECTIONS = [
   { key: 'identity', icon: IdCard },
@@ -39,17 +64,28 @@ const STATE_TONE = {
   deactivated: 'neutral',
 } as const;
 
+const isDetails = (section: Section): section is OfficialSection => section !== 'projects';
+
 /**
- * An official's own profile (docs/DECISION_LOG.md, the official's own profile of 2026-11-02;
- * docs/ui/SCREENS.md, SCR-006): the banner with the photo or the initial, then one section at a
- * time: who they are and where they work, how they are reached and their account, and the
- * projects they work on by year with the figures of their work.
+ * An official's own profile (docs/DECISION_LOG.md, the official's own profile of 2026-11-02 and
+ * the amendment of 2026-11-03; docs/ui/SCREENS.md, SCR-006): the banner with the photo or the
+ * initial, then one section at a time: who they are and where they work, how they are reached and
+ * their account, and the projects they work on by year with the figures of their work. An active
+ * official asks for a change of a section's details from its edit button; the Department Head or
+ * the Monitoring Team decides.
  */
 export function OfficialProfile() {
   const t = useTranslations('registration.profile');
   const tc = useTranslations('common');
   const profile = useQuery({ queryKey: STAFF_PROFILE_KEY, queryFn: ownStaffProfile, retry: false });
+  const requests = useQuery({ queryKey: REQUESTS_KEY, queryFn: ownRequests });
   const [current, setCurrent] = useState<Section>('identity');
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [leaving, setLeaving] = useState<Section | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const titleId = useId();
   if (profile.isPending) return <Skeleton count={3} />;
   if (profile.error instanceof ApiFailure && profile.error.status === 404)
     return <EmptyState title={t('official.not_official')} />;
@@ -62,8 +98,34 @@ export function OfficialProfile() {
       />
     );
   const me = profile.data;
+  const rows = requests.data;
+  const edits = (rows ?? []).filter(
+    (r) => r.kind === 'profile_edit' && ['open', 'submitted'].includes(r.status),
+  );
+  // a section with a request waiting for the person (a code or a photo to give) is marked
+  const waiting = new Set<Section>(
+    (Object.keys(OFFICIAL_FIELDS) as OfficialSection[]).filter((s) =>
+      edits.some(
+        (r) => r.status === 'open' && (fieldsOf(s) as readonly string[]).includes(r.field),
+      ),
+    ),
+  );
+  const title = t(`official.sections.${current}`);
+  const canEdit = isDetails(current) && me.state === 'active' && rows !== undefined && !editing;
   return (
     <div className="profile">
+      {requests.error && (
+        <ErrorState
+          title={tc('state.error.text')}
+          onRetry={() => void requests.refetch()}
+          requestId={requests.error instanceof ApiFailure ? requests.error.requestId : undefined}
+        />
+      )}
+      {notice && (
+        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+          {notice}
+        </Alert>
+      )}
       <OfficialBanner me={me} />
       <div className="profile-layout">
         <ProfileNav
@@ -73,16 +135,74 @@ export function OfficialProfile() {
             title: t(`official.sections.${s.key}`),
           }))}
           current={current}
-          waiting={new Set<Section>()}
-          busy={false}
-          onSelect={setCurrent}
+          waiting={waiting}
+          busy={busy}
+          onSelect={(key) => {
+            // ticked details are never dropped without a question
+            if (editing && dirty) {
+              if (key !== current) setLeaving(key);
+              return;
+            }
+            setCurrent(key);
+            setEditing(false);
+          }}
         />
-        <SectionCard title={t(`official.sections.${current}`)}>
-          {current === 'identity' && <Identity me={me} />}
-          {current === 'contact' && <Contact me={me} />}
-          {current === 'projects' && <OwnProjects />}
-        </SectionCard>
+        <Card>
+          <section aria-labelledby={titleId} className="profile-section">
+            <div className="profile-section-head">
+              <h2 id={titleId} className="profile-section-title">
+                {title}
+              </h2>
+              {canEdit && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={PencilLine}
+                  aria-label={t('edit.button_label', { field: title })}
+                  onPress={() => {
+                    setNotice(null);
+                    setEditing(true);
+                  }}
+                >
+                  {t('edit.button')}
+                </Button>
+              )}
+            </div>
+            {current === 'projects' ? (
+              <OwnProjects />
+            ) : editing && rows ? (
+              <OfficialEditSection
+                key={current}
+                me={me}
+                title={title}
+                fields={fieldsOf(current)}
+                edits={edits}
+                onBusy={setBusy}
+                onDirty={setDirty}
+                onCancel={() => setEditing(false)}
+                onSent={() => {
+                  setEditing(false);
+                  setNotice(t('official.sent'));
+                }}
+              />
+            ) : (
+              <Details me={me} section={current} edits={edits} />
+            )}
+          </section>
+        </Card>
       </div>
+      <ConfirmDialog
+        isOpen={leaving !== null}
+        title={t('edit.leave_title')}
+        message={t('edit.leave_message')}
+        confirmLabel={t('edit.leave_confirm')}
+        onConfirm={() => {
+          if (leaving) setCurrent(leaving);
+          setLeaving(null);
+          setEditing(false);
+        }}
+        onCancel={() => setLeaving(null)}
+      />
     </div>
   );
 }
@@ -126,91 +246,50 @@ function OfficialBanner({ me }: { me: OwnStaffProfile }) {
   );
 }
 
-function SectionCard({ title, children }: { title: string; children: ReactNode }) {
-  const id = useId();
-  return (
-    <Card>
-      <section aria-labelledby={id} className="profile-section">
-        <div className="profile-section-head">
-          <h2 id={id} className="profile-section-title">
-            {title}
-          </h2>
-        </div>
-        {children}
-      </section>
-    </Card>
-  );
-}
-
-function Identity({ me }: { me: OwnStaffProfile }) {
-  const ts = useTranslations('admin.staff');
-  const td = useTranslations('admin.staff.dialog');
-  const none = useTranslations('registration.profile')('empty');
-  const locale = useLocale() as Locale;
-  return (
-    <DescriptionList
-      items={[
-        { label: td('name'), value: me.displayName },
-        {
-          label: ts('column.job_id'),
-          value: me.jobId ? <span lang="en">{me.jobId}</span> : ts('no_job_id'),
-        },
-        { label: td('designation'), value: me.designation ?? none },
-        {
-          label: td('role'),
-          value: me.roles.length ? me.roles.map((r) => localized(r.name, locale)).join(', ') : none,
-        },
-        {
-          label: td('affiliation'),
-          value: me.affiliation ? ts(`affiliation.${me.affiliation}`) : none,
-        },
-        ...(me.affiliation && me.affiliation !== 'department'
-          ? [
-              {
-                label: td(me.affiliation === 'foundation' ? 'unit_foundation' : 'unit_external'),
-                value: me.affiliationUnit ?? none,
-              },
-            ]
-          : []),
-        { label: td('program'), value: me.program ? localized(me.program.name, locale) : none },
-        {
-          label: td('division'),
-          value: me.division ? localized(me.division.name, locale) : none,
-        },
-        { label: td('supervisor'), value: me.supervisor?.name ?? none },
-      ]}
-    />
-  );
-}
-
-function Contact({ me }: { me: OwnStaffProfile }) {
-  const t = useTranslations('registration.profile');
-  const td = useTranslations('admin.staff.dialog');
-  const tp = useTranslations('admin.staff.profile');
-  const locale = useLocale() as Locale;
-  const none = t('empty');
+/** A section's details in view mode: the requestable ones with their requests, then the fixed. */
+function Details({
+  me,
+  section,
+  edits,
+}: {
+  me: OwnStaffProfile;
+  section: OfficialSection;
+  edits: ChangeRequest[];
+}) {
+  const t = useTranslations('registration');
   return (
     <>
-      <DescriptionList
-        items={[
-          { label: td('mobile'), value: me.mobile ?? none },
-          { label: td('email'), value: me.email ?? none },
-          { label: tp('state'), value: t(`state.${me.state}`) },
-          {
-            label: tp('last_login'),
-            value: me.lastLoginAt ? formatDateTime(me.lastLoginAt, locale) : tp('never'),
-          },
-        ]}
-      />
-      <div className="profile-links">
-        <Button variant="secondary" size="sm" icon={KeyRound} href="/account/password">
-          {t('official.password')}
-        </Button>
-        <Button variant="secondary" size="sm" icon={MonitorSmartphone} href="/account/sessions">
-          {t('official.devices')}
-        </Button>
-      </div>
+      <dl className="profile-list">
+        {fieldsOf(section).map((field) => {
+          const label = t(fieldLabelKey(field));
+          return (
+            <OfficialRow
+              key={field}
+              label={label}
+              field={field}
+              value={<OfficialValue me={me} field={field} label={label} />}
+              request={edits.find((r) => r.field === field)}
+            />
+          );
+        })}
+        <FixedRows me={me} section={section} />
+      </dl>
+      {section === 'contact' && <AccountLinks />}
     </>
+  );
+}
+
+function AccountLinks() {
+  const t = useTranslations('registration.profile.official');
+  return (
+    <div className="profile-links">
+      <Button variant="secondary" size="sm" icon={KeyRound} href="/account/password">
+        {t('password')}
+      </Button>
+      <Button variant="secondary" size="sm" icon={MonitorSmartphone} href="/account/sessions">
+        {t('devices')}
+      </Button>
+    </div>
   );
 }
 

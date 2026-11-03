@@ -194,7 +194,8 @@
         "projects": "My projects"
       },
       "password": "Change password",
-      "devices": "My devices"
+      "devices": "My devices",
+      "sent": "Request sent. The Department Head or the Monitoring Team will decide."
     },
     "work": {
       "every_own": "Every project is open to you, so there is no separate list here.",

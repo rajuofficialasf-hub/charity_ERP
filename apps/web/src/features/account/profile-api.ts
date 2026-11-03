@@ -58,7 +58,8 @@ export interface OwnProfile {
 
 export interface ChangeRequest {
   id: string;
-  volunteerId: string;
+  /** Null on an official's own request. */
+  volunteerId: string | null;
   kind: 'registration_correction' | 'profile_edit';
   field: string;
   newValue?: unknown;
@@ -108,3 +109,18 @@ export const ownStaffProfile = () => api<OwnStaffProfile>('/me/profile');
 export const ownProjectsWork = () => api<ProjectsWork>('/me/projects-work');
 export const projectsWorkOf = (userId: string) =>
   api<ProjectsWork>(`/users/${userId}/projects-work`);
+
+/** An official's own change request (D-147, D-148); the code routes are the official's own. */
+export const askStaffEdit = (body: { field: string; newValue?: unknown; note?: string }) =>
+  api<ChangeRequest>('/me/staff-change-requests', { method: 'POST', body });
+export const sendStaffContactCode = (id: string) =>
+  api<void>(`/me/staff-change-requests/${id}/otp`, { method: 'POST' });
+export const verifyStaffContactCode = (id: string, code: string) =>
+  api<void>(`/me/staff-change-requests/${id}/otp/verify`, { method: 'POST', body: { code } });
+
+/** The programs an official may ask to move to. */
+export interface StaffChoices {
+  programs: { id: string; name: { bn: string; en: string } }[];
+}
+export const STAFF_CHOICES_KEY = ['me', 'staff-change-requests', 'choices'] as const;
+export const staffChoices = () => api<StaffChoices>('/me/staff-change-requests/choices');

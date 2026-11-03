@@ -70,7 +70,8 @@
     "tabs": {
       "label": "Registration work",
       "pending": "Pending registrations",
-      "edits": "Edit requests"
+      "edits": "Edit requests",
+      "staff_edits": "Officials’ requests"
     },
     "column": {
       "name": "Name",
@@ -165,6 +166,16 @@
     "description": "Check the staff registrations and the volunteers' requests to change their details.",
     "stats": {
       "label": "Waiting work"
+    },
+    "staff_edits": {
+      "empty": "No official’s request is waiting.",
+      "column": {
+        "person": "Official",
+        "current": "Value now"
+      },
+      "none": "None",
+      "own": "Your own request",
+      "photo_now": "Photo now"
     }
   },
   "handover": {
