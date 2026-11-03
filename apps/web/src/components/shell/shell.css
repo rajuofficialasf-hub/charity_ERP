@@ -32,7 +32,8 @@
 /* beside the sidebar the bar is a quiet strip over the canvas, not a raised card */
 .app-shell-sidebar .app-bar {
   padding-inline: var(--space-5);
-  background: rgba(255, 255, 255, 0.92);
+  /* the dark page sets its own value (styles/scheme-bridge.css) */
+  background: var(--color-app-bar, rgba(255, 255, 255, 0.92));
   box-shadow: none;
   backdrop-filter: blur(12px);
 }

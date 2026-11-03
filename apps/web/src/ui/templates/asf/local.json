@@ -1,3 +1,13 @@
 {
-  "pieces": []
+  "pieces": [
+    {
+      "name": "ColorModeButton",
+      "files": [
+        "components/shell/color-mode-button.tsx",
+        "components/index.ts"
+      ],
+      "note": "the asf shell's light and dark switch, exported as a piece of its own, so an app's own shell can carry it (CSS ERP, D-150)",
+      "screenshot": "docs/ui/asf-pieces/color-mode-button.png"
+    }
+  ]
 }

@@ -1,0 +1,35 @@
+/*
+ * Dark mode for the pages that have not moved to the asf UI system yet
+ * (docs/architecture/ADR/ADR-016-asf-ui-system.md): the asf theme marks the page with
+ * data-color-scheme="dark", and the earlier set's colour names take the asf dark values here, so
+ * those pages stay readable on the dark page. In light they keep their own values. Unlayered like
+ * the earlier tokens, which it overrides by its attribute selector. This file goes with the earlier
+ * set once the last page has moved.
+ */
+:root[data-color-scheme='dark'] {
+  --color-bg-canvas: var(--asf-palette-background-default);
+  --color-bg-surface: var(--asf-palette-background-paper);
+  --color-bg-muted: rgba(var(--asf-palette-grey-500Channel) / 0.12);
+  --color-bg-subtle: rgba(var(--asf-palette-grey-500Channel) / 0.08);
+  --color-bg-brand-soft: rgba(var(--asf-palette-primary-mainChannel) / 0.16);
+  --color-bg-brand-tint: rgba(var(--asf-palette-primary-mainChannel) / 0.08);
+  --color-bg-success-soft: rgba(var(--asf-palette-success-mainChannel) / 0.16);
+  --color-bg-warning-soft: rgba(var(--asf-palette-warning-mainChannel) / 0.16);
+  --color-bg-danger-soft: rgba(var(--asf-palette-error-mainChannel) / 0.16);
+  --color-bg-info-soft: rgba(var(--asf-palette-info-mainChannel) / 0.16);
+  --color-border-default: var(--asf-palette-divider);
+  --color-border-strong: var(--asf-palette-grey-600);
+  --border-subtle: var(--asf-palette-divider);
+  --color-text-primary: var(--asf-palette-text-primary);
+  --color-text-secondary: var(--asf-palette-text-secondary);
+  /* the brand ink stays dark: it is the sidebar's and the bands' surface as well as a text colour */
+  --color-brand-primary: var(--asf-palette-primary-main);
+  /* a link or a small green text on the dark page reads in the light shade */
+  --color-brand-primary-dark: var(--asf-palette-primary-light);
+  --color-brand-accent-ink: var(--asf-palette-warning-light);
+  --color-status-success: var(--asf-palette-success-light);
+  --color-status-warning: var(--asf-palette-warning-light);
+  --color-status-danger: var(--asf-palette-error-light);
+  --color-status-info: var(--asf-palette-info-light);
+  --color-app-bar: rgba(var(--asf-palette-grey-900Channel) / 0.92);
+}

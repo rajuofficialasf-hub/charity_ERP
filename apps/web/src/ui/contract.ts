@@ -629,6 +629,9 @@ export type LinkTileProps = { to: string; label: string; icon: ExtendedIconName;
 /** A coloured band that asks for one action, for example a newsletter sign-up. */
 export type CalloutBandProps = { title: string; description?: string; children?: ReactNode };
 
+/** The light and dark switch; until the person picks, the device's mode applies. */
+export type ColorModeButtonProps = Record<string, never>;
+
 // ---------------------------------------------------------------------------------------------
 
 export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "Page" | "Icon" | "DataTable"> & {
@@ -663,4 +666,5 @@ export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "P
   FeatureList: ComponentType<FeatureListProps>;
   LinkTile: ComponentType<LinkTileProps>;
   CalloutBand: ComponentType<CalloutBandProps>;
+  ColorModeButton: ComponentType<ColorModeButtonProps>;
 };

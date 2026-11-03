@@ -3,6 +3,7 @@
  * component styles from packages/ui), then the few classes the whole app shares.
  */
 @import '@css/ui/styles.css';
+@import './scheme-bridge.css';
 
 /* The whole screen while the session is restored: the spinner in its middle. */
 .app-loading {

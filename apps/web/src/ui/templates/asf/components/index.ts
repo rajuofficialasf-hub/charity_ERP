@@ -26,3 +26,4 @@ export { Carousel } from './public/carousel';
 export { MediaCard } from './public/media-card';
 export { PublicShell } from './public/public-shell';
 export { LinkTile, FeatureList, CalloutBand, LanguageSwitch } from './public/blocks';
+export { ColorModeButton } from './shell/color-mode-button';

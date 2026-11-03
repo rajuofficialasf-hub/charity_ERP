@@ -31,6 +31,7 @@ import {
   FilterBar,
   MediaCard,
   UiProvider,
+  ColorModeButton,
   AccountMenu,
   CalloutBand,
   FeatureList,
@@ -384,5 +385,18 @@ describe('public pages', () => {
     expect(screen.getByRole('link', { name: 'Volunteer' })).toHaveAttribute('href', '/volunteer');
     expect(screen.getByRole('heading', { name: 'Get the newsletter' })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Email' })).toBeInTheDocument());
+  });
+});
+
+// Pieces this app added to the extended set (see local.json).
+describe('colour mode', () => {
+  it('follows the device until the person picks dark, and keeps that choice', async () => {
+    const user = userEvent.setup();
+    renderInApp(<ColorModeButton />);
+    const toDark = screen.getByRole('button', { name: 'Switch to dark mode' });
+    await user.click(toDark);
+    await waitFor(() => expect(document.documentElement).toHaveAttribute('data-color-scheme', 'dark'));
+    expect(screen.getByRole('button', { name: 'Switch to light mode' })).toBeInTheDocument();
+    expect(window.localStorage.getItem('asf-mode')).toBe('dark');
   });
 });

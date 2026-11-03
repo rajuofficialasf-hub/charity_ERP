@@ -1,5 +1,6 @@
 import type { Me } from '@css/shared/auth';
 import { Breadcrumb, type BreadcrumbItem } from '@css/ui';
+import { ColorModeButton } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { NotificationBell } from '../../features/notifications/NotificationBell';
 import { SyncChip } from '../../features/sync/SyncChip';
@@ -9,8 +10,8 @@ import { ProfileMenu } from './ProfileMenu';
 /**
  * The app bar of every signed-in page (docs/ui/DESIGN_SYSTEM.md, section "App shell"): the
  * Foundation's logo and the system name where no sidebar carries them, or else the page's trail;
- * then a volunteer's sync chip, the bell, the language switch (inside the profile menu on a
- * phone) and the profile menu.
+ * then a volunteer's sync chip, the bell, the light and dark switch, the language switch (inside
+ * the profile menu on a phone) and the profile menu.
  */
 export function AppBar({
   me,
@@ -39,6 +40,7 @@ export function AppBar({
       <div className="app-bar-actions">
         <SyncChip />
         <NotificationBell />
+        <ColorModeButton />
         {!phone && <LanguageSwitch />}
         <ProfileMenu me={me} withLanguage={phone} />
       </div>
