@@ -28,7 +28,9 @@ export const tokens = {
   radius: { small: 6, medium: 8, large: 16 },
   typography: {
     fontFamily: "Public Sans Variable",
-    // the app has no public display headings, so headings stay in Public Sans (asf DESIGN.md)
+    // the app has no public display headings, so headings stay in Public Sans
+    // (apps/web/src/ui/templates/asf/DESIGN-GUIDE.md and the kit's design notes: Barlow is for the
+    // public site's display headings only)
     headingFontFamily: "Public Sans Variable",
     fontSize: 14,
   },

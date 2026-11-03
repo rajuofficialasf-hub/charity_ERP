@@ -12,14 +12,14 @@ describe('the words of the asf UI system', () => {
     ['bn', bn],
     ['en', en],
   ])('has every one of them in %s, and nothing else', (_, catalogue) => {
-    const words = (catalogue.ui as { asf: Record<string, string> }).asf;
+    const words: Record<string, string> = catalogue.ui.asf;
     expect(Object.keys(words).sort()).toEqual(keys);
     for (const key of keys) expect(words[key]?.trim(), key).toBeTruthy();
   });
 
   it('keeps the placeholders of the page range in both languages', () => {
     for (const catalogue of [bn, en]) {
-      const range = (catalogue.ui as { asf: { rowsRange: string } }).asf.rowsRange;
+      const range = catalogue.ui.asf.rowsRange;
       for (const name of ['{from}', '{to}', '{total}']) expect(range).toContain(name);
     }
   });

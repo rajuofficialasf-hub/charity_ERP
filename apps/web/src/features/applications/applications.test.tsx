@@ -20,6 +20,7 @@ import { uploadFile } from '../../lib/uploads';
 import { ApplicationDetailPage } from './ApplicationDetailPage';
 import { ApplicationFormPage } from './ApplicationFormPage';
 import { MyApplicationsPage } from './MyApplicationsPage';
+import { stubMatchMedia } from '../../../test/match-media';
 
 // The volunteer's screens of the application cycle: the new application with the lookup, the
 // draft saved part by part and sent at the end, "আমার আবেদন" by state, and one application with
@@ -216,15 +217,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 /** A phone: the form comes one part per screen. */
-const onPhone = () =>
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: true,
-    media: query,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-  }));
+const onPhone = () => stubMatchMedia(() => true);
 
 /** The identity step: the number typed and looked up, then the form opened. */
 async function lookUp(user: ReturnType<typeof userEvent.setup>, number: string) {

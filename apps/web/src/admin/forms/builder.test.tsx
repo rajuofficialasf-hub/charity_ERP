@@ -10,6 +10,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { FormBuilderPage } from './FormBuilderPage';
 import { FormsPage } from './FormsPage';
+import { stubMatchMedia } from '../../../test/match-media';
 
 // The form builder: the libraries on one side, the outline in the middle, the draft saved by
 // itself with its version, the mandatory core locked, and read-only where saving is not possible.
@@ -744,14 +745,7 @@ describe('who may change what', () => {
 
   it('lets a phone change only the labels and option texts', async () => {
     const user = userEvent.setup();
-    vi.stubGlobal('matchMedia', (q: string) => ({
-      matches: q.includes('max-width'),
-      media: q,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-      addListener: () => undefined,
-      removeListener: () => undefined,
-    }));
+    stubMatchMedia((q) => q.includes('max-width'));
     api({
       sections: [
         ...titled({ sections: coreSections() }).sections,

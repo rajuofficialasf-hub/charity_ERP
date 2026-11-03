@@ -9,6 +9,7 @@ import { server } from '../../../test/msw/server';
 import { PublicLinkPanel } from '../../admin/forms/PublicLinkPanel';
 import { resetClientForTests } from '../../lib/api';
 import { PublicApplyPage } from './PublicApplyPage';
+import { stubMatchMedia } from '../../../test/match-media';
 
 // The public application link: the panel in the builder that switches it on with a form, and the
 // page anyone opens without signing in, which says only that an application was received.
@@ -196,14 +197,7 @@ describe('the public application page', () => {
   }
   const wide = () =>
     // a computer's width draws the whole form on one page
-    vi.stubGlobal('matchMedia', (q: string) => ({
-      matches: false,
-      media: q,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-      addListener: () => undefined,
-      removeListener: () => undefined,
-    }));
+    stubMatchMedia(() => false);
 
   it('shows the project, the closing date and the form, and says only that it was received', async () => {
     const user = userEvent.setup();

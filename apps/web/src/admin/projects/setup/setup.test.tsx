@@ -8,6 +8,7 @@ import { ME, refreshAs, renderApp } from '../../../../test/auth';
 import { server } from '../../../../test/msw/server';
 import { resetClientForTests } from '../../../lib/api';
 import { ProjectSetupPage } from './ProjectSetupPage';
+import { stubMatchMedia } from '../../../../test/match-media';
 
 // The project setup wizard (SCR-060, UX-20): one step at a time, Back and Next saving the step,
 // save and exit, the step indicator with its marks, the first step creating the draft, the review
@@ -547,18 +548,7 @@ describe('the setup wizard', () => {
   });
 
   it('on a phone keeps only the name, the dates and the switches editable', async () => {
-    vi.stubGlobal(
-      'matchMedia',
-      (query: string) =>
-        ({
-          matches: query.includes('max-width'),
-          media: query,
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          addListener: () => {},
-          removeListener: () => {},
-        }) as unknown as MediaQueryList,
-    );
+    stubMatchMedia((query) => query.includes('max-width'));
     serve();
     open('basics');
     expect(

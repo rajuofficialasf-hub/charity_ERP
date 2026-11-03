@@ -24,7 +24,9 @@ const theme = createAsfTheme(tokens);
 export function UiProvider({ children, labels }: UiProviderExtendedProps) {
   const merged = useMemo(() => ({ ...DEFAULT_LABELS, ...labels }), [labels]);
   return (
-    <ThemeProvider theme={theme} defaultMode="system" noSsr>
+    // light while the earlier set's pages have no dark colours; its own storage keys, so the
+    // earlier set's theme never reads this mode
+    <ThemeProvider theme={theme} defaultMode="light" modeStorageKey="asf-mode" colorSchemeStorageKey="asf-color-scheme" noSsr>
       <CssBaseline enableColorScheme />
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <LabelsContext.Provider value={merged}>

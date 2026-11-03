@@ -14,6 +14,7 @@ import { enqueue } from '../../offline/outbox';
 import type { SyncEngine, SyncStatus } from '../../offline/sync-engine';
 import { AppShell } from './AppShell';
 import { PageCrumbs } from './breadcrumb';
+import { stubMatchMedia } from '../../../test/match-media';
 
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const PM: Me = { ...ME, roles: ['program_manager'] };
@@ -28,14 +29,7 @@ const VOLUNTEER: Me = {
 
 /** The screen is this many pixels wide (the shell reads its width class from media queries). */
 function atWidth(px: number) {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: px >= Number(/min-width: (\d+)px/.exec(query)?.[1] ?? 0),
-    media: query,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-  }));
+  stubMatchMedia((query) => px >= Number(/min-width: (\d+)px/.exec(query)?.[1] ?? 0));
 }
 
 const PAGES = [
