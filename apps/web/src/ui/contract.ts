@@ -552,6 +552,8 @@ export type UiLabels = {
   moreActions: string;
   showDetails: string;
   hideDetails: string;
+  /** A link with a count, for example "Registrations, 3 pending". */
+  countName: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -567,6 +569,10 @@ export type ExtendedNavItem = Omit<NavItem, "icon" | "children" | "to"> & {
   to?: string;
   icon?: ExtendedIconName;
   children?: ExtendedNavItem[];
+  /** What waits there, beside the label (99+ above 99) and in the link's name. */
+  count?: number;
+  /** Marks the link current by the app's own rule, for example on the pages under it. */
+  current?: boolean;
 };
 
 export type ExtendedNavGroup = { title?: string; items: ExtendedNavItem[] };
@@ -577,7 +583,38 @@ export type AppShellExtendedProps = Omit<AppShellProps, "navigation"> & {
   brand?: { name: string; tagline?: string; logoSrc?: string };
   /** A ⌘K / Ctrl+K search over the navigation links. On by default. */
   search?: boolean;
+  /** The header's left side: the page's trail, or the brand where no sidebar carries it. */
+  headerStart?: ReactNode;
+  /** Under the header, above the page: the offline banner, the update notice. */
+  banner?: ReactNode;
+  /** Under the sidebar's links: a help card, the signed-in person. */
+  sidebarFooter?: ReactNode;
+  /**
+   * The phone's tabs and the tablet's rail in place of the drawer: the tabs below the sm
+   * breakpoint, the rail up to lg, and the rail on every width when `navigation` is empty.
+   */
+  compactNav?: CompactNavProps;
 };
+
+export type CompactNavItem = {
+  key: string;
+  label: string;
+  to: string;
+  icon: ExtendedIconName;
+  current?: boolean;
+  count?: number;
+};
+
+/** The few main destinations as tabs or a rail, and "more" for the rest. */
+export type CompactNavProps = {
+  /** The accessible name of the navigation. */
+  label: string;
+  items: readonly CompactNavItem[];
+  more?: { label: string; current?: boolean; onClick: () => void };
+};
+
+/** The tabs at a phone's bottom, or the same destinations as a rail at a tablet's side. */
+export type BottomNavProps = CompactNavProps & { variant: "tabs" | "rail" };
 
 export type PageExtendedProps = PageProps & {
   breadcrumbs?: readonly Crumb[];
@@ -1455,6 +1492,7 @@ export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "P
   BulkRow: ComponentType<BulkRowProps>;
   AttentionCard: ComponentType<AttentionCardProps>;
   IconButton: ComponentType<IconButtonProps>;
+  BottomNav: ComponentType<BottomNavProps>;
   AccountMenu: ComponentType<AccountMenuProps>;
   LanguageSwitch: ComponentType<LanguageSwitchProps>;
   PublicShell: ComponentType<PublicShellProps>;

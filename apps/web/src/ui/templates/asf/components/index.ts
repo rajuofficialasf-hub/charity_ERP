@@ -35,3 +35,4 @@ export { MediaCard } from './public/media-card';
 export { PublicShell } from './public/public-shell';
 export { LinkTile, FeatureList, CalloutBand, LanguageSwitch } from './public/blocks';
 export { ColorModeButton } from './shell/color-mode-button';
+export { BottomNav } from './shell/bottom-nav';

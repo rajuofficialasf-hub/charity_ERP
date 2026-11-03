@@ -16,6 +16,7 @@ import { APP_NAME } from '../../config';
 import { CommandPalette } from './command-palette';
 import { ColorModeButton } from './color-mode-button';
 import { NavMini, NavSection } from './nav-section';
+import { BottomNav, RAIL_WIDTH, TABS_HEIGHT } from './bottom-nav';
 
 // ----------------------------------------------------------------------
 
@@ -63,12 +64,18 @@ function Brand({ brand, compact }: { brand: AppShellExtendedProps['brand']; comp
 
 /**
  * The admin frame: a sidebar that folds to an icon rail on wide screens and becomes a drawer on
- * small ones, and a header with search, the colour mode switch and the app's own actions.
+ * small ones, and a header with search, the colour mode switch and the app's own actions. Given
+ * `compactNav`, the drawer gives way to the tabs on a phone and the rail on a tablet, and a person
+ * without sidebar groups keeps the rail on every width.
  */
-export function AppShell({ children, navigation, headerActions, brand, search = true }: AppShellExtendedProps) {
+export function AppShell({ children, navigation, headerActions, brand, search = true, headerStart, banner, sidebarFooter, compactNav }: AppShellExtendedProps) {
   const labels = useLabels();
   const theme = useTheme();
-  const wide = useMediaQuery(theme.breakpoints.up('lg'));
+  const large = useMediaQuery(theme.breakpoints.up('lg'));
+  const phone = useMediaQuery(theme.breakpoints.down('sm'));
+  const wide = large && navigation.length > 0;
+  const tabs = Boolean(compactNav) && phone;
+  const rail = Boolean(compactNav) && !phone && !wide;
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
   const width = collapsed ? MINI : WIDE;
@@ -127,10 +134,13 @@ export function AppShell({ children, navigation, headerActions, brand, search = 
           <Box sx={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'thin' }}>
             {collapsed ? <NavMini groups={navigation} /> : <NavSection groups={navigation} />}
           </Box>
+          {sidebarFooter && !collapsed && <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>{sidebarFooter}</Box>}
         </Box>
       )}
 
-      {!wide && (
+      {compactNav && (tabs || rail) && <BottomNav variant={tabs ? 'tabs' : 'rail'} {...compactNav} />}
+
+      {!wide && !compactNav && (
         <Drawer
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
@@ -143,7 +153,7 @@ export function AppShell({ children, navigation, headerActions, brand, search = 
         </Drawer>
       )}
 
-      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', pl: wide ? `${width}px` : 0 }}>
+      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', pl: wide ? `${width}px` : rail ? `${RAIL_WIDTH}px` : 0 }}>
         <Box
           component="header"
           sx={(t) => ({
@@ -160,17 +170,19 @@ export function AppShell({ children, navigation, headerActions, brand, search = 
             backdropFilter: 'blur(8px)',
           })}
         >
-          {!wide && (
+          {!wide && !compactNav && (
             <IconButton aria-label={labels.openNavigation} onClick={() => setMobileOpen(true)} sx={{ ml: -1, color: 'text.primary' }}>
               <Icon name="menu" />
             </IconButton>
           )}
+          {headerStart && <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'center' }}>{headerStart}</Box>}
           <Box sx={{ flex: 1 }} />
           {search && <CommandPalette navigation={navigation} />}
           <ColorModeButton />
           {headerActions}
         </Box>
-        <Box component="main" sx={{ flex: 1, pb: 8 }}>
+        {banner}
+        <Box component="main" id="main" sx={{ flex: 1, pb: tabs ? `${TABS_HEIGHT + 32}px` : 8 }}>
           <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3, lg: 5 }, pt: 1 }}>
             {children}
           </Container>

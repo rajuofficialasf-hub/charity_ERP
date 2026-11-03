@@ -203,6 +203,7 @@
     "connectionStatus": "সংযোগ ও সিঙ্কের অবস্থা",
     "moreActions": "আরও কাজ",
     "showDetails": "বিস্তারিত দেখুন",
-    "hideDetails": "বিস্তারিত লুকান"
+    "hideDetails": "বিস্তারিত লুকান",
+    "countName": "{label}, {count}টি অপেক্ষমাণ"
   }
 }

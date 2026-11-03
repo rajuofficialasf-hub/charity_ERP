@@ -203,6 +203,7 @@
     "connectionStatus": "Connection and sync",
     "moreActions": "More actions",
     "showDetails": "Show details",
-    "hideDetails": "Hide details"
+    "hideDetails": "Hide details",
+    "countName": "{label}, {count} pending"
   }
 }

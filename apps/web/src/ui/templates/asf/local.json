@@ -114,6 +114,19 @@
       ],
       "note": "the icons an ERP's pages need beyond the kit's set (lock and unlock, copy, crossed eye, people states, project, transfer, merge, history, devices, camera, the record states and more), from the pinned @iconify-json/solar 1.2.13; the build script refuses a body that holds more than a drawing, and icon-map.md names the asf icon for each Lucide icon the app used; built for the CSS ERP",
       "screenshot": null
+    },
+    {
+      "name": "AppShell (extended) and BottomNav",
+      "files": [
+        "components/shell/app-shell.tsx",
+        "components/shell/nav-section.tsx",
+        "components/shell/bottom-nav.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the shell of a field app: the phone's tabs and the tablet's rail in place of the drawer (and the rail on every width for a person without sidebar groups), a count beside a link and in its name (99+ above 99), the app's own rule for the current page, a slot left in the header for the trail or the brand, a banner slot under the header, and a footer under the sidebar's links; built for the CSS ERP, screenshot to come",
+      "screenshot": null
     }
   ]
 }

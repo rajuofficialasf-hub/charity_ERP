@@ -1,7 +1,7 @@
 import type { ExtendedNavItem, ExtendedNavGroup } from '@/ui/contract';
 
 import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router';
+import { Link, NavLink, useLocation } from 'react-router';
 
 import Box from '@mui/material/Box';
 import Menu from '@mui/material/Menu';
@@ -9,13 +9,29 @@ import MenuItem from '@mui/material/MenuItem';
 import ButtonBase from '@mui/material/ButtonBase';
 
 import { Icon } from '../icon';
-import { useLabels } from '../labels';
+import { fill, useLabels } from '../labels';
+import { badgeText } from './bottom-nav';
 
 // ----------------------------------------------------------------------
 
 const isActive = (item: ExtendedNavItem, path: string): boolean =>
-  (item.to !== undefined && (item.to === '/' ? path === '/' : path === item.to || path.startsWith(`${item.to}/`))) ||
+  item.current === true ||
+  (item.current === undefined &&
+    item.to !== undefined && (item.to === '/' ? path === '/' : path === item.to || path.startsWith(`${item.to}/`))) ||
   (item.children ?? []).some((child) => isActive(child, path));
+
+/** A link's count beside its label; the link's name says it in words. */
+function Count({ count }: { count: number }) {
+  return (
+    <Box
+      component="span"
+      aria-hidden
+      sx={{ minWidth: 22, height: 22, px: 0.75, borderRadius: 11, bgcolor: 'error.main', color: 'error.contrastText', typography: 'caption', fontWeight: 700, lineHeight: '22px', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
+    >
+      {badgeText(count)}
+    </Box>
+  );
+}
 
 const itemSx = (depth: number) => ({
   display: 'flex',
@@ -43,6 +59,7 @@ const activeSx = (depth: number) =>
     : { color: 'text.primary', fontWeight: 600, bgcolor: 'action.hover' };
 
 function NavRow({ item, depth, onNavigate }: { item: ExtendedNavItem; depth: number; onNavigate?: () => void }) {
+  const labels = useLabels();
   const { pathname } = useLocation();
   const active = isActive(item, pathname);
   const [open, setOpen] = useState(active);
@@ -86,20 +103,35 @@ function NavRow({ item, depth, onNavigate }: { item: ExtendedNavItem; depth: num
     );
   }
 
+  const content = (
+    <>
+      {item.icon && <Icon name={item.icon} size={depth === 0 ? 24 : 20} />}
+      <Box component="span" sx={{ flex: 1 }}>
+        {item.label}
+      </Box>
+      {item.count ? <Count count={item.count} /> : null}
+    </>
+  );
+  const named = item.count ? fill(labels.countName, { label: item.label, count: item.count }) : undefined;
+  // the app's own rule for the current page, when it gives one, wins over the router's
   return (
     <li>
-      <Box
-        component={NavLink}
-        to={item.to ?? '/'}
-        end={item.to === '/'}
-        onClick={onNavigate}
-        sx={{ ...itemSx(depth), '&.active': activeSx(depth) }}
-      >
-        {item.icon && <Icon name={item.icon} size={depth === 0 ? 24 : 20} />}
-        <Box component="span" sx={{ flex: 1 }}>
-          {item.label}
+      {item.current === undefined ? (
+        <Box component={NavLink} to={item.to ?? '/'} end={item.to === '/'} onClick={onNavigate} aria-label={named} sx={{ ...itemSx(depth), '&.active': activeSx(depth) }}>
+          {content}
         </Box>
-      </Box>
+      ) : (
+        <Box
+          component={Link}
+          to={item.to ?? '/'}
+          onClick={onNavigate}
+          aria-label={named}
+          aria-current={item.current ? 'page' : undefined}
+          sx={{ ...itemSx(depth), ...(item.current ? activeSx(depth) : {}) }}
+        >
+          {content}
+        </Box>
+      )}
     </li>
   );
 }

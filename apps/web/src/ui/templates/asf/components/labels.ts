@@ -96,6 +96,7 @@ export const DEFAULT_LABELS: UiLabels = {
   moreActions: 'More actions',
   showDetails: 'Show details',
   hideDetails: 'Hide details',
+  countName: '{label}, {count} pending',
 };
 
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);
