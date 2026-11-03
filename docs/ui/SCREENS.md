@@ -1,6 +1,6 @@
 # SCREEN INVENTORY
 
-Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the pilot set are built in task T0.19b under `docs/ui/mockups/`. Components, layouts and states refer to `docs/ui/DESIGN_SYSTEM.md` (DS). Owner decisions: `docs/ui/DESIGN_BRIEF.md` (UX-01 to UX-13). Permissions: `docs/security/permissions.yaml`. API: `docs/api/openapi.yaml` (tags named per screen).
+Status: complete for Phase 0, written in task T0.19 (2026-10-10). The mockups of the pilot set built in task T0.19b were removed when the app moved to the asf UI system (D-151; they are in git history). Components, layouts and states refer to `docs/ui/DESIGN_SYSTEM.md` (DS). Owner decisions: `docs/ui/DESIGN_BRIEF.md` (UX-01 to UX-13). Permissions: `docs/security/permissions.yaml`. API: `docs/api/openapi.yaml` (tags named per screen).
 
 ## 1. Conventions
 

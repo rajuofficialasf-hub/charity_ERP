@@ -871,7 +871,7 @@ Light theme only for now (DESIGN_BRIEF §2 item 3). The system is ready for a da
 
 ## 12. Implementation notes
 
-- **T0.19b mockups:** `docs/ui/mockups/tokens.css` copies §2.9 exactly; `components.css` implements §5 including the UX-14 premium finish (refreshed 2026-10-11); Lucide SVGs and the font files are copied locally; nothing loads from the internet at view time.
+- **T0.19b mockups (removed 2026-11-03 with D-151, in git history):** `docs/ui/mockups/tokens.css` copies §2.9 exactly; `components.css` implements §5 including the UX-14 premium finish (refreshed 2026-10-11); Lucide SVGs and the font files are copied locally; nothing loads from the internet at view time.
 - **T1.4 packages/ui (done 2026-10-11):**
   - Tokens: `src/styles/tokens.css` equals §2.9 (a test compares them); `src/breakpoints.ts` holds the breakpoints. The Tailwind 4 preset of D-066 was removed with D-103: the set's base layer carries the element reset the pages relied on, and its `Stack`, `Grid`, `DescriptionList` and `Text` replace the layout utilities.
   - Styles: `@css/ui/styles.css` (tokens, fonts, base layer, one CSS file per component in `@layer components`, `ui-` class prefix), ported from the approved `docs/ui/mockups/components.css`; components style native states (`:hover`, `:focus-visible`, `aria-current`, `aria-selected`), the data attributes the set's own components set (`data-selected`, `data-invalid`) and MUI's state classes (`Mui-selected`, `Mui-focusVisible`); MUI's styles live in the `mui` cascade layer, between the base layer and the set's components.

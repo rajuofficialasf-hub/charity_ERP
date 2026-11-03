@@ -1,7 +1,7 @@
 /*
  * Base layer of the design system (docs/ui/DESIGN_SYSTEM.md, motion, typography, accessibility and
- * focus), from the approved mockups
- * (docs/ui/mockups/components.css, "base"). Element defaults only; components live in
+ * focus), from the approved Phase 0 mockups (components.css, "base"; removed from the repository, in
+ * git history). Element defaults only; components live in
  * src/components/<Name>/<Name>.css.
  */
 @layer base {
