@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect, type Page, test } from '@playwright/test';
 import { fromProfileMenu, scan, signIn } from './support/admin';
 
@@ -31,7 +32,7 @@ test.describe("an official's own profile", () => {
     browser,
   }, info) => {
     const project = info.project.name === 'mobile' ? 'mobile' : 'desktop';
-    const designation = `আঞ্চলিক ব্যবস্থাপক ${Date.now() % 100_000}`;
+    const designation = `আঞ্চলিক ব্যবস্থাপক ${randomUUID().slice(0, 8)}`;
     await signIn(page, RPM[project]);
     await fromProfileMenu(page, 'আমার প্রোফাইল');
     await expect(page.getByRole('heading', { level: 1, name: 'আমার প্রোফাইল' })).toBeVisible();
@@ -75,6 +76,11 @@ test.describe("an official's own profile", () => {
     await (await chooser).setFiles({ name: 'photo.png', mimeType: 'image/png', buffer: PNG });
     const { fileId } = ((await (await uploaded).json()) as { data: { fileId: string } }).data;
     const photoUrl = new RegExp(`/api/v1/files/${fileId}/content`);
+    // the unscanned photo is asked for and answered 423 (see the note at the top)
+    const photoAsked = (p: Page) =>
+      p.waitForResponse(
+        (r) => photoUrl.test(r.url()) && r.request().method() === 'GET' && r.status() === 423,
+      );
     await noSidewaysScroll(page);
 
     // the Department Head decides both in the officials' requests tab
@@ -82,24 +88,25 @@ test.describe("an official's own profile", () => {
       viewport: { width: 1280, height: 800 },
       baseURL: info.project.use.baseURL,
     });
-    const head = await headContext.newPage();
-    await signIn(head, HEAD);
-    await head.goto('/admin/registrations?tab=staff-edits');
-    const table = head.getByRole('grid', { name: 'অফিসিয়ালের অনুরোধ' });
-    for (const field of ['পদবি', 'ছবি']) {
-      const approve = table.getByRole('button', { name: `${name}-এর ${field} অনুমোদন` });
-      await approve.click();
-      await expect(head.getByText('নতুন মান প্রয়োগ হয়েছে')).toBeVisible();
-      await expect(approve).toHaveCount(0);
+    try {
+      const head = await headContext.newPage();
+      await signIn(head, HEAD);
+      await head.goto('/admin/registrations?tab=staff-edits');
+      const table = head.getByRole('grid', { name: 'অফিসিয়ালের অনুরোধ' });
+      for (const field of ['পদবি', 'ছবি']) {
+        const approve = table.getByRole('button', { name: `${name}-এর ${field} অনুমোদন` });
+        await approve.click();
+        await expect(head.getByText('নতুন মান প্রয়োগ হয়েছে')).toBeVisible();
+        await expect(approve).toHaveCount(0);
+      }
+      // the staff list asks for the photo beside the name
+      const listPhoto = photoAsked(head);
+      await head.goto('/admin/staff');
+      await expect(head.getByRole('row').filter({ hasText: name })).toBeVisible();
+      await listPhoto;
+    } finally {
+      await headContext.close();
     }
-    // the staff list asks for the photo beside the name
-    const photoAsked = (p: Page) =>
-      p.waitForResponse((r) => photoUrl.test(r.url()) && r.request().method() === 'GET');
-    const listPhoto = photoAsked(head);
-    await head.goto('/admin/staff');
-    await expect(head.getByRole('row').filter({ hasText: name })).toBeVisible();
-    await listPhoto;
-    await headContext.close();
 
     // the RPM sees the new designation, and their chip asks for the photo
     const chipPhoto = photoAsked(page);
