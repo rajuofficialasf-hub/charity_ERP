@@ -222,6 +222,8 @@ const onPhone = () =>
     media: query,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
   }));
 
 /** The identity step: the number typed and looked up, then the form opened. */

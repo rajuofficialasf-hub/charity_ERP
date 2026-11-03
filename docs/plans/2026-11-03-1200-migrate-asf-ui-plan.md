@@ -78,7 +78,7 @@ The owner decided on 2026-11-03 (D-150) to take the whole asf system of the assu
 - **Depends on:** U1
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U3. Light and dark mode and the token bridge
 - **Goal:** the whole app follows the device's mode until the person picks one, also on pages not moved yet.
@@ -360,7 +360,7 @@ The owner decided on 2026-11-03 (D-150) to take the whole asf system of the assu
 ## Progress
 - **Branch:** `feat/asf-ui` (from `main` at eb66be05, after PR #38)
 - **Updated:** 2026-11-03
-- **Next:** U2: copy the kit's `fe/src/ui` and `templates/asf/src` into `apps/web/src/ui`, add the libraries, mount the asf provider beside the old one
+- **Next:** checkpoint C1 (range 4e418adf..HEAD), then U3: light and dark mode and the token bridge
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner confirmed in chat on 2026-11-03: the whole asf system (UI and the later repo split), the asf colours and fonts, light and dark, the UI first, the shared code as a private package later, and the constitution amendment of the design section.
+- **Notes:** the owner confirmed in chat on 2026-11-03: the whole asf system (UI and the later repo split), the asf colours and fonts, light and dark, the UI first, the shared code as a private package later, and the constitution amendment of the design section. U2: the kit is version 0.7.0 inside plugin 0.29.0; the asf form pieces are built on `react-hook-form` (7.91.0, with `@hookform/resolvers` 5.9.2), which came with the system (its resolver's optional ajv peer is unmet and unused); the asf files keep the kit's formatting (`.prettierignore`), so a harvest shows only real changes; the template's two Node scripts live in `apps/web/scripts/asf/` with corrected paths; the kit's contract test uses two small local helpers instead of the kit app's API client; Barlow is not loaded and `tokens.ts` sets Public Sans for headings; `APP_NAME` is the manifest's short name "ASF Charity" (page titles get settled with the shell in U8); MUI's colour scheme calls the older `matchMedia(...).addListener`, so the five test stubs of `matchMedia` got the two older methods; the first route is 284.8 KB on the branch (the asf provider beside the earlier set), recorded in PERFORMANCE.md and measured again at U8 and U10.

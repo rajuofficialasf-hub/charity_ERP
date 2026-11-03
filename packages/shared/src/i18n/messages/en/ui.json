@@ -112,5 +112,31 @@
     "upcoming": "Upcoming",
     "skipped": "Skipped",
     "rejected": "Rejected"
+  },
+  "asf": {
+    "mainNavigation": "Main menu",
+    "accountLinks": "Account",
+    "socialLinks": "Follow us",
+    "openNavigation": "Open the menu",
+    "closeNavigation": "Close the menu",
+    "collapseNavigation": "Collapse the menu",
+    "expandNavigation": "Expand the menu",
+    "search": "Search",
+    "searchPlaceholder": "Search pages…",
+    "searchEmpty": "No page matches",
+    "breadcrumb": "Location",
+    "back": "Back",
+    "close": "Close",
+    "dismiss": "Dismiss",
+    "loading": "Loading",
+    "rowsPerPage": "Rows per page",
+    "rowsRange": "Showing {from}–{to} · {total} in all",
+    "previous": "Previous page",
+    "next": "Next page",
+    "colorMode": "Colour mode",
+    "lightMode": "Switch to light mode",
+    "darkMode": "Switch to dark mode",
+    "signOut": "Log out",
+    "filters": "Filters"
   }
 }

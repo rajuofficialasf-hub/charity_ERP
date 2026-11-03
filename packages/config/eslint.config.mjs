@@ -88,12 +88,13 @@ export const sharedPurity = {
 
 /**
  * Pages and components use the component set only: the libraries behind the set live in its
- * template folder, packages/ui/src/templates/<name>/, so a template can be replaced without touching
- * a page (docs/architecture/ADR/ADR-015-mui-core-component-set.md).
+ * template folder, packages/ui/src/templates/<name>/ or, for the asf UI system the pages move to,
+ * apps/web/src/ui/templates/<name>/, so a template can be replaced without touching a page
+ * (docs/architecture/ADR/ADR-015-mui-core-component-set.md, ADR-016-asf-ui-system.md).
  */
 export const templateBoundary = {
   files: ['apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
-  ignores: ['packages/ui/src/templates/**'],
+  ignores: ['packages/ui/src/templates/**', 'apps/web/src/ui/templates/**'],
   rules: {
     'no-restricted-imports': [
       'error',
@@ -102,7 +103,7 @@ export const templateBoundary = {
           {
             group: ['@mui/*', '@emotion/*'],
             message:
-              'Use the component set (@css/ui); MUI and Emotion belong in packages/ui/src/templates/.',
+              'Use the component set (@/ui, or @css/ui on a page not moved yet); MUI and Emotion belong in a template folder.',
           },
           {
             group: ['react-aria', 'react-aria-components', 'react-stately', '@internationalized/*'],

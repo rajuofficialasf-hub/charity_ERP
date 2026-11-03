@@ -112,5 +112,31 @@
     "upcoming": "বাকি",
     "skipped": "বাদ পড়েছে",
     "rejected": "প্রত্যাখ্যাত"
+  },
+  "asf": {
+    "mainNavigation": "প্রধান মেনু",
+    "accountLinks": "অ্যাকাউন্ট",
+    "socialLinks": "আমাদের সঙ্গে থাকুন",
+    "openNavigation": "মেনু খুলুন",
+    "closeNavigation": "মেনু বন্ধ করুন",
+    "collapseNavigation": "মেনু ছোট করুন",
+    "expandNavigation": "মেনু বড় করুন",
+    "search": "খুঁজুন",
+    "searchPlaceholder": "পাতা খুঁজুন…",
+    "searchEmpty": "এমন কোনো পাতা নেই",
+    "breadcrumb": "অবস্থান",
+    "back": "পেছনে",
+    "close": "বন্ধ করুন",
+    "dismiss": "সরিয়ে দিন",
+    "loading": "লোড হচ্ছে",
+    "rowsPerPage": "প্রতি পাতায় সারি",
+    "rowsRange": "{from}–{to} দেখানো হচ্ছে · মোট {total}",
+    "previous": "আগের পাতা",
+    "next": "পরের পাতা",
+    "colorMode": "রঙের ধরন",
+    "lightMode": "আলো মোডে যান",
+    "darkMode": "অন্ধকার মোডে যান",
+    "signOut": "লগআউট",
+    "filters": "ফিল্টার"
   }
 }

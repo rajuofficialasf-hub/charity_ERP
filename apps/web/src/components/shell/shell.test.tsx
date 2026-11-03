@@ -33,6 +33,8 @@ function atWidth(px: number) {
     media: query,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
   }));
 }
 

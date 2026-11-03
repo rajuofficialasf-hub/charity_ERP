@@ -749,6 +749,8 @@ describe('who may change what', () => {
       media: q,
       addEventListener: () => undefined,
       removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
     }));
     api({
       sections: [

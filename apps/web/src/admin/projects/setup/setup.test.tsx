@@ -555,6 +555,8 @@ describe('the setup wizard', () => {
           media: query,
           addEventListener: () => {},
           removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
         }) as unknown as MediaQueryList,
     );
     serve();

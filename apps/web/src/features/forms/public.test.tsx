@@ -201,6 +201,8 @@ describe('the public application page', () => {
       media: q,
       addEventListener: () => undefined,
       removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
     }));
 
   it('shows the project, the closing date and the form, and says only that it was received', async () => {

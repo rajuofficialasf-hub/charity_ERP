@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
-// The lint guard that keeps MUI, Emotion and React Aria inside the component set's template folder.
+// The lint guard that keeps MUI, Emotion and React Aria inside a template folder: the earlier
+// component set's and the asf UI system's in the app.
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const eslint = new ESLint({ cwd: root });
 
@@ -29,5 +30,13 @@ describe('the template boundary', { timeout: 30_000 }, () => {
   it('lets the template folder import MUI', async () => {
     const mui = "import Button from '@mui/material/Button';\nexport const B = Button;\n";
     expect(await restricted(mui, 'packages/ui/src/templates/mui/Example.tsx')).toHaveLength(0);
+  });
+
+  it("lets the asf template folder of the app import MUI, and still refuses the app's pages", async () => {
+    const mui = "import Button from '@mui/material/Button';\nexport const B = Button;\n";
+    expect(
+      await restricted(mui, 'apps/web/src/ui/templates/asf/components/Example.tsx'),
+    ).toHaveLength(0);
+    expect(await restricted(mui, 'apps/web/src/ui/Example.tsx')).toHaveLength(1);
   });
 });
