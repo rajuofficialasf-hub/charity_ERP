@@ -156,3 +156,14 @@ describe('the progress pieces together', () => {
     await expectNoAxeViolations(container);
   });
 });
+
+describe('steps that share a name', () => {
+  it('keeps each of them', () => {
+    render(
+      <UiProvider>
+        <Stepper label="Visits" steps={['Visit', 'Visit', 'Report']} current={1} />
+      </UiProvider>
+    );
+    expect(within(screen.getByRole('list', { name: 'Visits' })).getAllByRole('listitem')).toHaveLength(3);
+  });
+});

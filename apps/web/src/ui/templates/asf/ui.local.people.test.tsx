@@ -195,3 +195,26 @@ describe('the people pieces together', () => {
     await expectNoAxeViolations(container);
   });
 });
+
+describe('the addresses a page hands over', () => {
+  it('makes a link only of a call, a mail, a web page or a path of the app', () => {
+    render(
+      <UiProvider>
+        <ContactList
+          items={[
+            { id: 'bad', icon: 'external', label: 'Facebook', value: 'x', href: 'javascript:alert(1)', actionLabel: 'Open' },
+            { id: 'good', icon: 'external', label: 'Website', value: 'y', href: 'https://example.org', actionLabel: 'Visit' },
+          ]}
+        />
+      </UiProvider>
+    );
+    expect(screen.queryByRole('link', { name: 'Open' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Visit' })).toHaveAttribute('href', 'https://example.org');
+  });
+
+  it('shows no photo from another site and no link out of the app', () => {
+    const { container } = renderInApp(<PersonCell name="Amina Khatun" to="https://example.org/x" photo="https://example.org/x.png" />);
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(container.querySelector('img')).toBeNull();
+  });
+});

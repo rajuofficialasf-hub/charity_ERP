@@ -6,23 +6,9 @@ import MuiSkeleton from '@mui/material/Skeleton';
 
 import { Icon } from './icon';
 import { fill, useLabels } from './labels';
+import { count, srOnly } from './shared';
 
 // ----------------------------------------------------------------------
-
-/** Read by screen readers, not shown. */
-const srOnly = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  p: 0,
-  m: '-1px',
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-  border: 0,
-} as const;
-
-const count = new Intl.NumberFormat('en-US');
 
 type StepState = 'done' | 'current' | 'missing' | 'upcoming';
 
@@ -74,7 +60,7 @@ export function Stepper({ label, steps, current, marks, onSelect }: StepperProps
         );
         const row = { display: 'flex', alignItems: 'center', gap: 1 } as const;
         return (
-          <Box component="li" key={name} data-state={state} aria-current={state === 'current' ? 'step' : undefined} sx={row}>
+          <Box component="li" key={`${index}-${name}`} data-state={state} aria-current={state === 'current' ? 'step' : undefined} sx={row}>
             {onSelect ? (
               <ButtonBase onClick={() => onSelect(index)} sx={{ ...row, borderRadius: 1, px: 0.5, py: 0.25, textAlign: 'left' }}>
                 {content}
@@ -195,7 +181,7 @@ export function ProgressBar({ label, value, max, showValue = true, tone = 'prima
         <Box sx={{ display: 'flex', height: size === 'small' ? 6 : 10, borderRadius: 5, overflow: 'hidden', bgcolor: 'action.hover' }}>
           {parts.map((part, index) => (
             <Box
-              key={part.label}
+              key={`${index}-${part.label}`}
               sx={{
                 width: `${(Math.max(part.value, 0) / scale) * 100}%`,
                 bgcolor: segments ? SEGMENT_COLOURS.at(index) : `${tone}.main`,
@@ -208,7 +194,7 @@ export function ProgressBar({ label, value, max, showValue = true, tone = 'prima
       {segments && (
         <Box component="ul" sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, m: 0, p: 0, listStyle: 'none', typography: 'caption', color: 'text.secondary' }}>
           {parts.map((part, index) => (
-            <Box component="li" key={part.label} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+            <Box component="li" key={`${index}-${part.label}`} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
               <Box component="i" aria-hidden sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: SEGMENT_COLOURS.at(index) }} />
               {part.label}{' '}
               <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', color: 'text.primary' }}>

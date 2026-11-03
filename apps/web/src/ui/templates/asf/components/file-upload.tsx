@@ -11,6 +11,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import { Icon } from './icon';
 import { Chip } from './display';
 import { fill, useLabels } from './labels';
+import { safeImageSrc } from './shared';
 
 // ----------------------------------------------------------------------
 
@@ -101,7 +102,7 @@ function FileRow({ item, onRemove, onRetry }: { item: UploadItem; onRemove?: (id
   return (
     <Box component="li" sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'divider' }}>
       <Box sx={{ width: 56, height: 56, flexShrink: 0, borderRadius: 1, overflow: 'hidden', display: 'grid', placeItems: 'center', bgcolor: 'action.hover', color: 'text.secondary' }}>
-        {item.previewUrl ? <Box component="img" src={item.previewUrl} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name="document" size={28} />}
+        {safeImageSrc(item.previewUrl) ? <Box component="img" src={safeImageSrc(item.previewUrl)} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name="document" size={28} />}
       </Box>
       <Box sx={{ flex: 1, minWidth: 0, display: 'grid', gap: 0.5 }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>

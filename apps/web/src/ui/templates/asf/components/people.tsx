@@ -13,21 +13,9 @@ import IconButton from '@mui/material/IconButton';
 import { Icon } from './icon';
 import { Avatar } from './display';
 import { fill, useLabels } from './labels';
+import { srOnly, appPath, safeHref, safeImageSrc } from './shared';
 
 // ----------------------------------------------------------------------
-
-/** Read by screen readers, not shown. */
-const srOnly = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  p: 0,
-  m: '-1px',
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-  border: 0,
-} as const;
 
 const TILE_SIZE = new Map<NonNullable<IconTileProps['size']>, number>([
   ['small', 32],
@@ -44,6 +32,7 @@ function tint(tone: ColorTone) {
 /** A soft square with an icon, an initial or a photo; it stands beside words, so it is hidden from screen readers. */
 export function IconTile({ icon, name, src, tone = 'primary', size = 'medium' }: IconTileProps) {
   const px = TILE_SIZE.get(size) ?? 40;
+  const image = safeImageSrc(src);
   return (
     <Box
       aria-hidden="true"
@@ -61,8 +50,8 @@ export function IconTile({ icon, name, src, tone = 'primary', size = 'medium' }:
         ...theme.applyStyles('dark', { color: tone === 'neutral' ? 'text.secondary' : `${tone}.light` }),
       })}
     >
-      {src ? (
-        <Box component="img" src={src} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      {image ? (
+        <Box component="img" src={image} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       ) : icon ? (
         <Icon name={icon} size={Math.round(px * 0.55)} />
       ) : (
@@ -74,12 +63,13 @@ export function IconTile({ icon, name, src, tone = 'primary', size = 'medium' }:
 
 /** The first cell of a list of people or records: a tile, the name as a link to its page, a second line. */
 export function PersonCell({ name, to, secondary, photo, lang }: PersonCellProps) {
+  const path = appPath(to);
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
       <IconTile name={name} src={photo} size="small" />
       <Box sx={{ minWidth: 0 }}>
-        {to ? (
-          <Link component={RouterLink} to={to} lang={lang} underline="hover" color="inherit" sx={{ typography: 'subtitle2', display: 'block' }}>
+        {path ? (
+          <Link component={RouterLink} to={path} lang={lang} underline="hover" color="inherit" sx={{ typography: 'subtitle2', display: 'block' }}>
             {name}
           </Link>
         ) : (
@@ -218,6 +208,7 @@ export function ProfileSection({ title, icon, action, defaultOpen = true, headin
 
 /** Ways to reach a person: each with its label, an action link and a copy button. */
 export function ContactList({ items }: ContactListProps) {
+  // a link the page was given only becomes a link when it calls, mails or opens a web page
   return (
     <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none', display: 'grid', gap: 1 }}>
       {items.map((item) => (
@@ -231,12 +222,12 @@ export function ContactList({ items }: ContactListProps) {
               {item.value}
             </Box>
           </Box>
-          {item.href && item.actionLabel && (
+          {safeHref(item.href) && item.actionLabel && (
             <Button
               size="small"
               variant="outlined"
               color="inherit"
-              href={item.href}
+              href={safeHref(item.href)}
               {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
               endIcon={item.external ? <Icon name="external" size={16} /> : undefined}
             >

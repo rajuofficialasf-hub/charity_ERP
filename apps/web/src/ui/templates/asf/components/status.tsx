@@ -17,7 +17,7 @@ import type {
 } from '@/ui/contract';
 
 import { Link as RouterLink } from 'react-router';
-import { useId, useState, useEffect } from 'react';
+import { useId, useRef, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -33,23 +33,9 @@ import { Menu } from './menu';
 import { Checkbox } from './choices';
 import { IconTile } from './people';
 import { fill, useLabels } from './labels';
+import { count, srOnly, appPath } from './shared';
 
 // ----------------------------------------------------------------------
-
-/** Read by screen readers, not shown. */
-const srOnly = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  p: 0,
-  m: '-1px',
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-  border: 0,
-} as const;
-
-const count = new Intl.NumberFormat('en-US');
 
 /** The soft tint behind a tone's dark ink, as on the asf chips; light ink in dark mode. */
 function soft(tone: ColorTone) {
@@ -111,6 +97,7 @@ export function StatusChip({ status, label, size = 'small', lang }: StatusChipPr
 /** Counts above a list that filter it when chosen; the counts past `visible` sit behind a last card. */
 export function StatFilterBar({ label, items, selectedId, onSelect, visible = items.length, moreLabel, moreValue, loading }: StatFilterBarProps) {
   const shown = items.slice(0, visible);
+  // the counts behind the last card; one that does not filter is listed but cannot be chosen
   const hidden = items.slice(visible);
   const chosenHidden = hidden.find((item) => item.id === selectedId);
   const card = (pressed: boolean) => ({
@@ -161,8 +148,13 @@ export function StatFilterBar({ label, items, selectedId, onSelect, visible = it
       {hidden.length > 0 && (
         <Box sx={{ ...card(Boolean(chosenHidden)), p: 1 }}>
           <Menu
-            label={moreLabel}
-            items={hidden.map((item) => ({ id: item.id, label: `${item.label} ${count.format(item.value)}`, onSelect: () => onSelect?.(item.id) }))}
+            label={chosenHidden ? `${moreLabel}: ${chosenHidden.label} ${count.format(chosenHidden.value)}` : moreLabel}
+            items={hidden.map((item) => ({
+              id: item.id,
+              label: `${item.label} ${count.format(item.value)}`,
+              disabled: item.selectable === false || !onSelect,
+              onSelect: () => onSelect?.(item.id),
+            }))}
           >
             <Box component="span" sx={{ display: 'grid', textAlign: 'left' }}>
               <Box component="span" sx={{ typography: 'body2', color: 'text.secondary' }}>
@@ -189,14 +181,19 @@ const BANNER = new Map<OfflineState, { tone: Tone; icon: ExtendedIconName; words
 function BannerBody({ state, pendingCount, onOpenOutbox, onHidden, text, label }: OfflineBannerProps) {
   const labels = useLabels();
   const [hidden, setHidden] = useState(false);
+  // the latest callback, so a page that renders again does not restart the 4 seconds
+  const latest = useRef(onHidden);
+  useEffect(() => {
+    latest.current = onHidden;
+  });
   useEffect(() => {
     if (state !== 'back_online') return undefined;
     const timer = setTimeout(() => {
       setHidden(true);
-      onHidden?.();
+      latest.current?.();
     }, 4000);
     return () => clearTimeout(timer);
-  }, [state, onHidden]);
+  }, [state]);
   if (hidden) return null;
   const look = BANNER.get(state) ?? { tone: 'info', icon: 'info', words: 'syncing' };
   return (
@@ -428,7 +425,7 @@ export function BulkRow({ title, meta, selected, onSelect, state, photoState, sy
               {quickAction.label}
             </Button>
           )}
-          {menuActions && menuActions.length > 0 && <Menu label={labels.moreActions} items={menuActions} />}
+          {menuActions && menuActions.length > 0 && <Menu label={`${labels.moreActions}: ${title}`} items={menuActions} />}
         </Box>
       )}
       {children && (
@@ -442,6 +439,7 @@ export function BulkRow({ title, meta, selected, onSelect, state, photoState, sy
 
 /** An item that needs the person, with why and how long; the whole card links to its list, or carries one action. */
 export function AttentionCard({ tone = 'info', icon, title, reason, meta, to, action }: AttentionCardProps) {
+  const path = appPath(to);
   const body = (
     <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', p: 2 }}>
       <IconTile icon={icon} tone={tone} />
@@ -460,8 +458,8 @@ export function AttentionCard({ tone = 'info', icon, title, reason, meta, to, ac
           </Box>
         )}
       </Box>
-      {!to && action}
-      {to && (
+      {!path && action}
+      {path && (
         <Box component="span" aria-hidden sx={{ alignSelf: 'center', color: 'text.secondary', display: 'inline-flex' }}>
           <Icon name="chevron-right" size={20} />
         </Box>
@@ -470,8 +468,8 @@ export function AttentionCard({ tone = 'info', icon, title, reason, meta, to, ac
   );
   return (
     <Card sx={{ borderLeft: 4, borderColor: `${tone}.main` }}>
-      {to ? (
-        <CardActionArea component={RouterLink} to={to}>
+      {path ? (
+        <CardActionArea component={RouterLink} to={path}>
           {body}
         </CardActionArea>
       ) : (

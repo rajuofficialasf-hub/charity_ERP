@@ -224,7 +224,7 @@ describe('the bulk rows', () => {
     expect(onSelect).toHaveBeenCalledWith(false);
     await user.click(within(row).getByRole('button', { name: 'Distributed' }));
     expect(distributed).toHaveBeenCalledTimes(1);
-    await user.click(within(row).getByRole('button', { name: 'More actions' }));
+    await user.click(within(row).getByRole('button', { name: 'More actions: Amina Khatun' }));
     await user.click(screen.getByRole('menuitem', { name: 'Absent' }));
     expect(absent).toHaveBeenCalledTimes(1);
     await user.click(within(row).getByRole('button', { name: 'Show details' }));
@@ -288,5 +288,58 @@ describe('the state pieces together', () => {
       </>
     );
     await expectNoAxeViolations(container);
+  });
+});
+
+describe('the state pieces under a page that renders again', () => {
+  it('hides "back online" once, though the page hands a new callback on each render', () => {
+    vi.useFakeTimers();
+    try {
+      const hidden = vi.fn();
+      const view = (tick: number) => (
+        <UiProvider>
+          <OfflineBanner state="back_online" pendingCount={tick} onHidden={() => hidden()} />
+        </UiProvider>
+      );
+      const { rerender } = render(view(0));
+      for (let tick = 1; tick <= 3; tick += 1) {
+        act(() => vi.advanceTimersByTime(1000));
+        rerender(view(tick));
+      }
+      act(() => vi.advanceTimersByTime(1000));
+      expect(hidden).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole('region')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('names the last card by the hidden count chosen, and keeps a count that does not filter from being chosen', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(
+      <UiProvider>
+        <StatFilterBar
+          label="Counts"
+          items={[
+            { id: 'all', label: 'All', value: 10, icon: 'users' },
+            { id: 'year', label: 'This year', value: 4, icon: 'calendar', selectable: false },
+            { id: 'blocked', label: 'Blocked', value: 2, icon: 'block' },
+          ]}
+          visible={1}
+          selectedId="blocked"
+          onSelect={onSelect}
+          moreLabel="More states"
+          moreValue={(hidden) => `${hidden} more`}
+        />
+      </UiProvider>
+    );
+    await user.click(screen.getByRole('button', { name: 'More states: Blocked 2' }));
+    expect(screen.getByRole('menuitem', { name: 'This year 4' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('makes no link of an address outside the app', () => {
+    renderInApp(<AttentionCard icon="bell" title="Open this" to="javascript:alert(1)" />);
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 });
