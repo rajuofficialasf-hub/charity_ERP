@@ -45,6 +45,19 @@
       ],
       "note": "the text kinds of the ERP's forms (identity number, integer, decimal, money with the taka sign, mobile number, password with a show button; Bengali digits typed become English digits), a record field's states (locked with a correction link, changed with its previous value, officials only), an action inside a field's end, the error summary that links to each field, and the form section as a fieldset (CSS ERP, D-150); screenshot in the gallery step",
       "screenshot": null
+    },
+    {
+      "name": "Dialog (extended), ConfirmDialog, Menu, Drawer (bottom sheet)",
+      "files": [
+        "components/dialog.tsx",
+        "components/menu.tsx",
+        "components/drawer.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the overlays of the ERP: a dialog that stays open while saving and fills a phone for a long form, a confirm dialog with what follows, a required reason and a busy confirm, a menu of links and actions for rows and profiles, and the drawer as a bottom sheet on phones (CSS ERP, D-150); screenshot in the gallery step",
+      "screenshot": null
     }
   ]
 }

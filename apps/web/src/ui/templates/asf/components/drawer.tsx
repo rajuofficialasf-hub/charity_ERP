@@ -1,27 +1,36 @@
 import type { DrawerProps } from '@/ui/contract';
 
+import type { Theme } from '@mui/material/styles';
+
 import { useId } from 'react';
 
 import Box from '@mui/material/Box';
 import MuiDrawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { Icon } from './icon';
 import { useLabels } from './labels';
 
 // ----------------------------------------------------------------------
 
-/** A side panel for details or a short task, closed by its button, Escape or a click outside. */
+/**
+ * A side panel for details or a short task, closed by its button, Escape or a click outside. On a
+ * phone, and with `side="bottom"`, it is a sheet from the bottom.
+ */
 export function Drawer({ open, onClose, title, children, actions, side = 'right' }: DrawerProps) {
   const titleId = useId();
   const labels = useLabels();
+  const phone = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'), { noSsr: true });
+  const anchor = phone ? 'bottom' : side;
+  const sheet = { width: '100%', maxHeight: '90vh', borderTopLeftRadius: 16, borderTopRightRadius: 16 };
   return (
     <MuiDrawer
-      anchor={side}
+      anchor={anchor}
       open={open}
       onClose={onClose}
       slotProps={{
-        paper: { role: 'dialog', 'aria-labelledby': titleId, sx: { width: 'min(400px, 100vw)', display: 'flex' } },
+        paper: { role: 'dialog', 'aria-labelledby': titleId, sx: { display: 'flex', ...(anchor === 'bottom' ? sheet : { width: 'min(400px, 100vw)' }) } },
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, py: 2, borderBottom: 1, borderColor: 'divider' }}>

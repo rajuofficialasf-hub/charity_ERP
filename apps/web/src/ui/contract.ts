@@ -420,6 +420,9 @@ export type UiLabels = {
   hidePassword: string;
   /** The heading of the error summary at the top of a form. */
   errorSummaryTitle: string;
+  cancel: string;
+  /** The reason box of a confirm dialog. */
+  reason: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -654,7 +657,8 @@ export type DrawerProps = {
   title: string;
   children: ReactNode;
   actions?: ReactNode;
-  side?: "left" | "right";
+  /** On a phone every drawer is a bottom sheet. */
+  side?: "left" | "right" | "bottom";
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -775,6 +779,57 @@ export type ErrorSummaryProps = { errors: readonly ErrorSummaryItem[]; title?: s
 /** A part of a long form: a fieldset named by its title. */
 export type FormSectionProps = { title: string; description?: string; children: ReactNode };
 
+// ---------------------------------------------------------------------------------------------
+// Overlays of the app
+
+export type DialogExtendedProps = DialogProps & {
+  /** False while saving: Escape, a click outside and the close button no longer close it. */
+  dismissible?: boolean;
+  /** Fills the screen on a phone, for a long form. */
+  fullScreenOnPhone?: boolean;
+};
+
+/**
+ * Asks before an action that matters. The title names the record and what happens; the confirm
+ * button is a verb ("Reject application"), never "OK".
+ */
+export type ConfirmDialogProps = {
+  open: boolean;
+  title: string;
+  message?: ReactNode;
+  tone?: "default" | "danger";
+  confirmLabel: string;
+  /** What will follow, listed before confirming. */
+  consequences?: readonly string[];
+  /** A reason must be written before confirming (reject, waitlist, blocklist, unlock). */
+  reasonRequired?: boolean;
+  reasonLabel?: string;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+  /** The action runs: the confirm button is busy and the dialog stays open. */
+  pending?: boolean;
+};
+
+/** A choice of a menu: a link to an app path, or an action. */
+export type MenuItemSpec = {
+  id: string;
+  label: string;
+  icon?: ExtendedIconName;
+  to?: string;
+  onSelect?: () => void;
+  tone?: "default" | "danger";
+  disabled?: boolean;
+};
+
+/** A button that opens a list of choices, for a row's actions or a profile's. */
+export type MenuProps = {
+  /** The accessible name of the button and its list. */
+  label: string;
+  items: readonly MenuItemSpec[];
+  /** What the button shows; three dots when left out. */
+  children?: ReactNode;
+};
+
 /** The signed-in user's button in the header and the panel it opens. */
 export type AccountMenuProps = {
   user: { name: string; email?: string; avatarSrc?: string };
@@ -866,7 +921,8 @@ export type ColorModeButtonProps = Record<string, never>;
 
 // ---------------------------------------------------------------------------------------------
 
-export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "Page" | "Icon" | "DataTable" | "SelectField" | "TextField"> & {
+export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "Page" | "Icon" | "DataTable" | "SelectField" | "TextField" | "Dialog"> & {
+  Dialog: ComponentType<DialogExtendedProps>;
   TextField: ComponentType<TextFieldExtendedProps>;
   SelectField: ComponentType<SelectFieldExtendedProps>;
   UiProvider: ComponentType<UiProviderExtendedProps>;
@@ -897,6 +953,8 @@ export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "P
   Combobox: ComponentType<ComboboxProps>;
   ErrorSummary: ComponentType<ErrorSummaryProps>;
   FormSection: ComponentType<FormSectionProps>;
+  ConfirmDialog: ComponentType<ConfirmDialogProps>;
+  Menu: ComponentType<MenuProps>;
   AccountMenu: ComponentType<AccountMenuProps>;
   LanguageSwitch: ComponentType<LanguageSwitchProps>;
   PublicShell: ComponentType<PublicShellProps>;

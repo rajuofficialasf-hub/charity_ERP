@@ -1,7 +1,8 @@
 export { Icon } from './icon';
 export { Stack } from './stack';
 export { Alert } from './alert';
-export { Dialog } from './dialog';
+export { Menu } from './menu';
+export { Dialog, ConfirmDialog } from './dialog';
 export { Drawer } from './drawer';
 export { Tabs } from './tabs';
 export { Page } from './page';

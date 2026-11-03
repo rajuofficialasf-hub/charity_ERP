@@ -162,6 +162,8 @@
     "officialOnly": "Officials only",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
-    "errorSummaryTitle": "Please correct the following:"
+    "errorSummaryTitle": "Please correct the following:",
+    "cancel": "Cancel",
+    "reason": "Reason"
   }
 }

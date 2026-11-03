@@ -55,6 +55,8 @@ export const DEFAULT_LABELS: UiLabels = {
   showPassword: 'Show password',
   hidePassword: 'Hide password',
   errorSummaryTitle: 'Please correct the following:',
+  cancel: 'Cancel',
+  reason: 'Reason',
 };
 
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);
