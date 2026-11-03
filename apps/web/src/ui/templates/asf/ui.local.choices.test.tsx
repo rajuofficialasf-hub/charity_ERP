@@ -318,3 +318,16 @@ describe('the combobox with a server search', () => {
     expect(onChange).toHaveBeenLastCalledWith('Dakshinpara');
   });
 });
+
+describe('the combobox while the server answers', () => {
+  it('says it is loading in its open list', async () => {
+    const user = userEvent.setup();
+    render(
+      <UiProvider>
+        <Combobox label="Volunteer" options={[]} value={null} onChange={() => {}} serverSearch loading />
+      </UiProvider>
+    );
+    await user.click(screen.getByRole('combobox', { name: 'Volunteer' }));
+    expect(screen.getByText('Loading')).toBeInTheDocument();
+  });
+});

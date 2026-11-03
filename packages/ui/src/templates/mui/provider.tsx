@@ -17,7 +17,7 @@ const NavigateContext = createContext<((href: string) => void) | undefined>(unde
 /**
  * The set's own theme. The app's newer UI system provides its theme inside this provider, so each
  * MUI component of the set takes this one back through `inSetTheme` and keeps its look and its
- * routed links (docs/architecture/ADR/ADR-016-asf-ui-system.md, the move off this set).
+ * routed links (docs/architecture/ADR/ADR-016-asf-ui-system.md, "Decision").
  */
 const SetThemeContext = createContext<Theme | null>(null);
 
@@ -70,10 +70,22 @@ export const RouterLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTM
   },
 );
 
-/** The MUI theme and style engine of the set; links navigate through the app's router. */
+/**
+ * The MUI theme and style engine of the set; links navigate through the app's router. Inside
+ * another of these providers (the signed-in frame inside the app's root) it opens no MUI theme of
+ * its own: it only hands the set's components its routed theme, so the newer UI system's theme
+ * stays the one around everything else.
+ */
 export function TemplateProvider({ navigate, children }: TemplateProviderProps) {
   const routed = navigate !== undefined;
   const theme = useMemo(() => createUiTheme(routed ? RouterLink : undefined), [routed]);
+  const outer = useContext(SetThemeContext);
+  if (outer)
+    return (
+      <NavigateContext.Provider value={navigate}>
+        <SetThemeContext.Provider value={theme}>{children}</SetThemeContext.Provider>
+      </NavigateContext.Provider>
+    );
   return (
     // MUI's styles go into the `mui` cascade layer, which the page declares under the design
     // system's components and the pages' own rules (apps/web/index.html), so those keep winning

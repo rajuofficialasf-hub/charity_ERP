@@ -219,12 +219,30 @@ function MiniRow({ item }: { item: ExtendedNavItem }) {
       </li>
     );
   }
+  const named = item.count ? fill(labels.countName, { label: item.label, count: item.count }) : item.label;
+  const content = (
+    <>
+      {item.icon && <Icon name={item.icon} />}
+      <span aria-hidden>{item.label}</span>
+      {item.count ? (
+        <Box component="span" aria-hidden sx={{ position: 'absolute', top: 4, right: 8, minWidth: 18, height: 18, px: 0.5, borderRadius: 9, bgcolor: 'error.main', color: 'error.contrastText', fontSize: 10, lineHeight: '18px', fontWeight: 700, width: 'auto !important' }}>
+          {badgeText(item.count)}
+        </Box>
+      ) : null}
+    </>
+  );
+  // the app's own rule for the current page, when it gives one, wins over the router's
   return (
     <li>
-      <Box component={NavLink} to={item.to ?? '/'} end={item.to === '/'} aria-label={item.label} sx={{ ...sx, '&.active': activeLook }}>
-        {item.icon && <Icon name={item.icon} />}
-        <span aria-hidden>{item.label}</span>
-      </Box>
+      {item.current === undefined ? (
+        <Box component={NavLink} to={item.to ?? '/'} end={item.to === '/'} aria-label={named} sx={{ ...sx, position: 'relative', '&.active': activeLook }}>
+          {content}
+        </Box>
+      ) : (
+        <Box component={Link} to={item.to ?? '/'} aria-label={named} aria-current={item.current ? 'page' : undefined} sx={{ ...sx, position: 'relative', ...(item.current ? activeLook : {}) }}>
+          {content}
+        </Box>
+      )}
     </li>
   );
 }

@@ -78,7 +78,7 @@ function Shell({ me }: { me: Me }) {
         }));
   const inMore = moreFor(me).some((item) => isCurrent(item, pathname));
   return (
-    <AppProviders navigate={(href) => void navigate(href)}>
+    <AppProviders navigate={(href) => void navigate(href)} inner>
       <Frame
         search={false}
         brand={{ name: ta('organization'), tagline: ta('name'), logoSrc: '/brand/logo.svg' }}

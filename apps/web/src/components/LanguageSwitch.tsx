@@ -5,10 +5,10 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
 /**
- * Language switch (I18N 2, D-067): stores the choice on this device (cookie and localStorage),
- * on the account when signed in (PUT /me/language, O-56), and re-renders the app in the new
- * language. Language names are shown in their own language. A compact toggle for the top bar and
- * the bottom of the sidebar (UX-19), on the asf UI system's switch: a group of two pressed buttons.
+ * Language switch (docs/ui/I18N.md, "Languages and locale resolution"): stores the choice on this device (cookie
+ * and localStorage), on the account when signed in (PUT /me/language), and re-renders the app in
+ * the new language. Language names are shown in their own language. A compact toggle for the
+ * header and the sign-in pages, on the asf UI system's switch: a group of two pressed buttons.
  */
 export function LanguageSwitch() {
   const t = useTranslations('common.language');

@@ -1,11 +1,11 @@
-import { useTheme } from '@mui/material/styles';
+import { createTheme, ThemeProvider, useTheme } from '@mui/material/styles';
 import Button from '@mui/material/Button';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderWithUi } from '../../testing/render.js';
 import { useUi } from '../../provider/UiProvider.js';
 import { createUiTheme, SPACING_PX } from './theme.js';
-import { TemplateProvider } from './provider.js';
+import { inSetTheme, TemplateProvider } from './provider.js';
 
 describe('the MUI theme of the set', () => {
   const theme = createUiTheme();
@@ -127,5 +127,42 @@ describe('the set provider', () => {
     renderWithUi(<Probe />, { locale: 'bn' });
     expect(screen.getByText('bn')).toBeInTheDocument();
     expect(primary.toLowerCase()).toBe('#008e48');
+  });
+});
+
+describe("the set's theme under another one", () => {
+  /** Says which primary colour the theme around it has. */
+  function Probe() {
+    return <p>{useTheme().palette.primary.main.toLowerCase()}</p>;
+  }
+  const InSet = inSetTheme(Probe);
+  const other = createTheme({ palette: { primary: { main: '#123456' } } });
+
+  it("gives a component of the set its own theme back inside another provider's", () => {
+    render(
+      <TemplateProvider>
+        <ThemeProvider theme={other}>
+          <Probe />
+          <InSet />
+        </ThemeProvider>
+      </TemplateProvider>,
+    );
+    expect(screen.getByText('#123456')).toBeInTheDocument();
+    expect(screen.getByText('#008e48')).toBeInTheDocument();
+  });
+
+  it('opens no theme of its own inside another set provider, so the newer one stays around the rest', () => {
+    render(
+      <TemplateProvider>
+        <ThemeProvider theme={other}>
+          <TemplateProvider navigate={() => undefined}>
+            <Probe />
+            <InSet />
+          </TemplateProvider>
+        </ThemeProvider>
+      </TemplateProvider>,
+    );
+    expect(screen.getByText('#123456')).toBeInTheDocument();
+    expect(screen.getByText('#008e48')).toBeInTheDocument();
   });
 });

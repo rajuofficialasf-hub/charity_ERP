@@ -14,16 +14,22 @@ import { useCallback, type ReactNode } from 'react';
 export function AppProviders({
   children,
   navigate,
+  inner = false,
 }: {
   children: ReactNode;
   navigate?: (href: string) => void;
+  /**
+   * Inside the root's providers (the signed-in frame): only the router for the earlier set's
+   * links; the asf provider stays the root's one, with one light and dark state for the app.
+   */
+  inner?: boolean;
 }) {
   const locale = useLocale();
   const { ui } = useMessages();
   const formatNumber = useCallback((value: number) => formatCount(value, locale), [locale]);
   return (
     <UiProvider locale={locale} messages={ui} formatNumber={formatNumber} navigate={navigate}>
-      <AsfUiProvider labels={ui.asf}>{children}</AsfUiProvider>
+      {inner ? children : <AsfUiProvider labels={ui.asf}>{children}</AsfUiProvider>}
     </UiProvider>
   );
 }
