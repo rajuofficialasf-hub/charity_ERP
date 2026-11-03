@@ -7,6 +7,7 @@ import ButtonBase from '@mui/material/ButtonBase';
 
 import { Icon } from '../icon';
 import { fill, useLabels } from '../labels';
+import { brandInk } from '../shared';
 
 // ----------------------------------------------------------------------
 
@@ -59,11 +60,12 @@ const itemSx = (variant: BottomNavProps['variant'], current: boolean) =>
     py: variant === 'rail' ? 1.25 : 0.75,
     px: 0.5,
     borderRadius: 1.5,
-    color: current ? 'primary.main' : 'text.secondary',
+    color: 'text.secondary',
     fontWeight: current ? 700 : 500,
     textDecoration: 'none',
     typography: 'caption',
     textAlign: 'center',
+    ...(current && brandInk),
     ...(current && variant === 'rail' && { bgcolor: 'rgba(var(--asf-palette-primary-mainChannel) / 0.08)' }),
     '&:hover': { bgcolor: 'action.hover' },
     '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },

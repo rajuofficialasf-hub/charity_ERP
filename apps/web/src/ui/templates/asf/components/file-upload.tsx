@@ -11,7 +11,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import { Icon } from './icon';
 import { Chip } from './display';
 import { fill, useLabels } from './labels';
-import { safeImageSrc } from './shared';
+import { darkButton, safeImageSrc } from './shared';
 
 // ----------------------------------------------------------------------
 
@@ -85,7 +85,8 @@ function Picker({
       />
       <Button
         variant={primary ? 'contained' : 'outlined'}
-        color={primary ? 'primary' : 'inherit'}
+        color="inherit"
+        sx={primary ? darkButton : undefined}
         startIcon={<Icon name={icon} size={20} />}
         disabled={disabled}
         onClick={() => input.current?.click()}

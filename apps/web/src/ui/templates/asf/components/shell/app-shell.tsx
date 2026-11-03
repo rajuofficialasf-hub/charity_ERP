@@ -15,6 +15,7 @@ import { useLabels } from '../labels';
 import { APP_NAME } from '../../config';
 import { CommandPalette } from './command-palette';
 import { ColorModeButton } from './color-mode-button';
+import { brandInk } from '../shared';
 import { NavMini, NavSection } from './nav-section';
 import { BottomNav, RAIL_WIDTH, TABS_HEIGHT } from './bottom-nav';
 
@@ -54,8 +55,8 @@ function Brand({ brand, compact }: { brand: AppShellExtendedProps['brand']; comp
       )}
       {!compact && (
         <Box sx={{ minWidth: 0 }}>
-          <Box sx={{ typography: 'subtitle1', fontWeight: 700, color: 'primary.main', lineHeight: 1.3 }}>{name}</Box>
-          {brand?.tagline && <Box sx={{ typography: 'caption', color: 'primary.main', lineHeight: 1.4 }}>{brand.tagline}</Box>}
+          <Box sx={{ typography: 'subtitle1', fontWeight: 700, lineHeight: 1.3, ...brandInk }}>{name}</Box>
+          {brand?.tagline && <Box sx={{ typography: 'caption', lineHeight: 1.4, ...brandInk }}>{brand.tagline}</Box>}
         </Box>
       )}
     </Box>

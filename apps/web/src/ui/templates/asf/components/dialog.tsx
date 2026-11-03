@@ -15,6 +15,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { Icon } from './icon';
 import { useLabels } from './labels';
+import { darkButton, dangerButton } from './shared';
 
 // ----------------------------------------------------------------------
 
@@ -94,7 +95,8 @@ function ConfirmBody({
         </Button>
         <Button
           variant="contained"
-          color={tone === 'danger' ? 'error' : 'primary'}
+          color="inherit"
+          sx={tone === 'danger' ? dangerButton : darkButton}
           onClick={() => onConfirm(reason.trim())}
           disabled={!ready}
           loading={pending}

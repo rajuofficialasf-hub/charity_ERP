@@ -70,9 +70,14 @@ test.describe('app shell', () => {
       });
       await expect(page.getByText(/আপনি অফলাইনে আছেন/)).toBeVisible();
       expect(
-        await page.evaluate(
-          () => document.fonts.check('16px UbuntuSans') && document.fonts.check('16px Bornomala'),
-        ),
+        // each font with a letter it draws: Latin from Public Sans, Bengali from Noto Sans Bengali
+        await page.evaluate(async () => {
+          await document.fonts.ready;
+          return (
+            document.fonts.check('16px "Public Sans Variable"', 'A') &&
+            document.fonts.check('16px "Noto Sans Bengali Variable"', 'আ')
+          );
+        }),
       ).toBe(true);
     } finally {
       await context.setOffline(false);
@@ -95,9 +100,9 @@ test.describe('app shell', () => {
         timeout: 15_000,
       });
       // the banner by its landmark name: the loading blocks of the home are status regions too
-      await expect(
-        page.getByRole('complementary', { name: 'সংযোগ ও সিঙ্কের অবস্থা' }),
-      ).toContainText('তালিকা, পর্যালোচনা ও অনুমোদনের জন্য নেট লাগবে');
+      await expect(page.getByRole('region', { name: 'সংযোগ ও সিঙ্কের অবস্থা' })).toContainText(
+        'তালিকা, পর্যালোচনা ও অনুমোদনের জন্য নেট লাগবে',
+      );
       // the home's own data could not be read: it says why, not "something went wrong"
       await expect(
         page.getByRole('main').getByText('নেট নেই। এই তথ্য দেখতে সংযোগ লাগবে।').first(),

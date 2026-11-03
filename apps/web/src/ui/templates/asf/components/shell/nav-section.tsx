@@ -11,6 +11,7 @@ import ButtonBase from '@mui/material/ButtonBase';
 import { Icon } from '../icon';
 import { fill, useLabels } from '../labels';
 import { badgeText } from './bottom-nav';
+import { brandInk } from '../shared';
 
 // ----------------------------------------------------------------------
 
@@ -55,7 +56,7 @@ const itemSx = (depth: number) => ({
 // Top level: the brand tint. Nested: a grey tint, so the parent keeps the colour.
 const activeSx = (depth: number) =>
   depth === 0
-    ? { color: 'primary.main', fontWeight: 600, bgcolor: 'rgba(var(--asf-palette-primary-mainChannel) / 0.08)', '&:hover': { bgcolor: 'rgba(var(--asf-palette-primary-mainChannel) / 0.16)' } }
+    ? { ...brandInk, fontWeight: 600, bgcolor: 'rgba(var(--asf-palette-primary-mainChannel) / 0.08)', '&:hover': { bgcolor: 'rgba(var(--asf-palette-primary-mainChannel) / 0.16)' } }
     : { color: 'text.primary', fontWeight: 600, bgcolor: 'action.hover' };
 
 function NavRow({ item, depth, onNavigate }: { item: ExtendedNavItem; depth: number; onNavigate?: () => void }) {
@@ -150,7 +151,7 @@ export function NavSection({ groups, onNavigate }: { groups: ExtendedNavGroup[];
           sx={{ mt: index === 0 ? 0 : 2 }}
         >
           {group.title && (
-            <Box id={`${navId}-group-${index}`} sx={{ typography: 'overline', textTransform: 'uppercase', color: 'text.disabled', px: 1.5, py: 1 }}>
+            <Box id={`${navId}-group-${index}`} sx={{ typography: 'overline', textTransform: 'uppercase', color: 'text.secondary', px: 1.5, py: 1 }}>
               {group.title}
             </Box>
           )}
@@ -188,7 +189,7 @@ function MiniRow({ item }: { item: ExtendedNavItem }) {
     '&:hover': { bgcolor: 'action.hover' },
     '& > span': { display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', px: 0.5 },
   } as const;
-  const activeLook = { color: 'primary.main', bgcolor: 'rgba(var(--asf-palette-primary-mainChannel) / 0.08)' };
+  const activeLook = { ...brandInk, bgcolor: 'rgba(var(--asf-palette-primary-mainChannel) / 0.08)' };
 
   if (item.children?.length) {
     return (

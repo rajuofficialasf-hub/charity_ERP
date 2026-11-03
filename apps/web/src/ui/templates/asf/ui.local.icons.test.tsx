@@ -10,10 +10,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readdirSync, readFileSync } from 'node:fs';
 import { it, expect, describe, afterEach } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, waitFor } from '@testing-library/react';
 
 import { Icon } from './index';
 import { iconBodies } from './components/icon-data';
+import { loadIcons } from './components/icon';
 
 afterEach(cleanup);
 
@@ -54,7 +55,8 @@ describe('the icons', () => {
     expect(unmapped).toEqual([]);
   });
 
-  it('map only to icons the set has, and every icon renders as a drawing', () => {
+  it('map only to icons the set has, and every icon renders as a drawing', async () => {
+    await loadIcons();
     const names = new Set([...readMap().values(), ...Object.keys(iconBodies)]);
     for (const name of names) {
       expect(Object.hasOwn(iconBodies, name), name).toBe(true);
@@ -76,5 +78,12 @@ describe('the icons', () => {
     const generated = readFileSync(path.join(here, 'components/icon-data.ts'), 'utf8');
     expect(generated).toMatch(/Solar icon set by 480 Design, CC BY 4\.0/);
     expect(generated).toMatch(/@iconify-json\/solar 1\.2\.13/);
+  });
+});
+
+describe('the icon drawings', () => {
+  it('fill in once their file has loaded, without the page waiting for it', async () => {
+    const { container } = render(<Icon name="home" label="Home" />);
+    await waitFor(() => expect(container.querySelector('svg')?.childElementCount).toBeGreaterThan(0));
   });
 });

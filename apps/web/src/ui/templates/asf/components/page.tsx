@@ -9,6 +9,7 @@ import Box from '@mui/material/Box';
 
 import { Icon } from './icon';
 import { fill, useLabels } from './labels';
+import { brandInk } from './shared';
 import { APP_NAME } from '../config';
 
 // ----------------------------------------------------------------------
@@ -44,7 +45,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
               sx={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                color: last ? 'text.disabled' : 'text.primary',
+                color: last ? 'text.secondary' : 'text.primary',
                 '&:not(:first-of-type)::before': {
                   content: '""',
                   width: 4,
@@ -87,7 +88,7 @@ export function Page({ title, description, actions, children, breadcrumbs, back,
       <Box sx={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: { xs: 3, md: 5 } }}>
         <Box sx={{ flex: '1 1 320px', minWidth: 0 }}>
           {eyebrow && (
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, mb: 0.75, typography: 'overline', color: 'primary.main', '&::before': { content: '""', width: 6, height: 6, borderRadius: '50%', bgcolor: 'primary.main' } }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, mb: 0.75, typography: 'overline', ...brandInk, '&::before': { content: '""', width: 6, height: 6, borderRadius: '50%', bgcolor: 'primary.main' } }}>
               {eyebrow}
             </Box>
           )}

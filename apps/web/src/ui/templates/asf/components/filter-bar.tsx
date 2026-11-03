@@ -15,6 +15,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import { Icon } from './icon';
 import { Drawer } from './drawer';
 import { fill, useLabels } from './labels';
+import { brandInk, darkButton } from './shared';
 
 // ----------------------------------------------------------------------
 
@@ -114,7 +115,7 @@ export function FilterBar({
               aria-controls={!phone && panelOpen ? panelId : undefined}
               onClick={() => (phone ? setSheetOpen(true) : setPanelOpen((open) => !open))}
               startIcon={
-                <Badge badgeContent={activeCount} color="primary" invisible={activeCount === 0}>
+                <Badge badgeContent={activeCount} invisible={activeCount === 0} sx={(theme) => ({ '& .MuiBadge-badge': darkButton(theme) })}>
                   <Icon name="filter" size={20} />
                 </Badge>
               }
@@ -142,8 +143,8 @@ export function FilterBar({
                 key={chip.id}
                 clickable
                 aria-pressed={pressed}
-                color={pressed ? 'primary' : 'default'}
-                variant={pressed ? 'filled' : 'outlined'}
+                variant="outlined"
+                sx={pressed ? { ...brandInk, fontWeight: 700, borderColor: 'primary.main', bgcolor: 'rgba(var(--asf-palette-primary-mainChannel) / 0.16)' } : undefined}
                 onClick={() => onChipChange?.(chip.id)}
                 label={
                   <>
@@ -198,7 +199,7 @@ export function FilterBar({
                   {labels.clearFilters}
                 </Button>
               )}
-              <Button variant="contained" onClick={() => setSheetOpen(false)}>
+              <Button variant="contained" color="inherit" sx={darkButton} onClick={() => setSheetOpen(false)}>
                 {labels.applyFilters}
               </Button>
             </>

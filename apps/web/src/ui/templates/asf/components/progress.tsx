@@ -38,7 +38,7 @@ export function Stepper({ label, steps, current, marks, onSelect }: StepperProps
                 fontWeight: 700,
                 fontVariantNumeric: 'tabular-nums',
                 ...(state === 'current'
-                  ? { bgcolor: 'primary.main', color: 'primary.contrastText' }
+                  ? { bgcolor: 'primary.dark', color: 'common.white' }
                   : finished
                     ? { bgcolor: 'rgba(var(--asf-palette-primary-mainChannel) / 0.16)', color: 'primary.dark', ...theme.applyStyles('dark', { color: 'primary.light' }) }
                     : state === 'missing'
