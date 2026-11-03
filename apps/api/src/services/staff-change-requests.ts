@@ -33,7 +33,7 @@ const EDIT = 'profile_edit';
 /** An official's request has no volunteer; the volunteer path never reaches it. */
 const WAITING = { kind: EDIT, status: 'submitted', volunteerId: null } as const;
 /** The references whose ids the deciders see with their names. */
-const REFERENCES = ['homeProgramId', 'homeDivisionId', 'supervisorUserId'] as const;
+const REFERENCES = ['homeProgramId', 'homeDivisionId'] as const;
 type Reference = (typeof REFERENCES)[number];
 
 /** The references of a request that names one of them; the other two stay unchecked. */
@@ -178,8 +178,8 @@ export class StaffChangeRequestsService {
 
   /**
    * The value checked by its field: a contact other than the own one (whether it is free is told
-   * only after its code), a reference that exists, a supervisor who is an active department
-   * official outside the person's own line, and never the value the person already has.
+   * only after its code), a program or division that exists, and never the value the person
+   * already has.
    */
   private async checkedValue(
     tx: Tx,
@@ -236,7 +236,7 @@ export class StaffChangeRequestsService {
     return { rows: await this.withNames(views), meta };
   }
 
-  /** The names of the programs, divisions and supervisors the rows name, by id. */
+  /** The names of the programs and divisions the rows name, by id. */
   private async withNames<T extends { field: string; newValue?: unknown; currentValue: unknown }>(
     rows: T[],
   ): Promise<(T & { names: Record<string, { bn: string; en: string }> })[]> {
@@ -248,7 +248,7 @@ export class StaffChangeRequestsService {
           .filter((v): v is string => typeof v === 'string'),
       ),
     ];
-    const [programs, divisions, people] = await Promise.all([
+    const [programs, divisions] = await Promise.all([
       this.prisma.program.findMany({
         where: { id: { in: ids('homeProgramId') } },
         select: { id: true, nameBn: true, nameEn: true },
@@ -257,15 +257,10 @@ export class StaffChangeRequestsService {
         where: { id: { in: ids('homeDivisionId') } },
         select: { id: true, nameBn: true, nameEn: true },
       }),
-      this.prisma.user.findMany({
-        where: { id: { in: ids('supervisorUserId') } },
-        select: { id: true, displayName: true },
-      }),
     ]);
     const names = new Map<string, { bn: string; en: string }>([
       ...programs.map((p) => [p.id, { bn: p.nameBn, en: p.nameEn }] as const),
       ...divisions.map((d) => [d.id, { bn: d.nameBn, en: d.nameEn }] as const),
-      ...people.map((u) => [u.id, { bn: u.displayName, en: u.displayName }] as const),
     ]);
     return rows.map((r) => ({
       ...r,
@@ -275,6 +270,21 @@ export class StaffChangeRequestsService {
           .map((id) => [id, names.get(id)!]),
       ),
     }));
+  }
+
+  /**
+   * What an official picks from when they ask for another program: every active program by name,
+   * since their own program scope may not hold the one they move to (the division comes from the
+   * public location list).
+   */
+  async choices(principal: Principal) {
+    if (principal.kind !== 'staff') throw new ApiError('permission.not_found', 404);
+    const programs = await this.prisma.program.findMany({
+      where: { active: true },
+      select: { id: true, nameBn: true, nameEn: true },
+      orderBy: { code: 'asc' },
+    });
+    return { programs: programs.map((p) => ({ id: p.id, name: { bn: p.nameBn, en: p.nameEn } })) };
   }
 
   /** How many officials' requests wait for a decision (the deciders' My Work home). */
@@ -341,7 +351,7 @@ export class StaffChangeRequestsService {
         where: { id: userId },
         select: { supervisorUserId: true },
       });
-      // the program, the division or the supervisor may have changed since the request
+      // the program or the division may have changed since the request
       await assertStaffRefs(tx, refs(field, value), userId, person.supervisorUserId);
     }
     await tx.user.update({

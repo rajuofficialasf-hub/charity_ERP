@@ -440,6 +440,27 @@ export function registrationsRouter(
     handler: ({ body, req }) => c.staffChangeRequests.create(principalOf(req), body),
   });
 
+  defineRoute(router, deps, {
+    ...staffEditOp,
+    method: 'get',
+    path: '/me/staff-change-requests/choices',
+    operationId: 'registration.staffEditRequest.choices',
+    summary: 'The programs an official may ask to move to, by name',
+    audit: 'none',
+    rateLimit: 'default',
+    responses: {
+      200: z.object({
+        programs: z.array(
+          z.object({ id: uuid, name: z.object({ bn: z.string(), en: z.string() }) }),
+        ),
+      }),
+      401: null,
+      403: null,
+      404: null,
+    },
+    handler: ({ req }) => c.staffChangeRequests.choices(principalOf(req)),
+  });
+
   defineRoute<unknown, unknown, { requestId: string }>(router, deps, {
     ...staffEditOp,
     method: 'post',

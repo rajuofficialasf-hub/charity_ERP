@@ -17,7 +17,7 @@ An official opens "আমার প্রোফাইল" and sees who they are,
 - **R3** Each project card carries the official's work figures: in their area the applications received, waiting now, approved, rejected and waitlisted, and the volunteers assigned; by them the reviews, approvals, rejections and send-backs, and the median days from submission to their decision.
 - **R4** The figures are seen by the official, the Department Head, the Monitoring Team, and the Program Manager of the official's program for that program's projects; nobody else.
 - **R5** A global role (Head, Monitoring, Finance, Media) sees one line that every project is open to them and a link to the project list instead of a list.
-- **R6** An official asks to change their name, designation, mobile, email, photo, affiliation and unit, program, division or supervisor; mobile and email need the code sent to the new value; a photo is uploaded with the request.
+- **R6** An official asks to change their name, designation, mobile, email, photo, affiliation and unit, program or division (not the supervisor: D-148); mobile and email need the code sent to the new value; a photo is uploaded with the request.
 - **R7** Only the Department Head and the Monitoring Team decide an official's request; an approval writes the change, a contact change ends the person's sessions, a program or division change bumps their permission version; every decision is audited.
 - **R8** A volunteer's own profile and change requests work as before.
 - **R9** A person's uploaded photo shows wherever the person is shown (the staff list and profile, the organogram, the app bar chip and the sidebar, the beneficiary list, the volunteer lists and profiles); without one, the initial.

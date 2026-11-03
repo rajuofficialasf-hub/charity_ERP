@@ -119,8 +119,7 @@
     "emergency_full_time_short": "Full time in an emergency",
     "permanent_suffix": "(permanent)",
     "workplace": "Workplace",
-    "home_program": "Program",
-    "supervisor": "Reports to"
+    "home_program": "Program"
   },
   "done": {
     "title": "Registration submitted",

@@ -95,7 +95,7 @@ describe("an official's own request", () => {
     );
   });
 
-  it('refuses an unchanged value, a second open request, a bad workplace and the own supervisor', async () => {
+  it('refuses an unchanged value, a second open request, a bad workplace and a supervisor', async () => {
     const rpm = await official();
     await h.db.query(`UPDATE users SET designation = 'পদবি' WHERE id = $1`, [rpm.account.id]);
     expect((await ask(rpm.session, { field: 'designation', newValue: 'পদবি' })).status).toBe(422);
@@ -108,8 +108,12 @@ describe("an official's own request", () => {
       newValue: { affiliation: 'external', affiliationUnit: null },
     });
     expect(unit.status).toBe(422);
-    const self = await ask(rpm.session, { field: 'supervisorUserId', newValue: rpm.account.id });
-    expect(self.status).toBe(422);
+    // the supervisor is changed by the deciders on the staff page, never asked for
+    const supervisor = await ask(rpm.session, {
+      field: 'supervisorUserId',
+      newValue: rpm.account.id,
+    });
+    expect(supervisor.status).toBe(422);
     const program = await ask(rpm.session, {
       field: 'homeProgramId',
       newValue: '00000000-0000-7000-8000-000000000000',
@@ -152,6 +156,26 @@ describe("an official's own request", () => {
     expect(res.body.data.status).toBe('rejected');
     expect((await userRow(rpm.account.id)).designation).toBeNull();
     expect(await notificationsOf(h.db, 'edit_request_closed', rpm.account.id)).toHaveLength(1);
+  });
+});
+
+describe('the program choices', () => {
+  it('list every active program for an official, and nothing for a volunteer', async () => {
+    const { program } = await f.project(h.db);
+    const retired = (await f.project(h.db)).program;
+    await h.db.query('UPDATE programs SET active = false WHERE id = $1', [retired]);
+    const rpm = await official();
+    const res = await api()
+      .get('/api/v1/me/staff-change-requests/choices')
+      .set(bearer(rpm.session));
+    expect(res.status).toBe(200);
+    const ids = (res.body.data.programs as { id: string }[]).map((p) => p.id);
+    expect(ids).toContain(program);
+    expect(ids).not.toContain(retired);
+    const volunteer = await login(h, await account(h.db, { kind: 'volunteer' }));
+    expect(
+      (await api().get('/api/v1/me/staff-change-requests/choices').set(bearer(volunteer))).status,
+    ).toBe(403);
   });
 });
 

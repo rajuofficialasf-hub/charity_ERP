@@ -1515,9 +1515,10 @@ components:
       description: >-
         An official's own change (D-147, BR-289). The new value is required except for the photo,
         which the own photo upload fills; the workplace is an object with the affiliation and its
-        unit; a program, division or supervisor of null asks to clear it.
+        unit; a program or division of null asks to clear it. The supervisor is not asked for
+        (D-148).
       properties:
-        field: { type: string, enum: [displayName, designation, mobile, email, workplace, homeProgramId, homeDivisionId, supervisorUserId, photo] }
+        field: { type: string, enum: [displayName, designation, mobile, email, workplace, homeProgramId, homeDivisionId, photo] }
         newValue:
           anyOf:
             - { type: string, maxLength: 2000 }
@@ -1535,7 +1536,7 @@ components:
             currentValue: { description: "The person's value of the field now, in the shape of newValue" }
             names:
               type: object
-              description: The names of the program, division or supervisor the two values name, by id
+              description: The names of the program or division the two values name, by id
               additionalProperties: { $ref: '#/components/schemas/Bilingual' }
     StaffChangeRequestList:
       type: object
@@ -5953,6 +5954,45 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/staff-change-requests/choices:
+    get:
+      tags: [registration]
+      operationId: registration.staffEditRequest.choices
+      summary: The programs an official may ask to move to, by name
+      description: >-
+        Every active program by its name (D-148), since an official's own program scope may not
+        hold the one they move to; the division comes from GET /locations. A volunteer holds no
+        grant (403).
+      x-permission: staff_edit_request.submit
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The choices
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [programs]
+                    properties:
+                      programs:
+                        type: array
+                        items:
+                          type: object
+                          required: [id, name]
+                          properties:
+                            id: { $ref: '#/components/schemas/Uuid' }
+                            name: { $ref: '#/components/schemas/Bilingual' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /me/staff-change-requests/{requestId}/otp:
     parameters:
       - $ref: '#/components/parameters/RequestId'
@@ -6004,7 +6044,7 @@ paths:
       summary: "Officials' own change requests waiting for a decision"
       description: >-
         For the Department Head and the Monitoring Team (D-147, BR-289): each request with the
-        person, their current value and the names of the program, division or supervisor named.
+        person, their current value and the names of the program or division named.
       x-permission: staff_edit_request.approve
       x-scope: global
       x-audit: none
