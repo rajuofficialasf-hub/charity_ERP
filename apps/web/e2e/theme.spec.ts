@@ -18,6 +18,13 @@ test.describe('light and dark', () => {
     // the page itself is dark, not only the switch
     const dark = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     expect(dark).toBe('rgb(20, 26, 33)');
+    // the earlier set's soft backgrounds resolve to a colour, not to nothing
+    const tints = await page.evaluate(() =>
+      ['--color-bg-muted', '--color-bg-subtle', '--color-bg-brand-soft', '--color-app-bar'].map(
+        (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim(),
+      ),
+    );
+    for (const tint of tints) expect(tint).toMatch(/^rgba\(\d+ \d+ \d+ \/ 0?\.\d+\)$/);
 
     await page.reload();
     await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
@@ -32,5 +39,15 @@ test.describe('light and dark', () => {
     await signIn(page, 'head@example.org');
     await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'dark');
     await expect(page.getByRole('button', { name: 'আলো মোডে যান' })).toBeVisible();
+  });
+
+  test('paints a dark device dark before the app has started', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    // the app's scripts never arrive, so only the page, its styles and the mode script run
+    await page.route('**/assets/*.js', (route) => route.abort());
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'dark');
+    const canvas = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    expect(canvas).toBe('rgb(20, 26, 33)');
   });
 });
