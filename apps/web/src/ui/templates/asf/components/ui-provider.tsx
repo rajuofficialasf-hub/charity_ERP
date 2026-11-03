@@ -24,8 +24,9 @@ const theme = createAsfTheme(tokens);
 export function UiProvider({ children, labels }: UiProviderExtendedProps) {
   const merged = useMemo(() => ({ ...DEFAULT_LABELS, ...labels }), [labels]);
   return (
-    // its own storage keys, so the earlier set's theme (light only) never reads this mode
-    <ThemeProvider theme={theme} defaultMode="system" modeStorageKey="asf-mode" colorSchemeStorageKey="asf-color-scheme" noSsr>
+    // its own storage keys, so the earlier set's theme (light only) never reads this mode, and its
+    // own mode even inside the earlier set's provider, where a nested provider would take that one's
+    <ThemeProvider theme={theme} defaultMode="system" modeStorageKey="asf-mode" colorSchemeStorageKey="asf-color-scheme" noSsr disableNestedContext>
       <CssBaseline enableColorScheme />
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <LabelsContext.Provider value={merged}>

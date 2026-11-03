@@ -1,10 +1,11 @@
-import { StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
+import { StyledEngineProvider, ThemeProvider, type Theme } from '@mui/material/styles';
 import {
   createContext,
   forwardRef,
   useContext,
   useMemo,
   type AnchorHTMLAttributes,
+  type ComponentType,
   type MouseEvent,
 } from 'react';
 import type { TemplateProviderProps } from '../../contract.js';
@@ -12,6 +13,29 @@ import { createUiTheme } from './theme.js';
 
 /** The app's router, for the links of the set. */
 const NavigateContext = createContext<((href: string) => void) | undefined>(undefined);
+
+/**
+ * The set's own theme. The app's newer UI system provides its theme inside this provider, so each
+ * MUI component of the set takes this one back through `inSetTheme` and keeps its look and its
+ * routed links (docs/architecture/ADR/ADR-016-asf-ui-system.md, the move off this set).
+ */
+const SetThemeContext = createContext<Theme | null>(null);
+
+/** The component, drawn with the set's theme whatever theme is nearer to it. */
+export function inSetTheme<P extends object>(Component: ComponentType<P>): ComponentType<P> {
+  function InSetTheme(props: P) {
+    const theme = useContext(SetThemeContext);
+    return theme ? (
+      <ThemeProvider theme={theme}>
+        <Component {...props} />
+      </ThemeProvider>
+    ) : (
+      <Component {...props} />
+    );
+  }
+  InSetTheme.displayName = `InSetTheme(${Component.displayName ?? Component.name})`;
+  return InSetTheme;
+}
 
 /** A plain click on a same-site link: the router handles it instead of a page load. */
 function isClientNavigation(event: MouseEvent<HTMLAnchorElement>, href: string | undefined) {
@@ -55,7 +79,9 @@ export function TemplateProvider({ navigate, children }: TemplateProviderProps) 
     // system's components and the pages' own rules (apps/web/index.html), so those keep winning
     <StyledEngineProvider enableCssLayer>
       <NavigateContext.Provider value={navigate}>
-        <ThemeProvider theme={theme}>{children}</ThemeProvider>
+        <SetThemeContext.Provider value={theme}>
+          <ThemeProvider theme={theme}>{children}</ThemeProvider>
+        </SetThemeContext.Provider>
       </NavigateContext.Provider>
     </StyledEngineProvider>
   );
