@@ -4,6 +4,7 @@ import {
   REQUEST_FIELD_LABEL,
   type StaffEditField,
 } from '@css/shared/registration';
+import type { OwnStaffProfile, ProjectsWork } from '@css/shared/auth';
 import { api } from '../../lib/api';
 
 /** The own volunteer profile as GET /volunteers/me answers (DECISION_LOG D-081). */
@@ -99,3 +100,11 @@ export type RequestField = Exclude<
   keyof typeof FIELD_LABEL,
   Exclude<StaffEditField, EditField | PhotoSlot>
 >;
+
+/** An official's own profile and their projects with the figures of their work (D-147). */
+export const STAFF_PROFILE_KEY = ['me', 'profile'] as const;
+export const OWN_WORK_KEY = ['me', 'projects-work'] as const;
+export const ownStaffProfile = () => api<OwnStaffProfile>('/me/profile');
+export const ownProjectsWork = () => api<ProjectsWork>('/me/projects-work');
+export const projectsWorkOf = (userId: string) =>
+  api<ProjectsWork>(`/users/${userId}/projects-work`);

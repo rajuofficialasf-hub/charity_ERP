@@ -29,7 +29,11 @@ export class OwnProfileService {
         email: true,
         state: true,
         lastLoginAt: true,
-        userRolesUser: { where: { revokedAt: null }, select: { roleKey: true } },
+        userRolesUser: {
+          where: { revokedAt: null },
+          select: { role: { select: { key: true, nameBn: true, nameEn: true } } },
+          orderBy: { roleKey: 'asc' },
+        },
       },
     });
     if (!user || user.kind !== 'staff') throw new ApiError('permission.not_found', 404);
@@ -59,7 +63,10 @@ export class OwnProfileService {
       displayName: user.displayName,
       jobId: user.jobId,
       designation: user.designation,
-      roles: user.userRolesUser.map((r) => r.roleKey).sort(),
+      roles: user.userRolesUser.map(({ role }) => ({
+        key: role.key,
+        name: { bn: role.nameBn, en: role.nameEn },
+      })),
       affiliation: user.affiliation as OwnStaffProfile['affiliation'],
       affiliationUnit: user.affiliationUnit,
       program: program

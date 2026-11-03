@@ -666,19 +666,24 @@ describe('the single new values of the profile edit', () => {
 });
 
 describe('ProfileView states', () => {
-  it('an official without a volunteer profile sees the empty state', async () => {
+  it("an official gets the official's profile and never asks for a volunteer's", async () => {
     refreshAs({ ...ME, kind: 'staff', state: 'active' });
+    const volunteerRead = vi.fn();
     server.use(
-      http.get('*/api/v1/volunteers/me', () =>
+      http.get('*/api/v1/volunteers/me', () => {
+        volunteerRead();
+        return HttpResponse.json({ data: profile() });
+      }),
+      http.get('*/api/v1/me/profile', () =>
         HttpResponse.json(
           { error: { code: 'permission.not_found', message: 'Not found.', requestId: 'r' } },
           { status: 404 },
         ),
       ),
-      http.get('*/api/v1/me/change-requests', () => list([])),
     );
     renderApp(<ProfileView />, 'en', { path: '/account/profile' });
-    expect(await screen.findByText("This page is for a volunteer's profile.")).toBeInTheDocument();
+    expect(await screen.findByText('This page is for an official’s profile.')).toBeInTheDocument();
+    expect(volunteerRead).not.toHaveBeenCalled();
   });
 
   it('a failed request list shows an error with retry, not an empty list', async () => {

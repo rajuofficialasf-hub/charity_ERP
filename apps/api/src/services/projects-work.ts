@@ -87,6 +87,15 @@ export class ProjectsWorkService {
         },
         orderBy: [{ year: 'desc' }, { code: 'asc' }],
       });
+      const roleKeys = [...new Set([...ties.values()].flatMap((tie) => [...tie.roles]))];
+      const roleNames = new Map(
+        (
+          await tx.role.findMany({
+            where: { key: { in: roleKeys } },
+            select: { key: true, nameBn: true, nameEn: true },
+          })
+        ).map((r) => [r.key, { bn: r.nameBn, en: r.nameEn }]),
+      );
       const figures = await this.figures(
         tx,
         userId,
@@ -104,7 +113,10 @@ export class ProjectsWorkService {
           program: { id: p.program.id, name: { bn: p.program.nameBn, en: p.program.nameEn } },
           applyFrom: p.applyFrom?.toISOString().slice(0, 10) ?? null,
           applyTo: p.applyTo?.toISOString().slice(0, 10) ?? null,
-          roles: [...tie.roles].sort(),
+          roles: [...tie.roles].sort().map((key) => ({
+            key,
+            name: roleNames.get(key) ?? { bn: key, en: key },
+          })),
           areas: tie.wholeProject ? [] : [...tie.areas].map(([id, name]) => ({ id, name })),
           wholeProject: tie.wholeProject,
           figures: figures.get(p.id)!,

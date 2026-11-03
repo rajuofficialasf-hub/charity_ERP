@@ -860,7 +860,14 @@ components:
         displayName: { type: string }
         jobId: { type: [string, 'null'] }
         designation: { type: [string, 'null'] }
-        roles: { type: array, items: { type: string } }
+        roles:
+          type: array
+          items:
+            type: object
+            required: [key, name]
+            properties:
+              key: { type: string }
+              name: { $ref: '#/components/schemas/Bilingual' }
         affiliation: { type: [string, 'null'], enum: [department, foundation, external, null] }
         affiliationUnit: { type: [string, 'null'] }
         program:
@@ -926,7 +933,14 @@ components:
             name: { $ref: '#/components/schemas/Bilingual' }
         applyFrom: { type: [string, 'null'], format: date }
         applyTo: { type: [string, 'null'], format: date }
-        roles: { type: array, items: { type: string } }
+        roles:
+          type: array
+          items:
+            type: object
+            required: [key, name]
+            properties:
+              key: { type: string }
+              name: { $ref: '#/components/schemas/Bilingual' }
         areas:
           type: array
           items:

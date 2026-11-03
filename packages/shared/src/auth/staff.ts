@@ -135,13 +135,19 @@ interface Named {
   name: { bn: string; en: string };
 }
 
+/** A role by its key, with its name as the roles table keeps it. */
+export interface NamedRole {
+  key: string;
+  name: { bn: string; en: string };
+}
+
 /** An official's own profile (`GET /me/profile`): who they are, where they work, how to reach them. */
 export interface OwnStaffProfile {
   id: string;
   displayName: string;
   jobId: string | null;
   designation: string | null;
-  roles: string[];
+  roles: NamedRole[];
   affiliation: Affiliation | null;
   affiliationUnit: string | null;
   program: Named | null;
@@ -187,7 +193,7 @@ export interface ProjectWork {
   applyFrom: string | null;
   applyTo: string | null;
   /** program_manager through the program, regional_program_manager through an area, or the access row's role. */
-  roles: string[];
+  roles: NamedRole[];
   /** The official's areas there; empty with `wholeProject`. */
   areas: Named[];
   wholeProject: boolean;

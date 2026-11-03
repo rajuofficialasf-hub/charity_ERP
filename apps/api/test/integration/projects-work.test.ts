@@ -21,7 +21,7 @@ type Tree = Awaited<ReturnType<typeof f.locationTree>>;
 type Project = Awaited<ReturnType<typeof f.project>>;
 type Work = {
   id: string;
-  roles: string[];
+  roles: { key: string }[];
   areas: { id: string }[];
   wholeProject: boolean;
   figures: {
@@ -142,7 +142,7 @@ describe("an RPM's own projects", () => {
     const [work] = projectsOf(res.body);
     expect(work).toMatchObject({
       id: project.id,
-      roles: ['regional_program_manager'],
+      roles: [{ key: 'regional_program_manager', name: expect.any(Object) }],
       areas: [{ id: mine.division }],
       wholeProject: false,
     });
@@ -194,7 +194,7 @@ describe("an RPM's own projects", () => {
       [2024, [older.id]],
     ]);
     const forExecutive = projectsOf((await own(executive)).body);
-    expect(forExecutive.map((p) => [p.id, p.roles, p.wholeProject])).toEqual([
+    expect(forExecutive.map((p) => [p.id, p.roles.map((r) => r.key), p.wholeProject])).toEqual([
       [older.id, ['project_executive'], true],
     ]);
   });
