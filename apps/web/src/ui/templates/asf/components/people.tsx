@@ -29,7 +29,11 @@ const srOnly = {
   border: 0,
 } as const;
 
-const TILE_SIZE = { small: 32, medium: 40, large: 48 } as const;
+const TILE_SIZE = new Map<NonNullable<IconTileProps['size']>, number>([
+  ['small', 32],
+  ['medium', 40],
+  ['large', 48],
+]);
 
 /** The soft tint and the ink of a tone, as on the asf chips. */
 function tint(tone: ColorTone) {
@@ -39,7 +43,7 @@ function tint(tone: ColorTone) {
 
 /** A soft square with an icon, an initial or a photo; it stands beside words, so it is hidden from screen readers. */
 export function IconTile({ icon, name, src, tone = 'primary', size = 'medium' }: IconTileProps) {
-  const px = TILE_SIZE[size];
+  const px = TILE_SIZE.get(size) ?? 40;
   return (
     <Box
       aria-hidden="true"
