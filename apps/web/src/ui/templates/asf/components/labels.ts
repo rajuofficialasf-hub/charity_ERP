@@ -47,6 +47,14 @@ export const DEFAULT_LABELS: UiLabels = {
   noResults: 'No results',
   showOptions: 'Show options',
   clear: 'Clear',
+  locked: 'Locked',
+  requestCorrection: 'Request correction',
+  changed: 'Changed',
+  previousValue: 'Previous value: {value}',
+  officialOnly: 'Officials only',
+  showPassword: 'Show password',
+  hidePassword: 'Hide password',
+  errorSummaryTitle: 'Please correct the following:',
 };
 
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);

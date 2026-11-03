@@ -154,6 +154,14 @@
     "selectPlaceholder": "বেছে নিন",
     "noResults": "কিছু পাওয়া যায়নি",
     "showOptions": "বিকল্পগুলো দেখুন",
-    "clear": "মুছুন"
+    "clear": "মুছুন",
+    "locked": "লক করা",
+    "requestCorrection": "সংশোধনের অনুরোধ",
+    "changed": "পরিবর্তিত",
+    "previousValue": "আগের মান: {value}",
+    "officialOnly": "শুধু কর্মকর্তা",
+    "showPassword": "পাসওয়ার্ড দেখান",
+    "hidePassword": "পাসওয়ার্ড লুকান",
+    "errorSummaryTitle": "ফর্মে কিছু ভুল আছে, ঠিক করুন:"
   }
 }

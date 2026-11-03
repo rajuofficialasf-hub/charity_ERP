@@ -154,6 +154,14 @@
     "selectPlaceholder": "Select",
     "noResults": "No results",
     "showOptions": "Show options",
-    "clear": "Clear"
+    "clear": "Clear",
+    "locked": "Locked",
+    "requestCorrection": "Request correction",
+    "changed": "Changed",
+    "previousValue": "Previous value: {value}",
+    "officialOnly": "Officials only",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "errorSummaryTitle": "Please correct the following:"
   }
 }

@@ -33,6 +33,18 @@
       ],
       "note": "the choices of the ERP's forms: an \"other\" choice opening a text box inside the same field, disabled options, a select that becomes a combobox above 10 options, and a combobox for server search or free text (CSS ERP, D-150); screenshot in the gallery step",
       "screenshot": null
+    },
+    {
+      "name": "TextField (extended), ErrorSummary, FormSection",
+      "files": [
+        "components/fields.tsx",
+        "components/form-parts.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the text kinds of the ERP's forms (identity number, integer, decimal, money with the taka sign, mobile number, password with a show button; Bengali digits typed become English digits), a record field's states (locked with a correction link, changed with its previous value, officials only), an action inside a field's end, the error summary that links to each field, and the form section as a fieldset (CSS ERP, D-150); screenshot in the gallery step",
+      "screenshot": null
     }
   ]
 }

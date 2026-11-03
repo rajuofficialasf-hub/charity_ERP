@@ -15,6 +15,7 @@ export { AppShell } from './shell/app-shell';
 export { Button, LinkButton } from './button';
 export { TextField, SelectField } from './fields';
 export { Switch, Checkbox, Combobox, RadioGroup, CheckboxGroup } from './choices';
+export { FormSection, ErrorSummary } from './form-parts';
 export { DataTable } from './data-table';
 export { FilterBar } from './filter-bar';
 export { EmptyState, LoadingState } from './states';

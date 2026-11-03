@@ -1,0 +1,178 @@
+// @vitest-environment jsdom
+// The text field kinds and states this app added to the asf template (listed in local.json), the
+// error summary and the form section.
+import '@testing-library/jest-dom/vitest';
+
+import type { TextFieldExtendedProps } from '@/ui/contract';
+
+import { useState } from 'react';
+import userEvent from '@testing-library/user-event';
+import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
+import { render, screen, within, cleanup } from '@testing-library/react';
+
+import { TextField, UiProvider, FormSection, ErrorSummary } from './index';
+import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
+
+beforeEach(() => stubWidth(false));
+
+afterEach(() => {
+  cleanup();
+  resetPage();
+});
+
+/** A field that keeps what was typed, shown in an output so the test can read it. */
+function Field(props: Omit<TextFieldExtendedProps, 'value' | 'onChange'>) {
+  const [value, setValue] = useState('');
+  return (
+    <UiProvider>
+      <TextField {...props} value={value} onChange={setValue} />
+      <output>{value}</output>
+    </UiProvider>
+  );
+}
+
+describe('the number kinds', () => {
+  it('keeps whole numbers only, typed in either set of digits', async () => {
+    const user = userEvent.setup();
+    render(<Field label="Family members" type="integer" />);
+    const box = screen.getByRole('textbox', { name: 'Family members' });
+    expect(box).toHaveAttribute('inputmode', 'numeric');
+    await user.type(box, '১২a3');
+    expect(screen.getByRole('status')).toHaveTextContent(/^123$/);
+  });
+
+  it('keeps two decimals of money, with the taka sign beside it', async () => {
+    const user = userEvent.setup();
+    render(<Field label="Amount" type="money" />);
+    const box = screen.getByRole('textbox', { name: 'Amount' });
+    expect(box).toHaveAttribute('inputmode', 'decimal');
+    expect(screen.getByText('৳')).toBeInTheDocument();
+    await user.type(box, '1,250.505');
+    expect(screen.getByRole('status')).toHaveTextContent(/^1250.50$/);
+  });
+
+  it('gives an identity number the numeric keypad and its length', async () => {
+    const user = userEvent.setup();
+    render(<Field label="NID" type="nid" />);
+    const box = screen.getByRole('textbox', { name: 'NID' });
+    expect(box).toHaveAttribute('inputmode', 'numeric');
+    expect(box).toHaveAttribute('maxlength', '17');
+    await user.type(box, '১২৩ 456');
+    expect(screen.getByRole('status')).toHaveTextContent(/^123456$/);
+  });
+});
+
+describe('the mobile number', () => {
+  it('takes English digits, the phone keypad and no autofill', async () => {
+    const user = userEvent.setup();
+    render(<Field label="Mobile" type="tel" />);
+    const box = screen.getByRole('textbox', { name: 'Mobile' });
+    expect(box).toHaveAttribute('inputmode', 'tel');
+    expect(box).toHaveAttribute('autocomplete', 'off');
+    await user.type(box, '০১৭১১-000000');
+    expect(screen.getByRole('status')).toHaveTextContent(/^01711000000$/);
+  });
+
+  it('shows an action inside its end', () => {
+    render(<Field label="Mobile" type="tel" endAction={<button type="button">Verify</button>} />);
+    expect(screen.getByRole('button', { name: 'Verify' })).toBeInTheDocument();
+  });
+});
+
+describe('the password', () => {
+  it('shows and hides the password by a pressed button', async () => {
+    const user = userEvent.setup();
+    render(<Field label="Password" type="password" autoComplete="current-password" />);
+    const box = screen.getByLabelText('Password', { selector: 'input' });
+    expect(box).toHaveAttribute('type', 'password');
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(box).toHaveAttribute('type', 'text');
+    expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('the field states', () => {
+  it('keeps a locked field readable, says it is locked, and offers a correction', async () => {
+    const user = userEvent.setup();
+    const onRequestCorrection = vi.fn();
+    render(
+      <UiProvider>
+        <TextField label="Name" value="Amina Khatun" onChange={() => {}} locked onRequestCorrection={onRequestCorrection} />
+      </UiProvider>
+    );
+    const box = screen.getByRole('textbox', { name: 'Name' });
+    expect(box).toHaveAttribute('readonly');
+    expect(box).toHaveValue('Amina Khatun');
+    expect(screen.getByText('Locked')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Request correction' }));
+    expect(onRequestCorrection).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks a changed field with its previous value, and a field only officials see', () => {
+    render(
+      <UiProvider>
+        <TextField label="Mobile" value="01811000000" onChange={() => {}} previousValue="01711000000" officialOnly />
+      </UiProvider>
+    );
+    expect(screen.getByText('Changed')).toBeInTheDocument();
+    expect(screen.getByText('Previous value: 01711000000')).toBeInTheDocument();
+    expect(screen.getByText('Officials only')).toBeInTheDocument();
+  });
+
+  it('links its error to the control by the id the page gives', () => {
+    render(
+      <UiProvider>
+        <TextField id="mobile" label="Mobile" value="" onChange={() => {}} error="Enter 11 digits" />
+      </UiProvider>
+    );
+    const box = screen.getByRole('textbox', { name: 'Mobile' });
+    expect(box).toHaveAttribute('id', 'mobile');
+    expect(box).toHaveAttribute('aria-invalid', 'true');
+    expect(box).toHaveAccessibleDescription('Enter 11 digits');
+  });
+});
+
+describe('the error summary and the form section', () => {
+  it('takes focus, lists each error and moves to its field', async () => {
+    const user = userEvent.setup();
+    render(
+      <UiProvider>
+        <ErrorSummary errors={[{ fieldId: 'mobile', message: 'Enter 11 digits' }]} />
+        <FormSection title="Contact" description="How we reach the person">
+          <TextField id="mobile" label="Mobile" value="" onChange={() => {}} error="Enter 11 digits" />
+        </FormSection>
+      </UiProvider>
+    );
+    const summary = screen.getByRole('alert');
+    expect(summary).toHaveFocus();
+    expect(within(summary).getByText('Please correct the following:')).toBeInTheDocument();
+    await user.click(within(summary).getByRole('link', { name: 'Enter 11 digits' }));
+    expect(screen.getByRole('textbox', { name: 'Mobile' })).toHaveFocus();
+    expect(screen.getByRole('group', { name: 'Contact' })).toHaveTextContent('How we reach the person');
+  });
+
+  it('shows nothing without errors', () => {
+    render(
+      <UiProvider>
+        <ErrorSummary errors={[]} />
+      </UiProvider>
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it.each(['light', 'dark'] as const)('passes axe, %s', async (mode) => {
+    window.localStorage.setItem('asf-mode', mode);
+    const { container } = render(
+      <UiProvider>
+        <ErrorSummary errors={[{ fieldId: 'nid', message: 'Check the NID' }]} />
+        <FormSection title="Identity">
+          <TextField id="nid" label="NID" type="nid" value="" onChange={() => {}} error="Check the NID" />
+          <TextField label="Name" value="Amina" onChange={() => {}} locked onRequestCorrection={() => {}} previousValue="Amena" />
+          <TextField label="Amount" type="money" value="10" onChange={() => {}} />
+          <TextField label="Password" type="password" value="" onChange={() => {}} autoComplete="new-password" />
+        </FormSection>
+      </UiProvider>
+    );
+    await expectNoAxeViolations(container);
+  });
+});

@@ -410,6 +410,16 @@ export type UiLabels = {
   showOptions: string;
   /** The button that empties a combobox. */
   clear: string;
+  locked: string;
+  requestCorrection: string;
+  changed: string;
+  /** For example "Previous value: 01711000000". */
+  previousValue: string;
+  officialOnly: string;
+  showPassword: string;
+  hidePassword: string;
+  /** The heading of the error summary at the top of a form. */
+  errorSummaryTitle: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -722,6 +732,49 @@ export type ComboboxProps = FieldBase & {
   freeText?: boolean;
 };
 
+// ---------------------------------------------------------------------------------------------
+// Text fields and form parts
+
+/** The states a field of an ERP record can be in, beside its value. */
+export type FieldStates = {
+  /** Names the control, so an error summary can link to it. */
+  id?: string;
+  /** Read-only with a lock: the value stays readable and copyable, and changes only by a correction. */
+  locked?: boolean;
+  /** Shows the "request correction" link of a locked field. */
+  onRequestCorrection?: () => void;
+  readOnly?: boolean;
+  /** Marks a changed field with the value it had before. */
+  previousValue?: string;
+  /** Marks a field only officials see. */
+  officialOnly?: boolean;
+};
+
+/**
+ * A text field with the app's kinds: `nid` (an identity number on the numeric keypad), `integer`,
+ * `decimal` and `money` (Bengali digits typed become English digits, other characters are dropped,
+ * money has the taka sign), `tel` (a mobile number, English digits, no autofill unless asked) and
+ * `password` (with a show and hide button).
+ */
+export type TextFieldExtendedProps = Omit<TextFieldProps, "type"> &
+  FieldStates & {
+    type?: TextFieldProps["type"] | "nid" | "integer" | "decimal" | "money";
+    maxLength?: number;
+    inputMode?: "text" | "numeric" | "decimal" | "email" | "tel";
+    /** The language of the value when it is in the other language. */
+    lang?: string;
+    /** A small action or state inside the field at its end, for example "Verify" or a verified mark. */
+    endAction?: ReactNode;
+  };
+
+export type ErrorSummaryItem = { fieldId: string; message: string };
+
+/** The errors of a submitted form, each a link to its field; it takes focus when they appear. */
+export type ErrorSummaryProps = { errors: readonly ErrorSummaryItem[]; title?: string };
+
+/** A part of a long form: a fieldset named by its title. */
+export type FormSectionProps = { title: string; description?: string; children: ReactNode };
+
 /** The signed-in user's button in the header and the panel it opens. */
 export type AccountMenuProps = {
   user: { name: string; email?: string; avatarSrc?: string };
@@ -813,7 +866,8 @@ export type ColorModeButtonProps = Record<string, never>;
 
 // ---------------------------------------------------------------------------------------------
 
-export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "Page" | "Icon" | "DataTable" | "SelectField"> & {
+export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "Page" | "Icon" | "DataTable" | "SelectField" | "TextField"> & {
+  TextField: ComponentType<TextFieldExtendedProps>;
   SelectField: ComponentType<SelectFieldExtendedProps>;
   UiProvider: ComponentType<UiProviderExtendedProps>;
   AppShell: ComponentType<AppShellExtendedProps>;
@@ -841,6 +895,8 @@ export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "P
   RadioGroup: ComponentType<RadioGroupProps>;
   Switch: ComponentType<SwitchProps>;
   Combobox: ComponentType<ComboboxProps>;
+  ErrorSummary: ComponentType<ErrorSummaryProps>;
+  FormSection: ComponentType<FormSectionProps>;
   AccountMenu: ComponentType<AccountMenuProps>;
   LanguageSwitch: ComponentType<LanguageSwitchProps>;
   PublicShell: ComponentType<PublicShellProps>;
