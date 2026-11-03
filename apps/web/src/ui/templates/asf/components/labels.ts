@@ -82,6 +82,10 @@ export const DEFAULT_LABELS: UiLabels = {
   stepSkipped: 'Skipped',
   stepRejected: 'Rejected',
   progressText: '{value} of {max} ({percent}%)',
+  copy: 'Copy {label}',
+  copied: '{label} copied',
+  copyFailed: '{label} could not be copied',
+  actions: 'Actions',
 };
 
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);

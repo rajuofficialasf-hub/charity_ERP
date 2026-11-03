@@ -80,6 +80,17 @@
       ],
       "note": "progress for an ERP: a stepper whose steps can carry their own done or still-needed mark and open themselves, a record's history as a vertical timeline or a strip of stages with each state read out, a progress bar with its numbers written and up to four stacked parts with a legend, and loading shapes that say they are loading; built for the CSS ERP, screenshot to come",
       "screenshot": null
+    },
+    {
+      "name": "IconTile, PersonCell, CopyButton, ProfileBanner, ProfileSection, ContactList",
+      "files": [
+        "components/people.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "people and profiles: a tinted tile with an icon, initial or photo, the first cell of a people list with the name as a link, a copy button that announces each copy, the dark profile banner with state chips, key facts with copy buttons and an action panel, profile sections that open and close by their title with an edit button beside it, and a contact list with call, message and copy; built for the CSS ERP, screenshot to come",
+      "screenshot": null
     }
   ]
 }

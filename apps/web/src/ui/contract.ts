@@ -455,6 +455,12 @@ export type UiLabels = {
   stepRejected: string;
   /** For example "1,240 of 2,000 (62%)". */
   progressText: string;
+  /** For example "Copy NID". */
+  copy: string;
+  copied: string;
+  copyFailed: string;
+  /** The name of a profile's action panel. */
+  actions: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -979,6 +985,88 @@ export type ProgressBarProps = {
 /** Grey shapes in the layout of what is loading: a line of text, a list row, a card or a figure. */
 export type SkeletonProps = { shape?: "text" | "row" | "card" | "stat"; count?: number };
 
+// ---------------------------------------------------------------------------------------------
+// People and profiles
+
+/** A soft square with an icon, a person's initial or a photo; decorative beside its words. */
+export type IconTileProps = {
+  icon?: ExtendedIconName;
+  /** Its first letter shows when there is no icon or photo. */
+  name?: string;
+  /** Never a sensitive photo such as an NID photo. */
+  src?: string;
+  tone?: ColorTone;
+  size?: "small" | "medium" | "large";
+};
+
+/** The first cell of a list of people or records: a tile, the name (a link when `to` is given) and a second line. */
+export type PersonCellProps = {
+  name: string;
+  /** The app path of the person's or the record's page. */
+  to?: string;
+  /** A quiet second line: an id, a type, a family size. */
+  secondary?: string;
+  photo?: string;
+  /** The language of the name when it is in the other language. */
+  lang?: string;
+};
+
+/** Copies a value and says so to screen readers, each time it is pressed. */
+export type CopyButtonProps = { value: string; label: string };
+
+/** A key fact of a profile under the name, for example the NID with a copy button. */
+export type ProfileFact = {
+  id: string;
+  /** Written before the value with `showLabel`, otherwise only read out. */
+  label: string;
+  value: string;
+  icon?: ExtendedIconName;
+  showLabel?: boolean;
+  copy?: boolean;
+};
+
+/** The dark banner at the top of a person's profile: photo or initial, name, states, key facts and actions. */
+export type ProfileBannerProps = {
+  name: string;
+  /** 2 when the page has its own title above the banner. */
+  headingLevel?: 1 | 2;
+  photo?: string;
+  /** The state chips beside the name. */
+  status?: ReactNode;
+  facts?: readonly ProfileFact[];
+  /** Right of the banner on a wide screen, under the person on a phone. */
+  actions?: ReactNode;
+  /** The name of the action panel; labels.actions when left out. */
+  actionsLabel?: string;
+};
+
+/** A section of a profile whose title opens and closes it; `action`, such as an edit button, sits beside the title. */
+export type ProfileSectionProps = {
+  title: string;
+  icon?: ExtendedIconName;
+  action?: ReactNode;
+  defaultOpen?: boolean;
+  headingLevel?: 2 | 3;
+  children: ReactNode;
+};
+
+export type ContactItem = {
+  id: string;
+  icon: ExtendedIconName;
+  /** What it is, for example "Mobile", read out before the value. */
+  label: string;
+  value: string;
+  /** tel:, mailto: or a web address that the action link opens. */
+  href?: string;
+  /** The words of the action link, for example "Call". */
+  actionLabel?: string;
+  /** The link leads to another site (WhatsApp, Facebook) and opens in a new tab. */
+  external?: boolean;
+  copy?: boolean;
+};
+
+export type ContactListProps = { items: readonly ContactItem[] };
+
 /** The signed-in user's button in the header and the panel it opens. */
 export type AccountMenuProps = {
   user: { name: string; email?: string; avatarSrc?: string };
@@ -1109,6 +1197,12 @@ export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "P
   Timeline: ComponentType<TimelineProps>;
   ProgressBar: ComponentType<ProgressBarProps>;
   Skeleton: ComponentType<SkeletonProps>;
+  IconTile: ComponentType<IconTileProps>;
+  PersonCell: ComponentType<PersonCellProps>;
+  CopyButton: ComponentType<CopyButtonProps>;
+  ProfileBanner: ComponentType<ProfileBannerProps>;
+  ProfileSection: ComponentType<ProfileSectionProps>;
+  ContactList: ComponentType<ContactListProps>;
   AccountMenu: ComponentType<AccountMenuProps>;
   LanguageSwitch: ComponentType<LanguageSwitchProps>;
   PublicShell: ComponentType<PublicShellProps>;

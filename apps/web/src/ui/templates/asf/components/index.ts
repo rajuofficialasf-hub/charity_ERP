@@ -4,6 +4,7 @@ export { Alert } from './alert';
 export { Menu } from './menu';
 export { FileUpload } from './file-upload';
 export { Stepper, Timeline, Skeleton, ProgressBar } from './progress';
+export { IconTile, CopyButton, PersonCell, ContactList, ProfileBanner, ProfileSection } from './people';
 export { Dialog, ConfirmDialog } from './dialog';
 export { Drawer } from './drawer';
 export { Tabs } from './tabs';

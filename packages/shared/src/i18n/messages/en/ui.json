@@ -189,6 +189,10 @@
     "stepUpcoming": "Upcoming",
     "stepSkipped": "Skipped",
     "stepRejected": "Rejected",
-    "progressText": "{value} of {max} ({percent}%)"
+    "progressText": "{value} of {max} ({percent}%)",
+    "copy": "Copy {label}",
+    "copied": "{label} copied",
+    "copyFailed": "{label} could not be copied",
+    "actions": "Actions"
   }
 }

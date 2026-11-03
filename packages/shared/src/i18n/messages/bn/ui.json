@@ -189,6 +189,10 @@
     "stepUpcoming": "বাকি",
     "stepSkipped": "বাদ পড়েছে",
     "stepRejected": "প্রত্যাখ্যাত",
-    "progressText": "{max}-এর মধ্যে {value} ({percent}%)"
+    "progressText": "{max}-এর মধ্যে {value} ({percent}%)",
+    "copy": "{label} কপি করুন",
+    "copied": "{label} কপি হয়েছে",
+    "copyFailed": "{label} কপি করা যায়নি",
+    "actions": "অ্যাকশন"
   }
 }
