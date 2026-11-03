@@ -208,7 +208,7 @@ export function FileUpload({
           bgcolor: 'action.hover',
         }}
       >
-        {(source === 'camera' || source === 'camera_or_gallery') && <Picker label={labels.takePhoto} icon="gallery" camera primary {...pick} />}
+        {(source === 'camera' || source === 'camera_or_gallery') && <Picker label={labels.takePhoto} icon="camera" camera primary {...pick} />}
         {(source === 'gallery' || source === 'camera_or_gallery') && <Picker label={labels.chooseFromGallery} icon="gallery" {...pick} />}
         {source === 'file' && <Picker label={labels.chooseFile} icon="upload" primary {...pick} />}
         <Box component="span" sx={{ typography: 'body2', color: 'text.secondary', display: { xs: 'none', md: 'inline' } }}>

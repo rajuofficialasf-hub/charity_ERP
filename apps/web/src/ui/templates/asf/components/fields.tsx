@@ -58,7 +58,7 @@ function FieldMarks({ locked, onRequestCorrection, previousValue, officialOnly }
     <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1.5, rowGap: 0.5, mt: 0.75, px: 1.75 }}>
       {locked && (
         <Box component="span" sx={mark}>
-          <Icon name="shield" size={16} />
+          <Icon name="lock" size={16} />
           {labels.locked}
         </Box>
       )}
@@ -134,7 +134,7 @@ export function TextField({
     type === 'password' ? (
       <InputAdornment position="end">
         <IconButton aria-label={shown ? labels.hidePassword : labels.showPassword} aria-pressed={shown} onClick={() => setShown((now) => !now)} edge="end">
-          <Icon name="eye" size={20} />
+          <Icon name={shown ? 'eye-off' : 'eye'} size={20} />
         </IconButton>
       </InputAdornment>
     ) : endAction ? (

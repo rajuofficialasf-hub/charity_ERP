@@ -120,7 +120,7 @@ export function CopyButton({ value, label }: CopyButtonProps) {
   return (
     <Box component="span" sx={{ display: 'inline-flex' }}>
       <IconButton size="small" aria-label={fill(labels.copy, { label })} onClick={copy} sx={{ color: 'inherit' }}>
-        <Icon name={result?.ok ? 'check' : 'document'} size={18} />
+        <Icon name={result?.ok ? 'check' : 'copy'} size={18} />
       </IconButton>
       <Box component="span" role="status" key={result?.press} sx={srOnly}>
         {result ? fill(result.ok ? labels.copied : labels.copyFailed, { label }) : ''}

@@ -60,15 +60,15 @@ function soft(tone: ColorTone) {
 const STATUS_LOOK = new Map<StatusKey, { tone: ColorTone; icon: ExtendedIconName }>([
   ['draft', { tone: 'neutral', icon: 'edit' }],
   ['needs_verification', { tone: 'warning', icon: 'warning' }],
-  ['submitted', { tone: 'info', icon: 'upload' }],
+  ['submitted', { tone: 'info', icon: 'send' }],
   ['under_review', { tone: 'info', icon: 'search' }],
   ['reviewed', { tone: 'info', icon: 'check' }],
   ['waitlisted', { tone: 'warning', icon: 'hourglass' }],
   ['approved', { tone: 'success', icon: 'success' }],
-  ['rejected', { tone: 'error', icon: 'error' }],
+  ['rejected', { tone: 'error', icon: 'rejected' }],
   ['implementation', { tone: 'primary', icon: 'briefcase' }],
   ['completed', { tone: 'success', icon: 'star' }],
-  ['closed', { tone: 'neutral', icon: 'shield' }],
+  ['closed', { tone: 'neutral', icon: 'lock' }],
   ['deleted', { tone: 'neutral', icon: 'delete' }],
   ['sync_pending', { tone: 'neutral', icon: 'clock' }],
   ['sync_syncing', { tone: 'info', icon: 'refresh' }],
@@ -76,8 +76,8 @@ const STATUS_LOOK = new Map<StatusKey, { tone: ColorTone; icon: ExtendedIconName
   ['sync_failed', { tone: 'error', icon: 'error' }],
   ['photo_verified', { tone: 'success', icon: 'shield' }],
   ['photo_flagged', { tone: 'warning', icon: 'warning' }],
-  ['photo_pending', { tone: 'neutral', icon: 'upload' }],
-  ['blocklisted', { tone: 'error', icon: 'close' }],
+  ['photo_pending', { tone: 'neutral', icon: 'cloud-upload' }],
+  ['blocklisted', { tone: 'error', icon: 'block' }],
 ]);
 
 /** A state as a soft chip with its icon and its words. */
@@ -180,7 +180,7 @@ export function StatFilterBar({ label, items, selectedId, onSelect, visible = it
 }
 
 const BANNER = new Map<OfflineState, { tone: Tone; icon: ExtendedIconName; words: 'offline' | 'backOnline' | 'syncing' | 'syncFailed' }>([
-  ['offline', { tone: 'warning', icon: 'globe', words: 'offline' }],
+  ['offline', { tone: 'warning', icon: 'offline', words: 'offline' }],
   ['back_online', { tone: 'success', icon: 'success', words: 'backOnline' }],
   ['syncing', { tone: 'info', icon: 'refresh', words: 'syncing' }],
   ['sync_failed', { tone: 'error', icon: 'error', words: 'syncFailed' }],

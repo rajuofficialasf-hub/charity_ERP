@@ -103,6 +103,17 @@
       ],
       "note": "the states and lists of an ERP: a status chip per record state with its own colour and icon, counts above a list that filter it with the rest behind a last card, the offline and sync banner that hides \"back online\" by itself, a disclosure that opens by its title, larger choice tiles under group titles, the bulk rows of a day's distribution with a quick action, the other outcomes in a menu and details, an attention card that links to its list, an icon-only button named by its tooltip, and a small button; built for the CSS ERP, screenshot to come",
       "screenshot": null
+    },
+    {
+      "name": "Icons for an ERP (79 more Solar icons)",
+      "files": [
+        "components/icon-data.ts",
+        "../../contract.ts",
+        "../../../../scripts/asf/build-icons.mjs",
+        "../../icon-map.md"
+      ],
+      "note": "the icons an ERP's pages need beyond the kit's set (lock and unlock, copy, crossed eye, people states, project, transfer, merge, history, devices, camera, the record states and more), from the pinned @iconify-json/solar 1.2.13; the build script refuses a body that holds more than a drawing, and icon-map.md names the asf icon for each Lucide icon the app used; built for the CSS ERP",
+      "screenshot": null
     }
   ]
 }
