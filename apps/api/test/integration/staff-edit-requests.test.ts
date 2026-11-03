@@ -208,6 +208,23 @@ describe('who decides', () => {
     ).toBe(200);
   });
 
+  it('refuses to apply a detail that is no longer asked for, and lets it be refused', async () => {
+    const rpm = await official();
+    const [row] = (
+      await h.db.query(
+        `INSERT INTO volunteer_change_requests (id, user_id, kind, field, new_value, requested_by, status)
+         VALUES (gen_random_uuid(), $1, 'profile_edit', 'supervisorUserId', 'null', $1, 'submitted')
+         RETURNING id`,
+        [rpm.account.id],
+      )
+    ).rows as { id: string }[];
+    const s = await head();
+    const approved = await decide(s, row!.id, { decision: 'approve' });
+    expect(approved.status).toBe(409);
+    const refused = await decide(s, row!.id, { decision: 'reject', reason: 'আর চাওয়া যায় না' });
+    expect(refused.status).toBe(200);
+  });
+
   it("keeps an official's request out of the volunteer path, and a volunteer out of this one", async () => {
     const rpm = await official();
     const created = await ask(rpm.session, { field: 'designation', newValue: 'নতুন' });

@@ -67,9 +67,9 @@ const STATE_TONE = {
 const isDetails = (section: Section): section is OfficialSection => section !== 'projects';
 
 /**
- * An official's own profile (docs/DECISION_LOG.md, the official's own profile of 2026-11-02 and
- * the amendment of 2026-11-03; docs/ui/SCREENS.md, SCR-006): the banner with the photo or the
- * initial, then one section at a time: who they are and where they work, how they are reached and
+ * An official's own profile (docs/DECISION_LOG.md, the official's own profile and the decision
+ * that the supervisor is not asked for; docs/ui/SCREENS.md, "My profile"): the banner with the
+ * photo or the initial, then one section at a time: who they are and where they work, how they are reached and
  * their account, and the projects they work on by year with the figures of their work. An active
  * official asks for a change of a section's details from its edit button; the Department Head or
  * the Monitoring Team decides.
@@ -284,7 +284,7 @@ function AccountLinks() {
   return (
     <div className="profile-links">
       <Button variant="secondary" size="sm" icon={KeyRound} href="/account/password">
-        {t('password')}
+        {t('change_password')}
       </Button>
       <Button variant="secondary" size="sm" icon={MonitorSmartphone} href="/account/sessions">
         {t('devices')}

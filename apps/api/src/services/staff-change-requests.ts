@@ -3,6 +3,7 @@ import {
   CONTACT_FIELDS,
   type DecisionRequest,
   STAFF_EDIT_FIELD_VALUES,
+  STAFF_EDIT_FIELDS,
   type StaffEditField,
   type StaffEditRequestCreate,
   type StaffValueField,
@@ -308,6 +309,10 @@ export class StaffChangeRequestsService {
       const owner = found.userId;
       const field = found.field as StaffEditField;
       const approve = body.decision === 'approve';
+      // a request for a detail no longer asked for (a supervisor, before that was taken out) can
+      // only be refused
+      if (approve && !(STAFF_EDIT_FIELDS as readonly string[]).includes(field))
+        throw new ApiError('user.transition_not_allowed', 409);
       if (approve) await this.apply(tx, actor.userId, owner, field, found.newValue);
       const saved = await tx.volunteerChangeRequest.update({
         where: { id: found.id },

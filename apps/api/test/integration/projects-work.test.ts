@@ -142,7 +142,12 @@ describe("an RPM's own projects", () => {
     const [work] = projectsOf(res.body);
     expect(work).toMatchObject({
       id: project.id,
-      roles: [{ key: 'regional_program_manager', name: expect.any(Object) }],
+      roles: [
+        {
+          key: 'regional_program_manager',
+          name: { bn: 'regional_program_manager', en: 'regional_program_manager' },
+        },
+      ],
       areas: [{ id: mine.division }],
       wholeProject: false,
     });

@@ -294,7 +294,7 @@ function ValueInput({
 
 /**
  * The edit mode of one of an official's sections (docs/DECISION_LOG.md, the official's own
- * profile of 2026-11-02 and the amendment of 2026-11-03): the person ticks details, gives the new
+ * profile and the decision that the supervisor is not asked for): the person ticks details, gives the new
  * values and one optional reason, and one request per ticked detail goes to the Department Head
  * and the Monitoring Team. A detail with a request waiting shows that instead of a tick.
  */

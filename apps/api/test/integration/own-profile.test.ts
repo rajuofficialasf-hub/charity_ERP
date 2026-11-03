@@ -68,7 +68,12 @@ describe('GET /me/profile', () => {
       id: me.id,
       jobId: 'CSS-0042',
       designation: 'আঞ্চলিক ব্যবস্থাপক',
-      roles: [{ key: 'regional_program_manager', name: expect.any(Object) }],
+      roles: [
+        {
+          key: 'regional_program_manager',
+          name: { bn: 'regional_program_manager', en: 'regional_program_manager' },
+        },
+      ],
       affiliation: 'department',
       program: { id: program, name: { bn: 'প্রোগ্রাম', en: 'Program' } },
       division: { id: tree.division, name: { bn: 'বিভাগ', en: 'Division' } },

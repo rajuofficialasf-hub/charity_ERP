@@ -193,7 +193,7 @@
         "contact": "Contact and account",
         "projects": "My projects"
       },
-      "password": "Change password",
+      "change_password": "Change password",
       "devices": "My devices",
       "sent": "Request sent. The Department Head or the Monitoring Team will decide."
     },
