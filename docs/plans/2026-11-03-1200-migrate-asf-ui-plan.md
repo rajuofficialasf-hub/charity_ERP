@@ -64,7 +64,7 @@ The owner decided on 2026-11-03 (D-150) to take the whole asf system of the assu
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. The asf contract and template in the app, beside the old set
 - **Goal:** `@/ui` works in the app with the asf template, the asf fonts and the catalogue's words, while every page still uses the old set.
@@ -360,7 +360,7 @@ The owner decided on 2026-11-03 (D-150) to take the whole asf system of the assu
 ## Progress
 - **Branch:** `feat/asf-ui` (from `main` at eb66be05, after PR #38)
 - **Updated:** 2026-11-03
-- **Next:** U1: the ADR, the constitution amendment, the stack profile and D-150
+- **Next:** U2: copy the kit's `fe/src/ui` and `templates/asf/src` into `apps/web/src/ui`, add the libraries, mount the asf provider beside the old one
 - **Reviewed through:** none
-- **Uncommitted:** `docs/DECISION_LOG.md` (D-150, committed with U1)
+- **Uncommitted:** none
 - **Notes:** the owner confirmed in chat on 2026-11-03: the whole asf system (UI and the later repo split), the asf colours and fonts, light and dark, the UI first, the shared code as a private package later, and the constitution amendment of the design section.
