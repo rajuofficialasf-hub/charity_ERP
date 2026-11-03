@@ -423,6 +423,27 @@ export type UiLabels = {
   cancel: string;
   /** The reason box of a confirm dialog. */
   reason: string;
+  takePhoto: string;
+  chooseFile: string;
+  chooseFromGallery: string;
+  dropHere: string;
+  /** For example "Remove photo.jpg". */
+  removeFile: string;
+  retryUpload: string;
+  /** For example "2 of 5 files". */
+  fileCount: string;
+  /** For example "photo.jpg is larger than 5 MB". */
+  fileTooLarge: string;
+  /** For example "report.exe: this file type is not accepted". */
+  fileWrongType: string;
+  uploadSelected: string;
+  uploadCompressing: string;
+  uploadQueued: string;
+  uploadUploading: string;
+  uploadQuarantined: string;
+  uploadReady: string;
+  uploadFailed: string;
+  uploadRejected: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -830,6 +851,48 @@ export type MenuProps = {
   children?: ReactNode;
 };
 
+// ---------------------------------------------------------------------------------------------
+// Files
+
+/** Where a file is on its way: picked, made smaller, waiting offline, sent, checked, ready, or not. */
+export type UploadState = "selected" | "compressing" | "queued" | "uploading" | "quarantined" | "ready" | "failed" | "rejected";
+
+export type UploadItem = {
+  id: string;
+  name: string;
+  state: UploadState;
+  /** A local preview of an image (an object URL). */
+  previewUrl?: string;
+  /** 0 to 100 while uploading. */
+  progress?: number;
+  /** Why it failed or was not accepted, in the person's language. */
+  reason?: string;
+  /** A photo's capture time and place, as the caller words it. */
+  meta?: string;
+  /** Files can be removed only before the form is sent. */
+  removable?: boolean;
+};
+
+/** Photos and files with previews and each file's state; the caller uploads and reports back. */
+export type FileUploadProps = Omit<FieldBase, "name"> & {
+  /** The camera, the gallery, either, or any file, from the project's photo-source setting. */
+  source?: "camera" | "gallery" | "camera_or_gallery" | "file";
+  /** Accepted types, for example ["image/jpeg", "image/png"] or ["image/*"]. */
+  accept?: readonly string[];
+  /** The largest accepted size in bytes, and its text such as "5 MB". */
+  maxSize?: number;
+  maxSizeText?: string;
+  multiple?: boolean;
+  maxFiles?: number;
+  value: readonly UploadItem[];
+  /** The files that passed the type and size checks. */
+  onAdd: (files: File[]) => void;
+  /** A file that failed a check, with the reason in words. */
+  onReject?: (file: File, reason: string) => void;
+  onRemove?: (id: string) => void;
+  onRetry?: (id: string) => void;
+};
+
 /** The signed-in user's button in the header and the panel it opens. */
 export type AccountMenuProps = {
   user: { name: string; email?: string; avatarSrc?: string };
@@ -955,6 +1018,7 @@ export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "P
   FormSection: ComponentType<FormSectionProps>;
   ConfirmDialog: ComponentType<ConfirmDialogProps>;
   Menu: ComponentType<MenuProps>;
+  FileUpload: ComponentType<FileUploadProps>;
   AccountMenu: ComponentType<AccountMenuProps>;
   LanguageSwitch: ComponentType<LanguageSwitchProps>;
   PublicShell: ComponentType<PublicShellProps>;

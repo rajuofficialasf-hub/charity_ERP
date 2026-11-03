@@ -2,6 +2,7 @@ export { Icon } from './icon';
 export { Stack } from './stack';
 export { Alert } from './alert';
 export { Menu } from './menu';
+export { FileUpload } from './file-upload';
 export { Dialog, ConfirmDialog } from './dialog';
 export { Drawer } from './drawer';
 export { Tabs } from './tabs';

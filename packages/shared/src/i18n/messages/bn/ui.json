@@ -164,6 +164,23 @@
     "hidePassword": "পাসওয়ার্ড লুকান",
     "errorSummaryTitle": "ফর্মে কিছু ভুল আছে, ঠিক করুন:",
     "cancel": "বাতিল",
-    "reason": "কারণ"
+    "reason": "কারণ",
+    "takePhoto": "ছবি তুলুন",
+    "chooseFile": "ফাইল বেছে নিন",
+    "chooseFromGallery": "গ্যালারি থেকে নিন",
+    "dropHere": "অথবা ফাইল এখানে টেনে আনুন",
+    "removeFile": "{name} সরান",
+    "retryUpload": "আবার আপলোড",
+    "fileCount": "{max}টির মধ্যে {count}টি ফাইল",
+    "fileTooLarge": "{name} ফাইলটি {max}-এর চেয়ে বড়",
+    "fileWrongType": "{name}: এই ধরনের ফাইল নেওয়া যায় না",
+    "uploadSelected": "বেছে নেওয়া",
+    "uploadCompressing": "ছোট করা হচ্ছে",
+    "uploadQueued": "অপেক্ষমাণ (অফলাইন)",
+    "uploadUploading": "আপলোড হচ্ছে",
+    "uploadQuarantined": "যাচাই চলছে",
+    "uploadReady": "তৈরি",
+    "uploadFailed": "আপলোড হয়নি",
+    "uploadRejected": "গ্রহণযোগ্য নয়"
   }
 }

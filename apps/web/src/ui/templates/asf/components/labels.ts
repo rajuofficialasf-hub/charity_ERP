@@ -57,6 +57,23 @@ export const DEFAULT_LABELS: UiLabels = {
   errorSummaryTitle: 'Please correct the following:',
   cancel: 'Cancel',
   reason: 'Reason',
+  takePhoto: 'Take photo',
+  chooseFile: 'Choose file',
+  chooseFromGallery: 'Choose from gallery',
+  dropHere: 'or drop files here',
+  removeFile: 'Remove {name}',
+  retryUpload: 'Upload again',
+  fileCount: '{count} of {max} files',
+  fileTooLarge: '{name} is larger than {max}',
+  fileWrongType: '{name}: this file type is not accepted',
+  uploadSelected: 'Selected',
+  uploadCompressing: 'Compressing',
+  uploadQueued: 'Waiting (offline)',
+  uploadUploading: 'Uploading',
+  uploadQuarantined: 'Being checked',
+  uploadReady: 'Ready',
+  uploadFailed: 'Upload failed',
+  uploadRejected: 'Not accepted',
 };
 
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);

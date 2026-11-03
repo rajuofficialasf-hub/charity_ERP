@@ -58,6 +58,17 @@
       ],
       "note": "the overlays of the ERP: a dialog that stays open while saving and fills a phone for a long form, a confirm dialog with what follows, a required reason and a busy confirm, a menu of links and actions for rows and profiles, and the drawer as a bottom sheet on phones (CSS ERP, D-150); screenshot in the gallery step",
       "screenshot": null
+    },
+    {
+      "name": "FileUpload",
+      "files": [
+        "components/file-upload.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "photos and files for field work: the camera, the gallery or any file by the project's setting, a drop zone, the type and size checks with the reason in words, the number of files left, and each file's state (made smaller, waiting offline, uploading with its progress, being checked, ready, failed with a retry) with its preview and capture details (CSS ERP, D-150); screenshot in the gallery step",
+      "screenshot": null
     }
   ]
 }
