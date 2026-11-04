@@ -7,6 +7,7 @@ import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 import { Icon } from './icon';
+import { useLabels } from './labels';
 
 // ----------------------------------------------------------------------
 
@@ -24,6 +25,20 @@ const parse = (value: string, format: string): Dayjs | null => {
 const write = (value: Dayjs | null, format: string) => (value && value.isValid() ? value.format(format) : '');
 
 const CalendarIcon = () => <Icon name="calendar" size={22} />;
+
+/** The picker's own words (the parts of a date, the calendar's buttons) in the app's language. */
+function useLocaleText() {
+  const labels = useLabels();
+  return {
+    openDatePickerDialogue: () => labels.openCalendar,
+    previousMonth: labels.previousMonth,
+    nextMonth: labels.nextMonth,
+    day: labels.datePartDay,
+    month: labels.datePartMonth,
+    year: labels.datePartYear,
+    empty: labels.datePartEmpty,
+  };
+}
 const ClockIcon = () => <Icon name="clock" size={22} />;
 
 function fieldSlot({ name, error, hint, required, onBlur }: Pick<DateFieldProps, 'name' | 'error' | 'hint' | 'required' | 'onBlur'>) {
@@ -31,15 +46,18 @@ function fieldSlot({ name, error, hint, required, onBlur }: Pick<DateFieldProps,
 }
 
 export function DateField({ label, value, onChange, disabled, min, max, ...field }: DateFieldProps) {
+  const localeText = useLocaleText();
   return (
     <DatePicker
+      localeText={localeText}
       label={label}
       value={parse(value, DATE)}
       onChange={(next) => onChange(write(next, DATE))}
       disabled={disabled}
       minDate={min ? dayjs(min) : undefined}
       maxDate={max ? dayjs(max) : undefined}
-      format="DD MMM YYYY"
+      // the app writes every date day-month-year in English digits
+      format="DD-MM-YYYY"
       slots={{ openPickerIcon: CalendarIcon }}
       slotProps={fieldSlot(field)}
     />
@@ -47,8 +65,10 @@ export function DateField({ label, value, onChange, disabled, min, max, ...field
 }
 
 export function MonthField({ label, value, onChange, disabled, min, max, ...field }: MonthFieldProps) {
+  const localeText = useLocaleText();
   return (
     <DatePicker
+      localeText={localeText}
       label={label}
       views={['year', 'month']}
       openTo="month"

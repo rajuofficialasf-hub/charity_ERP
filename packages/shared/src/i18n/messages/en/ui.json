@@ -205,6 +205,13 @@
     "showDetails": "Show details",
     "hideDetails": "Hide details",
     "countName": "{label}, {count} pending",
-    "backTo": "Back to {parent}"
+    "backTo": "Back to {parent}",
+    "openCalendar": "Open calendar",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "datePartDay": "Day",
+    "datePartMonth": "Month",
+    "datePartYear": "Year",
+    "datePartEmpty": "Empty"
   }
 }

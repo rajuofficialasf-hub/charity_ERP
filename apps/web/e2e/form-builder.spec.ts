@@ -131,7 +131,8 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
   await page.keyboard.press('Space');
   await expect
     .poll(async () => (await list.getByRole('listitem').allInnerTexts()).slice(-3).join('|'))
-    .toMatch(/নারী সদস্য.*\|.*পুরুষ সদস্য.*\|.*মোট সদস্য/);
+    // a field's label also sits in its border, so an item's text runs over lines
+    .toMatch(/নারী সদস্য[\s\S]*\|[\s\S]*পুরুষ সদস্য[\s\S]*\|[\s\S]*মোট সদস্য/);
   await saved(page);
   await ownQuestion(
     page,

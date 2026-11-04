@@ -153,6 +153,15 @@
         "../../contract.ts"
       ],
       "note": "a close button on a note the person may put away (the install hint, the sync reminder, a notice), named by the dismiss label, and an icon-only link to an app path (the sync chip and the bell of the app bar), a tab's count after its label (the volunteer's applications by state), and a short button named by longer words that hold its own (a section's edit button); built for the CSS ERP; no gallery picture of its own yet: the home, the sync centre and their a11y sweeps check them in the browser"
+    },
+    {
+      "name": "DateField and MonthField in the app's words",
+      "files": [
+        "components/pickers.tsx",
+        "components/labels.ts",
+        "../../contract.ts"
+      ],
+      "note": "a date shows day-month-year in English digits (DD-MM-YYYY, as the app writes every date) instead of the kit's \"DD MMM YYYY\", and the picker's own words (the parts of a date, the calendar's buttons) come from the labels, so a Bengali page reads them in Bengali; built for the CSS ERP"
     }
   ]
 }

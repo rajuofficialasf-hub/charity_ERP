@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
 import { render, screen, within, cleanup } from '@testing-library/react';
 
-import { TextField, UiProvider, FormSection, ErrorSummary } from './index';
+import { DateField, TextField, UiProvider, FormSection, ErrorSummary } from './index';
 import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
 
 beforeEach(() => stubWidth(false));
@@ -203,5 +203,23 @@ describe('the error summary while the person corrects', () => {
     expect(screen.getByRole('textbox', { name: 'Mobile' })).toHaveFocus();
     rerender(view('Start with 01', 2));
     expect(screen.getByRole('alert')).toHaveFocus();
+  });
+});
+
+describe('the date field', () => {
+  it('shows a date as day-month-year in the words the app gives', async () => {
+    const user = userEvent.setup();
+    render(
+      <UiProvider labels={{ datePartDay: 'দিন', datePartMonth: 'মাস', datePartYear: 'বছর', openCalendar: 'ক্যালেন্ডার খুলুন' }}>
+        <DateField label="আবেদনের তারিখ" value="2026-11-04" onChange={() => {}} />
+      </UiProvider>
+    );
+    const field = screen.getByRole('group', { name: 'আবেদনের তারিখ' });
+    expect(field).toHaveTextContent('04-11-2026');
+    expect(within(field).getByRole('spinbutton', { name: 'দিন' })).toHaveTextContent('04');
+    expect(within(field).getByRole('spinbutton', { name: 'মাস' })).toHaveTextContent('11');
+    expect(within(field).getByRole('spinbutton', { name: 'বছর' })).toHaveTextContent('2026');
+    await user.click(screen.getByRole('button', { name: /ক্যালেন্ডার খুলুন/ }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 });

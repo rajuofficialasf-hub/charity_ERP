@@ -496,6 +496,13 @@ export type UiLabels = {
   showOptions: string;
   /** The button that empties a combobox. */
   clear: string;
+  openCalendar: string;
+  previousMonth: string;
+  nextMonth: string;
+  datePartDay: string;
+  datePartMonth: string;
+  datePartYear: string;
+  datePartEmpty: string;
   locked: string;
   requestCorrection: string;
   changed: string;
