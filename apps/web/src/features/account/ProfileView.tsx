@@ -24,7 +24,7 @@ import { ProfileNav } from './ProfileNav';
 import { ownProfile, ownRequests, PROFILE_KEY, REQUESTS_KEY } from './profile-api';
 import './profile.css';
 
-/** The own details by section (UX-18); the type decides the role, so it can not be requested. */
+/** The own details by section; the type decides the role, so it can not be requested. */
 const SECTIONS = [
   {
     key: 'personal',
@@ -62,9 +62,7 @@ const SECTIONS = [
 }[];
 
 /**
- * The volunteer's own profile (SCR-006, SCR-003; BR-030, BR-031 as amended by DECISION_LOG D-085;
- * plans docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md and
- * docs/plans/2026-10-13-1500-feat-profile-redesign-plan.md): a header with the person, the
+ * The volunteer's own profile (docs/ui/SCREENS.md, "My profile"): a header with the person, the
  * sections as a navigation and one section's details at a time; after approval one edit button
  * starts the edit mode of the open section. A pending registrant sees the requested corrections
  * above the details.
@@ -98,7 +96,7 @@ function Profile() {
   const [current, setCurrent] = useState<(typeof SECTIONS)[number]['key']>('personal');
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
-  // something is ticked in the edit mode; another section asks before it opens (R9)
+  // something is ticked in the edit mode; another section asks before it opens
   const [dirty, setDirty] = useState(false);
   const [leaving, setLeaving] = useState<(typeof SECTIONS)[number]['key'] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);

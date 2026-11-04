@@ -496,11 +496,9 @@ export function IconButton({ label, icon, onClick, disabled, tone = 'default', s
   );
   if (disabled) return button;
   // a link stays put in its bar while its page changes, so its tip stays in the same landmark
-  return path ? (
-    <Tooltip title={label} slotProps={{ popper: { disablePortal: true } }}>
+  return (
+    <Tooltip title={label} slotProps={{ popper: { disablePortal: Boolean(path) } }}>
       {button}
     </Tooltip>
-  ) : (
-    <Tooltip title={label}>{button}</Tooltip>
   );
 }

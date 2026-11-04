@@ -47,7 +47,8 @@ function useRefresh() {
 }
 
 /**
- * The correction requests of a pending registration (BR-030, SCR-003): only the named fields
+ * The correction requests of a pending registration (docs/BUSINESS_RULES.md, the corrections of a
+ * registration): only the named fields
  * open, each answered on its own; "submit again" appears once every one is answered.
  */
 export function Corrections({ requests }: { requests: ChangeRequest[] }) {

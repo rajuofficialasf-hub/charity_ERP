@@ -9,7 +9,10 @@ import { PasswordRules } from '../../components/PasswordRules';
 import { PERMISSION_PANEL_ROLES } from '../../admin/roles';
 import { api, ApiFailure, refreshSession } from '../../lib/api';
 
-/** Change own password (SCR-006, AUTH.md 3): the other devices are logged out. */
+/**
+ * Change own password (docs/architecture/AUTH.md, the password change): the other devices are
+ * logged out.
+ */
 export function ChangePasswordView() {
   const t = useTranslations('auth.password');
   const tl = useTranslations('auth.login');

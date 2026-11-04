@@ -24,7 +24,7 @@ const PHOTO_ID = {
   nid_photo_back: 'nidPhotoBackFileId',
 } as const;
 
-/** The state of an open or submitted request beside its detail (BR-031, D-085). */
+/** The state of an open or submitted request beside its detail. */
 export function RequestBadge({ request }: { request: ChangeRequest }) {
   const t = useTranslations('registration.profile.edit.status');
   const waiting = request.status === 'open';
@@ -154,7 +154,7 @@ export function Value({
   }
 }
 
-/** The earlier texts: shown (and asked for) only for a volunteer who has them (O-65, O-66). */
+/** The earlier texts: shown (and asked for) only for a volunteer who has them. */
 export const LEGACY_FIELDS: readonly ProfileField[] = [
   'education',
   'experience',

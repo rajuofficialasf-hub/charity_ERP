@@ -10,7 +10,8 @@ import { orCached } from '../../lib/or-cached';
 import { MY_PROJECTS_KEY, myProjects, type MyProject } from './my-projects-api';
 
 /**
- * A volunteer's running projects (BR-039; DECISION_LOG D-096): each project waits for the consent
+ * A volunteer's running projects (docs/BUSINESS_RULES.md, the consent to a project's rules): each
+ * project waits for the consent
  * to its rules until the volunteer reads and accepts them, and opens for work after. Without
  * network the list comes from the phone's data set.
  */

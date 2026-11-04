@@ -9,8 +9,8 @@ import { resetClientForTests } from '../../lib/api';
 import type { ChangeRequest, OwnProfile } from './profile-api';
 import { ProfileView } from './ProfileView';
 
-// The own profile, correction answers and edit requests (BR-030, BR-031 as amended by D-085;
-// plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U12).
+// The own profile, correction answers and edit requests (docs/BUSINESS_RULES.md, the corrections
+// of a registration and the edit requests of an approved volunteer).
 const VOLUNTEER = '01900000-0000-7000-8000-0000000000b1';
 const DIVISION = '01900000-0000-7000-8000-0000000000d1';
 const DISTRICT = '01900000-0000-7000-8000-0000000000d2';
@@ -132,7 +132,7 @@ describe('ProfileView of a pending registrant', () => {
     // the page title stays the one level-1 heading; the person heads the banner below it
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(await screen.findByRole('heading', { name: 'সংশোধনের অনুরোধ' })).toBeInTheDocument();
-    // the own NID and bank details in full (DECISION_LOG D-081)
+    // the own NID and bank details in full
     expect(screen.getByText('1000000000301')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'ব্যাংকের তথ্য' }));
     expect(screen.getByText(/0000111122223333, Savar Branch/)).toBeInTheDocument();
@@ -140,7 +140,7 @@ describe('ProfileView of a pending registrant', () => {
     // only the two requested fields can be answered
     expect(screen.getAllByRole('form')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'আবার জমা দিন' })).not.toBeInTheDocument();
-    // before approval nothing else can be changed (BR-031)
+    // before approval nothing else can be changed
     expect(screen.queryByRole('button', { name: /সম্পাদনা/ })).not.toBeInTheDocument();
     expect(screen.getByText('অনুমোদনের অপেক্ষায়')).toBeInTheDocument();
     await expectNoAxeViolations(container);

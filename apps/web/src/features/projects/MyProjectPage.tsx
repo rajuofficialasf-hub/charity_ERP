@@ -19,7 +19,8 @@ const detailKey = (projectId: string) => [...MY_PROJECTS_KEY, projectId] as cons
 /**
  * One of the volunteer's projects. While the consent waits, the rules are read part by part (the
  * Local দায়ী part only while dawah is on), each confirmed, then the final "আমি রাজি এবং এই
- * প্রকল্পে কাজ করতে আগ্রহী"; refusing keeps the project waiting (BR-039, DECISION_LOG D-096).
+ * প্রকল্পে কাজ করতে আগ্রহী"; refusing keeps the project waiting (docs/BUSINESS_RULES.md, the
+ * consent to a project's rules).
  * After the consent the project's work facts show, with the team for a main volunteer. Without
  * network the phone's copy of the project opens; the rules themselves are read online only, so a
  * consent still waiting says it needs the connection.

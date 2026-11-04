@@ -36,7 +36,7 @@ const BANK_LABEL = {
 const NUMERIC = new Set<RequestField>(['nid', 'whatsapp', 'mobile']);
 
 /**
- * The input for the new value of one field (DECISION_LOG D-085, O-65): a text, a choice, a date,
+ * The input for the new value of one field: a text, a choice, a date,
  * the address cascade, the bank details, or one of the groups (profession, skills, education,
  * contact) with the same inputs as the registration; photos are uploaded by their own field. The
  * value is held as the form needs it and turned into what the API expects as `newValue` by

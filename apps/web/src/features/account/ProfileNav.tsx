@@ -2,7 +2,7 @@ import { type ExtendedIconName, Icon } from '@/ui';
 import { useId } from 'react';
 import { useTranslations } from 'use-intl';
 
-/** The sections of the profile as a list of buttons: one open at a time (UX-18, T1.9d). */
+/** The sections of the profile as a list of buttons: one open at a time. */
 export function ProfileNav<Key extends string>({
   sections,
   current,

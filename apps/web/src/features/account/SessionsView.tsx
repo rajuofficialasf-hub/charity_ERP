@@ -13,7 +13,10 @@ import { api, ApiFailure } from '../../lib/api';
 const PLATFORMS = ['android', 'ios', 'desktop', 'other'] as const;
 const SESSIONS_KEY = ['sessions'] as const;
 
-/** My devices (SCR-006 sessions tab, AUTH.md 8): list, current marker, log out another device. */
+/**
+ * My devices (docs/architecture/AUTH.md, the device sessions): list, current marker, log out
+ * another device.
+ */
 export function SessionsView() {
   const t = useTranslations('auth.sessions');
   // The list loads only inside the signed-in frame, after the session has been restored.

@@ -11,7 +11,7 @@ import { addToTeam, removeFromTeam, team, type TeamMember } from './my-projects-
 import './projects.css';
 
 /**
- * A main volunteer's team on a project (BR-040, BR-041; DECISION_LOG D-096): the volunteers
+ * A main volunteer's team on a project (docs/BUSINESS_RULES.md, the team members): the volunteers
  * registered with them as reference are added or removed; each member accepts the rules on their
  * own before working, and creates applications the main volunteer submits.
  */

@@ -6,6 +6,7 @@ import MuiAvatar from '@mui/material/Avatar';
 
 import { Icon } from './icon';
 import { toneVars, toneAlpha } from './tone';
+import { safeImageSrc } from './shared';
 
 // ----------------------------------------------------------------------
 
@@ -130,8 +131,10 @@ export function Chip({ children, tone = 'neutral', variant = 'soft', size = 'sma
 const AVATAR_SIZE = { small: 32, medium: 40, large: 56, xlarge: 96 } as const;
 
 /** A photo, or the first letter of the name on a colour when there is none. */
-export function Avatar({ name, src, size = 'medium', decorative }: AvatarProps) {
+export function Avatar({ name, src: given, size = 'medium', decorative }: AvatarProps) {
   const px = AVATAR_SIZE[size];
+  // a page's data never becomes an image source by itself: only a photo the app made or serves
+  const src = safeImageSrc(given);
   return (
     <MuiAvatar
       src={src}

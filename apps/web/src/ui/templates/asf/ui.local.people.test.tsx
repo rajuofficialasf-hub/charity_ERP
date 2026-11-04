@@ -11,7 +11,7 @@ import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
 import { render, screen, within, cleanup } from '@testing-library/react';
 
 import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
-import { IconTile, UiProvider, CopyButton, PersonCell, ContactList, ProfileBanner, ProfileSection } from './index';
+import { Avatar, IconTile, UiProvider, CopyButton, PersonCell, ContactList, ProfileBanner, ProfileSection } from './index';
 
 beforeEach(() => stubWidth(false));
 
@@ -216,5 +216,18 @@ describe('the addresses a page hands over', () => {
     const { container } = renderInApp(<PersonCell name="Amina Khatun" to="https://example.org/x" photo="https://example.org/x.png" />);
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('draws an avatar only from a photo the app made, else the initial', () => {
+    const { container } = render(
+      <UiProvider>
+        <Avatar name="Amina Khatun" src="javascript:alert(1)" />
+        <Avatar name="Rahim Uddin" src="data:image/png;base64,iVBORw0KGgo=" />
+      </UiProvider>
+    );
+    const images = container.querySelectorAll('img');
+    expect(images).toHaveLength(1);
+    expect(images[0]).toHaveAttribute('src', 'data:image/png;base64,iVBORw0KGgo=');
+    expect(screen.getByRole('img', { name: 'Amina Khatun' })).toHaveTextContent('A');
   });
 });

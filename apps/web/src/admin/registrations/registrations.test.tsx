@@ -482,6 +482,8 @@ describe('volunteer registration detail', () => {
     await user.click(screen.getByRole('button', { name: 'অনুমোদন' }));
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'অনুমোদন করুন' }));
+    // the message shows on the list after the decision, the way back and the list's own read, which
+    // pass one second when every test file runs at once; the file waits as long for that list
     expect(
       await screen.findByText('নিবন্ধন অনুমোদিত হয়েছে', undefined, { timeout: 3000 }),
     ).toBeInTheDocument();

@@ -19,7 +19,8 @@ import { cleanValue, initialValue, ValueEditor } from './ValueEditor';
 const MISSING = Symbol('missing');
 
 /**
- * The edit mode of one section (T1.9d; BR-031 as amended by DECISION_LOG D-085): the person ticks
+ * The edit mode of one section (docs/BUSINESS_RULES.md, the edit requests of an approved volunteer,
+ * as amended in docs/DECISION_LOG.md): the person ticks
  * one or more details, gives the new values and one optional reason, and one request per ticked
  * detail is sent through the existing endpoint. A sent detail leaves the mode; a refused one stays
  * ticked with its message. The type has no tick (the Foundation decides it) and a detail that
