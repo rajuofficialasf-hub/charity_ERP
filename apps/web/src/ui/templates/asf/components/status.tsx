@@ -481,10 +481,17 @@ export function AttentionCard({ tone = 'info', icon, title, reason, meta, to, ac
 }
 
 /** A button that shows only its icon; its label is its name and its tooltip. */
-export function IconButton({ label, icon, onClick, disabled, tone = 'default', size = 'medium' }: IconButtonProps) {
-  const button = (
-    <MuiIconButton aria-label={label} onClick={onClick} disabled={disabled} size={size} sx={tone === 'danger' ? { color: 'error.main' } : undefined}>
-      <Icon name={icon} size={size === 'small' ? 18 : 20} />
+export function IconButton({ label, icon, onClick, disabled, tone = 'default', size = 'medium', to }: IconButtonProps) {
+  const path = appPath(to);
+  const look = tone === 'danger' ? { color: 'error.main' } : undefined;
+  const glyph = <Icon name={icon} size={size === 'small' ? 18 : 20} />;
+  const button = path ? (
+    <MuiIconButton component={RouterLink} to={path} aria-label={label} disabled={disabled} size={size} sx={look}>
+      {glyph}
+    </MuiIconButton>
+  ) : (
+    <MuiIconButton aria-label={label} onClick={onClick} disabled={disabled} size={size} sx={look}>
+      {glyph}
     </MuiIconButton>
   );
   return disabled ? button : <Tooltip title={label}>{button}</Tooltip>;

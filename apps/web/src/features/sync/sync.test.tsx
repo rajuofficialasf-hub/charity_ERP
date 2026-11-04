@@ -214,14 +214,12 @@ describe('the sync centre', () => {
   it('shows the empty state when everything has gone, in both languages', async () => {
     await afterSignIn({ sessionId: TEST_SESSION_ID, userId: ME.id, deviceKey: 'k'.repeat(43) });
     const { container, unmount } = open();
-    expect(await screen.findByRole('heading', { name: 'সব পাঠানো হয়েছে' })).toBeInTheDocument();
+    expect(await screen.findByText('সব পাঠানো হয়েছে')).toBeInTheDocument();
     expect(screen.getByText('এই ফোনে অপেক্ষায় কিছু নেই।')).toBeInTheDocument();
     await expectNoAxeViolations(container);
     unmount();
     const en = open('en');
-    expect(
-      await screen.findByRole('heading', { name: 'Everything has been sent' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Everything has been sent')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sync now' })).toBeInTheDocument();
     await expectNoAxeViolations(en.container);
   });

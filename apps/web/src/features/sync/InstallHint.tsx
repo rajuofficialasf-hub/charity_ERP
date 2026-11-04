@@ -1,5 +1,4 @@
-import { Alert, Button } from '@css/ui';
-import { Download } from 'lucide-react';
+import { Alert, Button } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { dismissHint, promptInstall, useInstall } from './install';
 
@@ -18,7 +17,7 @@ export function InstallHint() {
       onDismiss={dismissHint}
       action={
         way === 'prompt' ? (
-          <Button size="sm" icon={Download} onPress={() => void promptInstall()}>
+          <Button size="small" startIcon="download" onClick={() => void promptInstall()}>
             {t('button')}
           </Button>
         ) : undefined

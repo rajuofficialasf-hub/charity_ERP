@@ -128,7 +128,7 @@ describe('My Work home', () => {
       '/sync',
     );
     const reminder = await screen.findByText('জমা কাজ পাঠানো বাকি');
-    expect(reminder.closest('.ui-alert')).toHaveTextContent(
+    expect(reminder.closest('[role="status"]')).toHaveTextContent(
       '2টি রেকর্ড 1 দিন ধরে এই ফোনে অপেক্ষায়',
     );
     expect(screen.getByRole('link', { name: 'সিঙ্ক দেখুন' })).toHaveAttribute('href', '/sync');

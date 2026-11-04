@@ -1,6 +1,6 @@
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button } from '@css/ui';
+import { Alert, LinkButton } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { useSyncReminder } from './use-sync-store';
 
@@ -17,13 +17,12 @@ export function SyncReminder({ withLink = false }: { withLink?: boolean }) {
     <Alert
       tone="warning"
       title={t('title')}
-      live="status"
       onDismiss={dismiss}
       action={
         withLink ? (
-          <Button variant="secondary" size="sm" href="/sync">
+          <LinkButton variant="secondary" to="/sync">
             {t('open')}
-          </Button>
+          </LinkButton>
         ) : undefined
       }
     >

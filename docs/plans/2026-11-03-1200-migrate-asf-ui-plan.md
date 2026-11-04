@@ -199,7 +199,7 @@ The owner decided on 2026-11-03 (D-150) to take the whole asf system of the assu
 - **Depends on:** U8
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** in progress
 
 ### U12. Applications, the form renderer and the lookup
 - **Goal:** the application pages are on asf.

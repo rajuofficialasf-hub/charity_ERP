@@ -221,7 +221,14 @@ export type DialogProps = {
   size?: "small" | "medium" | "large";
 };
 
-export type AlertProps = { tone: Tone; title?: string; children: ReactNode; action?: ReactNode };
+export type AlertProps = {
+  tone: Tone;
+  title?: string;
+  children: ReactNode;
+  action?: ReactNode;
+  /** Shows a close button (named by labels.dismiss) for a note the person may put away. */
+  onDismiss?: () => void;
+};
 
 export type ToastOptions = { tone?: Tone };
 
@@ -1349,6 +1356,8 @@ export type IconButtonProps = {
   label: string;
   icon: ExtendedIconName;
   onClick?: () => void;
+  /** A link to this app path instead of a button, for example the bell that opens the inbox. */
+  to?: string;
   disabled?: boolean;
   tone?: "default" | "danger";
   size?: "small" | "medium";

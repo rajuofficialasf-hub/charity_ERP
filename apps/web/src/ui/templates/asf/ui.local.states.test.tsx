@@ -2,7 +2,7 @@
 // The state, count and list pieces this app added to the asf template (listed in local.json): the
 // status chip, the counts that filter a list, the offline banner, the disclosure, the choice tiles,
 // the bulk rows, the attention card, the figure card as a link, the summary banner's figures, the
-// icon button and the small button.
+// alert that can be put away, the icon button and the small button.
 import '@testing-library/jest-dom/vitest';
 
 import type { ReactNode } from 'react';
@@ -14,7 +14,7 @@ import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
 import { act, render, screen, within, cleanup } from '@testing-library/react';
 
 import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
-import { Button, BulkRow, BulkList, Disclosure, IconButton, UiProvider, StatusChip, ChoiceTiles, AttentionCard, OfflineBanner, StatFilterBar, StatCard, SummaryBanner } from './index';
+import { Button, BulkRow, BulkList, Disclosure, IconButton, UiProvider, StatusChip, ChoiceTiles, AttentionCard, OfflineBanner, StatFilterBar, StatCard, SummaryBanner, Alert } from './index';
 
 beforeEach(() => stubWidth(false));
 
@@ -292,7 +292,42 @@ describe("the summary banner's figures", () => {
   });
 });
 
+describe('the alert that can be put away', () => {
+  it('has a named close button that calls back, beside its action', async () => {
+    const user = userEvent.setup();
+    const onDismiss = vi.fn();
+    const { container } = render(
+      <UiProvider>
+        <Alert tone="info" title="Install the app" onDismiss={onDismiss} action={<button type="button">Install</button>}>
+          It keeps your work safe offline.
+        </Alert>
+      </UiProvider>
+    );
+    const alert = screen.getByRole('status');
+    expect(within(alert).getByRole('button', { name: 'Install' })).toBeInTheDocument();
+    await user.click(within(alert).getByRole('button', { name: 'Dismiss' }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+    await expectNoAxeViolations(container);
+  });
+
+  it('has no close button without the callback', () => {
+    render(
+      <UiProvider>
+        <Alert tone="warning">Records wait on this phone.</Alert>
+      </UiProvider>
+    );
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+});
+
 describe('the icon button and the small button', () => {
+  it('becomes a named link to an app path', async () => {
+    const user = userEvent.setup();
+    renderInApp(<IconButton label="Notifications, 3 unread" icon="bell" to="/applications" />);
+    await user.click(screen.getByRole('link', { name: 'Notifications, 3 unread' }));
+    expect(await screen.findByRole('heading', { name: 'Applications to review' })).toBeInTheDocument();
+  });
+
   it('names an icon-only button by its label', async () => {
     const user = userEvent.setup();
     const onClick = vi.fn();

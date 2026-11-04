@@ -56,7 +56,7 @@ describe('the install hint', () => {
     await screen.findByRole('heading', { level: 1, name: 'আমার কাজ' });
     expect(screen.queryByText('অ্যাপটি ফোনে ইনস্টল করুন')).toBeNull();
     const prompt = offerPrompt('accepted');
-    const hint = (await screen.findByText('অ্যাপটি ফোনে ইনস্টল করুন')).closest('.ui-alert')!;
+    const hint = (await screen.findByText('অ্যাপটি ফোনে ইনস্টল করুন')).closest('[role="status"]')!;
     expect(hint).toHaveTextContent('ইনস্টল করলে নেট ছাড়াও অ্যাপ খুলবে');
     await user.click(within(hint as HTMLElement).getByRole('button', { name: 'ইনস্টল করুন' }));
     expect(prompt).toHaveBeenCalledOnce();
@@ -67,7 +67,7 @@ describe('the install hint', () => {
     userAgent(IPHONE);
     const user = userEvent.setup();
     openHome();
-    const hint = (await screen.findByText('অ্যাপটি ফোনে ইনস্টল করুন')).closest('.ui-alert')!;
+    const hint = (await screen.findByText('অ্যাপটি ফোনে ইনস্টল করুন')).closest('[role="status"]')!;
     expect(hint).toHaveTextContent(/Add to Home Screen/);
     expect(within(hint as HTMLElement).queryByRole('button', { name: 'ইনস্টল করুন' })).toBeNull();
     await user.click(within(hint as HTMLElement).getByRole('button', { name: 'সরিয়ে দিন' }));

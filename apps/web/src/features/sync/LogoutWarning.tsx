@@ -1,6 +1,6 @@
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Button, ConfirmDialog } from '@css/ui';
+import { Button, ConfirmDialog } from '@/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useOffline } from '../../offline/OfflineProvider';
@@ -47,16 +47,16 @@ export function LogoutWarning({
   return (
     <>
       <ConfirmDialog
-        isOpen={step === 1}
+        open={step === 1}
         title={t('title')}
         message={
           <>
             <p>{t('body', values)}</p>
             <Button
               variant="secondary"
-              size="sm"
+              size="small"
               loading={syncing}
-              onPress={() => void syncFirst()}
+              onClick={() => void syncFirst()}
             >
               {t('sync_first')}
             </Button>
@@ -69,7 +69,7 @@ export function LogoutWarning({
         onCancel={onCancel}
       />
       <ConfirmDialog
-        isOpen={step === 2}
+        open={step === 2}
         title={t('title_final')}
         message={t('body_final', values)}
         tone="danger"
