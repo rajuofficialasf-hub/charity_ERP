@@ -40,6 +40,23 @@ describe('LoadError', () => {
     expect(alert).not.toHaveTextContent('অনুরোধ নম্বর');
   });
 
+  it('says the words of the server when the page passes them', async () => {
+    online(true);
+    const refused = new ApiFailure(
+      409,
+      'session.current',
+      'This device stays signed in',
+      [],
+      undefined,
+      'r9',
+    );
+    renderApp(<LoadError error={refused} message={refused.message} onRetry={() => undefined} />);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('This device stays signed in');
+    expect(alert).not.toHaveTextContent('কিছু একটা ভুল হয়েছে');
+    expect(alert).toHaveTextContent('অনুরোধ নম্বর: r9');
+  });
+
   it('keeps the server error words offline when the server did answer with a refusal', async () => {
     online(false);
     const refused = new ApiFailure(403, 'permission.denied', 'Denied', [], undefined, 'r7');

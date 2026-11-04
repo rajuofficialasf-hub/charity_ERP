@@ -530,7 +530,7 @@ describe('the personal, profession, education and skills data in the profile', (
 
     const personal = await startEdit(user, 'Personal details');
     await user.click(within(personal).getByRole('checkbox', { name: 'Change Blood group' }));
-    await user.click(within(personal).getByRole('button', { name: /Blood group/ }));
+    await user.click(within(personal).getByRole('combobox', { name: /Blood group/ }));
     await user.click(await screen.findByRole('option', { name: 'AB-' }));
     await user.click(within(personal).getByRole('button', { name: 'Send request' }));
     await vi.waitFor(() => expect(calls).toHaveLength(4));
@@ -636,14 +636,14 @@ describe('the single new values of the profile edit', () => {
     await user.click(
       within(address).getByRole('checkbox', { name: 'Change Where you want to serve' }),
     );
-    await user.click(within(address).getByRole('button', { name: /Where you want to serve/ }));
+    await user.click(within(address).getByRole('combobox', { name: /Where you want to serve/ }));
     await user.click(await screen.findByRole('option', { name: 'Anywhere in the country' }));
     await user.click(within(address).getByRole('button', { name: 'Send request' }));
     await vi.waitFor(() => expect(calls).toHaveLength(1));
 
     const personal = await startEdit(user, 'Personal details');
     await user.click(within(personal).getByRole('checkbox', { name: 'Change T-shirt size' }));
-    await user.click(within(personal).getByRole('button', { name: /T-shirt size/ }));
+    await user.click(within(personal).getByRole('combobox', { name: /T-shirt size/ }));
     await user.click(await screen.findByRole('option', { name: 'XL' }));
     await user.click(within(personal).getByRole('button', { name: 'Send request' }));
     await vi.waitFor(() => expect(calls).toHaveLength(2));

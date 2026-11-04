@@ -1369,6 +1369,8 @@ export type ButtonExtendedProps = Omit<ButtonProps, "startIcon"> & {
   startIcon?: ExtendedIconName;
   /** After the words, for example the arrow of "Next". */
   endIcon?: ExtendedIconName;
+  /** A longer name that holds the visible words, for example "Personal details: edit" for "Edit". */
+  ariaLabel?: string;
 };
 
 /** A small wait inside a field or a row; its label is read out. */

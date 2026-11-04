@@ -1,20 +1,18 @@
-import { Alert, Button, Card, ConfirmDialog, EmptyState, ErrorState, Skeleton } from '@css/ui';
-import { useQuery } from '@tanstack/react-query';
 import {
-  Briefcase,
-  GraduationCap,
-  Image,
-  Landmark,
-  MapPin,
-  PencilLine,
-  Phone,
-  Sparkles,
-  User,
-} from 'lucide-react';
+  Alert,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  type ExtendedIconName,
+  Skeleton,
+} from '@/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { LoadError } from '../../components/LoadError';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { Corrections } from './ChangeRequests';
@@ -30,7 +28,7 @@ import './profile.css';
 const SECTIONS = [
   {
     key: 'personal',
-    icon: User,
+    icon: 'user',
     fields: [
       'name',
       'fatherName',
@@ -42,22 +40,26 @@ const SECTIONS = [
       'facebookId',
     ],
   },
-  { key: 'contact', icon: Phone, fields: ['mobile', 'email', 'whatsapp'] },
+  { key: 'contact', icon: 'phone', fields: ['mobile', 'email', 'whatsapp'] },
   {
     key: 'address',
-    icon: MapPin,
+    icon: 'map-pin',
     fields: ['address', 'addressLine', 'permanentAddress', 'volunteeringArea'],
   },
-  { key: 'education', icon: GraduationCap, fields: ['educationDetails', 'education'] },
+  { key: 'education', icon: 'education', fields: ['educationDetails', 'education'] },
   {
     key: 'work',
-    icon: Briefcase,
+    icon: 'briefcase',
     fields: ['type', 'profession', 'previousProjects', 'experience', 'workDescription'],
   },
-  { key: 'skills', icon: Sparkles, fields: ['skills'] },
-  { key: 'bank', icon: Landmark, fields: ['bank'] },
-  { key: 'photos', icon: Image, fields: ['photo', 'nid_photo', 'nid_photo_back'] },
-] as const satisfies readonly { key: string; icon: unknown; fields: readonly ProfileField[] }[];
+  { key: 'skills', icon: 'sparkles', fields: ['skills'] },
+  { key: 'bank', icon: 'building', fields: ['bank'] },
+  { key: 'photos', icon: 'gallery', fields: ['photo', 'nid_photo', 'nid_photo_back'] },
+] as const satisfies readonly {
+  key: string;
+  icon: ExtendedIconName;
+  fields: readonly ProfileField[];
+}[];
 
 /**
  * The volunteer's own profile (SCR-006, SCR-003; BR-030, BR-031 as amended by DECISION_LOG D-085;
@@ -91,7 +93,6 @@ export function ProfileView() {
 
 function Profile() {
   const t = useTranslations('registration');
-  const tc = useTranslations('common');
   const profile = useQuery({ queryKey: PROFILE_KEY, queryFn: ownProfile, retry: false });
   const requests = useQuery({ queryKey: REQUESTS_KEY, queryFn: ownRequests });
   const [current, setCurrent] = useState<(typeof SECTIONS)[number]['key']>('personal');
@@ -115,13 +116,7 @@ function Profile() {
   if (profile.error instanceof ApiFailure && profile.error.status === 404)
     return <EmptyState title={t('profile.not_volunteer')} />;
   if (profile.error || !profile.data)
-    return (
-      <ErrorState
-        title={tc('state.error.text')}
-        onRetry={() => void profile.refetch()}
-        requestId={profile.error instanceof ApiFailure ? profile.error.requestId : undefined}
-      />
-    );
+    return <LoadError error={profile.error} onRetry={() => void profile.refetch()} />;
   const me = profile.data;
   const rows = requests.data;
   const active = me.state === 'active';
@@ -139,22 +134,14 @@ function Profile() {
   );
   return (
     <div className="profile">
-      {me.state === 'pending' && (
-        <Alert tone="info" live="status">
-          {t('profile.pending')}
-        </Alert>
-      )}
+      {me.state === 'pending' && <Alert tone="info">{t('profile.pending')}</Alert>}
       {!me.inAnyProject && <Alert tone="info">{t('profile.no_project')}</Alert>}
       {/* a failed list is an error, never "nothing to do" */}
       {requests.error && (
-        <ErrorState
-          title={tc('state.error.text')}
-          onRetry={() => void requests.refetch()}
-          requestId={requests.error instanceof ApiFailure ? requests.error.requestId : undefined}
-        />
+        <LoadError error={requests.error} onRetry={() => void requests.refetch()} />
       )}
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
@@ -188,11 +175,11 @@ function Profile() {
               </h2>
               {active && rows !== undefined && !editing && (
                 <Button
-                  size="sm"
+                  size="small"
                   variant="secondary"
-                  icon={PencilLine}
-                  aria-label={t('profile.edit.button_label', { field: title })}
-                  onPress={() => {
+                  startIcon="edit"
+                  ariaLabel={t('profile.edit.button_label', { field: title })}
+                  onClick={() => {
                     setNotice(null);
                     setEditing(true);
                   }}
@@ -232,7 +219,7 @@ function Profile() {
         </Card>
       </div>
       <ConfirmDialog
-        isOpen={leaving !== null}
+        open={leaving !== null}
         title={t('profile.edit.leave_title')}
         message={t('profile.edit.leave_message')}
         confirmLabel={t('profile.edit.leave_confirm')}

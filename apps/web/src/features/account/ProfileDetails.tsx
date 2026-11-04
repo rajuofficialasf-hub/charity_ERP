@@ -1,8 +1,7 @@
 import { VOLUNTEER_TYPES, type VolunteerType } from '@css/shared/registration';
 import { formatDate } from '@css/shared/format';
 import { isFacebookLink } from '@css/shared/registration';
-import { Badge } from '@css/ui';
-import { Clock } from 'lucide-react';
+import { Chip, Icon } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { FileImage } from '../../components/FileImage';
@@ -30,12 +29,10 @@ export function RequestBadge({ request }: { request: ChangeRequest }) {
   const t = useTranslations('registration.profile.edit.status');
   const waiting = request.status === 'open';
   return (
-    <Badge
-      size="sm"
-      tone={waiting ? 'warning' : 'info'}
-      icon={Clock}
-      label={t(waiting ? 'open' : 'submitted')}
-    />
+    <Chip tone={waiting ? 'warning' : 'info'}>
+      <Icon name="clock" size={16} />
+      {t(waiting ? 'open' : 'submitted')}
+    </Chip>
   );
 }
 

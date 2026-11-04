@@ -1,7 +1,6 @@
 import { PHOTO_SLOTS, type PhotoSlot } from '@css/shared/registration';
-import { Alert, Badge, Button, Card, Form, Stack, Text, TextField } from '@css/ui';
+import { Alert, Button, Card, Chip, Icon, Stack, Text, TextField } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CircleCheck } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
@@ -60,31 +59,27 @@ export function Corrections({ requests }: { requests: ChangeRequest[] }) {
   if (!rows.length && !again.isSuccess) return null;
   const allAnswered = rows.every((r) => r.status === 'submitted');
   return (
-    <Stack gap={4} as="section" aria-labelledby="corrections-title">
-      <h2 id="corrections-title">{t('title')}</h2>
-      {again.isSuccess ? (
-        <Alert tone="success" live="status">
-          {t('resubmitted')}
-        </Alert>
-      ) : (
-        <>
-          <Text>{t('intro')}</Text>
-          {rows.map((row) => (
-            <CorrectionRow key={row.id} row={row} onAnswered={refresh} />
-          ))}
-          {again.error && (
-            <Alert tone="danger" live="alert">
-              {messageOf(again.error)}
-            </Alert>
-          )}
-          {allAnswered && (
-            <Button onPress={() => again.mutate()} loading={again.isPending}>
-              {t('resubmit')}
-            </Button>
-          )}
-        </>
-      )}
-    </Stack>
+    <section aria-labelledby="corrections-title">
+      <Stack gap={4}>
+        <h2 id="corrections-title">{t('title')}</h2>
+        {again.isSuccess ? (
+          <Alert tone="success">{t('resubmitted')}</Alert>
+        ) : (
+          <>
+            <Text>{t('intro')}</Text>
+            {rows.map((row) => (
+              <CorrectionRow key={row.id} row={row} onAnswered={refresh} />
+            ))}
+            {again.error && <Alert tone="error">{messageOf(again.error)}</Alert>}
+            {allAnswered && (
+              <Button onClick={() => again.mutate()} loading={again.isPending}>
+                {t('resubmit')}
+              </Button>
+            )}
+          </>
+        )}
+      </Stack>
+    </section>
   );
 }
 
@@ -105,12 +100,15 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
   };
   return (
     <Card>
-      <Form onSubmit={submit} aria-label={label}>
+      <form method="post" noValidate onSubmit={submit} aria-label={label}>
         <Stack gap={3}>
           <Stack direction="row" align="center" gap={2}>
             <strong>{label}</strong>
             {answered && (
-              <Badge tone="success" icon={CircleCheck} label={t('profile.corrections.answered')} />
+              <Chip tone="success">
+                <Icon name="success" size={16} />
+                {t('profile.corrections.answered')}
+              </Chip>
             )}
           </Stack>
           {row.note && <Text>{t('profile.corrections.note', { note: row.note })}</Text>}
@@ -136,7 +134,7 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
             </>
           )}
         </Stack>
-      </Form>
+      </form>
     </Card>
   );
 }
@@ -186,13 +184,13 @@ export function RequestState({
         onChange={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
         inputMode="numeric"
         autoComplete="one-time-code"
-        helper={send.isSuccess ? t('profile.edit.code_sent') : undefined}
+        hint={send.isSuccess ? t('profile.edit.code_sent') : undefined}
         error={messageOf(verify.error ?? send.error) ?? undefined}
         endAction={
           <Button
-            size="sm"
+            size="small"
             variant="secondary"
-            onPress={() => {
+            onClick={() => {
               verify.reset();
               send.mutate();
             }}
@@ -204,7 +202,7 @@ export function RequestState({
       />
       <div>
         <Button
-          onPress={() => {
+          onClick={() => {
             send.reset();
             verify.mutate();
           }}

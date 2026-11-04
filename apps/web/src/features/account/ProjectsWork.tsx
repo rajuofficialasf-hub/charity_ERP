@@ -1,14 +1,13 @@
 import type { ProjectsWork as Work, ProjectWork } from '@css/shared/auth';
 import { formatCount, formatDate, formatDecimal } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Button, Card, EmptyState, ErrorState, Skeleton, Text } from '@css/ui';
+import { Card, EmptyState, LinkButton, Skeleton, Text } from '@/ui';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { FolderKanban, FolderOpen } from 'lucide-react';
 import { useId } from 'react';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { ProjectStatusBadge } from '../../admin/projects/ProjectStatusBadge';
-import { ApiFailure } from '../../lib/api';
+import { LoadError } from '../../components/LoadError';
 
 const AREA = ['received', 'waiting', 'approved', 'rejected', 'waitlisted', 'volunteers'] as const;
 const MINE = ['reviewed', 'approved', 'rejected', 'waitlisted'] as const;
@@ -31,16 +30,9 @@ export function ProjectsWork({
   projectLinks: boolean;
 }) {
   const t = useTranslations('registration.profile.work');
-  const tc = useTranslations('common');
   if (query.isPending) return <Skeleton count={3} />;
   if (query.error || !query.data)
-    return (
-      <ErrorState
-        title={tc('state.error.text')}
-        requestId={query.error instanceof ApiFailure ? query.error.requestId : undefined}
-        onRetry={() => void query.refetch()}
-      />
-    );
+    return <LoadError error={query.error} onRetry={() => void query.refetch()} />;
   const work = query.data;
   if (work.everyProject)
     return (
@@ -48,21 +40,14 @@ export function ProjectsWork({
         <Text>{t(own ? 'every_own' : 'every_other')}</Text>
         {projectLinks && (
           <div>
-            <Button variant="secondary" size="sm" icon={FolderOpen} href="/admin/projects">
+            <LinkButton variant="secondary" startIcon="folder" to="/admin/projects">
               {t('all_projects')}
-            </Button>
+            </LinkButton>
           </div>
         )}
       </div>
     );
-  if (work.years.length === 0)
-    return (
-      <EmptyState
-        icon={FolderKanban}
-        title={t(own ? 'empty_own' : 'empty_other')}
-        headingLevel={3}
-      />
-    );
+  if (work.years.length === 0) return <EmptyState title={t(own ? 'empty_own' : 'empty_other')} />;
   return (
     <div className="work-years">
       <Text tone="muted">{t('decisions_note')}</Text>

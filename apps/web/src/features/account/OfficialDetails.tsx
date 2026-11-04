@@ -2,17 +2,7 @@ import { AFFILIATIONS, type Affiliation, type OwnStaffProfile } from '@css/share
 import { formatDateTime } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import { REQUEST_FIELD_LABEL, type StaffEditField } from '@css/shared/registration';
-import {
-  Alert,
-  Avatar,
-  Button,
-  Checkbox,
-  Form,
-  RadioGroup,
-  Select,
-  Text,
-  TextField,
-} from '@css/ui';
+import { Alert, Avatar, Button, Checkbox, RadioGroup, SelectField, Text, TextField } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -73,7 +63,7 @@ export function OfficialValue({
   const photo = useFileDataUrl(field === 'photo' ? me.photoFileId : null);
   switch (field) {
     case 'photo':
-      return me.photoFileId ? <Avatar name={label} src={photo.data} size="lg" /> : empty;
+      return me.photoFileId ? <Avatar name={label} src={photo.data} size="large" /> : empty;
     case 'workplace':
       return me.affiliation ? (
         <>{[ts(`affiliation.${me.affiliation}`), me.affiliationUnit].filter(Boolean).join(' · ')}</>
@@ -232,7 +222,7 @@ function ValueInput({
                 affiliationUnit: id === 'department' ? null : w.affiliationUnit,
               })
             }
-            options={AFFILIATIONS.map((a) => ({ id: a, label: ta(a) }))}
+            options={AFFILIATIONS.map((a) => ({ value: a, label: ta(a) }))}
           />
           {w.affiliation !== 'department' && (
             <TextField
@@ -249,14 +239,14 @@ function ValueInput({
     }
     case 'homeProgramId':
       return (
-        <Select
+        <SelectField
           label={label}
           value={value as string}
-          onChange={(id) => onChange(id ?? NONE)}
+          onChange={(id) => onChange(id || NONE)}
           options={[
-            { id: NONE, label: td('no_program') },
+            { value: NONE, label: td('no_program') },
             ...(choices.data?.programs ?? []).map((p) => ({
-              id: p.id,
+              value: p.id,
               label: localized(p.name, locale),
             })),
           ]}
@@ -265,13 +255,16 @@ function ValueInput({
       );
     case 'homeDivisionId':
       return (
-        <Select
+        <SelectField
           label={label}
           value={value as string}
-          onChange={(id) => onChange(id ?? NONE)}
+          onChange={(id) => onChange(id || NONE)}
           options={[
-            { id: NONE, label: td('no_division') },
-            ...(divisions.data ?? []).map((d) => ({ id: d.id, label: localized(d.name, locale) })),
+            { value: NONE, label: td('no_division') },
+            ...(divisions.data ?? []).map((d) => ({
+              value: d.id,
+              label: localized(d.name, locale),
+            })),
           ]}
           error={error}
         />
@@ -400,7 +393,9 @@ export function OfficialEditSection({
   };
 
   return (
-    <Form
+    <form
+      method="post"
+      noValidate
       aria-label={t('profile.edit.form_label', { section: title })}
       onSubmit={(event) => {
         event.preventDefault();
@@ -434,9 +429,11 @@ export function OfficialEditSection({
                   </>
                 ) : (
                   <>
-                    <Checkbox isSelected={on} onChange={(selected) => toggle(field, selected)}>
-                      {t('profile.edit.change_field', { field: label })}
-                    </Checkbox>
+                    <Checkbox
+                      label={t('profile.edit.change_field', { field: label })}
+                      checked={on}
+                      onChange={(selected) => toggle(field, selected)}
+                    />
                     {on ? (
                       <div className="profile-editor">
                         {field === 'photo' ? (
@@ -472,13 +469,9 @@ export function OfficialEditSection({
         {picked.size > 0 && (
           <TextField label={t('profile.edit.note')} name="note" value={note} onChange={setNote} />
         )}
-        {alert && (
-          <Alert tone="danger" live="alert">
-            {alert}
-          </Alert>
-        )}
+        {alert && <Alert tone="error">{alert}</Alert>}
         <div className="profile-edit-actions">
-          <Button variant="secondary" onPress={onCancel} disabled={send.isPending}>
+          <Button variant="secondary" onClick={onCancel} disabled={send.isPending}>
             {tc('cancel')}
           </Button>
           <Button type="submit" loading={send.isPending} disabled={picked.size === 0}>
@@ -486,6 +479,6 @@ export function OfficialEditSection({
           </Button>
         </div>
       </div>
-    </Form>
+    </form>
   );
 }

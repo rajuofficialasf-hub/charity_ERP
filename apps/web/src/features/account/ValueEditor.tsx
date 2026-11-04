@@ -1,5 +1,5 @@
 import { BLOOD_GROUPS, TSHIRT_SIZES, VOLUNTEERING_AREAS } from '@css/shared/registration';
-import { DateField, Select, TextField } from '@css/ui';
+import { DateField, SelectField, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { type Address, AddressFields, EMPTY_ADDRESS } from '../registration/AddressFields';
 import {
@@ -99,20 +99,20 @@ export function ValueEditor({
   if (field === 'bloodGroup' || field === 'tshirtSize' || field === 'volunteeringArea') {
     const options =
       field === 'bloodGroup'
-        ? BLOOD_GROUPS.map((id) => ({ id, label: id }))
+        ? BLOOD_GROUPS.map((id) => ({ value: id, label: id }))
         : field === 'tshirtSize'
-          ? TSHIRT_SIZES.map((id) => ({ id, label: id }))
+          ? TSHIRT_SIZES.map((id) => ({ value: id, label: id }))
           : VOLUNTEERING_AREAS.map((id) => ({
-              id,
+              value: id,
               label: t(`lists.volunteering_area.${id}`),
             }));
     return (
-      <Select
+      <SelectField
         label={label}
         name={`value-${field}`}
         placeholder={t('form.choose')}
-        value={typeof value === 'string' && value ? value : null}
-        onChange={(id) => onChange(id ?? '')}
+        value={typeof value === 'string' ? value : ''}
+        onChange={onChange}
         options={options}
         error={error}
       />
@@ -123,8 +123,8 @@ export function ValueEditor({
       <DateField
         label={label}
         name="value-dateOfBirth"
-        value={typeof value === 'string' && value ? value : null}
-        onChange={(iso) => onChange(iso ?? '')}
+        value={typeof value === 'string' ? value : ''}
+        onChange={onChange}
         min="1900-01-01"
         max={new Date().toISOString().slice(0, 10)}
         error={error}

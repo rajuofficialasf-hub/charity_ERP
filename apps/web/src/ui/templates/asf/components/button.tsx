@@ -48,10 +48,10 @@ function useLook({ variant = 'primary', startIcon, endIcon, fullWidth }: Look): 
   }
 }
 
-export function Button({ children, onClick, type = 'button', disabled, loading, size = 'medium', ...look }: ButtonExtendedProps) {
+export function Button({ children, onClick, type = 'button', disabled, loading, size = 'medium', ariaLabel, ...look }: ButtonExtendedProps) {
   const props = useLook(look);
   return (
-    <MuiButton {...props} type={type} onClick={onClick} disabled={disabled} loading={loading} size={size}>
+    <MuiButton {...props} type={type} onClick={onClick} disabled={disabled} loading={loading} size={size} aria-label={ariaLabel}>
       {children}
     </MuiButton>
   );

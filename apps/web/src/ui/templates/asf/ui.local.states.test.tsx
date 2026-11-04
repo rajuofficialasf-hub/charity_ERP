@@ -321,6 +321,20 @@ describe('the alert that can be put away', () => {
 });
 
 describe('the icon button and the small button', () => {
+  it('names a short button by the longer words it is given, which hold its own words', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(
+      <UiProvider>
+        <Button variant="secondary" size="small" ariaLabel="Personal details: edit" onClick={onClick}>
+          Edit
+        </Button>
+      </UiProvider>
+    );
+    await user.click(screen.getByRole('button', { name: 'Personal details: edit' }));
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
   it('becomes a named link to an app path', async () => {
     const user = userEvent.setup();
     renderInApp(<IconButton label="Notifications, 3 unread" icon="bell" to="/applications" />);
