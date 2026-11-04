@@ -1,6 +1,6 @@
 import type { AnswerValue } from '@css/shared';
 import type { FormField } from '@css/shared/forms';
-import { Alert, Grid, NumberField, Stack, Text } from '@css/ui';
+import { Alert, Grid, Stack, Text, TextField } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 
 type Cells = Record<string, Record<string, number>>;
@@ -58,31 +58,35 @@ export function NumberTableInput({
   };
   const columns = Math.min(Math.max(cols.length, 1), 3) as 1 | 2 | 3;
   return (
-    <Stack gap={2} role="group" aria-label={label}>
-      <Text weight="bold">
-        {label}
-        {required ? ` ${t('required_mark')}` : ''}
-      </Text>
-      {help ? <Text tone="muted">{help}</Text> : null}
-      {rows.map((row) => (
-        <Stack key={row.key} gap={1}>
-          <Text>{row.label[locale]}</Text>
-          <Grid columns={columns} gap={2}>
-            {cols.map((col) => (
-              <NumberField
-                key={col.key}
-                kind="integer"
-                label={t('table_cell', { row: row.label[locale], col: col.label[locale] })}
-                name={`${name}-${row.key}-${col.key}`}
-                value={read(row.key, col.key)}
-                locked={locked}
-                onChange={(typed) => set(row.key, col.key, typed)}
-              />
-            ))}
-          </Grid>
-        </Stack>
-      ))}
-      {error ? <Alert tone="danger">{error}</Alert> : null}
-    </Stack>
+    <div role="group" aria-label={label}>
+      <Stack gap={2}>
+        <Text>
+          <strong>
+            {label}
+            {required ? ` ${t('required_mark')}` : ''}
+          </strong>
+        </Text>
+        {help ? <Text tone="muted">{help}</Text> : null}
+        {rows.map((row) => (
+          <Stack key={row.key} gap={1}>
+            <Text>{row.label[locale]}</Text>
+            <Grid columns={{ base: 1, sm: columns }} gap={2}>
+              {cols.map((col) => (
+                <TextField
+                  key={col.key}
+                  type="integer"
+                  label={t('table_cell', { row: row.label[locale], col: col.label[locale] })}
+                  name={`${name}-${row.key}-${col.key}`}
+                  value={read(row.key, col.key)}
+                  locked={locked}
+                  onChange={(typed) => set(row.key, col.key, typed)}
+                />
+              ))}
+            </Grid>
+          </Stack>
+        ))}
+        {error ? <Alert tone="error">{error}</Alert> : null}
+      </Stack>
+    </div>
   );
 }

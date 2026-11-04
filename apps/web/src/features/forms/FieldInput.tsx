@@ -9,15 +9,13 @@ import { formatDecimal, formatTaka } from '@css/shared/format';
 import {
   CheckboxGroup,
   DateField,
-  NumberField,
-  PhoneField,
+  type OtherChoice,
   RadioGroup,
-  Select,
+  SelectField,
   Stack,
   Text,
-  TextArea,
   TextField,
-} from '@css/ui';
+} from '@/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { type Address, AddressFields, EMPTY_ADDRESS } from '../registration/AddressFields';
@@ -76,15 +74,15 @@ export function FieldInput({
   const help = helpText === undefined ? undefined : pipe(helpText);
   // a read-only answer comes from its default or calculation, never from the person
   const locked = lockedByScreen || field.settings?.read_only === true;
-  const common = { label, name: id, required: state.required, error, helper: help, locked };
-  const options = state.options.map((o) => ({ id: o.code, label: o.label[locale] }));
+  const common = { label, name: id, required: state.required, error, hint: help };
+  // a text kind carries the id the error summary links to, and shows a lock when it is locked
+  const textual = { ...common, id, locked };
+  // a choice the person may not change is a disabled one
+  const choosing = { ...common, disabled: locked };
+  const options = state.options.map((o) => ({ value: o.code, label: o.label[locale] }));
   const otherId = state.options.find((o) => o.allowsOtherText)?.code;
-  const otherProps = otherId
-    ? {
-        otherOptionId: otherId,
-        otherValue: other(value),
-      }
-    : {};
+  const otherOf = (onTextChange: (text: string) => void): OtherChoice | undefined =>
+    otherId ? { value: otherId, text: other(value), onTextChange } : undefined;
   const setText = (t: 'short_text' | 'long_text' | 'phone' | 'email') => (v: string) =>
     onChange(v.trim() === '' ? null : { t, v });
 
@@ -92,46 +90,52 @@ export function FieldInput({
     case 'note':
       return (
         <Stack gap={1}>
-          <Text weight="bold">{label}</Text>
+          <Text>
+            <strong>{label}</strong>
+          </Text>
           {help ? <Text tone="muted">{help}</Text> : null}
         </Stack>
       );
     case 'short_text':
-      return <TextField {...common} value={text(value)} onChange={setText('short_text')} />;
+      return <TextField {...textual} value={text(value)} onChange={setText('short_text')} />;
     case 'email':
-      return <TextField {...common} type="email" value={text(value)} onChange={setText('email')} />;
+      return (
+        <TextField {...textual} type="email" value={text(value)} onChange={setText('email')} />
+      );
     case 'long_text':
-      return <TextArea {...common} value={text(value)} onChange={setText('long_text')} />;
+      return (
+        <TextField {...textual} rows={4} value={text(value)} onChange={setText('long_text')} />
+      );
     case 'phone':
-      return <PhoneField {...common} value={text(value)} onChange={setText('phone')} />;
+      return <TextField {...textual} type="tel" value={text(value)} onChange={setText('phone')} />;
     case 'number':
     case 'decimal':
     case 'money':
-      return <NumberInput {...common} type={field.type} value={value} onChange={onChange} />;
+      return <NumberInput {...textual} type={field.type} value={value} onChange={onChange} />;
     case 'date':
       return (
         <DateField
-          {...common}
-          value={text(value) || null}
+          {...choosing}
+          value={text(value)}
           onChange={(iso) => onChange(iso ? { t: 'date', v: iso } : null)}
         />
       );
     case 'time':
       return (
         <TextField
-          {...common}
-          helper={help ?? t('time_helper')}
+          {...textual}
+          hint={help ?? t('time_helper')}
           inputMode="numeric"
           value={text(value)}
           onChange={(v) => onChange(v.trim() ? { t: 'time', v: v.trim() } : null)}
         />
       );
     case 'datetime':
-      return <DateTimeInput {...common} value={value} onChange={onChange} />;
+      return <DateTimeInput {...choosing} value={value} onChange={onChange} />;
     case 'single_select':
     case 'radio': {
       const t2 = field.type;
-      const onPick = (code: string | null) =>
+      const onPick = (code: string) =>
         onChange(
           code
             ? {
@@ -147,20 +151,18 @@ export function FieldInput({
           : undefined;
       return t2 === 'radio' ? (
         <RadioGroup
-          {...common}
-          {...otherProps}
-          onOtherChange={onOther}
+          {...choosing}
+          other={otherOf(onOther)}
           options={options}
           value={choice(value)}
           onChange={onPick}
         />
       ) : (
-        <Select
-          {...common}
-          {...otherProps}
-          onOtherChange={onOther}
+        <SelectField
+          {...choosing}
+          other={otherOf(onOther)}
           options={options}
-          value={choice(value)}
+          value={choice(value) ?? ''}
           onChange={onPick}
         />
       );
@@ -170,13 +172,12 @@ export function FieldInput({
       const t2 = field.type;
       return (
         <CheckboxGroup
-          {...common}
-          {...otherProps}
-          onOtherChange={(text) =>
+          {...choosing}
+          other={otherOf((text) =>
             choices(value).length
               ? onChange({ t: t2, v: choices(value), ...(text ? { other: text } : {}) })
-              : undefined
-          }
+              : undefined,
+          )}
           options={options}
           value={choices(value)}
           onChange={(ids) =>
@@ -203,7 +204,7 @@ export function FieldInput({
           {...common}
           type={field.type}
           fieldKey={field.fieldKey}
-          helper={field.type === 'signature' ? (help ?? t('signature_helper')) : help}
+          hint={field.type === 'signature' ? (help ?? t('signature_helper')) : help}
           fileIds={choices(value)}
           adapter={upload}
           onUploading={onUploading}
@@ -213,13 +214,15 @@ export function FieldInput({
     case 'calculation':
       return (
         <TextField
-          {...common}
+          {...textual}
           readOnly
-          helper={
+          hint={
             help ??
             (computedNeedsNisab(field) && !nisabKnown ? t('office_works_out') : t('calculated'))
           }
           value={shown(field, computed, locale, t)}
+          // the value is worked out from the other answers; it is never typed
+          onChange={() => undefined}
         />
       );
     case 'number_table':
@@ -321,9 +324,11 @@ function NumberInput({
   onChange: (value: AnswerValue | null) => void;
   label: string;
   name: string;
+  id: string;
   required: boolean;
   error?: string;
-  helper?: string;
+  hint?: string;
+  locked?: boolean;
 }) {
   const stored = value && 'v' in value ? String(value.v) : '';
   const [typed, setTyped] = useState(stored);
@@ -335,9 +340,9 @@ function NumberInput({
     if (stored === '' || Number(typed) !== Number(stored)) setTyped(stored);
   }
   return (
-    <NumberField
+    <TextField
       {...common}
-      kind={type === 'number' ? 'integer' : type === 'money' ? 'money' : 'decimal'}
+      type={type === 'number' ? 'integer' : type === 'money' ? 'money' : 'decimal'}
       value={typed}
       onChange={(v) => {
         setTyped(v);
@@ -368,7 +373,8 @@ function DateTimeInput({
   name: string;
   required: boolean;
   error?: string;
-  helper?: string;
+  hint?: string;
+  disabled?: boolean;
 }) {
   const t = useTranslations('forms.renderer');
   const current = value?.t === 'datetime' ? value.v : '';
@@ -384,18 +390,19 @@ function DateTimeInput({
     <Stack gap={2}>
       <DateField
         {...common}
-        value={date || null}
+        value={date}
         onChange={(iso) => {
-          setDate(iso ?? '');
-          send(iso ?? '', time);
+          setDate(iso);
+          send(iso, time);
         }}
       />
       <TextField
         label={t('datetime_time', { label: common.label })}
         name={`${common.name}-time`}
         required={common.required}
+        disabled={common.disabled}
         inputMode="numeric"
-        helper={t('time_helper')}
+        hint={t('time_helper')}
         value={time}
         onChange={(v) => {
           setTime(v.trim());

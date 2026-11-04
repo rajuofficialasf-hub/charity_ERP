@@ -78,7 +78,7 @@ async function fillCore(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByRole('textbox', { name: /^mobile/ }), '01712345678');
   await user.type(screen.getByRole('textbox', { name: /^name/ }), 'নমুনা');
   await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
-  await user.click(screen.getByRole('button', { name: /gender/ }));
+  await user.click(screen.getByRole('combobox', { name: /gender/ }));
   await user.click(await screen.findByRole('option', { name: 'female' }));
   for (const [label, name] of [
     ['বিভাগ', 'ঢাকা বিভাগ'],

@@ -373,14 +373,14 @@ describe('the public application page', () => {
     const user = userEvent.setup();
     wide();
     page();
-    expect(await screen.findByText('প্রয়োজন')).toBeInTheDocument();
+    expect(await screen.findByRole('textbox', { name: 'প্রয়োজন' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'English' }));
-    expect(await screen.findByText('Need')).toBeInTheDocument();
+    expect(await screen.findByRole('textbox', { name: 'Need' })).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 1, name: 'Winter clothing 2026' }),
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'বাংলা' }));
-    expect(await screen.findByText('প্রয়োজন')).toBeInTheDocument();
+    expect(await screen.findByRole('textbox', { name: 'প্রয়োজন' })).toBeInTheDocument();
   });
 
   it('has no axe violation in either language', async () => {
