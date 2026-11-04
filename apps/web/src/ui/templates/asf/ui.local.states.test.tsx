@@ -337,8 +337,16 @@ describe('the icon button and the small button', () => {
 
   it('becomes a named link to an app path', async () => {
     const user = userEvent.setup();
-    renderInApp(<IconButton label="Notifications, 3 unread" icon="bell" to="/applications" />);
-    await user.click(screen.getByRole('link', { name: 'Notifications, 3 unread' }));
+    renderInApp(
+      <header>
+        <IconButton label="Notifications, 3 unread" icon="bell" to="/applications" />
+      </header>
+    );
+    const link = screen.getByRole('link', { name: 'Notifications, 3 unread' });
+    await user.hover(link);
+    // its tip opens inside the bar, not at the end of the page outside every landmark
+    expect(await within(screen.getByRole('banner')).findByRole('tooltip')).toHaveTextContent('Notifications, 3 unread');
+    await user.click(link);
     expect(await screen.findByRole('heading', { name: 'Applications to review' })).toBeInTheDocument();
   });
 
