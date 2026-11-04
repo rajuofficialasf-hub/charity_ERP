@@ -3,6 +3,7 @@ import { formatGps } from '@css/shared/format';
 import { Alert, Button, Stack, Text } from '@/ui';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
+import { QuestionTitle } from './QuestionTitle';
 
 type GpsAnswer = Extract<AnswerValue, { t: 'gps' }>;
 
@@ -45,9 +46,7 @@ export function GpsField({
   return (
     <div role="group" aria-label={label}>
       <Stack gap={2}>
-        <Text>
-          <strong>{label}</strong>
-        </Text>
+        <QuestionTitle>{label}</QuestionTitle>
         {hint ? <Text tone="muted">{hint}</Text> : null}
         {value ? <Text>{formatGps(value.lat, value.lng, value.accuracy_m)}</Text> : null}
         <div>

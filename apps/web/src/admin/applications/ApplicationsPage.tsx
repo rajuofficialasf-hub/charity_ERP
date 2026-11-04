@@ -27,7 +27,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { stateLabel as labelOf } from '../../features/applications/status';
-import { toneOf } from './state-tone';
+import { badgeToneOf } from './state-tone';
 import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -142,7 +142,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   );
   const status = (r: ApplicationSummary) => (
     <span className="admin-badges">
-      <Badge variant="dot" tone={toneOf(r.status)} label={stateLabel(r.status)} />
+      <Badge variant="dot" tone={badgeToneOf(r.status)} label={stateLabel(r.status)} />
       {r.flags.includes('public_entry') ? (
         <Badge variant="dot" tone="info" label={t('signals.flag.public_entry_short')} />
       ) : null}

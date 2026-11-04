@@ -2,6 +2,7 @@ import { FileUpload, Stack, Text, type UploadItem } from '@/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import type { FieldUpload } from './upload-adapter';
+import { QuestionTitle } from './QuestionTitle';
 
 const MB = 1024 * 1024;
 
@@ -52,9 +53,7 @@ export function UploadField({
   if (!adapter)
     return (
       <Stack gap={1}>
-        <Text>
-          <strong>{label}</strong>
-        </Text>
+        <QuestionTitle>{label}</QuestionTitle>
         <Text tone="muted">{t('upload_inert')}</Text>
       </Stack>
     );

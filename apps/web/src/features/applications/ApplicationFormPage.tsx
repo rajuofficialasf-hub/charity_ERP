@@ -108,10 +108,11 @@ function NewApplication({ me }: { me: Me }) {
     return (
       <Stack gap={2}>
         {back}
+        {/* the project's read or the form's: the one that failed is named and both are asked again */}
         <LoadError
           title={t('load_failed')}
-          error={form.error}
-          onRetry={() => void form.refetch()}
+          error={project.error ?? form.error}
+          onRetry={() => void Promise.all([project.refetch(), form.refetch()])}
         />
       </Stack>
     );

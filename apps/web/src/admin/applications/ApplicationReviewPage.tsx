@@ -24,7 +24,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { AnswerList } from '../../features/applications/AnswerList';
 import { stateLabel as labelOf } from '../../features/applications/status';
-import { toneOf } from './state-tone';
+import { badgeToneOf } from './state-tone';
 import { FormRenderer, type Submission } from '../../features/forms/FormRenderer';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -288,7 +288,7 @@ function Review() {
               label: t('column.status'),
               value: (
                 <Stack direction="row" gap={2} wrap>
-                  <Badge tone={toneOf(a.status)} label={stateLabel(a.status)} />
+                  <Badge tone={badgeToneOf(a.status)} label={stateLabel(a.status)} />
                   {a.media ? <MediaBadge media={a.media} /> : null}
                 </Stack>
               ),

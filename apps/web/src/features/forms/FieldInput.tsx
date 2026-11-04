@@ -23,6 +23,7 @@ import { GpsField } from './GpsField';
 import { NumberTableInput } from './NumberTableInput';
 import type { FieldUpload } from './upload-adapter';
 import { UploadField } from './UploadField';
+import { QuestionTitle } from './QuestionTitle';
 
 export interface FieldInputProps {
   field: FormField;
@@ -90,9 +91,7 @@ export function FieldInput({
     case 'note':
       return (
         <Stack gap={1}>
-          <Text>
-            <strong>{label}</strong>
-          </Text>
+          <QuestionTitle>{label}</QuestionTitle>
           {help ? <Text tone="muted">{help}</Text> : null}
         </Stack>
       );

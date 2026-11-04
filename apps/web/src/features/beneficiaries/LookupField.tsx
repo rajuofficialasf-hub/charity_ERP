@@ -5,7 +5,7 @@ import {
   normalizeIdentityNumber,
 } from '@css/shared/beneficiaries';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, DescriptionList, Grid, RadioGroup, Stack, Text, TextField } from '@/ui';
+import { Alert, Button, DescriptionList, Grid, RadioGroup, Stack, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { type ReactNode, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -16,6 +16,7 @@ import {
 } from '../../admin/beneficiaries/beneficiaries-api';
 import { useLocationName } from '../../components/AddressNames';
 import { ApiFailure } from '../../lib/api';
+import { QuestionTitle } from '../forms/QuestionTitle';
 
 type NumberKind = 'nid' | 'birthReg';
 type Asked = { number: string; kind: NumberKind; projectId: string };
@@ -186,9 +187,7 @@ function Answer({
       {result.mergedInto && (
         <Alert tone="info">{t('merged', { benNo: formatBenNo(result.mergedInto.benNo) })}</Alert>
       )}
-      <Text>
-        <strong>{t('found', { benNo: formatBenNo(a.benNo) })}</strong>
-      </Text>
+      <QuestionTitle>{t('found', { benNo: formatBenNo(a.benNo) })}</QuestionTitle>
       <Grid columns={{ base: 1, sm: 2 }} gap={3}>
         {/* the identity of a known person changes only through a correction */}
         <TextField label={t('name')} value={a.name} locked onChange={() => undefined} />

@@ -3,6 +3,7 @@ import type { FormField } from '@css/shared/forms';
 import { Button, Stack, Text } from '@/ui';
 import type { ReactNode } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
+import { QuestionTitle } from './QuestionTitle';
 
 /**
  * A repeat group ("+ add another"): its rows, each with the member questions, between the group's
@@ -32,15 +33,13 @@ export function RepeatGroup({
   return (
     <section aria-label={label}>
       <Stack gap={2}>
-        <Text>
-          <strong>{label}</strong>
-        </Text>
+        <QuestionTitle>{label}</QuestionTitle>
         {Array.from({ length: rows }, (_, row) => (
           // rows are positions: removing one moves the answers after it up, so the position is the key
           <Stack key={row} gap={2}>
-            <Text>
-              <strong>{t('row_title', { label, n: formatCount(row + 1, locale) })}</strong>
-            </Text>
+            <QuestionTitle>
+              {t('row_title', { label, n: formatCount(row + 1, locale) })}
+            </QuestionTitle>
             {renderRow(row)}
             {!counted && rows > min ? (
               <div>

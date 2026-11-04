@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { FileImage } from '../../components/FileImage';
+import { QuestionTitle } from '../forms/QuestionTitle';
 
 /** The answer of a question as text, in the reader's language; null for photos and files. */
 export function answerText(
@@ -143,9 +144,7 @@ export function AnswerList({
               .flatMap((i) => (i.kind === 'photos' ? [i] : []))
               .map((i) => (
                 <Stack key={i.key} gap={1}>
-                  <Text>
-                    <strong>{i.label}</strong>
-                  </Text>
+                  <QuestionTitle>{i.label}</QuestionTitle>
                   <div className="my-application-photos">
                     {i.ids.map((fileId) => (
                       <FileImage key={fileId} fileId={fileId} alt={t('photo_alt')} />

@@ -226,6 +226,32 @@ async function lookUp(user: ReturnType<typeof userEvent.setup>, number: string) 
 }
 
 describe('the new application', () => {
+  it('tries the project again when its read failed, and names the failed request', async () => {
+    const user = userEvent.setup();
+    refreshAs(VOLUNTEER);
+    serve();
+    let failing = true;
+    server.use(
+      http.get(`*/api/v1/me/projects/${PROJECT}`, () =>
+        failing
+          ? HttpResponse.json(
+              { error: { code: 'server.error', message: 'ভুল', requestId: 'req_project' } },
+              { status: 500 },
+            )
+          : envelope(project),
+      ),
+    );
+    renderApp(<ApplicationFormPage />, 'bn', {
+      path: '/my-projects/:projectId/apply',
+      initialPath: `/my-projects/${PROJECT}/apply`,
+    });
+    const alert = await screen.findByRole('alert', {}, { timeout: 5000 });
+    expect(alert).toHaveTextContent('req_project');
+    failing = false;
+    await user.click(within(alert).getByRole('button', { name: 'আবার চেষ্টা করুন' }));
+    expect(await screen.findByRole('textbox', { name: /NID নম্বর/ })).toBeInTheDocument();
+  });
+
   it('locks a found person’s identity, saves the draft through the outbox when the first part is done and sends it with the number', async () => {
     const user = userEvent.setup();
     onPhone();

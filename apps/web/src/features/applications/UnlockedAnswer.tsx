@@ -9,6 +9,7 @@ import { ApiFailure } from '../../lib/api';
 import { FieldInput } from '../forms/FieldInput';
 import { answerText } from './AnswerList';
 import type { Unlock } from './applications-api';
+import { QuestionTitle } from '../forms/QuestionTitle';
 
 /** A stored value read as an answer value, or nothing when it is empty or not one. */
 export function valueOf(value: unknown): AnswerValue | undefined {
@@ -80,9 +81,7 @@ export function UnlockedAnswer({
           </>
         ) : unlock.mayFill ? (
           <>
-            <Text>
-              <strong>{t('give_new')}</strong>
-            </Text>
+            <QuestionTitle>{t('give_new')}</QuestionTitle>
             <FieldInput
               field={field}
               id={`unlock-value-${unlock.id}`}

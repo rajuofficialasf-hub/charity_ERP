@@ -2,6 +2,7 @@ import type { AnswerValue } from '@css/shared';
 import type { FormField } from '@css/shared/forms';
 import { Alert, Grid, Stack, Text, TextField } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
+import { QuestionTitle } from './QuestionTitle';
 
 type Cells = Record<string, Record<string, number>>;
 
@@ -60,12 +61,10 @@ export function NumberTableInput({
   return (
     <div role="group" aria-label={label}>
       <Stack gap={2}>
-        <Text>
-          <strong>
-            {label}
-            {required ? ` ${t('required_mark')}` : ''}
-          </strong>
-        </Text>
+        <QuestionTitle>
+          {label}
+          {required ? ` ${t('required_mark')}` : ''}
+        </QuestionTitle>
         {help ? <Text tone="muted">{help}</Text> : null}
         {rows.map((row) => (
           <Stack key={row.key} gap={1}>
