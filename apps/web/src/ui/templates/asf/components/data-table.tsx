@@ -409,9 +409,23 @@ function NumberedPager({ page, pageSize, total, onPageChange, phone }: Paginatio
 }
 
 /** Previous and next for a list read by cursor; "load more" on a phone when the caller offers it. */
-function CursorPager({ summary, hasPrevious, hasNext, onPrevious, onNext, onLoadMore, phone }: CursorPagination & { phone: boolean }) {
+function CursorPager({ summary, hasPrevious, hasNext, onPrevious, onNext, onLoadMore, page, pageCount, onPage, phone }: CursorPagination & { phone: boolean }) {
   const labels = useLabels();
   const loadMore = phone && onLoadMore;
+  // the numbers step only through the counted pages; previous and next also go past them by cursor
+  const numbers = page !== undefined && pageCount !== undefined && onPage && (
+    <Pagination
+      aria-label={labels.pages}
+      count={pageCount}
+      page={page}
+      shape="rounded"
+      siblingCount={phone ? 0 : 1}
+      hidePrevButton
+      hideNextButton
+      onChange={(_, next) => onPage(next)}
+      getItemAriaLabel={(type, number) => (type === 'page' ? fill(labels.page, { page: number ?? '' }) : type)}
+    />
+  );
   return (
     <Box sx={pagerSx}>
       {summary && (
@@ -426,10 +440,11 @@ function CursorPager({ summary, hasPrevious, hasNext, onPrevious, onNext, onLoad
           </Button>
         )
       ) : (
-        <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, ml: 'auto' }}>
           <Button variant="outlined" color="inherit" size="small" disabled={!hasPrevious} onClick={onPrevious} startIcon={<Icon name="chevron-left" size={18} />}>
             {labels.previous}
           </Button>
+          {numbers}
           <Button variant="outlined" color="inherit" size="small" disabled={!hasNext} onClick={onNext} endIcon={<Icon name="chevron-right" size={18} />}>
             {labels.next}
           </Button>

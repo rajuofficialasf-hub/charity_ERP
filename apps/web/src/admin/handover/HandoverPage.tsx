@@ -322,7 +322,7 @@ function CategoryItems({
       {items.length === 0 ? (
         <p className="admin-muted">{t('category_empty')}</p>
       ) : (
-        <ul className="admin-handover-items">
+        <ul className="admin-plain-list">
           {items.map((item) => (
             <li key={`${item.itemType}:${item.itemId}`}>
               <Stack direction="row" wrap align="center" gap={2}>

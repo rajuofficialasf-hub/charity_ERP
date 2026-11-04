@@ -1,5 +1,5 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Modal, RadioGroup, Select, TextArea, TextField } from '@css/ui';
+import { Alert, Button, Dialog, RadioGroup, SelectField, TextField } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -57,34 +57,32 @@ export function SaveTemplateDialog({
   const ready =
     mode === 'replace' ? templateId !== null : nameBn.trim() !== '' && nameEn.trim() !== '';
   return (
-    <Modal
+    <Dialog
       title={t('title')}
-      isOpen
+      open
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={save.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => save.mutate()} disabled={!ready} loading={save.isPending}>
-          {t('submit')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
+            {t('submit')}
+          </Button>
+        </>
       }
     >
       {save.error instanceof ApiFailure && (
-        <Alert tone="danger" live="alert">
-          {save.error.details[0]?.message ?? save.error.message}
-        </Alert>
+        <Alert tone="error">{save.error.details[0]?.message ?? save.error.message}</Alert>
       )}
       <RadioGroup
         label={t('mode')}
         value={mode}
         onChange={(value) => setMode(value as Mode)}
         options={[
-          { id: 'new', label: t('mode_new') },
-          { id: 'replace', label: t('mode_replace') },
+          { value: 'new', label: t('mode_new') },
+          { value: 'replace', label: t('mode_replace') },
         ]}
       />
       {mode === 'new' ? (
@@ -104,7 +102,7 @@ export function SaveTemplateDialog({
             value={nameEn}
             onChange={setNameEn}
           />
-          <TextArea
+          <TextField
             label={td('description')}
             maxLength={2000}
             rows={3}
@@ -113,19 +111,19 @@ export function SaveTemplateDialog({
           />
         </>
       ) : (
-        <Select
+        <SelectField
           label={t('template')}
-          helper={t('replace_hint')}
+          hint={t('replace_hint')}
           required
-          value={templateId}
-          onChange={setTemplateId}
+          value={templateId ?? ''}
+          onChange={(v) => setTemplateId(v || null)}
           disabled={!library.data}
           options={(library.data ?? []).map((tpl) => ({
-            id: tpl.id,
+            value: tpl.id,
             label: `${localized(tpl.name, locale)} (${tw(tpl.workflowKey)})`,
           }))}
         />
       )}
-    </Modal>
+    </Dialog>
   );
 }

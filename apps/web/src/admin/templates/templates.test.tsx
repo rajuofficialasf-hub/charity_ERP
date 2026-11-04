@@ -59,14 +59,14 @@ describe('the template library', () => {
     serve();
     const user = userEvent.setup();
     const { container } = open();
-    const table = await screen.findByRole('grid', { name: 'টেমপ্লেটের তালিকা' });
+    const table = await screen.findByRole('table', { name: 'টেমপ্লেটের তালিকা' });
     expect(await within(table).findByText('শীতবস্ত্র টেমপ্লেট')).toBeInTheDocument();
     expect(within(table).getByText('বিতরণ')).toBeInTheDocument();
     expect(within(table).getAllByText('সক্রিয়')).toHaveLength(1);
     await user.click(screen.getByText('নিষ্ক্রিয়গুলোও দেখান'));
     await waitFor(() => expect(asked).toContain('inactive'));
     // the list loads again: the table is drawn anew
-    const again = await screen.findByRole('grid', { name: 'টেমপ্লেটের তালিকা' });
+    const again = await screen.findByRole('table', { name: 'টেমপ্লেটের তালিকা' });
     await waitFor(() => expect(within(again).getAllByText('নিষ্ক্রিয়')).toHaveLength(1));
     await expectNoAxeViolations(container);
   });
@@ -77,7 +77,7 @@ describe('the template library', () => {
     open();
     expect(await screen.findByText('প্রকল্প পরিচালনা')).toBeInTheDocument();
     const counts = within(await screen.findByRole('region', { name: 'টেমপ্লেটের হিসাব' }));
-    const card = (label: string) => counts.getByText(label).closest('.ui-card')!;
+    const card = (label: string) => counts.getByText(label).parentElement!;
     await waitFor(() => expect(card('সক্রিয় টেমপ্লেট')).toHaveTextContent('1'));
     expect(card('নিষ্ক্রিয় টেমপ্লেট')).toHaveTextContent('1');
     expect(screen.getByText('টেমপ্লেট ব্যবহারের নিয়ম')).toBeInTheDocument();

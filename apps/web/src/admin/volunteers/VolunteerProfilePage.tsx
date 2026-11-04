@@ -2,50 +2,31 @@ import { formatDate, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Avatar,
-  Badge,
-  type ContactItem,
+  Chip,
   ContactList,
   DescriptionList,
+  Dialog,
   EmptyState,
-  ErrorState,
-  Grid,
-  Modal,
-  type ProfileFact,
-  ProfileHeader,
+  Icon,
   ProfileSection,
   Skeleton,
   Stack,
   Tabs,
   Text,
   Timeline,
+  type ContactItem,
+  type ExtendedIconName,
+  type ProfileFact,
   type TimelineStep,
-} from '@css/ui';
+} from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Ban,
-  Briefcase,
-  CalendarDays,
-  Droplet,
-  Globe,
-  GraduationCap,
-  Hash,
-  Images,
-  Landmark,
-  Mail,
-  MapPin,
-  MessageCircle,
-  Phone,
-  User,
-  UserX,
-  ZoomIn,
-} from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { FileImage, useFileDataUrl } from '../../components/FileImage';
+import { PersonBanner } from '../../components/PersonPhoto';
 import {
   EducationText,
   PermanentAddressText,
@@ -74,6 +55,7 @@ import {
 } from './volunteers-api';
 import { VolunteerSessions } from './VolunteerSessions';
 import { PageCrumbs } from '../../components/shell/breadcrumb';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * One volunteer for an official in the one profile layout: the header card with the key facts, the
@@ -87,7 +69,6 @@ export function VolunteerProfilePage() {
   const { me } = useAuth();
   const { volunteerId = '' } = useParams();
   const t = useTranslations('admin.volunteers.profile');
-  const tc = useTranslations('common');
   const profile = useQuery({
     queryKey: profileKey(volunteerId),
     queryFn: () => volunteerProfile(volunteerId),
@@ -107,18 +88,14 @@ export function VolunteerProfilePage() {
     return (
       <>
         {back}
-        <EmptyState icon={UserX} title={t('not_found')} />
+        <EmptyState title={t('not_found')} />
       </>
     );
   if (profile.error || !profile.data)
     return (
       <>
         {back}
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={profile.error instanceof ApiFailure ? profile.error.requestId : undefined}
-          onRetry={() => void profile.refetch()}
-        />
+        <LoadError error={profile.error} onRetry={() => void profile.refetch()} />
       </>
     );
   const p = profile.data;
@@ -132,7 +109,6 @@ export function VolunteerProfilePage() {
 /** A pending registration the caller decides on: the registration's details and its corrections. */
 function PendingProfile({ profile: p }: { profile: VolunteerProfile }) {
   const t = useTranslations('admin.registrations');
-  const tc = useTranslations('common');
   const reg = useQuery({
     queryKey: detailKey(p.userId),
     queryFn: () => registrationDetail(p.userId),
@@ -140,18 +116,14 @@ function PendingProfile({ profile: p }: { profile: VolunteerProfile }) {
   });
   if (reg.isPending) return <Skeleton count={4} />;
   if (reg.error instanceof ApiFailure && reg.error.status === 404)
-    return <EmptyState icon={UserX} title={t('not_found')} />;
+    return <EmptyState title={t('not_found')} />;
   if (reg.error || !reg.data)
     // the profile still shows (and its block and devices); the decisions wait for the registration
     return (
-      <Grid gap={3}>
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={reg.error instanceof ApiFailure ? reg.error.requestId : undefined}
-          onRetry={() => void reg.refetch()}
-        />
+      <Stack gap={3}>
+        <LoadError error={reg.error} onRetry={() => void reg.refetch()} />
         <Profile profile={p} />
-      </Grid>
+      </Stack>
     );
   return <Profile profile={p} registration={reg.data} />;
 }
@@ -206,34 +178,38 @@ function Profile({
             id: 'nid',
             label: tf('form.nid'),
             value: p.nid,
-            icon: Hash,
+            icon: 'hash' as const,
             showLabel: true,
             copy: true,
           },
         ]
       : []),
     ...(p.mobile
-      ? [{ id: 'mobile', label: tf('form.mobile'), value: p.mobile, icon: Phone, copy: true }]
+      ? [
+          {
+            id: 'mobile',
+            label: tf('form.mobile'),
+            value: p.mobile,
+            icon: 'phone' as const,
+            copy: true,
+          },
+        ]
       : []),
   ];
 
   const status = (
     <>
-      <Badge label={tf(`form.types.${p.type}`)} />
+      <Chip>{tf(`form.types.${p.type}`)}</Chip>
       {pending ? (
-        <Badge
-          variant="dot"
-          tone="warning"
-          label={tr(`status.${inCorrection ? 'in_correction' : 'awaiting_review'}`)}
-        />
+        <Chip tone="warning">
+          {tr(`status.${inCorrection ? 'in_correction' : 'awaiting_review'}`)}
+        </Chip>
       ) : (
-        <Badge
-          variant="dot"
-          tone={p.state === 'active' ? 'success' : p.state === 'pending' ? 'info' : 'warning'}
-          label={tv(`state.${p.state}`)}
-        />
+        <Chip tone={p.state === 'active' ? 'success' : p.state === 'pending' ? 'info' : 'warning'}>
+          {tv(`state.${p.state}`)}
+        </Chip>
       )}
-      {blocked && <Badge variant="dot" tone="danger" label={tv('blocklisted')} />}
+      {blocked && <Chip tone="error">{tv('blocklisted')}</Chip>}
     </>
   );
 
@@ -265,31 +241,31 @@ function Profile({
 
   const tabs = [
     {
-      id: 'info',
+      value: 'info',
       label: t('tabs.info'),
       content: <InfoTab view={p} registration={registration} />,
     },
-    { id: 'documents', label: t('tabs.documents'), content: <DocumentsTab view={p} /> },
-    { id: 'work', label: t('tabs.work'), content: <WorkTab view={p} /> },
+    { value: 'documents', label: t('tabs.documents'), content: <DocumentsTab view={p} /> },
+    { value: 'work', label: t('tabs.work'), content: <WorkTab view={p} /> },
     {
-      id: 'history',
+      value: 'history',
       label: t('tabs.history'),
       content: <HistoryTab view={p} registration={registration} />,
     },
     ...(p.actions.viewSessions
       ? [
           {
-            id: 'devices',
+            value: 'devices',
             label: t('tabs.devices'),
             content: <VolunteerSessions userId={p.userId} canRevoke={p.actions.revokeSessions} />,
           },
         ]
       : []),
   ];
-  const selected = tabs.find((tab) => tab.id === params.get('tab'))?.id ?? 'info';
+  const selected = tabs.find((tab) => tab.value === params.get('tab'))?.value ?? 'info';
 
   return (
-    <Grid gap={4}>
+    <Stack gap={4}>
       <DocumentTitle title={p.displayName} />
       <PageCrumbs
         items={[
@@ -301,24 +277,24 @@ function Profile({
           { id: 'profile', label: p.displayName },
         ]}
       />
-      <ProfileHeader
+      <PersonBanner
         name={p.displayName}
-        avatar={<HeaderAvatar name={p.displayName} fileId={p.photoFileId} />}
+        fileId={p.photoFileId}
         status={status}
         facts={facts}
         actions={hasActions ? actions : undefined}
         actionsLabel={t('actions_label')}
       />
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
-      {pending && registration?.blocklisted && <Alert tone="danger">{tr('blocklisted')}</Alert>}
+      {pending && registration?.blocklisted && <Alert tone="error">{tr('blocklisted')}</Alert>}
       <Tabs
         label={t('tabs_label')}
         items={tabs}
-        selectedId={selected}
+        value={selected}
         onChange={(id) =>
           setParams(
             (current) => {
@@ -331,13 +307,8 @@ function Profile({
           )
         }
       />
-    </Grid>
+    </Stack>
   );
-}
-
-function HeaderAvatar({ name, fileId }: { name: string; fileId: string | null }) {
-  const photo = useFileDataUrl(fileId);
-  return <Avatar name={name} letters={1} size="lg" src={photo.data ?? undefined} />;
 }
 
 interface DocumentSlot {
@@ -374,7 +345,7 @@ function DocumentStrip({ view }: { view: View }) {
   const [open, setOpen] = useState<{ label: string; fileId: string } | null>(null);
   const slots = useDocumentSlots(view).filter((slot) => slot.visible);
   return (
-    <ProfileSection title={t('documents_title', { count: slots.length })} icon={Images}>
+    <ProfileSection title={t('documents_title', { count: slots.length })} icon="gallery">
       <ul className="admin-docs-list">
         {slots.map((slot) => (
           <li key={slot.id}>
@@ -391,14 +362,14 @@ function DocumentStrip({ view }: { view: View }) {
           </li>
         ))}
       </ul>
-      <Modal
+      <Dialog
         title={open?.label ?? ''}
-        size="lg"
-        isOpen={open !== null}
+        size="large"
+        open={open !== null}
         onClose={() => setOpen(null)}
       >
         {open && <FileImage fileId={open.fileId} alt={open.label} />}
-      </Modal>
+      </Dialog>
     </ProfileSection>
   );
 }
@@ -420,7 +391,7 @@ function Thumb({
     <button type="button" className="admin-doc-thumb" onClick={() => onOpen(fileId)}>
       {file.data ? <img src={file.data} alt="" /> : <Skeleton shape="card" />}
       <span className="admin-doc-zoom" aria-hidden="true">
-        <ZoomIn size={16} />
+        <Icon name="zoom-in" size={16} />
       </span>
       <span className="ui-sr-only">{t('view_document', { name: label })}</span>
     </button>
@@ -433,7 +404,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
   // a missing answer reads quieter than a given one
   const empty = <span className="admin-blank">{tf('profile.empty')}</span>;
   const hidden = t('hidden');
-  const items = (rows: [string, ReactNode, typeof User?][]) =>
+  const items = (rows: [string, ReactNode, ExtendedIconName?][]) =>
     rows.map(([label, value, icon]) => ({ label, value, icon }));
   const facebookUrl = p.facebookId && /^https?:\/\//i.test(p.facebookId) ? p.facebookId : null;
   const whatsappDigits = p.whatsapp?.replace(/\D/g, '');
@@ -442,7 +413,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
       ? [
           {
             id: 'mobile',
-            icon: Phone,
+            icon: 'phone' as const,
             label: tf('form.mobile'),
             value: p.mobile,
             href: telLink(p.mobile),
@@ -455,7 +426,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
       ? [
           {
             id: 'email',
-            icon: Mail,
+            icon: 'mail' as const,
             label: tf('form.email'),
             value: p.email,
             href: mailLink(p.email),
@@ -468,7 +439,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
       ? [
           {
             id: 'whatsapp',
-            icon: MessageCircle,
+            icon: 'message' as const,
             label: tf('form.whatsapp'),
             value: p.whatsapp,
             // a Bangladeshi number without its country code gets one
@@ -482,7 +453,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
       ? [
           {
             id: 'facebook',
-            icon: Globe,
+            icon: 'globe' as const,
             label: tf('form.facebook'),
             value: p.facebookId,
             ...(facebookUrl
@@ -494,14 +465,14 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
   ];
   return (
     <div className="admin-profile-grid">
-      <Grid gap={3}>
-        <ProfileSection title={t('personal')} icon={User}>
+      <Stack gap={3}>
+        <ProfileSection title={t('personal')} icon="user">
           <DescriptionList
             columns={2}
             items={items([
-              [tf('form.father_name'), p.fatherName, User],
-              [tf('form.mother_name'), p.motherName, User],
-              [tf('form.nid'), p.nid ?? hidden, Hash],
+              [tf('form.father_name'), p.fatherName, 'user'],
+              [tf('form.mother_name'), p.motherName, 'user'],
+              [tf('form.nid'), p.nid ?? hidden, 'hash'],
               [
                 tf('form.date_of_birth'),
                 p.dateOfBirth === undefined
@@ -509,23 +480,23 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
                   : p.dateOfBirth
                     ? formatDate(p.dateOfBirth)
                     : empty,
-                CalendarDays,
+                'calendar',
               ],
               [
                 tf('form.blood_group'),
                 p.bloodGroup === undefined ? hidden : (p.bloodGroup ?? empty),
-                Droplet,
+                'water',
               ],
-              [tf('form.mobile'), p.mobile ?? empty, Phone],
-              [tf('form.email'), p.email ?? empty, Mail],
-              [tf('form.whatsapp'), p.whatsapp ?? empty, MessageCircle],
-              [tf('form.facebook'), p.facebookId ?? empty, Globe],
+              [tf('form.mobile'), p.mobile ?? empty, 'phone'],
+              [tf('form.email'), p.email ?? empty, 'mail'],
+              [tf('form.whatsapp'), p.whatsapp ?? empty, 'message'],
+              [tf('form.facebook'), p.facebookId ?? empty, 'globe'],
               [
                 tf('form.volunteering_area'),
                 p.volunteeringArea
                   ? tf(`lists.volunteering_area.${p.volunteeringArea as 'anywhere'}`)
                   : empty,
-                MapPin,
+                'map-pin',
               ],
               [tf('form.tshirt_size'), p.tshirtSize ?? empty],
               [t('registered'), formatDate(p.registeredAt)],
@@ -540,7 +511,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
             ])}
           />
         </ProfileSection>
-        <ProfileSection title={t('sections.address')} icon={MapPin}>
+        <ProfileSection title={t('sections.address')} icon="map-pin">
           <DescriptionList
             columns={2}
             items={[
@@ -553,7 +524,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
             ]}
           />
         </ProfileSection>
-        <ProfileSection title={t('education_skills')} icon={GraduationCap}>
+        <ProfileSection title={t('education_skills')} icon="education">
           <DescriptionList
             columns={2}
             items={[
@@ -577,7 +548,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
             ]}
           />
         </ProfileSection>
-        <ProfileSection title={t('work_section')} icon={Briefcase}>
+        <ProfileSection title={t('work_section')} icon="briefcase">
           <DescriptionList
             columns={2}
             items={[
@@ -593,7 +564,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
             ]}
           />
         </ProfileSection>
-        <ProfileSection title={t('sections.bank')} icon={Landmark} defaultOpen={false}>
+        <ProfileSection title={t('sections.bank')} icon="building" defaultOpen={false}>
           {p.bank ? (
             <DescriptionList
               columns={2}
@@ -609,16 +580,16 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
             <Text>{hidden}</Text>
           )}
         </ProfileSection>
-      </Grid>
-      <Grid gap={3} as="aside">
+      </Stack>
+      <aside className="admin-profile-side">
         <DocumentStrip view={p} />
-        <ProfileSection title={t('contact')} icon={Phone}>
+        <ProfileSection title={t('contact')} icon="phone">
           {contacts.length > 0 ? <ContactList items={contacts} /> : <Text>{empty}</Text>}
         </ProfileSection>
-        <ProfileSection title={t('history_title')} icon={CalendarDays}>
+        <ProfileSection title={t('history_title')} icon="calendar">
           <RegistrationTimeline view={p} registration={registration} />
         </ProfileSection>
-      </Grid>
+      </aside>
     </div>
   );
 }
@@ -688,7 +659,7 @@ function DocumentsTab({ view }: { view: View }) {
   return (
     <div className="admin-photos">
       {useDocumentSlots(view).map((slot) => (
-        <Grid gap={1} as="figure" key={slot.id}>
+        <figure className="admin-photo" key={slot.id}>
           <figcaption>{slot.label}</figcaption>
           {!slot.visible ? (
             <span>{t('hidden')}</span>
@@ -697,7 +668,7 @@ function DocumentsTab({ view }: { view: View }) {
           ) : (
             <span>{t('no_photo')}</span>
           )}
-        </Grid>
+        </figure>
       ))}
     </div>
   );
@@ -711,45 +682,47 @@ function WorkTab({ view: p }: { view: View }) {
   const locale = useLocale() as Locale;
   const empty = tf('profile.empty');
   return (
-    <Grid gap={3}>
-      <ProfileSection title={t('sections.projects')} icon={Briefcase}>
+    <Stack gap={3}>
+      <ProfileSection title={t('sections.projects')} icon="briefcase">
         {p.projects.length === 0 ? (
-          <Text className="admin-muted">{t('no_projects')}</Text>
+          <p className="admin-muted">{t('no_projects')}</p>
         ) : (
-          <Grid gap={2} as="ul" role="list">
+          <ul className="admin-plain-list">
             {p.projects.map((project) => (
-              <Stack direction="row" wrap align="center" gap={2} as="li" key={project.id}>
-                <strong>{locale === 'en' ? project.nameEn : project.nameBn}</strong>
-                <span className="admin-muted">{project.year}</span>
-                <span>
-                  {t('permission_set')}: {project.permissionSet}
-                </span>
-                {project.isPaid && <Badge tone="info" label={t('paid')} />}
-                {transfers ? (
-                  <Link to={`/admin/projects/${project.id}/transfer?from=${p.id}`}>
-                    {t('transfer')}
-                  </Link>
-                ) : null}
-              </Stack>
+              <li key={project.id}>
+                <Stack direction="row" wrap align="center" gap={2}>
+                  <strong>{locale === 'en' ? project.nameEn : project.nameBn}</strong>
+                  <span className="admin-muted">{project.year}</span>
+                  <span>
+                    {t('permission_set')}: {project.permissionSet}
+                  </span>
+                  {project.isPaid && <Chip tone="info">{t('paid')}</Chip>}
+                  {transfers ? (
+                    <Link to={`/admin/projects/${project.id}/transfer?from=${p.id}`}>
+                      {t('transfer')}
+                    </Link>
+                  ) : null}
+                </Stack>
+              </li>
             ))}
-          </Grid>
+          </ul>
         )}
       </ProfileSection>
-      <ProfileSection title={t('sections.team')} icon={User}>
+      <ProfileSection title={t('sections.team')} icon="user">
         {p.team.length === 0 ? (
-          <Text className="admin-muted">{t('no_team')}</Text>
+          <p className="admin-muted">{t('no_team')}</p>
         ) : (
-          <Grid gap={2} as="ul" role="list">
+          <ul className="admin-plain-list">
             {p.team.map((m) => (
               <li key={m.id}>
                 <Link to={`/admin/volunteers/${m.id}`}>{m.displayName}</Link>
               </li>
             ))}
-          </Grid>
+          </ul>
         )}
       </ProfileSection>
       <ProfileSection title={t('sections.summary')}>
-        <Text className="admin-muted">{t('summary_later')}</Text>
+        <p className="admin-muted">{t('summary_later')}</p>
       </ProfileSection>
       {'category' in p && (
         <ProfileSection title={t('sections.ratings')}>
@@ -763,10 +736,10 @@ function WorkTab({ view: p }: { view: View }) {
               },
             ]}
           />
-          {p.ratings?.length === 0 && <Text className="admin-muted">{t('no_ratings')}</Text>}
+          {p.ratings?.length === 0 && <p className="admin-muted">{t('no_ratings')}</p>}
         </ProfileSection>
       )}
-    </Grid>
+    </Stack>
   );
 }
 
@@ -779,12 +752,12 @@ function HistoryTab({
 }) {
   const t = useTranslations('admin.volunteers.profile');
   return (
-    <Grid gap={3}>
-      <ProfileSection title={t('history_title')} icon={CalendarDays}>
+    <Stack gap={3}>
+      <ProfileSection title={t('history_title')} icon="calendar">
         <RegistrationTimeline view={p} registration={registration} />
       </ProfileSection>
-      <ProfileSection title={t('sections.blocklist')} icon={Ban}>
-        <Grid gap={2}>
+      <ProfileSection title={t('sections.blocklist')} icon="block">
+        <Stack gap={2}>
           <Text>
             {p.blocklist.blocked && p.blocklist.blockedAt
               ? t('blocked_since', { date: formatDate(p.blocklist.blockedAt) })
@@ -795,8 +768,8 @@ function HistoryTab({
               {t('reason')}: {p.blocklist.reason}
             </Text>
           )}
-        </Grid>
+        </Stack>
       </ProfileSection>
-    </Grid>
+    </Stack>
   );
 }

@@ -1,5 +1,5 @@
 import type { InvitationIssued } from '@css/shared/auth';
-import { Alert, Button, Modal, Text, TextField } from '@css/ui';
+import { Alert, Button, Dialog, Text, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -28,37 +28,37 @@ export function RenewLinkDialog({
   });
   const failure = save.error instanceof ApiFailure ? save.error : undefined;
   return (
-    <Modal
+    <Dialog
       title={t('title', { name: official.displayName })}
-      isOpen
+      open
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={save.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => save.mutate()} loading={save.isPending}>
-          {t('submit')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button onClick={() => save.mutate()} loading={save.isPending}>
+            {t('submit')}
+          </Button>
+        </>
       }
     >
       {save.error && (
-        <Alert tone="danger" live="alert">
+        <Alert tone="error">
           {failure ? (failure.details[0]?.message ?? failure.message) : t('offline')}
         </Alert>
       )}
       <Text>{t('explain')}</Text>
       <TextField
         label={t('email')}
-        helper={t('email_hint')}
+        hint={t('email_hint')}
         type="email"
         maxLength={254}
         lang="en"
         value={email}
         onChange={setEmail}
       />
-    </Modal>
+    </Dialog>
   );
 }

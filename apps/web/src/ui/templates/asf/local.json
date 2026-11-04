@@ -170,6 +170,14 @@
         "components/data-table.tsx"
       ],
       "note": "a loading button is disabled, which drops the focus to the page (out of a dialog, where Escape then no longer reaches it): the button takes it back when its work ends, unless the person moved it; a table wider than its box makes the box a named region in the tab order, so the columns out of view can be reached without a pointer (the permission panel's effective permissions); built for the CSS ERP; no gallery picture of its own: the notification texts and permission specs check them in the browser"
+    },
+    {
+      "name": "DataTable: page numbers beside a cursor pager",
+      "files": [
+        "components/data-table.tsx",
+        "../../contract.ts"
+      ],
+      "note": "a nationwide list counts its first rows and goes by cursor past them: the cursor pager takes the current page, how many are numbered and how to open one, and shows the page numbers between its own previous and next, which go on past the numbered pages (the volunteer tab); built for the CSS ERP; no gallery picture of its own: the volunteer tab's test and spec check it"
     }
   ]
 }

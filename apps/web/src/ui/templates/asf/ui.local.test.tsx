@@ -229,6 +229,22 @@ describe('the table', () => {
     expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
 
+  it('shows the counted pages beside previous and next of a cursor, which go past them', async () => {
+    stubWidth(false);
+    const user = userEvent.setup();
+    const onPage = vi.fn();
+    const onNext = vi.fn();
+    renderTable({ cursorPagination: { summary: '11–20 of 10000+', hasPrevious: true, hasNext: true, onNext, page: 2, pageCount: 4, onPage } });
+    const pages = screen.getByRole('navigation', { name: 'Pages' });
+    expect(within(pages).getByRole('button', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page');
+    // the arrows are the pager's own previous and next, never MUI's second pair
+    expect(within(pages).queryByRole('button', { name: /previous|next/i })).not.toBeInTheDocument();
+    await user.click(within(pages).getByRole('button', { name: 'Page 4' }));
+    expect(onPage).toHaveBeenCalledWith(4);
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(onNext).toHaveBeenCalledTimes(1);
+  });
+
   it('shows page numbers when asked, the current one marked', async () => {
     stubWidth(false);
     const user = userEvent.setup();

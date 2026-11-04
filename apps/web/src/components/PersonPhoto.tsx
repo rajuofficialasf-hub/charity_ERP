@@ -1,4 +1,4 @@
-import { Avatar, IconTile, PersonCell } from '@/ui';
+import { Avatar, IconTile, PersonCell, ProfileBanner, type ProfileBannerProps } from '@/ui';
 import { useFileDataUrl } from './FileImage';
 
 /** The earlier sizes the pages pass, as the asf sizes. */
@@ -92,4 +92,13 @@ export function PersonTile({
       size={size ? TILE_SIZE.get(size) : undefined}
     />
   );
+}
+
+/** The dark banner of a person's profile with their streamed photo, or the initial while there is none. */
+export function PersonBanner({
+  fileId,
+  ...banner
+}: Omit<ProfileBannerProps, 'photo'> & { fileId: string | null | undefined }) {
+  const photo = useFileDataUrl(fileId ?? null);
+  return <ProfileBanner {...banner} photo={photo.data ?? undefined} />;
 }

@@ -1,6 +1,5 @@
-import { Button, ConfirmDialog } from '@css/ui';
+import { Button, ConfirmDialog } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { Ban, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
@@ -36,22 +35,22 @@ export function BlocklistAction({
     <>
       <Button
         variant={danger && !target.blocked ? 'danger' : 'secondary'}
-        icon={target.blocked ? Undo2 : Ban}
-        onPress={() => setOpen(true)}
+        startIcon={target.blocked ? 'undo' : 'block'}
+        onClick={() => setOpen(true)}
       >
         {target.blocked ? t('unblock') : t('block')}
       </Button>
-      <BlocklistDialog {...target} isOpen={open} onClose={() => setOpen(false)} />
+      <BlocklistDialog {...target} open={open} onClose={() => setOpen(false)} />
     </>
   );
 }
 
 /** The confirmation of a block or its lift, with the reason; opened from a button or a menu. */
 export function BlocklistDialog({
-  isOpen,
+  open,
   onClose,
   ...target
-}: BlocklistTarget & { isOpen: boolean; onClose: () => void }) {
+}: BlocklistTarget & { open: boolean; onClose: () => void }) {
   const t = useTranslations('admin.registrations');
   const tb = useTranslations('admin.beneficiaries.block');
   const { name, blocked, onDone } = target;
@@ -71,12 +70,14 @@ export function BlocklistDialog({
   const failure = change.error instanceof ApiFailure ? change.error : null;
   return (
     <ConfirmDialog
-      isOpen={isOpen}
+      open={open}
       title={blocked ? t('unblock_title', { name }) : t('block_title', { name })}
       message={
         failure && <p className="admin-error">{failure.details[0]?.message ?? failure.message}</p>
       }
-      consequence={blocked ? undefined : [beneficiary ? tb('consequence') : t('block_consequence')]}
+      consequences={
+        blocked ? undefined : [beneficiary ? tb('consequence') : t('block_consequence')]
+      }
       tone={blocked ? 'default' : 'danger'}
       reasonRequired
       reasonLabel={t('reason')}

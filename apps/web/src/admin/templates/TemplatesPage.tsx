@@ -2,29 +2,27 @@ import { formatDate } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
   Card,
-  EmptyState,
-  ErrorState,
-  PageHeader,
+  Chip,
+  DataTable,
+  IconButton,
+  Page,
   Switch,
-  Table,
-  type TableColumn,
   Text,
-} from '@css/ui';
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleOff, LayoutTemplate, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canCreateProjects } from '../roles';
 import { StatisticsBar } from '../StatisticsBar';
 import { TemplateDialog } from './TemplateDialog';
 import { type Template, templates, TEMPLATES_KEY } from './templates-api';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * The organisation's project templates (BD-10; DECISION_LOG D-096): everyone who creates projects
@@ -58,17 +56,15 @@ export function TemplatesPage() {
 
   const name = (row: Template) => localized(row.name, locale);
   const state = (row: Template) => (
-    <Badge
-      variant="dot"
-      tone={row.active ? 'success' : 'neutral'}
-      label={row.active ? t('state.active') : t('state.inactive')}
-    />
+    <Chip tone={row.active ? 'success' : 'neutral'}>
+      {row.active ? t('state.active') : t('state.inactive')}
+    </Chip>
   );
   const updated = (row: Template) =>
     row.updatedByName
       ? t('updated_by', { name: row.updatedByName, date: formatDate(row.updatedAt) })
       : formatDate(row.updatedAt);
-  const columns: TableColumn<Template>[] = [
+  const columns: DataTableExtendedColumn<Template>[] = [
     { id: 'name', header: t('column.name'), cell: name, isRowHeader: true },
     { id: 'workflow', header: t('column.workflow'), cell: (r) => tw(r.workflowKey) },
     { id: 'version', header: t('column.version'), cell: (r) => String(r.version), priority: 2 },
@@ -76,26 +72,25 @@ export function TemplatesPage() {
     { id: 'state', header: t('column.state'), cell: state },
   ];
   const edit = (row: Template) => (
-    <Button variant="ghost" size="sm" icon={Pencil} iconOnly onPress={() => setEditing(row)}>
-      {t('edit', { name: name(row) })}
-    </Button>
+    <IconButton
+      label={t('edit', { name: name(row) })}
+      icon="edit"
+      onClick={() => setEditing(row)}
+    />
   );
 
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader
+      <Page
         eyebrow={t('eyebrow')}
         title={t('title')}
         description={t('description')}
-        actions={
-          <Switch isSelected={inactive} onChange={setInactive}>
-            {t('show_inactive')}
-          </Switch>
-        }
+        actions={<Switch label={t('show_inactive')} checked={inactive} onChange={setInactive} />}
+        documentTitle={false}
       />
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
+        <Alert tone="success" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
@@ -107,36 +102,31 @@ export function TemplatesPage() {
               key: 'active',
               label: t('stats.active'),
               value: all.data.filter((r) => r.active).length,
-              icon: LayoutTemplate,
-              tone: 'brand',
+              icon: 'template',
+              tone: 'primary',
             },
             {
               key: 'inactive',
               label: t('stats.inactive'),
               value: all.data.filter((r) => !r.active).length,
-              icon: CircleOff,
+              icon: 'block',
             },
           ]}
         />
       )}
-      <Table
-        layout="panel"
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={list.data ?? []}
-        rowKey={(r) => r.id}
+        getRowId={(r) => r.id}
         rowLabel={name}
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={LayoutTemplate} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         rowActions={edit}
         cardRenderer={(r) => (
           <div className="admin-permission-card">
@@ -144,13 +134,13 @@ export function TemplatesPage() {
             <span>{tw(r.workflowKey)}</span>
             <span>{updated(r)}</span>
             {state(r)}
-            <Button variant="secondary" size="sm" onPress={() => setEditing(r)}>
+            <Button variant="secondary" size="small" onClick={() => setEditing(r)}>
               {tc('action.edit')}
             </Button>
           </div>
         )}
       />
-      <Card accent title={t('rules.title')} headingLevel={2}>
+      <Card title={t('rules.title')} headingLevel={2}>
         <Text tone="muted">{t('rules.body')}</Text>
       </Card>
       {editing && (

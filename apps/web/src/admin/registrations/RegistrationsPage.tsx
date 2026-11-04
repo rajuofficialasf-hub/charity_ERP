@@ -1,24 +1,12 @@
 import type { Locale } from '@css/shared/i18n';
 import { formatDateTime } from '@css/shared/format';
-import {
-  Alert,
-  Badge,
-  EmptyState,
-  ErrorState,
-  PageHeader,
-  PersonCell,
-  Table,
-  type TableColumn,
-  Tabs,
-} from '@css/ui';
+import { Alert, Chip, DataTable, Page, PersonCell, Tabs, type DataTableExtendedColumn } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
-import { FilePen, UserCheck, UserPen } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canApproveStaff, canDecideEdits, canDecideStaffEdits } from '../roles';
@@ -34,6 +22,7 @@ import {
   STAFF_EDITS_KEY,
   staffEditRequests,
 } from './registrations-api';
+import { LoadError } from '../../components/LoadError';
 
 /** A message handed over by the detail page after a final decision (the row has left the list). */
 export interface ListNotice {
@@ -67,21 +56,25 @@ export function RegistrationsPage() {
   const staffEdits = canDecideStaffEdits(me);
   if (!staff && !edits && !staffEdits) return <ForbiddenContent />;
   const items = [
-    ...(staff ? [{ id: 'pending', label: t('tabs.pending'), content: <PendingList /> }] : []),
-    ...(edits ? [{ id: 'edits', label: t('tabs.edits'), content: <EditRequests /> }] : []),
+    ...(staff ? [{ value: 'pending', label: t('tabs.pending'), content: <PendingList /> }] : []),
+    ...(edits ? [{ value: 'edits', label: t('tabs.edits'), content: <EditRequests /> }] : []),
     ...(staffEdits
-      ? [{ id: 'staff-edits', label: t('tabs.staff_edits'), content: <StaffEditRequests /> }]
+      ? [{ value: 'staff-edits', label: t('tabs.staff_edits'), content: <StaffEditRequests /> }]
       : []),
   ];
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('description')} />
+      <Page
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('description')}
+        documentTitle={false}
+      />
       <WaitingCounts staff={staff} edits={edits} staffEdits={staffEdits} />
       {notice && (
         <Alert
           tone="success"
-          live="status"
           onDismiss={() => void navigate(location.pathname, { replace: true, state: null })}
         >
           {notice}
@@ -90,7 +83,7 @@ export function RegistrationsPage() {
       {items.length > 1 ? (
         <Tabs
           label={t('tabs.label')}
-          selectedId={items.some((i) => i.id === tab) ? tab : items[0]!.id}
+          value={items.some((i) => i.value === tab) ? tab : items[0]!.value}
           onChange={setTab}
           items={items}
         />
@@ -141,7 +134,7 @@ function WaitingCounts({
                 key: 'pending',
                 label: t('tabs.pending'),
                 value: pending.data?.length ?? 0,
-                icon: UserCheck,
+                icon: 'user-check' as const,
                 tone: 'warning' as const,
               },
             ]
@@ -152,7 +145,7 @@ function WaitingCounts({
                 key: 'edits',
                 label: t('tabs.edits'),
                 value: requests.data?.length ?? 0,
-                icon: FilePen,
+                icon: 'file-edit' as const,
                 tone: 'info' as const,
               },
             ]
@@ -163,7 +156,7 @@ function WaitingCounts({
                 key: 'staff-edits',
                 label: t('tabs.staff_edits'),
                 value: staffRequests.data?.length ?? 0,
-                icon: UserPen,
+                icon: 'file-edit' as const,
                 tone: 'info' as const,
               },
             ]
@@ -175,7 +168,6 @@ function WaitingCounts({
 
 function PendingList() {
   const t = useTranslations('admin.registrations');
-  const tc = useTranslations('common');
   const tr = useTranslations('registration.form.types');
   const locale = useLocale() as Locale;
   const list = useQuery({ queryKey: LIST_KEY, queryFn: pendingStaffRegistrations });
@@ -184,15 +176,12 @@ function PendingList() {
   const type = (r: PendingRegistration) =>
     r.volunteerType ? tr(r.volunteerType as 'general') : (r.designation ?? '');
   const name = (r: PendingRegistration) => (
-    <PersonCell name={r.displayName} href={`/admin/registrations/${r.userId}`} />
+    <PersonCell name={r.displayName} to={`/admin/registrations/${r.userId}`} />
   );
   const status = (r: PendingRegistration) => (
-    <Badge
-      tone={r.status === 'in_correction' ? 'warning' : 'info'}
-      label={t(`status.${r.status}`)}
-    />
+    <Chip tone={r.status === 'in_correction' ? 'warning' : 'info'}>{t(`status.${r.status}`)}</Chip>
   );
-  const columns: TableColumn<PendingRegistration>[] = [
+  const columns: DataTableExtendedColumn<PendingRegistration>[] = [
     { id: 'name', header: t('column.name'), cell: name, isRowHeader: true },
     {
       id: 'kind',
@@ -213,24 +202,19 @@ function PendingList() {
     },
   ];
   return (
-    <Table
-      layout="panel"
+    <DataTable
       label={t('tabs.pending')}
       columns={columns}
       rows={list.data ?? []}
-      rowKey={(r) => r.userId}
+      getRowId={(r) => r.userId}
       rowLabel={(r) => r.displayName}
       loading={list.isPending}
       error={
         list.error ? (
-          <ErrorState
-            title={tc('state.error.text')}
-            requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-            onRetry={() => void list.refetch()}
-          />
+          <LoadError error={list.error} onRetry={() => void list.refetch()} />
         ) : undefined
       }
-      emptyState={<EmptyState icon={UserCheck} title={t('empty')} headingLevel={2} />}
+      emptyTitle={t('empty')}
       cardRenderer={(r) => (
         <div className="admin-permission-card">
           {name(r)}

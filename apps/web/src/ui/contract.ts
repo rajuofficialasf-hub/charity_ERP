@@ -769,6 +769,13 @@ export type CursorPagination = {
   onNext?: () => void;
   /** Phones show "load more" instead of previous and next when this is given. */
   onLoadMore?: () => void;
+  /**
+   * Page numbers beside previous and next, for a list whose first rows are counted and whose later
+   * rows go by cursor: the current page, how many are numbered, and how to open one.
+   */
+  page?: number;
+  pageCount?: number;
+  onPage?: (page: number) => void;
 };
 
 export type DataTableSort = { columnId: string; direction: "asc" | "desc" };

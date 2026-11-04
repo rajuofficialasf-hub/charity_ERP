@@ -3,33 +3,19 @@ import { formatDateTime } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
-  type ContactItem,
+  Chip,
   ContactList,
   DescriptionList,
   EmptyState,
-  ErrorState,
-  Grid,
-  type ProfileFact,
-  ProfileHeader,
   ProfileSection,
   Skeleton,
+  Stack,
   Text,
-} from '@css/ui';
+  type ContactItem,
+  type ProfileFact,
+} from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Briefcase,
-  FolderKanban,
-  IdCard,
-  KeyRound,
-  Link2,
-  Mail,
-  MonitorSmartphone,
-  Pencil,
-  Phone,
-  UserX,
-} from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -54,9 +40,10 @@ import { OfficialDialog } from './OfficialDialog';
 import { RenewLinkDialog } from './RenewLinkDialog';
 import { STAFF_KEY, type StaffDetail, staffDetail, staffDetailKey } from './staff-api';
 import { PageCrumbs } from '../../components/shell/breadcrumb';
-import { PersonAvatar } from '../../components/PersonPhoto';
+import { PersonBanner } from '../../components/PersonPhoto';
 import { ProjectsWork } from '../../features/account/ProjectsWork';
 import { projectsWorkOf } from '../../features/account/profile-api';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * One official's profile in the one profile layout, from the existing user API: the header card with the Job ID and
@@ -68,7 +55,6 @@ export function StaffProfilePage() {
   const { me } = useAuth();
   const { userId = '' } = useParams();
   const t = useTranslations('admin.staff.profile');
-  const tc = useTranslations('common');
   const allowed = Boolean(me && canSeeStaff(me));
   const official = useQuery({
     queryKey: staffDetailKey(userId),
@@ -92,18 +78,14 @@ export function StaffProfilePage() {
     return (
       <>
         {back}
-        <EmptyState icon={UserX} title={t('not_found')} />
+        <EmptyState title={t('not_found')} />
       </>
     );
   if (official.error || !official.data)
     return (
       <>
         {back}
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={official.error instanceof ApiFailure ? official.error.requestId : undefined}
-          onRetry={() => void official.refetch()}
-        />
+        <LoadError error={official.error} onRetry={() => void official.refetch()} />
       </>
     );
   return (
@@ -165,20 +147,27 @@ function Profile({
             id: 'job',
             label: ts('column.job_id'),
             value: u.jobId,
-            icon: IdCard,
+            icon: 'id-card' as const,
             showLabel: true,
             copy: true,
           },
         ]
       : []),
     ...(u.designation
-      ? [{ id: 'designation', label: td('designation'), value: u.designation, icon: Briefcase }]
+      ? [
+          {
+            id: 'designation',
+            label: td('designation'),
+            value: u.designation,
+            icon: 'briefcase' as const,
+          },
+        ]
       : []),
     ...(u.mobile
-      ? [{ id: 'mobile', label: td('mobile'), value: u.mobile, icon: Phone, copy: true }]
+      ? [{ id: 'mobile', label: td('mobile'), value: u.mobile, icon: 'phone' as const, copy: true }]
       : []),
     ...(u.email
-      ? [{ id: 'email', label: td('email'), value: u.email, icon: Mail, copy: true }]
+      ? [{ id: 'email', label: td('email'), value: u.email, icon: 'mail' as const, copy: true }]
       : []),
   ];
   const contacts: ContactItem[] = [
@@ -186,7 +175,7 @@ function Profile({
       ? [
           {
             id: 'mobile',
-            icon: Phone,
+            icon: 'phone' as const,
             label: td('mobile'),
             value: u.mobile,
             href: telLink(u.mobile),
@@ -198,7 +187,7 @@ function Profile({
       ? [
           {
             id: 'email',
-            icon: Mail,
+            icon: 'mail' as const,
             label: td('email'),
             value: u.email,
             href: mailLink(u.email),
@@ -208,17 +197,13 @@ function Profile({
       : []),
   ];
   const stateBadge = u.awaitingPassword ? (
-    <Badge variant="dot" tone="warning" label={ts('state.awaiting')} />
+    <Chip tone="warning">{ts('state.awaiting')}</Chip>
   ) : (
-    <Badge
-      variant="dot"
-      tone={u.state === 'active' ? 'success' : 'warning'}
-      label={ts(`state.${u.state}`)}
-    />
+    <Chip tone={u.state === 'active' ? 'success' : 'warning'}>{ts(`state.${u.state}`)}</Chip>
   );
 
   return (
-    <Grid gap={4}>
+    <Stack gap={4}>
       <DocumentTitle title={u.displayName} />
       <PageCrumbs
         items={[
@@ -226,25 +211,25 @@ function Profile({
           { id: 'profile', label: u.displayName },
         ]}
       />
-      <ProfileHeader
+      <PersonBanner
         name={u.displayName}
-        avatar={<PersonAvatar name={u.displayName} fileId={u.photoFileId} letters={1} size="lg" />}
+        fileId={u.photoFileId}
         status={
           <>
-            {u.affiliation && <Badge label={ts(`affiliation.${u.affiliation}`)} />}
+            {u.affiliation && <Chip>{ts(`affiliation.${u.affiliation}`)}</Chip>}
             {stateBadge}
-            {u.isSystemOwner && <Badge tone="info" label={t('system_owner')} />}
+            {u.isSystemOwner && <Chip tone="info">{t('system_owner')}</Chip>}
           </>
         }
         facts={facts}
         actions={
           manage ? (
             <>
-              <Button icon={Pencil} onPress={() => setDialog('edit')}>
+              <Button startIcon="edit" onClick={() => setDialog('edit')}>
                 {t('edit')}
               </Button>
               {u.awaitingPassword && (
-                <Button variant="secondary" icon={Link2} onPress={() => setDialog('renew')}>
+                <Button variant="secondary" startIcon="link" onClick={() => setDialog('renew')}>
                   {t('renew')}
                 </Button>
               )}
@@ -254,13 +239,13 @@ function Profile({
         actionsLabel={t('actions_label')}
       />
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
       <div className="admin-profile-grid">
-        <Grid gap={3}>
-          <ProfileSection title={t('sections.identity')} icon={IdCard}>
+        <Stack gap={3}>
+          <ProfileSection title={t('sections.identity')} icon="id-card">
             <DescriptionList
               columns={2}
               items={[
@@ -275,7 +260,7 @@ function Profile({
               ]}
             />
           </ProfileSection>
-          <ProfileSection title={t('sections.place')} icon={Briefcase}>
+          <ProfileSection title={t('sections.place')} icon="briefcase">
             <DescriptionList
               columns={2}
               items={[
@@ -316,7 +301,7 @@ function Profile({
             />
           </ProfileSection>
           {work && <WorkSection userId={u.id} projectLinks={projectLinks} />}
-          <ProfileSection title={t('sections.account')} icon={KeyRound}>
+          <ProfileSection title={t('sections.account')} icon="key">
             <DescriptionList
               items={[
                 { label: t('state'), value: stateBadge },
@@ -327,17 +312,17 @@ function Profile({
               ]}
             />
           </ProfileSection>
-        </Grid>
-        <Grid gap={3} as="aside">
-          <ProfileSection title={t('sections.contact')} icon={Phone}>
+        </Stack>
+        <aside className="admin-profile-side">
+          <ProfileSection title={t('sections.contact')} icon="phone">
             {contacts.length > 0 ? <ContactList items={contacts} /> : <Text>{none}</Text>}
           </ProfileSection>
           {sessions && (
-            <ProfileSection title={t('sections.devices')} icon={MonitorSmartphone}>
+            <ProfileSection title={t('sections.devices')} icon="devices">
               <VolunteerSessions userId={u.id} canRevoke />
             </ProfileSection>
           )}
-        </Grid>
+        </aside>
       </div>
 
       {dialog === 'edit' && (
@@ -363,7 +348,7 @@ function Profile({
         />
       )}
       {link && <LinkDialog name={u.displayName} issued={link} onClose={() => setLink(null)} />}
-    </Grid>
+    </Stack>
   );
 }
 
@@ -381,7 +366,7 @@ function WorkSection({ userId, projectLinks }: { userId: string; projectLinks: b
   });
   if (work.error instanceof ApiFailure && [403, 404].includes(work.error.status)) return null;
   return (
-    <ProfileSection title={t('sections.work')} icon={FolderKanban}>
+    <ProfileSection title={t('sections.work')} icon="project">
       <ProjectsWork query={work} own={false} projectLinks={projectLinks} />
     </ProfileSection>
   );
