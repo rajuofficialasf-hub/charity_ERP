@@ -503,6 +503,8 @@ export type UiLabels = {
   datePartMonth: string;
   datePartYear: string;
   datePartEmpty: string;
+  /** The empty state of a table whose page names none of its own. */
+  tableEmpty: string;
   locked: string;
   requestCorrection: string;
   changed: string;

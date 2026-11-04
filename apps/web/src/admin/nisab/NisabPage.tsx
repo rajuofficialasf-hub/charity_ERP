@@ -122,15 +122,15 @@ export function NisabPage() {
         </Alert>
       )}
       {current ? (
-        <section aria-label={t('stats.label')} className="admin-stats">
-          <StatCard label={t('in_force')} value={taka(current)} icon="scale" tone="warning" />
-          <StatCard label={t('stats.versions')} value={rows.length} icon="history" tone="info" />
-        </section>
-      ) : null}
-      {current ? (
-        <Text tone="muted" size="small">
-          {t('since', { date: formatDate(current.effectiveFrom) })}
-        </Text>
+        <>
+          <section aria-label={t('stats.label')} className="admin-stats">
+            <StatCard label={t('in_force')} value={taka(current)} icon="scale" tone="warning" />
+            <StatCard label={t('stats.versions')} value={rows.length} icon="history" tone="info" />
+          </section>
+          <Text tone="muted" size="small">
+            {t('since', { date: formatDate(current.effectiveFrom) })}
+          </Text>
+        </>
       ) : (
         !list.isPending && (
           <Card>

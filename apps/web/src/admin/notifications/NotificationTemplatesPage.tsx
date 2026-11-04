@@ -59,7 +59,7 @@ export function NotificationTemplatesPage() {
   const channels = (n: NotificationTemplate) => (
     <Stack direction="row" wrap gap={2}>
       {(Object.keys(n.channels) as EditableChannel[]).map((c) => (
-        <Chip>
+        <Chip key={c}>
           {t('version', {
             channel: t(`channel.${c}`),
             version: formatCount(n.channels[c]!.version, locale),

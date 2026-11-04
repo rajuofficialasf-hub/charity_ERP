@@ -144,7 +144,7 @@ export function AuditPage() {
         description={t('description')}
         documentTitle={false}
       />
-      {/* the range of days the server read, under the heading as the earlier header showed it */}
+      {/* the range of days the server read, right under the heading */}
       {meta && (
         <div>
           <Chip tone="neutral">

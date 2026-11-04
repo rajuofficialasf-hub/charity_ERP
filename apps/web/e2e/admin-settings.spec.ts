@@ -78,8 +78,8 @@ test.describe('admin settings', () => {
     await expect(page.getByRole('listitem').filter({ hasText: 'ডাটাবেস' })).toContainText('চালু');
     // the storage by bucket: a table on the desktop; the phone's list of cards shows only its
     // empty state while the E2E database holds no files
-    if (!isPhone(info))
-      await expect(page.getByLabel('বাকেট অনুযায়ী স্টোরেজ').first()).toBeAttached();
+    if (isPhone(info)) await expect(page.getByText('এখনো কিছু নেই।').first()).toBeVisible();
+    else await expect(page.getByLabel('বাকেট অনুযায়ী স্টোরেজ').first()).toBeAttached();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);

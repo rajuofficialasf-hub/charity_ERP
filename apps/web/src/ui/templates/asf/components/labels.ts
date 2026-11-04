@@ -54,6 +54,7 @@ export const DEFAULT_LABELS: UiLabels = {
   datePartMonth: 'Month',
   datePartYear: 'Year',
   datePartEmpty: 'Empty',
+  tableEmpty: 'Nothing here yet',
   locked: 'Locked',
   requestCorrection: 'Request correction',
   changed: 'Changed',

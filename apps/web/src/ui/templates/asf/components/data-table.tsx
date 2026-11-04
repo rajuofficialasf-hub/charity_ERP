@@ -87,7 +87,7 @@ export function DataTable<Row>({
   columns,
   getRowId,
   loading,
-  emptyTitle = 'Nothing here yet',
+  emptyTitle,
   emptyDescription,
   emptyAction,
   title,
@@ -147,7 +147,7 @@ export function DataTable<Row>({
   };
 
   const span = columns.length + (multiple ? 1 : 0) + (rowActions ? 1 : 0);
-  const state = error ?? (loading ? <LoadingState /> : rows.length === 0 ? <EmptyState title={emptyTitle} description={emptyDescription} action={emptyAction} /> : null);
+  const state = error ?? (loading ? <LoadingState /> : rows.length === 0 ? <EmptyState title={emptyTitle ?? labels.tableEmpty} description={emptyDescription} action={emptyAction} /> : null);
   const framed = Boolean(title || toolbar || pagination || cursorPagination);
   // the selection may hold rows of other pages: the count and the bulk actions cover all of it
   const selectedCount = selection.size;

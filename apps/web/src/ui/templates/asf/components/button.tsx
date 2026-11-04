@@ -53,13 +53,15 @@ export function Button({ children, onClick, type = 'button', disabled, loading, 
   const props = useLook(look);
   const ref = useRef<HTMLButtonElement>(null);
   // a loading button is disabled, which drops the keyboard's focus to the page (out of a dialog,
-  // where Escape then no longer reaches it); the button takes the focus back when it is done
-  const lostToLoading = useRef(false);
+  // where Escape then no longer reaches it); the button takes the focus back when it is done.
+  // It counts as holding the focus from its focus until a blur while it is not loading, so a
+  // browser that sends no blur on disabling is covered too.
+  const holdsFocus = useRef(false);
   useEffect(() => {
-    if (loading || !lostToLoading.current) return;
-    lostToLoading.current = false;
+    if (loading || !holdsFocus.current) return;
     const active = document.activeElement;
     if (!active || active === document.body) ref.current?.focus();
+    holdsFocus.current = document.activeElement === ref.current;
   }, [loading]);
   return (
     <MuiButton
@@ -67,8 +69,11 @@ export function Button({ children, onClick, type = 'button', disabled, loading, 
       ref={ref}
       type={type}
       onClick={onClick}
+      onFocus={() => {
+        holdsFocus.current = true;
+      }}
       onBlur={() => {
-        lostToLoading.current = Boolean(loading);
+        holdsFocus.current = Boolean(loading);
       }}
       disabled={disabled}
       loading={loading}

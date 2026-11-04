@@ -186,7 +186,8 @@ function Handover({ official }: { official: PanelUser }) {
   if (loadError || !account.data || !handover.data)
     return (
       <LoadError
-        error={account.error}
+        error={loadError}
+        message={loadError instanceof ApiFailure ? loadError.message : undefined}
         onRetry={() => {
           void account.refetch();
           void handover.refetch();

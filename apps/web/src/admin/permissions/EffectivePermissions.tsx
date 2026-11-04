@@ -12,7 +12,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { api } from '../../lib/api';
+import { api, ApiFailure } from '../../lib/api';
 import type { PanelUser } from '../UserSearch';
 import { GrantDialog } from './GrantDialog';
 import { RevokeDialog } from './RevokeDialog';
@@ -104,7 +104,8 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
       )}
       {failure && (
         <LoadError
-          error={effective.error}
+          error={failure}
+          message={failure instanceof ApiFailure ? failure.message : undefined}
           onRetry={() => {
             void effective.refetch();
             void permissions.refetch();
