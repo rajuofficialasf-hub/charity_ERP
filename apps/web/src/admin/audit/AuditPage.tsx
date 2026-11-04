@@ -252,9 +252,6 @@ export function AuditPage() {
             <strong>{formatDateTime(e.createdAt, locale)}</strong>
             <span>{actorName(e)}</span>
             <code lang="en">{e.action}</code>
-            <Button variant="secondary" size="small" onClick={() => setOpen(e)}>
-              {t('open_short')}
-            </Button>
           </div>
         )}
       />

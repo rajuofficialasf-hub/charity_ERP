@@ -149,7 +149,6 @@ export function StaffEditRequests() {
               {te('column.value')}: {show(r, r.newValue, te('photo'))}
             </span>
             {r.note && <span className="admin-muted">{r.note}</span>}
-            {actions(r)}
           </div>
         )}
       />

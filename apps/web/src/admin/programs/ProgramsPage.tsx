@@ -29,7 +29,6 @@ import { LoadError } from '../../components/LoadError';
 export function ProgramsPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.programs');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<{ program?: Program } | null>(null);
@@ -139,11 +138,6 @@ export function ProgramsPage() {
             <Chip tone={p.active ? 'success' : 'neutral'}>
               {p.active ? t('state.active') : t('state.inactive')}
             </Chip>
-            {manage && (
-              <Button variant="secondary" size="small" onClick={() => setDialog({ program: p })}>
-                {tc('action.edit')}
-              </Button>
-            )}
           </div>
         )}
       />

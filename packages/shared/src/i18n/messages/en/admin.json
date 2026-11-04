@@ -1497,7 +1497,6 @@
     "empty": "No entries for these filters",
     "system": "System",
     "open": "Show the details of {action}",
-    "open_short": "Details",
     "history_of": "The whole history of one entity: {type} · {id}",
     "history_clear": "Show all entries",
     "column": {
@@ -1624,7 +1623,6 @@
     },
     "version": "{channel}, version {version}",
     "edit": "Edit {key}",
-    "edit_short": "Edit",
     "editor_title": "Edit {key}",
     "variables": "Values you can use: {list}",
     "variables_none": "This notification has no values to fill in.",

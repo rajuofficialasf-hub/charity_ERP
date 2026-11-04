@@ -2,7 +2,6 @@ import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Button,
   ConfirmDialog,
   DataTable,
   FilterBar,
@@ -156,9 +155,6 @@ export function SessionsPage() {
             {person(s)}
             <span>{device(s)}</span>
             <span>{t('seen_at', { date: formatDateTime(s.lastSeenAt, locale) })}</span>
-            <Button variant="secondary" size="small" startIcon="sign-out" onClick={() => ask(s)}>
-              {t('end_short')}
-            </Button>
           </div>
         )}
       />

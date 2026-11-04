@@ -2,7 +2,6 @@ import { formatDate } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
-  Button,
   Card,
   Chip,
   DataTable,
@@ -33,7 +32,6 @@ export function TemplatesPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.templates');
   const tw = useTranslations('admin.projects.workflow');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const [inactive, setInactive] = useState(false);
@@ -134,9 +132,6 @@ export function TemplatesPage() {
             <span>{tw(r.workflowKey)}</span>
             <span>{updated(r)}</span>
             {state(r)}
-            <Button variant="secondary" size="small" onClick={() => setEditing(r)}>
-              {tc('action.edit')}
-            </Button>
           </div>
         )}
       />

@@ -105,7 +105,7 @@ test.describe('the volunteer tab', () => {
       page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক 1 (নমুনা)' }),
     ).toBeVisible();
     // the NID in its section and, read out with its label and a copy button, in the banner
-    await expect(page.getByText('1000000001', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('1000000001', { exact: true })).toHaveCount(2);
     await expect(page.getByRole('button', { name: 'NID নম্বর কপি করুন' })).toBeVisible();
   });
 

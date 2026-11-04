@@ -133,7 +133,6 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
                   <code>{r.permission}</code>
                   <span>{t(`scope.${r.scopeType}`)}</span>
                   <span>{t(`source.${r.source}`)}</span>
-                  {endButton(r)}
                 </div>
               )}
             />

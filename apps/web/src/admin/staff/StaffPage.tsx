@@ -249,7 +249,7 @@ function StaffList({
       <span>{u.designation ?? ''}</span>
       <span className="admin-badges">
         {u.roles.map((r) => (
-          <Chip>{roleName(r)}</Chip>
+          <Chip key={r}>{roleName(r)}</Chip>
         ))}
       </span>
     </span>
@@ -354,7 +354,6 @@ function StaffList({
             </div>
             {work(u)}
             {place(u) !== '—' && <span className="admin-muted">{place(u)}</span>}
-            {manage && actions(u)}
           </div>
         )}
       />

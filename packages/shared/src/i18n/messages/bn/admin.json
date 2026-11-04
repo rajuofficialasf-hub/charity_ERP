@@ -1497,7 +1497,6 @@
     "empty": "এই ফিল্টারে কোনো এন্ট্রি নেই",
     "system": "সিস্টেম",
     "open": "{action} বিস্তারিত দেখুন",
-    "open_short": "বিস্তারিত",
     "history_of": "একটি বিষয়ের পুরো ইতিহাস: {type} · {id}",
     "history_clear": "সব এন্ট্রি দেখুন",
     "column": {
@@ -1624,7 +1623,6 @@
     },
     "version": "{channel}, ভার্সন {version}",
     "edit": "{key} বদলান",
-    "edit_short": "বদলান",
     "editor_title": "{key} বদলান",
     "variables": "যে মানগুলো ব্যবহার করা যায়: {list}",
     "variables_none": "এই নোটিফিকেশনে বসানোর মতো কোনো মান নেই।",

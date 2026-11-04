@@ -158,11 +158,6 @@ export function NisabPage() {
             <span>{taka(v)}</span>
             {state(v)}
             {v.basisNote && <span>{v.basisNote}</span>}
-            {canWithdraw(v) && (
-              <Button variant="secondary" size="small" onClick={() => askWithdraw(v)}>
-                {t('withdraw_short')}
-              </Button>
-            )}
           </div>
         )}
       />

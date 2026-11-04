@@ -180,7 +180,6 @@ function ItemState({ item }: { item: ReferenceItem }) {
 /** One editable list: its items in order, inactive ones marked, with add and edit. */
 function ListCard({ list, onNotice }: { list: EditableList; onNotice: (text: string) => void }) {
   const t = useTranslations('admin.settings.lists');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const items = useQuery({ queryKey: listKey(list), queryFn: () => referenceItems(list) });
   const [dialog, setDialog] = useState<{ item?: ReferenceItem } | null>(null);
@@ -242,9 +241,6 @@ function ListCard({ list, onNotice }: { list: EditableList; onNotice: (text: str
             <strong>{name(i)}</strong>
             <span lang="en">{i.code}</span>
             <ItemState item={i} />
-            <Button variant="secondary" size="small" onClick={() => setDialog({ item: i })}>
-              {tc('action.edit')}
-            </Button>
           </div>
         )}
       />

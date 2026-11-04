@@ -118,9 +118,6 @@ export function NotificationTemplatesPage() {
             <code lang="en">{n.key}</code>
             <span>{t(`category.${n.category}`)}</span>
             {channels(n)}
-            <Button variant="secondary" size="small" startIcon="edit" onClick={() => edit(n)}>
-              {t('edit_short')}
-            </Button>
           </div>
         )}
       />
