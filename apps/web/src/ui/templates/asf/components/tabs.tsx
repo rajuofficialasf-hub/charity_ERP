@@ -63,7 +63,32 @@ export function Tabs({ label, items, value, onChange, variant = 'underline' }: T
           <Tab
             key={item.value}
             value={item.value}
-            label={item.label}
+            label={
+              item.count === undefined ? (
+                item.label
+              ) : (
+                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  {item.label}{' '}
+                  <Box
+                    component="span"
+                    sx={(theme) => ({
+                      minWidth: 24,
+                      px: 0.75,
+                      borderRadius: 0.75,
+                      typography: 'caption',
+                      fontWeight: 700,
+                      lineHeight: '22px',
+                      fontVariantNumeric: 'tabular-nums',
+                      bgcolor: 'grey.200',
+                      color: 'grey.800',
+                      ...theme.applyStyles('dark', { bgcolor: 'grey.700', color: 'common.white' }),
+                    })}
+                  >
+                    {item.count}
+                  </Box>
+                </Box>
+              )
+            }
             id={`${id}-tab-${item.value}`}
             aria-controls={`${id}-panel-${item.value}`}
             icon={item.icon ? <Icon name={item.icon} size={20} /> : undefined}

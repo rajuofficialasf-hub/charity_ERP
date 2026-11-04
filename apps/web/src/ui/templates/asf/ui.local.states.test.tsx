@@ -2,7 +2,7 @@
 // The state, count and list pieces this app added to the asf template (listed in local.json): the
 // status chip, the counts that filter a list, the offline banner, the disclosure, the choice tiles,
 // the bulk rows, the attention card, the figure card as a link, the summary banner's figures, the
-// alert that can be put away, the icon button and the small button.
+// alert that can be put away, the tabs with their counts, the icon button and the small button.
 import '@testing-library/jest-dom/vitest';
 
 import type { ReactNode } from 'react';
@@ -14,7 +14,7 @@ import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
 import { act, render, screen, within, cleanup } from '@testing-library/react';
 
 import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
-import { Button, BulkRow, BulkList, Disclosure, IconButton, UiProvider, StatusChip, ChoiceTiles, AttentionCard, OfflineBanner, StatFilterBar, StatCard, SummaryBanner, Alert } from './index';
+import { Button, BulkRow, BulkList, Disclosure, IconButton, UiProvider, StatusChip, ChoiceTiles, AttentionCard, OfflineBanner, StatFilterBar, StatCard, SummaryBanner, Alert, Tabs } from './index';
 
 beforeEach(() => stubWidth(false));
 
@@ -317,6 +317,29 @@ describe('the alert that can be put away', () => {
       </UiProvider>
     );
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+});
+
+describe('the tabs with their counts', () => {
+  it('names each tab with its count after the label', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <UiProvider>
+        <Tabs
+          label="My applications"
+          items={[
+            { value: 'draft', label: 'Drafts', count: '2', content: <p>Two drafts</p> },
+            { value: 'pending', label: 'Pending', count: '12', content: <p>Twelve waiting</p> },
+            { value: 'rejected', label: 'Rejected', content: <p>None</p> },
+          ]}
+        />
+      </UiProvider>
+    );
+    expect(screen.getByRole('tab', { name: 'Drafts 2', selected: true })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Rejected' })).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Pending 12' }));
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('Twelve waiting');
+    await expectNoAxeViolations(container);
   });
 });
 

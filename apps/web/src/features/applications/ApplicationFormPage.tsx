@@ -3,7 +3,7 @@ import { maxSizeOf } from '@css/shared/files';
 import type { Answer } from '@css/shared/forms';
 import { formatCount, formatDate, isoDateInDhaka } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, ErrorState, Skeleton, Stack, Text } from '@css/ui';
+import { Alert, Button, Card, LinkButton, Skeleton, Stack, Text } from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
 import { uuidv7 } from '@css/shared';
@@ -12,6 +12,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import type { LookupResult } from '../../admin/beneficiaries/beneficiaries-api';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { LoadError } from '../../components/LoadError';
 import { ApiFailure } from '../../lib/api';
 import { failedOnTheWay, orCached } from '../../lib/or-cached';
 import { compressImage } from '../../lib/compress';
@@ -107,7 +108,11 @@ function NewApplication({ me }: { me: Me }) {
     return (
       <Stack gap={2}>
         {back}
-        <ErrorState title={t('load_failed')} onRetry={() => void form.refetch()} />
+        <LoadError
+          title={t('load_failed')}
+          error={form.error}
+          onRetry={() => void form.refetch()}
+        />
       </Stack>
     );
   const p = project.data;
@@ -143,13 +148,13 @@ function NewApplication({ me }: { me: Me }) {
               }
             />
             {lookup && lookup.result.found && lookup.result.blocked ? (
-              <Alert tone="danger">{t('blocked')}</Alert>
+              <Alert tone="error">{t('blocked')}</Alert>
             ) : lookup && lookup.result.found && lookup.result.alreadyAppliedInProject ? (
               <Alert tone="warning">{t('already_applied')}</Alert>
             ) : lookup ? (
               <Button
                 variant="primary"
-                onPress={() =>
+                onClick={() =>
                   setPerson(
                     lookup.result.found
                       ? { kind: 'known', number: lookup.number, result: lookup.result }
@@ -196,7 +201,7 @@ function EditDraft({ me, applicationId }: { me: Me; applicationId: string }) {
     return (
       <Stack gap={2}>
         {back}
-        <ErrorState title={t('load_failed')} onRetry={() => void one.refetch()} />
+        <LoadError title={t('load_failed')} error={one.error} onRetry={() => void one.refetch()} />
       </Stack>
     );
   const record = one.data.data;
@@ -414,20 +419,22 @@ function ApplicationForm({
     return (
       <Card title={sent.kind === 'queued' ? ts('queued_title') : t('sent_title')} headingLevel={2}>
         <Stack gap={2}>
-          <Text role="status">
-            {sent.kind === 'queued'
-              ? ts('saved_on_phone')
-              : sent.kind === 'sent' && sent.record?.appNo
-                ? t('sent', { appNo: sent.record.appNo })
-                : t('sent_no_number')}
-          </Text>
+          <div role="status">
+            <Text>
+              {sent.kind === 'queued'
+                ? ts('saved_on_phone')
+                : sent.kind === 'sent' && sent.record?.appNo
+                  ? t('sent', { appNo: sent.record.appNo })
+                  : t('sent_no_number')}
+            </Text>
+          </div>
           <Stack direction="row" gap={2} wrap>
-            <Button variant="primary" href="/my-applications">
+            <LinkButton variant="primary" to="/my-applications">
               {t('see_mine')}
-            </Button>
-            <Button variant="secondary" href={`/my-projects/${projectId}/apply`}>
+            </LinkButton>
+            <LinkButton variant="secondary" to={`/my-projects/${projectId}/apply`}>
               {t('another')}
-            </Button>
+            </LinkButton>
           </Stack>
         </Stack>
       </Card>
@@ -436,9 +443,9 @@ function ApplicationForm({
     <Stack gap={3}>
       <h2>{t('form_title')}</h2>
       {saved ? (
-        <Text tone="muted" role="status">
-          {navigator.onLine ? t('saved') : ts('saved_on_phone')}
-        </Text>
+        <div role="status">
+          <Text tone="muted">{navigator.onLine ? t('saved') : ts('saved_on_phone')}</Text>
+        </div>
       ) : null}
       <FormRenderer
         definition={form}

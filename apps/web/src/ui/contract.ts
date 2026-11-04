@@ -700,7 +700,14 @@ export type SummaryBannerProps = {
   items: readonly { label: string; value: ReactNode; icon?: ExtendedIconName; tone?: ColorTone }[];
 };
 
-export type TabItem = { value: string; label: string; icon?: ExtendedIconName; content: ReactNode };
+export type TabItem = {
+  value: string;
+  label: string;
+  icon?: ExtendedIconName;
+  content: ReactNode;
+  /** How many the tab holds, as the page words it (English digits), after its label. */
+  count?: string;
+};
 
 /**
  * Tabs with their panels. Pass `value` and `onChange` to control them, for example from the URL.

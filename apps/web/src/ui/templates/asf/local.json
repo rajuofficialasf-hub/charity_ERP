@@ -144,14 +144,15 @@
       "note": "a small named spinner for a wait inside a field, an icon after a button's words (the next step), a figure card that opens the list it counts, and the summary banner's figures as a valid list of terms and values with the icon inside the term; built for the CSS ERP; the soft chip's words take the darkest shade of their tone, the counts of the navigation the dark red with white, and an error in words the dark red (the light one in dark mode), because the kit's shades read 3.2 to 3.6:1; no gallery picture of its own yet: the home, the registration and their a11y sweeps in both modes check these pieces in the browser"
     },
     {
-      "name": "Alert that can be put away, IconButton as a link, Button with a longer name",
+      "name": "Alert that can be put away, IconButton as a link, Button with a longer name, Tabs with counts",
       "files": [
         "components/alert.tsx",
         "components/status.tsx",
         "components/button.tsx",
+        "components/tabs.tsx",
         "../../contract.ts"
       ],
-      "note": "a close button on a note the person may put away (the install hint, the sync reminder, a notice), named by the dismiss label, and an icon-only link to an app path (the sync chip and the bell of the app bar), and a short button named by longer words that hold its own (a section's edit button); built for the CSS ERP; no gallery picture of its own yet: the home, the sync centre and their a11y sweeps check them in the browser"
+      "note": "a close button on a note the person may put away (the install hint, the sync reminder, a notice), named by the dismiss label, and an icon-only link to an app path (the sync chip and the bell of the app bar), a tab's count after its label (the volunteer's applications by state), and a short button named by longer words that hold its own (a section's edit button); built for the CSS ERP; no gallery picture of its own yet: the home, the sync centre and their a11y sweeps check them in the browser"
     }
   ]
 }

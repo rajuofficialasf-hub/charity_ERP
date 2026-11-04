@@ -1,18 +1,17 @@
-import { formatDate } from '@css/shared/format';
+import { formatCount, formatDate } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Badge, Button, Card, EmptyState, ErrorState, Skeleton, Stack, Tabs, Text } from '@css/ui';
+import { Card, Chip, EmptyState, LinkButton, Skeleton, Stack, Tabs, Text } from '@/ui';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { ClipboardList } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
+import { LoadError } from '../../components/LoadError';
 import { orCached } from '../../lib/or-cached';
 import type { SyncInfo } from '../../offline/applications-store';
 import { MY_PROJECTS_KEY, myProjects } from '../projects/my-projects-api';
 import { type ApplicationSummary, MY_APPLICATIONS_KEY, myApplications } from './applications-api';
-import { type Tab, TABS, toneOf } from './status';
+import { stateTone, type Tab, TABS } from './status';
 import { SyncBadge } from './SyncBadge';
 import { loadStore, useLocalRecords } from './use-local-records';
 import './applications.css';
@@ -44,6 +43,7 @@ const projectsOf = () => orCached(myProjects, async () => (await loadStore()).ca
 
 function Lists() {
   const t = useTranslations('applications.list');
+  const locale = useLocale() as Locale;
   const [params, setParams] = useSearchParams();
   const chosen = (params.get('tab') as Tab | null) ?? 'pending';
   const tab = TAB_IDS.includes(chosen) ? chosen : 'pending';
@@ -62,7 +62,7 @@ function Lists() {
       <DocumentTitle title={t('title')} />
       <Tabs
         label={t('tabs')}
-        selectedId={tab}
+        value={tab}
         onChange={(id) => setParams({ tab: id })}
         items={lists.map(({ id, query }) => {
           const own = id === 'draft' ? local.drafts : [];
@@ -75,9 +75,9 @@ function Lists() {
               : undefined;
           const total = query.data?.meta.total;
           return {
-            id,
+            value: id,
             label: t(id),
-            count: total === undefined ? undefined : total + own.length,
+            count: total === undefined ? undefined : formatCount(total + own.length, locale),
             content: (
               <List
                 rows={rows}
@@ -114,15 +114,8 @@ function List({
   const locale = useLocale() as Locale;
   if (pending) return <Skeleton shape="card" />;
   if (error || !rows)
-    return (
-      <ErrorState
-        title={t('list.load_failed')}
-        requestId={error instanceof ApiFailure ? error.requestId : undefined}
-        onRetry={retry}
-      />
-    );
-  if (!rows.length)
-    return <EmptyState icon={ClipboardList} title={t('list.empty')} headingLevel={2} />;
+    return <LoadError title={t('list.load_failed')} error={error} onRetry={retry} />;
+  if (!rows.length) return <EmptyState title={t('list.empty')} />;
   return (
     <ul className="my-applications-list">
       {rows.map((r) => {
@@ -132,23 +125,20 @@ function List({
             <Card
               title={r.beneficiaryName ?? t('list.unnamed')}
               headingLevel={2}
-              actions={
-                <Button variant="secondary" size="sm" href={`/my-applications/${r.id}`}>
+              action={
+                <LinkButton variant="secondary" to={`/my-applications/${r.id}`}>
                   {t('list.open')}
-                </Button>
+                </LinkButton>
               }
             >
               <Stack gap={1}>
                 <div className="my-application-row">
                   <Text tone="muted">{r.appNo ?? t('list.no_number')}</Text>
-                  <Badge
-                    tone={toneOf(r.status)}
-                    label={
-                      t.has(`status.${r.status}` as never)
-                        ? t(`status.${r.status}` as never)
-                        : r.status
-                    }
-                  />
+                  <Chip tone={stateTone(r.status)}>
+                    {t.has(`status.${r.status}` as never)
+                      ? t(`status.${r.status}` as never)
+                      : r.status}
+                  </Chip>
                   <SyncBadge sync={syncOf(r)} />
                 </div>
                 {name ? <Text>{localized(name, locale)}</Text> : null}

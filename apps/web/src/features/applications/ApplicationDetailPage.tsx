@@ -1,27 +1,18 @@
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  ConfirmDialog,
-  ErrorState,
-  Skeleton,
-  Stack,
-  Text,
-} from '@css/ui';
+import { Alert, Button, Card, Chip, ConfirmDialog, LinkButton, Skeleton, Stack, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { LoadError } from '../../components/LoadError';
 import { ApiFailure } from '../../lib/api';
 import { AnswerList } from './AnswerList';
 import { ApplicationTimeline } from './ApplicationTimeline';
 import { actOn, applicationKey, MY_APPLICATIONS_KEY, timeline } from './applications-api';
-import { toneOf } from './status';
+import { stateTone } from './status';
 import { SyncBadge } from './SyncBadge';
 import { UnlockedAnswer } from './UnlockedAnswer';
 import { loadStore, recordOf, storeMessage } from './use-local-records';
@@ -123,9 +114,9 @@ function Detail() {
     return (
       <Stack gap={2}>
         {back}
-        <ErrorState
+        <LoadError
           title={t('detail.load_failed')}
-          requestId={one.error instanceof ApiFailure ? one.error.requestId : undefined}
+          error={one.error}
           onRetry={() => void one.refetch()}
         />
       </Stack>
@@ -137,33 +128,29 @@ function Detail() {
     <Stack gap={3}>
       <DocumentTitle title={a.appNo ?? t('detail.title')} />
       {back}
-      {notice ? (
-        <Alert tone="info" live="status">
-          {notice}
-        </Alert>
-      ) : null}
+      {notice ? <Alert tone="info">{notice}</Alert> : null}
       <Card
         title={a.beneficiaryName ?? t('list.unnamed')}
         headingLevel={2}
-        actions={
+        action={
           <Stack direction="row" gap={2} wrap>
             {a.status === 'draft' ? (
-              <Button variant="secondary" size="sm" href={`/my-applications/${a.id}/edit`}>
+              <LinkButton variant="secondary" to={`/my-applications/${a.id}/edit`}>
                 {t('detail.edit')}
-              </Button>
+              </LinkButton>
             ) : null}
             {may('submit') && a.sync?.state !== 'pending' && a.sync?.state !== 'syncing' ? (
               <Button
                 variant="primary"
-                size="sm"
-                onPress={() => submit.mutate()}
+                size="small"
+                onClick={() => submit.mutate()}
                 loading={submit.isPending}
               >
                 {t('detail.submit')}
               </Button>
             ) : null}
             {may('delete') || a.local ? (
-              <Button variant="danger" size="sm" onPress={() => setConfirmDelete(true)}>
+              <Button variant="danger" size="small" onClick={() => setConfirmDelete(true)}>
                 {t('detail.delete')}
               </Button>
             ) : null}
@@ -176,7 +163,7 @@ function Detail() {
           <dt>{t('detail.status')}</dt>
           <dd>
             <Stack direction="row" gap={1} wrap>
-              <Badge tone={toneOf(a.status)} label={status} />
+              <Chip tone={stateTone(a.status)}>{status}</Chip>
               <SyncBadge sync={a.sync} />
             </Stack>
           </dd>
@@ -239,14 +226,18 @@ function Detail() {
           {steps.data ? (
             <ApplicationTimeline entries={steps.data} />
           ) : steps.error ? (
-            <ErrorState title={t('detail.load_failed')} onRetry={() => void steps.refetch()} />
+            <LoadError
+              title={t('detail.load_failed')}
+              error={steps.error}
+              onRetry={() => void steps.refetch()}
+            />
           ) : (
             <Skeleton shape="text" />
           )}
         </Card>
       )}
       <ConfirmDialog
-        isOpen={confirmDelete}
+        open={confirmDelete}
         tone="danger"
         title={t('detail.delete_confirm')}
         confirmLabel={t('detail.delete')}
