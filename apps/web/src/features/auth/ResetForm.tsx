@@ -1,4 +1,4 @@
-import { Alert, Button, Form, PasswordField, Text, TextField } from '@css/ui';
+import { Alert, Button, LinkButton, Text, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { type FormEvent, useState } from 'react';
 import { PasswordRules } from '../../components/PasswordRules';
@@ -74,18 +74,16 @@ export function ResetForm() {
   if (step === 'done')
     return (
       <div className="auth-shell-stack">
-        <Alert tone="success" live="status">
-          {t('done')}
-        </Alert>
-        <Button href="/login" fullWidth>
+        <Alert tone="success">{t('done')}</Alert>
+        <LinkButton to="/login" fullWidth>
           {t('back')}
-        </Button>
+        </LinkButton>
       </div>
     );
 
   if (step === 'start')
     return (
-      <Form onSubmit={start} aria-label={t('title')}>
+      <form method="post" noValidate onSubmit={start} aria-label={t('title')}>
         <div className="auth-shell-stack">
           <Text>{t('intro')}</Text>
           <TextField
@@ -97,27 +95,21 @@ export function ResetForm() {
             required
             error={errors.loginId}
           />
-          {error && (
-            <Alert tone="danger" live="alert">
-              {error}
-            </Alert>
-          )}
+          {error && <Alert tone="error">{error}</Alert>}
           <Button type="submit" fullWidth loading={pending}>
             {t('send')}
           </Button>
-          <Button variant="ghost" href="/login">
+          <LinkButton variant="text" to="/login">
             {t('back')}
-          </Button>
+          </LinkButton>
         </div>
-      </Form>
+      </form>
     );
 
   return (
-    <Form onSubmit={complete} aria-label={t('title')}>
+    <form method="post" noValidate onSubmit={complete} aria-label={t('title')}>
       <div className="auth-shell-stack">
-        <Alert tone="info" live="status">
-          {t('sent')}
-        </Alert>
+        <Alert tone="info">{t('sent')}</Alert>
         {DUMMY_OTP_NOTE && <Alert tone="warning">{t('dummy_note')}</Alert>}
         <TextField
           label={t('code')}
@@ -130,7 +122,8 @@ export function ResetForm() {
           required
           error={errors.code}
         />
-        <PasswordField
+        <TextField
+          type="password"
           label={t('new_password')}
           name="newPassword"
           value={password}
@@ -140,7 +133,8 @@ export function ResetForm() {
           error={errors.newPassword}
         />
         <PasswordRules password={password} id="reset-rules" />
-        <PasswordField
+        <TextField
+          type="password"
           label={t('confirm_password')}
           name="confirm"
           value={confirm}
@@ -149,18 +143,14 @@ export function ResetForm() {
           required
           error={errors.confirm}
         />
-        {error && (
-          <Alert tone="danger" live="alert">
-            {error}
-          </Alert>
-        )}
+        {error && <Alert tone="error">{error}</Alert>}
         <Button type="submit" fullWidth loading={pending}>
           {t('submit')}
         </Button>
-        <Button variant="ghost" onPress={() => start()} disabled={pending}>
+        <Button variant="text" onClick={() => start()} disabled={pending}>
           {t('resend')}
         </Button>
       </div>
-    </Form>
+    </form>
   );
 }

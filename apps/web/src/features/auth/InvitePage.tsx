@@ -1,5 +1,5 @@
 import { type InvitationView, PASSWORD_MIN_LENGTH } from '@css/shared/auth';
-import { Alert, Button, Form, PasswordField, Skeleton, Text } from '@css/ui';
+import { Alert, Button, LinkButton, Skeleton, Text, TextField } from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -62,12 +62,7 @@ export function InvitePage() {
   const passwordError = failure?.details.find((d) => d.path === 'password')?.message;
 
   const body = () => {
-    if (!token)
-      return (
-        <Alert tone="danger" live="alert">
-          {t('missing')}
-        </Alert>
-      );
+    if (!token) return <Alert tone="error">{t('missing')}</Alert>;
     if (view.isPending) return <Skeleton shape="card" />;
     // only an unknown (404) or a closed (410) link is dead, on opening or while the page was open;
     // a busy server or a lost connection keeps the link, which the person tries again
@@ -77,22 +72,20 @@ export function InvitePage() {
     if (dead)
       return (
         <div className="auth-shell-stack">
-          <Alert tone="danger" live="alert">
-            {dead.message}
-          </Alert>
+          <Alert tone="error">{dead.message}</Alert>
           <Text>{t('ask_admin')}</Text>
-          <Button variant="secondary" href="/login" fullWidth>
+          <LinkButton variant="secondary" to="/login" fullWidth>
             {t('to_login')}
-          </Button>
+          </LinkButton>
         </div>
       );
     if (view.error)
       return (
         <div className="auth-shell-stack">
-          <Alert tone="danger" live="alert">
+          <Alert tone="error">
             {view.error instanceof ApiFailure ? view.error.message : tl('offline')}
           </Alert>
-          <Button variant="secondary" onPress={() => void view.refetch()} fullWidth>
+          <Button variant="secondary" onClick={() => void view.refetch()} fullWidth>
             {t('retry')}
           </Button>
         </div>
@@ -102,21 +95,20 @@ export function InvitePage() {
     if (accept.isSuccess)
       return (
         <div className="auth-shell-stack">
-          <Alert tone="success" live="status">
-            {t('done', { jobId: data.jobId })}
-          </Alert>
-          <Button href="/login" fullWidth>
+          <Alert tone="success">{t('done', { jobId: data.jobId })}</Alert>
+          <LinkButton to="/login" fullWidth>
             {t('to_login')}
-          </Button>
+          </LinkButton>
         </div>
       );
     const minLength = data.minPasswordLength ?? PASSWORD_MIN_LENGTH;
     return (
-      <Form onSubmit={submit} aria-label={t('title')}>
+      <form method="post" noValidate onSubmit={submit} aria-label={t('title')}>
         <div className="auth-shell-stack">
           <Text>{t('greeting', { name: data.displayName })}</Text>
           <Text>{t('job_id', { jobId: data.jobId })}</Text>
-          <PasswordField
+          <TextField
+            type="password"
             label={tp('new')}
             name="password"
             value={password}
@@ -126,7 +118,8 @@ export function InvitePage() {
             error={passwordError}
           />
           <PasswordRules password={password} id="invite-rules" minLength={minLength} />
-          <PasswordField
+          <TextField
+            type="password"
             label={tp('confirm')}
             name="confirm"
             value={confirm}
@@ -136,15 +129,13 @@ export function InvitePage() {
             error={mismatch ? tp('mismatch') : undefined}
           />
           {accept.error && !passwordError && (
-            <Alert tone="danger" live="alert">
-              {failure ? failure.message : tl('offline')}
-            </Alert>
+            <Alert tone="error">{failure ? failure.message : tl('offline')}</Alert>
           )}
           <Button type="submit" fullWidth loading={accept.isPending}>
             {t('submit')}
           </Button>
         </div>
-      </Form>
+      </form>
     );
   };
 
