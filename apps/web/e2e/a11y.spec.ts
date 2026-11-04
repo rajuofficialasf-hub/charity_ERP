@@ -22,7 +22,8 @@ import { activeProject, code, ERR } from './support/projects';
 // chosen on the device, because the login form would otherwise write the language onto the shared
 // account and change what the other specs see (docs/testing/DEMO_ACCOUNTS.md). The sign-in,
 // registration and home pages, the account pages, the inbox, the volunteer's projects and
-// applications, the public application page and the sync centre are swept in dark mode too.
+// applications, the public application page, the sync centre, My exports and the Media Team's home
+// are swept in dark mode too.
 const LANGUAGES = ['bn', 'en'] as const;
 type Lang = (typeof LANGUAGES)[number];
 const PM = 'pm.err@example.org';
@@ -133,6 +134,8 @@ test.describe('accessibility of the Phase 1 screens', () => {
         '/account/sessions',
         '/account/password',
         '/notifications',
+        '/account/exports',
+        '/media',
       ])
         await sweep(page, path, lang);
     });
