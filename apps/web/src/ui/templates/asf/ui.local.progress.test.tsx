@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
 import { render, screen, within, cleanup } from '@testing-library/react';
 
-import { Stepper, Timeline, Skeleton, UiProvider, ProgressBar } from './index';
+import { Stepper, Spinner, Timeline, Skeleton, UiProvider, ProgressBar } from './index';
 import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
 
 beforeEach(() => stubWidth(false));
@@ -165,5 +165,16 @@ describe('steps that share a name', () => {
       </UiProvider>
     );
     expect(within(screen.getByRole('list', { name: 'Visits' })).getAllByRole('listitem')).toHaveLength(3);
+  });
+});
+
+describe('the spinner', () => {
+  it('is a progress indicator named by its label', () => {
+    render(
+      <UiProvider>
+        <Spinner label="Sending the code" />
+      </UiProvider>
+    );
+    expect(screen.getByRole('progressbar', { name: 'Sending the code' })).toBeInTheDocument();
   });
 });

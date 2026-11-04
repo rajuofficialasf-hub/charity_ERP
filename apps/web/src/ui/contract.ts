@@ -1353,7 +1353,15 @@ export type IconButtonProps = {
 };
 
 /** `text` is the quiet button of row actions and links in a sentence; `small` for dense rows. */
-export type ButtonExtendedProps = ButtonProps & { size?: "small" | "medium" };
+export type ButtonExtendedProps = Omit<ButtonProps, "startIcon"> & {
+  size?: "small" | "medium";
+  startIcon?: ExtendedIconName;
+  /** After the words, for example the arrow of "Next". */
+  endIcon?: ExtendedIconName;
+};
+
+/** A small wait inside a field or a row; its label is read out. */
+export type SpinnerProps = { label: string; size?: number };
 
 /** The signed-in user's button in the header and the panel it opens. */
 export type AccountMenuProps = {
@@ -1502,6 +1510,7 @@ export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "P
   AttentionCard: ComponentType<AttentionCardProps>;
   IconButton: ComponentType<IconButtonProps>;
   BottomNav: ComponentType<BottomNavProps>;
+  Spinner: ComponentType<SpinnerProps>;
   Breadcrumbs: ComponentType<BreadcrumbsProps>;
   AccountMenu: ComponentType<AccountMenuProps>;
   LanguageSwitch: ComponentType<LanguageSwitchProps>;

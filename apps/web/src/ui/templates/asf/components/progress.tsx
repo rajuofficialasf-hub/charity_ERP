@@ -1,8 +1,9 @@
-import type { SkeletonProps, StepperProps, TimelineProps, TimelineStatus, ProgressBarProps } from '@/ui/contract';
+import type { SkeletonProps, SpinnerProps, StepperProps, TimelineProps, TimelineStatus, ProgressBarProps } from '@/ui/contract';
 
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import MuiSkeleton from '@mui/material/Skeleton';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { Icon } from './icon';
 import { fill, useLabels } from './labels';
@@ -234,4 +235,9 @@ export function Skeleton({ shape = 'text', count: items = 1 }: SkeletonProps) {
       ))}
     </Box>
   );
+}
+
+/** A small wait inside a field or a row, named for screen readers. */
+export function Spinner({ label, size = 18 }: SpinnerProps) {
+  return <CircularProgress size={size} color="inherit" aria-label={label} sx={{ color: 'text.secondary' }} />;
 }

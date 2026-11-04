@@ -86,8 +86,8 @@ async function fillCore(user: ReturnType<typeof userEvent.setup>) {
     ['উপজেলা', 'সাভার'],
     ['ইউনিয়ন', 'আশুলিয়া'],
   ] as const) {
-    const box = screen.getByRole('button', { name: level(label) });
-    await waitFor(() => expect(box).toBeEnabled());
+    const box = screen.getByRole('combobox', { name: level(label) });
+    await waitFor(() => expect(box).not.toHaveAttribute('aria-disabled', 'true'));
     await user.click(box);
     await user.click(await screen.findByRole('option', { name }));
   }
@@ -298,8 +298,14 @@ describe('the logic', () => {
 
   it('waits for each level of the address before the next', async () => {
     open([]);
-    expect(screen.getByRole('button', { name: level('জেলা') })).toBeDisabled();
-    expect(screen.getByRole('button', { name: level('ইউনিয়ন') })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: level('জেলা') })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByRole('combobox', { name: level('ইউনিয়ন') })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 });
 
@@ -552,7 +558,10 @@ describe('what goes wrong', () => {
     await fillCore(user);
     await user.click(screen.getByRole('button', { name: 'পাঠান' }));
     await waitFor(() => expect(screen.getByRole('textbox', { name: /^name/ })).toHaveValue(''));
-    expect(screen.getByRole('button', { name: level('জেলা') })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: level('জেলা') })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   }, 20_000);
 
   it('waits for a photo still going up before it sends, and names a refused photo', async () => {

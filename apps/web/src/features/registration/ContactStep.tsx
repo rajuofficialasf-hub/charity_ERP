@@ -1,6 +1,5 @@
 import type { RegistrationChannel, RegistrationKind } from '@css/shared/registration';
-import { Alert, Badge, Button, PhoneField, Spinner, Text, TextField } from '@css/ui';
-import { BadgeCheck, Hand } from 'lucide-react';
+import { Alert, Button, Chip, Icon, Spinner, Text, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { EMAIL, MOBILE, type RegistrationValues } from './form-state';
 
@@ -110,7 +109,7 @@ export function ContactStep({
         />
       </div>
       {exists && (
-        <Alert tone="warning" live="alert">
+        <Alert tone="warning">
           {t('verify.exists')}{' '}
           <a href="/login" className="register-link">
             {t('verify.login')}
@@ -120,12 +119,12 @@ export function ContactStep({
       {!both && (
         <div className="register-notice">
           <span className="register-notice-icon" aria-hidden="true">
-            <Hand size={18} />
+            <Icon name="hand" size={18} />
           </span>
           <div>
             <p className="register-notice-title">{t('verify.notice_title')}</p>
             <Text>{t('verify.notice')}</Text>
-            {DUMMY_OTP_NOTE && <Text className="register-muted">{t('dummy_note')}</Text>}
+            {DUMMY_OTP_NOTE && <Text tone="muted">{t('dummy_note')}</Text>}
           </div>
         </div>
       )}
@@ -159,13 +158,16 @@ function ContactField({
   const t = useTranslations('registration');
   const sms = channel === 'sms';
   const action = state.verified ? (
-    <Badge tone="success" icon={BadgeCheck} label={t('verify.done')} size="sm" />
+    <Chip tone="success">
+      <Icon name="verified" size={16} />
+      {t('verify.done')}
+    </Chip>
   ) : (
     <Button
-      size="sm"
+      size="small"
       disabled={!valid || state.busy}
       loading={state.busy && !state.sent}
-      onPress={() => onSend(channel)}
+      onClick={() => onSend(channel)}
     >
       {state.sent ? t('verify.resend') : t('verify.button')}
     </Button>
@@ -183,12 +185,12 @@ function ContactField({
   return (
     <div className="register-contact" data-testid="register-contact">
       {sms ? (
-        <PhoneField {...field} autoComplete="tel" />
+        <TextField type="tel" {...field} autoComplete="tel" />
       ) : (
         <TextField {...field} type="email" autoComplete="email" />
       )}
       {state.verified && canChange && (
-        <Button variant="ghost" size="sm" onPress={() => onChange(channel)}>
+        <Button variant="text" size="small" onClick={() => onChange(channel)}>
           {t('verify.change')}
         </Button>
       )}
@@ -200,10 +202,10 @@ function ContactField({
           inputMode="numeric"
           autoComplete="one-time-code"
           maxLength={6}
-          helper={t('verify.sent')}
+          hint={t('verify.sent')}
           onChange={(code) => onCode(channel, code.replace(/\D/g, '').slice(0, 6))}
           error={state.codeError}
-          endAction={state.busy ? <Spinner size="sm" /> : undefined}
+          endAction={state.busy ? <Spinner label={t('verify.checking')} /> : undefined}
         />
       )}
     </div>

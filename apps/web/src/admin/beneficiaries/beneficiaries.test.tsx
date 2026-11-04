@@ -196,8 +196,8 @@ describe('the beneficiary tab', () => {
     await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
     expect(screen.queryByRole('button', { name: /ধরন/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ব্লকলিস্ট/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /ইউনিয়ন/ })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /উপজেলা/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('combobox', { name: /ইউনিয়ন/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('combobox', { name: /উপজেলা/ }).length).toBeGreaterThan(0);
     expect(
       screen.queryByRole('columnheader', { name: 'পিতা বা স্বামীর নাম' }),
     ).not.toBeInTheDocument();

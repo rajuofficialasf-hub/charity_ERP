@@ -11,12 +11,16 @@ import { useSurface } from './surface-context';
 
 // ----------------------------------------------------------------------
 
-type Look = Pick<ButtonExtendedProps, 'variant' | 'startIcon' | 'fullWidth'>;
+type Look = Pick<ButtonExtendedProps, 'variant' | 'startIcon' | 'endIcon' | 'fullWidth'>;
 
 /** The contract's look as MUI props. Primary is dark on admin screens and the brand colour on public pages. */
-function useLook({ variant = 'primary', startIcon, fullWidth }: Look): Pick<MuiButtonProps, 'variant' | 'color' | 'sx' | 'fullWidth' | 'startIcon'> {
+function useLook({ variant = 'primary', startIcon, endIcon, fullWidth }: Look): Pick<MuiButtonProps, 'variant' | 'color' | 'sx' | 'fullWidth' | 'startIcon' | 'endIcon'> {
   const surface = useSurface();
-  const common = { fullWidth, startIcon: startIcon ? <Icon name={startIcon} size={20} /> : undefined };
+  const common = {
+    fullWidth,
+    startIcon: startIcon ? <Icon name={startIcon} size={20} /> : undefined,
+    endIcon: endIcon ? <Icon name={endIcon} size={20} /> : undefined,
+  };
   // Public pages use roomier buttons than dense admin screens.
   const roomy = surface === 'public' ? { minHeight: 44, px: 2.75 } : {};
   switch (variant) {

@@ -1,5 +1,5 @@
 import { PHOTO_MAX_BYTES } from '@css/shared/registration';
-import { FileUpload, type UploadItem } from '@css/ui';
+import { FileUpload, type UploadItem } from '@/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
@@ -66,7 +66,7 @@ export function PhotoField({
   return (
     <FileUpload
       label={label}
-      helper={t('photo_helper')}
+      hint={t('photo_helper')}
       required
       source="camera_or_gallery"
       accept={ACCEPT}

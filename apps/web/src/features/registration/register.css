@@ -1,8 +1,7 @@
 /*
  * Registration (SCR-002; the owner's reference design): on the desktop the brand panel on the left
- * (the photo of the Foundation's building with the logo, then the title and the steps on the brand
- * ink), the form on the right; on a phone the panel is a short band of text above the form, without
- * the photo.
+ * (the logo, the title and the steps on the brand ink), the form on the right; on a phone the panel
+ * is a short band of text above the form.
  * Tokens only (colors.md, DESIGN_SYSTEM): white text on the ink, green as the action colour.
  */
 .register-page {
@@ -15,8 +14,7 @@
 }
 
 /* ---- the brand panel ---- */
-/* white text on the brand ink (colors.md 6: dark surfaces use ink with white text); on the desktop
-   the photo of the Foundation's building sits on top, bright as it is, fading into the ink */
+/* white text on the brand ink (colors.md 6: dark surfaces use ink with white text) */
 .register-brand {
   position: relative;
   overflow: hidden;
@@ -28,11 +26,10 @@
   color: var(--color-text-on-brand);
   isolation: isolate;
 }
-.register-brand > :not(.register-photo) {
+.register-brand > * {
   margin-inline: var(--space-4);
 }
-/* the logo keeps its colours (colors.md 6.5), so it sits on a white tile (over the sky of the photo
-   on the desktop) */
+/* the logo keeps its colours (colors.md 6.5), so it sits on a white tile */
 .register-logo {
   justify-self: start;
   display: inline-grid;
@@ -279,32 +276,12 @@
     position: sticky;
     top: 0;
     height: 100dvh;
-    grid-template-rows: minmax(0, 1fr) auto;
-    align-content: stretch;
-    gap: var(--space-4);
-    padding: 0 0 var(--space-6);
+    align-content: center;
+    gap: var(--space-5);
+    padding: calc(var(--app-bar-height) + var(--space-5)) 0 var(--space-6);
   }
-  .register-photo {
-    min-height: 0;
-  }
-  .register-photo::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      180deg,
-      rgba(15, 41, 32, 0) 60%,
-      rgba(15, 41, 32, 0.6) 85%,
-      var(--color-brand-ink) 100%
-    );
-  }
-  .register-brand > :not(.register-photo) {
+  .register-brand > * {
     margin-inline: var(--space-6);
-  }
-  .register-brand > .register-logo {
-    position: absolute;
-    top: var(--space-5);
-    left: 0;
   }
   .register-logo img {
     height: 52px;

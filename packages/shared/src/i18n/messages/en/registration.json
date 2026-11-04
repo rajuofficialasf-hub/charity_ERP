@@ -33,7 +33,8 @@
     "notice_title": "Verify your identity",
     "notice": "Verify both the mobile number and the email to complete the application.",
     "exists": "An account with this mobile number or email already exists.",
-    "login": "Log in"
+    "login": "Log in",
+    "checking": "Checking the code"
   },
   "nav": {
     "next": "Next step",

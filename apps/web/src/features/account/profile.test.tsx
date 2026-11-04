@@ -474,7 +474,7 @@ describe('the personal, profession, education and skills data in the profile', (
     await user.click(within(form).getByRole('checkbox', { name: 'Change Profession' }));
     // it starts with what the volunteer has
     expect(within(form).getByRole('textbox', { name: /^Designation/ })).toHaveValue('Mudarris');
-    await user.click(within(form).getByRole('button', { name: /current profession/ }));
+    await user.click(within(form).getByRole('combobox', { name: /current profession/ }));
     await user.click(await screen.findByRole('option', { name: 'Imam or muazzin' }));
     // the old profession's details are gone
     expect(within(form).queryByRole('textbox', { name: /^Designation/ })).not.toBeInTheDocument();

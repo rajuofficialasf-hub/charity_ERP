@@ -3,7 +3,7 @@ export { Stack } from './stack';
 export { Alert } from './alert';
 export { Menu } from './menu';
 export { FileUpload } from './file-upload';
-export { Stepper, Timeline, Skeleton, ProgressBar } from './progress';
+export { Stepper, Spinner, Timeline, Skeleton, ProgressBar } from './progress';
 export { IconTile, CopyButton, PersonCell, ContactList, ProfileBanner, ProfileSection } from './people';
 export { BulkRow, BulkList, Disclosure, IconButton, StatusChip, ChoiceTiles, AttentionCard, OfflineBanner, StatFilterBar } from './status';
 export { Dialog, ConfirmDialog } from './dialog';

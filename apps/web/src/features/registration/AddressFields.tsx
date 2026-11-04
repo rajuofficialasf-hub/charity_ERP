@@ -1,7 +1,7 @@
-import { Select } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'use-intl';
 import { locations } from './registration-api';
+import { SelectField } from '@/ui';
 
 export interface Address {
   divisionId: string | null;
@@ -60,18 +60,18 @@ export function AddressFields({
   return (
     <>
       {LEVELS.slice(0, levels).map((level, i) => (
-        <Select
+        <SelectField
           key={level}
           label={labels[i]!}
           name={labelSuffix ? `permanent-${level}` : level}
           required={!optional}
-          value={value[level]}
+          value={value[level] ?? ''}
           // a list still loading cannot be opened empty
           disabled={(i > 0 && !parents[i]) || !lists[i]}
           error={errors[labelSuffix ? `permanent-${level}` : level]}
-          options={(lists[i] ?? []).map((l) => ({ id: l.id, label: l.name[locale] }))}
+          options={(lists[i] ?? []).map((l) => ({ value: l.id, label: l.name[locale] }))}
           onChange={(id) => {
-            const next = { ...value, [level]: id };
+            const next = { ...value, [level]: id || null };
             for (const lower of LEVELS.slice(i + 1)) next[lower] = null;
             onChange(next);
           }}
