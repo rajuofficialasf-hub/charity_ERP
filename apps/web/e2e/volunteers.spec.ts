@@ -104,9 +104,9 @@ test.describe('the volunteer tab', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক 1 (নমুনা)' }),
     ).toBeVisible();
-    // the NID in its section and, with its label, as a chip of the header
-    await expect(page.getByText('1000000001', { exact: true })).toBeVisible();
-    await expect(page.getByText('NID নম্বর: 1000000001')).toBeVisible();
+    // the NID in its section and, read out with its label and a copy button, in the banner
+    await expect(page.getByText('1000000001', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'NID নম্বর কপি করুন' })).toBeVisible();
   });
 
   test('a volunteer has no admin link, and the tab shows the forbidden page', async ({

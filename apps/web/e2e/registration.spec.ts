@@ -254,7 +254,8 @@ test.describe('registration approval', () => {
     await page.getByRole('link', { name: person.name }).click();
     await expect(page.getByRole('heading', { level: 1, name: person.name })).toBeVisible();
     // the NID in its section; the header shows it again with its label
-    await expect(page.getByText(person.nid, { exact: true })).toBeVisible();
+    // in the banner's facts and in the details below
+    await expect(page.getByText(person.nid, { exact: true }).first()).toBeVisible();
     expect((await scan(page)).violations).toEqual([]);
     await page.getByRole('button', { name: 'সংশোধনের অনুরোধ' }).click();
     const dialog = page.getByRole('dialog', { name: 'সংশোধনের অনুরোধ' });

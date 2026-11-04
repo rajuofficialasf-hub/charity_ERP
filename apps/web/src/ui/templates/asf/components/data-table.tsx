@@ -259,7 +259,8 @@ export function DataTable<Row>({
   const cards = state ? (
     <Box sx={{ p: 2 }}>{state}</Box>
   ) : (
-    <Box component="ul" aria-label={label} sx={{ listStyle: 'none', m: 0, p: 2, display: 'grid', gap: 1.5 }}>
+    // one column that never grows past the screen; a long word in a card (a code, an address) breaks
+    <Box component="ul" aria-label={label} sx={{ listStyle: 'none', m: 0, p: 2, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 1.5, overflowWrap: 'anywhere' }}>
       {rows.map((row) => {
         const id = getRowId(row);
         const selected = selection.has(id);

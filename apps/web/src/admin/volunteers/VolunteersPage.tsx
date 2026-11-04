@@ -447,10 +447,7 @@ function VolunteerTab({ categories }: { categories: boolean }) {
         }
         cardRenderer={(r) => (
           <div className="admin-person-card">
-            <div className="admin-person-card-head">
-              {person(r)}
-              {actions(r)}
-            </div>
+            <div className="admin-person-card-head">{person(r)}</div>
             <Area row={r} />
             {state(r)}
           </div>

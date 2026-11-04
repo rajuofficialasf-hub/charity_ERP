@@ -18,7 +18,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the lists of an ERP: cards on phones (cardRenderer), row selection with a bulk bar, sort, row open and row actions, column priority and numeric columns, numbered pages and cursor paging with load more; the filter bar adds a delayed search, status chips, removable active filters and a filters panel on phones; built for the CSS ERP",
+      "note": "the lists of an ERP: cards on phones (cardRenderer) in one column that never grows past the screen, a long word breaking, row selection with a bulk bar, sort, row open and row actions, column priority and numeric columns, numbered pages and cursor paging with load more; the filter bar adds a delayed search, status chips, removable active filters and a filters panel on phones; built for the CSS ERP",
       "screenshot": "docs/ui/asf-pieces/data-table.png",
       "screenshotPhone": "docs/ui/asf-pieces/data-table-phone.png"
     },

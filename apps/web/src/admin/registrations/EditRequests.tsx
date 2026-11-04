@@ -148,7 +148,6 @@ export function EditRequests() {
             <span>{field(r)}</span>
             <span>{value(r)}</span>
             {r.note && <span className="admin-muted">{r.note}</span>}
-            {actions(r)}
           </div>
         )}
       />

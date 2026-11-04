@@ -92,7 +92,7 @@ test.describe("an official's own profile", () => {
       const head = await headContext.newPage();
       await signIn(head, HEAD);
       await head.goto('/admin/registrations?tab=staff-edits');
-      const table = head.getByRole('grid', { name: 'অফিসিয়ালের অনুরোধ' });
+      const table = head.getByRole('table', { name: 'অফিসিয়ালের অনুরোধ' });
       for (const field of ['পদবি', 'ছবি']) {
         const approve = table.getByRole('button', { name: `${name}-এর ${field} অনুমোদন` });
         await approve.click();

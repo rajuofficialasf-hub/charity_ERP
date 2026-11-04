@@ -33,7 +33,7 @@ test.describe('officials created by the admin', () => {
     await dialog.getByRole('textbox', { name: /^ইমেইল/ }).fill(`e2e-${suffix}@example.org`);
     // the second step: the role and the place
     await dialog.getByRole('button', { name: 'পরের ধাপ' }).click();
-    await choose(page, 'ভূমিকা \\(আবশ্যক\\)', 'প্রজেক্ট এক্সিকিউটিভ');
+    await choose(page, 'ভূমিকা', 'প্রজেক্ট এক্সিকিউটিভ');
     await dialog.getByRole('button', { name: 'অ্যাকাউন্ট তৈরি করুন' }).click();
 
     const linkDialog = page.getByRole('dialog', { name: `${name}-এর পাসওয়ার্ড লিঙ্ক` });
