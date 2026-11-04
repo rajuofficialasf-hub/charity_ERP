@@ -145,7 +145,8 @@ has no duplicates) and marked inactive again by a run of the job:
 
 ## 6. First load of the PWA (NFR-15)
 
-NFR-15 allows at most 250 KB of compressed JavaScript for the first route. The first route is the
+NFR-15 allows at most 250 KB of compressed JavaScript for the first route; during the move to the
+asf UI system the budget is 400 KB (D-152), measured again once the earlier set has left. The first route is the
 entry script of `apps/web/dist/index.html` and every chunk it preloads, gzip level 9, as
 `pnpm --filter @css/web bundle:report` (after `pnpm --filter @css/web build`) prints and CI checks
 after the build; the command fails over the budget, and also fails when `index.html` names no entry
@@ -167,7 +168,7 @@ signed-in person adds when it is not cached yet, without failing on it.
 | 2026-11-02 (the visual redesign, D-145): the area labels, descriptions and notes of the designed pages add 3.3 KB to the Bengali catalogue the first route carries; the shell, the set's new pieces and the pages stay in their lazy chunks. The margin to the budget is 3.5 KB | 246.5 KB | 25 |
 | 2026-11-03 (an official's own profile, D-147, D-148): the texts of the official's profile, the projects and their figures and the officials' requests tab add 0.6 KB to the Bengali catalogue; the pages stay in their lazy chunks. The margin to the budget is 2.9 KB | 247.1 KB | 25 |
 | 2026-11-03 (the asf UI system, D-150, branch `feat/asf-ui`, plan step U2; not on `main`): the asf provider at the root (the MUI theme and baseline, the date pickers' provider with Day.js, the toasts) beside the earlier set, which stays until the last page moved. Over the budget on the branch; measured again after the shell (U8) and the first pages (U10), the decision (a split, a lazy load or a new budget for the owner) comes before the merge, never by cutting a feature | 284.8 KB | 30 |
-| 2026-11-03 (the asf UI system, plan step U8: the shell, the sign-in frame, the language switch and the shared pieces on asf; branch `feat/asf-ui`, not on `main`): the sign-in page now draws asf pieces, so asf's MUI parts join the first route beside the earlier set's provider (65.4 KB with its MUI parts). The icon drawings (141 Solar icons, 54 KB) load in their own chunk after the page appears; without that split the route was 430.7 KB. Over the budget while both UI systems are on the page; the owner decides the budget for the move (proposed: a temporary budget until the earlier set leaves in U19, then measured again) | 376.4 KB | 19 |
+| 2026-11-03 (the asf UI system, plan step U8: the shell, the sign-in frame, the language switch and the shared pieces on asf; branch `feat/asf-ui`, not on `main`): the sign-in page now draws asf pieces, so asf's MUI parts join the first route beside the earlier set's provider (65.4 KB with its MUI parts). The icon drawings (141 Solar icons, 54 KB) load in their own chunk after the page appears; without that split the route was 430.7 KB. Over the budget while both UI systems are on the page; the owner set a temporary budget of 400 KB for the move (D-152), measured again once the earlier set leaves in U19 | 376.4 KB | 19 |
 
 What a signed-in page adds on top of the first route when it is not yet cached (static import
 closure of its chunks, gzip): the home with the shell 76.0 KB, my projects with the shell 72.1 KB,

@@ -4,8 +4,12 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
-/** The first-route budget of docs/NON_FUNCTIONAL_REQUIREMENTS.md, in compressed KB. */
-export const BUDGET_KB = 250;
+/**
+ * The first-route budget of docs/NON_FUNCTIONAL_REQUIREMENTS.md, in compressed KB: 400 while both
+ * UI systems sit on the sign-in page during the move to the asf system, measured again and set by
+ * the owner once the earlier set has left (docs/DECISION_LOG.md, the move's temporary budget).
+ */
+export const BUDGET_KB = 400;
 
 /** The value of one attribute of a tag, in any attribute order. */
 const attribute = (/** @type {string} */ tag, /** @type {string} */ name) =>
