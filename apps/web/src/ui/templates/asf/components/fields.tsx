@@ -51,12 +51,12 @@ const MAX_LENGTH = new Map<Kind, number>([
 ]);
 
 /** The marks under a field: locked with its correction link, changed with the previous value, officials only. */
-function FieldMarks({ locked, onRequestCorrection, previousValue, officialOnly }: FieldStates) {
+function FieldMarks({ marksId, locked, onRequestCorrection, previousValue, officialOnly }: FieldStates & { marksId?: string }) {
   const labels = useLabels();
   if (!locked && previousValue === undefined && !officialOnly) return null;
   const mark = { display: 'inline-flex', alignItems: 'center', gap: 0.5, typography: 'caption', color: 'text.secondary' } as const;
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1.5, rowGap: 0.5, mt: 0.75, px: 1.75 }}>
+    <Box id={marksId} sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1.5, rowGap: 0.5, mt: 0.75, px: 1.75 }}>
       {locked && (
         <Box component="span" sx={mark}>
           <Icon name="lock" size={16} />
@@ -120,6 +120,10 @@ export function TextField({
   const labels = useLabels();
   const [shown, setShown] = useState(false);
   const clean = CLEAN.get(type);
+  const fieldId = id ?? ownId;
+  // the marks under the field are read out with its help, so a locked field says so
+  const marked = states.locked || states.previousValue !== undefined || states.officialOnly;
+  const describedBy = [error ?? hint ? `${fieldId}-helper-text` : null, marked ? `${fieldId}-marks` : null].filter(Boolean).join(' ') || undefined;
   const native = type === 'password' ? (shown ? 'text' : 'password') : clean ? (type === 'tel' ? 'tel' : 'text') : type;
   const start: ReactNode =
     type === 'search' ? (
@@ -144,7 +148,7 @@ export function TextField({
   return (
     <Box>
       <MuiTextField
-        id={id ?? ownId}
+        id={fieldId}
         fullWidth
         label={label}
         name={name}
@@ -167,11 +171,12 @@ export function TextField({
             inputMode: inputMode ?? KEYPAD.get(type),
             lang,
             readOnly: readOnly || states.locked,
+            'aria-describedby': describedBy,
             style: clean ? { fontVariantNumeric: 'tabular-nums' } : undefined,
           },
         }}
       />
-      <FieldMarks {...states} />
+      <FieldMarks {...states} marksId={`${fieldId}-marks`} />
     </Box>
   );
 }

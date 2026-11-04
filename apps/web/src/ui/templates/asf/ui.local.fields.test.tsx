@@ -130,6 +130,17 @@ describe('the field states', () => {
     expect(box).toHaveAttribute('aria-invalid', 'true');
     expect(box).toHaveAccessibleDescription('Enter 11 digits');
   });
+
+  it('tells a screen reader a field is locked or changed, beside its help', () => {
+    render(
+      <UiProvider>
+        <TextField label="Name" value="Amina Khatun" onChange={() => {}} locked hint="From the profile" />
+        <TextField label="Mobile" value="01811000000" onChange={() => {}} previousValue="01711000000" />
+      </UiProvider>
+    );
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveAccessibleDescription(/From the profile.*Locked/);
+    expect(screen.getByRole('textbox', { name: 'Mobile' })).toHaveAccessibleDescription(/Changed.*Previous value: 01711000000/);
+  });
 });
 
 describe('the error summary and the form section', () => {

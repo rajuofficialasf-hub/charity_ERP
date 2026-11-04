@@ -43,7 +43,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the text kinds of the ERP's forms (identity number, integer, decimal, money with the taka sign, mobile number, password with a show button; Bengali digits typed become English digits), a record field's states (locked with a correction link, changed with its previous value, officials only), an action inside a field's end, the error summary that links to each field, and the form section as a fieldset; built for the CSS ERP",
+      "note": "the text kinds of the ERP's forms (identity number, integer, decimal, money with the taka sign, mobile number, password with a show button; Bengali digits typed become English digits), a record field's states (locked with a correction link, changed with its previous value, officials only), an action inside a field's end, the error summary that links to each field, and the form section as a fieldset; built for the CSS ERP; the marks under a field (locked, changed, officials only) are part of its description, so a screen reader says a field is locked beside its help",
       "screenshot": "docs/ui/asf-pieces/gallery-fields.png"
     },
     {
