@@ -8,6 +8,7 @@ import { MEDIA_KEY, type MediaReferral, type MediaWork, mediaTeam, setMembers } 
 import { useMediaLabels } from './use-media-lists';
 import { failureOf } from './work-errors';
 import { LoadError } from '../../components/LoadError';
+import { DialogButtons } from '../../components/DialogButtons';
 
 type Member = { userId: string; name: string; roles: string[] };
 
@@ -121,14 +122,13 @@ function TeamDialog({
       onClose={onClose}
       dismissible={!save.isPending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
-            {tc('action.cancel')}
-          </Button>
-          <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
-            {tc('action.save')}
-          </Button>
-        </>
+        <DialogButtons
+          onCancel={onClose}
+          onConfirm={() => save.mutate()}
+          confirmLabel={tc('action.save')}
+          disabled={!ready}
+          pending={save.isPending}
+        />
       }
     >
       {save.error ? (

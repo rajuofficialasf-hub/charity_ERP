@@ -18,6 +18,7 @@ import { useTranslations } from 'use-intl';
 import { type MediaReferral, type MediaWork, reviewWork, updateWork } from './media-api';
 import { useMediaLabels } from './use-media-lists';
 import { failureOf } from './work-errors';
+import { DialogButtons } from '../../components/DialogButtons';
 
 /**
  * The work's stage, title and content type, and the final review: the stages offered are the ones
@@ -205,18 +206,13 @@ export function StagePanel({
           onClose={() => setRenaming(false)}
           dismissible={!change.isPending}
           actions={
-            <>
-              <Button variant="secondary" onClick={() => setRenaming(false)}>
-                {tc('action.cancel')}
-              </Button>
-              <Button
-                onClick={() => change.mutate({ title: title.trim() })}
-                disabled={!title.trim() || title.trim() === work.title}
-                loading={change.isPending}
-              >
-                {tc('action.save')}
-              </Button>
-            </>
+            <DialogButtons
+              onCancel={() => setRenaming(false)}
+              onConfirm={() => change.mutate({ title: title.trim() })}
+              confirmLabel={tc('action.save')}
+              disabled={!title.trim() || title.trim() === work.title}
+              pending={change.isPending}
+            />
           }
         >
           {change.error ? <Alert tone="error">{failureOf(change.error, texts).text}</Alert> : null}
@@ -237,18 +233,13 @@ export function StagePanel({
           onClose={() => setSendingBack(false)}
           dismissible={!review.isPending}
           actions={
-            <>
-              <Button variant="secondary" onClick={() => setSendingBack(false)}>
-                {tc('action.cancel')}
-              </Button>
-              <Button
-                onClick={() => review.mutate('send_back')}
-                disabled={!comment.trim()}
-                loading={review.isPending}
-              >
-                {t('work.review_send_back')}
-              </Button>
-            </>
+            <DialogButtons
+              onCancel={() => setSendingBack(false)}
+              onConfirm={() => review.mutate('send_back')}
+              confirmLabel={t('work.review_send_back')}
+              disabled={!comment.trim()}
+              pending={review.isPending}
+            />
           }
         >
           {review.error ? <Alert tone="error">{failureOf(review.error, texts).text}</Alert> : null}

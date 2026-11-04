@@ -36,7 +36,10 @@ export function ExportProgress({ jobId, onRetry }: ExportProgressProps) {
       {!data || data.status === 'queued' ? (
         <Stack direction="row" gap={2} align="center">
           <Spinner label={t('queued')} />
-          <Text>{t('queued')}</Text>
+          {/* the spinner names the wait for a screen reader; the words are for the eye */}
+          <span aria-hidden="true">
+            <Text>{t('queued')}</Text>
+          </span>
         </Stack>
       ) : data.status === 'running' ? (
         <ProgressBar

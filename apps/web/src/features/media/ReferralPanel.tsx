@@ -18,6 +18,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { decideReferral, type MediaReferral } from './media-api';
 import { failureOf } from './work-errors';
+import { DialogButtons } from '../../components/DialogButtons';
 
 type Decision = 'accept' | 'send_back' | 'reject';
 
@@ -172,19 +173,14 @@ export function ReferralPanel({
           onClose={close}
           dismissible={!decide.isPending}
           actions={
-            <>
-              <Button variant="secondary" onClick={close} disabled={decide.isPending}>
-                {tc('action.cancel')}
-              </Button>
-              <Button
-                variant={asking === 'reject' ? 'danger' : 'primary'}
-                onClick={() => decide.mutate(asking)}
-                disabled={!comment.trim()}
-                loading={decide.isPending}
-              >
-                {t(asking === 'send_back' ? 'decision.send_back' : 'decision.reject')}
-              </Button>
-            </>
+            <DialogButtons
+              onCancel={close}
+              onConfirm={() => decide.mutate(asking)}
+              confirmLabel={t(asking === 'send_back' ? 'decision.send_back' : 'decision.reject')}
+              disabled={!comment.trim()}
+              pending={decide.isPending}
+              danger={asking === 'reject'}
+            />
           }
         >
           {failure ? <Alert tone="error">{failure}</Alert> : null}

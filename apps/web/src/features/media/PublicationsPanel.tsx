@@ -26,6 +26,7 @@ import {
 import { useMediaLabels } from './use-media-lists';
 import { WorkLinkCard } from './WorkLinkCard';
 import { failureOf } from './work-errors';
+import { DialogButtons } from '../../components/DialogButtons';
 
 const STATE_TONE: Record<PublicationState, 'neutral' | 'success' | 'warning'> = {
   waiting: 'neutral',
@@ -169,14 +170,13 @@ function PublicationDialog({
       onClose={onClose}
       dismissible={!save.isPending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
-            {tc('action.cancel')}
-          </Button>
-          <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
-            {tc('action.save')}
-          </Button>
-        </>
+        <DialogButtons
+          onCancel={onClose}
+          onConfirm={() => save.mutate()}
+          confirmLabel={tc('action.save')}
+          disabled={!ready}
+          pending={save.isPending}
+        />
       }
     >
       {failure ? <Alert tone="error">{failure}</Alert> : null}
