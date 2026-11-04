@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import './auth-shell.css';
 import { TopBar } from './TopBar';
 
-/** Frame of the sign-in screens (SCR-001): logo, system name, one card, language. */
+/** Frame of the sign-in screens: logo, system name, one card, language. */
 export function AuthShell({ title, children }: { title: string; children: ReactNode }) {
   const t = useTranslations('common.app');
   return (

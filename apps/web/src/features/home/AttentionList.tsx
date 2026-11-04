@@ -49,6 +49,7 @@ export function AttentionList({ kinds }: { kinds?: readonly AttentionKind[] } = 
     queryFn: attention,
     staleTime: 0,
     refetchOnMount: 'always',
+    select: (data) => data.filter(shown),
   });
   return (
     <section className="my-work-attention" aria-labelledby="attention-title">
@@ -59,11 +60,11 @@ export function AttentionList({ kinds }: { kinds?: readonly AttentionKind[] } = 
         query={items}
         empty={t('empty')}
         emptyIcon="success"
-        isEmpty={(data) => data.filter(shown).length + local.length === 0}
+        isEmpty={(data) => data.length + local.length === 0}
       >
         {(data) => (
           <ul className="my-work-list">
-            {[...local, ...data.filter(shown)].map((item) => (
+            {[...local, ...data].map((item) => (
               <li key={item.kind}>
                 <AttentionCard
                   {...LOOK[item.kind]}

@@ -16,7 +16,7 @@ import {
   throttle3g,
   TINY_PNG,
 } from './support/offline';
-import { digits } from './support/forms';
+import { digits, pickByLabel } from './support/forms';
 import { activeProject, choice, code, ERR, question } from './support/projects';
 
 // The offline journeys of a volunteer's phone (docs/architecture/OFFLINE_SYNC.md, the test
@@ -102,19 +102,6 @@ const FORM = [
   },
 ];
 
-/**
- * Picks an option of the renderer's select by its label: an earlier select is a button named by
- * its value, then the label; an asf one (the address) a combobox named by the label.
- */
-async function pick(page: Page, label: string, option: string) {
-  await page
-    .getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) })
-    .or(page.getByRole('combobox', { name: new RegExp(`^${label}`) }))
-    .click();
-  await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
-  await expect(page.getByRole('listbox')).toHaveCount(0);
-}
-
 const noViolations = async (page: Page, where: string) =>
   expect((await scan(page)).violations, where).toEqual([]);
 
@@ -160,11 +147,11 @@ async function identityOffline(page: Page, projectId: string, nid: string, name:
   await page.getByRole('textbox', { name: /উপকারভোগীর নাম/ }).fill(name);
   await page.getByRole('textbox', { name: /পিতা বা স্বামীর নাম/ }).fill('নমুনা পিতা');
   await page.getByRole('textbox', { name: /উপকারভোগীর মোবাইল/ }).fill(`018${digits(8)}`);
-  await pick(page, 'লিঙ্গ', 'নারী');
-  await pick(page, 'বিভাগ', 'ঢাকা');
-  await pick(page, 'জেলা', 'ঢাকা');
-  await pick(page, 'উপজেলা', 'সাভার');
-  await pick(page, 'ইউনিয়ন', 'সাভার');
+  await pickByLabel(page, 'লিঙ্গ', 'নারী');
+  await pickByLabel(page, 'বিভাগ', 'ঢাকা');
+  await pickByLabel(page, 'জেলা', 'ঢাকা');
+  await pickByLabel(page, 'উপজেলা', 'সাভার');
+  await pickByLabel(page, 'ইউনিয়ন', 'সাভার');
   await page.getByRole('textbox', { name: /গ্রাম/ }).fill('নমুনা গ্রাম');
   // the first part done keeps the draft on the phone
   await page.getByRole('button', { name: 'পরের অংশ' }).click();
