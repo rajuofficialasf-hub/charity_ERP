@@ -502,3 +502,12 @@
   margin: 0;
   padding: 0;
 }
+
+/* The pending items of one category on the handover page, one per line. */
+.admin-handover-items {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

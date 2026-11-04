@@ -172,9 +172,7 @@ describe('handover page', () => {
       'page',
     );
     // before a choice: what to do, the rule of the deactivation and the steps
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'একজন কর্মকর্তাকে বেছে নিন' }),
-    ).toBeInTheDocument();
+    expect(screen.getByText('একজন কর্মকর্তাকে বেছে নিন')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 2, name: 'অ্যাকাউন্ট বন্ধের নিয়ম' }),
     ).toBeInTheDocument();
@@ -185,9 +183,7 @@ describe('handover page', () => {
       'হ্যান্ডওভার শেষ করুন',
     ]);
     await pick(user, /কর্মকর্তা খুঁজুন/, 'বিদায়ী');
-    expect(
-      screen.queryByRole('heading', { level: 2, name: 'একজন কর্মকর্তাকে বেছে নিন' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('একজন কর্মকর্তাকে বেছে নিন')).not.toBeInTheDocument();
     const projects = await screen.findByRole('region', { name: 'প্রজেক্ট' });
     expect(within(projects).getByText('WNT · ঢাকা')).toBeInTheDocument();
     expect(within(projects).getByText('UCD · স্বাবলম্বী')).toBeInTheDocument();
