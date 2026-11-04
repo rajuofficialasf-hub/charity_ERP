@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 // The state, count and list pieces this app added to the asf template (listed in local.json): the
 // status chip, the counts that filter a list, the offline banner, the disclosure, the choice tiles,
-// the bulk rows, the attention card, the icon button and the small button.
+// the bulk rows, the attention card, the figure card as a link, the summary banner's figures, the
+// icon button and the small button.
 import '@testing-library/jest-dom/vitest';
 
 import type { ReactNode } from 'react';
@@ -13,7 +14,7 @@ import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
 import { act, render, screen, within, cleanup } from '@testing-library/react';
 
 import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
-import { Button, BulkRow, BulkList, Disclosure, IconButton, UiProvider, StatusChip, ChoiceTiles, AttentionCard, OfflineBanner, StatFilterBar } from './index';
+import { Button, BulkRow, BulkList, Disclosure, IconButton, UiProvider, StatusChip, ChoiceTiles, AttentionCard, OfflineBanner, StatFilterBar, StatCard, SummaryBanner } from './index';
 
 beforeEach(() => stubWidth(false));
 
@@ -247,6 +248,47 @@ describe('the attention card', () => {
     renderInApp(<AttentionCard icon="warning" title="Sync failed" action={<button type="button">Try again</button>} />);
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+});
+
+describe('the figure card as a link', () => {
+  it('opens the list the figure counts', async () => {
+    const user = userEvent.setup();
+    renderInApp(<StatCard label="Applications" value={12} icon="file" to="/applications" />);
+    const link = screen.getByRole('link', { name: /12\s*Applications/ });
+    await user.click(link);
+    expect(await screen.findByRole('heading', { name: 'Applications to review' })).toBeInTheDocument();
+  });
+
+  it('stays a plain card for an address outside the app', () => {
+    renderInApp(<StatCard label="Applications" value={12} to="https://example.org/applications" />);
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByText('Applications')).toBeInTheDocument();
+  });
+});
+
+describe("the summary banner's figures", () => {
+  it('pairs each figure with its name in a valid list, with an icon or a dot beside it', async () => {
+    const { container } = render(
+      <UiProvider>
+        <SummaryBanner
+          title="Today"
+          subtitle="4 November 2026"
+          items={[
+            { label: 'Tasks waiting', value: '6', icon: 'checklist' },
+            { label: 'Unread', value: '2', tone: 'info' },
+            { label: 'Plain', value: '0' },
+          ]}
+        />
+      </UiProvider>
+    );
+    const banner = screen.getByRole('region', { name: 'Today' });
+    for (const [label, value] of [['Tasks waiting', '6'], ['Unread', '2'], ['Plain', '0']] as const) {
+      const term = within(banner).getByText(label);
+      expect(term.tagName).toBe('DT');
+      expect(term.nextElementSibling).toHaveTextContent(value);
+    }
+    await expectNoAxeViolations(container);
   });
 });
 

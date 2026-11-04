@@ -89,9 +89,15 @@ const FORM = [
   },
 ];
 
-/** Picks an option of the renderer's Select by its label. */
+/**
+ * Picks an option of the renderer's select by its label: an earlier select is a button named by
+ * its value, then the label; an asf one (the address) a combobox named by the label.
+ */
 async function pick(page: Page, label: string, option: string) {
-  await page.getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) }).click();
+  await page
+    .getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) })
+    .or(page.getByRole('combobox', { name: new RegExp(`^${label}`) }))
+    .click();
   await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
   await expect(page.getByRole('listbox')).toHaveCount(0);
 }

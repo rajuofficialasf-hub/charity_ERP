@@ -27,6 +27,13 @@ describe('the MUI theme of the set', () => {
     expect(theme.typography.button.textTransform).toBe('none');
   });
 
+  it('opens its dialogs and drawers above the app bar and the bottom tabs of the shell', () => {
+    expect(theme.zIndex.modal).toBeGreaterThan(theme.zIndex.appBar);
+    expect(theme.zIndex.drawer).toBeGreaterThan(theme.zIndex.appBar);
+    // the asf shell draws its bar and tabs at MUI's app bar layer
+    expect(theme.zIndex.modal).toBeGreaterThan(1100 + 1);
+  });
+
   it('keeps the radius, the 4 px spacing and the breakpoints of the design system', () => {
     expect(theme.shape.borderRadius).toBe(8);
     expect(SPACING_PX).toBe(4);

@@ -69,9 +69,15 @@ export async function settled(page: Page) {
   );
 }
 
-/** Picks the first choice of a select, or the named one, on the applicant's page. */
+/**
+ * Picks the first choice of a select, or the named one, on the applicant's page: an earlier select
+ * is a button, an asf one (the address) a combobox.
+ */
 export async function pick(page: Page, scope: Locator, label: RegExp, option?: string) {
-  await scope.getByRole('button', { name: label }).click();
+  await scope
+    .getByRole('button', { name: label })
+    .or(scope.getByRole('combobox', { name: label }))
+    .click();
   const list = page.getByRole('listbox');
   await (
     option

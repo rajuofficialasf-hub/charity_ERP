@@ -10,7 +10,8 @@
   margin-top: calc(-1 * var(--app-bar-height));
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  background: var(--color-bg-canvas);
+  /* the asf page colour, on which the asf fields' labels are readable in both modes */
+  background: var(--asf-palette-background-default, var(--color-bg-canvas));
 }
 
 /* ---- the brand panel ---- */
@@ -80,6 +81,15 @@
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.94);
   font-size: var(--text-caption);
+}
+/* words for screen readers only */
+.register-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 /* the steps: on a phone for screen readers only, the progress bar of the form shows the place */
 .register-steps {

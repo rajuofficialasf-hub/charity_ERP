@@ -250,7 +250,7 @@ export function RegisterPage() {
               <p className="register-muted">{t(`hint.${key}`)}</p>
             </div>
             <fieldset className="register-section">
-              <legend className="ui-sr-only">{stepNames[step]}</legend>
+              <legend className="register-sr-only">{stepNames[step]}</legend>
               {key === 'contact' && (
                 <ContactStep
                   kind={kind}
@@ -344,7 +344,7 @@ function RegisterBrand(props: {
                 {i < current ? <Icon name="check" size={14} /> : i + 1}
               </span>
               <span>{name}</span>
-              {i < current && <span className="ui-sr-only">{t('step_done')}</span>}
+              {i < current && <span className="register-sr-only">{t('step_done')}</span>}
             </li>
           ))}
         </ol>

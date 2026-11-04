@@ -83,12 +83,9 @@ export function createUiTheme(linkComponent?: ElementType): Theme {
       values: { xs: 0, sm: BREAKPOINTS.sm, md: BREAKPOINTS.lg, lg: BREAKPOINTS.xl, xl: 1536 },
     },
     shadows: shadows(),
-    zIndex: {
-      appBar: Number(ROOT_TOKENS['z-nav']),
-      drawer: Number(ROOT_TOKENS['z-drawer']),
-      modal: Number(ROOT_TOKENS['z-modal']),
-      snackbar: Number(ROOT_TOKENS['z-toast']),
-    },
+    // MUI's own layers, the ones the asf shell uses: a dialog or drawer of a page not yet moved
+    // opens above the asf app bar and bottom tabs (1100), not under them
+    zIndex: { appBar: 1100, drawer: 1200, modal: 1300, snackbar: 1400 },
     components: linkComponent
       ? {
           MuiButtonBase: { defaultProps: { LinkComponent: linkComponent } },

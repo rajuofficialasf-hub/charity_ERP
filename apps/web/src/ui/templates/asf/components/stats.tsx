@@ -1,33 +1,25 @@
 import type { StatCardProps, ProgressStatProps, SummaryBannerProps } from '@/ui/contract';
 
+import { Link as RouterLink } from 'react-router';
+
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import CardActionArea from '@mui/material/CardActionArea';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { Icon } from './icon';
 import { Avatar } from './display';
 import { toneVars, toneAlpha } from './tone';
+import { appPath } from './shared';
 
 // ----------------------------------------------------------------------
 
-/** One figure and its label, with the icon in a tinted corner. */
-export function StatCard({ label, value, icon, tone = 'primary', variant = 'plain' }: StatCardProps) {
-  return (
-    <Card
-      sx={(theme) => {
-        const t = toneVars(theme, tone);
-        return {
-          p: 3,
-          overflow: 'hidden',
-          minHeight: 116,
-          ...(variant === 'tinted' && {
-            boxShadow: 'none',
-            border: `1px solid ${toneAlpha(t.channel, 0.4)}`,
-            bgcolor: toneAlpha(t.channel, 0.06),
-          }),
-        };
-      }}
-    >
+/** One figure and its label, with the icon in a tinted corner; with `to` the whole card is a link. */
+export function StatCard({ label, value, icon, tone = 'primary', variant = 'plain', to }: StatCardProps) {
+  const path = appPath(to);
+  const box = { p: 3, minHeight: 116 };
+  const body = (
+    <>
       {icon && (
         <Box
           aria-hidden
@@ -52,9 +44,36 @@ export function StatCard({ label, value, icon, tone = 'primary', variant = 'plai
       )}
       <Box sx={{ typography: 'h3', fontSize: '1.75rem', lineHeight: 1.3, pr: icon ? 7 : 0 }}>{value}</Box>
       <Box sx={{ typography: 'body2', color: 'text.secondary', mt: 1 }}>{label}</Box>
+    </>
+  );
+  return (
+    <Card
+      sx={(theme) => {
+        const t = toneVars(theme, tone);
+        return {
+          ...(!path && box),
+          position: 'relative',
+          overflow: 'hidden',
+          ...(variant === 'tinted' && {
+            boxShadow: 'none',
+            border: `1px solid ${toneAlpha(t.channel, 0.4)}`,
+            bgcolor: toneAlpha(t.channel, 0.06),
+          }),
+        };
+      }}
+    >
+      {path ? (
+        <CardActionArea component={RouterLink} to={path} sx={{ ...box, display: 'block', height: '100%' }}>
+          {body}
+        </CardActionArea>
+      ) : (
+        body
+      )}
     </Card>
   );
 }
+
+// ----------------------------------------------------------------------
 
 /** A figure with a ring showing its share of a whole. */
 export function ProgressStat({ label, value, percent, tone = 'primary' }: ProgressStatProps) {
@@ -128,51 +147,73 @@ export function SummaryBanner({ title, subtitle, avatar, items }: SummaryBannerP
           bgcolor: 'rgba(0 0 0 / 0.08)',
         }}
       >
-        {items.map((item) => (
-          <Box
-            key={item.label}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
-              px: 3,
-              py: 2,
-              borderRight: { md: '1px solid rgba(255 255 255 / 0.14)' },
-              '&:last-of-type': { borderRight: 0 },
-            }}
-          >
-            {item.icon ? (
-              <Box
-                sx={{
-                  display: 'grid',
-                  placeItems: 'center',
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  border: '1px solid rgba(255 255 255 / 0.32)',
-                  flexShrink: 0,
-                }}
-              >
-                <Icon name={item.icon} size={20} />
-              </Box>
-            ) : (
-              item.tone && (
-                <Box
-                  aria-hidden
-                  sx={(theme) => ({ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, bgcolor: toneVars(theme, item.tone).light })}
-                />
-              )
-            )}
-            <Box sx={{ minWidth: 0 }}>
-              <Box component="dt" sx={{ typography: 'caption', opacity: 0.8, whiteSpace: 'nowrap' }}>
+        {items.map((item) => {
+          // a list of terms holds only its terms and values: the mark sits inside the term, placed
+          // beside both lines from the item's padding
+          const mark = item.icon ? 36 : item.tone ? 10 : 0;
+          return (
+            <Box
+              key={item.label}
+              sx={{
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                minWidth: 0,
+                py: 2,
+                pr: { xs: 2, md: 3 },
+                pl: mark ? { xs: `calc(16px + ${mark}px + 8px)`, md: `calc(24px + ${mark}px + 12px)` } : { xs: 2, md: 3 },
+                minHeight: 68,
+                borderRight: { md: '1px solid rgba(255 255 255 / 0.14)' },
+                '&:last-of-type': { borderRight: 0 },
+              }}
+            >
+              {/* a name wraps in a phone's half-width column instead of being cut */}
+              <Box component="dt" sx={{ typography: 'caption', opacity: 0.8, whiteSpace: { xs: 'normal', md: 'nowrap' } }}>
+                {item.icon ? (
+                  <Box
+                    component="span"
+                    sx={{
+                      position: 'absolute',
+                      left: { xs: 16, md: 24 },
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      border: '1px solid rgba(255 255 255 / 0.32)',
+                    }}
+                  >
+                    <Icon name={item.icon} size={20} />
+                  </Box>
+                ) : (
+                  item.tone && (
+                    <Box
+                      component="span"
+                      aria-hidden
+                      sx={(theme) => ({
+                        position: 'absolute',
+                        left: { xs: 16, md: 24 },
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        bgcolor: toneVars(theme, item.tone).light,
+                      })}
+                    />
+                  )
+                )}
                 {item.label}
               </Box>
               <Box component="dd" sx={{ m: 0, typography: 'subtitle2', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 {item.value}
               </Box>
             </Box>
-          </Box>
-        ))}
+          );
+        })}
       </Box>
     </Box>
   );

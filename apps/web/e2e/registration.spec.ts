@@ -43,9 +43,9 @@ function personFor(info: TestInfo) {
 }
 type Person = ReturnType<typeof personFor>;
 
-/** Picks from a Select; its button is named by the current value, then the label. */
+/** Picks from a select, a combobox named by its label. */
 async function choose(page: Page, label: RegExp, option?: string) {
-  await page.getByRole('button', { name: label }).click();
+  await page.getByRole('combobox', { name: label }).click();
   const list = page.getByRole('listbox');
   const choice = option
     ? list.getByRole('option', { name: option, exact: true })

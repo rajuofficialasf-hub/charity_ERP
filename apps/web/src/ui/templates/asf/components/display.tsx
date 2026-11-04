@@ -104,7 +104,8 @@ export function Chip({ children, tone = 'neutral', variant = 'soft', size = 'sma
             ? { bgcolor: t.main, color: tone === 'neutral' ? theme.vars.palette.common.white : theme.vars.palette[tone].contrastText }
             : variant === 'outline'
               ? { border: `1px solid ${toneAlpha(t.channel, 0.48)}`, color: t.dark, ...theme.applyStyles('dark', { color: t.light }) }
-              : { bgcolor: toneAlpha(t.channel, 0.16), color: t.dark, ...theme.applyStyles('dark', { color: t.light }) };
+              : // the darkest shade on the tint: the dark one reads 3.6:1 for warning
+                { bgcolor: toneAlpha(t.channel, 0.16), color: t.darker, ...theme.applyStyles('dark', { color: t.light }) };
         return {
           display: 'inline-flex',
           alignItems: 'center',

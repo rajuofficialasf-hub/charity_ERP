@@ -678,6 +678,8 @@ export type StatCardProps = {
   tone?: ColorTone;
   /** "tinted" fills the card with the tone's light shade and outlines it. */
   variant?: "plain" | "tinted";
+  /** The whole card is a link to this app path, for example the list the figure counts. */
+  to?: string;
 };
 
 /** A figure with a ring that shows how much of a whole it is. `percent` is 0–100, clamped and rounded. */

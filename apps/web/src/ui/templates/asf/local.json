@@ -127,6 +127,21 @@
       ],
       "note": "the shell of a field app: the phone's tabs and the tablet's rail in place of the drawer (and the rail on every width for a person without sidebar groups), a count beside a link and in its name (99+ above 99), the app's own rule for the current page, a slot left in the header for the trail or the brand, a banner slot under the header, and a footer under the sidebar's links; built for the CSS ERP; its look is in the shell spec's pictures of the running app",
       "screenshot": null
+    },
+    {
+      "name": "Spinner, Button end icon, StatCard link, SummaryBanner figures, readable chips, counts and error text",
+      "files": [
+        "components/progress.tsx",
+        "components/button.tsx",
+        "components/stats.tsx",
+        "components/display.tsx",
+        "components/text.tsx",
+        "components/shell/nav-section.tsx",
+        "components/shell/bottom-nav.tsx",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "a small named spinner for a wait inside a field, an icon after a button's words (the next step), a figure card that opens the list it counts, and the summary banner's figures as a valid list of terms and values with the icon inside the term; built for the CSS ERP; the soft chip's words take the darkest shade of their tone, the counts of the navigation the dark red with white, and an error in words the dark red (the light one in dark mode), because the kit's shades read 3.2 to 3.6:1"
     }
   ]
 }

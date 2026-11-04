@@ -31,7 +31,7 @@ function Badge({ count }: { count: number }) {
         height: 18,
         px: 0.5,
         borderRadius: 9,
-        bgcolor: 'error.main',
+        bgcolor: 'error.dark',
         color: 'error.contrastText',
         typography: 'caption',
         fontSize: 11,

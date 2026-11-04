@@ -16,10 +16,14 @@ export const state = (page: Page, badge: string): Locator =>
   page.getByTestId('project-state').getByText(badge, { exact: true });
 export const next = (page: Page) => page.getByRole('button', { name: 'পরের ধাপ' });
 
-/** Picks an option of a Select inside a part of the page. */
+/** Picks an option of a select inside a part of the page. */
 export async function chooseIn(page: Page, scope: Locator, label: string, option: string) {
-  // the name is the value, then the label, then "(আবশ্যক)" for a required field
-  await scope.getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) }).click();
+  // an earlier select is a button named by the value, then the label, then "(আবশ্যক)" for a
+  // required field; an asf one (the address) a combobox named by the label
+  await scope
+    .getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) })
+    .or(scope.getByRole('combobox', { name: new RegExp(`^${label}`) }))
+    .click();
   await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
   await expect(page.getByRole('listbox')).toHaveCount(0);
 }

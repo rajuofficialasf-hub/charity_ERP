@@ -20,7 +20,8 @@ import { activeProject, code, ERR } from './support/projects';
 // through the API, so no other spec decides whether a record page exists; the volunteer and the
 // beneficiary come from the demo seed. The sign-in goes through the API with the language already
 // chosen on the device, because the login form would otherwise write the language onto the shared
-// account and change what the other specs see (docs/testing/DEMO_ACCOUNTS.md).
+// account and change what the other specs see (docs/testing/DEMO_ACCOUNTS.md). The sign-in,
+// registration and home pages are swept in dark mode too.
 const LANGUAGES = ['bn', 'en'] as const;
 type Lang = (typeof LANGUAGES)[number];
 const PM = 'pm.err@example.org';
@@ -116,6 +117,15 @@ test.describe('accessibility of the Phase 1 screens', () => {
       await sweep(page, '/invite#not-a-link-of-this-run', lang);
       // a public application link that takes nothing shows its one plain page
       await sweep(page, '/apply/not-a-link-of-this-run-0123456789', lang);
+    });
+
+    test(`the sign-in, registration and home pages in dark mode, in ${lang}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: 'dark' });
+      for (const path of ['/login', '/login/reset', '/register']) await sweep(page, path, lang);
+      await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'dark');
+      // the Department Head only reads, so the account may be shared with the other projects
+      await signInAs(page, HEAD, lang);
+      await sweep(page, '/', lang);
     });
 
     test(`a volunteer, in ${lang}`, async ({ browser, page, request }) => {

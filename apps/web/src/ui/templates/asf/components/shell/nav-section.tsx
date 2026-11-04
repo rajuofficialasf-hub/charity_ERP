@@ -27,7 +27,7 @@ function Count({ count }: { count: number }) {
     <Box
       component="span"
       aria-hidden
-      sx={{ minWidth: 22, height: 22, px: 0.75, borderRadius: 11, bgcolor: 'error.main', color: 'error.contrastText', typography: 'caption', fontWeight: 700, lineHeight: '22px', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
+      sx={{ minWidth: 22, height: 22, px: 0.75, borderRadius: 11, bgcolor: 'error.dark', color: 'error.contrastText', typography: 'caption', fontWeight: 700, lineHeight: '22px', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
     >
       {badgeText(count)}
     </Box>
@@ -226,7 +226,7 @@ function MiniRow({ item }: { item: ExtendedNavItem }) {
       {item.icon && <Icon name={item.icon} />}
       <span aria-hidden>{item.label}</span>
       {item.count ? (
-        <Box component="span" aria-hidden sx={{ position: 'absolute', top: 4, right: 8, minWidth: 18, height: 18, px: 0.5, borderRadius: 9, bgcolor: 'error.main', color: 'error.contrastText', fontSize: 10, lineHeight: '18px', fontWeight: 700, width: 'auto !important' }}>
+        <Box component="span" aria-hidden sx={{ position: 'absolute', top: 4, right: 8, minWidth: 18, height: 18, px: 0.5, borderRadius: 9, bgcolor: 'error.dark', color: 'error.contrastText', fontSize: 10, lineHeight: '18px', fontWeight: 700, width: 'auto !important' }}>
           {badgeText(item.count)}
         </Box>
       ) : null}

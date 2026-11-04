@@ -231,7 +231,10 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     const nextPart = form.getByRole('button', { name: 'পরের অংশ' });
     const male = form.getByRole('textbox', { name: /পুরুষ সদস্য/ });
     for (let i = 0; i < 12 && !(await male.isVisible()); i += 1) {
-      if (await form.getByRole('button', { name: /(^|\s)বিভাগ/ }).isVisible()) {
+      const division = form
+        .getByRole('button', { name: /(^|\s)বিভাগ/ })
+        .or(form.getByRole('combobox', { name: /(^|\s)বিভাগ/ }));
+      if (await division.isVisible()) {
         await pick(applicant, form, /(^|\s)বিভাগ/, 'ঢাকা');
         await pick(applicant, form, /(^|\s)জেলা/, 'ঢাকা');
         await pick(applicant, form, /(^|\s)উপজেলা/, 'সাভার');

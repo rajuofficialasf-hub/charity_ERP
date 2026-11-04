@@ -124,7 +124,7 @@ export function ContactStep({
           <div>
             <p className="register-notice-title">{t('verify.notice_title')}</p>
             <Text>{t('verify.notice')}</Text>
-            {DUMMY_OTP_NOTE && <Text tone="muted">{t('dummy_note')}</Text>}
+            {DUMMY_OTP_NOTE && <Text size="small">{t('dummy_note')}</Text>}
           </div>
         </div>
       )}

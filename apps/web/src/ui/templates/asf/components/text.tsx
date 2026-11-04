@@ -15,11 +15,16 @@ export function Heading({ children, level = 2 }: HeadingProps) {
   );
 }
 
-const TONE = { default: 'text.primary', muted: 'text.secondary', error: 'error.main' } as const;
+// An error in words takes the dark red (the main red reads 3.2:1 on white), the light one in dark mode.
+const TONE = {
+  default: { color: 'text.primary' },
+  muted: { color: 'text.secondary' },
+  error: { color: 'error.dark', '[data-color-scheme="dark"] &': { color: 'error.light' } },
+} as const;
 
 export function Text({ children, tone = 'default', size = 'body' }: TextProps) {
   return (
-    <Typography variant={size === 'small' ? 'body2' : 'body1'} sx={{ color: TONE[tone], textWrap: 'pretty' }}>
+    <Typography variant={size === 'small' ? 'body2' : 'body1'} sx={{ ...TONE[tone], textWrap: 'pretty' }}>
       {children}
     </Typography>
   );
