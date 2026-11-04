@@ -1,6 +1,7 @@
 import type { ButtonProps as MuiButtonProps } from '@mui/material/Button';
 import type { LinkButtonProps, ButtonExtendedProps } from '@/ui/contract';
 
+import { useEffect, useRef } from 'react';
 import { Link as RouterLink } from 'react-router';
 
 import MuiButton from '@mui/material/Button';
@@ -50,8 +51,30 @@ function useLook({ variant = 'primary', startIcon, endIcon, fullWidth }: Look): 
 
 export function Button({ children, onClick, type = 'button', disabled, loading, size = 'medium', ariaLabel, ...look }: ButtonExtendedProps) {
   const props = useLook(look);
+  const ref = useRef<HTMLButtonElement>(null);
+  // a loading button is disabled, which drops the keyboard's focus to the page (out of a dialog,
+  // where Escape then no longer reaches it); the button takes the focus back when it is done
+  const lostToLoading = useRef(false);
+  useEffect(() => {
+    if (loading || !lostToLoading.current) return;
+    lostToLoading.current = false;
+    const active = document.activeElement;
+    if (!active || active === document.body) ref.current?.focus();
+  }, [loading]);
   return (
-    <MuiButton {...props} type={type} onClick={onClick} disabled={disabled} loading={loading} size={size} aria-label={ariaLabel}>
+    <MuiButton
+      {...props}
+      ref={ref}
+      type={type}
+      onClick={onClick}
+      onBlur={() => {
+        lostToLoading.current = Boolean(loading);
+      }}
+      disabled={disabled}
+      loading={loading}
+      size={size}
+      aria-label={ariaLabel}
+    >
       {children}
     </MuiButton>
   );

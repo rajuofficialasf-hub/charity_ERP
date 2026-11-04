@@ -162,6 +162,14 @@
         "../../contract.ts"
       ],
       "note": "a date shows day-month-year in English digits (DD-MM-YYYY, as the app writes every date) instead of the kit's \"DD MMM YYYY\", and the picker's own words (the parts of a date, the calendar's buttons) come from the labels, so a Bengali page reads them in Bengali; built for the CSS ERP"
+    },
+    {
+      "name": "Button that keeps the keyboard's focus, DataTable that scrolls sideways by keyboard",
+      "files": [
+        "components/button.tsx",
+        "components/data-table.tsx"
+      ],
+      "note": "a loading button is disabled, which drops the focus to the page (out of a dialog, where Escape then no longer reaches it): the button takes it back when its work ends, unless the person moved it; a table wider than its box makes the box a named region in the tab order, so the columns out of view can be reached without a pointer (the permission panel's effective permissions); built for the CSS ERP; no gallery picture of its own: the notification texts and permission specs check them in the browser"
     }
   ]
 }

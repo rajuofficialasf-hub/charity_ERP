@@ -11,7 +11,7 @@ import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
-import { act, render, screen, within, cleanup } from '@testing-library/react';
+import { act, render, screen, within, cleanup, fireEvent } from '@testing-library/react';
 
 import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
 import { Button, BulkRow, BulkList, Disclosure, IconButton, UiProvider, StatusChip, ChoiceTiles, AttentionCard, OfflineBanner, StatFilterBar, StatCard, SummaryBanner, Alert, Tabs } from './index';
@@ -463,5 +463,46 @@ describe('the state pieces under a page that renders again', () => {
   it('makes no link of an address outside the app', () => {
     renderInApp(<AttentionCard icon="bell" title="Open this" to="javascript:alert(1)" />);
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+});
+
+describe('the loading button', () => {
+  function Saving() {
+    const [loading, setLoading] = useState(false);
+    return (
+      <UiProvider>
+        <Button loading={loading} onClick={() => setLoading(true)}>
+          Preview
+        </Button>
+        <button type="button" onClick={() => setLoading(false)}>
+          Done
+        </button>
+      </UiProvider>
+    );
+  }
+
+  /** Starts the work; the browser then drops the focus off the disabled button (jsdom does not). */
+  async function start() {
+    render(<Saving />);
+    const preview = screen.getByRole('button', { name: 'Preview' });
+    await userEvent.setup().click(preview);
+    fireEvent.blur(preview);
+    return { preview, focus: vi.spyOn(preview, 'focus'), done: screen.getByRole('button', { name: 'Done' }) };
+  }
+
+  it('takes the focus back when its work is done and the focus fell to the page', async () => {
+    const { focus, done } = await start();
+    const active = vi.spyOn(document, 'activeElement', 'get').mockReturnValue(document.body);
+    act(() => done.click());
+    active.mockRestore();
+    expect(focus).toHaveBeenCalled();
+  });
+
+  it('leaves the focus where the person moved it meanwhile', async () => {
+    const { focus, done } = await start();
+    const active = vi.spyOn(document, 'activeElement', 'get').mockReturnValue(done);
+    act(() => done.click());
+    active.mockRestore();
+    expect(focus).not.toHaveBeenCalled();
   });
 });

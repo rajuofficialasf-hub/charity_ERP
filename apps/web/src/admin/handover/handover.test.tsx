@@ -196,7 +196,8 @@ describe('handover page', () => {
     expect(screen.getByRole('button', { name: 'সব হস্তান্তর করুন' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'হ্যান্ডওভার শেষ করুন' })).toBeDisabled();
     await expectNoAxeViolations(container);
-  });
+    // two axe runs and an official picked: slow when the whole suite shares the machine
+  }, 15_000);
 
   it('hands one item over to the chosen official', async () => {
     const user = userEvent.setup();

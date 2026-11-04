@@ -111,6 +111,34 @@ describe('the table', () => {
     expect(within(table).getByRole('button', { name: 'Open Rahim Uddin' })).toBeInTheDocument();
   });
 
+  it('lets the keyboard reach a table wider than its box, and only then', () => {
+    stubWidth(false);
+    const wide = { value: false };
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        disconnect() {}
+      }
+    );
+    const scrollWidth = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(() => (wide.value ? 900 : 300));
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => 300);
+    try {
+      renderTable();
+      expect(screen.queryByRole('region', { name: 'Volunteers' })).not.toBeInTheDocument();
+      cleanup();
+      wide.value = true;
+      renderTable();
+      const box = screen.getByRole('region', { name: 'Volunteers' });
+      expect(box).toHaveAttribute('tabindex', '0');
+      expect(within(box).getByRole('table', { name: 'Volunteers' })).toBeInTheDocument();
+    } finally {
+      scrollWidth.mockRestore();
+      clientWidth.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('reports the selected ids and shows the bulk actions while any is selected', async () => {
     stubWidth(false);
     const user = userEvent.setup();

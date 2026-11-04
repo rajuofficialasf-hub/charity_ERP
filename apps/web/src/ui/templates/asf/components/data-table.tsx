@@ -1,8 +1,8 @@
 import type { Theme, SxProps } from '@mui/material/styles';
-import type { ReactNode, MouseEvent, KeyboardEvent } from 'react';
+import type { ReactNode, MouseEvent, KeyboardEvent, RefObject } from 'react';
 import type { Pagination as PaginationProps, CursorPagination, DataTableExtendedProps, DataTableExtendedColumn } from '@/ui/contract';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -22,6 +22,22 @@ import TablePagination from '@mui/material/TablePagination';
 import { Icon } from './icon';
 import { fill, useLabels } from './labels';
 import { EmptyState, LoadingState } from './states';
+
+/** Whether the box is narrower than what it holds, kept current as either changes size; `shown` re-reads it when the box comes back. */
+function useScrollsSideways(ref: RefObject<HTMLElement | null>, shown: boolean): boolean {
+  const [scrolls, setScrolls] = useState(false);
+  useEffect(() => {
+    const box = ref.current;
+    if (!box || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setScrolls(box.scrollWidth > box.clientWidth);
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    if (box.firstElementChild) observer.observe(box.firstElementChild);
+    measure();
+    return () => observer.disconnect();
+  }, [ref, shown]);
+  return scrolls;
+}
 
 // ----------------------------------------------------------------------
 
@@ -96,6 +112,8 @@ export function DataTable<Row>({
   const labels = useLabels();
   const phone = useMediaQuery((theme: Theme) => theme.breakpoints.down('md'), { noSsr: true });
   const asCards = Boolean(cardRenderer) && phone;
+  const scrollBox = useRef<HTMLDivElement>(null);
+  const scrolls = useScrollsSideways(scrollBox, !asCards);
   const [selection, select] = useSelection(selectedIds, onSelectionChange);
   const ids = rows.map(getRowId);
   const multiple = selectionMode === 'multiple';
@@ -134,8 +152,10 @@ export function DataTable<Row>({
   // the selection may hold rows of other pages: the count and the bulk actions cover all of it
   const selectedCount = selection.size;
 
+  // a table wider than its box scrolls sideways: the box then takes the keyboard's focus and a
+  // name, so the columns out of view can be reached without a pointer
   const table = (
-    <Box sx={{ overflowX: 'auto' }}>
+    <Box ref={scrollBox} sx={{ overflowX: 'auto' }} {...(scrolls ? { tabIndex: 0, role: 'region', 'aria-label': label } : {})}>
       <Table aria-label={label} aria-busy={loading ? true : undefined} size={dense ? 'small' : 'medium'} sx={{ minWidth: span > 4 ? 640 : undefined }}>
         <TableHead>
           <TableRow>
