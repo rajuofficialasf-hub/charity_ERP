@@ -2,22 +2,20 @@ import { formatDate, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
   Card,
+  Chip,
+  DataTable,
+  type DataTableExtendedColumn,
   DateField,
-  EmptyState,
-  ErrorState,
-  Table,
-  type TableColumn,
-  TableToolbar,
+  FilterBar,
+  IconButton,
+  Page,
+  PersonCell,
   Text,
   TextField,
-  PageHeader,
-  PersonCell,
-} from '@css/ui';
+} from '@/ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Eye, ScrollText } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -30,17 +28,18 @@ import { type PanelUser, UserSearch } from '../UserSearch';
 import { AuditDetail } from './AuditDetail';
 import { AUDIT_FILTERS, AUDIT_KEY, type AuditEntry, auditPage } from './audit-api';
 import './audit.css';
+import { LoadError } from '../../components/LoadError';
 
 /** A code typed into a filter, committed when the field is left (not on every key). */
 function CodeFilter({
   label,
-  helper,
+  hint,
   value,
   pattern,
   onCommit,
 }: {
   label: string;
-  helper: string;
+  hint: string;
   value: string | undefined;
   pattern: RegExp;
   onCommit: (value: string | undefined) => void;
@@ -63,13 +62,13 @@ function CodeFilter({
   return (
     <TextField
       label={label}
-      helper={helper}
+      hint={hint}
       lang="en"
       maxLength={100}
       value={text}
       onChange={setText}
       onBlur={commit}
-      error={invalid ? helper : undefined}
+      error={invalid ? hint : undefined}
     />
   );
 }
@@ -84,9 +83,8 @@ function CodeFilter({
 export function AuditPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.audit');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
-  const { filters, setFilters, change, cursor, setCursor, activeCount } = useTabView(AUDIT_FILTERS);
+  const { filters, setFilters, change, cursor, setCursor } = useTabView(AUDIT_FILTERS);
   const [open, setOpen] = useState<AuditEntry | null>(null);
   const [actor, setActor] = useState<PanelUser | null>(null);
   const allowed = Boolean(me && canAdministerSystem(me));
@@ -102,7 +100,7 @@ export function AuditPage() {
   const rows = page.data?.data ?? [];
   const meta = page.data?.meta;
   const actorName = (e: AuditEntry) => (e.actor ? e.actor.name : t('system'));
-  const columns: TableColumn<AuditEntry>[] = [
+  const columns: DataTableExtendedColumn<AuditEntry>[] = [
     {
       id: 'time',
       header: t('column.time'),
@@ -140,20 +138,21 @@ export function AuditPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader
+      <Page
         eyebrow={t('eyebrow')}
         title={t('title')}
         description={t('description')}
-        meta={
-          meta && (
-            <Badge
-              tone="neutral"
-              label={t('range', { from: formatDate(meta.from), to: formatDate(meta.to) })}
-            />
-          )
-        }
+        documentTitle={false}
       />
-      <Card accent title={t('note.title')} headingLevel={2}>
+      {/* the range of days the server read, under the heading as the earlier header showed it */}
+      {meta && (
+        <div>
+          <Chip tone="neutral">
+            {t('range', { from: formatDate(meta.from), to: formatDate(meta.to) })}
+          </Chip>
+        </div>
+      )}
+      <Card title={t('note.title')} headingLevel={2}>
         <Text tone="muted">{t('note.body')}</Text>
       </Card>
       {filters.entityId && (
@@ -161,9 +160,9 @@ export function AuditPage() {
           tone="info"
           action={
             <Button
-              variant="ghost"
-              size="sm"
-              onPress={() =>
+              variant="text"
+              size="small"
+              onClick={() =>
                 change({ entityType: undefined, entityId: undefined, from: undefined })
               }
             >
@@ -174,83 +173,73 @@ export function AuditPage() {
           {t('history_of', { type: filters.entityType ?? '', id: filters.entityId })}
         </Alert>
       )}
-      <Table
-        layout="panel"
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={rows}
-        rowKey={(e) => e.id}
+        getRowId={(e) => e.id}
         rowLabel={(e) => `${formatDateTime(e.createdAt, locale)} ${e.action}`}
         loading={page.isPending}
         error={
           page.error && !rangeError ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={page.error instanceof ApiFailure ? page.error.requestId : undefined}
-              onRetry={() => void page.refetch()}
-            />
+            <LoadError error={page.error} onRetry={() => void page.refetch()} />
           ) : undefined
         }
-        emptyState={
-          <EmptyState icon={ScrollText} title={rangeError ?? t('empty')} headingLevel={2} />
-        }
+        emptyTitle={rangeError ?? t('empty')}
         rowActions={(e) => (
-          <Button variant="ghost" size="sm" icon={Eye} iconOnly onPress={() => setOpen(e)}>
-            {t('open', { action: e.action })}
-          </Button>
+          <IconButton
+            label={t('open', { action: e.action })}
+            icon="eye"
+            onClick={() => setOpen(e)}
+          />
         )}
         toolbar={
-          <TableToolbar
-            activeFilterCount={activeCount()}
+          <FilterBar
             onClearFilters={() => {
               setActor(null);
               setFilters({});
             }}
-            filters={
-              <>
-                <UserSearch
-                  label={t('filter.actor')}
-                  selected={selectedActor}
-                  onSelect={(user) => {
-                    setActor(user);
-                    change({ actorUserId: user?.id });
-                  }}
-                />
-                <CodeFilter
-                  label={t('filter.action')}
-                  helper={t('filter.action_hint')}
-                  value={filters.action}
-                  pattern={/^[a-z_.]{2,100}$/}
-                  onCommit={(action) => change({ action })}
-                />
-                <CodeFilter
-                  label={t('filter.entity_type')}
-                  helper={t('filter.entity_type_hint')}
-                  value={filters.entityType}
-                  pattern={/^[a-z_]{2,64}$/}
-                  onCommit={(entityType) => change({ entityType, entityId: undefined })}
-                />
-                <DateField
-                  label={t('filter.from')}
-                  value={filters.from ?? null}
-                  onChange={(from) => change({ from: from ?? undefined })}
-                  error={rangeError}
-                />
-                <DateField
-                  label={t('filter.to')}
-                  value={filters.to ?? null}
-                  onChange={(to) => change({ to: to ?? undefined })}
-                />
-              </>
-            }
-          />
+          >
+            <>
+              <UserSearch
+                label={t('filter.actor')}
+                selected={selectedActor}
+                onSelect={(user) => {
+                  setActor(user);
+                  change({ actorUserId: user?.id });
+                }}
+              />
+              <CodeFilter
+                label={t('filter.action')}
+                hint={t('filter.action_hint')}
+                value={filters.action}
+                pattern={/^[a-z_.]{2,100}$/}
+                onCommit={(action) => change({ action })}
+              />
+              <CodeFilter
+                label={t('filter.entity_type')}
+                hint={t('filter.entity_type_hint')}
+                value={filters.entityType}
+                pattern={/^[a-z_]{2,64}$/}
+                onCommit={(entityType) => change({ entityType, entityId: undefined })}
+              />
+              <DateField
+                label={t('filter.from')}
+                value={filters.from ?? ''}
+                onChange={(from) => change({ from: from || undefined })}
+                error={rangeError}
+              />
+              <DateField
+                label={t('filter.to')}
+                value={filters.to ?? ''}
+                onChange={(to) => change({ to: to || undefined })}
+              />
+            </>
+          </FilterBar>
         }
-        pagination={
+        cursorPagination={
           meta
             ? {
-                shown: rows.length,
-                // no total for this list: "25+" while another page follows
-                total: meta.nextCursor ? `${rows.length}+` : rows.length,
                 hasNext: meta.nextCursor !== null,
                 hasPrevious: meta.prevCursor !== null,
                 onNext: () => setCursor(meta.nextCursor),
@@ -263,7 +252,7 @@ export function AuditPage() {
             <strong>{formatDateTime(e.createdAt, locale)}</strong>
             <span>{actorName(e)}</span>
             <code lang="en">{e.action}</code>
-            <Button variant="secondary" size="sm" onPress={() => setOpen(e)}>
+            <Button variant="secondary" size="small" onClick={() => setOpen(e)}>
               {t('open_short')}
             </Button>
           </div>
