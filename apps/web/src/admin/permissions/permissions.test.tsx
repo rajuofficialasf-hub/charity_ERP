@@ -104,9 +104,7 @@ describe('permission panel', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('অ্যাক্সেস কন্ট্রোল')).toBeInTheDocument();
     // before a choice: what to do, and the rule of the least access beside it
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'একজন ব্যবহারকারী বেছে নিন' }),
-    ).toBeInTheDocument();
+    expect(screen.getByText('একজন ব্যবহারকারী বেছে নিন')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 2, name: 'যতটুকু দরকার, ততটুকু' }),
     ).toBeInTheDocument();
@@ -148,7 +146,7 @@ describe('permission panel', () => {
     const dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
     await user.type(within(dialog).getByRole('combobox', { name: /পারমিশন/ }), 'permission.view');
     await user.click(await screen.findByRole('option', { name: 'permission.view' }));
-    await user.click(within(dialog).getByRole('button', { name: /স্কোপ/ }));
+    await user.click(within(dialog).getByRole('combobox', { name: /স্কোপ/ }));
     await user.click(await screen.findByRole('option', { name: 'সারা দেশ (GLOBAL)' }));
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'Monitoring help');
     await user.click(within(dialog).getByRole('button', { name: 'দিন' }));

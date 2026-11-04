@@ -1,5 +1,5 @@
 import { programCode } from '@css/shared/projects';
-import { Alert, Button, Modal, Switch, TextField } from '@css/ui';
+import { Alert, Button, Dialog, Switch, TextField } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -21,13 +21,13 @@ import {
  */
 export function ProgramDialog({
   program,
-  isOpen,
+  open,
   onClose,
   onDone,
 }: {
   /** The program to edit; absent for a new one. */
   program?: Program;
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
   onDone: (program: Program) => void;
 }) {
@@ -83,31 +83,29 @@ export function ProgramDialog({
     nameEn.trim() !== '' &&
     (program ? version.data !== undefined : code !== '');
   return (
-    <Modal
+    <Dialog
       title={program ? t('edit_title', { code: program.code }) : t('create_title')}
-      isOpen={isOpen}
+      open={open}
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={save.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={submit} disabled={!ready} loading={save.isPending}>
-          {tc('save')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button onClick={submit} disabled={!ready} loading={save.isPending}>
+            {tc('save')}
+          </Button>
+        </>
       }
     >
       {save.error instanceof ApiFailure && (
-        <Alert tone="danger" live="alert">
-          {save.error.details[0]?.message ?? save.error.message}
-        </Alert>
+        <Alert tone="error">{save.error.details[0]?.message ?? save.error.message}</Alert>
       )}
       {!program && (
         <TextField
           label={t('code')}
-          helper={t('code_hint')}
+          hint={t('code_hint')}
           required
           maxLength={12}
           value={code}
@@ -131,11 +129,7 @@ export function ProgramDialog({
         onChange={setNameEn}
       />
       <UserSearch label={t('pm')} helper={t('pm_hint')} selected={pm} onSelect={setPm} />
-      {program && (
-        <Switch isSelected={active} onChange={setActive}>
-          {t('active')}
-        </Switch>
-      )}
-    </Modal>
+      {program && <Switch label={t('active')} checked={active} onChange={setActive} />}
+    </Dialog>
   );
 }

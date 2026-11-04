@@ -1,5 +1,4 @@
-import { Card, EmptyState, PageHeader, Text } from '@css/ui';
-import { KeyRound } from 'lucide-react';
+import { Card, EmptyState, Page, Text } from '@/ui';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -24,7 +23,12 @@ export function PermissionsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('description')} />
+      <Page
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('description')}
+        documentTitle={false}
+      />
       <div className="page-split">
         <div className="page-split-main">
           <Card>
@@ -35,14 +39,7 @@ export function PermissionsPage() {
                 selected={selected}
                 onSelect={setSelected}
               />
-              {!selected && (
-                <EmptyState
-                  icon={KeyRound}
-                  title={t('pick_title')}
-                  message={t('pick_message')}
-                  headingLevel={2}
-                />
-              )}
+              {!selected && <EmptyState title={t('pick_title')} description={t('pick_message')} />}
             </div>
           </Card>
           {selected && (
@@ -52,7 +49,7 @@ export function PermissionsPage() {
           )}
         </div>
         <aside className="page-split-side" aria-label={t('rule.title')}>
-          <Card accent title={t('rule.title')} headingLevel={2}>
+          <Card title={t('rule.title')} headingLevel={2}>
             <Text tone="muted">{t('rule.body')}</Text>
           </Card>
         </aside>

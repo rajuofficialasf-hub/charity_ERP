@@ -3,21 +3,20 @@ import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
   Button,
+  DataTable,
   EmptyState,
-  ErrorState,
   Skeleton,
-  Table,
-  type TableColumn,
   Text,
-} from '@css/ui';
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { api, ApiFailure } from '../../lib/api';
+import { api } from '../../lib/api';
 import type { PanelUser } from '../UserSearch';
 import { GrantDialog } from './GrantDialog';
 import { RevokeDialog } from './RevokeDialog';
+import { LoadError } from '../../components/LoadError';
 
 export const permissionCatalogue = () => api<PermissionInfo[]>('/permissions');
 const roleCatalogue = () => api<Role[]>('/roles');
@@ -31,7 +30,6 @@ interface Row extends EffectivePermission {
 /** The roles (read only) and the effective permissions of one user, grouped by module. */
 export function EffectivePermissions({ user }: { user: PanelUser }) {
   const t = useTranslations('admin.permissions');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const headingId = useId();
   const queryClient = useQueryClient();
@@ -68,14 +66,14 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
     row.source === 'panel_grant' && row.grantId ? (
       <Button
         variant="secondary"
-        size="sm"
-        aria-label={t('end_label', { permission: row.permission })}
-        onPress={() => setEnding(row)}
+        size="small"
+        ariaLabel={t('end_label', { permission: row.permission })}
+        onClick={() => setEnding(row)}
       >
         {t('end')}
       </Button>
     ) : null;
-  const columns: TableColumn<Row>[] = [
+  const columns: DataTableExtendedColumn<Row>[] = [
     {
       id: 'permission',
       header: t('column.permission'),
@@ -95,20 +93,18 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
         <strong>{t('roles')}:</strong> {user.roles.map(roleName).join(', ')}
       </Text>
       <div>
-        <Button icon={KeyRound} onPress={() => setGranting(true)}>
+        <Button startIcon="key" onClick={() => setGranting(true)}>
           {t('grant')}
         </Button>
       </div>
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
       {failure && (
-        <ErrorState
-          title={tc('state.error.text')}
-          message={failure instanceof ApiFailure ? failure.message : undefined}
-          requestId={failure instanceof ApiFailure ? failure.requestId : undefined}
+        <LoadError
+          error={effective.error}
           onRetry={() => {
             void effective.refetch();
             void permissions.refetch();
@@ -117,23 +113,20 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
         />
       )}
       {effective.isPending && <Skeleton shape="row" count={4} />}
-      {effective.data && rows.length === 0 && (
-        <EmptyState icon={KeyRound} title={t('effective_empty')} headingLevel={3} />
-      )}
+      {effective.data && rows.length === 0 && <EmptyState title={t('effective_empty')} />}
       {modules.map((module) => {
         const inModule = rows.filter((r) => r.module === module);
         const title = t('module', { module });
         return (
           <div key={module} className="admin-panel-group">
             <h3 className="admin-group-title">{title}</h3>
-            <Table
+            <DataTable
               label={title}
               columns={columns}
               rows={inModule}
-              rowKey={(r) => r.key}
+              getRowId={(r) => r.key}
               rowLabel={(r) => r.permission}
               rowActions={endButton}
-              density="compact"
               cardRenderer={(r) => (
                 <div className="admin-permission-card">
                   <code>{r.permission}</code>
@@ -148,7 +141,7 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
       })}
       <GrantDialog
         user={user}
-        isOpen={granting}
+        open={granting}
         onClose={() => setGranting(false)}
         onDone={(effect) => {
           setGranting(false);
