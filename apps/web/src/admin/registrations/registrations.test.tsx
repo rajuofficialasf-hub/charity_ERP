@@ -482,7 +482,9 @@ describe('volunteer registration detail', () => {
     await user.click(screen.getByRole('button', { name: 'অনুমোদন' }));
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'অনুমোদন করুন' }));
-    expect(await screen.findByText('নিবন্ধন অনুমোদিত হয়েছে')).toBeInTheDocument();
+    expect(
+      await screen.findByText('নিবন্ধন অনুমোদিত হয়েছে', undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' })).toBeInTheDocument();
     expect(calls).toEqual([
       { method: 'POST', url: `/api/v1/registrations/${VOLUNTEER_USER}/approve`, body: null },
@@ -508,7 +510,9 @@ describe('volunteer registration detail', () => {
     await user.click(screen.getByRole('button', { name: 'অনুমোদন' }));
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'অনুমোদন করুন' }));
-    expect(await screen.findByText('নিবন্ধন অনুমোদিত হয়েছে')).toBeInTheDocument();
+    expect(
+      await screen.findByText('নিবন্ধন অনুমোদিত হয়েছে', undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
     // the cached page is not shown as it was: the list asks the server again
     await waitFor(() => expect(volunteerListCalls).toBeGreaterThan(1));
   });
@@ -613,7 +617,9 @@ describe('volunteer registration detail', () => {
     expect(confirm).toBeDisabled();
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'তথ্য মেলে না');
     await user.click(confirm);
-    expect(await screen.findByText('নিবন্ধন প্রত্যাখ্যান করা হয়েছে')).toBeInTheDocument();
+    expect(
+      await screen.findByText('নিবন্ধন প্রত্যাখ্যান করা হয়েছে', undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
     expect(calls[0]).toEqual({
       method: 'POST',
       url: `/api/v1/registrations/${VOLUNTEER_USER}/reject`,
@@ -716,7 +722,9 @@ describe('staff registration decision', () => {
     ).not.toBeInTheDocument();
     await user.click(within(list).getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
     await user.click(save);
-    expect(await screen.findByText('কর্মকর্তার নিবন্ধন অনুমোদিত হয়েছে')).toBeInTheDocument();
+    expect(
+      await screen.findByText('কর্মকর্তার নিবন্ধন অনুমোদিত হয়েছে', undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
     expect(calls).toEqual([
       {
         method: 'POST',

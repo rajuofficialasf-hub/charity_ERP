@@ -1,8 +1,7 @@
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Button } from '@css/ui';
+import { IconButton } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Bell } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useAuth } from '../../lib/auth';
 import { UNREAD_KEY, unreadCount } from './notifications-api';
@@ -31,9 +30,11 @@ export function NotificationBell() {
   const shown = count > 99 ? `${formatCount(99, locale)}+` : formatCount(count, locale);
   return (
     <span className="notification-bell">
-      <Button variant="ghost" icon={Bell} iconOnly href="/notifications">
-        {count > 0 ? t('bell_unread', { count: shown }) : t('bell')}
-      </Button>
+      <IconButton
+        label={count > 0 ? t('bell_unread', { count: shown }) : t('bell')}
+        icon="bell"
+        to="/notifications"
+      />
       {count > 0 && (
         <span className="notification-count" aria-hidden="true">
           {shown}
