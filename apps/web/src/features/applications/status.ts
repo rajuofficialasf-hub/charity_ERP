@@ -1,5 +1,4 @@
 import type { ColorTone } from '@/ui';
-import type { BadgeTone } from '@css/ui';
 import type { useTranslations } from 'use-intl';
 
 type StatusTranslator = ReturnType<typeof useTranslations<'applications.status'>>;
@@ -21,14 +20,6 @@ export type Tab = keyof typeof TABS;
 export function stateTone(status: string): ColorTone {
   if (TABS.approved.includes(status as (typeof TABS.approved)[number])) return 'success';
   if (status === 'rejected') return 'error';
-  if (status === 'draft') return 'neutral';
-  return 'info';
-}
-
-/** The same tone for the earlier set's badge, on the office's pages until they move. */
-export function toneOf(status: string): BadgeTone {
-  if (TABS.approved.includes(status as (typeof TABS.approved)[number])) return 'success';
-  if (status === 'rejected') return 'danger';
   if (status === 'draft') return 'neutral';
   return 'info';
 }
