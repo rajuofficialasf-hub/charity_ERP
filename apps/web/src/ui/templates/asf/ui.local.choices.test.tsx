@@ -92,6 +92,13 @@ describe('the checkbox group', () => {
     expect(within(group).getByRole('checkbox', { name: 'Orphan' })).toBeDisabled();
   });
 
+  it('gives each checkbox its option as its value, as a form sends it', () => {
+    render(<Kinds />);
+    const group = screen.getByRole('group', { name: /Beneficiary type/ });
+    expect(within(group).getByRole('checkbox', { name: 'Widow' })).toHaveAttribute('value', 'widow');
+    expect(within(group).getByRole('checkbox', { name: 'Elderly' })).toHaveAttribute('value', 'elderly');
+  });
+
   it('opens a text box for "other" inside the same field', async () => {
     const user = userEvent.setup();
     render(<Kinds />);

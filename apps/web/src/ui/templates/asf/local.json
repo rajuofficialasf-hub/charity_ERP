@@ -31,7 +31,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the choices of the ERP's forms: an \"other\" choice opening a text box inside the same field, disabled options, a select that becomes a combobox above 10 options, and a combobox for server search or free text; built for the CSS ERP",
+      "note": "the choices of the ERP's forms: an \"other\" choice opening a text box inside the same field, disabled options, a select that becomes a combobox above 10 options, and a combobox for server search or free text; built for the CSS ERP; each checkbox of a group carries its option as its value, as a native form sends it",
       "screenshot": "docs/ui/asf-pieces/gallery-choices.png"
     },
     {

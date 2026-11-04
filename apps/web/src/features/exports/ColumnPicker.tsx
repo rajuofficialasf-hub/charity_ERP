@@ -1,5 +1,5 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Checkbox, CheckboxGroup, Stack, Text, TextField } from '@css/ui';
+import { Alert, Button, Checkbox, CheckboxGroup, Stack, Text, TextField } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { useMemo, useState } from 'react';
 import { formatCount } from '@css/shared/format';
@@ -52,7 +52,7 @@ export function ColumnPicker({ columns, value, onChange }: ColumnPickerProps) {
     members.length === 0 ? null : (
       <CheckboxGroup
         label={label}
-        options={members.map((c) => ({ id: c.id, label: labelOf(c) }))}
+        options={members.map((c) => ({ value: c.id, label: labelOf(c) }))}
         value={members.filter((c) => picked.has(c.id)).map((c) => c.id)}
         onChange={(ids) => {
           const next = new Set(picked);
@@ -71,12 +71,12 @@ export function ColumnPicker({ columns, value, onChange }: ColumnPickerProps) {
         <Stack direction="row" gap={2}>
           <Button
             variant="secondary"
-            size="sm"
-            onPress={() => set(new Set(columns.map((c) => c.id)))}
+            size="small"
+            onClick={() => set(new Set(columns.map((c) => c.id)))}
           >
             {t('select_all')}
           </Button>
-          <Button variant="secondary" size="sm" onPress={() => set(new Set())}>
+          <Button variant="secondary" size="small" onClick={() => set(new Set())}>
             {t('select_none')}
           </Button>
         </Stack>
@@ -85,7 +85,9 @@ export function ColumnPicker({ columns, value, onChange }: ColumnPickerProps) {
       {groupBox(t('group_detail'), group('detail'))}
       {sections.length > 0 && (
         <Stack gap={3}>
-          <Text weight="bold">{t('group_questions')}</Text>
+          <Text>
+            <strong>{t('group_questions')}</strong>
+          </Text>
           <TextField label={t('search_questions')} value={search} onChange={setSearch} />
           {sections.map(([key, section]) => {
             const shown = section.columns.filter(matches);
@@ -95,8 +97,9 @@ export function ColumnPicker({ columns, value, onChange }: ColumnPickerProps) {
             return (
               <Stack key={key} gap={2}>
                 <Checkbox
-                  isSelected={all}
-                  isIndeterminate={some && !all}
+                  label={t('whole_section', { section: section.title })}
+                  checked={all}
+                  indeterminate={some && !all}
                   onChange={(on) => {
                     const next = new Set(picked);
                     for (const c of section.columns) {
@@ -105,9 +108,7 @@ export function ColumnPicker({ columns, value, onChange }: ColumnPickerProps) {
                     }
                     set(next);
                   }}
-                >
-                  {t('whole_section', { section: section.title })}
-                </Checkbox>
+                />
                 {groupBox(section.title, shown)}
               </Stack>
             );

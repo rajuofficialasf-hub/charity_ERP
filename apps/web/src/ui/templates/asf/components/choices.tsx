@@ -116,7 +116,7 @@ export function CheckboxGroup({ label, name, error, hint, required, disabled, op
                 key={option.value}
                 label={option.label}
                 disabled={disabled || option.disabled}
-                control={<MuiCheckbox name={name} checked={value.includes(option.value)} onChange={(event) => toggle(option.value, event.target.checked)} />}
+                control={<MuiCheckbox name={name} value={option.value} checked={value.includes(option.value)} onChange={(event) => toggle(option.value, event.target.checked)} />}
               />
             ))}
           </FormGroup>

@@ -1,6 +1,5 @@
-import { Alert, Button, Modal } from '@css/ui';
+import { Alert, Button, Dialog } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { canExport, canPrintProfile } from '../../admin/roles';
@@ -40,10 +39,10 @@ export function RecordPdfButton({ kind, id }: RecordPdfButtonProps) {
     <>
       <Button
         variant="secondary"
-        size="sm"
-        icon={FileText}
+        size="small"
+        startIcon="file"
         loading={start.isPending}
-        onPress={() => {
+        onClick={() => {
           setOpen(true);
           // a job already started is followed again rather than started twice
           if (!start.isPending && !start.data) start.mutate();
@@ -52,12 +51,12 @@ export function RecordPdfButton({ kind, id }: RecordPdfButtonProps) {
         {t('pdf')}
       </Button>
       {open && (
-        <Modal
+        <Dialog
           title={t('pdf_title', { list: t(`list.${kind}`) })}
-          isOpen
+          open
           onClose={close}
-          secondaryAction={
-            <Button variant="secondary" onPress={close}>
+          actions={
+            <Button variant="secondary" onClick={close}>
               {t('close')}
             </Button>
           }
@@ -65,11 +64,11 @@ export function RecordPdfButton({ kind, id }: RecordPdfButtonProps) {
           {start.data ? (
             <ExportProgress jobId={start.data.id} onRetry={() => start.mutate()} />
           ) : failure ? (
-            <Alert tone="danger" title={t('pdf_failed')}>
+            <Alert tone="error" title={t('pdf_failed')}>
               {failure.message}
             </Alert>
           ) : null}
-        </Modal>
+        </Dialog>
       )}
     </>
   );

@@ -1,5 +1,5 @@
 import type { ExportFormat, ExportList } from '@css/shared/exports';
-import { Alert, Button, Modal, RadioGroup, Skeleton, Stack, Text } from '@css/ui';
+import { Alert, Button, Dialog, RadioGroup, Skeleton, Stack, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -69,12 +69,12 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
 
   if (jobId)
     return (
-      <Modal
+      <Dialog
         title={title}
-        isOpen
+        open
         onClose={onClose}
-        secondaryAction={
-          <Button variant="secondary" onPress={onClose}>
+        actions={
+          <Button variant="secondary" onClick={onClose}>
             {t('close')}
           </Button>
         }
@@ -86,30 +86,30 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
             start.reset();
           }}
         />
-      </Modal>
+      </Dialog>
     );
 
   return (
-    <Modal
+    <Dialog
       title={title}
-      size="lg"
-      fullOnPhone
-      isOpen
+      size="large"
+      fullScreenOnPhone
+      open
       onClose={onClose}
       dismissible={!start.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose}>
-          {t('close')}
-        </Button>
-      }
-      primaryAction={
-        <Button
-          disabled={none || !columns.data}
-          loading={start.isPending}
-          onPress={() => start.mutate()}
-        >
-          {t('start')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {t('close')}
+          </Button>
+          <Button
+            disabled={none || !columns.data}
+            loading={start.isPending}
+            onClick={() => start.mutate()}
+          >
+            {t('start')}
+          </Button>
+        </>
       }
     >
       <Stack gap={4}>
@@ -117,25 +117,21 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
         <RadioGroup
           label={t('format')}
           orientation="horizontal"
-          options={FORMATS.map((f) => ({ id: f, label: FORMAT_LABELS.get(f) ?? f }))}
+          options={FORMATS.map((f) => ({ value: f, label: FORMAT_LABELS.get(f) ?? f }))}
           value={format}
           onChange={(id) => setFormat(id as ExportFormat)}
-          {...(format === 'pdf' ? { helper: t('format_pdf_hint') } : {})}
+          {...(format === 'pdf' ? { hint: t('format_pdf_hint') } : {})}
         />
         {columns.isPending ? (
           <Skeleton shape="row" count={4} />
         ) : columns.error ? (
-          <Alert tone="danger">{t('load_failed')}</Alert>
+          <Alert tone="error">{t('load_failed')}</Alert>
         ) : (
           <ColumnPicker columns={columns.data} value={picked} onChange={(ids) => setChosen(ids)} />
         )}
         {none && columns.data && <Text tone="muted">{t('none_chosen')}</Text>}
-        {failure && (
-          <Alert tone="danger" live="alert">
-            {failure.message}
-          </Alert>
-        )}
+        {failure && <Alert tone="error">{failure.message}</Alert>}
       </Stack>
-    </Modal>
+    </Dialog>
   );
 }
