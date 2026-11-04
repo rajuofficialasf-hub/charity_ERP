@@ -126,7 +126,7 @@ describe('a media member’s profile', () => {
     expect(screen.getByText('4')).toBeInTheDocument();
     const portfolio = screen
       .getByRole('heading', { level: 2, name: 'পোর্টফোলিও' })
-      .closest('.ui-card') as HTMLElement;
+      .closest('section') as HTMLElement;
     expect(
       await within(portfolio).findByText('ভূমিকা: ভিডিও সম্পাদনা, স্ক্রিপ্ট লেখা'),
     ).toBeInTheDocument();

@@ -128,10 +128,10 @@ describe('the Media Team home', () => {
     open();
     const user = userEvent.setup();
     const card = (await screen.findByRole('heading', { level: 2, name: 'সংখ্যায়' })).closest(
-      '.ui-card',
+      'section',
     ) as HTMLElement;
     await within(card).findByText('5');
-    await user.click(within(card).getByRole('button', { name: /প্রোগ্রাম/ }));
+    await user.click(within(card).getByRole('combobox', { name: /প্রোগ্রাম/ }));
     await user.click(await screen.findByRole('option', { name: 'মানবিক সহায়তা' }));
     expect(await within(card).findByText('2')).toBeInTheDocument();
     expect(within(card).queryByText('5')).not.toBeInTheDocument();

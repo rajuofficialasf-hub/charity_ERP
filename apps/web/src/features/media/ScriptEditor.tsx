@@ -1,6 +1,6 @@
 import type { MediaScript } from '@css/shared';
 import { SCRIPT_STATES, type ScriptState } from '@css/shared/media';
-import { Alert, Button, Card, Disclosure, Select, Stack, Text, TextArea } from '@css/ui';
+import { Alert, Button, Card, Disclosure, SelectField, Stack, Text, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -62,21 +62,18 @@ export function ScriptEditor({
     <Card
       title={t('work.script')}
       headingLevel={2}
-      actions={
-        <Text as="small" tone="muted">
+      action={
+        <Text size="small" tone="muted">
           {t(`script_state.${work.scriptState}`)}
         </Text>
       }
     >
       <Stack gap={3}>
-        {save.error ? (
-          <Alert tone="danger" live="alert">
-            {failureOf(save.error, texts).text}
-          </Alert>
-        ) : null}
+        {save.error ? <Alert tone="error">{failureOf(save.error, texts).text}</Alert> : null}
         {PARTS.map((part, i) =>
           work.mayEditScript ? (
-            <TextArea
+            <TextField
+              rows={4}
               key={part}
               // eslint-disable-next-line security/detect-object-injection -- a fixed part name
               label={t(`script_part.${LABEL[part]}`)}
@@ -99,13 +96,13 @@ export function ScriptEditor({
         )}
         {work.mayEditScript ? (
           <Stack direction="row" gap={2} wrap align="end">
-            <Select
+            <SelectField
               label={t('work.script_state')}
               value={state}
-              options={SCRIPT_STATES.map((s) => ({ id: s, label: t(`script_state.${s}`) }))}
+              options={SCRIPT_STATES.map((s) => ({ value: s, label: t(`script_state.${s}`) }))}
               onChange={(id) => id && setState(id as ScriptState)}
             />
-            <Button onPress={() => save.mutate()} loading={save.isPending}>
+            <Button onClick={() => save.mutate()} loading={save.isPending}>
               {t('work.save_script')}
             </Button>
           </Stack>

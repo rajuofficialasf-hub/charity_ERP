@@ -1,6 +1,6 @@
 import type { AttentionKind } from '@css/shared';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Button, Card, ErrorState, Grid, Select, Skeleton, StatCard } from '@css/ui';
+import { Card, LinkButton, SelectField, Skeleton, Stack, StatCard } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -8,6 +8,7 @@ import { ForbiddenContent } from '../../admin/AdminLayout';
 import { MEDIA_ROLES, MEDIA_WORK_ROLES } from '../../admin/roles';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useAuth } from '../../lib/auth';
+import { LoadError } from '../../components/LoadError';
 import { AttentionList } from '../home/AttentionList';
 import { MEDIA_KEY, type MediaCounts, mediaSummary } from './media-api';
 import { WorksList } from './WorksList';
@@ -39,7 +40,6 @@ const COUNTS: (keyof MediaCounts)[] = [
  */
 export function MediaHomePage() {
   const t = useTranslations('media');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const { me } = useAuth();
   const allowed = !!me?.roles.some((r) => MEDIA_WORK_ROLES.includes(r));
@@ -59,21 +59,21 @@ export function MediaHomePage() {
     summary.data?.overall;
   const member = !!me?.roles.some((r) => MEDIA_ROLES.includes(r));
   return (
-    <Grid gap={4}>
+    <Stack gap={4}>
       <DocumentTitle title={t('home.title')} />
       <h1 className="media-title">{t('home.title')}</h1>
       <AttentionList kinds={MEDIA_ATTENTION} />
       <Card
         title={t('home.counts')}
         headingLevel={2}
-        actions={
+        action={
           programs.length > 1 ? (
-            <Select
+            <SelectField
               label={t('home.program')}
-              value={program}
+              value={program ?? ''}
               placeholder={t('home.all_programs')}
-              options={programs.map((p) => ({ id: p.id, label: p.name }))}
-              onChange={setProgram}
+              options={programs.map((p) => ({ value: p.id, label: p.name }))}
+              onChange={(v) => setProgram(v || null)}
             />
           ) : null
         }
@@ -81,7 +81,7 @@ export function MediaHomePage() {
         {summary.isPending ? (
           <Skeleton shape="card" />
         ) : summary.error || !counts ? (
-          <ErrorState title={tc('state.error.text')} onRetry={() => void summary.refetch()} />
+          <LoadError error={summary.error} onRetry={() => void summary.refetch()} />
         ) : (
           <div className="media-counts">
             {COUNTS.map((key) => (
@@ -94,16 +94,16 @@ export function MediaHomePage() {
       <Card
         title={member ? t('home.my_works') : t('home.works')}
         headingLevel={2}
-        actions={
+        action={
           member && me ? (
-            <Button variant="ghost" size="sm" href={`/media/members/${me.id}`}>
+            <LinkButton variant="text" to={`/media/members/${me.id}`}>
               {t('home.portfolio')}
-            </Button>
+            </LinkButton>
           ) : null
         }
       >
         <WorksList programs={programs} />
       </Card>
-    </Grid>
+    </Stack>
   );
 }

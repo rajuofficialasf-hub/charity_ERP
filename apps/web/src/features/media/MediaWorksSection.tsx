@@ -1,5 +1,5 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { Grid, Stack, Text } from '@css/ui';
+import { Stack, Text } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import type { PublishedWork } from './media-api';
 import { useMediaLabels } from './use-media-lists';
@@ -29,11 +29,11 @@ export function MediaWorksSection({
       ? t('card.roles', { roles: roles(w.ownRoles) })
       : w.members.map((m) => `${m.name} (${roles(m.roles)})`).join(', ');
   return (
-    <Grid gap={3} as="ul" role="list" className="media-link-cards">
+    <ul className="media-link-cards">
       {works.map((w) => (
         <li key={w.workId}>
-          <Grid gap={2}>
-            <Text as="small" tone="muted">
+          <Stack gap={2}>
+            <Text size="small" tone="muted">
               {[
                 localized(w.program.name, locale),
                 localized(w.project.name, locale),
@@ -51,22 +51,24 @@ export function MediaWorksSection({
                   publishedOn={p.publishedOn}
                   youtubeId={p.youtubeId}
                 >
-                  <Text as="small">{team(w)}</Text>
+                  <Text size="small">{team(w)}</Text>
                 </WorkLinkCard>
               ))
             ) : (
               // a work whose posts were all taken down keeps its place, without a link
               <Stack gap={1}>
-                <Text weight="bold">{w.title}</Text>
-                <Text as="small">{team(w)}</Text>
-                <Text as="small" tone="muted">
+                <Text>
+                  <strong>{w.title}</strong>
+                </Text>
+                <Text size="small">{team(w)}</Text>
+                <Text size="small" tone="muted">
                   {t('card.no_link')}
                 </Text>
               </Stack>
             )}
-          </Grid>
+          </Stack>
         </li>
       ))}
-    </Grid>
+    </ul>
   );
 }

@@ -2,16 +2,16 @@ import { formatDate } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
   Card,
+  Chip,
   ConfirmDialog,
   DescriptionList,
-  Modal,
+  Dialog,
   Stack,
   Text,
-  TextArea,
-} from '@css/ui';
+  TextField,
+} from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -76,16 +76,16 @@ export function ReferralPanel({
       <Card
         title={t('work.referral')}
         headingLevel={2}
-        actions={
+        action={
           referral.mayDecide ? (
             <Stack direction="row" gap={2} wrap>
-              <Button size="sm" onPress={() => setAsking('accept')}>
+              <Button size="small" onClick={() => setAsking('accept')}>
                 {t('decision.accept')}
               </Button>
-              <Button variant="secondary" size="sm" onPress={() => setAsking('send_back')}>
+              <Button variant="secondary" size="small" onClick={() => setAsking('send_back')}>
                 {t('decision.send_back')}
               </Button>
-              <Button variant="danger" size="sm" onPress={() => setAsking('reject')}>
+              <Button variant="danger" size="small" onClick={() => setAsking('reject')}>
                 {t('decision.reject')}
               </Button>
             </Stack>
@@ -93,27 +93,21 @@ export function ReferralPanel({
         }
       >
         <Stack gap={2}>
-          {asking === 'accept' && failure ? (
-            <Alert tone="danger" live="alert">
-              {failure}
-            </Alert>
-          ) : null}
-          <Text as="small" tone="muted">
+          {asking === 'accept' && failure ? <Alert tone="error">{failure}</Alert> : null}
+          <Text size="small" tone="muted">
             {t('referral.referred_by', {
               name: referral.referredBy.name,
               date: formatDate(referral.referredAt),
             })}
           </Text>
           <DescriptionList
-            labelWidth="sm"
             items={[
               {
                 label: t('home.column.priority'),
                 value: (
-                  <Badge
-                    tone={referral.priority === 'high' ? 'warning' : 'neutral'}
-                    label={t(`priority.${referral.priority}`)}
-                  />
+                  <Chip tone={referral.priority === 'high' ? 'warning' : 'neutral'}>
+                    {t(`priority.${referral.priority}`)}
+                  </Chip>
                 ),
               },
               { label: t('work.note'), value: referral.note },
@@ -129,7 +123,6 @@ export function ReferralPanel({
       <Card title={t('work.beneficiary')} headingLevel={2}>
         <Stack gap={2}>
           <DescriptionList
-            labelWidth="sm"
             items={[
               { label: t('work.name'), value: b.name },
               { label: t('work.father'), value: b.fatherOrHusbandName },
@@ -158,13 +151,13 @@ export function ReferralPanel({
                 : []),
             ]}
           />
-          <Text as="small" tone="muted">
+          <Text size="small" tone="muted">
             {t('work.hidden_note')}
           </Text>
         </Stack>
       </Card>
       <ConfirmDialog
-        isOpen={asking === 'accept'}
+        open={asking === 'accept'}
         title={t('decision.accept')}
         confirmLabel={t('decision.accept')}
         pending={decide.isPending}
@@ -172,41 +165,38 @@ export function ReferralPanel({
         onCancel={close}
       />
       {asking === 'send_back' || asking === 'reject' ? (
-        <Modal
+        <Dialog
           title={t(asking === 'send_back' ? 'decision.send_back_title' : 'decision.reject_title')}
-          size="sm"
-          isOpen
+          size="small"
+          open
           onClose={close}
           dismissible={!decide.isPending}
-          secondaryAction={
-            <Button variant="secondary" onPress={close} disabled={decide.isPending}>
-              {tc('action.cancel')}
-            </Button>
-          }
-          primaryAction={
-            <Button
-              variant={asking === 'reject' ? 'danger' : 'primary'}
-              onPress={() => decide.mutate(asking)}
-              disabled={!comment.trim()}
-              loading={decide.isPending}
-            >
-              {t(asking === 'send_back' ? 'decision.send_back' : 'decision.reject')}
-            </Button>
+          actions={
+            <>
+              <Button variant="secondary" onClick={close} disabled={decide.isPending}>
+                {tc('action.cancel')}
+              </Button>
+              <Button
+                variant={asking === 'reject' ? 'danger' : 'primary'}
+                onClick={() => decide.mutate(asking)}
+                disabled={!comment.trim()}
+                loading={decide.isPending}
+              >
+                {t(asking === 'send_back' ? 'decision.send_back' : 'decision.reject')}
+              </Button>
+            </>
           }
         >
-          {failure ? (
-            <Alert tone="danger" live="alert">
-              {failure}
-            </Alert>
-          ) : null}
-          <TextArea
+          {failure ? <Alert tone="error">{failure}</Alert> : null}
+          <TextField
+            rows={4}
             label={t(asking === 'send_back' ? 'decision.comment' : 'decision.reason')}
             required
             maxLength={2000}
             value={comment}
             onChange={setComment}
           />
-        </Modal>
+        </Dialog>
       ) : null}
     </>
   );

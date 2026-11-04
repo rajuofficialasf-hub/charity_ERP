@@ -1,6 +1,6 @@
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, Card, Stack, Text, TextArea, Timeline, type TimelineStep } from '@css/ui';
+import { Alert, Button, Card, Stack, Text, TextField, Timeline, type TimelineStep } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -52,28 +52,34 @@ export function WorkComments({
     <Card title={t('comments')} headingLevel={2}>
       <Stack gap={3}>
         {work.comments.length ? (
-          <Stack gap={2} as="ul" role="list" className="media-link-cards">
+          <ul className="media-link-cards">
             {work.comments.map((c) => (
               <li key={c.id}>
-                <Text as="small" tone="muted">
+                <Text size="small" tone="muted">
                   {c.author.name} · {formatDateTime(c.at, locale)}
                 </Text>
                 <Text>{c.body}</Text>
               </li>
             ))}
-          </Stack>
+          </ul>
         ) : (
           <Text tone="muted">{t('no_comments')}</Text>
         )}
         {add.error ? (
-          <Alert tone="danger" live="alert">
+          <Alert tone="error">
             {failureOf(add.error, { stale: t('stale'), fallback: tc('state.error.text') }).text}
           </Alert>
         ) : null}
-        <TextArea label={t('new_comment')} maxLength={4000} value={body} onChange={setBody} />
+        <TextField
+          rows={4}
+          label={t('new_comment')}
+          maxLength={4000}
+          value={body}
+          onChange={setBody}
+        />
         <Button
           variant="secondary"
-          onPress={() => add.mutate()}
+          onClick={() => add.mutate()}
           disabled={!body.trim()}
           loading={add.isPending}
         >

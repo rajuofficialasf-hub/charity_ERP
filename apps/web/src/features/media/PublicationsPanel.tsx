@@ -3,18 +3,16 @@ import { type Locale, localized } from '@css/shared/i18n';
 import { PUBLICATION_STATES, type PublicationState } from '@css/shared/media';
 import {
   Alert,
-  Badge,
   Button,
   Card,
+  Chip,
   DateField,
-  Grid,
-  Modal,
-  Select,
+  Dialog,
+  SelectField,
   Stack,
   Text,
-  TextArea,
   TextField,
-} from '@css/ui';
+} from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -54,9 +52,9 @@ export function PublicationsPanel({
     <Card
       title={t('work.publications')}
       headingLevel={2}
-      actions={
+      action={
         work.mayManage ? (
-          <Button variant="secondary" size="sm" onPress={() => setEditing({})}>
+          <Button variant="secondary" size="small" onClick={() => setEditing({})}>
             {t('work.add_publication')}
           </Button>
         ) : null
@@ -64,7 +62,7 @@ export function PublicationsPanel({
     >
       <Stack gap={2}>
         {work.publications.length ? (
-          <Grid gap={2} as="ul" role="list" className="media-link-cards">
+          <ul className="media-link-cards">
             {work.publications.map((p) => (
               <li key={p.id}>
                 <WorkLinkCard
@@ -75,26 +73,26 @@ export function PublicationsPanel({
                   youtubeId={p.youtubeId}
                 >
                   <Stack direction="row" gap={2} wrap align="center">
-                    <Badge tone={STATE_TONE[p.state]} label={t(`publication_state.${p.state}`)} />
+                    <Chip tone={STATE_TONE[p.state]}>{t(`publication_state.${p.state}`)}</Chip>
                     {work.mayManage ? (
                       <Button
-                        variant="ghost"
-                        size="sm"
-                        onPress={() => setEditing({ publication: p })}
+                        variant="text"
+                        size="small"
+                        onClick={() => setEditing({ publication: p })}
                       >
                         {t('work.edit_publication', { platform: labels.platform(p.platformCode) })}
                       </Button>
                     ) : null}
                   </Stack>
-                  {p.note ? <Text as="small">{p.note}</Text> : null}
+                  {p.note ? <Text size="small">{p.note}</Text> : null}
                 </WorkLinkCard>
               </li>
             ))}
-          </Grid>
+          </ul>
         ) : (
           <Text tone="muted">{t('work.no_publications')}</Text>
         )}
-        <Text as="small" tone="muted">
+        <Text size="small" tone="muted">
           {t('work.files_note')}
         </Text>
       </Stack>
@@ -161,52 +159,48 @@ function PublicationDialog({
   const ready = !!platform && (!needsLink || (!!link.trim() && !!date));
   const platforms = labels.platforms.filter((p) => p.active || p.code === platform);
   return (
-    <Modal
+    <Dialog
       title={
         publication
           ? t('work.edit_publication', { platform: labels.platform(publication.platformCode) })
           : t('work.add_publication')
       }
-      isOpen
+      open
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={save.isPending}>
-          {tc('action.cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => save.mutate()} disabled={!ready} loading={save.isPending}>
-          {tc('action.save')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+            {tc('action.cancel')}
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
+            {tc('action.save')}
+          </Button>
+        </>
       }
     >
-      {failure ? (
-        <Alert tone="danger" live="alert">
-          {failure}
-        </Alert>
-      ) : null}
+      {failure ? <Alert tone="error">{failure}</Alert> : null}
       {needsLink && !work.reviewApprovedBy ? (
         <Alert tone="warning">{t('work.review_hint')}</Alert>
       ) : null}
-      <Select
+      <SelectField
         label={t('work.platform')}
         required
         disabled={!!publication}
-        value={platform}
-        options={platforms.map((p) => ({ id: p.code, label: localized(p.label, locale) }))}
-        onChange={setPlatform}
+        value={platform ?? ''}
+        options={platforms.map((p) => ({ value: p.code, label: localized(p.label, locale) }))}
+        onChange={(v) => setPlatform(v || null)}
       />
-      <Select
+      <SelectField
         label={t('work.publication_state')}
         required
         value={state}
-        options={PUBLICATION_STATES.map((s) => ({ id: s, label: t(`publication_state.${s}`) }))}
+        options={PUBLICATION_STATES.map((s) => ({ value: s, label: t(`publication_state.${s}`) }))}
         onChange={(id) => id && setState(id as PublicationState)}
       />
       <TextField
         label={t('work.link')}
-        helper={t('work.link_hint')}
+        hint={t('work.link_hint')}
         required={needsLink}
         lang="en"
         maxLength={500}
@@ -216,15 +210,16 @@ function PublicationDialog({
       <DateField
         label={t('work.published_on')}
         required={needsLink}
-        value={date}
-        onChange={setDate}
+        value={date ?? ''}
+        onChange={(v) => setDate(v || null)}
       />
-      <TextArea
+      <TextField
+        rows={4}
         label={t('work.publication_note')}
         maxLength={2000}
         value={note}
         onChange={setNote}
       />
-    </Modal>
+    </Dialog>
   );
 }
