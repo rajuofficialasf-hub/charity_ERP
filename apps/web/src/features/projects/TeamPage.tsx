@@ -1,11 +1,11 @@
-import { Alert, Badge, Button, Card, Checkbox, EmptyState, ErrorState, Skeleton } from '@css/ui';
+import { Alert, Button, Card, Checkbox, Chip, EmptyState, IconButton, Skeleton } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { UserMinus, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { LoadError } from '../../components/LoadError';
 import { ApiFailure } from '../../lib/api';
 import { addToTeam, removeFromTeam, team, type TeamMember } from './my-projects-api';
 import './projects.css';
@@ -33,7 +33,6 @@ function TeamView() {
   const { projectId = '' } = useParams();
   const t = useTranslations('projects.team');
   const tm = useTranslations('projects.mine');
-  const tc = useTranslations('common');
   const queryClient = useQueryClient();
   const key = ['me', 'projects', projectId, 'team'] as const;
   const [chosen, setChosen] = useState<string[]>([]);
@@ -68,11 +67,7 @@ function TeamView() {
     return (
       <>
         {back}
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={current.error instanceof ApiFailure ? current.error.requestId : undefined}
-          onRetry={() => void current.refetch()}
-        />
+        <LoadError error={current.error} onRetry={() => void current.refetch()} />
       </>
     );
   const { members, candidates } = current.data;
@@ -81,37 +76,28 @@ function TeamView() {
     <>
       {back}
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
+        <Alert tone="success" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
-      {failure instanceof ApiFailure && (
-        <Alert tone="danger" live="alert">
-          {failure.message}
-        </Alert>
-      )}
+      {failure instanceof ApiFailure && <Alert tone="error">{failure.message}</Alert>}
       <Card title={t('members')} headingLevel={2}>
         {members.length === 0 ? (
-          <EmptyState icon={Users} title={t('no_members')} headingLevel={3} />
+          <EmptyState icon="users" title={t('no_members')} />
         ) : (
           <ul className="my-team-list">
             {members.map((m) => (
               <li key={m.volunteerId}>
                 <span>{m.displayName}</span>
-                <Badge
-                  tone={m.consentStatus === 'accepted' ? 'success' : 'warning'}
-                  label={t(m.consentStatus)}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={UserMinus}
-                  iconOnly
-                  onPress={() => remove.mutate(m)}
+                <Chip tone={m.consentStatus === 'accepted' ? 'success' : 'warning'}>
+                  {t(m.consentStatus)}
+                </Chip>
+                <IconButton
+                  label={t('remove', { name: m.displayName })}
+                  icon="user-minus"
+                  onClick={() => remove.mutate(m)}
                   disabled={remove.isPending}
-                >
-                  {t('remove', { name: m.displayName })}
-                </Button>
+                />
               </li>
             ))}
           </ul>
@@ -126,7 +112,8 @@ function TeamView() {
               {candidates.map((c) => (
                 <li key={c.volunteerId}>
                   <Checkbox
-                    isSelected={chosen.includes(c.volunteerId)}
+                    label={c.displayName}
+                    checked={chosen.includes(c.volunteerId)}
                     onChange={(on) =>
                       setChosen(
                         on
@@ -134,14 +121,12 @@ function TeamView() {
                           : chosen.filter((id) => id !== c.volunteerId),
                       )
                     }
-                  >
-                    {c.displayName}
-                  </Checkbox>
+                  />
                 </li>
               ))}
             </ul>
             <Button
-              onPress={() => add.mutate()}
+              onClick={() => add.mutate()}
               disabled={chosen.length === 0}
               loading={add.isPending}
             >

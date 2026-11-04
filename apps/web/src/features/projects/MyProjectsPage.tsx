@@ -1,12 +1,11 @@
 import { formatDate } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Badge, Button, Card, EmptyState, ErrorState, Skeleton, Text } from '@css/ui';
+import { Card, Chip, EmptyState, LinkButton, Skeleton, Text } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
-import { FolderKanban } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
+import { LoadError } from '../../components/LoadError';
 import { orCached } from '../../lib/or-cached';
 import { MY_PROJECTS_KEY, myProjects, type MyProject } from './my-projects-api';
 
@@ -35,20 +34,11 @@ const projectsOf = () =>
 
 function ProjectList() {
   const t = useTranslations('projects.mine');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const list = useQuery({ queryKey: MY_PROJECTS_KEY, queryFn: projectsOf });
   if (list.isPending) return <Skeleton shape="card" />;
-  if (list.error)
-    return (
-      <ErrorState
-        title={tc('state.error.text')}
-        requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-        onRetry={() => void list.refetch()}
-      />
-    );
-  if (list.data.length === 0)
-    return <EmptyState icon={FolderKanban} title={t('empty')} headingLevel={2} />;
+  if (list.error) return <LoadError error={list.error} onRetry={() => void list.refetch()} />;
+  if (list.data.length === 0) return <EmptyState title={t('empty')} />;
   const window = (p: MyProject) =>
     p.applyFrom && p.applyTo ? `${formatDate(p.applyFrom)} – ${formatDate(p.applyTo)}` : null;
   return (
@@ -58,20 +48,18 @@ function ProjectList() {
           <Card
             title={`${localized(p.name, locale)} (${p.code})`}
             headingLevel={2}
-            actions={
-              <Button
+            action={
+              <LinkButton
                 variant={p.consentStatus === 'pending' ? 'primary' : 'secondary'}
-                size="sm"
-                href={`/my-projects/${p.projectId}`}
+                to={`/my-projects/${p.projectId}`}
               >
                 {p.consentStatus === 'pending' ? t('read_rules') : t('open_project')}
-              </Button>
+              </LinkButton>
             }
           >
-            <Badge
-              tone={p.consentStatus === 'accepted' ? 'success' : 'warning'}
-              label={p.consentStatus === 'accepted' ? t('accepted') : t('pending')}
-            />
+            <Chip tone={p.consentStatus === 'accepted' ? 'success' : 'warning'}>
+              {p.consentStatus === 'accepted' ? t('accepted') : t('pending')}
+            </Chip>
             {window(p) && <Text tone="muted">{window(p)}</Text>}
           </Card>
         </li>
