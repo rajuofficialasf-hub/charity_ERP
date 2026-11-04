@@ -370,6 +370,32 @@ describe('my applications', () => {
     expect(await screen.findByText('এই তালিকায় এখনো কোনো আবেদন নেই।')).toBeInTheDocument();
     await expectNoAxeViolations(view.container);
   });
+
+  it('tells a volunteer on no project calmly where applications come from, not of a failure', async () => {
+    refreshAs(VOLUNTEER);
+    serve();
+    server.use(
+      http.get('*/api/v1/me/applications', () =>
+        apiError(403, 'permission.denied', 'এই কাজের অনুমতি নেই।'),
+      ),
+    );
+    const view = renderApp(<MyApplicationsPage />, 'bn', {
+      path: '/my-applications',
+      initialPath: '/my-applications?tab=pending',
+    });
+    expect(
+      await screen.findByText(
+        'আপনি এখনো কোনো প্রকল্পে যুক্ত নন। প্রকল্পে যুক্ত হলে আপনার আবেদন এখানে দেখা যাবে।',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'আমার প্রকল্প' })).toHaveAttribute(
+      'href',
+      '/my-projects',
+    );
+    expect(screen.queryByText('আবেদনের তালিকা আনা যায়নি। আবার চেষ্টা করুন।')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    await expectNoAxeViolations(view.container);
+  });
 });
 
 describe('one application', () => {

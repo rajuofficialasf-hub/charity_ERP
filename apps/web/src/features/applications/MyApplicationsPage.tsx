@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
+import { ApiFailure } from '../../lib/api';
 import { orCached } from '../../lib/or-cached';
 import type { SyncInfo } from '../../offline/applications-store';
 import { MY_PROJECTS_KEY, myProjects } from '../projects/my-projects-api';
@@ -113,6 +114,19 @@ function List({
   const t = useTranslations('applications');
   const locale = useLocale() as Locale;
   if (pending) return <Skeleton shape="card" />;
+  // the own applications are open only on a project the volunteer works on: without one the
+  // server refuses, and the page says where applications come from rather than of a failure
+  if (error instanceof ApiFailure && error.status === 403)
+    return (
+      <EmptyState
+        title={t('list.no_project')}
+        action={
+          <LinkButton variant="secondary" to="/my-projects">
+            {t('list.my_projects')}
+          </LinkButton>
+        }
+      />
+    );
   if (error || !rows)
     return <LoadError title={t('list.load_failed')} error={error} onRetry={retry} />;
   if (!rows.length) return <EmptyState title={t('list.empty')} />;
