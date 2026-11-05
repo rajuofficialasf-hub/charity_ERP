@@ -169,6 +169,16 @@ test.describe('accessibility of the Phase 1 screens', () => {
       await sweep(page, '/admin/beneficiaries/duplicates', lang);
     });
 
+    test(`the project pages in dark mode, in ${lang}`, async ({ page }) => {
+      test.setTimeout(90_000);
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await signInAs(page, HEAD, lang);
+      await sweep(page, '/admin/projects', lang);
+      const project = await firstRecord(page, '/admin/projects');
+      for (const path of [project, `${project}/setup`, `${project}/volunteers`])
+        await sweep(page, path, lang);
+    });
+
     test(`the people and registration pages in dark mode, in ${lang}`, async ({ page }) => {
       // the lists, then a volunteer's and an official's profile reached from them
       test.setTimeout(90_000);

@@ -158,7 +158,7 @@ test.describe('programs and project setup', () => {
     await page.getByRole('link', { name: 'সব প্রকল্প' }).click();
     // the list has loaded before the cancelled one is looked for
     await expect(listRows(page, TAB)).toBeVisible();
-    await expect(page.getByText(/^\d+টির মধ্যে \d+টি$/).first()).toBeVisible();
+    await expect(listRows(page, TAB).getByRole('link').first()).toBeVisible();
     await expect(listRows(page, TAB).getByRole('link', { name })).toHaveCount(0);
   });
 
@@ -193,7 +193,7 @@ test.describe('programs and project setup', () => {
     await basics.getByRole('textbox', { name: /ইংরেজিতে নাম/ }).fill(`${copyName} EN`);
     await chooseIn(page, basics, 'প্রোগ্রাম', ERR);
     await basics.getByText('আগের প্রকল্প থেকে কপি', { exact: true }).click();
-    await basics.getByRole('button', { name: /যে প্রকল্প কপি হবে/ }).click();
+    await basics.getByRole('combobox', { name: /যে প্রকল্প কপি হবে/ }).click();
     await page
       .getByRole('listbox')
       .getByRole('option', { name: new RegExp(`^${name} \\(`) })
