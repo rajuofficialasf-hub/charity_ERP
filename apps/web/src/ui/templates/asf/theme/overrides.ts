@@ -65,6 +65,17 @@ export function componentOverrides(theme: Theme, tokens: ThemeTokens): Component
       },
     },
 
+    // The legend of a radio or checkbox group: the text colour while a choice has the focus, as a
+    // field's label; the main green there reads 3.1:1 on white.
+    MuiFormLabel: {
+      styleOverrides: {
+        root: {
+          '&.Mui-focused': { color: theme.vars.palette.text.primary },
+          '&.Mui-error': { color: theme.vars.palette.error.dark },
+          ...dark({ '&.Mui-error': { color: theme.vars.palette.error.light } }),
+        },
+      },
+    },
     // Fields: outlined with a floating label, hairline border, dark border when focused.
     MuiInputLabel: {
       styleOverrides: {
