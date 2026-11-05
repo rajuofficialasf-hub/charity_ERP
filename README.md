@@ -14,7 +14,7 @@ Repository: https://github.com/rajuofficialasf-hub/charity_ERP
 | `docs/PLAN.md` | The owner's step-by-step plan: 78 task prompts for Phase 0-6 (Bengali guidance, English prompts) |
 | `docs/MODEL_GUIDE.md` | Which Claude model and effort level to use for each of the 78 tasks, why, and what to do when a usage limit runs out (Bengali) |
 | `docs/ui/DESIGN_BRIEF.md` | The owner's design decisions from the 2026-10-10 interview: look, devices, digits, photos, notifications |
-| `docs/ui/brand/colors.md` | Brand colours, ERP colour tokens with contrast checks, and fonts, taken from the Foundation's website |
+| `docs/ui/brand/colors.md` | The asf colour tokens with contrast checks in light and dark, the fonts, and the record of the earlier brand taken from the Foundation's website |
 | `docs/STATUS.md` | Session hand-off: current phase, next task, open decisions, known issues |
 | `docs/source/README.md` | Input files the owner still has to supply (mockups, SOP, samples, location data) |
 | `.claude/commands/` | Project slash commands: `/css-start`, `/css-end`, `/css-fix`, `/css-change`, `/css-bug`, `/css-review`, `/css-docsync`, `/css-status`, `/css-gate`, `/css-uat` |
@@ -66,9 +66,8 @@ The web app runs at http://127.0.0.1:3000 (Vite, proxying `/api/v1` to the API) 
 | Path | Contents |
 |---|---|
 | `apps/api` | Express 5 REST API (`/api/v1`, `src/server.ts`) and the pg-boss worker (`src/worker.ts`), Prisma schema and migrations in `prisma/` |
-| `apps/web` | Vite React single-page PWA (`src/`: React Router, TanStack Query, use-intl, Serwist service worker), Playwright tests in `e2e/` |
+| `apps/web` | Vite React single-page PWA (`src/`: React Router, TanStack Query, use-intl, Serwist service worker), the asf UI system in `src/ui/` (contract, tokens, the asf template on MUI core; pages import only `@/ui`), Playwright tests in `e2e/` |
 | `packages/shared` | Pure TypeScript shared by API and PWA: zod schemas, permission names, i18n keys, business-rule functions |
-| `packages/ui` | The component set: components on MUI core (template folder `src/templates/mui/`), layout pieces, design tokens, self-hosted fonts |
 | `packages/config` | Shared tsconfig, ESLint and Prettier configuration |
 | `infra/` | Docker Compose file for development services |
 | `scripts/` | Repository checks (`check-docs.mjs`) |
@@ -81,7 +80,7 @@ The web app runs at http://127.0.0.1:3000 (Vite, proxying `/api/v1` to the API) 
 | `pnpm build` | Builds every package and app |
 | `pnpm test` | Unit, component, API and database integration tests (Vitest, all packages; the database tests need `docker compose up -d`) |
 | `pnpm test:coverage` | The same with a coverage report |
-| `pnpm e2e` | Builds the packages, the API and the PWA with the dev component gallery, then runs Playwright (mobile and desktop) against the API on a fresh `css_erp_test_e2e` database with the demo accounts (needs `docker compose up -d`) |
+| `pnpm e2e` | Builds the packages, the API and the PWA with the dev asf gallery (`/dev/asf`), then runs Playwright (mobile and desktop) against the API on a fresh `css_erp_test_e2e` database with the demo accounts (needs `docker compose up -d`) |
 | `pnpm lint` | ESLint (including the hard-coded text rule), the Prettier check and `pnpm i18n:check` (`pnpm format` rewrites) |
 | `pnpm i18n:check` | Message catalogue check (bn/en parity, ICU, parameters, digits, error codes) and no Bengali text in code |
 | `pnpm typecheck` | TypeScript in every package |

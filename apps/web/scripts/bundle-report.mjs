@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 /**
- * The first-route budget of docs/NON_FUNCTIONAL_REQUIREMENTS.md, in compressed KB: 400 while both
- * UI systems sit on the sign-in page during the move to the asf system, measured again and set by
- * the owner once the earlier set has left (docs/DECISION_LOG.md, the move's temporary budget).
+ * The first-route budget of docs/NON_FUNCTIONAL_REQUIREMENTS.md, in compressed KB, as the owner set
+ * it once the move to the asf system ended (docs/DECISION_LOG.md, the lasting first-route budget):
+ * lowered again when the date pickers and the language catalogue leave the first route.
  */
 export const BUDGET_KB = 400;
 

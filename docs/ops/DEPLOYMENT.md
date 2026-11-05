@@ -28,7 +28,7 @@ Exports (T2.8, D-143, D-144): the worker consumes the `exports` queue and runs t
 4. A worker in a container keeps Docker's user namespaces closed unless it runs with Chromium's seccomp profile (`--security-opt seccomp=<profile>`); never `--privileged`, and never `--no-sandbox`.
 5. Check it as the worker user, from `apps/api`: `node -e "require('playwright-core').chromium.launch({ chromiumSandbox: true }).then((b) => b.close()).then(() => console.log('sandbox ok'))"` prints `sandbox ok`.
 
-The PDFs embed the fonts in `packages/ui/fonts/`, so the worker's image ships that folder. Without the sandbox or the fonts, PDF jobs fail with `export.pdf_unavailable` while Excel and CSV keep working. Plan about 1 GB of memory for the worker with one large Excel export running (docs/testing/PERFORMANCE.md, "Exports").
+The PDFs embed Public Sans and Noto Sans Bengali, read from the API's own dependencies `@fontsource-variable/public-sans` and `@fontsource-variable/noto-sans-bengali` (`apps/api/src/exports/pdf/fonts.ts`), so the worker's image needs the API's installed production dependencies (until D-150 the fonts came from `packages/ui/fonts/`). Without the sandbox or the fonts, PDF jobs fail with `export.pdf_unavailable` while Excel and CSV keep working. Plan about 1 GB of memory for the worker with one large Excel export running (docs/testing/PERFORMANCE.md, "Exports").
 
 ## 5. Deployment procedure
 Step-by-step deploy and rollback; smoke tests after deploy.
