@@ -12,6 +12,7 @@ import {
   ConfirmDialog,
   ContactList,
   DataTable,
+  DateField,
   Dialog,
   Disclosure,
   Drawer,
@@ -22,6 +23,7 @@ import {
   FormSection,
   IconButton,
   IconTile,
+  LinkButton,
   Menu,
   OfflineBanner,
   Page,
@@ -32,10 +34,13 @@ import {
   RadioGroup,
   SelectField,
   Skeleton,
+  StatCard,
   StatFilterBar,
   StatusChip,
   Stepper,
+  SummaryBanner,
   Switch,
+  Tabs,
   TextField,
   Timeline,
   type StatusKey,
@@ -576,6 +581,81 @@ export function AsfGallery() {
           <Card title={t('card.projectTitle')} icon="project">
             <p>{t('card.projectSub')}</p>
           </Card>
+        </Section>
+
+        {/* the pieces the app added to the asf contract after the gallery's first sections (local.json) */}
+        <Section id="additions" title={t('asf.sections.additions')}>
+          <SummaryBanner
+            title={t('card.projectTitle')}
+            subtitle={t('card.projectSub')}
+            items={[
+              { label: t('card.statApplications'), value: '1,240', icon: 'clipboard' },
+              { label: t('card.statApproved'), value: '860', icon: 'verified', tone: 'success' },
+            ]}
+          />
+          <div className="asf-gallery-row">
+            <StatCard label={t('card.statDistributed')} value="20,00,000" icon="package" to="/" />
+            <StatFilterBar
+              label={t('card.statApplications')}
+              items={[{ id: 'all', label: t('table.chipAll'), value: 2000000, icon: 'users' }]}
+              selectedId="all"
+              onSelect={() => {}}
+              moreLabel={t('table.chipRemaining')}
+              moreValue={(hidden) => String(hidden)}
+            />
+          </div>
+          <Alert tone="success" title={t('alert.successTitle')} onDismiss={() => {}}>
+            {t('alert.infoText')}
+          </Alert>
+          <div className="asf-gallery-row">
+            <Button endIcon="arrow-right">{t('button.link')}</Button>
+            <Button loading>{t('button.loading')}</Button>
+            <LinkButton variant="secondary" startIcon="arrow-left" to="/">
+              {t('button.link')}
+            </LinkButton>
+            <IconButton label={t('button.link')} icon="bell" to="/" />
+            <Button variant="text" size="small" startIcon="edit" ariaLabel={t('card.edit')}>
+              {t('card.edit')}
+            </Button>
+          </div>
+          <Tabs
+            label={t('tabs.label')}
+            items={[
+              {
+                value: 'answers',
+                label: t('tabs.answers'),
+                count: '12',
+                content: <p>{t('tabs.answersBody')}</p>,
+              },
+              {
+                value: 'history',
+                label: t('tabs.history'),
+                count: '3',
+                content: <p>{t('tabs.historyBody')}</p>,
+              },
+            ]}
+          />
+          <DateField label={t('asf.date')} value="2026-11-04" onChange={() => {}} />
+          <DataTable
+            label={t('card.projectTitle')}
+            columns={[
+              { id: 'name', header: t('table.name'), cell: (r: Row) => r.name, isRowHeader: true },
+              { id: 'village', header: t('table.village'), cell: (r: Row) => r.village },
+            ]}
+            rows={rows.slice(0, 2)}
+            getRowId={(r) => r.id}
+            rowLabel={(r) => r.name}
+            cursorPagination={{
+              summary: t('asf.pagesNote'),
+              hasPrevious: true,
+              hasNext: true,
+              onPrevious: () => {},
+              onNext: () => {},
+              page: 2,
+              pageCount: 5,
+              onPage: () => {},
+            }}
+          />
         </Section>
       </Page>
     </div>

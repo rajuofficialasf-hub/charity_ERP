@@ -126,7 +126,8 @@
         "../../contract.ts"
       ],
       "note": "the shell of a field app: the phone's tabs and the tablet's rail in place of the drawer (and the rail on every width for a person without sidebar groups), a count beside a link and in its name (99+ above 99), the app's own rule for the current page, a slot left in the header for the trail or the brand, a banner slot under the header, and a footer under the sidebar's links; built for the CSS ERP; its look is in the shell spec's pictures of the running app",
-      "screenshot": null
+      "screenshot": "docs/ui/asf-pieces/app-shell.png",
+      "screenshotPhone": "docs/ui/asf-pieces/app-shell-phone.png"
     },
     {
       "name": "Spinner, Button end icon, StatCard link, SummaryBanner figures, readable chips, counts and error text",
@@ -141,7 +142,8 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "a small named spinner for a wait inside a field, an icon after a button's words (the next step), a figure card that opens the list it counts, and the summary banner's figures as a valid list of terms and values with the icon inside the term; built for the CSS ERP; the soft chip's words take the darkest shade of their tone, the counts of the navigation the dark red with white, and an error in words the dark red (the light one in dark mode), because the kit's shades read 3.2 to 3.6:1; no gallery picture of its own yet: the home, the registration and their a11y sweeps in both modes check these pieces in the browser"
+      "note": "a small named spinner for a wait inside a field, an icon after a button's words (the next step), a figure card that opens the list it counts, and the summary banner's figures as a valid list of terms and values with the icon inside the term; built for the CSS ERP; the soft chip's words take the darkest shade of their tone, the counts of the navigation the dark red with white, and an error in words the dark red (the light one in dark mode), because the kit's shades read 3.2 to 3.6:1; the gallery shows it in both languages and modes, checked with axe",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
     },
     {
       "name": "Alert that can be put away, IconButton as a link, Button with a longer name, Tabs with counts",
@@ -152,7 +154,8 @@
         "components/tabs.tsx",
         "../../contract.ts"
       ],
-      "note": "a close button on a note the person may put away (the install hint, the sync reminder, a notice), named by the dismiss label, and an icon-only link to an app path (the sync chip and the bell of the app bar), a tab's count after its label (the volunteer's applications by state), and a short button named by longer words that hold its own (a section's edit button); built for the CSS ERP; no gallery picture of its own yet: the home, the sync centre and their a11y sweeps check them in the browser"
+      "note": "a close button on a note the person may put away (the install hint, the sync reminder, a notice), named by the dismiss label, and an icon-only link to an app path (the sync chip and the bell of the app bar), a tab's count after its label (the volunteer's applications by state), and a short button named by longer words that hold its own (a section's edit button); built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
     },
     {
       "name": "DateField and MonthField in the app's words",
@@ -161,7 +164,8 @@
         "components/labels.ts",
         "../../contract.ts"
       ],
-      "note": "a date shows day-month-year in English digits (DD-MM-YYYY, as the app writes every date) instead of the kit's \"DD MMM YYYY\", and the picker's own words (the parts of a date, the calendar's buttons) come from the labels, so a Bengali page reads them in Bengali; built for the CSS ERP"
+      "note": "a date shows day-month-year in English digits (DD-MM-YYYY, as the app writes every date) instead of the kit's \"DD MMM YYYY\", and the picker's own words (the parts of a date, the calendar's buttons) come from the labels, so a Bengali page reads them in Bengali; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
     },
     {
       "name": "Button that keeps the keyboard's focus, DataTable that scrolls sideways by keyboard",
@@ -169,7 +173,8 @@
         "components/button.tsx",
         "components/data-table.tsx"
       ],
-      "note": "a loading button is disabled, which drops the focus to the page (out of a dialog, where Escape then no longer reaches it): the button takes it back when its work ends, unless the person moved it; a table wider than its box makes the box a named region in the tab order, so the columns out of view can be reached without a pointer (the permission panel's effective permissions); built for the CSS ERP; no gallery picture of its own: the notification texts and permission specs check them in the browser"
+      "note": "a loading button is disabled, which drops the focus to the page (out of a dialog, where Escape then no longer reaches it): the button takes it back when its work ends, unless the person moved it; a table wider than its box makes the box a named region in the tab order, so the columns out of view can be reached without a pointer (the permission panel's effective permissions); built for the CSS ERP; also checked by the notification texts and permission specs check them in the browser",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
     },
     {
       "name": "DataTable: page numbers beside a cursor pager",
@@ -177,14 +182,16 @@
         "components/data-table.tsx",
         "../../contract.ts"
       ],
-      "note": "a nationwide list counts its first rows and goes by cursor past them: the cursor pager takes the current page, how many are numbered and how to open one, and shows the page numbers between its own previous and next, which go on past the numbered pages (the volunteer tab); built for the CSS ERP; no gallery picture of its own: the volunteer tab's test and spec check it"
+      "note": "a nationwide list counts its first rows and goes by cursor past them: the cursor pager takes the current page, how many are numbered and how to open one, and shows the page numbers between its own previous and next, which go on past the numbered pages (the volunteer tab); built for the CSS ERP; also checked by the volunteer tab's test and spec check it; each pager is named with its table (\"Volunteers: Pagination\"), so two lists on one page keep two landmarks",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
     },
     {
       "name": "LinkButton with the extended icons",
       "files": [
         "../../contract.ts"
       ],
-      "note": "a link that looks like a button takes the same icons as the button, the extended set (a way back, compare, merge on the duplicates page) and an end icon; built for the CSS ERP; no gallery picture of its own: the duplicates page's test checks it"
+      "note": "a link that looks like a button takes the same icons as the button, the extended set (a way back, compare, merge on the duplicates page) and an end icon; built for the CSS ERP; also checked by the duplicates page's test checks it",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
     },
     {
       "name": "Counts in the app's number locale",
@@ -195,14 +202,16 @@
         "components/shared.ts",
         "../../contract.ts"
       ],
-      "note": "the stat bar, the offline banner and the progress bar wrote their counts in en-US grouping (2,000,000) beside the app's own formatter (20,00,000); the labels now carry `numberLocale`, which the app sets from its formatter's locale, and `useCount` formats with it; the digits stay English; built for the CSS ERP; no gallery picture: the stat bar's test and the beneficiary tab check it"
+      "note": "the stat bar, the offline banner and the progress bar wrote their counts in en-US grouping (2,000,000) beside the app's own formatter (20,00,000); the labels now carry `numberLocale`, which the app sets from its formatter's locale, and `useCount` formats with it; the digits stay English; built for the CSS ERP; the gallery shows it in both languages and modes, checked with axe",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
     },
     {
       "name": "Theme: labels that read",
       "files": [
         "theme/overrides.ts"
       ],
-      "note": "the labels of fields and the legend of a radio or checkbox group take the secondary grey at rest and the text colour while focused, the dark red on an error (the light red in dark mode); the theme's main green (3.1:1) and disabled grey (2.7:1) do not reach 4.5:1 on white; built for the CSS ERP; the gallery spec and the a11y sweep check it in the browser"
+      "note": "the labels of fields and the legend of a radio or checkbox group take the secondary grey at rest and the text colour while focused, the dark red on an error (the light red in dark mode); the theme's main green (3.1:1) and disabled grey (2.7:1) do not reach 4.5:1 on white; built for the CSS ERP; the gallery spec and the a11y sweep check it in the browser",
+      "screenshot": "docs/ui/asf-pieces/gallery-choices.png"
     }
   ]
 }

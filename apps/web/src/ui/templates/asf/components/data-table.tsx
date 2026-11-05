@@ -345,8 +345,8 @@ export function DataTable<Row>({
         </Box>
       )}
       {asCards ? cards : table}
-      {pagination && !error && (pagination.showPageNumbers ? <NumberedPager {...pagination} phone={phone} /> : <RangePager {...pagination} />)}
-      {cursorPagination && !error && <CursorPager {...cursorPagination} phone={phone} />}
+      {pagination && !error && (pagination.showPageNumbers ? <NumberedPager {...pagination} phone={phone} table={label} /> : <RangePager {...pagination} />)}
+      {cursorPagination && !error && <CursorPager {...cursorPagination} phone={phone} table={label} />}
     </Frame>
   );
 }
@@ -383,7 +383,7 @@ function RangePager(pagination: PaginationProps) {
 }
 
 /** The range and the page numbers: the first, the last and the ones around the current page (only the current one on a phone). */
-function NumberedPager({ page, pageSize, total, onPageChange, phone }: PaginationProps & { phone: boolean }) {
+function NumberedPager({ page, pageSize, total, onPageChange, phone, table }: PaginationProps & { phone: boolean; table: string }) {
   const labels = useLabels();
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const shown = Math.min(Math.max(1, page), pageCount);
@@ -395,7 +395,7 @@ function NumberedPager({ page, pageSize, total, onPageChange, phone }: Paginatio
         {fill(labels.rowsRange, { from, to, total })}
       </Box>
       <Pagination
-        aria-label={labels.pages}
+        aria-label={`${table}: ${labels.pages}`}
         count={pageCount}
         page={shown}
         shape="rounded"
@@ -410,13 +410,13 @@ function NumberedPager({ page, pageSize, total, onPageChange, phone }: Paginatio
 }
 
 /** Previous and next for a list read by cursor; "load more" on a phone when the caller offers it. */
-function CursorPager({ summary, hasPrevious, hasNext, onPrevious, onNext, onLoadMore, page, pageCount, onPage, phone }: CursorPagination & { phone: boolean }) {
+function CursorPager({ summary, hasPrevious, hasNext, onPrevious, onNext, onLoadMore, page, pageCount, onPage, phone, table }: CursorPagination & { phone: boolean; table: string }) {
   const labels = useLabels();
   const loadMore = phone && onLoadMore;
   // the numbers step only through the counted pages; previous and next also go past them by cursor
   const numbers = page !== undefined && pageCount !== undefined && onPage && (
     <Pagination
-      aria-label={labels.pages}
+      aria-label={`${table}: ${labels.pages}`}
       count={pageCount}
       page={page}
       shape="rounded"

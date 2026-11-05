@@ -17,6 +17,7 @@ const PIECES = [
   'people',
   'overlays',
   'lists',
+  'additions',
 ];
 
 test.beforeEach(async ({ page }, info) => {

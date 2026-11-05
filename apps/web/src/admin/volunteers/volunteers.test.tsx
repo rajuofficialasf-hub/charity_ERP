@@ -336,7 +336,7 @@ describe('the volunteer tab', () => {
     const user = userEvent.setup();
     const { router } = open();
     expect(await screen.findByText('1–1 দেখানো হচ্ছে · মোট 23 জন')).toBeInTheDocument();
-    const pager = screen.getByRole('navigation', { name: 'পাতা বদল' });
+    const pager = screen.getByRole('navigation', { name: 'স্বেচ্ছাসেবক: পাতা বদল' });
     expect(listUrls.at(-1)?.searchParams.get('limit')).toBe('10');
     await user.click(within(pager).getByRole('button', { name: 'পাতা 3' }));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('page')).toBe('3'));

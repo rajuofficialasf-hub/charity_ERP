@@ -353,7 +353,8 @@
       "progress": "Steps, history and progress",
       "people": "People and profiles",
       "overlays": "Dialogs, panels and menus",
-      "lists": "The day's work, attention and uploads"
+      "lists": "The day's work, attention and uploads",
+      "additions": "Pieces the app added"
     },
     "tiles": {
       "blank": "Start blank",
@@ -365,6 +366,8 @@
     "dialogText": "This dialog stays open while saving.",
     "attention": "12 applications waiting for review",
     "attentionReason": "Older than 3 days",
-    "attentionMeta": "The oldest has waited 6 days"
+    "attentionMeta": "The oldest has waited 6 days",
+    "date": "Distribution date",
+    "pagesNote": "Pages past the counted ones go by next and previous"
   }
 }
