@@ -5,9 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 /**
- * The first-route budget of docs/NON_FUNCTIONAL_REQUIREMENTS.md, in compressed KB, as the owner set
- * it once the move to the asf system ended (docs/DECISION_LOG.md, the lasting first-route budget):
- * lowered again when the date pickers and the language catalogue leave the first route.
+ * The first-route budget of the first-load requirement in docs/NON_FUNCTIONAL_REQUIREMENTS.md, in
+ * compressed KB.
  */
 export const BUDGET_KB = 400;
 

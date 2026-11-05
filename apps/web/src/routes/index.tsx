@@ -3,7 +3,7 @@ import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { RouteError } from '../components/RouteError';
 import { LoginPage } from '../features/auth/LoginPage';
 
-/** The dev-only component gallery (T1.4) exists in `vite dev` and in the E2E build only. */
+/** The asf component gallery exists in `vite dev` and in the E2E build only. */
 export const GALLERY_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEV_GALLERY === '1';
 
 // Constant-folded at build time, so a normal production build has no gallery chunk at all.
