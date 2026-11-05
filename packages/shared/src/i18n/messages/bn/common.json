@@ -60,5 +60,8 @@
     "media_accepted": "গ্রহণ করা হয়েছে",
     "media_sent_back": "সংশোধনের জন্য ফেরত দেওয়া হয়েছে",
     "media_rejected": "বাতিল করা হয়েছে"
+  },
+  "list": {
+    "result_count": "{total}টির মধ্যে {shown}টি"
   }
 }

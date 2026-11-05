@@ -30,6 +30,7 @@ import {
 } from './projects-api';
 import { PROJECT_COUNT_LOOK } from './state-look';
 import { LoadError } from '../../components/LoadError';
+import { useCountLine } from '../list-paging';
 
 /** The years a project list filters by: from the first year a project may have to next year. */
 const FIRST_YEAR = 2020;
@@ -91,6 +92,7 @@ function ProjectList({ programNames }: { programNames: boolean }) {
   };
   const rows = page.data?.data ?? [];
   const meta = page.data?.meta;
+  const countLine = useCountLine();
   const name = (p: Project) => (
     <PersonCell
       name={localized(p.name, locale)}
@@ -192,6 +194,7 @@ function ProjectList({ programNames }: { programNames: boolean }) {
                 hasPrevious: meta.prevCursor !== null,
                 onNext: () => setCursor(meta.nextCursor),
                 onPrevious: () => setCursor(meta.prevCursor),
+                summary: countLine(rows.length, meta.total ?? rows.length),
               }
             : undefined
         }

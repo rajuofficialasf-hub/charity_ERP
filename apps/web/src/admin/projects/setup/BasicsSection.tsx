@@ -15,7 +15,7 @@ export function BasicsSection() {
 }
 
 function BasicsForm({ stale, onStale }: { stale: boolean; onStale: () => void }) {
-  const { project, etag, editable, refresh, configure } = useSetup();
+  const { project, etag, editable, refresh } = useSetup();
   const t = useTranslations('admin.projects.setup');
   const td = useTranslations('admin.projects.dialog');
   const tz = useTranslations('admin.projects.wizard');
@@ -27,7 +27,8 @@ function BasicsForm({ stale, onStale }: { stale: boolean; onStale: () => void })
   const [year, setYear] = useState(String(project.year));
   const [programId, setProgramId] = useState<string | null>(project.programId ?? null);
   const [workflowKey, setWorkflowKey] = useState<string | null>(project.workflowKey);
-  const list = useQuery({ queryKey: PROGRAMS_KEY, queryFn: programs, enabled: configure });
+  // read for a viewer too: the disabled select names the program from this list
+  const list = useQuery({ queryKey: PROGRAMS_KEY, queryFn: programs });
 
   const body = (): ProjectUpdate => {
     const out: ProjectUpdate = {};

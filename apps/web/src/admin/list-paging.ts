@@ -1,6 +1,7 @@
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import type { CursorPagination } from '@/ui';
+import { useLocale, useTranslations } from 'use-intl';
 
 /** Rows per page of the nationwide tabs. */
 export const PAGE_SIZE = 10;
@@ -60,4 +61,19 @@ export function numberedPaging({
       total: typeof total === 'number' ? formatCount(total, locale) : total,
     }),
   };
+}
+
+/**
+ * The count line of a list read by cursor ("25টির মধ্যে 25টি"): the rows shown and the total, or
+ * "25+" while another page follows a list that keeps no total.
+ */
+export function useCountLine(): (shown: number, total: number | 'more' | undefined) => string {
+  const tc = useTranslations('common');
+  const locale = useLocale() as Locale;
+  return (shown, total) =>
+    tc('list.result_count', {
+      shown: formatCount(shown, locale),
+      total:
+        total === 'more' ? `${formatCount(shown, locale)}+` : formatCount(total ?? shown, locale),
+    });
 }

@@ -29,6 +29,7 @@ import { AuditDetail } from './AuditDetail';
 import { AUDIT_FILTERS, AUDIT_KEY, type AuditEntry, auditPage } from './audit-api';
 import './audit.css';
 import { LoadError } from '../../components/LoadError';
+import { useCountLine } from '../list-paging';
 
 /** A code typed into a filter, committed when the field is left (not on every key). */
 function CodeFilter({
@@ -94,6 +95,7 @@ export function AuditPage() {
     enabled: allowed,
     placeholderData: keepPreviousData,
   });
+  const countLine = useCountLine();
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
 
@@ -244,6 +246,7 @@ export function AuditPage() {
                 hasPrevious: meta.prevCursor !== null,
                 onNext: () => setCursor(meta.nextCursor),
                 onPrevious: () => setCursor(meta.prevCursor),
+                summary: countLine(rows.length, meta.nextCursor ? 'more' : rows.length),
               }
             : undefined
         }

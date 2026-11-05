@@ -27,6 +27,7 @@ import {
   deliveriesPage,
 } from './notifications-admin-api';
 import { LoadError } from '../../components/LoadError';
+import { useCountLine } from '../list-paging';
 
 const CHANNEL_NAMES = ['email', 'sms', 'push'] as const;
 
@@ -61,6 +62,7 @@ export function DeliveriesPage() {
     enabled: allowed,
     placeholderData: keepPreviousData,
   });
+  const countLine = useCountLine();
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
 
@@ -169,6 +171,7 @@ export function DeliveriesPage() {
                 hasPrevious: meta.prevCursor !== null,
                 onNext: () => setCursor(meta.nextCursor),
                 onPrevious: () => setCursor(meta.prevCursor),
+                summary: countLine(rows.length, meta.nextCursor ? 'more' : rows.length),
               }
             : undefined
         }

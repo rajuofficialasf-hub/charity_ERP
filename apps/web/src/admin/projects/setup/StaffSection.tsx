@@ -111,7 +111,7 @@ export function StaffSection({
               value={roleKey ?? ''}
               onChange={(role) => {
                 // the person is looked up among the holders of the role
-                setRoleKey(role);
+                setRoleKey(role || null);
                 setPerson(null);
               }}
               searchable={false}

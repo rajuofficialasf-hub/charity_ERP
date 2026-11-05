@@ -158,7 +158,7 @@ test.describe('programs and project setup', () => {
     await page.getByRole('link', { name: 'সব প্রকল্প' }).click();
     // the list has loaded before the cancelled one is looked for
     await expect(listRows(page, TAB)).toBeVisible();
-    await expect(listRows(page, TAB).getByRole('link').first()).toBeVisible();
+    await expect(page.getByText(/^\d+টির মধ্যে \d+টি$/).first()).toBeVisible();
     await expect(listRows(page, TAB).getByRole('link', { name })).toHaveCount(0);
   });
 

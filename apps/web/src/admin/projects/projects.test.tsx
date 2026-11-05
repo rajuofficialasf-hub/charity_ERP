@@ -98,6 +98,8 @@ describe('the project list', () => {
     expect((await screen.findAllByText('খসড়া')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('সক্রিয়').length).toBeGreaterThan(0);
     expect((await screen.findAllByText('মানবিক সহায়তা')).length).toBeGreaterThan(0);
+    // the count line under the list: the rows shown of the total
+    expect(await screen.findByText(/^\d+টির মধ্যে \d+টি$/)).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 

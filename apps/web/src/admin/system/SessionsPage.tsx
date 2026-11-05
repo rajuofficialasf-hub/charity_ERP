@@ -21,6 +21,7 @@ import { canAdministerSystem } from '../roles';
 import { useTabView } from '../use-tab-view';
 import { type ActiveSession, activeSessions, endSession, SESSIONS_KEY } from './system-api';
 import { LoadError } from '../../components/LoadError';
+import { useCountLine } from '../list-paging';
 
 const KINDS = ['staff', 'volunteer'] as const;
 
@@ -57,6 +58,7 @@ export function SessionsPage() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: SESSIONS_KEY }),
   });
+  const countLine = useCountLine();
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
 
@@ -147,6 +149,7 @@ export function SessionsPage() {
                 hasPrevious: meta.prevCursor !== null,
                 onNext: () => setCursor(meta.nextCursor),
                 onPrevious: () => setCursor(meta.prevCursor),
+                summary: countLine(rows.length, meta.nextCursor ? 'more' : rows.length),
               }
             : undefined
         }

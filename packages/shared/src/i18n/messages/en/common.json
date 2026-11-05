@@ -60,5 +60,8 @@
     "media_accepted": "accepted",
     "media_sent_back": "sent back for correction",
     "media_rejected": "rejected"
+  },
+  "list": {
+    "result_count": "{shown} of {total}"
   }
 }

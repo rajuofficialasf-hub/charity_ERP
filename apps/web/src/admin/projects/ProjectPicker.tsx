@@ -35,7 +35,9 @@ export function ProjectPicker({
       label={t('picker')}
       hint={list.error ? t('picker_failed') : undefined}
       value={value ?? ''}
-      onChange={onChange}
+      // the searchable kind has a clear button, so the filter can go back to every project
+      searchable
+      onChange={(id) => onChange(id || null)}
       options={[
         ...(unlisted ? [{ value: value ?? '', label: t('picker_chosen') }] : []),
         ...projects.map((p) => ({
