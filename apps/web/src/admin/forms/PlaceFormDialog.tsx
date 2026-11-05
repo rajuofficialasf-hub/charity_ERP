@@ -1,5 +1,5 @@
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, Button, Modal, RadioGroup, Text } from '@css/ui';
+import { Alert, Button, Dialog, RadioGroup, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -14,13 +14,13 @@ import { FORMS_KEY, placeForm, READY_KEY, readyForms } from './forms-api';
 export function PlaceFormDialog({
   projectId,
   firstForm,
-  isOpen,
+  open,
   onClose,
   onPlaced,
 }: {
   projectId: string;
   firstForm: boolean;
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
   onPlaced: (formId: string) => void;
 }) {
@@ -29,7 +29,7 @@ export function PlaceFormDialog({
   const locale = useLocale() as Locale;
   const queries = useQueryClient();
   const [chosen, setChosen] = useState<string | null>(null);
-  const list = useQuery({ queryKey: READY_KEY, queryFn: readyForms, enabled: isOpen });
+  const list = useQuery({ queryKey: READY_KEY, queryFn: readyForms, enabled: open });
   const published = (list.data ?? []).filter((f) => f.publishedVersionNo !== null);
   // a choice that left the list (unpublished, or another list read) counts as none
   const choice = published.some((f) => f.id === chosen) ? chosen : null;
@@ -49,26 +49,24 @@ export function PlaceFormDialog({
     },
   });
   return (
-    <Modal
+    <Dialog
       title={tp('title')}
-      isOpen={isOpen}
+      open={open}
       onClose={close}
       dismissible={!place.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={close} disabled={place.isPending}>
-          {t('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => place.mutate()} disabled={!choice} loading={place.isPending}>
-          {tp('place')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={close} disabled={place.isPending}>
+            {t('cancel')}
+          </Button>
+          <Button onClick={() => place.mutate()} disabled={!choice} loading={place.isPending}>
+            {tp('place')}
+          </Button>
+        </>
       }
     >
       {place.error instanceof ApiFailure ? (
-        <Alert tone="danger" live="alert">
-          {place.error.details[0]?.message ?? place.error.message}
-        </Alert>
+        <Alert tone="error">{place.error.details[0]?.message ?? place.error.message}</Alert>
       ) : null}
       <Text tone="muted">{tp('note')}</Text>
       {list.isSuccess && published.length === 0 ? (
@@ -79,7 +77,7 @@ export function PlaceFormDialog({
           value={choice ?? ''}
           onChange={setChosen}
           options={published.map((f) => ({
-            id: f.id,
+            value: f.id,
             label: tp('option', {
               title: localized(f.title, locale),
               kind: t(`kind.${f.kind}`),
@@ -88,6 +86,6 @@ export function PlaceFormDialog({
           }))}
         />
       )}
-    </Modal>
+    </Dialog>
   );
 }

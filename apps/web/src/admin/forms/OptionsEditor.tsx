@@ -1,6 +1,5 @@
 import type { FieldOption, FormField } from '@css/shared/forms';
-import { Button, Checkbox, Select, Stack, Text, TextField } from '@css/ui';
-import { Plus } from 'lucide-react';
+import { Button, Checkbox, SelectField, Stack, Text, TextField } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { RowButtons } from './RowButtons';
 
@@ -59,80 +58,87 @@ export function OptionsEditor({
     onChange(next);
   };
   return (
-    <Stack as="section" gap={2} aria-label={t('options')}>
-      {heading ? <Text weight="bold">{t('options')}</Text> : null}
-      {options.map((option, i) => {
-        const n = String(i + 1);
-        return (
-          <Stack key={option.code} gap={1} className="form-settings-row">
-            <TextField
-              label={t('option_bn', { n })}
-              required
-              value={option.label.bn}
-              onChange={(bn) => change(i, { label: { ...option.label, bn } })}
-            />
-            <TextField
-              label={t('option_en', { n })}
-              required
-              lang="en"
-              value={option.label.en}
-              onChange={(en) => change(i, { label: { ...option.label, en } })}
-            />
-            {full ? (
-              <>
-                <Checkbox
-                  isSelected={option.allowsOtherText === true}
-                  onChange={(on) => change(i, { allowsOtherText: on })}
-                >
-                  {t('option_other', { n })}
-                </Checkbox>
-                {parent ? (
-                  <Select
-                    label={t('option_depends', { n, question: parent.label[locale] })}
-                    value={option.dependsOnOptionCode ?? ALWAYS}
-                    onChange={(id) =>
-                      change(i, { dependsOnOptionCode: !id || id === ALWAYS ? null : id })
-                    }
-                    options={[
-                      { id: ALWAYS, label: t('option_always') },
-                      ...(parent.options ?? []).map((p) => ({
-                        id: p.code,
-                        label: p.label[locale],
-                      })),
-                    ]}
-                  />
-                ) : null}
-                <RowButtons
-                  up={{
-                    label: t('option_move_up', { n }),
-                    disabled: i === 0,
-                    onPress: () => move(i, -1),
-                  }}
-                  down={{
-                    label: t('option_move_down', { n }),
-                    disabled: i === options.length - 1,
-                    onPress: () => move(i, 1),
-                  }}
-                  remove={{
-                    label: t('option_remove', { n }),
-                    onPress: () => onChange(options.filter((_, j) => j !== i)),
-                  }}
+    <div>
+      <Stack gap={2}>
+        {heading ? (
+          <Text>
+            <strong>{t('options')}</strong>
+          </Text>
+        ) : null}
+        {options.map((option, i) => {
+          const n = String(i + 1);
+          return (
+            <div key={option.code} className="form-settings-row">
+              <Stack gap={1}>
+                <TextField
+                  label={t('option_bn', { n })}
+                  required
+                  value={option.label.bn}
+                  onChange={(bn) => change(i, { label: { ...option.label, bn } })}
                 />
-              </>
-            ) : null}
-          </Stack>
-        );
-      })}
-      {full ? (
-        <Button
-          size="sm"
-          variant="secondary"
-          icon={Plus}
-          onPress={() => onChange([...options, emptyOption(options)])}
-        >
-          {t('option_add')}
-        </Button>
-      ) : null}
-    </Stack>
+                <TextField
+                  label={t('option_en', { n })}
+                  required
+                  lang="en"
+                  value={option.label.en}
+                  onChange={(en) => change(i, { label: { ...option.label, en } })}
+                />
+                {full ? (
+                  <>
+                    <Checkbox
+                      label={t('option_other', { n })}
+                      checked={option.allowsOtherText === true}
+                      onChange={(on) => change(i, { allowsOtherText: on })}
+                    />
+                    {parent ? (
+                      <SelectField
+                        label={t('option_depends', { n, question: parent.label[locale] })}
+                        value={option.dependsOnOptionCode ?? ALWAYS}
+                        onChange={(id) =>
+                          change(i, { dependsOnOptionCode: !id || id === ALWAYS ? null : id })
+                        }
+                        options={[
+                          { value: ALWAYS, label: t('option_always') },
+                          ...(parent.options ?? []).map((p) => ({
+                            value: p.code,
+                            label: p.label[locale],
+                          })),
+                        ]}
+                      />
+                    ) : null}
+                    <RowButtons
+                      up={{
+                        label: t('option_move_up', { n }),
+                        disabled: i === 0,
+                        onPress: () => move(i, -1),
+                      }}
+                      down={{
+                        label: t('option_move_down', { n }),
+                        disabled: i === options.length - 1,
+                        onPress: () => move(i, 1),
+                      }}
+                      remove={{
+                        label: t('option_remove', { n }),
+                        onPress: () => onChange(options.filter((_, j) => j !== i)),
+                      }}
+                    />
+                  </>
+                ) : null}
+              </Stack>
+            </div>
+          );
+        })}
+        {full ? (
+          <Button
+            size="small"
+            variant="secondary"
+            startIcon="add"
+            onClick={() => onChange([...options, emptyOption(options)])}
+          >
+            {t('option_add')}
+          </Button>
+        ) : null}
+      </Stack>
+    </div>
   );
 }

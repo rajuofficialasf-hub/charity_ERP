@@ -228,7 +228,8 @@ const addSection = async (user: ReturnType<typeof userEvent.setup>, title: strin
 };
 /** Opens a library section's group in the left pane when it is closed. */
 const openGroup = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
-  const heading = await screen.findByRole('button', { name: new RegExp(`^${title} `) });
+  // the group's name is its title, then its count of questions
+  const heading = await screen.findByRole('button', { name: new RegExp(`^${title}`) });
   if (heading.getAttribute('aria-expanded') === 'false') await user.click(heading);
 };
 /** Picks an option of a select of the set, found by its label. */
@@ -238,7 +239,7 @@ async function choose(
   optionName: string | RegExp,
   scope: ReturnType<typeof within> | typeof screen = screen,
 ) {
-  await user.click(scope.getByRole('button', { name: label }));
+  await user.click(scope.getByRole('combobox', { name: label }));
   await user.click(await screen.findByRole('option', { name: optionName }));
 }
 /** The field of the last saved draft. */
@@ -430,7 +431,7 @@ describe('the outline and the libraries', () => {
     await user.click(await screen.findByRole('button', { name: 'সারিতে প্রশ্ন যোগ করুন' }));
     await user.click(screen.getByRole('button', { name: 'সংখ্যা প্রশ্ন যোগ করুন' }));
     const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
-    expect(within(dialog).getByRole('button', { name: /কোন তালিকার সারিতে/ })).toHaveTextContent(
+    expect(within(dialog).getByRole('combobox', { name: /কোন তালিকার সারিতে/ })).toHaveTextContent(
       'পরিবারের সদস্যরা',
     );
     await user.type(within(dialog).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'বয়স');
@@ -599,7 +600,7 @@ describe('the own question', () => {
     const scope = within(dialog);
     await user.type(scope.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'ব্যবসার ধরন');
     await user.type(scope.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }), 'Kind of business');
-    await choose(user, /^মৌলিক তথ্য কোন অংশে/, 'কাজ', scope);
+    await choose(user, /কোন অংশে/, 'কাজ', scope);
     await choose(user, /কোন প্রশ্নের উত্তর অনুযায়ী/, 'পেশা', scope);
     await user.type(scope.getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }), 'দোকান');
     await user.type(scope.getByRole('textbox', { name: /^অপশন 1 \(ইংরেজি\)/ }), 'Shop');
@@ -879,7 +880,7 @@ describe('a new form', () => {
       'Application',
     );
     await user.click(within(dialog).getByRole('radio', { name: 'লাইব্রেরির টেমপ্লেট' }));
-    await user.click(within(dialog).getByRole('button', { name: /টেমপ্লেট/ }));
+    await user.click(within(dialog).getByRole('combobox', { name: /টেমপ্লেট/ }));
     await user.click(await screen.findByRole('option', { name: 'বিতরণভিত্তিক আবেদন ফর্ম' }));
     await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
     await waitFor(() => expect(posts).toHaveLength(1));
@@ -994,9 +995,9 @@ describe('a new form', () => {
     await user.click(await screen.findByRole('button', { name: 'নতুন ফর্ম' }));
     const dialog = await screen.findByRole('dialog', { name: 'নতুন আবেদন ফর্ম' });
     await user.click(within(dialog).getByRole('radio', { name: 'অন্য প্রকল্পের ফর্ম' }));
-    await user.click(within(dialog).getByRole('button', { name: /^.*প্রকল্প/ }));
+    await user.click(within(dialog).getByRole('combobox', { name: /^.*প্রকল্প/ }));
     await user.click(await screen.findByRole('option', { name: /শীতবস্ত্র 2025/ }));
-    await user.click(within(dialog).getByRole('button', { name: /(^|\s)ফর্ম(\(|\s|$)/ }));
+    await user.click(within(dialog).getByRole('combobox', { name: /^ফর্ম/ }));
     expect(await screen.findByRole('option', { name: 'গত বছরের ফর্ম' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'শুধু খসড়া' })).not.toBeInTheDocument();
   });

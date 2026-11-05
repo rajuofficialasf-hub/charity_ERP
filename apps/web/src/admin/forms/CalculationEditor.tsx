@@ -1,7 +1,6 @@
 import type { Condition, Expr } from '@css/shared';
 import type { Calculation, CalculationResult, FormDefinition, FormField } from '@css/shared/forms';
-import { Alert, Button, SegmentedControl, Select, Stack, Text, TextArea, TextField } from '@css/ui';
-import { Plus } from 'lucide-react';
+import { Alert, Button, SelectField, Stack, Text, TextField, RadioGroup } from '@/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import {
@@ -131,46 +130,53 @@ export function CalculationEditor({
     onChange(next === undefined ? undefined : { ...field.calculation, expr: next });
 
   return (
-    <Stack as="section" gap={3} aria-label={t('calc')}>
-      {heading ? <Text weight="bold">{t('calc')}</Text> : null}
-      <SegmentedControl
-        label={t('calc_mode')}
-        value={mode}
-        onChange={(next) => setMode(next === 'type' ? 'type' : 'click')}
-        options={[
-          { id: 'click', label: t('calc_mode_click') },
-          { id: 'type', label: t('calc_mode_type') },
-        ]}
-      />
-      {mode === 'type' ? (
-        <FormulaInput
-          ctx={ctx}
-          text={typed ?? (expr === undefined ? '' : printFormula(expr))}
-          onText={setTyped}
-          onChange={write}
+    <section aria-label={t('calc')}>
+      <Stack gap={3}>
+        {heading ? (
+          <Text>
+            <strong>{t('calc')}</strong>
+          </Text>
+        ) : null}
+        <RadioGroup
+          orientation="horizontal"
+          label={t('calc_mode')}
+          value={mode}
+          onChange={(next: string) => setMode(next === 'type' ? 'type' : 'click')}
+          options={[
+            { value: 'click', label: t('calc_mode_click') },
+            { value: 'type', label: t('calc_mode_type') },
+          ]}
         />
-      ) : (
-        <PartEditor ctx={ctx} label={t('calc_root')} expr={expr} depth={0} onChange={write} />
-      )}
-      {mode === 'click' && typed !== null && !formulaReads(ctx, typed) ? (
-        <Alert tone="warning">{t('calc_formula_kept')}</Alert>
-      ) : null}
-      <Select
-        label={t('calc_round')}
-        disabled={!field.calculation}
-        value={field.calculation?.round === undefined ? 'none' : String(field.calculation.round)}
-        onChange={(id) => {
-          if (!field.calculation) return;
-          const { round: _old, ...rest } = field.calculation;
-          onChange(id === 'none' || id === null ? rest : { ...rest, round: Number(id) });
-        }}
-        options={[
-          { id: 'none', label: t('calc_round_none') },
-          ...[0, 1, 2, 3, 4].map((n) => ({ id: String(n), label: String(n) })),
-        ]}
-      />
-      <ResultsEditor results={results} onChange={onResults} />
-    </Stack>
+        {mode === 'type' ? (
+          <FormulaInput
+            ctx={ctx}
+            text={typed ?? (expr === undefined ? '' : printFormula(expr))}
+            onText={setTyped}
+            onChange={write}
+          />
+        ) : (
+          <PartEditor ctx={ctx} label={t('calc_root')} expr={expr} depth={0} onChange={write} />
+        )}
+        {mode === 'click' && typed !== null && !formulaReads(ctx, typed) ? (
+          <Alert tone="warning">{t('calc_formula_kept')}</Alert>
+        ) : null}
+        <SelectField
+          label={t('calc_round')}
+          disabled={!field.calculation}
+          value={field.calculation?.round === undefined ? 'none' : String(field.calculation.round)}
+          onChange={(id) => {
+            if (!field.calculation) return;
+            const { round: _old, ...rest } = field.calculation;
+            onChange(id === 'none' || id === null ? rest : { ...rest, round: Number(id) });
+          }}
+          options={[
+            { value: 'none', label: t('calc_round_none') },
+            ...[0, 1, 2, 3, 4].map((n) => ({ value: String(n), label: String(n) })),
+          ]}
+        />
+        <ResultsEditor results={results} onChange={onResults} />
+      </Stack>
+    </section>
   );
 }
 
@@ -199,99 +205,102 @@ function PartEditor({
   const { offers } = ctx;
   const labelOf = (f: FormField) => f.label[locale];
   return (
-    <Stack gap={2} className="form-calc-part">
-      <Select
-        label={t('calc_kind_of', { part: label })}
-        value={kind}
-        onChange={(id) => {
-          const next = PART_KINDS.find((k) => k === id);
-          if (!next || next === kind) return;
-          const part = startPart(next, ctx.starts);
-          if (part !== null) onChange(part);
-        }}
-        options={kinds.map((k) => ({ id: k, label: t(`calc_parts.${k}`) }))}
-      />
-      {expr !== undefined && typeof expr === 'number' ? (
-        <NumberText
-          label={t('calc_number', { part: label })}
-          value={expr}
-          onChange={(value) => onChange(value ?? 0)}
-        />
-      ) : null}
-      {expr !== undefined && typeof expr === 'object' && 'field' in expr ? (
-        <Select
-          label={t('calc_question', { part: label })}
-          value={expr.field}
-          onChange={(id) => id && onChange({ field: id })}
-          options={offers.fields.map((f) => ({ id: f.fieldKey, label: labelOf(f) }))}
-        />
-      ) : null}
-      {expr !== undefined && typeof expr === 'object' && 'result' in expr ? (
-        <Select
-          label={t('calc_result', { part: label })}
-          value={expr.result}
-          onChange={(id) => id && onChange({ result: id })}
-          options={(ctx.field.settings?.results ?? []).map((r) => ({
-            id: r.code,
-            label: r.label[locale],
-          }))}
-        />
-      ) : null}
-      {expr !== undefined && typeof expr === 'object' && 'sum_repeat' in expr ? (
-        <Select
-          label={t('calc_sum', { part: label })}
-          value={`${expr.sum_repeat.group}:${expr.sum_repeat.field}`}
+    <div className="form-calc-part">
+      <Stack gap={2}>
+        <SelectField
+          label={t('calc_kind_of', { part: label })}
+          value={kind ?? ''}
           onChange={(id) => {
-            const [group = '', member = ''] = (id ?? '').split(':');
-            if (group && member) onChange({ sum_repeat: { group, field: member } });
+            const next = PART_KINDS.find((k) => k === id);
+            if (!next || next === kind) return;
+            const part = startPart(next, ctx.starts);
+            if (part !== null) onChange(part);
           }}
-          options={offers.sums.map((s) => ({
-            id: `${s.group.fieldKey}:${s.field.fieldKey}`,
-            label: t('term_group_sum', { group: labelOf(s.group), field: labelOf(s.field) }),
-          }))}
+          options={kinds.map((k) => ({ value: k, label: t(`calc_parts.${k}`) }))}
         />
-      ) : null}
-      {expr !== undefined && typeof expr === 'object' && 'count_rows' in expr ? (
-        <CountPart ctx={ctx} label={label} expr={expr} onChange={onChange} />
-      ) : null}
-      {expr !== undefined && typeof expr === 'object' && 'cell' in expr ? (
-        <CellPart ctx={ctx} label={label} expr={expr} onChange={onChange} />
-      ) : null}
-      {expr !== undefined && typeof expr === 'object' && 'if' in expr ? (
-        <StepPart ctx={ctx} label={label} expr={expr} depth={depth} onChange={onChange} />
-      ) : null}
-      {kind === 'age' && expr !== undefined && typeof expr === 'object' && 'args' in expr ? (
-        <Select
-          label={t('dob')}
-          value={
-            'field' in (expr.args[0] as object) ? (expr.args[0] as { field: string }).field : null
-          }
-          onChange={(id) => id && onChange({ op: 'age_from_dob', args: [{ field: id }] })}
-          options={offers.dates.map((f) => ({ id: f.fieldKey, label: labelOf(f) }))}
-        />
-      ) : null}
-      {kind === 'nisab' && expr !== undefined && typeof expr === 'object' && 'args' in expr ? (
-        <Select
-          label={t('net')}
-          value={
-            'field' in (expr.args[0] as object) ? (expr.args[0] as { field: string }).field : null
-          }
-          onChange={(id) =>
-            id && onChange({ op: 'compare_gte', args: [{ field: id }, { setting: 'nisab_value' }] })
-          }
-          options={offers.nets.map((f) => ({ id: f.fieldKey, label: labelOf(f) }))}
-        />
-      ) : null}
-      {kind === 'math' && expr !== undefined && typeof expr === 'object' && 'args' in expr ? (
-        <MathPart
-          ctx={ctx}
-          label={label}
-          expr={expr as MathExpr}
-          depth={depth}
-          onChange={onChange}
-        />
-      ) : null}
-    </Stack>
+        {expr !== undefined && typeof expr === 'number' ? (
+          <NumberText
+            label={t('calc_number', { part: label })}
+            value={expr}
+            onChange={(value) => onChange(value ?? 0)}
+          />
+        ) : null}
+        {expr !== undefined && typeof expr === 'object' && 'field' in expr ? (
+          <SelectField
+            label={t('calc_question', { part: label })}
+            value={expr.field}
+            onChange={(id) => id && onChange({ field: id })}
+            options={offers.fields.map((f) => ({ value: f.fieldKey, label: labelOf(f) }))}
+          />
+        ) : null}
+        {expr !== undefined && typeof expr === 'object' && 'result' in expr ? (
+          <SelectField
+            label={t('calc_result', { part: label })}
+            value={expr.result}
+            onChange={(id) => id && onChange({ result: id })}
+            options={(ctx.field.settings?.results ?? []).map((r) => ({
+              value: r.code,
+              label: r.label[locale],
+            }))}
+          />
+        ) : null}
+        {expr !== undefined && typeof expr === 'object' && 'sum_repeat' in expr ? (
+          <SelectField
+            label={t('calc_sum', { part: label })}
+            value={`${expr.sum_repeat.group}:${expr.sum_repeat.field}`}
+            onChange={(id) => {
+              const [group = '', member = ''] = (id ?? '').split(':');
+              if (group && member) onChange({ sum_repeat: { group, field: member } });
+            }}
+            options={offers.sums.map((s) => ({
+              value: `${s.group.fieldKey}:${s.field.fieldKey}`,
+              label: t('term_group_sum', { group: labelOf(s.group), field: labelOf(s.field) }),
+            }))}
+          />
+        ) : null}
+        {expr !== undefined && typeof expr === 'object' && 'count_rows' in expr ? (
+          <CountPart ctx={ctx} label={label} expr={expr} onChange={onChange} />
+        ) : null}
+        {expr !== undefined && typeof expr === 'object' && 'cell' in expr ? (
+          <CellPart ctx={ctx} label={label} expr={expr} onChange={onChange} />
+        ) : null}
+        {expr !== undefined && typeof expr === 'object' && 'if' in expr ? (
+          <StepPart ctx={ctx} label={label} expr={expr} depth={depth} onChange={onChange} />
+        ) : null}
+        {kind === 'age' && expr !== undefined && typeof expr === 'object' && 'args' in expr ? (
+          <SelectField
+            label={t('dob')}
+            value={
+              'field' in (expr.args[0] as object) ? (expr.args[0] as { field: string }).field : ''
+            }
+            onChange={(id) => id && onChange({ op: 'age_from_dob', args: [{ field: id }] })}
+            options={offers.dates.map((f) => ({ value: f.fieldKey, label: labelOf(f) }))}
+          />
+        ) : null}
+        {kind === 'nisab' && expr !== undefined && typeof expr === 'object' && 'args' in expr ? (
+          <SelectField
+            label={t('net')}
+            value={
+              'field' in (expr.args[0] as object) ? (expr.args[0] as { field: string }).field : ''
+            }
+            onChange={(id) =>
+              id &&
+              onChange({ op: 'compare_gte', args: [{ field: id }, { setting: 'nisab_value' }] })
+            }
+            options={offers.nets.map((f) => ({ value: f.fieldKey, label: labelOf(f) }))}
+          />
+        ) : null}
+        {kind === 'math' && expr !== undefined && typeof expr === 'object' && 'args' in expr ? (
+          <MathPart
+            ctx={ctx}
+            label={label}
+            expr={expr as MathExpr}
+            depth={depth}
+            onChange={onChange}
+          />
+        ) : null}
+      </Stack>
+    </div>
   );
 }
 
@@ -311,72 +320,76 @@ function MathPart({
 }) {
   const t = useTranslations('forms.builder');
   return (
-    <Stack gap={2} className="form-calc-group" role="group" aria-label={label}>
-      <Select
-        label={t('calc_op', { part: label })}
-        value={expr.op}
-        onChange={(id) => {
-          const op = MATH_OPS.find((o) => o === id);
-          if (op) onChange({ op, args: expr.args });
-        }}
-        options={MATH_OPS.map((op) => ({ id: op, label: t(`calc_ops.${op}`) }))}
-      />
-      {expr.args.map((arg, i) => {
-        const name = t('calc_part', { part: label, n: String(i + 1) });
-        return (
-          <Stack key={i} gap={1}>
-            <PartEditor
-              ctx={ctx}
-              label={name}
-              expr={arg}
-              depth={depth + 1}
-              onChange={(next) => onChange(withArg(expr, i, next ?? null))}
-            />
-            {expr.args.length > 1 ? (
-              <RowButtons
-                remove={{
-                  label: t('calc_part_remove', { part: name }),
-                  onPress: () => onChange(withArg(expr, i, null)),
-                }}
-              />
-            ) : null}
-          </Stack>
-        );
-      })}
-      <Stack direction="row" gap={2} wrap>
-        <Button
-          size="sm"
-          variant="secondary"
-          icon={Plus}
-          onPress={() => onChange({ ...expr, args: [...expr.args, 0] })}
-        >
-          {t('calc_add_part')}
-        </Button>
-        {depth + 1 < MAX_DEPTH ? (
+    <div className="form-calc-group" role="group" aria-label={label}>
+      <Stack gap={2}>
+        <SelectField
+          label={t('calc_op', { part: label })}
+          value={expr.op}
+          onChange={(id) => {
+            const op = MATH_OPS.find((o) => o === id);
+            if (op) onChange({ op, args: expr.args });
+          }}
+          options={MATH_OPS.map((op) => ({ value: op, label: t(`calc_ops.${op}`) }))}
+        />
+        {expr.args.map((arg, i) => {
+          const name = t('calc_part', { part: label, n: String(i + 1) });
+          return (
+            <div key={i}>
+              <Stack gap={1}>
+                <PartEditor
+                  ctx={ctx}
+                  label={name}
+                  expr={arg}
+                  depth={depth + 1}
+                  onChange={(next) => onChange(withArg(expr, i, next ?? null))}
+                />
+                {expr.args.length > 1 ? (
+                  <RowButtons
+                    remove={{
+                      label: t('calc_part_remove', { part: name }),
+                      onPress: () => onChange(withArg(expr, i, null)),
+                    }}
+                  />
+                ) : null}
+              </Stack>
+            </div>
+          );
+        })}
+        <Stack direction="row" gap={2} wrap>
           <Button
-            size="sm"
+            size="small"
             variant="secondary"
-            icon={Plus}
-            onPress={() => onChange({ ...expr, args: [...expr.args, { op: 'add', args: [0] }] })}
+            startIcon="add"
+            onClick={() => onChange({ ...expr, args: [...expr.args, 0] })}
           >
-            {t('calc_add_bracket')}
+            {t('calc_add_part')}
           </Button>
-        ) : null}
-        {depth + 1 < MAX_DEPTH && ctx.starts.condition ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={Plus}
-            onPress={() => {
-              const step = startPart('if', ctx.starts);
-              if (step !== null) onChange({ ...expr, args: [...expr.args, step] });
-            }}
-          >
-            {t('calc_add_step')}
-          </Button>
-        ) : null}
+          {depth + 1 < MAX_DEPTH ? (
+            <Button
+              size="small"
+              variant="secondary"
+              startIcon="add"
+              onClick={() => onChange({ ...expr, args: [...expr.args, { op: 'add', args: [0] }] })}
+            >
+              {t('calc_add_bracket')}
+            </Button>
+          ) : null}
+          {depth + 1 < MAX_DEPTH && ctx.starts.condition ? (
+            <Button
+              size="small"
+              variant="secondary"
+              startIcon="add"
+              onClick={() => {
+                const step = startPart('if', ctx.starts);
+                if (step !== null) onChange({ ...expr, args: [...expr.args, step] });
+              }}
+            >
+              {t('calc_add_step')}
+            </Button>
+          ) : null}
+        </Stack>
       </Stack>
-    </Stack>
+    </div>
   );
 }
 
@@ -404,51 +417,55 @@ function StepPart({
     onChange(branches.length ? { if: branches, else: expr.else } : expr.else);
   };
   return (
-    <Stack gap={2} className="form-calc-group" role="group" aria-label={label}>
-      {expr.if.map((branch, i) => {
-        const n = String(i + 1);
-        return (
-          <Stack key={i} gap={2}>
-            <ConditionEditor
-              title={t('calc_if', { n })}
-              definition={ctx.definition}
-              asker={ctx.asker}
-              condition={branch.when}
-              onChange={(when) =>
-                when ? setBranch(i, { when, then: branch.then }) : setBranch(i, null)
-              }
-            />
-            <PartEditor
-              ctx={ctx}
-              label={t('calc_then', { n })}
-              expr={branch.then}
-              depth={depth + 1}
-              onChange={(then) => setBranch(i, { when: branch.when, then: then ?? 0 })}
-            />
-          </Stack>
-        );
-      })}
-      <div>
-        <Button
-          size="sm"
-          variant="secondary"
-          icon={Plus}
-          onPress={() => {
-            const when = startCondition(ctx.starts);
-            if (when) onChange({ if: [...expr.if, { when, then: 0 }], else: expr.else });
-          }}
-        >
-          {t('calc_add_branch')}
-        </Button>
-      </div>
-      <PartEditor
-        ctx={ctx}
-        label={t('calc_else')}
-        expr={expr.else}
-        depth={depth + 1}
-        onChange={(next) => onChange({ if: expr.if, else: next ?? 0 })}
-      />
-    </Stack>
+    <div className="form-calc-group" role="group" aria-label={label}>
+      <Stack gap={2}>
+        {expr.if.map((branch, i) => {
+          const n = String(i + 1);
+          return (
+            <div key={i}>
+              <Stack gap={2}>
+                <ConditionEditor
+                  title={t('calc_if', { n })}
+                  definition={ctx.definition}
+                  asker={ctx.asker}
+                  condition={branch.when}
+                  onChange={(when) =>
+                    when ? setBranch(i, { when, then: branch.then }) : setBranch(i, null)
+                  }
+                />
+                <PartEditor
+                  ctx={ctx}
+                  label={t('calc_then', { n })}
+                  expr={branch.then}
+                  depth={depth + 1}
+                  onChange={(then) => setBranch(i, { when: branch.when, then: then ?? 0 })}
+                />
+              </Stack>
+            </div>
+          );
+        })}
+        <div>
+          <Button
+            size="small"
+            variant="secondary"
+            startIcon="add"
+            onClick={() => {
+              const when = startCondition(ctx.starts);
+              if (when) onChange({ if: [...expr.if, { when, then: 0 }], else: expr.else });
+            }}
+          >
+            {t('calc_add_branch')}
+          </Button>
+        </div>
+        <PartEditor
+          ctx={ctx}
+          label={t('calc_else')}
+          expr={expr.else}
+          depth={depth + 1}
+          onChange={(next) => onChange({ if: expr.if, else: next ?? 0 })}
+        />
+      </Stack>
+    </div>
   );
 }
 
@@ -469,11 +486,11 @@ function CountPart({
   const { group, where } = expr.count_rows;
   return (
     <Stack gap={2}>
-      <Select
+      <SelectField
         label={t('calc_group', { part: label })}
         value={group}
         onChange={(id) => id && onChange({ count_rows: { group: id } })}
-        options={ctx.offers.groups.map((g) => ({ id: g.fieldKey, label: g.label[locale] }))}
+        options={ctx.offers.groups.map((g) => ({ value: g.fieldKey, label: g.label[locale] }))}
       />
       <ConditionEditor
         title={t('calc_count_where')}
@@ -505,7 +522,7 @@ function CellPart({
   const cols = table?.settings?.table?.cols ?? [];
   return (
     <Stack gap={2}>
-      <Select
+      <SelectField
         label={t('calc_table', { part: label })}
         value={expr.cell.field}
         onChange={(id) => {
@@ -514,19 +531,19 @@ function CellPart({
           const col = next?.settings?.table?.cols[0]?.key;
           if (next && row && col) onChange({ cell: { field: next.fieldKey, row, col } });
         }}
-        options={ctx.offers.tables.map((f) => ({ id: f.fieldKey, label: f.label[locale] }))}
+        options={ctx.offers.tables.map((f) => ({ value: f.fieldKey, label: f.label[locale] }))}
       />
-      <Select
+      <SelectField
         label={t('calc_table_row', { part: label })}
         value={expr.cell.row}
         onChange={(id) => id && onChange({ cell: { ...expr.cell, row: id } })}
-        options={rows.map((r) => ({ id: r.key, label: r.label[locale] }))}
+        options={rows.map((r) => ({ value: r.key, label: r.label[locale] }))}
       />
-      <Select
+      <SelectField
         label={t('calc_table_col', { part: label })}
         value={expr.cell.col}
         onChange={(id) => id && onChange({ cell: { ...expr.cell, col: id } })}
-        options={cols.map((c) => ({ id: c.key, label: c.label[locale] }))}
+        options={cols.map((c) => ({ value: c.key, label: c.label[locale] }))}
       />
     </Stack>
   );
@@ -589,9 +606,10 @@ function FormulaInput({
   const reading = text.trim() === '' ? null : parseFormula(text, names);
   return (
     <Stack gap={2}>
-      <TextArea
+      <TextField
+        rows={4}
         label={t('calc_formula')}
-        helper={t('calc_formula_help')}
+        hint={t('calc_formula_help')}
         value={text}
         error={
           reading && !reading.ok
@@ -636,45 +654,51 @@ function ResultsEditor({
     return `r${n}`;
   };
   return (
-    <Stack gap={2} role="group" aria-label={t('calc_results')}>
-      <Text weight="bold">{t('calc_results')}</Text>
-      <Text tone="muted">{t('calc_results_help')}</Text>
-      {results.map((result, i) => {
-        const n = String(i + 1);
-        return (
-          <Stack key={result.code} gap={1} className="form-settings-row">
-            <TextField
-              label={t('calc_result_bn', { n })}
-              value={result.label.bn}
-              onChange={(bn) => set(i, { ...result, label: { ...result.label, bn } })}
-            />
-            <TextField
-              label={t('calc_result_en', { n })}
-              value={result.label.en}
-              onChange={(en) => set(i, { ...result, label: { ...result.label, en } })}
-            />
-            <RowButtons
-              remove={{ label: t('calc_result_remove', { n }), onPress: () => set(i, null) }}
-            />
-          </Stack>
-        );
-      })}
-      <div>
-        <Button
-          size="sm"
-          variant="secondary"
-          icon={Plus}
-          onPress={() =>
-            onChange([
-              ...results,
-              { code: freeCode(), label: { bn: t('calc_result_new'), en: t('calc_result_new') } },
-            ])
-          }
-        >
-          {t('calc_result_add')}
-        </Button>
-      </div>
-      {results.length === 0 ? null : <Alert tone="info">{t('calc_results_note')}</Alert>}
-    </Stack>
+    <div role="group" aria-label={t('calc_results')}>
+      <Stack gap={2}>
+        <Text>
+          <strong>{t('calc_results')}</strong>
+        </Text>
+        <Text tone="muted">{t('calc_results_help')}</Text>
+        {results.map((result, i) => {
+          const n = String(i + 1);
+          return (
+            <div key={result.code} className="form-settings-row">
+              <Stack gap={1}>
+                <TextField
+                  label={t('calc_result_bn', { n })}
+                  value={result.label.bn}
+                  onChange={(bn) => set(i, { ...result, label: { ...result.label, bn } })}
+                />
+                <TextField
+                  label={t('calc_result_en', { n })}
+                  value={result.label.en}
+                  onChange={(en) => set(i, { ...result, label: { ...result.label, en } })}
+                />
+                <RowButtons
+                  remove={{ label: t('calc_result_remove', { n }), onPress: () => set(i, null) }}
+                />
+              </Stack>
+            </div>
+          );
+        })}
+        <div>
+          <Button
+            size="small"
+            variant="secondary"
+            startIcon="add"
+            onClick={() =>
+              onChange([
+                ...results,
+                { code: freeCode(), label: { bn: t('calc_result_new'), en: t('calc_result_new') } },
+              ])
+            }
+          >
+            {t('calc_result_add')}
+          </Button>
+        </div>
+        {results.length === 0 ? null : <Alert tone="info">{t('calc_results_note')}</Alert>}
+      </Stack>
+    </div>
   );
 }

@@ -1,6 +1,5 @@
 import { type NumberTable, TABLE_CELLS_MAX } from '@css/shared/forms';
-import { Button, Stack, Text, TextField } from '@css/ui';
-import { Plus } from 'lucide-react';
+import { Button, Stack, Text, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { RowButtons } from './RowButtons';
 
@@ -35,56 +34,62 @@ export function TableSettings({
       return `${prefix}${n}`;
     };
     return (
-      <Stack gap={2} role="group" aria-label={t(which === 'rows' ? 'table_rows' : 'table_cols')}>
-        <Text weight="bold">{t(which === 'rows' ? 'table_rows' : 'table_cols')}</Text>
-        {lines.map((line, i) => {
-          const n = String(i + 1);
-          const name = t(which === 'rows' ? 'table_row' : 'table_col', { n });
-          return (
-            <Stack key={line.key} gap={1} className="form-settings-row">
-              <TextField
-                label={t('table_label_bn', { name })}
-                value={line.label.bn}
-                onChange={(bn) =>
-                  set(lines.map((l, j) => (j === i ? { ...l, label: { ...l.label, bn } } : l)))
-                }
-              />
-              <TextField
-                label={t('table_label_en', { name })}
-                lang="en"
-                value={line.label.en}
-                onChange={(en) =>
-                  set(lines.map((l, j) => (j === i ? { ...l, label: { ...l.label, en } } : l)))
-                }
-              />
-              {lines.length > 1 ? (
-                <RowButtons
-                  remove={{
-                    label: t('table_remove', { name }),
-                    onPress: () => set(lines.filter((_, j) => j !== i)),
-                  }}
-                />
-              ) : null}
-            </Stack>
-          );
-        })}
-        <div>
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={Plus}
-            disabled={full}
-            onPress={() => {
-              const n = String(lines.length + 1);
-              const name = t(which === 'rows' ? 'table_row' : 'table_col', { n });
-              set([...lines, { key: freeKey(), label: { bn: name, en: name } }]);
-            }}
-          >
-            {t(which === 'rows' ? 'table_add_row' : 'table_add_col')}
-          </Button>
-        </div>
-        {full ? <Text tone="muted">{t('table_full', { max: TABLE_CELLS_MAX })}</Text> : null}
-      </Stack>
+      <div role="group" aria-label={t(which === 'rows' ? 'table_rows' : 'table_cols')}>
+        <Stack gap={2}>
+          <Text>
+            <strong>{t(which === 'rows' ? 'table_rows' : 'table_cols')}</strong>
+          </Text>
+          {lines.map((line, i) => {
+            const n = String(i + 1);
+            const name = t(which === 'rows' ? 'table_row' : 'table_col', { n });
+            return (
+              <div key={line.key} className="form-settings-row">
+                <Stack gap={1}>
+                  <TextField
+                    label={t('table_label_bn', { name })}
+                    value={line.label.bn}
+                    onChange={(bn) =>
+                      set(lines.map((l, j) => (j === i ? { ...l, label: { ...l.label, bn } } : l)))
+                    }
+                  />
+                  <TextField
+                    label={t('table_label_en', { name })}
+                    lang="en"
+                    value={line.label.en}
+                    onChange={(en) =>
+                      set(lines.map((l, j) => (j === i ? { ...l, label: { ...l.label, en } } : l)))
+                    }
+                  />
+                  {lines.length > 1 ? (
+                    <RowButtons
+                      remove={{
+                        label: t('table_remove', { name }),
+                        onPress: () => set(lines.filter((_, j) => j !== i)),
+                      }}
+                    />
+                  ) : null}
+                </Stack>
+              </div>
+            );
+          })}
+          <div>
+            <Button
+              size="small"
+              variant="secondary"
+              startIcon="add"
+              disabled={full}
+              onClick={() => {
+                const n = String(lines.length + 1);
+                const name = t(which === 'rows' ? 'table_row' : 'table_col', { n });
+                set([...lines, { key: freeKey(), label: { bn: name, en: name } }]);
+              }}
+            >
+              {t(which === 'rows' ? 'table_add_row' : 'table_add_col')}
+            </Button>
+          </div>
+          {full ? <Text tone="muted">{t('table_full', { max: TABLE_CELLS_MAX })}</Text> : null}
+        </Stack>
+      </div>
     );
   };
   return (

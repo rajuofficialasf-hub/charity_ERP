@@ -53,7 +53,7 @@ async function choose(
   optionName: string | RegExp,
   scope: ReturnType<typeof within> | typeof screen = screen,
 ) {
-  await user.click(scope.getByRole('button', { name: label }));
+  await user.click(scope.getByRole('combobox', { name: label }));
   await user.click(await screen.findByRole('option', { name: optionName }));
 }
 
@@ -84,7 +84,7 @@ describe('the field settings', () => {
     });
     // the rules sit in a closed group
     await user.click(await screen.findByRole('button', { name: /^উত্তরের নিয়ম/ }));
-    await user.click(await screen.findByRole('button', { name: /লেখা কেমন হবে/ }));
+    await user.click(await screen.findByRole('combobox', { name: /লেখা কেমন হবে/ }));
     const names = (await screen.findAllByRole('option')).map((o) => o.textContent);
     expect(names).toEqual([
       'যেকোনো লেখা',
@@ -196,8 +196,8 @@ describe('the condition rows', () => {
     view.unmount();
     open(form({ show_if: condition }), { section: 'money', field: 'loan_note' });
     const again = await openRules(user, /^শর্ত (ঠিক করুন|বদলান)$/, 'কখন দেখাবে');
-    expect(again.getByRole('button', { name: /শর্ত 1: মান/ })).toHaveTextContent('হ্যাঁ');
-    expect(again.getByRole('button', { name: /শর্ত 2: তুলনা/ })).toHaveTextContent('বেশি');
+    expect(again.getByRole('combobox', { name: /শর্ত 1: মান/ })).toHaveTextContent('হ্যাঁ');
+    expect(again.getByRole('combobox', { name: /শর্ত 2: তুলনা/ })).toHaveTextContent('বেশি');
     expect(again.getByRole('textbox', { name: 'শর্ত 2: মান' })).toHaveValue('5000');
     expect(again.getByRole('radio', { name: 'যেকোনো একটি মিললে' })).toBeChecked();
   }, 20_000);
@@ -288,7 +288,7 @@ describe('the calculation', () => {
       { section: 'x', field: 'calc' },
     );
     let calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
-    await user.click(calc.getByRole('button', { name: /হিসাব: ধরন$/ }));
+    await user.click(calc.getByRole('combobox', { name: /হিসাব: ধরন/ }));
     expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
       'একটি প্রশ্নের উত্তর',
       'একটি সংখ্যা',
@@ -408,7 +408,7 @@ describe('defaults, read-only, counted rows, comparisons and earlier answers', (
     await user.click(await screen.findByRole('button', { name: /^ডিফল্ট মান/ }));
     const readOnly = screen.getByRole('switch', { name: 'শুধু দেখা যাবে, বদলানো যাবে না' });
     expect(readOnly).toBeDisabled();
-    await choose(user, /নেই ডিফল্ট মান$/, 'আজকের তারিখ');
+    await choose(user, /^ডিফল্ট মান/, 'আজকের তারিখ');
     expect(fieldOf(latest, 'visit').settings).toEqual({ default: { today: true } });
     await user.click(screen.getByRole('switch', { name: 'শুধু দেখা যাবে, বদলানো যাবে না' }));
     expect(fieldOf(latest, 'visit').settings).toEqual({
@@ -424,7 +424,7 @@ describe('defaults, read-only, counted rows, comparisons and earlier answers', (
       field: 'number_prefix',
     });
     await user.click(await screen.findByRole('button', { name: /^ডিফল্ট মান/ }));
-    await choose(user, /নেই ডিফল্ট মান$/, 'লেখা');
+    await choose(user, /^ডিফল্ট মান/, 'লেখা');
     await user.type(screen.getByRole('textbox', { name: 'ডিফল্ট লেখা' }), 'ASF-');
     expect(fieldOf(latest, 'number_prefix').settings).toEqual({ default: { text: 'ASF-' } });
   });
@@ -443,7 +443,7 @@ describe('defaults, read-only, counted rows, comparisons and earlier answers', (
       ),
       { section: 'family', field: 'members' },
     );
-    await user.click(await screen.findByRole('button', { name: /সারির সংখ্যা যে প্রশ্ন থেকে$/ }));
+    await user.click(await screen.findByRole('combobox', { name: /সারির সংখ্যা যে প্রশ্ন থেকে/ }));
     expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
       'আবেদনকারী নিজে সারি যোগ করবেন',
       'পরিবারের সদস্য সংখ্যা',
@@ -501,7 +501,7 @@ describe('defaults, read-only, counted rows, comparisons and earlier answers', (
       ),
       { section: 'farm', field: 'q_count' },
     );
-    await user.click(await screen.findByRole('button', { name: /উত্তর বসান$/ }));
+    await user.click(await screen.findByRole('combobox', { name: /উত্তর বসান/ }));
     const offered = (await screen.findAllByRole('option')).map((o) => o.textContent);
     expect(offered).toContain('খামারের ধরন');
     // another group's row answer and a later question are not offered
@@ -521,7 +521,7 @@ describe('defaults, read-only, counted rows, comparisons and earlier answers', (
       { section: 'x', field: 'q_rooms' },
     );
     await user.click(await screen.findByRole('button', { name: /^ডিফল্ট মান/ }));
-    await choose(user, /নেই ডিফল্ট মান$/, 'সংখ্যা');
+    await choose(user, /^ডিফল্ট মান/, 'সংখ্যা');
     expect(fieldOf(latest, 'q_rooms').settings?.default).toEqual({ number: 1 });
   });
 
@@ -699,7 +699,7 @@ describe('the identity mark', () => {
   it('offers the seven roles and sets the role, its column and its type', async () => {
     const user = userEvent.setup();
     open(own(), { section: 'mine', field: 'q_who' }, true);
-    await user.click(await screen.findByRole('button', { name: /পরিচয়-চিহ্ন/ }));
+    await user.click(await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ }));
     const names = (await screen.findAllByRole('option')).map((o) => o.textContent);
     expect(names).toEqual([
       'চিহ্ন নেই',
@@ -742,7 +742,7 @@ describe('a stale identity mark', () => {
   it('on a form of another kind still shows, so it can be cleared', async () => {
     const user = userEvent.setup();
     open(definition(), { section: 'basic_info', field: 'name' }, false);
-    await user.click(await screen.findByRole('button', { name: /পরিচয়-চিহ্ন/ }));
+    await user.click(await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ }));
     await user.click(await screen.findByRole('option', { name: 'চিহ্ন নেই' }));
     expect(fieldOf(latest, 'name').standardColumn).toBeNull();
   });

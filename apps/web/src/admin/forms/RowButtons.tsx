@@ -1,5 +1,4 @@
-import { Button, Stack } from '@css/ui';
-import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react';
+import { Button, Stack } from '@/ui';
 
 export interface RowButton {
   /** The accessible name, naming the row it acts on. */
@@ -24,10 +23,10 @@ export function RowButtons({
   remove?: RowButton;
 }) {
   const buttons = [
-    { icon: Pencil, action: edit },
-    { icon: ArrowUp, action: up },
-    { icon: ArrowDown, action: down },
-    { icon: Trash2, action: remove },
+    { icon: 'edit' as const, action: edit },
+    { icon: 'arrow-up' as const, action: up },
+    { icon: 'arrow-down' as const, action: down },
+    { icon: 'delete' as const, action: remove },
   ];
   return (
     <Stack direction="row" gap={1} wrap>
@@ -35,12 +34,11 @@ export function RowButtons({
         action ? (
           <Button
             key={action.label}
-            size="sm"
-            variant="ghost"
-            icon={icon}
-            iconOnly
+            size="small"
+            variant="text"
+            startIcon={icon}
             disabled={action.disabled}
-            onPress={action.onPress}
+            onClick={action.onPress}
           >
             {action.label}
           </Button>

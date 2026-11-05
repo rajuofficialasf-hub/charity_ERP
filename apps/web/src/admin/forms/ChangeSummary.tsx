@@ -1,5 +1,5 @@
 import type { FormDefinition } from '@css/shared/forms';
-import { Text } from '@css/ui';
+import { Text } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { type Change, diffDefinitions, type FieldAspect, type SectionAspect } from './diff';
 

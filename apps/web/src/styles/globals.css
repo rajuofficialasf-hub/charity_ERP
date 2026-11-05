@@ -31,3 +31,13 @@
   gap: var(--space-4);
   min-width: 0;
 }
+
+/* words for screen readers only, beside a visible label or icon */
+.app-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

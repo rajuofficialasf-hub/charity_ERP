@@ -5,13 +5,12 @@ import {
   Button,
   CheckboxGroup,
   DateField,
-  SegmentedControl,
-  Select,
+  SelectField,
   Stack,
   Text,
   TextField,
-} from '@css/ui';
-import { Plus, Trash2 } from 'lucide-react';
+  RadioGroup,
+} from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { type Asker, conditionCandidates, OPS, opKindOf } from './candidates';
 import { type ConditionRow, conditionFromRows, rowsFromCondition } from './logic-rows';
@@ -47,13 +46,24 @@ export function ConditionEditor({
 
   if (view.kind === 'complex')
     return (
-      <Stack as="section" gap={2} aria-label={title}>
-        {heading ? <Text weight="bold">{title}</Text> : null}
-        <Alert tone="info">{t('cond_complex')}</Alert>
-        <Button size="sm" variant="secondary" icon={Trash2} onPress={() => onChange(undefined)}>
-          {t('cond_clear')}
-        </Button>
-      </Stack>
+      <section aria-label={title}>
+        <Stack gap={2}>
+          {heading ? (
+            <Text>
+              <strong>{title}</strong>
+            </Text>
+          ) : null}
+          <Alert tone="info">{t('cond_complex')}</Alert>
+          <Button
+            size="small"
+            variant="secondary"
+            startIcon="delete"
+            onClick={() => onChange(undefined)}
+          >
+            {t('cond_clear')}
+          </Button>
+        </Stack>
+      </section>
     );
 
   const { join, rows } = view;
@@ -70,120 +80,131 @@ export function ConditionEditor({
   });
 
   return (
-    <Stack as="section" gap={2} aria-label={title}>
-      {heading ? <Text weight="bold">{title}</Text> : null}
-      {rows.length === 0 ? <Text tone="muted">{t('cond_hint')}</Text> : null}
-      {rows.length > 1 ? (
-        <SegmentedControl
-          label={t('cond_join')}
-          value={join}
-          onChange={(id) => write(rows, id === 'any' ? 'any' : 'all')}
-          options={[
-            { id: 'all', label: t('cond_all') },
-            { id: 'any', label: t('cond_any') },
-          ]}
-        />
-      ) : null}
-      {rows.map((row, i) => {
-        const n = String(i + 1);
-        const field = byKey.get(row.field);
-        const ops = field ? OPS[opKindOf(field)] : OPS.text;
-        return (
-          <Stack key={i} gap={1} className="form-settings-row">
-            <Select
-              label={t('cond_field', { n })}
-              value={field ? row.field : null}
-              onChange={(id) => {
-                const next = id ? byKey.get(id) : undefined;
-                if (next) setRow(i, fresh(next));
-              }}
-              options={candidates.map((f) => ({ id: f.fieldKey, label: f.label[locale] }))}
-            />
-            <Select
-              label={t('cond_op', { n })}
-              value={row.op}
-              onChange={(id) => {
-                const op = ops.find((o) => o === id);
-                if (!op) return;
-                // a list comparison takes a list, the others one value; an emptiness check none
-                const listChange = (op === 'in' || op === 'not_in') !== Array.isArray(row.value);
-                setRow(i, {
-                  field: row.field,
-                  op,
-                  ...(op === 'is_empty' || op === 'not_empty' || listChange
-                    ? {}
-                    : row.value !== undefined
-                      ? { value: row.value }
-                      : {}),
-                });
-              }}
-              options={ops.map((op) => ({ id: op, label: t(`ops.${op}`) }))}
-            />
-            {field && COMPARABLE.has(row.op) && others(row.field, field).length > 0 ? (
-              <SegmentedControl
-                label={t('cond_against', { n })}
-                value={isFieldRef(row.value) ? 'answer' : 'value'}
-                onChange={(id) =>
-                  setRow(i, {
-                    field: row.field,
-                    op: row.op,
-                    ...(id === 'answer'
-                      ? { value: { field: others(row.field, field)[0]!.fieldKey } }
-                      : {}),
-                  })
-                }
-                options={[
-                  { id: 'value', label: t('cond_against_value') },
-                  { id: 'answer', label: t('cond_against_answer') },
-                ]}
-              />
-            ) : null}
-            {field && isFieldRef(row.value) ? (
-              <Select
-                label={t('cond_other', { n })}
-                value={row.value.field}
-                onChange={(id) =>
-                  id && setRow(i, { field: row.field, op: row.op, value: { field: id } })
-                }
-                options={others(row.field, field).map((f) => ({
-                  id: f.fieldKey,
-                  label: f.label[locale],
-                }))}
-              />
-            ) : field ? (
-              <ValueInput
-                label={t('cond_value', { n })}
-                field={field}
-                op={row.op}
-                value={row.value}
-                onChange={(value) =>
-                  setRow(i, {
-                    field: row.field,
-                    op: row.op,
-                    ...(value === undefined ? {} : { value }),
-                  })
-                }
-              />
-            ) : null}
-            <RowButtons
-              remove={{
-                label: t('cond_remove', { n }),
-                onPress: () => write(rows.filter((_, j) => j !== i)),
-              }}
-            />
-          </Stack>
-        );
-      })}
-      <Button
-        size="sm"
-        variant="secondary"
-        icon={Plus}
-        disabled={candidates.length === 0}
-        onPress={() => write([...rows, fresh(candidates[0]!)])}
-      >
-        {t('cond_add')}
-      </Button>
-    </Stack>
+    <section aria-label={title}>
+      <Stack gap={2}>
+        {heading ? (
+          <Text>
+            <strong>{title}</strong>
+          </Text>
+        ) : null}
+        {rows.length === 0 ? <Text tone="muted">{t('cond_hint')}</Text> : null}
+        {rows.length > 1 ? (
+          <RadioGroup
+            orientation="horizontal"
+            label={t('cond_join')}
+            value={join}
+            onChange={(id: string) => write(rows, id === 'any' ? 'any' : 'all')}
+            options={[
+              { value: 'all', label: t('cond_all') },
+              { value: 'any', label: t('cond_any') },
+            ]}
+          />
+        ) : null}
+        {rows.map((row, i) => {
+          const n = String(i + 1);
+          const field = byKey.get(row.field);
+          const ops = field ? OPS[opKindOf(field)] : OPS.text;
+          return (
+            <div key={i} className="form-settings-row">
+              <Stack gap={1}>
+                <SelectField
+                  label={t('cond_field', { n })}
+                  value={field ? row.field : ''}
+                  onChange={(id) => {
+                    const next = id ? byKey.get(id) : undefined;
+                    if (next) setRow(i, fresh(next));
+                  }}
+                  options={candidates.map((f) => ({ value: f.fieldKey, label: f.label[locale] }))}
+                />
+                <SelectField
+                  label={t('cond_op', { n })}
+                  value={row.op}
+                  onChange={(id) => {
+                    const op = ops.find((o) => o === id);
+                    if (!op) return;
+                    // a list comparison takes a list, the others one value; an emptiness check none
+                    const listChange =
+                      (op === 'in' || op === 'not_in') !== Array.isArray(row.value);
+                    setRow(i, {
+                      field: row.field,
+                      op,
+                      ...(op === 'is_empty' || op === 'not_empty' || listChange
+                        ? {}
+                        : row.value !== undefined
+                          ? { value: row.value }
+                          : {}),
+                    });
+                  }}
+                  options={ops.map((op) => ({ value: op, label: t(`ops.${op}`) }))}
+                />
+                {field && COMPARABLE.has(row.op) && others(row.field, field).length > 0 ? (
+                  <RadioGroup
+                    orientation="horizontal"
+                    label={t('cond_against', { n })}
+                    value={isFieldRef(row.value) ? 'answer' : 'value'}
+                    onChange={(id: string) =>
+                      setRow(i, {
+                        field: row.field,
+                        op: row.op,
+                        ...(id === 'answer'
+                          ? { value: { field: others(row.field, field)[0]!.fieldKey } }
+                          : {}),
+                      })
+                    }
+                    options={[
+                      { value: 'value', label: t('cond_against_value') },
+                      { value: 'answer', label: t('cond_against_answer') },
+                    ]}
+                  />
+                ) : null}
+                {field && isFieldRef(row.value) ? (
+                  <SelectField
+                    label={t('cond_other', { n })}
+                    value={row.value.field}
+                    onChange={(id) =>
+                      id && setRow(i, { field: row.field, op: row.op, value: { field: id } })
+                    }
+                    options={others(row.field, field).map((f) => ({
+                      value: f.fieldKey,
+                      label: f.label[locale],
+                    }))}
+                  />
+                ) : field ? (
+                  <ValueInput
+                    label={t('cond_value', { n })}
+                    field={field}
+                    op={row.op}
+                    value={row.value}
+                    onChange={(value) =>
+                      setRow(i, {
+                        field: row.field,
+                        op: row.op,
+                        ...(value === undefined ? {} : { value }),
+                      })
+                    }
+                  />
+                ) : null}
+                <RowButtons
+                  remove={{
+                    label: t('cond_remove', { n }),
+                    onPress: () => write(rows.filter((_, j) => j !== i)),
+                  }}
+                />
+              </Stack>
+            </div>
+          );
+        })}
+        <Button
+          size="small"
+          variant="secondary"
+          startIcon="add"
+          disabled={candidates.length === 0}
+          onClick={() => write([...rows, fresh(candidates[0]!)])}
+        >
+          {t('cond_add')}
+        </Button>
+      </Stack>
+    </section>
   );
 }
 
@@ -208,7 +229,7 @@ function ValueInput({
   if (op === 'is_empty' || op === 'not_empty') return null;
   const kind = opKindOf(field);
   if (kind === 'choice') {
-    const options = (field.options ?? []).map((o) => ({ id: o.code, label: o.label[locale] }));
+    const options = (field.options ?? []).map((o) => ({ value: o.code, label: o.label[locale] }));
     if (op === 'in' || op === 'not_in')
       return (
         <CheckboxGroup
@@ -219,10 +240,10 @@ function ValueInput({
         />
       );
     return (
-      <Select
+      <SelectField
         label={label}
-        value={typeof value === 'string' ? value : null}
-        onChange={(id) => onChange(id ?? undefined)}
+        value={typeof value === 'string' ? value : ''}
+        onChange={(id) => onChange(id || undefined)}
         options={options}
       />
     );
@@ -239,8 +260,8 @@ function ValueInput({
     return (
       <DateField
         label={label}
-        value={typeof value === 'string' ? value : null}
-        onChange={(iso) => onChange(iso ?? undefined)}
+        value={typeof value === 'string' ? value : ''}
+        onChange={(iso) => onChange(iso || undefined)}
       />
     );
   return (

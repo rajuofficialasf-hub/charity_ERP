@@ -1,5 +1,5 @@
 import { type FieldDefault, type FormField, validationOf } from '@css/shared/forms';
-import { Select, Stack, Switch, TextField } from '@css/ui';
+import { SelectField, Stack, Switch, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { NumberText } from './NumberText';
 
@@ -45,7 +45,7 @@ export function DefaultSettings({
     );
   return (
     <Stack gap={3}>
-      <Select
+      <SelectField
         label={t('default')}
         value={kind}
         onChange={(id) => {
@@ -54,7 +54,7 @@ export function DefaultSettings({
           else if (id === 'number') set({ number: firstNumber });
           else set(undefined);
         }}
-        options={kindsOf(field).map((k) => ({ id: k, label: t(`defaults.${k}`) }))}
+        options={kindsOf(field).map((k) => ({ value: k, label: t(`defaults.${k}`) }))}
       />
       {start !== undefined && 'text' in start ? (
         <TextField
@@ -73,12 +73,11 @@ export function DefaultSettings({
         />
       ) : null}
       <Switch
-        isSelected={readOnly}
-        isDisabled={start === undefined}
+        label={t('read_only_answer')}
+        checked={readOnly}
+        disabled={start === undefined}
         onChange={(on) => onChange({ default: start, read_only: on || undefined })}
-      >
-        {t('read_only_answer')}
-      </Switch>
+      />
     </Stack>
   );
 }

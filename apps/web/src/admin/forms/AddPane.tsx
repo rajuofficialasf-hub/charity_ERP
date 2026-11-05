@@ -1,7 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import type { FieldType, FormDefinition } from '@css/shared/forms';
-import { Button, Disclosure, Icon, Stack, Tabs, Text, TextField, VisuallyHidden } from '@css/ui';
-import { Check, Plus } from 'lucide-react';
+import { Button, Disclosure, Icon, IconButton, Stack, Tabs, Text, TextField } from '@/ui';
 import { type PointerEventHandler, useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import type { LibraryFields, LibrarySectionView } from './draft';
@@ -39,16 +38,16 @@ export function AddPane({
   return (
     <Tabs
       label={t('add_pane')}
-      selectedId={tab}
+      value={tab}
       onChange={(id) => setTab(id === 'library' ? 'library' : 'types')}
       items={[
         {
-          id: 'types',
+          value: 'types',
           label: t('add_tab'),
           content: <TypeList canAdd={targetSection !== undefined} onAdd={onAddType} />,
         },
         {
-          id: 'library',
+          value: 'library',
           label: t('library_tab'),
           content: (
             <LibraryList
@@ -73,9 +72,7 @@ function TypeList({ canAdd, onAdd }: { canAdd: boolean; onAdd: (type: FieldType)
       <Text tone="muted">{canAdd ? t('types_hint') : t('types_need_section')}</Text>
       {TYPE_GROUPS.map((group) => (
         <div key={group} className="fb-type-group">
-          <Text as="span" weight="bold" className="fb-group-title">
-            {t(`type_groups.${group}`)}
-          </Text>
+          <strong className="fb-group-title">{t(`type_groups.${group}`)}</strong>
           {typesOfGroup(group).map((type) => (
             <TypeItem key={type} type={type} disabled={!canAdd} onAdd={() => onAdd(type)} />
           ))}
@@ -118,7 +115,7 @@ function TypeItem({
       onPointerDown={listeners?.onPointerDown as PointerEventHandler<HTMLButtonElement>}
     >
       <span className="fb-type-ic">
-        <Icon icon={meta.icon} size="sm" />
+        <Icon name={meta.icon} size={16} />
       </span>
       <span className="fb-type-text">
         <span className="fb-type-name">{tt(type)}</span>
@@ -127,10 +124,10 @@ function TypeItem({
         </span>
       </span>
       <span className="fb-type-plus">
-        <Icon icon={Plus} size="sm" />
+        <Icon name="add" size={16} />
       </span>
       {/* the space is a text node of its own: the name joins the parts without one otherwise */}{' '}
-      <VisuallyHidden>{t('add_type_suffix')}</VisuallyHidden>
+      <span className="app-sr-only">{t('add_type_suffix')}</span>
     </button>
   );
 }
@@ -203,24 +200,21 @@ function LibraryList({
                   const meta = TYPE_META[f.type];
                   return (
                     <li key={f.key} className="fb-lib-q">
-                      <Icon icon={meta.icon} size="sm" />
+                      <Icon name={meta.icon} size={16} />
                       <span className="fb-lib-label">{label}</span>
                       {keys.has(f.key) ? (
                         <span className="fb-lib-in">
-                          <Icon icon={Check} size="sm" />
+                          <Icon name="check" size={16} />
                           {t('in_form')}
                         </span>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          icon={Plus}
-                          iconOnly
+                        <IconButton
+                          label={t('add_field', { label })}
+                          icon="add"
+
                           disabled={!canAddField}
-                          onPress={() => onAddField(f.key)}
-                        >
-                          {t('add_field', { label })}
-                        </Button>
+                          onClick={() => onAddField(f.key)}
+                        />
                       )}
                     </li>
                   );
@@ -230,13 +224,13 @@ function LibraryList({
                 <Text tone="muted">{t('section_in_form')}</Text>
               ) : (
                 <Button
-                  size="sm"
+                  size="small"
                   variant="secondary"
-                  icon={Plus}
+                  startIcon="add"
                   fullWidth
-                  onPress={() => onAddSection(section)}
+                  onClick={() => onAddSection(section)}
                 >
-                  <VisuallyHidden>{title}:</VisuallyHidden> {t('add_section')}
+                  <span className="app-sr-only">{title}:</span> {t('add_section')}
                 </Button>
               )}
             </Stack>

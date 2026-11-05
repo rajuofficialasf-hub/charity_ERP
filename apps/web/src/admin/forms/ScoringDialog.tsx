@@ -1,5 +1,5 @@
 import { type FormDefinition, MAX_SCORE, maxScoreOf } from '@css/shared/forms';
-import { Alert, Button, Modal, Stack, Text } from '@css/ui';
+import { Alert, Button, Dialog, Stack, Text } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { setFormScoring } from './draft';
 import { NumberText } from './NumberText';
@@ -22,12 +22,16 @@ export function ScoringDialog({
   const t = useTranslations('forms.builder');
   const max = maxScoreOf(definition);
   return (
-    <Modal
+    <Dialog
       title={t('scoring_title')}
-      size="sm"
-      isOpen
+      size="small"
+      open
       onClose={onClose}
-      primaryAction={<Button onPress={onClose}>{t('scoring_done')}</Button>}
+      actions={
+        <>
+          <Button onClick={onClose}>{t('scoring_done')}</Button>
+        </>
+      }
     >
       <Stack gap={3}>
         <Text tone="muted">{t('scoring_intro')}</Text>
@@ -46,9 +50,11 @@ export function ScoringDialog({
             <Text tone="muted">{t('scoring_not_assisted_hint')}</Text>
           </div>
         )}
-        <Text weight="bold">{t('scoring_max', { max })}</Text>
+        <Text>
+          <strong>{t('scoring_max', { max })}</strong>
+        </Text>
         {max > MAX_SCORE ? <Alert tone="warning">{t('scoring_over')}</Alert> : null}
       </Stack>
-    </Modal>
+    </Dialog>
   );
 }

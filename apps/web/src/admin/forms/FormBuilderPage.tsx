@@ -2,21 +2,19 @@ import { CORE_FIELD_KEYS, type FieldType, type FormDefinition } from '@css/share
 import { localized, type Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
+  Chip,
   ConfirmDialog,
+  Dialog,
   Disclosure,
   EmptyState,
-  ErrorState,
-  Modal,
+  Page,
   Skeleton,
   Stack,
   Tabs,
   Text,
-  PageHeader,
-} from '@css/ui';
+} from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calculator, Eye, History, Link2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -59,6 +57,7 @@ import { detailsOf, useDraftSave } from './use-draft-save';
 import { ScoringDialog } from './ScoringDialog';
 import { VersionList } from './VersionList';
 import './builder.css';
+import { LoadError } from '../../components/LoadError';
 
 const PHONE = '(max-width: 767px)';
 
@@ -99,7 +98,6 @@ export const LibraryBuilderPage = () => (
 export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope }) {
   const { projectId = '', formId: routeFormId = '' } = useParams();
   const t = useTranslations('forms.builder');
-  const tc = useTranslations('common');
   const tp = useTranslations('forms.place');
   const locale = useLocale() as Locale;
   const { me } = useAuth();
@@ -219,11 +217,11 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const notFound =
     (!sum.error && (!sum.found || !versionId)) ||
     (read.error instanceof ApiFailure && read.error.status === 404);
-  if (notFound) return <EmptyState title={t('not_found')} message={t('not_found_hint')} />;
+  if (notFound) return <EmptyState title={t('not_found')} description={t('not_found_hint')} />;
   if (sum.error || read.error || !read.data || !draft)
     return (
-      <ErrorState
-        title={tc('state.error.text')}
+      <LoadError
+        error={read.error}
         onRetry={() => {
           sum.refetch();
           if (versionId) void read.refetch();
@@ -378,28 +376,28 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       <aside className="fb-side" aria-label={t('settings')}>
         <Tabs
           label={t('settings')}
-          selectedId={pane}
+          value={pane}
           onChange={(id) => setPane(id === 'form' ? 'form' : 'question')}
           items={[
             {
-              id: 'question',
+              value: 'question',
               label: t('question_settings'),
               content: settings ?? <Text tone="muted">{t('read_only_pane')}</Text>,
             },
             {
-              id: 'form',
+              value: 'form',
               label: t('form_settings'),
               content: (
                 <Stack gap={3}>
                   <Text>
-                    <Text as="span" weight="bold">
-                      {t('form_name')}
+                    <Text>
+                      <strong>{t('form_name')}</strong>
                     </Text>{' '}
                     {title}
                   </Text>
                   {/* the version list is the builders' read; a PM sees the placed version only */}
                   {builder ? (
-                    <Disclosure title={t('versions')} icon={History} headingLevel={2} defaultOpen>
+                    <Disclosure title={t('versions')} icon="history" headingLevel={2} defaultOpen>
                       <VersionList
                         formId={formId}
                         shown={version.id}
@@ -410,7 +408,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
                   ) : null}
                   {/* the public link belongs to a project, and opens an application form only */}
                   {scope === 'project' && form?.kind === 'beneficiary_application' ? (
-                    <Disclosure title={t('link.title')} icon={Link2} headingLevel={2}>
+                    <Disclosure title={t('link.title')} icon="link" headingLevel={2}>
                       <PublicLinkPanel
                         projectId={projectId}
                         formId={formId}
@@ -444,46 +442,29 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     <>
       <DocumentTitle title={title} />
       <div data-testid="form-head">
-        <PageHeader
+        <Page
           title={title}
-          description={
-            <div className="fb-head-meta">
-              {form ? <Badge label={t(`kind.${form.kind}`)} /> : null}
-              <Badge label={versionLabel} />
-              <Text tone="muted">
-                {t('count_line', {
-                  sections: String(draft.sections.length),
-                  questions: String(draft.sections.reduce((n, s) => n + s.fields.length, 0)),
-                })}
-              </Text>
-              {isDraft && mode !== 'read' ? (
-                <Text tone="muted" aria-live="polite">
-                  {saveLabel}
-                </Text>
-              ) : null}
-            </div>
-          }
           actions={
             <>
               {viewing ? (
-                <Button variant="secondary" onPress={() => setViewing(null)}>
+                <Button variant="secondary" onClick={() => setViewing(null)}>
                   {t('back_to_current')}
                 </Button>
               ) : null}
-              <Button variant="secondary" icon={Eye} onPress={() => setPreviewing(true)}>
+              <Button variant="secondary" startIcon="eye" onClick={() => setPreviewing(true)}>
                 {t('preview')}
               </Button>
-              <Button variant="secondary" icon={Calculator} onPress={() => setScoring(true)}>
+              <Button variant="secondary" startIcon="calculator" onClick={() => setScoring(true)}>
                 {t('scoring_button')}
               </Button>
               {canStartNext ? (
-                <Button onPress={() => next.mutate()} loading={next.isPending}>
+                <Button onClick={() => next.mutate()} loading={next.isPending}>
                   {t('new_version')}
                 </Button>
               ) : null}
               {canPublish ? (
                 <Button
-                  onPress={() => {
+                  onClick={() => {
                     publish.reset();
                     setPublishing(true);
                   }}
@@ -495,20 +476,31 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
               ) : null}
             </>
           }
+          documentTitle={false}
         />
+        <div className="fb-head-meta">
+          {form ? <Chip>{t(`kind.${form.kind}`)}</Chip> : null}
+          <Chip>{versionLabel}</Chip>
+          <Text tone="muted">
+            {t('count_line', {
+              sections: String(draft.sections.length),
+              questions: String(draft.sections.reduce((n, s) => n + s.fields.length, 0)),
+            })}
+          </Text>
+          {isDraft && mode !== 'read' ? (
+            <p className="admin-muted" aria-live="polite">
+              {saveLabel}
+            </p>
+          ) : null}
+        </div>
       </div>
-      {failure ? (
-        <Alert tone="danger" live="alert">
-          {failure.message}
-        </Alert>
-      ) : null}
+      {failure ? <Alert tone="error">{failure.message}</Alert> : null}
       {placed ? <Alert tone="info">{tp('placed_note')}</Alert> : null}
       {placed && form?.newerVersionNo && me && canPlaceForms(me) && !viewing ? (
         <Alert
           tone="info"
-          live="status"
           action={
-            <Button size="sm" onPress={() => take.mutate()} loading={take.isPending}>
+            <Button size="small" onClick={() => take.mutate()} loading={take.isPending}>
               {tp('take')}
             </Button>
           }
@@ -517,38 +509,29 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
         </Alert>
       ) : null}
       {!isDraft && !placed ? <Alert tone="info">{t('read_only')}</Alert> : null}
-      {save.refused ? (
-        <Alert tone="warning" live="alert">
-          {t('no_official')}
-        </Alert>
-      ) : null}
+      {save.refused ? <Alert tone="warning">{t('no_official')}</Alert> : null}
       {missingRoles.length ? (
-        <Alert tone="danger">
+        <Alert tone="error">
           {t('identity.missing', {
             roles: missingRoles.map((k) => t(`identity.roles.${k}`)).join(', '),
           })}
         </Alert>
       ) : null}
       {unplaced.map(([key, message]) => (
-        <Alert key={key} tone="danger">
+        <Alert key={key} tone="error">
           {message}
         </Alert>
       ))}
-      {save.stale ? (
-        <Alert tone="warning" live="alert">
-          {t('stale')}
-        </Alert>
-      ) : null}
+      {save.stale ? <Alert tone="warning">{t('stale')}</Alert> : null}
       {phone && isDraft && builder ? <Alert tone="info">{t('phone_note')}</Alert> : null}
       {undo && mode === 'full' ? (
         <Alert
           tone="info"
-          live="status"
           action={
             <Button
-              size="sm"
+              size="small"
               variant="secondary"
-              onPress={() => {
+              onClick={() => {
                 change(undo.definition);
                 setUndo(null);
               }}
@@ -569,19 +552,19 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
           onClose={() => setScoring(false)}
         />
       ) : null}
-      <Modal
+      <Dialog
         title={t('preview_pane.title')}
-        size="lg"
-        fullOnPhone
-        isOpen={previewing}
+        size="large"
+        fullScreenOnPhone
+        open={previewing}
         onClose={() => setPreviewing(false)}
       >
         {previewing ? <PreviewPane definition={draft} /> : null}
-      </Modal>
+      </Dialog>
       {asking ? (
         <OwnQuestionDialog
           key={asking.key}
-          isOpen
+          open
           definition={draft}
           type={asking.type}
           sectionKey={asking.section}
@@ -601,25 +584,27 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
         title={t('publish_title', { n: String(version.versionNo) })}
         message={t('publish_message')}
         confirmLabel={t('publish_confirm')}
-        consequence={[...sentences(published, draft), t('publish_keeps')]}
-        isOpen={publishing}
+        consequences={[...sentences(published, draft), t('publish_keeps')]}
+        open={publishing}
         pending={publish.isPending}
         onConfirm={() => publish.mutate()}
         onCancel={() => setPublishing(false)}
       />
-      <Modal
+      <Dialog
         title={t('leave_title')}
-        isOpen={save.blocker.state === 'blocked'}
+        open={save.blocker.state === 'blocked'}
         onClose={() => save.blocker.reset?.()}
-        secondaryAction={
-          <Button variant="secondary" onPress={() => save.blocker.proceed?.()}>
-            {t('leave_confirm')}
-          </Button>
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => save.blocker.proceed?.()}>
+              {t('leave_confirm')}
+            </Button>
+            <Button onClick={() => save.blocker.reset?.()}>{t('leave_stay')}</Button>
+          </>
         }
-        primaryAction={<Button onPress={() => save.blocker.reset?.()}>{t('leave_stay')}</Button>}
       >
         <Text>{t('leave_message')}</Text>
-      </Modal>
+      </Dialog>
     </>
   );
 }

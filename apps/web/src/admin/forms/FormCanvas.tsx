@@ -24,19 +24,18 @@ import {
   type FormSection,
   identityRoleOf,
 } from '@css/shared/forms';
-import { Alert, Badge, Button, Icon, MenuButton, Select, Stack, Text } from '@css/ui';
 import {
-  ArrowDown,
-  ArrowUp,
-  Calculator,
-  Copy,
-  GitBranch,
-  GripVertical,
-  Lock,
-  Pencil,
-  Plus,
-  Trash2,
-} from 'lucide-react';
+  Alert,
+  Button,
+  Chip,
+  Icon,
+  IconButton,
+  Menu,
+  SelectField,
+  Stack,
+  Text,
+  type ExtendedIconName,
+} from '@/ui';
 import { type ReactNode, useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { FieldInput } from '../../features/forms/FieldInput';
@@ -154,16 +153,18 @@ export function FormCanvas({
     />
   ));
   return (
-    <Stack as="section" gap={4} aria-label={t('outline')}>
-      {body}
-      {mode === 'full' ? (
-        <div>
-          <Button variant="secondary" icon={Plus} onPress={onAddSection}>
-            {t('new_section')}
-          </Button>
-        </div>
-      ) : null}
-    </Stack>
+    <section aria-label={t('outline')}>
+      <Stack gap={4}>
+        {body}
+        {mode === 'full' ? (
+          <div>
+            <Button variant="secondary" startIcon="add" onClick={onAddSection}>
+              {t('new_section')}
+            </Button>
+          </div>
+        ) : null}
+      </Stack>
+    </section>
   );
 }
 
@@ -245,15 +246,11 @@ function SectionCard({
               onClick={() => onSelect({ section: section.key })}
             >
               {title}
-              <Icon icon={Pencil} size="sm" />
+              <Icon name="edit" size={16} />
             </button>
           )}
-          <Text as="span" tone="muted">
-            {t('questions_count', { n: String(section.fields.length) })}
-          </Text>
-          {section.visibility === 'official_only' ? (
-            <Badge size="sm" label={t('official_only')} />
-          ) : null}
+          <Text tone="muted">{t('questions_count', { n: String(section.fields.length) })}</Text>
+          {section.visibility === 'official_only' ? <Chip>{t('official_only')}</Chip> : null}
         </h2>
         {mode === 'read' ? null : (
           <span id={hintId} hidden>
@@ -261,7 +258,7 @@ function SectionCard({
           </span>
         )}
         {full ? (
-          <MenuButton
+          <Menu
             label={t('section_menu', { title })}
             items={[
               ...(index > 0
@@ -269,8 +266,8 @@ function SectionCard({
                     {
                       id: 'up',
                       label: t('move_up', { label: title }),
-                      icon: ArrowUp,
-                      onAction: () => onMoveSection(-1),
+                      icon: 'arrow-up' as const,
+                      onSelect: () => onMoveSection(-1),
                     },
                   ]
                 : []),
@@ -279,22 +276,22 @@ function SectionCard({
                     {
                       id: 'down',
                       label: t('move_down', { label: title }),
-                      icon: ArrowDown,
-                      onAction: () => onMoveSection(1),
+                      icon: 'arrow-down' as const,
+                      onSelect: () => onMoveSection(1),
                     },
                   ]
                 : []),
               {
                 id: 'remove',
                 label: t('remove', { label: title }),
-                icon: Trash2,
-                onAction: onRemoveSection,
+                icon: 'delete' as const,
+                onSelect: onRemoveSection,
               },
             ]}
           />
         ) : null}
       </div>
-      {errors[section.key] ? <Alert tone="danger">{errors[section.key]}</Alert> : null}
+      {errors[section.key] ? <Alert tone="error">{errors[section.key]}</Alert> : null}
       {full ? (
         <SortableContext
           items={heads.map((f) => f.fieldKey)}
@@ -310,12 +307,10 @@ function SectionCard({
         </ul>
       )}
       {section.fields.length === 0 ? (
-        <Text tone="muted" className="fb-sec-empty">
-          {t('section_empty')}
-        </Text>
+        <p className="admin-muted fb-sec-empty">{t('section_empty')}</p>
       ) : null}
       {full ? (
-        <Button variant="ghost" size="sm" icon={Plus} onPress={onAddTo}>
+        <Button variant="text" size="small" startIcon="add" onClick={onAddTo}>
           {t('add_here')}
         </Button>
       ) : null}
@@ -384,7 +379,7 @@ function QuestionRow({
           {...attributes}
           {...listeners}
         >
-          <Icon icon={GripVertical} size="sm" label={t('drag', { label })} />
+          <Icon name="drag" size={16} label={t('drag', { label })} />
         </button>
       ) : null}
       <div className="fb-q-main">
@@ -401,7 +396,7 @@ function QuestionRow({
           <QuestionPreview field={field} />
         </div>
         <QuestionTags field={field} />
-        {error ? <Alert tone="danger">{error}</Alert> : null}
+        {error ? <Alert tone="error">{error}</Alert> : null}
         {members.length ? (
           <ul aria-label={t('members_of', { label })} className="fb-q-members">
             {members.map((m, i) => (
@@ -420,43 +415,35 @@ function QuestionRow({
           </ul>
         ) : null}
         {full && field.type === 'repeat_group' ? (
-          <Button className="fb-q-add-row" size="sm" variant="ghost" icon={Plus} onPress={onAddRow}>
-            {t('add_row_question')}
-          </Button>
+          <div className="fb-q-add-row">
+            <Button size="small" variant="text" startIcon="add" onClick={onAddRow}>
+              {t('add_row_question')}
+            </Button>
+          </div>
         ) : null}
       </div>
       {isSelected && full ? (
         <div className="fb-q-bar" role="group" aria-label={t('question_actions', { label })}>
-          <Icon icon={meta.icon} size="sm" />
+          <Icon name={meta.icon} size={16} />
           <span className="fb-q-bar-type">{tt(field.type)}</span>
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={ArrowUp}
-            iconOnly
+          <IconButton
+            label={t('move_up', { label })}
+            icon="arrow-up"
+
             disabled={first}
-            onPress={() => onMove(-1)}
-          >
-            {t('move_up', { label })}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={ArrowDown}
-            iconOnly
+            onClick={() => onMove(-1)}
+          />
+          <IconButton
+            label={t('move_down', { label })}
+            icon="arrow-down"
+
             disabled={last}
-            onPress={() => onMove(1)}
-          >
-            {t('move_down', { label })}
-          </Button>
+            onClick={() => onMove(1)}
+          />
           {field.type === 'repeat_group' ? null : (
-            <Button size="sm" variant="ghost" icon={Copy} iconOnly onPress={onCopy}>
-              {t('copy', { label })}
-            </Button>
+            <IconButton label={t('copy', { label })} icon="copy" onClick={onCopy} />
           )}
-          <Button size="sm" variant="ghost" icon={Trash2} iconOnly onPress={onRemove}>
-            {t('remove', { label })}
-          </Button>
+          <IconButton label={t('remove', { label })} icon="delete" onClick={onRemove} />
         </div>
       ) : null}
     </li>
@@ -501,30 +488,24 @@ function MemberRow({
           <QuestionPreview field={field} />
         </div>
         <QuestionTags field={field} />
-        {error ? <Alert tone="danger">{error}</Alert> : null}
+        {error ? <Alert tone="error">{error}</Alert> : null}
       </div>
       {selected && mode === 'full' ? (
         <div className="fb-q-bar" role="group" aria-label={t('question_actions', { label })}>
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={ArrowUp}
-            iconOnly
+          <IconButton
+            label={t('move_up', { label })}
+            icon="arrow-up"
+
             disabled={first}
-            onPress={() => onMove(-1)}
-          >
-            {t('move_up', { label })}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={ArrowDown}
-            iconOnly
+            onClick={() => onMove(-1)}
+          />
+          <IconButton
+            label={t('move_down', { label })}
+            icon="arrow-down"
+
             disabled={last}
-            onPress={() => onMove(1)}
-          >
-            {t('move_down', { label })}
-          </Button>
+            onClick={() => onMove(1)}
+          />
         </div>
       ) : null}
     </li>
@@ -539,19 +520,23 @@ function QuestionPreview({ field }: { field: FormField }) {
   if (field.type === 'bd_address')
     return (
       <Stack gap={1}>
-        <Select
+        <SelectField
           label={label}
           required={field.required}
           options={[]}
+          value=""
+          onChange={() => undefined}
           placeholder={t('address_sketch')}
         />
       </Stack>
     );
   if (field.type === 'repeat_group')
     return (
-      <Text weight="bold">
-        {label}
-        {field.required ? ` ${t('required_mark')}` : ''}
+      <Text>
+        <strong>
+          {label}
+          {field.required ? ` ${t('required_mark')}` : ''}
+        </strong>
       </Text>
     );
   return (
@@ -570,27 +555,33 @@ function QuestionPreview({ field }: { field: FormField }) {
 function QuestionTags({ field }: { field: FormField }) {
   const t = useTranslations('forms.builder');
   const role = identityRoleOf(field);
-  const tags = [
+  type Tag = { icon: ExtendedIconName; text: string; tone: string };
+  const tags: (Tag | null)[] = [
     role
-      ? { icon: Lock, text: t('identity.tag', { role: t(`identity.roles.${role}`) }), tone: 'lock' }
+      ? {
+          icon: 'lock' as const,
+          text: t('identity.tag', { role: t(`identity.roles.${role}`) }),
+          tone: 'lock',
+        }
       : null,
     field.logic?.show_if || field.logic?.required_if
-      ? { icon: GitBranch, text: t('has_condition'), tone: 'logic' }
+      ? { icon: 'branch' as const, text: t('has_condition'), tone: 'logic' }
       : null,
     field.type === 'calculation'
       ? {
-          icon: Calculator,
+          icon: 'calculator' as const,
           text: t(field.calculation ? 'has_calc' : 'calc_missing'),
           tone: field.calculation ? 'calc' : 'warn',
         }
       : null,
-  ].filter((x): x is { icon: typeof Lock; text: string; tone: string } => x !== null);
-  if (!tags.length) return null;
+  ];
+  const shown = tags.filter((x): x is Tag => x !== null);
+  if (!shown.length) return null;
   return (
     <div className="fb-q-tags">
-      {tags.map((tag) => (
+      {shown.map((tag) => (
         <span key={tag.text} className={`fb-tag fb-tag-${tag.tone}`}>
-          <Icon icon={tag.icon} size="sm" />
+          <Icon name={tag.icon} size={16} />
           {tag.text}
         </span>
       ))}

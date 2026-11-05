@@ -1,9 +1,10 @@
-import { Alert, CopyButton, ErrorState, Stack, Switch, Text, TextField } from '@css/ui';
+import { Alert, CopyButton, Stack, Switch, Text, TextField } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
 import { components, setupKey } from '../projects/setup/setup-api';
 import { configurePublicLink } from './forms-api';
+import { LoadError } from '../../components/LoadError';
 
 /** The link's settings as the component list keeps them; the token reaches its managers only. */
 interface LinkSettings {
@@ -47,38 +48,47 @@ export function PublicLinkPanel({
   // replace a link that may be in use
   if (list.isError)
     return (
-      <Stack as="section" gap={2} aria-label={t('title')}>
-        <Text weight="bold">{t('title')}</Text>
-        <ErrorState title={t('load_failed')} onRetry={() => void list.refetch()} />
-      </Stack>
+      <div>
+        <Stack gap={2}>
+          <Text>
+            <strong>{t('title')}</strong>
+          </Text>
+          <LoadError
+            title={t('load_failed')}
+            error={list.error}
+            onRetry={() => void list.refetch()}
+          />
+        </Stack>
+      </div>
     );
 
   return (
-    <Stack as="section" gap={2} aria-label={t('title')}>
-      <Text weight="bold">{t('title')}</Text>
-      <Text tone="muted">{here ? t('on_here') : on ? t('on_other') : t('off')}</Text>
-      {toggle.error instanceof ApiFailure ? (
-        <Alert tone="danger" live="alert">
-          {toggle.error.details[0]?.message ?? toggle.error.message}
-        </Alert>
-      ) : null}
-      {canManage ? (
-        <Switch
-          isSelected={here}
-          isDisabled={toggle.isPending || !list.isSuccess || (!here && !published)}
-          onChange={(next) => toggle.mutate(next)}
-        >
-          {t('switch')}
-        </Switch>
-      ) : null}
-      {canManage && !published && !here ? <Text tone="muted">{t('publish_first')}</Text> : null}
-      {url ? (
-        <Stack direction="row" gap={1} align="end" wrap>
-          <TextField label={t('url')} readOnly lang="en" value={url} />
-          <CopyButton value={url} label={t('url')} />
-        </Stack>
-      ) : null}
-      {canManage ? <Text tone="muted">{t('renew_note')}</Text> : null}
-    </Stack>
+    <div>
+      <Stack gap={2}>
+        <Text>
+          <strong>{t('title')}</strong>
+        </Text>
+        <Text tone="muted">{here ? t('on_here') : on ? t('on_other') : t('off')}</Text>
+        {toggle.error instanceof ApiFailure ? (
+          <Alert tone="error">{toggle.error.details[0]?.message ?? toggle.error.message}</Alert>
+        ) : null}
+        {canManage ? (
+          <Switch
+            label={t('switch')}
+            checked={here}
+            disabled={toggle.isPending || !list.isSuccess || (!here && !published)}
+            onChange={(next) => toggle.mutate(next)}
+          />
+        ) : null}
+        {canManage && !published && !here ? <Text tone="muted">{t('publish_first')}</Text> : null}
+        {url ? (
+          <Stack direction="row" gap={1} align="end" wrap>
+            <TextField label={t('url')} readOnly lang="en" value={url} onChange={() => undefined} />
+            <CopyButton value={url} label={t('url')} />
+          </Stack>
+        ) : null}
+        {canManage ? <Text tone="muted">{t('renew_note')}</Text> : null}
+      </Stack>
+    </div>
   );
 }

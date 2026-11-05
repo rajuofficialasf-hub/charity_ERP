@@ -128,7 +128,7 @@ describe('the ready forms page', () => {
     api();
     renderApp(<ReadyFormsPage />, 'bn', { path: '/admin/ready-forms' });
     expect(await screen.findByText('ফর্ম ও তথ্য সংগ্রহ')).toBeInTheDocument();
-    const table = within(await screen.findByRole('grid', { name: 'তৈরি ফর্মের তালিকা' }));
+    const table = within(await screen.findByRole('table', { name: 'তৈরি ফর্মের তালিকা' }));
     const [, first, second] = table.getAllByRole('row');
     expect(within(first!).getByRole('link', { name: 'স্বাবলম্বী আবেদন' })).toHaveAttribute(
       'href',
@@ -177,7 +177,7 @@ describe('the ready forms page', () => {
   it('has no axe violation', async () => {
     api();
     const { container } = renderApp(<ReadyFormsPage />, 'bn', { path: '/admin/ready-forms' });
-    await screen.findByRole('list');
+    await screen.findByRole('table');
     await expectNoAxeViolations(container);
   });
 });
