@@ -1,4 +1,4 @@
-import { Alert, Button, Modal, Text, TextArea } from '@css/ui';
+import { Alert, Button, Dialog, Text, TextField } from '@/ui';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import type { CommentReason } from './applications-api';
@@ -53,38 +53,39 @@ export function DecisionDialog({
     (!withMessage || filled(message)) &&
     (!comments.length || filled(comment));
   return (
-    <Modal
+    <Dialog
       title={title}
-      size="sm"
-      isOpen
+      size="small"
+      open
       onClose={onClose}
       dismissible={!pending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={pending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button
-          variant={danger ? 'danger' : 'primary'}
-          onPress={() =>
-            onConfirm({
-              ...(withReason ? { reason: reason.trim() } : {}),
-              ...(withMessage ? { message: message.trim() } : {}),
-              ...(comments.length ? { comment: comment.trim() } : {}),
-            })
-          }
-          disabled={!ready}
-          loading={pending}
-        >
-          {confirm}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
+            {tc('cancel')}
+          </Button>
+          <Button
+            variant={danger ? 'danger' : 'primary'}
+            onClick={() =>
+              onConfirm({
+                ...(withReason ? { reason: reason.trim() } : {}),
+                ...(withMessage ? { message: message.trim() } : {}),
+                ...(comments.length ? { comment: comment.trim() } : {}),
+              })
+            }
+            disabled={!ready}
+            loading={pending}
+          >
+            {confirm}
+          </Button>
+        </>
       }
     >
       {withReason ? (
-        <TextArea
+        <TextField
+          rows={4}
           label={t('reason')}
-          helper={t('reason_help')}
+          hint={t('reason_help')}
           value={reason}
           onChange={setReason}
           required
@@ -93,9 +94,10 @@ export function DecisionDialog({
       ) : null}
       {withMessage ? (
         <>
-          <TextArea
+          <TextField
+            rows={4}
             label={t('message')}
-            helper={t('message_help')}
+            hint={t('message_help')}
             value={message}
             onChange={setMessage}
             required
@@ -111,9 +113,10 @@ export function DecisionDialog({
               <Text key={why}>{t(`why.${why}`)}</Text>
             ))}
           </Alert>
-          <TextArea
+          <TextField
+            rows={4}
             label={t('comment')}
-            helper={t('comment_help')}
+            hint={t('comment_help')}
             value={comment}
             onChange={setComment}
             required
@@ -121,7 +124,7 @@ export function DecisionDialog({
           />
         </>
       ) : null}
-      {error ? <Alert tone="danger">{error}</Alert> : null}
-    </Modal>
+      {error ? <Alert tone="error">{error}</Alert> : null}
+    </Dialog>
   );
 }

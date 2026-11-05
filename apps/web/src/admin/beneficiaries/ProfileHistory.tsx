@@ -1,7 +1,6 @@
 import { formatDate } from '@css/shared/format';
-import { Badge, Button, ConfirmDialog, Grid, ProfileSection, Stack, Text } from '@css/ui';
+import { Button, Chip, ConfirmDialog, ProfileSection, Stack, Text } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { Check, FileText, History, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
@@ -94,23 +93,19 @@ export function Corrections({
   };
   const failure = decide.error instanceof ApiFailure ? decide.error : null;
   const empty = tp('empty_value');
-  const tone = { submitted: 'warning', approved: 'success', rejected: 'danger' } as const;
+  const tone = { submitted: 'warning', approved: 'success', rejected: 'error' } as const;
 
   return (
-    <ProfileSection title={tp('sections.corrections')} icon={FileText}>
+    <ProfileSection title={tp('sections.corrections')} icon="file">
       {requests.length === 0 ? (
-        <Text className="admin-muted">{tp('no_rows')}</Text>
+        <p className="admin-muted">{tp('no_rows')}</p>
       ) : (
-        <Grid gap={3} as="ul" role="list">
+        <ul className="admin-plain-list">
           {requests.map((r) => (
-            <Grid gap={1} as="li" key={r.id}>
+            <li className="admin-plain-item" key={r.id}>
               <Stack direction="row" wrap gap={2}>
                 <strong>{label(r.field)}</strong>
-                <Badge
-                  variant="dot"
-                  tone={tone[r.status]}
-                  label={tp(`correction_status.${r.status}`)}
-                />
+                <Chip tone={tone[r.status]}>{tp(`correction_status.${r.status}`)}</Chip>
               </Stack>
               <span>{tp('change', { old: r.oldValue ?? empty, new: r.newValue ?? empty })}</span>
               <Text tone="muted">{tp('reason', { reason: r.reason })}</Text>
@@ -118,36 +113,36 @@ export function Corrections({
               {canDecide && r.status === 'submitted' && r.requestedBy !== me?.id && (
                 <Stack direction="row" wrap gap={2}>
                   <Button
-                    size="sm"
-                    icon={Check}
-                    onPress={() => setDeciding({ request: r, decision: 'approve' })}
+                    size="small"
+                    startIcon="check"
+                    onClick={() => setDeciding({ request: r, decision: 'approve' })}
                   >
                     {tp('correction_approve')}
                   </Button>
                   <Button
-                    size="sm"
+                    size="small"
                     variant="secondary"
-                    icon={X}
-                    onPress={() => setDeciding({ request: r, decision: 'reject' })}
+                    startIcon="close"
+                    onClick={() => setDeciding({ request: r, decision: 'reject' })}
                   >
                     {tp('correction_reject')}
                   </Button>
                 </Stack>
               )}
-            </Grid>
+            </li>
           ))}
-        </Grid>
+        </ul>
       )}
       {deciding?.decision === 'approve' && (
         <ConfirmDialog
-          isOpen
+          open
           title={tp('correction_approve_title', { field: label(deciding.request.field) })}
           message={
             failure && (
               <p className="admin-error">{failure.details[0]?.message ?? failure.message}</p>
             )
           }
-          consequence={[
+          consequences={[
             tp('change', {
               old: deciding.request.oldValue ?? empty,
               new: deciding.request.newValue ?? empty,
@@ -183,13 +178,13 @@ export function ContactLog({ rows }: { rows: NonNullable<BeneficiaryProfile['con
   const label = useFieldLabel();
   const empty = tp('empty_value');
   return (
-    <ProfileSection title={tp('sections.contact_log')} icon={History}>
+    <ProfileSection title={tp('sections.contact_log')} icon="history">
       {rows.length === 0 ? (
-        <Text className="admin-muted">{tp('no_rows')}</Text>
+        <p className="admin-muted">{tp('no_rows')}</p>
       ) : (
-        <Grid gap={2} as="ul" role="list">
+        <ul className="admin-plain-list">
           {rows.map((c, i) => (
-            <Grid gap={1} as="li" key={`${c.at}-${c.field}-${i}`}>
+            <li className="admin-plain-item" key={`${c.at}-${c.field}-${i}`}>
               <strong>{label(c.field)}</strong>
               <span>
                 {c.field.endsWith('_id')
@@ -197,9 +192,9 @@ export function ContactLog({ rows }: { rows: NonNullable<BeneficiaryProfile['con
                   : tp('change', { old: c.oldValue ?? empty, new: c.newValue ?? empty })}
               </span>
               <Text tone="muted">{formatDate(c.at)}</Text>
-            </Grid>
+            </li>
           ))}
-        </Grid>
+        </ul>
       )}
     </ProfileSection>
   );

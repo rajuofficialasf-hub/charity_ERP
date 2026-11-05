@@ -1,17 +1,7 @@
 import { answerValueSchema } from '@css/shared';
 import { formatBenNo } from '@css/shared/beneficiaries';
 import { identityColumn } from '@css/shared/forms';
-import {
-  Alert,
-  Button,
-  DescriptionList,
-  ErrorState,
-  Modal,
-  Select,
-  Skeleton,
-  Stack,
-  Text,
-} from '@css/ui';
+import { Alert, Button, DescriptionList, Dialog, SelectField, Skeleton, Stack, Text } from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -19,6 +9,7 @@ import { ApiFailure } from '../../lib/api';
 import { lookupBeneficiary } from '../beneficiaries/beneficiaries-api';
 import { assignments, volunteersKey } from '../projects/volunteers/project-volunteers-api';
 import { type OfficeApplication, officeAct } from './applications-api';
+import { LoadError } from '../../components/LoadError';
 
 /** The identity number the entry gave, read from its answer. */
 function numberOf(a: OfficeApplication): string | null {
@@ -106,44 +97,41 @@ export function VerifyDialog({
         ? tc('state.error.text')
         : null;
   return (
-    <Modal
+    <Dialog
       title={t('title')}
-      size="sm"
-      isOpen
+      size="small"
+      open
       onClose={onClose}
       dismissible={!send.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={send.isPending}>
-          {tc('action.cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button
-          variant="primary"
-          onPress={() => action && send.mutate(action)}
-          disabled={!action || people.isError}
-          loading={send.isPending}
-        >
-          {t(action === 'verify_create' ? 'confirm_create' : 'confirm_link')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={send.isPending}>
+            {tc('action.cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => action && send.mutate(action)}
+            disabled={!action || people.isError}
+            loading={send.isPending}
+          >
+            {t(action === 'verify_create' ? 'confirm_create' : 'confirm_link')}
+          </Button>
+        </>
       }
     >
       <Stack gap={3}>
         {number && lookup.isPending ? (
           <Skeleton shape="text" />
         ) : lookup.isError ? (
-          <ErrorState
-            title={tc('state.error.text')}
-            requestId={lookup.error instanceof ApiFailure ? lookup.error.requestId : undefined}
-            onRetry={() => void lookup.refetch()}
-          />
+          <LoadError error={lookup.error} onRetry={() => void lookup.refetch()} />
         ) : blocked ? (
-          <Alert tone="danger">{t('blocked')}</Alert>
+          <Alert tone="error">{t('blocked')}</Alert>
         ) : found ? (
           <>
-            <Text weight="bold">{t('profile')}</Text>
+            <Text>
+              <strong>{t('profile')}</strong>
+            </Text>
             <DescriptionList
-              labelWidth="md"
               items={[
                 { label: t('ben_no'), value: formatBenNo(found.benNo) },
                 { label: t('name'), value: found.name },
@@ -155,18 +143,21 @@ export function VerifyDialog({
           <Text tone="muted">{t('create_help')}</Text>
         )}
         {people.isError ? (
-          <ErrorState title={tc('state.error.text')} onRetry={() => void people.refetch()} />
+          <LoadError error={people.error} onRetry={() => void people.refetch()} />
         ) : (
-          <Select
+          <SelectField
             label={t('owner')}
-            helper={t('owner_help')}
-            value={owner}
-            options={(people.data ?? []).map((p) => ({ id: p.volunteerId, label: p.displayName }))}
-            onChange={setOwner}
+            hint={t('owner_help')}
+            value={owner ?? ''}
+            options={(people.data ?? []).map((p) => ({
+              value: p.volunteerId,
+              label: p.displayName,
+            }))}
+            onChange={(v) => setOwner(v || null)}
           />
         )}
-        {failure ? <Alert tone="danger">{failure}</Alert> : null}
+        {failure ? <Alert tone="error">{failure}</Alert> : null}
       </Stack>
-    </Modal>
+    </Dialog>
   );
 }

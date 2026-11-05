@@ -1,5 +1,4 @@
-import { Badge } from '@css/ui';
-import { Clapperboard } from 'lucide-react';
+import { Chip } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { useMediaLabels } from '../../features/media/use-media-lists';
 import type { OfficeApplication } from './applications-api';
@@ -11,14 +10,10 @@ export function MediaBadge({ media }: { media: NonNullable<OfficeApplication['me
   const tone =
     media.state === 'rejected' ? 'neutral' : media.state === 'sent_back' ? 'warning' : 'info';
   return (
-    <Badge
-      tone={tone}
-      icon={Clapperboard}
-      label={
-        media.workStageCode
-          ? t('referral.badge_stage', { stage: labels.stage(media.workStageCode) })
-          : t('referral.badge', { state: t(`state.${media.state}`) })
-      }
-    />
+    <Chip tone={tone}>
+      {media.workStageCode
+        ? t('referral.badge_stage', { stage: labels.stage(media.workStageCode) })
+        : t('referral.badge', { state: t(`state.${media.state}`) })}
+    </Chip>
   );
 }

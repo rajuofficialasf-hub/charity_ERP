@@ -1,6 +1,5 @@
-import { Button } from '@css/ui';
+import { Button } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ReasonDialog } from '../../projects/ReasonDialog';
@@ -33,9 +32,9 @@ export function RevertMergeAction({
     <>
       <Button
         variant="secondary"
-        size="sm"
-        icon={Undo2}
-        onPress={() => {
+        size="small"
+        startIcon="undo"
+        onClick={() => {
           revert.reset();
           setOpen(true);
         }}

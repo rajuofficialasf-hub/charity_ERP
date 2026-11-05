@@ -55,6 +55,7 @@ export const DEFAULT_LABELS: UiLabels = {
   datePartYear: 'Year',
   datePartEmpty: 'Empty',
   tableEmpty: 'Nothing here yet',
+  numberLocale: 'en-US',
   locked: 'Locked',
   requestCorrection: 'Request correction',
   changed: 'Changed',
@@ -111,6 +112,19 @@ export const DEFAULT_LABELS: UiLabels = {
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);
 
 export const useLabels = () => useContext(LabelsContext);
+
+const counts = new Map<string, Intl.NumberFormat>();
+
+/** Counts in the app's number locale (`labels.numberLocale`), one formatter per locale. */
+export function useCount(): Intl.NumberFormat {
+  const locale = useContext(LabelsContext).numberLocale;
+  let format = counts.get(locale);
+  if (!format) {
+    format = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
+    counts.set(locale, format);
+  }
+  return format;
+}
 
 /** Fills `{name}` placeholders, for example in rowsRange. */
 export function fill(text: string, values: Record<string, string | number>) {

@@ -6,8 +6,8 @@ import MuiSkeleton from '@mui/material/Skeleton';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { Icon } from './icon';
-import { fill, useLabels } from './labels';
-import { count, srOnly } from './shared';
+import { fill, useCount, useLabels } from './labels';
+import { srOnly } from './shared';
 
 // ----------------------------------------------------------------------
 
@@ -161,6 +161,7 @@ const SEGMENT_COLOURS = ['primary.main', 'info.main', 'warning.main', 'secondary
 /** How far a figure is towards its target, with the numbers written beside the bar. */
 export function ProgressBar({ label, value, max, showValue = true, tone = 'primary', size = 'medium', segments }: ProgressBarProps) {
   const labels = useLabels();
+  const count = useCount();
   const top = max > 0 ? max : 1;
   // the bar stays between empty and full; the words keep the true figure
   const now = Math.min(Math.max(value, 0), top);

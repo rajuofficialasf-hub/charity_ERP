@@ -1,6 +1,6 @@
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import type { TablePagination } from '@css/ui';
+import type { CursorPagination } from '@/ui';
 
 /** Rows per page of the nationwide tabs. */
 export const PAGE_SIZE = 10;
@@ -35,15 +35,13 @@ export function numberedPaging({
   goTo: (page: number, cursor?: string | null) => void;
   summary: (values: { from: string; to: string; total: string }) => string;
   locale: Locale;
-}): TablePagination {
+}): CursorPagination {
   const counted = typeof meta.total === 'number' ? meta.total : COUNTED;
   const pageCount = Math.max(1, Math.ceil(counted / PAGE_SIZE), page);
   const numbered = (p: number) => (p - 1) * PAGE_SIZE < COUNTED;
   const from = shown === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const total = meta.total ?? shown;
   return {
-    shown,
-    total,
     page,
     pageCount,
     onPage: (p) => {

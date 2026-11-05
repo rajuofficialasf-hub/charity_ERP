@@ -1,6 +1,6 @@
 import type { Locale } from '@css/shared/i18n';
 import type { FormDefinition, FormField } from '@css/shared/forms';
-import { Alert, Badge, Button, Card, DescriptionList, Stack, Text } from '@css/ui';
+import { Alert, Button, Card, Chip, DescriptionList, Stack, Text } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -56,12 +56,12 @@ export function UnlockReview({
   return (
     <Card title={t('office_title')} headingLevel={2}>
       <Stack gap={3}>
-        {accept.error ? <Alert tone="danger">{failure(accept.error)}</Alert> : null}
+        {accept.error ? <Alert tone="error">{failure(accept.error)}</Alert> : null}
         {unlocks.map((unlock) => {
           const field = fieldOf(form, unlock.fieldKey);
           if (!field) return null;
           return (
-            <Stack key={unlock.id} gap={2} className="admin-unlock">
+            <div key={unlock.id} className="admin-unlock">
               {unlock.mayFill ? (
                 <UnlockedAnswer
                   unlock={unlock}
@@ -71,11 +71,8 @@ export function UnlockReview({
                 />
               ) : (
                 <>
-                  <Text as="strong" weight="bold">
-                    {field.label[locale]}
-                  </Text>
+                  <strong>{field.label[locale]}</strong>
                   <DescriptionList
-                    labelWidth="md"
                     items={[
                       { label: t('reason'), value: unlock.reason ?? '' },
                       {
@@ -95,25 +92,23 @@ export function UnlockReview({
                 </>
               )}
               <Stack direction="row" gap={2} wrap>
-                <Badge
-                  variant="dot"
-                  tone={unlock.state === 'updated' ? 'warning' : 'info'}
-                  label={t(unlock.state === 'updated' ? 'waiting' : 'waiting_answer')}
-                />
+                <Chip tone={unlock.state === 'updated' ? 'warning' : 'info'}>
+                  {t(unlock.state === 'updated' ? 'waiting' : 'waiting_answer')}
+                </Chip>
                 {unlock.mayDecide ? (
                   <>
                     <Button
                       variant="primary"
-                      size="sm"
+                      size="small"
                       loading={accept.isPending && accept.variables?.id === unlock.id}
-                      onPress={() => accept.mutate(unlock)}
+                      onClick={() => accept.mutate(unlock)}
                     >
                       {t('accept')}
                     </Button>
                     <Button
                       variant="secondary"
-                      size="sm"
-                      onPress={() => setStep({ unlock, kind: 'refuse' })}
+                      size="small"
+                      onClick={() => setStep({ unlock, kind: 'refuse' })}
                     >
                       {t('refuse')}
                     </Button>
@@ -121,9 +116,9 @@ export function UnlockReview({
                 ) : null}
                 {unlock.mayCancel ? (
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    onPress={() => setStep({ unlock, kind: 'cancel' })}
+                    variant="text"
+                    size="small"
+                    onClick={() => setStep({ unlock, kind: 'cancel' })}
                   >
                     {t('cancel')}
                   </Button>
@@ -134,7 +129,7 @@ export function UnlockReview({
               ) : unlock.state === 'open' && !unlock.mayFill ? (
                 <Text tone="muted">{t('volunteer_fills')}</Text>
               ) : null}
-            </Stack>
+            </div>
           );
         })}
       </Stack>

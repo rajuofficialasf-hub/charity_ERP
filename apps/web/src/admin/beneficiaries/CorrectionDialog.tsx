@@ -1,5 +1,5 @@
 import { isBirthRegNumber, isNidNumber, normalizeIdentityNumber } from '@css/shared/beneficiaries';
-import { Alert, Button, Modal, Select, TextArea, TextField } from '@css/ui';
+import { Alert, Button, Dialog, SelectField, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -55,40 +55,36 @@ export function CorrectionDialog({
   };
   const ready = field !== null && value.trim().length > 0 && reason.trim().length >= 3;
   return (
-    <Modal
+    <Dialog
       title={t('title')}
-      isOpen
+      open
       onClose={onClose}
       dismissible={!send.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={send.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={submit} disabled={!ready} loading={send.isPending}>
-          {t('send')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={send.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button onClick={submit} disabled={!ready} loading={send.isPending}>
+            {t('send')}
+          </Button>
+        </>
       }
     >
-      {failure && (
-        <Alert tone="danger" live="alert">
-          {failure.details[0]?.message ?? failure.message}
-        </Alert>
-      )}
-      <Select
+      {failure && <Alert tone="error">{failure.details[0]?.message ?? failure.message}</Alert>}
+      <SelectField
         label={t('field')}
         required
-        value={field}
-        options={FIELDS.map((f) => ({ id: f, label: tf(f) }))}
+        value={field ?? ''}
+        options={FIELDS.map((f) => ({ value: f, label: tf(f) }))}
         onChange={(id) => {
-          setField(id as LockedField | null);
+          setField((id as LockedField) || null);
           setError(undefined);
         }}
       />
       <TextField
         label={t('new_value')}
-        helper={current ? t('current', { value: current }) : undefined}
+        hint={current ? t('current', { value: current }) : undefined}
         type={isNumber(field) ? 'nid' : 'text'}
         required
         maxLength={200}
@@ -99,7 +95,14 @@ export function CorrectionDialog({
           setError(undefined);
         }}
       />
-      <TextArea label={t('reason')} required maxLength={1000} value={reason} onChange={setReason} />
-    </Modal>
+      <TextField
+        rows={4}
+        label={t('reason')}
+        required
+        maxLength={1000}
+        value={reason}
+        onChange={setReason}
+      />
+    </Dialog>
   );
 }

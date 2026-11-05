@@ -6,7 +6,10 @@ import { DEFAULT_LABELS } from '@/ui/templates/asf/components/labels';
 // languages (docs/architecture/ADR/ADR-016-asf-ui-system.md), never from the template's English
 // defaults.
 describe('the words of the asf UI system', () => {
-  const keys = Object.keys(DEFAULT_LABELS).sort();
+  // the number locale is no word: the app sets it from its own formatter's locale
+  const keys = Object.keys(DEFAULT_LABELS)
+    .filter((key) => key !== 'numberLocale')
+    .sort();
 
   it.each([
     ['bn', bn],

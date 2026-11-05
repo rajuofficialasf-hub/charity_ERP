@@ -32,8 +32,8 @@ import { Icon } from './icon';
 import { Menu } from './menu';
 import { Checkbox } from './choices';
 import { IconTile } from './people';
-import { fill, useLabels } from './labels';
-import { count, srOnly, appPath } from './shared';
+import { fill, useCount, useLabels } from './labels';
+import { srOnly, appPath } from './shared';
 
 // ----------------------------------------------------------------------
 
@@ -97,6 +97,7 @@ export function StatusChip({ status, label, size = 'small', lang }: StatusChipPr
 
 /** Counts above a list that filter it when chosen; the counts past `visible` sit behind a last card. */
 export function StatFilterBar({ label, items, selectedId, onSelect, visible = items.length, moreLabel, moreValue, loading }: StatFilterBarProps) {
+  const count = useCount();
   const shown = items.slice(0, visible);
   // the counts behind the last card; one that does not filter is listed but cannot be chosen
   const hidden = items.slice(visible);
@@ -181,6 +182,7 @@ const BANNER = new Map<OfflineState, { tone: Tone; icon: ExtendedIconName; words
 
 function BannerBody({ state, pendingCount, onOpenOutbox, onHidden, text, label }: OfflineBannerProps) {
   const labels = useLabels();
+  const count = useCount();
   const [hidden, setHidden] = useState(false);
   // the latest callback, so a page that renders again does not restart the 4 seconds
   const latest = useRef(onHidden);

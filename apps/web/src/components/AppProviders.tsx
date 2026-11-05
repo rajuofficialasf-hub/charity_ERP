@@ -1,8 +1,8 @@
-import { formatCount } from '@css/shared/format';
+import { formatCount, INTL_LOCALE } from '@css/shared/format';
 import { UiProvider } from '@css/ui';
 import { UiProvider as AsfUiProvider } from '@/ui';
 import { useLocale, useMessages } from 'use-intl';
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 
 /**
  * Supplies the design system with the `ui` catalogue texts and the central number formatter. Inside
@@ -27,9 +27,14 @@ export function AppProviders({
   const locale = useLocale();
   const { ui } = useMessages();
   const formatNumber = useCallback((value: number) => formatCount(value, locale), [locale]);
+  // the asf pieces write their counts in the grouping of the app's own formatter
+  const labels = useMemo(
+    () => ({ ...ui.asf, numberLocale: INTL_LOCALE[locale] }),
+    [ui.asf, locale],
+  );
   return (
     <UiProvider locale={locale} messages={ui} formatNumber={formatNumber} navigate={navigate}>
-      {inner ? children : <AsfUiProvider labels={ui.asf}>{children}</AsfUiProvider>}
+      {inner ? children : <AsfUiProvider labels={labels}>{children}</AsfUiProvider>}
     </UiProvider>
   );
 }

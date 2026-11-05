@@ -22,9 +22,6 @@ export const srOnly = {
   border: 0,
 } as const;
 
-/** Counts with English digits and grouping, in both languages. */
-export const count = new Intl.NumberFormat('en-US');
-
 const LINK_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:'];
 
 /** A link a person may follow: http, https, mail, phone or a path of this site; otherwise undefined. */

@@ -1,4 +1,4 @@
-import { Alert, Button, Grid, Modal, PhoneField, TextField } from '@css/ui';
+import { Alert, Button, Dialog, Grid, Stack, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -89,30 +89,27 @@ export function ContactDialog({
   const setText = (key: TextKey) => (value: string) => setTexts((v) => ({ ...v, [key]: value }));
 
   return (
-    <Modal
+    <Dialog
       title={t('title')}
-      isOpen
-      fullOnPhone
+      open
+      fullScreenOnPhone
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={save.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => save.mutate()} disabled={!ready} loading={save.isPending}>
-          {t('save')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
+            {t('save')}
+          </Button>
+        </>
       }
     >
-      {failure && (
-        <Alert tone="danger" live="alert">
-          {failure.message}
-        </Alert>
-      )}
-      <Grid gap={3}>
-        <PhoneField
+      {failure && <Alert tone="error">{failure.message}</Alert>}
+      <Stack gap={3}>
+        <TextField
+          type="tel"
           label={t('mobile')}
           value={mobile}
           onChange={setMobile}
@@ -126,7 +123,7 @@ export function ContactDialog({
           onChange={setText('village')}
           error={fieldError('village')}
         />
-        <Grid columns={2} gap={3}>
+        <Grid columns={{ base: 1, sm: 2 }} gap={3}>
           <TextField
             label={t('post_office')}
             value={texts.postOffice}
@@ -148,7 +145,7 @@ export function ContactDialog({
           maxLength={200}
           onChange={setText('landmark')}
         />
-      </Grid>
-    </Modal>
+      </Stack>
+    </Dialog>
   );
 }

@@ -321,10 +321,10 @@ describe('the list', () => {
     await waitFor(() => expect(listCalls[0]).toContain('status=submitted'));
     expect(listCalls[0]).toContain('include=total');
     // the ticked rows take one request; the outcome counts the rows that moved and the ones that did not
-    const grid = screen.getByRole('grid');
-    await user.click(within(grid).getByRole('checkbox', { name: /নমুনা উপকারভোগী/ }));
+    const grid = await screen.findByRole('table');
+    await user.click(await within(grid).findByRole('checkbox', { name: /নমুনা উপকারভোগী/ }));
     await user.click(within(grid).getByRole('checkbox', { name: /দ্বিতীয় জন/ }));
-    expect(screen.getByText('2টি বাছাই করা')).toBeInTheDocument();
+    expect(screen.getByText('2টি বেছে নেওয়া হয়েছে')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'রিভিউ শুরু' }));
     expect(await screen.findByText('1টি হয়েছে, 1টি হয়নি')).toBeInTheDocument();
     expect(bulkBodies).toHaveLength(1);
@@ -353,8 +353,8 @@ describe('the list', () => {
     expect(listCalls[0]).toContain(`unionId=${UNION}`);
     expect(listCalls[0]).not.toContain('divisionId');
     expect(listCalls[0]).not.toContain('upazilaId');
-    const grid = await screen.findByRole('grid');
-    await user.click(within(grid).getByRole('checkbox', { name: /নমুনা উপকারভোগী/ }));
+    const grid = await screen.findByRole('table');
+    await user.click(await within(grid).findByRole('checkbox', { name: /নমুনা উপকারভোগী/ }));
     await user.click(within(grid).getByRole('checkbox', { name: /দ্বিতীয় জন/ }));
     expect(screen.getByRole('button', { name: 'রিভিউ শুরু' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
@@ -393,7 +393,7 @@ describe('the list', () => {
     );
     const view = openList(`/admin/projects/${PROJECT}/applications?sort=-score`);
     await waitFor(() => expect(listCalls[0]).toContain('sort=-score'));
-    const grid = await screen.findByRole('grid');
+    const grid = await screen.findByRole('table');
     expect(within(grid).getByRole('columnheader', { name: 'স্কোর' })).toBeInTheDocument();
     expect(within(grid).getByText('60')).toBeInTheDocument();
     const quotas = (await screen.findByRole('heading', { level: 2, name: 'এলাকার কোটা' })).closest(
@@ -416,7 +416,7 @@ describe('the list', () => {
     refreshAs(EXECUTIVE);
     serve([row(A1, { totalScore: null, status: 'waitlisted' })]);
     openList();
-    const grid = await screen.findByRole('grid');
+    const grid = await screen.findByRole('table');
     expect(within(grid).queryByRole('columnheader', { name: 'স্কোর' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'সাজানো' })).toBeNull();
     await user.click(await screen.findByRole('button', { name: 'পরেরজনকে আনুন' }));
@@ -459,7 +459,7 @@ describe('the list', () => {
     refreshAs(EXECUTIVE);
     serve();
     openList();
-    await screen.findByRole('grid');
+    await screen.findByRole('table');
     await user.click(screen.getByRole('radio', { name: 'যাচাইয়ের অপেক্ষায়' }));
     await waitFor(() => expect(listCalls.at(-1)).toContain('status=needs_verification'));
   });
@@ -908,7 +908,9 @@ describe('the review page', () => {
     expect(await within(dialog).findByText('BEN-0000007')).toBeInTheDocument();
     expect(within(dialog).getByText('পুরনো উপকারভোগী')).toBeInTheDocument();
     await expectNoAxeViolations(view.container);
-    await user.click(within(dialog).getByRole('button', { name: /দায়িত্বপ্রাপ্ত স্বেচ্ছাসেবক/ }));
+    await user.click(
+      within(dialog).getByRole('combobox', { name: /দায়িত্বপ্রাপ্ত স্বেচ্ছাসেবক/ }),
+    );
     await user.click(await screen.findByRole('option', { name: 'করিম উদ্দিন' }));
     await user.click(within(dialog).getByRole('button', { name: 'যুক্ত করুন' }));
     await waitFor(() => expect(acted).toHaveLength(1));

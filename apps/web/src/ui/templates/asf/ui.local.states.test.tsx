@@ -59,6 +59,15 @@ describe('the counts that filter a list', () => {
     { id: 'blocked', label: 'Blocked', value: 4, icon: 'shield' as const, tone: 'error' as const },
   ];
 
+  it("writes the counts in the grouping of the app's number locale", () => {
+    render(
+      <UiProvider labels={{ numberLocale: 'en-IN-u-nu-latn' }}>
+        <StatFilterBar label="Beneficiary counts" items={[{ id: 'all', label: 'All', value: 2000000, icon: 'users' }]} moreLabel="More" moreValue={(hidden) => `${hidden} more`} />
+      </UiProvider>
+    );
+    expect(screen.getByText('20,00,000')).toBeInTheDocument();
+  });
+
   it('presses the chosen count and reports a new choice', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();

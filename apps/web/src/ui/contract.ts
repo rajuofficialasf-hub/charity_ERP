@@ -149,7 +149,8 @@ export type ButtonProps = ButtonLook & {
 };
 
 /** A link to a route inside the app, styled as a button. `to` is an app path such as "/". */
-export type LinkButtonProps = ButtonLook & { to: string; children: ReactNode };
+/** A link to an app path that looks like a button; its icons come from the extended set, as the button's do. */
+export type LinkButtonProps = Omit<ButtonLook, "startIcon"> & { to: string; children: ReactNode; startIcon?: ExtendedIconName; endIcon?: ExtendedIconName };
 
 // ---------------------------------------------------------------------------------------------
 // Fields and forms
@@ -505,6 +506,8 @@ export type UiLabels = {
   datePartEmpty: string;
   /** The empty state of a table whose page names none of its own. */
   tableEmpty: string;
+  /** The Intl locale counts are written in (its grouping; the digits stay English). */
+  numberLocale: string;
   locked: string;
   requestCorrection: string;
   changed: string;

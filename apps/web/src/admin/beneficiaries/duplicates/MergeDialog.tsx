@@ -1,4 +1,4 @@
-import { Alert, ConfirmDialog } from '@css/ui';
+import { Alert, ConfirmDialog } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
@@ -88,11 +88,11 @@ export function MergeDialog({
   if (mode === 'execute')
     return (
       <ConfirmDialog
-        isOpen
+        open
         title={t('execute_title', names)}
         message={
           send.error instanceof ApiFailure ? (
-            <Alert tone="danger" live="alert">
+            <Alert tone="error">
               {send.error.message}
               {details}
             </Alert>

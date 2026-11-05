@@ -192,7 +192,6 @@
       "none": "খালি"
     },
     "bulk": {
-      "selected": "{count}টি বাছাই করা",
       "outcome": "{done}টি হয়েছে, {failed}টি হয়নি"
     },
     "sort": {

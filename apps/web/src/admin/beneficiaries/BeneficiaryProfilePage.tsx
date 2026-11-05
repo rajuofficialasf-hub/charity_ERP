@@ -3,49 +3,24 @@ import { formatDate } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Avatar,
-  Badge,
   Button,
+  Chip,
   ContactList,
   DescriptionList,
   EmptyState,
-  ErrorState,
-  Grid,
-  type ProfileFact,
-  ProfileHeader,
   ProfileSection,
   Skeleton,
   Stack,
   Text,
   Timeline,
-} from '@css/ui';
+  type ProfileFact,
+} from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Ban,
-  BookOpen,
-  Briefcase,
-  CalendarDays,
-  Clapperboard,
-  ClipboardList,
-  FileText,
-  GitMerge,
-  Hash,
-  History,
-  IdCard,
-  MapPin,
-  Package,
-  PencilLine,
-  PhoneCall,
-  Phone,
-  User,
-  Users,
-  UserX,
-} from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { useFileDataUrl } from '../../components/FileImage';
+import { PersonBanner } from '../../components/PersonPhoto';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
@@ -68,6 +43,7 @@ import { ContactLog, Corrections, useFileKind } from './ProfileHistory';
 import { MediaWorksSection } from '../../features/media/MediaWorksSection';
 import { RecordPdfButton } from '../../features/exports/RecordPdfButton';
 import { PageCrumbs } from '../../components/shell/breadcrumb';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * The 360° profile of one beneficiary in the one profile layout: the header card with the key facts,
@@ -81,7 +57,6 @@ export function BeneficiaryProfilePage() {
   const { me } = useAuth();
   const { beneficiaryId = '' } = useParams();
   const t = useTranslations('admin.beneficiaries.profile');
-  const tc = useTranslations('common');
   const profile = useQuery({
     queryKey: [...BENEFICIARIES_KEY, 'profile', beneficiaryId],
     queryFn: () => beneficiaryProfile(beneficiaryId),
@@ -101,18 +76,14 @@ export function BeneficiaryProfilePage() {
     return (
       <>
         {back}
-        <EmptyState icon={UserX} title={t('not_found')} />
+        <EmptyState title={t('not_found')} />
       </>
     );
   if (profile.error || !profile.data)
     return (
       <>
         {back}
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={profile.error instanceof ApiFailure ? profile.error.requestId : undefined}
-          onRetry={() => void profile.refetch()}
-        />
+        <LoadError error={profile.error} onRetry={() => void profile.refetch()} />
       </>
     );
   return <Profile profile={profile.data.data} etag={profile.data.meta.etag} />;
@@ -154,7 +125,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
       : (code ?? empty);
   const optional = (key: keyof BeneficiaryProfile, label: string, value: ReactNode) =>
     key in p ? [{ label, value }] : [];
-  const none = <Text className="admin-muted">{tp('no_rows')}</Text>;
+  const none = <p className="admin-muted">{tp('no_rows')}</p>;
   // the NID or the birth registration number only for a caller who sees identity numbers
   const identity = 'nid' in p ? (p.nid ?? p.birthReg ?? null) : null;
 
@@ -163,15 +134,24 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
       id: 'ben',
       label: tp('ben'),
       value: formatBenNo(p.benNo),
-      icon: IdCard,
+      icon: 'id-card' as const,
       showLabel: true,
       copy: true,
     },
     ...(identity
-      ? [{ id: 'id', label: tp('nid'), value: identity, icon: Hash, showLabel: true, copy: true }]
+      ? [
+          {
+            id: 'id',
+            label: tp('nid'),
+            value: identity,
+            icon: 'hash' as const,
+            showLabel: true,
+            copy: true,
+          },
+        ]
       : []),
     ...(p.mobile
-      ? [{ id: 'mobile', label: tp('mobile'), value: p.mobile, icon: Phone, copy: true }]
+      ? [{ id: 'mobile', label: tp('mobile'), value: p.mobile, icon: 'phone' as const, copy: true }]
       : []),
     ...(p.genderCode
       ? [
@@ -179,7 +159,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             id: 'gender',
             label: tp('gender'),
             value: t(`gender.${p.genderCode as 'female'}`),
-            icon: User,
+            icon: 'user' as const,
           },
         ]
       : []),
@@ -189,7 +169,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             id: 'age',
             label: tp('age'),
             value: tp('age_value', { age: p.ageYears }),
-            icon: CalendarDays,
+            icon: 'calendar' as const,
           },
         ]
       : []),
@@ -199,7 +179,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             id: 'type',
             label: t('column.type'),
             value: typeLabel(p.classCode),
-            icon: Users,
+            icon: 'users' as const,
             showLabel: true,
           },
         ]
@@ -210,12 +190,12 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
     <>
       <RecordPdfButton kind="beneficiary_profile" id={p.id} />
       {a.editContact && (
-        <Button variant="secondary" icon={PencilLine} onPress={() => setDialog('contact')}>
+        <Button variant="secondary" startIcon="edit-line" onClick={() => setDialog('contact')}>
           {tp('edit_contact')}
         </Button>
       )}
       {a.requestCorrection && (
-        <Button variant="secondary" icon={FileText} onPress={() => setDialog('correction')}>
+        <Button variant="secondary" startIcon="file" onClick={() => setDialog('correction')}>
           {tp('request_correction')}
         </Button>
       )}
@@ -234,7 +214,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
   const showCorrections = p.corrections.length > 0 || a.requestCorrection || a.decideCorrection;
 
   return (
-    <Grid gap={4}>
+    <Stack gap={4}>
       <DocumentTitle title={p.name} />
       <PageCrumbs
         items={[
@@ -242,17 +222,15 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           { id: 'profile', label: p.name },
         ]}
       />
-      <ProfileHeader
+      <PersonBanner
         name={p.name}
-        avatar={<HeaderAvatar name={p.name} fileId={p.photoFileId ?? null} />}
+        fileId={p.photoFileId}
         status={
           <>
-            <Badge
-              variant="dot"
-              tone={p.status === 'active' ? 'success' : 'warning'}
-              label={t(`status.${p.status as 'active'}`)}
-            />
-            {p.isBlocked && <Badge variant="dot" tone="danger" label={t('blocked')} />}
+            <Chip tone={p.status === 'active' ? 'success' : 'warning'}>
+              {t(`status.${p.status as 'active'}`)}
+            </Chip>
+            {p.isBlocked && <Chip tone="error">{t('blocked')}</Chip>}
           </>
         }
         facts={facts}
@@ -268,12 +246,12 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
         </Alert>
       )}
       {notice && (
-        <Alert tone="success" live="status" onDismiss={dismissNotice}>
+        <Alert tone="success" onDismiss={dismissNotice}>
           {notice}
         </Alert>
       )}
       {shared.map((w) => (
-        <Alert key={w.code} tone="warning" live="status" onDismiss={() => setShared([])}>
+        <Alert key={w.code} tone="warning" onDismiss={() => setShared([])}>
           {w.benNos.length
             ? tp('mobile_shared_list', { count: w.count, benNos: w.benNos.join(', ') })
             : tp('mobile_shared', { count: w.count })}
@@ -295,8 +273,8 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
         />
       )}
       <div className="admin-profile-grid">
-        <Grid gap={3}>
-          <ProfileSection title={tp('sections.basic')} icon={User}>
+        <Stack gap={3}>
+          <ProfileSection title={tp('sections.basic')} icon="user">
             <DescriptionList
               columns={2}
               items={[
@@ -316,7 +294,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             />
           </ProfileSection>
 
-          <ProfileSection title={tp('sections.address')} icon={MapPin}>
+          <ProfileSection title={tp('sections.address')} icon="map-pin">
             <DescriptionList
               columns={2}
               items={[
@@ -329,66 +307,66 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           </ProfileSection>
 
           {p.familyMembers && (
-            <ProfileSection title={tp('sections.family')} icon={Users}>
+            <ProfileSection title={tp('sections.family')} icon="users">
               {p.familyMembers.length === 0 ? (
                 none
               ) : (
-                <Grid gap={1} as="ul" role="list">
+                <ul className="admin-plain-list">
                   {p.familyMembers.map((m) => (
                     <li key={m.id}>{m.name}</li>
                   ))}
-                </Grid>
+                </ul>
               )}
             </ProfileSection>
           )}
 
           {p.applications && (
-            <ProfileSection title={tp('sections.applications')} icon={ClipboardList}>
+            <ProfileSection title={tp('sections.applications')} icon="clipboard">
               {p.applications.length === 0 ? (
                 none
               ) : (
-                <Grid gap={2} as="ul" role="list">
+                <ul className="admin-plain-list">
                   {p.applications.map((app) => (
-                    <Stack direction="row" wrap gap={2} as="li" key={app.id}>
+                    <Stack direction="row" wrap gap={2} key={app.id}>
                       <strong>{app.appNo ?? projectName.get(app.projectId) ?? ''}</strong>
                       <span>{projectName.get(app.projectId)}</span>
                       <span className="admin-muted">
                         {app.submittedAt ? formatDate(app.submittedAt) : empty}
                       </span>
-                      {app.throughMerge && <Badge size="sm" label={tp('through_merge')} />}
+                      {app.throughMerge && <Chip>{tp('through_merge')}</Chip>}
                     </Stack>
                   ))}
-                </Grid>
+                </ul>
               )}
             </ProfileSection>
           )}
 
-          <ProfileSection title={tp('sections.distributions')} icon={Package}>
+          <ProfileSection title={tp('sections.distributions')} icon="package">
             {p.distributions.length === 0 ? (
               none
             ) : (
-              <Grid gap={2} as="ul" role="list">
+              <ul className="admin-plain-list">
                 {p.distributions.map((d) => (
                   <li key={d.id}>
                     {projectName.get(d.projectId) ?? ''} · {formatDate(d.doneAt)}
                   </li>
                 ))}
-              </Grid>
+              </ul>
             )}
           </ProfileSection>
 
           {p.media && (
-            <ProfileSection title={tm('title')} icon={Clapperboard}>
+            <ProfileSection title={tm('title')} icon="video">
               <MediaWorksSection works={p.media} emptyText={tm('empty')} />
             </ProfileSection>
           )}
 
           {p.dawah && (
-            <ProfileSection title={tp('sections.dawah')} icon={BookOpen}>
+            <ProfileSection title={tp('sections.dawah')} icon="book">
               {p.dawah.attendance.length + p.dawah.exams.length === 0 ? (
                 none
               ) : (
-                <Grid gap={1} as="ul" role="list">
+                <ul className="admin-plain-list">
                   <li>
                     {tp('attendance', {
                       present: p.dawah.attendance.filter((x) => x.present).length,
@@ -401,13 +379,13 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
                       total: p.dawah.exams.length,
                     })}
                   </li>
-                </Grid>
+                </ul>
               )}
             </ProfileSection>
           )}
 
           {p.followUps && (
-            <ProfileSection title={tp('sections.followups')} icon={PhoneCall}>
+            <ProfileSection title={tp('sections.followups')} icon="phone-call">
               {p.followUps.calls.length + p.followUps.evaluations.length === 0 ? (
                 none
               ) : (
@@ -422,28 +400,28 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           )}
 
           {p.files && (
-            <ProfileSection title={tp('sections.files')} icon={FileText}>
+            <ProfileSection title={tp('sections.files')} icon="file">
               {p.files.length === 0 ? (
                 none
               ) : (
-                <Grid gap={1} as="ul" role="list">
+                <ul className="admin-plain-list">
                   {p.files.map((f) => (
                     <li key={f.fileId}>{fileKind(f.kind)}</li>
                   ))}
-                </Grid>
+                </ul>
               )}
             </ProfileSection>
           )}
-        </Grid>
+        </Stack>
 
-        <Grid gap={3} as="aside">
+        <aside className="admin-profile-side">
           {p.mobile && (
-            <ProfileSection title={tp('contact')} icon={Phone}>
+            <ProfileSection title={tp('contact')} icon="phone">
               <ContactList
                 items={[
                   {
                     id: 'mobile',
-                    icon: Phone,
+                    icon: 'phone' as const,
                     label: tp('mobile'),
                     value: p.mobile,
                     href: telLink(p.mobile),
@@ -455,17 +433,17 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             </ProfileSection>
           )}
 
-          <ProfileSection title={tp('sections.projects')} icon={Briefcase}>
+          <ProfileSection title={tp('sections.projects')} icon="briefcase">
             {p.projectsByYear.length === 0 ? (
               none
             ) : (
-              <Grid gap={2} as="ul" role="list">
+              <ul className="admin-plain-list">
                 {p.projectsByYear.map((y) => (
                   <li key={y.year}>
                     <strong>{y.year}</strong>: {y.projects.map(nameOf).join(', ')}
                   </li>
                 ))}
-              </Grid>
+              </ul>
             )}
           </ProfileSection>
 
@@ -476,16 +454,16 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           {p.contactLog && <ContactLog rows={p.contactLog} />}
 
           {p.blocks && (
-            <ProfileSection title={tp('sections.blocks')} icon={Ban}>
+            <ProfileSection title={tp('sections.blocks')} icon="block">
               {p.blocks.length === 0 ? (
                 none
               ) : (
-                <Grid gap={2} as="ul" role="list">
+                <ul className="admin-plain-list">
                   {p.blocks.map((b) => (
-                    <Grid gap={1} as="li" key={b.id}>
+                    <li className="admin-plain-item" key={b.id}>
                       <Stack direction="row" wrap gap={2}>
                         <strong>{tp('blocked_on', { date: formatDate(b.blockedAt) })}</strong>
-                        {b.active && <Badge variant="dot" tone="danger" label={t('blocked')} />}
+                        {b.active && <Chip tone="error">{t('blocked')}</Chip>}
                       </Stack>
                       <Text tone="muted">{tp('reason', { reason: b.reason })}</Text>
                       {b.releasedAt && (
@@ -496,22 +474,22 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
                           })}
                         </Text>
                       )}
-                    </Grid>
+                    </li>
                   ))}
-                </Grid>
+                </ul>
               )}
             </ProfileSection>
           )}
 
           {p.merges.length > 0 && (
-            <ProfileSection title={tp('sections.merges')} icon={GitMerge}>
-              <Grid gap={2} as="ul" role="list">
+            <ProfileSection title={tp('sections.merges')} icon="merge">
+              <ul className="admin-plain-list">
                 {p.merges.map((m) => {
                   const line = tp(m.role === 'kept' ? 'merge_kept' : 'merge_merged', {
                     benNo: formatBenNo(m.otherBenNo),
                   });
                   return (
-                    <Grid gap={1} as="li" key={m.id}>
+                    <li className="admin-plain-item" key={m.id}>
                       <Stack direction="row" wrap gap={2}>
                         {m.otherId ? (
                           <Link to={`/admin/beneficiaries/${m.otherId}`}>{line}</Link>
@@ -519,7 +497,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
                           <span>{line}</span>
                         )}
                         {m.status === 'reverted' && (
-                          <Badge variant="dot" tone="warning" label={tp('merge_reverted')} />
+                          <Chip tone="warning">{tp('merge_reverted')}</Chip>
                         )}
                       </Stack>
                       {m.status === 'merged' && a.revertMerge && (
@@ -539,15 +517,15 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
                           .filter(Boolean)
                           .join(' · ')}
                       </Text>
-                    </Grid>
+                    </li>
                   );
                 })}
-              </Grid>
+              </ul>
             </ProfileSection>
           )}
 
           {p.activities && (
-            <ProfileSection title={tp('sections.activities')} icon={History}>
+            <ProfileSection title={tp('sections.activities')} icon="history">
               {p.activities.length === 0 ? (
                 none
               ) : (
@@ -563,13 +541,8 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
               )}
             </ProfileSection>
           )}
-        </Grid>
+        </aside>
       </div>
-    </Grid>
+    </Stack>
   );
-}
-
-function HeaderAvatar({ name, fileId }: { name: string; fileId: string | null }) {
-  const photo = useFileDataUrl(fileId);
-  return <Avatar name={name} letters={1} size="lg" src={photo.data ?? undefined} />;
 }

@@ -1,7 +1,7 @@
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import type { FormDefinition } from '@css/shared/forms';
-import { Text } from '@css/ui';
+import { Text } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import type { FieldChange } from './applications-api';
 

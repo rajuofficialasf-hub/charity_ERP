@@ -178,6 +178,24 @@
         "../../contract.ts"
       ],
       "note": "a nationwide list counts its first rows and goes by cursor past them: the cursor pager takes the current page, how many are numbered and how to open one, and shows the page numbers between its own previous and next, which go on past the numbered pages (the volunteer tab); built for the CSS ERP; no gallery picture of its own: the volunteer tab's test and spec check it"
+    },
+    {
+      "name": "LinkButton with the extended icons",
+      "files": [
+        "../../contract.ts"
+      ],
+      "note": "a link that looks like a button takes the same icons as the button, the extended set (a way back, compare, merge on the duplicates page) and an end icon; built for the CSS ERP; no gallery picture of its own: the duplicates page's test checks it"
+    },
+    {
+      "name": "Counts in the app's number locale",
+      "files": [
+        "components/labels.ts",
+        "components/status.tsx",
+        "components/progress.tsx",
+        "components/shared.ts",
+        "../../contract.ts"
+      ],
+      "note": "the stat bar, the offline banner and the progress bar wrote their counts in en-US grouping (2,000,000) beside the app's own formatter (20,00,000); the labels now carry `numberLocale`, which the app sets from its formatter's locale, and `useCount` formats with it; the digits stay English; built for the CSS ERP; no gallery picture: the stat bar's test and the beneficiary tab check it"
     }
   ]
 }
