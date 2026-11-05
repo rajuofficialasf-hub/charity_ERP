@@ -200,7 +200,7 @@ test.describe('the application rules', () => {
     await onDesk(browser, async (desk) => {
       await signIn(desk, RPM);
       await desk.goto(`/admin/projects/${projectId}/applications?sort=-score`);
-      const rows = desk.getByRole('grid').getByRole('row');
+      const rows = desk.getByRole('table').getByRole('row');
       // the first row after the header holds the higher score
       await expect(rows.nth(1)).toContainText(higher);
       await expect(rows.nth(1).getByText('20', { exact: true })).toBeVisible();
