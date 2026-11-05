@@ -60,15 +60,10 @@ describe('translate and fallback (I18N 8)', () => {
     expect(translate('en', 'errors.validation.nid_format')).toBe(
       'The NID must have 10, 13 or 17 digits.',
     );
-    expect(translate('en', 'gallery.card.attentionTitle', { n: 1, count: '1' })).toBe(
-      '1 application waiting for review',
-    );
-    expect(translate('en', 'gallery.card.attentionTitle', { n: 12, count: '12' })).toBe(
-      '12 applications waiting for review',
-    );
-    expect(translate('bn', 'gallery.card.attentionTitle', { n: 12, count: '12' })).toBe(
-      '12টি আবেদন পর্যালোচনার অপেক্ষায়',
-    );
+    const unread = 'home.attention.kind.unread_notifications';
+    expect(translate('en', unread, { n: 1, count: '1' })).toBe('1 unread notification');
+    expect(translate('en', unread, { n: 12, count: '12' })).toBe('12 unread notifications');
+    expect(translate('bn', unread, { n: 12, count: '12' })).toBe('12টি না-পড়া নোটিফিকেশন');
   });
 
   it('falls back to bn once per key, and to the generic error text when bn lacks it too', () => {
