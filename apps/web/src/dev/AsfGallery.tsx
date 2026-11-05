@@ -10,9 +10,11 @@ import {
   ColorModeButton,
   Combobox,
   ConfirmDialog,
+  Chip,
   ContactList,
   DataTable,
   DateField,
+  DescriptionList,
   Dialog,
   Disclosure,
   Drawer,
@@ -413,7 +415,12 @@ export function AsfGallery() {
           <ProfileBanner
             name={t('sample.rahima')}
             headingLevel={2}
-            status={<StatusChip status="approved" label={t('status.approved')} />}
+            status={
+              <>
+                <Chip>{t('sample.general_volunteer')}</Chip>
+                <StatusChip status="approved" label={t('status.approved')} />
+              </>
+            }
             facts={[
               {
                 id: 'nid',
@@ -441,6 +448,12 @@ export function AsfGallery() {
               </Button>
             }
           >
+            <DescriptionList
+              items={[
+                { label: t('asf.longLabel'), value: t('sample.char_bagdanga') },
+                { label: t('field.mobile'), value: '01711000000' },
+              ]}
+            />
             <ContactList
               items={[
                 {

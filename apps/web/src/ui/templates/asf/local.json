@@ -89,7 +89,15 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "people and profiles: a tinted tile with an icon, initial or photo, the first cell of a people list with the name as a link, a copy button that announces each copy, the dark profile banner with state chips, key facts with copy buttons and an action panel, profile sections that open and close by their title with an edit button beside it, and a contact list with call, message and copy; built for the CSS ERP",
+      "note": "people and profiles: a tinted tile with an icon, initial or photo, the first cell of a people list with the name as a link, a copy button that announces each copy, the dark profile banner with state chips, key facts with copy buttons and an action panel, profile sections that open and close by their title with an edit button beside it, and a contact list with call, message and copy; built for the CSS ERP; the banner's state chips take their dark-mode look on its dark green in both modes, a contact row moves its buttons under the value on a narrow screen and never breaks a number apart",
+      "screenshot": "docs/ui/asf-pieces/gallery-people.png"
+    },
+    {
+      "name": "DescriptionList (rows, extended)",
+      "files": [
+        "components/display.tsx"
+      ],
+      "note": "the rows layout keeps at least 40% of a row for the value, so a long label wraps before a number such as a mobile number breaks apart at 360 px; built for the CSS ERP",
       "screenshot": "docs/ui/asf-pieces/gallery-people.png"
     },
     {

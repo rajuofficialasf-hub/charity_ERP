@@ -141,7 +141,10 @@ export function ProfileBanner({ name, headingLevel = 1, photo, status, facts, ac
             <Box component={headingLevel === 1 ? 'h1' : 'h2'} sx={{ m: 0, typography: 'h4' }}>
               {name}
             </Box>
-            {status}
+            {/* the state chips stand on the dark banner, so they take their dark-mode look */}
+            <Box data-color-scheme="dark" sx={{ display: 'contents' }}>
+              {status}
+            </Box>
           </Box>
           {facts && facts.length > 0 && (
             <Box component="ul" sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, m: 0, p: 0, listStyle: 'none' }}>
@@ -212,29 +215,34 @@ export function ContactList({ items }: ContactListProps) {
   return (
     <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none', display: 'grid', gap: 1 }}>
       {items.map((item) => (
-        <Box component="li" key={item.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+        // on a narrow screen the buttons move under the value rather than break a number apart
+        <Box component="li" key={item.id} sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
           <IconTile icon={item.icon} size="small" tone="neutral" />
-          <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
             <Box component="span" sx={{ display: 'block', typography: 'caption', color: 'text.secondary' }}>
               {item.label}
             </Box>
-            <Box component="span" sx={{ display: 'block', typography: 'body2', fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
+            <Box component="span" sx={{ display: 'block', typography: 'body2', fontVariantNumeric: 'tabular-nums', overflowWrap: 'break-word' }}>
               {item.value}
             </Box>
           </Box>
-          {safeHref(item.href) && item.actionLabel && (
-            <Button
-              size="small"
-              variant="outlined"
-              color="inherit"
-              href={safeHref(item.href)}
-              {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-              endIcon={item.external ? <Icon name="external" size={16} /> : undefined}
-            >
-              {item.actionLabel}
-            </Button>
+          {((safeHref(item.href) && item.actionLabel) || item.copy) && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
+              {safeHref(item.href) && item.actionLabel && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="inherit"
+                  href={safeHref(item.href)}
+                  {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  endIcon={item.external ? <Icon name="external" size={16} /> : undefined}
+                >
+                  {item.actionLabel}
+                </Button>
+              )}
+              {item.copy && <CopyButton value={item.value} label={item.label} />}
+            </Box>
           )}
-          {item.copy && <CopyButton value={item.value} label={item.label} />}
         </Box>
       ))}
     </Box>

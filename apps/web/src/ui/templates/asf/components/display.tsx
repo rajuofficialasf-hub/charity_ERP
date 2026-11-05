@@ -79,7 +79,8 @@ export function DescriptionList({ items, layout = 'rows', columns = 4, emptyValu
     );
   }
   return (
-    <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'minmax(0, auto) minmax(0, 1fr)', columnGap: 3, rowGap: 1.5 }}>
+    // the value keeps at least 40% of the row, so a long label wraps before a number breaks apart
+    <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'minmax(0, auto) minmax(40%, 1fr)', columnGap: 3, rowGap: 1.5 }}>
       {items.map((item) => (
         <Box key={item.label} sx={{ display: 'contents' }}>
           <Box component="dt" sx={{ typography: 'subtitle2' }}>

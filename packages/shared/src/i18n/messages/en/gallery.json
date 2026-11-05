@@ -169,7 +169,8 @@
     "karim": "Karim Mia (sample)",
     "ayesha": "Ayesha Begum (sample)",
     "char_bagdanga": "Char Bagdanga",
-    "purba_para": "Purba Para"
+    "purba_para": "Purba Para",
+    "general_volunteer": "General volunteer"
   },
   "menu": {
     "label": "Profile menu",
@@ -206,6 +207,7 @@
     "attentionReason": "Older than 3 days",
     "attentionMeta": "The oldest has waited 6 days",
     "date": "Distribution date",
-    "pagesNote": "Pages past the counted ones go by next and previous"
+    "pagesNote": "Pages past the counted ones go by next and previous",
+    "longLabel": "The area where you would like to serve"
   }
 }
