@@ -65,9 +65,11 @@ describe('the PDF renderer', BROWSER_TIMEOUT, () => {
     const pdf = await renderer.render(SAMPLE);
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
     const text = pdf.toString('latin1');
-    // the Bengali letters in Noto Sans Bengali, the Latin letters and the digits in Public Sans
-    expect(text).toMatch(/FontName \/\w+\+Noto-Sans-Bengali/);
-    expect(text).toMatch(/FontName \/\w+\+Public-Sans/);
+    // the Bengali letters in Noto Sans Bengali, the Latin letters and the digits in Public Sans;
+    // Chromium writes the names with hyphens on Windows (Noto-Sans-Bengali) and without on Linux
+    // (NotoSansBengali-Regular)
+    expect(text).toMatch(/FontName \/\w+\+Noto-?Sans-?Bengali/);
+    expect(text).toMatch(/FontName \/\w+\+Public-?Sans/);
   });
 
   it('lets no request leave while printing', async () => {
