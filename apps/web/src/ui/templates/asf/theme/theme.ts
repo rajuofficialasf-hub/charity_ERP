@@ -84,7 +84,8 @@ export function createAsfTheme(tokens: ThemeTokens) {
       body1: { fontSize: '1rem', lineHeight: 1.5 },
       body2: { fontSize: '0.875rem', lineHeight: 1.57 },
       caption: { fontSize: '0.75rem', lineHeight: 1.5 },
-      overline: { fontSize: '0.6875rem', fontWeight: 700, lineHeight: 1.5, letterSpacing: '0.04em' },
+      // 12 px, the smallest text size; the letters spaced apart in Latin only, never in Bengali
+      overline: { fontSize: '0.75rem', fontWeight: 700, lineHeight: 1.5, letterSpacing: 'var(--asf-overline-tracking, 0.04em)' },
       button: { fontSize: '0.875rem', fontWeight: 700, lineHeight: 1.7, textTransform: 'none' },
     },
     breakpoints: { values: { xs: 0, sm: 600, md: 900, lg: 1200, xl: 1536 } },

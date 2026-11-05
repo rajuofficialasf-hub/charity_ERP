@@ -24,6 +24,8 @@ export function componentOverrides(theme: Theme, tokens: ThemeTokens): Component
     MuiCssBaseline: {
       styleOverrides: {
         ':root': { '--asf-neutral-500-channel': hexChannel(n['500']) },
+        // Bengali letters joined by their headline break apart when spaced
+        ':root:lang(bn)': { '--asf-overline-tracking': '0' },
         html: { WebkitTextSizeAdjust: '100%', scrollbarColor: `${alpha(n['500'], 0.48)} transparent` },
         body: { textRendering: 'optimizeLegibility' },
         '::selection': { backgroundColor: alpha(tokens.colors.primary.main, 0.24) },

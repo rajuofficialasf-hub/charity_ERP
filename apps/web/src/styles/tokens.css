@@ -32,9 +32,10 @@
   --color-text-primary: var(--asf-palette-text-primary, #1c252e);
   --color-text-secondary: var(--asf-palette-text-secondary, #637381);
   --color-text-on-brand: var(--asf-palette-primary-contrastText, #ffffff);
-  /* status words on the page: the dark shades read on white */
-  --color-status-success: var(--asf-palette-success-dark, #118d57);
-  --color-status-warning: var(--asf-palette-warning-dark, #b76e00);
+  /* status words on the page: the shades that read on white as small text (success and warning
+     only in their darker shades; their dark ones reach 4.2:1 and 4.0:1) */
+  --color-status-success: var(--asf-palette-success-darker, #065e49);
+  --color-status-warning: var(--asf-palette-warning-darker, #7a4100);
   --color-status-danger: var(--asf-palette-error-dark, #b71d18);
   --color-status-info: var(--asf-palette-info-dark, #006c9c);
 
