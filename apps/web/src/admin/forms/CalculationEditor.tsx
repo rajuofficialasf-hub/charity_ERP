@@ -167,7 +167,7 @@ export function CalculationEditor({
           onChange={(id) => {
             if (!field.calculation) return;
             const { round: _old, ...rest } = field.calculation;
-            onChange(id === 'none' || id === null ? rest : { ...rest, round: Number(id) });
+            onChange(!id || id === 'none' ? rest : { ...rest, round: Number(id) });
           }}
           options={[
             { value: 'none', label: t('calc_round_none') },
@@ -334,25 +334,23 @@ function MathPart({
         {expr.args.map((arg, i) => {
           const name = t('calc_part', { part: label, n: String(i + 1) });
           return (
-            <div key={i}>
-              <Stack gap={1}>
-                <PartEditor
-                  ctx={ctx}
-                  label={name}
-                  expr={arg}
-                  depth={depth + 1}
-                  onChange={(next) => onChange(withArg(expr, i, next ?? null))}
+            <Stack key={i} gap={1}>
+              <PartEditor
+                ctx={ctx}
+                label={name}
+                expr={arg}
+                depth={depth + 1}
+                onChange={(next) => onChange(withArg(expr, i, next ?? null))}
+              />
+              {expr.args.length > 1 ? (
+                <RowButtons
+                  remove={{
+                    label: t('calc_part_remove', { part: name }),
+                    onPress: () => onChange(withArg(expr, i, null)),
+                  }}
                 />
-                {expr.args.length > 1 ? (
-                  <RowButtons
-                    remove={{
-                      label: t('calc_part_remove', { part: name }),
-                      onPress: () => onChange(withArg(expr, i, null)),
-                    }}
-                  />
-                ) : null}
-              </Stack>
-            </div>
+              ) : null}
+            </Stack>
           );
         })}
         <Stack direction="row" gap={2} wrap>
@@ -422,26 +420,24 @@ function StepPart({
         {expr.if.map((branch, i) => {
           const n = String(i + 1);
           return (
-            <div key={i}>
-              <Stack gap={2}>
-                <ConditionEditor
-                  title={t('calc_if', { n })}
-                  definition={ctx.definition}
-                  asker={ctx.asker}
-                  condition={branch.when}
-                  onChange={(when) =>
-                    when ? setBranch(i, { when, then: branch.then }) : setBranch(i, null)
-                  }
-                />
-                <PartEditor
-                  ctx={ctx}
-                  label={t('calc_then', { n })}
-                  expr={branch.then}
-                  depth={depth + 1}
-                  onChange={(then) => setBranch(i, { when: branch.when, then: then ?? 0 })}
-                />
-              </Stack>
-            </div>
+            <Stack key={i} gap={2}>
+              <ConditionEditor
+                title={t('calc_if', { n })}
+                definition={ctx.definition}
+                asker={ctx.asker}
+                condition={branch.when}
+                onChange={(when) =>
+                  when ? setBranch(i, { when, then: branch.then }) : setBranch(i, null)
+                }
+              />
+              <PartEditor
+                ctx={ctx}
+                label={t('calc_then', { n })}
+                expr={branch.then}
+                depth={depth + 1}
+                onChange={(then) => setBranch(i, { when: branch.when, then: then ?? 0 })}
+              />
+            </Stack>
           );
         })}
         <div>
