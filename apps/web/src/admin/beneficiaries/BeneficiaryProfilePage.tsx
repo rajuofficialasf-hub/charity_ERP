@@ -327,14 +327,16 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
               ) : (
                 <ul className="admin-plain-list">
                   {p.applications.map((app) => (
-                    <Stack direction="row" wrap gap={2} key={app.id}>
-                      <strong>{app.appNo ?? projectName.get(app.projectId) ?? ''}</strong>
-                      <span>{projectName.get(app.projectId)}</span>
-                      <span className="admin-muted">
-                        {app.submittedAt ? formatDate(app.submittedAt) : empty}
-                      </span>
-                      {app.throughMerge && <Chip>{tp('through_merge')}</Chip>}
-                    </Stack>
+                    <li key={app.id}>
+                      <Stack direction="row" wrap gap={2}>
+                        <strong>{app.appNo ?? projectName.get(app.projectId) ?? ''}</strong>
+                        <span>{projectName.get(app.projectId)}</span>
+                        <span className="admin-muted">
+                          {app.submittedAt ? formatDate(app.submittedAt) : empty}
+                        </span>
+                        {app.throughMerge && <Chip>{tp('through_merge')}</Chip>}
+                      </Stack>
+                    </li>
                   ))}
                 </ul>
               )}

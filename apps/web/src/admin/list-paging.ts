@@ -4,7 +4,10 @@ import type { CursorPagination } from '@/ui';
 
 /** Rows per page of the nationwide tabs. */
 export const PAGE_SIZE = 10;
-/** The counted range of the totals: page numbers reach this far, later pages go by cursor (D-105). */
+/**
+ * The counted range of the totals: page numbers reach this far, later pages go by cursor
+ * (docs/DECISION_LOG.md, page numbers on the volunteer and beneficiary lists).
+ */
 const COUNTED = 10_000;
 
 interface Meta {

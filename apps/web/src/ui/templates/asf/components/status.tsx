@@ -27,6 +27,7 @@ import ButtonBase from '@mui/material/ButtonBase';
 import MuiIconButton from '@mui/material/IconButton';
 import FormHelperText from '@mui/material/FormHelperText';
 import CardActionArea from '@mui/material/CardActionArea';
+import MuiSkeleton from '@mui/material/Skeleton';
 
 import { Icon } from './icon';
 import { Menu } from './menu';
@@ -122,6 +123,18 @@ export function StatFilterBar({ label, items, selectedId, onSelect, visible = it
       aria-busy={loading || undefined}
       sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}
     >
+      {/* the cards' places while the first counts load, so the list below does not move */}
+      {loading && items.length === 0
+        ? Array.from({ length: 4 }, (_, i) => (
+            <Box key={i} aria-hidden sx={card(false)}>
+              <MuiSkeleton variant="rounded" width={40} height={40} />
+              <Box sx={{ flex: 1 }}>
+                <MuiSkeleton width="60%" />
+                <MuiSkeleton width="40%" />
+              </Box>
+            </Box>
+          ))
+        : null}
       {shown.map((item) => {
         const pressed = item.id === selectedId;
         const content = (

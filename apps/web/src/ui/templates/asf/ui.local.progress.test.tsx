@@ -110,6 +110,17 @@ describe('the progress bar', () => {
     expect(bar).toHaveAttribute('aria-valuetext', '130 of 100 (130%)');
   });
 
+  it('calls a figure against nothing to fill all of it, never a share of one', () => {
+    render(
+      <UiProvider>
+        <ProgressBar label="Quota" value={5} max={0} />
+        <ProgressBar label="Empty quota" value={0} max={0} />
+      </UiProvider>
+    );
+    expect(screen.getByRole('progressbar', { name: 'Quota' })).toHaveAttribute('aria-valuetext', '5 of 0 (100%)');
+    expect(screen.getByRole('progressbar', { name: 'Empty quota' })).toHaveAttribute('aria-valuetext', '0 of 0 (0%)');
+  });
+
   it('writes a legend for stacked parts', () => {
     render(
       <UiProvider>

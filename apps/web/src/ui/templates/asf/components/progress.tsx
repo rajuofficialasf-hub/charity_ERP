@@ -165,7 +165,8 @@ export function ProgressBar({ label, value, max, showValue = true, tone = 'prima
   const top = max > 0 ? max : 1;
   // the bar stays between empty and full; the words keep the true figure
   const now = Math.min(Math.max(value, 0), top);
-  const percent = Math.round((Math.max(value, 0) / top) * 100);
+  // nothing to fill: none of it, or all of it once anything counts
+  const percent = max > 0 ? Math.round((Math.max(value, 0) / max) * 100) : value > 0 ? 100 : 0;
   const text = fill(labels.progressText, { value: count.format(value), max: count.format(max), percent });
   const parts = segments?.slice(0, 4) ?? [{ label, value }];
   const scale = Math.max(top, value);

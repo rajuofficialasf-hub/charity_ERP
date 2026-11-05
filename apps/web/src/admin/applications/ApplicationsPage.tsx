@@ -20,8 +20,7 @@ import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { stateLabel as labelOf } from '../../features/applications/status';
-import { stateTone } from '../../features/applications/status';
+import { stateLabel as labelOf, stateTone } from '../../features/applications/status';
 import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -224,7 +223,10 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       : []),
   ];
   const meta = list.data?.meta;
+  // a row the list no longer holds (another official moved it) leaves the selection, so the bar
+  // counts only the rows the buttons act on
   const chosen = rows.filter((r) => selected.has(r.id));
+  const shownSelection = new Set(chosen.map((r) => r.id));
   const canReviewAll = chosen.length > 0 && chosen.every((r) => r.status === 'submitted');
   const canApproveAll = chosen.length > 0 && chosen.every((r) => r.status === 'reviewed');
   return (
@@ -270,7 +272,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         getRowId={(r) => r.id}
         rowLabel={(r) => r.beneficiaryName ?? r.appNo ?? r.id}
         selectionMode="multiple"
-        selectedIds={selected}
+        selectedIds={shownSelection}
         onSelectionChange={setSelected}
         bulkActions={
           <>

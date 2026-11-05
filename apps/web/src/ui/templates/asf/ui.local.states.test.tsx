@@ -59,6 +59,18 @@ describe('the counts that filter a list', () => {
     { id: 'blocked', label: 'Blocked', value: 4, icon: 'shield' as const, tone: 'error' as const },
   ];
 
+  it('holds the places of the cards while the first counts load', () => {
+    render(
+      <UiProvider>
+        <StatFilterBar label="Beneficiary counts" items={[]} loading moreLabel="More" moreValue={(hidden) => `${hidden} more`} />
+      </UiProvider>
+    );
+    const group = screen.getByRole('group', { name: 'Beneficiary counts' });
+    expect(group).toHaveAttribute('aria-busy', 'true');
+    expect(group.children).toHaveLength(4);
+    expect(within(group).queryByRole('button')).not.toBeInTheDocument();
+  });
+
   it("writes the counts in the grouping of the app's number locale", () => {
     render(
       <UiProvider labels={{ numberLocale: 'en-IN-u-nu-latn' }}>
