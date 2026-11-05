@@ -51,9 +51,9 @@ export const node = {
   languageOptions: { globals: { ...globals.node } },
 };
 
-/** React code in the PWA and the design system. */
+/** React code in the PWA. */
 export const react = {
-  files: ['apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
+  files: ['apps/web/**/*.{ts,tsx}'],
   plugins: { 'react-hooks': reactHooks },
   languageOptions: { globals: { ...globals.browser } },
   rules: { ...reactHooks.configs.recommended.rules },
@@ -75,7 +75,7 @@ export const sharedPurity = {
             group: ['express', '@prisma/*', 'prisma', 'react-router', 'vite'],
             message: 'packages/shared must stay framework free (ADR-001).',
           },
-          { group: ['react', 'react-dom', 'react/*'], message: 'UI code belongs in packages/ui.' },
+          { group: ['react', 'react-dom', 'react/*'], message: 'UI code belongs in apps/web.' },
         ],
         paths: ['fs', 'path', 'crypto', 'os', 'child_process', 'http', 'https'].map((name) => ({
           name,
@@ -87,14 +87,14 @@ export const sharedPurity = {
 };
 
 /**
- * Pages and components use the component set only: the libraries behind the set live in its
- * template folder, packages/ui/src/templates/<name>/ or, for the asf UI system the pages move to,
- * apps/web/src/ui/templates/<name>/, so a template can be replaced without touching a page
- * (docs/architecture/ADR/ADR-015-mui-core-component-set.md, ADR-016-asf-ui-system.md).
+ * Pages and components use the asf UI system only (@/ui): the libraries behind it live in its
+ * template folder, apps/web/src/ui/templates/<name>/, so a template can be replaced without
+ * touching a page (docs/architecture/ADR/ADR-016-asf-ui-system.md). The earlier set and its icons
+ * have left the app.
  */
 export const templateBoundary = {
-  files: ['apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
-  ignores: ['packages/ui/src/templates/**', 'apps/web/src/ui/templates/**'],
+  files: ['apps/web/**/*.{ts,tsx}'],
+  ignores: ['apps/web/src/ui/templates/**'],
   rules: {
     'no-restricted-imports': [
       'error',
@@ -102,12 +102,20 @@ export const templateBoundary = {
         patterns: [
           {
             group: ['@mui/*', '@emotion/*'],
+            message: 'Use the asf UI system (@/ui); MUI and Emotion belong in its template folder.',
+          },
+          {
+            group: ['@css/ui', '@css/ui/*'],
+            message: 'The earlier component set has left the app; use the asf UI system (@/ui).',
+          },
+          {
+            group: ['lucide-react'],
             message:
-              'Use the component set (@/ui, or @css/ui on a page not moved yet); MUI and Emotion belong in a template folder.',
+              'Icons come from the asf set: <Icon name="..." /> from @/ui (src/ui/icon-map.md).',
           },
           {
             group: ['react-aria', 'react-aria-components', 'react-stately', '@internationalized/*'],
-            message: 'React Aria is not part of the component set any more; use @css/ui.',
+            message: 'React Aria is not part of the UI system; use @/ui.',
           },
         ],
       },
@@ -115,9 +123,9 @@ export const templateBoundary = {
   },
 };
 
-/** No hard-coded user-facing text in the PWA and the design system (I18N 4, D-067). */
+/** No hard-coded user-facing text in the PWA (I18N 4, D-067). */
 export const i18n = {
-  files: ['apps/web/src/**/*.tsx', 'packages/ui/src/**/*.tsx'],
+  files: ['apps/web/src/**/*.tsx'],
   plugins: { css: { rules: { 'no-literal-ui-text': noLiteralUiText } } },
   rules: { 'css/no-literal-ui-text': 'error' },
 };

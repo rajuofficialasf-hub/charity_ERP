@@ -18,10 +18,10 @@ test.describe('light and dark', () => {
     // the page itself is dark, not only the switch
     const dark = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     expect(dark).toBe('rgb(20, 26, 33)');
-    // the earlier set's soft backgrounds resolve to a colour, not to nothing
+    // the app's soft backgrounds resolve to a colour on the asf palette, not to nothing
     const tints = await page.evaluate(() =>
-      ['--color-bg-muted', '--color-bg-subtle', '--color-bg-brand-soft', '--color-app-bar'].map(
-        (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim(),
+      ['--color-bg-muted', '--color-bg-subtle', '--color-bg-brand-soft'].map((name) =>
+        getComputedStyle(document.documentElement).getPropertyValue(name).trim(),
       ),
     );
     for (const tint of tints) expect(tint).toMatch(/^rgba\(\d+ \d+ \d+ \/ 0?\.\d+\)$/);

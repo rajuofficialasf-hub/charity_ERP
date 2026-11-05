@@ -1,6 +1,6 @@
 import type { Condition } from '@css/shared';
 import type { FormDefinition } from '@css/shared/forms';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';

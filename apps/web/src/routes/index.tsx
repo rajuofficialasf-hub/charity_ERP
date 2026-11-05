@@ -7,7 +7,6 @@ import { LoginPage } from '../features/auth/LoginPage';
 export const GALLERY_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEV_GALLERY === '1';
 
 // Constant-folded at build time, so a normal production build has no gallery chunk at all.
-const GalleryPage = GALLERY_ENABLED ? lazy(() => import('../dev/GalleryPage')) : null;
 const AsfGalleryPage = GALLERY_ENABLED ? lazy(() => import('../dev/AsfGalleryPage')) : null;
 
 /**
@@ -398,16 +397,8 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
             },
           ],
         },
-        ...(gallery && GalleryPage && AsfGalleryPage
+        ...(gallery && AsfGalleryPage
           ? [
-              {
-                path: '/dev/components',
-                element: (
-                  <Suspense fallback={null}>
-                    <GalleryPage />
-                  </Suspense>
-                ),
-              },
               {
                 path: '/dev/asf',
                 element: (

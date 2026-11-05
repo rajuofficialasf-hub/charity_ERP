@@ -393,7 +393,7 @@ function Thumb({
       <span className="admin-doc-zoom" aria-hidden="true">
         <Icon name="zoom-in" size={16} />
       </span>
-      <span className="ui-sr-only">{t('view_document', { name: label })}</span>
+      <span className="app-sr-only">{t('view_document', { name: label })}</span>
     </button>
   );
 }

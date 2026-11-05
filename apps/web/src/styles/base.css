@@ -1,8 +1,7 @@
 /*
- * Base layer of the design system (docs/ui/DESIGN_SYSTEM.md, motion, typography, accessibility and
- * focus), from the approved Phase 0 mockups (components.css, "base"; removed from the repository, in
- * git history). Element defaults only; components live in
- * src/components/<Name>/<Name>.css.
+ * The base layer of the app: the element reset, then the elements' own defaults (the body's font
+ * and colours from styles/tokens.css, headings, links, focus), and no motion for people who ask
+ * for none. The asf theme's components sit above it in the mui layer (index.html).
  */
 @layer base {
   /*
@@ -154,32 +153,6 @@
   }
   [hidden] {
     display: none !important;
-  }
-}
-
-@layer components {
-  .ui-sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
-  .ui-tnum {
-    font-variant-numeric: tabular-nums;
-  }
-  .ui-icon {
-    flex: none;
-    vertical-align: middle;
-  }
-
-  /* Touch devices animate only transform and opacity, which phones draw without stutter. */
-  @media (hover: none) {
-    [class^='ui-'],
-    [class*=' ui-'] {
-      transition-property: transform, opacity;
-    }
   }
 }
 

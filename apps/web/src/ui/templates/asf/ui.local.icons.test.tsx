@@ -49,10 +49,8 @@ function lucideImports() {
 }
 
 describe('the icons', () => {
-  it('give every Lucide icon the app imports an asf name', () => {
-    const map = readMap();
-    const unmapped = [...lucideImports()].filter((name) => !map.has(name)).sort();
-    expect(unmapped).toEqual([]);
+  it('come from the asf set alone: no file of the app imports a Lucide icon', () => {
+    expect([...lucideImports()].sort()).toEqual([]);
   });
 
   it('map only to icons the set has, and every icon renders as a drawing', async () => {

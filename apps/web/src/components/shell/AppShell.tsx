@@ -24,7 +24,6 @@ import { ATTENTION_KEY, attention } from '../../features/home/home-api';
 import { RequireAuth } from '../../lib/auth';
 import { useOffline } from '../../offline/OfflineProvider';
 import type { SyncStatus } from '../../offline/sync-engine';
-import { AppProviders } from '../AppProviders';
 import { HeaderActions } from './AppBar';
 import { CrumbsProvider, useCrumbsHolder, type TrailItem } from './breadcrumb';
 import { MoreSheet } from './MoreSheet';
@@ -78,7 +77,7 @@ function Shell({ me }: { me: Me }) {
         }));
   const inMore = moreFor(me).some((item) => isCurrent(item, pathname));
   return (
-    <AppProviders navigate={(href) => void navigate(href)} inner>
+    <>
       <Frame
         search={false}
         brand={{ name: ta('organization'), tagline: ta('name'), logoSrc: '/brand/logo.svg' }}
@@ -134,7 +133,7 @@ function Shell({ me }: { me: Me }) {
         </CrumbsProvider>
       </Frame>
       <MoreSheet me={me} isOpen={moreOpen} onClose={() => setMoreOpen(false)} />
-    </AppProviders>
+    </>
   );
 }
 

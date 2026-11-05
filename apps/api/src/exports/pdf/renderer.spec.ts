@@ -33,7 +33,7 @@ describe('the HTML of a PDF', BROWSER_TIMEOUT, () => {
     expect(html`<div>${raw('<b>kept</b>')}</div>`.value).toBe('<div><b>kept</b></div>');
   });
 
-  it('shapes Bengali conjuncts with the embedded Bornomala, as the PDF prints them', async () => {
+  it('shapes Bengali conjuncts with the embedded Noto Sans Bengali, as the PDF prints them', async () => {
     // the zero-width non-joiner, by its code: the same letters with the conjunct forced apart
     const apart = `ক্${String.fromCharCode(0x200c)}ষ`;
     const browser = await chromium.launch(launchOptions());
@@ -52,8 +52,8 @@ describe('the HTML of a PDF', BROWSER_TIMEOUT, () => {
       // shaped, the three characters become one narrower glyph than the letters drawn apart
       expect(await width('joined')).toBeGreaterThan(0);
       expect(await width('joined')).toBeLessThan((await width('apart')) * 0.9);
-      expect(await page.evaluate("document.fonts.check('16px Bornomala')")).toBe(true);
-      expect(await page.evaluate("document.fonts.check('16px UbuntuSans')")).toBe(true);
+      expect(await page.evaluate('document.fonts.check(\'16px "Noto Sans Bengali"\')')).toBe(true);
+      expect(await page.evaluate('document.fonts.check(\'16px "Public Sans"\')')).toBe(true);
     } finally {
       await browser.close();
     }
@@ -65,8 +65,9 @@ describe('the PDF renderer', BROWSER_TIMEOUT, () => {
     const pdf = await renderer.render(SAMPLE);
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
     const text = pdf.toString('latin1');
-    expect(text).toMatch(/Bornomala/);
-    expect(text).toMatch(/Ubuntu/);
+    // the Bengali letters in Noto Sans Bengali, the Latin letters and the digits in Public Sans
+    expect(text).toMatch(/FontName \/\w+\+Noto-Sans-Bengali/);
+    expect(text).toMatch(/FontName \/\w+\+Public-Sans/);
   });
 
   it('lets no request leave while printing', async () => {

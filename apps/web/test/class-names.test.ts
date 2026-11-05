@@ -4,8 +4,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-// Every class name the web app writes must be one a stylesheet of the app or the component set
-// defines: utility classes have no stylesheet here, so a leftover one fails.
+// Every class name the web app writes must be one a stylesheet of the app defines: utility classes
+// have no stylesheet here, so a leftover one fails.
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 
 function files(dir: string, ending: string): string[] {
@@ -16,16 +16,9 @@ function files(dir: string, ending: string): string[] {
   });
 }
 
-const css = [
-  ...files(join(repo, 'apps/web/src'), '.css'),
-  ...files(join(repo, 'packages/ui/src'), '.css'),
-];
-// the set, the global styles and the app's shared components load with every page
-const shared = new Set([
-  join(repo, 'packages/ui/src'),
-  join(repo, 'apps/web/src/styles'),
-  join(repo, 'apps/web/src/components'),
-]);
+const css = files(join(repo, 'apps/web/src'), '.css');
+// the global styles and the app's shared components load with every page
+const shared = new Set([join(repo, 'apps/web/src/styles'), join(repo, 'apps/web/src/components')]);
 /** Each class and the folders whose stylesheets define it; a page's stylesheet loads with its area only. */
 const defined = new Map<string, string[]>();
 for (const file of css) {
@@ -100,6 +93,7 @@ describe('class names of the web app', () => {
     // the admin area's classes are not loaded on a volunteer's page
     const volunteerPage = join(repo, 'apps/web/src/features/notifications/NotificationsPage.tsx');
     expect(available('admin-muted', volunteerPage)).toBe(false);
-    expect(available('ui-stack', volunteerPage)).toBe(true);
+    // the app's shared styles load with every page
+    expect(available('app-sr-only', volunteerPage)).toBe(true);
   });
 });

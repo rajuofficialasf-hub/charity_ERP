@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderInShell } from '../../test/auth';

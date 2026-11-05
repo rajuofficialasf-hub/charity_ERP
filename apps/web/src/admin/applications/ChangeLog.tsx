@@ -29,7 +29,7 @@ export function ChangeLog({ changes, form }: { changes: FieldChange[]; form: For
   if (!changes.length) return <Text tone="muted">{t('empty')}</Text>;
   return (
     <table className="admin-change-log">
-      <caption className="ui-sr-only">{t('title')}</caption>
+      <caption className="app-sr-only">{t('title')}</caption>
       <thead>
         <tr>
           <th scope="col">{t('field')}</th>

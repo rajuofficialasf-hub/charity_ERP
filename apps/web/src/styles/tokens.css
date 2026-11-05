@@ -1,0 +1,107 @@
+/*
+ * The tokens of the app's own page styles: spacing, radius, type sizes, shadows and sizes as the
+ * pages have used them, and the colour names on the asf palette
+ * (docs/architecture/ADR/ADR-016-asf-ui-system.md). The asf variables follow the light and dark
+ * mode of the asf theme; each colour carries the asf light value as a fallback, because the
+ * variables exist only once the app has started. Dark mode takes the dark values below, keyed to
+ * the mark public/color-scheme.js sets before the first paint. A colour that is not here is not
+ * an app colour: add it to the asf palette first.
+ */
+:root {
+  /* colour: the asf palette (apps/web/src/ui/tokens.ts) */
+  --color-brand-primary: var(--asf-palette-primary-main, #00a76f);
+  --color-brand-primary-dark: var(--asf-palette-primary-dark, #007867);
+  /* a dark surface or the darkest text: the asf grey 800 */
+  --color-brand-ink: var(--asf-palette-grey-800, #1c252e);
+  --color-brand-accent: var(--asf-palette-warning-main, #ffab00);
+  --color-brand-accent-ink: var(--asf-palette-warning-dark, #b76e00);
+  --color-bg-canvas: var(--asf-palette-background-default, #ffffff);
+  --color-bg-surface: var(--asf-palette-background-paper, #ffffff);
+  --color-bg-muted: var(--asf-palette-grey-200, #f4f6f8);
+  --color-bg-subtle: rgba(var(--asf-neutral-500-channel, 145 158 171) / 0.08);
+  /* the soft tones: the tone at 16% (8% for a tint) behind its dark shade */
+  --color-bg-brand-soft: rgba(var(--asf-palette-primary-mainChannel, 0 167 111) / 0.16);
+  --color-bg-brand-tint: rgba(var(--asf-palette-primary-mainChannel, 0 167 111) / 0.08);
+  --color-bg-success-soft: rgba(var(--asf-palette-success-mainChannel, 34 197 94) / 0.16);
+  --color-bg-warning-soft: rgba(var(--asf-palette-warning-mainChannel, 255 171 0) / 0.16);
+  --color-bg-danger-soft: rgba(var(--asf-palette-error-mainChannel, 255 86 48) / 0.16);
+  --color-bg-info-soft: rgba(var(--asf-palette-info-mainChannel, 0 184 217) / 0.16);
+  --color-border-default: var(--asf-palette-divider, rgba(145 158 171 / 0.2));
+  --color-border-strong: var(--asf-palette-grey-500, #919eab);
+  --border-subtle: var(--asf-palette-divider, rgba(145 158 171 / 0.2));
+  --color-text-primary: var(--asf-palette-text-primary, #1c252e);
+  --color-text-secondary: var(--asf-palette-text-secondary, #637381);
+  --color-text-on-brand: var(--asf-palette-primary-contrastText, #ffffff);
+  /* status words on the page: the dark shades read on white */
+  --color-status-success: var(--asf-palette-success-dark, #118d57);
+  --color-status-warning: var(--asf-palette-warning-dark, #b76e00);
+  --color-status-danger: var(--asf-palette-error-dark, #b71d18);
+  --color-status-info: var(--asf-palette-info-dark, #006c9c);
+
+  /* spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* radius: the asf 6 (chips), 8 (fields, buttons) and 16 (cards, dialogs) */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* typography: Public Sans with Noto Sans Bengali for the Bengali letters */
+  --font-sans: 'Public Sans Variable', 'Noto Sans Bengali Variable', sans-serif;
+  --font-weight-regular: 400;
+  --font-weight-bold: 700;
+  --text-hero: 24px;
+  --text-display: 20px;
+  --text-title: 16px;
+  --text-body: 16px;
+  --text-label: 12px;
+  --text-caption: 12px;
+  --leading-body: 1.5;
+  --leading-heading: 1.4;
+
+  /* elevation: the card's hairline with a soft drop */
+  --elevation-1: 0 0 2px 0 rgba(145 158 171 / 0.2), 0 12px 24px -4px rgba(145 158 171 / 0.12);
+  --elevation-2: 0 0 2px 0 rgba(145 158 171 / 0.24), 0 16px 32px -4px rgba(145 158 171 / 0.16);
+  --elevation-3: 0 0 2px 0 rgba(145 158 171 / 0.24), 0 24px 48px -8px rgba(145 158 171 / 0.24);
+  --elevation-hover: 0 0 2px 0 rgba(145 158 171 / 0.24), 0 20px 40px -4px rgba(145 158 171 / 0.2);
+  --elevation-brand: 0 8px 16px 0 rgba(var(--asf-palette-primary-mainChannel, 0 167 111) / 0.24);
+
+  /* focus and motion */
+  --focus-ring: 0 0 0 2px var(--color-bg-surface), 0 0 0 4px var(--color-brand-primary);
+  --motion-fast: 120ms;
+
+  /* layers and sizes */
+  --z-sticky: 10;
+  --app-bar-height: 56px;
+  --content-max: 1280px;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --text-body: 14px;
+    --text-hero: 36px;
+    --app-bar-height: 64px;
+  }
+}
+
+/* Dark mode: the asf dark values, before the asf variables exist as well. */
+:root[data-color-scheme='dark'] {
+  --color-bg-canvas: var(--asf-palette-background-default, #141a21);
+  --color-bg-surface: var(--asf-palette-background-paper, #1c252e);
+  --color-bg-muted: rgba(var(--asf-neutral-500-channel, 145 158 171) / 0.12);
+  --color-text-primary: var(--asf-palette-text-primary, #ffffff);
+  --color-text-secondary: var(--asf-palette-text-secondary, #919eab);
+  /* a link or a small green word on the dark page reads in the light shade */
+  --color-brand-primary-dark: var(--asf-palette-primary-light, #5be49b);
+  --color-brand-accent-ink: var(--asf-palette-warning-light, #ffd666);
+  --color-status-success: var(--asf-palette-success-light, #77ed8b);
+  --color-status-warning: var(--asf-palette-warning-light, #ffd666);
+  --color-status-danger: var(--asf-palette-error-light, #ffac82);
+  --color-status-info: var(--asf-palette-info-light, #61f3f3);
+}

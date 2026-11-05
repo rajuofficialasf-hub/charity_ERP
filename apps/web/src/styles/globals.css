@@ -1,9 +1,9 @@
 /*
- * Global styles: the design system (tokens, fonts, the element reset and defaults, and the
- * component styles from packages/ui), then the few classes the whole app shares.
+ * Global styles: the app's tokens on the asf palette, the element reset and defaults, then the few
+ * classes the whole app shares. The components' own styles come from the asf theme.
  */
-@import '@css/ui/styles.css';
-@import './scheme-bridge.css';
+@import './tokens.css';
+@import './base.css';
 
 /* The whole screen while the session is restored: the spinner in its middle. */
 .app-loading {

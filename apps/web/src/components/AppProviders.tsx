@@ -1,40 +1,19 @@
-import { formatCount, INTL_LOCALE } from '@css/shared/format';
-import { UiProvider } from '@css/ui';
-import { UiProvider as AsfUiProvider } from '@/ui';
+import { INTL_LOCALE } from '@css/shared/format';
+import { UiProvider } from '@/ui';
 import { useLocale, useMessages } from 'use-intl';
-import { useCallback, useMemo, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
 /**
- * Supplies the design system with the `ui` catalogue texts and the central number formatter. Inside
- * the router, `navigate` lets the design system's links change the page without a reload. The asf
- * UI system (docs/architecture/ADR/ADR-016-asf-ui-system.md) sits inside the earlier set while the
- * pages move to it, so every asf piece takes the asf theme; the earlier set's MUI components take
- * their own theme back. The asf words come from the catalogue's `ui.asf` group.
+ * Supplies the asf UI system (docs/architecture/ADR/ADR-016-asf-ui-system.md) with its words from
+ * the catalogue's `ui.asf` group in the page language, and with the number locale of the app's own
+ * formatter, so its counts take the same grouping.
  */
-export function AppProviders({
-  children,
-  navigate,
-  inner = false,
-}: {
-  children: ReactNode;
-  navigate?: (href: string) => void;
-  /**
-   * Inside the root's providers (the signed-in frame): only the router for the earlier set's
-   * links; the asf provider stays the root's one, with one light and dark state for the app.
-   */
-  inner?: boolean;
-}) {
+export function AppProviders({ children }: { children: ReactNode }) {
   const locale = useLocale();
   const { ui } = useMessages();
-  const formatNumber = useCallback((value: number) => formatCount(value, locale), [locale]);
-  // the asf pieces write their counts in the grouping of the app's own formatter
   const labels = useMemo(
     () => ({ ...ui.asf, numberLocale: INTL_LOCALE[locale] }),
     [ui.asf, locale],
   );
-  return (
-    <UiProvider locale={locale} messages={ui} formatNumber={formatNumber} navigate={navigate}>
-      {inner ? children : <AsfUiProvider labels={labels}>{children}</AsfUiProvider>}
-    </UiProvider>
-  );
+  return <UiProvider labels={labels}>{children}</UiProvider>;
 }

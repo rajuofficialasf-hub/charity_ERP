@@ -1,14 +1,15 @@
 # Icon map: Lucide to asf
 
-The pages move from Lucide icons to the Solar icons of the asf UI system
-(`docs/architecture/ADR/ADR-016-asf-ui-system.md`). Each Lucide icon the app imports has one asf name
-here; a page that moves writes `<Icon name="..." />` from `@/ui` with the name on the right. Several
-Lucide icons share one asf name where the app means the same thing by them.
+The pages moved from Lucide icons to the Solar icons of the asf UI system
+(`docs/architecture/ADR/ADR-016-asf-ui-system.md`), and Lucide has left the app. The table keeps
+the name each earlier icon took, so a page writes `<Icon name="..." />` from `@/ui` with the name on
+the right for the same meaning. Several earlier icons share one asf name where the app meant the same
+thing by them.
 
 Add an icon: add its name to `ExtendedIconName` in `apps/web/src/ui/contract.ts`, map it to a Solar
 icon in `apps/web/scripts/asf/build-icons.mjs`, regenerate `icon-data.ts` with that script, and add
-the row here. The test `apps/web/src/ui/templates/asf/ui.local.icons.test.tsx` fails while an imported
-Lucide icon has no row, or a row names an icon the set lacks.
+the row here. The test `apps/web/src/ui/templates/asf/ui.local.icons.test.tsx` fails when a file imports Lucide
+again, or a row names an icon the set lacks.
 
 | Lucide | asf |
 | --- | --- |
