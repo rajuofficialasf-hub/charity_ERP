@@ -124,7 +124,7 @@ describe('the transfer', () => {
     const view = open(RPM);
     await user.click(await screen.findByRole('checkbox', { name: 'সব বাছুন' }));
     expect(screen.getByText('2টি বাছাই করা')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /নতুন স্বেচ্ছাসেবক$/ }));
+    await user.click(screen.getByRole('combobox', { name: /নতুন স্বেচ্ছাসেবক/ }));
     await user.click(await screen.findByRole('option', { name: 'রহিম মিয়া' }));
     // the new volunteer holds two; two more go over the limit of three
     expect(
@@ -159,7 +159,7 @@ describe('the transfer', () => {
     expect(
       screen.queryByRole('switch', { name: 'টিমও নতুন স্বেচ্ছাসেবকের অধীনে যাবে' }),
     ).toBeNull();
-    await user.click(screen.getByRole('button', { name: /নতুন স্বেচ্ছাসেবক$/ }));
+    await user.click(screen.getByRole('combobox', { name: /নতুন স্বেচ্ছাসেবক/ }));
     await user.click(
       await screen.findByRole('option', { name: 'ফাতেমা বেগম · প্রকল্পে নতুন যুক্ত করে দিন' }),
     );
@@ -192,7 +192,7 @@ describe('the transfer', () => {
       ),
     );
     await user.click(await screen.findByRole('checkbox', { name: /প্রথম জন/ }));
-    await user.click(screen.getByRole('button', { name: /নতুন স্বেচ্ছাসেবক$/ }));
+    await user.click(screen.getByRole('combobox', { name: /নতুন স্বেচ্ছাসেবক/ }));
     await user.click(await screen.findByRole('option', { name: 'রহিম মিয়া' }));
     await user.type(screen.getByRole('textbox', { name: /হস্তান্তরের কারণ/ }), 'এলাকা বদল');
     await user.click(screen.getByRole('button', { name: 'হস্তান্তর করুন' }));

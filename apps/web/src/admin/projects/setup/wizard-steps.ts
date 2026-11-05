@@ -1,5 +1,5 @@
 import { type MissingItem, setupCheck, WORKFLOWS_WITHOUT_LIMIT } from '@css/shared/projects';
-import type { StepMark } from '@css/ui';
+import type { StepMark } from '@/ui';
 import type { Project } from '../projects-api';
 import type { Area, FundSource, ProjectComponent } from './setup-api';
 

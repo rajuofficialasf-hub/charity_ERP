@@ -1,5 +1,5 @@
 import { type ProjectAction, transitionFor } from '@css/shared/projects';
-import { Alert, Button } from '@css/ui';
+import { Alert, Button } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -70,7 +70,7 @@ export function LifecycleActions({
             key={m}
             variant={m === 'activate' ? 'primary' : m === 'cancel' ? 'danger' : 'secondary'}
             loading={move.isPending && move.variables.to === m}
-            onPress={() => {
+            onClick={() => {
               move.reset();
               if (m === 'activate') move.mutate({ to: m });
               else setAsking(m);
@@ -81,7 +81,7 @@ export function LifecycleActions({
         ))}
       </div>
       {!asking && error instanceof ApiFailure && (
-        <Alert tone="danger" live="alert">
+        <Alert tone="error">
           {missing.length > 0 ? t('missing') : error.message}
           {missing.length > 0 && (
             <ul>

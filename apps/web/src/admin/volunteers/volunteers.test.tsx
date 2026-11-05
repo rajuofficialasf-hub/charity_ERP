@@ -200,7 +200,7 @@ describe('the volunteer tab', () => {
     const user = userEvent.setup();
     const { router } = open();
     await openFilters(user);
-    const [picker] = await screen.findAllByRole('button', { name: /প্রকল্প/ });
+    const [picker] = await screen.findAllByRole('combobox', { name: /প্রকল্প/ });
     await user.click(picker!);
     await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ 2026 (WC)' }));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('projectId')).toBe(PROJECT_ID));

@@ -1,6 +1,6 @@
 import { localized, type Locale } from '@css/shared/i18n';
 import { type ProjectUpdate, WORKFLOW_KEYS, type WorkflowKey } from '@css/shared/projects';
-import { NumberField, Select, TextArea, TextField } from '@css/ui';
+import { SelectField, TextField } from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -75,34 +75,35 @@ function BasicsForm({ stale, onStale }: { stale: boolean; onStale: () => void })
           onChange={setNameEn}
           readOnly={!editable('name')}
         />
-        <NumberField
+        <TextField
+          type="integer"
           label={td('year')}
           required
-          kind="integer"
           value={year}
           onChange={setYear}
           readOnly={!editable('year')}
         />
-        <Select
+        <SelectField
           label={td('program')}
-          value={programId}
-          onChange={setProgramId}
+          value={programId ?? ''}
+          onChange={(v) => setProgramId(v || null)}
           disabled={!editable('programId')}
           options={(list.data ?? [])
             .filter((p) => p.active || p.id === project.programId)
-            .map((p) => ({ id: p.id, label: localized(p.name, locale) }))}
+            .map((p) => ({ value: p.id, label: localized(p.name, locale) }))}
         />
-        <Select
+        <SelectField
           label={td('workflow')}
-          helper={editable('workflowKey') ? t('workflow_change') : undefined}
-          value={workflowKey}
-          onChange={setWorkflowKey}
+          hint={editable('workflowKey') ? t('workflow_change') : undefined}
+          value={workflowKey ?? ''}
+          onChange={(v) => setWorkflowKey(v || null)}
           disabled={!editable('workflowKey')}
           searchable={false}
-          options={WORKFLOW_KEYS.map((key) => ({ id: key, label: tw(key) }))}
+          options={WORKFLOW_KEYS.map((key) => ({ value: key, label: tw(key) }))}
         />
       </div>
-      <TextArea
+      <TextField
+        rows={4}
         label={t('description')}
         maxLength={2000}
         value={description}

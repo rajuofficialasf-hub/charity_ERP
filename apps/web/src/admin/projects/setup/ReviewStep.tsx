@@ -1,5 +1,4 @@
-import { Alert, Button } from '@css/ui';
-import { ArrowRight } from 'lucide-react';
+import { Alert, Button, LinkButton } from '@/ui';
 import type { ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
@@ -47,17 +46,20 @@ export function ReviewStep({
           {open.map((item) => (
             <li key={item}>
               <span>{label(item)}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={ArrowRight}
-                iconPosition="end"
-                {...(item === 'form'
-                  ? { href: formHref }
-                  : { onPress: () => onOpen(stepOfMissing(item)) })}
-              >
-                {item === 'form' ? ts('open_forms') : t('open_step')}
-              </Button>
+              {item === 'form' ? (
+                <LinkButton variant="text" endIcon="arrow-right" to={formHref}>
+                  {ts('open_forms')}
+                </LinkButton>
+              ) : (
+                <Button
+                  variant="text"
+                  size="small"
+                  endIcon="arrow-right"
+                  onClick={() => onOpen(stepOfMissing(item))}
+                >
+                  {t('open_step')}
+                </Button>
+              )}
             </li>
           ))}
         </ul>
@@ -69,9 +71,7 @@ export function ReviewStep({
       <ProjectFacts project={project} />
       {state}
       {activation instanceof ApiFailure && refused.length === 0 && (
-        <Alert tone="danger" live="alert">
-          {activation.message}
-        </Alert>
+        <Alert tone="error">{activation.message}</Alert>
       )}
     </SetupSection>
   );

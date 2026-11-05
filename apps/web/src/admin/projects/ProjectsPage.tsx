@@ -2,23 +2,19 @@ import { formatCount } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Button,
-  EmptyState,
-  ErrorState,
-  PageHeader,
+  DataTable,
+  FilterBar,
+  Page,
   PersonCell,
-  Select,
-  StatFilterBar,
+  SelectField,
   type StatFilterItem,
-  Table,
-  type TableColumn,
-  TableToolbar,
-} from '@css/ui';
+  type DataTableExtendedColumn,
+  StatFilterBar,
+} from '@/ui';
 import { useQuery } from '@tanstack/react-query';
-import { FolderKanban, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { PROGRAMS_KEY, programs } from '../programs/programs-api';
@@ -33,6 +29,7 @@ import {
   PROJECTS_KEY,
 } from './projects-api';
 import { PROJECT_COUNT_LOOK } from './state-look';
+import { LoadError } from '../../components/LoadError';
 
 /** The years a project list filters by: from the first year a project may have to next year. */
 const FIRST_YEAR = 2020;
@@ -51,17 +48,18 @@ export function ProjectsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader
+      <Page
         eyebrow={t('eyebrow')}
         title={t('title')}
         description={t('description')}
         actions={
           canCreateProjects(me) && (
-            <Button icon={Plus} onPress={() => void navigate('/admin/projects/new')}>
+            <Button startIcon="add" onClick={() => void navigate('/admin/projects/new')}>
               {t('new')}
             </Button>
           )
         }
+        documentTitle={false}
       />
       <ProjectList programNames={canSeePrograms(me)} />
     </>
@@ -70,9 +68,8 @@ export function ProjectsPage() {
 
 function ProjectList({ programNames }: { programNames: boolean }) {
   const t = useTranslations('admin.projects');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
-  const { filters, setFilters, change, cursor, setCursor, activeCount } = useTabView(FILTER_KEYS);
+  const { filters, setFilters, change, cursor, setCursor } = useTabView(FILTER_KEYS);
   const page = useQuery({
     queryKey: [...PROJECTS_KEY, 'page', filters, cursor],
     queryFn: () => projectPage(filters, cursor),
@@ -97,11 +94,11 @@ function ProjectList({ programNames }: { programNames: boolean }) {
   const name = (p: Project) => (
     <PersonCell
       name={localized(p.name, locale)}
-      href={`/admin/projects/${p.id}`}
+      to={`/admin/projects/${p.id}`}
       secondary={p.code}
     />
   );
-  const columns: TableColumn<Project>[] = [
+  const columns: DataTableExtendedColumn<Project>[] = [
     { id: 'name', header: t('column.name'), cell: name, isRowHeader: true },
     {
       id: 'program',
@@ -129,81 +126,68 @@ function ProjectList({ programNames }: { programNames: boolean }) {
   return (
     <>
       {counts.error ? (
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={counts.error instanceof ApiFailure ? counts.error.requestId : undefined}
-          onRetry={() => void counts.refetch()}
-        />
+        <LoadError error={counts.error} onRetry={() => void counts.refetch()} />
       ) : (
         <StatFilterBar
           label={t('stats.label')}
           items={statItems}
           selectedId={filters.status ?? 'all'}
-          onSelect={(id) => change({ status: id === 'all' ? undefined : id })}
+          onSelect={(id: string) => change({ status: id === 'all' ? undefined : id })}
           visible={statItems.length || 6}
           moreLabel={t('stats.label')}
-          moreValue={(n) => formatCount(n, locale)}
+          moreValue={(n: number) => formatCount(n, locale)}
           loading={counts.isPending}
         />
       )}
-      <Table
-        layout="panel"
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={rows}
-        rowKey={(p) => p.id}
+        getRowId={(p) => p.id}
         rowLabel={(p) => localized(p.name, locale)}
         loading={page.isPending}
         error={
           page.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={page.error instanceof ApiFailure ? page.error.requestId : undefined}
-              onRetry={() => void page.refetch()}
-            />
+            <LoadError error={page.error} onRetry={() => void page.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={FolderKanban} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         toolbar={
-          <TableToolbar
-            activeFilterCount={activeCount(['status'])}
+          <FilterBar
             onClearFilters={() => setFilters(filters.status ? { status: filters.status } : {})}
-            filters={
-              <>
-                {programNames && (
-                  <Select
-                    label={t('filter.program')}
-                    value={filters.programId ?? null}
-                    options={(programList.data ?? []).map((p) => ({
-                      id: p.id,
-                      label: localized(p.name, locale),
-                    }))}
-                    onChange={(id) => change({ programId: id ?? undefined })}
-                  />
-                )}
-                <Select
-                  label={t('filter.year')}
-                  value={filters.year ?? null}
-                  searchable={false}
-                  options={years.map((y) => ({ id: y, label: y }))}
-                  onChange={(id) => change({ year: id ?? undefined })}
+          >
+            <>
+              {programNames && (
+                <SelectField
+                  label={t('filter.program')}
+                  value={filters.programId ?? ''}
+                  options={(programList.data ?? []).map((p) => ({
+                    value: p.id,
+                    label: localized(p.name, locale),
+                  }))}
+                  onChange={(id) => change({ programId: id || undefined })}
                 />
-                <Select
-                  label={t('filter.window')}
-                  value={filters.endingSoon ?? null}
-                  searchable={false}
-                  options={[{ id: 'true', label: t('filter.ending_soon') }]}
-                  onChange={(id) => change({ endingSoon: id ?? undefined })}
-                />
-              </>
-            }
-          />
+              )}
+              <SelectField
+                label={t('filter.year')}
+                value={filters.year ?? ''}
+                searchable={false}
+                options={years.map((y) => ({ value: y, label: y }))}
+                onChange={(id) => change({ year: id || undefined })}
+              />
+              <SelectField
+                label={t('filter.window')}
+                value={filters.endingSoon ?? ''}
+                searchable={false}
+                options={[{ value: 'true', label: t('filter.ending_soon') }]}
+                onChange={(id) => change({ endingSoon: id || undefined })}
+              />
+            </>
+          </FilterBar>
         }
-        pagination={
+        cursorPagination={
           meta
             ? {
-                shown: rows.length,
-                total: meta.total ?? rows.length,
                 hasNext: meta.nextCursor !== null,
                 hasPrevious: meta.prevCursor !== null,
                 onNext: () => setCursor(meta.nextCursor),

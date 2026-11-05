@@ -1,5 +1,5 @@
 import { editableIn, type SetupField } from '@css/shared/projects';
-import { Alert, Button, Card } from '@css/ui';
+import { Alert, Button, Card } from '@/ui';
 import { type UseMutationResult } from '@tanstack/react-query';
 import {
   createContext,
@@ -123,26 +123,17 @@ export function SaveNotice({
 }) {
   const t = useTranslations('admin.projects.setup');
   const error = mutation.error;
-  if (problem)
-    return (
-      <Alert tone="warning" live="alert">
-        {problem}
-      </Alert>
-    );
+  if (problem) return <Alert tone="warning">{problem}</Alert>;
   if (error instanceof ApiFailure)
     return (
-      <Alert tone={error.status === 412 ? 'warning' : 'danger'} live="alert">
+      <Alert tone={error.status === 412 ? 'warning' : 'error'}>
         {error.status === 412
           ? t('stale')
           : (error.details.map((d) => d.message).find(Boolean) ?? error.message)}
       </Alert>
     );
   if (stale && !mutation.isSuccess && !mutation.isPending)
-    return (
-      <Alert tone="warning" live="alert">
-        {t('stale')}
-      </Alert>
-    );
+    return <Alert tone="warning">{t('stale')}</Alert>;
   return null;
 }
 
@@ -160,7 +151,7 @@ export function SetupSection({
 }) {
   return (
     <section id={id} aria-label={title}>
-      <Card title={title} headingLevel={2} actions={actions}>
+      <Card title={title} headingLevel={2} action={actions}>
         {children}
       </Card>
     </section>
@@ -191,23 +182,17 @@ export function SaveRow({
   return (
     <div className="admin-setup-save">
       {error instanceof ApiFailure && (
-        <Alert tone={error.status === 412 ? 'warning' : 'danger'} live="alert">
+        <Alert tone={error.status === 412 ? 'warning' : 'error'}>
           {error.status === 412
             ? t('stale')
             : (error.details.map((d) => d.message).find(Boolean) ?? error.message)}
         </Alert>
       )}
       {stale && !error && !mutation.isSuccess && !mutation.isPending && (
-        <Alert tone="warning" live="alert">
-          {t('stale')}
-        </Alert>
+        <Alert tone="warning">{t('stale')}</Alert>
       )}
-      {mutation.isSuccess && !mutation.isPending && (
-        <Alert tone="success" live="status">
-          {t('saved')}
-        </Alert>
-      )}
-      <Button onPress={onSave} disabled={disabled} loading={mutation.isPending}>
+      {mutation.isSuccess && !mutation.isPending && <Alert tone="success">{t('saved')}</Alert>}
+      <Button onClick={onSave} disabled={disabled} loading={mutation.isPending}>
         {label ?? tc('save')}
       </Button>
     </div>

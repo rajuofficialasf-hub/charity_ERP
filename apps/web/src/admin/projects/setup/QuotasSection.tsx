@@ -1,8 +1,7 @@
 import { formatCount } from '@css/shared/format';
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, Button, Text } from '@css/ui';
+import { Alert, Button, IconButton, Text } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import {
@@ -117,19 +116,15 @@ export function QuotasSection({ quotas, manage }: { quotas: Quota[]; manage: boo
           <div>
             <Button
               variant="secondary"
-              size="sm"
-              icon={Plus}
+              size="small"
+              startIcon="add"
               disabled={!place.districtId || target === undefined || target < 1}
-              onPress={add}
+              onClick={add}
             >
               {t('add_quota')}
             </Button>
           </div>
-          {problem && (
-            <Alert tone="warning" live="alert">
-              {problem}
-            </Alert>
-          )}
+          {problem && <Alert tone="warning">{problem}</Alert>}
           <SaveRow
             mutation={save}
             onSave={() => save.mutate()}
@@ -195,9 +190,7 @@ function QuotaRow({
             value={quota.target}
             onChange={onTarget}
           />
-          <Button variant="ghost" size="sm" icon={Trash2} iconOnly onPress={onRemove}>
-            {t('remove_quota', { name })}
-          </Button>
+          <IconButton label={t('remove_quota', { name })} icon="delete" onClick={onRemove} />
         </span>
       ) : null}
     </li>

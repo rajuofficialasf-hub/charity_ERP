@@ -620,7 +620,7 @@ describe('BEN numbers and the lookup', () => {
     const dialog = await screen.findByRole('dialog', { name: 'NID বা জন্মনিবন্ধন দিয়ে খুঁজুন' });
     // nothing is asked before a project is chosen
     expect(within(dialog).getByRole('button', { name: 'খুঁজুন' })).toBeDisabled();
-    await user.click(await within(dialog).findByRole('button', { name: /প্রকল্প/ }));
+    await user.click(await within(dialog).findByRole('combobox', { name: /প্রকল্প/ }));
     await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ 2026 (WC)' }));
     // a new project starts a new lookup, so the field is drawn afresh
     await user.type(within(dialog).getByRole('textbox', { name: /NID নম্বর/ }), '1000001000');

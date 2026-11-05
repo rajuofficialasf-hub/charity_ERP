@@ -1,24 +1,21 @@
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
   Card,
-  EmptyState,
-  ErrorState,
+  Chip,
+  DataTable,
+  IconButton,
+  Page,
   Skeleton,
   Switch,
-  Table,
-  type TableColumn,
-  PageHeader,
-} from '@css/ui';
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRightLeft, Pencil, UserMinus, UserPlus, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
-import { ApiFailure } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
 import {
@@ -40,6 +37,7 @@ import {
   setProjectGrants,
   volunteersKey,
 } from './project-volunteers-api';
+import { LoadError } from '../../../components/LoadError';
 
 const ASSIGN = 'volunteer.assign_project';
 
@@ -54,7 +52,6 @@ export function ProjectVolunteersPage() {
   const { me } = useAuth();
   const { projectId = '' } = useParams();
   const t = useTranslations('admin.projects.volunteers');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const allowed = Boolean(me && canSeeProjects(me));
@@ -125,12 +122,11 @@ export function ProjectVolunteersPage() {
   const refresh = () => void queryClient.invalidateQueries({ queryKey: volunteersKey(projectId) });
 
   const consent = (a: Assignment) => (
-    <Badge
-      tone={a.consentStatus === 'accepted' ? 'success' : 'warning'}
-      label={t(`consent.${a.consentStatus}`)}
-    />
+    <Chip tone={a.consentStatus === 'accepted' ? 'success' : 'warning'}>
+      {t(`consent.${a.consentStatus}`)}
+    </Chip>
   );
-  const columns: TableColumn<Assignment>[] = [
+  const columns: DataTableExtendedColumn<Assignment>[] = [
     { id: 'name', header: t('column.name'), cell: (a) => a.displayName, isRowHeader: true },
     { id: 'type', header: t('column.type'), cell: (a) => t(`type.${a.type}`), priority: 2 },
     { id: 'set', header: t('column.set'), cell: (a) => t(`set.${a.permissionSet}`) },
@@ -146,22 +142,23 @@ export function ProjectVolunteersPage() {
   const actions = (a: Assignment) => (
     <span>
       {transfers ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={ArrowRightLeft}
-          iconOnly
-          href={`/admin/projects/${projectId}/transfer?from=${a.volunteerId}`}
-        >
-          {t('transfer', { name: a.displayName })}
-        </Button>
+        <IconButton
+          label={t('transfer', { name: a.displayName })}
+          icon="transfer"
+
+          to={`/admin/projects/${projectId}/transfer?from=${a.volunteerId}`}
+        />
       ) : null}
-      <Button variant="ghost" size="sm" icon={Pencil} iconOnly onPress={() => setChanging(a)}>
-        {t('change', { name: a.displayName })}
-      </Button>
-      <Button variant="ghost" size="sm" icon={UserMinus} iconOnly onPress={() => setEnding(a)}>
-        {t('end', { name: a.displayName })}
-      </Button>
+      <IconButton
+        label={t('change', { name: a.displayName })}
+        icon="edit"
+        onClick={() => setChanging(a)}
+      />
+      <IconButton
+        label={t('end', { name: a.displayName })}
+        icon="user-minus"
+        onClick={() => setEnding(a)}
+      />
     </span>
   );
   const execs = (executives.data ?? []).filter((s) => s.roleKey === 'project_executive');
@@ -170,50 +167,46 @@ export function ProjectVolunteersPage() {
     <>
       <DocumentTitle title={t('title', { name })} />
       <Link to={`/admin/projects/${projectId}`}>{t('back')}</Link>
-      <PageHeader
+      <Page
         title={t('title', { name })}
         actions={
           assigns && (
-            <Button icon={UserPlus} onPress={() => setAssigning(true)}>
+            <Button startIcon="user-add" onClick={() => setAssigning(true)}>
               {t('assign')}
             </Button>
           )
         }
+        documentTitle={false}
       />
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
+        <Alert tone="success" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
-      <Table
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={list.data?.data ?? []}
-        rowKey={(a) => a.id}
+        getRowId={(a) => a.id}
         rowLabel={(a) => a.displayName}
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={Users} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         rowActions={assigns ? actions : undefined}
         cardRenderer={(a) => (
           <div className="admin-permission-card">
             <strong>{a.displayName}</strong>
             <span>{t(`set.${a.permissionSet}`)}</span>
             {consent(a)}
-            {assigns && actions(a)}
           </div>
         )}
       />
       {list.data?.next && (
-        <Button variant="ghost" size="sm" onPress={() => setPages([...pages, list.data!.next])}>
+        <Button variant="text" size="small" onClick={() => setPages([...pages, list.data!.next])}>
           {t('dialog.more')}
         </Button>
       )}
@@ -221,12 +214,11 @@ export function ProjectVolunteersPage() {
         <Card title={t('grant.title')} headingLevel={2}>
           {execs.map((person) => (
             <Switch
+              label={t('grant.label', { name: person.displayName })}
               key={person.id}
-              isSelected={person.extraPermissions.includes(ASSIGN)}
+              checked={person.extraPermissions.includes(ASSIGN)}
               onChange={(on) => setGranting({ person, on })}
-            >
-              {t('grant.label', { name: person.displayName })}
-            </Switch>
+            />
           ))}
         </Card>
       )}

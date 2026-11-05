@@ -1,5 +1,5 @@
 import { PERMISSION_SETS, type PermissionSet, permissionSetAllowed } from '@css/shared/projects';
-import { Alert, Button, Modal, Select, Switch } from '@css/ui';
+import { Alert, Button, Dialog, SelectField, Switch } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -36,30 +36,28 @@ export function ChangeAssignmentDialog({
   });
   const changed = set !== assignment.permissionSet || paid !== assignment.isPaid;
   return (
-    <Modal
+    <Dialog
       title={td('title')}
-      size="sm"
-      isOpen
+      size="small"
+      open
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={save.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => save.mutate()} disabled={!changed} loading={save.isPending}>
-          {tc('save')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={!changed} loading={save.isPending}>
+            {tc('save')}
+          </Button>
+        </>
       }
     >
       {save.error instanceof ApiFailure && (
-        <Alert tone="danger" live="alert">
-          {save.error.details[0]?.message ?? save.error.message}
-        </Alert>
+        <Alert tone="error">{save.error.details[0]?.message ?? save.error.message}</Alert>
       )}
       <p>{assignment.displayName}</p>
-      <Select
+      <SelectField
         label={t('column.set')}
         value={set}
         onChange={(value) => {
@@ -68,14 +66,10 @@ export function ChangeAssignmentDialog({
         }}
         searchable={false}
         options={PERMISSION_SETS.filter((s) => permissionSetAllowed(s, assignment.type)).map(
-          (s) => ({ id: s, label: t(`set.${s}`) }),
+          (s) => ({ value: s, label: t(`set.${s}`) }),
         )}
       />
-      {markPaid && (
-        <Switch isSelected={paid} onChange={setPaid}>
-          {td('paid')}
-        </Switch>
-      )}
-    </Modal>
+      {markPaid && <Switch label={td('paid')} checked={paid} onChange={setPaid} />}
+    </Dialog>
   );
 }

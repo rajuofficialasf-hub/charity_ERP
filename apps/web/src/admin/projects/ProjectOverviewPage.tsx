@@ -1,5 +1,5 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, ErrorState, Skeleton, PageHeader } from '@css/ui';
+import { Alert, Button, Card, LinkButton, Page, Skeleton } from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
@@ -14,6 +14,7 @@ import { LifecycleActions } from './LifecycleActions';
 import { ProjectFacts } from './ProjectFacts';
 import { ProjectStatusBadge } from './ProjectStatusBadge';
 import { projectWithEtag, PROJECTS_KEY } from './projects-api';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * A project at a glance: its state, program, workflow, application window, limit and budget, the
@@ -24,7 +25,6 @@ export function ProjectOverviewPage() {
   const { me } = useAuth();
   const { projectId = '' } = useParams();
   const t = useTranslations('admin.projects');
-  const tc = useTranslations('common');
   const tt = useTranslations('admin.templates.save');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
@@ -51,11 +51,7 @@ export function ProjectOverviewPage() {
         {one.error instanceof ApiFailure && one.error.status === 404 ? (
           <p>{t('detail.not_found')}</p>
         ) : (
-          <ErrorState
-            title={tc('state.error.text')}
-            requestId={one.error instanceof ApiFailure ? one.error.requestId : undefined}
-            onRetry={() => void one.refetch()}
-          />
+          <LoadError error={one.error} onRetry={() => void one.refetch()} />
         )}
       </>
     );
@@ -64,25 +60,20 @@ export function ProjectOverviewPage() {
     <>
       <DocumentTitle title={localized(p.name, locale)} />
       {back}
-      <PageHeader
-        title={localized(p.name, locale)}
-        meta={
-          <span data-testid="project-state">
-            <ProjectStatusBadge status={p.status} />
-          </span>
-        }
-      />
+      <Page title={localized(p.name, locale)} documentTitle={false} />
+      <div data-testid="project-state">
+        <ProjectStatusBadge status={p.status} />
+      </div>
       {notice && (
         <Alert
           tone="success"
-          live="status"
           onDismiss={() => void navigate(location.pathname, { replace: true, state: null })}
         >
           {notice}
         </Alert>
       )}
       {saved && (
-        <Alert tone="success" live="status" onDismiss={() => setSaved(undefined)}>
+        <Alert tone="success" onDismiss={() => setSaved(undefined)}>
           {saved}
         </Alert>
       )}
@@ -96,20 +87,20 @@ export function ProjectOverviewPage() {
       <Card
         title={t('detail.facts')}
         headingLevel={2}
-        actions={
+        action={
           <>
-            <Button variant="secondary" size="sm" href={`/admin/projects/${p.id}/setup`}>
+            <LinkButton variant="secondary" to={`/admin/projects/${p.id}/setup`}>
               {t('detail.setup')}
-            </Button>
-            <Button variant="secondary" size="sm" href={`/admin/projects/${p.id}/volunteers`}>
+            </LinkButton>
+            <LinkButton variant="secondary" to={`/admin/projects/${p.id}/volunteers`}>
               {t('volunteers.open')}
-            </Button>
-            <Button variant="secondary" size="sm" href={`/admin/projects/${p.id}/applications`}>
+            </LinkButton>
+            <LinkButton variant="secondary" to={`/admin/projects/${p.id}/applications`}>
               {t('detail.applications')}
-            </Button>
+            </LinkButton>
             {/* the template managers are the project creators (organisation-wide templates) */}
             {canCreateProjects(me) && (
-              <Button variant="ghost" size="sm" onPress={() => setSaving(true)}>
+              <Button variant="text" size="small" onClick={() => setSaving(true)}>
                 {tt('open')}
               </Button>
             )}

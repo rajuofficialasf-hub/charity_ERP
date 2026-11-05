@@ -1,5 +1,5 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { Select } from '@css/ui';
+import { SelectField } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'use-intl';
 import { useAuth } from '../../lib/auth';
@@ -31,15 +31,15 @@ export function ProjectPicker({
   if (!projects.length && !value) return null;
   const unlisted = value && !projects.some((p) => p.id === value);
   return (
-    <Select
+    <SelectField
       label={t('picker')}
-      helper={list.error ? t('picker_failed') : undefined}
-      value={value}
+      hint={list.error ? t('picker_failed') : undefined}
+      value={value ?? ''}
       onChange={onChange}
       options={[
-        ...(unlisted ? [{ id: value, label: t('picker_chosen') }] : []),
+        ...(unlisted ? [{ value: value ?? '', label: t('picker_chosen') }] : []),
         ...projects.map((p) => ({
-          id: p.id,
+          value: p.id,
           label: t('picker_option', {
             name: localized(p.name, locale),
             year: String(p.year),

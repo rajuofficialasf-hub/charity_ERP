@@ -125,7 +125,7 @@ describe('the project list', () => {
     serve();
     open(`/admin/projects?year=2026&status=active`);
     const states = within(await screen.findByRole('group', { name: 'অবস্থা অনুযায়ী প্রকল্প' }));
-    expect(states.getByRole('button', { name: 'সব প্রকল্প 2' })).toBeInTheDocument();
+    expect(await states.findByRole('button', { name: 'সব প্রকল্প 2' })).toBeInTheDocument();
     const counts = listUrls.filter((u) => u.searchParams.get('limit') === '1');
     // one count per state and one for every project; none narrowed by the chosen state
     expect(counts.map((u) => u.searchParams.get('status')).sort()).toEqual(

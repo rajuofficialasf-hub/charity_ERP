@@ -1,9 +1,8 @@
 import { formatTaka } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import { FUND_SOURCES, isAmount, plannedBudgetPaisa, sumPaisa } from '@css/shared/projects';
-import { Alert, Button, NumberField, Select, TextField } from '@css/ui';
+import { Alert, Button, IconButton, SelectField, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { type FundSource, saveFundSources } from './setup-api';
@@ -80,16 +79,10 @@ export function BudgetSection({ sources }: { sources: FundSource[] }) {
   return (
     <SetupSection id="budget" title={t('section.budget')}>
       <div className="admin-setup-grid">
-        <NumberField
-          label={t('cost')}
-          kind="money"
-          value={cost}
-          onChange={setCost}
-          readOnly={!can}
-        />
-        <NumberField
+        <TextField type="money" label={t('cost')} value={cost} onChange={setCost} readOnly={!can} />
+        <TextField
+          type="integer"
           label={t('target')}
-          kind="integer"
           value={target}
           onChange={setTarget}
           readOnly={!can}
@@ -99,13 +92,13 @@ export function BudgetSection({ sources }: { sources: FundSource[] }) {
       <h3 className="admin-setup-subtitle">{t('fund_sources')}</h3>
       {rows.map((r, i) => (
         <div key={i} className="admin-setup-row">
-          <Select
+          <SelectField
             label={t('fund_source')}
             value={r.source}
             onChange={(id) => id && setRow(i, { source: id as Row['source'] })}
             disabled={!can}
             searchable={false}
-            options={FUND_SOURCES.map((s) => ({ id: s, label: t(`source.${s}`) }))}
+            options={FUND_SOURCES.map((s) => ({ value: s, label: t(`source.${s}`) }))}
           />
           {r.source === 'donor' && (
             <TextField
@@ -117,32 +110,29 @@ export function BudgetSection({ sources }: { sources: FundSource[] }) {
               readOnly={!can}
             />
           )}
-          <NumberField
+          <TextField
+            type="money"
             label={t('amount')}
-            kind="money"
             value={r.amount}
             onChange={(amount) => setRow(i, { amount })}
             readOnly={!can}
           />
           {can && (
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={Trash2}
-              iconOnly
-              onPress={() => setRows(rows.filter((_, j) => j !== i))}
-            >
-              {t('remove_source', { number: String(i + 1) })}
-            </Button>
+            <IconButton
+              label={t('remove_source', { number: String(i + 1) })}
+              icon="delete"
+
+              onClick={() => setRows(rows.filter((_, j) => j !== i))}
+            />
           )}
         </div>
       ))}
       {can && rows.length < MAX_SOURCES && (
         <Button
-          variant="ghost"
-          size="sm"
-          icon={Plus}
-          onPress={() => setRows([...rows, { source: 'general', label: '', amount: '' }])}
+          variant="text"
+          size="small"
+          startIcon="add"
+          onClick={() => setRows([...rows, { source: 'general', label: '', amount: '' }])}
         >
           {t('add_source')}
         </Button>

@@ -354,9 +354,12 @@ describe('the setup wizard', () => {
     await user.click(within(budget).getByRole('button', { name: 'তহবিলের উৎস যোগ করুন' }));
     await user.type(within(budget).getByRole('textbox', { name: /পরিমাণ/ }), '900');
     await user.click(next());
-    expect(await within(budget).findByRole('alert')).toHaveTextContent(
-      'তহবিলের উৎসগুলোর মোট পরিকল্পিত বাজেটের সমান নয়। সক্রিয় প্রকল্প সমান হলেই সংরক্ষণ হয়।',
-    );
+    // the section's own note and the warning the step's Next found
+    expect(
+      await within(budget).findAllByText(
+        'তহবিলের উৎসগুলোর মোট পরিকল্পিত বাজেটের সমান নয়। সক্রিয় প্রকল্প সমান হলেই সংরক্ষণ হয়।',
+      ),
+    ).toHaveLength(2);
     expect(writes).toEqual([]);
     await user.clear(within(budget).getByRole('textbox', { name: /পরিমাণ/ }));
     await user.type(within(budget).getByRole('textbox', { name: /পরিমাণ/ }), '1000');
@@ -391,7 +394,7 @@ describe('the setup wizard', () => {
     const user = userEvent.setup();
     open('staff');
     const staff = await section('স্টাফের অ্যাক্সেস');
-    await user.click(within(staff).getByRole('button', { name: /ভূমিকা/ }));
+    await user.click(within(staff).getByRole('combobox', { name: /ভূমিকা/ }));
     await user.click(await screen.findByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
     await user.type(within(staff).getByRole('combobox', { name: /কর্মকর্তা/ }), 'নমুনা');
     await user.click(await screen.findByRole('option', { name: 'নমুনা এক্সিকিউটিভ' }));
@@ -578,9 +581,9 @@ describe('a new project', () => {
     await user.type(code, 'wc');
     await user.type(within(basics).getByRole('textbox', { name: /বাংলায় নাম/ }), 'শীতবস্ত্র');
     await user.type(within(basics).getByRole('textbox', { name: /ইংরেজিতে নাম/ }), 'Winter');
-    await user.click(within(basics).getByRole('button', { name: /প্রোগ্রাম/ }));
+    await user.click(within(basics).getByRole('combobox', { name: /প্রোগ্রাম/ }));
     await user.click(await screen.findByRole('option', { name: /মানবিক সহায়তা/ }));
-    await user.click(within(basics).getByRole('button', { name: /ওয়ার্কফ্লো/ }));
+    await user.click(within(basics).getByRole('combobox', { name: /ওয়ার্কফ্লো/ }));
     await user.click(await screen.findByRole('option', { name: 'বিতরণ' }));
     await user.click(next());
     expect(
@@ -765,7 +768,7 @@ describe('where a new project starts', () => {
     await user.type(within(basics).getByRole('textbox', { name: /প্রকল্প কোড/ }), 'NEW');
     await user.type(within(basics).getByRole('textbox', { name: /বাংলায় নাম/ }), 'নতুন');
     await user.type(within(basics).getByRole('textbox', { name: /ইংরেজিতে নাম/ }), 'New');
-    await user.click(within(basics).getByRole('button', { name: /প্রোগ্রাম/ }));
+    await user.click(within(basics).getByRole('combobox', { name: /প্রোগ্রাম/ }));
     await user.click(await screen.findByRole('option', { name: /মানবিক সহায়তা/ }));
     return { user, basics };
   };
@@ -794,7 +797,7 @@ describe('where a new project starts', () => {
     );
     const { user, basics } = await startNew();
     await user.click(within(basics).getByText('টেমপ্লেট থেকে'));
-    await user.click(within(basics).getByRole('button', { name: /টেমপ্লেট/ }));
+    await user.click(within(basics).getByRole('combobox', { name: /টেমপ্লেট/ }));
     await user.click(await screen.findByRole('option', { name: /শীতবস্ত্র টেমপ্লেট/ }));
     await user.click(next());
     await waitFor(() => expect(writes.find((w) => w.path === 'create')).toBeDefined());
@@ -816,7 +819,7 @@ describe('where a new project starts', () => {
     );
     const { user, basics } = await startNew();
     await user.click(within(basics).getByText('আগের প্রকল্প থেকে কপি'));
-    await user.click(within(basics).getByRole('button', { name: /যে প্রকল্প কপি হবে/ }));
+    await user.click(within(basics).getByRole('combobox', { name: /যে প্রকল্প কপি হবে/ }));
     await user.click(await screen.findByRole('option', { name: /OLD, 2025/ }));
     await user.click(next());
     await waitFor(() => expect(writes.find((w) => w.path === 'create')).toBeDefined());

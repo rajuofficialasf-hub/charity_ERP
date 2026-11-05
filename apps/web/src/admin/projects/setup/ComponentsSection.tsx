@@ -1,7 +1,6 @@
 import { COMPONENT_SETTINGS_DEFINITION, type ComponentKey, isComponentKey } from '@css/shared';
-import { Alert, Button, RowToggle } from '@css/ui';
+import { Alert, IconButton, LinkButton, Switch } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { FileText, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
@@ -9,7 +8,7 @@ import { ComponentDrawer } from './ComponentDrawer';
 import { type ProjectComponent, updateComponent } from './setup-api';
 import { SetupSection, useSetup } from './setup-context';
 
-/** Settings the scoring of applications reads; they are configured with the quotas (Phase 2). */
+/** 'settings' the scoring of applications reads; they are configured with the quotas (Phase 2). */
 const NOT_HERE = new Set(['scoring']);
 
 /** Whether a component has settings this screen edits. */
@@ -49,36 +48,32 @@ export function ComponentsSection({
     <SetupSection id="components" title={t('section.components')}>
       <p className="admin-muted">{t('components_hint', { on: String(on) })}</p>
       {toggle.error instanceof ApiFailure && (
-        <Alert tone={toggle.error.status === 412 ? 'warning' : 'danger'} live="alert">
+        <Alert tone={toggle.error.status === 412 ? 'warning' : 'error'}>
           {toggle.error.status === 412 ? t('stale') : toggle.error.message}
         </Alert>
       )}
       <ul className="admin-setup-components">
         {components.map((c) => (
           <li key={c.componentKey}>
-            <RowToggle
-              control="switch"
-              title={tk(c.componentKey as ComponentKey)}
+            <Switch
+              label={tk(c.componentKey as ComponentKey)}
               checked={c.enabled}
               onChange={() => toggle.mutate(c)}
-              disabled={toggle.isPending}
-              lockedReason={can ? undefined : t('locked')}
+              disabled={toggle.isPending || !can}
+              hint={can ? undefined : t('locked')}
             />
             {c.componentKey === 'application_form' && (
-              <Button variant="ghost" size="sm" icon={FileText} href={formHref}>
+              <LinkButton variant="text" startIcon="file" to={formHref}>
                 {t('open_forms')}
-              </Button>
+              </LinkButton>
             )}
             {hasSettings(c.componentKey) && !phone && (
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={Settings2}
-                iconOnly
-                onPress={() => setOpen(c)}
-              >
-                {t('settings_of', { name: tk(c.componentKey as ComponentKey) })}
-              </Button>
+              <IconButton
+                label={t('settings_of', { name: tk(c.componentKey as ComponentKey) })}
+                icon="settings"
+
+                onClick={() => setOpen(c)}
+              />
             )}
           </li>
         ))}
