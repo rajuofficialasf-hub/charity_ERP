@@ -1,6 +1,6 @@
 import { formatCount, formatDecimal, formatFileSize } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Button, ProgressBar } from '@css/ui';
+import { Button, ProgressBar } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import type { Overview } from '../../offline/applications-store';
 
@@ -24,7 +24,7 @@ export function PhotoSection({
   const t = useTranslations('sync.centre');
   const locale = useLocale() as Locale;
   const { usage } = photos;
-  const tone = usage.level === 'full' ? 'danger' : usage.level === 'warn' ? 'warning' : 'brand';
+  const tone = usage.level === 'full' ? 'error' : usage.level === 'warn' ? 'warning' : 'primary';
   return (
     <section className="sync-photos" aria-labelledby="sync-photos-title">
       <h2 id="sync-photos-title">{t('group.photos')}</h2>
@@ -57,7 +57,7 @@ export function PhotoSection({
       </p>
       {photos.uploadedCount > 0 && (
         <div>
-          <Button variant="secondary" size="sm" loading={busy} onPress={onFree}>
+          <Button variant="secondary" size="small" loading={busy} onClick={onFree}>
             {freeLabel}
           </Button>
         </div>

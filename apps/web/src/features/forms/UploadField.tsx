@@ -1,7 +1,8 @@
-import { FileUpload, Stack, Text, type UploadItem } from '@css/ui';
+import { FileUpload, Stack, Text, type UploadItem } from '@/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import type { FieldUpload } from './upload-adapter';
+import { QuestionTitle } from './QuestionTitle';
 
 const MB = 1024 * 1024;
 
@@ -18,7 +19,7 @@ export function UploadField({
   type,
   fieldKey,
   label,
-  helper,
+  hint,
   error,
   required,
   fileIds,
@@ -29,7 +30,7 @@ export function UploadField({
   type: 'photo' | 'file' | 'signature';
   fieldKey: string;
   label: string;
-  helper?: string;
+  hint?: string;
   error?: string;
   required: boolean;
   fileIds: string[];
@@ -52,7 +53,7 @@ export function UploadField({
   if (!adapter)
     return (
       <Stack gap={1}>
-        <Text weight="bold">{label}</Text>
+        <QuestionTitle>{label}</QuestionTitle>
         <Text tone="muted">{t('upload_inert')}</Text>
       </Stack>
     );
@@ -107,7 +108,7 @@ export function UploadField({
   return (
     <FileUpload
       label={label}
-      helper={helper}
+      hint={hint}
       error={error}
       required={required}
       source={type === 'file' ? 'file' : 'camera_or_gallery'}

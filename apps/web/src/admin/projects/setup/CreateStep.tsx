@@ -5,7 +5,7 @@ import {
   WORKFLOW_KEYS,
   type WorkflowKey,
 } from '@css/shared/projects';
-import { NumberField, RadioGroup, Select, TextField } from '@css/ui';
+import { RadioGroup, SelectField, TextField } from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -85,14 +85,14 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
       <div className="admin-setup-grid">
         <TextField
           label={t('code')}
-          helper={t('code_hint')}
+          hint={t('code_hint')}
           required
           maxLength={8}
           value={code}
           onChange={setCode}
           error={!codeOk ? problem : undefined}
         />
-        <NumberField label={t('year')} required kind="integer" value={year} onChange={setYear} />
+        <TextField type="integer" label={t('year')} required value={year} onChange={setYear} />
         <TextField
           label={t('name_bn')}
           required
@@ -108,17 +108,17 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
           value={nameEn}
           onChange={setNameEn}
         />
-        <Select
+        <SelectField
           label={t('program')}
           required
-          value={programId}
-          onChange={setProgramId}
+          value={programId ?? ''}
+          onChange={(v) => setProgramId(v || null)}
           // a list still loading cannot be opened empty
           disabled={!list.data}
           // only an active program takes a new project
           options={(list.data ?? [])
             .filter((p) => p.active)
-            .map((p) => ({ id: p.id, label: `${localized(p.name, locale)} (${p.code})` }))}
+            .map((p) => ({ value: p.id, label: `${localized(p.name, locale)} (${p.code})` }))}
         />
       </div>
       <RadioGroup
@@ -126,43 +126,43 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
         orientation="horizontal"
         value={kind}
         onChange={(value) => setKind(value as SourceKind)}
-        options={SOURCE_KINDS.map((k) => ({ id: k, label: tsrc(k) }))}
+        options={SOURCE_KINDS.map((k) => ({ value: k, label: tsrc(k) }))}
       />
       <div className="admin-setup-grid">
         {kind === 'workflow' && (
-          <Select
+          <SelectField
             label={t('workflow')}
-            helper={t('workflow_hint')}
+            hint={t('workflow_hint')}
             required
-            value={workflowKey}
+            value={workflowKey ?? ''}
             onChange={(value) => setWorkflowKey(WORKFLOW_KEYS.find((k) => k === value) ?? null)}
             searchable={false}
-            options={WORKFLOW_KEYS.map((key) => ({ id: key, label: tw(key) }))}
+            options={WORKFLOW_KEYS.map((key) => ({ value: key, label: tw(key) }))}
           />
         )}
         {kind === 'template' && (
-          <Select
+          <SelectField
             label={tsrc('template_field')}
             required
-            value={templateId}
-            onChange={setTemplateId}
+            value={templateId ?? ''}
+            onChange={(v) => setTemplateId(v || null)}
             disabled={!library.data}
             options={(library.data ?? []).map((tpl) => ({
-              id: tpl.id,
+              value: tpl.id,
               label: `${localized(tpl.name, locale)} (${tw(tpl.workflowKey)})`,
             }))}
           />
         )}
         {kind === 'copy' && (
-          <Select
+          <SelectField
             label={tsrc('copy_field')}
-            helper={tsrc('copy_hint')}
+            hint={tsrc('copy_hint')}
             required
-            value={copyOf}
-            onChange={setCopyOf}
+            value={copyOf ?? ''}
+            onChange={(v) => setCopyOf(v || null)}
             disabled={!earlier.data}
             options={(earlier.data ?? []).map((p) => ({
-              id: p.id,
+              value: p.id,
               label: tsrc('project_option', {
                 name: localized(p.name, locale),
                 code: p.code,

@@ -1,6 +1,6 @@
 import type { FormSource } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, Button, Modal, RadioGroup, Select, TextField } from '@css/ui';
+import { Alert, Button, Dialog, RadioGroup, SelectField, TextField } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -18,13 +18,13 @@ type Kind = FormSource['kind'];
 export function NewFormDialog({
   projectId,
   firstForm,
-  isOpen,
+  open,
   onClose,
   onCreated,
 }: {
   projectId: string;
   firstForm: boolean;
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
   onCreated: (formId: string) => void;
 }) {
@@ -37,16 +37,16 @@ export function NewFormDialog({
   const [templateKey, setTemplateKey] = useState<string | null>(null);
   const [copyProject, setCopyProject] = useState<string | null>(null);
   const [copyForm, setCopyForm] = useState<string | null>(null);
-  const lib = useQuery({ queryKey: [...FORMS_KEY, 'library'], queryFn: library, enabled: isOpen });
+  const lib = useQuery({ queryKey: [...FORMS_KEY, 'library'], queryFn: library, enabled: open });
   const projects = useQuery({
     queryKey: [...PROJECTS_KEY, 'picker'],
     queryFn: pickerProjects,
-    enabled: isOpen && kind === 'copy',
+    enabled: open && kind === 'copy',
   });
   const sourceForms = useQuery({
     queryKey: [...FORMS_KEY, copyProject],
     queryFn: () => projectForms(copyProject!),
-    enabled: isOpen && kind === 'copy' && copyProject !== null,
+    enabled: open && kind === 'copy' && copyProject !== null,
   });
   const published = (sourceForms.data ?? []).filter((f) => f.publishedVersionId !== null);
   const source: FormSource | null =
@@ -74,26 +74,24 @@ export function NewFormDialog({
   });
   const ready = nameBn.trim() !== '' && nameEn.trim() !== '' && source !== null;
   return (
-    <Modal
+    <Dialog
       title={t('new_title')}
-      isOpen={isOpen}
+      open={open}
       onClose={onClose}
       dismissible={!create.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={create.isPending}>
-          {t('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => create.mutate()} disabled={!ready} loading={create.isPending}>
-          {t('create')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
+            {t('cancel')}
+          </Button>
+          <Button onClick={() => create.mutate()} disabled={!ready} loading={create.isPending}>
+            {t('create')}
+          </Button>
+        </>
       }
     >
       {create.error instanceof ApiFailure ? (
-        <Alert tone="danger" live="alert">
-          {create.error.details[0]?.message ?? create.error.message}
-        </Alert>
+        <Alert tone="error">{create.error.details[0]?.message ?? create.error.message}</Alert>
       ) : null}
       <TextField
         label={t('name_bn')}
@@ -115,49 +113,49 @@ export function NewFormDialog({
         value={kind}
         onChange={(id) => setKind(id as Kind)}
         options={[
-          { id: 'template', label: t('source_template') },
-          { id: 'blank', label: t('source_blank') },
-          { id: 'copy', label: t('source_copy') },
+          { value: 'template', label: t('source_template') },
+          { value: 'blank', label: t('source_blank') },
+          { value: 'copy', label: t('source_copy') },
         ]}
       />
       {kind === 'template' ? (
-        <Select
+        <SelectField
           label={t('template')}
           required
-          value={templateKey}
-          onChange={setTemplateKey}
+          value={templateKey ?? ''}
+          onChange={(v) => setTemplateKey(v || null)}
           options={(lib.data?.templates ?? []).map((tpl) => ({
-            id: tpl.key,
+            value: tpl.key,
             label: localized(tpl.name, locale),
           }))}
         />
       ) : null}
       {kind === 'copy' ? (
         <>
-          <Select
+          <SelectField
             label={t('copy_project')}
             required
-            value={copyProject}
+            value={copyProject ?? ''}
             onChange={(id) => {
               setCopyProject(id);
               setCopyForm(null);
             }}
             options={(projects.data ?? [])
               .filter((p) => p.id !== projectId)
-              .map((p) => ({ id: p.id, label: `${localized(p.name, locale)} (${p.year})` }))}
+              .map((p) => ({ value: p.id, label: `${localized(p.name, locale)} (${p.year})` }))}
           />
           {copyProject ? (
-            <Select
+            <SelectField
               label={t('copy_form')}
               required
-              value={copyForm}
-              onChange={setCopyForm}
-              helper={sourceForms.isSuccess && published.length === 0 ? t('copy_none') : undefined}
-              options={published.map((f) => ({ id: f.id, label: localized(f.title, locale) }))}
+              value={copyForm ?? ''}
+              onChange={(v) => setCopyForm(v || null)}
+              hint={sourceForms.isSuccess && published.length === 0 ? t('copy_none') : undefined}
+              options={published.map((f) => ({ value: f.id, label: localized(f.title, locale) }))}
             />
           ) : null}
         </>
       ) : null}
-    </Modal>
+    </Dialog>
   );
 }

@@ -1,4 +1,4 @@
-import { DescriptionList } from '@css/ui';
+import { DescriptionList } from '@/ui';
 import { formatCount, formatDate, formatTaka } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import { useQuery } from '@tanstack/react-query';

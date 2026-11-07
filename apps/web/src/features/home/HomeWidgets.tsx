@@ -1,18 +1,18 @@
 import type { Me } from '@css/shared/auth';
 import { formatCount, formatDate, formatDateTime } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Badge, Button, Card, ErrorState, Icon, type IconComponent, StatCard, Text } from '@css/ui';
-import { useQuery } from '@tanstack/react-query';
 import {
-  Bell,
-  CircleAlert,
-  Clock,
-  Dot,
-  IdCard,
-  KeyRound,
-  ScrollText,
-  Settings,
-} from 'lucide-react';
+  Card,
+  Chip,
+  type ColorTone,
+  type ExtendedIconName,
+  Icon,
+  LinkButton,
+  Skeleton,
+  StatCard,
+  Text,
+} from '@/ui';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import {
@@ -20,7 +20,6 @@ import {
   STAFF_DIRECTORY_ROLES,
   SYSTEM_ADMIN_ROLES,
 } from '../../admin/roles';
-import { PROJECT_COUNT_LOOK } from '../../admin/projects/state-look';
 import { TEMPLATES_KEY, templates } from '../../admin/templates/templates-api';
 import { MEDIA_KEY, mediaSummary } from '../media/media-api';
 import { MY_PROJECTS_KEY, myProjects } from '../projects/my-projects-api';
@@ -33,6 +32,7 @@ import {
   projectCount,
   runningProjects,
 } from './home-api';
+import { LoadError } from '../../components/LoadError';
 import { Loaded } from './Loaded';
 import type { LaterWidget, LiveWidget } from './widgets';
 
@@ -51,7 +51,10 @@ function MyProjects() {
               <li key={p.projectId} className="my-work-row">
                 <Link to={`/my-projects/${p.projectId}`}>{localized(p.name, locale)}</Link>
                 {p.consentStatus === 'pending' && (
-                  <Badge tone="warning" icon={CircleAlert} label={t('consent_needed')} />
+                  <Chip tone="warning" size="small">
+                    <Icon name="error" size={16} />
+                    {t('consent_needed')}
+                  </Chip>
                 )}
                 {p.applyTo && (
                   <span className="my-work-muted">
@@ -106,10 +109,10 @@ function OfficialProjects() {
     <Card
       title={t('official_projects')}
       headingLevel={2}
-      actions={
-        <Button variant="ghost" size="sm" href="/admin/projects">
+      action={
+        <LinkButton variant="text" to="/admin/projects">
           {t('all_projects')}
-        </Button>
+        </LinkButton>
       }
     >
       <Loaded query={list} empty={t('official_projects_empty')} isEmpty={(d) => d.length === 0}>
@@ -132,6 +135,14 @@ function OfficialProjects() {
   );
 }
 
+/** The icon and tone of each state's count. */
+const STATE_LOOK: Record<HomeProjectState, { icon: ExtendedIconName; tone: ColorTone }> = {
+  draft: { icon: 'file-edit', tone: 'neutral' },
+  active: { icon: 'play', tone: 'success' },
+  closing: { icon: 'hourglass', tone: 'warning' },
+  closed: { icon: 'lock', tone: 'neutral' },
+};
+
 /** One count per project state, each opening the list of that state. */
 function StateCount({ status }: { status: HomeProjectState }) {
   const t = useTranslations('admin.projects.status');
@@ -140,15 +151,16 @@ function StateCount({ status }: { status: HomeProjectState }) {
     queryFn: () => projectCount(status),
   });
   // a count that could not be read is never shown as zero
-  if (count.error) return <ErrorState title={t(status)} onRetry={() => void count.refetch()} />;
+  if (count.error)
+    return <LoadError title={t(status)} error={count.error} onRetry={() => void count.refetch()} />;
+  if (count.isPending) return <Skeleton shape="stat" />;
   return (
     <StatCard
       label={t(status)}
-      value={count.data ?? 0}
-      loading={count.isPending}
-      href={`/admin/projects?status=${status}`}
+      value={count.data}
+      to={`/admin/projects?status=${status}`}
       // eslint-disable-next-line security/detect-object-injection -- a state key of a constant table
-      {...PROJECT_COUNT_LOOK[status]}
+      {...STATE_LOOK[status]}
     />
   );
 }
@@ -158,7 +170,7 @@ export function ProjectStates() {
   const t = useTranslations('home.widget');
   return (
     <section className="my-work-states" aria-labelledby="project-states-title">
-      <h2 id="project-states-title" className="ui-sr-only">
+      <h2 id="project-states-title" className="my-work-sr-only">
         {t('project_states')}
       </h2>
       {HOME_PROJECT_STATES.map((s) => (
@@ -176,10 +188,10 @@ function Templates() {
     <Card
       title={t('templates')}
       headingLevel={2}
-      actions={
-        <Button variant="ghost" size="sm" href="/admin/templates">
+      action={
+        <LinkButton variant="text" to="/admin/templates">
           {t('open_templates')}
-        </Button>
+        </LinkButton>
       }
     >
       <Loaded query={list} empty="" isEmpty={() => false}>
@@ -199,16 +211,16 @@ function Templates() {
 const SHORTCUTS = [
   {
     href: '/admin/permissions',
-    icon: KeyRound,
+    icon: 'key',
     roles: PERMISSION_PANEL_ROLES,
     home: 'permission_panel',
   },
-  { href: '/admin/audit', icon: ScrollText, roles: SYSTEM_ADMIN_ROLES, nav: 'audit' },
-  { href: '/admin/staff', icon: IdCard, roles: STAFF_DIRECTORY_ROLES, nav: 'staff' },
-  { href: '/admin/settings', icon: Settings, roles: SYSTEM_ADMIN_ROLES, nav: 'settings' },
+  { href: '/admin/audit', icon: 'notebook', roles: SYSTEM_ADMIN_ROLES, nav: 'audit' },
+  { href: '/admin/staff', icon: 'id-card', roles: STAFF_DIRECTORY_ROLES, nav: 'staff' },
+  { href: '/admin/settings', icon: 'settings', roles: SYSTEM_ADMIN_ROLES, nav: 'settings' },
 ] as const satisfies readonly ({
   href: string;
-  icon: IconComponent;
+  icon: ExtendedIconName;
   roles: readonly string[];
 } & ({ home: 'permission_panel' } | { nav: 'audit' | 'staff' | 'settings' }))[];
 
@@ -223,7 +235,7 @@ function Shortcuts({ me }: { me: Me }) {
         {SHORTCUTS.filter((s) => s.roles.some((r) => me.roles.includes(r))).map((s) => (
           <li key={s.href}>
             <Link to={s.href} className="my-work-shortcut">
-              <Icon icon={s.icon} />
+              <Icon name={s.icon} size={20} />
               <span>{label(s)}</span>
             </Link>
           </li>
@@ -243,10 +255,10 @@ function LatestNotifications() {
     <Card
       title={t('notifications')}
       headingLevel={2}
-      actions={
-        <Button variant="ghost" size="sm" href="/notifications">
+      action={
+        <LinkButton variant="text" to="/notifications">
           {t('all_notifications')}
-        </Button>
+        </LinkButton>
       }
     >
       <Loaded query={list} empty={t('notifications_empty')} isEmpty={(d) => d.length === 0}>
@@ -254,9 +266,13 @@ function LatestNotifications() {
           <ul className="my-work-list">
             {entries.map((n) => (
               <li key={n.id} className="my-work-row">
-                <Icon icon={Bell} size="sm" />
+                <Icon name="bell" size={16} />
                 {n.link ? <Link to={n.link}>{n.title}</Link> : <span>{n.title}</span>}
-                {!n.readAt && <Badge tone="info" icon={Dot} label={tn('unread')} />}
+                {!n.readAt && (
+                  <Chip tone="info" size="small">
+                    {tn('unread')}
+                  </Chip>
+                )}
                 <span className="my-work-muted">{formatDateTime(n.createdAt, locale)}</span>
               </li>
             ))}
@@ -271,9 +287,14 @@ function LatestNotifications() {
 export function ComingLater({ widget }: { widget: LaterWidget }) {
   const t = useTranslations('home.later');
   return (
-    <Card title={t(`${widget}.title`)} headingLevel={2} className="my-work-later">
-      <Badge tone="neutral" label={t('badge')} icon={Clock} />
-      <p className="my-work-muted">{t(`${widget}.text`)}</p>
+    <Card title={t(`${widget}.title`)} headingLevel={2}>
+      <div className="my-work-later">
+        <Chip tone="neutral" size="small">
+          <Icon name="clock" size={16} />
+          {t('badge')}
+        </Chip>
+        <Text tone="muted">{t(`${widget}.text`)}</Text>
+      </div>
     </Card>
   );
 }
@@ -287,10 +308,10 @@ function MediaWork() {
     <Card
       title={t('media_work')}
       headingLevel={2}
-      actions={
-        <Button variant="ghost" size="sm" href="/media">
+      action={
+        <LinkButton variant="text" to="/media">
           {t('open_media')}
-        </Button>
+        </LinkButton>
       }
     >
       <Loaded query={summary} empty="" isEmpty={() => false}>

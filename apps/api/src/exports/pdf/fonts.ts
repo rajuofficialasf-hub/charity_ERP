@@ -1,19 +1,21 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { createRequire } from 'node:module';
 import { ApiError } from '../../i18n/api-error';
 
 /**
- * The self-hosted fonts of the design system (packages/ui/fonts, docs/ui/brand/colors.md): from
- * `src/exports/pdf` and from `dist/exports/pdf` alike, read once and kept as base64 for the
- * pages the printer loads without any network.
+ * The fonts of the asf UI system (docs/architecture/ADR/ADR-016-asf-ui-system.md): Public Sans for
+ * the Latin letters and the digits, Noto Sans Bengali for the Bengali letters, from the same
+ * fontsource packages the web app serves. Read once and kept as base64 for the pages the printer
+ * loads without any network.
  */
-const FONT_DIR = join(__dirname, '../../../../../packages/ui/fonts');
+const resolve = createRequire(__filename).resolve;
+const FILES = {
+  publicSans: '@fontsource-variable/public-sans/files/public-sans-latin-wght-normal.woff2',
+  notoBengali:
+    '@fontsource-variable/noto-sans-bengali/files/noto-sans-bengali-bengali-wght-normal.woff2',
+} as const;
 
-interface Fonts {
-  ubuntuSans: string;
-  bornomalaRegular: string;
-  bornomalaBold: string;
-}
+type Fonts = Record<keyof typeof FILES, string>;
 
 let cached: Fonts | null = null;
 
@@ -21,11 +23,8 @@ let cached: Fonts | null = null;
 export function readFonts(): Fonts {
   try {
     cached ??= {
-      ubuntuSans: readFileSync(join(FONT_DIR, 'UbuntuSans-derivative-CSSERP.woff2')).toString(
-        'base64',
-      ),
-      bornomalaRegular: readFileSync(join(FONT_DIR, 'Bornomala-Regular.woff2')).toString('base64'),
-      bornomalaBold: readFileSync(join(FONT_DIR, 'Bornomala-Bold.woff2')).toString('base64'),
+      publicSans: readFileSync(resolve(FILES.publicSans)).toString('base64'),
+      notoBengali: readFileSync(resolve(FILES.notoBengali)).toString('base64'),
     };
   } catch {
     throw new ApiError('export.pdf_unavailable', 503);

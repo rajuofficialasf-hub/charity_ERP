@@ -1,4 +1,4 @@
-import { NumberField } from '@css/ui';
+import { TextField } from '@/ui';
 import { useState } from 'react';
 
 /**
@@ -27,9 +27,9 @@ export function NumberText({
     if (stored === '' || Number(typed) !== Number(stored)) setTyped(stored);
   }
   return (
-    <NumberField
+    <TextField
+      type={integer ? 'integer' : 'decimal'}
       label={label}
-      kind={integer ? 'integer' : 'decimal'}
       value={typed}
       error={error}
       onChange={(text) => {

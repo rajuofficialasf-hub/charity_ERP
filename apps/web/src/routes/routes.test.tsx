@@ -48,16 +48,12 @@ describe('routes', () => {
   });
 
   it('has the gallery route only when enabled', () => {
-    expect(routes({ gallery: true })[0]?.children?.some((r) => r.path === '/dev/components')).toBe(
-      true,
-    );
-    expect(routes({ gallery: false })[0]?.children?.some((r) => r.path === '/dev/components')).toBe(
-      false,
-    );
+    expect(routes({ gallery: true })[0]?.children?.some((r) => r.path === '/dev/asf')).toBe(true);
+    expect(routes({ gallery: false })[0]?.children?.some((r) => r.path === '/dev/asf')).toBe(false);
   });
 
   it('shows the error boundary for an unknown path', async () => {
     mount('/no/such/page', false);
-    expect(await screen.findByRole('heading', { level: 3 })).toHaveTextContent('Nothing here yet');
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Nothing here yet');
   });
 });

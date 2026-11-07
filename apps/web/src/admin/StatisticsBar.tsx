@@ -1,12 +1,12 @@
-import { type IconComponent, type IconTileTone, StatCard } from '@css/ui';
+import { type ColorTone, type ExtendedIconName, Skeleton, StatCard } from '@/ui';
 
 /** One count above a list. */
 export interface Statistic {
   key: string;
   label: string;
   value: number;
-  icon?: IconComponent;
-  tone?: IconTileTone;
+  icon?: ExtendedIconName;
+  tone?: ColorTone;
 }
 
 /**
@@ -22,15 +22,14 @@ export function StatisticsBar({
   loading?: boolean;
 }) {
   return (
-    <section aria-label={label} className="admin-stats">
+    <section aria-label={label} aria-busy={loading || undefined} className="admin-stats">
       {items.map((item) => (
         <StatCard
           key={item.key}
           label={item.label}
-          value={item.value}
+          value={loading ? <Skeleton shape="text" /> : item.value}
           icon={item.icon}
           tone={item.tone}
-          loading={loading}
         />
       ))}
     </section>

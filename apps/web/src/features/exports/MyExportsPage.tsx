@@ -2,24 +2,24 @@ import { formatCount, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
   Card,
+  Chip,
   EmptyState,
-  ErrorState,
+  Icon,
   ProgressBar,
   Skeleton,
   Stack,
   Text,
-} from '@css/ui';
+} from '@/ui';
 import { useQuery } from '@tanstack/react-query';
-import { CircleCheck, CircleX, Clock, Download, FileDown, Hourglass } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
+import { LoadError } from '../../components/LoadError';
 import { EXPORTS_KEY, type ExportJob, failureKey, myExports } from './exports-api';
 import { useDownload } from './use-download';
+import './exports.css';
 
 /** How often the list is asked again while one of its exports waits or runs. */
 const POLL_MS = 3000;
@@ -52,26 +52,20 @@ function ExportList() {
   if (jobs.isPending) return <Skeleton shape="row" count={3} />;
   if (jobs.error)
     return (
-      <ErrorState
-        title={t('load_failed')}
-        requestId={jobs.error instanceof ApiFailure ? jobs.error.requestId : undefined}
-        onRetry={() => void jobs.refetch()}
-      />
+      <LoadError title={t('load_failed')} error={jobs.error} onRetry={() => void jobs.refetch()} />
     );
   if (jobs.data.length === 0)
-    return (
-      <EmptyState icon={FileDown} title={t('empty')} message={t('empty_hint')} headingLevel={2} />
-    );
+    return <EmptyState title={t('empty')} description={t('empty_hint')} />;
   return (
     <Stack gap={3}>
       <Text tone="muted">{t('intro')}</Text>
-      <Stack as="ul" gap={3}>
+      <ul className="my-exports-list">
         {jobs.data.map((job) => (
           <li key={job.id}>
             <ExportRow job={job} />
           </li>
         ))}
-      </Stack>
+      </ul>
     </Stack>
   );
 }
@@ -84,11 +78,11 @@ function ExportRow({ job }: { job: ExportJob }) {
   const { save, saving, saveFailed } = useDownload();
   const state = job.expired ? 'expired' : job.status;
   const badge = {
-    queued: { tone: 'info' as const, icon: Clock },
-    running: { tone: 'info' as const, icon: Hourglass },
-    done: { tone: 'success' as const, icon: CircleCheck },
-    failed: { tone: 'danger' as const, icon: CircleX },
-    expired: { tone: 'neutral' as const, icon: Clock },
+    queued: { tone: 'info' as const, icon: 'clock' as const },
+    running: { tone: 'info' as const, icon: 'hourglass' as const },
+    done: { tone: 'success' as const, icon: 'success' as const },
+    failed: { tone: 'error' as const, icon: 'rejected' as const },
+    expired: { tone: 'neutral' as const, icon: 'clock' as const },
   }[state];
   const facts = [
     job.format.toUpperCase(),
@@ -99,10 +93,11 @@ function ExportRow({ job }: { job: ExportJob }) {
     <Card title={td(`list.${job.kind}`)} headingLevel={2}>
       <Stack gap={2}>
         <Stack direction="row" wrap gap={2} align="center">
-          <Badge tone={badge.tone} icon={badge.icon} label={t(`state.${state}`)} />
-          <Text as="span" tone="muted">
-            {facts.join(' · ')}
-          </Text>
+          <Chip tone={badge.tone}>
+            <Icon name={badge.icon} size={16} />
+            {t(`state.${state}`)}
+          </Chip>
+          <Text tone="muted">{facts.join(' · ')}</Text>
         </Stack>
         {job.status === 'running' && (
           <ProgressBar
@@ -110,7 +105,7 @@ function ExportRow({ job }: { job: ExportJob }) {
             value={job.rowsDone}
             max={Math.max(job.rowsTotal ?? job.rowsDone, 1)}
             showValue
-            size="sm"
+            size="small"
           />
         )}
         {job.status === 'failed' && <Text tone="muted">{te(failureKey(job.errorCode))}</Text>}
@@ -119,16 +114,16 @@ function ExportRow({ job }: { job: ExportJob }) {
           <Stack direction="row">
             <Button
               variant="secondary"
-              size="sm"
-              icon={Download}
+              size="small"
+              startIcon="download"
               loading={saving}
-              onPress={() => void save(job)}
+              onClick={() => void save(job)}
             >
               {td('download')}
             </Button>
           </Stack>
         )}
-        {saveFailed && <Alert tone="danger">{td('download_failed')}</Alert>}
+        {saveFailed && <Alert tone="error">{td('download_failed')}</Alert>}
       </Stack>
     </Card>
   );

@@ -1,5 +1,5 @@
 import type { FormDefinition } from '@css/shared/forms';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -178,12 +178,12 @@ describe('the preview', () => {
     await user.click(await screen.findByRole('button', { name: 'প্রিভিউ' }));
     const preview = within(await screen.findByRole('dialog', { name: 'প্রিভিউ' }));
     await user.click(preview.getByRole('radio', { name: 'কম্পিউটার' }));
-    expect(await preview.findByText('অতিরিক্ত প্রশ্ন')).toBeInTheDocument();
-    expect(preview.queryByText('অফিসের মন্তব্য')).not.toBeInTheDocument();
+    expect(await preview.findByRole('textbox', { name: 'অতিরিক্ত প্রশ্ন' })).toBeInTheDocument();
+    expect(preview.queryByRole('textbox', { name: 'অফিসের মন্তব্য' })).not.toBeInTheDocument();
     await user.click(preview.getByRole('radio', { name: 'অফিসিয়াল' }));
-    expect(await preview.findByText('অফিসের মন্তব্য')).toBeInTheDocument();
+    expect(await preview.findByRole('textbox', { name: 'অফিসের মন্তব্য' })).toBeInTheDocument();
     await user.click(preview.getByRole('radio', { name: 'English' }));
-    expect(await preview.findByText('Extra question')).toBeInTheDocument();
+    expect(await preview.findByRole('textbox', { name: 'Extra question' })).toBeInTheDocument();
     await user.type(preview.getByRole('textbox', { name: /Extra question/ }), 'typed');
     expect(sessionStorage.length).toBe(0);
     expect(patches).toBe(0);

@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -20,6 +20,7 @@ import { uploadFile } from '../../lib/uploads';
 import { ApplicationDetailPage } from './ApplicationDetailPage';
 import { ApplicationFormPage } from './ApplicationFormPage';
 import { MyApplicationsPage } from './MyApplicationsPage';
+import { stubMatchMedia } from '../../../test/match-media';
 
 // The volunteer's screens of the application cycle: the new application with the lookup, the
 // draft saved part by part and sent at the end, "আমার আবেদন" by state, and one application with
@@ -216,13 +217,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 /** A phone: the form comes one part per screen. */
-const onPhone = () =>
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: true,
-    media: query,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-  }));
+const onPhone = () => stubMatchMedia(() => true);
 
 /** The identity step: the number typed and looked up, then the form opened. */
 async function lookUp(user: ReturnType<typeof userEvent.setup>, number: string) {
@@ -231,6 +226,32 @@ async function lookUp(user: ReturnType<typeof userEvent.setup>, number: string) 
 }
 
 describe('the new application', () => {
+  it('tries the project again when its read failed, and names the failed request', async () => {
+    const user = userEvent.setup();
+    refreshAs(VOLUNTEER);
+    serve();
+    let failing = true;
+    server.use(
+      http.get(`*/api/v1/me/projects/${PROJECT}`, () =>
+        failing
+          ? HttpResponse.json(
+              { error: { code: 'server.error', message: 'ভুল', requestId: 'req_project' } },
+              { status: 500 },
+            )
+          : envelope(project),
+      ),
+    );
+    renderApp(<ApplicationFormPage />, 'bn', {
+      path: '/my-projects/:projectId/apply',
+      initialPath: `/my-projects/${PROJECT}/apply`,
+    });
+    const alert = await screen.findByRole('alert', {}, { timeout: 5000 });
+    expect(alert).toHaveTextContent('req_project');
+    failing = false;
+    await user.click(within(alert).getByRole('button', { name: 'আবার চেষ্টা করুন' }));
+    expect(await screen.findByRole('textbox', { name: /NID নম্বর/ })).toBeInTheDocument();
+  });
+
   it('locks a found person’s identity, saves the draft through the outbox when the first part is done and sends it with the number', async () => {
     const user = userEvent.setup();
     onPhone();
@@ -373,6 +394,32 @@ describe('my applications', () => {
     expect(await screen.findByText('নম্বর এখনো হয়নি')).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: /অনুমোদিত/ }));
     expect(await screen.findByText('এই তালিকায় এখনো কোনো আবেদন নেই।')).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+  });
+
+  it('tells a volunteer on no project calmly where applications come from, not of a failure', async () => {
+    refreshAs(VOLUNTEER);
+    serve();
+    server.use(
+      http.get('*/api/v1/me/applications', () =>
+        apiError(403, 'permission.denied', 'এই কাজের অনুমতি নেই।'),
+      ),
+    );
+    const view = renderApp(<MyApplicationsPage />, 'bn', {
+      path: '/my-applications',
+      initialPath: '/my-applications?tab=pending',
+    });
+    expect(
+      await screen.findByText(
+        'আপনি এখনো কোনো প্রকল্পে যুক্ত নন। প্রকল্পে যুক্ত হলে আপনার আবেদন এখানে দেখা যাবে।',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'আমার প্রকল্প' })).toHaveAttribute(
+      'href',
+      '/my-projects',
+    );
+    expect(screen.queryByText('আবেদনের তালিকা আনা যায়নি। আবার চেষ্টা করুন।')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
     await expectNoAxeViolations(view.container);
   });
 });

@@ -248,8 +248,8 @@ test.describe('the Media Team', () => {
       await expect(desk.getByText(/^অনুমোদন: /)).toBeVisible();
       await desk.getByRole('button', { name: 'প্রকাশ যোগ করুন' }).click();
       const post = desk.getByRole('dialog', { name: 'প্রকাশ যোগ করুন' });
-      await choose(desk, 'প্ল্যাটফর্ম \\(আবশ্যক\\)', 'As-Sunnah Foundation YouTube');
-      await choose(desk, 'অবস্থা \\(আবশ্যক\\)', 'প্রকাশিত');
+      await choose(desk, 'প্ল্যাটফর্ম', 'As-Sunnah Foundation YouTube');
+      await choose(desk, 'অবস্থা', 'প্রকাশিত');
       await post.getByRole('textbox', { name: /^লিংক/ }).fill('https://youtu.be/dQw4w9WgXcQ');
       await post.getByRole('button', { name: 'সংরক্ষণ' }).click();
       await expect(desk.getByText('ধাপ: প্রকাশিত').first()).toBeVisible();

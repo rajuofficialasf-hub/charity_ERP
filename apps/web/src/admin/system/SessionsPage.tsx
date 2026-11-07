@@ -2,18 +2,15 @@ import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Button,
   ConfirmDialog,
-  EmptyState,
-  ErrorState,
-  Table,
-  type TableColumn,
-  TableToolbar,
-  PageHeader,
+  DataTable,
+  FilterBar,
+  IconButton,
+  Page,
   PersonCell,
-} from '@css/ui';
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut, MonitorSmartphone } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -23,6 +20,8 @@ import { ForbiddenContent } from '../AdminLayout';
 import { canAdministerSystem } from '../roles';
 import { useTabView } from '../use-tab-view';
 import { type ActiveSession, activeSessions, endSession, SESSIONS_KEY } from './system-api';
+import { LoadError } from '../../components/LoadError';
+import { useCountLine } from '../list-paging';
 
 const KINDS = ['staff', 'volunteer'] as const;
 
@@ -35,7 +34,6 @@ const KINDS = ['staff', 'volunteer'] as const;
 export function SessionsPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.sessions');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const { filters, change, q, onSearch, cursor, setCursor } = useTabView(['kind'] as const);
@@ -60,6 +58,7 @@ export function SessionsPage() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: SESSIONS_KEY }),
   });
+  const countLine = useCountLine();
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
 
@@ -75,7 +74,7 @@ export function SessionsPage() {
         .join(' · ')}
     />
   );
-  const columns: TableColumn<ActiveSession>[] = [
+  const columns: DataTableExtendedColumn<ActiveSession>[] = [
     { id: 'person', header: t('column.person'), cell: person, isRowHeader: true },
     { id: 'device', header: t('column.device'), cell: device },
     { id: 'version', header: t('column.version'), cell: (s) => s.appVersion ?? '—', priority: 3 },
@@ -100,37 +99,39 @@ export function SessionsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('intro')} />
+      <Page
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('intro')}
+        documentTitle={false}
+      />
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
+        <Alert tone="success" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
-      <Table
-        layout="panel"
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={rows}
-        rowKey={(s) => s.id}
+        getRowId={(s) => s.id}
         rowLabel={(s) => `${s.person.name} ${device(s)}`}
         loading={page.isPending}
         error={
           page.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={page.error instanceof ApiFailure ? page.error.requestId : undefined}
-              onRetry={() => void page.refetch()}
-            />
+            <LoadError error={page.error} onRetry={() => void page.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={MonitorSmartphone} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         rowActions={(s) => (
-          <Button variant="ghost" size="sm" icon={LogOut} iconOnly onPress={() => ask(s)}>
-            {t('end', { name: s.person.name, device: device(s) })}
-          </Button>
+          <IconButton
+            label={t('end', { name: s.person.name, device: device(s) })}
+            icon="sign-out"
+            onClick={() => ask(s)}
+          />
         )}
         toolbar={
-          <TableToolbar
+          <FilterBar
             onSearch={onSearch}
             searchPlaceholder={t('search')}
             chips={[
@@ -141,16 +142,14 @@ export function SessionsPage() {
             onChipChange={(id) => change({ kind: id === 'all' ? undefined : id })}
           />
         }
-        pagination={
+        cursorPagination={
           meta
             ? {
-                shown: rows.length,
-                // no total for this list: "25+" while another page follows
-                total: meta.nextCursor ? `${rows.length}+` : rows.length,
                 hasNext: meta.nextCursor !== null,
                 hasPrevious: meta.prevCursor !== null,
                 onNext: () => setCursor(meta.nextCursor),
                 onPrevious: () => setCursor(meta.prevCursor),
+                summary: countLine(rows.length, meta.nextCursor ? 'more' : rows.length),
               }
             : undefined
         }
@@ -159,14 +158,11 @@ export function SessionsPage() {
             {person(s)}
             <span>{device(s)}</span>
             <span>{t('seen_at', { date: formatDateTime(s.lastSeenAt, locale) })}</span>
-            <Button variant="secondary" size="sm" icon={LogOut} onPress={() => ask(s)}>
-              {t('end_short')}
-            </Button>
           </div>
         )}
       />
       <ConfirmDialog
-        isOpen={target !== null}
+        open={target !== null}
         title={target ? t('end_title', { name: target.person.name, device: device(target) }) : ''}
         message={
           failure && <p className="admin-error">{failure.details[0]?.message ?? failure.message}</p>

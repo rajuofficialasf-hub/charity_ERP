@@ -200,7 +200,7 @@ test.describe('the application rules', () => {
     await onDesk(browser, async (desk) => {
       await signIn(desk, RPM);
       await desk.goto(`/admin/projects/${projectId}/applications?sort=-score`);
-      const rows = desk.getByRole('grid').getByRole('row');
+      const rows = desk.getByRole('table').getByRole('row');
       // the first row after the header holds the higher score
       await expect(rows.nth(1)).toContainText(higher);
       await expect(rows.nth(1).getByText('20', { exact: true })).toBeVisible();
@@ -317,7 +317,7 @@ test.describe('the application rules', () => {
       await signIn(desk, RPM);
       await desk.goto(`/admin/projects/${projectId}/transfer?from=${first}`);
       await desk.getByRole('checkbox', { name: new RegExp(name) }).check({ force: true });
-      await desk.getByRole('button', { name: /নতুন স্বেচ্ছাসেবক$/ }).click();
+      await desk.getByRole('combobox', { name: /নতুন স্বেচ্ছাসেবক/ }).click();
       await desk.getByRole('option', { name: second.displayName, exact: true }).click();
       await desk
         .getByRole('textbox', { name: /হস্তান্তরের কারণ/ })

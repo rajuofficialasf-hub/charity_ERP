@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -239,7 +239,7 @@ describe('the media work page', () => {
     refreshAs(MEMBER);
     serve(referral({ work: work({ mayDirect: false }) }));
     open();
-    await user.click(await screen.findByRole('button', { name: /নতুন ধাপ/ }));
+    await user.click(await screen.findByRole('combobox', { name: /নতুন ধাপ/ }));
     const options = (await screen.findAllByRole('option')).map((o) => o.textContent);
     expect(options).toEqual(['পরিকল্পনা ও দল', 'সম্পাদনা', 'প্রকাশের জন্য প্রস্তুত']);
     await user.click(screen.getByRole('option', { name: 'সম্পাদনা' }));
@@ -274,7 +274,7 @@ describe('the media work page', () => {
     open();
     await user.click(await screen.findByRole('button', { name: 'দল বদলান' }));
     const dialog = await screen.findByRole('dialog', { name: 'দল' });
-    await user.click(within(dialog).getByRole('button', { name: /মিডিয়া টিমের সদস্য খুঁজুন/ }));
+    await user.click(within(dialog).getByRole('combobox', { name: /মিডিয়া টিমের সদস্য খুঁজুন/ }));
     await user.click(await screen.findByRole('option', { name: 'সুমাইয়া আক্তার' }));
     const save = within(dialog).getByRole('button', { name: 'সংরক্ষণ' });
     expect(save).toBeDisabled();

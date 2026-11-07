@@ -44,14 +44,14 @@ test.describe('assigning volunteers and their consent', () => {
     await desk.getByRole('button', { name: 'স্বেচ্ছাসেবক অ্যাসাইন করুন' }).click();
     const dialog = desk.getByRole('dialog');
     await dialog.getByRole('textbox', { name: 'নাম বা মোবাইল নম্বর' }).fill(mobile);
-    const candidates = dialog.getByRole('grid', { name: 'অ্যাসাইন করা যায় এমন স্বেচ্ছাসেবক' });
+    const candidates = dialog.getByRole('table', { name: 'অ্যাসাইন করা যায় এমন স্বেচ্ছাসেবক' });
     await expect(candidates.getByRole('row')).toHaveCount(2);
     // a row is chosen by pressing it (the checkbox input itself is visually hidden)
-    await candidates.getByRole('row').nth(1).getByRole('gridcell').nth(1).click();
+    await candidates.getByRole('row').nth(1).getByRole('cell').nth(1).click();
     await expect(dialog.getByText('1 জন বাছাই করা হয়েছে')).toBeVisible();
     await dialog.getByRole('button', { name: 'অ্যাসাইন করুন', exact: true }).click();
     await expect(desk.getByText(/1 জন স্বেচ্ছাসেবক অ্যাসাইন হয়েছেন/)).toBeVisible();
-    const assigned = desk.getByRole('grid', { name: 'প্রকল্পে অ্যাসাইন করা স্বেচ্ছাসেবক' });
+    const assigned = desk.getByRole('table', { name: 'প্রকল্পে অ্যাসাইন করা স্বেচ্ছাসেবক' });
     await expect(assigned.getByText('সম্মতির অপেক্ষায়')).toBeVisible();
     await officials.close();
 

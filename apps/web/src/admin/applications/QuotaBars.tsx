@@ -1,7 +1,7 @@
 import { uuidv7 } from '@css/shared';
 import { formatCount } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Badge, Button, Card, ErrorState, ProgressBar, Stack, Text } from '@css/ui';
+import { Alert, Button, Card, Chip, ProgressBar, Stack, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -12,6 +12,7 @@ import { type Quota, quotas as loadQuotas } from '../projects/setup/setup-api';
 import { canDecideApplications } from '../roles';
 import { APPLICATIONS_KEY, askedComments, type CommentReason, pullNext } from './applications-api';
 import { DecisionDialog } from './DecisionDialog';
+import { LoadError } from '../../components/LoadError';
 
 /** The union and the district the list is filtered to, from the address. */
 export interface AreaFilter {
@@ -37,7 +38,7 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
     queryFn: () => loadQuotas(projectId),
   });
   const [asking, setAsking] = useState<{ areaId?: string; reasons: CommentReason[] } | null>(null);
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const failure = (error: unknown) =>
     error instanceof ApiFailure ? error.message : tc('state.error.text');
   const pull = useMutation({
@@ -60,18 +61,11 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
       }
       // the comment dialog shows its own failure and keeps the comment typed
       if (asking) return;
-      setNotice({ tone: 'danger', text: failure(error) });
+      setNotice({ tone: 'error', text: failure(error) });
     },
   });
   if (list.isPending) return null;
-  if (list.error)
-    return (
-      <ErrorState
-        title={tc('state.error.text')}
-        requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-        onRetry={() => void list.refetch()}
-      />
-    );
+  if (list.error) return <LoadError error={list.error} onRetry={() => void list.refetch()} />;
   const rows = list.data;
   const level = rows.some((q) => q.level === 'union')
     ? 'union'
@@ -104,7 +98,7 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
     />
   ) : null;
   const shown = notice ? (
-    <Alert tone={notice.tone} live="status" onDismiss={() => setNotice(null)}>
+    <Alert tone={notice.tone} onDismiss={() => setNotice(null)}>
       {notice.text}
     </Alert>
   ) : null;
@@ -112,12 +106,12 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
     return decide ? (
       <Stack gap={2}>
         {shown}
-        <Stack direction="row" gap={2} wrap className="admin-pull-bar">
+        <div className="admin-pull-bar">
           <Text tone="muted">{t('pull.help')}</Text>
-          <Button variant="secondary" size="sm" loading={pull.isPending} onPress={() => start()}>
+          <Button variant="secondary" size="small" loading={pull.isPending} onClick={() => start()}>
             {t('pull.title')}
           </Button>
-        </Stack>
+        </div>
         {dialog}
       </Stack>
     ) : null;
@@ -126,9 +120,10 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
       {shown}
       <Card
         title={t('quotas.title')}
-        subtitle={decide ? t('pull.help') : undefined}
+
         headingLevel={2}
       >
+        {decide && <p className="admin-muted">{t('pull.help')}</p>}
         <ul className="admin-quota-list">
           {rows.map((q) => (
             <QuotaRow
@@ -140,9 +135,9 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
                   ? (name) => (
                       <Button
                         variant="secondary"
-                        size="sm"
+                        size="small"
                         loading={pull.isPending && pull.variables?.areaId === q.locationId}
-                        onPress={() => start(q.locationId)}
+                        onClick={() => start(q.locationId)}
                       >
                         {t('pull.area', { name })}
                       </Button>
@@ -182,7 +177,7 @@ function QuotaRow({
       <div className="admin-quota-head">
         <strong>{name}</strong>
         <Text tone="muted">{t(`level.${quota.level}`)}</Text>
-        {quota.full ? <Badge tone="warning" label={t('full')} /> : null}
+        {quota.full ? <Chip tone="warning">{t('full')}</Chip> : null}
       </div>
       <Text>
         {t('progress', {
@@ -196,8 +191,8 @@ function QuotaRow({
         max={quota.target}
         label={t('bar', { name })}
         showValue={false}
-        size="sm"
-        tone={quota.full ? 'warning' : 'brand'}
+        size="small"
+        tone={quota.full ? 'warning' : 'primary'}
       />
       {pull ? <div>{pull(name)}</div> : null}
     </li>
@@ -219,7 +214,7 @@ function UntargetedPull({
   const name = useLocationName(undefined, areaId)?.[locale] ?? '';
   return (
     <div>
-      <Button variant="secondary" size="sm" loading={pending} onPress={onPull}>
+      <Button variant="secondary" size="small" loading={pending} onClick={onPull}>
         {t('area', { name })}
       </Button>
     </div>

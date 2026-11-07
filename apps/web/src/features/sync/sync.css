@@ -10,7 +10,8 @@
   min-width: 18px;
   padding: 0 var(--space-1);
   border-radius: var(--radius-full);
-  background: var(--color-status-warning);
+  /* the darkest shades, which white reads on in both modes */
+  background: var(--asf-palette-warning-darker, var(--color-status-warning));
   color: var(--color-text-on-brand);
   font-size: var(--text-caption);
   font-weight: var(--font-weight-bold);
@@ -19,7 +20,7 @@
   pointer-events: none;
 }
 .sync-chip-count-failed {
-  background: var(--color-status-danger);
+  background: var(--asf-palette-error-dark, var(--color-status-danger));
 }
 
 .sync-centre {

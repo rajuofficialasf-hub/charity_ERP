@@ -1,5 +1,5 @@
 import type { FormDefinition, FormField } from '@css/shared/forms';
-import { Select, Stack, Text } from '@css/ui';
+import { SelectField, Stack, Text } from '@/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { NumberText } from './NumberText';
@@ -75,14 +75,14 @@ export function RepeatSettings({
   const countFrom = field.settings?.repeat?.count_from ?? null;
   return (
     <Stack gap={2}>
-      <Select
+      <SelectField
         label={t('count_from')}
-        helper={t('count_from_hint')}
+        hint={t('count_from_hint')}
         value={countFrom ?? 'none'}
         onChange={(id) => onCountFrom(id && id !== 'none' ? id : null)}
         options={[
-          { id: 'none', label: t('count_from_none') },
-          ...counts.map((f) => ({ id: f.fieldKey, label: f.label[locale] })),
+          { value: 'none', label: t('count_from_none') },
+          ...counts.map((f) => ({ value: f.fieldKey, label: f.label[locale] })),
         ]}
       />
       <LimitPair
@@ -94,7 +94,9 @@ export function RepeatSettings({
         orderMessage={t('rows_order')}
         onApply={onRows}
       />
-      <Text weight="bold">{t('members')}</Text>
+      <Text>
+        <strong>{t('members')}</strong>
+      </Text>
       {members.length ? (
         <ul aria-label={t('members')} className="form-settings-list">
           {members.map((m) => (

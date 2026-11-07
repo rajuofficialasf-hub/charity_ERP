@@ -1,7 +1,6 @@
 import { formatDate } from '@css/shared/format';
 import { linkProblem, youtubeThumbnail } from '@css/shared/media';
-import { Text } from '@css/ui';
-import { MessageSquareText, MonitorPlay } from 'lucide-react';
+import { Icon, Text } from '@/ui';
 import type { ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
 import { useMediaLabels } from './use-media-lists';
@@ -44,14 +43,14 @@ export function WorkLinkCard({
             referrerPolicy="no-referrer"
           />
         ) : labels.platformKind(platformCode) === 'youtube' ? (
-          <MonitorPlay aria-hidden="true" size={24} />
+          <Icon name="video" size={24} />
         ) : (
-          <MessageSquareText aria-hidden="true" size={24} />
+          <Icon name="message" size={24} />
         )}
       </span>
       <span className="media-link-meta">
         <strong>{title}</strong>
-        <Text as="small" tone="muted">
+        <Text size="small" tone="muted">
           {publishedOn
             ? `${platform} · ${t('published_on', { date: formatDate(`${publishedOn}T00:00:00Z`) })}`
             : platform}
@@ -62,7 +61,7 @@ export function WorkLinkCard({
             {t('open', { platform })}
           </a>
         ) : (
-          <Text as="small" tone="muted">
+          <Text size="small" tone="muted">
             {t('no_link')}
           </Text>
         )}

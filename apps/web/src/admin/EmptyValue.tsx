@@ -5,7 +5,7 @@ export function EmptyValue({ label }: { label: string }) {
       <span aria-hidden="true" className="admin-dash">
         —
       </span>
-      <span className="ui-sr-only">{label}</span>
+      <span className="app-sr-only">{label}</span>
     </>
   );
 }

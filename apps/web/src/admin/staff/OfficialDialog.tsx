@@ -6,17 +6,7 @@ import {
   jobIdSchema,
 } from '@css/shared/auth';
 import { type Locale, localized } from '@css/shared/i18n';
-import {
-  Alert,
-  Button,
-  ErrorState,
-  Modal,
-  RadioGroup,
-  Select,
-  Skeleton,
-  Stepper,
-  TextField,
-} from '@css/ui';
+import { Alert, Button, Dialog, RadioGroup, SelectField, Skeleton, Stepper, TextField } from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -33,6 +23,7 @@ import {
   updateProfile,
 } from './staff-api';
 import './staff.css';
+import { LoadError } from '../../components/LoadError';
 
 /** The Main Admin's role is never given to a new account (AUTH.md 11). */
 const NOT_GIVEN = 'department_head';
@@ -67,7 +58,6 @@ export function OfficialDialog({
   onSaved?: (saved: StaffMember) => void;
 }) {
   const t = useTranslations('admin.staff.dialog');
-  const tc = useTranslations('common');
   const [stale, setStale] = useState(false);
   // an edit starts from the record as stored now, with its version: never from the list row
   const version = useQuery({
@@ -80,17 +70,13 @@ export function OfficialDialog({
   if (!official) return <OfficialForm onClose={onClose} onCreated={onCreated} />;
   if (version.isPending || version.error)
     return (
-      <Modal title={t('edit_title', { name: official.displayName })} isOpen onClose={onClose}>
+      <Dialog title={t('edit_title', { name: official.displayName })} open onClose={onClose}>
         {version.error ? (
-          <ErrorState
-            title={tc('state.error.text')}
-            requestId={version.error instanceof ApiFailure ? version.error.requestId : undefined}
-            onRetry={() => void version.refetch()}
-          />
+          <LoadError error={version.error} onRetry={() => void version.refetch()} />
         ) : (
           <Skeleton shape="card" />
         )}
-      </Modal>
+      </Dialog>
     );
   return (
     <OfficialForm
@@ -241,62 +227,58 @@ function OfficialForm({
     (official ? etag !== undefined : roleKey !== null);
   const roleOptions = (roleList.data ?? [])
     .filter((r) => r.kind === 'official' && r.key !== NOT_GIVEN)
-    .map((r) => ({ id: r.key, label: localized(r.name, locale) }));
+    .map((r) => ({ value: r.key, label: localized(r.name, locale) }));
   const programOptions = [
-    { id: NONE, label: t('no_program') },
+    { value: NONE, label: t('no_program') },
     ...(programList.data ?? []).map((p) => ({
-      id: p.id,
+      value: p.id,
       label: `${localized(p.name, locale)} (${p.code})`,
     })),
   ];
   const divisionOptions = [
-    { id: NONE, label: t('no_division') },
-    ...(divisions.data ?? []).map((d) => ({ id: d.id, label: localized(d.name, locale) })),
+    { value: NONE, label: t('no_division') },
+    ...(divisions.data ?? []).map((d) => ({ value: d.id, label: localized(d.name, locale) })),
   ];
   const steps = [t('step_identity'), t('step_place')];
 
   return (
-    <Modal
+    <Dialog
       title={official ? t('edit_title', { name: official.displayName }) : t('create_title')}
-      size="lg"
-      isOpen
+      size="large"
+      open
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
+      actions={
         step === 0 ? (
-          <Button variant="secondary" onPress={onClose}>
-            {tc('cancel')}
-          </Button>
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              {tc('cancel')}
+            </Button>
+            <Button onClick={next}>{t('next')}</Button>
+          </>
         ) : (
-          <Button variant="secondary" onPress={() => setStep(0)} disabled={save.isPending}>
-            {t('back')}
-          </Button>
-        )
-      }
-      primaryAction={
-        step === 0 ? (
-          <Button onPress={next}>{t('next')}</Button>
-        ) : (
-          <Button onPress={() => save.mutate()} disabled={!ready} loading={save.isPending}>
-            {official ? tc('save') : t('create')}
-          </Button>
+          <>
+            <Button variant="secondary" onClick={() => setStep(0)} disabled={save.isPending}>
+              {t('back')}
+            </Button>
+            <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
+              {official ? tc('save') : t('create')}
+            </Button>
+          </>
         )
       }
     >
-      <Stepper
-        className="official-steps"
-        label={t('steps')}
-        steps={steps}
-        current={step}
-        onSelect={(i) => (i === 0 ? setStep(0) : next())}
-      />
-      {stale && !save.error && (
-        <Alert tone="warning" live="status">
-          {t('stale')}
-        </Alert>
-      )}
+      <div className="official-steps">
+        <Stepper
+          label={t('steps')}
+          steps={steps}
+          current={step}
+          onSelect={(i) => (i === 0 ? setStep(0) : next())}
+        />
+      </div>
+      {stale && !save.error && <Alert tone="warning">{t('stale')}</Alert>}
       {save.error && (
-        <Alert tone="danger" live="alert">
+        <Alert tone="error">
           {failure ? (failure.details[0]?.message ?? failure.message) : t('offline')}
         </Alert>
       )}
@@ -304,7 +286,7 @@ function OfficialForm({
         <div className="official-form">
           <TextField
             label={t('job_id')}
-            helper={t('job_id_hint')}
+            hint={t('job_id_hint')}
             required
             maxLength={JOB_ID_MAX_LENGTH}
             lang="en"
@@ -332,7 +314,7 @@ function OfficialForm({
             <>
               <TextField
                 label={t('email')}
-                helper={t('email_hint')}
+                hint={t('email_hint')}
                 type="email"
                 required
                 maxLength={254}
@@ -355,11 +337,11 @@ function OfficialForm({
       ) : (
         <div className="official-form">
           {!official && (
-            <Select
+            <SelectField
               label={t('role')}
               required
-              value={roleKey}
-              onChange={setRoleKey}
+              value={roleKey ?? ''}
+              onChange={(v) => setRoleKey(v || null)}
               options={roleOptions}
               searchable={false}
               error={fieldError('roleKey')}
@@ -370,7 +352,7 @@ function OfficialForm({
               label={t('affiliation')}
               value={affiliation}
               onChange={(id) => setAffiliation(id as Affiliation)}
-              options={AFFILIATIONS.map((a) => ({ id: a, label: ta(a) }))}
+              options={AFFILIATIONS.map((a) => ({ value: a, label: ta(a) }))}
             />
           </div>
           {affiliation !== 'department' && (
@@ -383,17 +365,17 @@ function OfficialForm({
               error={fieldError('affiliationUnit')}
             />
           )}
-          <Select
+          <SelectField
             label={t('program')}
             value={programId}
-            onChange={(id) => setProgramId(id ?? NONE)}
+            onChange={(id) => setProgramId(id || NONE)}
             options={programOptions}
             error={fieldError('homeProgramId')}
           />
-          <Select
+          <SelectField
             label={t('division')}
             value={divisionId}
-            onChange={(id) => setDivisionId(id ?? NONE)}
+            onChange={(id) => setDivisionId(id || NONE)}
             options={divisionOptions}
             error={fieldError('homeDivisionId')}
           />
@@ -417,6 +399,6 @@ function OfficialForm({
           </div>
         </div>
       )}
-    </Modal>
+    </Dialog>
   );
 }

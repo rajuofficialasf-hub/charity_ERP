@@ -1,4 +1,4 @@
-import type { ActiveFilter } from '@css/ui';
+import type { ActiveFilter } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../components/AddressNames';
 

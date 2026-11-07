@@ -1,5 +1,4 @@
-import { Button, type IconComponent } from '@css/ui';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Button, type ExtendedIconName } from '@/ui';
 import { useTranslations } from 'use-intl';
 
 /**
@@ -16,7 +15,7 @@ export function WizardActions({
   onBack?: () => void;
   onSaveExit?: () => void;
   saveExitLabel: string;
-  primary?: { label: string; icon: IconComponent; onPress: () => void };
+  primary?: { label: string; icon: ExtendedIconName; onPress: () => void };
   /** A save or a move is running: every button waits. */
   busy: boolean;
 }) {
@@ -25,19 +24,19 @@ export function WizardActions({
     <div className="admin-wizard-actions">
       <div className="admin-wizard-actions-start">
         {onBack && (
-          <Button variant="secondary" icon={ArrowLeft} onPress={onBack} disabled={busy}>
+          <Button variant="secondary" startIcon="arrow-left" onClick={onBack} disabled={busy}>
             {t('back')}
           </Button>
         )}
       </div>
       <div className="admin-wizard-actions-end">
         {onSaveExit && (
-          <Button variant="ghost" icon={Save} onPress={onSaveExit} disabled={busy}>
+          <Button variant="text" startIcon="save" onClick={onSaveExit} disabled={busy}>
             {saveExitLabel}
           </Button>
         )}
         {primary && (
-          <Button icon={primary.icon} iconPosition="end" onPress={primary.onPress} loading={busy}>
+          <Button endIcon={primary.icon} onClick={primary.onPress} loading={busy}>
             {primary.label}
           </Button>
         )}

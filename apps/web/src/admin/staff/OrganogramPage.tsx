@@ -1,22 +1,11 @@
 import { formatPercent } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Badge, Button, EmptyState, ErrorState, Select, Skeleton, PageHeader } from '@css/ui';
+import { Button, Chip, EmptyState, Icon, IconButton, Page, SelectField, Skeleton } from '@/ui';
 import { PersonAvatar } from '../../components/PersonPhoto';
 import { useQuery } from '@tanstack/react-query';
-import {
-  ChevronsDownUp,
-  ChevronsUpDown,
-  Maximize2,
-  Minus,
-  Network,
-  Plus,
-  ZoomIn,
-  ZoomOut,
-} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canSeeStaff } from '../roles';
@@ -26,6 +15,7 @@ import { type Organogram, type OrganogramNode, organogram, STAFF_KEY } from './s
 import './staff.css';
 import { StaffViewSwitch } from './StaffViewSwitch';
 import { PageCrumbs } from '../../components/shell/breadcrumb';
+import { LoadError } from '../../components/LoadError';
 
 const ALL = 'all';
 /** The zoom of the chart: never below 40 %, never above 150 %, in steps of 10 %. */
@@ -71,7 +61,6 @@ export function OrganogramPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.staff.chart');
   const ts = useTranslations('admin.staff');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const allowed = Boolean(me && canSeeStaff(me));
   const [program, setProgram] = useState<string>(ALL);
@@ -145,11 +134,9 @@ export function OrganogramPage() {
             )}
           </span>
           {n.state !== 'active' && (
-            <Badge
-              size="sm"
-              tone="warning"
-              label={n.state === 'pending' ? t('state.pending') : t('state.blocked')}
-            />
+            <Chip tone="warning">
+              {n.state === 'pending' ? t('state.pending') : t('state.blocked')}
+            </Chip>
           )}
         </div>
         {foldable && (
@@ -162,7 +149,7 @@ export function OrganogramPage() {
             }
             onClick={() => toggle(n.userId)}
           >
-            {isFolded ? <Plus aria-hidden size={14} /> : <Minus aria-hidden size={14} />}
+            <Icon name={isFolded ? 'add' : 'minus'} size={14} />
           </button>
         )}
       </div>
@@ -188,17 +175,10 @@ export function OrganogramPage() {
 
   const content = () => {
     if (chart.isPending) return <Skeleton shape="card" />;
-    if (chart.error)
-      return (
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={chart.error instanceof ApiFailure ? chart.error.requestId : undefined}
-          onRetry={() => void chart.refetch()}
-        />
-      );
+    if (chart.error) return <LoadError error={chart.error} onRetry={() => void chart.refetch()} />;
     const { leadership, programs, unplaced } = chart.data;
     if (!leadership.length && !programs.length && !unplaced.length)
-      return <EmptyState icon={Network} title={t('empty')} headingLevel={2} />;
+      return <EmptyState title={t('empty')} />;
     const shown = program === ALL ? programs : programs.filter((p) => p.programId === program);
     // the Department Head on top; the Monitoring Team reports to the Head and stands beside the
     // programs, one level below (owner, 2026-10-17)
@@ -225,63 +205,54 @@ export function OrganogramPage() {
           ]}
         />
         <div className="org-toolbar">
-          <Select
+          <SelectField
             label={t('program')}
             value={program}
-            onChange={(id) => setProgram(id ?? ALL)}
+            onChange={(id) => setProgram(id || ALL)}
             options={[
-              { id: ALL, label: t('all_programs') },
-              ...programs.map((p) => ({ id: p.programId, label: localized(p.name, locale) })),
+              { value: ALL, label: t('all_programs') },
+              ...programs.map((p) => ({ value: p.programId, label: localized(p.name, locale) })),
             ]}
           />
           <div className="org-actions">
             <span className="org-zoom" role="group" aria-label={t('zoom')}>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={ZoomOut}
-                iconOnly
-                onPress={() => zoomBy(-ZOOM_STEP)}
+              <IconButton
+                label={t('zoom_out')}
+                icon="zoom-out"
+
+                onClick={() => zoomBy(-ZOOM_STEP)}
                 disabled={zoom <= MIN_ZOOM}
-              >
-                {t('zoom_out')}
-              </Button>
+              />
               <span className="org-zoom-value" aria-live="polite">
                 {formatPercent(zoom, locale)}
               </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={ZoomIn}
-                iconOnly
-                onPress={() => zoomBy(ZOOM_STEP)}
+              <IconButton
+                label={t('zoom_in')}
+                icon="zoom-in"
+
+                onClick={() => zoomBy(ZOOM_STEP)}
                 disabled={zoom >= MAX_ZOOM}
-              >
-                {t('zoom_in')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={Maximize2}
-                iconOnly
-                onPress={() => setFitting(true)}
-              >
-                {t('zoom_fit')}
-              </Button>
+              />
+              <IconButton
+                label={t('zoom_fit')}
+                icon="maximize"
+
+                onClick={() => setFitting(true)}
+              />
             </span>
             <Button
               variant="secondary"
-              size="sm"
-              icon={ChevronsUpDown}
-              onPress={() => setFolded(new Set())}
+              size="small"
+              startIcon="sort"
+              onClick={() => setFolded(new Set())}
             >
               {t('open_all')}
             </Button>
             <Button
               variant="secondary"
-              size="sm"
-              icon={ChevronsDownUp}
-              onPress={() => setFolded(new Set(foldable))}
+              size="small"
+              startIcon="collapse"
+              onClick={() => setFolded(new Set(foldable))}
             >
               {t('fold_all')}
             </Button>
@@ -360,7 +331,7 @@ export function OrganogramPage() {
           { id: 'chart', label: t('title') },
         ]}
       />
-      <PageHeader title={t('title')} actions={<StaffViewSwitch value="chart" />} />
+      <Page title={t('title')} actions={<StaffViewSwitch value="chart" />} documentTitle={false} />
       {content()}
     </>
   );

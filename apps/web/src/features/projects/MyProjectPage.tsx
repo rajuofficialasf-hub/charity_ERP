@@ -1,12 +1,13 @@
 import { formatCount, formatDate } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, Checkbox, ErrorState, Skeleton, Stack, Stepper } from '@css/ui';
+import { Alert, Button, Card, Checkbox, LinkButton, Skeleton, Stack, Stepper } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { LoadError } from '../../components/LoadError';
 import { ApiFailure } from '../../lib/api';
 import { orCached } from '../../lib/or-cached';
 import { loadStore } from '../applications/use-local-records';
@@ -18,7 +19,8 @@ const detailKey = (projectId: string) => [...MY_PROJECTS_KEY, projectId] as cons
 /**
  * One of the volunteer's projects. While the consent waits, the rules are read part by part (the
  * Local দায়ী part only while dawah is on), each confirmed, then the final "আমি রাজি এবং এই
- * প্রকল্পে কাজ করতে আগ্রহী"; refusing keeps the project waiting (BR-039, DECISION_LOG D-096).
+ * প্রকল্পে কাজ করতে আগ্রহী"; refusing keeps the project waiting (docs/BUSINESS_RULES.md, the
+ * consent to a project's rules).
  * After the consent the project's work facts show, with the team for a main volunteer. Without
  * network the phone's copy of the project opens; the rules themselves are read online only, so a
  * consent still waiting says it needs the connection.
@@ -31,7 +33,6 @@ export function MyProjectPage() {
 function ProjectView() {
   const { projectId = '' } = useParams();
   const t = useTranslations('projects');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const one = useQuery({
     queryKey: detailKey(projectId),
@@ -51,11 +52,7 @@ function ProjectView() {
         {one.error instanceof ApiFailure && one.error.status === 404 ? (
           <p>{t('mine.not_found')}</p>
         ) : (
-          <ErrorState
-            title={tc('state.error.text')}
-            requestId={one.error instanceof ApiFailure ? one.error.requestId : undefined}
-            onRetry={() => void one.refetch()}
-          />
+          <LoadError error={one.error} onRetry={() => void one.refetch()} />
         )}
       </>
     );
@@ -103,20 +100,20 @@ function ProjectFacts({ project: p }: { project: MyProjectDetail }) {
     <Card
       title={`${localized(p.name, locale)} (${p.code})`}
       headingLevel={2}
-      actions={
+      action={
         <Stack direction="row" gap={2} wrap>
           {p.status === 'active' ? (
-            <Button variant="primary" size="sm" href={`/my-projects/${p.projectId}/apply`}>
+            <LinkButton variant="primary" to={`/my-projects/${p.projectId}/apply`}>
               {t('new_application')}
-            </Button>
+            </LinkButton>
           ) : null}
-          <Button variant="secondary" size="sm" href="/my-applications?tab=pending">
+          <LinkButton variant="secondary" to="/my-applications?tab=pending">
             {t('my_applications')}
-          </Button>
+          </LinkButton>
           {leads ? (
-            <Button variant="secondary" size="sm" href={`/my-projects/${p.projectId}/team`}>
+            <LinkButton variant="secondary" to={`/my-projects/${p.projectId}/team`}>
               {t('team')}
-            </Button>
+            </LinkButton>
           ) : null}
         </Stack>
       }
@@ -169,47 +166,34 @@ function ConsentFlow({ project: p }: { project: MyProjectDetail }) {
     <section className="my-consent" aria-labelledby="consent-title">
       <h2 id="consent-title">{t('title', { name: localized(p.name, locale) })}</h2>
       <Stepper label={t('steps')} steps={labels} current={step} />
-      {refused && (
-        <Alert tone="info" live="status">
-          {t('refused')}
-        </Alert>
-      )}
-      {changed && (
-        <Alert tone="warning" live="alert">
-          {t('changed')}
-        </Alert>
-      )}
+      {refused && <Alert tone="info">{t('refused')}</Alert>}
+      {changed && <Alert tone="warning">{t('changed')}</Alert>}
       {answer.error instanceof ApiFailure && !changed && (
-        <Alert tone="danger" live="alert">
-          {answer.error.message}
-        </Alert>
+        <Alert tone="error">{answer.error.message}</Alert>
       )}
       {!last ? (
         <Card title={labels[step]!} headingLevel={2}>
           <p className="my-consent-text">{localized(parts[step]!.text, locale)}</p>
           <Checkbox
-            isSelected={read[step]}
+            label={t('read')}
+            checked={read[step] ?? false}
             onChange={(on) => setRead(read.map((r, i) => (i === step ? on : r)))}
-          >
-            {t('read')}
-          </Checkbox>
+          />
         </Card>
       ) : (
         <Card title={t('final')} headingLevel={2}>
-          <Checkbox isSelected={agree} onChange={setAgree}>
-            {t('agree')}
-          </Checkbox>
+          <Checkbox label={t('agree')} checked={agree} onChange={setAgree} />
         </Card>
       )}
       <div className="my-consent-actions">
         {step > 0 && (
-          <Button variant="secondary" onPress={() => setStep(step - 1)}>
+          <Button variant="secondary" onClick={() => setStep(step - 1)}>
             {t('back')}
           </Button>
         )}
         <Button
-          variant="ghost"
-          onPress={() => answer.mutate('refused')}
+          variant="text"
+          onClick={() => answer.mutate('refused')}
           // one answer at a time: a second tap never sends the opposite decision
           disabled={answer.isPending}
           loading={answer.isPending && answer.variables === 'refused'}
@@ -217,12 +201,12 @@ function ConsentFlow({ project: p }: { project: MyProjectDetail }) {
           {t('refuse')}
         </Button>
         {!last ? (
-          <Button onPress={() => setStep(step + 1)} disabled={!read[step]}>
+          <Button onClick={() => setStep(step + 1)} disabled={!read[step]}>
             {t('next')}
           </Button>
         ) : (
           <Button
-            onPress={() => answer.mutate('accepted')}
+            onClick={() => answer.mutate('accepted')}
             disabled={answer.isPending || !agree || read.some((r) => !r)}
             loading={answer.isPending && answer.variables === 'accepted'}
           >

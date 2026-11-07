@@ -1,6 +1,5 @@
-import { Button, TextField } from '@css/ui';
+import { Button, IconButton, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { saveSyllabus, type Topic } from './setup-api';
@@ -60,46 +59,37 @@ export function SyllabusSection({ topics }: { topics: Topic[] }) {
           />
           {can && (
             <span className="admin-setup-order">
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={ArrowUp}
-                iconOnly
+              <IconButton
+                label={t('topic_up', { number: String(i + 1) })}
+                icon="arrow-up"
+
                 disabled={i === 0}
-                onPress={() => move(i, -1)}
-              >
-                {t('topic_up', { number: String(i + 1) })}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={ArrowDown}
-                iconOnly
+                onClick={() => move(i, -1)}
+              />
+              <IconButton
+                label={t('topic_down', { number: String(i + 1) })}
+                icon="arrow-down"
+
                 disabled={i === rows.length - 1}
-                onPress={() => move(i, 1)}
-              >
-                {t('topic_down', { number: String(i + 1) })}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={Trash2}
-                iconOnly
-                onPress={() => setRows(rows.filter((_, j) => j !== i))}
-              >
-                {t('topic_remove', { number: String(i + 1) })}
-              </Button>
+                onClick={() => move(i, 1)}
+              />
+              <IconButton
+                label={t('topic_remove', { number: String(i + 1) })}
+                icon="delete"
+
+                onClick={() => setRows(rows.filter((_, j) => j !== i))}
+              />
             </span>
           )}
         </div>
       ))}
       {can && (
         <Button
-          variant="ghost"
-          size="sm"
-          icon={Plus}
+          variant="text"
+          size="small"
+          startIcon="add"
           disabled={rows.length >= MAX_TOPICS}
-          onPress={() => setRows([...rows, { title: { bn: '', en: '' } }])}
+          onClick={() => setRows([...rows, { title: { bn: '', en: '' } }])}
         >
           {t('add_topic')}
         </Button>

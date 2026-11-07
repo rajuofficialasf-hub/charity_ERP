@@ -12,8 +12,7 @@ import {
   PATTERN_KEYS,
   validationOf,
 } from '@css/shared/forms';
-import { Disclosure, Icon, Select, Stack, Switch, Text, TextField } from '@css/ui';
-import { Sparkles } from 'lucide-react';
+import { Disclosure, Icon, SelectField, Stack, Switch, Text, TextField } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import {
   setOptions,
@@ -112,19 +111,19 @@ function SectionSettings({
         <Stack gap={3}>
           <Texts value={section.title} onChange={setTitle} />
           {mode === 'full' ? (
-            <Select
+            <SelectField
               label={t('visibility')}
               value={section.visibility}
               disabled={core}
-              helper={core ? t('identity.section') : undefined}
+              hint={core ? t('identity.section') : undefined}
               onChange={(id) =>
                 id === 'volunteer' || id === 'official_only'
                   ? onChange(setSectionVisibility(definition, section.key, id))
                   : undefined
               }
               options={[
-                { id: 'volunteer', label: t('visibility_volunteer') },
-                { id: 'official_only', label: t('visibility_official') },
+                { value: 'volunteer', label: t('visibility_volunteer') },
+                { value: 'official_only', label: t('visibility_official') },
               ]}
             />
           ) : null}
@@ -271,21 +270,21 @@ function FieldSettingsView({
         <Stack gap={3}>
           <Texts value={field.label} onChange={(label) => patch({ label })} />
           {pipeSources.length > 0 ? (
-            <Select
+            <SelectField
               label={t('pipe')}
-              helper={t('pipe_hint')}
-              value={null}
+              hint={t('pipe_hint')}
+              value=""
               onChange={(id) => {
                 if (!id) return;
                 const token = ` {{${id}}}`;
                 patch({ label: { bn: field.label.bn + token, en: field.label.en + token } });
               }}
-              options={pipeSources.map((f) => ({ id: f.fieldKey, label: f.label[locale] }))}
+              options={pipeSources.map((f) => ({ value: f.fieldKey, label: f.label[locale] }))}
             />
           ) : null}
           <TextField
             label={t('help_bn')}
-            helper={t('help_hint')}
+            hint={t('help_hint')}
             value={field.settings?.help?.bn ?? ''}
             onChange={(bn) => setSettings({ help: helpOf(bn, field.settings?.help?.en ?? '') })}
           />
@@ -297,18 +296,17 @@ function FieldSettingsView({
           />
           {answers ? (
             <Switch
-              isSelected={field.required}
-              isDisabled={locks.optional}
+              label={t('required')}
+              checked={field.required}
+              disabled={locks.optional}
               onChange={(required) => patch({ required })}
-            >
-              {t('required')}
-            </Switch>
+            />
           ) : null}
           {/* a mark a form of another kind still holds (a copy) shows, so it can be cleared */}
           {(identityMarks && markable) || role ? (
-            <Select
+            <SelectField
               label={t('identity.label')}
-              helper={markable ? t('identity.hint') : t('identity.blocked')}
+              hint={markable ? t('identity.hint') : t('identity.blocked')}
               value={role ?? NONE}
               disabled={!markable}
               onChange={(id) =>
@@ -321,8 +319,8 @@ function FieldSettingsView({
                 )
               }
               options={[
-                { id: NONE, label: t('identity.none') },
-                ...CORE_FIELD_KEYS.map((k) => ({ id: k, label: t(`identity.roles.${k}`) })),
+                { value: NONE, label: t('identity.none') },
+                ...CORE_FIELD_KEYS.map((k) => ({ value: k, label: t(`identity.roles.${k}`) })),
               ]}
             />
           ) : null}
@@ -332,9 +330,9 @@ function FieldSettingsView({
         <Disclosure title={t('options')} headingLevel={2} defaultOpen>
           <Stack gap={3}>
             {parents.length > 0 ? (
-              <Select
+              <SelectField
                 label={t('depends_on')}
-                helper={t('depends_on_hint')}
+                hint={t('depends_on_hint')}
                 value={parent?.fieldKey ?? NONE}
                 onChange={(id) => {
                   const next = id && id !== NONE ? id : undefined;
@@ -348,8 +346,8 @@ function FieldSettingsView({
                   });
                 }}
                 options={[
-                  { id: NONE, label: t('depends_none') },
-                  ...parents.map((p) => ({ id: p.fieldKey, label: p.label[locale] })),
+                  { value: NONE, label: t('depends_none') },
+                  ...parents.map((p) => ({ value: p.fieldKey, label: p.label[locale] })),
                 ]}
               />
             ) : null}
@@ -366,15 +364,15 @@ function FieldSettingsView({
       {isTextType(field.type) ? (
         <Disclosure title={t('group_rules')} hint={t('optional')} headingLevel={2}>
           <Stack gap={3}>
-            <Select
+            <SelectField
               label={t('pattern')}
               value={rules.pattern ?? NONE}
               onChange={(id) =>
                 setValidation({ pattern: PATTERN_KEYS.find((k) => k === id) ?? undefined })
               }
               options={[
-                { id: NONE, label: t('pattern_none') },
-                ...PATTERN_KEYS.map((k) => ({ id: k, label: t(`patterns.${k}`) })),
+                { value: NONE, label: t('pattern_none') },
+                ...PATTERN_KEYS.map((k) => ({ value: k, label: t(`patterns.${k}`) })),
               ]}
             />
             <LimitPair
@@ -471,9 +469,11 @@ function StartCard() {
   return (
     <div className="fb-start">
       <span className="fb-start-icon">
-        <Icon icon={Sparkles} />
+        <Icon name="sparkles" />
       </span>
-      <Text weight="bold">{t('start_title')}</Text>
+      <Text>
+        <strong>{t('start_title')}</strong>
+      </Text>
       <ol className="fb-start-steps">
         <li>{t('start_1')}</li>
         <li>{t('start_2')}</li>

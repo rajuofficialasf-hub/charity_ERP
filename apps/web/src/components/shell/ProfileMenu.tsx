@@ -1,15 +1,6 @@
 import type { Me } from '@css/shared/auth';
-import { type MenuAction, MenuButton } from '@css/ui';
+import { Menu, type MenuItemSpec } from '@/ui';
 import { PersonTile } from '../PersonPhoto';
-import {
-  Download,
-  FileDown,
-  KeyRound,
-  Languages,
-  LogOut,
-  MonitorSmartphone,
-  UserRound,
-} from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
@@ -46,16 +37,30 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
     });
     await navigate('/login?ended=logout', { replace: true });
   };
-  const items: MenuAction[] = [
-    { id: 'profile', label: t('profile'), icon: UserRound, href: '/account/profile' },
-    { id: 'devices', label: ta('devices'), icon: MonitorSmartphone, href: '/account/sessions' },
-    { id: 'password', label: ta('change_password'), icon: KeyRound, href: '/account/password' },
+  const items: MenuItemSpec[] = [
+    { id: 'profile', label: t('profile'), icon: 'user', to: '/account/profile' },
+    { id: 'devices', label: ta('devices'), icon: 'devices', to: '/account/sessions' },
+    { id: 'password', label: ta('change_password'), icon: 'key', to: '/account/password' },
     // an official's own exports; a volunteer never exports
     ...(canExport(me)
-      ? [{ id: 'exports', label: t('exports'), icon: FileDown, href: '/account/exports' }]
+      ? [
+          {
+            id: 'exports',
+            label: t('exports'),
+            icon: 'file-download' as const,
+            to: '/account/exports',
+          },
+        ]
       : []),
     ...(withLanguage
-      ? [{ id: 'language', label: tl(other), icon: Languages, onAction: () => choose(other) }]
+      ? [
+          {
+            id: 'language',
+            label: tl(other),
+            icon: 'language' as const,
+            onSelect: () => choose(other),
+          },
+        ]
       : []),
     // where the app can be installed from the page: the browser's prompt, or the hint on the home
     ...(installWay !== 'none'
@@ -63,8 +68,8 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
           {
             id: 'install',
             label: ti('menu'),
-            icon: Download,
-            onAction: () => {
+            icon: 'download' as const,
+            onSelect: () => {
               showHintAgain();
               if (installWay === 'prompt') void promptInstall();
               else void navigate('/');
@@ -75,8 +80,8 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
     {
       id: 'logout',
       label: ta('logout'),
-      icon: LogOut,
-      onAction: () => {
+      icon: 'sign-out',
+      onSelect: () => {
         void (async () => {
           const waiting =
             me.kind === 'volunteer'
@@ -92,12 +97,14 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
   ];
   return (
     <>
-      <MenuButton label={t('profile_menu')} items={items} className="app-profile-chip">
-        <PersonTile name={me.displayName} fileId={me.photoFileId} size="sm" />
-        <span className="app-user-name" data-testid="profile-name">
-          {me.displayName}
+      <Menu label={t('profile_menu')} items={items}>
+        <span className="app-profile-chip">
+          <PersonTile name={me.displayName} fileId={me.photoFileId} size="sm" />
+          <span className="app-user-name" data-testid="profile-name">
+            {me.displayName}
+          </span>
         </span>
-      </MenuButton>
+      </Menu>
       {warning !== null && (
         <LogoutWarning
           count={warning}

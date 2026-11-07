@@ -1,7 +1,6 @@
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, ErrorState, Skeleton, Stepper, type StepMark, PageHeader } from '@css/ui';
+import { Alert, Page, Skeleton, Stepper, type StepMark } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Rocket } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -45,6 +44,7 @@ import {
   STEP_IDS,
   type StepId,
 } from './wizard-steps';
+import { LoadError } from '../../../components/LoadError';
 
 const PHONE = '(max-width: 639px)';
 
@@ -131,13 +131,13 @@ function WizardHead({
   return (
     <header className="admin-wizard-head">
       {back}
-      <PageHeader title={title} meta={badge && <span data-testid="project-state">{badge}</span>} />
+      <Page title={title} documentTitle={false} />
+      {badge && <div data-testid="project-state">{badge}</div>}
       <Stepper
         label={t('steps')}
         steps={steps.map((s) => ts(s))}
         current={current}
         marks={marks}
-        missingLabel={t('missing_mark')}
         onSelect={onSelect}
       />
       <p className="admin-wizard-count">
@@ -184,7 +184,7 @@ function NewProjectWizard() {
         }}
         primary={{
           label: t('next'),
-          icon: ArrowRight,
+          icon: 'arrow-right' as const,
           onPress: () => {
             exit.current = false;
             void run(() => undefined);
@@ -201,7 +201,6 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   const t = useTranslations('admin.projects.wizard');
   const ts = useTranslations('admin.projects.setup');
   const tp = useTranslations('admin.projects');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -291,11 +290,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
         {one.error instanceof ApiFailure && one.error.status === 404 ? (
           <p>{tp('detail.not_found')}</p>
         ) : (
-          <ErrorState
-            title={tc('state.error.text')}
-            requestId={one.error instanceof ApiFailure ? one.error.requestId : undefined}
-            onRetry={() => void one.refetch()}
-          />
+          <LoadError error={one.error} onRetry={() => void one.refetch()} />
         )}
       </>
     );
@@ -303,13 +298,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   const refresh = () => queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
   // a part that did not load is an error with a retry, never "nothing configured"
   const failed = (query: { error: Error | null; refetch: () => unknown }) =>
-    query.error ? (
-      <ErrorState
-        title={tc('state.error.text')}
-        requestId={query.error instanceof ApiFailure ? query.error.requestId : undefined}
-        onRetry={() => void query.refetch()}
-      />
-    ) : null;
+    query.error ? <LoadError error={query.error} onRetry={() => void query.refetch()} /> : null;
 
   const step: StepId = valid ? asked : opening;
   const index = steps.indexOf(step);
@@ -371,11 +360,15 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   ]);
   const last = index === steps.length - 1;
   const primary = !last
-    ? { label: t('next'), icon: ArrowRight, onPress: () => void go(steps.at(index + 1)!) }
+    ? {
+        label: t('next'),
+        icon: 'arrow-right' as const,
+        onPress: () => void go(steps.at(index + 1)!),
+      }
     : // a draft is activated only when what it still needs is known
       project.status === 'draft' && configure && missing !== null
-      ? { label: t('activate'), icon: Rocket, onPress: () => activate.mutate() }
-      : { label: t('to_project'), icon: ArrowRight, onPress: () => void toProject() };
+      ? { label: t('activate'), icon: 'rocket' as const, onPress: () => activate.mutate() }
+      : { label: t('to_project'), icon: 'arrow-right' as const, onPress: () => void toProject() };
 
   return (
     <SetupProvider value={{ project, etag: meta.etag, phone, configure, refresh }}>
@@ -391,9 +384,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
           onSelect={(i) => void go(steps.at(i)!)}
         />
         {locked && (
-          <Alert tone="info" live="status">
-            {ts('read_only', { status: tp(`status.${project.status}`) })}
-          </Alert>
+          <Alert tone="info">{ts('read_only', { status: tp(`status.${project.status}`) })}</Alert>
         )}
         {phone && !locked && <Alert tone="info">{ts('phone_limits')}</Alert>}
         <StepSaveProvider value={register}>

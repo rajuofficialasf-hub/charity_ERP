@@ -1,4 +1,4 @@
-import { SegmentedControl } from '@css/ui';
+import { RadioGroup } from '@/ui';
 import { useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
 
@@ -10,13 +10,14 @@ export function StaffViewSwitch({ value }: { value: StaffView }) {
   const t = useTranslations('admin.staff.view');
   const navigate = useNavigate();
   return (
-    <SegmentedControl
+    <RadioGroup
       label={t('label')}
+      orientation="horizontal"
       value={value}
       onChange={(id) => void navigate(id === 'chart' ? VIEWS.chart : VIEWS.list)}
       options={[
-        { id: 'list', label: t('list') },
-        { id: 'chart', label: t('chart') },
+        { value: 'list', label: t('list') },
+        { value: 'chart', label: t('chart') },
       ]}
     />
   );

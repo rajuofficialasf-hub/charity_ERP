@@ -1,7 +1,6 @@
 import { formatCount, formatDateTime, formatFileSize } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, ConfirmDialog, EmptyState, Skeleton } from '@css/ui';
-import { CircleCheck, RefreshCw } from 'lucide-react';
+import { Alert, Button, ConfirmDialog, EmptyState, Skeleton } from '@/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
@@ -58,7 +57,7 @@ function Centre() {
   const locale = useLocale() as Locale;
   const { status, online, syncNow } = useOffline();
   const { overview, store, loading, refresh } = useOverview();
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [target, setTarget] = useState<OverviewRecord | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -67,7 +66,7 @@ function Centre() {
   const tSync = (key: 'store_unavailable' | 'record_on_its_way') => ta(key);
   const failWith = (error: unknown) =>
     setNotice({
-      tone: 'danger',
+      tone: 'error',
       text:
         storeMessage(error, tSync) ??
         (error instanceof Error ? error.message : t('reason_unknown')),
@@ -105,9 +104,9 @@ function Centre() {
         </p>
         <Button
           variant="secondary"
-          icon={RefreshCw}
+          startIcon="refresh"
           loading={busy === 'sync' || status.state === 'syncing'}
-          onPress={() => void run('sync', syncNow)}
+          onClick={() => void run('sync', syncNow)}
         >
           {status.state === 'syncing' ? t('syncing') : t('sync_now')}
         </Button>
@@ -115,21 +114,14 @@ function Centre() {
       {!online && <Alert tone="info">{t('offline')}</Alert>}
       {status.state === 'signed_out' && <Alert tone="warning">{t('signed_out')}</Alert>}
       {notice && (
-        <Alert tone={notice.tone} live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone={notice.tone} onDismiss={() => setNotice(null)}>
           {notice.text}
         </Alert>
       )}
       <SyncReminder />
       {deviceInfo().platform === 'ios' && <Alert tone="info">{tAuth('ios_storage')}</Alert>}
       {loading && <Skeleton shape="card" />}
-      {empty && (
-        <EmptyState
-          icon={CircleCheck}
-          title={t('empty')}
-          message={t('empty_hint')}
-          headingLevel={2}
-        />
-      )}
+      {empty && <EmptyState icon="success" title={t('empty')} description={t('empty_hint')} />}
       {grouped.map(({ group, records: rows }) => (
         <section key={group} className="sync-group" aria-labelledby={`sync-group-${group}`}>
           <div className="sync-group-head">
@@ -139,9 +131,9 @@ function Centre() {
             {group === 'failed' && rows.length > 1 && store && (
               <Button
                 variant="secondary"
-                size="sm"
+                size="small"
                 loading={busy === 'all'}
-                onPress={() => void run('all', () => store.retryAll(), t('sent'))}
+                onClick={() => void run('all', () => store.retryAll(), t('sent'))}
               >
                 {t('retry_all')}
               </Button>
@@ -183,7 +175,7 @@ function Centre() {
         />
       )}
       <ConfirmDialog
-        isOpen={target !== null}
+        open={target !== null}
         title={t('delete_title')}
         message={t('delete_body', { name: target?.beneficiaryName ?? t('unnamed') })}
         tone="danger"

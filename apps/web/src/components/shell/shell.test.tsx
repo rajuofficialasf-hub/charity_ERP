@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -14,6 +14,7 @@ import { enqueue } from '../../offline/outbox';
 import type { SyncEngine, SyncStatus } from '../../offline/sync-engine';
 import { AppShell } from './AppShell';
 import { PageCrumbs } from './breadcrumb';
+import { stubMatchMedia } from '../../../test/match-media';
 
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const PM: Me = { ...ME, roles: ['program_manager'] };
@@ -28,12 +29,12 @@ const VOLUNTEER: Me = {
 
 /** The screen is this many pixels wide (the shell reads its width class from media queries). */
 function atWidth(px: number) {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: px >= Number(/min-width: (\d+)px/.exec(query)?.[1] ?? 0),
-    media: query,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-  }));
+  stubMatchMedia((query) => {
+    if (query.includes('prefers-color-scheme')) return false;
+    const min = /min-width:\s*([\d.]+)px/.exec(query);
+    const max = /max-width:\s*([\d.]+)px/.exec(query);
+    return (!min || px >= Number(min[1])) && (!max || px <= Number(max[1]));
+  });
 }
 
 const PAGES = [
@@ -123,7 +124,7 @@ describe('app shell', () => {
       '/admin/audit',
     );
     // the dark sidebar carries the Foundation's mark and name, a help card and the person
-    const sidebar = screen.getByTestId('sidebar');
+    const sidebar = screen.getByRole('complementary');
     expect(
       within(sidebar).getByRole('link', {
         name: /আস-সুন্নাহ ফাউন্ডেশন.*চ্যারিটি ও সোশ্যাল সার্ভিস/,
@@ -139,7 +140,7 @@ describe('app shell', () => {
     expect(within(bar).getByRole('link', { name: 'নোটিফিকেশন' })).toBeInTheDocument();
     // an official keeps nothing on the device: no sync chip
     expect(within(bar).queryByRole('link', { name: /সিঙ্কের অবস্থা/ })).toBeNull();
-    expect(within(bar).getByRole('radiogroup', { name: 'ভাষা' })).toBeInTheDocument();
+    expect(within(bar).getByRole('group', { name: 'ভাষা' })).toBeInTheDocument();
     // the profile chip: the person's letter and name
     const chip = within(bar).getByRole('button', { name: 'প্রোফাইল মেনু' });
     expect(chip).toHaveTextContent(/ডিপার্টমেন্ট হেড \(নমুনা\)/);
@@ -164,7 +165,7 @@ describe('app shell', () => {
     const chip = within(screen.getByRole('banner')).getByRole('button', { name: 'প্রোফাইল মেনু' });
     await waitFor(() => expect(chip.querySelector('img[src^="data:image/png"]')).not.toBeNull());
     expect(
-      screen.getByTestId('sidebar').querySelector('img[src^="data:image/png"]'),
+      screen.getByRole('complementary').querySelector('img[src^="data:image/png"]'),
     ).not.toBeNull();
   });
 

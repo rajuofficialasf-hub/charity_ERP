@@ -7,17 +7,15 @@ import {
   Card,
   Checkbox,
   EmptyState,
-  ErrorState,
-  Select,
+  Page,
+  SelectField,
   Skeleton,
   Stack,
   Switch,
   Text,
-  TextArea,
-  PageHeader,
-} from '@css/ui';
+  TextField,
+} from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ClipboardList } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -35,6 +33,7 @@ import {
   transferCandidates,
   transferCandidatesKey,
 } from './transfer-api';
+import { LoadError } from '../../../components/LoadError';
 
 /** A choice of the new volunteer: someone on the project, or someone added with the handover. */
 interface Target {
@@ -127,8 +126,8 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
   if (project.isPending || people.isPending) return <Skeleton shape="card" />;
   if (project.error || people.error)
     return (
-      <ErrorState
-        title={tc('state.error.text')}
+      <LoadError
+        error={project.error}
         onRetry={() => {
           void project.refetch();
           void people.refetch();
@@ -147,10 +146,10 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
   const toOptions = [
     ...everyone
       .filter((p) => p.volunteerId !== from)
-      .map((p) => ({ id: p.volunteerId, label: p.displayName })),
+      .map((p) => ({ value: p.volunteerId, label: p.displayName })),
     ...(newcomers.data ?? [])
       .filter((c) => !everyone.some((p) => p.volunteerId === c.volunteerId))
-      .map((c) => ({ id: c.volunteerId, label: `${c.displayName} · ${t('to_new')}` })),
+      .map((c) => ({ value: c.volunteerId, label: `${c.displayName} · ${t('to_new')}` })),
   ];
   const chooseTarget = (id: string | null) => {
     fresh();
@@ -167,9 +166,9 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
     <Stack gap={3}>
       <DocumentTitle title={t('title', { name })} />
       <Link to={`/admin/projects/${projectId}/volunteers`}>{t('back')}</Link>
-      <PageHeader title={t('title', { name })} description={t('help')} />
+      <Page title={t('title', { name })} description={t('help')} documentTitle={false} />
       {result ? (
-        <Alert tone="success" live="status" onDismiss={() => setResult(null)}>
+        <Alert tone="success" onDismiss={() => setResult(null)}>
           {result.teamMoved
             ? t('done_team', {
                 count: formatCount(result.moved.length, locale),
@@ -180,10 +179,10 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
         </Alert>
       ) : null}
       <Card title={t('from_title')} headingLevel={2}>
-        <Select
+        <SelectField
           label={t('from')}
-          value={from}
-          options={everyone.map((p) => ({ id: p.volunteerId, label: p.displayName }))}
+          value={from ?? ''}
+          options={everyone.map((p) => ({ value: p.volunteerId, label: p.displayName }))}
           onChange={(id) => {
             setTicked(new Set());
             setTo(null);
@@ -197,27 +196,28 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
         ) : apps.isPending ? (
           <Skeleton shape="text" />
         ) : apps.error ? (
-          <ErrorState title={tc('state.error.text')} onRetry={() => void apps.refetch()} />
+          <LoadError error={apps.error} onRetry={() => void apps.refetch()} />
         ) : list.length === 0 ? (
-          <EmptyState icon={ClipboardList} title={t('no_applications')} headingLevel={3} />
+          <EmptyState title={t('no_applications')} />
         ) : (
           <Stack gap={2}>
             <Checkbox
-              isSelected={allTicked}
-              isIndeterminate={ticked.size > 0 && !allTicked}
+              label={t('select_all')}
+              checked={allTicked}
+              indeterminate={ticked.size > 0 && !allTicked}
               onChange={(on) => {
                 fresh();
                 setTicked(on ? new Set(list.map((a) => a.id)) : new Set());
               }}
-            >
-              {t('select_all')}
-            </Checkbox>
+            />
             <ul className="admin-transfer-list">
               {list.map((a) => (
                 <li key={a.id}>
-                  <Checkbox isSelected={ticked.has(a.id)} onChange={(on) => toggle(a.id, on)}>
-                    {`${a.beneficiaryName ?? t('unnamed')} · ${a.appNo ?? t('no_number')} · ${stateLabel(ts, a.status)}`}
-                  </Checkbox>
+                  <Checkbox
+                    label={`${a.beneficiaryName ?? t('unnamed')} · ${a.appNo ?? t('no_number')} · ${stateLabel(ts, a.status)}`}
+                    checked={ticked.has(a.id)}
+                    onChange={(on) => toggle(a.id, on)}
+                  />
                 </li>
               ))}
             </ul>
@@ -227,17 +227,15 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
       </Card>
       <Card title={t('to_title')} headingLevel={2}>
         <Stack gap={2}>
-          <Select
+          <SelectField
             label={t('to')}
-            value={to?.volunteerId ?? null}
+            value={to?.volunteerId ?? ''}
             options={toOptions}
             onChange={chooseTarget}
-            helper={assigns ? t('to_new_help') : undefined}
+            hint={assigns ? t('to_new_help') : undefined}
           />
           {movesTeams ? (
-            <Switch isSelected={moveTeam} onChange={setMoveTeam}>
-              {t('move_team')}
-            </Switch>
+            <Switch label={t('move_team')} checked={moveTeam} onChange={setMoveTeam} />
           ) : null}
           {movesTeams ? <Text tone="muted">{t('move_team_help')}</Text> : null}
           {overLimit ? (
@@ -250,16 +248,17 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
           ) : null}
         </Stack>
       </Card>
-      <TextArea
+      <TextField
+        rows={4}
         label={t('reason')}
-        helper={t('reason_help')}
+        hint={t('reason_help')}
         value={reason}
         onChange={setReason}
         required
         name="reason"
       />
       {send.error ? (
-        <Alert tone="danger">
+        <Alert tone="error">
           {send.error instanceof ApiFailure ? send.error.message : tc('state.error.text')}
         </Alert>
       ) : null}
@@ -268,7 +267,7 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
           variant="primary"
           disabled={!ready}
           loading={send.isPending}
-          onPress={() => send.mutate()}
+          onClick={() => send.mutate()}
         >
           {t('submit')}
         </Button>

@@ -5,8 +5,8 @@ import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
 import { measureAddedRoute, measureFirstRoute } from '../scripts/bundle-report.mjs';
 
-// The first-route JavaScript budget of the PWA (docs/NON_FUNCTIONAL_REQUIREMENTS.md, the 250 KB
-// first route): the entry script and the chunks it preloads, compressed.
+// The first-route JavaScript of the PWA (docs/NON_FUNCTIONAL_REQUIREMENTS.md, the first-route
+// budget): the entry script and the chunks it preloads, compressed. Each test passes its own budget.
 let dist: string;
 const write = (name: string, body: string) => writeFileSync(join(dist, name), body);
 

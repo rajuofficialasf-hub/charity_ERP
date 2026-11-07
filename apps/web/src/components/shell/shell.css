@@ -1,276 +1,137 @@
 /*
- * The app shell (docs/ui/DESIGN_SYSTEM.md, section "App shell"): an official's dark sidebar at full
- * height on a desktop with the app bar beside it; elsewhere the app bar on top, then the side rail
- * (a tablet, or a volunteer on a desktop) or the bottom tabs (a phone). Tokens only.
+ * The app's own parts of the signed-in frame on the asf shell
+ * (docs/architecture/ADR/ADR-016-asf-ui-system.md): the brand where no sidebar carries it, the
+ * header's actions and profile chip, the sidebar's help card and person, the "more" sheet's links
+ * and the update notice. Colours, radius and type come from the asf variables, in light and dark.
  */
-.app-shell {
-  min-height: 100dvh;
-  background: var(--color-bg-canvas);
-}
-.app-shell-sidebar,
-.app-shell-rail {
-  display: grid;
-  grid-template-rows: auto 1fr;
-}
-.app-shell-sidebar {
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-}
-.app-shell-sidebar .app-sidebar {
-  grid-column: 1;
-  grid-row: 1 / -1;
-}
-.app-shell-sidebar .app-bar,
-.app-shell-sidebar .app-main {
-  grid-column: 2;
-}
-.app-shell-rail {
-  grid-template-columns: 88px minmax(0, 1fr);
-}
-.app-shell-rail .app-bar {
-  grid-column: 1 / -1;
-}
-/* beside the sidebar the bar is a quiet strip over the canvas, not a raised card */
-.app-shell-sidebar .app-bar {
-  padding-inline: var(--space-5);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: none;
-  backdrop-filter: blur(12px);
-}
 
-.app-bar {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-nav);
+.app-brand {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  min-height: var(--app-bar-height);
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
-  box-shadow: var(--elevation-1);
-}
-.app-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
+  gap: 10px;
   min-width: 0;
-  color: var(--color-brand-ink);
-  font-weight: var(--font-weight-bold);
+  /* the dark green reads on white; the light one on the dark page */
+  color: var(--asf-palette-primary-dark);
+  font-weight: 700;
   text-decoration: none;
 }
+
+[data-color-scheme='dark'] .app-brand {
+  color: var(--asf-palette-primary-light);
+}
+
 .app-brand span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.app-brand img {
-  flex: none;
-}
-.app-brand:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-  border-radius: var(--radius-sm);
-}
-/* the trail beside the sidebar sits on the bar's line, not above a page */
-.app-bar-crumbs {
-  min-width: 0;
-  margin: 0;
-}
+
 .app-bar-actions {
   display: flex;
-  flex: none;
   align-items: center;
-  gap: var(--space-2);
+  gap: 4px;
 }
 
-.app-rail {
-  position: sticky;
-  top: var(--app-bar-height);
-  height: calc(100dvh - var(--app-bar-height));
-  overflow-y: auto;
-  background: var(--color-bg-surface);
-  border-right: 1px solid var(--border-subtle);
-}
-
-/* the official's sidebar on the brand ink, from the top of the window to its bottom */
-.app-sidebar {
-  position: sticky;
-  top: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;
-  overflow-y: auto;
-  padding: var(--space-4) var(--space-3);
-  background: var(--color-brand-ink);
-  color: var(--color-sidebar-text);
-  /* a slim scrollbar in the sidebar's own colours, not the system's white one */
-  scrollbar-color: var(--color-sidebar-divider) transparent;
-  scrollbar-width: thin;
-}
-.app-sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 0 var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--color-sidebar-divider);
-  color: var(--color-text-on-brand);
-  text-decoration: none;
-  outline: none;
-}
-.app-sidebar-brand:focus-visible {
-  outline: 2px solid var(--color-brand-accent);
-  outline-offset: 2px;
-  border-radius: var(--radius-md);
-}
-/* the logo keeps its own colours on a light square (docs/ui/brand/colors.md, "Usage rules") */
-.app-sidebar-mark {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: var(--color-bg-surface);
-}
-.app-sidebar-names {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.35;
-}
-.app-sidebar-names strong {
-  font-size: var(--text-body);
-}
-.app-sidebar-names small {
-  color: var(--color-sidebar-heading);
-  font-size: var(--text-caption);
-}
-.app-sidebar-nav {
-  display: grid;
-  align-content: start;
-  gap: var(--space-4);
-  padding-top: var(--space-4);
-}
-.app-nav-group {
-  display: grid;
-  gap: 2px;
-}
-.app-nav-group-title {
-  padding: 0 var(--space-3) var(--space-1);
-  color: var(--color-sidebar-heading);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-bold);
-}
-.app-sidebar-foot {
-  display: grid;
-  gap: var(--space-3);
-  margin-top: auto;
-  padding-top: var(--space-4);
-}
-.app-help {
-  padding: var(--space-3);
-  border: 1px solid var(--color-sidebar-divider);
-  border-radius: var(--radius-md);
-  color: var(--color-sidebar-heading);
-  font-size: var(--text-caption);
-  line-height: 1.5;
-}
-.app-help p {
-  margin: 0;
-}
-.app-help-title {
-  margin-bottom: 2px;
-  color: var(--color-text-on-brand);
-  font-weight: var(--font-weight-bold);
-}
-.app-sidebar-person {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-2) 0;
-  border-top: 1px solid var(--color-sidebar-divider);
-}
-.app-sidebar-person-name {
-  overflow: hidden;
-  color: var(--color-text-on-brand);
-  font-weight: var(--font-weight-bold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.app-rail {
-  display: grid;
-  align-content: start;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-1);
-}
-
-.app-main {
-  min-width: 0;
-}
-.app-content {
-  min-width: 0;
-}
-
-/* phone: the tabs sit at the bottom, above the safe area; the content keeps clear of them */
-.app-tabs {
-  position: fixed;
-  inset-inline: 0;
-  bottom: 0;
-  z-index: var(--z-nav);
-  display: grid;
-  grid-auto-columns: minmax(0, 1fr);
-  grid-auto-flow: column;
-  padding-bottom: env(safe-area-inset-bottom);
-  background: var(--color-bg-surface);
-  border-top: 1px solid var(--border-subtle);
-  box-shadow: var(--elevation-1);
-}
-.app-shell-tabs .app-main {
-  padding-bottom: calc(56px + env(safe-area-inset-bottom));
-}
-
-/* the "more" button is a button that looks like its neighbouring links */
-.app-more {
-  border: 0;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-}
-.app-more:focus-visible {
-  outline: 2px solid var(--color-brand-primary);
-  outline-offset: -2px;
-}
-.app-more-list {
-  display: grid;
-  gap: var(--space-1);
-}
-
-/* the profile chip: the person's letter, then the name over the kind */
 .app-profile-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding-inline: var(--space-1) var(--space-2);
-  text-align: left;
+  gap: 8px;
+  min-width: 0;
 }
+
+/* the name beside the photo only where there is room for it */
 .app-user-name {
-  max-width: 14rem;
+  max-width: 14ch;
   overflow: hidden;
-  font-weight: var(--font-weight-bold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* on a phone the profile chip shows the letter only (the name stays in the label) */
-@media (max-width: 639px) {
+@media (max-width: 599.95px) {
   .app-user-name {
     display: none;
   }
-  .app-bar {
-    gap: var(--space-2);
-    padding-inline: var(--space-3);
+
+  .app-brand span {
+    max-width: 16ch;
   }
+}
+
+.app-sidebar-foot {
+  display: grid;
+  gap: 12px;
+}
+
+.app-help {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(var(--asf-palette-primary-mainChannel) / 0.08);
+  color: var(--asf-palette-text-primary);
+  font-size: 0.8125rem;
+}
+
+.app-help p {
+  margin: 0;
+}
+
+.app-help .app-help-title {
+  margin-bottom: 4px;
+  color: var(--asf-palette-text-primary);
+  font-weight: 700;
+}
+
+.app-sidebar-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.app-sidebar-person-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-more-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-more-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--asf-palette-text-primary);
+  text-decoration: none;
+}
+
+.app-more-link:hover {
+  background: var(--asf-palette-action-hover);
+}
+
+.app-more-link[aria-current='page'] {
+  background: rgba(var(--asf-palette-primary-mainChannel) / 0.08);
+  color: var(--asf-palette-primary-dark);
+  font-weight: 700;
+}
+
+[data-color-scheme='dark'] .app-more-link[aria-current='page'] {
+  color: var(--asf-palette-primary-light);
+}
+
+.app-more-link:focus-visible {
+  outline: 2px solid var(--asf-palette-primary-main);
+  outline-offset: -2px;
+}
+
+.app-update {
+  padding: 8px 16px 0;
 }

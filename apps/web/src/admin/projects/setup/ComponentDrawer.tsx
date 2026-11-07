@@ -1,7 +1,16 @@
 import { type ComponentKey, photoRule, photoSource } from '@css/shared';
-import { Alert, Button, Checkbox, Modal, RadioGroup, Select, Switch, TextField } from '@css/ui';
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Dialog,
+  IconButton,
+  RadioGroup,
+  SelectField,
+  Switch,
+  TextField,
+} from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
@@ -98,28 +107,28 @@ export function ComponentDrawer({
   const error = save.error;
 
   return (
-    <Modal
+    <Dialog
       title={t('title', { name: tk(key) })}
-      size="lg"
-      fullOnPhone
-      isOpen
+      size="large"
+      fullScreenOnPhone
+      open
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={save.isPending}>
-          {tc(readOnly ? 'close' : 'cancel')}
-        </Button>
-      }
-      primaryAction={
-        readOnly ? undefined : (
-          <Button onPress={() => save.mutate()} loading={save.isPending}>
-            {tc('save')}
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+            {tc(readOnly ? 'close' : 'cancel')}
           </Button>
-        )
+          {readOnly ? null : (
+            <Button onClick={() => save.mutate()} loading={save.isPending}>
+              {tc('save')}
+            </Button>
+          )}
+        </>
       }
     >
       {error instanceof ApiFailure && (
-        <Alert tone={error.status === 412 ? 'warning' : 'danger'} live="alert">
+        <Alert tone={error.status === 412 ? 'warning' : 'error'}>
           {error.status === 412 ? t('stale') : error.message}
           {error.details.length > 0 && (
             <ul>
@@ -155,15 +164,14 @@ export function ComponentDrawer({
       {/* eslint-disable-next-line security/detect-object-injection -- a ComponentKey of a constant table */}
       {(FLAGS[key] ?? []).map((flag) => (
         <Switch
+          label={t(`flag.${flag}`)}
           key={flag}
-          isSelected={get(settings, flag) === true}
+          checked={get(settings, flag) === true}
           onChange={(on) => set(flag, on)}
-          isDisabled={readOnly}
-        >
-          {t(`flag.${flag}`)}
-        </Switch>
+          disabled={readOnly}
+        />
       ))}
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -183,23 +191,23 @@ function PhotoRule({
       <RadioGroup
         label={t('photo_rule')}
         required
-        value={(get(settings, 'rule') as string | undefined) ?? null}
+        value={(get(settings, 'rule') as string | undefined) ?? ''}
         onChange={(rule) => onChange({ ...settings, rule })}
-        options={photoRule.options.map((r) => ({ id: r, label: t(`rule.${r}`) }))}
-        readOnly={readOnly}
+        options={photoRule.options.map((r) => ({ value: r, label: t(`rule.${r}`) }))}
+        disabled={readOnly}
       />
       <div className="admin-setup-grid">
         {PHOTO_KINDS.map((kind) => (
-          <Select
+          <SelectField
             key={kind}
             label={t(`photo_kind.${kind}`)}
-            value={(get(sources, kind) as string | undefined) ?? null}
+            value={(get(sources, kind) as string | undefined) ?? ''}
             onChange={(id) =>
-              onChange({ ...settings, source: { ...sources, [kind]: id ?? undefined } })
+              onChange({ ...settings, source: { ...sources, [kind]: id || undefined } })
             }
             disabled={readOnly}
             searchable={false}
-            options={photoSource.options.map((s) => ({ id: s, label: t(`source.${s}`) }))}
+            options={photoSource.options.map((s) => ({ value: s, label: t(`source.${s}`) }))}
           />
         ))}
       </div>
@@ -248,33 +256,29 @@ function CodeLabelList({
           />
           {withActive && (
             <Checkbox
-              isSelected={item.active !== false}
+              label={t('in_use')}
+              checked={item.active !== false}
               onChange={(active) => setItem(i, { active })}
-              isDisabled={readOnly}
-            >
-              {t('in_use')}
-            </Checkbox>
+              disabled={readOnly}
+            />
           )}
           {!readOnly && (
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={Trash2}
-              iconOnly
-              onPress={() => onChange(items.filter((_, j) => j !== i))}
-            >
-              {t('remove', { number: String(i + 1) })}
-            </Button>
+            <IconButton
+              label={t('remove', { number: String(i + 1) })}
+              icon="delete"
+
+              onClick={() => onChange(items.filter((_, j) => j !== i))}
+            />
           )}
         </div>
       ))}
       {!readOnly && (
         <Button
-          variant="ghost"
-          size="sm"
-          icon={Plus}
+          variant="text"
+          size="small"
+          startIcon="add"
           disabled={items.length >= max}
-          onPress={() =>
+          onClick={() =>
             onChange([
               ...items,
               {
@@ -334,54 +338,44 @@ function Stages({
             readOnly={readOnly}
           />
           <Checkbox
-            isSelected={item.photo_required === true}
+            label={t('photo_required')}
+            checked={item.photo_required === true}
             onChange={(photo_required) => setItem(i, { photo_required })}
-            isDisabled={readOnly}
-          >
-            {t('photo_required')}
-          </Checkbox>
+            disabled={readOnly}
+          />
           {!readOnly && (
             <span className="admin-setup-order">
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={ArrowUp}
-                iconOnly
+              <IconButton
+                label={t('up', { number: String(i + 1) })}
+                icon="arrow-up"
+
                 disabled={i === 0}
-                onPress={() => move(i, -1)}
-              >
-                {t('up', { number: String(i + 1) })}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={ArrowDown}
-                iconOnly
+                onClick={() => move(i, -1)}
+              />
+              <IconButton
+                label={t('down', { number: String(i + 1) })}
+                icon="arrow-down"
+
                 disabled={i === items.length - 1}
-                onPress={() => move(i, 1)}
-              >
-                {t('down', { number: String(i + 1) })}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={Trash2}
-                iconOnly
-                onPress={() => onChange(items.filter((_, j) => j !== i))}
-              >
-                {t('remove', { number: String(i + 1) })}
-              </Button>
+                onClick={() => move(i, 1)}
+              />
+              <IconButton
+                label={t('remove', { number: String(i + 1) })}
+                icon="delete"
+
+                onClick={() => onChange(items.filter((_, j) => j !== i))}
+              />
             </span>
           )}
         </div>
       ))}
       {!readOnly && (
         <Button
-          variant="ghost"
-          size="sm"
-          icon={Plus}
+          variant="text"
+          size="small"
+          startIcon="add"
           disabled={items.length >= MAX_STAGES}
-          onPress={() =>
+          onClick={() =>
             onChange([
               ...items,
               {

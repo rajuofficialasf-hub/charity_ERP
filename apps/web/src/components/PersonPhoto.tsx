@@ -1,5 +1,18 @@
-import { Avatar, type AvatarProps, IconTile, PersonCell, type PersonCellProps } from '@css/ui';
+import { Avatar, IconTile, PersonCell, ProfileBanner, type ProfileBannerProps } from '@/ui';
 import { useFileDataUrl } from './FileImage';
+
+/** The earlier sizes the pages pass, as the asf sizes. */
+const AVATAR_SIZE = new Map([
+  ['sm', 'small'],
+  ['md', 'medium'],
+  ['lg', 'large'],
+] as const);
+
+const TILE_SIZE = new Map([
+  ['sm', 'small'],
+  ['md', 'medium'],
+  ['lg', 'large'],
+] as const);
 
 /**
  * A person's uploaded photo wherever the person is shown, streamed by the API; without one, or
@@ -8,22 +21,60 @@ import { useFileDataUrl } from './FileImage';
  */
 export function PersonAvatar({
   fileId,
-  ...props
-}: AvatarProps & { fileId: string | null | undefined }) {
+  name,
+  size,
+  decorative = true,
+  className,
+}: {
+  fileId: string | null | undefined;
+  name: string;
+  size?: 'sm' | 'md' | 'lg';
+  /** One or two initials in the earlier set; the asf avatar always shows one. */
+  letters?: 1 | 2;
+  decorative?: boolean;
+  /** Layout only, on the element around the avatar. */
+  className?: string;
+}) {
   const photo = useFileDataUrl(fileId ?? null);
-  return <Avatar {...props} src={photo.data ?? undefined} />;
+  const avatar = (
+    <Avatar
+      name={name}
+      src={photo.data ?? undefined}
+      size={size ? AVATAR_SIZE.get(size) : undefined}
+      decorative={decorative}
+    />
+  );
+  return className ? <span className={className}>{avatar}</span> : avatar;
 }
 
 /** The first cell of a people list with the person's photo in place of the letter. */
 export function PhotoPersonCell({
   fileId,
-  ...props
-}: Omit<PersonCellProps, 'photo'> & { fileId: string | null | undefined }) {
+  name,
+  href,
+  secondary,
+  lang,
+}: {
+  fileId: string | null | undefined;
+  name: string;
+  /** The person's or the record's page in the app. */
+  href?: string;
+  secondary?: string;
+  lang?: string;
+}) {
   const photo = useFileDataUrl(fileId ?? null);
-  return <PersonCell {...props} photo={photo.data ?? undefined} />;
+  return (
+    <PersonCell
+      name={name}
+      to={href}
+      secondary={secondary}
+      lang={lang}
+      photo={photo.data ?? undefined}
+    />
+  );
 }
 
-/** The signed-in person's tile in the app bar and the sidebar. */
+/** The signed-in person's tile in the header and the sidebar. */
 export function PersonTile({
   name,
   fileId,
@@ -34,5 +85,20 @@ export function PersonTile({
   size?: 'sm' | 'md' | 'lg';
 }) {
   const photo = useFileDataUrl(fileId ?? null);
-  return <IconTile name={name} src={photo.data ?? undefined} {...(size ? { size } : {})} />;
+  return (
+    <IconTile
+      name={name}
+      src={photo.data ?? undefined}
+      size={size ? TILE_SIZE.get(size) : undefined}
+    />
+  );
+}
+
+/** The dark banner of a person's profile with their streamed photo, or the initial while there is none. */
+export function PersonBanner({
+  fileId,
+  ...banner
+}: Omit<ProfileBannerProps, 'photo'> & { fileId: string | null | undefined }) {
+  const photo = useFileDataUrl(fileId ?? null);
+  return <ProfileBanner {...banner} photo={photo.data ?? undefined} />;
 }

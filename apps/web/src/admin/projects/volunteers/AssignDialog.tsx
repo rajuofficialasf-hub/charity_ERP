@@ -2,22 +2,20 @@ import { PERMISSION_SETS, type PermissionSet } from '@css/shared/projects';
 import {
   Alert,
   Button,
-  EmptyState,
-  ErrorState,
-  Modal,
-  Select,
+  DataTable,
+  Dialog,
+  SelectField,
   Switch,
-  Table,
-  type TableColumn,
   TextField,
-} from '@css/ui';
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Users } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { type Address, AddressFields } from '../../../features/registration/AddressFields';
 import { ApiFailure } from '../../../lib/api';
 import { assign, type Assignment, type Candidate, candidates } from './project-volunteers-api';
+import { LoadError } from '../../../components/LoadError';
 
 const BY_TYPE = 'by_type';
 const NO_AREA: Address = { divisionId: null, districtId: null, upazilaId: null, unionId: null };
@@ -85,7 +83,7 @@ export function AssignDialog({
     setSelected(new Set());
     setPages([null]);
   };
-  const columns: TableColumn<Candidate>[] = [
+  const columns: DataTableExtendedColumn<Candidate>[] = [
     { id: 'name', header: t('column.name'), cell: (c) => c.displayName, isRowHeader: true },
     { id: 'type', header: t('column.type'), cell: (c) => t(`type.${c.type}`) },
     {
@@ -96,31 +94,29 @@ export function AssignDialog({
     },
   ];
   return (
-    <Modal
+    <Dialog
       title={td('title')}
-      size="lg"
-      isOpen
+      size="large"
+      open
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={save.isPending}>
-          {tc('action.cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button
-          onPress={() => save.mutate()}
-          disabled={selected.size === 0}
-          loading={save.isPending}
-        >
-          {td('submit')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+            {tc('action.cancel')}
+          </Button>
+          <Button
+            onClick={() => save.mutate()}
+            disabled={selected.size === 0}
+            loading={save.isPending}
+          >
+            {td('submit')}
+          </Button>
+        </>
       }
     >
       {save.error instanceof ApiFailure && (
-        <Alert tone="danger" live="alert">
-          {save.error.details[0]?.message ?? save.error.message}
-        </Alert>
+        <Alert tone="error">{save.error.details[0]?.message ?? save.error.message}</Alert>
       )}
       <AddressFields optional value={area} onChange={(a) => changeFilter(() => setArea(a))} />
       <TextField
@@ -129,26 +125,22 @@ export function AssignDialog({
         value={q}
         onChange={(value) => changeFilter(() => setQ(value))}
       />
-      <Table
+      <DataTable
         label={td('candidates')}
         columns={columns}
         rows={list.data?.rows ?? []}
-        rowKey={(c) => c.volunteerId}
+        getRowId={(c) => c.volunteerId}
         rowLabel={(c) => c.displayName}
         loading={list.isPending}
         selectionMode="multiple"
-        selectedKeys={selected}
+        selectedIds={selected}
         onSelectionChange={setSelected}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={Users} title={td('no_candidates')} headingLevel={3} />}
+        emptyTitle={td('no_candidates')}
         cardRenderer={(c) => (
           <div className="admin-permission-card">
             <strong>{c.displayName}</strong>
@@ -157,26 +149,22 @@ export function AssignDialog({
         )}
       />
       {list.data?.next && (
-        <Button variant="ghost" size="sm" onPress={() => setPages([...pages, list.data!.next])}>
+        <Button variant="text" size="small" onClick={() => setPages([...pages, list.data!.next])}>
           {td('more')}
         </Button>
       )}
       <p className="admin-muted">{td('selected', { count: String(selected.size) })}</p>
-      <Select
+      <SelectField
         label={td('set')}
         value={set}
         onChange={(value) => setSet(value ?? BY_TYPE)}
         searchable={false}
         options={[
-          { id: BY_TYPE, label: td('set_by_type') },
-          ...PERMISSION_SETS.map((s) => ({ id: s, label: t(`set.${s}`) })),
+          { value: BY_TYPE, label: td('set_by_type') },
+          ...PERMISSION_SETS.map((s) => ({ value: s, label: t(`set.${s}`) })),
         ]}
       />
-      {markPaid && (
-        <Switch isSelected={paid} onChange={setPaid}>
-          {td('paid')}
-        </Switch>
-      )}
-    </Modal>
+      {markPaid && <Switch label={td('paid')} checked={paid} onChange={setPaid} />}
+    </Dialog>
   );
 }

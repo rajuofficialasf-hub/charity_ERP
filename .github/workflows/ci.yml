@@ -84,7 +84,8 @@ jobs:
       # validated against docs/api/openapi.yaml by the contract recorder during `pnpm test`)
       - run: pnpm --filter @css/api contract:coverage --no-run
       - run: pnpm build
-      # the first route of the PWA stays within 250 KB of compressed JavaScript
+      # the first route of the PWA stays within the budget of apps/web/scripts/bundle-report.mjs
+      # (compressed JavaScript; 400 KB while the web app moves to the asf UI system, then 250 KB)
       - run: pnpm --filter @css/web bundle:report
 
   security:

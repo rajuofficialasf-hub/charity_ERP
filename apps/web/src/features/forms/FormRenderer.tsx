@@ -13,7 +13,7 @@ import {
 } from '@css/shared/forms';
 import type { AnswerValue } from '@css/shared';
 import { formatCount } from '@css/shared/format';
-import { Alert, Button, ConfirmDialog, Stack, Stepper, Text } from '@css/ui';
+import { Alert, Button, ConfirmDialog, Stack, Stepper, Text } from '@/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { answeredRows, removeRow, setAnswer, answerOf, trimRows } from './answers';
@@ -339,48 +339,48 @@ export function FormRenderer({
       if (group) groups.set(group, [...(groups.get(group) ?? []), f]);
     }
     return (
-      <Stack as="section" key={section.key} gap={3} aria-labelledby={`section-${section.key}`}>
-        <Text as="strong" id={`section-${section.key}`} weight="bold">
-          {section.title[locale]}
-        </Text>
-        {section.fields.map((field) => {
-          if (field.settings?.repeat?.group) return null;
-          if (field.type !== 'repeat_group') return renderField(field, 0, false);
-          if (evaluation.fields[field.fieldKey]?.visible === false) return null;
-          const members = groups.get(field.fieldKey) ?? [];
-          // a counted group has the engine's rows: the count, or the answered rows while more
-          const counted = field.settings?.repeat?.count_from !== undefined;
-          const rows = counted
-            ? (evaluation.rows[field.fieldKey] ?? 0)
-            : Math.max(state.rows[field.fieldKey] ?? 0, evaluation.rows[field.fieldKey] ?? 0);
-          return (
-            <Stack key={field.fieldKey} gap={1}>
-              <RepeatGroup
-                group={field}
-                rows={rows}
-                counted={counted}
-                renderRow={(row) => members.map((m) => renderField(m, row, true))}
-                onAdd={() =>
-                  setState((s) => ({ ...s, rows: { ...s.rows, [field.fieldKey]: rows + 1 } }))
-                }
-                onRemove={(row) =>
-                  setState((s) =>
-                    removeRow(
-                      { ...s, rows: { ...s.rows, [field.fieldKey]: rows } },
-                      field.fieldKey,
-                      members.map((m) => m.fieldKey),
-                      row,
-                    ),
-                  )
-                }
-              />
-              {allErrors[field.fieldKey] ? (
-                <Alert tone="danger">{allErrors[field.fieldKey]}</Alert>
-              ) : null}
-            </Stack>
-          );
-        })}
-      </Stack>
+      <section key={section.key} aria-labelledby={`section-${section.key}`}>
+        <Stack gap={3}>
+          <strong id={`section-${section.key}`}>{section.title[locale]}</strong>
+          {section.fields.map((field) => {
+            if (field.settings?.repeat?.group) return null;
+            if (field.type !== 'repeat_group') return renderField(field, 0, false);
+            if (evaluation.fields[field.fieldKey]?.visible === false) return null;
+            const members = groups.get(field.fieldKey) ?? [];
+            // a counted group has the engine's rows: the count, or the answered rows while more
+            const counted = field.settings?.repeat?.count_from !== undefined;
+            const rows = counted
+              ? (evaluation.rows[field.fieldKey] ?? 0)
+              : Math.max(state.rows[field.fieldKey] ?? 0, evaluation.rows[field.fieldKey] ?? 0);
+            return (
+              <Stack key={field.fieldKey} gap={1}>
+                <RepeatGroup
+                  group={field}
+                  rows={rows}
+                  counted={counted}
+                  renderRow={(row) => members.map((m) => renderField(m, row, true))}
+                  onAdd={() =>
+                    setState((s) => ({ ...s, rows: { ...s.rows, [field.fieldKey]: rows + 1 } }))
+                  }
+                  onRemove={(row) =>
+                    setState((s) =>
+                      removeRow(
+                        { ...s, rows: { ...s.rows, [field.fieldKey]: rows } },
+                        field.fieldKey,
+                        members.map((m) => m.fieldKey),
+                        row,
+                      ),
+                    )
+                  }
+                />
+                {allErrors[field.fieldKey] ? (
+                  <Alert tone="error">{allErrors[field.fieldKey]}</Alert>
+                ) : null}
+              </Stack>
+            );
+          })}
+        </Stack>
+      </section>
     );
   };
 
@@ -402,14 +402,10 @@ export function FormRenderer({
           </Text>
         </Stack>
       ) : null}
-      {summary ? (
-        <Alert tone="danger" live="alert">
-          {summary}
-        </Alert>
-      ) : null}
+      {summary ? <Alert tone="error">{summary}</Alert> : null}
       {shown.map(renderSection)}
       <ConfirmDialog
-        isOpen={lowering !== null}
+        open={lowering !== null}
         title={t('trim_rows_title')}
         confirmLabel={t('trim_rows_confirm')}
         tone="danger"
@@ -439,18 +435,18 @@ export function FormRenderer({
       />
       <Stack direction="row" gap={2} justify="between" wrap>
         {phone && step > 0 ? (
-          <Button variant="secondary" onPress={previous}>
+          <Button variant="secondary" onClick={previous}>
             {t('previous')}
           </Button>
         ) : (
           <span />
         )}
         {last ? (
-          <Button variant="primary" onPress={() => void send()} loading={sending}>
+          <Button variant="primary" onClick={() => void send()} loading={sending}>
             {sending ? t('sending') : (submitLabel ?? t('submit'))}
           </Button>
         ) : (
-          <Button variant="primary" onPress={() => void next()}>
+          <Button variant="primary" onClick={() => void next()}>
             {t('next')}
           </Button>
         )}

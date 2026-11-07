@@ -2,37 +2,24 @@ import { type Affiliation, AFFILIATIONS, type InvitationIssued } from '@css/shar
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
-  EmptyState,
-  ErrorState,
-  Select,
-  Table,
-  type TableColumn,
-  TableToolbar,
+  Chip,
+  DataTable,
+  FilterBar,
+  IconButton,
+  Page,
+  SelectField,
   Tabs,
-  PageHeader,
-  type IconComponent,
-  type IconTileTone,
-} from '@css/ui';
+  type ColorTone,
+  type DataTableExtendedColumn,
+  type ExtendedIconName,
+} from '@/ui';
 import { PersonAvatar } from '../../components/PersonPhoto';
 import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Building2,
-  CircleCheck,
-  Clock,
-  Handshake,
-  IdCard,
-  Link2,
-  Pencil,
-  UserPlus,
-  Users,
-} from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { PROGRAMS_KEY, programs } from '../programs/programs-api';
@@ -45,14 +32,15 @@ import { RenewLinkDialog } from './RenewLinkDialog';
 import { STAFF_KEY, type StaffMember, staffCount, staffPage } from './staff-api';
 import { StaffViewSwitch } from './StaffViewSwitch';
 import './staff.css';
+import { LoadError } from '../../components/LoadError';
 
 const ALL = 'all';
 
 /** The icon of each affiliation's count card. */
-const AFFILIATION_LOOK: Record<Affiliation, { icon: IconComponent; tone: IconTileTone }> = {
-  department: { icon: Users, tone: 'brand' },
-  foundation: { icon: Building2, tone: 'info' },
-  external: { icon: Handshake, tone: 'warning' },
+const AFFILIATION_LOOK: Record<Affiliation, { icon: ExtendedIconName; tone: ColorTone }> = {
+  department: { icon: 'users', tone: 'primary' },
+  foundation: { icon: 'building', tone: 'info' },
+  external: { icon: 'handshake', tone: 'warning' },
 };
 
 /**
@@ -100,7 +88,7 @@ export function StaffPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader
+      <Page
         eyebrow={t('eyebrow')}
         title={t('title')}
         description={t('description')}
@@ -108,12 +96,13 @@ export function StaffPage() {
           <>
             <StaffViewSwitch value="list" />
             {manage && (
-              <Button icon={UserPlus} onPress={() => setCreating(true)}>
+              <Button startIcon="user-add" onClick={() => setCreating(true)}>
                 {t('new')}
               </Button>
             )}
           </>
         }
+        documentTitle={false}
       />
       <StatisticsBar
         label={t('stats.label')}
@@ -131,15 +120,15 @@ export function StaffPage() {
         }))}
       />
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
+        <Alert tone="success" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
       <Tabs
         label={t('tabs.label')}
-        selectedId={tab}
+        value={tab}
         onChange={(id) => setParams(id === 'department' ? {} : { tab: id }, { replace: true })}
-        items={AFFILIATIONS.map((a) => ({ id: a, label: t(`tabs.${a}`), content: list(a) }))}
+        items={AFFILIATIONS.map((a) => ({ value: a, label: t(`tabs.${a}`), content: list(a) }))}
       />
       {creating && (
         <OfficialDialog
@@ -191,7 +180,6 @@ function StaffList({
   onRenew: (official: StaffMember) => void;
 }) {
   const t = useTranslations('admin.staff');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const [programId, setProgramId] = useState<string>(ALL);
   const [role, setRole] = useState<string>(ALL);
@@ -261,7 +249,7 @@ function StaffList({
       <span>{u.designation ?? ''}</span>
       <span className="admin-badges">
         {u.roles.map((r) => (
-          <Badge key={r} size="sm" label={roleName(r)} />
+          <Chip key={r}>{roleName(r)}</Chip>
         ))}
       </span>
     </span>
@@ -270,25 +258,29 @@ function StaffList({
     (affiliation === 'department' ? programName(u.homeProgramId) : u.affiliationUnit) || '—';
   const state = (u: StaffMember) =>
     u.awaitingPassword ? (
-      <Badge tone="warning" icon={Clock} label={t('state.awaiting')} />
+      <Chip tone="warning">{t('state.awaiting')}</Chip>
     ) : u.state === 'active' ? (
-      <Badge tone="success" icon={CircleCheck} label={t('state.active')} />
+      <Chip tone="success">{t('state.active')}</Chip>
     ) : (
-      <Badge label={t(`state.${u.state}`)} />
+      <Chip>{t(`state.${u.state}`)}</Chip>
     );
   const actions = (u: StaffMember) => (
     <span>
-      <Button variant="ghost" size="sm" icon={Pencil} iconOnly onPress={() => onEdit(u)}>
-        {t('edit', { name: u.displayName })}
-      </Button>
+      <IconButton
+        label={t('edit', { name: u.displayName })}
+        icon="edit"
+        onClick={() => onEdit(u)}
+      />
       {u.awaitingPassword && (
-        <Button variant="ghost" size="sm" icon={Link2} iconOnly onPress={() => onRenew(u)}>
-          {t('renew_link', { name: u.displayName })}
-        </Button>
+        <IconButton
+          label={t('renew_link', { name: u.displayName })}
+          icon="link"
+          onClick={() => onRenew(u)}
+        />
       )}
     </span>
   );
-  const columns: TableColumn<StaffMember>[] = [
+  const columns: DataTableExtendedColumn<StaffMember>[] = [
     { id: 'name', header: t('column.name'), cell: person, isRowHeader: true },
     { id: 'designation', header: t('column.designation'), cell: work },
     {
@@ -302,64 +294,57 @@ function StaffList({
 
   return (
     <>
-      <Table
-        layout="panel"
+      <DataTable
         label={t(`tabs.${affiliation}`)}
         toolbar={
-          <TableToolbar
+          <FilterBar
             onSearch={onSearch}
             searchPlaceholder={t('filter.search')}
-            activeFilterCount={(programId === ALL ? 0 : 1) + (role === ALL ? 0 : 1)}
             onClearFilters={() =>
               filter(() => {
                 setProgramId(ALL);
                 setRole(ALL);
               })
             }
-            filters={
-              <>
-                <Select
-                  label={t('filter.program')}
-                  value={programId}
-                  onChange={(id) => filter(() => setProgramId(id ?? ALL))}
-                  options={[
-                    { id: ALL, label: t('filter.all') },
-                    ...(programList.data ?? []).map((p) => ({
-                      id: p.id,
-                      label: localized(p.name, locale),
-                    })),
-                  ]}
-                />
-                <Select
-                  label={t('filter.role')}
-                  value={role}
-                  onChange={(id) => filter(() => setRole(id ?? ALL))}
-                  options={[
-                    { id: ALL, label: t('filter.all') },
-                    ...(roleList.data ?? [])
-                      .filter((r) => r.kind === 'official')
-                      .map((r) => ({ id: r.key, label: localized(r.name, locale) })),
-                  ]}
-                />
-              </>
-            }
-          />
+          >
+            <>
+              <SelectField
+                label={t('filter.program')}
+                value={programId}
+                onChange={(id) => filter(() => setProgramId(id || ALL))}
+                options={[
+                  { value: ALL, label: t('filter.all') },
+                  ...(programList.data ?? []).map((p) => ({
+                    value: p.id,
+                    label: localized(p.name, locale),
+                  })),
+                ]}
+              />
+              <SelectField
+                label={t('filter.role')}
+                value={role}
+                onChange={(id) => filter(() => setRole(id || ALL))}
+                options={[
+                  { value: ALL, label: t('filter.all') },
+                  ...(roleList.data ?? [])
+                    .filter((r) => r.kind === 'official')
+                    .map((r) => ({ value: r.key, label: localized(r.name, locale) })),
+                ]}
+              />
+            </>
+          </FilterBar>
         }
         columns={columns}
         rows={list.data?.data ?? []}
-        rowKey={(u) => u.id}
+        getRowId={(u) => u.id}
         rowLabel={(u) => u.displayName}
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={IdCard} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         rowActions={manage ? actions : undefined}
         cardRenderer={(u) => (
           <div className="staff-card">
@@ -369,7 +354,6 @@ function StaffList({
             </div>
             {work(u)}
             {place(u) !== '—' && <span className="admin-muted">{place(u)}</span>}
-            {manage && actions(u)}
           </div>
         )}
       />
@@ -377,8 +361,8 @@ function StaffList({
         <div>
           <Button
             variant="secondary"
-            size="sm"
-            onPress={() => setPages([...pages, list.data!.next])}
+            size="small"
+            onClick={() => setPages([...pages, list.data!.next])}
           >
             {t('more')}
           </Button>

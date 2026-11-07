@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -12,6 +12,7 @@ import { RegistrationDetail } from './RegistrationDetail';
 import { RegistrationsPage } from './RegistrationsPage';
 import { VolunteerProfilePage } from '../volunteers/VolunteerProfilePage';
 import { VolunteersPage } from '../volunteers/VolunteersPage';
+import { stubScreen } from '../../../test/match-media';
 
 // The registration admin page (SCR-040, BR-028 to BR-031, BD-06; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U13). Test data only.
@@ -345,6 +346,9 @@ async function openRow(user: ReturnType<typeof userEvent.setup>, name: string) {
   await screen.findByRole('heading', { level: 1, name });
 }
 
+// the shell's sidebar, which these tests read, shows on a desktop screen
+beforeEach(() => stubScreen());
+
 beforeEach(() => {
   resetClientForTests();
   volunteerListCalls = 0;
@@ -379,10 +383,10 @@ describe('registration list', () => {
       'aria-current',
       'page',
     );
-    const table = await screen.findByRole('grid', { name: 'অপেক্ষমাণ নিবন্ধন' });
-    const staffRow = within(table)
-      .getByRole('link', { name: 'নতুন কর্মকর্তা (নমুনা)' })
-      .closest<HTMLElement>('[role="row"]')!;
+    const table = await screen.findByRole('table', { name: 'অপেক্ষমাণ নিবন্ধন' });
+    const staffRow = (
+      await within(table).findByRole('link', { name: 'নতুন কর্মকর্তা (নমুনা)' })
+    ).closest<HTMLElement>('tr')!;
     expect(within(staffRow).getByText('কর্মকর্তা')).toBeInTheDocument();
     expect(
       within(table).queryByRole('link', { name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' }),
@@ -394,7 +398,7 @@ describe('registration list', () => {
     renderPage(HEAD);
     expect(await screen.findByText('যাচাই ও অনুমোদন')).toBeInTheDocument();
     const counts = within(await screen.findByRole('region', { name: 'অপেক্ষমাণ কাজ' }));
-    const card = (label: string) => counts.getByText(label).closest('.ui-card')!;
+    const card = (label: string) => counts.getByText(label).parentElement!;
     // the staff row only: the volunteer one waits in the volunteer tab
     await waitFor(() => expect(card('অপেক্ষমাণ নিবন্ধন')).toHaveTextContent('1'));
     expect(card('পরিবর্তনের অনুরোধ')).toBeInTheDocument();
@@ -459,7 +463,7 @@ describe('registration list', () => {
 
   it('is accessible in English', async () => {
     const { container } = renderPage(HEAD, 'en');
-    await screen.findByRole('grid', { name: 'Pending registrations' });
+    await screen.findByRole('table', { name: 'Pending registrations' });
     await expectNoAxeViolations(container);
   });
 });
@@ -470,7 +474,7 @@ describe('volunteer registration detail', () => {
     const { container } = renderPage(RPM, 'bn', REVIEW);
     await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     expect(screen.getByText('নমুনা পিতা')).toBeInTheDocument();
-    expect(screen.getByText('1000000000501')).toBeInTheDocument();
+    expect(screen.getAllByText('1000000000501').length).toBeGreaterThan(0);
     expect(await screen.findByText(/সাভার ইউনিয়ন/)).toBeInTheDocument();
     expect(screen.getAllByText('ছবি নেই').length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);
@@ -478,7 +482,11 @@ describe('volunteer registration detail', () => {
     await user.click(screen.getByRole('button', { name: 'অনুমোদন' }));
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'অনুমোদন করুন' }));
-    expect(await screen.findByText('নিবন্ধন অনুমোদিত হয়েছে')).toBeInTheDocument();
+    // the message shows on the list after the decision, the way back and the list's own read, which
+    // pass one second when every test file runs at once; the file waits as long for that list
+    expect(
+      await screen.findByText('নিবন্ধন অনুমোদিত হয়েছে', undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' })).toBeInTheDocument();
     expect(calls).toEqual([
       { method: 'POST', url: `/api/v1/registrations/${VOLUNTEER_USER}/approve`, body: null },
@@ -504,7 +512,9 @@ describe('volunteer registration detail', () => {
     await user.click(screen.getByRole('button', { name: 'অনুমোদন' }));
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'অনুমোদন করুন' }));
-    expect(await screen.findByText('নিবন্ধন অনুমোদিত হয়েছে')).toBeInTheDocument();
+    expect(
+      await screen.findByText('নিবন্ধন অনুমোদিত হয়েছে', undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
     // the cached page is not shown as it was: the list asks the server again
     await waitFor(() => expect(volunteerListCalls).toBeGreaterThan(1));
   });
@@ -609,7 +619,9 @@ describe('volunteer registration detail', () => {
     expect(confirm).toBeDisabled();
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'তথ্য মেলে না');
     await user.click(confirm);
-    expect(await screen.findByText('নিবন্ধন প্রত্যাখ্যান করা হয়েছে')).toBeInTheDocument();
+    expect(
+      await screen.findByText('নিবন্ধন প্রত্যাখ্যান করা হয়েছে', undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
     expect(calls[0]).toEqual({
       method: 'POST',
       url: `/api/v1/registrations/${VOLUNTEER_USER}/reject`,
@@ -701,7 +713,7 @@ describe('staff registration decision', () => {
     const dialog = await screen.findByRole('dialog');
     const save = within(dialog).getByRole('button', { name: 'সিদ্ধান্ত সংরক্ষণ করুন' });
     expect(save).toBeDisabled();
-    await user.click(within(dialog).getByRole('button', { name: /রোল/ }));
+    await user.click(within(dialog).getByRole('combobox', { name: /রোল/ }));
     const list = await screen.findByRole('listbox');
     // the Main Admin's role and volunteer roles are not offered
     expect(
@@ -712,7 +724,9 @@ describe('staff registration decision', () => {
     ).not.toBeInTheDocument();
     await user.click(within(list).getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
     await user.click(save);
-    expect(await screen.findByText('কর্মকর্তার নিবন্ধন অনুমোদিত হয়েছে')).toBeInTheDocument();
+    expect(
+      await screen.findByText('কর্মকর্তার নিবন্ধন অনুমোদিত হয়েছে', undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
     expect(calls).toEqual([
       {
         method: 'POST',
@@ -727,10 +741,10 @@ describe('edit requests', () => {
   it('shows who asked for which value; approving applies it', async () => {
     const user = userEvent.setup();
     renderPage(RPM);
-    const table = await screen.findByRole('grid', { name: 'পরিবর্তনের অনুরোধ' });
-    const row = within(table)
-      .getByText('অনুমোদিত স্বেচ্ছাসেবক (নমুনা)')
-      .closest<HTMLElement>('[role="row"]')!;
+    const table = await screen.findByRole('table', { name: 'পরিবর্তনের অনুরোধ' });
+    const row = (
+      await within(table).findByText('অনুমোদিত স্বেচ্ছাসেবক (নমুনা)')
+    ).closest<HTMLElement>('tr')!;
     expect(within(row).getByText('আগের শিক্ষাগত যোগ্যতা')).toBeInTheDocument();
     expect(within(row).getByText('স্নাতক')).toBeInTheDocument();
     expect(within(row).getByText('নতুন সনদ')).toBeInTheDocument();
@@ -793,8 +807,8 @@ describe('edit requests', () => {
       },
     ];
     renderPage(RPM);
-    const table = await screen.findByRole('grid', { name: 'পরিবর্তনের অনুরোধ' });
-    expect(within(table).getByText('ইমাম / মুয়াজ্জিন')).toBeInTheDocument();
+    const table = await screen.findByRole('table', { name: 'পরিবর্তনের অনুরোধ' });
+    expect(await within(table).findByText('ইমাম / মুয়াজ্জিন')).toBeInTheDocument();
     expect(within(table).getByText(/Central Mosque/)).toBeInTheDocument();
     expect(within(table).getByText(/খতিব/)).toBeInTheDocument();
     expect(within(table).getByText(/সাঁতার: না/)).toBeInTheDocument();
@@ -808,9 +822,9 @@ describe('edit requests', () => {
   it('a refusal needs a reason', async () => {
     const user = userEvent.setup();
     renderPage(RPM);
-    const table = await screen.findByRole('grid', { name: 'পরিবর্তনের অনুরোধ' });
+    const table = await screen.findByRole('table', { name: 'পরিবর্তনের অনুরোধ' });
     await user.click(
-      within(table).getByRole('button', {
+      await within(table).findByRole('button', {
         name: 'অনুমোদিত স্বেচ্ছাসেবক (নমুনা)-এর আগের শিক্ষাগত যোগ্যতা নাকচ',
       }),
     );
@@ -846,10 +860,10 @@ describe("officials' own requests", () => {
     const user = userEvent.setup();
     staffEdits = [request()];
     const { container } = renderPage(HEAD, 'bn', '/admin/registrations?tab=staff-edits');
-    const table = await screen.findByRole('grid', { name: 'অফিসিয়ালের অনুরোধ' });
-    const row = within(table)
-      .getByText('আঞ্চলিক কর্মকর্তা (নমুনা)')
-      .closest<HTMLElement>('[role="row"]')!;
+    const table = await screen.findByRole('table', { name: 'অফিসিয়ালের অনুরোধ' });
+    const row = (await within(table).findByText('আঞ্চলিক কর্মকর্তা (নমুনা)')).closest<HTMLElement>(
+      'tr',
+    )!;
     expect(within(row).getByText('প্রোগ্রাম')).toBeInTheDocument();
     expect(within(row).getByText('নেই')).toBeInTheDocument();
     expect(within(row).getByText('মানবিক কার্যক্রম')).toBeInTheDocument();
@@ -872,14 +886,14 @@ describe("officials' own requests", () => {
   it("leave the decider's own request without buttons", async () => {
     staffEdits = [request({ userId: HEAD.id, personName: HEAD.displayName })];
     renderPage(HEAD, 'bn', '/admin/registrations?tab=staff-edits');
-    const table = await screen.findByRole('grid', { name: 'অফিসিয়ালের অনুরোধ' });
-    expect(within(table).getByText('আপনার নিজের অনুরোধ')).toBeInTheDocument();
+    const table = await screen.findByRole('table', { name: 'অফিসিয়ালের অনুরোধ' });
+    expect(await within(table).findByText('আপনার নিজের অনুরোধ')).toBeInTheDocument();
     expect(within(table).queryByRole('button', { name: /অনুমোদন/ })).not.toBeInTheDocument();
   });
 
   it('are not a tab for an RPM, who decides the volunteers only', async () => {
     renderPage(RPM);
-    await screen.findByRole('grid', { name: 'পরিবর্তনের অনুরোধ' });
+    await screen.findByRole('table', { name: 'পরিবর্তনের অনুরোধ' });
     expect(screen.queryByRole('tab', { name: 'অফিসিয়ালের অনুরোধ' })).not.toBeInTheDocument();
   });
 });

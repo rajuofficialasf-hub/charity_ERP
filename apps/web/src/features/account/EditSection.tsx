@@ -1,4 +1,4 @@
-import { Alert, Button, Checkbox, Form, Text, TextField } from '@css/ui';
+import { Alert, Button, Checkbox, Text, TextField } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -19,7 +19,8 @@ import { cleanValue, initialValue, ValueEditor } from './ValueEditor';
 const MISSING = Symbol('missing');
 
 /**
- * The edit mode of one section (T1.9d; BR-031 as amended by DECISION_LOG D-085): the person ticks
+ * The edit mode of one section (docs/BUSINESS_RULES.md, the edit requests of an approved volunteer,
+ * as amended in docs/DECISION_LOG.md): the person ticks
  * one or more details, gives the new values and one optional reason, and one request per ticked
  * detail is sent through the existing endpoint. A sent detail leaves the mode; a refused one stays
  * ticked with its message. The type has no tick (the Foundation decides it) and a detail that
@@ -134,7 +135,9 @@ export function EditSection({
   };
 
   return (
-    <Form
+    <form
+      method="post"
+      noValidate
       aria-label={t('profile.edit.form_label', { section: title })}
       onSubmit={(event) => {
         event.preventDefault();
@@ -166,9 +169,11 @@ export function EditSection({
                   </>
                 ) : (
                   <>
-                    <Checkbox isSelected={on} onChange={(selected) => toggle(field, selected)}>
-                      {t('profile.edit.change_field', { field: label })}
-                    </Checkbox>
+                    <Checkbox
+                      label={t('profile.edit.change_field', { field: label })}
+                      checked={on}
+                      onChange={(selected) => toggle(field, selected)}
+                    />
                     {on ? (
                       <div className="profile-editor">
                         {isPhoto(field) ? (
@@ -203,13 +208,9 @@ export function EditSection({
         {picked.size > 0 && (
           <TextField label={t('profile.edit.note')} name="note" value={note} onChange={setNote} />
         )}
-        {alert && (
-          <Alert tone="danger" live="alert">
-            {alert}
-          </Alert>
-        )}
+        {alert && <Alert tone="error">{alert}</Alert>}
         <div className="profile-edit-actions">
-          <Button variant="secondary" onPress={onCancel} disabled={send.isPending}>
+          <Button variant="secondary" onClick={onCancel} disabled={send.isPending}>
             {tc('cancel')}
           </Button>
           <Button type="submit" loading={send.isPending} disabled={picked.size === 0}>
@@ -217,6 +218,6 @@ export function EditSection({
           </Button>
         </div>
       </div>
-    </Form>
+    </form>
   );
 }

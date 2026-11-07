@@ -4,7 +4,7 @@ import {
   type FormDefinition,
   isChoiceType,
 } from '@css/shared/forms';
-import { Alert, Button, Modal, Select, TextField } from '@css/ui';
+import { Alert, Button, Dialog, SelectField, TextField } from '@/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { parentCandidates } from './candidates';
@@ -23,7 +23,7 @@ const filled = (text: { bn: string; en: string }) => text.bn.trim() !== '' && te
  * it afresh each time (a new key), so it always starts empty.
  */
 export function OwnQuestionDialog({
-  isOpen,
+  open,
   definition,
   type,
   sectionKey: initialSection,
@@ -32,7 +32,7 @@ export function OwnQuestionDialog({
   onClose,
   onAdd,
 }: {
-  isOpen: boolean;
+  open: boolean;
   definition: FormDefinition;
   type: FieldType;
   sectionKey: string;
@@ -89,25 +89,25 @@ export function OwnQuestionDialog({
   };
 
   return (
-    <Modal
+    <Dialog
       title={t('own_title')}
-      isOpen={isOpen}
+      open={open}
       onClose={onClose}
-      size="lg"
-      fullOnPhone
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose}>
-          {t('cancel')}
-        </Button>
+      size="large"
+      fullScreenOnPhone
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {t('cancel')}
+          </Button>
+          <Button onClick={add}>{t('own_add_confirm')}</Button>
+        </>
       }
-      primaryAction={<Button onPress={add}>{t('own_add_confirm')}</Button>}
     >
       {tried && (!labelsOk || !optionsOk) ? (
-        <Alert tone="danger" live="alert">
-          {!labelsOk ? t('own_need_labels') : t('own_need_option')}
-        </Alert>
+        <Alert tone="error">{!labelsOk ? t('own_need_labels') : t('own_need_option')}</Alert>
       ) : null}
-      <TextField label={t('own_type')} value={tt(type)} readOnly />
+      <TextField label={t('own_type')} value={tt(type)} onChange={() => undefined} readOnly />
       <TextField
         label={t('label_bn')}
         required
@@ -126,7 +126,7 @@ export function OwnQuestionDialog({
         onChange={(en) => setLabel({ ...label, en })}
       />
       {placed ? null : (
-        <Select
+        <SelectField
           label={t('own_section')}
           required
           value={sectionKey}
@@ -137,36 +137,36 @@ export function OwnQuestionDialog({
             setGroup(null);
             setDependsOn(null);
           }}
-          options={definition.sections.map((s) => ({ id: s.key, label: s.title[locale] }))}
+          options={definition.sections.map((s) => ({ value: s.key, label: s.title[locale] }))}
         />
       )}
       {groups.length > 0 && type !== 'repeat_group' ? (
-        <Select
+        <SelectField
           label={t('own_group')}
-          helper={t('own_group_hint')}
+          hint={t('own_group_hint')}
           value={group ?? NONE}
           onChange={(id) => setGroup(!id || id === NONE ? null : id)}
           options={[
-            { id: NONE, label: t('own_group_none') },
-            ...groups.map((g) => ({ id: g.fieldKey, label: g.label[locale] })),
+            { value: NONE, label: t('own_group_none') },
+            ...groups.map((g) => ({ value: g.fieldKey, label: g.label[locale] })),
           ]}
         />
       ) : null}
       {choice && parents.length > 0 ? (
-        <Select
+        <SelectField
           label={t('depends_on')}
-          helper={t('depends_on_hint')}
+          hint={t('depends_on_hint')}
           value={dependsOn ?? NONE}
           onChange={(id) => setDependsOn(!id || id === NONE ? null : id)}
           options={[
-            { id: NONE, label: t('depends_none') },
-            ...parents.map((p) => ({ id: p.fieldKey, label: p.label[locale] })),
+            { value: NONE, label: t('depends_none') },
+            ...parents.map((p) => ({ value: p.fieldKey, label: p.label[locale] })),
           ]}
         />
       ) : null}
       {choice ? (
         <OptionsEditor options={options} onChange={setOptions} mode="full" parent={parent} />
       ) : null}
-    </Modal>
+    </Dialog>
   );
 }

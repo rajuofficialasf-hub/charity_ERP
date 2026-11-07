@@ -1,10 +1,14 @@
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import type { TablePagination } from '@css/ui';
+import type { CursorPagination } from '@/ui';
+import { useLocale, useTranslations } from 'use-intl';
 
 /** Rows per page of the nationwide tabs. */
 export const PAGE_SIZE = 10;
-/** The counted range of the totals: page numbers reach this far, later pages go by cursor (D-105). */
+/**
+ * The counted range of the totals: page numbers reach this far, later pages go by cursor
+ * (docs/DECISION_LOG.md, page numbers on the volunteer and beneficiary lists).
+ */
 const COUNTED = 10_000;
 
 interface Meta {
@@ -35,15 +39,13 @@ export function numberedPaging({
   goTo: (page: number, cursor?: string | null) => void;
   summary: (values: { from: string; to: string; total: string }) => string;
   locale: Locale;
-}): TablePagination {
+}): CursorPagination {
   const counted = typeof meta.total === 'number' ? meta.total : COUNTED;
   const pageCount = Math.max(1, Math.ceil(counted / PAGE_SIZE), page);
   const numbered = (p: number) => (p - 1) * PAGE_SIZE < COUNTED;
   const from = shown === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const total = meta.total ?? shown;
   return {
-    shown,
-    total,
     page,
     pageCount,
     onPage: (p) => {
@@ -59,4 +61,19 @@ export function numberedPaging({
       total: typeof total === 'number' ? formatCount(total, locale) : total,
     }),
   };
+}
+
+/**
+ * The count line of a list read by cursor ("25টির মধ্যে 25টি"): the rows shown and the total, or
+ * "25+" while another page follows a list that keeps no total.
+ */
+export function useCountLine(): (shown: number, total: number | 'more' | undefined) => string {
+  const tc = useTranslations('common');
+  const locale = useLocale() as Locale;
+  return (shown, total) =>
+    tc('list.result_count', {
+      shown: formatCount(shown, locale),
+      total:
+        total === 'more' ? `${formatCount(shown, locale)}+` : formatCount(total ?? shown, locale),
+    });
 }

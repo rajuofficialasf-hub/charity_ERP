@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -98,6 +98,8 @@ describe('the project list', () => {
     expect((await screen.findAllByText('খসড়া')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('সক্রিয়').length).toBeGreaterThan(0);
     expect((await screen.findAllByText('মানবিক সহায়তা')).length).toBeGreaterThan(0);
+    // the count line under the list: the rows shown of the total
+    expect(await screen.findByText(/^\d+টির মধ্যে \d+টি$/)).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -125,7 +127,7 @@ describe('the project list', () => {
     serve();
     open(`/admin/projects?year=2026&status=active`);
     const states = within(await screen.findByRole('group', { name: 'অবস্থা অনুযায়ী প্রকল্প' }));
-    expect(states.getByRole('button', { name: 'সব প্রকল্প 2' })).toBeInTheDocument();
+    expect(await states.findByRole('button', { name: 'সব প্রকল্প 2' })).toBeInTheDocument();
     const counts = listUrls.filter((u) => u.searchParams.get('limit') === '1');
     // one count per state and one for every project; none narrowed by the chosen state
     expect(counts.map((u) => u.searchParams.get('status')).sort()).toEqual(

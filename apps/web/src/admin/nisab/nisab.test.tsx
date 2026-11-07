@@ -1,6 +1,6 @@
 import type { Me } from '@css/shared/auth';
 import { isoDateInDhaka } from '@css/shared/format';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -105,9 +105,9 @@ describe('the nisab page', () => {
     refreshAs(PM);
     serve();
     const { container } = open();
-    const table = await screen.findByRole('grid', { name: 'নিসাবের ভার্সন' });
+    const table = await screen.findByRole('table', { name: 'নিসাবের ভার্সন' });
     expect(screen.getByText('নীতিমালা ও সীমা')).toBeInTheDocument();
-    const counts = within(screen.getByRole('region', { name: 'নিসাবের হিসাব' }));
+    const counts = within(await screen.findByRole('region', { name: 'নিসাবের হিসাব' }));
     expect(counts.getByText('আজ কার্যকর নিসাব')).toBeInTheDocument();
     expect(counts.getByText('সংরক্ষিত ভার্সন')).toBeInTheDocument();
     // the versions kept: every row of the table but its header

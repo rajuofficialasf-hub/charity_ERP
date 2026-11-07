@@ -92,6 +92,16 @@ export async function expectOnScreenColumns(
   list: ExportList,
   headerOf: (id: string) => MessageKey,
 ): Promise<void> {
+  // a table stands while its rows load, and a column the rows decide on comes with them: wait
+  // for a body row of a table that no longer loads
+  await waitFor(
+    () => {
+      expect(screen.getAllByRole('row').length).toBeGreaterThan(1);
+      expect(document.querySelector('[aria-busy="true"]')).toBeNull();
+    },
+    // a list page reads several things at once: slow when the whole suite shares the machine
+    { timeout: 5000 },
+  );
   const headers = (await screen.findAllByRole('columnheader')).map((h) => h.textContent?.trim());
   await user.click(await screen.findByRole('button', { name: 'এক্সপোর্ট' }));
   const dialog = await screen.findByRole('dialog');

@@ -63,22 +63,21 @@ export function documentHtml(input: {
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:">
 <title>${escapeHtml(input.title)}</title>
 <style>
-@font-face { font-family: UbuntuSans; src: url(data:font/woff2;base64,${fonts.ubuntuSans}) format('woff2'); font-weight: 400 700; }
-@font-face { font-family: Bornomala; src: url(data:font/woff2;base64,${fonts.bornomalaRegular}) format('woff2'); font-weight: 400; }
-@font-face { font-family: Bornomala; src: url(data:font/woff2;base64,${fonts.bornomalaBold}) format('woff2'); font-weight: 700; }
+@font-face { font-family: 'Public Sans'; src: url(data:font/woff2;base64,${fonts.publicSans}) format('woff2'); font-weight: 100 900; }
+@font-face { font-family: 'Noto Sans Bengali'; src: url(data:font/woff2;base64,${fonts.notoBengali}) format('woff2'); font-weight: 100 900; }
 @page { size: A4 ${input.landscape ? 'landscape' : 'portrait'}; margin: 14mm 12mm; }
 * { box-sizing: border-box; }
-body { margin: 0; font-family: UbuntuSans, Bornomala, sans-serif; font-size: 10pt; line-height: 1.5; color: #0f2920; }
-h1 { font-size: 15pt; font-weight: 700; margin: 0 0 4pt; color: #007b3e; }
+body { margin: 0; font-family: 'Public Sans', 'Noto Sans Bengali', sans-serif; font-size: 10pt; line-height: 1.5; color: #1c252e; }
+h1 { font-size: 15pt; font-weight: 700; margin: 0 0 4pt; color: #007867; }
 h2 { font-size: 12pt; font-weight: 700; margin: 12pt 0 4pt; }
-.meta { color: #526961; margin: 0 0 10pt; }
+.meta { color: #637381; margin: 0 0 10pt; }
 table { width: 100%; border-collapse: collapse; }
 th, td { border: 0.5pt solid #dfe3e8; padding: 3pt 5pt; text-align: start; vertical-align: top; }
-th { background: #eef2f0; font-weight: 700; }
+th { background: #f4f6f8; font-weight: 700; }
 thead { display: table-header-group; }
 tr { break-inside: avoid; }
 dl { display: grid; grid-template-columns: 35% 65%; gap: 2pt 8pt; margin: 0; }
-dt { color: #526961; }
+dt { color: #637381; }
 dd { margin: 0; }
 </style>
 </head>

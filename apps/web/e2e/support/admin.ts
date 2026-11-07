@@ -122,8 +122,9 @@ export async function switchLanguage(page: Page, lang: 'bn' | 'en'): Promise<voi
   const current = await page.locator('html').getAttribute('lang');
   if (current === lang) return;
   const name = lang === 'en' ? 'English' : 'বাংলা';
-  const toggle = page.getByRole('banner').getByRole('radiogroup', { name: /^(ভাষা|Language)$/ });
-  if ((await toggle.count()) > 0) await toggle.getByRole('radio', { name }).click({ force: true });
+  // the language switch is a group of two pressed buttons in the bar; without it, the profile menu
+  const toggle = page.getByRole('banner').getByRole('group', { name: /^(ভাষা|Language)$/ });
+  if ((await toggle.count()) > 0) await toggle.getByRole('button', { name }).click();
   else {
     await page
       .getByRole('banner')
@@ -141,11 +142,14 @@ export async function fromProfileMenu(page: Page, item: string): Promise<void> {
 }
 
 /**
- * A Select button by its label: the button is named by the current value, then the label
- * ("বেছে নিন জেলা"), so the label must end the name and "জেলা" never matches "উপজেলা".
+ * A select by its label. An earlier select is a button named by the current value, then the label
+ * ("বেছে নিন জেলা"), so the label must end the name; an asf one (the address) is a combobox named by
+ * the label, so the label starts it. Either way "জেলা" never matches "উপজেলা".
  */
 export const select = (page: Page, label: string) =>
-  page.getByRole('button', { name: new RegExp(`\\s${label}$`) });
+  page
+    .getByRole('button', { name: new RegExp(`\\s${label}$`) })
+    .or(page.getByRole('combobox', { name: new RegExp(`^${label}`) }));
 
 /** Picks an option from a Select. */
 export async function choose(page: Page, label: string, option: string): Promise<void> {

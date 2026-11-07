@@ -2,23 +2,23 @@ import { formatDate } from '@css/shared/format';
 import { CONTENT_TYPES, type ContentType } from '@css/shared/media';
 import {
   Alert,
-  Badge,
   Button,
   Card,
+  Chip,
   DescriptionList,
-  Modal,
-  Select,
+  Dialog,
+  SelectField,
   Stack,
   Text,
-  TextArea,
   TextField,
-} from '@css/ui';
+} from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { type MediaReferral, type MediaWork, reviewWork, updateWork } from './media-api';
 import { useMediaLabels } from './use-media-lists';
 import { failureOf } from './work-errors';
+import { DialogButtons } from '../../components/DialogButtons';
 
 /**
  * The work's stage, title and content type, and the final review: the stages offered are the ones
@@ -76,12 +76,12 @@ export function StagePanel({
       <Card
         title={t('work.stage')}
         headingLevel={2}
-        actions={
+        action={
           work.mayDirect ? (
             <Button
-              variant="ghost"
-              size="sm"
-              onPress={() => {
+              variant="text"
+              size="small"
+              onClick={() => {
                 change.reset();
                 setTitle(work.title);
                 setRenaming(true);
@@ -94,20 +94,17 @@ export function StagePanel({
       >
         <Stack gap={3}>
           {failure && !renaming && !sendingBack ? (
-            <Alert tone="danger" live="alert">
-              {failureOf(failure, texts).text}
-            </Alert>
+            <Alert tone="error">{failureOf(failure, texts).text}</Alert>
           ) : null}
           <DescriptionList
-            labelWidth="sm"
             items={[
               {
                 label: t('work.stage'),
                 value: (
                   <Stack direction="row" gap={2} wrap>
-                    <Badge tone="info" label={labels.stage(work.stageCode)} />
+                    <Chip tone="info">{labels.stage(work.stageCode)}</Chip>
                     {work.heldStageCode ? (
-                      <Text as="small" tone="muted">
+                      <Text size="small" tone="muted">
                         {t('work.held', { stage: labels.stage(work.heldStageCode) })}
                       </Text>
                     ) : null}
@@ -120,10 +117,10 @@ export function StagePanel({
             ]}
           />
           {work.mayManage ? (
-            <Select
+            <SelectField
               label={t('work.content_type')}
               value={work.contentType}
-              options={CONTENT_TYPES.map((c) => ({ id: c, label: t(`content.${c}`) }))}
+              options={CONTENT_TYPES.map((c) => ({ value: c, label: t(`content.${c}`) }))}
               onChange={(id) =>
                 id && id !== work.contentType
                   ? (review.reset(), change.mutate({ contentType: id as ContentType }))
@@ -133,14 +130,14 @@ export function StagePanel({
           ) : null}
           {work.nextStages.length ? (
             <Stack direction="row" gap={2} wrap align="end">
-              <Select
+              <SelectField
                 label={t('work.stage_label')}
-                value={stage}
-                options={work.nextStages.map((s) => ({ id: s, label: labels.stage(s) }))}
-                onChange={setStage}
+                value={stage ?? ''}
+                options={work.nextStages.map((s) => ({ value: s, label: labels.stage(s) }))}
+                onChange={(v) => setStage(v || null)}
               />
               <Button
-                onPress={() => {
+                onClick={() => {
                   if (!stage) return;
                   review.reset();
                   change.mutate({ stageCode: stage });
@@ -153,7 +150,7 @@ export function StagePanel({
             </Stack>
           ) : null}
           {work.mayManage ? (
-            <Text as="small" tone="muted">
+            <Text size="small" tone="muted">
               {t('work.stage_hint')}
             </Text>
           ) : null}
@@ -162,25 +159,24 @@ export function StagePanel({
       <Card title={t('work.review')} headingLevel={2}>
         <Stack gap={2}>
           {work.reviewApprovedBy && work.reviewApprovedAt ? (
-            <Badge
-              tone="success"
-              label={t('work.review_approved', {
+            <Chip tone="success">
+              {t('work.review_approved', {
                 name: work.reviewApprovedBy.name,
                 date: formatDate(work.reviewApprovedAt),
               })}
-            />
+            </Chip>
           ) : (
-            <Text as="small" tone="muted">
+            <Text size="small" tone="muted">
               {ready ? t('work.review_waiting') : t('work.review_not_ready')}
             </Text>
           )}
-          <Text as="small" tone="muted">
+          <Text size="small" tone="muted">
             {t('work.review_hint')}
           </Text>
           {work.mayReview && !work.reviewApprovedBy ? (
             <Stack direction="row" gap={2} wrap>
               <Button
-                onPress={() => {
+                onClick={() => {
                   change.reset();
                   review.mutate('approve');
                 }}
@@ -190,7 +186,7 @@ export function StagePanel({
               </Button>
               <Button
                 variant="secondary"
-                onPress={() => {
+                onClick={() => {
                   review.reset();
                   setComment('');
                   setSendingBack(true);
@@ -203,32 +199,23 @@ export function StagePanel({
         </Stack>
       </Card>
       {renaming ? (
-        <Modal
+        <Dialog
           title={t('work.rename')}
-          size="sm"
-          isOpen
+          size="small"
+          open
           onClose={() => setRenaming(false)}
           dismissible={!change.isPending}
-          secondaryAction={
-            <Button variant="secondary" onPress={() => setRenaming(false)}>
-              {tc('action.cancel')}
-            </Button>
-          }
-          primaryAction={
-            <Button
-              onPress={() => change.mutate({ title: title.trim() })}
+          actions={
+            <DialogButtons
+              onCancel={() => setRenaming(false)}
+              onConfirm={() => change.mutate({ title: title.trim() })}
+              confirmLabel={tc('action.save')}
               disabled={!title.trim() || title.trim() === work.title}
-              loading={change.isPending}
-            >
-              {tc('action.save')}
-            </Button>
+              pending={change.isPending}
+            />
           }
         >
-          {change.error ? (
-            <Alert tone="danger" live="alert">
-              {failureOf(change.error, texts).text}
-            </Alert>
-          ) : null}
+          {change.error ? <Alert tone="error">{failureOf(change.error, texts).text}</Alert> : null}
           <TextField
             label={t('work.title_label')}
             required
@@ -236,43 +223,35 @@ export function StagePanel({
             value={title}
             onChange={setTitle}
           />
-        </Modal>
+        </Dialog>
       ) : null}
       {sendingBack ? (
-        <Modal
+        <Dialog
           title={t('work.review_send_back_title')}
-          size="sm"
-          isOpen
+          size="small"
+          open
           onClose={() => setSendingBack(false)}
           dismissible={!review.isPending}
-          secondaryAction={
-            <Button variant="secondary" onPress={() => setSendingBack(false)}>
-              {tc('action.cancel')}
-            </Button>
-          }
-          primaryAction={
-            <Button
-              onPress={() => review.mutate('send_back')}
+          actions={
+            <DialogButtons
+              onCancel={() => setSendingBack(false)}
+              onConfirm={() => review.mutate('send_back')}
+              confirmLabel={t('work.review_send_back')}
               disabled={!comment.trim()}
-              loading={review.isPending}
-            >
-              {t('work.review_send_back')}
-            </Button>
+              pending={review.isPending}
+            />
           }
         >
-          {review.error ? (
-            <Alert tone="danger" live="alert">
-              {failureOf(review.error, texts).text}
-            </Alert>
-          ) : null}
-          <TextArea
+          {review.error ? <Alert tone="error">{failureOf(review.error, texts).text}</Alert> : null}
+          <TextField
+            rows={4}
             label={t('decision.comment')}
             required
             maxLength={2000}
             value={comment}
             onChange={setComment}
           />
-        </Modal>
+        </Dialog>
       ) : null}
     </>
   );

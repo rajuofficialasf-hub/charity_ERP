@@ -1,6 +1,5 @@
 import type { ExportList } from '@css/shared/exports';
-import { Button, Stack } from '@css/ui';
-import { FileDown } from 'lucide-react';
+import { Button, Stack } from '@/ui';
 import { lazy, Suspense, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { canExport } from '../../admin/roles';
@@ -27,7 +26,7 @@ export function ExportButton({ list, projectId, filters }: ExportButtonProps) {
   if (!me || !canExport(me)) return null;
   return (
     <Stack direction="row" justify="end">
-      <Button variant="secondary" icon={FileDown} onPress={() => setOpen(true)}>
+      <Button variant="secondary" startIcon="file-download" onClick={() => setOpen(true)}>
         {t('open')}
       </Button>
       {open && (

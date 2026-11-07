@@ -1,30 +1,21 @@
 import type { OwnStaffProfile } from '@css/shared/auth';
 import {
   Alert,
-  Avatar,
-  Badge,
   Button,
   Card,
+  Chip,
   ConfirmDialog,
   EmptyState,
-  ErrorState,
-  ProfileHeader as Banner,
+  LinkButton,
+  ProfileBanner,
   type ProfileFact,
   Skeleton,
-} from '@css/ui';
+} from '@/ui';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Briefcase,
-  FolderKanban,
-  IdCard,
-  KeyRound,
-  MonitorSmartphone,
-  PencilLine,
-  Phone,
-} from 'lucide-react';
 import { useId, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { useFileDataUrl } from '../../components/FileImage';
+import { LoadError } from '../../components/LoadError';
 import { canSeeProjects } from '../../admin/roles';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -51,16 +42,16 @@ import {
 } from './profile-api';
 
 const SECTIONS = [
-  { key: 'identity', icon: IdCard },
-  { key: 'contact', icon: Phone },
-  { key: 'projects', icon: FolderKanban },
+  { key: 'identity', icon: 'id-card' },
+  { key: 'contact', icon: 'phone' },
+  { key: 'projects', icon: 'project' },
 ] as const;
 type Section = (typeof SECTIONS)[number]['key'];
 
 const STATE_TONE = {
   pending: 'warning',
   active: 'success',
-  blocked: 'danger',
+  blocked: 'error',
   deactivated: 'neutral',
 } as const;
 
@@ -76,7 +67,6 @@ const isDetails = (section: Section): section is OfficialSection => section !== 
  */
 export function OfficialProfile() {
   const t = useTranslations('registration.profile');
-  const tc = useTranslations('common');
   const profile = useQuery({ queryKey: STAFF_PROFILE_KEY, queryFn: ownStaffProfile, retry: false });
   const requests = useQuery({ queryKey: REQUESTS_KEY, queryFn: ownRequests });
   const [current, setCurrent] = useState<Section>('identity');
@@ -90,13 +80,7 @@ export function OfficialProfile() {
   if (profile.error instanceof ApiFailure && profile.error.status === 404)
     return <EmptyState title={t('official.not_official')} />;
   if (profile.error || !profile.data)
-    return (
-      <ErrorState
-        title={tc('state.error.text')}
-        onRetry={() => void profile.refetch()}
-        requestId={profile.error instanceof ApiFailure ? profile.error.requestId : undefined}
-      />
-    );
+    return <LoadError error={profile.error} onRetry={() => void profile.refetch()} />;
   const me = profile.data;
   const rows = requests.data;
   const edits = (rows ?? []).filter(
@@ -115,14 +99,10 @@ export function OfficialProfile() {
   return (
     <div className="profile">
       {requests.error && (
-        <ErrorState
-          title={tc('state.error.text')}
-          onRetry={() => void requests.refetch()}
-          requestId={requests.error instanceof ApiFailure ? requests.error.requestId : undefined}
-        />
+        <LoadError error={requests.error} onRetry={() => void requests.refetch()} />
       )}
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
@@ -155,11 +135,11 @@ export function OfficialProfile() {
               </h2>
               {canEdit && (
                 <Button
-                  size="sm"
+                  size="small"
                   variant="secondary"
-                  icon={PencilLine}
-                  aria-label={t('edit.button_label', { field: title })}
-                  onPress={() => {
+                  startIcon="edit"
+                  ariaLabel={t('edit.button_label', { field: title })}
+                  onClick={() => {
                     setNotice(null);
                     setEditing(true);
                   }}
@@ -192,7 +172,7 @@ export function OfficialProfile() {
         </Card>
       </div>
       <ConfirmDialog
-        isOpen={leaving !== null}
+        open={leaving !== null}
         title={t('edit.leave_title')}
         message={t('edit.leave_message')}
         confirmLabel={t('edit.leave_confirm')}
@@ -218,7 +198,7 @@ function OfficialBanner({ me }: { me: OwnStaffProfile }) {
             id: 'designation',
             label: ts('dialog.designation'),
             value: me.designation,
-            icon: Briefcase,
+            icon: 'briefcase' as const,
           },
         ]
       : []),
@@ -228,7 +208,7 @@ function OfficialBanner({ me }: { me: OwnStaffProfile }) {
             id: 'job',
             label: ts('column.job_id'),
             value: me.jobId,
-            icon: IdCard,
+            icon: 'id-card' as const,
             showLabel: true,
             copy: true,
           },
@@ -236,11 +216,11 @@ function OfficialBanner({ me }: { me: OwnStaffProfile }) {
       : []),
   ];
   return (
-    <Banner
+    <ProfileBanner
       name={me.displayName}
       headingLevel={2}
-      avatar={<Avatar name={me.displayName} src={photo.data} letters={1} size="lg" />}
-      status={<Badge variant="dot" tone={STATE_TONE[me.state]} label={t(`state.${me.state}`)} />}
+      photo={photo.data}
+      status={<Chip tone={STATE_TONE[me.state]}>{t(`state.${me.state}`)}</Chip>}
       facts={facts}
     />
   );
@@ -283,12 +263,12 @@ function AccountLinks() {
   const t = useTranslations('registration.profile.official');
   return (
     <div className="profile-links">
-      <Button variant="secondary" size="sm" icon={KeyRound} href="/account/password">
+      <LinkButton variant="secondary" to="/account/password">
         {t('change_password')}
-      </Button>
-      <Button variant="secondary" size="sm" icon={MonitorSmartphone} href="/account/sessions">
+      </LinkButton>
+      <LinkButton variant="secondary" to="/account/sessions">
         {t('devices')}
-      </Button>
+      </LinkButton>
     </div>
   );
 }

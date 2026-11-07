@@ -1,7 +1,7 @@
 import { MAX_SCORE, NOT_PREVIOUSLY_ASSISTED } from '@css/shared/forms';
 import { formatDecimal } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Card, DescriptionList, Text } from '@css/ui';
+import { Card, DescriptionList, Text } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import type { ScoreItem } from './applications-api';
 
@@ -28,11 +28,11 @@ export function ScoreBreakdown({ total, items }: { total: number; items: readonl
   return (
     <Card
       title={t('title')}
-      subtitle={t('total', { score: number(total), max: number(max) })}
+
       headingLevel={2}
     >
+      <p className="admin-muted">{t('total', { score: number(total), max: number(max) })}</p>
       <DescriptionList
-        labelWidth="md"
         items={items.map((item) => ({
           label: nameOf(item),
           value: t('points', { points: number(item.points), max: number(item.max_points) }),

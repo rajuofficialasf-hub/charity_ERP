@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -96,7 +96,8 @@ describe('the programs page', () => {
     open();
     expect(await screen.findByText('কর্মসূচি পরিচালনা')).toBeInTheDocument();
     const counts = within(await screen.findByRole('region', { name: 'প্রোগ্রামের হিসাব' }));
-    const card = (label: string) => counts.getByText(label).closest('.ui-card')!;
+    // a figure's name sits under its value in its card
+    const card = (label: string) => counts.getByText(label).parentElement!;
     await waitFor(() => expect(card('সক্রিয় প্রোগ্রাম')).toHaveTextContent('2'));
     expect(card('নিষ্ক্রিয় প্রোগ্রাম')).toHaveTextContent('1');
     expect(card('পিএম ছাড়া প্রোগ্রাম')).toHaveTextContent('1');

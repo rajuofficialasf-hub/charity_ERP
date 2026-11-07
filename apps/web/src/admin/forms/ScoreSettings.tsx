@@ -1,6 +1,5 @@
 import { type FieldScore, type FormField, scoreKindOf } from '@css/shared/forms';
-import { Button, Disclosure, Stack, Text } from '@css/ui';
-import { Plus, X } from 'lucide-react';
+import { Button, Disclosure, IconButton, Stack, Text } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { NumberText } from './NumberText';
 
@@ -110,24 +109,21 @@ function Ranges({
               value={range.points}
               onChange={(points) => set(i, { points: points ?? 0 })}
             />
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={X}
-              iconOnly
-              onPress={() => onChange(ranges.filter((_, j) => j !== i))}
-            >
-              {t('score_range_remove')}
-            </Button>
+            <IconButton
+              label={t('score_range_remove')}
+              icon="close"
+
+              onClick={() => onChange(ranges.filter((_, j) => j !== i))}
+            />
           </li>
         ))}
       </ul>
       <div>
         <Button
           variant="secondary"
-          size="sm"
-          icon={Plus}
-          onPress={() => onChange([...ranges, { points: 0 }])}
+          size="small"
+          startIcon="add"
+          onClick={() => onChange([...ranges, { points: 0 }])}
         >
           {t('score_range_add')}
         </Button>

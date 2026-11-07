@@ -1,4 +1,4 @@
-import { Alert } from '@css/ui';
+import { Alert } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';

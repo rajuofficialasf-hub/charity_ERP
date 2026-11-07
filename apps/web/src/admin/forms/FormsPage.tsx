@@ -1,5 +1,5 @@
 import { localized, type Locale } from '@css/shared/i18n';
-import { Button, EmptyState, ErrorState, Skeleton, Stack, PageHeader } from '@css/ui';
+import { Button, EmptyState, Page, Skeleton, Stack } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -10,6 +10,7 @@ import { canBuildForms, canPlaceForms } from '../roles';
 import { FORMS_KEY, projectForms } from './forms-api';
 import { NewFormDialog } from './NewFormDialog';
 import { PlaceFormDialog } from './PlaceFormDialog';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * The forms of a project, each opening its builder: a PM places a published ready form, and the
@@ -18,7 +19,6 @@ import { PlaceFormDialog } from './PlaceFormDialog';
 export function FormsPage() {
   const { projectId = '' } = useParams();
   const t = useTranslations('forms.builder');
-  const tc = useTranslations('common');
   const tp = useTranslations('forms.place');
   const locale = useLocale() as Locale;
   const navigate = useNavigate();
@@ -44,28 +44,28 @@ export function FormsPage() {
   const builder = Boolean(me && canBuildForms(me));
   const placer = Boolean(me && canPlaceForms(me));
   if (list.isPending) return <Skeleton shape="row" count={3} />;
-  if (list.error)
-    return <ErrorState title={tc('state.error.text')} onRetry={() => void list.refetch()} />;
+  if (list.error) return <LoadError error={list.error} onRetry={() => void list.refetch()} />;
   return (
     <>
       <DocumentTitle title={t('forms_title')} />
-      <PageHeader
+      <Page
         title={t('forms_title')}
         actions={
           <Stack direction="row" gap={2} wrap>
             {builder ? (
-              <Button variant="secondary" onPress={() => setDialog('new')}>
+              <Button variant="secondary" onClick={() => setDialog('new')}>
                 {t('new_form')}
               </Button>
             ) : null}
-            {placer ? <Button onPress={() => setDialog('place')}>{tp('button')}</Button> : null}
+            {placer ? <Button onClick={() => setDialog('place')}>{tp('button')}</Button> : null}
           </Stack>
         }
+        documentTitle={false}
       />
       {list.data.length === 0 ? (
         <EmptyState title={t('none')} />
       ) : (
-        <Stack as="ul" gap={2}>
+        <ul className="admin-plain-list">
           {list.data.map((f) => (
             <li key={f.id}>
               <Link to={`/admin/projects/${projectId}/forms/${f.id}`}>
@@ -73,19 +73,19 @@ export function FormsPage() {
               </Link>
             </li>
           ))}
-        </Stack>
+        </ul>
       )}
       <NewFormDialog
         projectId={projectId}
         firstForm={list.data.length === 0}
-        isOpen={dialog === 'new' && builder}
+        open={dialog === 'new' && builder}
         onClose={close}
         onCreated={opened}
       />
       <PlaceFormDialog
         projectId={projectId}
         firstForm={list.data.length === 0}
-        isOpen={dialog === 'place' && placer}
+        open={dialog === 'place' && placer}
         onClose={close}
         onPlaced={opened}
       />

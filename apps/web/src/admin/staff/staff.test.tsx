@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -279,8 +279,15 @@ describe('the officials page', () => {
     await user.type(within(dialog).getByRole('textbox', { name: /^নাম/ }), 'নতুন কর্মকর্তা');
     await user.type(within(dialog).getByRole('textbox', { name: /^পদবি/ }), 'Project Executive');
     await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'New@Example.org');
+    // each step shows its own two buttons: cancel and next first, back and create after
+    expect(within(dialog).getByRole('button', { name: 'বাতিল' })).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole('button', { name: 'অ্যাকাউন্ট তৈরি করুন' }),
+    ).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
-    await user.click(within(dialog).getByRole('button', { name: /^বেছে নিন ভূমিকা/ }));
+    expect(within(dialog).queryByRole('button', { name: 'পরের ধাপ' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'বাতিল' })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('combobox', { name: /ভূমিকা/ }));
     // the Department Head role is never offered
     expect(screen.queryByRole('option', { name: 'ডিপার্টমেন্ট হেড' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
@@ -316,7 +323,7 @@ describe('the officials page', () => {
     await user.type(within(dialog).getByRole('textbox', { name: /^পদবি/ }), 'পদ');
     await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'x@example.org');
     await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
-    await user.click(within(dialog).getByRole('button', { name: /^বেছে নিন ভূমিকা/ }));
+    await user.click(within(dialog).getByRole('combobox', { name: /ভূমিকা/ }));
     await user.click(screen.getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
     await user.click(within(dialog).getByRole('button', { name: 'অ্যাকাউন্ট তৈরি করুন' }));
     expect(
@@ -511,7 +518,8 @@ describe('the official profile', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Job ID: CSS-201')).toBeInTheDocument();
+    // the banner reads the label out before the value
+    expect(screen.getAllByText('CSS-201').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Job ID কপি করুন' })).toBeInTheDocument();
     for (const section of ['পরিচয়', 'ভূমিকা ও অবস্থান', 'অ্যাকাউন্ট', 'যোগাযোগ', 'ডিভাইস'])
       expect(screen.getByRole('region', { name: section })).toBeInTheDocument();
@@ -526,7 +534,7 @@ describe('the official profile', () => {
       'href',
       'mailto:rpm.dhaka%40example.org',
     );
-    const actions = screen.getByRole('group', { name: 'কাজ' });
+    const actions = screen.getByRole('region', { name: 'কাজ' });
     expect(within(actions).getByRole('button', { name: 'প্রোফাইল সম্পাদনা' })).toBeInTheDocument();
     // a new link only while the password is not set
     expect(

@@ -1,8 +1,7 @@
 import { localized, type Locale } from '@css/shared/i18n';
 import { editableIn, STAFF_ACCESS_ROLES } from '@css/shared/projects';
-import { Alert, Button, Checkbox, Modal, Select, TextArea } from '@css/ui';
+import { Alert, Button, Checkbox, Dialog, IconButton, SelectField, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { UserMinus } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
@@ -92,15 +91,12 @@ export function StaffSection({
                   .join(', ')}
               </span>
               {manage && !phone && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={UserMinus}
-                  iconOnly
-                  onPress={() => setEnding(s)}
-                >
-                  {t('end_access', { name: s.displayName })}
-                </Button>
+                <IconButton
+                  label={t('end_access', { name: s.displayName })}
+                  icon="user-minus"
+
+                  onClick={() => setEnding(s)}
+                />
               )}
             </li>
           ))}
@@ -110,16 +106,16 @@ export function StaffSection({
         <>
           <h3 className="admin-setup-subtitle">{t('add_staff')}</h3>
           <div className="admin-setup-grid">
-            <Select
+            <SelectField
               label={t('staff_role')}
-              value={roleKey}
+              value={roleKey ?? ''}
               onChange={(role) => {
                 // the person is looked up among the holders of the role
-                setRoleKey(role);
+                setRoleKey(role || null);
                 setPerson(null);
               }}
               searchable={false}
-              options={STAFF_ACCESS_ROLES.map((r) => ({ id: r, label: tr(r) }))}
+              options={STAFF_ACCESS_ROLES.map((r) => ({ value: r, label: tr(r) }))}
             />
             {roleKey && (
               <UserSearch
@@ -134,36 +130,26 @@ export function StaffSection({
                 }}
               />
             )}
-            <Select
+            <SelectField
               label={t('staff_area')}
-              helper={configure ? t('staff_area_hint') : undefined}
-              value={areaId}
-              onChange={setAreaId}
+              hint={configure ? t('staff_area_hint') : undefined}
+              value={areaId ?? ''}
+              onChange={(v) => setAreaId(v || null)}
               searchable={false}
               options={places.map((a) => ({
-                id: a.locationId,
+                value: a.locationId,
                 label: localized(a.locationName, locale),
               }))}
             />
           </div>
           <div className="admin-setup-checks">
-            <Checkbox isSelected isDisabled>
-              {t('access.view')}
-            </Checkbox>
-            <Checkbox isSelected={canEdit} onChange={setCanEdit}>
-              {t('access.edit')}
-            </Checkbox>
+            <Checkbox label={t('access.view')} checked onChange={() => undefined} disabled />
+            <Checkbox label={t('access.edit')} checked={canEdit} onChange={setCanEdit} />
             {configure && (
-              <Checkbox isSelected={canDelete} onChange={setCanDelete}>
-                {t('access.delete')}
-              </Checkbox>
+              <Checkbox label={t('access.delete')} checked={canDelete} onChange={setCanDelete} />
             )}
           </div>
-          {problem && (
-            <Alert tone="warning" live="alert">
-              {problem}
-            </Alert>
-          )}
+          {problem && <Alert tone="warning">{problem}</Alert>}
           <SaveRow
             mutation={add}
             onSave={() => add.mutate()}
@@ -203,34 +189,37 @@ function EndAccessDialog({
     onSuccess: onDone,
   });
   return (
-    <Modal
+    <Dialog
       title={t('end_access', { name: access.displayName })}
-      size="sm"
-      isOpen
+      size="small"
+      open
       onClose={onClose}
       dismissible={!end.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={end.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button
-          variant="danger"
-          onPress={() => end.mutate()}
-          disabled={reason.trim().length < 3}
-          loading={end.isPending}
-        >
-          {t('end')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={end.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => end.mutate()}
+            disabled={reason.trim().length < 3}
+            loading={end.isPending}
+          >
+            {t('end')}
+          </Button>
+        </>
       }
     >
-      {end.error instanceof ApiFailure && (
-        <Alert tone="danger" live="alert">
-          {end.error.message}
-        </Alert>
-      )}
-      <TextArea label={t('reason')} required maxLength={1000} value={reason} onChange={setReason} />
-    </Modal>
+      {end.error instanceof ApiFailure && <Alert tone="error">{end.error.message}</Alert>}
+      <TextField
+        rows={4}
+        label={t('reason')}
+        required
+        maxLength={1000}
+        value={reason}
+        onChange={setReason}
+      />
+    </Dialog>
   );
 }

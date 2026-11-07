@@ -8,6 +8,7 @@ import {
 } from '@playwright/test';
 import { apiAs, isPhone, openTab, scan, signIn } from './support/admin';
 import { activeProject, choice, code, ERR, question } from './support/projects';
+import { pickByLabel } from './support/forms';
 
 // The application cycle across both screens (docs/MASTER_PROMPT.md, the critical journey
 // "review, approval"; docs/testing/DEMO_ACCOUNTS.md): a project of this run with a two-part form,
@@ -88,13 +89,6 @@ const FORM = [
     fields: [question('q_need', 'long_text', { label: { bn: 'কেন সহায়তা দরকার', en: 'Why' } })],
   },
 ];
-
-/** Picks an option of the renderer's Select by its label. */
-async function pick(page: Page, label: string, option: string) {
-  await page.getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) }).click();
-  await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
-  await expect(page.getByRole('listbox')).toHaveCount(0);
-}
 
 /** Opens the application's own page from the row of the list that carries its number. */
 const openOwn = (page: Page, appNo: string) =>
@@ -194,11 +188,11 @@ test.describe('the application cycle', () => {
     await page.getByRole('textbox', { name: /উপকারভোগীর নাম/ }).fill(name);
     await page.getByRole('textbox', { name: /পিতা বা স্বামীর নাম/ }).fill('নমুনা পিতা');
     await page.getByRole('textbox', { name: /উপকারভোগীর মোবাইল/ }).fill(`018${digits(8)}`);
-    await pick(page, 'লিঙ্গ', 'নারী');
-    await pick(page, 'বিভাগ', 'ঢাকা');
-    await pick(page, 'জেলা', 'ঢাকা');
-    await pick(page, 'উপজেলা', 'সাভার');
-    await pick(page, 'ইউনিয়ন', 'সাভার');
+    await pickByLabel(page, 'লিঙ্গ', 'নারী');
+    await pickByLabel(page, 'বিভাগ', 'ঢাকা');
+    await pickByLabel(page, 'জেলা', 'ঢাকা');
+    await pickByLabel(page, 'উপজেলা', 'সাভার');
+    await pickByLabel(page, 'ইউনিয়ন', 'সাভার');
     await page.getByRole('textbox', { name: /গ্রাম/ }).fill('নমুনা গ্রাম');
     if (isPhone(info)) {
       // the first part done saves the draft; the second part is its own screen

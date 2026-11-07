@@ -2,11 +2,12 @@ import type { AnswerValue } from '@css/shared';
 import { formatDate } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import { type Answer, type FormDefinition, type FormField, resultLabelOf } from '@css/shared/forms';
-import { DescriptionList, Stack, Text } from '@css/ui';
+import { DescriptionList, Stack, Text } from '@/ui';
 import type { ReactNode } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { FileImage } from '../../components/FileImage';
+import { QuestionTitle } from '../forms/QuestionTitle';
 
 /** The answer of a question as text, in the reader's language; null for photos and files. */
 export function answerText(
@@ -117,43 +118,42 @@ export function AnswerList({
   return (
     <Stack gap={3}>
       {sections.map(({ section, items }) => (
-        <Stack key={section.key} gap={2} as="section" aria-labelledby={`answers-${section.key}`}>
-          <Text as="strong" id={`answers-${section.key}`} weight="bold">
-            {section.title[locale]}
-          </Text>
-          <DescriptionList
-            labelWidth="md"
-            items={items.flatMap((i) => {
-              if (i.kind !== 'text') return [];
-              const extra = action?.(i.field);
-              return [
-                {
-                  label: i.label,
-                  value: extra ? (
-                    <span className="answer-with-action">
-                      <span>{i.text}</span>
-                      {extra}
-                    </span>
-                  ) : (
-                    i.text
-                  ),
-                },
-              ];
-            })}
-          />
-          {items
-            .flatMap((i) => (i.kind === 'photos' ? [i] : []))
-            .map((i) => (
-              <Stack key={i.key} gap={1}>
-                <Text weight="bold">{i.label}</Text>
-                <div className="my-application-photos">
-                  {i.ids.map((fileId) => (
-                    <FileImage key={fileId} fileId={fileId} alt={t('photo_alt')} />
-                  ))}
-                </div>
-              </Stack>
-            ))}
-        </Stack>
+        <section key={section.key} aria-labelledby={`answers-${section.key}`}>
+          <Stack gap={2}>
+            <strong id={`answers-${section.key}`}>{section.title[locale]}</strong>
+            <DescriptionList
+              items={items.flatMap((i) => {
+                if (i.kind !== 'text') return [];
+                const extra = action?.(i.field);
+                return [
+                  {
+                    label: i.label,
+                    value: extra ? (
+                      <span className="answer-with-action">
+                        <span>{i.text}</span>
+                        {extra}
+                      </span>
+                    ) : (
+                      i.text
+                    ),
+                  },
+                ];
+              })}
+            />
+            {items
+              .flatMap((i) => (i.kind === 'photos' ? [i] : []))
+              .map((i) => (
+                <Stack key={i.key} gap={1}>
+                  <QuestionTitle>{i.label}</QuestionTitle>
+                  <div className="my-application-photos">
+                    {i.ids.map((fileId) => (
+                      <FileImage key={fileId} fileId={fileId} alt={t('photo_alt')} />
+                    ))}
+                  </div>
+                </Stack>
+              ))}
+          </Stack>
+        </section>
       ))}
     </Stack>
   );

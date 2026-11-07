@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -81,7 +81,7 @@ describe('My Work home', () => {
       'href',
       `/my-projects/${PROJECT.projectId}/team`,
     );
-    const later = screen.getByRole('heading', { name: 'আমার আবেদন' }).closest('.ui-card');
+    const later = screen.getByRole('heading', { name: 'আমার আবেদন' }).closest('section');
     expect(later).toHaveTextContent('শিগগিরই আসছে');
     expect(within(later as HTMLElement).queryByRole('button')).toBeNull();
     expect(within(later as HTMLElement).queryByRole('link')).toBeNull();
@@ -128,7 +128,7 @@ describe('My Work home', () => {
       '/sync',
     );
     const reminder = await screen.findByText('জমা কাজ পাঠানো বাকি');
-    expect(reminder.closest('.ui-alert')).toHaveTextContent(
+    expect(reminder.closest('[role="status"]')).toHaveTextContent(
       '2টি রেকর্ড 1 দিন ধরে এই ফোনে অপেক্ষায়',
     );
     expect(screen.getByRole('link', { name: 'সিঙ্ক দেখুন' })).toHaveAttribute('href', '/sync');
@@ -170,7 +170,7 @@ describe('My Work home', () => {
     openHome({ ...ME, roles: ['program_manager'] });
     const states = await screen.findByRole('heading', { name: 'প্রকল্পের অবস্থা' });
     expect(states).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: /সক্রিয়.*4/ })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /4\s*সক্রিয়/ })).toHaveAttribute(
       'href',
       '/admin/projects?status=active',
     );
@@ -238,7 +238,7 @@ describe('My Work home', () => {
     const today = screen.getByRole('region', { name: 'আজকের সারসংক্ষেপ' });
     // the unread notifications are counted on their own, not among the tasks
     expect(
-      await within(today).findByText('আজ আপনার জন্য 6টি কাজ অপেক্ষা করছে।'),
+      await within(today).findByText(/আজ আপনার জন্য 6টি কাজ অপেক্ষা করছে।/),
     ).toBeInTheDocument();
     expect(within(today).getByText('অপেক্ষমাণ কাজ').parentElement).toHaveTextContent('6');
     expect(within(today).getByText('না-পড়া নোটিফিকেশন').parentElement).toHaveTextContent('2');
@@ -250,7 +250,7 @@ describe('My Work home', () => {
     openHome({ ...ME, roles: ['department_head'] });
     const today = await screen.findByRole('region', { name: 'আজকের সারসংক্ষেপ' });
     expect(
-      await within(today).findByText('আজ আপনার জন্য কোনো কাজ অপেক্ষায় নেই।'),
+      await within(today).findByText(/আজ আপনার জন্য কোনো কাজ অপেক্ষায় নেই।/),
     ).toBeInTheDocument();
     expect(within(today).getByText('অপেক্ষমাণ কাজ').parentElement).toHaveTextContent('0');
   });

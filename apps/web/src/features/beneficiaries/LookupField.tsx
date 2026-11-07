@@ -5,18 +5,8 @@ import {
   normalizeIdentityNumber,
 } from '@css/shared/beneficiaries';
 import type { Locale } from '@css/shared/i18n';
-import {
-  Alert,
-  Button,
-  DescriptionList,
-  Grid,
-  PhoneField,
-  RadioGroup,
-  Text,
-  TextField,
-} from '@css/ui';
+import { Alert, Button, DescriptionList, Grid, RadioGroup, Stack, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
 import { type ReactNode, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import {
@@ -26,6 +16,7 @@ import {
 } from '../../admin/beneficiaries/beneficiaries-api';
 import { useLocationName } from '../../components/AddressNames';
 import { ApiFailure } from '../../lib/api';
+import { QuestionTitle } from '../forms/QuestionTitle';
 
 type NumberKind = 'nid' | 'birthReg';
 type Asked = { number: string; kind: NumberKind; projectId: string };
@@ -112,14 +103,14 @@ export function LookupField({
   const result = fresh ? search.data : undefined;
   const failure = fresh && search.error instanceof ApiFailure ? search.error : null;
   return (
-    <Grid gap={3}>
+    <Stack gap={3}>
       <RadioGroup
         label={t('kind')}
         orientation="horizontal"
         value={kind}
         options={[
-          { id: 'nid', label: t('kind_nid') },
-          { id: 'birthReg', label: t('kind_birth_reg') },
+          { value: 'nid', label: t('kind_nid') },
+          { value: 'birthReg', label: t('kind_birth_reg') },
         ]}
         onChange={(id) => {
           setKind(id as NumberKind);
@@ -129,7 +120,7 @@ export function LookupField({
       <TextField
         type="nid"
         label={kind === 'nid' ? t('number_nid') : t('number_birth_reg')}
-        helper={projectId ? undefined : t('pick_project')}
+        hint={projectId ? undefined : t('pick_project')}
         value={typed}
         error={error}
         maxLength={40}
@@ -139,9 +130,9 @@ export function LookupField({
         }}
         endAction={
           <Button
-            size="sm"
-            icon={Search}
-            onPress={submit}
+            size="small"
+            startIcon="search"
+            onClick={submit}
             disabled={!projectId || !typed.trim()}
             loading={search.isPending}
           >
@@ -149,16 +140,8 @@ export function LookupField({
           </Button>
         }
       />
-      {failure && (
-        <Alert tone="danger" live="alert">
-          {failure.message}
-        </Alert>
-      )}
-      {offline && asked && (
-        <Alert tone="info" live="status">
-          {t('offline_note')}
-        </Alert>
-      )}
+      {failure && <Alert tone="error">{failure.message}</Alert>}
+      {offline && asked && <Alert tone="info">{t('offline_note')}</Alert>}
       {result && asked && !offline && (
         <Answer
           result={result}
@@ -172,7 +155,7 @@ export function LookupField({
           footer={footer}
         />
       )}
-    </Grid>
+    </Stack>
   );
 }
 
@@ -195,41 +178,33 @@ function Answer({
   const a = result.autofill;
   // a blocked person cannot apply anywhere (the answer carries nothing else), and one
   // application per project is the rule
-  if (result.found && result.blocked)
-    return (
-      <Alert tone="danger" live="status">
-        {t('blocked')}
-      </Alert>
-    );
-  if (!result.found || !a)
-    return (
-      <Alert tone="info" live="status">
-        {t('not_found')}
-      </Alert>
-    );
+  if (result.found && result.blocked) return <Alert tone="error">{t('blocked')}</Alert>;
+  if (!result.found || !a) return <Alert tone="info">{t('not_found')}</Alert>;
   if (result.alreadyAppliedInProject)
-    return (
-      <Alert tone="warning" live="status">
-        {t('already_applied', { benNo: formatBenNo(a.benNo) })}
-      </Alert>
-    );
+    return <Alert tone="warning">{t('already_applied', { benNo: formatBenNo(a.benNo) })}</Alert>;
   return (
-    <Grid gap={3}>
+    <Stack gap={3}>
       {result.mergedInto && (
-        <Alert tone="info" live="status">
-          {t('merged', { benNo: formatBenNo(result.mergedInto.benNo) })}
-        </Alert>
+        <Alert tone="info">{t('merged', { benNo: formatBenNo(result.mergedInto.benNo) })}</Alert>
       )}
-      <Text weight="bold">{t('found', { benNo: formatBenNo(a.benNo) })}</Text>
-      <Grid columns={2} gap={3}>
-        <TextField label={t('name')} value={a.name} locked />
-        <TextField label={t('father')} value={a.fatherOrHusbandName} locked />
+      <QuestionTitle>{t('found', { benNo: formatBenNo(a.benNo) })}</QuestionTitle>
+      <Grid columns={{ base: 1, sm: 2 }} gap={3}>
+        {/* the identity of a known person changes only through a correction */}
+        <TextField label={t('name')} value={a.name} locked onChange={() => undefined} />
+        <TextField
+          label={t('father')}
+          value={a.fatherOrHusbandName}
+          locked
+          onChange={() => undefined}
+        />
         <TextField
           label={kind === 'nid' ? t('number_nid') : t('number_birth_reg')}
           value={number}
           locked
+          onChange={() => undefined}
         />
-        <PhoneField
+        <TextField
+          type="tel"
           label={t('mobile')}
           value={mobile}
           onChange={onMobile}
@@ -238,7 +213,7 @@ function Answer({
       </Grid>
       <Details autofill={a} />
       {footer?.(a)}
-    </Grid>
+    </Stack>
   );
 }
 

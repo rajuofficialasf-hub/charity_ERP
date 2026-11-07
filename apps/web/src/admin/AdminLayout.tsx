@@ -1,4 +1,4 @@
-import { Alert, Button, Text, PageHeader } from '@css/ui';
+import { Alert, LinkButton, Page, Text } from '@/ui';
 import { Outlet } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { DocumentTitle } from '../components/DocumentTitle';
@@ -12,13 +12,14 @@ export function ForbiddenContent() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader title={t('title')} />
-      <Text>{t('message')}</Text>
-      <div>
-        <Button variant="secondary" href="/">
-          {t('home')}
-        </Button>
-      </div>
+      <Page title={t('title')} documentTitle={false}>
+        <Text>{t('message')}</Text>
+        <div>
+          <LinkButton variant="secondary" to="/">
+            {t('home')}
+          </LinkButton>
+        </div>
+      </Page>
     </>
   );
 }
@@ -37,9 +38,9 @@ export function AdminLayout() {
         <div className="admin-content">
           {canOpenAdmin(me) ? (
             <>
-              <Alert tone="info" className="admin-phone-notice">
-                {t('phone_notice')}
-              </Alert>
+              <div className="admin-phone-notice">
+                <Alert tone="info">{t('phone_notice')}</Alert>
+              </div>
               <Outlet />
             </>
           ) : (

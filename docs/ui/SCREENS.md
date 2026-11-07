@@ -1,6 +1,6 @@
 # SCREEN INVENTORY
 
-Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the pilot set are built in task T0.19b under `docs/ui/mockups/`. Components, layouts and states refer to `docs/ui/DESIGN_SYSTEM.md` (DS). Owner decisions: `docs/ui/DESIGN_BRIEF.md` (UX-01 to UX-13). Permissions: `docs/security/permissions.yaml`. API: `docs/api/openapi.yaml` (tags named per screen).
+Status: complete for Phase 0, written in task T0.19 (2026-10-10). The mockups of the pilot set built in task T0.19b were removed when the app moved to the asf UI system (D-151; they are in git history). Components, layouts and states refer to `docs/ui/DESIGN_SYSTEM.md` (DS). Owner decisions: `docs/ui/DESIGN_BRIEF.md` (UX-01 to UX-13). Permissions: `docs/security/permissions.yaml`. API: `docs/api/openapi.yaml` (tags named per screen).
 
 ## 1. Conventions
 
@@ -25,13 +25,13 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 - **Layouts.** Phone below 640 px, tablet 640 to 1023 px, desktop 1024 px and up (DS §2.8, §4).
 - **Phase and task.** The roadmap phase (constitution §8) and the PLAN task that builds the screen.
 - **Role labels.** Tables use short labels for the roles of `permissions.yaml`: Head = Department Head (`department_head`), Monitoring = Monitoring Team (`monitoring_team`), PM = Program Manager, RPM = Regional Program Manager, Executive = Project Executive, Finance, Procurement and Media = the Finance, Procurement and Media Teams; volunteer types use their full names (General Volunteer, Local দায়ী, দাঈ-স্বেচ্ছাসেবক (both), Team Member, Paid Volunteer).
-- **Look of the designed pages (D-145, plan `docs/plans/2026-11-01-1549-feat-visual-redesign-plan.md`).** The owner's prototype gives every signed-in page one anatomy:
-  - The shell: a dark green sidebar on a computer (the brand, the destinations in groups with their waiting counts, a help card and the person), an app bar with the page's trail, and the bottom tabs and the "আরও" sheet on a phone.
-  - The page header: a small green area label, the title, one line on what the page is for (true to what the page does), and the page's buttons on the right (`PageHeader`).
+- **Look of the designed pages (D-145, plan `docs/plans/2026-11-01-1549-feat-visual-redesign-plan.md`; since D-150 drawn by the asf UI system, `apps/web/src/ui`, in light and dark).** The owner's prototype gives every signed-in page one anatomy:
+  - The shell (the asf shell): a sidebar on the page colour from 1200 px (the brand, the destinations in groups with their waiting counts and the person), the rail from 600 px, an app bar with the page's trail, the light and dark switch and the language, and the bottom tabs and the "আরও" sheet on a phone.
+  - The page header (`Page`): a small area label with a green dot, the title, one line on what the page is for (true to what the page does), and the page's buttons on the right.
   - Count cards with an icon above a list, where the page already reads the numbers; a card that filters the list is outlined when chosen. A count that could not be read is left out, never shown as 0.
-  - Lists in one white card with the search and the filters (lined up at their labels) above the table, a letter or photo tile beside each name (`PersonCell`), the state as a soft dot badge, and the row buttons on one line under the header "অ্যাকশন".
-  - A side column (`page-split`, from 1024 px) for a note that states a real rule of the page (the template copies, the publishing steps, the handover and deactivation rule, the least access, the safety tip), or for a setting beside a list; amber-edged notes are information, never status.
-  - Profiles head with the dark green banner: the person, the state, the key facts as chips and the actions.
+  - Lists in one card (`DataTable` with its `FilterBar`; cards on a phone) with the search and the filters (lined up at their labels) above the table, a letter or photo tile beside each name (`PersonCell`), the state as a soft dot badge, and the row buttons on one line under the header "অ্যাকশন".
+  - A side column (`page-split`, from 1024 px) for a note that states a real rule of the page (the template copies, the publishing steps, the handover and deactivation rule, the least access, the safety tip), or for a setting beside a list; such notes are information, never status.
+  - Profiles head with the dark green banner (`ProfileBanner`, the asf primary dark to darker): the person, the state, the key facts as chips and the actions.
   - Figures the prototype shows without data behind them (budget use, teams, monthly reviews, the role matrix, session totals) are left out until a feature supplies them.
   - Screenshots of the 24 designed pages at 1280, 768 and 360 px come from `apps/web/e2e/screens.spec.ts` into `apps/web/test-results/screens/`.
 - **Detail level.**
@@ -106,7 +106,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 ### SCR-001 Login and password reset
 
-- **Photo panel (UX-24, 2026-10-20).** From 1024 px the photo of the Foundation's building fills the left two fifths of the window, sticky at the window height, and the card sits centred on the right; the set-password page of an invitation uses the same frame. On a phone the photo is hidden and not downloaded (`BrandPhoto`).
+- **Photo panel (UX-24, 2026-10-20; removed 2026-11-04, D-153).** The photo of the Foundation's building beside the card is gone on every width: the sign-in, password-reset and set-password pages show the logo, the system name and the card on the brand wash.
 - **Built (T1.7).** `/login` and `/login/reset` in apps/web (centered card on the brand wash of mockup 01; the reset flow is login id → code and new password → done; the dummy-OTP note appears only in development and E2E builds). Not yet: install state on iOS, the 426 banner (T1.13), registration link (T1.9).
 
 - **Purpose.** Sign in with mobile number and password; reset a forgotten password by OTP (AUTH.md).
@@ -148,7 +148,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 ### SCR-002 Registration with two OTP steps
 
-- **Two panels (UX-23, 2026-10-20; the owner's reference design).** On the desktop a brand panel on the left (since the same day the photo of the Foundation's building on top, fading into the brand ink; the logo on a white tile over the sky, the badge "চ্যারিটি ও সোশ্যাল সার্ভিস বিভাগ", the title at `--text-hero`, its line, the eight steps in two columns with the done ones ticked and the current one lit, the note that officials do not register here) and the form on the right ("ধাপ N / M" with a progress bar, the step's name as the heading with one hint line, the fields, "আগের ধাপ" and "পরের ধাপ"); on a phone the brand panel is a band of the logo, title and line above the form, without the photo (hidden and not downloaded), and the list is for screen readers only. Replaces the green title band and the horizontal step row, which had made the form wider than its card.
+- **Two panels (UX-23, 2026-10-20; the owner's reference design; the photo removed 2026-11-04, D-153).** On the desktop a brand panel on the left on the brand ink (the logo on a white tile, the badge "চ্যারিটি ও সোশ্যাল সার্ভিস বিভাগ", the title at `--text-hero`, its line, the eight steps in two columns with the done ones ticked and the current one lit, the note that officials do not register here) and the form on the right ("ধাপ N / M" with a progress bar, the step's name as the heading with one hint line, the fields, "আগের ধাপ" and "পরের ধাপ"); on a phone the brand panel is a band of the logo, title and line above the form, and the list is for screen readers only. Replaces the green title band and the horizontal step row, which had made the form wider than its card.
 - **Since D-097 (2026-10-17).** Volunteers only: the page names no kind and says that officials do not register here; the admin creates their accounts (SCR-063) and they set the password through a link (SCR-065). Staff drafts are refused by the API (`registration.staff_by_invitation`).
 - **Purpose.** Volunteer and staff registration (BD-44, blueprint A5):
   1. Verify the mobile number by OTP.

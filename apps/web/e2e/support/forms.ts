@@ -69,14 +69,33 @@ export async function settled(page: Page) {
   );
 }
 
-/** Picks the first choice of a select, or the named one, on the applicant's page. */
+/**
+ * Picks the first choice of a select, or the named one, on the applicant's page: an earlier select
+ * is a button, an asf one (the address) a combobox.
+ */
 export async function pick(page: Page, scope: Locator, label: RegExp, option?: string) {
-  await scope.getByRole('button', { name: label }).click();
+  await scope
+    .getByRole('button', { name: label })
+    .or(scope.getByRole('combobox', { name: label }))
+    .click();
   const list = page.getByRole('listbox');
   await (
     option
       ? list.getByRole('option', { name: option, exact: true })
       : list.getByRole('option').first()
   ).click();
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+}
+
+/**
+ * Picks an option of the renderer's select by its label: an earlier select is a button named by
+ * its value, then the label; an asf one (the address) a combobox named by the label.
+ */
+export async function pickByLabel(page: Page, label: string, option: string) {
+  await page
+    .getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) })
+    .or(page.getByRole('combobox', { name: new RegExp(`^${label}`) }))
+    .click();
+  await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
   await expect(page.getByRole('listbox')).toHaveCount(0);
 }

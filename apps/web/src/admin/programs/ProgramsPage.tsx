@@ -1,27 +1,25 @@
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
-  EmptyState,
-  ErrorState,
-  PageHeader,
+  Chip,
+  DataTable,
+  IconButton,
+  Page,
   PersonCell,
-  Table,
-  type TableColumn,
-} from '@css/ui';
+  StatCard,
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleCheck, CircleOff, Layers, Pencil, Plus, UserRoundX } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canManagePrograms, canSeePrograms } from '../roles';
-import { StatisticsBar } from '../StatisticsBar';
 import { ProgramDialog } from './ProgramDialog';
 import { type Program, PROGRAMS_KEY, programs } from './programs-api';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * The programs (DECISION_LOG D-095): officials see the programs in their scope with their PM; the
@@ -31,7 +29,6 @@ import { type Program, PROGRAMS_KEY, programs } from './programs-api';
 export function ProgramsPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.programs');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<{ program?: Program } | null>(null);
@@ -47,18 +44,16 @@ export function ProgramsPage() {
 
   const rows = list.data ?? [];
   const name = (p: Program) => <PersonCell name={localized(p.name, locale)} secondary={p.code} />;
-  const columns: TableColumn<Program>[] = [
+  const columns: DataTableExtendedColumn<Program>[] = [
     { id: 'name', header: t('column.name'), cell: name, isRowHeader: true },
     { id: 'pm', header: t('column.pm'), cell: (p) => p.pmName ?? t('no_pm'), priority: 2 },
     {
       id: 'state',
       header: t('column.state'),
       cell: (p) => (
-        <Badge
-          variant="dot"
-          tone={p.active ? 'success' : 'neutral'}
-          label={p.active ? t('state.active') : t('state.inactive')}
-        />
+        <Chip tone={p.active ? 'success' : 'neutral'}>
+          {p.active ? t('state.active') : t('state.inactive')}
+        </Chip>
       ),
     },
   ];
@@ -71,80 +66,68 @@ export function ProgramsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader
+      <Page
         eyebrow={t('eyebrow')}
         title={t('title')}
         description={t('description')}
         actions={
           manage && (
-            <Button icon={Plus} onPress={() => setDialog({})}>
+            <Button startIcon="add" onClick={() => setDialog({})}>
               {t('new')}
             </Button>
           )
         }
+        documentTitle={false}
       />
       {list.data && (
-        <StatisticsBar
-          label={t('stats.label')}
-          items={[
-            {
-              key: 'active',
-              label: t('stats.active'),
-              value: rows.filter((p) => p.active).length,
-              icon: CircleCheck,
-              tone: 'brand',
-            },
-            {
-              key: 'inactive',
-              label: t('stats.inactive'),
-              value: rows.filter((p) => !p.active).length,
-              icon: CircleOff,
-            },
-            {
-              key: 'no_pm',
-              label: t('stats.no_pm'),
-              value: rows.filter((p) => !p.pmName).length,
-              icon: UserRoundX,
-              tone: 'warning',
-            },
-          ]}
-        />
+        <section aria-label={t('stats.label')} className="admin-stats">
+          <StatCard
+            label={t('stats.active')}
+            value={rows.filter((p) => p.active).length}
+            icon="success"
+            tone="primary"
+          />
+          <StatCard
+            label={t('stats.inactive')}
+            value={rows.filter((p) => !p.active).length}
+            icon="block"
+            tone="neutral"
+          />
+          <StatCard
+            label={t('stats.no_pm')}
+            value={rows.filter((p) => !p.pmName).length}
+            icon="user-block"
+            tone="warning"
+          />
+        </section>
       )}
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
+        <Alert tone="success" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
-      <Table
-        layout="panel"
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={rows}
-        rowKey={(p) => p.id}
+        getRowId={(p) => p.id}
         rowLabel={(p) => localized(p.name, locale)}
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={Layers} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         rowActions={
           manage
             ? (p) => (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={Pencil}
-                  iconOnly
-                  onPress={() => setDialog({ program: p })}
-                >
-                  {t('edit', { name: localized(p.name, locale) })}
-                </Button>
+                <IconButton
+                  label={t('edit', { name: localized(p.name, locale) })}
+                  icon="edit"
+
+                  onClick={() => setDialog({ program: p })}
+                />
               )
             : undefined
         }
@@ -152,16 +135,9 @@ export function ProgramsPage() {
           <div className="admin-permission-card">
             {name(p)}
             <span>{p.pmName ?? t('no_pm')}</span>
-            <Badge
-              variant="dot"
-              tone={p.active ? 'success' : 'neutral'}
-              label={p.active ? t('state.active') : t('state.inactive')}
-            />
-            {manage && (
-              <Button variant="secondary" size="sm" onPress={() => setDialog({ program: p })}>
-                {tc('action.edit')}
-              </Button>
-            )}
+            <Chip tone={p.active ? 'success' : 'neutral'}>
+              {p.active ? t('state.active') : t('state.inactive')}
+            </Chip>
           </div>
         )}
       />
@@ -169,7 +145,7 @@ export function ProgramsPage() {
         <ProgramDialog
           key={dialog.program?.id ?? 'new'}
           program={dialog.program}
-          isOpen
+          open
           onClose={() => setDialog(null)}
           onDone={(p) => done(p, dialog.program ? 'saved' : 'created')}
         />

@@ -1,5 +1,4 @@
-import { Alert, Button, ProgressBar, Spinner, Stack, Text } from '@css/ui';
-import { Download, RotateCcw } from 'lucide-react';
+import { Alert, Button, ProgressBar, Spinner, Stack, Text } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { failureKey } from './exports-api';
 import { useDownload } from './use-download';
@@ -25,8 +24,8 @@ export function ExportProgress({ jobId, onRetry }: ExportProgressProps) {
   if (!data && job.isError)
     return (
       <Stack gap={2}>
-        <Alert tone="danger">{t('unreadable')}</Alert>
-        <Button variant="secondary" icon={RotateCcw} onPress={() => void job.refetch()}>
+        <Alert tone="error">{t('unreadable')}</Alert>
+        <Button variant="secondary" startIcon="undo" onClick={() => void job.refetch()}>
           {t('retry')}
         </Button>
       </Stack>
@@ -36,8 +35,11 @@ export function ExportProgress({ jobId, onRetry }: ExportProgressProps) {
     <Stack gap={3}>
       {!data || data.status === 'queued' ? (
         <Stack direction="row" gap={2} align="center">
-          <Spinner size="sm" />
-          <Text>{t('queued')}</Text>
+          <Spinner label={t('queued')} />
+          {/* the spinner names the wait for a screen reader; the words are for the eye */}
+          <span aria-hidden="true">
+            <Text>{t('queued')}</Text>
+          </span>
         </Stack>
       ) : data.status === 'running' ? (
         <ProgressBar
@@ -48,24 +50,22 @@ export function ExportProgress({ jobId, onRetry }: ExportProgressProps) {
         />
       ) : data.status === 'done' ? (
         <Stack gap={2}>
-          <Alert tone="success" live="status">
-            {t('done')}
-          </Alert>
+          <Alert tone="success">{t('done')}</Alert>
           {data.sensitive && <Text tone="muted">{t('sensitive_note')}</Text>}
           {data.fileId && (
-            <Button icon={Download} loading={saving} onPress={() => void save(data)}>
+            <Button startIcon="download" loading={saving} onClick={() => void save(data)}>
               {t('download')}
             </Button>
           )}
-          {saveFailed && <Alert tone="danger">{t('download_failed')}</Alert>}
+          {saveFailed && <Alert tone="error">{t('download_failed')}</Alert>}
         </Stack>
       ) : (
         <Stack gap={2}>
-          <Alert tone="danger" title={t('failed')}>
+          <Alert tone="error" title={t('failed')}>
             {te(failureKey(data.errorCode))}
           </Alert>
           {onRetry && (
-            <Button variant="secondary" icon={RotateCcw} onPress={onRetry}>
+            <Button variant="secondary" startIcon="undo" onClick={onRetry}>
               {t('retry')}
             </Button>
           )}

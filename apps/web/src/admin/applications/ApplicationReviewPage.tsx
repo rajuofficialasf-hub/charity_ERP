@@ -2,28 +2,25 @@ import { formatDateTime, isoDateInDhaka } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
   Card,
+  Chip,
   ConfirmDialog,
   DescriptionList,
-  ErrorState,
+  Page,
   Skeleton,
   Stack,
   Timeline,
   type TimelineStep,
-  VisuallyHidden,
-  PageHeader,
-} from '@css/ui';
+} from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { unlockRefusal, type FormField } from '@css/shared/forms';
-import { LockOpen } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { AnswerList } from '../../features/applications/AnswerList';
-import { stateLabel as labelOf, toneOf } from '../../features/applications/status';
+import { stateLabel as labelOf, stateTone } from '../../features/applications/status';
 import { FormRenderer, type Submission } from '../../features/forms/FormRenderer';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -52,6 +49,7 @@ import { ScoreBreakdown } from './ScoreBreakdown';
 import { Signals } from './Signals';
 import './applications.css';
 import { RecordPdfButton } from '../../features/exports/RecordPdfButton';
+import { LoadError } from '../../components/LoadError';
 
 /** The actions an official takes from the record, in the order of the cycle. */
 const ACTIONS: OfficeAction[] = [
@@ -105,7 +103,7 @@ function Review() {
   const navigate = useNavigate();
   const [asking, setAsking] = useState<Asking | null>(null);
   const [editing, setEditing] = useState(false);
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const one = useQuery({
     queryKey: applicationKey(applicationId),
     queryFn: () => officeApplication(applicationId),
@@ -152,7 +150,7 @@ function Review() {
       // the decision dialog shows its own failure and keeps the texts typed
       if (asking && asking.action !== 'delete') return;
       setAsking(null);
-      setNotice({ tone: 'danger', text: failureText(error) });
+      setNotice({ tone: 'error', text: failureText(error) });
     },
   });
   const open = useMutation({
@@ -182,11 +180,7 @@ function Review() {
     return (
       <Stack gap={2}>
         {back}
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={one.error instanceof ApiFailure ? one.error.requestId : undefined}
-          onRetry={() => void one.refetch()}
-        />
+        <LoadError error={one.error} onRetry={() => void one.refetch()} />
       </Stack>
     );
   const a = one.data.data;
@@ -213,9 +207,14 @@ function Review() {
   const unlockAction = a.mayUnlock
     ? (field: FormField) =>
         unlockRefusal(field) === null && !waiting.has(field.fieldKey) ? (
-          <Button variant="ghost" size="sm" icon={LockOpen} onPress={() => setOpening(field)}>
+          <Button
+            variant="text"
+            size="small"
+            startIcon="unlock"
+            ariaLabel={`${tu('open')}: ${field.label[locale]}`}
+            onClick={() => setOpening(field)}
+          >
             {tu('open')}
-            <VisuallyHidden>: {field.label[locale]}</VisuallyHidden>
           </Button>
         ) : null
     : undefined;
@@ -234,19 +233,19 @@ function Review() {
       <DocumentTitle title={a.appNo ?? t('title')} />
       {back}
       {notice ? (
-        <Alert tone={notice.tone} live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone={notice.tone} onDismiss={() => setNotice(null)}>
           {notice.text}
         </Alert>
       ) : null}
-      <PageHeader title={a.beneficiaryName ?? t('unnamed')} />
+      <Page title={a.beneficiaryName ?? t('unnamed')} documentTitle={false} />
       <Card
         title={a.appNo ?? t('no_number')}
         headingLevel={2}
-        actions={
+        action={
           <Stack direction="row" gap={2} wrap>
             <RecordPdfButton kind="application" id={a.id} />
             {verifiable ? (
-              <Button variant="primary" size="sm" onPress={() => setVerifying(true)}>
+              <Button variant="primary" size="small" onClick={() => setVerifying(true)}>
                 {t('action.verify')}
               </Button>
             ) : null}
@@ -260,20 +259,20 @@ function Review() {
                       ? 'danger'
                       : 'secondary'
                 }
-                size="sm"
+                size="small"
                 loading={act.isPending && !asking}
-                onPress={() => start(action)}
+                onClick={() => start(action)}
               >
                 {t(`action.${action}`)}
               </Button>
             ))}
             {a.mayReferToMedia ? (
-              <Button variant="secondary" size="sm" onPress={() => setReferring(true)}>
+              <Button variant="secondary" size="small" onClick={() => setReferring(true)}>
                 {a.media ? tm('referral.resend') : tm('referral.action')}
               </Button>
             ) : null}
             {a.status === 'under_review' && !editing ? (
-              <Button variant="ghost" size="sm" onPress={() => setEditing(true)}>
+              <Button variant="text" size="small" onClick={() => setEditing(true)}>
                 {t('edit_answers')}
               </Button>
             ) : null}
@@ -281,13 +280,12 @@ function Review() {
         }
       >
         <DescriptionList
-          labelWidth="sm"
           items={[
             {
               label: t('column.status'),
               value: (
                 <Stack direction="row" gap={2} wrap>
-                  <Badge tone={toneOf(a.status)} label={stateLabel(a.status)} />
+                  <Chip tone={stateTone(a.status)}>{stateLabel(a.status)}</Chip>
                   {a.media ? <MediaBadge media={a.media} /> : null}
                 </Stack>
               ),
@@ -355,7 +353,7 @@ function Review() {
         {steps.data ? (
           <Timeline steps={timeline} showActor label={t('timeline')} />
         ) : steps.error ? (
-          <ErrorState title={tc('state.error.text')} onRetry={() => void steps.refetch()} />
+          <LoadError error={steps.error} onRetry={() => void steps.refetch()} />
         ) : (
           <Skeleton shape="text" />
         )}
@@ -364,7 +362,7 @@ function Review() {
         {changes.data ? (
           <ChangeLog changes={changes.data} form={a.form} />
         ) : changes.error ? (
-          <ErrorState title={tc('state.error.text')} onRetry={() => void changes.refetch()} />
+          <LoadError error={changes.error} onRetry={() => void changes.refetch()} />
         ) : (
           <Skeleton shape="text" />
         )}
@@ -424,7 +422,7 @@ function Review() {
         />
       ) : null}
       <ConfirmDialog
-        isOpen={asking?.action === 'delete'}
+        open={asking?.action === 'delete'}
         tone="danger"
         title={t('dialog.delete')}
         confirmLabel={t('action.delete')}

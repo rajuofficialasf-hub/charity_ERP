@@ -1,7 +1,6 @@
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, Button } from '@css/ui';
+import { Alert, IconButton } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import {
@@ -60,26 +59,19 @@ export function AreasSection({ areas }: { areas: Area[] }) {
                 {a.rpmName}
               </span>
               {can && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={Trash2}
-                  iconOnly
-                  loading={remove.isPending && remove.variables === a.id}
-                  onPress={() => remove.mutate(a.id)}
-                >
-                  {t('remove_area', { name: localized(a.locationName, locale) })}
-                </Button>
+                <IconButton
+                  label={t('remove_area', { name: localized(a.locationName, locale) })}
+                  icon="delete"
+
+                  disabled={remove.isPending && remove.variables === a.id}
+                  onClick={() => remove.mutate(a.id)}
+                />
               )}
             </li>
           ))}
         </ul>
       )}
-      {remove.error instanceof ApiFailure && (
-        <Alert tone="danger" live="alert">
-          {remove.error.message}
-        </Alert>
-      )}
+      {remove.error instanceof ApiFailure && <Alert tone="error">{remove.error.message}</Alert>}
       {can && (
         <>
           <h3 className="admin-setup-subtitle">{t('add_area')}</h3>
@@ -96,11 +88,7 @@ export function AreasSection({ areas }: { areas: Area[] }) {
               }}
             />
           </div>
-          {problem && (
-            <Alert tone="warning" live="alert">
-              {problem}
-            </Alert>
-          )}
+          {problem && <Alert tone="warning">{problem}</Alert>}
           <SaveRow
             mutation={add}
             onSave={() => add.mutate()}

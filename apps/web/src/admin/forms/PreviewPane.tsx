@@ -1,7 +1,7 @@
 import { isoDateInDhaka } from '@css/shared/format';
 import type { FormDefinition } from '@css/shared/forms';
 import type { Locale } from '@css/shared/i18n';
-import { SegmentedControl, Skeleton, Stack, Text } from '@css/ui';
+import { Skeleton, Stack, Text, RadioGroup } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { IntlProvider, useLocale, useTranslations } from 'use-intl';
@@ -27,50 +27,55 @@ export function PreviewPane({ definition }: { definition: FormDefinition }) {
     retry: false,
   });
   return (
-    <Stack as="section" gap={3} aria-label={t('title')}>
-      <Stack direction="row" gap={2} wrap>
-        <SegmentedControl
-          label={t('width')}
-          value={width}
-          onChange={(id) => setWidth(id === 'desktop' ? 'desktop' : 'phone')}
-          options={[
-            { id: 'phone', label: t('phone') },
-            { id: 'desktop', label: t('desktop') },
-          ]}
-        />
-        <SegmentedControl
-          label={t('language')}
-          value={language}
-          onChange={(id) => setLanguage(id === 'en' ? 'en' : 'bn')}
-          options={[
-            { id: 'bn', label: t('bn') },
-            { id: 'en', label: t('en') },
-          ]}
-        />
-        <SegmentedControl
-          label={t('audience')}
-          value={audience}
-          onChange={(id) => setAudience(id === 'official' ? 'official' : 'volunteer')}
-          options={[
-            { id: 'volunteer', label: t('volunteer') },
-            { id: 'official', label: t('official') },
-          ]}
-        />
-      </Stack>
-      <Text tone="muted">{t('note')}</Text>
-      <div className={`form-preview-frame is-${width}`}>
-        <InLanguage locale={language}>
-          <FormRenderer
-            key={`${width}:${language}:${audience}`}
-            definition={definition}
-            audience={audience}
-            today={isoDateInDhaka(new Date())}
-            {...(nisab.data ? { nisabValue: nisab.data.value } : {})}
-            layout={width === 'phone' ? 'steps' : 'page'}
+    <section aria-label={t('title')}>
+      <Stack gap={3}>
+        <Stack direction="row" gap={2} wrap>
+          <RadioGroup
+            orientation="horizontal"
+            label={t('width')}
+            value={width}
+            onChange={(id: string) => setWidth(id === 'desktop' ? 'desktop' : 'phone')}
+            options={[
+              { value: 'phone', label: t('phone') },
+              { value: 'desktop', label: t('desktop') },
+            ]}
           />
-        </InLanguage>
-      </div>
-    </Stack>
+          <RadioGroup
+            orientation="horizontal"
+            label={t('language')}
+            value={language}
+            onChange={(id: string) => setLanguage(id === 'en' ? 'en' : 'bn')}
+            options={[
+              { value: 'bn', label: t('bn') },
+              { value: 'en', label: t('en') },
+            ]}
+          />
+          <RadioGroup
+            orientation="horizontal"
+            label={t('audience')}
+            value={audience}
+            onChange={(id: string) => setAudience(id === 'official' ? 'official' : 'volunteer')}
+            options={[
+              { value: 'volunteer', label: t('volunteer') },
+              { value: 'official', label: t('official') },
+            ]}
+          />
+        </Stack>
+        <Text tone="muted">{t('note')}</Text>
+        <div className={`form-preview-frame is-${width}`}>
+          <InLanguage locale={language}>
+            <FormRenderer
+              key={`${width}:${language}:${audience}`}
+              definition={definition}
+              audience={audience}
+              today={isoDateInDhaka(new Date())}
+              {...(nisab.data ? { nisabValue: nisab.data.value } : {})}
+              layout={width === 'phone' ? 'steps' : 'page'}
+            />
+          </InLanguage>
+        </div>
+      </Stack>
+    </section>
   );
 }
 

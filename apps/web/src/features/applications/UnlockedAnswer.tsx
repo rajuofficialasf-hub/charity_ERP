@@ -1,7 +1,7 @@
 import { type AnswerValue, answerValueSchema } from '@css/shared';
 import type { Locale } from '@css/shared/i18n';
 import type { FormField } from '@css/shared/forms';
-import { Alert, Button, Stack, Text } from '@css/ui';
+import { Alert, Button, Stack, Text } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -9,6 +9,7 @@ import { ApiFailure } from '../../lib/api';
 import { FieldInput } from '../forms/FieldInput';
 import { answerText } from './AnswerList';
 import type { Unlock } from './applications-api';
+import { QuestionTitle } from '../forms/QuestionTitle';
 
 /** A stored value read as an answer value, or nothing when it is empty or not one. */
 export function valueOf(value: unknown): AnswerValue | undefined {
@@ -65,48 +66,48 @@ export function UnlockedAnswer({
           : undefined;
   const unchanged = JSON.stringify(value) === JSON.stringify(old ?? null);
   return (
-    <Stack gap={2} as="section" aria-labelledby={`unlock-${unlock.id}`}>
-      <Text as="strong" id={`unlock-${unlock.id}`} weight="bold">
-        {field.label[locale]}
-      </Text>
-      <Text tone="muted">
-        {t('old')}: <AnswerValueText field={field} value={unlock.oldValue} />
-      </Text>
-      {unlock.state === 'updated' ? (
-        <>
-          <Text>
-            {t('new')}: <AnswerValueText field={field} value={unlock.newValue} />
-          </Text>
-          <Alert tone="info">{t('waiting')}</Alert>
-        </>
-      ) : unlock.mayFill ? (
-        <>
-          <Text weight="bold">{t('give_new')}</Text>
-          <FieldInput
-            field={field}
-            id={`unlock-value-${unlock.id}`}
-            state={{ visible: true, required: field.required, options: field.options ?? [] }}
-            value={value ?? undefined}
-            computed={undefined}
-            error={failure}
-            onChange={setValue}
-            nisabKnown
-          />
-          <div>
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={value === null || unchanged}
-              loading={send.isPending}
-              onPress={() => send.mutate()}
-            >
-              {t('send')}
-            </Button>
-          </div>
-        </>
-      ) : (
-        <Text tone="muted">{t('waiting_answer')}</Text>
-      )}
-    </Stack>
+    <section aria-labelledby={`unlock-${unlock.id}`}>
+      <Stack gap={2}>
+        <strong id={`unlock-${unlock.id}`}>{field.label[locale]}</strong>
+        <Text tone="muted">
+          {t('old')}: <AnswerValueText field={field} value={unlock.oldValue} />
+        </Text>
+        {unlock.state === 'updated' ? (
+          <>
+            <Text>
+              {t('new')}: <AnswerValueText field={field} value={unlock.newValue} />
+            </Text>
+            <Alert tone="info">{t('waiting')}</Alert>
+          </>
+        ) : unlock.mayFill ? (
+          <>
+            <QuestionTitle>{t('give_new')}</QuestionTitle>
+            <FieldInput
+              field={field}
+              id={`unlock-value-${unlock.id}`}
+              state={{ visible: true, required: field.required, options: field.options ?? [] }}
+              value={value ?? undefined}
+              computed={undefined}
+              error={failure}
+              onChange={setValue}
+              nisabKnown
+            />
+            <div>
+              <Button
+                variant="primary"
+                size="small"
+                disabled={value === null || unchanged}
+                loading={send.isPending}
+                onClick={() => send.mutate()}
+              >
+                {t('send')}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <Text tone="muted">{t('waiting_answer')}</Text>
+        )}
+      </Stack>
+    </section>
   );
 }

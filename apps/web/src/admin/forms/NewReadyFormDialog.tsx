@@ -1,6 +1,6 @@
 import type { ReadyFormCreate } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, Button, Modal, RadioGroup, Select, TextField } from '@css/ui';
+import { Alert, Button, Dialog, RadioGroup, SelectField, TextField } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -23,13 +23,13 @@ export function readyKeyOf(nameEn: string, stamp: string): string {
  */
 export function NewReadyFormDialog({
   forms,
-  isOpen,
+  open,
   onClose,
   onCreated,
 }: {
   /** The ready forms already there, for the copy. */
   forms: readonly ReadyFormView[];
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
   onCreated: (formId: string) => void;
 }) {
@@ -60,26 +60,24 @@ export function NewReadyFormDialog({
   });
   const ready = nameBn.trim() !== '' && nameEn.trim() !== '' && source !== null;
   return (
-    <Modal
+    <Dialog
       title={tr('new')}
-      isOpen={isOpen}
+      open={open}
       onClose={onClose}
       dismissible={!create.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={create.isPending}>
-          {t('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => create.mutate()} disabled={!ready} loading={create.isPending}>
-          {t('create')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
+            {t('cancel')}
+          </Button>
+          <Button onClick={() => create.mutate()} disabled={!ready} loading={create.isPending}>
+            {t('create')}
+          </Button>
+        </>
       }
     >
       {create.error instanceof ApiFailure ? (
-        <Alert tone="danger" live="alert">
-          {create.error.details[0]?.message ?? create.error.message}
-        </Alert>
+        <Alert tone="error">{create.error.details[0]?.message ?? create.error.message}</Alert>
       ) : null}
       <TextField
         label={t('name_bn')}
@@ -98,12 +96,12 @@ export function NewReadyFormDialog({
       />
       <RadioGroup
         label={tr('kind')}
-        helper={tr('kind_hint')}
+        hint={tr('kind_hint')}
         value={kind}
         onChange={(id) => setKind(id === 'other' ? 'other' : 'beneficiary_application')}
         options={[
-          { id: 'beneficiary_application', label: t('kind.beneficiary_application') },
-          { id: 'other', label: t('kind.other') },
+          { value: 'beneficiary_application', label: t('kind.beneficiary_application') },
+          { value: 'other', label: t('kind.other') },
         ]}
       />
       <RadioGroup
@@ -111,20 +109,20 @@ export function NewReadyFormDialog({
         value={start}
         onChange={(id) => setStart(id === 'copy' ? 'copy' : 'blank')}
         options={[
-          { id: 'blank', label: tr('start_blank') },
-          { id: 'copy', label: tr('start_copy') },
+          { value: 'blank', label: tr('start_blank') },
+          { value: 'copy', label: tr('start_copy') },
         ]}
       />
       {start === 'copy' ? (
-        <Select
+        <SelectField
           label={tr('copy_from')}
           required
-          value={copyFrom}
-          onChange={setCopyFrom}
-          helper={published.length === 0 ? tr('copy_none') : undefined}
-          options={published.map((f) => ({ id: f.id, label: localized(f.title, locale) }))}
+          value={copyFrom ?? ''}
+          onChange={(v) => setCopyFrom(v || null)}
+          hint={published.length === 0 ? tr('copy_none') : undefined}
+          options={published.map((f) => ({ value: f.id, label: localized(f.title, locale) }))}
         />
       ) : null}
-    </Modal>
+    </Dialog>
   );
 }

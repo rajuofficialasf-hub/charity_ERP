@@ -1,4 +1,4 @@
-import { Alert, Button, Modal, Switch, TextArea, TextField } from '@css/ui';
+import { Alert, Button, Dialog, Switch, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -44,26 +44,24 @@ export function TemplateDialog({
     active !== template.active;
   const ready = nameBn.trim() !== '' && nameEn.trim() !== '' && changed;
   return (
-    <Modal
+    <Dialog
       title={t('title')}
-      isOpen
+      open
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={save.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => save.mutate()} disabled={!ready} loading={save.isPending}>
-          {tc('save')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
+            {tc('save')}
+          </Button>
+        </>
       }
     >
       {save.error instanceof ApiFailure && (
-        <Alert tone="danger" live="alert">
-          {save.error.details[0]?.message ?? save.error.message}
-        </Alert>
+        <Alert tone="error">{save.error.details[0]?.message ?? save.error.message}</Alert>
       )}
       <TextField
         label={t('name_bn')}
@@ -80,16 +78,14 @@ export function TemplateDialog({
         value={nameEn}
         onChange={setNameEn}
       />
-      <TextArea
+      <TextField
         label={t('description')}
         maxLength={2000}
         rows={3}
         value={description}
         onChange={setDescription}
       />
-      <Switch isSelected={active} onChange={setActive}>
-        {t('active')}
-      </Switch>
-    </Modal>
+      <Switch label={t('active')} checked={active} onChange={setActive} />
+    </Dialog>
   );
 }

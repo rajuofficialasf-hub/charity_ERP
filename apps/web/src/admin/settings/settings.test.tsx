@@ -1,6 +1,6 @@
 import type { Me } from '@css/shared/auth';
 import { SETTING_DEFAULTS } from '@css/shared/settings';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -212,7 +212,7 @@ describe('the settings page', () => {
     serve();
     open('lists');
     const expense = await screen.findByRole('heading', { level: 2, name: 'খরচের খাত' });
-    const card = expense.closest('.ui-card') as HTMLElement;
+    const card = expense.closest('section') as HTMLElement;
     expect(await within(card).findAllByText('সাজসজ্জা')).not.toHaveLength(0);
     expect(within(card).getAllByText('বন্ধ').length).toBeGreaterThan(0);
     const user = userEvent.setup();
@@ -248,7 +248,7 @@ describe('the settings page', () => {
     serve();
     open('lists');
     const stages = await screen.findByRole('heading', { level: 2, name: 'মিডিয়ার ধাপ' });
-    const stageCard = stages.closest('.ui-card') as HTMLElement;
+    const stageCard = stages.closest('section') as HTMLElement;
     expect(await within(stageCard).findAllByText('সিস্টেমের প্রয়োজনীয়')).not.toHaveLength(0);
     const user = userEvent.setup();
     await user.click(within(stageCard).getAllByRole('button', { name: 'প্রকাশিত সম্পাদনা' })[0]!);
@@ -258,7 +258,7 @@ describe('the settings page', () => {
     await user.click(within(edit).getByRole('button', { name: 'বাতিল' }));
 
     const platforms = screen.getByRole('heading', { level: 2, name: 'প্রকাশের প্ল্যাটফর্ম' });
-    const card = platforms.closest('.ui-card') as HTMLElement;
+    const card = platforms.closest('section') as HTMLElement;
     expect(await within(card).findAllByText('YouTube')).not.toHaveLength(0);
     await user.click(within(card).getByRole('button', { name: 'নতুন আইটেম' }));
     const dialog = await screen.findByRole('dialog', {
@@ -268,7 +268,7 @@ describe('the settings page', () => {
     await user.type(within(dialog).getByRole('textbox', { name: /^নাম \(বাংলা\)/ }), 'ওয়েবসাইট');
     await user.type(within(dialog).getByRole('textbox', { name: /^নাম \(ইংরেজি\)/ }), 'Website');
     expect(within(dialog).getByRole('button', { name: 'সংরক্ষণ' })).toBeDisabled();
-    await user.click(within(dialog).getByRole('button', { name: /ধরন/ }));
+    await user.click(within(dialog).getByRole('combobox', { name: /ধরন/ }));
     await user.click(await screen.findByRole('option', { name: 'অন্য ওয়েবসাইট' }));
     await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
     await waitFor(() =>
@@ -348,7 +348,7 @@ describe('the settings page', () => {
     serve();
     open('lists');
     const expense = await screen.findByRole('heading', { level: 2, name: 'খরচের খাত' });
-    const card = expense.closest('.ui-card') as HTMLElement;
+    const card = expense.closest('section') as HTMLElement;
     const user = userEvent.setup();
     await user.click(within(card).getByRole('button', { name: 'নতুন আইটেম' }));
     const dialog = await screen.findByRole('dialog', { name: 'নতুন আইটেম: খরচের খাত' });

@@ -4,24 +4,19 @@ import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
   Card,
-  EmptyState,
-  ErrorState,
-  Grid,
-  Modal,
-  SegmentedControl,
+  Chip,
+  DataTable,
+  type DataTableExtendedColumn,
+  Dialog,
+  IconButton,
+  Page,
+  RadioGroup,
   Stack,
-  Table,
-  type TableColumn,
-  Text,
-  TextArea,
   TextField,
-  PageHeader,
-} from '@css/ui';
+} from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MessageSquareText, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -36,6 +31,7 @@ import {
   saveTemplate,
   TEMPLATES_KEY,
 } from './notifications-admin-api';
+import { LoadError } from '../../components/LoadError';
 
 const LOCALES = ['bn', 'en'] as const;
 
@@ -48,7 +44,6 @@ const LOCALES = ['bn', 'en'] as const;
 export function NotificationTemplatesPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.notification_templates');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const [editing, setEditing] = useState<NotificationTemplate | null>(null);
   const [notice, setNotice] = useState<string>();
@@ -62,20 +57,18 @@ export function NotificationTemplatesPage() {
   if (!allowed) return <ForbiddenContent />;
 
   const channels = (n: NotificationTemplate) => (
-    <Stack direction="row" wrap gap={2} as="span">
+    <Stack direction="row" wrap gap={2}>
       {(Object.keys(n.channels) as EditableChannel[]).map((c) => (
-        <Badge
-          key={c}
-          size="sm"
-          label={t('version', {
+        <Chip key={c}>
+          {t('version', {
             channel: t(`channel.${c}`),
             version: formatCount(n.channels[c]!.version, locale),
           })}
-        />
+        </Chip>
       ))}
     </Stack>
   );
-  const columns: TableColumn<NotificationTemplate>[] = [
+  const columns: DataTableExtendedColumn<NotificationTemplate>[] = [
     {
       id: 'key',
       header: t('column.key'),
@@ -93,43 +86,38 @@ export function NotificationTemplatesPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('intro')} />
+      <Page
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('intro')}
+        documentTitle={false}
+      />
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
+        <Alert tone="success" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
-      <Table
-        layout="panel"
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={list.data ?? []}
-        rowKey={(n) => n.key}
+        getRowId={(n) => n.key}
         rowLabel={(n) => n.key}
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={MessageSquareText} title={t('table')} headingLevel={2} />}
+        emptyTitle={t('table')}
         rowActions={(n) => (
-          <Button variant="ghost" size="sm" icon={Pencil} iconOnly onPress={() => edit(n)}>
-            {t('edit', { key: n.key })}
-          </Button>
+          <IconButton label={t('edit', { key: n.key })} icon="edit" onClick={() => edit(n)} />
         )}
         cardRenderer={(n) => (
           <div className="admin-permission-card">
             <code lang="en">{n.key}</code>
             <span>{t(`category.${n.category}`)}</span>
             {channels(n)}
-            <Button variant="secondary" size="sm" icon={Pencil} onPress={() => edit(n)}>
-              {t('edit_short')}
-            </Button>
           </div>
         )}
       />
@@ -211,40 +199,41 @@ function TemplateEditor({
   };
 
   return (
-    <Modal
+    <Dialog
       title={t('editor_title', { key: template.key })}
-      size="lg"
-      fullOnPhone
-      isOpen
+      size="large"
+      fullScreenOnPhone
+      open
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" loading={preview.isPending} onPress={() => preview.mutate()}>
-          {t('preview')}
-        </Button>
-      }
-      primaryAction={
-        <Button loading={save.isPending} onPress={() => save.mutate()}>
-          {t('save')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" loading={preview.isPending} onClick={() => preview.mutate()}>
+            {t('preview')}
+          </Button>
+          <Button loading={save.isPending} onClick={() => save.mutate()}>
+            {t('save')}
+          </Button>
+        </>
       }
     >
       {available.length > 1 && (
-        <SegmentedControl
+        <RadioGroup
           label={t('channel.label')}
-          options={available.map((c) => ({ id: c, label: t(`channel.${c}`) }))}
+          orientation="horizontal"
+          options={available.map((c) => ({ value: c, label: t(`channel.${c}`) }))}
           value={channel}
-          onChange={switchTo}
+          onChange={(c) => switchTo(c as typeof channel)}
         />
       )}
-      <Text className="admin-muted">
+      <p className="admin-muted">
         {template.variables.length
           ? t('variables', { list: template.variables.map((v) => `{{${v}}}`).join(', ') })
           : t('variables_none')}
-      </Text>
-      {failure && !failure.details.length && <Alert tone="danger">{failure.message}</Alert>}
+      </p>
+      {failure && !failure.details.length && <Alert tone="error">{failure.message}</Alert>}
       {LOCALES.map((l) => (
-        <Grid gap={3} as="fieldset" key={l}>
+        <fieldset key={l} className="admin-template-language">
           <legend className="admin-legend">{t(`language.${l}`)}</legend>
           <TextField
             label={t(heading === 'subject' ? 'subject' : 'heading')}
@@ -254,7 +243,7 @@ function TemplateEditor({
             onChange={(v) => change(l, heading, v)}
             error={errorAt(`${l}.${heading}`)}
           />
-          <TextArea
+          <TextField
             label={t('body')}
             lang={l}
             maxLength={2000}
@@ -263,26 +252,26 @@ function TemplateEditor({
             onChange={(v) => change(l, 'body', v)}
             error={errorAt(`${l}.body`)}
           />
-        </Grid>
+        </fieldset>
       ))}
       {preview.data && (
-        <Grid gap={3} as="section" aria-label={t('preview_title')}>
+        <section aria-label={t('preview_title')} className="admin-template-preview">
           <h3>{t('preview_title')}</h3>
           {LOCALES.map((l) => {
             const r = preview.data[l];
             return (
-              <Card key={l} title={r.subject ?? r.title ?? t(`language.${l}`)} headingLevel={4}>
-                <Text className="admin-pre-line" lang={l}>
+              <Card key={l} title={r.subject ?? r.title ?? t(`language.${l}`)} headingLevel={3}>
+                <p className="admin-pre-line" lang={l}>
                   {r.body}
-                </Text>
+                </p>
               </Card>
             );
           })}
-        </Grid>
+        </section>
       )}
       {save.isError && !(save.error instanceof ApiFailure) && (
-        <Alert tone="danger">{tc('state.error.text')}</Alert>
+        <Alert tone="error">{tc('state.error.text')}</Alert>
       )}
-    </Modal>
+    </Dialog>
   );
 }

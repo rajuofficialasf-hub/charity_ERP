@@ -1,4 +1,4 @@
-import { Alert, Stack } from '@css/ui';
+import { Alert, Stack } from '@/ui';
 import { useTranslations } from 'use-intl';
 import type { OfficeApplication } from './applications-api';
 
@@ -26,7 +26,7 @@ export function Signals({ application: a }: { application: OfficeApplication }) 
   return (
     <Stack gap={2}>
       {flags.map((flag) => (
-        <Alert key={flag} tone={flag === 'identity_blocked' ? 'danger' : 'warning'}>
+        <Alert key={flag} tone={flag === 'identity_blocked' ? 'error' : 'warning'}>
           {t(`flag.${flag}`)}
         </Alert>
       ))}

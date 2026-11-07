@@ -2,31 +2,25 @@ import { uuidv7 } from '@css/shared';
 import { formatCount, formatDate, formatDecimal } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
-  type ActiveFilter,
   Alert,
-  Badge,
   Button,
-  EmptyState,
-  ErrorState,
-  FilterGroup,
-  SegmentedControl,
-  Select,
+  Chip,
+  DataTable,
+  FilterBar,
+  Page,
+  RadioGroup,
+  SelectField,
   Skeleton,
-  Stack,
-  Table,
-  type TableColumn,
-  TableToolbar,
-  Text,
-  PageHeader,
-} from '@css/ui';
+  type ActiveFilter,
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ClipboardList } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { stateLabel as labelOf, toneOf } from '../../features/applications/status';
+import { stateLabel as labelOf, stateTone } from '../../features/applications/status';
 import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -48,6 +42,7 @@ import {
 import { QuotaBars } from './QuotaBars';
 import './applications.css';
 import { ExportButton } from '../../features/exports/ExportButton';
+import { LoadError } from '../../components/LoadError';
 
 /** The states the status filter offers, in the order of the cycle. */
 const STATES = [
@@ -88,7 +83,7 @@ export function ApplicationsPage() {
     <>
       <DocumentTitle title={name ? `${t('title')} · ${name}` : t('title')} />
       <Link to={`/admin/projects/${projectId}`}>{t('back')}</Link>
-      <PageHeader title={name ? `${t('title')}: ${name}` : t('title')} />
+      <Page title={name ? `${t('title')}: ${name}` : t('title')} documentTitle={false} />
       <ApplicationTab projectId={projectId} />
     </>
   );
@@ -100,8 +95,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
-  const { filters, setFilters, change, q, onSearch, page, cursor, goTo, activeCount } =
-    useTabView(FILTER_KEYS);
+  const { filters, setFilters, change, q, onSearch, page, cursor, goTo } = useTabView(FILTER_KEYS);
   const list = useQuery({
     queryKey: [...APPLICATIONS_KEY, projectId, filters, q, page, cursor],
     queryFn: () => applicationPage(projectId, filters, q, page, cursor),
@@ -141,9 +135,9 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   );
   const status = (r: ApplicationSummary) => (
     <span className="admin-badges">
-      <Badge variant="dot" tone={toneOf(r.status)} label={stateLabel(r.status)} />
+      <Chip tone={stateTone(r.status)}>{stateLabel(r.status)}</Chip>
       {r.flags.includes('public_entry') ? (
-        <Badge variant="dot" tone="info" label={t('signals.flag.public_entry_short')} />
+        <Chip tone="info">{t('signals.flag.public_entry_short')}</Chip>
       ) : null}
     </span>
   );
@@ -161,7 +155,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
     ) : (
       formatDecimal(r.totalScore, 2, locale)
     );
-  const columns: TableColumn<ApplicationSummary>[] = [
+  const columns: DataTableExtendedColumn<ApplicationSummary>[] = [
     { id: 'person', header: t('column.person'), cell: person, isRowHeader: true },
     ...(scored
       ? [
@@ -229,13 +223,16 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       : []),
   ];
   const meta = list.data?.meta;
+  // a row the list no longer holds (another official moved it) leaves the selection, so the bar
+  // counts only the rows the buttons act on
   const chosen = rows.filter((r) => selected.has(r.id));
+  const shownSelection = new Set(chosen.map((r) => r.id));
   const canReviewAll = chosen.length > 0 && chosen.every((r) => r.status === 'submitted');
   const canApproveAll = chosen.length > 0 && chosen.every((r) => r.status === 'reviewed');
   return (
     <>
       {outcome ? (
-        <Alert tone="info" live="status" onDismiss={() => setOutcome(null)}>
+        <Alert tone="info" onDismiss={() => setOutcome(null)}>
           {t('bulk.outcome', {
             done: formatCount(outcome.results.filter((r) => r.result === 'done').length, locale),
             failed: formatCount(outcome.results.filter((r) => r.result !== 'done').length, locale),
@@ -243,41 +240,19 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         </Alert>
       ) : null}
       {bulk.error ? (
-        <Alert tone="danger">
+        <Alert tone="error">
           {bulk.error instanceof ApiFailure ? bulk.error.message : tc('state.error.text')}
         </Alert>
       ) : null}
-      {chosen.length ? (
-        <Stack direction="row" gap={2} wrap className="admin-bulk-bar">
-          <Text>{t('bulk.selected', { count: formatCount(chosen.length, locale) })}</Text>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={!canReviewAll}
-            loading={bulk.isPending}
-            onPress={() => bulk.mutate('review')}
-          >
-            {t('action.review')}
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={!canApproveAll}
-            loading={bulk.isPending}
-            onPress={() => bulk.mutate('approve')}
-          >
-            {t('action.approve')}
-          </Button>
-        </Stack>
-      ) : null}
-      <SegmentedControl
+      <RadioGroup
         label={t('queue.label')}
+        orientation="horizontal"
         value={filters.status === 'needs_verification' ? 'verification' : 'all'}
         options={[
-          { id: 'all', label: t('queue.all') },
-          { id: 'verification', label: t('queue.verification') },
+          { value: 'all', label: t('queue.all') },
+          { value: 'verification', label: t('queue.verification') },
         ]}
-        onChange={(id) =>
+        onChange={(id: string) =>
           change({ status: id === 'verification' ? 'needs_verification' : undefined })
         }
       />
@@ -290,87 +265,104 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         projectId={projectId}
         filters={{ ...applicationListFilters(filters), q }}
       />
-      <Table
-        layout="panel"
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={rows}
-        rowKey={(r) => r.id}
+        getRowId={(r) => r.id}
         rowLabel={(r) => r.beneficiaryName ?? r.appNo ?? r.id}
         selectionMode="multiple"
-        selectedKeys={selected}
+        selectedIds={shownSelection}
         onSelectionChange={setSelected}
+        bulkActions={
+          <>
+            <Button
+              variant="secondary"
+              size="small"
+              disabled={!canReviewAll}
+              loading={bulk.isPending}
+              onClick={() => bulk.mutate('review')}
+            >
+              {t('action.review')}
+            </Button>
+            <Button
+              variant="primary"
+              size="small"
+              disabled={!canApproveAll}
+              loading={bulk.isPending}
+              onClick={() => bulk.mutate('approve')}
+            >
+              {t('action.approve')}
+            </Button>
+          </>
+        }
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={ClipboardList} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         toolbar={
-          <TableToolbar
+          <FilterBar
             onSearch={onSearch}
             searchPlaceholder={t('search')}
-            filterMode="panel"
-            activeFilterCount={activeCount(['districtId', 'upazilaId', 'unionId'])}
+            collapsible
             activeFilters={activeFilters}
             onClearFilters={() => setFilters({})}
-            filters={
-              <>
-                <FilterGroup title={t('filter.group_area')}>
-                  <AddressFields
-                    optional
-                    levels={4}
-                    value={{
-                      divisionId: filters.divisionId ?? null,
-                      districtId: filters.districtId ?? null,
-                      upazilaId: filters.upazilaId ?? null,
-                      unionId: filters.unionId ?? null,
-                    }}
-                    onChange={(a) =>
-                      change({
-                        divisionId: a.divisionId ?? undefined,
-                        districtId: a.districtId ?? undefined,
-                        upazilaId: a.upazilaId ?? undefined,
-                        unionId: a.unionId ?? undefined,
-                      })
-                    }
+          >
+            <>
+              <fieldset className="admin-filter-group">
+                <legend>{t('filter.group_area')}</legend>
+                <AddressFields
+                  optional
+                  levels={4}
+                  value={{
+                    divisionId: filters.divisionId ?? null,
+                    districtId: filters.districtId ?? null,
+                    upazilaId: filters.upazilaId ?? null,
+                    unionId: filters.unionId ?? null,
+                  }}
+                  onChange={(a) =>
+                    change({
+                      divisionId: a.divisionId ?? undefined,
+                      districtId: a.districtId ?? undefined,
+                      upazilaId: a.upazilaId ?? undefined,
+                      unionId: a.unionId ?? undefined,
+                    })
+                  }
+                />
+              </fieldset>
+              <fieldset className="admin-filter-group">
+                <legend>{t('filter.group_other')}</legend>
+                {scored ? (
+                  <SelectField
+                    label={t('sort.label')}
+                    value={filters.sort === BY_SCORE ? BY_SCORE : 'arrival'}
+                    options={[
+                      { value: 'arrival', label: t('sort.arrival') },
+                      { value: BY_SCORE, label: t('sort.score') },
+                    ]}
+                    onChange={(id) => change({ sort: id === BY_SCORE ? BY_SCORE : undefined })}
                   />
-                </FilterGroup>
-                <FilterGroup title={t('filter.group_other')}>
-                  {scored ? (
-                    <Select
-                      label={t('sort.label')}
-                      value={filters.sort === BY_SCORE ? BY_SCORE : 'arrival'}
-                      options={[
-                        { id: 'arrival', label: t('sort.arrival') },
-                        { id: BY_SCORE, label: t('sort.score') },
-                      ]}
-                      onChange={(id) => change({ sort: id === BY_SCORE ? BY_SCORE : undefined })}
-                    />
-                  ) : null}
-                  <Select
-                    label={t('filter.status')}
-                    value={filters.status ?? null}
-                    options={STATES.map((s) => ({ id: s, label: stateLabel(s) }))}
-                    onChange={(id) => change({ status: id ?? undefined })}
-                  />
-                  <Select
-                    label={t('filter.flag')}
-                    value={filters.flag ?? null}
-                    options={FLAGS.map((f) => ({ id: f, label: t(`signals.flag.${f}`) }))}
-                    onChange={(id) => change({ flag: id ?? undefined })}
-                  />
-                </FilterGroup>
-              </>
-            }
-          />
+                ) : null}
+                <SelectField
+                  label={t('filter.status')}
+                  value={filters.status ?? ''}
+                  options={STATES.map((s) => ({ value: s, label: stateLabel(s) }))}
+                  onChange={(id) => change({ status: id || undefined })}
+                />
+                <SelectField
+                  label={t('filter.flag')}
+                  value={filters.flag ?? ''}
+                  options={FLAGS.map((f) => ({ value: f, label: t(`signals.flag.${f}`) }))}
+                  onChange={(id) => change({ flag: id || undefined })}
+                />
+              </fieldset>
+            </>
+          </FilterBar>
         }
-        pagination={
+        cursorPagination={
           meta
             ? numberedPaging({
                 meta,

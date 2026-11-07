@@ -1,5 +1,5 @@
 import { minPasswordLength } from '@css/shared/auth';
-import { Alert, Button, Card, Form, PasswordField, Text } from '@css/ui';
+import { Alert, Button, Card, LinkButton, Text, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -9,7 +9,10 @@ import { PasswordRules } from '../../components/PasswordRules';
 import { PERMISSION_PANEL_ROLES } from '../../admin/roles';
 import { api, ApiFailure, refreshSession } from '../../lib/api';
 
-/** Change own password (SCR-006, AUTH.md 3): the other devices are logged out. */
+/**
+ * Change own password (docs/architecture/AUTH.md, the password change): the other devices are
+ * logged out.
+ */
 export function ChangePasswordView() {
   const t = useTranslations('auth.password');
   const tl = useTranslations('auth.login');
@@ -71,23 +74,20 @@ export function ChangePasswordView() {
       {(me) => (
         <div className="page-split">
           <Card>
-            <Form
-              onSubmit={(event) => submit(event, me.passwordChangeRequired === true)}
+            <form
+              method="post"
+              noValidate
+              onSubmit={(event) => void submit(event, me.passwordChangeRequired === true)}
               aria-label={t('title')}
             >
               <DocumentTitle title={t('title')} />
               <div className="auth-shell-stack">
                 {me.passwordChangeRequired && !done && (
-                  <Alert tone="info" live="status">
-                    {t('required_notice')}
-                  </Alert>
+                  <Alert tone="info">{t('required_notice')}</Alert>
                 )}
-                {done && (
-                  <Alert tone="success" live="status">
-                    {t('done')}
-                  </Alert>
-                )}
-                <PasswordField
+                {done && <Alert tone="success">{t('done')}</Alert>}
+                <TextField
+                  type="password"
                   label={t('current')}
                   name="currentPassword"
                   value={current}
@@ -96,7 +96,8 @@ export function ChangePasswordView() {
                   required
                   error={errors.currentPassword}
                 />
-                <PasswordField
+                <TextField
+                  type="password"
                   label={t('new')}
                   name="newPassword"
                   value={next}
@@ -113,7 +114,8 @@ export function ChangePasswordView() {
                       me.roles.some((r) => PERMISSION_PANEL_ROLES.includes(r)),
                   )}
                 />
-                <PasswordField
+                <TextField
+                  type="password"
                   label={t('confirm')}
                   name="confirm"
                   value={confirm}
@@ -122,25 +124,21 @@ export function ChangePasswordView() {
                   required
                   error={errors.confirm}
                 />
-                {error && (
-                  <Alert tone="danger" live="alert">
-                    {error}
-                  </Alert>
-                )}
+                {error && <Alert tone="error">{error}</Alert>}
                 <Button type="submit" loading={pending}>
                   {t('submit')}
                 </Button>
               </div>
-            </Form>
+            </form>
           </Card>
           <aside className="page-split-side" aria-label={t('tip.title')}>
-            <Card accent title={t('tip.title')} headingLevel={2}>
+            <Card title={t('tip.title')} headingLevel={2}>
               <Text tone="muted">{t('tip.body')}</Text>
               {/* while a new password is required, no other page opens yet */}
               {!me.passwordChangeRequired && (
-                <Button variant="ghost" size="sm" href="/account/sessions">
+                <LinkButton variant="text" to="/account/sessions">
                   {t('tip.devices')}
-                </Button>
+                </LinkButton>
               )}
             </Card>
           </aside>

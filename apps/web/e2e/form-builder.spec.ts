@@ -131,7 +131,8 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
   await page.keyboard.press('Space');
   await expect
     .poll(async () => (await list.getByRole('listitem').allInnerTexts()).slice(-3).join('|'))
-    .toMatch(/নারী সদস্য.*\|.*পুরুষ সদস্য.*\|.*মোট সদস্য/);
+    // a field's label also sits in its border, so an item's text runs over lines
+    .toMatch(/নারী সদস্য[\s\S]*\|[\s\S]*পুরুষ সদস্য[\s\S]*\|[\s\S]*মোট সদস্য/);
   await saved(page);
   await ownQuestion(
     page,
@@ -231,7 +232,10 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     const nextPart = form.getByRole('button', { name: 'পরের অংশ' });
     const male = form.getByRole('textbox', { name: /পুরুষ সদস্য/ });
     for (let i = 0; i < 12 && !(await male.isVisible()); i += 1) {
-      if (await form.getByRole('button', { name: /(^|\s)বিভাগ/ }).isVisible()) {
+      const division = form
+        .getByRole('button', { name: /(^|\s)বিভাগ/ })
+        .or(form.getByRole('combobox', { name: /(^|\s)বিভাগ/ }));
+      if (await division.isVisible()) {
         await pick(applicant, form, /(^|\s)বিভাগ/, 'ঢাকা');
         await pick(applicant, form, /(^|\s)জেলা/, 'ঢাকা');
         await pick(applicant, form, /(^|\s)উপজেলা/, 'সাভার');

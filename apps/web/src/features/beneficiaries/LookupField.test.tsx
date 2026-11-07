@@ -1,4 +1,4 @@
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -11,8 +11,9 @@ import { LookupField } from './LookupField';
 // The identity lookup of the application form: each answer has its own message, and a found
 // profile fills the form with the identity locked and the mobile editable. Test data only.
 // the lock marker is visually hidden text after the label, so the space before it may be dropped
-const LOCKED_NAME = /^নাম\s?\(লক করা\)$/;
-const LOCKED_FATHER = /^পিতা\/স্বামীর নাম\s?\(লক করা\)$/;
+// a locked field is named by its label and says it is locked in its description
+const NAME = 'নাম';
+const FATHER = 'পিতা/স্বামীর নাম';
 const PROJECT = '01900000-0000-7000-8000-0000000000c1';
 const PLACE = '01900000-0000-7000-8000-0000000000d1';
 const autofill = {
@@ -83,10 +84,13 @@ describe('the lookup field', () => {
     const user = await search();
     // Bengali digits are sent as English ones
     await waitFor(() => expect(bodies).toEqual([{ nid: '1000001000', projectId: PROJECT }]));
-    const name = await screen.findByRole('textbox', { name: LOCKED_NAME });
+    const name = await screen.findByRole('textbox', { name: NAME });
     expect(name).toHaveValue('নমুনা উপকারভোগী');
     expect(name).toHaveAttribute('readonly');
-    expect(screen.getByRole('textbox', { name: LOCKED_FATHER })).toHaveAttribute('readonly');
+    expect(name).toHaveAccessibleDescription(/লক করা/);
+    const father = screen.getByRole('textbox', { name: FATHER });
+    expect(father).toHaveAttribute('readonly');
+    expect(father).toHaveAccessibleDescription(/লক করা/);
     expect(screen.getByText('প্রোফাইল পাওয়া গেছে: BEN-0000042')).toBeInTheDocument();
     const mobile = screen.getByRole('textbox', { name: 'মোবাইল' });
     expect(mobile).not.toHaveAttribute('readonly');
@@ -116,7 +120,7 @@ describe('the lookup field', () => {
     // the search button is ready again once the old answer has come and gone
     await waitFor(() => expect(screen.getByRole('button', { name: 'খুঁজুন' })).toBeEnabled());
     expect(screen.queryByText('প্রোফাইল পাওয়া গেছে: BEN-0000042')).not.toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: LOCKED_NAME })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: NAME })).not.toBeInTheDocument();
   });
 
   it('says when no profile has the number', async () => {
@@ -131,7 +135,7 @@ describe('the lookup field', () => {
     open();
     await search();
     expect(await screen.findByText('এই ব্যক্তি ব্লক করা আছেন')).toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: LOCKED_NAME })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: NAME })).not.toBeInTheDocument();
   });
 
   it('says when the person already applied in this project', async () => {

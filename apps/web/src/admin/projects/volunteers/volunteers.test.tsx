@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -120,7 +120,7 @@ const open = () =>
     path: '/admin/projects/:projectId/volunteers',
     initialPath: `/admin/projects/${ID}/volunteers`,
   });
-const assigned = () => screen.findByRole('grid', { name: 'প্রকল্পে অ্যাসাইন করা স্বেচ্ছাসেবক' });
+const assigned = () => screen.findByRole('table', { name: 'প্রকল্পে অ্যাসাইন করা স্বেচ্ছাসেবক' });
 
 beforeEach(() => {
   resetClientForTests();
@@ -145,7 +145,7 @@ describe('the volunteers of a project', () => {
     open();
     await user.click(await screen.findByRole('button', { name: 'স্বেচ্ছাসেবক অ্যাসাইন করুন' }));
     const dialog = await screen.findByRole('dialog');
-    const list = within(dialog).getByRole('grid', { name: 'অ্যাসাইন করা যায় এমন স্বেচ্ছাসেবক' });
+    const list = within(dialog).getByRole('table', { name: 'অ্যাসাইন করা যায় এমন স্বেচ্ছাসেবক' });
     await user.click(await within(list).findByRole('checkbox', { name: /রহিম মিয়া/ }));
     await user.click(within(list).getByRole('checkbox', { name: /ফাতেমা বেগম/ }));
     expect(within(dialog).getByText('2 জন বাছাই করা হয়েছে')).toBeInTheDocument();
@@ -194,7 +194,7 @@ describe('the volunteers of a project', () => {
       await within(table).findByRole('button', { name: 'করিম উদ্দিন-এর সেট বা পেইড বদলান' }),
     );
     const change = await screen.findByRole('dialog');
-    await user.click(within(change).getByRole('button', { name: /অনুমতির সেট/ }));
+    await user.click(within(change).getByRole('combobox', { name: /অনুমতির সেট/ }));
     // a দাঈ-স্বেচ্ছাসেবক holds the two application sets, never work progress
     expect(screen.queryByRole('option', { name: 'কাজের অগ্রগতি' })).not.toBeInTheDocument();
     await user.click(await screen.findByRole('option', { name: 'আবেদন ও বিতরণ' }));
@@ -246,6 +246,6 @@ describe('the volunteers of a project', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('grid')).not.toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 });

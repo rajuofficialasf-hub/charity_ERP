@@ -3,18 +3,15 @@ import { type Locale, localized } from '@css/shared/i18n';
 import { REQUEST_FIELD_LABEL, type StaffEditField } from '@css/shared/registration';
 import {
   Alert,
-  Badge,
   Button,
+  Chip,
   ConfirmDialog,
-  EmptyState,
-  ErrorState,
+  DataTable,
   PersonCell,
   Stack,
-  Table,
-  type TableColumn,
-} from '@css/ui';
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, FilePenLine, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { FileImage } from '../../components/FileImage';
@@ -26,6 +23,7 @@ import {
   type StaffEditRequestRow,
   staffEditRequests,
 } from './registrations-api';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * The officials' own change requests for the Department Head and the Monitoring Team
@@ -38,7 +36,6 @@ export function StaffEditRequests() {
   const t = useTranslations('admin.registrations.staff_edits');
   const te = useTranslations('admin.registrations.edits');
   const tr = useTranslations('admin.registrations');
-  const tc = useTranslations('common');
   const tf = useTranslations('registration');
   const ta = useTranslations('admin.staff.affiliation');
   const locale = useLocale() as Locale;
@@ -79,25 +76,25 @@ export function StaffEditRequests() {
   const own = (r: StaffEditRequestRow) => r.userId === me?.id;
   const actions = (r: StaffEditRequestRow) =>
     own(r) ? (
-      <Badge size="sm" tone="info" label={t('own')} />
+      <Chip tone="info">{t('own')}</Chip>
     ) : (
       <Stack direction="row" wrap gap={2}>
         <Button
-          size="sm"
-          icon={Check}
-          aria-label={te('approve_label', { name: who(r), field: field(r) })}
+          size="small"
+          startIcon="check"
+          ariaLabel={te('approve_label', { name: who(r), field: field(r) })}
           disabled={decide.isPending}
-          onPress={() => decide.mutate({ row: r })}
+          onClick={() => decide.mutate({ row: r })}
         >
           {te('approve')}
         </Button>
         <Button
-          size="sm"
+          size="small"
           variant="secondary"
-          icon={X}
-          aria-label={te('reject_label', { name: who(r), field: field(r) })}
+          startIcon="close"
+          ariaLabel={te('reject_label', { name: who(r), field: field(r) })}
           disabled={decide.isPending}
-          onPress={() => setRefusing(r)}
+          onClick={() => setRefusing(r)}
         >
           {te('reject')}
         </Button>
@@ -106,7 +103,7 @@ export function StaffEditRequests() {
   const person = (r: StaffEditRequestRow) => (
     <PersonCell name={r.personName} secondary={r.personJobId ?? undefined} />
   );
-  const columns: TableColumn<StaffEditRequestRow>[] = [
+  const columns: DataTableExtendedColumn<StaffEditRequestRow>[] = [
     { id: 'person', header: t('column.person'), cell: person, isRowHeader: true },
     { id: 'field', header: te('column.field'), cell: field },
     {
@@ -120,34 +117,27 @@ export function StaffEditRequests() {
   return (
     <div className="admin-panel-section">
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
       {failure && !refusing && (
-        <Alert tone="danger" live="alert">
-          {failure.details[0]?.message ?? failure.message}
-        </Alert>
+        <Alert tone="error">{failure.details[0]?.message ?? failure.message}</Alert>
       )}
-      <Table
-        layout="panel"
+      <DataTable
         label={tr('tabs.staff_edits')}
         columns={columns}
         rows={list.data ?? []}
-        rowKey={(r) => r.id}
+        getRowId={(r) => r.id}
         rowLabel={(r) => `${who(r)} · ${field(r)}`}
         rowActions={actions}
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={FilePenLine} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         cardRenderer={(r) => (
           <div className="admin-permission-card">
             {person(r)}
@@ -159,12 +149,11 @@ export function StaffEditRequests() {
               {te('column.value')}: {show(r, r.newValue, te('photo'))}
             </span>
             {r.note && <span className="admin-muted">{r.note}</span>}
-            {actions(r)}
           </div>
         )}
       />
       <ConfirmDialog
-        isOpen={refusing !== null}
+        open={refusing !== null}
         title={refusing ? te('reject_title', { name: who(refusing), field: field(refusing) }) : ''}
         message={
           failure && <p className="admin-error">{failure.details[0]?.message ?? failure.message}</p>

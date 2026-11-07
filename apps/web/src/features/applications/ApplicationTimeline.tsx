@@ -1,6 +1,6 @@
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Timeline, type TimelineStep } from '@css/ui';
+import { Timeline, type TimelineStep } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import type { TimelineEntry } from './applications-api';
 

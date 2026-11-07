@@ -1,4 +1,4 @@
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -9,6 +9,7 @@ import { server } from '../../../test/msw/server';
 import { PublicLinkPanel } from '../../admin/forms/PublicLinkPanel';
 import { resetClientForTests } from '../../lib/api';
 import { PublicApplyPage } from './PublicApplyPage';
+import { stubMatchMedia } from '../../../test/match-media';
 
 // The public application link: the panel in the builder that switches it on with a form, and the
 // page anyone opens without signing in, which says only that an application was received.
@@ -196,12 +197,7 @@ describe('the public application page', () => {
   }
   const wide = () =>
     // a computer's width draws the whole form on one page
-    vi.stubGlobal('matchMedia', (q: string) => ({
-      matches: false,
-      media: q,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-    }));
+    stubMatchMedia(() => false);
 
   it('shows the project, the closing date and the form, and says only that it was received', async () => {
     const user = userEvent.setup();
@@ -377,14 +373,14 @@ describe('the public application page', () => {
     const user = userEvent.setup();
     wide();
     page();
-    expect(await screen.findByText('প্রয়োজন')).toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: 'English' }));
-    expect(await screen.findByText('Need')).toBeInTheDocument();
+    expect(await screen.findByRole('textbox', { name: 'প্রয়োজন' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'English' }));
+    expect(await screen.findByRole('textbox', { name: 'Need' })).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 1, name: 'Winter clothing 2026' }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: 'বাংলা' }));
-    expect(await screen.findByText('প্রয়োজন')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'বাংলা' }));
+    expect(await screen.findByRole('textbox', { name: 'প্রয়োজন' })).toBeInTheDocument();
   });
 
   it('has no axe violation in either language', async () => {
@@ -392,7 +388,7 @@ describe('the public application page', () => {
     page();
     await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র 2026' });
     await expectNoAxeViolations(document.body);
-    await userEvent.setup().click(screen.getByRole('radio', { name: 'English' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'English' }));
     await screen.findByRole('heading', { level: 1, name: 'Winter clothing 2026' });
     await expectNoAxeViolations(document.body);
   });

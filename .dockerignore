@@ -14,5 +14,4 @@ node_modules
 !.env.example
 apps/web/playwright-report
 apps/web/test-results
-apps/web/public/fonts
 apps/api/openapi.generated.json

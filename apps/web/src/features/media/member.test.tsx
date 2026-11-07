@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -126,7 +126,7 @@ describe('a media member’s profile', () => {
     expect(screen.getByText('4')).toBeInTheDocument();
     const portfolio = screen
       .getByRole('heading', { level: 2, name: 'পোর্টফোলিও' })
-      .closest('.ui-card') as HTMLElement;
+      .closest('section') as HTMLElement;
     expect(
       await within(portfolio).findByText('ভূমিকা: ভিডিও সম্পাদনা, স্ক্রিপ্ট লেখা'),
     ).toBeInTheDocument();

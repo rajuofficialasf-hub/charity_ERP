@@ -43,9 +43,9 @@ function personFor(info: TestInfo) {
 }
 type Person = ReturnType<typeof personFor>;
 
-/** Picks from a Select; its button is named by the current value, then the label. */
+/** Picks from a select, a combobox named by its label. */
 async function choose(page: Page, label: RegExp, option?: string) {
-  await page.getByRole('button', { name: label }).click();
+  await page.getByRole('combobox', { name: label }).click();
   const list = page.getByRole('listbox');
   const choice = option
     ? list.getByRole('option', { name: option, exact: true })
@@ -173,9 +173,9 @@ async function assign(desk: Page, projectId: string, name: string, mobile: strin
   await desk.getByRole('button', { name: 'স্বেচ্ছাসেবক অ্যাসাইন করুন' }).click();
   const dialog = desk.getByRole('dialog');
   await dialog.getByRole('textbox', { name: 'নাম বা মোবাইল নম্বর' }).fill(mobile);
-  const candidates = dialog.getByRole('grid', { name: 'অ্যাসাইন করা যায় এমন স্বেচ্ছাসেবক' });
+  const candidates = dialog.getByRole('table', { name: 'অ্যাসাইন করা যায় এমন স্বেচ্ছাসেবক' });
   await expect(candidates.getByRole('row')).toHaveCount(2);
-  await candidates.getByRole('row').nth(1).getByRole('gridcell').nth(1).click();
+  await candidates.getByRole('row').nth(1).getByRole('cell').nth(1).click();
   await dialog.getByRole('button', { name: 'অ্যাসাইন করুন', exact: true }).click();
   await expect(desk.getByText(/1 জন স্বেচ্ছাসেবক অ্যাসাইন হয়েছেন/)).toBeVisible();
 }
@@ -254,7 +254,8 @@ test.describe('registration approval', () => {
     await page.getByRole('link', { name: person.name }).click();
     await expect(page.getByRole('heading', { level: 1, name: person.name })).toBeVisible();
     // the NID in its section; the header shows it again with its label
-    await expect(page.getByText(person.nid, { exact: true })).toBeVisible();
+    // in the banner's facts and in the details below
+    await expect(page.getByText(person.nid, { exact: true })).toHaveCount(2);
     expect((await scan(page)).violations).toEqual([]);
     await page.getByRole('button', { name: 'সংশোধনের অনুরোধ' }).click();
     const dialog = page.getByRole('dialog', { name: 'সংশোধনের অনুরোধ' });
@@ -344,9 +345,9 @@ test.describe('team members', () => {
 test.describe('language toggle in the top bar', () => {
   test('the registration page switches to English from the bar and keeps it', async ({ page }) => {
     await page.goto('/register');
-    const toggle = page.getByRole('banner').getByRole('radiogroup', { name: 'ভাষা' });
+    const toggle = page.getByRole('banner').getByRole('group', { name: 'ভাষা' });
     await expect(toggle).toBeVisible();
-    await toggle.getByRole('radio', { name: 'English' }).click({ force: true });
+    await toggle.getByRole('button', { name: 'English' }).click({ force: true });
     await expect(
       page.getByRole('heading', { level: 1, name: 'Volunteer registration' }),
     ).toBeVisible();

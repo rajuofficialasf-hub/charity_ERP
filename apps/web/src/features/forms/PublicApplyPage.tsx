@@ -1,7 +1,7 @@
 import { maxSizeOf, PUBLIC_PHOTO_LIMITS } from '@css/shared/files';
 import { formatDate, isoDateInDhaka } from '@css/shared/format';
 import { localized, type Locale } from '@css/shared/i18n';
-import { ErrorState, Skeleton, Stack, Text } from '@css/ui';
+import { Skeleton, Stack, Text } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
@@ -10,6 +10,7 @@ import { DocumentTitle } from '../../components/DocumentTitle';
 import { TopBar } from '../../components/TopBar';
 import { ApiFailure } from '../../lib/api';
 import { compressImage } from '../../lib/compress';
+import { LoadError } from '../../components/LoadError';
 import { FormRenderer, type Submission } from './FormRenderer';
 import { publicForm, submitPublic, uploadPublicPhoto } from './public-api';
 import type { UploadAdapter } from './upload-adapter';
@@ -103,8 +104,9 @@ export function PublicApplyPage() {
       return (
         <Stack gap={2}>
           <h1>{t('title')}</h1>
-          <ErrorState
-            title={
+          <LoadError
+            error={view.error}
+            message={
               view.error instanceof ApiFailure && view.error.status === 429
                 ? t('too_many')
                 : t('load_failed')

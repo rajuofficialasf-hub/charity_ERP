@@ -1,4 +1,4 @@
-import type { BadgeTone } from '@css/ui';
+import type { ColorTone } from '@/ui';
 import type { useTranslations } from 'use-intl';
 
 type StatusTranslator = ReturnType<typeof useTranslations<'applications.status'>>;
@@ -16,10 +16,12 @@ export const TABS = {
 } as const;
 export type Tab = keyof typeof TABS;
 
-/** The tone of a state's badge; the label always says the state as well. */
-export function toneOf(status: string): BadgeTone {
+/** The tone of a state's chip; the label always says the state as well. */
+export function stateTone(
+  status: string,
+): Extract<ColorTone, 'success' | 'error' | 'neutral' | 'info'> {
   if (TABS.approved.includes(status as (typeof TABS.approved)[number])) return 'success';
-  if (status === 'rejected') return 'danger';
+  if (status === 'rejected') return 'error';
   if (status === 'draft') return 'neutral';
   return 'info';
 }

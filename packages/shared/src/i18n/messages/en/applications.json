@@ -42,7 +42,9 @@
     "no_number": "No number yet",
     "unnamed": "No name given",
     "load_failed": "The applications could not be loaded. Try again.",
-    "open": "Open the application"
+    "open": "Open the application",
+    "no_project": "You are not on any project yet. Once you join one, your applications show here.",
+    "my_projects": "My projects"
   },
   "status": {
     "draft": "Draft",
@@ -190,7 +192,6 @@
       "none": "empty"
     },
     "bulk": {
-      "selected": "{count} selected",
       "outcome": "{done} done, {failed} not done"
     },
     "sort": {

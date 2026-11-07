@@ -17,7 +17,8 @@ Index created in task T0.1; ADR-001…006 written in task T0.8 (2026-10-10). One
 | [ADR-012](ADR-012-react-aria-headless-components.md) | React Aria Components as the headless primitive library of packages/ui | D-064 | superseded by ADR-015 (2026-10-19) |
 | [ADR-013](ADR-013-vite-react-spa.md) | Vite React SPA (React Router, TanStack Query, use-intl, Serwist) replaces Next.js | D-073 | approved 2026-10-11 (T1.7b) |
 | [ADR-014](ADR-014-express-backend.md) | Express 5 replaces NestJS for the backend; storage adapter in the standard's shape; PostgreSQL 17 | D-074 | approved 2026-10-11, implemented 2026-10-12 (T1.7d) |
-| [ADR-015](ADR-015-mui-core-component-set.md) | MUI core behind the component set of packages/ui (the organization's UI standard) | D-103 | approved 2026-10-19 |
+| [ADR-015](ADR-015-mui-core-component-set.md) | MUI core behind the component set of packages/ui (the organization's UI standard) | D-103 | approved 2026-10-19; its look superseded by ADR-016 (2026-11-03) |
+| [ADR-016](ADR-016-asf-ui-system.md) | The asf UI system of the organization's kit: its contract, template, palette and fonts, light and dark | D-150 | approved 2026-11-03 |
 
 Planned (written when the decision is designed):
 

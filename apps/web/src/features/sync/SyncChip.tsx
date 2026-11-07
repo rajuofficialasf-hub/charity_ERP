@@ -1,7 +1,6 @@
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Button } from '@css/ui';
-import { CloudOff, CloudUpload, RefreshCw } from 'lucide-react';
+import { IconButton } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { useAuth } from '../../lib/auth';
 import { useOffline } from '../../offline/OfflineProvider';
@@ -26,12 +25,11 @@ export function SyncChip() {
       : status.failed > 0
         ? t('label_failed', { count, failed: formatCount(status.failed, locale) })
         : t('label_count', { count });
-  const icon = status.state === 'syncing' ? RefreshCw : status.failed > 0 ? CloudOff : CloudUpload;
+  const icon =
+    status.state === 'syncing' ? 'refresh' : status.failed > 0 ? 'offline' : 'cloud-upload';
   return (
     <span className="sync-chip">
-      <Button variant="ghost" icon={icon} iconOnly href="/sync">
-        {label}
-      </Button>
+      <IconButton label={label} icon={icon} to="/sync" />
       {waiting > 0 && (
         <span
           className={

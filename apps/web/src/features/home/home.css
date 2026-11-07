@@ -1,67 +1,13 @@
 /*
- * The My Work home (docs/ui/SCREENS.md, "My Work home per role"): the day at a glance on the
- * brand's dark green, a Program Manager's counts by state, then "needs your attention" with the
- * latest notifications beside the other widgets: one column on a phone, the attention first; two
- * from 1024 px, the widgets on the left. Tokens only.
+ * The My Work home (docs/ui/SCREENS.md, "My Work home per role"): the day at a glance, a Program
+ * Manager's counts by state, then "needs your attention" with the latest notifications beside the
+ * other widgets: one column on a phone, the attention first; two from 1024 px, the widgets on the
+ * left. Tokens only.
  */
-
-/* the day at a glance: the brand's dark green with the amber glow (docs/ui/DESIGN_SYSTEM.md, section "Gradients and glow") */
-.my-work-today {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-  padding: var(--space-4) var(--space-5);
-  border-radius: var(--radius-lg);
-  background: var(--glow-accent), var(--gradient-hero);
-  box-shadow: var(--elevation-2);
-  color: var(--color-text-on-brand);
-}
-.my-work-today-text {
-  flex: 1 1 18rem;
-  min-width: 0;
-}
-.my-work-today-title {
-  margin: 0;
-  font-size: var(--text-title);
-  font-weight: var(--font-weight-bold);
-}
-/* white at 94 % on the banner keeps 4.95:1 at its lightest stop (docs/ui/DESIGN_SYSTEM.md, section "Gradients and glow") */
-.my-work-today-line {
-  margin: var(--space-1) 0 0;
-  color: rgba(255, 255, 255, 0.94);
-}
-.my-work-today-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: 0;
-}
-/* light figures on the banner: at most 8 % white, so white text keeps 4.6:1 */
-.my-work-today-stat {
-  display: grid;
-  gap: 2px;
-  min-width: 8.5rem;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.08);
-  text-align: center;
-}
-.my-work-today-stat dt {
-  font-size: var(--text-caption);
-}
-.my-work-today-stat dd {
-  margin: 0;
-  font-size: var(--text-display);
-  font-weight: var(--font-weight-bold);
-  font-variant-numeric: tabular-nums;
-}
 
 /* a Program Manager's projects by state, a stat card each */
 .my-work-states {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
@@ -142,6 +88,17 @@
   gap: var(--space-2);
   min-height: 44px;
 }
-.my-work-later .ui-badge {
-  justify-self: start;
+.my-work-later {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+/* a heading for screen readers only */
+.my-work-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

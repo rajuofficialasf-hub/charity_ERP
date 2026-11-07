@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -179,7 +179,7 @@ describe('the beneficiary tab', () => {
     await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
     // the filters from the URL show as chips
     expect(screen.getByRole('button', { name: 'ধরন: বিধবা সরান' })).toBeInTheDocument();
-    await user.click(await screen.findByRole('button', { name: /বছর$/ }));
+    await user.click(await screen.findByRole('combobox', { name: /বছর/ }));
     await user.click(await screen.findByRole('option', { name: year }));
     await waitFor(() => expect(router.state.location.search).toContain(`year=${year}`));
     await user.type(screen.getByRole('searchbox'), '01911000001');
@@ -196,8 +196,8 @@ describe('the beneficiary tab', () => {
     await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
     expect(screen.queryByRole('button', { name: /ধরন/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ব্লকলিস্ট/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /ইউনিয়ন/ })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /উপজেলা/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('combobox', { name: /ইউনিয়ন/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('combobox', { name: /উপজেলা/ }).length).toBeGreaterThan(0);
     expect(
       screen.queryByRole('columnheader', { name: 'পিতা বা স্বামীর নাম' }),
     ).not.toBeInTheDocument();
@@ -220,8 +220,8 @@ describe('the beneficiary tab', () => {
     await waitFor(() => expect(router.state.location.search).toBe('?blocked=true'));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('blocked')).toBe('true'));
     expect(statUrls.at(-1)?.searchParams.get('blocked')).toBeNull();
-    const table = screen.getByRole('grid', { name: 'উপকারভোগী' });
-    await user.click(within(table).getByRole('button', { name: 'নমুনা উপকারভোগী-এর কাজ' }));
+    const table = await screen.findByRole('table', { name: 'উপকারভোগী' });
+    await user.click(await within(table).findByRole('button', { name: 'নমুনা উপকারভোগী-এর কাজ' }));
     expect(await screen.findByRole('menuitem', { name: 'প্রোফাইল দেখুন' })).toHaveAttribute(
       'href',
       expect.stringContaining('/admin/beneficiaries/'),
@@ -236,9 +236,10 @@ describe('the beneficiary tab', () => {
     const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
     expect(await within(counts).findByRole('button', { name: 'পুরুষ 12' })).toBeInTheDocument();
     // everyone, the men, the women, those assisted this year, the blocklist
-    expect(
-      [...counts.querySelectorAll('.ui-statfilter-label')].map((label) => label.textContent),
-    ).toEqual(['মোট উপকারভোগী', 'পুরুষ', 'মহিলা', 'এই বছর সহায়তা পেয়েছেন', 'ব্লক লিস্ট']);
+    const order = ['মোট উপকারভোগী', 'পুরুষ', 'মহিলা', 'এই বছর সহায়তা পেয়েছেন', 'ব্লক লিস্ট'].map(
+      (label) => counts.textContent!.indexOf(label),
+    );
+    expect(order.every((at, i) => at >= 0 && (i === 0 || at > order[i - 1]!))).toBe(true);
     await user.click(within(counts).getByRole('button', { name: 'মহিলা 18', pressed: false }));
     await waitFor(() => expect(router.state.location.search).toBe('?gender=female'));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('gender')).toBe('female'));
@@ -358,7 +359,8 @@ describe('the 360° profile', () => {
       },
     );
     openProfile();
-    expect(await screen.findByText('1000000000777')).toBeInTheDocument();
+    // in the banner's facts and in the identity section
+    expect((await screen.findAllByText('1000000000777')).length).toBeGreaterThan(0);
     expect(screen.getByText('APP-2026-0001')).toBeInTheDocument();
     expect(screen.getAllByText(/শীতবস্ত্র 2026/).length).toBeGreaterThan(0);
   });
@@ -508,10 +510,8 @@ describe('the 360° profile', () => {
       ),
     );
     const { container } = openProfile();
-    const section = (await screen.findByRole('heading', { level: 2, name: 'মিডিয়া' })).closest(
-      'section',
-    ) as HTMLElement;
-    expect(within(section).getByText('তিন মাসে নিজের দোকান দিয়েছেন।')).toBeInTheDocument();
+    const section = await screen.findByRole('region', { name: 'মিডিয়া' });
+    expect(await within(section).findByText('তিন মাসে নিজের দোকান দিয়েছেন।')).toBeInTheDocument();
     const youtube = await within(section).findByRole('link', { name: 'আস-সুন্নাহ ইউটিউব-এ দেখুন' });
     expect(youtube).toHaveAttribute('href', 'https://youtu.be/dQw4w9WgXcQ');
     expect(youtube).toHaveAttribute('target', '_blank');
@@ -620,7 +620,7 @@ describe('BEN numbers and the lookup', () => {
     const dialog = await screen.findByRole('dialog', { name: 'NID বা জন্মনিবন্ধন দিয়ে খুঁজুন' });
     // nothing is asked before a project is chosen
     expect(within(dialog).getByRole('button', { name: 'খুঁজুন' })).toBeDisabled();
-    await user.click(await within(dialog).findByRole('button', { name: /প্রকল্প/ }));
+    await user.click(await within(dialog).findByRole('combobox', { name: /প্রকল্প/ }));
     await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ 2026 (WC)' }));
     // a new project starts a new lookup, so the field is drawn afresh
     await user.type(within(dialog).getByRole('textbox', { name: /NID নম্বর/ }), '1000001000');

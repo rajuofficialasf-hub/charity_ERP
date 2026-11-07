@@ -1,41 +1,5 @@
 {
-  "eyebrow": "Design system",
   "title": "Component gallery",
-  "intro": "Every base component of the design system (development only).",
-  "language": "Language",
-  "sections": {
-    "type": "Typography",
-    "button": "Button",
-    "menu": "Menu button",
-    "badge": "Badge and status",
-    "card": "Card and stat",
-    "field": "Field: text, number, phone, password",
-    "select": "Field: select, combobox, date",
-    "choice": "Checkbox and radio",
-    "file": "Photo and file upload",
-    "form": "Form layout",
-    "nav": "Navigation item",
-    "row": "Row and toggle",
-    "table": "Table: filters, search, pages",
-    "overlay": "Modal, drawer and confirmation",
-    "alert": "Alert",
-    "tabs": "Tabs",
-    "breadcrumb": "Breadcrumb",
-    "states": "Empty, loading and error states",
-    "offline": "Offline banner",
-    "bulk": "Bulk-update row",
-    "timeline": "Step and timeline",
-    "progress": "Progress bar",
-    "misc": "Avatar, spinner and icon",
-    "tiles": "Choice tiles and disclosure groups"
-  },
-  "type": {
-    "display": "Winter Clothing 2026",
-    "title": "Today's distribution",
-    "body": "{name}, {village}, mobile {mobile}, {amount}",
-    "label": "Application number",
-    "caption": "{datetime}"
-  },
   "button": {
     "primary": "Approve application",
     "secondary": "Move to waitlist",
@@ -72,27 +36,10 @@
   "card": {
     "projectTitle": "Winter Clothing 2026",
     "projectSub": "Humanitarian program · Rangpur division",
-    "projectBody": "Target {target} families, distribution starts {date}.",
     "edit": "Edit",
-    "linked": "Iftar Distribution 2027 (linked card)",
-    "accent": "Announcement: a new form version has been published.",
     "statApplications": "Applications",
     "statApproved": "Approved",
-    "statDistributed": "Distributed",
-    "statBudget": "Budget spent",
-    "thisWeek": "+{count} this week",
-    "attentionTitle": "{n, plural, one {{count} application waiting for review} other {{count} applications waiting for review}}",
-    "attentionReason": "Review before Friday",
-    "attentionMeta": "Waiting {duration}",
-    "attention2Title": "{n, plural, one {{count} distribution photo missing} other {{count} distribution photos missing}}",
-    "open": "Open",
-    "statPending": "Waiting for review",
-    "statVolunteers": "Active volunteers",
-    "statBlocked": "Blocked",
-    "personName": "Rahima Khatun",
-    "personSub": "BEN-2026-00142 · family of 5",
-    "personName2": "Karim Uddin",
-    "personSub2": "General volunteer"
+    "statDistributed": "Distributed"
   },
   "field": {
     "name": "Beneficiary name",
@@ -102,31 +49,10 @@
     "fatherOld": "Abdul Karim Mia (sample)",
     "nid": "NID number",
     "nidHelper": "10, 13 or 17 digits",
-    "members": "Family members",
     "income": "Monthly income (৳)",
     "mobile": "Mobile number",
     "mobileError": "The volunteer's own number cannot be used",
-    "note": "Comment",
-    "official": "Official's comment",
-    "correctionRequested": "Correction request sent",
-    "password": "Password",
-    "otp": "Code"
-  },
-  "select": {
-    "type": "Beneficiary type",
-    "types": {
-      "elderly": "Elderly",
-      "widow": "Widow",
-      "orphan": "Orphan",
-      "disabled": "Disabled",
-      "ill": "Ill",
-      "labourer": "Labourer",
-      "extremely_poor": "Extremely poor",
-      "other": "Other"
-    },
-    "district": "District",
-    "upazila": "Upazila (combobox)",
-    "date": "Distribution date"
+    "official": "Official's comment"
   },
   "choice": {
     "items": "Items received",
@@ -144,59 +70,31 @@
   },
   "file": {
     "photo": "Distribution photo",
-    "photoHelper": "From the camera or the gallery, up to {max}",
-    "document": "Voucher (PDF or photo)",
-    "documentHelper": "Up to {size}",
-    "meta": "{datetime} · GPS {gps}",
     "networkLost": "The network was lost"
   },
-  "form": {
-    "formLabel": "New application",
-    "basic": "Basic information",
-    "basicDesc": "Write as on the national ID card",
-    "saveDraft": "Save draft",
-    "submit": "Submit",
-    "showErrors": "Show the error summary",
-    "nameMissing": "Enter the beneficiary name",
-    "mobileMissing": "Enter the mobile number"
-  },
   "nav": {
-    "home": "Home",
-    "review": "Review",
-    "people": "People",
-    "projects": "Projects",
-    "more": "More",
-    "sidebar": "Sidebar",
-    "tabBar": "Bottom tab bar",
-    "rail": "Tablet rail"
+    "more": "More"
   },
   "row": {
     "distribution": "Distribution",
     "distributionDesc": "Dispatch, receive and photos",
-    "form": "Application form",
-    "formLocked": "Cannot be turned off after activation",
-    "photoRule": "Photo rule",
     "photoRuleValue": "One per beneficiary",
     "notifications": "Notification settings"
   },
   "table": {
     "label": "Applications",
     "name": "Name",
-    "number": "Application number",
     "village": "Village",
     "score": "Score",
     "status": "Status",
     "chipAll": "All",
     "chipRemaining": "Remaining",
     "chipDone": "Done",
-    "openRow": "Opened",
-    "view": "View",
-    "selected": "Selected"
+    "view": "View"
   },
   "overlay": {
     "openModal": "Unlock field (modal)",
     "modalTitle": "Unlock the mobile number",
-    "newValue": "New value",
     "unlock": "Unlock",
     "openDrawer": "Filters (drawer)",
     "drawerTitle": "Filters",
@@ -205,44 +103,22 @@
     "confirmTitle": "Reject the application of Rahima Khatun?",
     "confirmMessage": "The volunteer will see the reason.",
     "confirmConsequence": "The application moves to \"rejected\"",
-    "confirmLabel": "Reject application",
-    "confirmed": "Rejected, reason: "
+    "confirmLabel": "Reject application"
   },
   "alert": {
-    "infoTitle": "Best on a larger screen",
     "infoText": "This setup page is made for the desktop.",
-    "successTitle": "Application submitted",
-    "warningTitle": "Possible family duplicate",
-    "warningText": "Same village and same father's name found. Decide at review.",
-    "dangerTitle": "This beneficiary is blocklisted",
-    "dangerText": "No new application can be made.",
-    "action": "See the other application"
+    "successTitle": "Application submitted"
   },
   "tabs": {
     "label": "Application details",
     "answers": "Answers",
     "history": "History",
-    "changes": "Changes",
     "answersBody": "The form answers appear here.",
-    "historyBody": "The workflow steps appear here.",
-    "changesBody": "The list of field changes.",
-    "segmentedLabel": "View",
-    "list": "List",
-    "map": "Map",
-    "manyLabel": "Many tabs (a select on phones)"
-  },
-  "breadcrumb": {
-    "projects": "Projects",
-    "project": "Winter Clothing 2026",
-    "applications": "Applications"
+    "historyBody": "The workflow steps appear here."
   },
   "states": {
     "emptyTitle": "No applications yet",
-    "emptyText": "Create the first application.",
-    "emptyAction": "New application",
-    "errorTitle": "Could not load the list",
-    "errorText": "Check the internet connection and try again.",
-    "retried": "Retried"
+    "emptyText": "Create the first application."
   },
   "bulk": {
     "label": "Today's distribution",
@@ -250,9 +126,6 @@
     "distributed": "Distributed",
     "absent": "Absent",
     "later": "Distribute later",
-    "notDistributed": "Not distributed",
-    "damaged": "Damaged or lost",
-    "partial": "Partial",
     "quantity": "Quantity: blanket {blanket}, shawl {shawl}"
   },
   "timeline": {
@@ -260,7 +133,6 @@
     "submitted": "Submitted",
     "review": "Review",
     "approval": "Approval",
-    "distribution": "Distribution",
     "actor1": "Volunteer Rafiq (sample)",
     "actor2": "Project Executive Nasrin (sample)",
     "comment": "All papers are in order.",
@@ -274,18 +146,9 @@
   },
   "progress": {
     "quota": "Area quota",
-    "budget": "Budget spent",
-    "over": "Budget exceeded",
     "buckets": "Budget buckets",
     "spent": "Spent",
-    "advance": "Advance",
-    "returned": "Returned",
-    "claimed": "Claimed"
-  },
-  "misc": {
-    "person": "Rahima Khatun",
-    "icon": "Warning",
-    "avatarOther": "Karim Uddin (sample)"
+    "advance": "Advance"
   },
   "district": {
     "dhaka": "Dhaka",
@@ -307,9 +170,8 @@
     "ayesha": "Ayesha Begum (sample)",
     "char_bagdanga": "Char Bagdanga",
     "purba_para": "Purba Para",
-    "karim_uddin": "Karim Uddin (sample)"
+    "general_volunteer": "General volunteer"
   },
-  "project_code": "WNT",
   "menu": {
     "label": "Profile menu",
     "name": "Sample official",
@@ -317,27 +179,35 @@
     "devices": "My devices",
     "logout": "Log out"
   },
-  "tiles": {
-    "label": "Question type",
-    "text": "Text",
-    "short": "Short answer",
-    "shortDesc": "such as a name or village",
-    "long": "Long answer",
-    "longDesc": "such as a comment",
-    "number": "Numbers and money",
-    "count": "Number",
-    "countDesc": "such as family members",
-    "money": "Amount of money",
-    "moneyDesc": "such as monthly income",
-    "groupBasics": "Basics",
-    "groupBasicsHint": "question and help",
-    "groupRules": "Answer rules",
-    "groupRulesHint": "optional",
-    "inside": "The settings of this group sit here."
-  },
-  "offline_examples": {
-    "offline": "Offline example",
-    "syncing": "Syncing example",
-    "sync_failed": "Sync failed example"
+  "asf": {
+    "eyebrow": "asf UI system",
+    "title": "asf piece gallery",
+    "intro": "Every piece built for the app on the new UI system, in both languages and in light and dark (development only).",
+    "sections": {
+      "buttons": "Buttons",
+      "states": "States and counts",
+      "fields": "Text fields and forms",
+      "choices": "Choices",
+      "table": "Table and filters",
+      "progress": "Steps, history and progress",
+      "people": "People and profiles",
+      "overlays": "Dialogs, panels and menus",
+      "lists": "The day's work, attention and uploads",
+      "additions": "Pieces the app added"
+    },
+    "tiles": {
+      "blank": "Start blank",
+      "blankText": "Set it up from scratch",
+      "copy": "From an earlier project",
+      "copyText": "Its parts are copied"
+    },
+    "open": "Open",
+    "dialogText": "This dialog stays open while saving.",
+    "attention": "12 applications waiting for review",
+    "attentionReason": "Older than 3 days",
+    "attentionMeta": "The oldest has waited 6 days",
+    "date": "Distribution date",
+    "pagesNote": "Pages past the counted ones go by next and previous",
+    "longLabel": "The area where you would like to serve"
   }
 }

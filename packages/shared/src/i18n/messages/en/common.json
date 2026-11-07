@@ -23,7 +23,8 @@
       "title": "Nothing here yet"
     },
     "error": {
-      "text": "Something went wrong. Try again."
+      "text": "Something went wrong. Try again.",
+      "request_id": "Request id: {id}"
     }
   },
   "language": {
@@ -59,5 +60,8 @@
     "media_accepted": "accepted",
     "media_sent_back": "sent back for correction",
     "media_rejected": "rejected"
+  },
+  "list": {
+    "result_count": "{shown} of {total}"
   }
 }

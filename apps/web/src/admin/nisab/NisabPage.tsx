@@ -1,31 +1,29 @@
-import { formatDate, formatTaka, isoDateInDhaka, TAKA_SIGN } from '@css/shared/format';
+import { formatDate, formatTaka, isoDateInDhaka } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import type { NisabVersionView } from '@css/shared/settings';
 import {
   Alert,
-  Badge,
   Button,
   Card,
-  EmptyState,
-  ErrorState,
+  Chip,
+  DataTable,
+  IconButton,
+  Page,
   StatCard,
-  Table,
-  type TableColumn,
   Text,
-  PageHeader,
-} from '@css/ui';
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { History, Plus, Scale, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { ReasonDialog } from '../projects/ReasonDialog';
 import { canKeepNisab } from '../roles';
 import { NisabDialog } from './NisabDialog';
 import { NISAB_KEY, nisabVersions, withdrawNisab } from './nisab-api';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * The zakat nisab (docs/DECISION_LOG.md, the admin and settings decision of 2026-10-17): the
@@ -35,7 +33,6 @@ import { NISAB_KEY, nisabVersions, withdrawNisab } from './nisab-api';
 export function NisabPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.nisab');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const allowed = Boolean(me && canKeepNisab(me));
@@ -61,17 +58,17 @@ export function NisabPage() {
   const taka = (v: NisabVersionView) => formatTaka(Number(v.value), locale);
   const state = (v: NisabVersionView) =>
     v.withdrawn ? (
-      <Badge tone="neutral" label={t('state.withdrawn')} />
+      <Chip tone="neutral">{t('state.withdrawn')}</Chip>
     ) : v.inForce ? (
-      <Badge tone="success" label={t('state.in_force')} />
+      <Chip tone="success">{t('state.in_force')}</Chip>
     ) : v.effectiveFrom > today ? (
-      <Badge tone="info" label={t('state.upcoming')} />
+      <Chip tone="info">{t('state.upcoming')}</Chip>
     ) : (
-      <Badge tone="neutral" label={t('state.past')} />
+      <Chip tone="neutral">{t('state.past')}</Chip>
     );
   // only a version that has not taken effect can be withdrawn; the server checks it too
   const canWithdraw = (v: NisabVersionView) => !v.withdrawn && v.effectiveFrom > today;
-  const columns: TableColumn<NisabVersionView>[] = [
+  const columns: DataTableExtendedColumn<NisabVersionView>[] = [
     {
       id: 'date',
       header: t('column.effective_from'),
@@ -98,41 +95,42 @@ export function NisabPage() {
   };
   const withdrawButton = (v: NisabVersionView) =>
     canWithdraw(v) ? (
-      <Button variant="ghost" size="sm" icon={Undo2} iconOnly onPress={() => askWithdraw(v)}>
-        {t('withdraw', { date: formatDate(v.effectiveFrom) })}
-      </Button>
+      <IconButton
+        label={t('withdraw', { date: formatDate(v.effectiveFrom) })}
+        icon="undo"
+        onClick={() => askWithdraw(v)}
+      />
     ) : null;
 
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <PageHeader
+      <Page
         eyebrow={t('eyebrow')}
         title={t('title')}
         description={t('description')}
         actions={
-          <Button icon={Plus} onPress={() => setAdding(true)}>
+          <Button startIcon="add" onClick={() => setAdding(true)}>
             {t('new')}
           </Button>
         }
+        documentTitle={false}
       />
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
+        <Alert tone="success" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
       {current ? (
-        <section aria-label={t('stats.label')} className="admin-stats">
-          <StatCard
-            label={t('in_force')}
-            prefix={TAKA_SIGN}
-            value={Number(current.value)}
-            icon={Scale}
-            tone="warning"
-            context={t('since', { date: formatDate(current.effectiveFrom) })}
-          />
-          <StatCard label={t('stats.versions')} value={rows.length} icon={History} tone="info" />
-        </section>
+        <>
+          <section aria-label={t('stats.label')} className="admin-stats">
+            <StatCard label={t('in_force')} value={taka(current)} icon="scale" tone="warning" />
+            <StatCard label={t('stats.versions')} value={rows.length} icon="history" tone="info" />
+          </section>
+          <Text tone="muted" size="small">
+            {t('since', { date: formatDate(current.effectiveFrom) })}
+          </Text>
+        </>
       ) : (
         !list.isPending && (
           <Card>
@@ -140,24 +138,19 @@ export function NisabPage() {
           </Card>
         )
       )}
-      <Table
-        layout="panel"
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={rows}
-        rowKey={(v) => v.id}
+        getRowId={(v) => v.id}
         rowLabel={(v) => formatDate(v.effectiveFrom)}
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={Scale} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         rowActions={withdrawButton}
         cardRenderer={(v) => (
           <div className="admin-permission-card">
@@ -165,15 +158,10 @@ export function NisabPage() {
             <span>{taka(v)}</span>
             {state(v)}
             {v.basisNote && <span>{v.basisNote}</span>}
-            {canWithdraw(v) && (
-              <Button variant="secondary" size="sm" onPress={() => askWithdraw(v)}>
-                {t('withdraw_short')}
-              </Button>
-            )}
           </div>
         )}
       />
-      <Card accent title={t('history.title')} headingLevel={2}>
+      <Card title={t('history.title')} headingLevel={2}>
         <Text tone="muted">{t('history.body')}</Text>
       </Card>
       {adding && (

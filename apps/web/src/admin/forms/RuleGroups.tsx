@@ -1,7 +1,6 @@
 import type { Condition } from '@css/shared';
 import type { Calculation, CalculationResult, FormDefinition, FormField } from '@css/shared/forms';
-import { Button, Disclosure, Modal, Stack } from '@css/ui';
-import { Pencil } from 'lucide-react';
+import { Button, Dialog, Disclosure, Stack } from '@/ui';
 import { type ReactNode, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { CalculationEditor } from './CalculationEditor';
@@ -64,20 +63,24 @@ function RuleCard({
     <Disclosure title={title} headingLevel={2} defaultOpen={defaultOpen}>
       <Stack gap={2}>
         <p className="fb-sentence">{sentence}</p>
-        <Button size="sm" variant="secondary" icon={Pencil} onPress={() => setEditing(true)}>
+        <Button size="small" variant="secondary" startIcon="edit" onClick={() => setEditing(true)}>
           {openLabel}
         </Button>
       </Stack>
-      <Modal
+      <Dialog
         title={dialogTitle}
-        isOpen={editing}
+        open={editing}
         onClose={() => setEditing(false)}
-        size="lg"
-        fullOnPhone
-        primaryAction={<Button onPress={() => setEditing(false)}>{t('done')}</Button>}
+        size="large"
+        fullScreenOnPhone
+        actions={
+          <>
+            <Button onClick={() => setEditing(false)}>{t('done')}</Button>
+          </>
+        }
       >
         {children}
-      </Modal>
+      </Dialog>
     </Disclosure>
   );
 }
