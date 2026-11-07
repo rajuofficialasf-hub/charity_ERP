@@ -200,7 +200,7 @@ describe('the review screen in bulk', () => {
     expect(Number(moved.rows[0]!.n)).toBe(5);
   });
 
-  it('approves the reviewed ones, failing a blocked person and a stale row on their own', async () => {
+  it('approves the reviewed ones, a person blocked on the way too, failing a stale row on its own', async () => {
     const executive = await as(world.users.executive);
     const rpm = await as(world.users.rpmDhaka);
     const ids = await Promise.all([submitted(), submitted(), submitted({ is_blocked: true })]);
@@ -229,9 +229,10 @@ describe('the review screen in bulk', () => {
       result: 'failed',
       code: 'conflict.stale_version',
     });
+    // a block refuses new applications only: one already on its way is approved (D-158)
     expect(results.find((r) => r.clientUuid === body.rows[2]!.clientUuid)).toMatchObject({
-      result: 'failed',
-      code: 'workflow.guard.beneficiary_not_blocked',
+      result: 'done',
+      status: 'implementation',
     });
     // the executive's approval reaches another project only: every row of this one fails on
     // its own, the request itself stands

@@ -379,9 +379,31 @@ export class SyncService {
 
   private async fill(context: SyncContext, record: SyncRecord): Promise<RowResult> {
     const payload = parsed(fillPayload, record.payload);
-    const view = await this.unlocks.fill(context.principal, payload.unlockId, {
-      value: payload.value,
-    });
+    let view: Awaited<ReturnType<UnlocksService['fill']>>;
+    try {
+      view = await this.unlocks.fill(context.principal, payload.unlockId, {
+        value: payload.value,
+      });
+    } catch (error) {
+      // the office closed the answer while the phone was away: the server's value wins, on record
+      if (error instanceof ApiError && error.code === 'application.unlock_not_open') {
+        // the record of the conflict never takes the place of the phone's own answer
+        try {
+          const unlock = await this.prisma.fieldChange.findUnique({
+            where: { id: payload.unlockId },
+            select: { entityId: true },
+          });
+          if (unlock)
+            await this.onRecord('sync.conflict_server_won', context.principal, unlock.entityId, {
+              unlockId: payload.unlockId,
+              clientUuid: record.clientUuid,
+            });
+        } catch (failed) {
+          this.logger.warn({ err: failed }, 'sync: the conflict of a late answer was not recorded');
+        }
+      }
+      throw error;
+    }
     return {
       clientUuid: record.clientUuid,
       result: 'synced',

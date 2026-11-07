@@ -119,10 +119,10 @@ Each guard is one function in `apps/api/src/workflow/guards.ts` (`GUARDS`, by na
 | project.setup_complete | form published, enabled components valid, areas and RPMs set, budget and fund sources set, rules texts present (project lifecycle draft → active) | projects, project_components, project_areas, forms | BR-053, BR-062 |
 | template.project_close_guards | meta-guard of the project lifecycle: runs every guard listed in the project's snapshot under `project_close_guards` (e.g. `stock.balanced`, `animal_photos.complete`) | project snapshot | BR-110, O-12 |
 | deadline.open | now (or the record's client creation time for a late-synced draft, flagged) is within apply_from..apply_to or an extension | projects, applications.client_created_at | BR-058, O-13 |
-| limit.not_exceeded | the submitting volunteer's count of applications not rejected/deleted (drafts included) is below the project limit | applications | BR-059, O-13 |
+| limit.not_exceeded | the owning volunteer's count of other applications not rejected/deleted (drafts included) is below the project limit; on the submission, the verification and the return of a rejected application to review | applications | BR-059, O-13 |
 | identity.present | NID or birth registration present and format-valid | application answers | BR-001, BR-002 |
 | mandatory_fields.present | the BD-13 mandatory fields and the form version's required fields are filled | form_version, answers | BR-078 |
-| beneficiary.not_blocked | the beneficiary is not on the blocklist | blocklist | BR-010, BR-015 |
+| beneficiary.not_blocked | the beneficiary is not on the blocklist; on the submission and the verification only, so an application already on its way before a block continues through review and approval (D-158) | blocklist | BR-010, BR-015 |
 | volunteer.not_blocked | the acting volunteer is not blocked | blocklist | BR-047 |
 | actor.not_creator | the acting user neither created nor submitted the application (on approve, reject and the return from rejection; D-131, BR-269) | applications, audit_log | BR-269 |
 | consent.accepted | the volunteer accepted the project rules | project_volunteers.consent_at | BR-039 |

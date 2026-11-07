@@ -141,7 +141,6 @@ export function PublicApplyPage() {
           definition={form}
           audience="public"
           today={isoDateInDhaka(new Date())}
-          storageKey={`public-apply:${form.id}`}
           upload={upload}
           layout="auto"
           submitLabel={t('submit')}

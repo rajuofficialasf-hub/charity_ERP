@@ -184,7 +184,6 @@ function NewApplication({ me }: { me: Me }) {
         form={definition}
         initialAnswers={initial}
         lockedKeys={person.kind === 'known' ? lockedKeysOf(definition) : new Set()}
-        storageKey={`apply:${projectId}:${definition.id}:${person.number}`}
       />
     </Stack>
   );
@@ -216,7 +215,6 @@ function EditDraft({ me, applicationId }: { me: Me; applicationId: string }) {
         initialAnswers={record.answers}
         fillDefaults={false}
         lockedKeys={record.beneficiaryId ? lockedKeysOf(record.form) : new Set()}
-        storageKey={`apply:${record.projectId}:${record.form.id}:${applicationId}`}
         draft={{ id: applicationId, etag: one.data.meta.etag ?? '', local: record.local === true }}
       />
     </Stack>
@@ -244,7 +242,6 @@ function ApplicationForm({
   initialAnswers,
   fillDefaults = true,
   lockedKeys,
-  storageKey,
   draft: existing,
 }: {
   me: Me;
@@ -254,7 +251,6 @@ function ApplicationForm({
   /** A stored draft keeps the answers it holds; a new application starts with the defaults. */
   fillDefaults?: boolean;
   lockedKeys: ReadonlySet<string>;
-  storageKey: string;
   draft?: { id: string; etag: string; local: boolean };
 }) {
   const t = useTranslations('applications.new');
@@ -452,7 +448,6 @@ function ApplicationForm({
         definition={form}
         audience="volunteer"
         today={isoDateInDhaka(new Date())}
-        storageKey={storageKey}
         initialAnswers={initialAnswers}
         fillDefaults={fillDefaults}
         lockedKeys={lockedKeys}

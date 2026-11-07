@@ -269,6 +269,22 @@ describe('a family match', () => {
   });
 });
 
+describe('a block on the way', () => {
+  it('lets an application already waiting for its approval be approved after the person is blocked', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const id = await reviewed('widow');
+    const rpm = await as(world.users.rpmDhaka);
+    const person = (await read(rpm, id)).body.data.beneficiaryId as string;
+    const blocked = await at(rpm, 'post', `/beneficiaries/${person}/block`).send({
+      reason: 'যাচাই চলছে',
+    });
+    expect(blocked.status, JSON.stringify(blocked.body)).toBe(201);
+    await moved(rpm, id, 'approve');
+    expect((await read(rpm, id)).body.data.status).not.toBe('reviewed');
+  });
+});
+
 describe('the waitlist', () => {
   it('pulls the highest-scored waitlisted of the union, never one person twice, and asks a comment out of order', async () => {
     await clearQueue();

@@ -61,9 +61,9 @@ describe('the action table', () => {
   });
 });
 
-describe('the templates at version 4', () => {
-  it('are all at version 4 and name only built or declared guards, effects and permissions', () => {
-    for (const d of definitions) expect(d.version, d.template).toBe(4);
+describe('the templates at version 5', () => {
+  it('are all at version 5 and name only built or declared guards, effects and permissions', () => {
+    for (const d of definitions) expect(d.version, d.template).toBe(5);
     const permissions = loadAccessRegistry();
     expect(() =>
       assertWorkflowNamesKnown(definitions, permissions.isKnownPermission),

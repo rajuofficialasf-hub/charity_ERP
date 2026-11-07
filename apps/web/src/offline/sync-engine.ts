@@ -235,7 +235,12 @@ export class SyncEngine {
         return;
       }
     }
-    if (!currentDataKey()) return;
+    // the store's key could not be opened: nothing can be read to send, and the person is told
+    // while records wait, never left with a silent outbox
+    if (!currentDataKey()) {
+      await this.publish({ state: 'idle', lastError: 'offline.store_unavailable' }, true);
+      return;
+    }
     await this.publish({ state: 'syncing', lastError: null });
     try {
       const inflight = await this.inFlight();

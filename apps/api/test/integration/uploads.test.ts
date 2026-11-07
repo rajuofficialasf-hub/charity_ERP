@@ -248,6 +248,13 @@ describe('who may upload to a record', () => {
     expect((await start('rpmDhaka', bytes)).status).toBe(201);
   });
 
+  it('takes a payment copy from an official only, never from the volunteer of the application', async () => {
+    const bytes = photo(5);
+    const asPayment = { kind: 'payment_copy', slot: 'payment_copy' };
+    expect((await start('general', bytes, asPayment)).status).toBe(403);
+    expect((await start('rpmDhaka', bytes, asPayment)).status).toBe(201);
+  });
+
   it('refuses a caller without the upload permission (403)', async () => {
     const finance = await account(h.db, { role: 'finance_team' });
     const res = await request(h.server())

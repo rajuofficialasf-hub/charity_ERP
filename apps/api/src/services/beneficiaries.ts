@@ -244,7 +244,7 @@ export class BeneficiariesService {
         ...read,
         seesNid,
         history: await this.history(tx, viewer, access, read.b.id, seesNid),
-        media: await publishedWorksOf(tx, read.b.id),
+        media: await publishedWorksOf(tx, read.b.id, rows ?? undefined),
       };
     });
     if (!found) {

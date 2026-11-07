@@ -476,6 +476,44 @@ describe('reading, editing and deleting', () => {
     expect(JSON.stringify(mine.body)).not.toContain('আয় সীমার উপরে');
   });
 
+  it('gives a paid volunteer of the project another volunteer’s application without the identity number, the mobile or the message', async () => {
+    const paidAccount = await account(h.db, { kind: 'volunteer', role: 'volunteer_paid' });
+    accounts.set(paidAccount.id, paidAccount);
+    const paidVolunteer = await volunteer(h.db, world.dhaka, paidAccount.id, { type: 'paid' });
+    await h.db.query(
+      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, extra_permissions, assigned_by, consent_status)
+       VALUES ($1, $2, $3, $4, 'work_progress', '{}', $5, 'accepted')`,
+      [randomUUID(), project, paidVolunteer, world.dhaka.division, world.users.rpmDhaka],
+    );
+    const s = await as(world.users.general);
+    const nid = fakeNid();
+    const mobile = fakeMobile();
+    await beneficiary(h.db, world.dhaka, { nid });
+    const made = await create(s, createBody(identity(nid, mobile)));
+    const id = made.body.data.id as string;
+    expect((await act(s, id, 'submit')).status).toBe(200);
+    const executive = await as(world.users.executive);
+    expect((await act(executive, id, 'review')).status).toBe(200);
+    expect((await act(executive, id, 'send_for_approval')).status).toBe(200);
+    const rpm = await as(world.users.rpmDhaka);
+    const rejected = await act(rpm, id, 'reject', { reason: 'কারণ', message: 'এবার হলো না' });
+    expect(rejected.status, JSON.stringify(rejected.body)).toBe(200);
+    const theirs = await at(await as(paidAccount.id), 'get', `/applications/${id}`);
+    expect(theirs.status, JSON.stringify(theirs.body)).toBe(200);
+    expect(answerOf(theirs.body, 'q_id')).toBeUndefined();
+    expect(answerOf(theirs.body, 'q_mobile')).toBeUndefined();
+    expect(theirs.body.data.rejectionMessage).toBeNull();
+    expect(JSON.stringify(theirs.body)).not.toContain(nid);
+    expect(JSON.stringify(theirs.body)).not.toContain(mobile);
+    // the volunteer who brought it and the office still read both
+    const own = await at(s, 'get', `/applications/${id}`);
+    expect(answerOf(own.body, 'q_id')).toMatchObject({ v: nid });
+    expect(answerOf(own.body, 'q_mobile')).toMatchObject({ v: mobile });
+    expect(own.body.data.rejectionMessage).toBe('এবার হলো না');
+    const office = await at(rpm, 'get', `/applications/${id}`);
+    expect(answerOf(office.body, 'q_id')).toMatchObject({ v: nid });
+  });
+
   it('answers 404 by number for a draft, and for the record and the list to another region’s RPM', async () => {
     const s = await as(world.users.general);
     const made = await create(s, createBody(identity()));

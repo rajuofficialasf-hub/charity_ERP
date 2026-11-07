@@ -1,6 +1,5 @@
 import type { AnswerValue } from '@css/shared';
 import type { Answer } from '@css/shared/forms';
-import { z } from 'zod';
 
 /**
  * The answers of a form being filled, in the engine's own shape (one entry per field and repeat
@@ -60,29 +59,6 @@ export function removeRow(
     rows: { ...state.rows, [group]: Math.max(0, (state.rows[group] ?? 0) - 1) },
     generation: state.generation + 1,
   };
-}
-
-const storedSchema = z.object({
-  clientUuid: z.uuid(),
-  answers: z.array(
-    z.object({
-      fieldKey: z.string().min(1),
-      repeatIndex: z.number().int().min(0).optional(),
-      // the value's own rules are the engine's, which checks it before anything is sent
-      value: z.looseObject({ t: z.string() }),
-    }),
-  ),
-  rows: z.record(z.string(), z.number().int().min(0)),
-  step: z.number().int().min(0),
-  generation: z.number().int().min(0).optional(),
-});
-
-/** A stored copy of the answers, or null when it does not look like one. */
-export function storedAnswersOf(raw: unknown): FormAnswers | null {
-  const parsed = storedSchema.safeParse(raw);
-  if (!parsed.success) return null;
-  const { generation = 0, answers, ...rest } = parsed.data;
-  return { ...rest, generation, answers: answers as Answer[] };
 }
 
 /** Drops the rows of a group from `count` on: their answers go, and the group keeps `count` rows. */

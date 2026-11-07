@@ -1,44 +1,40 @@
 import { uuidv7 } from '@css/shared';
 import type { Answer } from '@css/shared/forms';
-import { useCallback, useEffect, useState } from 'react';
-import { type FormAnswers, storedAnswersOf } from './answers';
+import { useCallback, useState } from 'react';
+import type { FormAnswers } from './answers';
+
+/** The keys under which a plain copy of a form's answers may sit in the tab's storage. */
+const EARLIER_COPIES = ['apply:', 'public-apply:'];
 
 /**
- * The answers of the form, kept in the open tab only when the screen gives a storage key: a
- * reload brings them back, closing the tab or sending clears them, and nothing personal stays on
- * the device after that (the encrypted offline store comes with its own task). Without a key, as
- * in the builder's preview, nothing is written anywhere.
+ * Removes any plain copy of a form's answers from the tab's storage under those keys, so a
+ * person's answers, the identity number among them, never wait there unencrypted.
  */
-export function useFormAnswers(
-  storageKey: string | undefined,
-  initialRows: Record<string, number>,
-  initialAnswers: Answer[] = [],
-) {
-  const [state, setState] = useState<FormAnswers>(
-    () => read(storageKey) ?? fresh(initialRows, initialAnswers),
-  );
+function clearEarlierCopies(): void {
+  try {
+    for (const key of Object.keys(sessionStorage))
+      if (EARLIER_COPIES.some((prefix) => key.startsWith(prefix))) sessionStorage.removeItem(key);
+  } catch {
+    // a blocked storage holds nothing to clear
+  }
+}
 
-  useEffect(() => {
-    if (!storageKey) return;
-    try {
-      // an untouched form leaves nothing behind: emptied again, or just sent
-      if (untouched(state, initialRows, initialAnswers)) sessionStorage.removeItem(storageKey);
-      else sessionStorage.setItem(storageKey, JSON.stringify(state));
-    } catch {
-      // a full or blocked storage only loses the reload copy; the form keeps working
-    }
-  }, [storageKey, state, initialRows, initialAnswers]);
+/**
+ * The answers of the form, held in memory only: nothing personal is written to the browser's
+ * storage, where it would wait unencrypted (docs/architecture/OFFLINE_SYNC.md, the encrypted
+ * store). A volunteer's application keeps its draft in the encrypted offline store at the end of
+ * each part, so a reload loses at most the part being typed.
+ */
+export function useFormAnswers(initialRows: Record<string, number>, initialAnswers: Answer[] = []) {
+  const [state, setState] = useState<FormAnswers>(() => {
+    clearEarlierCopies();
+    return fresh(initialRows, initialAnswers);
+  });
 
-  /** Clears the stored copy and starts again with a new client id. */
+  /** Starts again with a new client id. */
   const clear = useCallback(() => {
-    if (storageKey)
-      try {
-        sessionStorage.removeItem(storageKey);
-      } catch {
-        // nothing stored, nothing to clear
-      }
     setState((s) => ({ ...fresh(initialRows, initialAnswers), generation: s.generation + 1 }));
-  }, [storageKey, initialRows, initialAnswers]);
+  }, [initialRows, initialAnswers]);
 
   return { state, setState, clear };
 }
@@ -46,21 +42,4 @@ export function useFormAnswers(
 /** A new set of answers; a screen may start it with answers it already knows (a found person, a draft). */
 function fresh(rows: Record<string, number>, answers: Answer[] = []): FormAnswers {
   return { clientUuid: uuidv7(), answers: [...answers], rows: { ...rows }, step: 0, generation: 0 };
-}
-
-/** Nothing changed since the form opened: the starting answers (defaults included) as they were. */
-const untouched = (state: FormAnswers, rows: Record<string, number>, start: Answer[]) =>
-  JSON.stringify(state.answers) === JSON.stringify(start) &&
-  state.step === 0 &&
-  Object.entries(state.rows).every(([group, n]) => n === (rows[group] ?? 0));
-
-function read(storageKey: string | undefined): FormAnswers | null {
-  if (!storageKey) return null;
-  try {
-    const raw = sessionStorage.getItem(storageKey);
-    if (!raw) return null;
-    return storedAnswersOf(JSON.parse(raw));
-  } catch {
-    return null;
-  }
 }

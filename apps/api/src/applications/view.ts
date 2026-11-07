@@ -10,6 +10,9 @@ import { applicationMediaView } from '../services/media-referrals';
 
 /** The class of the official section and of the office's own texts (permissions.yaml). */
 export const OFFICIAL_SECTION = 'application.official_section';
+/** The person's identity number and their contact (permissions.yaml, the protected field classes). */
+export const BENEFICIARY_NID = 'beneficiary.nid';
+export const BENEFICIARY_CONTACT = 'beneficiary.contact';
 
 const uuid = z.uuid();
 const nullableUuid = z.uuid().nullable();

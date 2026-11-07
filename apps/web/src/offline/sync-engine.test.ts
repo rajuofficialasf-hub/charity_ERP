@@ -152,6 +152,26 @@ describe('the sync engine', () => {
     expect(world.timers).toHaveLength(0);
   });
 
+  it('says so, instead of staying silent, when the store’s key is not open while records wait', async () => {
+    const posts: Post[] = [];
+    server.use(acceptAll(posts));
+    const world = fakeDeps();
+    const engine = new SyncEngine(world.deps);
+    const statuses: SyncStatus[] = [];
+    engine.subscribe((s) => statuses.push(s));
+    await draft(T0);
+    forgetKeys();
+    engine.start();
+    await vi.waitFor(() =>
+      expect(statuses.at(-1)).toMatchObject({
+        state: 'idle',
+        lastError: 'offline.store_unavailable',
+      }),
+    );
+    expect(posts).toHaveLength(0);
+    engine.stop();
+  });
+
   it('keeps a record pending after a network failure and climbs the retry ladder', async () => {
     server.use(http.post('*/api/v1/sync/batch', () => HttpResponse.error()));
     const world = fakeDeps();

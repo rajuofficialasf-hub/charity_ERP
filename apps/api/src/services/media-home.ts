@@ -452,9 +452,15 @@ export class MediaHomeService {
 export async function publishedWorksOf(
   db: Tx | PrismaService,
   beneficiaryId: string,
+  projects?: Prisma.ProjectWhereInput,
 ): Promise<PublishedWork[]> {
   const works = await db.mediaWork.findMany({
-    where: { stageCode: { in: SHOWN_STAGES }, referral: { beneficiaryId } },
+    // only what went out: a work with a published link, of the projects the caller's rows reach
+    where: {
+      stageCode: { in: SHOWN_STAGES },
+      publications: { some: { link: { not: null } } },
+      referral: { beneficiaryId, ...(projects ? { project: projects } : {}) },
+    },
     orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
     take: SHOWN_MAX,
     select: PUBLISHED_SELECT,

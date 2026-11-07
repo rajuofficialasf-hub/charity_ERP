@@ -2,7 +2,7 @@
 # Status: written in task T0.11 (2026-10-10). Validated by schema.json. Templates declare `extends: _common`.
 # Permissions are names from docs/security/permissions.yaml; guards and effects are names from WORKFLOW_ENGINE.md sections 6-7.
 template: _common
-version: 4
+version: 5
 title_en: Common application cycle
 title_bn: কমন আবেদন চক্র
 source: [A7, B5, B7]
@@ -64,7 +64,7 @@ transitions:
   - from: reviewed
     to: approved
     permission: application.approve
-    guards: [project.active, beneficiary.not_blocked, score.comment_if_against_order, quota.comment_if_full, family.comment_if_match, zakat.eligible_if_zakat_fund, actor.not_creator]
+    guards: [project.active, score.comment_if_against_order, quota.comment_if_full, family.comment_if_match, zakat.eligible_if_zakat_fund, actor.not_creator]
     requires_comment_if: against_score_order
     effects: [score.snapshot, quota.increment, ledger.post:approved, lock:fields, audit:application.approve, notify:application_approved]
     actor_recorded_as: approved_by
@@ -83,7 +83,7 @@ transitions:
   - from: waitlisted
     to: approved
     permission: application.approve
-    guards: [project.active, beneficiary.not_blocked, score.comment_if_against_order, quota.comment_if_full, family.comment_if_match, zakat.eligible_if_zakat_fund, actor.not_creator]
+    guards: [project.active, score.comment_if_against_order, quota.comment_if_full, family.comment_if_match, zakat.eligible_if_zakat_fund, actor.not_creator]
     requires_comment_if: against_score_order
     effects: [waitlist.dequeue, score.snapshot, quota.increment, ledger.post:approved, lock:fields, audit:application.pull_from_waitlist, notify:application_approved]
     actor_recorded_as: approved_by
@@ -98,7 +98,7 @@ transitions:
     to: reviewed
     permission: application.approve
     requires_reason: true
-    guards: [project.not_closed, actor.not_creator]
+    guards: [project.not_closed, limit.not_exceeded, actor.not_creator]
     effects: [audit:application.reopened, notify:application_reopened]
     note: "A wrong rejection is corrected on the same application: one person keeps one application per project (docs/DECISION_LOG.md, the application cycle)"
   - from: approved
