@@ -206,6 +206,35 @@ describe('streaming a file linked to a record', () => {
     expect((await content('general', id)).status).toBe(200);
   });
 
+  it('keeps a photo of an official-only question from the volunteer of the application', async () => {
+    // a question of an official-only section on the application's form, and its photo
+    const version = (
+      await h.db.query('SELECT form_version_id FROM applications WHERE id = $1', [dhakaApplication])
+    ).rows[0].form_version_id as string;
+    const section = randomUUID();
+    await h.db.query(
+      `INSERT INTO form_sections (id, form_version_id, key, title_bn, title_en, sort_order, visibility)
+       VALUES ($1, $2, 'office_part', 'অফিস', 'Office', 99, 'official_only')`,
+      [section, version],
+    );
+    await h.db.query(
+      `INSERT INTO form_fields (id, form_section_id, form_version_id, field_key, type, label_bn, label_en, sort_order)
+       VALUES ($1, $2, $3, 'q_office_photo', 'photo', 'ছবি', 'Photo', 1)`,
+      [randomUUID(), section, version],
+    );
+    const fileId = await upload('rpmDhaka', await picture({ variant: 7, width: 400 }), {
+      kind: 'form_photo',
+      slot: 'q_office_photo',
+    });
+    await h.container.fileProcessor.process(fileId);
+    expect((await content('rpmDhaka', fileId)).status).toBe(200);
+    expect((await content('general', fileId)).status).toBe(404);
+    const listed = await request(h.server())
+      .get(`/api/v1/files?entityType=application&entityId=${dhakaApplication}`)
+      .set(as('general'));
+    expect(JSON.stringify(listed.body)).not.toContain(fileId);
+  });
+
   it('answers 404 for a thumbnail a file does not have', async () => {
     const pdf = Buffer.from('%PDF-1.4\n%%EOF\n');
     const id = await upload('general', pdf, {

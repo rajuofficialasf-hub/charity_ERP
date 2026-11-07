@@ -1,3 +1,4 @@
+import { slotParts } from '../applications/pending-photos';
 import { pipeline } from 'node:stream/promises';
 import type { Response } from 'express';
 import { UPLOAD_RECORD_KINDS, type UploadRecordType } from '@css/shared/files';
@@ -397,7 +398,28 @@ export class FilesService {
           break;
         }
       }
-    const linked = { deletedAt: null, fileLinksFile: { some: { entityType, entityId } } };
+    // the photos of an application's official-only questions stay with those who read that section
+    const officialKeys =
+      type === 'application' && !(await this.readsOfficialSection(principal, access, record))
+        ? await this.officialPhotoKeys(entityId)
+        : [];
+    const linked = {
+      deletedAt: null,
+      fileLinksFile: { some: { entityType, entityId } },
+      ...(officialKeys.length
+        ? {
+            NOT: {
+              fileLinksFile: {
+                some: {
+                  entityType,
+                  entityId,
+                  OR: officialKeys.flatMap((k) => [{ slot: k }, { slot: { startsWith: `${k}#` } }]),
+                },
+              },
+            },
+          }
+        : {}),
+    };
     // the uploader lists their own files of a record; an application's only while they still own
     // the application, so a transfer takes them from the old volunteer with the rest of the record
     const where = {
@@ -494,7 +516,7 @@ export class FilesService {
   ): Promise<boolean> {
     const links = await this.prisma.fileLink.findMany({
       where: { fileId: file.id },
-      select: { entityType: true, entityId: true },
+      select: { entityType: true, entityId: true, slot: true },
     });
     const records = [];
     for (const link of links) {
@@ -516,11 +538,58 @@ export class FilesService {
       return true;
     if (!records.length) return false;
     const access = loaded ?? (await this.access.load(principal.userId));
-    for (const permission of viewPermissions(file.kind)) {
+    // a photo answering a question of an official-only section is read as that section is: only
+    // with the official section's permission, never by a volunteer who views the application
+    const permissions = (await this.inOfficialSection(file.kind, links))
+      ? ['application.view_official_section']
+      : viewPermissions(file.kind);
+    for (const permission of permissions) {
       if (!access.grants.some((g) => g.permission === permission)) continue;
       const scope = await this.access.scopeFor(principal, access, permission, 'project');
       for (const record of records)
         if (await scopeReachesRecord(this.prisma, scope, record)) return true;
+    }
+    return false;
+  }
+
+  /** Whether the caller holds the official section's permission where the record is. */
+  private async readsOfficialSection(
+    principal: Principal,
+    access: RequestAccess,
+    record: NonNullable<Awaited<ReturnType<typeof loadUploadRecord>>>,
+  ): Promise<boolean> {
+    const permission = 'application.view_official_section';
+    if (!access.grants.some((g) => g.permission === permission)) return false;
+    const scope = await this.access.scopeFor(principal, access, permission, 'project');
+    return scopeReachesRecord(this.prisma, scope, record);
+  }
+
+  /** The question keys of an application's official-only sections, which its photo slots begin with. */
+  private async officialPhotoKeys(applicationId: string): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<{ field_key: string }[]>`
+      SELECT f.field_key FROM applications a
+        JOIN form_fields f ON f.form_version_id = a.form_version_id
+        JOIN form_sections s ON s.id = f.form_section_id
+       WHERE a.id = ${applicationId}::uuid AND s.visibility = 'official_only'`;
+    return rows.map((r) => r.field_key);
+  }
+
+  /** Whether a form photo of an application answers a question of an official-only section. */
+  private async inOfficialSection(
+    kind: string,
+    links: readonly { entityType: string; entityId: string; slot: string }[],
+  ): Promise<boolean> {
+    if (kind !== 'form_photo') return false;
+    for (const link of links) {
+      if (link.entityType !== 'application') continue;
+      const { fieldKey } = slotParts(link.slot);
+      const rows = await this.prisma.$queryRaw<{ visibility: string }[]>`
+        SELECT s.visibility FROM applications a
+          JOIN form_fields f ON f.form_version_id = a.form_version_id AND f.field_key = ${fieldKey}
+          JOIN form_sections s ON s.id = f.form_section_id
+         WHERE a.id = ${link.entityId}::uuid
+         LIMIT 1`;
+      if (rows[0]?.visibility === 'official_only') return true;
     }
     return false;
   }

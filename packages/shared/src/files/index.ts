@@ -35,6 +35,15 @@ export const FILE_KINDS = [
 ] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 
+/**
+ * The kinds only an official uploads (docs/architecture/FILES_AND_DOCUMENTS.md, who uploads):
+ * the copy of a payment is finance evidence and a document belongs to the register; a volunteer's
+ * file on the same record never takes their place.
+ */
+export const OFFICIAL_UPLOAD_KINDS: readonly FileKind[] = ['payment_copy', 'document'];
+export const officialOnlyKind = (kind: string): boolean =>
+  (OFFICIAL_UPLOAD_KINDS as readonly string[]).includes(kind);
+
 export const FILE_SOURCES = ['camera', 'gallery', 'scan'] as const;
 export type FileSource = (typeof FILE_SOURCES)[number];
 

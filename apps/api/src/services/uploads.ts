@@ -5,6 +5,7 @@ import { uuidv7 } from '@css/shared';
 import {
   type FileType,
   kindAllowedOn,
+  officialOnlyKind,
   maxSizeOf,
   sameFileType,
   UPLOAD_RECORD_KINDS,
@@ -111,6 +112,8 @@ export class UploadsService {
     if (existing) return { value: replayOf(existing, body, this.clock.now()), replay: true };
     if (!kindAllowedOn(body.entityType, body.kind))
       throw new ApiError('file.kind_not_allowed', 422);
+    if (officialOnlyKind(body.kind) && principal.kind !== 'staff')
+      throw new ApiError('permission.denied', 403);
     const limit = maxSizeOf(body.kind, body.mime);
     if (limit === null) throw new ApiError('file.type_not_allowed', 415);
     if (body.sizeBytes > limit) throw new ApiError('file.too_large', 413);
@@ -223,6 +226,8 @@ export class UploadsService {
       return { value: await this.fileView(session.finalizedFileId), replay: true };
     if (session.expiresAt <= this.clock.now()) throw new ApiError('file.session_expired', 410);
     const declared = declaredOf(session);
+    if (officialOnlyKind(declared.kind) && principal.kind !== 'staff')
+      throw new ApiError('permission.denied', 403);
     const record = await this.recordInReach(
       scope,
       declared.entityType as UploadRecordType,
