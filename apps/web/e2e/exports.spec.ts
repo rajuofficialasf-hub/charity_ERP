@@ -7,11 +7,14 @@ import { activeProject, code, IDENTITY_SECTION, question, UCD } from './support/
 // The export service end to end (docs/plans/2026-11-01-1011-feat-export-service-plan.md, the
 // journeys): the Dhaka RPM exports the beneficiary list as Excel and a project's application list
 // as CSV with a whole section of the form's questions, finds both in "My exports", and prints a
-// beneficiary's profile as a PDF; a volunteer has no export and the API refuses one. The jobs run
-// in the E2E export worker.
+// beneficiary's profile as a PDF; the Project Executive and the Media Team are offered only the
+// columns their view holds; a volunteer has no export and the API refuses one. The jobs run in the
+// E2E export worker.
 const RPM = 'rpm.dhaka@example.org';
 const PM = 'pm.ucd@example.org';
 const VOLUNTEER = '01700000106';
+const MEDIA = 'media@example.org';
+const EXECUTIVE = 'executive@example.org';
 const READY = 'ডাউনলোড করুন';
 
 /** A form of this run: the identity questions and a "family and income" part of two questions. */
@@ -129,6 +132,39 @@ test.describe('the export service', () => {
     expect(pdf.suggestedFilename()).toMatch(/^beneficiary_profile-.*\.pdf$/);
     const bytes = await readFile((await pdf.path())!);
     expect(bytes.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+  });
+
+  test('offers each role only the columns it may export', async ({ page, request }) => {
+    const columnsOf = async (who: string) => {
+      const api = await apiAs(request, who);
+      const res = await api.get('/exports/columns?list=beneficiaries');
+      expect(res.ok(), await res.text()).toBe(true);
+      return ((await res.json()) as { data: { columns: { id: string }[] } }).data.columns.map(
+        (c) => c.id,
+      );
+    };
+    const rpm = await columnsOf(RPM);
+    expect(rpm).toEqual(expect.arrayContaining(['name', 'nid', 'mobile']));
+    const executive = await columnsOf(EXECUTIVE);
+    expect(executive).toContain('name');
+    expect(executive).not.toContain('nid');
+    // the Media Team: the name and the area of its limited view, no contact and no identity
+    const media = await columnsOf(MEDIA);
+    expect(media).toContain('name');
+    expect(media).not.toContain('nid');
+    expect(media).not.toContain('mobile');
+    const refused = await (
+      await apiAs(request, MEDIA)
+    ).post('/exports', {
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name', 'mobile'],
+      filters: {},
+    });
+    expect(refused.status(), await refused.text()).not.toBe(201);
+    await signIn(page, MEDIA);
+    await page.goto('/admin/beneficiaries');
+    await expect(page.getByRole('button', { name: 'এক্সপোর্ট', exact: true })).toBeVisible();
   });
 
   test('offers a volunteer no export, and the API refuses one', async ({ page, request }) => {

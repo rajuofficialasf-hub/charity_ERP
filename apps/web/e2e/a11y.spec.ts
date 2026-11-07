@@ -11,10 +11,12 @@ import { DEMO_FINISHED, demoReadyForm } from './support/demo-form';
 import { settled } from './support/forms';
 import { activeProject, code, ERR } from './support/projects';
 
-// axe on every built Phase 1 screen in Bengali and in English, on the phone and the desktop
-// project (docs/MASTER_PROMPT.md, the accessibility line of the non-functional requirements; the
-// gate's accessibility check of docs/testing/TEST_STRATEGY.md section 3.6). The screens are those
-// of docs/ui/SCREENS.md with a Phase 1 task. A role sweeps only the pages it may open: the sweep
+// axe on every built Phase 1 and Phase 2 screen in Bengali and in English, on the phone and the
+// desktop project (docs/MASTER_PROMPT.md, the accessibility line of the non-functional
+// requirements; the gate's accessibility check of docs/testing/TEST_STRATEGY.md section 3.6). The
+// screens are those of docs/ui/SCREENS.md with a Phase 1 or Phase 2 task; the application review,
+// the own application and the media work pages are checked by their journeys
+// (applications.spec.ts, application-rules.spec.ts, media.spec.ts). A role sweeps only the pages it may open: the sweep
 // never asserts on a forbidden page. The project pages use a project of this run's own, made
 // through the setup wizard by the ERR Program Manager, with volunteer 3 assigned and consenting
 // through the API, so no other spec decides whether a record page exists; the volunteer and the

@@ -9,6 +9,7 @@ import {
 import { apiAs, isPhone, openTab, scan, signIn } from './support/admin';
 import { activeProject, choice, code, ERR, question } from './support/projects';
 import { pickByLabel } from './support/forms';
+import { act, savar } from './support/applications';
 
 // The application cycle across both screens (docs/MASTER_PROMPT.md, the critical journey
 // "review, approval"; docs/testing/DEMO_ACCOUNTS.md): a project of this run with a two-part form,
@@ -21,6 +22,10 @@ const HEAD = 'head@example.org';
 const EXECUTIVE = 'executive@example.org';
 const RPM = 'rpm.dhaka@example.org';
 const VOLUNTEER = '01700000115';
+/** Beneficiary 1 of the demo seed, in the Dhaka division (docs/testing/DEMO_ACCOUNTS.md). */
+const KNOWN_NID = '1000001000';
+/** Volunteer 5 of Dhaka, whom no other journey brings applications with. */
+const FIELD_VOLUNTEER = '01700000105';
 
 const digits = (n: number) =>
   Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
@@ -115,7 +120,11 @@ const noViolations = async (page: Page, where: string) =>
  * An active ERR project of this run in the Dhaka division with the two-part form, volunteer 15
  * assigned and consenting, and the Project Executive given the Dhaka area on the project.
  */
-async function projectOfTheJourney(browser: Browser, request: APIRequestContext) {
+async function projectOfTheJourney(
+  browser: Browser,
+  request: APIRequestContext,
+  volunteer = VOLUNTEER,
+) {
   const projectId = await onDesk(browser, async (desk) => {
     await signIn(desk, PM);
     await openTab(desk, 'প্রকল্প');
@@ -125,7 +134,7 @@ async function projectOfTheJourney(browser: Browser, request: APIRequestContext)
     });
   });
   const head = await apiAs(request, HEAD);
-  const volunteers = await head.get(`/volunteers?q=${VOLUNTEER}`);
+  const volunteers = await head.get(`/volunteers?q=${volunteer}`);
   expect(volunteers.ok()).toBe(true);
   const found = ((await volunteers.json()) as { data: { id: string }[] }).data;
   expect(found).toHaveLength(1);
@@ -147,7 +156,7 @@ async function projectOfTheJourney(browser: Browser, request: APIRequestContext)
     canEdit: true,
   });
   expect(staff.status(), await staff.text()).toBe(201);
-  const me = await apiAs(request, VOLUNTEER);
+  const me = await apiAs(request, volunteer);
   const detail = await me.get(`/me/projects/${projectId}`);
   expect(detail.ok()).toBe(true);
   const { data } = (await detail.json()) as {
@@ -273,5 +282,101 @@ test.describe('the application cycle', () => {
     const own = page.getByRole('list', { name: 'আবেদনের ধাপ' });
     await expect(own.getByRole('listitem')).toHaveCount(6);
     await expect(own).not.toContainText('আরপিএম ঢাকা');
+  });
+
+  test('a volunteer on a phone brings a known person, filled in and locked, and the RPM approves a family match with a reason', async ({
+    browser,
+    page,
+    request,
+  }, info) => {
+    test.skip(!isPhone(info), 'the field journey is the phone’s');
+    test.setTimeout(300_000);
+    const projectId = await projectOfTheJourney(browser, request, FIELD_VOLUNTEER);
+
+    // the volunteer: the known number fills the identity and the address from the profile
+    await signIn(page, FIELD_VOLUNTEER);
+    await page.goto(`/my-projects/${projectId}`);
+    await page.getByRole('link', { name: 'নতুন আবেদন' }).click();
+    await page.getByRole('textbox', { name: /NID নম্বর/ }).fill(KNOWN_NID);
+    await page.getByRole('button', { name: 'খুঁজুন' }).click();
+    await expect(page.getByText(/^প্রোফাইল পাওয়া গেছে: BEN-\d{7}$/)).toBeVisible();
+    await noViolations(page, 'the found person');
+    await page.getByRole('button', { name: 'এই ব্যক্তির জন্য ফর্ম পূরণ করুন' }).click();
+    const name = page.getByRole('textbox', { name: /উপকারভোগীর নাম/ });
+    await expect(name).toHaveValue(/\S/);
+    await expect(name).not.toBeEditable();
+    await expect(page.getByRole('textbox', { name: /পিতা বা স্বামীর নাম/ })).not.toBeEditable();
+    await expect(page.getByRole('textbox', { name: /পরিচয় নম্বর/ })).toHaveValue(KNOWN_NID);
+    const mobile = page.getByRole('textbox', { name: /উপকারভোগীর মোবাইল/ });
+    await expect(mobile).toBeEditable();
+    const sharedMobile = await mobile.inputValue();
+    expect(sharedMobile).toMatch(/^01\d{9}$/);
+    const personName = await name.inputValue();
+    await page.getByRole('button', { name: 'পরের অংশ' }).click();
+    await expect(page.getByText('খসড়া সংরক্ষিত হয়েছে')).toBeVisible();
+    await page.getByRole('textbox', { name: /কেন সহায়তা দরকার/ }).fill('ঘর মেরামত দরকার');
+    await page.getByRole('button', { name: 'অফিসে পাঠান' }).click();
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' }),
+    ).toBeVisible();
+
+    // another person of the project on the same mobile, brought through the API
+    const me = await apiAs(request, FIELD_VOLUNTEER);
+    const places = await savar(await apiAs(request, HEAD));
+    const form = await me.get(`/projects/${projectId}/application-form`);
+    const { data: version } = (await form.json()) as { data: { id: string } };
+    const other = await me.post(`/projects/${projectId}/applications`, {
+      clientUuid: crypto.randomUUID(),
+      projectId,
+      formVersionId: version.id,
+      answers: [
+        { fieldKey: 'q_id', value: { t: 'short_text', v: `2${digits(9)}` } },
+        { fieldKey: 'q_name', value: { t: 'short_text', v: `একই ফোনের জন ${code()}` } },
+        { fieldKey: 'q_father', value: { t: 'short_text', v: `অন্য পিতা ${code()}` } },
+        { fieldKey: 'q_mobile', value: { t: 'phone', v: sharedMobile } },
+        { fieldKey: 'q_gender', value: { t: 'single_select', v: 'female' } },
+        {
+          fieldKey: 'q_address',
+          value: {
+            t: 'bd_address',
+            division_id: places.division,
+            district_id: places.district,
+            upazila_id: places.upazila,
+            union_id: places.union,
+          },
+        },
+        { fieldKey: 'q_village', value: { t: 'short_text', v: 'অন্য গ্রাম' } },
+        { fieldKey: 'q_need', value: { t: 'long_text', v: 'শীতের কাপড়' } },
+      ],
+    });
+    expect(other.status(), await other.text()).toBe(201);
+    const otherId = ((await other.json()) as { data: { id: string } }).data.id;
+    await act(me, otherId, 'submit');
+    const mine = await me.get('/me/applications');
+    const rows = ((await mine.json()) as { data: { id: string; beneficiaryName?: string }[] }).data;
+    const knownId = rows.find((r) => r.id !== otherId && r.beneficiaryName === personName)?.id;
+    expect(knownId, JSON.stringify(rows)).toBeTruthy();
+    const executive = await apiAs(request, EXECUTIVE);
+    await act(executive, knownId!, 'review');
+    await act(executive, knownId!, 'send_for_approval');
+
+    // the RPM reads the family warning and gives the approval with the reason it asks
+    await onDesk(browser, async (rpm) => {
+      await signIn(rpm, RPM);
+      await rpm.goto(`/admin/applications/${knownId}`);
+      await expect(rpm.getByRole('heading', { level: 1, name: personName })).toBeVisible();
+      await expect(
+        rpm.getByText(/^একই প্রকল্পে সম্ভাব্য একই পরিবার: .* — একই মোবাইল$/),
+      ).toBeVisible();
+      await noViolations(rpm, 'the family warning');
+      await rpm.getByRole('button', { name: 'অনুমোদন করুন' }).click();
+      const dialog = rpm.getByRole('dialog', { name: 'আবেদন অনুমোদন করুন' });
+      await expect(
+        dialog.getByText('এই প্রকল্পে একই পরিবারের আরেকজন আছেন। তবু কেন অনুমোদন দিচ্ছেন?'),
+      ).toBeVisible();
+      await dialog.getByRole('textbox', { name: /মন্তব্য/ }).fill('আলাদা পরিবার, ফোন একই');
+      await dialog.getByRole('button', { name: 'অনুমোদন করুন' }).click();
+      await expect(rpm.getByText('আবেদন অনুমোদিত হয়েছে।')).toBeVisible();
+    });
   });
 });

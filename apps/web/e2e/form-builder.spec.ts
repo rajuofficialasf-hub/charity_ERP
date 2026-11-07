@@ -24,10 +24,11 @@ import {
 // builds a ready form with the seven identity marks, a calculation and a condition, and publishes
 // it; the PM places it on a project and switches the public link on; an applicant sends it on a
 // phone; the Monitoring Team publishes version 2, the PM takes it, and the same link then opens
-// it. That the entry stays on version 1 is proven by the API tests of the ready forms, since no
-// screen reads an entry yet.
+// it. The entry sent on version 1 keeps its answers as they were, and the project's RPM opens its
+// verification from the office's list.
 const MONITORING = 'monitoring@example.org';
 const PM = 'pm.ucd@example.org';
+const RPM = 'rpm.dhaka@example.org';
 
 // a step that cannot happen fails on its own line instead of at the end of the journey
 test.use({ actionTimeout: 20_000, navigationTimeout: 30_000 });
@@ -285,6 +286,30 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     expect(
       ((await opened.json()) as { data: { form: { versionNo: number } } }).data.form.versionNo,
     ).toBe(2);
+
+    // the office: the entry sent on version 1 waits for verification with its answers as they
+    // were, and the project's RPM opens its verification
+    const office = await browser.newContext({ ...devices['Desktop Chrome'] });
+    try {
+      const rpm = await office.newPage();
+      await signIn(rpm, RPM);
+      await rpm.goto(`/admin/projects/${projectId}/applications`);
+      await rpm.getByRole('radio', { name: 'যাচাইয়ের অপেক্ষায়' }).click();
+      await rpm.getByRole('link', { name: 'নমুনা আবেদনকারী' }).first().click();
+      await expect(rpm.getByRole('heading', { level: 1, name: 'নমুনা আবেদনকারী' })).toBeVisible();
+      await expect(rpm.getByText('আপনার কি নিজের ঘর আছে?').first()).toBeVisible();
+      await expect(rpm.getByText('হ্যাঁ', { exact: true }).first()).toBeVisible();
+      await expect(rpm.getByText('না, ভাড়া থাকি')).toHaveCount(0);
+      await rpm.getByRole('button', { name: 'যাচাই করুন' }).click();
+      // a new number: the dialog offers a new profile from the entry. The creation itself is
+      // left out here: the gender of this builder-made form carries codes of its own that the
+      // profile refuses (a known issue in docs/STATUS.md); the API tests create from an entry.
+      const verify = rpm.getByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
+      await expect(verify.getByText('এন্ট্রির তথ্য দিয়ে নতুন প্রোফাইল তৈরি হবে।')).toBeVisible();
+      await expect(verify.getByRole('button', { name: 'তৈরি করুন' })).toBeEnabled();
+    } finally {
+      await office.close();
+    }
   } finally {
     await phone.close();
     await desk.close();
