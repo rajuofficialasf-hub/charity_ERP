@@ -113,13 +113,16 @@ export class BeneficiaryMergeCandidatesService {
                 THEN 'name_father_mobile' END,
               CASE WHEN o.mobile = me.mobile AND me.small THEN 'same_mobile' END], NULL) AS rules
           FROM me JOIN named o ON true
+        ), kept AS (
+          -- the same name on a mobile too many profiles share, with another father, is no pair
+          SELECT * FROM found WHERE cardinality(rules) > 0
         ), gone AS (
           UPDATE beneficiary_merge_candidates c SET active = false, computed_at = now()
           WHERE (c.low_id = ${id}::uuid OR c.high_id = ${id}::uuid) AND c.active
-            AND NOT EXISTS (SELECT 1 FROM found f WHERE f.low = c.low_id AND f.high = c.high_id)
+            AND NOT EXISTS (SELECT 1 FROM kept f WHERE f.low = c.low_id AND f.high = c.high_id)
         )
         INSERT INTO beneficiary_merge_candidates (low_id, high_id, rules, active, computed_at)
-        SELECT low, high, rules, true, now() FROM found
+        SELECT low, high, rules, true, now() FROM kept
         ON CONFLICT (low_id, high_id) DO UPDATE
           SET rules = EXCLUDED.rules, active = true, computed_at = EXCLUDED.computed_at`;
     }
