@@ -703,12 +703,31 @@ export class ApplicationsService {
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'linkBeneficiaryId', code: 'validation.required' },
       ]);
+    // a pull of one chosen application is the waitlist's own step: it needs the waitlist
+    // permission besides the approval its transition asks for (permissions.yaml)
+    if (action === 'pull_from_waitlist') {
+      const access = await this.access.load(viewer.principal.userId);
+      if (!holdsPermission('application.waitlist', access.grants)) {
+        this.access.denied(viewer.principal.userId, 'application.waitlist', 'application');
+        throw new ApiError('permission.denied', 403);
+      }
+    }
     // a submission binds the person with the move (a submitted application always has one) and
     // takes its number after it; a verification does the same once its own checks pass, and a
     // public entry never rewrites a known person's contact data
     const submit = action === 'submit';
     try {
       await this.prisma.$transaction(async (tx) => {
+        // the decisions of a project run one after another, as the pulls do, so the score order
+        // and a full quota are read as the last decision left them
+        if ((DECISIONS as readonly string[]).includes(action)) {
+          const row = await tx.application.findUnique({
+            where: { id: applicationId },
+            select: { projectId: true },
+          });
+          if (row)
+            await tx.$queryRaw`SELECT 1 AS held FROM pg_advisory_xact_lock(hashtextextended(${`waitlist:${row.projectId}`}, 0))`;
+        }
         await this.workflow.transition(
           tx,
           viewer.principal,
@@ -1511,6 +1530,8 @@ export class ApplicationsService {
       new ApiError('validation.failed', 422, undefined, [{ path: 'ownerVolunteerId', code }]);
     if (!assignment || blocked) throw unfit('application.verify_owner_unfit');
     if (project.perVolunteerLimit !== null) {
+      // the same lock as the owner's own creates, so two verifications never both take the last place
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`application-owner:${projectId}:${body.ownerVolunteerId}`}))`;
       const counts = await liveApplicationCounts(tx, [
         { projectId, ownerVolunteerId: body.ownerVolunteerId },
       ]);
