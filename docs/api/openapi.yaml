@@ -8874,7 +8874,7 @@ paths:
       x-audit: application.create
       x-idempotency: clientUuid
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
       requestBody:
         required: true
         content:
@@ -8910,7 +8910,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
       responses:
         '200':
           description: Application
@@ -9002,7 +9002,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
       responses:
         '200':
           description: Application
@@ -9023,7 +9023,7 @@ paths:
       x-audit: application.update
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
       x-workflow: { scope: application, action: edit }
       parameters:
         - $ref: '#/components/parameters/IfMatch'
@@ -9059,7 +9059,7 @@ paths:
       x-audit: application.<action>
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
       x-workflow: { scope: application, action: path }
       parameters:
         - $ref: '#/components/parameters/IfMatch'

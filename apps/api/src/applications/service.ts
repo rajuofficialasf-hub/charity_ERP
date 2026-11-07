@@ -93,6 +93,8 @@ import {
   type ApplicationSummary,
   type ApplicationUpdate,
   type ApplicationView,
+  BENEFICIARY_CONTACT,
+  BENEFICIARY_NID,
   OFFICIAL_SECTION,
 } from './view';
 
@@ -1243,7 +1245,8 @@ export class ApplicationsService {
         return { beneficiaryId: null, identityKind: kind, number, answers, candidate: live };
     }
     const values: Record<(typeof LOCKED_COLUMNS)[number], string> = {
-      [IDENTITY_COLUMN]: profile.nid ?? profile.birthReg ?? number,
+      // the number the volunteer typed: a birth registration never turns into the profile's NID
+      [IDENTITY_COLUMN]: number,
       name: profile.name,
       father_or_husband_name: profile.fatherOrHusbandName,
     };
@@ -1529,7 +1532,7 @@ export class ApplicationsService {
     });
     const audience = this.audienceOf(viewer);
     const definition = await readDefinition(this.prisma, row.formVersionId, audience);
-    const [answers, warnings, availableActions, version] = await Promise.all([
+    const [read, warnings, availableActions, version, mine] = await Promise.all([
       readAnswers(this.prisma, applicationId, definition),
       audience === 'official' && row.beneficiaryId
         ? this.family.matches(this.prisma, row.projectId, row.beneficiaryId)
@@ -1539,7 +1542,23 @@ export class ApplicationsService {
         where: { id: row.formVersionId },
         select: VERSION_SELECT,
       }),
+      this.bringsIt(viewer.principal, row),
     ]);
+    // Another volunteer on the project (a paid volunteer, a Local দায়ী) and the Procurement Team
+    // read the application without the person's identity number and mobile unless their role holds
+    // those classes; the volunteer who brings it typed them and reads them (BR-183).
+    const hidden = new Set<string>();
+    if (!mine) {
+      const withheld: [string, string][] = [
+        [IDENTITY_COLUMN, BENEFICIARY_NID],
+        ['mobile', BENEFICIARY_CONTACT],
+      ];
+      for (const [column, fieldClass] of withheld) {
+        const field = fieldByColumn(definition, column);
+        if (field && !viewer.fieldClasses.has(fieldClass)) hidden.add(field.fieldKey);
+      }
+    }
+    const answers = read.filter((a) => !hidden.has(a.fieldKey));
     return {
       application: {
         ...this.summaryOf(row, this.clock.now()),
@@ -1548,7 +1567,8 @@ export class ApplicationsService {
         createdByUserId: row.createdByUserId,
         clientCreatedAt: iso(row.clientCreatedAt),
         identityKind: identityKindSchema.parse(row.identityKind),
-        rejectionMessage: row.rejectionMessage,
+        // the message for the volunteer reaches the one who brings it and the office (BR-269)
+        rejectionMessage: audience === 'official' || mine ? row.rejectionMessage : null,
         answers: answers.map((a) => ({ ...a, repeatIndex: a.repeatIndex ?? 0 })),
         reviewedAt: iso(row.reviewedAt),
         approvedAt: iso(row.approvedAt),
@@ -1581,6 +1601,20 @@ export class ApplicationsService {
       },
       updatedAt: row.updatedAt,
     };
+  }
+
+  /** Whether the caller brings the application: its main volunteer, or the user who created it. */
+  private async bringsIt(
+    principal: Principal,
+    row: Pick<Row, 'ownerVolunteerId' | 'createdByUserId'>,
+  ): Promise<boolean> {
+    if (row.createdByUserId === principal.userId) return true;
+    if (!row.ownerVolunteerId) return false;
+    const owner = await this.prisma.volunteer.findUnique({
+      where: { id: row.ownerVolunteerId },
+      select: { userId: true },
+    });
+    return owner?.userId === principal.userId;
   }
 
   /**
