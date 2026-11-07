@@ -57,7 +57,21 @@ The gate review (four reviewers, one per area) found these, each fixed with test
 
 ## 4. Test results at the gate
 
-RESULTS_PLACEHOLDER
+Run on the final state of branch `chore/phase2-gate` on the owner's machine, 2026-11-07 (D-138):
+
+| Command | Output |
+|---|---|
+| `pnpm typecheck` | every package `Done`, no error |
+| `npx eslint apps packages scripts` | 0 errors (275 warnings, all `security/*` advisories) |
+| `pnpm exec prettier --check .` | all files formatted |
+| `pnpm i18n:check` | `0 error(s), 0 warning(s); 161 error codes checked` |
+| `pnpm docs:check` | `All document checks passed.` |
+| `pnpm rules:status --phase 2 --report-only` | `Phase 2 rules: tested 131, deferred 23, manual 0, untested 0` |
+| `pnpm test` | 3122 of 3134 passed. One API test expected the old block rule and was updated to D-158 (4 of 4). The other 11 were web component tests that timed out under the machine's load; their 7 files pass on a rerun with two workers (132 of 132) |
+| `pnpm --filter @css/api contract:coverage` | `contract coverage: 224 of 224 operations answered their success status in a test` (one Vitest worker exited on the machine during that run, the known issue of TEST_STRATEGY section 10; every operation was still answered) |
+| E2E without the axe sweep (two workers) | 190 passed, 34 skipped by project. One offline journey failed (the address list not yet on the phone's store), and 3 serial followers did not run. In five later runs of the offline file alone: 3 passed, 2 failed at a different step each. This is a known flaky test (section 6) |
+| `npx playwright test e2e/a11y.spec.ts --workers 1` | `36 passed` (light and dark, bn and en, both Chromium projects) |
+| `pnpm --filter @css/web bundle:report` | first route 381.6 KB gzip of 400 KB (D-154) |
 
 ## 5. Decisions taken at the gate (owner in chat, 2026-11-07)
 
@@ -90,6 +104,7 @@ The rest of the gate review, listed in `docs/STATUS.md` (known issues) for a tas
   - The 360° profile's projects by year come from the first 20 applications.
   - The lookup's daily cap answers differently for a found and an unknown number.
   - A few duplicated date helpers.
+- **Offline journey flaky:** in a long run the offline spec sometimes finds the address list not yet on the phone's store (the division picker stays disabled), at varying steps. It is to be investigated with the offline work on real phones (T3.0).
 - **First visit:** the cold first visit on 3G takes 6.7 s to interactive, over the 5 s of NFR-16. The installed case is measured on the phones of the device checklist.
 
 ## 7. Not in Phase 2
