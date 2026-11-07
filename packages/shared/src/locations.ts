@@ -7,5 +7,7 @@ export interface LocationView {
   level: string;
   code: string;
   name: Bilingual;
+  /** The four-digit post code of an upazila, a thana or a union-level place; null above them. */
+  postCode: string | null;
   active: boolean;
 }

@@ -24,6 +24,8 @@ export interface Draft {
 export interface Location {
   id: string;
   name: { bn: string; en: string };
+  /** The four-digit post code of an upazila or a union-level place; null above them. */
+  postCode: string | null;
 }
 
 /** A new draft of the kind; nothing is sent yet (D-090). */

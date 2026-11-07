@@ -17,7 +17,12 @@ const DIVISION = '01900000-0000-7000-8000-0000000000a1';
 const DISTRICT = '01900000-0000-7000-8000-0000000000a2';
 const UPAZILA = '01900000-0000-7000-8000-0000000000a3';
 const UNION = '01900000-0000-7000-8000-0000000000a4';
-const place = (id: string, bn: string) => ({ id, name: { bn, en: bn } });
+const UNION_2 = '01900000-0000-7000-8000-0000000000a5';
+const place = (id: string, bn: string, postCode: string | null = null) => ({
+  id,
+  name: { bn, en: bn },
+  postCode,
+});
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -28,7 +33,7 @@ beforeEach(() => {
         root: [place(DIVISION, 'ঢাকা বিভাগ')],
         [DIVISION]: [place(DISTRICT, 'ঢাকা জেলা')],
         [DISTRICT]: [place(UPAZILA, 'সাভার')],
-        [UPAZILA]: [place(UNION, 'আশুলিয়া')],
+        [UPAZILA]: [place(UNION, 'আশুলিয়া', '1341'), place(UNION_2, 'সাভার', '1340')],
       };
       return HttpResponse.json({ data: rows[parent ?? 'root'] ?? [], meta: { requestId: 'r' } });
     }),
@@ -295,6 +300,38 @@ describe('the logic', () => {
     await user.click(within(detail).getByRole('radio', { name: 'অন্যান্য' }));
     expect(screen.getByRole('textbox', { name: /অন্যান্য/ })).toBeInTheDocument();
   });
+
+  it('fills the post code question from the union, and leaves a code the person typed', async () => {
+    const user = userEvent.setup();
+    const { submitted } = open([
+      section('s_post', [
+        bilingual('q_post', 'পোস্ট কোড', 'Post code', 'short_text', {
+          standardColumn: 'post_code',
+        }),
+      ]),
+    ]);
+    await fillCore(user);
+    const post = screen.getByRole('textbox', { name: /পোস্ট কোড/ });
+    expect(post).toHaveValue('1341');
+    // another union replaces the code it gave
+    const unionBox = screen.getByRole('combobox', { name: level('ইউনিয়ন') });
+    await user.click(unionBox);
+    await user.click(await screen.findByRole('option', { name: 'সাভার' }));
+    expect(post).toHaveValue('1340');
+    // a code the person typed stays
+    await user.clear(post);
+    await user.type(post, '1207');
+    await user.click(unionBox);
+    await user.click(await screen.findByRole('option', { name: 'আশুলিয়া' }));
+    expect(post).toHaveValue('1207');
+    await user.click(screen.getByRole('button', { name: 'পাঠান' }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(submitted[0]!.answers).toContainEqual({
+      fieldKey: 'q_post',
+      repeatIndex: 0,
+      value: { t: 'short_text', v: '1207' },
+    });
+  }, 30_000);
 
   it('waits for each level of the address before the next', async () => {
     open([]);

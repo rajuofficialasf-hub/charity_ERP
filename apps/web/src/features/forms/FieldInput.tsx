@@ -43,6 +43,8 @@ export interface FieldInputProps {
   locked?: boolean;
   /** Puts earlier answers into the question's text and help; plain text in, plain text out. */
   pipe?: (text: string) => string;
+  /** An address question tells the post code of the union chosen (null when none is known). */
+  onPostCode?: (postCode: string | null) => void;
 }
 
 const choice = (value: AnswerValue | undefined) =>
@@ -67,6 +69,7 @@ export function FieldInput({
   nisabKnown,
   locked: lockedByScreen = false,
   pipe = (text) => text,
+  onPostCode,
 }: FieldInputProps) {
   const t = useTranslations('forms.renderer');
   const locale = useLocale();
@@ -190,7 +193,9 @@ export function FieldInput({
       );
     }
     case 'bd_address':
-      return <AddressInput value={value} error={error} onChange={onChange} />;
+      return (
+        <AddressInput value={value} error={error} onChange={onChange} onPostCode={onPostCode} />
+      );
     case 'gps':
       return (
         <GpsField {...common} value={value?.t === 'gps' ? value : undefined} onChange={onChange} />
@@ -273,10 +278,12 @@ function AddressInput({
   value,
   error,
   onChange,
+  onPostCode,
 }: {
   value: AnswerValue | undefined;
   error?: string;
   onChange: (value: AnswerValue | null) => void;
+  onPostCode?: (postCode: string | null) => void;
 }) {
   const whole = value?.t === 'bd_address' ? value : null;
   const [draft, setDraft] = useState<Address>(() =>
@@ -293,6 +300,7 @@ function AddressInput({
     <AddressFields
       value={draft}
       errors={{ unionId: error }}
+      onUnionChosen={(union) => onPostCode?.(union?.postCode ?? null)}
       onChange={(next) => {
         setDraft(next);
         onChange(

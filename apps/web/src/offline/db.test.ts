@@ -65,6 +65,7 @@ describe('the phone store', () => {
       level: 'division',
       code: '10',
       name: { bn: 'ঢাকা', en: 'Dhaka' },
+      postCode: null,
       active: true,
     });
     await clearOfflineTables();

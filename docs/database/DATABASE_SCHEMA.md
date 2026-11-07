@@ -79,7 +79,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-otp-purpose | registration, password_reset, contact_change (D-085) | otp_codes.purpose |
 | L-channel-otp | sms, email | otp_codes.channel |
 | L-location-level | division, district, upazila, union | locations.level |
-| L-location-kind | division, district, upazila, city_corporation, union, pourosova, thana | locations.kind (D-061; city_corporation at upazila level, pourosova and thana at union level) |
+| L-location-kind | division, district, upazila, city_corporation, union, pourosova, thana, other | locations.kind (D-061; city_corporation at upazila level, pourosova, thana and other (a cantonment or a forest range, D-160) at union level) |
 | L-project-status | draft, active, closing, closed, cancelled (a never-activated draft, BR-255) | projects.status |
 | L-quota-level | district, union | project_quotas.level |
 | L-fund-source | zakat, sadaqah, general, donor | fund_sources.source |
@@ -349,12 +349,13 @@ Index: (from_user_id).
 | kind | text | no | — | L-location-kind (D-061) |
 | code | text | no | — | internal code assigned once and never changed: `L-dd`, `L-dd-dd`, `L-dd-dd-dd`, `L-dd-dd-dd-ddd` (D-061) |
 | bbs_code | text | yes | — | official BBS geocode when supplied (D-061) |
+| post_code | varchar(4) | yes | — | the four-digit post code of an upazila, a thana or a union-level place, the place's own or its upazila's; null for a division, a district and a city corporation (D-160) |
 | name_bn, name_en | text | no | — | renamable (O-09) |
 | active | boolean | no | true | deactivate, never delete |
 | version | integer | no | 1 | bumped on change (offline snapshot) |
 | [A] | | | | |
 
-Constraints: UNIQUE (code); UNIQUE (bbs_code) WHERE bbs_code IS NOT NULL; CHECK (level = 'division') = (parent_id IS NULL); CHECK the kind matches the level (division → division, district → district, upazila → upazila or city_corporation, union → union, pourosova or thana). Indexes: (parent_id, active); (level, active). Loaded by `pnpm db:load-locations` from `docs/source/data/bd-locations.csv` (T1.2).
+Constraints: UNIQUE (code); UNIQUE (bbs_code) WHERE bbs_code IS NOT NULL; CHECK (level = 'division') = (parent_id IS NULL); CHECK the kind matches the level (division → division, district → district, upazila → upazila or city_corporation, union → union, pourosova, thana or other); CHECK post_code is null or four digits. Indexes: (parent_id, active); (level, active). Loaded by `pnpm db:load-locations` from `docs/source/data/bd-locations.csv` (T1.2; post codes and the kind `other` with migration `20261107120000_location_post_codes`, D-160).
 
 ### reference_lists
 | Column | Type | Null | Default | Comment |

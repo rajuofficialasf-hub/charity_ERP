@@ -18,7 +18,7 @@ Status: complete, task T0.12 (2026-10-10). Design only; no code. Sources: bluepr
 | Current form versions | the published form version of each assigned project (sections, fields, options, logic) | pulled when the server reports a newer version; old version kept until drafts on it are synced | small |
 | Own beneficiaries and applications | the volunteer's own applications (status, stage, basic beneficiary data without masked fields) and, for Local দায়ীs and paid volunteers, assigned beneficiaries | delta by `since` timestamp | paginated; ASSIGNED/SELF only |
 | Syllabus | topics of dawah-enabled projects | with the project snapshot | small |
-| Locations | the four-level master (division → district → upazila → union), active rows only | version number; full download only when it changes | about 5,000 rows |
+| Locations | the four-level master (division → district → upazila → union) with the post code of each place (D-160), active rows only | version number; full download only when it changes | about 5,600 rows |
 | Reference lists | beneficiary class options, outcomes, expense categories, payment methods, i18n catalogue | with the snapshot | small |
 | Outbox and photo queue | section 3 and section 5 | — | photo queue 200 MB (O-07) |
 

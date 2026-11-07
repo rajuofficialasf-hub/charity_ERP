@@ -184,6 +184,31 @@ export function FormRenderer({
   );
   const evaluation = useMemo(() => evaluate(form, state.answers, context), [form, state, context]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // the question that stands for the post code column, filled from the union chosen in the
+  // address: when it is empty, or still holds the code the earlier union gave it
+  const postCodeField = useMemo(
+    () =>
+      form.sections
+        .flatMap((s) => s.fields)
+        .find(
+          (f) =>
+            f.standardColumn === 'post_code' &&
+            f.type === 'short_text' &&
+            !f.settings?.repeat?.group,
+        ),
+    [form],
+  );
+  const filledPostCode = useRef<string | null>(null);
+  const fillPostCode = (postCode: string | null) => {
+    if (!postCodeField || !postCode) return;
+    setState((s) => {
+      const current = answerOf(s, postCodeField.fieldKey);
+      const typed = current && 'v' in current && typeof current.v === 'string' ? current.v : '';
+      if (typed !== '' && typed !== filledPostCode.current) return s;
+      filledPostCode.current = postCode;
+      return setAnswer(s, postCodeField.fieldKey, 0, false, { t: 'short_text', v: postCode });
+    });
+  };
   const [summary, setSummary] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const sendingNow = useRef(false);
@@ -311,6 +336,7 @@ export function FormRenderer({
         locked={lockedKeys?.has(field.fieldKey) === true}
         pipe={(text) => pipeText(text, texts)}
         onChange={(value) => change(field, row, inGroup, value)}
+        onPostCode={field.type === 'bd_address' && !inGroup ? fillPostCode : undefined}
         upload={fieldUpload}
         onUploading={(busy) =>
           setUploading((set) => {

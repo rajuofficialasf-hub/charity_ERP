@@ -131,6 +131,7 @@ const place = (id: string, parentId: string | null, level: string, bn: string) =
   level,
   code: id.slice(-2),
   name: { bn, en: bn },
+  postCode: level === 'union' ? '1341' : null,
   active: true,
 });
 
