@@ -235,6 +235,16 @@ describe('streaming a file linked to a record', () => {
     expect(JSON.stringify(listed.body)).not.toContain(fileId);
   });
 
+  it('keeps a payment copy the office attached from the volunteer of the application', async () => {
+    const fileId = await upload('rpmDhaka', await picture({ variant: 8, width: 400 }), {
+      kind: 'payment_copy',
+      slot: 'payment_copy',
+    });
+    await h.container.fileProcessor.process(fileId);
+    expect((await content('rpmDhaka', fileId)).status).toBe(200);
+    expect((await content('general', fileId)).status).toBe(404);
+  });
+
   it('answers 404 for a thumbnail a file does not have', async () => {
     const pdf = Buffer.from('%PDF-1.4\n%%EOF\n');
     const id = await upload('general', pdf, {

@@ -1567,7 +1567,8 @@ export class ApplicationsService {
     ]);
     // Another volunteer on the project (a paid volunteer, a Local দায়ী) and the Procurement Team
     // read the application without the person's identity number and mobile unless their role holds
-    // those classes; the volunteer who brings it typed them and reads them (BR-183).
+    // those classes (docs/BUSINESS_RULES.md, field-level protection); the volunteer who brings it
+    // typed them and reads them.
     const hidden = new Set<string>();
     if (!mine) {
       const withheld: [string, string][] = [
@@ -1588,7 +1589,8 @@ export class ApplicationsService {
         createdByUserId: row.createdByUserId,
         clientCreatedAt: iso(row.clientCreatedAt),
         identityKind: identityKindSchema.parse(row.identityKind),
-        // the message for the volunteer reaches the one who brings it and the office (BR-269)
+        // the message for the volunteer reaches the one who brings it and the office, never the
+        // other volunteers of the project
         rejectionMessage: audience === 'official' || mine ? row.rejectionMessage : null,
         answers: answers.map((a) => ({ ...a, repeatIndex: a.repeatIndex ?? 0 })),
         reviewedAt: iso(row.reviewedAt),

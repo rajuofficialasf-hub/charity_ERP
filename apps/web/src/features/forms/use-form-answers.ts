@@ -3,11 +3,11 @@ import type { Answer } from '@css/shared/forms';
 import { useCallback, useState } from 'react';
 import type { FormAnswers } from './answers';
 
-/** The prefixes of the reload copies an earlier version of the app kept in the tab. */
+/** The keys under which a plain copy of a form's answers may sit in the tab's storage. */
 const EARLIER_COPIES = ['apply:', 'public-apply:'];
 
 /**
- * Removes the plain reload copies an earlier version of the app left in the tab's storage: a
+ * Removes any plain copy of a form's answers from the tab's storage under those keys, so a
  * person's answers, the identity number among them, never wait there unencrypted.
  */
 function clearEarlierCopies(): void {

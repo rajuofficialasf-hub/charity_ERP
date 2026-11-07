@@ -35,10 +35,13 @@ const REACHING_PERMISSIONS = [
 function viewPermissions(kind: string): string[] {
   switch (kind) {
     case 'voucher':
-    case 'payment_copy':
       return ['application.review', 'budget.view', 'file.upload'];
+    // finance evidence and the register's documents are the office's: a volunteer who may upload
+    // to the record reads only the files they uploaded themselves
+    case 'payment_copy':
+      return ['application.review', 'budget.view'];
     case 'document':
-      return ['document.register.view', 'file.upload'];
+      return ['document.register.view'];
     default:
       return ['application.view', 'file.upload'];
   }

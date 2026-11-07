@@ -42,7 +42,7 @@ Phase 2 of the roadmap (constitution §8, `docs/PLAN.md` T2.1 to T2.10), built f
 The gate review (four reviewers, one per area) found these, each fixed with tests:
 
 1. **Applications seen by another volunteer:** a paid volunteer, a Local দায়ী or the Procurement Team reading a project's applications received the applicant's identity number, mobile and the rejection message. Now they are withheld unless the role holds the class, and the message reaches only the one who brought the application and the office (BR-183, BR-269). The stored identity answer keeps the number the volunteer typed.
-2. **Files:** a volunteer could upload a payment copy or a document to their own application. These kinds are now official-only. A photo answering an official-only question is now streamed and listed only with the official section's permission.
+2. **Files:** a volunteer could upload a payment copy or a document to their own application, and read the payment copy the office attached there. These kinds are now uploaded and read by officials only (an uploader keeps their own file). A photo answering an official-only question is now streamed and listed only with the official section's permission.
 3. **Duplicate pairs:** on a mobile shared by more than 20 profiles, the per-profile refresh could write an empty pair, which the database refused; that rolled back the profile's own write.
 4. **Device storage:** the answers being typed (the identity number among them, and in the storage key) were kept unencrypted in the tab's storage. Now they stay in memory only, and copies an earlier version left are removed.
 5. **Rule gaps:**
@@ -98,6 +98,10 @@ The rest of the gate review, listed in `docs/STATUS.md` (known issues) for a tas
   - Unpublished drafts are readable by people on the project.
   - Changing these needs a decision, because O-08 set the limits.
 - **Gender codes of builder-made forms (the known issue of T2.5):** a question the builder makes for a standard column of a reference list (gender, marital status, education, relationship) carries option codes of its own, which the profile's foreign key refuses. A submission or the creation of a profile from a public entry is then refused. A publish-time check was tried at the gate and withdrawn: the builder's library is empty, so every builder-made application form would have been unpublishable. The fix is a builder change: a question marked with such a column takes its options from the reference list.
+- **Accepted at the gate's own review:**
+  - A crowded mobile's earlier pairs stay listed until the nightly refresh.
+  - On the public page a reload loses the photos not yet sent with the entry (the sweep removes them).
+  - An uploader keeps reading their own file in an official-only slot.
 - **Smaller items:**
   - A transfer may go to a volunteer whose consent is pending.
   - The beneficiary merges list is capped at 100.
