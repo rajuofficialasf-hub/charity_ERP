@@ -11,8 +11,12 @@ import type {
 
 export type { ApplicationSummary };
 
-/** Why a decision asks for a comment: it goes against the score order, or the quota area is full. */
-export type CommentReason = 'against_score' | 'quota_full';
+/**
+ * Why a decision asks for a comment: it goes against the score order, the quota area is full, or
+ * the person has a family match in the project.
+ */
+export type CommentReason = 'against_score' | 'quota_full' | 'family_match';
+const COMMENT_REASONS: readonly string[] = ['against_score', 'quota_full', 'family_match'];
 
 /** One part of the priority score, frozen with the score at the decision. */
 export interface ScoreItem {
@@ -189,7 +193,7 @@ export const askedComments = (error: unknown): CommentReason[] | null =>
   error instanceof ApiFailure && error.code === 'workflow.comment_required'
     ? error.details
         .map((d) => d.path)
-        .filter((p): p is CommentReason => p === 'against_score' || p === 'quota_full')
+        .filter((p): p is CommentReason => p !== undefined && COMMENT_REASONS.includes(p))
     : null;
 
 /** Opens one answer of an approved application for correction, saying why. */

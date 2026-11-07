@@ -345,6 +345,36 @@ describe('a transfer', () => {
   });
 });
 
+describe('a blocked volunteer', () => {
+  it('keeps their applications as they were, and a new volunteer takes them over by a transfer', async () => {
+    const a = await as(world.users.general);
+    const sent = await draft(a);
+    expect((await act(a, sent, 'submit')).status).toBe(200);
+    const open = await draft(a);
+    const rpm = await as(world.users.rpmDhaka);
+    const blocked = await at(rpm, 'post', `/volunteers/${volunteerA}/block`).send({
+      reason: 'নিয়ম ভেঙেছেন',
+    });
+    expect(blocked.status, JSON.stringify(blocked.body)).toBe(201);
+    try {
+      // the block changes nothing on the applications themselves
+      expect((await read(rpm, sent)).body.data.status).toBe('submitted');
+      expect((await read(rpm, open)).body.data.status).toBe('draft');
+      const res = await transfer(rpm, { applicationIds: [sent, open] });
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(new Set(res.body.data.moved)).toEqual(new Set([sent, open]));
+      const b = await as(userB);
+      expect((await read(b, sent)).body.data.status).toBe('submitted');
+      expect((await act(b, open, 'submit')).status).toBe(200);
+    } finally {
+      const lifted = await at(rpm, 'post', `/volunteers/${volunteerA}/unblock`).send({
+        reason: 'পরীক্ষা শেষ',
+      });
+      expect(lifted.status, JSON.stringify(lifted.body)).toBe(200);
+    }
+  });
+});
+
 describe('what a transfer refuses', () => {
   it('is refused to an RPM of another region, an executive without the grant, and a volunteer', async () => {
     const id = await draft(await as(world.users.general));

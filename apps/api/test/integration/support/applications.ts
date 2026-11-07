@@ -62,10 +62,12 @@ export async function applicationProject(
 }
 
 /** The answers of the fixture's placed form (`support/forms.ts`), as stored rows. */
+// each person their own family: the father's name carries a random code, so two applicants of
+// one village are no family match unless a test makes them one
 export const IDENTITY_ANSWERS = (nid: string, mobile: string, loc: Loc) => ({
   q_id: { t: 'short_text', v: nid },
   q_name: { t: 'short_text', v: 'নমুনা আবেদনকারী' },
-  q_father: { t: 'short_text', v: 'নমুনা পিতা' },
+  q_father: { t: 'short_text', v: `নমুনা পিতা ${randomUUID().slice(0, 8)}` },
   q_mobile: { t: 'phone', v: mobile },
   q_gender: { t: 'single_select', v: 'male' },
   q_address: {

@@ -191,6 +191,23 @@ Paint 3.7 s, Largest Contentful Paint 4.0 s, Total Blocking Time 100 ms, Cumulat
 0.002, total transfer 430 KiB (fonts and styles included). axe runs on every screen of the E2E
 suite on the mobile and the desktop profile.
 
+Lighthouse 12.8.2 again for T2.9 on 2026-11-07, after the move to the asf UI system, on the same
+page and build (first route 381.6 KB gzip):
+
+| Profile | Performance | Accessibility | Best Practices | FCP | LCP | TBT | TTI | Transfer |
+|---|---|---|---|---|---|---|---|---|
+| Mobile, simulated slow 4G (the default) | 58 | 100 | 100 | 4.4 s | 4.9 s | 520 ms | 5.2 s | 593 KiB |
+| The 3G profile of NFR-16 (300 ms, 1.6 Mbps, CPU ×4), simulated | 49 | | | 5.8 s | 6.7 s | 510 ms | 6.7 s | 593 KiB |
+| The same 3G profile with real throttling (`--throttling-method=devtools`) | 64 | | | 5.4 s | 5.4 s | 170 ms | 6.7 s | 593 KiB |
+
+The first visit of a phone on 3G is therefore about 6.7 s to interactive, over the 5 s of NFR-16.
+NFR-16 asks for the volunteer home after the first install, when the service worker serves the
+build from its cache; Lighthouse bypasses that cache (a second run with the storage kept still
+loaded the 593 KiB), so the installed case is measured on the phones of the device checklist
+(`docs/testing/uat/OFFLINE_DEVICE_CHECKLIST_BN.md`) before the Phase 2 gate. The cold first visit
+is what the planned slimming of the first route (the date pickers' provider and the catalogue by
+namespace, about 80 KB; D-154) improves.
+
 ## Exports (T2.8)
 
 `pnpm --filter @css/api perf:exports` on css_erp_perf (after `perf:seed`, which also applies new

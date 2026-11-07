@@ -140,11 +140,12 @@ export async function beneficiary(
   // the gender list holds the two genders the tests give; any other code stays refused
   await referenceCode(db, 'gender', 'female');
   await referenceCode(db, 'gender', 'male');
+  // each person their own family unless a test gives two the same father, village and union
   return insert(db, 'beneficiaries', {
     id: randomUUID(),
     nid: fakeNid(),
     name: 'নমুনা উপকারভোগী',
-    father_or_husband_name: 'নমুনা পিতা',
+    father_or_husband_name: `নমুনা পিতা ${randomUUID().slice(0, 8)}`,
     mobile: fakeMobile(),
     gender_code: 'female',
     division_id: loc.division,

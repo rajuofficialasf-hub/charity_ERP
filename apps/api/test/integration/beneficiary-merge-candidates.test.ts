@@ -211,8 +211,9 @@ describe('the suggested duplicate pairs', () => {
 
 describe('keeping the pairs up to date', () => {
   it('finds a pair when one profile gets the mobile of another, and drops it when it changes back', async () => {
-    const a = await f.beneficiary(h.db, world.dhaka, { mobile: '01577000001' });
-    const b = await f.beneficiary(h.db, world.dhaka, { mobile: '01577000002' });
+    const father = { father_or_husband_name: 'নমুনা পিতা' };
+    const a = await f.beneficiary(h.db, world.dhaka, { ...father, mobile: '01577000001' });
+    const b = await f.beneficiary(h.db, world.dhaka, { ...father, mobile: '01577000002' });
     await refresh(a, b);
     const key = [a, b].sort() as [string, string];
     expect(await stored(key)).toBeUndefined();
@@ -288,8 +289,9 @@ describe('keeping the pairs up to date', () => {
   });
 
   it('recomputes every pair nightly, finding new ones and marking gone ones inactive', async () => {
-    const a = await f.beneficiary(h.db, world.dhaka, { mobile: '01577000020' });
-    const b = await f.beneficiary(h.db, world.dhaka, { mobile: '01577000020' });
+    const father = { father_or_husband_name: 'নমুনা পিতা' };
+    const a = await f.beneficiary(h.db, world.dhaka, { ...father, mobile: '01577000020' });
+    const b = await f.beneficiary(h.db, world.dhaka, { ...father, mobile: '01577000020' });
     const key = [a, b].sort() as [string, string];
     expect(await stored(key)).toBeUndefined();
     await h.container.beneficiaryMergeCandidates.refreshAll();

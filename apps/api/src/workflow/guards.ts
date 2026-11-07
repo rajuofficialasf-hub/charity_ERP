@@ -13,7 +13,12 @@ import type { Tx } from '../core/prisma.service';
 import { readDefinition } from '../services/forms';
 import type { BuiltGuard } from './registry';
 import { NOT_COUNTED_STATES } from '../applications/limit';
-import { againstScore, type CommentReason, quotaFull } from '../applications/decision-rules';
+import {
+  againstScore,
+  type CommentReason,
+  familyMatch,
+  quotaFull,
+} from '../applications/decision-rules';
 
 /** The application a transition is about, with what the guards read of its project. */
 export interface EngineApplication {
@@ -131,7 +136,8 @@ export class GuardContext {
 
 /**
  * What a guard answers: the move may go on (`true`), is refused (`false`), or may go on only with
- * a comment that says why (a decision against the score order, an approval in a full quota).
+ * a comment that says why (a decision against the score order, an approval in a full quota or of a
+ * person with a family match).
  */
 export type GuardResult = boolean | { comment: CommentReason };
 export type Guard = (ctx: GuardContext) => Promise<GuardResult>;
@@ -253,6 +259,11 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
   'quota.comment_if_full': async (ctx) =>
     ctx.to === 'approved' && (await quotaFull(ctx.tx, ctx.application.id))
       ? { comment: 'quota_full' }
+      : true,
+  // an approval of a person with a family match in the project asks for a comment; it never refuses
+  'family.comment_if_match': async (ctx) =>
+    ctx.to === 'approved' && (await familyMatch(ctx.tx, ctx.application.id))
+      ? { comment: 'family_match' }
       : true,
   'zakat.eligible_if_zakat_fund': async (ctx) => {
     const zakat = await ctx.tx.fundSource.count({

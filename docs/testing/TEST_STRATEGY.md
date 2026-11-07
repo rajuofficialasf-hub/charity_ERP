@@ -290,6 +290,31 @@ The runs on the final state of branch `chore/phase1-gate`, after the six fixes o
 
 New tests of the gate: the project budget amounts by `budget.view` (`apps/api/test/integration/projects.test.ts`), the password change's rate window per user under the real limits (`password.test.ts`), an RPM against another official's devices in the same area (`sessions-users.test.ts`), parallel wrong passwords toward the lock (`auth.test.ts`), refused correction answers within the hour (`registration-approval.test.ts`), the replaced template's old definition in its audit entry (`templates.test.ts`). The 32 deferred rules are the features of later phases (application transfer, ratings, follow-up, forms, construction, Qurbani, dawah, documents, offline sync, the Media Team module), listed with their phase in `docs/BUSINESS_RULES.md` section 19. Not run at this gate: the visual baselines of section 3.7 and a recorded keyboard walkthrough, deferred until the owner's review of the new list and profile layouts settles the screens (`docs/gates/PHASE_1_SIGNOFF.md` section 5).
 
+### 9.4 Phase 2 state (T2.9, 2026-11-07)
+
+What the Phase 2 gate (T2.10) can rely on, from the runs on the final state of branch `test/t2.9-phase2-tests`. Every command below was executed on that state on the owner's machine (D-138):
+
+| Command | Output |
+|---|---|
+| `pnpm typecheck` | every package `Done`, no error |
+| `pnpm docs:check` | `All document checks passed.` |
+| `pnpm rules:status --phase 2 --report-only` | `Phase 2 rules: tested 131, deferred 23, manual 0, untested 0` |
+| `pnpm test` | `Tests 3116 passed` of 3133; the other 17 were web component tests that timed out under the machine's load (5 s and 20 s limits), and their 8 files passed on a rerun with `--maxWorkers 2` (145 of 145; section 10) |
+| `pnpm --filter @css/api contract:coverage --no-run` (after `pnpm test`) | `contract coverage: 224 of 224 operations answered their success status in a test`; the recorder reported no violation |
+| E2E without the axe sweep (`npx playwright test --workers 2`, every spec but `a11y.spec.ts`) | `194 passed, 34 skipped, 0 failed` on `mobile`, `desktop` and `iphone` (the skips are journeys a spec runs on one project only) |
+| `npx playwright test e2e/a11y.spec.ts --workers 1` | `36 passed` (every listed screen, both languages, light and dark, both Chromium projects) |
+| `npx playwright test e2e/applications.spec.ts e2e/exports.spec.ts -g "known person\|each role" --repeat-each 3 --workers 1` | `9 passed, 3 skipped` |
+| `pnpm --filter @css/web bundle:report` | first route 381.6 KB gzip of 400 KB (D-154); the signed-in home adds 40.9 KB |
+| Lighthouse 12.8.2, `/login` of the production build | Performance 58, Accessibility 100, Best Practices 100 on the mobile profile; time to interactive 6.7 s on the 3G profile of NFR-16 (cold first visit; docs/testing/PERFORMANCE.md section 6) |
+
+Coverage per item of the T2.9 prompt:
+
+- **Rules:** every testable Phase 2 rule is tested or deferred to the phase that builds its feature (house construction, tree planting, Qurbani, distribution and its edge states, expenses, dawah exams, the document register, work summaries, dashboards, the zakat assessment), each with its reason in `docs/BUSINESS_RULES.md` section 19. New tests: the family match's comment at approval (BR-011, D-157: `application-decisions.test.ts`, the review page's component test, the phone journey) and a blocked volunteer's applications taken over by a transfer (BR-048, `application-transfers.test.ts`).
+- **API and contract:** the drift test and the contract recorder on every response of both API Vitest projects; all 224 registered operations answered their success status in a test.
+- **E2E (the T2.9 list):** the phone application with the NID auto-fill and the family warning decided with a reason (`applications.spec.ts`); offline capture, sync and the needs-verification path (`offline.spec.ts`); review, score, waitlist, pull and approval, the field unlock and the application transfer (`application-rules.spec.ts`); the public-link entry and version 2 keeping the version 1 entry's answers, opened for verification by the project's RPM (`form-builder.spec.ts`); merge and revert (`beneficiary-merge.spec.ts`); exports per role: the RPM's lists and PDF, the columns of the Project Executive and the Media Team, the volunteer refused (`exports.spec.ts`).
+- **Accessibility:** axe on every Phase 1 and Phase 2 screen in bn and en on both Chromium projects (`a11y.spec.ts`, its dark-mode sweeps included), and on the review, own application and media work pages inside their journeys.
+- **Found and left open:** the creation of a profile from a public entry of a form whose own gender question carries codes outside the reference list is refused (the known issue of T2.5 in docs/STATUS.md); the cold first visit on 3G is over NFR-16's 5 s, and the installed case waits for the device checklist.
+
 ## 10. Reporting and flaky tests
 
 - Every task report uses the §15 template; the Tests section shows the commands run and their summary output.
