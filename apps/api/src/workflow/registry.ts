@@ -21,6 +21,7 @@ export const BUILT_GUARDS = [
   'approver.has_permission',
   'score.comment_if_against_order',
   'quota.comment_if_full',
+  'family.comment_if_match',
   'zakat.eligible_if_zakat_fund',
 ] as const;
 export type BuiltGuard = (typeof BUILT_GUARDS)[number];

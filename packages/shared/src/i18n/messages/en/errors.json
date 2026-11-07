@@ -92,7 +92,7 @@
   "workflow": {
     "transition_not_allowed": "This action is not possible in the current state.",
     "reason_required": "Write a reason.",
-    "comment_required": "Write a comment for this decision: it goes against the score order, or the area's quota is full.",
+    "comment_required": "Write a comment for this decision: it goes against the score order, the area's quota is full, or the person has a family match.",
     "guard": {
       "project_active": "The project is not active.",
       "project_not_closed": "The project is closed.",
@@ -107,6 +107,7 @@
       "consent_accepted": "The project rules have not been accepted.",
       "score_comment_if_against_order": "A decision against the score order needs a comment.",
       "quota_comment_if_full": "An approval in an area whose quota is full needs a comment.",
+      "family_comment_if_match": "An approval of a person with a family match in the project needs a comment.",
       "zakat_eligible_if_zakat_fund": "Zakat eligibility is not confirmed for the zakat fund.",
       "receipt_confirmed": "The volunteer has not confirmed receipt of the goods.",
       "photos_required_per_rule": "The photos required by the project rule are missing.",

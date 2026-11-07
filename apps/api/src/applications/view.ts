@@ -92,7 +92,10 @@ export const applicationView = applicationSummary.extend({
   familyDuplicateWarnings: z.array(familyWarning),
   availableActions: z.array(z.string()),
   /** The comments the office's decisions would ask for now, by action; empty for a volunteer. */
-  decisionHints: z.record(z.string(), z.array(z.enum(['against_score', 'quota_full']))),
+  decisionHints: z.record(
+    z.string(),
+    z.array(z.enum(['against_score', 'quota_full', 'family_match'])),
+  ),
   /** The unlocks of the application waiting for a step, as the caller may see them. */
   unlocks: z.array(unlockView),
   /** Whether the caller may open an answer of this application for correction now. */

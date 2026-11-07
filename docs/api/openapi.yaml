@@ -3337,10 +3337,10 @@ components:
             availableActions: { type: array, items: { type: string }, description: Actions the caller may perform now }
             decisionHints:
               type: object
-              description: 'For the office, the comments each decision would ask for now, by action (D-132): against_score when it goes against the score order of the quota area, quota_full when the area''s quota is full; empty for a volunteer and when nothing would be asked'
+              description: 'For the office, the comments each decision would ask for now, by action (D-132): against_score when it goes against the score order of the quota area, quota_full when the area''s quota is full, family_match when an approval meets a family match in the project (D-157); empty for a volunteer and when nothing would be asked'
               additionalProperties:
                 type: array
-                items: { type: string, enum: [against_score, quota_full] }
+                items: { type: string, enum: [against_score, quota_full, family_match] }
             unlocks:
               type: array
               description: The unlocks of the application waiting for a step, as the caller may see them (a volunteer never sees the office's reasons nor an answer of the official section)

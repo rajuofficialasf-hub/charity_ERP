@@ -1,8 +1,12 @@
 import type { Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
+import { BeneficiaryFamilyService } from '../services/beneficiary-family';
 
-/** Why a decision asks for a comment: it goes against the score order, or the quota area is full. */
-export type CommentReason = 'against_score' | 'quota_full';
+/**
+ * Why a decision asks for a comment: it goes against the score order, the quota area is full, or
+ * the person has a family match in the project.
+ */
+export type CommentReason = 'against_score' | 'quota_full' | 'family_match';
 
 /** The states whose applications still wait for a decision in the review queue. */
 const WAITING = ['reviewed', 'waitlisted'];
@@ -138,6 +142,22 @@ export async function quotaFull(tx: Tx, applicationId: string): Promise<boolean>
   return false;
 }
 
+/**
+ * Whether the person of the application has a family match in its project: another applicant
+ * with the same mobile, or the same union, village and father's or husband's name. An approval
+ * then asks for a comment that says why; the match never refuses it. An entry not yet linked to a
+ * profile has no person to compare.
+ */
+export async function familyMatch(tx: Tx, applicationId: string): Promise<boolean> {
+  const me = await tx.application.findUnique({
+    where: { id: applicationId },
+    select: { projectId: true, beneficiaryId: true },
+  });
+  if (!me?.beneficiaryId) return false;
+  const matches = await new BeneficiaryFamilyService().matches(tx, me.projectId, me.beneficiaryId);
+  return matches.length > 0;
+}
+
 /** The comments a move would ask for now, for the review screen to ask before it sends. */
 export async function commentReasons(
   tx: Tx,
@@ -147,5 +167,6 @@ export async function commentReasons(
   const reasons: CommentReason[] = [];
   if (await againstScore(tx, applicationId, to)) reasons.push('against_score');
   if (to === 'approved' && (await quotaFull(tx, applicationId))) reasons.push('quota_full');
+  if (to === 'approved' && (await familyMatch(tx, applicationId))) reasons.push('family_match');
   return reasons;
 }

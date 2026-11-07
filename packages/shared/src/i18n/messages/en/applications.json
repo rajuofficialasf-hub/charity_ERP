@@ -163,7 +163,8 @@
       "comment_help": "The comment stays in the audit log, read by the officials only.",
       "why": {
         "against_score": "Why does this decision go against the score order?",
-        "quota_full": "The quota of this area is full. Why approve anyway?"
+        "quota_full": "The quota of this area is full. Why approve anyway?",
+        "family_match": "Someone from the same family is in this project. Why approve anyway?"
       }
     },
     "signals": {

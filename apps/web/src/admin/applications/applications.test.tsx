@@ -103,7 +103,7 @@ const record = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 /** The comment the server asks for, naming why. */
-const commentAsked = (reason: 'against_score' | 'quota_full') =>
+const commentAsked = (reason: 'against_score' | 'quota_full' | 'family_match') =>
   HttpResponse.json(
     {
       error: {
@@ -699,6 +699,53 @@ describe('the review page', () => {
     await user.click(confirm);
     await waitFor(() => expect(acted).toHaveLength(2));
     expect(acted[1]).toEqual({ action: 'approve', body: { comment: 'জরুরি প্রয়োজন' } });
+  });
+
+  it('warns of a family match and asks why before an approval', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            availableActions: ['approve', 'reject', 'waitlist'],
+            familyDuplicateWarnings: [
+              {
+                beneficiaryId: '01a0d000-0000-7000-8000-0000000000f1',
+                benNo: 'BEN-0000042',
+                name: 'রহিমা খাতুন',
+                matchedOn: ['mobile'],
+              },
+            ],
+            decisionHints: { approve: ['family_match'], waitlist: [], reject: [] },
+          }),
+        ),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json() });
+        return envelope(record({ status: String(params.action) }), '"v2"');
+      }),
+    );
+    const view = openReview();
+    expect(
+      await screen.findByText(
+        'একই প্রকল্পে সম্ভাব্য একই পরিবার: রহিমা খাতুন (BEN-0000042) — একই মোবাইল',
+      ),
+    ).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+    await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
+    const approve = await screen.findByRole('dialog', { name: 'আবেদন অনুমোদন করুন' });
+    expect(
+      within(approve).getByText('এই প্রকল্পে একই পরিবারের আরেকজন আছেন। তবু কেন অনুমোদন দিচ্ছেন?'),
+    ).toBeInTheDocument();
+    const confirm = within(approve).getByRole('button', { name: 'অনুমোদন করুন' });
+    expect(confirm).toBeDisabled();
+    await user.type(within(approve).getByRole('textbox', { name: /মন্তব্য/ }), 'আলাদা পরিবার');
+    await user.click(confirm);
+    await waitFor(() => expect(acted).toHaveLength(1));
+    expect(acted[0]).toEqual({ action: 'approve', body: { comment: 'আলাদা পরিবার' } });
   });
 
   it('opens the comment box when the server asks one the screen did not expect', async () => {

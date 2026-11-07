@@ -23,7 +23,8 @@ import { option, question } from './support/forms';
 // higher-scored application of the same quota area still waits, a waitlisting or a rejection
 // while a lower-scored one of the area is approved, an approval in a full quota area, and a pull
 // from the waitlist that is not the next in order each ask for a comment; the next one is pulled
-// in one click, never the same person twice. The score only asks; it never decides.
+// in one click, never the same person twice. The score only asks; it never decides. An approval of
+// a person with a family match in the project asks for a comment too, and is never refused.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -62,7 +63,11 @@ const moved = async (s: Session, id: string, action: string, body?: Record<strin
   return res;
 };
 /** A volunteer's application, sent and reviewed up to waiting for the approver; answers its id. */
-async function reviewed(kind: string, union = world.dhaka.union): Promise<string> {
+async function reviewed(
+  kind: string,
+  union = world.dhaka.union,
+  mobile = fakeMobile(),
+): Promise<string> {
   const s = await as(world.users.general);
   const loc = { ...world.dhaka, union };
   const made = await at(s, 'post', `/projects/${project}/applications`).send({
@@ -70,7 +75,7 @@ async function reviewed(kind: string, union = world.dhaka.union): Promise<string
     projectId: project,
     formVersionId: versionId,
     answers: toAnswers({
-      ...IDENTITY_ANSWERS(fakeNid(), fakeMobile(), loc),
+      ...IDENTITY_ANSWERS(fakeNid(), mobile, loc),
       q_kind: { t: 'radio', v: kind },
     }),
   });
@@ -232,6 +237,35 @@ describe('a full quota', () => {
     expect(refused.status).toBe(422);
     expect(refused.body.error.details).toEqual([expect.objectContaining({ path: 'quota_full' })]);
     await moved(rpm, second, 'approve', { comment: 'অতিরিক্ত মালামাল এসেছে' });
+  });
+});
+
+describe('a family match', () => {
+  it('asks a comment to approve a person who shares a mobile with another applicant, and never refuses', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const mobile = fakeMobile();
+    const first = await reviewed('widow', world.dhaka.union, mobile);
+    const second = await reviewed('widow', world.dhaka.union, mobile);
+    const apart = await reviewed('widow');
+    const rpm = await as(world.users.rpmDhaka);
+    const record = (await read(rpm, second)).body.data;
+    expect(record.familyDuplicateWarnings).toHaveLength(1);
+    expect(record.decisionHints.approve).toEqual(['family_match']);
+    const refused = await act(rpm, second, 'approve');
+    expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+    expect(refused.body.error.code).toBe('workflow.comment_required');
+    expect(refused.body.error.details).toEqual([expect.objectContaining({ path: 'family_match' })]);
+    await moved(rpm, second, 'approve', { comment: 'আলাদা পরিবার, একই ফোন ব্যবহার করেন' });
+    const entry = await h.db.query<{ new: { comment?: string } }>(
+      `SELECT "new" FROM audit_log WHERE entity_id = $1 AND action = 'application.approve'`,
+      [second],
+    );
+    expect(entry.rows[0]!.new.comment).toBe('আলাদা পরিবার, একই ফোন ব্যবহার করেন');
+    // the other one of the pair asks the same; a person without a match asks nothing
+    expect((await read(rpm, first)).body.data.decisionHints.approve).toEqual(['family_match']);
+    expect((await read(rpm, apart)).body.data.decisionHints.approve ?? []).toEqual([]);
+    await moved(rpm, apart, 'approve');
   });
 });
 
