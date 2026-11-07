@@ -19,6 +19,8 @@ Status: complete, task T0.13 (2026-10-10). Design only; no code. Sources: bluepr
 | export             | generated CSV/XLSX/PDF                                                    | export_job                          | system                                            | inherits the data's class; audited                                   |
 | issue_photo        | photos attached to issues                                                 | issue                               | issue raisers                                     | project data                                                         |
 
+Enforced since the Phase 2 gate (2026-11-07): a payment copy and a document are uploaded by officials only (`OFFICIAL_UPLOAD_KINDS` in `@css/shared/files`; a volunteer gets 403). A form photo that answers a question of an official-only section is streamed and listed only to a caller who holds `application.view_official_section` where the application is, never to a volunteer who views the application.
+
 ## 2. File metadata model
 
 ```
