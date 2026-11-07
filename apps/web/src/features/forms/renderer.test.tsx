@@ -392,43 +392,23 @@ describe('one part per screen on a phone', () => {
   });
 });
 
-describe('the answers in the tab', () => {
-  it('come back after the screen is opened again, and are gone after sending', async () => {
+describe('the answers', () => {
+  it('stay in memory: nothing personal is written to the browser’s storage', async () => {
     const user = userEvent.setup();
-    const first = open([], { storageKey: 'form-test' });
+    sessionStorage.setItem('apply:earlier:copy', JSON.stringify({ answers: [] }));
+    const { submitted } = open([]);
     await user.type(screen.getByRole('textbox', { name: /^name/ }), 'নমুনা');
-    await waitFor(() => expect(sessionStorage.getItem('form-test')).toContain('নমুনা'));
-    first.unmount();
-    const { submitted } = open([], { storageKey: 'form-test' });
-    expect(screen.getByRole('textbox', { name: /^name/ })).toHaveValue('নমুনা');
+    // the earlier version's plain copy is gone, and no storage holds what was typed
+    expect(sessionStorage.getItem('apply:earlier:copy')).toBeNull();
+    const stored = [sessionStorage, localStorage].flatMap((s) =>
+      Object.keys(s).map((k) => `${k}=${s.getItem(k) ?? ''}`),
+    );
+    expect(stored.join(' ')).not.toContain('নমুনা');
     await user.clear(screen.getByRole('textbox', { name: /^name/ }));
     await fillCore(user);
     await user.click(screen.getByRole('button', { name: 'পাঠান' }));
     await waitFor(() => expect(submitted).toHaveLength(1));
-    expect(sessionStorage.getItem('form-test')).toBeNull();
   }, 20_000);
-
-  it('keep the same client id when the screen is opened again before sending', async () => {
-    const user = userEvent.setup();
-    const first = open([], { storageKey: 'form-id' });
-    await user.type(screen.getByRole('textbox', { name: /^name/ }), 'ক');
-    await waitFor(() => expect(sessionStorage.getItem('form-id')).not.toBeNull());
-    const stored = JSON.parse(sessionStorage.getItem('form-id')!) as { clientUuid: string };
-    first.unmount();
-    const { submitted } = open([], { storageKey: 'form-id' });
-    await user.clear(screen.getByRole('textbox', { name: /^name/ }));
-    await fillCore(user);
-    await user.click(screen.getByRole('button', { name: 'পাঠান' }));
-    await waitFor(() => expect(submitted).toHaveLength(1));
-    expect(submitted[0]!.clientUuid).toBe(stored.clientUuid);
-  }, 20_000);
-
-  it('are written nowhere without a storage key', async () => {
-    const user = userEvent.setup();
-    open([]);
-    await user.type(screen.getByRole('textbox', { name: /^name/ }), 'নমুনা');
-    expect(sessionStorage.length).toBe(0);
-  });
 });
 
 describe('the position, uploads and notes', () => {
@@ -499,39 +479,6 @@ describe('the position, uploads and notes', () => {
 });
 
 describe('what goes wrong', () => {
-  it('drops the stored copy when the person empties the answers again', async () => {
-    const user = userEvent.setup();
-    open([], { storageKey: 'form-empty' });
-    const name = screen.getByRole('textbox', { name: /^name/ });
-    await user.type(name, 'ক');
-    await waitFor(() => expect(sessionStorage.getItem('form-empty')).not.toBeNull());
-    await user.clear(name);
-    await waitFor(() => expect(sessionStorage.getItem('form-empty')).toBeNull());
-  });
-
-  it('stores an added repeat row although nothing is typed in it yet', async () => {
-    const user = userEvent.setup();
-    open(
-      [
-        section('earners_part', [
-          bilingual('earners', 'আয়কারী', 'Earners', 'repeat_group', {
-            settings: { repeat: { max_rows: 3 } },
-          }),
-          bilingual('earner_name', 'আয়কারীর নাম', "Earner's name", 'short_text', {
-            settings: { repeat: { group: 'earners' } },
-          }),
-        ]),
-      ],
-      { storageKey: 'form-rows' },
-    );
-    await user.click(screen.getByRole('button', { name: 'আরেকটি যোগ করুন' }));
-    await waitFor(() =>
-      expect(JSON.parse(sessionStorage.getItem('form-rows') ?? '{}')).toMatchObject({
-        rows: { earners: 1 },
-      }),
-    );
-  });
-
   it('keeps the answers and the client id when the send fails, and shows the message', async () => {
     const user = userEvent.setup();
     const sent: Submission[] = [];
@@ -540,12 +487,11 @@ describe('what goes wrong', () => {
       sent.push(s);
       if (fail) throw new Error('এখন পাঠানো যাচ্ছে না।');
     });
-    open([], { storageKey: 'form-fail', onSubmit });
+    open([], { onSubmit });
     await fillCore(user);
     await user.click(screen.getByRole('button', { name: 'পাঠান' }));
     expect(await screen.findByText('এখন পাঠানো যাচ্ছে না।')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /^name/ })).toHaveValue('নমুনা');
-    expect(sessionStorage.getItem('form-fail')).not.toBeNull();
     fail = false;
     await user.click(screen.getByRole('button', { name: 'পাঠান' }));
     await waitFor(() => expect(sent).toHaveLength(2));
@@ -614,12 +560,6 @@ describe('what goes wrong', () => {
     expect(screen.getByText('এই নম্বরটি দেওয়া যাবে না।')).toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: /^mobile/ }), '0');
     expect(screen.queryByText('এই নম্বরটি দেওয়া যাবে না।')).not.toBeInTheDocument();
-  });
-
-  it('starts afresh from a stored copy that is not a copy of answers', () => {
-    sessionStorage.setItem('form-bad', JSON.stringify({ clientUuid: 'x', answers: 'no' }));
-    open([], { storageKey: 'form-bad' });
-    expect(screen.getByRole('textbox', { name: /^name/ })).toHaveValue('');
   });
 });
 

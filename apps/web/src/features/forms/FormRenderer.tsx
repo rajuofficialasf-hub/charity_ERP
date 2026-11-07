@@ -36,12 +36,6 @@ export interface RendererProps {
   /** Today in Dhaka, `yyyy-mm-dd`, for ages. */
   today: string;
   nisabValue?: string;
-  /**
-   * Where the answers wait in the tab; without it nothing is stored. The screen names in it whose
-   * answers they are and the form version they belong to, so another person or a newer version
-   * never finds them.
-   */
-  storageKey?: string;
   upload?: UploadAdapter;
   /** One part per screen (a phone), the whole form on one page, or by the width of the screen. */
   layout?: 'steps' | 'page' | 'auto';
@@ -101,7 +95,6 @@ export function FormRenderer({
   audience,
   today,
   nisabValue,
-  storageKey,
   upload,
   layout = 'auto',
   submitLabel,
@@ -143,7 +136,7 @@ export function FormRenderer({
     }
     return filled;
   }, [form, initialAnswers, today, fillDefaults]);
-  const { state, setState, clear } = useFormAnswers(storageKey, initialRows, startAnswers);
+  const { state, setState, clear } = useFormAnswers(initialRows, startAnswers);
   // the groups whose rows follow a count question, by that question's key (one count may give
   // rows to several groups)
   const countedGroups = useMemo(() => {
