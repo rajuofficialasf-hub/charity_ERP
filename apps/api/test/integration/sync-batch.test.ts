@@ -563,6 +563,20 @@ describe('POST /sync/batch', () => {
       [unlockId],
     );
     expect(unlock.rows[0]!.unlock_state).toBe('updated');
+    // a second answer from a phone that was away: the answer is no longer open, the server's
+    // value wins, and the attempt is on record
+    const late = record({
+      kind: 'field_update',
+      target: id,
+      payload: { unlockId, value: { t: 'short_text', v: 'বাজারের পাশে' } },
+    });
+    const lateRes = await batch(s, [late]).expect(200);
+    expect(lateRes.body.data.results[0]).toMatchObject({ result: 'failed' });
+    const onRecord = await h.db.query(
+      `SELECT 1 FROM audit_log WHERE entity_id = $1 AND action = 'sync.conflict_server_won'`,
+      [id],
+    );
+    expect(onRecord.rowCount).toBe(1);
   });
 
   it('fails a record whose dependency failed, without touching the rest', async () => {
