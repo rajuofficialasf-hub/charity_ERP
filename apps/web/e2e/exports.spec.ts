@@ -161,7 +161,7 @@ test.describe('the export service', () => {
       columns: ['name', 'mobile'],
       filters: {},
     });
-    expect(refused.status(), await refused.text()).not.toBe(201);
+    expect(refused.status(), await refused.text()).toBe(403);
     await signIn(page, MEDIA);
     await page.goto('/admin/beneficiaries');
     await expect(page.getByRole('button', { name: 'এক্সপোর্ট', exact: true })).toBeVisible();

@@ -6,7 +6,8 @@ import { BeneficiaryFamilyService } from '../services/beneficiary-family';
  * Why a decision asks for a comment: it goes against the score order, the quota area is full, or
  * the person has a family match in the project.
  */
-export type CommentReason = 'against_score' | 'quota_full' | 'family_match';
+export const COMMENT_REASONS = ['against_score', 'quota_full', 'family_match'] as const;
+export type CommentReason = (typeof COMMENT_REASONS)[number];
 
 /** The states whose applications still wait for a decision in the review queue. */
 const WAITING = ['reviewed', 'waitlisted'];
@@ -146,7 +147,7 @@ export async function quotaFull(tx: Tx, applicationId: string): Promise<boolean>
  * Whether the person of the application has a family match in its project: another applicant
  * with the same mobile, or the same union, village and father's or husband's name. An approval
  * then asks for a comment that says why; the match never refuses it. An entry not yet linked to a
- * profile has no person to compare.
+ * profile has no person to compare; it reaches an approval only after its verification links one.
  */
 export async function familyMatch(tx: Tx, applicationId: string): Promise<boolean> {
   const me = await tx.application.findUnique({

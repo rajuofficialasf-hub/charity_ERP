@@ -2,7 +2,7 @@
 # Status: written in task T0.11 (2026-10-10). Validated by schema.json. Templates declare `extends: _common`.
 # Permissions are names from docs/security/permissions.yaml; guards and effects are names from WORKFLOW_ENGINE.md sections 6-7.
 template: _common
-version: 3
+version: 4
 title_en: Common application cycle
 title_bn: কমন আবেদন চক্র
 source: [A7, B5, B7]
