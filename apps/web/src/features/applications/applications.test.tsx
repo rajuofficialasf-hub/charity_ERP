@@ -310,6 +310,54 @@ describe('the new application', () => {
     expect(patched).toHaveLength(2);
   }, 60_000);
 
+  it('keeps a new person’s first part in memory until the address part, then makes the draft', async () => {
+    const user = userEvent.setup();
+    onPhone();
+    refreshAs(VOLUNTEER);
+    serve({ found: false });
+    renderApp(<ApplicationFormPage />, 'bn', {
+      path: '/my-projects/:projectId/apply',
+      initialPath: `/my-projects/${PROJECT}/apply`,
+    });
+    await lookUp(user, '9876543210');
+    await user.click(
+      await screen.findByRole('button', { name: 'নতুন ব্যক্তির জন্য ফর্ম পূরণ করুন' }),
+    );
+    await user.type(await screen.findByRole('textbox', { name: /^name/ }), 'নমুনা উপকারভোগী');
+    await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
+    await user.type(screen.getByRole('textbox', { name: /^mobile/ }), '01700001000');
+    await user.click(screen.getByRole('combobox', { name: /gender/ }));
+    await user.click(await screen.findByRole('option', { name: 'female' }));
+    // the address is in the next part: the server would refuse a draft now, so nothing is sent
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    const division = await screen.findByRole('combobox', { name: /বিভাগ/ }, { timeout: 15_000 });
+    expect(created).toEqual([]);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await user.click(division);
+    await user.click(await screen.findByRole('option', { name: 'ঢাকা বিভাগ' }));
+    for (const [label, name] of [
+      ['জেলা', 'ঢাকা জেলা'],
+      ['উপজেলা', 'সাভার'],
+      ['ইউনিয়ন', 'আশুলিয়া'],
+    ] as const) {
+      const box = screen.getByRole('combobox', {
+        // an address level's name holds the shown value and then the label
+        name: new RegExp(`(^|\\s)${label}(\\(|\\s|$)`),
+      });
+      await waitFor(() => expect(box).not.toHaveAttribute('aria-disabled', 'true'));
+      await user.click(box);
+      await user.click(await screen.findByRole('option', { name }));
+    }
+    await user.type(screen.getByRole('textbox', { name: /^village/ }), 'নমুনা গ্রাম');
+    // with the address the draft is made, holding the first part's answers too
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    await waitFor(() => expect(created).toHaveLength(1), { timeout: 15_000 });
+    const keys = ((created[0] as { answers: { fieldKey: string }[] }).answers ?? []).map(
+      (a) => a.fieldKey,
+    );
+    expect(keys).toEqual(expect.arrayContaining(['name', 'mobile', 'gender', 'address']));
+  }, 60_000);
+
   it('leaves the identity free for a new person and stops at a blocked one', async () => {
     const user = userEvent.setup();
     refreshAs(VOLUNTEER);
