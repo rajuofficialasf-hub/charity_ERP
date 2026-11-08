@@ -23,7 +23,6 @@ export type LaterWidget =
   | 'program_dashboard'
   | 'work_progress'
   | 'alerts'
-  | 'safe_water'
   | 'finance_overview'
   | 'procurement_issues';
 
@@ -47,7 +46,6 @@ const ORDER: readonly Widget[] = [
   'program_dashboard',
   'work_progress',
   'alerts',
-  'safe_water',
   'media_work',
   'finance_overview',
   'procurement_issues',
@@ -75,7 +73,6 @@ export const ROLE_WIDGETS: Readonly<Record<string, readonly Widget[]>> = {
   program_manager: ['project_states', 'templates', 'program_dashboard', 'notifications'],
   department_head: ['shortcuts', 'work_progress', 'alerts', 'notifications'],
   monitoring_team: ['shortcuts', 'work_progress', 'alerts', 'notifications'],
-  implementer: ['safe_water', 'notifications'],
   media_team: ['media_work', 'notifications'],
   media_director: ['media_work', 'notifications'],
   media_assistant_director: ['media_work', 'notifications'],

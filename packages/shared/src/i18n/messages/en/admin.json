@@ -853,8 +853,7 @@
       "staff_area_hint": "Leave empty for the whole project.",
       "role": {
         "project_executive": "Project Executive",
-        "official_daee": "Official দায়ী",
-        "implementer": "Implementer"
+        "official_daee": "Official দায়ী"
       },
       "components_hint": "{on} components are on. Only what is on comes into the project.",
       "settings_of": "Settings of {name}",

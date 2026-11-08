@@ -38,7 +38,6 @@ roles:
   program_manager: { name_en: Program Manager, name_bn: "প্রোগ্রাম ম্যানেজার", kind: official, global_scope: false }
   regional_program_manager: { name_en: Regional Program Manager, name_bn: "রিজিওনাল প্রোগ্রাম ম্যানেজার", kind: official, global_scope: false }
   project_executive: { name_en: Project Executive, name_bn: "প্রজেক্ট এক্সিকিউটিভ", kind: official, global_scope: false }
-  implementer: { name_en: Implementer, name_bn: "বাস্তবায়নকারী", kind: official, global_scope: false }
   official_daee: { name_en: "Official দায়ী", name_bn: "অফিসিয়াল দায়ী", kind: official, global_scope: false }
   procurement_team: { name_en: Procurement Team, name_bn: "প্রকিউরমেন্ট টিম", kind: official, global_scope: false }
   media_team: { name_en: Media Team, name_bn: "মিডিয়া টিম", kind: official, global_scope: false }
@@ -96,27 +95,27 @@ permission_sets:
 sensitive_fields:
   - key: beneficiary.nid
     fields: [beneficiaries.nid, beneficiaries.birth_reg, "files where kind = nid_photo (beneficiary)"]
-    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
+    visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
     source: "B8: NID number and photo visible to all official staff who do project work, never to volunteers, Media, Finance, Procurement"
   - key: beneficiary.contact
     fields: [beneficiaries.mobile, beneficiary_family_members.*]
-    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
+    visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
     source: "O-67, D-094: not to the Media or Procurement Team, in lists, profiles, search and filters"
   - key: beneficiary.address_detail
     fields: [beneficiaries.union_id, beneficiaries.village, beneficiaries.post_office, beneficiaries.post_code, beneficiaries.landmark, beneficiaries.latitude, beneficiaries.longitude]
-    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team]
+    visible_to: [program_manager, regional_program_manager, project_executive, official_daee, procurement_team]
     source: "O-67, D-094: the Media Team sees the area down to the upazila only"
   - key: beneficiary.profile_detail
     fields: [beneficiaries.father_or_husband_name, beneficiaries.mother_name, beneficiaries.gender_code, beneficiaries.age_years, beneficiaries.class_code, beneficiaries.class_other_text, beneficiaries.occupation_code, beneficiaries.photo_file_id]
-    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
+    visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
     source: "O-67, D-094: the Media and Procurement Teams get only the name, the area, the projects and distribution"
   - key: beneficiary.application_history
     fields: [applications.app_no, applications.submitted_at, applications.reviewed_at, applications.approved_at]
-    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team]
+    visible_to: [program_manager, regional_program_manager, project_executive, official_daee, procurement_team]
     source: "O-67, D-094: the Procurement Team sees its own projects' applications, the Media Team none"
   - key: beneficiary.care
     fields: [call_logs.*, followup_evaluations.*, class_attendance.*, learning_progress.*, exam_results.*, activities.*, beneficiaries.is_blocked]
-    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
+    visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
     source: "O-67, D-094: care and follow-up data and the blocklist status, not to the Media or Procurement Team"
   - key: volunteer.identity
     fields: [volunteers.nid, volunteers.nid_photo_file_id, volunteers.nid_photo_back_file_id, volunteers.blood_group, volunteers.date_of_birth]
@@ -136,7 +135,7 @@ sensitive_fields:
     source: "A4 second table, B8"
   - key: application.official_section
     fields: [form sections with visibility official_only, application_scores.*]
-    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team]
+    visible_to: [program_manager, regional_program_manager, project_executive, official_daee, procurement_team]
     source: "B3, B4: never returned to volunteers; Procurement reads applications (A4); the Media Team reads only the official comment of a referred application, through its work (D-101 (3), D-136)"
   - key: blocklist.reason
     fields: [blocklist.reason, blocklist.blocked_by]
@@ -148,7 +147,7 @@ sensitive_fields:
     source: "A10: audit viewer for monitoring and management"
   - key: file.location
     fields: [files.latitude, files.longitude, files.gps_accuracy_m]
-    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team]
+    visible_to: [program_manager, regional_program_manager, project_executive, official_daee, procurement_team]
     source: "T2.1 (D-108): the GPS position of a photo locates a beneficiary's home or a site; officials doing the project's work and the person who uploaded the file see it, never another volunteer or the Media and Finance Teams"
 
 permissions:
@@ -161,7 +160,6 @@ permissions:
       - { role: program_manager, scope: SELF }
       - { role: regional_program_manager, scope: SELF }
       - { role: project_executive, scope: SELF }
-      - { role: implementer, scope: SELF }
       - { role: official_daee, scope: SELF }
       - { role: procurement_team, scope: SELF }
       - { role: media_team, scope: SELF }
@@ -293,7 +291,6 @@ permissions:
       - { role: program_manager, scope: SELF }
       - { role: regional_program_manager, scope: SELF }
       - { role: project_executive, scope: SELF }
-      - { role: implementer, scope: SELF }
       - { role: official_daee, scope: SELF }
       - { role: procurement_team, scope: SELF }
       - { role: media_team, scope: SELF }
@@ -316,7 +313,6 @@ permissions:
       - { role: regional_program_manager, scope: GLOBAL }
       - { role: project_executive, scope: GLOBAL }
       - { role: official_daee, scope: GLOBAL }
-      - { role: implementer, scope: GLOBAL }
   - name: volunteer.view_sensitive
     description: See volunteer NID, NID photo and bank details
     module: M04
@@ -419,7 +415,6 @@ permissions:
       - { role: regional_program_manager, scope: GLOBAL }
       - { role: project_executive, scope: GLOBAL }
       - { role: official_daee, scope: GLOBAL }
-      - { role: implementer, scope: GLOBAL }
       - { role: media_team, scope: GLOBAL }
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }
@@ -432,7 +427,6 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION, condition: safe_water_only }
       - { role: official_daee, scope: REGION }
   - name: beneficiary.lookup
     description: Look up a beneficiary by NID or birth-registration number for auto-fill (returns only the auto-fill fields)
@@ -442,7 +436,6 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION, condition: safe_water_only }
       - { role: volunteer_general, scope: PROJECT }
       - { role: volunteer_both, scope: PROJECT }
       - { role: volunteer_team_member, scope: PROJECT }
@@ -559,7 +552,6 @@ permissions:
       - { role: regional_program_manager, scope: PROGRAM }
       - { role: project_executive, scope: PROGRAM }
       - { role: official_daee, scope: PROGRAM }
-      - { role: implementer, scope: PROGRAM }
       - { role: finance_team, scope: GLOBAL }
       - { role: media_team, scope: GLOBAL }
       - { role: media_director, scope: GLOBAL }
@@ -633,7 +625,6 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
       - { role: official_daee, scope: REGION }
-      - { role: implementer, scope: REGION }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
       - { role: finance_team, scope: GLOBAL }
       - { role: media_team, scope: GLOBAL }
@@ -687,7 +678,6 @@ permissions:
     default:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION, condition: safe_water_only }
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_team_member, scope: SELF }
@@ -698,7 +688,6 @@ permissions:
     default:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION, condition: safe_water_only }
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
   - name: application.edit_draft
@@ -733,7 +722,6 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION, condition: safe_water_only }
       - { role: official_daee, scope: ASSIGNED }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
       - { role: volunteer_general, scope: SELF }
@@ -749,7 +737,6 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION, condition: safe_water_only }
       - { role: official_daee, scope: ASSIGNED }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
   - name: application.review
@@ -759,7 +746,6 @@ permissions:
     default:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION, condition: safe_water_only }
   - name: application.approve
     description: Approve a reviewed application
     module: M08
@@ -867,7 +853,6 @@ permissions:
     default:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION, condition: safe_water_only }
       - { role: volunteer_general, scope: SELF, condition: safe_water_only }
       - { role: volunteer_both, scope: SELF, condition: safe_water_only }
       - { role: volunteer_paid, scope: ASSIGNED }
@@ -917,7 +902,6 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION, condition: safe_water_only }
   - name: payment.record
     description: Record a payment (beneficiary support, advance, volunteer reimbursement) with date, amount, method, transaction id and optional copy
     module: M09
@@ -1094,7 +1078,6 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION }
   - name: document.submit
     description: Submit, verify, approve or archive a document in the register
     module: M13
@@ -1103,7 +1086,6 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION }
   - name: document.deadline.extend
     description: Extend a document deadline with reason
     module: M13
@@ -1118,7 +1100,6 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION }
   - name: document.audit.run
     description: Produce the quarterly audit report
     module: M13
@@ -1205,7 +1186,6 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION }
       - { role: official_daee, scope: REGION }
       - { role: finance_team, scope: GLOBAL }
       - { role: media_team, scope: GLOBAL, condition: own_part }
@@ -1259,7 +1239,6 @@ permissions:
       - { role: program_manager, scope: SELF }
       - { role: regional_program_manager, scope: SELF }
       - { role: project_executive, scope: SELF }
-      - { role: implementer, scope: SELF }
       - { role: official_daee, scope: SELF }
       - { role: procurement_team, scope: SELF }
       - { role: media_team, scope: SELF }
@@ -1291,7 +1270,6 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
-      - { role: implementer, scope: REGION }
       - { role: official_daee, scope: REGION }
       - { role: media_team, scope: GLOBAL, condition: own_part }
       - { role: media_director, scope: GLOBAL, condition: own_part }

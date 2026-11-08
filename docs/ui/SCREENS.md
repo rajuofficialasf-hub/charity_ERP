@@ -56,7 +56,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). The mockups of
 | SCR-015 | My Work: Project Executive and RPM | parity | project_executive, regional_program_manager | 1 · T1.15 |
 | SCR-016 | My Work: PM | parity | program_manager | 1 · T1.15 |
 | SCR-017 | My Work: Department Head and Monitoring Team | parity | department_head, monitoring_team | 1 · T1.15; full in 3 · T3.3 and 6 · T6.1 |
-| SCR-018 | My Work: Implementer (derived) | parity | implementer | 1 · T1.15; safe water 4 · T4.3 |
+| SCR-018 | My Work: Implementer (retired, D-162) | — | — | — |
 | SCR-019 | My Work: Media Team (D-101) | parity | media_director, media_assistant_director, media_team | 2 · T2.8b (placeholder in T1.15) |
 | SCR-020 | My Work: Finance Team (derived) | parity | finance_team | 3 · T3.2 (placeholder in T1.15) |
 | SCR-021 | My Work: Procurement Team (derived) | parity | procurement_team | 4 · T4.1 (placeholder in T1.15) |
@@ -462,9 +462,9 @@ Blueprint A4: central dashboard, monitoring control centre, permission panel, wo
 - **Priority.** parity.
 - **Phase 1.** In Phase 1 the home shows the attention list and the shortcuts. The progress block comes with the dashboards.
 
-### SCR-018 My Work: Implementer (derived)
+### SCR-018 My Work: Implementer (retired)
 
-This home is derived from O-26: Project Executive-level rights on safe-water projects, plus the document register. The owner may adjust it.
+Retired with the Implementer role on 2026-11-08 (D-162): the Project Executive implements a safe-water project and works from SCR-015. The table below is kept as the record of what the home was.
 
 | Widget | Data | Action and permission | From phase |
 |---|---|---|---|
@@ -561,7 +561,6 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Volunteers, General and Both.
   - Team Members, who can save drafts only.
   - RPM and Project Executive.
-  - Implementer, on safe-water projects only.
 - **Priority.** phone-first.
 - **Data shown.**
   - Project and form version.
@@ -778,7 +777,6 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - RPM: review and approve.
   - PM: house construction final approval.
   - Official দায়ী: if granted (O-27).
-  - Implementer: safe water.
   - Department Head and Monitoring Team: everywhere.
   - Procurement Team and Media Team: view only, where their scope allows.
 - **Priority.** parity.
@@ -1279,7 +1277,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 - **Purpose.** An official takes a list away as Excel, CSV or PDF with the columns they choose, or prints a beneficiary's 360° profile or one application (D-143).
 - **Built (T2.8).** "এক্সপোর্ট" above the table of the volunteer, beneficiary and application lists (`apps/web/src/features/exports/ExportButton.tsx`, inside each list so it sends the list's filters and search) opens `ExportDialog.tsx` in its own chunk: the file type, then the columns in groups (the list's own, the further details, and on an application list the form questions by section with "পুরো অংশ বাছুন" and a search), the on-screen columns ticked the first time and the last choice per list on the device after that, "সব বাছুন" and "কোনোটিই না". Once started, `ExportProgress.tsx` shows waiting, the rows written of the total, then "ডাউনলোড করুন"; a failure says why and offers to try again; closing leaves the job running. "PDF নামান" on the beneficiary's profile (the journey report's roles) and on an application's review page (the export roles) starts the record's PDF and follows it in the same progress (`RecordPdfButton.tsx`).
-- **Roles.** The roles whose defaults hold `export.list` (PM, RPM, Project Executive, Implementer, Official দায়ী, Finance, Media, Procurement) and the two global roles; never a volunteer. The server checks the permission, its scope and every protected column again.
+- **Roles.** The roles whose defaults hold `export.list` (PM, RPM, Project Executive, Official দায়ী, Finance, Media, Procurement) and the two global roles; never a volunteer. The server checks the permission, its scope and every protected column again.
 - **Priority.** parity; the dialog is a full-screen sheet on a phone and fits 360 px.
 - **Actions.**
 
@@ -1415,7 +1413,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-072 Document register
 
 - **Purpose.** The SOP document register per project. Each checklist item shows its requirement level, responsible official role, deadline, status, the soft-copy file and the hard-copy location code. Overdue items get a countdown and a non-compliance mark, and the quarterly audit is one click (BD-35 to BD-39). Built last (O-34).
-- **Roles.** Officials. Implementer. Monitoring Team for the audit.
+- **Roles.** Officials. Monitoring Team for the audit.
 - **Priority.** parity.
 - **Data shown.**
   - Checklist per project, grouped by requirement level: required, if needed, optional.
@@ -1450,7 +1448,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 | SCR-080 | Today's construction work (bulk) | Paid volunteers post daily stage progress with photos per house | Paid Volunteer, RPM, Executive | `progress.update` | phone-first | 4 · T4.1 |
 | SCR-081 | Construction stages per house | Stage strip, photos, issues, vouchers, for one house | RPM, Executive, PM | `progress.update` | parity | 4 · T4.1 |
 | SCR-082 | Site verification and visit (bulk) | Visit comments and recommendations (tree planting), decision | RPM, Executive, volunteers | `site_verification.record`, `site_verification.decide` | phone-first | 4 · T4.3 |
-| SCR-083 | Safe-water advance, vouchers and return | Advance, voucher submission and verification, returned amount | Implementer, RPM, Executive | `voucher.submit`, `voucher.verify` | parity | 4 · T4.3 |
+| SCR-083 | Safe-water advance, vouchers and return | Advance, voucher submission and verification, returned amount | Executive, RPM | `voucher.submit`, `voucher.verify` | parity | 4 · T4.3 |
 | SCR-084 | Stock dispatch and reconciliation | Dispatch to volunteers, reconcile sent = distributed + remaining + damaged | RPM, Executive | `stock.dispatch`, `stock.reconcile` | parity | 3 · T3.1 |
 | SCR-085 | Expense claim (volunteer) | Claim operational expenses with vouchers by category | volunteers, Local দায়ী, Paid Volunteer | `expense.claim.submit` | phone-first | 3 · T3.2 |
 | SCR-086 | Expense verification and payment record | Verify claims; record payment date, amount, method and transaction id (O-22, O-24) | Executive, RPM, PM | `expense.claim.verify`, `payment.record` | parity | 3 · T3.2 |
@@ -1507,7 +1505,6 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 | department_head, monitoring_team | SCR-017 |
 | program_manager | SCR-016 |
 | regional_program_manager, project_executive | SCR-015 |
-| implementer | SCR-018 (derived) |
 | official_daee | SCR-014 |
 | procurement_team | SCR-021 (derived) |
 | media_team | SCR-019 (derived) |
@@ -1550,5 +1547,5 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 ## 12. Notes for the owner
 
-- **Derived homes.** SCR-018 to SCR-021 (Implementer, Media, Finance and Procurement homes) are derived from the second A4 table and O-26, O-28. The blueprint's My Work table does not list them. The owner may adjust them when the mockups are reviewed.
+- **Derived homes.** SCR-019 to SCR-021 (Media, Finance and Procurement homes; SCR-018, the Implementer's, is retired, D-162) are derived from the second A4 table and O-26, O-28. The blueprint's My Work table does not list them. The owner may adjust them when the mockups are reviewed.
 - **Later-phase screens.** The section 10 screens get full entries and mockups at the start of their phase.

@@ -17,13 +17,9 @@ export const ADMIN_ROLES: readonly string[] = [
 
 /**
  * The nationwide volunteer tab (`volunteer.view_all`, DECISION_LOG O-67): the management roles and
- * the Official দায়ী and the Implementer.
+ * the Official দায়ী.
  */
-export const VOLUNTEER_TAB_ROLES: readonly string[] = [
-  ...ADMIN_ROLES,
-  'official_daee',
-  'implementer',
-];
+export const VOLUNTEER_TAB_ROLES: readonly string[] = [...ADMIN_ROLES, 'official_daee'];
 
 /**
  * The nationwide beneficiary tab (`beneficiary.view_all`): also the Media Team and the Procurement
@@ -51,9 +47,7 @@ export const BENEFICIARY_ADDRESS_ROLES: readonly string[] = [
 /**
  * Who gets the lookup by NID or birth registration on the beneficiary tab: the roles that hold
  * `beneficiary.lookup` and can pick one of their projects there (the PM, the RPM, the Project
- * Executive and the global roles, the same as `PROJECT_ROLES`). The Implementer holds the
- * permission too but has no project list on this tab, so it looks up from the application form;
- * the server checks the project.
+ * Executive and the global roles, the same as `PROJECT_ROLES`); the server checks the project.
  */
 export const BENEFICIARY_LOOKUP_ROLES: readonly string[] = ADMIN_ROLES;
 
@@ -191,7 +185,6 @@ export const EXPORT_ROLES: readonly string[] = [
   'program_manager',
   'regional_program_manager',
   'project_executive',
-  'implementer',
   'official_daee',
   'finance_team',
   'media_team',

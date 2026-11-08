@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { runSeed } from '../../seed/run';
-import { beneficiary, locationTree, user, volunteer } from './support/fixtures';
+import { beneficiary, locationTree, project, user, volunteer } from './support/fixtures';
 import {
   createDatabase,
   dropDatabase,
@@ -284,6 +284,87 @@ describe('migrations', () => {
         await client.query('SELECT user_id, volunteer_id FROM volunteer_change_requests')
       ).rows;
       expect(rows).toEqual([{ user_id: person, volunteer_id: volunteerId }]);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('retiring the Implementer ends its grants and project access with an audit, and down gives them back (D-162)', async () => {
+    const dirs = migrationDirs();
+    const at = dirs.indexOf('20261108120000_retire_implementer_role');
+    expect(at).toBeGreaterThan(0);
+    const db = await freshDatabase('impl');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    const file = (dir: string, name: string) =>
+      client.query(readFileSync(join(MIGRATIONS_DIR, dir, name), 'utf8'));
+    try {
+      for (const dir of dirs.slice(0, at)) await file(dir, 'migration.sql');
+      for (const key of ['implementer', 'project_executive'])
+        await client.query(
+          `INSERT INTO roles (key, name_bn, name_en, kind, global_scope) VALUES ($1, $1, $1, 'official', false)`,
+          [key],
+        );
+      const active = await user(client);
+      const former = await user(client);
+      const executive = await user(client);
+      const grant = (userId: string, role: string, revoked: string | null) =>
+        client.query(
+          `INSERT INTO user_roles (id, user_id, role_key, granted_by, revoked_at)
+           VALUES (gen_random_uuid(), $1, $2, $1, $3) RETURNING id`,
+          [userId, role, revoked],
+        );
+      await grant(active, 'implementer', null);
+      await grant(former, 'implementer', '2026-10-01T00:00:00Z');
+      await grant(executive, 'project_executive', null);
+      const { id: projectId } = await project(client);
+      await client.query(
+        `INSERT INTO project_staff (id, project_id, user_id, role_key, can_view, can_edit, can_delete, granted_by)
+         VALUES (gen_random_uuid(), $1, $2, 'implementer', true, true, false, $2)`,
+        [projectId, active],
+      );
+      const state = async () => ({
+        roles: (
+          await client.query(
+            `SELECT user_id, role_key, revoked_at IS NULL AS active FROM user_roles ORDER BY user_id, role_key`,
+          )
+        ).rows,
+        staff: (await client.query('SELECT ended_at IS NULL AS active FROM project_staff')).rows,
+        versions: Object.fromEntries(
+          (await client.query('SELECT id, permission_version FROM users')).rows.map((r) => [
+            r.id,
+            r.permission_version,
+          ]),
+        ),
+        audit: (
+          await client.query(
+            `SELECT entity_id FROM audit_log WHERE action = 'permission_change' AND reason LIKE 'D-162:%'`,
+          )
+        ).rows,
+      });
+      const before = await state();
+
+      await file(dirs[at]!, 'migration.sql');
+      const after = await state();
+      expect(after.roles.find((r) => r.user_id === active)?.active).toBe(false);
+      expect(after.roles.find((r) => r.user_id === executive)?.active).toBe(true);
+      expect(after.staff).toEqual([{ active: false }]);
+      expect(after.versions[active]).toBe(before.versions[active] + 1);
+      expect(after.versions[former]).toBe(before.versions[former]);
+      expect(after.versions[executive]).toBe(before.versions[executive]);
+      expect(after.audit).toEqual([{ entity_id: active }]);
+
+      await file(dirs[at]!, 'down.sql');
+      const back = await state();
+      expect(back.roles).toEqual(before.roles);
+      expect(back.staff).toEqual([{ active: true }]);
+      expect(back.versions[active]).toBe(before.versions[active] + 2);
+      // the audit log is append-only: the retirement stays on record beside its reversal
+      expect(back.audit).toEqual([{ entity_id: active }]);
+      const reverted = await client.query(
+        `SELECT entity_id FROM audit_log WHERE reason LIKE 'Reverted D-162:%'`,
+      );
+      expect(reverted.rows).toEqual([{ entity_id: active }]);
     } finally {
       await client.end();
     }

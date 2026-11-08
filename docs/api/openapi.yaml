@@ -2725,7 +2725,7 @@ components:
       required: [userId, roleKey]
       properties:
         userId: { type: string, format: uuid }
-        roleKey: { type: string, enum: [project_executive, official_daee, implementer] }
+        roleKey: { type: string, enum: [project_executive, official_daee] }
         areaLocationId: { type: string, format: uuid }
         canView: { type: boolean, default: true }
         canEdit: { type: boolean, default: false }
@@ -7981,7 +7981,7 @@ paths:
       operationId: projects.staff.add
       summary: Give a field official view, edit or delete access on the project
       description: >-
-        Only a Project Executive, Official দায়ী or Implementer (422 project.staff_role_required). An RPM gives view and edit in its own areas of the project only; delete access only the PM (D-095).
+        Only a Project Executive or Official দায়ী (422 project.staff_role_required; the Implementer is retired, D-162). An RPM gives view and edit in its own areas of the project only; delete access only the PM (D-095).
       x-permission: project.staff_access.manage
       x-scope: project
       x-audit: permission_change
@@ -8025,7 +8025,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [regional_program_manager, project_executive, official_daee, implementer]
+            enum: [regional_program_manager, project_executive, official_daee]
         - name: q
           in: query
           required: true

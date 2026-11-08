@@ -20,7 +20,9 @@ const perms = (file: Record<string, unknown>) => file.permissions as Perm[];
 describe('access registry', () => {
   it('loads the real permissions.yaml with its roles, permissions, sets and field classes', () => {
     const registry = loadAccessRegistry(DEFAULT_PERMISSIONS_FILE);
-    expect(registry.roles.size).toBe(17);
+    // the Implementer is retired (D-162)
+    expect(registry.roles.size).toBe(16);
+    expect(registry.roles.has('implementer')).toBe(false);
     expect(registry.permissions.size).toBe(157);
     expect(registry.roles.get('department_head')?.globalScope).toBe(true);
     expect(registry.permissions.get('system.owner.transfer')?.globalRolesExcluded).toEqual([
@@ -73,11 +75,15 @@ describe('access registry', () => {
     const role = variant((f) => perms(f)[0]!.default.push({ role: 'ghost', scope: 'SELF' }));
     expect(() => parsePermissionsFile(role)).toThrow(/session\.revoke_own: unknown role ghost/);
     const scope = variant((f) =>
-      perms(f)[0]!.default.push({ role: 'implementer', scope: 'PLANET' }),
+      perms(f)[0]!.default.push({ role: 'project_executive', scope: 'PLANET' }),
     );
     expect(() => parsePermissionsFile(scope)).toThrow(/PLANET/);
     const condition = variant((f) =>
-      perms(f)[0]!.default.push({ role: 'implementer', scope: 'SELF', condition: 'on_tuesdays' }),
+      perms(f)[0]!.default.push({
+        role: 'project_executive',
+        scope: 'SELF',
+        condition: 'on_tuesdays',
+      }),
     );
     expect(() => parsePermissionsFile(condition)).toThrow(
       /session\.revoke_own: unknown condition on_tuesdays/,

@@ -156,16 +156,6 @@ export const DEMO_STAFF: DemoStaff[] = [
     supervisor: 'rpm_dhaka',
   },
   {
-    key: 'implementer',
-    role: 'implementer',
-    name: 'বাস্তবায়নকারী',
-    email: 'implementer',
-    mobileIndex: 10,
-    designation: 'Implementer',
-    jobId: 'CSS-303',
-    supervisor: 'rpm_dhaka',
-  },
-  {
     key: 'procurement',
     role: 'procurement_team',
     name: 'প্রকিউরমেন্ট কর্মকর্তা',
