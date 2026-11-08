@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
-import { type PanelUser, UserSearch } from '../UserSearch';
+import { type PanelUser, UserSearch, usersWithRole } from '../UserSearch';
 import {
   assignPm,
   createProgram,
@@ -128,7 +128,13 @@ export function ProgramDialog({
         value={nameEn}
         onChange={setNameEn}
       />
-      <UserSearch label={t('pm')} helper={t('pm_hint')} selected={pm} onSelect={setPm} />
+      <UserSearch
+        label={t('pm')}
+        helper={t('pm_hint')}
+        selected={pm}
+        onSelect={setPm}
+        search={{ key: 'program-managers', find: usersWithRole('program_manager') }}
+      />
       {program && <Switch label={t('active')} checked={active} onChange={setActive} />}
     </Dialog>
   );

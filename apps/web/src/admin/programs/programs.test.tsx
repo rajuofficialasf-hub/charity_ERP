@@ -137,6 +137,54 @@ describe('the programs page', () => {
     expect(created).toEqual([{ code: 'TAKEN', name: { bn: 'নতুন', en: 'New' } }]);
   });
 
+  it('opens the PM field on the program managers before any text and saves the one chosen', async () => {
+    refreshAs(HEAD);
+    serve();
+    const searches: URLSearchParams[] = [];
+    server.use(
+      http.get('*/api/v1/users', ({ request }) => {
+        searches.push(new URL(request.url).searchParams);
+        return HttpResponse.json({
+          data: [
+            {
+              id: 'u-pm1',
+              displayName: 'নমুনা পিএম এক',
+              designation: null,
+              roles: ['program_manager'],
+            },
+            {
+              id: 'u-pm2',
+              displayName: 'নমুনা পিএম দুই',
+              designation: null,
+              roles: ['program_manager'],
+            },
+          ],
+          meta: {},
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole('button', { name: 'নতুন প্রোগ্রাম' }));
+    const dialog = await screen.findByRole('dialog');
+    // nothing is asked of the server until the field opens (D-161)
+    expect(searches).toEqual([]);
+    await user.click(within(dialog).getByRole('combobox', { name: /প্রোগ্রাম ম্যানেজার/ }));
+    await user.click(await screen.findByRole('option', { name: 'নমুনা পিএম দুই' }));
+    expect(searches[0]?.get('role')).toBe('program_manager');
+    expect(searches[0]?.get('state')).toBe('active');
+    expect(searches[0]?.has('q')).toBe(false);
+    await user.type(within(dialog).getByRole('textbox', { name: /প্রোগ্রাম কোড/ }), 'NEW');
+    await user.type(within(dialog).getByRole('textbox', { name: /বাংলায় নাম/ }), 'নতুন');
+    await user.type(within(dialog).getByRole('textbox', { name: /ইংরেজিতে নাম/ }), 'New');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() =>
+      expect(created).toEqual([
+        { code: 'NEW', name: { bn: 'নতুন', en: 'New' }, pmUserId: 'u-pm2' },
+      ]),
+    );
+  });
+
   it('deactivates a program with its current version', async () => {
     refreshAs(HEAD);
     serve();

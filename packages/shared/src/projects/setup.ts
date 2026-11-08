@@ -57,7 +57,7 @@ export const STAFF_ACCESS_ROLES = ['project_executive', 'official_daee', 'implem
 export const CANDIDATE_ROLES = ['regional_program_manager', ...STAFF_ACCESS_ROLES] as const;
 export const candidateQuerySchema = z.strictObject({
   role: z.enum(CANDIDATE_ROLES),
-  q: z.string().trim().min(2).max(100),
+  q: z.string().trim().min(2).max(100).optional(),
 });
 export type CandidateQuery = z.infer<typeof candidateQuerySchema>;
 

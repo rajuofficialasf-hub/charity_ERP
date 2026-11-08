@@ -465,12 +465,14 @@ export class ProjectSetupService {
       where: {
         kind: 'staff',
         state: 'active',
-        // % and _ in the search are letters, never wildcards
-        displayName: { contains: literalContains(query.q), mode: 'insensitive' },
+        // no name: the first ones (D-161); % and _ in a name are letters, never wildcards
+        ...(query.q
+          ? { displayName: { contains: literalContains(query.q), mode: 'insensitive' } }
+          : {}),
         userRolesUser: { some: { roleKey: query.role, revokedAt: null } },
       },
       orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
-      take: 20,
+      take: 50,
       select: { id: true, displayName: true, designation: true },
     });
   }

@@ -8011,7 +8011,8 @@ paths:
       operationId: projects.candidate.list
       summary: Officials with a role, by name, to assign to the project (an RPM or field staff)
       description: >-
-        Active officials holding the role whose name contains q (at least 2 characters), at most 20,
+        Active officials holding the role, by name; without q the first 50 by name (the picker opens
+        on a list, D-161), with q (at least 2 characters) those whose name contains it, at most 50;
         names and designations only. The RPM of an area is looked up by the PM and the global roles
         only (403 otherwise); a field role also by an RPM of the project.
       x-permission: project.staff_access.manage
@@ -8028,7 +8029,7 @@ paths:
             enum: [regional_program_manager, project_executive, official_daee, implementer]
         - name: q
           in: query
-          required: true
+          required: false
           schema: { type: string, minLength: 2, maxLength: 100 }
       responses:
         '200':

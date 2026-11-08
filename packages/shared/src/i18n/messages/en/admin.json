@@ -2,7 +2,7 @@
   "permissions": {
     "title": "Permission panel",
     "search": "Find a user",
-    "search_hint": "Type at least 2 characters of the name, email or mobile number.",
+    "search_hint": "Pick from the list, or type at least 2 characters of the name, email or mobile number.",
     "user_option": "{name} · {detail}",
     "roles": "Roles",
     "effective": "Effective permissions",
@@ -181,7 +181,7 @@
   "handover": {
     "title": "Handover",
     "search": "Find the official",
-    "search_hint": "Type at least 2 characters of the name, email or mobile number.",
+    "search_hint": "Pick from the list, or type at least 2 characters of the name, email or mobile number.",
     "state": {
       "pending": "Pending",
       "active": "Active",
@@ -685,7 +685,7 @@
       "name_bn": "Name in Bangla",
       "name_en": "Name in English",
       "pm": "Program Manager",
-      "pm_hint": "Search by name; only a Program Manager can be chosen.",
+      "pm_hint": "Pick from the list or search by name; the list holds Program Managers only.",
       "active": "Active (takes new projects)"
     },
     "eyebrow": "Program management",
@@ -835,7 +835,7 @@
       "remove_area": "Remove the area {name}",
       "add_area": "Add an area",
       "rpm": "RPM",
-      "rpm_hint": "Search by name; only a Regional Program Manager can be chosen.",
+      "rpm_hint": "Pick from the list or search by name; the list holds Regional Program Managers only.",
       "no_staff": "No staff access yet.",
       "whole_project": "Whole project",
       "access": {
@@ -1266,7 +1266,7 @@
       "division": "Division (region)",
       "no_division": "No division",
       "supervisor": "Reports to",
-      "supervisor_hint": "Search an active official of the department by name or job ID.",
+      "supervisor_hint": "Pick an active official of the department from the list, or search by name or job ID.",
       "stale": "Someone else saved this profile meanwhile. The form shows it as stored now; check it and save again.",
       "offline": "The server could not be reached. Check the connection and try again.",
       "steps": "Steps of the form",
