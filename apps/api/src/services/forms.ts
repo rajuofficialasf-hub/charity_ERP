@@ -16,6 +16,8 @@ import {
   formDefinitionSchema,
   type FormSectionDefinition,
   formTemplateFormSchema,
+  isChoiceType,
+  listOfField,
   publishDefinitionSchema,
 } from '@css/shared/forms';
 import type { MessageParams } from '@css/shared/i18n';
@@ -290,18 +292,7 @@ export class FormsService {
           ? stored
           : { scoring: body.scoring }),
       });
-      const kept = new Map(
-        (
-          await tx.formField.findMany({
-            where: { formVersionId: versionId },
-            select: { id: true, fieldKey: true },
-          })
-        ).map((x) => [x.fieldKey, x.id]),
-      );
-      await tx.fieldOption.deleteMany({ where: { formField: { formVersionId: versionId } } });
-      await tx.formField.deleteMany({ where: { formVersionId: versionId } });
-      await tx.formSection.deleteMany({ where: { formVersionId: versionId } });
-      await writeDefinitionRows(tx, versionId, definition, actor, kept);
+      await replaceDefinitionRows(tx, versionId, definition, actor);
       const updated = await tx.formVersion.update({
         where: { id: versionId },
         data: { updatedBy: actor, updatedAt: new Date() },
@@ -351,7 +342,11 @@ export class FormsService {
     return this.prisma.$transaction(async (tx) => {
       const row = await this.lockedDraft(tx, viewer, versionId);
       assertIfMatch(ifMatch, row.updatedAt);
-      const definition = await readDefinition(tx, versionId, 'official');
+      const stored = await readDefinition(tx, versionId, 'official');
+      // a draft saved before its coded questions took their list's options takes them now, so no
+      // option of the builder's own is ever published on such a question (D-163)
+      const definition = await withListOptions(tx, stored);
+      if (definition !== stored) await replaceDefinitionRows(tx, versionId, definition, actor);
       // a draft may hold a calculated question without its rule, and an application form its
       // identity questions unmarked; the publish may not
       parseDefinition(definition, publishDefinitionSchema(formKindOf(row.form.kind)));
@@ -741,6 +736,77 @@ async function scoringOf(db: Tx, versionId: string): Promise<{ scoring?: FormSco
 }
 
 /** Writes a definition's sections, fields and options as the rows of a draft version. */
+/**
+ * The definition with the options of every question that fills a coded column taken from that
+ * column's reference list: the active entries in their order, with the list's texts (DECISION_LOG
+ * D-163). The database keeps these codes against the list, so an option of the builder's own would
+ * fail the profile at the send. An entry that opened a text box keeps doing so. The same object
+ * comes back when nothing changes.
+ */
+export async function withListOptions(tx: Tx, definition: FormDefinition): Promise<FormDefinition> {
+  const listed = definition.sections.flatMap((s) =>
+    s.fields.filter((f) => isChoiceType(f.type) && listOfField(f) !== null),
+  );
+  if (listed.length === 0) return definition;
+  const rows = await tx.referenceList.findMany({
+    where: { listKey: { in: [...new Set(listed.map((f) => listOfField(f)!))] }, active: true },
+    orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    select: { listKey: true, code: true, labelBn: true, labelEn: true },
+  });
+  let changed = false;
+  const sections = definition.sections.map((section) => ({
+    ...section,
+    fields: section.fields.map((field) => {
+      const list = isChoiceType(field.type) ? listOfField(field) : null;
+      if (list === null) return field;
+      const before = new Map((field.options ?? []).map((o) => [o.code, o]));
+      const options: FieldOption[] = rows
+        .filter((r) => r.listKey === list)
+        .map((r) => ({
+          code: r.code,
+          label: { bn: r.labelBn, en: r.labelEn },
+          dependsOnOptionCode: null,
+          allowsOtherText: before.get(r.code)?.allowsOtherText ?? false,
+        }));
+      const olds = field.options ?? [];
+      const same =
+        options.length === olds.length &&
+        olds.every(
+          (old, i) =>
+            old.code === options.at(i)?.code &&
+            old.label.bn === options.at(i)?.label.bn &&
+            old.label.en === options.at(i)?.label.en &&
+            !old.dependsOnOptionCode,
+        );
+      if (same) return field;
+      changed = true;
+      return { ...field, options };
+    }),
+  }));
+  return changed ? { ...definition, sections } : definition;
+}
+
+/** Writes a draft's definition again in place of its rows, keeping each question's row id. */
+async function replaceDefinitionRows(
+  tx: Tx,
+  versionId: string,
+  definition: FormDefinition,
+  actor: string,
+): Promise<void> {
+  const kept = new Map(
+    (
+      await tx.formField.findMany({
+        where: { formVersionId: versionId },
+        select: { id: true, fieldKey: true },
+      })
+    ).map((x) => [x.fieldKey, x.id]),
+  );
+  await tx.fieldOption.deleteMany({ where: { formField: { formVersionId: versionId } } });
+  await tx.formField.deleteMany({ where: { formVersionId: versionId } });
+  await tx.formSection.deleteMany({ where: { formVersionId: versionId } });
+  await writeDefinitionRows(tx, versionId, definition, actor, kept);
+}
+
 export async function writeDefinitionRows(
   tx: Tx,
   versionId: string,
@@ -748,6 +814,8 @@ export async function writeDefinitionRows(
   actor: string,
   keptFieldIds: Map<string, string> = new Map(),
 ): Promise<void> {
+  // a coded column's question always carries its list's options, whichever way the rows are written
+  definition = await withListOptions(tx, definition);
   const [sectionIds, fieldIds] = await Promise.all([
     libraryIds(tx, 'section'),
     libraryIds(tx, 'field'),

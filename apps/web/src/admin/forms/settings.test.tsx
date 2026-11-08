@@ -100,6 +100,25 @@ describe('the field settings', () => {
     expect(fieldOf(latest, 'phone_two').settings?.validation).toEqual({ pattern: 'mobile' });
   });
 
+  it('shows a coded question its list’s options to read, with no way to edit them (D-163)', async () => {
+    // the core's gender question fills the gender column: its options are the list's
+    const def = definition();
+    const gender = def.sections.flatMap((x) => x.fields).find((f) => f.fieldKey === 'gender')!;
+    gender.options = [
+      option('male', { label: T('পুরুষ', 'Male') }),
+      option('female', { label: T('মহিলা', 'Female') }),
+    ];
+    open(def, { section: 'basic_info', field: 'gender' });
+    expect(
+      await screen.findByText(
+        'এই প্রশ্নের বিকল্প সিস্টেমের তালিকা থেকে আসে, তাই এখানে বদলানো যায় না। খসড়া সংরক্ষণ হলে তালিকার বিকল্প নিজে থেকে বসে যায়।',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('পুরুষ, মহিলা')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'অপশন যোগ করুন' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /অপশন 1/ })).not.toBeInTheDocument();
+  });
+
   it('gives a new option a code no removed option had', async () => {
     const user = userEvent.setup();
     open(

@@ -9,9 +9,11 @@ import {
   CORE_FIELD_KEYS,
   identityRoleOf,
   isTextType,
+  listOfField,
   PATTERN_KEYS,
   validationOf,
 } from '@css/shared/forms';
+import { localized, type Locale } from '@css/shared/i18n';
 import { Disclosure, Icon, SelectField, Stack, Switch, Text, TextField } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import {
@@ -197,6 +199,23 @@ function pipeCandidates(definition: FormDefinition, field: FormField): FormField
   });
 }
 
+/**
+ * The options of a question that fills a coded column: its reference list's, shown but never
+ * edited here, since the database keeps the answer against that list (DECISION_LOG D-163).
+ */
+function ListOptions({ field }: { field: FormField }) {
+  const t = useTranslations('forms.builder');
+  const locale = useLocale() as Locale;
+  return (
+    <Stack gap={1}>
+      <Text tone="muted">{t('options_from_list')}</Text>
+      {field.options?.length ? (
+        <Text>{field.options.map((o) => localized(o.label, locale)).join(', ')}</Text>
+      ) : null}
+    </Stack>
+  );
+}
+
 function FieldSettingsView({
   definition,
   section,
@@ -244,6 +263,8 @@ function FieldSettingsView({
     patch({ logic: compact({ ...field.logic, ...next }) });
   const rules = validationOf(field);
   const choice = isChoiceType(field.type);
+  // a coded column's question takes its list's options, set by the server at every save (D-163)
+  const fromList = choice && listOfField(field) !== null;
   const parents = choice ? parentCandidates(definition, section.key, field.fieldKey) : [];
   const parent = parents.find((p) => p.fieldKey === field.logic?.options_depend_on) ?? null;
   const answers = field.type !== 'note' && field.type !== 'calculation';
@@ -254,7 +275,9 @@ function FieldSettingsView({
     return (
       <Stack gap={2}>
         <Texts value={field.label} onChange={(label) => patch({ label })} />
-        {choice ? (
+        {fromList ? (
+          <ListOptions field={field} />
+        ) : choice ? (
           <OptionsEditor
             options={field.options ?? []}
             mode="texts"
@@ -328,37 +351,41 @@ function FieldSettingsView({
       </Disclosure>
       {choice ? (
         <Disclosure title={t('options')} headingLevel={2} defaultOpen>
-          <Stack gap={3}>
-            {parents.length > 0 ? (
-              <SelectField
-                label={t('depends_on')}
-                hint={t('depends_on_hint')}
-                value={parent?.fieldKey ?? NONE}
-                onChange={(id) => {
-                  const next = id && id !== NONE ? id : undefined;
-                  // options that followed the old question follow nothing until set again
-                  patch({
-                    options: (field.options ?? []).map((o) => ({
-                      ...o,
-                      dependsOnOptionCode: null,
-                    })),
-                    logic: compact({ ...field.logic, options_depend_on: next }),
-                  });
-                }}
-                options={[
-                  { value: NONE, label: t('depends_none') },
-                  ...parents.map((p) => ({ value: p.fieldKey, label: p.label[locale] })),
-                ]}
+          {fromList ? (
+            <ListOptions field={field} />
+          ) : (
+            <Stack gap={3}>
+              {parents.length > 0 ? (
+                <SelectField
+                  label={t('depends_on')}
+                  hint={t('depends_on_hint')}
+                  value={parent?.fieldKey ?? NONE}
+                  onChange={(id) => {
+                    const next = id && id !== NONE ? id : undefined;
+                    // options that followed the old question follow nothing until set again
+                    patch({
+                      options: (field.options ?? []).map((o) => ({
+                        ...o,
+                        dependsOnOptionCode: null,
+                      })),
+                      logic: compact({ ...field.logic, options_depend_on: next }),
+                    });
+                  }}
+                  options={[
+                    { value: NONE, label: t('depends_none') },
+                    ...parents.map((p) => ({ value: p.fieldKey, label: p.label[locale] })),
+                  ]}
+                />
+              ) : null}
+              <OptionsEditor
+                heading={false}
+                options={field.options ?? []}
+                mode="full"
+                parent={parent}
+                onChange={(options) => onChange(setOptions(definition, field.fieldKey, options))}
               />
-            ) : null}
-            <OptionsEditor
-              heading={false}
-              options={field.options ?? []}
-              mode="full"
-              parent={parent}
-              onChange={(options) => onChange(setOptions(definition, field.fieldKey, options))}
-            />
-          </Stack>
+            </Stack>
+          )}
         </Disclosure>
       ) : null}
       {isTextType(field.type) ? (
