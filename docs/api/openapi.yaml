@@ -4241,13 +4241,17 @@ components:
     # ---------------- reference data ----------------
     Location:
       type: object
-      required: [id, level, code, name, active]
+      required: [id, level, code, name, postCode, active]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         parentId: { type: [string, 'null'], format: uuid }
         level: { type: string, enum: [division, district, upazila, union] }
         code: { type: string }
         name: { $ref: '#/components/schemas/Bilingual' }
+        postCode:
+          type: [string, 'null']
+          pattern: '^[0-9]{4}$'
+          description: The post code of an upazila, a thana or a union-level place; null above them (D-160)
         active: { type: boolean }
     LocationCreate:
       type: object

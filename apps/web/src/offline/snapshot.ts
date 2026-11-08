@@ -228,5 +228,5 @@ export async function cachedChildren(parentId: string | null): Promise<Location[
   return rows
     .filter((l) => l.active)
     .sort((a, b) => a.code.localeCompare(b.code))
-    .map((l) => ({ id: l.id, name: l.name }));
+    .map((l) => ({ id: l.id, name: l.name, postCode: l.postCode }));
 }

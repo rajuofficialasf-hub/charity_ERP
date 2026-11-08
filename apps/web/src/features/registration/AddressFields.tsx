@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'use-intl';
-import { locations } from './registration-api';
+import { type Location, locations } from './registration-api';
 import { SelectField } from '@/ui';
 
 export interface Address {
@@ -31,9 +31,12 @@ export function AddressFields({
   optional = false,
   labelSuffix = '',
   levels = 4,
+  onUnionChosen,
 }: {
   value: Address;
   onChange: (next: Address) => void;
+  /** Told the union as it is chosen (null when the choice is cleared), for its post code. */
+  onUnionChosen?: (union: Location | null) => void;
   errors?: Record<string, string | undefined>;
   /** The levels are not mandatory (the permanent address, O-66). */
   optional?: boolean;
@@ -74,6 +77,8 @@ export function AddressFields({
             const next = { ...value, [level]: id || null };
             for (const lower of LEVELS.slice(i + 1)) next[lower] = null;
             onChange(next);
+            if (level === 'unionId')
+              onUnionChosen?.((lists[i] ?? []).find((l) => l.id === id) ?? null);
           }}
         />
       ))}

@@ -44,6 +44,7 @@ describe('GET /locations without a login', () => {
       level: 'division',
       code: expect.any(String),
       name: { bn: 'বিভাগ', en: 'Division' },
+      postCode: null,
       active: true,
     });
     expect(body.data.every((l) => l.level === 'division')).toBe(true);

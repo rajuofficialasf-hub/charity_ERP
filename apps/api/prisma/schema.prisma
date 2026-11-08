@@ -543,6 +543,7 @@ model Location {
   kind                            String
   code                            String
   bbsCode                         String?            @map("bbs_code")
+  postCode                        String?            @map("post_code") @db.VarChar(4)
   nameBn                          String             @map("name_bn")
   nameEn                          String             @map("name_en")
   active                          Boolean            @default(true)

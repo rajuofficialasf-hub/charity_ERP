@@ -10,6 +10,7 @@ const VIEW = {
   code: true,
   nameBn: true,
   nameEn: true,
+  postCode: true,
   active: true,
 } as const;
 
@@ -20,6 +21,7 @@ const toView = (r: {
   code: string;
   nameBn: string;
   nameEn: string;
+  postCode: string | null;
   active: boolean;
 }): LocationView => ({
   id: r.id,
@@ -27,6 +29,7 @@ const toView = (r: {
   level: r.level,
   code: r.code,
   name: { bn: r.nameBn, en: r.nameEn },
+  postCode: r.postCode,
   active: r.active,
 });
 
