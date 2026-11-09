@@ -10,8 +10,8 @@ import { resetClientForTests } from '../../api/client';
 import { StaffPage } from './StaffPage';
 import { StaffProfilePage } from './StaffProfilePage';
 
-// The officials' directory, the new official, the set-password link and the profile edit
-//. Test data only.
+// The officials' directory, the new official, the set-password link and the profile edit.
+// Test data only.
 const HEAD: Me = { ...ME, roles: ['department_head'] };
 const PM: Me = { ...ME, roles: ['program_manager'] };
 const VOLUNTEER: Me = { ...ME, kind: 'volunteer', roles: ['volunteer_general'] };

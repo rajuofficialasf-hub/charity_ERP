@@ -12,8 +12,8 @@ export interface RateLimiters {
 /**
  * express-rate-limit with in-process counters: every window of a class must have room; the
  * tightest window is applied last so its `RateLimit-*` headers win; a 429 carries `Retry-After`
- * and the catalogue code. `RATE_LIMITS_RELAXED` multiplies every limit by 100 for the E2E run
- *. Keys are our own strings (login id, address, session, user, IP), so the library's IP
+ * and the catalogue code. `RATE_LIMITS_RELAXED` multiplies every limit by 100 for the E2E run.
+ * Keys are our own strings (login id, address, session, user, IP), so the library's IP
  * validations are off; the client address itself comes through `trust proxy`.
  */
 export function createRateLimiters(env: Env): RateLimiters {

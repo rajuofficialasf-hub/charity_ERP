@@ -20,8 +20,8 @@ export const EMPTY_ADDRESS: Address = {
 const LEVELS = ['divisionId', 'districtId', 'upazilaId', 'unionId'] as const;
 
 /**
- * The cascading address (division → district → upazila → union) from the public locations list
- *: each list follows the choice above it, and changing a level clears the
+ * The cascading address (division → district → upazila → union) from the public locations list:
+ * each list follows the choice above it, and changing a level clears the
  * levels below.
  */
 export function AddressFields({

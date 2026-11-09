@@ -435,8 +435,8 @@ export class ProjectsService {
 
   /**
    * Refuses a planned budget the column cannot hold and, once the project is active, one its fund
-   * sources no longer add up to: an active project's budget changes together with its fund sources
-   *. Pass the fund sources about to be saved, or leave them out to use the
+   * sources no longer add up to: an active project's budget changes together with its fund sources.
+   * Pass the fund sources about to be saved, or leave them out to use the
    * stored ones.
    */
   async checkBudget(

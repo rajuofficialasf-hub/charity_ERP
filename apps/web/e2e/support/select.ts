@@ -5,8 +5,8 @@ const isPhoneWidth = (page: Page) => (page.viewportSize()?.width ?? 1280) < 900;
 
 /**
  * Opens a select and picks an option, the named one or the first. On a phone the select is a sheet
- * from the bottom, and the next level of an address opens by itself once the one above it is picked
- *, so a list already open is used as it is. While a sheet is open the rest of the page is
+ * from the bottom, and the next level of an address opens by itself once the one above it is picked,
+ * so a list already open is used as it is. While a sheet is open the rest of the page is
  * hidden from the accessibility tree, so the pick is followed by the list's own id: it is done when
  * that list has gone, whichever list opens after it.
  */

@@ -94,8 +94,8 @@ export const NO_INSTANCES: ScopeInstances = {
 declare const SCOPE_BRAND: unique symbol;
 
 /**
- * The caller's scope for the route's permission and entity, made only by the access middleware
- *: data access of a scoped entity takes it as a required argument, so code without the
+ * The caller's scope for the route's permission and entity, made only by the access middleware:
+ * data access of a scoped entity takes it as a required argument, so code without the
  * caller's scope does not compile.
  */
 export interface Scope {
@@ -444,8 +444,8 @@ const ADDRESS_RELATIONS = ['division', 'district', 'upazila', 'union'] as const;
  * The volunteers a scope reaches by their address (entity `volunteer`, RBAC.md 4): everyone at
  * GLOBAL; the own row for SELF; for an area (REGION, a split district or a smaller area) the
  * volunteers whose division, district, upazila or union is that location; for PROGRAM and PROJECT
- * the volunteers in the area locations of those projects, never of a revoked one
- *. A pending or unassigned volunteer is on no project, so the address decides.
+ * the volunteers in the area locations of those projects, never of a revoked one.
+ * A pending or unassigned volunteer is on no project, so the address decides.
  */
 export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
   const i = scope.instances;
@@ -527,8 +527,7 @@ export function beneficiaryScopeSql(scope: Scope, alias: 'b' | 'x' | 'y'): Prism
 /**
  * The projects whose rows a caller sees inside one beneficiary's profile: no limit at GLOBAL or
  * for an area scope (the person is theirs) beyond the revoked projects, otherwise only the
- * scope's projects, so a team attached to a few projects never reads the person's other projects
- *.
+ * scope's projects, so a team attached to a few projects never reads the person's other projects.
  */
 export function beneficiaryRowsProjectWhere(scope: Scope): Prisma.ProjectWhereInput | null {
   const i = scope.instances;

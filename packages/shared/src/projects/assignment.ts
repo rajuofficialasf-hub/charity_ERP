@@ -2,8 +2,8 @@ import { z } from 'zod';
 import type { VolunteerType } from '../registration/index.js';
 
 /**
- * Volunteers on a project: the permission set an assignment gives, who may lead a team
- *, what a team member may do with applications, and the per-volunteer
+ * Volunteers on a project: the permission set an assignment gives, who may lead a team,
+ * what a team member may do with applications, and the per-volunteer
  * application limit.
  */
 

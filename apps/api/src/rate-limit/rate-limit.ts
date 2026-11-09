@@ -132,8 +132,8 @@ export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
     { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],
-  // The nationwide volunteer and beneficiary lists, their counts and profiles are heavy reads
-  //: a tighter budget per user, and one per address before it.
+  // The nationwide volunteer and beneficiary lists, their counts and profiles are heavy reads:
+  // a tighter budget per user, and one per address before it.
   list: [
     { limit: 600, ttlMs: MINUTE, key: (r) => `ip:${ip(r)}`, byIp: true, shared: true },
     { limit: 60, ttlMs: MINUTE, key: caller, shared: true },

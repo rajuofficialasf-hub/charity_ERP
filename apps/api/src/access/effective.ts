@@ -228,8 +228,8 @@ const overrideRow = z.object({
 
 /**
  * An assignment the volunteer works under: not ended, and the project's current rules accepted. A
- * rules change sets every acceptance back to pending, so an older acceptance never counts
- *. Without it the volunteer holds no permission on the project.
+ * rules change sets every acceptance back to pending, so an older acceptance never counts.
+ * Without it the volunteer holds no permission on the project.
  */
 export const WORKING_ASSIGNMENT = { endedAt: null, consentStatus: 'accepted' } as const;
 

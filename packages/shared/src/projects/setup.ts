@@ -20,8 +20,7 @@ export const FUND_SOURCES = ['zakat', 'sadaqah', 'general', 'donor'] as const;
 
 /**
  * The fund sources with their amounts, and the budget when it changes with them: once a project is
- * active its fund sources always add up to its planned budget, so both are saved together
- *.
+ * active its fund sources always add up to its planned budget, so both are saved together.
  */
 export const fundSourcesSchema = z.strictObject({
   costPerBeneficiary: money.optional(),
