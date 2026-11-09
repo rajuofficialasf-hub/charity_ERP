@@ -6,7 +6,13 @@ import type { Container } from './container';
 import { requestContext } from './core/request-context.middleware';
 import { healthRouter } from './health/routes';
 import { errorHandler, notFound } from './http/errors';
-import { corsAllowlist, requestLogging, securityHeaders, trustProxySetting } from './http/security';
+import {
+  corsAllowlist,
+  originCheck,
+  requestLogging,
+  securityHeaders,
+  trustProxySetting,
+} from './http/security';
 import type { RouteDeps } from './openapi/define-route';
 import { RouteRegistry } from './openapi/registry';
 import { createRateLimiters } from './rate-limit/limiters';
@@ -64,7 +70,7 @@ export interface BuiltApp {
 /**
  * Builds the Express app from its services without listening (server.ts listens; tests build it
  * the same way). The order matters (SYSTEM_ARCHITECTURE 6): client address → logging → request
- * context → security headers → CORS → JSON → health probes → /api/v1 routes → 404 → errors.
+ * context → security headers → CORS → the origin check of writes → JSON → health probes → /api/v1 routes → 404 → errors.
  */
 export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   const app = express();
@@ -73,6 +79,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   app.use(requestLogging(c.env, options.logStream));
   app.use(securityHeaders());
   app.use(corsAllowlist(c.env.ALLOWED_ORIGINS));
+  app.use(originCheck(c.env.APP_ORIGIN, c.env.ALLOWED_ORIGINS));
   // the offline batch alone may carry a megabyte of records (and its envelope), parsed by its own
   // route once the caller and the rate limit have passed; every other body is read here
   const generalJson = express.json({ limit: JSON_BODY_LIMIT });

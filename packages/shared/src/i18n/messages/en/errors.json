@@ -179,7 +179,8 @@
     "timed_out": "The export did not finish in time. Try again, with a narrower list if needed."
   },
   "client": {
-    "upgrade_required": "Update the app. Pending work is synced first."
+    "upgrade_required": "Update the app. Pending work is synced first.",
+    "origin_refused": "This request did not come from the app and was refused. Try again from the app."
   },
   "server": {
     "unavailable": "The server is not available now. Try again shortly.",

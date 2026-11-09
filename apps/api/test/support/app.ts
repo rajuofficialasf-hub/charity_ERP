@@ -9,6 +9,7 @@ import {
 } from '../../src/container';
 import type { RouteRegistry } from '../../src/openapi/registry';
 import { contractRecorder } from './contract';
+import { withAppOrigin } from './origin';
 import { testEnv } from './env';
 
 export interface TestApp {
@@ -42,7 +43,7 @@ export function buildTestApp(
   });
   // every JSON response is checked against the contract (test/support/contract.ts)
   return {
-    app: contractRecorder.wrap(app),
+    app: withAppOrigin(contractRecorder.wrap(app), env.APP_ORIGIN),
     registry,
     container,
     close: () => closeContainer(container),
