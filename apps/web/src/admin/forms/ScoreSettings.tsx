@@ -114,7 +114,6 @@ function Ranges({
             <IconButton
               label={t('score_range_remove')}
               icon="close"
-
               onClick={() => {
                 keys.remove(i);
                 onChange(ranges.filter((_, j) => j !== i));

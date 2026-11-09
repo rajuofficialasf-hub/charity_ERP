@@ -126,8 +126,7 @@ describe('loadEnv', () => {
   describe('the local example secrets in production', () => {
     // every secret value the two example files hand to a developer, read from the files themselves
     // so a new example value is checked as soon as it is written there
-    // Vitest runs from apps/api
-    const root = resolve(process.cwd(), '../..');
+    const root = resolve(__dirname, '../../../..');
     const fromEnvExample = Object.fromEntries(
       readFileSync(resolve(root, 'apps/api/.env.example'), 'utf8')
         .split('\n')
@@ -196,6 +195,28 @@ describe('loadEnv', () => {
         expect(refusal).not.toContain(value);
       },
     );
+
+    it('refuses the secrets of the test, E2E, OpenAPI and CI files too, and a database without a password', () => {
+      for (const value of [
+        'e2e-only-jwt-secret-0123456789abcdef0123',
+        'test-only-jwt-secret-0123456789abcdef0123',
+        'openapi-generation-only-jwt-secret-01234',
+      ])
+        expect(refusalOf({ ...production, JWT_SECRET: value })).toContain('JWT_SECRET');
+      expect(refusalOf({ ...production, MINIO_SECRET_KEY: 'css_ci_only_secret' })).toContain(
+        'MINIO_SECRET_KEY',
+      );
+      expect(
+        refusalOf({ ...production, DATABASE_URL: 'postgresql://css@db.example.org:5432/css_erp' }),
+      ).toContain('DATABASE_URL: needs a password in production');
+      // a broken escape in the password is still checked, on its raw text
+      expect(
+        refusalOf({
+          ...production,
+          DATABASE_URL: 'postgresql://css:css_dev_only%@db:5432/css_erp',
+        }),
+      ).toContain('DATABASE_URL: a local example value');
+    });
 
     it('starts with real values and keeps the examples in development', () => {
       expect(refusalOf(production)).toBe(scannerOnly);

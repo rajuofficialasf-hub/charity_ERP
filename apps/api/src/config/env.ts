@@ -154,8 +154,14 @@ const envSchema = z
         path: ['APP_ORIGIN'],
         message: 'must be an https origin in production (links sent by email)',
       });
-    // a secret copied from .env.example or the dev compose file is public in the repository, so
-    // production refuses it; the message names the key and never the value
+    // a secret copied from an example, test or CI file is public in the repository, so production
+    // refuses it; the message names the key and never the value
+    if (env.NODE_ENV === 'production' && !passwordOf(env.DATABASE_URL))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DATABASE_URL'],
+        message: 'needs a password in production',
+      });
     if (env.NODE_ENV === 'production')
       for (const key of LOCAL_SECRET_KEYS) {
         const value = key === 'DATABASE_URL' ? passwordOf(env.DATABASE_URL) : env[key];
@@ -222,18 +228,35 @@ const LOCAL_SECRET_KEYS = [
   'DATABASE_URL',
 ] as const;
 
-/** The examples of .env.example ("change-me…"), the dev compose file ("dev-only-…") and the dev database and MinIO ("css_dev_only…"). */
+/** The marks of the secrets the repository itself carries, which are therefore public. */
+const PUBLIC_SECRET_PREFIXES = [
+  'change-me', // .env.example
+  'dev-only-', // the dev compose file
+  'e2e-only-', // the E2E server
+  'test-only-', // the API tests
+  'openapi-generation-only-', // the OpenAPI generator
+];
+const PUBLIC_SECRET_PARTS = ['css_dev_only', 'css_ci_only']; // the dev and CI database and MinIO
+
 function isLocalExample(value: string): boolean {
   return (
-    value.startsWith('change-me') || value.startsWith('dev-only-') || value.includes('css_dev_only')
+    PUBLIC_SECRET_PREFIXES.some((prefix) => value.startsWith(prefix)) ||
+    PUBLIC_SECRET_PARTS.some((part) => value.includes(part))
   );
 }
 
+/** The password of a database URL, decoded; the raw text when it holds a broken escape. */
 function passwordOf(url: string): string | undefined {
+  let raw: string;
   try {
-    return decodeURIComponent(new URL(url).password) || undefined;
+    raw = new URL(url).password;
   } catch {
     return undefined;
+  }
+  try {
+    return decodeURIComponent(raw) || undefined;
+  } catch {
+    return raw || undefined;
   }
 }
 

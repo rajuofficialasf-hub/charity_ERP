@@ -123,7 +123,6 @@ export function BudgetSection({ sources }: { sources: FundSource[] }) {
             <IconButton
               label={t('remove_source', { number: String(i + 1) })}
               icon="delete"
-
               onClick={() => {
                 keys.remove(i);
                 setRows(rows.filter((_, j) => j !== i));

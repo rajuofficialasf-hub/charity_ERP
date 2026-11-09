@@ -814,6 +814,26 @@ describe('the points of the priority score', () => {
     expect(fieldOf(latest, 'members').settings?.score).toBeUndefined();
   });
 
+  it('keeps a half-typed bound with its own range when a range above it is removed', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(section('more', [field('members', 'number', { label: T('সদস্য', 'Members') })])),
+      { section: 'more', field: 'members' },
+    );
+    await user.click(await screen.findByRole('button', { name: /নম্বর/ }));
+    for (let n = 0; n < 3; n += 1)
+      await user.click(await screen.findByRole('button', { name: 'সীমা যোগ করুন' }));
+    const rows = screen.getByRole('list', { name: 'নম্বরের সীমা' });
+    // the third range's lower bound, still being typed: "7." is not a finished number yet
+    await user.type(within(rows).getAllByRole('textbox', { name: /থেকে/ })[2]!, '7.');
+    await user.click(within(rows).getAllByRole('button', { name: 'সীমাটি সরান' })[0]!);
+    const bounds = within(rows).getAllByRole('textbox', { name: /থেকে/ });
+    expect(bounds).toHaveLength(2);
+    // the typing stays in the range it belongs to, now the second
+    expect(bounds[1]).toHaveValue('7.');
+    expect(bounds[0]).toHaveValue('');
+  });
+
   it('offers no points on a text question', async () => {
     open(definition(section('more', [field('note', 'short_text', { label: T('নোট', 'Note') })])), {
       section: 'more',

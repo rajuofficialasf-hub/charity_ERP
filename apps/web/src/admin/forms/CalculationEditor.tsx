@@ -321,10 +321,13 @@ function MathPart({
 }) {
   const t = useTranslations('forms.builder');
   const rows = useRowKeys(expr.args.length);
-  // a part given as null is removed, and its key with it
+  // a part given as null is removed, and its key with it, only when the list really shrinks (the
+  // last part stays as a zero)
   const setArg = (i: number, next: Expr | null) => {
-    if (next === null) rows.remove(i);
-    onChange(withArg(expr, i, next));
+    const changed = withArg(expr, i, next);
+    if (typeof changed === 'object' && 'args' in changed && changed.args.length < expr.args.length)
+      rows.remove(i);
+    onChange(changed);
   };
   return (
     <div className="form-calc-group" role="group" aria-label={label}>

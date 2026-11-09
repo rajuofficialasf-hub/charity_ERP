@@ -1,9 +1,9 @@
-# CI for the CSS ERP on GitHub Actions (O-51; stages from TEST_STRATEGY section 6).
+# CI for the CSS ERP on GitHub Actions (stages from docs/testing/TEST_STRATEGY.md section 6).
 # Every pull request and every push to main or develop: install, lint, typecheck, document checks,
 # unit and API tests against PostgreSQL 17, build, dependency audit and secret scan. Pushes to main
 # and develop also run E2E: develop gets every merged change, main every release. A push to any
 # other branch runs nothing, so a branch with a pull request runs once per push
-# and the free monthly minutes of a private repository last (D-138).
+# and the free monthly minutes of a private repository last.
 # Nightly runs (full E2E on WebKit, visual regression) are added when those suites exist.
 
 name: CI
@@ -40,7 +40,7 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
-      # Email integration tests (O-58); same pinned image as infra/docker-compose.dev.yml.
+      # Email integration tests; same pinned image as infra/docker-compose.dev.yml.
       mailpit:
         image: axllent/mailpit@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
         ports:
@@ -49,9 +49,9 @@ jobs:
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://css:css_ci_only@127.0.0.1:5432/css_erp_test
-      # Integration tests clone per-file databases from a migrated template (O-46 item 1).
+      # Integration tests clone per-file databases from a migrated template.
       TEST_DATABASE_URL: postgresql://css:css_ci_only@127.0.0.1:5432/css_erp_test
-      # Storage integration tests against MinIO (O-58); CI-only placeholder credentials.
+      # Storage integration tests against MinIO; CI-only placeholder credentials.
       MINIO_TEST_ACCESS_KEY: css_ci_only
       MINIO_TEST_SECRET_KEY: css_ci_only_secret
     steps:
@@ -68,7 +68,7 @@ jobs:
       # API build need it. Generation needs no database.
       - run: pnpm --filter @css/api db:generate
       # MinIO needs a server command, which service containers cannot pass; same pinned image as
-      # infra/docker-compose.dev.yml (D-059 covers dev and test, not production).
+      # infra/docker-compose.dev.yml (the decision on these images covers dev and test, not production).
       - name: Start MinIO
         run: |
           docker run -d --name minio -p 9000:9000             -e MINIO_ROOT_USER=css_ci_only -e MINIO_ROOT_PASSWORD=css_ci_only_secret             chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf             server /data --address :9000
@@ -105,7 +105,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      # High and critical advisories fail the build (O-46 item 6).
+      # High and critical advisories fail the build.
       - run: pnpm audit --audit-level high
       - name: gitleaks
         run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f git /repo --redact --verbose
@@ -113,11 +113,11 @@ jobs:
   e2e:
     name: E2E (Playwright)
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    # A secret or an unaccepted advisory stops the pipeline before E2E (O-52).
+    # A secret or an unaccepted advisory stops the pipeline before E2E.
     needs: [checks, security]
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # The E2E API recreates css_erp_test_e2e here, migrates and seeds it (T1.7).
+    # The E2E API recreates css_erp_test_e2e here, migrates and seeds it.
     services:
       postgres:
         image: postgres:17@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
