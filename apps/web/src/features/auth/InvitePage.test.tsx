@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { apiError, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { InvitePage } from './InvitePage';
 
 // The set-password page of an official created by the admin (DECISION_LOG D-097, AUTH.md 2.2).

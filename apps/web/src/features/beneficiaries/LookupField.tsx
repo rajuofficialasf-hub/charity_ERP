@@ -15,7 +15,7 @@ import {
   type LookupResult,
 } from '../../admin/beneficiaries/beneficiaries-api';
 import { useLocationName } from '../../components/AddressNames';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { QuestionTitle } from '../forms/QuestionTitle';
 
 type NumberKind = 'nid' | 'birthReg';

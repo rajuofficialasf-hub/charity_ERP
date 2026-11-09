@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { ApiFailure } from './api';
+import { ApiFailure } from '../api/client';
 
 /**
  * Server data cache (RE-FX-02, RE-CMP-03): fresh for 30 seconds, no retry on a client error

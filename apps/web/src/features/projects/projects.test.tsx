@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp, TEST_SESSION_ID } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { afterSignIn } from '../../offline/keys';
 import { applySnapshot } from '../../offline/snapshot';
 import type { SnapshotView } from '../../offline/sync-api';

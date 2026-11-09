@@ -4,7 +4,7 @@ import {
   type ProjectStatus,
   type WorkflowKey,
 } from '@css/shared/projects';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 import { listQuery } from '../list-query';
 
 /** A project as an official sees it (GET /projects, GET /projects/{id}). */

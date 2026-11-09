@@ -8,7 +8,7 @@ import type {
   ScriptState,
 } from '@css/shared/media';
 import type { ReferenceItem } from '../../admin/settings/settings-api';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
 export interface MediaPerson {
   id: string;

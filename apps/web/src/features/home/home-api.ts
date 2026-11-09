@@ -1,5 +1,5 @@
 import type { AttentionItem } from '@css/shared';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 import type { InboxEntry } from '../notifications/notifications-api';
 
 export const ATTENTION_KEY = ['me', 'attention'] as const;

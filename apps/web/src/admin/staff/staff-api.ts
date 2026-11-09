@@ -5,7 +5,7 @@ import type {
   StaffProfileRequest,
   UserState,
 } from '@css/shared/auth';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
 /** An official as the user list returns it (GET /users; DECISION_LOG D-097). */
 export interface StaffMember {

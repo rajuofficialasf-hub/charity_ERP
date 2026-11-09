@@ -22,7 +22,7 @@ import { DocumentTitle } from '../../components/DocumentTitle';
 import { AnswerList } from '../../features/applications/AnswerList';
 import { stateLabel as labelOf, stateTone } from '../../features/applications/status';
 import { FormRenderer, type Submission } from '../../features/forms/FormRenderer';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canSeeApplications } from '../roles';

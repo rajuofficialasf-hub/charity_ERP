@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../../test/auth';
 import { server } from '../../../../test/msw/server';
-import { resetClientForTests } from '../../../lib/api';
+import { resetClientForTests } from '../../../api/client';
 import { ProjectVolunteersPage } from './ProjectVolunteersPage';
 
 // The volunteers of a project: the assignments with set, paid flag and consent; assigning several

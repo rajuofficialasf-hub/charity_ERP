@@ -12,7 +12,7 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 import type { PanelUser } from '../UserSearch';
 import { permissionCatalogue } from './EffectivePermissions';
 

@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { fillUnlock, type Unlock } from '../../features/applications/applications-api';
 import { AnswerValueText, UnlockedAnswer } from '../../features/applications/UnlockedAnswer';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { cancelUnlock, decideUnlock } from './applications-api';
 import { DecisionDialog } from './DecisionDialog';
 

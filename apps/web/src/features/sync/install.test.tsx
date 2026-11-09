@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME, refreshAs, renderInShell } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { MyWorkPage } from '../home/MyWorkPage';
 import { type InstallPromptEvent, resetInstallForTests, watchInstall } from './install';
 

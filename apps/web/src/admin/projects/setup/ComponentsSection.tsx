@@ -3,7 +3,7 @@ import { Alert, IconButton, LinkButton, Switch } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { ComponentDrawer } from './ComponentDrawer';
 import { type ProjectComponent, updateComponent } from './setup-api';
 import { SetupSection, useSetup } from './setup-context';

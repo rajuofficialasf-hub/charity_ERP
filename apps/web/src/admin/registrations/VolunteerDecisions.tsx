@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { VOLUNTEERS_KEY } from '../volunteers/volunteers-api';
 import { CorrectionDialog } from './CorrectionDialog';
 import { approve, detailKey, LIST_KEY, reject } from './registrations-api';

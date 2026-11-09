@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { VolunteerProfilePage } from './VolunteerProfilePage';
 
 // The official view of one volunteer (SCR-043; DECISION_LOG O-67, D-094): the sections, the parts

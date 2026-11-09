@@ -23,7 +23,8 @@ import {
   refreshSession,
   resetClientForTests,
   storeSettled,
-} from './api';
+  apiBase,
+} from './client';
 
 // The PWA's API client (API_STANDARDS 11, AUTH.md 5 and 8).
 beforeEach(() => {
@@ -44,6 +45,36 @@ const SESSION_A = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b01';
 const SESSION_B = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b02';
 /** A token shaped like the server's, carrying only the session claim. */
 const tokenOf = (sessionId: string) => `h.${btoa(JSON.stringify({ sid: sessionId }))}.s`;
+
+describe('the API address', () => {
+  it('is the backend of VITE_API_BASE_URL in dev and always the own origin in a production build', () => {
+    expect(apiBase({ DEV: true, VITE_API_BASE_URL: 'http://127.0.0.1:4000' })).toBe(
+      'http://127.0.0.1:4000/api/v1',
+    );
+    expect(apiBase({ DEV: true, VITE_API_BASE_URL: 'http://127.0.0.1:4000/' })).toBe(
+      'http://127.0.0.1:4000/api/v1',
+    );
+    expect(apiBase({ DEV: true })).toBe('/api/v1');
+    // {host} is the page's own host, so a phone on the office network calls the same computer
+    expect(apiBase({ DEV: true, VITE_API_BASE_URL: 'http://{host}:4000' }, '10.11.115.50')).toBe(
+      'http://10.11.115.50:4000/api/v1',
+    );
+    // a production build never sends its cookies to an address it was built with
+    expect(apiBase({ DEV: false, VITE_API_BASE_URL: 'https://other.example.org' })).toBe('/api/v1');
+  });
+
+  it('sends the cookies along on every call, as the API may sit on its own port', async () => {
+    let credentials: RequestCredentials | undefined;
+    server.use(
+      http.get('*/api/v1/public/settings', ({ request }) => {
+        credentials = request.credentials;
+        return HttpResponse.json({ data: {} });
+      }),
+    );
+    await api('/public/settings');
+    expect(credentials).toBe('include');
+  });
+});
 
 describe('API client', () => {
   it('logs in, keeps the token in memory and sends it with the language and version', async () => {

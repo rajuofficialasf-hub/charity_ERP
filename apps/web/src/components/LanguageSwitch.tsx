@@ -1,7 +1,7 @@
 import { LanguageSwitch as Switch } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { useLocaleSwitch } from '../i18n/LocaleProvider';
-import { api } from '../lib/api';
+import { api } from '../api/client';
 import { useAuth } from '../lib/auth';
 
 /**

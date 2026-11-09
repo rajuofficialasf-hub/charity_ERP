@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { apiError, ME, pair, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { LoginForm } from './LoginForm';
 
 // SCR-001 login (AUTH.md 4, 6; O-59).

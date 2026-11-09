@@ -1,6 +1,6 @@
 import type { MediaPriority, ReferralState } from '@css/shared/media';
 import type { Answer } from '@css/shared/forms';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 import { listQuery } from '../list-query';
 import { PAGE_SIZE, pageParams } from '../list-paging';
 import type {

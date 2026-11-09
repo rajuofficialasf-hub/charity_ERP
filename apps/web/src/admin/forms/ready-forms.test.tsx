@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { field, section, T } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { LibraryBuilderPage, ReadyFormBuilderPage } from './FormBuilderPage';
 import { readyKeyOf } from './NewReadyFormDialog';
 import { ReadyFormsPage } from './ReadyFormsPage';

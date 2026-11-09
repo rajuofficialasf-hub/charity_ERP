@@ -1,7 +1,7 @@
 import { Alert, Button, LinkButton } from '@/ui';
 import type { ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { ProjectFacts } from '../ProjectFacts';
 import { useMissingLabel } from './missing';
 import { SetupSection, useSetup } from './setup-context';

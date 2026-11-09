@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { FIELD_LABEL } from '../../features/account/profile-api';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { requestCorrections } from './registrations-api';
 
 /**

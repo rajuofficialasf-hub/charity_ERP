@@ -4,7 +4,7 @@ import type {
   BeneficiaryRow,
   BeneficiaryStatistics,
 } from '@css/shared/beneficiaries';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 import { listQuery } from '../list-query';
 import { PAGE_SIZE, pageParams } from '../list-paging';
 

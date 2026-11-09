@@ -5,7 +5,7 @@ import {
   type StaffEditField,
 } from '@css/shared/registration';
 import type { OwnStaffProfile, ProjectsWork } from '@css/shared/auth';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
 /** The own volunteer profile as GET /volunteers/me answers (DECISION_LOG D-081). */
 export interface OwnProfile {

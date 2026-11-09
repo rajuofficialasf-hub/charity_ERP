@@ -2,7 +2,7 @@ import { Alert, Button, LinkButton, Text, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { type FormEvent, useState } from 'react';
 import { PasswordRules } from '../../components/PasswordRules';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 
 type Step = 'start' | 'code' | 'done';
 

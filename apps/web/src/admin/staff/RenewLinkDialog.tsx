@@ -3,7 +3,7 @@ import { Alert, Button, Dialog, Text, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { renewLink, type StaffMember } from './staff-api';
 
 /**

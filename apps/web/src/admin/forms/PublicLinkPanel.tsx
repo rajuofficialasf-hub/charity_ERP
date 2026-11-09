@@ -1,7 +1,7 @@
 import { Alert, CopyButton, Stack, Switch, Text, TextField } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { components, setupKey } from '../projects/setup/setup-api';
 import { configurePublicLink } from './forms-api';
 import { LoadError } from '../../components/LoadError';

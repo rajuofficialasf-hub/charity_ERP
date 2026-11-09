@@ -15,7 +15,7 @@ vi.mock('../../lib/uploads', () => ({
 import { apiError, ME, refreshAs, renderApp } from '../../../test/auth';
 import { definition, field, section } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { uploadFile } from '../../lib/uploads';
 import { ApplicationDetailPage } from './ApplicationDetailPage';
 import { ApplicationFormPage } from './ApplicationFormPage';

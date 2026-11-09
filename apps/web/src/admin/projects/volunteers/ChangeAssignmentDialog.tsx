@@ -3,7 +3,7 @@ import { Alert, Button, Dialog, SelectField, Switch } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { type Assignment, changeAssignment } from './project-volunteers-api';
 
 /**

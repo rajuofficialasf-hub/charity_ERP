@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ME, pair } from '../../test/auth';
 import { server } from '../../test/msw/server';
-import { login, logout, refreshSession, resetClientForTests } from './api';
+import { login, logout, refreshSession, resetClientForTests } from '../api/client';
 import { AuthProvider } from './auth';
 import { createQueryClient } from './query-client';
 

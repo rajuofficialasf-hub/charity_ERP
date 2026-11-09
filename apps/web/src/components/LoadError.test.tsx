@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { refreshAs, renderApp } from '../../test/auth';
-import { ApiFailure, resetClientForTests } from '../lib/api';
+import { ApiFailure, resetClientForTests } from '../api/client';
 import { LoadError } from './LoadError';
 
 /** Sets what the browser says about its connection for one test. */

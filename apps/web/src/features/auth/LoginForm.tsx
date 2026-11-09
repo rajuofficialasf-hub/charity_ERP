@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocaleSwitch } from '../../i18n/LocaleProvider';
 import { type FormEvent, useEffect, useState } from 'react';
-import { ApiFailure, login } from '../../lib/api';
+import { ApiFailure, login } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 
 /** Text of a failed login (SCR-001 states): generic, lock time, retry time or the server message. */

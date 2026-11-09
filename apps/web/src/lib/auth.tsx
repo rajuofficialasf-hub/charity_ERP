@@ -12,7 +12,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { currentMe, onSessionChange, refreshSession, type SessionEnd } from './api';
+import { currentMe, onSessionChange, refreshSession, type SessionEnd } from '../api/client';
 
 export type AuthStatus = 'loading' | 'signed-in' | 'signed-out';
 

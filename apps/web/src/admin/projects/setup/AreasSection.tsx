@@ -8,7 +8,7 @@ import {
   AddressFields,
   EMPTY_ADDRESS,
 } from '../../../features/registration/AddressFields';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { type PanelUser, UserSearch } from '../../UserSearch';
 import { addArea, type Area, candidates, removeArea } from './setup-api';
 import { SaveRow, SetupSection, useSetup, useStepSave } from './setup-context';

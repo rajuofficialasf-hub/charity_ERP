@@ -3,7 +3,7 @@ import { Alert, Button, Dialog, RadioGroup, SelectField, TextField } from '@/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { saveAsTemplate, type Template, templates, TEMPLATES_KEY } from './templates-api';
 
 type Mode = 'new' | 'replace';

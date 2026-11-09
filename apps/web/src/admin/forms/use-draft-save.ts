@@ -1,7 +1,7 @@
 import type { FormDefinition } from '@css/shared/forms';
 import { useEffect, useRef, useState } from 'react';
 import { useBlocker } from 'react-router';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { type FormVersion, saveDraft } from './forms-api';
 
 /** How long the builder waits after the last change before it saves. */

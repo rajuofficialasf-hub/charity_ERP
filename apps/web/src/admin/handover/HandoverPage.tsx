@@ -16,7 +16,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canHandOver } from '../roles';

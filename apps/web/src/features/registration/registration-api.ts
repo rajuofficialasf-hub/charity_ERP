@@ -8,7 +8,7 @@ import {
   type RegistrationChannel,
   type RegistrationVerifyResult,
 } from '@css/shared/registration';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 import { orCached } from '../../lib/or-cached';
 
 /**

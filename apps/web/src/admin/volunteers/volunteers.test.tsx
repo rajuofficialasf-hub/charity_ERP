@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { VolunteersPage } from './VolunteersPage';
 import type { MessageKey } from '@css/shared/i18n';
 import { expectOnScreenColumns, serveExports } from '../../../test/msw/exports';

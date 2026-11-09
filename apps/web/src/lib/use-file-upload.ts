@@ -3,7 +3,7 @@ import { useTranslations } from 'use-intl';
 import { uuidv7 } from '@css/shared';
 import { maxSizeOf } from '@css/shared/files';
 import type { UploadItem } from '@/ui';
-import { ApiFailure } from './api';
+import { ApiFailure } from '../api/client';
 import { compressImage } from './compress';
 import { readPhotoMeta } from './photo-meta';
 import {

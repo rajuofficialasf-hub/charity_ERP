@@ -1,7 +1,7 @@
 import { Skeleton } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
-import { api, ApiFailure } from '../lib/api';
+import { api, ApiFailure } from '../api/client';
 import './file-image.css';
 
 /** The photo types the API stores and the thumbnails it makes; anything else is not shown. */

@@ -7,7 +7,7 @@ import { useTranslations } from 'use-intl';
 import { loadStore } from '../../features/applications/use-local-records';
 import { promptInstall, showHintAgain, useInstall } from '../../features/sync/install';
 import { LogoutWarning } from '../../features/sync/LogoutWarning';
-import { logout } from '../../lib/api';
+import { logout } from '../../api/client';
 import { canExport } from '../../admin/roles';
 import { useChooseLanguage } from '../LanguageSwitch';
 

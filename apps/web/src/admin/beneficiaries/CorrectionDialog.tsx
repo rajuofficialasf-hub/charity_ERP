@@ -3,7 +3,7 @@ import { Alert, Button, Dialog, SelectField, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { type BeneficiaryProfile, type LockedField, requestCorrection } from './beneficiaries-api';
 
 const FIELDS: LockedField[] = ['name', 'father_or_husband_name', 'nid', 'birth_reg'];

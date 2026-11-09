@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { definition, field, option, section, T } from '../../../test/forms';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import type { Selection } from './selection';
 import { SettingsPane } from './SettingsPane';
 

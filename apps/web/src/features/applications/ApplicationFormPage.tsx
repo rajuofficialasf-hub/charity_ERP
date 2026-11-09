@@ -13,7 +13,7 @@ import type { LookupResult } from '../../admin/beneficiaries/beneficiaries-api';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { failedOnTheWay, orCached } from '../../lib/or-cached';
 import { compressImage } from '../../lib/compress';
 import { readPhotoMeta } from '../../lib/photo-meta';

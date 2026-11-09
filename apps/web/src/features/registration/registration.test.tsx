@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { RegisterPage } from './RegisterPage';
 
 // SCR-002 registration on one page (UX-16, UX-18; AUTH.md 2, DECISION_LOG D-090; plan

@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import type { Project } from '../projects-api';
 
 /** What every setup section knows: the project, its version and what may change now. */

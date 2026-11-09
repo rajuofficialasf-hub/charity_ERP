@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { deviceInfo } from '../../lib/api';
+import { deviceInfo } from '../../api/client';
 
 /**
  * The installation of the app (docs/architecture/OFFLINE_SYNC.md, the iOS limits and the

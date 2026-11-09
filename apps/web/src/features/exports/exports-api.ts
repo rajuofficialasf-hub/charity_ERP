@@ -1,6 +1,6 @@
 import type { ExportFormat, ExportKind, ExportList, ExportRequest } from '@css/shared/exports';
 import type { Bilingual } from '@css/shared/i18n';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
 /** One column the dialog offers, as `GET /exports/columns` answers it. */
 export interface ExportColumnView {

@@ -2,7 +2,7 @@ import { PHOTO_MAX_BYTES } from '@css/shared/registration';
 import { FileUpload, type UploadItem } from '@/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { compressImage } from '../../lib/compress';
 
 const ACCEPT = ['image/jpeg', 'image/png'];

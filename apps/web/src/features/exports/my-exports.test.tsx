@@ -9,7 +9,7 @@ import { FILE_ID, job } from '../../../test/msw/exports';
 import { server } from '../../../test/msw/server';
 import { SignedIn } from '../../../test/signed-in';
 import { ProfileMenu } from '../../components/shell/ProfileMenu';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { MyExportsPage } from './MyExportsPage';
 import { RecordPdfButton } from './RecordPdfButton';
 

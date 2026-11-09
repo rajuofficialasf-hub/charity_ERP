@@ -10,7 +10,7 @@ import {
   RETRY_EXHAUSTED,
   retryExhausted,
 } from '@css/shared/sync';
-import { ApiFailure, deviceInfo } from '../lib/api';
+import { ApiFailure, deviceInfo } from '../api/client';
 import { uploadFile, type UploadOptions, type UploadTarget } from '../lib/uploads';
 import { open, seal } from './crypto';
 import { offlineDb, type PhotoRow } from './db';

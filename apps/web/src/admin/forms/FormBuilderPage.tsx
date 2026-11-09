@@ -19,7 +19,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { canBuildForms, canManagePublicLink, canPlaceForms } from '../roles';
 import {

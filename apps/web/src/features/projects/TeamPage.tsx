@@ -6,7 +6,7 @@ import { useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { addToTeam, removeFromTeam, team, type TeamMember } from './my-projects-api';
 import './projects.css';
 

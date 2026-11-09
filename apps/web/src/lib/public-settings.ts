@@ -1,6 +1,6 @@
 import type { Bilingual, Locale } from '@css/shared/i18n';
 import { useQuery } from '@tanstack/react-query';
-import { api } from './api';
+import { api } from '../api/client';
 
 /** What every visitor reads from the server (docs/DECISION_LOG.md, the admin and settings decision). */
 export interface PublicSettings {

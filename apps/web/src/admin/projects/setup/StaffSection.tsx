@@ -4,7 +4,7 @@ import { Alert, Button, Checkbox, Dialog, IconButton, SelectField, TextField } f
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { type PanelUser, UserSearch } from '../../UserSearch';
 import { addStaff, type Area, candidates, endStaff, type StaffAccess } from './setup-api';
 import { SaveRow, SetupSection, useSetup, useStepSave } from './setup-context';

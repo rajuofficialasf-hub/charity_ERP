@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PHOTO_BUDGET_BYTES } from '@css/shared/sync';
-import { deviceInfo } from '../../lib/api';
+import { deviceInfo } from '../../api/client';
 import { orCached } from '../../lib/or-cached';
 import type { OwnRecord, SyncInfo } from '../../offline/applications-store';
 import { application, type ApplicationSummary } from './applications-api';

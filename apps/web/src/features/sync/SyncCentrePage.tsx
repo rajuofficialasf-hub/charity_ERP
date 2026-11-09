@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { deviceInfo } from '../../lib/api';
+import { deviceInfo } from '../../api/client';
 import type { OverviewRecord } from '../../offline/applications-store';
 import { useOffline } from '../../offline/OfflineProvider';
 import { storeMessage } from '../applications/use-local-records';

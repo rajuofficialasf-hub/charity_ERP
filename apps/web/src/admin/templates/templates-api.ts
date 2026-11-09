@@ -1,5 +1,5 @@
 import type { TemplateSave, TemplateUpdate, WorkflowKey } from '@css/shared/projects';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 import { listQuery } from '../list-query';
 
 /** A master project template as GET /templates returns it. */

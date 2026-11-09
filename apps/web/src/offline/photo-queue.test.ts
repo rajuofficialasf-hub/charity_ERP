@@ -140,7 +140,7 @@ describe('the photo queue', () => {
     const { http, HttpResponse } = await import('msw');
     const { server } = await import('../../test/msw/server');
     const { apiError, ME, pair, sessionToken } = await import('../../test/auth');
-    const { login, resetClientForTests } = await import('../lib/api');
+    const { login, resetClientForTests } = await import('../api/client');
     const { uploadDue } = await import('./photo-queue');
     resetClientForTests();
     document.cookie = 'css_csrf=nonce.mac; path=/';

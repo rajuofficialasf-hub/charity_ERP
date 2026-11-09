@@ -5,7 +5,7 @@ import { Alert, Button, DescriptionList, Dialog, SelectField, Skeleton, Stack, T
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { lookupBeneficiary } from '../beneficiaries/beneficiaries-api';
 import { assignments, volunteersKey } from '../projects/volunteers/project-volunteers-api';
 import { type OfficeApplication, officeAct } from './applications-api';

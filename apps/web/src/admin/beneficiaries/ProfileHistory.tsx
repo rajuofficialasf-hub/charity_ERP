@@ -3,7 +3,7 @@ import { Button, Chip, ConfirmDialog, ProfileSection, Stack, Text } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ReasonDialog } from '../projects/ReasonDialog';
 import {

@@ -1,6 +1,6 @@
 import type { Consent, PermissionSet, RulesPart } from '@css/shared/projects';
 import type { VolunteerType } from '@css/shared/registration';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
 /** One of the caller's running projects (GET /me/projects). */
 export interface MyProject {

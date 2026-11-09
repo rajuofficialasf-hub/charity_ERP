@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { type Quota, quotas as loadQuotas } from '../projects/setup/setup-api';
 import { canDecideApplications } from '../roles';

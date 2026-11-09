@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME, refreshAs, renderInShell, TEST_SESSION_ID } from '../../../test/auth';
 import { definition, field, section } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { offlineDb } from '../../offline/db';
 import { afterSignIn } from '../../offline/keys';
 import { apply, applyResult, enqueue } from '../../offline/outbox';

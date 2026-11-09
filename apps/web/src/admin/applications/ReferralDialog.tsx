@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { referToMedia } from '../../features/media/media-api';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 
 /**
  * Sends an approved application to the Media Team, or a returned referral again: a priority, a

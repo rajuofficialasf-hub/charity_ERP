@@ -20,7 +20,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canAdministerSystem } from '../roles';

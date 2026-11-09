@@ -5,7 +5,7 @@ import { Alert, Button, DateField, Dialog, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { addNisab } from './nisab-api';
 
 const DAY = 86_400_000;

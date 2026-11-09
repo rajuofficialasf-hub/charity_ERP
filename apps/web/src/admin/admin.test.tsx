@@ -3,7 +3,7 @@ import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderInShell } from '../../test/auth';
-import { resetClientForTests } from '../lib/api';
+import { resetClientForTests } from '../api/client';
 import { AdminLayout } from './AdminLayout';
 import { stubScreen } from '../../test/match-media';
 

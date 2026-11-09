@@ -1,4 +1,4 @@
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 
 /** A failed write in the reader's words: the server's message, a stale version named as such. */
 export function failureOf(

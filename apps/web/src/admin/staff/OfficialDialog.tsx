@@ -11,7 +11,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { locations } from '../../features/registration/registration-api';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { PROGRAMS_KEY, programs } from '../programs/programs-api';
 import { roles } from '../registrations/registrations-api';
 import { type PanelUser, UserSearch } from '../UserSearch';

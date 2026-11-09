@@ -6,7 +6,7 @@ import { useTranslations } from 'use-intl';
 import { AuthShell } from '../../components/AuthShell';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { PasswordRules } from '../../components/PasswordRules';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 
 /**
  * The token of the link `/invite#<token>`: read from the fragment, which the browser never sends

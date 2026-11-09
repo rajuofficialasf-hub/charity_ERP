@@ -1,4 +1,4 @@
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 import { listQuery } from '../list-query';
 
 /** One entry of the audit log as GET /audit-log returns it (secret-looking keys already dropped). */

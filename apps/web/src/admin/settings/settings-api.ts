@@ -10,7 +10,7 @@ import type {
   ReferenceItemUpdate,
   SmsProviderSetting,
 } from '@css/shared/settings';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
 /** One key of GET /settings; `updatedAt` is null while the default is in force. */
 export interface SettingEntry<T = unknown> {

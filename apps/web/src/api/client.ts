@@ -1,6 +1,6 @@
 import type { Me, TokenPair } from '@css/shared/auth';
 import { fromBase64Url } from '../offline/crypto';
-import { wipeLocalData } from './wipe';
+import { wipeLocalData } from '../lib/wipe';
 
 /**
  * The PWA's API client (API_STANDARDS 3, 11; AUTH.md 5, 8). The access token lives only in
@@ -9,7 +9,23 @@ import { wipeLocalData } from './wipe';
  * through the Web Locks API where the browser has it.
  */
 export const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '0.0.0';
-const BASE = '/api/v1';
+/**
+ * Where the API is: in development the backend on its own port (`VITE_API_BASE_URL`), in every
+ * production build the site's own origin, whose server forwards /api/ to the backend. A production
+ * build ignores the variable, so it never sends its cookies to an address it was built with.
+ */
+export function apiBase(
+  env: { DEV: boolean; VITE_API_BASE_URL?: string },
+  host = globalThis.location?.hostname ?? '127.0.0.1',
+): string {
+  // "{host}" is the page's own host, so this computer and a phone on the office network each call
+  // the API of the computer they opened the app from
+  const origin = env.DEV
+    ? (env.VITE_API_BASE_URL ?? '').replace('{host}', host).replace(/\/+$/, '')
+    : '';
+  return `${origin}/api/v1`;
+}
+const BASE = apiBase(import.meta.env);
 
 export interface ApiErrorDetail {
   path?: string;
@@ -275,7 +291,7 @@ async function finishLogout(
   const { data } = (await res.json()) as { data: TokenPair };
   const done = await fetch(`${BASE}/auth/logout`, {
     method: 'POST',
-    credentials: 'same-origin',
+    credentials: 'include',
     headers: {
       Authorization: `Bearer ${data.accessToken}`,
       'Content-Type': 'application/json',
@@ -294,7 +310,7 @@ async function refreshOnce(): Promise<TokenPair | null> {
   const attempt = () =>
     fetch(`${BASE}/auth/refresh`, {
       method: 'POST',
-      credentials: 'same-origin',
+      credentials: 'include',
       headers: {
         'X-CSRF-Token': readCookie('css_csrf') ?? '',
         'X-Client-Version': APP_VERSION,
@@ -384,7 +400,7 @@ export async function api<T>(path: string, options: RequestOptions = {}, retry =
   if (retry && state.me && !state.accessToken) await refreshSession().catch(() => undefined);
   const res = await fetch(`${BASE}${path}`, {
     method: options.method ?? 'GET',
-    credentials: 'same-origin',
+    credentials: 'include',
     headers: {
       'Accept-Language': language(),
       'X-Client-Version': APP_VERSION,

@@ -8,7 +8,7 @@ import { useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { TopBar } from '../../components/TopBar';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { compressImage } from '../../lib/compress';
 import { LoadError } from '../../components/LoadError';
 import { FormRenderer, type Submission } from './FormRenderer';

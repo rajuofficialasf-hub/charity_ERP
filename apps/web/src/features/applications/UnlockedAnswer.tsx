@@ -5,7 +5,7 @@ import { Alert, Button, Stack, Text } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { FieldInput } from '../forms/FieldInput';
 import { answerText } from './AnswerList';
 import type { Unlock } from './applications-api';

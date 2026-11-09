@@ -1,5 +1,5 @@
 import type { CorrectionField } from '@css/shared/registration';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 import type { ChangeRequest } from '../../features/account/profile-api';
 
 /** A row of GET /registrations (pending volunteers in scope, staff for staff approvers). */

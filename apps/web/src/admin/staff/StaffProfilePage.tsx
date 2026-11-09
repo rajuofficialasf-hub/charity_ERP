@@ -21,7 +21,7 @@ import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { mailLink, telLink } from '../contact-links';

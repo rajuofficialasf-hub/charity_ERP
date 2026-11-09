@@ -2,7 +2,7 @@ import { Alert, Button, Checkbox, Text, TextField } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { isContact, isPhoto } from './ChangeRequests';
 import { labelKey, type ProfileField, RequestBadge, Value } from './ProfileDetails';
 import {

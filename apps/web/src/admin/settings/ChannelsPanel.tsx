@@ -14,7 +14,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { type Channels, CHANNELS_KEY, channels, setSms } from './settings-api';
 import { LoadError } from '../../components/LoadError';
 

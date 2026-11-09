@@ -23,7 +23,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { addItem, listKey, type ReferenceItem, referenceItems, updateItem } from './settings-api';
 import { LoadError } from '../../components/LoadError';
 

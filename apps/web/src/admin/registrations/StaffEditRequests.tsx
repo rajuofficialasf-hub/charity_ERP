@@ -15,7 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { FileImage } from '../../components/FileImage';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import {
   decideStaffEdit,

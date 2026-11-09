@@ -13,7 +13,7 @@ import { useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { Corrections } from './ChangeRequests';
 import { EditSection } from './EditSection';

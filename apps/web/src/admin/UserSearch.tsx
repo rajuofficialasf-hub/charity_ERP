@@ -2,7 +2,7 @@ import { Combobox } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { api } from '../lib/api';
+import { api } from '../api/client';
 
 /** A user as the user list returns it (GET /users). */
 export interface PanelUser {

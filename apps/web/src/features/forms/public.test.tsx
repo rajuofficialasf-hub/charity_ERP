@@ -7,7 +7,7 @@ import { apiError, ME, refreshAs, renderApp } from '../../../test/auth';
 import { coreSections, field, section, T } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
 import { PublicLinkPanel } from '../../admin/forms/PublicLinkPanel';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { PublicApplyPage } from './PublicApplyPage';
 import { stubMatchMedia } from '../../../test/match-media';
 

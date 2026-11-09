@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 
 const PLATFORMS = ['android', 'ios', 'desktop', 'other'] as const;
 const SESSIONS_KEY = ['sessions'] as const;

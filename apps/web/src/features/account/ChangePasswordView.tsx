@@ -7,7 +7,7 @@ import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { PasswordRules } from '../../components/PasswordRules';
 import { PERMISSION_PANEL_ROLES } from '../../admin/roles';
-import { api, ApiFailure, refreshSession } from '../../lib/api';
+import { api, ApiFailure, refreshSession } from '../../api/client';
 
 /**
  * Change own password (docs/architecture/AUTH.md, the password change): the other devices are

@@ -1,4 +1,4 @@
-import { ApiFailure } from './api';
+import { ApiFailure } from '../api/client';
 
 /**
  * Whether a failed call never reached a working server: the network, a timeout, a busy or a

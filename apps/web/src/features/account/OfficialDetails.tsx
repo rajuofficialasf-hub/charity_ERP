@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useFileDataUrl } from '../../components/FileImage';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { locations } from '../registration/registration-api';
 import { isContact, RequestState } from './ChangeRequests';
 import { RequestBadge } from './ProfileDetails';

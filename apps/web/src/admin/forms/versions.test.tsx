@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { apiError, ME, refreshAs, renderApp } from '../../../test/auth';
 import { coreSections, field, section, T } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { FormBuilderPage } from './FormBuilderPage';
 
 // The preview of the draft, the versions with their change summaries, publishing and the next

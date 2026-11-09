@@ -1,7 +1,7 @@
 import { Alert, ConfirmDialog } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { ReasonDialog } from '../../projects/ReasonDialog';
 import { executeMerge, mergeDirect, type MergeView, proposeMerge } from './merge-api';
 

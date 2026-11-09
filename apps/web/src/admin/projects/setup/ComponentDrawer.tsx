@@ -13,7 +13,7 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { type ProjectComponent, updateComponent } from './setup-api';
 import { useSetup } from './setup-context';
 

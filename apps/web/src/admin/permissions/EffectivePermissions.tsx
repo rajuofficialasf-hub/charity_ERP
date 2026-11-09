@@ -12,7 +12,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 import type { PanelUser } from '../UserSearch';
 import { GrantDialog } from './GrantDialog';
 import { RevokeDialog } from './RevokeDialog';

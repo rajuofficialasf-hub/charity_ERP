@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { canExport, canPrintProfile } from '../../admin/roles';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ExportProgress } from './ExportProgress';
 import { EXPORTS_KEY, startRecordPdf } from './exports-api';

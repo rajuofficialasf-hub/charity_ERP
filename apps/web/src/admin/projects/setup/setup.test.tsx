@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../../test/auth';
 import { server } from '../../../../test/msw/server';
-import { resetClientForTests } from '../../../lib/api';
+import { resetClientForTests } from '../../../api/client';
 import { ProjectSetupPage } from './ProjectSetupPage';
 import { stubMatchMedia } from '../../../../test/match-media';
 

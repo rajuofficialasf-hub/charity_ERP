@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { BeneficiariesPage } from './BeneficiariesPage';
 import { BeneficiaryProfilePage } from './BeneficiaryProfilePage';
 import type { MessageKey } from '@css/shared/i18n';

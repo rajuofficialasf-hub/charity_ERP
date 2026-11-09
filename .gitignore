@@ -9,6 +9,8 @@ test-results/
 .env
 .env.*
 !.env.example
+# the web dev server's API address, no secret
+!apps/web/.env.development
 *.log
 .DS_Store
 Thumbs.db

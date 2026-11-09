@@ -3,7 +3,7 @@ import { Alert, Button, Dialog, RadioGroup, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { FORMS_KEY, placeForm, READY_KEY, readyForms } from './forms-api';
 
 /**

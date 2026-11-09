@@ -6,7 +6,7 @@ import { refreshAs } from '../../test/auth';
 import { AppProviders } from '../components/AppProviders';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { AuthProvider } from '../lib/auth';
-import { resetClientForTests } from '../lib/api';
+import { resetClientForTests } from '../api/client';
 import { createQueryClient } from '../lib/query-client';
 import { routes } from './index';
 

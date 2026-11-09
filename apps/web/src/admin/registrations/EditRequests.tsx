@@ -10,7 +10,7 @@ import {
   SkillsText,
 } from '../../features/account/DetailValues';
 import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { type AddressIds, AddressNames } from '../../components/AddressNames';
 import { FileImage } from '../../components/FileImage';
 import { decideEdit, EDITS_KEY, type EditRequestRow, editRequests } from './registrations-api';
