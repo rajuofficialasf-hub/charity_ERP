@@ -15,8 +15,7 @@ import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
 
 // Volunteers assigned to a project by the RPM of their area, with a permission set and a paid flag;
-// an executive assigns only with the RPM's grant (plan
-// docs/plans/2026-10-17-0905-feat-templates-consent-assignment-plan.md).
+// an executive assigns only with the RPM's grant.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 let otherDistrict: string;

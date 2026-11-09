@@ -7,7 +7,7 @@ import { REPO_ROOT } from '../util';
 /**
  * Roles and permissions from docs/security/permissions.yaml, the single source of truth (RBAC.md),
  * validated by the access module's parser. Default grants, scopes and conditions stay in the YAML;
- * the access module reads them at run time (T1.8). Rows that are no longer in the YAML are
+ * the access module reads them at run time. Rows that are no longer in the YAML are
  * reported, never deleted.
  */
 export type { PermissionsFile };

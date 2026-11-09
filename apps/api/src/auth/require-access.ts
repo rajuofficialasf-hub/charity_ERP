@@ -29,10 +29,9 @@ export type AccessRule = Pick<
 
 /**
  * Authentication and authorization of every route (SYSTEM_ARCHITECTURE 6, SECURITY_POLICY 5,
- * AUTH.md 5, 7, 9; NE-SEC-03). Default deny: `defineRoute` refuses a route without a declared
- * permission, and only `public` passes without a bearer token. In order: bearer token → device
- * session not revoked → permission version current → account state → password change due →
- * permission (the effective
+ * AUTH.md 5, 7, 9). Default deny: `defineRoute` refuses a route without a declared permission, and
+ * only `public` passes without a bearer token. In order: bearer token → device session not revoked
+ * → permission version current → account state → password change due → permission (the effective
  * grants of RBAC.md 1, docs/security/RBAC.md 8) → the scope handle of the route's entity. Fills
  * `req.principal`, `req.scope` and the request context so logs and audit entries carry the actor.
  * Runs before the rate limiters, so the per-user and per-session windows see the caller.
@@ -59,7 +58,7 @@ export function requireAccess(deps: AccessDeps): (rule: AccessRule) => RequestHa
         if (facts.state === 'blocked') throw new ApiError('auth.account_blocked', 403);
         if (facts.state === 'pending' && !rule.allowPending)
           throw new ApiError('auth.account_pending', 403);
-        // an account that must choose a new password reaches only the operations for that (DECISION_LOG O-66)
+        // an account that must choose a new password reaches only the operations for that
         if (facts.passwordChangeRequired && !rule.allowPasswordChange)
           throw new ApiError('auth.password_change_required', 403);
 
@@ -86,7 +85,7 @@ export function requireAccess(deps: AccessDeps): (rule: AccessRule) => RequestHa
           deps.access.denied(facts.userId, rule.permission, rule.scope);
           throw new ApiError('permission.denied', 403);
         }
-        // `entity` (file routes): the service decides from the file's linked record (D-087).
+        // `entity` (file routes): the service decides from the file's linked record.
         const scope = await deps.access.scopeFor(
           req.principal,
           access,

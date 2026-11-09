@@ -26,13 +26,11 @@ export interface HandoverAssign {
 }
 
 /**
- * The staff handover (BD-08, BR-034; plan
- * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R13, R14): the
- * Department Head or the Monitoring Team sees an official's pending work by category, reassigns
- * items one by one or all at once to an active official of a fitting role, and completes the
- * handover when nothing is left. The first assignment starts the handover (the "to be
- * deactivated" mark); completion does not deactivate, the account-state change does (and needs
- * the completed handover).
+ * The staff handover: the Department Head or the Monitoring Team sees an official's pending work by
+ * category, reassigns items one by one or all at once to an active official of a fitting role, and
+ * completes the handover when nothing is left. The first assignment starts the handover (the "to be
+ * deactivated" mark); completion does not deactivate, the account-state change does (and needs the
+ * completed handover).
  */
 export class HandoverService {
   constructor(

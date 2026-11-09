@@ -18,7 +18,7 @@ export function meRouter(
     status: 204,
     operationId: 'auth.me.language.set',
     tag: 'auth',
-    summary: 'Set own interface language (users.language, I18N 2, O-56)',
+    summary: 'Set own interface language (users.language, I18N 2)',
     permission: 'authenticated',
     scope: 'self',
     allowPending: true,

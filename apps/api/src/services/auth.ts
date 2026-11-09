@@ -68,8 +68,7 @@ export class AuthService {
   ) {}
 
   /**
-   * Account for a login id: staff by job ID, email or mobile, volunteers by mobile (AUTH.md 1,
-   * DECISION_LOG D-097).
+   * Account for a login id: staff by job ID, email or mobile, volunteers by mobile (AUTH.md 1).
    */
   private findAccount(raw: string) {
     const id = normalizeLoginId(raw);
@@ -455,7 +454,7 @@ export class AuthService {
 
   /**
    * A reset needs an account that is not deactivated and has a password: an official the admin
-   * created sets the first password through the link (D-097).
+   * created sets the first password through the link.
    */
   private resettable<T extends { state: string; passwordHash: string | null }>(
     user: T | null,
@@ -554,7 +553,7 @@ export class AuthService {
     });
   }
 
-  /** Stores the own interface language (I18N 2, O-56) with its audit entry. */
+  /** Stores the own interface language (I18N 2) with its audit entry. */
   async setLanguage(principal: Principal, language: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const before = await tx.user.findUniqueOrThrow({

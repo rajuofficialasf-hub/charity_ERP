@@ -34,7 +34,7 @@ const PERMISSION_CHANGE = {
   ended: 'common.notification.permission_ended',
 } as const satisfies Record<string, MessageKey>;
 
-/** Lockouts in one Dhaka day that send the Monitoring Team an email (O-25). */
+/** Lockouts in one Dhaka day that send the Monitoring Team an email. */
 export const LOCKOUT_ALERT_PER_DAY = 10;
 
 /**

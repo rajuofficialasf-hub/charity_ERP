@@ -20,7 +20,7 @@ const perms = (file: Record<string, unknown>) => file.permissions as Perm[];
 describe('access registry', () => {
   it('loads the real permissions.yaml with its roles, permissions, sets and field classes', () => {
     const registry = loadAccessRegistry(DEFAULT_PERMISSIONS_FILE);
-    // the Implementer is retired (D-162)
+    // the Implementer is retired
     expect(registry.roles.size).toBe(16);
     expect(registry.roles.has('implementer')).toBe(false);
     expect(registry.permissions.size).toBe(157);

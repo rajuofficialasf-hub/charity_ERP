@@ -10,7 +10,7 @@ export { readWorkflowTemplates };
  * Workflow definitions from docs/architecture/workflow-templates/ (WORKFLOW_ENGINE §12): each
  * template merged with its extends chain and validated, stored in workflow_definitions, and its
  * transitions derived into workflow_transitions for querying. A template change needs a new
- * version: workflow_transitions is append-only (D-060), so a changed row of the same version fails.
+ * version: workflow_transitions is append-only, so a changed row of the same version fails.
  */
 interface TransitionRow {
   scope: 'application' | 'stage' | 'project' | 'donor_flow' | 'field_unlock';

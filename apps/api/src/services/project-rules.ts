@@ -72,7 +72,7 @@ export async function writeRulesVersion(
 }
 
 /**
- * The four rules texts of a project (BR-039; DECISION_LOG D-096). Every saved change is a new
+ * The four rules texts of a project. Every saved change is a new
  * version kept in `project_rules_versions`, and in the same transaction every acceptance of the
  * project, by assigned volunteers and team members alike, goes back to pending: nobody works under
  * rules they have not read. Once a project has been active it keeps every text its volunteers must

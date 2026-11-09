@@ -4,7 +4,7 @@ import type { Env } from '../config/env';
 import type { Clock } from '../core/clock';
 import { ApiError } from '../i18n/api-error';
 
-/** Access-token lifetime (O-05). */
+/** Access-token lifetime. */
 export const ACCESS_TOKEN_SECONDS = 15 * 60;
 
 /** Claims of an access token (AUTH.md 5): no permissions, scopes or personal data. */
@@ -33,7 +33,7 @@ export function hashRefreshToken(token: string): string {
 }
 
 /**
- * Access tokens (JWT HS256 with a key id, D-070), opaque refresh tokens and the signed
+ * Access tokens (JWT HS256 with a key id), opaque refresh tokens and the signed
  * double-submit CSRF token of the refresh endpoint.
  */
 export class TokenService {
@@ -93,14 +93,14 @@ export class TokenService {
   }
 
   /**
-   * A new refresh token: the session id, a dot and 256 random bits (D-070). The id lets the rate
+   * A new refresh token: the session id, a dot and 256 random bits. The id lets the rate
    * limiter count refreshes per session; only the random part makes the token unguessable.
    */
   newRefreshToken(sessionId: string): string {
     return `${sessionId}.${randomBytes(32).toString('base64url')}`;
   }
 
-  /** CSRF token bound to a device session: `nonce.HMAC(secret, sid|nonce)` (D-070). */
+  /** CSRF token bound to a device session: `nonce.HMAC(secret, sid|nonce)`. */
   csrfToken(sessionId: string): string {
     const nonce = randomBytes(16).toString('base64url');
     return `${nonce}.${this.csrfMac(sessionId, nonce)}`;

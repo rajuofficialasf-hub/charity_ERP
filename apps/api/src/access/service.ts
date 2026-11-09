@@ -39,9 +39,9 @@ export interface RequestAccess extends EffectiveAccess {
 }
 
 /**
- * The access decisions of a request (RBAC.md 8, NE-SEC-03): the caller's effective access, the
+ * The access decisions of a request (RBAC.md 8): the caller's effective access, the
  * scope of the route's permission for its entity, and the scoped data access of the entities that
- * exist so far. Every refusal is logged as a `permission_denied` event (NE-LOG-03).
+ * exist so far. Every refusal is logged as a `permission_denied` event.
  */
 export class AccessService {
   constructor(
@@ -89,8 +89,8 @@ export class AccessService {
   }
 
   /**
-   * The caller's scope for a second, narrower permission than the route's (the protected details
-   * of a nationwide list, DECISION_LOG D-094), or null when the caller does not hold it at all.
+   * The caller's scope for a second, narrower permission than the route's (the protected details of
+   * a nationwide list), or null when the caller does not hold it at all.
    */
   async sensitiveScope(
     principal: Principal,

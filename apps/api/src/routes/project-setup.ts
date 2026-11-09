@@ -82,7 +82,7 @@ const viewerOf = (req: AuthedRequest) => ({ principal: principalOf(req), scope: 
 const projectParams = { projectId: uuid };
 
 /**
- * The parts of a project's setup saved on their own (openapi tag projects; DECISION_LOG D-095):
+ * The parts of a project's setup saved on their own (openapi tag projects):
  * components, fund sources, areas, staff access, the dawah syllabus and the rules texts.
  */
 export function projectSetupRouter(

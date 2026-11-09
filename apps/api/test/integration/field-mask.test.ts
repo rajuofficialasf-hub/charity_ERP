@@ -7,8 +7,7 @@ import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
 import { seedAccessCatalogue } from './support/access-fixtures';
 import { account, type AuthHarness, authHarness, bearer, login } from './support/auth-app';
 
-// The field mask on real responses (RBAC.md 6, BR-183; plan
-// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U4). Test values only.
+// The field mask on real responses (RBAC.md 6). Test values only.
 const volunteerResponse = z.object({
   data: z.object({
     id: z.string(),

@@ -16,7 +16,7 @@ export const newContacts = () => ({
 });
 
 /**
- * Starts a draft and verifies the given contacts one channel at a time (D-090); returns the draft
+ * Starts a draft and verifies the given contacts one channel at a time; returns the draft
  * id and the answer of the last verify (200 with the token, or the refusal).
  */
 export async function verifyContacts(
@@ -29,7 +29,7 @@ export async function verifyContacts(
     .send({ kind: 'volunteer' });
   if (started.status !== 201) throw new Error(`start failed: ${started.status}`);
   const registrationId = started.body.data.registrationId as string;
-  // officials no longer start a draft (D-097): a staff draft is one left open from before
+  // officials no longer start a draft: a staff draft is one left open from before
   if (kind === 'staff')
     await h.db.query(`UPDATE registration_drafts SET kind = 'staff' WHERE id = $1`, [
       registrationId,
@@ -60,7 +60,7 @@ export async function verifiedDraft(h: AuthHarness, kind: 'volunteer' | 'staff' 
 }
 
 /**
- * A staff registration submitted before officials stopped registering themselves (D-097): a
+ * A staff registration submitted before officials stopped registering themselves: a
  * pending official with the test password and no set-password link, as the submit wrote it.
  */
 export async function pendingStaffRegistration(h: AuthHarness) {

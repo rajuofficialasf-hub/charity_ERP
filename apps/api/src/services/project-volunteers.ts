@@ -76,7 +76,7 @@ const inAreas = (areas: string[]): Prisma.VolunteerWhereInput => ({
 });
 
 /**
- * Volunteers on a project (BR-037, BR-038; DECISION_LOG D-096): an RPM assigns the approved, not
+ * Volunteers on a project: an RPM assigns the approved, not
  * blocked volunteers living in their own areas of the project, several at once, each with a
  * permission set meant for the volunteer's type and a paid flag; an executive does the same only
  * with the RPM's grant, in the area of their access; the global roles work in every area. Changing

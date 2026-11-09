@@ -10,7 +10,7 @@ import {
   PASSWORD,
 } from './support/auth-app';
 
-// Password change and reset with the dummy OTP (AUTH.md 2, 3; BD-44, BD-49; O-05, O-25, D-071).
+// Password change and reset with the dummy OTP (AUTH.md 2, 3).
 // The test configuration sets OTP_DUMMY_CODE=246810.
 const CODE = '246810';
 let h: AuthHarness;
@@ -91,7 +91,7 @@ describe('POST /auth/password/change', () => {
       .expect(204);
   });
 
-  it('asks 12 characters of GLOBAL-scope officials (O-25)', async () => {
+  it('asks 12 characters of GLOBAL-scope officials', async () => {
     const head = await account(h.db, { role: 'monitoring_team' });
     const s = await login(h, head);
     const res = await post('/auth/password/change')
@@ -145,7 +145,7 @@ describe('password reset with the OTP', () => {
     );
   });
 
-  it('counts wrong codes and stops at the fifth (O-25)', async () => {
+  it('counts wrong codes and stops at the fifth', async () => {
     const staff = await account(h.db);
     await post('/auth/password/reset/start').send({ loginId: staff.email }).expect(204);
     for (let i = 1; i <= 4; i++) {

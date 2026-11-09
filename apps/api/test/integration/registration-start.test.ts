@@ -9,10 +9,9 @@ import type { StorageDriver } from '../../src/storage';
 import { account, authHarness, type AuthHarness } from './support/auth-app';
 import * as f from './support/fixtures';
 
-// Registration start and the per-channel codes (AUTH.md 2; DECISION_LOG
-// D-082, D-086, D-088, D-090; plans docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md,
-// U4, and docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md, U3). The dummy OTP of the
-// test configuration is 246810.
+// Registration start and the per-channel codes (AUTH.md 2, and
+// docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md). The dummy OTP of the test
+// configuration is 246810.
 const CODE = '246810';
 const TOKEN_HEADER = 'X-Registration-Token';
 const logLines: string[] = [];
@@ -39,7 +38,7 @@ const api = () => request(h.server());
 type Channel = 'sms' | 'email';
 
 /**
- * Starts a draft. Officials no longer start one (D-097), so a staff draft is one left open from
+ * Starts a draft. Officials no longer start one, so a staff draft is one left open from
  * before: a volunteer draft turned into a staff draft in the database.
  */
 async function start(kind: 'volunteer' | 'staff' = 'volunteer') {
@@ -107,7 +106,7 @@ describe('POST /auth/register/start', () => {
     expect((await h.db.query('SELECT 1 FROM notifications')).rowCount).toBe(0);
   });
 
-  it('refuses a staff draft: the admin creates officials (D-097)', async () => {
+  it('refuses a staff draft: the admin creates officials', async () => {
     const res = await api().post('/api/v1/auth/register/start').send({ kind: 'staff' });
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe('registration.staff_by_invitation');
@@ -361,7 +360,7 @@ describe('POST /auth/register/otp/verify', () => {
   });
 });
 
-describe('the reference lookup of the team member registration is gone (O-64, D-091)', () => {
+describe('the reference lookup of the team member registration is gone', () => {
   it('answers 404 even with a valid draft token', async () => {
     const r = await verified();
     const res = await api()

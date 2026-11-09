@@ -36,7 +36,7 @@ async function probe(check: () => Promise<boolean>): Promise<CheckResult> {
 }
 
 /**
- * Readiness (SYSTEM_ARCHITECTURE 10, D-057): database, object storage and the job queue. The
+ * Readiness (SYSTEM_ARCHITECTURE 10): database, object storage and the job queue. The
  * per-check detail is shown only to a caller with the HEALTH_TOKEN bearer token.
  */
 export class HealthService {

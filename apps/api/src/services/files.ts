@@ -647,7 +647,7 @@ export class FilesService {
     if (principal.userId === ownerId) return true;
     const access = await this.access.load(principal.userId);
     if (kind === 'nid_photo') {
-      // an identity document follows the per-record rule of the profile (DECISION_LOG D-094): the
+      // an identity document follows the per-record rule of the profile: the
       // class and a `volunteer.view_sensitive` scope that reaches this volunteer
       if (!access.fieldClasses.has('volunteer.identity')) return false;
       const scope = await this.access.sensitiveScope(

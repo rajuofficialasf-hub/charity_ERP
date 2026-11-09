@@ -30,10 +30,10 @@ import { registrationDetailsColumns } from './volunteer-details';
 import type { AccountEvents } from '../notifications/account-events';
 
 type Draft = NonNullable<Awaited<ReturnType<PrismaService['registrationDraft']['findUnique']>>>;
-/** A draft with its token: both contacts are set and verified (CHECKs of D-090). */
+/** A draft with its token: both contacts are set and verified (the table's CHECKs). */
 type VerifiedDraft = Draft & { mobile: string; email: string };
 
-/** An address in the audit: enough to tell two sends apart, not enough to read it (D-090). */
+/** An address in the audit: enough to tell two sends apart, not enough to read it. */
 function maskAddress(address: string): string {
   const at = address.indexOf('@');
   if (at > 0) return `${address[0]}•••${address.slice(at)}`;
@@ -55,7 +55,7 @@ function onField(error: unknown, path: string): unknown {
 }
 
 /**
- * Registration before login (AUTH.md 2; DECISION_LOG D-082, D-086, D-088): a draft between start
+ * Registration before login (AUTH.md 2): a draft between start
  * and submit, the two codes, the draft token and the team member's reference lookup.
  */
 export class RegistrationService {
@@ -82,9 +82,9 @@ export class RegistrationService {
       .then(() => undefined);
   }
 
-  /** Starts a draft of the kind; nothing is sent, each contact comes with its own code (D-090). */
+  /** Starts a draft of the kind; nothing is sent, each contact comes with its own code. */
   async start(body: RegistrationStartRequest): Promise<RegistrationStart> {
-    // officials no longer register themselves: the admin creates the account (D-097)
+    // officials no longer register themselves: the admin creates the account
     if (body.kind === 'staff') throw new ApiError('registration.staff_by_invitation', 422);
     const id = uuidv7();
     await this.prisma.$transaction(async (tx) => {
@@ -102,12 +102,12 @@ export class RegistrationService {
   }
 
   /**
-   * Sends a code to one contact of the draft (D-090). The address replaces the channel's earlier
+   * Sends a code to one contact of the draft. The address replaces the channel's earlier
    * one, and a changed address clears that channel's verification; a verified channel with the
    * same address and a draft that holds its token are refused (409). The send is counted on the
    * draft first (6 in its lifetime, across channels and address changes), then per address by
    * the OTP service (5 per hour); a code that is not sent changes nothing on the draft. The answer
-   * is the same whether or not the address belongs to an account (D-086).
+   * is the same whether or not the address belongs to an account.
    */
   async send(body: OtpSendRequest, locale: Locale): Promise<void> {
     const draft = await this.openDraft(body.registrationId);
@@ -158,11 +158,11 @@ export class RegistrationService {
   }
 
   /**
-   * Verifies the code of one channel (D-090). The draft row is locked, so two channels verified
+   * Verifies the code of one channel. The draft row is locked, so two channels verified
    * at once still end in one token. Once both are verified the contacts are checked: a mobile or
    * email of an existing account clears both verifications and answers
-   * `registration.account_exists` (D-086); otherwise the draft token is returned once and only its
-   * hash is stored (D-082).
+   * `registration.account_exists`; otherwise the draft token is returned once and only its
+   * hash is stored.
    */
   async verify(body: OtpVerifyRequest): Promise<RegistrationVerifyResult> {
     const draft = await this.openDraft(body.registrationId);
@@ -231,7 +231,7 @@ export class RegistrationService {
 
   /**
    * True when the mobile or email belongs to an account other than a rejected, never-approved
-   * one of the same kind (D-086): a volunteer never approved, or an official who never received a
+   * one of the same kind: a volunteer never approved, or an official who never received a
    * role. A rejected account of the other kind is taken, so the person learns it at verification.
    */
   private async contactTaken(
@@ -253,11 +253,9 @@ export class RegistrationService {
   }
 
   /**
-   * Submits the form of the draft's kind (plan
-   * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R2, R5, R6, R21): one
-   * transaction creates the pending account and the volunteer row (or the staff fields and the
-   * photo link), or returns a rejected, never-approved account to pending, and spends the draft
-   * token. Returns the user id.
+   * Submits the form of the draft's kind: one transaction creates the pending account and the
+   * volunteer row (or the staff fields and the photo link), or returns a rejected, never-approved
+   * account to pending, and spends the draft token. Returns the user id.
    */
   async submit(body: RegistrationSubmitRequest, token: string | undefined): Promise<string> {
     const draft = await this.ownedDraft(body.registrationId, token);
@@ -286,7 +284,7 @@ export class RegistrationService {
     body: RegistrationSubmitRequest,
   ): Promise<string> {
     if (body.kind !== draft.kind) throw invalid('kind', 'validation.option_unknown');
-    // a staff draft started before staff self-registration closed is not submitted (D-097)
+    // a staff draft started before staff self-registration closed is not submitted
     if (draft.kind === 'staff') throw new ApiError('registration.staff_by_invitation', 422);
     const problems = checkPassword(body.password, { minLength: minPasswordLength(false) });
     if (problems.length)
@@ -324,7 +322,7 @@ export class RegistrationService {
           language: currentContext()?.locale ?? 'bn',
           designation: body.kind === 'staff' ? body.designation : null,
           // a rejected account that registers again starts clean: what the old form held and the
-          // new one no longer asks for is cleared (DECISION_LOG O-64, D-091)
+          // new one no longer asks for is cleared
           homeProgramId: null,
           homeDivisionId: null,
           failedLoginCount: 0,
@@ -383,7 +381,7 @@ export class RegistrationService {
   }
 
   /**
-   * The account a submit may take over (D-086): none when the contacts are free; the one rejected,
+   * The account a submit may take over: none when the contacts are free; the one rejected,
    * never-approved account of the same kind; anything else is `registration.account_exists`.
    */
   private async reusableAccount(tx: Tx, draft: VerifiedDraft, kind: RegistrationKind) {
@@ -425,7 +423,7 @@ export class RegistrationService {
   }
 
   /**
-   * A verified draft whose token the caller holds (NE-SEC-03): a missing or wrong token, an
+   * A verified draft whose token the caller holds: a missing or wrong token, an
    * unknown or unverified draft all answer 401, so the answer reveals nothing about the draft.
    */
   async ownedDraft(id: string, token: string | undefined): Promise<VerifiedDraft> {
@@ -448,7 +446,7 @@ export class RegistrationService {
   }
 }
 
-/** A contact is taken unless its account of the same kind was rejected and never approved (D-086). */
+/** A contact is taken unless its account of the same kind was rejected and never approved. */
 function isTaken(
   u: {
     kind: string;
@@ -479,7 +477,7 @@ function volunteerColumns(
 ) {
   return {
     nid: body.nid,
-    // every volunteer registers as a general volunteer; the Foundation sets roles later (DECISION_LOG O-64)
+    // every volunteer registers as a general volunteer; the Foundation sets roles later
     type: 'general',
     fatherName: body.fatherName,
     motherName: body.motherName,
@@ -490,8 +488,8 @@ function volunteerColumns(
     unionId: body.unionId,
     addressLine: body.addressLine ?? null,
     // The volunteer form has no experience or work description: the profession covers them
-    // (O-65), so a reused account clears the old values too. The education text and the earlier
-    // projects are not asked any more either, but their data stay (DECISION_LOG O-66).
+    //, so a reused account clears the old values too. The education text and the earlier
+    // projects are not asked any more either, but their data stay.
     experience: null,
     workDescription: null,
     facebookId: body.facebookId ?? null,

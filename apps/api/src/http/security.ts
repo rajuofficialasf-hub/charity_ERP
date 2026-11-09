@@ -8,14 +8,14 @@ import { ApiError } from '../i18n/api-error';
 import { loggerOptions } from '../core/logging';
 
 /**
- * One structured line per request with the request id on `X-Request-Id` (NE-LOG-01); bodies,
- * query strings, cookies and authorization never appear (NE-LOG-02, `core/logging.ts`).
+ * One structured line per request with the request id on `X-Request-Id`; bodies,
+ * query strings, cookies and authorization never appear (`core/logging.ts`).
  */
 export function requestLogging(env: Env, stream?: DestinationStream): HttpLogger {
   return pinoHttp(loggerOptions(env, stream));
 }
 
-/** Security headers with helmet's defaults (NE-SEC-01). The API serves JSON only. */
+/** Security headers with helmet's defaults. The API serves JSON only. */
 export function securityHeaders(): RequestHandler {
   return helmet();
 }
@@ -56,7 +56,7 @@ export function originCheck(appOrigin: string, allowed: readonly string[]): Requ
   };
 }
 
-/** `trust proxy` for Express: a hop count when numeric, else a named or CIDR list (D-072). */
+/** `trust proxy` for Express: a hop count when numeric, else a named or CIDR list. */
 export function trustProxySetting(value: string): string | number | boolean {
   if (/^\d+$/.test(value)) return Number(value);
   if (value === 'true') return true;

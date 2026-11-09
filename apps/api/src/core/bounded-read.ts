@@ -1,7 +1,7 @@
 import { ApiError } from '../i18n/api-error';
 import type { PrismaService, Tx } from './prisma.service';
 
-/** How long one read of a nationwide list may run (DECISION_LOG O-67, D-094). */
+/** How long one read of a nationwide list may run. */
 export const LIST_QUERY_TIMEOUT_MS = 5_000;
 
 /**

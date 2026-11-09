@@ -9,11 +9,11 @@ export interface RequestContext {
   requestId: string;
   locale: Locale;
   ip?: string;
-  /** Set by the auth guard (T1.7). */
+  /** Set by the auth guard. */
   userId?: string;
   deviceSessionId?: string;
   actorRole?: string;
-  /** Audit entries written during this request (D-068 enforcement). */
+  /** Audit entries written during this request, for the check that an audited route wrote one. */
   auditCount: number;
 }
 

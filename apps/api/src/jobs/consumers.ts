@@ -13,16 +13,16 @@ import { FILE_PROCESS_QUEUE, type FileProcessJob, type FileProcessor } from './f
 import { EXPORT_QUEUE, type ExportJobData, type ExportRunner } from './export-run';
 import { EXPORT_SWEEP_CRON, type ExportSweep, type ExportSweepData } from './export-sweep';
 
-/** The sample heartbeat job: proves enqueue, consume and scheduling end to end (ADR-004). */
+/** The sample heartbeat job: proves enqueue, consume and scheduling end to end. */
 export const HEARTBEAT_QUEUE = 'maintenance' as const;
-/** Every five minutes: the scheduled job pattern (ADR-004). */
+/** Every five minutes: the scheduled job pattern. */
 export const HEARTBEAT_CRON = '*/5 * * * *';
 
 export interface HeartbeatData {
   kind: 'heartbeat';
 }
 
-/** The daily purge of unsubmitted registration drafts (DECISION_LOG D-082). */
+/** The daily purge of unsubmitted registration drafts. */
 export interface RegistrationCleanupData {
   kind: 'registration-cleanup';
 }
@@ -153,9 +153,9 @@ export class JobConsumers {
 }
 
 /**
- * Development runs the consumers inside the api process (JOBS_INLINE, ADR-004; production refuses
- * it, BR-024). Tests never start them: each test file owns its database. A failure to start is
- * logged and does not stop the api, which still enqueues.
+ * Development runs the consumers inside the api process (JOBS_INLINE; production refuses it). Tests
+ * never start them: each test file owns its database. A failure to start is logged and does not
+ * stop the api, which still enqueues.
  */
 export async function startInlineConsumers(
   env: Pick<Env, 'JOBS_INLINE' | 'NODE_ENV'>,

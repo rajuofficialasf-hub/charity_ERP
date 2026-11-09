@@ -494,7 +494,7 @@ export const LIBRARY_FIELDS: LibraryField[] = [
     bn: 'সুদে ঋণ নেওয়ার বিষয়ে মন্তব্য',
     en: 'Comment on interest-bearing loans',
   },
-  // zakat assessment (BD-28)
+  // zakat assessment
   money('zakat_cash', 'নগদ অর্থ', 'Cash in hand'),
   money(
     'zakat_bank_deposit',
@@ -614,7 +614,7 @@ export const LIBRARY_FIELDS: LibraryField[] = [
   },
 ];
 
-/** The ten sections of BD-12. */
+/** The ten sections of the approved section library. */
 export const SECTIONS: LibrarySection[] = [
   {
     key: 'basic_info',
@@ -788,7 +788,7 @@ const CONDITIONS: Record<string, Condition> = {
   interest_loan_comment: eq('has_loan', 'yes'),
 };
 
-/** BD-13: mandatory in every project. */
+/** The questions every project must ask. */
 const MANDATORY = new Set([
   'nid_or_birth_reg',
   'name',

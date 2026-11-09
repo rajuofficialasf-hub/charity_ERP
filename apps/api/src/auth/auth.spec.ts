@@ -23,7 +23,7 @@ const base = {
 const env = (over: Record<string, string> = {}) => loadEnv({ ...base, ...over });
 const clockAt = (t: number) => ({ now: () => new Date(t) });
 
-describe('TokenService (AUTH.md 5, D-070)', () => {
+describe('TokenService (AUTH.md 5)', () => {
   const claims = { sub: 'user-1', sid: 'session-1', roles: ['program_manager'], pv: 3 };
 
   it('signs a 15-minute token with a key id and only the allowed claims', async () => {
@@ -82,7 +82,7 @@ describe('TokenService (AUTH.md 5, D-070)', () => {
   });
 });
 
-describe('lockout (AUTH.md 6, O-05)', () => {
+describe('lockout (AUTH.md 6)', () => {
   const now = new Date(Date.UTC(2026, 9, 11, 6));
 
   it('locks at the fifth consecutive failure for 15 minutes and resets the counter', () => {
@@ -136,7 +136,7 @@ describe('login id normalization (AUTH.md 1)', () => {
   });
 });
 
-describe('OTP delivery (AUTH.md 2.1, BD-44, BD-49)', () => {
+describe('OTP delivery (AUTH.md 2.1)', () => {
   const adapters = () => {
     const sms: SmsAdapter = { send: vi.fn(async () => ({ providerMessageId: 's' })) };
     const email: EmailAdapter = { send: vi.fn(async () => ({ providerMessageId: 'e' })) };
@@ -214,7 +214,7 @@ describe('auth rate-limit keys (AUTH.md 12)', () => {
       'ip:10.0.0.1',
       'ip:10.0.0.1',
     ]);
-    // spellings of one mobile number share the window (AUTH.md 1, D-075)
+    // spellings of one mobile number share the window (AUTH.md 1)
     for (const spelling of ['01700000001', ' 0170-0000001 ', '+8801700000001', '০১৭০০০০০০০১'])
       expect(RATE_LIMITS.login[0]!.key(req({ loginId: spelling }))).toBe('id:mobile:01700000001');
   });
@@ -231,7 +231,7 @@ describe('auth rate-limit keys (AUTH.md 12)', () => {
     expect(RATE_LIMITS['password-reset'][0]!.key(req({ loginId: 'X@example.org' }))).toBe(
       'email:x@example.org',
     );
-    // the reset and verify classes also count per address (D-075)
+    // the reset and verify classes also count per address
     expect(RATE_LIMITS['password-reset'][1]!.key(req({}))).toBe('10.0.0.1');
     expect(RATE_LIMITS['otp-verify'][1]!.key(req({}))).toBe('10.0.0.1');
   });

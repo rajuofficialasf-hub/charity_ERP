@@ -16,8 +16,8 @@ import {
   urlFor,
 } from './support/db';
 
-// Reversible migrations (ADR-003, NFR-55, TEST_STRATEGY section 3.9). The round trip runs on a
-// database holding the base and demo seed (T1.3), so down.sql is proven to work with data.
+// Reversible migrations (NFR-55, TEST_STRATEGY section 3.9). The round trip runs on a
+// database holding the base and demo seed, so down.sql is proven to work with data.
 const created: string[] = [];
 afterAll(async () => {
   for (const name of created) await dropDatabase(name);
@@ -64,7 +64,7 @@ async function snapshot(database: string): Promise<Record<string, string[]>> {
 }
 
 describe('migrations', () => {
-  it('every migration folder has a migration.sql and a non-empty hand-written down.sql (ADR-003)', () => {
+  it('every migration folder has a migration.sql and a non-empty hand-written down.sql', () => {
     const dirs = migrationDirs();
     expect(dirs.length).toBeGreaterThan(0);
     for (const dir of dirs) {
@@ -225,7 +225,7 @@ describe('migrations', () => {
     }
   });
 
-  it('the draft channels migration keeps existing verified and submitted drafts (backfill, D-090)', async () => {
+  it('the draft channels migration keeps existing verified and submitted drafts (backfill)', async () => {
     const dirs = migrationDirs();
     const at = dirs.indexOf('20261013000000_registration_draft_channels');
     expect(at).toBeGreaterThan(0);
@@ -241,7 +241,7 @@ describe('migrations', () => {
           `INSERT INTO users (id, kind, mobile, state, display_name) VALUES (gen_random_uuid(), 'volunteer', '01700009901', 'pending', 'নমুনা') RETURNING id`,
         )
       ).rows[0].id as string;
-      // a draft verified the T1.9 way and a submitted one
+      // a draft verified the earlier way and a submitted one
       await client.query(
         `INSERT INTO registration_drafts (id, mobile, email, token_hash, verified_at, expires_at) VALUES (gen_random_uuid(), '01700009902', 'v@example.org', 'h', now(), now() + interval '1 day')`,
       );
@@ -289,7 +289,7 @@ describe('migrations', () => {
     }
   });
 
-  it('retiring the Implementer ends its grants and project access with an audit, and down gives them back (D-162)', async () => {
+  it('retiring the Implementer ends its grants and project access with an audit, and down gives them back', async () => {
     const dirs = migrationDirs();
     const at = dirs.indexOf('20261108120000_retire_implementer_role');
     expect(at).toBeGreaterThan(0);

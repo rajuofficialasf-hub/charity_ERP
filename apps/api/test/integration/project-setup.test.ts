@@ -16,7 +16,7 @@ import {
 import * as f from './support/fixtures';
 
 // The setup parts of a project, each saved on its own: components, fund sources, areas, staff
-// access and the syllabus (plan docs/plans/2026-10-15-1440-feat-program-project-setup-plan.md).
+// access and the syllabus.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -464,7 +464,7 @@ describe('people to assign', () => {
     expect(rpms.body.data).toEqual([
       { id: rpm.id, displayName: 'খোঁজার আরপিএম', designation: null },
     ]);
-    // without a name the picker opens on the role's active officials (D-161)
+    // without a name the picker opens on the role's active officials
     const opened = await find(pm, 'role=regional_program_manager');
     expect(opened.status).toBe(200);
     const openedIds = opened.body.data.map((c: { id: string }) => c.id);

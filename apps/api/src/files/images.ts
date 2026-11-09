@@ -1,9 +1,8 @@
 /**
- * Photo bytes from a client (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md,
- * R4; NE-SEC-07): the type is taken from the magic bytes, never from the name or the header, and
- * metadata that can carry the place or the device (JPEG APP1 to APP15 except Adobe, comments and
- * anything after the end of the image; PNG text, eXIf and tIME chunks) is removed. No image library: only the container is walked,
- * the pixels are copied untouched.
+ * Photo bytes from a client: the type is taken from the magic bytes, never from the name or the
+ * header, and metadata that can carry the place or the device (JPEG APP1 to APP15 except Adobe,
+ * comments and anything after the end of the image; PNG text, eXIf and tIME chunks) is removed. No
+ * image library: only the container is walked, the pixels are copied untouched.
  */
 export type ImageMime = 'image/jpeg' | 'image/png';
 

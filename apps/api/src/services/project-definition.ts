@@ -11,7 +11,7 @@ import { createFormFromDefinition, projectFormKindOf, readDefinition } from './f
 import { storedRules, writeRulesVersion } from './project-rules';
 
 /**
- * The copied parts of a project (BD-10, BR-065; DECISION_LOG D-096): its workflow, components with
+ * The copied parts of a project: its workflow, components with
  * their settings, syllabus, rules texts and its published form, read for a template or a copy
  * inside the caller's transaction. Nothing else is read, so nothing else can travel.
  */

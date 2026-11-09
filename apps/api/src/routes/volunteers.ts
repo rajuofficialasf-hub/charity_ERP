@@ -199,9 +199,9 @@ export const blocklistEntry = z.object({
 });
 
 /**
- * Volunteer routes (openapi tag volunteers): the own profile, the blocklist (BR-047), and the
+ * Volunteer routes (openapi tag volunteers): the own profile, the blocklist, and the
  * nationwide volunteer tab for officials: the list, its counts and the official view of one
- * volunteer with what the caller may do (DECISION_LOG O-67, D-094).
+ * volunteer with what the caller may do.
  */
 export function volunteersRouter(
   deps: RouteDeps,
@@ -257,7 +257,7 @@ export function volunteersRouter(
     path: '/volunteers/me',
     operationId: 'volunteers.self.get',
     summary:
-      'Own volunteer profile with the own NID and bank details (D-081); never the own rating or category; also for a pending registrant',
+      'Own volunteer profile with the own NID and bank details; never the own rating or category; also for a pending registrant',
     permission: 'authenticated',
     scope: 'self',
     allowPending: true,
@@ -283,7 +283,7 @@ export function volunteersRouter(
     path: '/volunteers/:volunteerId/block',
     status: 201,
     operationId: 'volunteers.blocklist.set',
-    summary: 'Block a volunteer with a reason (BR-047)',
+    summary: 'Block a volunteer with a reason',
     permission: 'volunteer.block',
     audit: 'blocklist.set',
     responses: { 201: blocklistEntry, 401: null, 403: null, 404: null, 409: null, 422: null },

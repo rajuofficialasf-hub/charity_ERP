@@ -30,7 +30,7 @@ const programOp = {
 };
 
 /**
- * Programs (openapi tag programs; DECISION_LOG D-095): officials read the programs in their scope;
+ * Programs (openapi tag programs): officials read the programs in their scope;
  * the Department Head creates, renames, deactivates and activates them and assigns their PM.
  */
 export function programsRouter(deps: RouteDeps, c: Pick<Container, 'programs'>): Router {

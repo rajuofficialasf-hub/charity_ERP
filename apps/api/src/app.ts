@@ -47,7 +47,7 @@ import { registrationsRouter } from './routes/registrations';
 
 export const API_PREFIX = 'api/v1';
 
-/** Bodies above this size are refused (NE-REQ-02); the sync batch route sets its own limit. */
+/** Bodies above this size are refused; the sync batch route sets its own limit. */
 export const JSON_BODY_LIMIT = '100kb';
 /** The offline batch: the records' limit plus the margin for the envelope around them. */
 export const SYNC_BODY_LIMIT = BATCH_MAX_BYTES + BATCH_ENVELOPE_BYTES;

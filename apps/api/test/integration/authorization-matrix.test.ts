@@ -11,9 +11,8 @@ import { seedAccessCatalogue } from './support/access-fixtures';
 import { account, type AuthHarness, authHarness, bearer, login } from './support/auth-app';
 import { ANONYMOUS, deniedByAccessLayer, expectedAllowed, matrixReport } from './support/matrix';
 
-// Every registered endpoint × every role and an anonymous caller (R18 of
-// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U6; O-46 item 3). The calls use
-// nonexistent ids and empty bodies, so no handler can change data (TS-14).
+// Every registered endpoint × every role and an anonymous caller. The calls use nonexistent ids and
+// empty bodies, so no handler can change data.
 const REPORT = join(__dirname, '../../../../docs/security/AUTHORIZATION_MATRIX.md');
 const MISSING_ID = '00000000-0000-7000-8000-00000000abcd';
 const registry = loadAccessRegistry();

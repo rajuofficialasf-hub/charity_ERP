@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { account, type AuthHarness, authHarness, bearer, login } from './support/auth-app';
 
 // The notification channels and the system health for the global roles; no secret leaves the
-// server (plan docs/plans/2026-10-17-1800-feat-admin-settings-core-plan.md).
+// server.
 let h: AuthHarness;
 const api = () => request(h.server());
 const SMTP_PASSWORD = 'smtp-secret-for-the-test';

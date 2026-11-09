@@ -17,7 +17,7 @@ import { DEMO_DUPLICATE_PAIRS, DEMO_STAFF } from '../../seed/sets/demo';
 import { runSeed, type SeedReport } from '../../seed/run';
 import { cloneTemplate } from './support/db';
 
-// Seed framework (T1.3): deterministic, idempotent, fake data only, never outside dev/test.
+// Seed framework: deterministic, idempotent, fake data only, never outside dev/test.
 let db: Client;
 let url: string;
 let drop: () => Promise<void>;
@@ -80,7 +80,7 @@ describe('seed runner', () => {
     expect(await contentHash()).toEqual(before);
   });
 
-  it('refuses production and databases outside the dev/test pattern (BR-024, BD-49)', async () => {
+  it('refuses production and databases outside the dev/test pattern', async () => {
     await expect(
       runSeed(db, ['base'], { NODE_ENV: 'production', DATABASE_URL: url }),
     ).rejects.toThrow(/NODE_ENV is production/);
@@ -92,7 +92,7 @@ describe('seed runner', () => {
     ).rejects.toThrow(/not a css_erp_dev, css_erp_test or css_erp_perf database/);
   });
 
-  it('leaves the seed markers the production guard looks for (O-46 item 8)', async () => {
+  it('leaves the seed markers the production guard looks for', async () => {
     const { rows } = await db.query(
       `SELECT key FROM settings WHERE key LIKE 'seed.marker.%' ORDER BY key`,
     );
@@ -281,7 +281,7 @@ describe('demo set', () => {
       (await db.query('SELECT count(*)::int AS n FROM users WHERE is_system_owner')).rows[0].n,
     ).toBe(1);
     expect(DEMO_STAFF).toHaveLength(15);
-    // the dedicated official of the handover journey holds one project area of its own (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14)
+    // the dedicated official of the handover journey holds one project area of its own
     const areas = (
       await db.query(
         `SELECT a.location_id <> ALL (SELECT location_id FROM project_areas o WHERE o.rpm_user_id <> a.rpm_user_id) AS own_location FROM project_areas a JOIN users u ON u.id = a.rpm_user_id WHERE u.email = 'handover.rpm@example.org'`,
@@ -415,7 +415,7 @@ describe('demo set', () => {
     }
   });
 
-  it('stores Argon2id password hashes, never the password (D-063)', async () => {
+  it('stores Argon2id password hashes, never the password', async () => {
     const { rows } = await db.query(
       `SELECT count(*)::int AS n, count(*) FILTER (WHERE password_hash LIKE '$argon2id$v=19$m=19456,t=2,p=1$%')::int AS argon FROM users WHERE kind <> 'system'`,
     );

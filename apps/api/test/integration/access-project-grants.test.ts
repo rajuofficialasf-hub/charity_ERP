@@ -13,10 +13,9 @@ import {
 } from './support/auth-app';
 import { notificationsOf } from './support/notifications';
 
-// Project grants of "if RPM grants" extras (docs/security/RBAC.md 3 and 7; plan
-// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U5).
-// The fixture catalogue marks a sensitive permission as "if RPM grants" for volunteers, so the
-// refusal shared with the panel is reachable here too; the real permissions.yaml has no such case.
+// Project grants of "if RPM grants" extras (docs/security/RBAC.md 3 and 7). The fixture catalogue
+// marks a sensitive permission as "if RPM grants" for volunteers, so the refusal shared with the
+// panel is reachable here too; the real permissions.yaml has no such case.
 function fixtureRegistry() {
   const file = readPermissionsFile();
   const sensitive = file.permissions.find((p) => p.name === 'volunteer.view_sensitive')!;

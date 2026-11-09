@@ -17,8 +17,7 @@ import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
 import { pendingStaffRegistration, TOKEN_HEADER, verifiedDraft } from './support/registration';
 
-// Approval, rejection and correction requests (BR-028 to BR-030; DECISION_LOG D-084; plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U7).
+// Approval, rejection and correction requests.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 let sylhet: Awaited<ReturnType<typeof f.locationTree>>;
@@ -70,7 +69,7 @@ async function registerVolunteer(tree: Tree, over: Record<string, unknown> = {})
   return { userId: res.body.data.id as string, mobile: d.mobile };
 }
 
-// officials no longer register themselves (D-097): a registration left pending from before
+// officials no longer register themselves: a registration left pending from before
 const registerStaff = () => pendingStaffRegistration(h);
 
 const list = (s: Session, query = '') => api().get(`/api/v1/registrations${query}`).set(bearer(s));
@@ -227,7 +226,7 @@ describe('rejection', () => {
   });
 });
 
-describe('the new personal, profession and skills data in the registration (O-65, D-092)', () => {
+describe('the new personal, profession and skills data in the registration', () => {
   const FULL = {
     dateOfBirth: '1990-05-17',
     bloodGroup: 'O+',

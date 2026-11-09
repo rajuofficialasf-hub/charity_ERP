@@ -188,7 +188,7 @@ export function formsRouter(
     status: 201,
     operationId: 'forms.form.create',
     summary:
-      "Create a project's form as draft version 1 from a library template, blank (the mandatory core only), or copied from another project's published form by a caller who sees its official-only sections (BD-10)",
+      "Create a project's form as draft version 1 from a library template, blank (the mandatory core only), or copied from another project's published form by a caller who sees its official-only sections",
     audit: 'form.created',
     params: { projectId: uuid },
     body: formCreateSchema,
@@ -216,7 +216,7 @@ export function formsRouter(
     status: 201,
     operationId: 'forms.version.createDraft',
     summary:
-      'Create a draft version copied from the latest version (published versions are immutable, BR-077)',
+      'Create a draft version copied from the latest version (published versions are immutable)',
     audit: 'form.version_created',
     params: formParams,
     responses: { 201: versionView, 404: null, 409: null },
@@ -230,7 +230,7 @@ export function formsRouter(
     path: '/forms/:formId/fields',
     operationId: 'forms.field.map',
     summary:
-      'The fields of a form across its versions by key, so reports align answers of different versions (BD-12)',
+      'The fields of a form across its versions by key, so reports align answers of different versions',
     audit: 'none',
     params: formParams,
     responses: { 200: z.array(fieldMapView), 404: null },
@@ -277,8 +277,7 @@ export function formsRouter(
     method: 'post',
     path: '/form-versions/:versionId/publish',
     operationId: 'forms.version.publish',
-    summary:
-      'Publish a draft version; the previous version is retired; mandatory fields enforced (BD-13)',
+    summary: 'Publish a draft version; the previous version is retired; mandatory fields enforced',
     permission: 'form.publish',
     audit: 'form.publish',
     headers: ifMatch,

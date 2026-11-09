@@ -1,5 +1,5 @@
 // pnpm db:load-locations: loads docs/source/data/bd-locations.csv into the locations table.
-// Development and test databases only (src/config/db-guard.ts); never deletes (BR-228).
+// Development and test databases only (src/config/db-guard.ts); never deletes.
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

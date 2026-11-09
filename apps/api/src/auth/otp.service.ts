@@ -10,7 +10,7 @@ import { type PrismaService } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
 import type { EmailAdapter, SmsAdapter } from '../notifications/adapters';
 
-/** OTP parameters (AUTH.md 2, O-25). */
+/** OTP parameters (AUTH.md 2). */
 export const OTP_RULES = {
   validMs: 5 * 60_000,
   maxAttempts: 5,
@@ -32,7 +32,7 @@ export function identifierHash(env: Env, value: string): string {
   return createHmac('sha256', env.OTP_SECRET).update(`id:${value}`).digest('base64url');
 }
 
-/** The start-up line of BD-49: a loud warning whenever the dummy OTP is on (server.ts). */
+/** The start-up line: a loud warning whenever the dummy OTP is on (server.ts). */
 export function otpStartupMessage(dummy: boolean): { level: 'warn' | 'info'; text: string } {
   if (!dummy) return { level: 'info', text: 'OTP mode: real (SMS and email adapters)' };
   const line = '*'.repeat(72);
@@ -41,7 +41,7 @@ export function otpStartupMessage(dummy: boolean): { level: 'warn' | 'info'; tex
     text: [
       line,
       '* OTP MODE: DUMMY. Every OTP is the fixed code from OTP_DUMMY_CODE.',
-      '* Development and test only (BD-44, BD-49). Never use this configuration with real users.',
+      '* Development and test only. Never use this configuration with real users.',
       line,
     ].join('\n'),
   };
@@ -96,7 +96,7 @@ export class OtpDeliveryService {
 }
 
 /**
- * One-time codes (AUTH.md 2, O-25): 6 digits, valid 5 minutes, at most 5 verification attempts
+ * One-time codes (AUTH.md 2): 6 digits, valid 5 minutes, at most 5 verification attempts
  * per code and 5 requests per address and hour; codes and addresses are stored only as HMACs and
  * a code is used once. A failed attempt is committed even though the request then fails.
  */

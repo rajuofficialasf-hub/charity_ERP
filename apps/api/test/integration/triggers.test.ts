@@ -5,7 +5,7 @@ import { cloneTemplate } from './support/db';
 import { expectSqlError, inTransaction, SQLSTATE } from './support/expect-sql';
 import * as f from './support/fixtures';
 
-// Database triggers of DATABASE_SCHEMA.md and D-060 (T1.2 data-integrity tests).
+// Database triggers of DATABASE_SCHEMA.md (the data-integrity tests).
 let db: Client;
 let drop: () => Promise<void>;
 let loc: Awaited<ReturnType<typeof f.locationTree>>;
@@ -16,7 +16,7 @@ beforeAll(async () => {
 });
 afterAll(async () => drop());
 
-describe('BD-03 beneficiary mobile is not the submitting volunteer mobile (BR-008)', () => {
+describe('beneficiary mobile is not the submitting volunteer mobile', () => {
   async function setup() {
     const p = await f.project(db);
     const mobile = f.fakeMobile();
@@ -25,7 +25,7 @@ describe('BD-03 beneficiary mobile is not the submitting volunteer mobile (BR-00
     return { p, mobile, volUser, vol };
   }
 
-  it('BR-008 refuses an application whose beneficiary uses the owner volunteer mobile (at commit)', async () => {
+  it('refuses an application whose beneficiary uses the owner volunteer mobile (at commit)', async () => {
     const { p, mobile, vol } = await setup();
     const ben = await f.beneficiary(db, loc, { mobile });
     await expectSqlError(
@@ -37,7 +37,7 @@ describe('BD-03 beneficiary mobile is not the submitting volunteer mobile (BR-00
     );
   });
 
-  it('BR-008 refuses when the creating user has the beneficiary mobile', async () => {
+  it('refuses when the creating user has the beneficiary mobile', async () => {
     const { p, mobile, volUser } = await setup();
     const ben = await f.beneficiary(db, loc, { mobile });
     await expectSqlError(
@@ -53,7 +53,7 @@ describe('BD-03 beneficiary mobile is not the submitting volunteer mobile (BR-00
     );
   });
 
-  it('BR-008 catches a later change of the beneficiary mobile and of the volunteer mobile', async () => {
+  it('catches a later change of the beneficiary mobile and of the volunteer mobile', async () => {
     const { p, mobile, volUser, vol } = await setup();
     const ben = await f.beneficiary(db, loc);
     await inTransaction(db, () =>
@@ -94,7 +94,7 @@ describe('BD-03 beneficiary mobile is not the submitting volunteer mobile (BR-00
   });
 });
 
-describe('log tables (D-060, O-46 item 9)', () => {
+describe('log tables', () => {
   it('strict append-only tables refuse UPDATE, DELETE and TRUNCATE', async () => {
     const p = await f.project(db);
     await f.insert(db, 'budget_ledger', {
@@ -176,7 +176,7 @@ describe('log tables (D-060, O-46 item 9)', () => {
 });
 
 describe('other triggers', () => {
-  it('BR-077 a published form version cannot change', async () => {
+  it('a published form version cannot change', async () => {
     const p = await f.project(db);
     const section = await f.insert(db, 'form_sections', {
       id: randomUUID(),
@@ -262,7 +262,7 @@ describe('other triggers', () => {
     expect(rows.rows.map((r) => r.status)).toEqual(['retired', 'draft']);
   });
 
-  it('BR-122 a verified voucher is locked', async () => {
+  it('a verified voucher is locked', async () => {
     const p = await f.project(db);
     const u = await f.user(db);
     const ben = await f.beneficiary(db, loc);
@@ -286,7 +286,7 @@ describe('other triggers', () => {
     );
   });
 
-  it('BR-145 an allocated animal cannot move to another volunteer directly; shares fill the animal', async () => {
+  it('an allocated animal cannot move to another volunteer directly; shares fill the animal', async () => {
     const p = await f.project(db);
     const v1 = await f.volunteer(db, loc, await f.volunteerUser(db));
     const v2 = await f.volunteer(db, loc, await f.volunteerUser(db));
@@ -353,7 +353,7 @@ describe('other triggers', () => {
     ).resolves.toBeTruthy();
   });
 
-  it('BD-06 the blocklist checks its subject and keeps the mirror flags in sync', async () => {
+  it('the blocklist checks its subject and keeps the mirror flags in sync', async () => {
     const u = await f.user(db);
     const ben = await f.beneficiary(db, loc);
     await expectSqlError(
@@ -400,7 +400,7 @@ describe('other triggers', () => {
     );
   });
 
-  it('media consent channels must be reference codes (BD-38)', async () => {
+  it('media consent channels must be reference codes', async () => {
     const u = await f.user(db);
     const ben = await f.beneficiary(db, loc);
     await f.referenceCode(db, 'consent_channel', 'website');
@@ -475,7 +475,7 @@ describe('other triggers', () => {
     expect(rows[0].d).toBe('2026-10-12'); // 01:30 next day in Asia/Dhaka
   });
 
-  it('the stock balance view applies the BD-22 equation', async () => {
+  it('the stock balance view applies sent = distributed + remaining + damaged', async () => {
     const p = await f.project(db);
     const vol = await f.volunteer(db, loc, await f.volunteerUser(db));
     for (const [kind, quantity] of [

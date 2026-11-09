@@ -13,7 +13,7 @@ import type { ProjectEvents } from '../notifications/project-events';
 const RUNNING = ['active', 'closing'];
 
 /**
- * A main volunteer's team on a project (BR-040, BR-041; DECISION_LOG D-096): a General or a
+ * A main volunteer's team on a project: a General or a
  * দাঈ-স্বেচ্ছাসেবক volunteer working on the project (assignment not ended, rules accepted) adds the
  * volunteers registered with them as reference, and removes them. A member is on one team of a
  * project at most and never also assigned to it; a new member accepts the rules on their own

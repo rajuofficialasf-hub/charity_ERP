@@ -10,7 +10,7 @@ import { createFilesystemDriver } from './filesystem';
 
 const fresh = () => createFilesystemDriver(mkdtempSync(join(tmpdir(), 'css-fs-')));
 
-describe('filesystem storage driver (ADR-005, tests only)', () => {
+describe('filesystem storage driver (tests only)', () => {
   it('stores a stream, reads it back, describes and removes it', async () => {
     const storage = fresh();
     await storage.put(
@@ -52,7 +52,7 @@ describe('filesystem storage driver (ADR-005, tests only)', () => {
     await expect(storage.get('photos', 'p/1.jpg')).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it('refuses keys that escape the bucket or collide with its own files (NE-SEC-07)', async () => {
+  it('refuses keys that escape the bucket or collide with its own files', async () => {
     await expect(
       fresh().put('photos', 'x.meta.json', Readable.from([Buffer.from('x')]), {
         contentType: 'text/plain',

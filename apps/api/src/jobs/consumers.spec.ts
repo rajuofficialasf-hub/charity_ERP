@@ -20,7 +20,7 @@ function fakeRunner(failWith?: Error) {
 const dev = { JOBS_INLINE: true, NODE_ENV: 'development' as const };
 const quiet = pino({ level: 'silent' });
 
-describe('startInlineConsumers (ADR-004)', () => {
+describe('startInlineConsumers', () => {
   it('registers the consumers and the heartbeat schedule when JOBS_INLINE is set', async () => {
     const { runner, work, schedule } = fakeRunner();
     expect(await startInlineConsumers(dev, runner, quiet)).toBe(true);
@@ -67,7 +67,7 @@ describe('the delivery consumer', () => {
   });
 });
 
-describe('the registration cleanup on the maintenance queue (DECISION_LOG D-082)', () => {
+describe('the registration cleanup on the maintenance queue', () => {
   it('is scheduled under its own key and dispatched by kind', async () => {
     const { runner, work, schedule } = fakeRunner();
     const run = vi.fn(async () => ({ files: 2 }));

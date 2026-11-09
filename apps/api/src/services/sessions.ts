@@ -98,7 +98,7 @@ export class SessionsService {
     reason: string,
   ): Promise<void> {
     const user = await this.target(actor, scope, userId);
-    // The Main Admin's sessions are revoked only by the Main Admin (AUTH.md 11, BR-035).
+    // The Main Admin's sessions are revoked only by the Main Admin (AUTH.md 11).
     if (user.isSystemOwner && user.id !== actor.userId)
       throw new ApiError('user.system_owner_protected', 409);
     await this.prisma.$transaction(async (tx) => {

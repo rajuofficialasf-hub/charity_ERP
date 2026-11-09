@@ -48,7 +48,7 @@ const REFUSAL_WINDOW_MS = 3_600_000;
 /** Roles a staff decision or a new account may not give: the Main Admin's role (AUTH.md 11). */
 const NOT_BY_DECISION = new Set(['department_head']);
 
-/** An official role that a staff decision or the admin's new account may give (BR-028, D-097). */
+/** An official role that a staff decision or the admin's new account may give. */
 export function isGivableOfficialRole(registry: AccessRegistry, roleKey: string): boolean {
   const role = registry.roles.get(roleKey);
   return Boolean(role && role.kind === 'official' && !NOT_BY_DECISION.has(role.key));
@@ -56,7 +56,7 @@ export function isGivableOfficialRole(registry: AccessRegistry, roleKey: string)
 
 /**
  * A staff registration is an account the person registered themselves; an account the admin
- * created waits for its set-password link and is never a registration to decide (D-097).
+ * created waits for its set-password link and is never a registration to decide.
  */
 const SELF_REGISTERED: Prisma.UserWhereInput = { accountInvitationsUser: { none: {} } };
 
@@ -161,11 +161,9 @@ function storedValue(field: string, text: string): unknown {
 }
 
 /**
- * Approval, rejection and correction of registrations (BR-028 to BR-030; plan
- * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R7 to R9, R19): pending
- * volunteers are reached by their address in the approver's scope (`volunteerWhere`, D-084);
- * pending officials only by the holders of `staff.registration.approve`. Every action is audited
- * and calls the notification hook.
+ * Approval, rejection and correction of registrations: pending volunteers are reached by their
+ * address in the approver's scope (`volunteerWhere`); pending officials only by the holders of
+ * `staff.registration.approve`. Every action is audited and calls the notification hook.
  */
 export class RegistrationsService {
   constructor(
@@ -421,7 +419,7 @@ export class RegistrationsService {
     return { userId: user.id, volunteer: user.volunteersUser };
   }
 
-  /** Approves a volunteer registration (BR-029): active account, approval stamp, the type's role. */
+  /** Approves a volunteer registration: active account, approval stamp, the type's role. */
   async approve(actor: Principal, scope: Scope, userId: string) {
     const now = this.clock.now();
     const result = await this.prisma.$transaction(async (tx) => {
@@ -475,7 +473,7 @@ export class RegistrationsService {
     };
   }
 
-  /** Rejects a volunteer registration with a reason; the person may register again (D-086). */
+  /** Rejects a volunteer registration with a reason; the person may register again. */
   async reject(actor: Principal, scope: Scope, userId: string, reason: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const { volunteer } = await this.pendingVolunteer(tx, scope, userId);
@@ -502,7 +500,7 @@ export class RegistrationsService {
     await this.versions.bump(tx, userId, { action: 'auth.rejected', reason });
   }
 
-  /** Opens one correction row per named field with one note (BR-030). */
+  /** Opens one correction row per named field with one note. */
   async requestCorrections(
     actor: Principal,
     scope: Scope,
@@ -549,7 +547,7 @@ export class RegistrationsService {
     return rows.map((r) => changeView(r, false));
   }
 
-  /** The Department Head or the Monitoring Team decides a staff registration (BR-028, R9). */
+  /** The Department Head or the Monitoring Team decides a staff registration (R9). */
   async decideStaff(actor: Principal, userId: string, body: StaffDecision): Promise<void> {
     if (body.decision === 'approve') {
       if (!isGivableOfficialRole(this.registry, body.roleKey!))
@@ -577,7 +575,7 @@ export class RegistrationsService {
         return this.close(tx, actor, userId, body.reason!);
       }
       // a role with global scope asks for 12 characters; the 8 of the registration are not enough,
-      // so the person chooses a new password at the next sign-in (DECISION_LOG O-66)
+      // so the person chooses a new password at the next sign-in
       // (the same stored flag that sets the password length in AuthService)
       const stored = await tx.role.findUnique({
         where: { key: body.roleKey! },
@@ -601,7 +599,7 @@ export class RegistrationsService {
     this.sessions.evictUser(userId);
   }
 
-  /** The caller's own open correction and edit requests, with their values (own data, D-081). */
+  /** The caller's own open correction and edit requests, with their values (own data). */
   async ownRequests(principal: Principal) {
     const rows = await this.prisma.volunteerChangeRequest.findMany({
       where: { userId: principal.userId, status: { in: UNFINISHED } },
@@ -612,7 +610,7 @@ export class RegistrationsService {
 
   /**
    * Answers one own correction row: the value is checked by its field and written into the
-   * pending profile at once; the row waits for the resubmit (BR-030).
+   * pending profile at once; the row waits for the resubmit.
    */
   async answer(principal: Principal, requestId: string, body: ChangeRequestAnswer) {
     // counted within the last hour: typing mistakes of earlier days never lock a registrant out
@@ -704,7 +702,7 @@ export class RegistrationsService {
     return changeView(updated, true);
   }
 
-  /** Returns the corrected registration to the approvers once every row is answered (BR-030). */
+  /** Returns the corrected registration to the approvers once every row is answered. */
   async resubmit(principal: Principal): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const rows = await tx.volunteerChangeRequest.findMany({

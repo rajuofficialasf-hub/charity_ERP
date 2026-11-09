@@ -9,8 +9,8 @@ import { testEnv } from '../support/env';
 import { cloneTemplate } from './support/db';
 import { insert, user } from './support/fixtures';
 
-// The audit writer writes inside the caller's transaction (BR-179); idempotency on sync_batches
-// returns stored results for a repeated Idempotency-Key, also under concurrency (O-57).
+// The audit writer writes inside the caller's transaction; idempotency on sync_batches
+// returns stored results for a repeated Idempotency-Key, also under concurrency.
 let db: Client;
 let drop: () => Promise<void>;
 let prisma: PrismaService;
@@ -27,7 +27,7 @@ afterAll(async () => {
   await drop();
 });
 
-describe('AuditWriter (BR-179)', () => {
+describe('AuditWriter', () => {
   it('records actor, request facts and the change inside the transaction', async () => {
     const actor = await user(db);
     const writer = new AuditWriter();
@@ -79,7 +79,7 @@ describe('AuditWriter (BR-179)', () => {
   });
 });
 
-describe('IdempotencyService (API_STANDARDS 9, O-57)', () => {
+describe('IdempotencyService (API_STANDARDS 9)', () => {
   async function owner() {
     const userId = await user(db);
     const deviceSessionId = await insert(db, 'device_sessions', {

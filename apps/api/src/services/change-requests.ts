@@ -94,12 +94,10 @@ const invalid = (code: string) =>
   new ApiError('validation.failed', 422, undefined, [{ path: 'newValue', code }]);
 
 /**
- * Edit requests of approved volunteers (BR-031 as amended by DECISION_LOG D-085; plan
- * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R10, R18): the request
- * carries the new value; a text or object value reaches the approvers at once, a new mobile or
- * email only after a code to it, a photo after the own upload; an RPM or Project Executive in
- * scope approves the value (it applies at once) or refuses it with a reason. Audit entries name
- * the field, never the value.
+ * Edit requests of approved volunteers: the request carries the new value; a text or object value
+ * reaches the approvers at once, a new mobile or email only after a code to it, a photo after the
+ * own upload; an RPM or Project Executive in scope approves the value (it applies at once) or
+ * refuses it with a reason. Audit entries name the field, never the value.
  */
 export class ChangeRequestsService {
   constructor(
@@ -170,7 +168,7 @@ export class ChangeRequestsService {
   /**
    * The value of a non-photo field, checked by its field. Whether a new contact is free is told
    * only after its code is verified (verifyCode), so nobody learns whose number or address it is
-   * without owning it (D-086).
+   * without owning it.
    */
   private async checkedValue(principal: Principal, body: EditRequestCreate): Promise<unknown> {
     const parsed = EDIT_FIELD_VALUES[body.field].safeParse(body.newValue);
@@ -211,7 +209,7 @@ export class ChangeRequestsService {
     return { ...row, newValue: row.newValue };
   }
 
-  /** Sends a code to the new mobile or email (D-085). */
+  /** Sends a code to the new mobile or email. */
   async sendCode(principal: Principal, requestId: string, locale: Locale): Promise<void> {
     const row = await this.ownOpenContact(principal, requestId);
     // one account, whatever the request: a new request must not give a fresh budget of codes
@@ -396,7 +394,7 @@ export class ChangeRequestsService {
       });
       return;
     }
-    // validated at the request; parsed again at the boundary instead of trusted (ST-12)
+    // validated at the request; parsed again at the boundary instead of trusted
     const value: unknown = EDIT_FIELD_VALUES[field].parse(
       OBJECT_FIELDS.has(field) ? JSON.parse(stored) : stored,
     );

@@ -3,7 +3,7 @@ import { checkDestructiveDbAccess, checkPerfDbAccess } from './db-guard';
 
 const url = (db: string) => `postgresql://css:pw@127.0.0.1:5432/${db}`;
 
-describe('checkDestructiveDbAccess (BR-024, BD-49)', () => {
+describe('checkDestructiveDbAccess', () => {
   it.each(['css_erp_dev', 'css_erp_test', 'css_erp_test_worker_3', 'css_erp_perf'])(
     'allows %s',
     (db) => {

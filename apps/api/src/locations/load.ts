@@ -3,10 +3,10 @@ import type { Client } from 'pg';
 import type { LocationRow } from './convert';
 
 /**
- * Loads the locations master from docs/source/data/bd-locations.csv into `locations` (O-09, D-061).
+ * Loads the locations master from docs/source/data/bd-locations.csv into `locations`.
  * Upsert by the internal code: new codes are inserted, changed names, kinds, post codes or parents are updated
  * with a version bump (the offline snapshot uses the version), and loader-managed codes (prefix L-)
- * missing from the CSV are deactivated, never deleted (BR-228). Runs in one transaction; a second
+ * missing from the CSV are deactivated, never deleted. Runs in one transaction; a second
  * run with the same CSV changes nothing.
  */
 export interface LoadResult {

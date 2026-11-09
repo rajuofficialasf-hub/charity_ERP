@@ -15,7 +15,7 @@ import { locationTree, project } from './support/fixtures';
 import { notificationsOf } from './support/notifications';
 
 // Device lists and revocation, user administration, Main Admin protection and the
-// permission-version bump (AUTH.md 6 to 11; BR-034, BR-035, BR-201; O-59).
+// permission-version bump (AUTH.md 6 to 11).
 let h: AuthHarness;
 
 beforeAll(async () => {
@@ -155,7 +155,7 @@ describe("an official revokes another user's device", () => {
     expect(seen.body.data.length).toBeGreaterThan(0);
   });
 
-  it("protects the Main Admin's sessions from everyone else (BR-035)", async () => {
+  it("protects the Main Admin's sessions from everyone else", async () => {
     const owner = await systemOwner(h.db);
     const ownerSession = await login(h, owner);
     const monitor = await login(h, await account(h.db, { role: 'monitoring_team' }));
@@ -283,7 +283,7 @@ describe('user administration', () => {
     expect((await change(staff.id, 'active')).status).toBe(409);
   });
 
-  it('deactivates only after a completed handover and allows reactivation (BR-034)', async () => {
+  it('deactivates only after a completed handover and allows reactivation', async () => {
     const headAccount = await account(h.db, { role: 'monitoring_team' });
     const head = await login(h, headAccount);
     const staff = await account(h.db);
@@ -325,7 +325,7 @@ describe('user administration', () => {
     await login(h, staff);
   });
 
-  it('clears a login lock with a reason (O-59 item 2)', async () => {
+  it('clears a login lock with a reason', async () => {
     const monitor = await login(h, await account(h.db, { role: 'monitoring_team' }));
     const staff = await account(h.db);
     const notLocked = await api()

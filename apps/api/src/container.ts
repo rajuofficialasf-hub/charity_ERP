@@ -118,8 +118,8 @@ import { UsersService } from './services/users';
 import { createStorage, type StorageDriver } from './storage';
 
 /**
- * The services of one process, built once from the validated configuration (no DI container,
- * ADR-014): the api, the worker and the tests construct the same objects; tests pass overrides.
+ * The services of one process, built once from the validated configuration (no DI container): the
+ * api, the worker and the tests construct the same objects; tests pass overrides.
  */
 export interface Container {
   env: Env;

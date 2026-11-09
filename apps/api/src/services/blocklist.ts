@@ -31,7 +31,7 @@ function entryView(e: Entry) {
 }
 
 /**
- * The volunteer blocklist (BD-06, BR-047; DECISION_LOG D-088): the RPM, the PM, the Monitoring Team
+ * The volunteer blocklist: the RPM, the PM, the Monitoring Team
  * and the Department Head block a volunteer in their scope with a reason and lift the block with a
  * reason. The trigger `sync_blocklist_flags` moves an active account to `blocked` and back and
  * bumps its permission version; this service also ends the volunteer's sessions. A blocked pending
@@ -73,7 +73,7 @@ export class BlocklistService {
       const active = await tx.blocklist.count({
         where: { subjectType: 'volunteer', subjectId: volunteer.id, active: true },
       });
-      // an account blocked through the account state (D-080) is not put on the blocklist: lifting
+      // an account blocked through the account state is not put on the blocklist: lifting
       // that entry would let the trigger reactivate an account a higher role blocked
       if (active || volunteer.user.state === 'blocked')
         throw new ApiError('user.transition_not_allowed', 409);

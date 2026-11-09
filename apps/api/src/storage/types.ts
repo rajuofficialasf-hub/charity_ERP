@@ -35,7 +35,7 @@ export interface ObjectInfo {
  * carry entity ids, never personal data.
  */
 export interface StorageDriver {
-  /** TEMP: `s3` (MinIO, D-074) is the first driver; the NAS driver arrives with the NAS. */
+  /** TEMP: `s3` (MinIO) is the first driver; the NAS driver arrives with the NAS. */
   readonly name: 's3' | 'filesystem';
   put(
     bucket: Bucket,
@@ -53,7 +53,7 @@ export interface StorageDriver {
   ping(): Promise<boolean>;
 }
 
-/** The stored file isn't there. A route maps this to its own 404 after checking access (NS-10). */
+/** The stored file isn't there. A route maps this to its own 404 after checking access. */
 export class NotFoundError extends Error {
   constructor(
     readonly bucket: Bucket,
@@ -66,7 +66,7 @@ export class NotFoundError extends Error {
 
 const KEY = /^[A-Za-z0-9][A-Za-z0-9/_.-]{0,511}$/;
 
-/** Rejects keys that could escape a bucket or folder (NE-SEC-07). */
+/** Rejects keys that could escape a bucket or folder. */
 export function assertKey(key: string): void {
   if (!KEY.test(key) || key.includes('..') || key.includes('//'))
     throw new ApiError('validation.failed', 422, undefined, [

@@ -5836,7 +5836,7 @@ paths:
     post:
       tags: [registration]
       operationId: registration.editRequest.submit
-      summary: Submit a profile edit request with the new value (approved volunteers cannot edit directly; BR-031 as amended by D-085)
+      summary: Submit a profile edit request with the new value (approved volunteers cannot edit directly)
       x-permission: edit_request.submit
       x-scope: self
       x-audit: auth.edit_requested

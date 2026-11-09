@@ -42,7 +42,7 @@ const P2 = '00000000-0000-7000-8000-0000000000b2';
 const DHAKA = '00000000-0000-7000-8000-0000000000d1';
 const RANGPUR = '00000000-0000-7000-8000-0000000000d2';
 
-// Scope resolution (RBAC.md 4 and 8; plan docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U3).
+// Scope resolution (RBAC.md 4 and 8).
 describe('scope instances', () => {
   const instances = (): ScopeInstances => ({
     global: false,
@@ -84,7 +84,7 @@ describe('scope instances', () => {
     expect(program.volunteerAreas).toEqual([]);
   });
 
-  it('keeps the revoked projects and programs for the filters (D-120)', () => {
+  it('keeps the revoked projects and programs for the filters', () => {
     const revoked = applyInstanceRevokes(
       instances(),
       [
@@ -106,7 +106,7 @@ describe('scope instances', () => {
   });
 });
 
-// A project revoke beats every grant source (RBAC.md 7, DECISION_LOG D-120).
+// A project revoke beats every grant source (RBAC.md 7).
 describe('the revoked projects in every filter', () => {
   const R = '00000000-0000-7000-8000-0000000000c3';
   const outside = { id: { notIn: [R] } };
@@ -198,7 +198,7 @@ describe('holding a permission', () => {
     expect(holdsPermission('application.view', grants)).toBe(true);
     expect(holdsPermission('session.revoke_own', grants)).toBe(true);
     expect(holdsPermission('permission.view', grants)).toBe(false);
-    // the file service decides an `entity` route per file (DECISION_LOG D-087); the workflow
+    // the file service decides an `entity` route per file; the workflow
     // engine decides a `workflow` route per transition, with the permission the template names
     expect(holdsPermission('entity', grants)).toBe(true);
     expect(holdsPermission('workflow', grants)).toBe(true);
@@ -358,7 +358,7 @@ describe('the project filter', () => {
   });
 });
 
-describe('the volunteer filter by address (DECISION_LOG D-084)', () => {
+describe('the volunteer filter by address', () => {
   const none = NO_INSTANCES;
   const where = (i: Partial<ScopeInstances>) =>
     volunteerWhere(makeScope('actor', 'registration.approve', 'volunteer', { ...none, ...i }));

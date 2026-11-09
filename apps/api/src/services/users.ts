@@ -26,14 +26,14 @@ export interface UserListQuery extends Omit<PageQuery, 'sort'> {
   q?: string;
   role?: string;
   state?: UserState;
-  /** Staff or volunteers; an affiliation implies staff (D-097). */
+  /** Staff or volunteers; an affiliation implies staff. */
   kind?: 'staff' | 'volunteer';
   affiliation?: Affiliation;
   /** The official's home program. */
   programId?: string;
 }
 
-/** The place of an official in the organisation (D-097); null for a volunteer. */
+/** The place of an official in the organisation; null for a volunteer. */
 const placeSelect = {
   jobId: true,
   affiliation: true,
@@ -50,9 +50,9 @@ const awaitingPassword = (u: { kind: string; state: string; passwordHash: string
   u.kind === 'staff' && u.state === 'pending' && u.passwordHash === null;
 
 /**
- * Account transitions this endpoint performs (AUTH.md 7, O-59): staff suspension and its lift,
+ * Account transitions this endpoint performs (AUTH.md 7): staff suspension and its lift,
  * deactivation after a completed handover, reactivation. Approval and rejection of pending
- * registrations (T1.9) and the volunteer blocklist (volunteer.block, T1.9) have their own flows.
+ * registrations and the volunteer blocklist (volunteer.block) have their own flows.
  */
 const TRANSITIONS: Record<string, readonly UserState[]> = {
   active: ['blocked', 'deactivated'],
@@ -194,7 +194,7 @@ export class UsersService {
       assertIfMatch(ifMatch, user.updatedAt);
       if (user.isSystemOwner) throw new ApiError('user.system_owner_protected', 409);
       // Only the Department Head blocks an account or lifts a block, whatever permission the caller
-      // holds (D-080). Deactivation is not covered by this rule.
+      // holds. Deactivation is not covered by this rule.
       const blockOrUnblock =
         body.state === 'blocked' || (user.state === 'blocked' && body.state === 'active');
       if (blockOrUnblock && !actor.roles.includes('department_head')) {
@@ -208,7 +208,7 @@ export class UsersService {
         throw new ApiError('user.transition_not_allowed', 409);
       if (body.state === 'deactivated') {
         // the latest handover must be completed, and no work may have reached the official since
-        // (a reactivation or a new assignment after the completion; BR-034)
+        // (a reactivation or a new assignment after the completion)
         const handover = await tx.handover.findFirst({
           where: { fromUserId: user.id },
           orderBy: { createdAt: 'desc' },
@@ -242,7 +242,7 @@ export class UsersService {
     return this.get(scope, userId);
   }
 
-  /** Clears a login lock with a reason (O-59 item 2, AUTH.md 6). */
+  /** Clears a login lock with a reason (AUTH.md 6). */
   async unlock(actor: Principal, scope: Scope, userId: string, reason: string): Promise<void> {
     const now = this.clock.now();
     await this.prisma.$transaction(async (tx) => {

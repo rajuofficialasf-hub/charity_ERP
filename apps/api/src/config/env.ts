@@ -20,13 +20,13 @@ const envSchema = z
       .default('info'),
     /** Signs pagination cursors so they cannot be forged (API_STANDARDS 4). */
     CURSOR_SECRET: z.string().min(32),
-    /** Bearer token that unlocks the detailed readiness payload (D-057); unset = never shown. */
+    /** Bearer token that unlocks the detailed readiness payload; unset = never shown. */
     HEALTH_TOKEN: z.string().min(24).optional(),
-    /** Runs job consumers inside the API process; development and tests only (ADR-004). */
+    /** Runs job consumers inside the API process; development and tests only. */
     JOBS_INLINE: flag,
     /**
-     * The storage driver (NS-34, no default): `s3` is MinIO through the S3 API (TEMP until the NAS
-     * driver exists, D-074), `filesystem` the stand-in of automated tests.
+     * The storage driver (no default): `s3` is MinIO through the S3 API (TEMP until the NAS driver
+     * exists), `filesystem` the stand-in of automated tests.
      */
     STORAGE_DRIVER: z.enum(['s3', 'filesystem']),
     MINIO_ENDPOINT: z.string().default('127.0.0.1'),
@@ -42,7 +42,7 @@ const envSchema = z
     SMTP_USER: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
     SMTP_FROM: z.string().default('CSS ERP <no-reply@example.org>'),
-    /** logging (dev/test: masked log line) or dry_run (staging until a provider exists, O-33). */
+    /** logging (dev/test: masked log line) or dry_run (staging until a provider exists). */
     SMS_MODE: z.enum(['logging', 'dry_run']).default('logging'),
     /** Emails sent per minute by the delivery worker (30 decided); the gap between two is 60 s divided by it. */
     EMAIL_PER_MINUTE: z.coerce.number().int().min(1).max(600).default(30),
@@ -61,12 +61,12 @@ const envSchema = z
       .string()
       .regex(/^\d+\.\d+\.\d+$/)
       .default('0.0.0'),
-    /** Signs access tokens (D-070); JWT_PREVIOUS_SECRET is still accepted during a rotation. */
+    /** Signs access tokens; JWT_PREVIOUS_SECRET is still accepted during a rotation. */
     JWT_SECRET: z.string().min(32),
     JWT_PREVIOUS_SECRET: z.string().min(32).optional(),
-    /** Signs the double-submit CSRF token of the refresh endpoint (D-070). */
+    /** Signs the double-submit CSRF token of the refresh endpoint. */
     AUTH_CSRF_SECRET: z.string().min(32),
-    /** HMAC key of OTP code and address hashes (AUTH.md 2, D-070). */
+    /** HMAC key of OTP code and address hashes (AUTH.md 2). */
     OTP_SECRET: z.string().min(32),
     /**
      * Seals the device keys of sessions in the database (docs/architecture/AUTH.md "Tokens and
@@ -76,20 +76,20 @@ const envSchema = z
      */
     LOCAL_KEY_SECRET: z.string().min(32),
     LOCAL_KEY_PREVIOUS_SECRET: z.string().min(32).optional(),
-    /** Fixed OTP code instead of SMS and email; development and test only (BD-44, BD-49). */
+    /** Fixed OTP code instead of SMS and email; development and test only. */
     OTP_DUMMY_ENABLED: flag,
     OTP_DUMMY_CODE: z
       .string()
       .regex(/^[0-9]{6}$/)
       .optional(),
     /**
-     * Proxies trusted for X-Forwarded-For (Express `trust proxy`, D-072): `loopback` by default;
+     * Proxies trusted for X-Forwarded-For (Express `trust proxy`): `loopback` by default;
      * production names Caddy's address or network so per-IP limits and audit IPs see the user.
      */
     TRUST_PROXY: z.string().min(1).default('loopback'),
     /**
      * docs/security/permissions.yaml (RBAC.md 2); unset = the file of the repository, which the
-     * production images of the api and the worker copy (T3.0).
+     * production images of the api and the worker copy.
      */
     PERMISSIONS_FILE: z.string().min(1).optional(),
     /**
@@ -114,8 +114,8 @@ const envSchema = z
         return origins;
       }),
     /**
-     * The PWA's public origin, written into links sent by email (the set-password link,
-     * DECISION_LOG D-097); https in production.
+     * The PWA's public origin, written into links sent by email (the set-password link); https in
+     * production.
      */
     APP_ORIGIN: z.url().default('http://127.0.0.1:3000'),
     /** Multiplies every rate limit by 100 for the E2E run (one shared address); never production. */
@@ -136,7 +136,7 @@ const envSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['JOBS_INLINE'],
-        message: 'must be false in production (BR-024)',
+        message: 'must be false in production',
       });
     if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === 'filesystem')
       ctx.addIssue({
@@ -148,7 +148,7 @@ const envSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['OTP_DUMMY_ENABLED'],
-        message: 'must be false in production (BD-49, BR-024)',
+        message: 'must be false in production',
       });
     if (env.OTP_DUMMY_ENABLED && !env.OTP_DUMMY_CODE)
       ctx.addIssue({
@@ -198,13 +198,13 @@ const envSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['RATE_LIMITS_RELAXED'],
-        message: 'must be false in production (D-072)',
+        message: 'must be false in production',
       });
     if (env.NODE_ENV === 'production' && env.SESSION_DEVICE_LIMIT_RELAXED)
       ctx.addIssue({
         code: 'custom',
         path: ['SESSION_DEVICE_LIMIT_RELAXED'],
-        message: 'must be false in production (D-102)',
+        message: 'must be false in production',
       });
     if (env.NODE_ENV === 'production' && !env.AUTH_COOKIE_SECURE)
       ctx.addIssue({

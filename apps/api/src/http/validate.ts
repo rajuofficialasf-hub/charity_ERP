@@ -31,7 +31,7 @@ export function issueCode(issue: z.core.$ZodIssue): string {
 }
 
 /**
- * Parses one request part with a shared zod schema (NE-REQ-01, D-068): unknown query parameters
+ * Parses one request part with a shared zod schema: unknown query parameters
  * are 400 `validation.unknown_parameter`; field problems are 422 `validation.failed` with one
  * detail per problem (path in camelCase, code, message key; the error middleware renders the
  * message).

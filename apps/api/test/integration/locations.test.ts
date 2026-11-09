@@ -7,7 +7,7 @@ import { parseCsvRecords } from '../../src/locations/csv';
 import { loadLocations } from '../../src/locations/load';
 import { cloneTemplate } from './support/db';
 
-// Locations master loader (O-09, D-061, BR-228).
+// Locations master loader.
 let db: Client;
 let drop: () => Promise<void>;
 beforeAll(async () => {

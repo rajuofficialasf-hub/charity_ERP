@@ -33,7 +33,7 @@ const toView = (r: {
   active: r.active,
 });
 
-/** The locations master as reference data (O-09; public list of DECISION_LOG D-083). */
+/** The locations master as reference data, a public list. */
 export class LocationsService {
   constructor(private readonly prisma: PrismaService) {}
 

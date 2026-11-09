@@ -229,7 +229,7 @@ describe('the review screen in bulk', () => {
       result: 'failed',
       code: 'conflict.stale_version',
     });
-    // a block refuses new applications only: one already on its way is approved (D-158)
+    // a block refuses new applications only: one already on its way is approved
     expect(results.find((r) => r.clientUuid === body.rows[2]!.clientUuid)).toMatchObject({
       result: 'done',
       status: 'implementation',

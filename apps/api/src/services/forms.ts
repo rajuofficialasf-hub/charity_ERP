@@ -344,7 +344,7 @@ export class FormsService {
       assertIfMatch(ifMatch, row.updatedAt);
       const stored = await readDefinition(tx, versionId, 'official');
       // a draft saved before its coded questions took their list's options takes them now, so no
-      // option of the builder's own is ever published on such a question (D-163)
+      // option of the builder's own is ever published on such a question
       const definition = await withListOptions(tx, stored);
       if (definition !== stored) await replaceDefinitionRows(tx, versionId, definition, actor);
       // a draft may hold a calculated question without its rule, and an application form its
@@ -738,10 +738,10 @@ async function scoringOf(db: Tx, versionId: string): Promise<{ scoring?: FormSco
 /** Writes a definition's sections, fields and options as the rows of a draft version. */
 /**
  * The definition with the options of every question that fills a coded column taken from that
- * column's reference list: the active entries in their order, with the list's texts (DECISION_LOG
- * D-163). The database keeps these codes against the list, so an option of the builder's own would
- * fail the profile at the send. An entry that opened a text box keeps doing so; a list without an
- * active entry changes nothing. The same object comes back when nothing changes.
+ * column's reference list: the active entries in their order, with the list's texts. The database
+ * keeps these codes against the list, so an option of the builder's own would fail the profile at
+ * the send. An entry that opened a text box keeps doing so; a list without an active entry changes
+ * nothing. The same object comes back when nothing changes.
  */
 export async function withListOptions(tx: Tx, definition: FormDefinition): Promise<FormDefinition> {
   const listed = definition.sections.flatMap((s) =>

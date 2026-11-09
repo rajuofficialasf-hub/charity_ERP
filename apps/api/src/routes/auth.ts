@@ -63,7 +63,7 @@ const meSchema = z.object({
   volunteerId: z.uuid().nullable().optional(),
 });
 
-/** What the set-password page shows (D-097). */
+/** What the set-password page shows. */
 const invitationView = z.object({
   displayName: z.string(),
   jobId: z.string(),
@@ -88,7 +88,7 @@ export function authRouter(
     method: 'post',
     path: '/auth/login',
     operationId: 'auth.session.login',
-    summary: 'Log in with job ID, mobile or email and password; no OTP at login (O-05, D-097)',
+    summary: 'Log in with job ID, mobile or email and password; no OTP at login',
     permission: 'public',
     audit: 'auth.login',
     rateLimit: 'login',
@@ -196,7 +196,7 @@ export function authRouter(
     handler: ({ body }) => c.auth.resetStart(body.loginId, currentContext()?.locale ?? 'bn'),
   });
 
-  // The set-password link of an official created by the admin (DECISION_LOG D-097, BR-262). The
+  // The set-password link of an official created by the admin. The
   // token travels in the body, never in a URL, so no access log keeps it.
   defineRoute<{ token: string }>(router, deps, {
     ...authOp,
@@ -231,7 +231,7 @@ export function authRouter(
     handler: ({ body }) => c.staffAccounts.accept(body),
   });
 
-  // Registration before login (AUTH.md 2; DECISION_LOG D-082, D-086, D-088).
+  // Registration before login (AUTH.md 2).
   defineRoute<RegistrationStartRequest>(router, deps, {
     ...authOp,
     method: 'post',
@@ -239,7 +239,7 @@ export function authRouter(
     status: 201,
     operationId: 'auth.registration.start',
     summary:
-      'Start a registration draft of a kind; nothing is sent, each contact is verified on its own (D-090)',
+      'Start a registration draft of a kind; nothing is sent, each contact is verified on its own',
     permission: 'public',
     audit: 'auth.register_started',
     rateLimit: 'registration',
@@ -255,7 +255,7 @@ export function authRouter(
     status: 204,
     operationId: 'auth.registration.resendOtp',
     summary:
-      'Send an OTP to one contact of the draft; a changed address clears that channel (D-090; dummy code in dev/test)',
+      'Send an OTP to one contact of the draft; a changed address clears that channel (dummy code in dev/test)',
     permission: 'public',
     audit: 'auth.otp_sent',
     rateLimit: 'otp-request',
@@ -271,7 +271,7 @@ export function authRouter(
     path: '/auth/register/otp/verify',
     operationId: 'auth.registration.verifyOtp',
     summary:
-      'Verify the OTP of one channel; once both are verified returns the draft token once (BR-023, D-082, D-090); a contact of an existing account answers registration.account_exists only then (D-086)',
+      'Verify the OTP of one channel; once both are verified returns the draft token once; a contact of an existing account answers registration.account_exists only then',
     permission: 'public',
     audit: 'auth.otp_verified',
     rateLimit: 'otp-verify',
@@ -290,7 +290,7 @@ export function authRouter(
     status: 201,
     operationId: 'auth.registration.submit',
     summary:
-      "Submit the registration form of the draft's kind; the account is created in state pending, or a rejected never-approved account returns to pending (D-086)",
+      "Submit the registration form of the draft's kind; the account is created in state pending, or a rejected never-approved account returns to pending",
     permission: 'public',
     audit: 'auth.registered',
     rateLimit: 'registration',
@@ -312,7 +312,7 @@ export function authRouter(
       status: 201,
       operationId: 'auth.registration.uploadPhoto',
       summary:
-        "Upload the photo or the NID photo of a verified draft (JPEG or PNG, at most 2 MB; metadata stripped; replaces the slot's earlier upload; D-087)",
+        "Upload the photo or the NID photo of a verified draft (JPEG or PNG, at most 2 MB, metadata stripped, replaces the slot's earlier upload)",
       permission: 'public',
       audit: 'file.uploaded',
       rateLimit: 'public-form',

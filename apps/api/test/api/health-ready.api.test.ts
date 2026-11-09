@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Container } from '../../src/container';
 import { buildTestApp, type TestApp } from '../support/app';
 
-// Readiness (SYSTEM_ARCHITECTURE 10, D-057): database, storage and queue; details only with the
+// Readiness (SYSTEM_ARCHITECTURE 10): database, storage and queue; details only with the
 // HEALTH_TOKEN bearer token. The dependencies are replaced by switchable stand-ins.
 const TOKEN = 'health-token-for-tests-0123456789';
 const state = { database: true, storage: true, queue: true };

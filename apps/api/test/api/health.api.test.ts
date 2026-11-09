@@ -26,7 +26,7 @@ describe('GET /health/live', () => {
     await request(t.app).get('/api/v1/does-not-exist').expect(404);
   });
 
-  it('sends no x-powered-by and the helmet headers (NE-SEC-01, NE-SEC-11)', async () => {
+  it('sends no x-powered-by and the helmet headers', async () => {
     const res = await request(t.app).get('/health/live').expect(200);
     expect(res.headers['x-powered-by']).toBeUndefined();
     expect(res.headers['x-content-type-options']).toBe('nosniff');

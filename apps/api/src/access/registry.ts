@@ -172,7 +172,7 @@ export function parsePermissionsFile(raw: unknown): AccessRegistry {
   };
 }
 
-/** The raw file, validated (the seed writes roles and permissions from it, T1.3). */
+/** The raw file, validated (the seed writes roles and permissions from it). */
 export function readPermissionsFile(path = DEFAULT_PERMISSIONS_FILE): PermissionsFile {
   return validatePermissionsFile(yaml.load(readFileSync(path, 'utf8')));
 }

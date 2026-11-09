@@ -3,11 +3,9 @@ import type { Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
 
 /**
- * The pending work of an official, by provider (BD-08, BR-034; plan
- * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R13, R14). Each module
- * that gives an official work plugs in a provider; the modules that do not exist yet (reviews and
- * approvals, documents, issues, follow-ups) have empty providers that list nothing until they
- * replace them.
+ * The pending work of an official, by provider. Each module that gives an official work plugs in a
+ * provider; the modules that do not exist yet (reviews and approvals, documents, issues,
+ * follow-ups) have empty providers that list nothing until they replace them.
  */
 export type HandoverCategory =
   'reviews_approvals' | 'projects' | 'documents' | 'issues' | 'followups';

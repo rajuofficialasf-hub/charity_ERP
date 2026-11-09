@@ -18,7 +18,7 @@ import type { ProjectEvents } from '../notifications/project-events';
 
 /**
  * The close guards a workflow may list. A guard whose module exists checks it here; the guards of
- * modules not built yet pass until those modules exist (DECISION_LOG D-095); any other key fails
+ * modules not built yet pass until those modules exist; any other key fails
  * the close, so a misspelled or forgotten guard never passes silently.
  */
 const CLOSE_GUARDS = new Map<string, (tx: Tx, projectId: string) => Promise<boolean>>();
@@ -27,7 +27,7 @@ const CLOSE_GUARDS_NOT_BUILT_YET: readonly string[] = ['stock.balanced', 'animal
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
 /**
- * The life of a project (docs/MASTER_SPEC.md, A6; DECISION_LOG D-095): a complete draft is
+ * The life of a project (docs/MASTER_SPEC.md, A6): a complete draft is
  * activated and its workflow snapshotted; the application window of an active project is extended
  * with a reason; closing is two steps, each with a reason, and the second runs the workflow's close
  * guards; a closing or closed project is reopened with a reason. Each action locks the project,
@@ -137,7 +137,7 @@ export class ProjectLifecycleService {
     });
   }
 
-  /** Moves the end of an active project's application window later, with a reason (BD-16). */
+  /** Moves the end of an active project's application window later, with a reason. */
   async extendDeadline(
     viewer: ProjectViewer,
     projectId: string,
@@ -244,7 +244,7 @@ export class ProjectLifecycleService {
     });
   }
 
-  /** A closing or closed project returns to active, with a reason (BD-20). */
+  /** A closing or closed project returns to active, with a reason. */
   async reopen(
     viewer: ProjectViewer,
     projectId: string,

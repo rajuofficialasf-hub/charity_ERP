@@ -10,7 +10,7 @@ const META_SUFFIX = '.meta.json';
 const PART_SUFFIX = '.part';
 
 /**
- * Filesystem driver for automated tests (ADR-005): objects are files under a root folder, each
+ * Filesystem driver for automated tests: objects are files under a root folder, each
  * with a `.meta.json` beside it; a put lands under a `.part` name and is renamed once complete,
  * so a read never sees a partial object (as S3 never does). Never used in production (the
  * configuration refuses it).

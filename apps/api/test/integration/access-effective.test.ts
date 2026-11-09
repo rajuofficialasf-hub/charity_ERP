@@ -12,8 +12,7 @@ import { testEnv } from '../support/env';
 import { accessWorld } from './support/access-fixtures';
 import { cloneTemplate } from './support/db';
 
-// Effective permissions read from real rows (RBAC.md 1 and 6; plan
-// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U2).
+// Effective permissions read from real rows (RBAC.md 1 and 6).
 let db: Client;
 let drop: () => Promise<void>;
 let prisma: PrismaService;

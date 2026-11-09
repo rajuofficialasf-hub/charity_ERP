@@ -20,7 +20,7 @@ const KIND: Record<PhotoSlot, 'profile_photo' | 'nid_photo'> = {
   nid_photo: 'nid_photo',
   nid_photo_back: 'nid_photo',
 };
-/** The draft column of each slot, as Prisma and as SQL names it (both NID pages, UX-18). */
+/** The draft column of each slot, as Prisma and as SQL names it (both NID pages). */
 const SLOT_COLUMN = {
   photo: ['photoFileId', 'photo_file_id'],
   nid_photo: ['nidPhotoFileId', 'nid_photo_file_id'],
@@ -29,12 +29,10 @@ const SLOT_COLUMN = {
 const EXTENSION = { 'image/jpeg': 'jpg', 'image/png': 'png' } as const;
 
 /**
- * The photo and the NID photo of a registration (plan
- * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R4; DECISION_LOG D-087):
- * a JPEG or PNG of at most 2 MB, metadata stripped, stored privately under a key of ids only. The
- * object is written first and removed again when the database write fails, so no orphan object
- * stays behind. The file is
- * queued for processing and stays quarantined until the scan clears it.
+ * The photo and the NID photo of a registration: a JPEG or PNG of at most 2 MB, metadata stripped,
+ * stored privately under a key of ids only. The object is written first and removed again when the
+ * database write fails, so no orphan object stays behind. The file is queued for processing and
+ * stays quarantined until the scan clears it.
  */
 export class RegistrationPhotosService {
   constructor(

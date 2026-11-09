@@ -75,7 +75,7 @@ function item(p: ProjectRow, link: Link, volunteerType: string) {
 }
 
 /**
- * A volunteer's own projects and their consent to the rules (BR-039, BR-040; DECISION_LOG D-096).
+ * A volunteer's own projects and their consent to the rules.
  * The list shows running projects with the consent state; a project opens for work only after its
  * current rules are accepted (the access layer reads the same state). A team member is on the
  * project through a membership while the main volunteer's assignment lasts, and consents on their

@@ -8,8 +8,7 @@ import { account, authHarness, type AuthHarness, bearer, login } from './support
 import * as f from './support/fixtures';
 import { TOKEN_HEADER, verifiedDraft } from './support/registration';
 
-// Registration photos and the photo stream (DECISION_LOG D-087; plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U5).
+// Registration photos and the photo stream.
 let h: AuthHarness;
 let loc: Awaited<ReturnType<typeof f.locationTree>>;
 
@@ -60,7 +59,7 @@ describe('POST /auth/register/photos/{slot}', () => {
     expect(photo.status).toBe(201);
     const nidPhoto = await upload(d, 'nid_photo', png(), 'image/png');
     expect(nidPhoto.status).toBe(201);
-    // the second page of the NID card has its own slot (UX-18)
+    // the second page of the NID card has its own slot
     const nidBack = await upload(d, 'nid_photo_back', jpeg());
     expect(nidBack.status).toBe(201);
     const draft = (
@@ -261,7 +260,7 @@ describe('GET /files/{fileId}/content', () => {
     expect(
       (res.body as Buffer).equals(await readStored(String((await fileRow(photo))!.object_key))),
     ).toBe(true);
-    // the own NID photo too (DECISION_LOG D-081)
+    // the own NID photo too
     expect((await content(nidPhoto, s)).status).toBe(200);
   });
 

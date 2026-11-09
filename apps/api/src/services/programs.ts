@@ -39,14 +39,14 @@ const view = (p: Row): ProgramView => ({
   active: p.active,
 });
 
-/** The project states that keep a program open (BR-256). */
+/** The project states that keep a program open. */
 const OPEN_PROJECT_STATES = ['draft', 'active', 'closing'];
 
 const isUniqueViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 
 /**
- * Programs (docs/MASTER_SPEC.md, A6; DECISION_LOG D-095): the Department Head creates, renames,
+ * Programs (docs/MASTER_SPEC.md, A6): the Department Head creates, renames,
  * deactivates and activates them and assigns their PM; officials read the programs in their scope.
  * A program is never deleted. Every change is audited in its transaction.
  */

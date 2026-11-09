@@ -10,8 +10,7 @@ import * as f from './support/fixtures';
 
 // Per-record access for the nationwide lists: the sensitive scope, the action flags, the
 // beneficiary scope with the Procurement Team's house-construction projects, and the time limit of
-// a list read (DECISION_LOG O-67, D-094; plan
-// docs/plans/2026-10-15-1030-feat-volunteer-beneficiary-tabs-plan.md).
+// a list read.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 let dhakaVolunteer: string;

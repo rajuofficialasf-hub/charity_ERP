@@ -10,7 +10,7 @@ import {
 } from './support/auth-app';
 
 // Every active device session for the global roles; ending one keeps the Main Admin's sessions for
-// the Main Admin (plan docs/plans/2026-10-17-1800-feat-admin-settings-core-plan.md).
+// the Main Admin.
 let h: AuthHarness;
 const api = () => request(h.server());
 

@@ -14,8 +14,7 @@ import {
 import * as f from './support/fixtures';
 
 // The nationwide beneficiary tab and the 360° profile shell: filters, search, counts, the limited
-// views of the Media and Procurement Teams and the NID per record (DECISION_LOG O-67, D-094; plan
-// docs/plans/2026-10-15-1030-feat-volunteer-beneficiary-tabs-plan.md).
+// views of the Media and Procurement Teams and the NID per record.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();

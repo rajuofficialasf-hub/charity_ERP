@@ -15,8 +15,7 @@ import {
 import * as f from './support/fixtures';
 import { notificationsOf } from './support/notifications';
 
-// Staff handover before deactivation (BD-08, BR-034; plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U10).
+// Staff handover before deactivation.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();

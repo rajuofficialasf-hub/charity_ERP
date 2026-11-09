@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { cloneTemplate } from './support/db';
 
 // The database roles of DATABASE_SCHEMA section 23 after the role script runs: the application
-// role deletes only the three kinds of project setup rows of DECISION_LOG D-106, nothing else.
+// role deletes only the three kinds of project setup rows it is allowed to, nothing else.
 let db: Client;
 let drop: () => Promise<void>;
 const script = readFileSync(join(__dirname, '../../prisma/sql/roles.sql'), 'utf8');

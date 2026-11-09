@@ -55,7 +55,7 @@ describe('loadEnv', () => {
     expect(() => loadEnv({})).toThrow(/DATABASE_URL/);
   });
 
-  it('has no default storage driver and refuses an unknown one (NS-34)', () => {
+  it('has no default storage driver and refuses an unknown one', () => {
     expect(() => loadEnv({ ...base, STORAGE_DRIVER: undefined })).toThrow(/STORAGE_DRIVER/);
     expect(() => loadEnv({ ...base, STORAGE_DRIVER: 'minio' })).toThrow(/STORAGE_DRIVER/);
   });
@@ -66,7 +66,7 @@ describe('loadEnv', () => {
     );
   });
 
-  it('refuses inline jobs and filesystem storage in production (BR-024)', () => {
+  it('refuses inline jobs and filesystem storage in production', () => {
     expect(() => loadEnv({ ...base, NODE_ENV: 'production', JOBS_INLINE: 'true' })).toThrow(
       /JOBS_INLINE/,
     );
@@ -87,7 +87,7 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...base, CURSOR_SECRET: 'short' })).toThrow(/CURSOR_SECRET/);
   });
 
-  it('refuses the dummy OTP and insecure auth cookies in production (BD-49, BR-024, D-070)', () => {
+  it('refuses the dummy OTP and insecure auth cookies in production', () => {
     const production = { ...base, NODE_ENV: 'production', APP_ORIGIN: 'https://erp.example.org' };
     expect(() =>
       loadEnv({
@@ -105,7 +105,7 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...production, SESSION_DEVICE_LIMIT_RELAXED: 'true' })).toThrow(
       /SESSION_DEVICE_LIMIT_RELAXED/,
     );
-    // the set-password link goes out by email, so it must point at the https origin (D-097)
+    // the set-password link goes out by email, so it must point at the https origin
     expect(() => loadEnv({ ...base, NODE_ENV: 'production' })).toThrow(/APP_ORIGIN/);
     // production starts only with a real virus scanner, which joins with the first deployment;
     // until then the scanner is the one thing a production configuration lacks

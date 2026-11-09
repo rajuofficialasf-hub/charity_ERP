@@ -28,7 +28,7 @@ import { DeliveryError, type EmailAdapter } from '../notifications/adapters';
 import type { SettingsService } from './settings';
 import { isGivableOfficialRole } from './registrations';
 
-/** The set-password link (DECISION_LOG D-097, BR-262): 72 hours, once. */
+/** The set-password link: 72 hours, once. */
 export const INVITATION_RULES = { validMs: 72 * 3_600_000 } as const;
 
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
@@ -45,7 +45,7 @@ type ProfileRefs = Pick<
 >;
 
 /**
- * Officials created by the admin (DECISION_LOG D-097; AUTH.md 2): the account with its role and
+ * Officials created by the admin (AUTH.md 2): the account with its role and
  * place, the set-password link (a random token stored only as a SHA-256 hash, emailed and returned
  * once so the admin can copy it), its renewal, and its use. The account stays pending without a
  * password until the link is used.
@@ -64,7 +64,7 @@ export class StaffAccountsService {
     private readonly settings: SettingsService,
   ) {}
 
-  /** Creates the pending account, gives the role and issues the link (BR-261). */
+  /** Creates the pending account, gives the role and issues the link. */
   async create(actor: Principal, body: StaffCreateRequest): Promise<InvitationIssued> {
     if (!isGivableOfficialRole(this.registry, body.roleKey))
       throw invalid('roleKey', 'validation.option_unknown');
@@ -128,7 +128,7 @@ export class StaffAccountsService {
   }
 
   /**
-   * A new link for an account still without a password; the open one is revoked (BR-262). A
+   * A new link for an account still without a password; the open one is revoked. A
    * corrected email replaces the stored one first, so a link sent to a mistyped address dies.
    */
   async reissue(
@@ -186,7 +186,7 @@ export class StaffAccountsService {
     };
   }
 
-  /** Sets the first password through the link; the account becomes active (BR-262). */
+  /** Sets the first password through the link; the account becomes active. */
   async accept(body: InvitationAcceptRequest): Promise<void> {
     const first = await this.open(this.prisma, body.token);
     const problems = checkPassword(body.password, {
@@ -229,7 +229,7 @@ export class StaffAccountsService {
     });
   }
 
-  /** Replaces the profile of an official (BR-261): job ID, name, place and supervisor. */
+  /** Replaces the profile of an official: job ID, name, place and supervisor. */
   async updateProfile(
     actor: Principal,
     scope: Scope,

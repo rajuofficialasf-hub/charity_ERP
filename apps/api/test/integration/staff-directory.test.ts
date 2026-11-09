@@ -13,8 +13,7 @@ import {
   type Session,
 } from './support/auth-app';
 
-// The official's profile, the staff directory and the organogram (DECISION_LOG D-097; plan
-// docs/plans/2026-10-17-1500-feat-official-accounts-organogram-plan.md, unit U3).
+// The official's profile, the staff directory and the organogram.
 let h: AuthHarness;
 let head: Account;
 let headSession: Session;
@@ -114,7 +113,7 @@ async function etagOf(userId: string) {
 const putProfile = (userId: string, body: Record<string, unknown>, etag: string, s = headSession) =>
   api().put(`/api/v1/users/${userId}/profile`).set(bearer(s)).set('If-Match', etag).send(body);
 
-describe('the official profile (BR-261)', () => {
+describe('the official profile', () => {
   it('replaces the profile of an existing official with an audit entry', async () => {
     const who = people.loose!;
     const res = await putProfile(
@@ -277,7 +276,7 @@ describe('the staff directory (R8)', () => {
   });
 });
 
-describe('the organogram (BR-263)', () => {
+describe('the organogram', () => {
   type Node = { userId: string; jobId: string | null; reports: Node[] };
   const flat = (nodes: Node[]): string[] => nodes.flatMap((n) => [n.userId, ...flat(n.reports)]);
 

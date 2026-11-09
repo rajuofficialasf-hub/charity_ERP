@@ -41,12 +41,11 @@ function withoutToken(settings: unknown): Prisma.InputJsonValue {
 }
 
 /**
- * The parts of a project's setup that are saved on their own (docs/MASTER_SPEC.md, A6; DECISION_LOG
- * D-095): components and their settings, the budget with its fund sources, areas with their RPMs,
- * staff access and the dawah syllabus. Every write loads the project inside the caller's scope,
- * locks its row, applies the state rule and audits, in one transaction. An active project keeps
- * what its activation needed. A volunteer reads only the enabled components, the photo rule and
- * the syllabus.
+ * The parts of a project's setup that are saved on their own (docs/MASTER_SPEC.md, A6): components
+ * and their settings, the budget with its fund sources, areas with their RPMs, staff access and the
+ * dawah syllabus. Every write loads the project inside the caller's scope, locks its row, applies
+ * the state rule and audits, in one transaction. An active project keeps what its activation
+ * needed. A volunteer reads only the enabled components, the photo rule and the syllabus.
  */
 export class ProjectSetupService {
   constructor(
@@ -259,7 +258,7 @@ export class ProjectSetupService {
    * Replaces the fund sources, with the cost per beneficiary and the target when sent. Rows are
    * kept by their source and name, so a later ledger entry keeps pointing at its source. Once a
    * project is active its fund sources always add up to its planned budget, so a budget change
-   * comes with its fund sources in this one request (DECISION_LOG D-095).
+   * comes with its fund sources in this one request.
    */
   async replaceFundSources(viewer: ProjectViewer, projectId: string, body: FundSources) {
     const actor = viewer.principal.userId;
@@ -465,7 +464,7 @@ export class ProjectSetupService {
       where: {
         kind: 'staff',
         state: 'active',
-        // no name: the first ones (D-161); % and _ in a name are letters, never wildcards
+        // no name: the first ones; % and _ in a name are letters, never wildcards
         ...(query.q
           ? { displayName: { contains: literalContains(query.q), mode: 'insensitive' } }
           : {}),

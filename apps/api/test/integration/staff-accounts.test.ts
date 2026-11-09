@@ -16,10 +16,8 @@ import {
 } from './support/auth-app';
 import * as f from './support/fixtures';
 
-// Officials created by the admin with a set-password link, login by job ID, staff
-// self-registration closed (DECISION_LOG D-097; plan
-// docs/plans/2026-10-17-1500-feat-official-accounts-organogram-plan.md, unit U2).
-// test-only passwords for the rules of AUTH.md 3 (8 characters, 12 for a global role)
+// Officials created by the admin with a set-password link, login by job ID, staff self-registration
+// closed. test-only passwords for the rules of AUTH.md 3 (8 characters, 12 for a global role)
 const TOO_SHORT = 'Ab1';
 const UNDER_TWELVE = `${PASSWORD.slice(0, 4)} 20261`;
 const TWELVE_OR_MORE = `${PASSWORD} 1`.slice(0, 14);
@@ -89,7 +87,7 @@ const check = (token: string) => api().post('/api/v1/auth/invitations/check').se
 const accept = (token: string, password = PASSWORD) =>
   api().post('/api/v1/auth/invitations/accept').send({ token, password });
 
-describe('creating an official (BR-261)', () => {
+describe('creating an official', () => {
   it('creates a pending account without a password, with its role and an emailed link', async () => {
     const body = official({ mobile: f.fakeMobile(), homeDivisionId: loc.division });
     const res = await create(body);
@@ -215,7 +213,7 @@ describe('creating an official (BR-261)', () => {
   });
 });
 
-describe('the set-password link (BR-262)', () => {
+describe('the set-password link', () => {
   it('shows the name and the job ID, sets the password once and opens the account', async () => {
     const body = official();
     const issued = (await create(body)).body.data;
@@ -318,7 +316,7 @@ describe('the set-password link (BR-262)', () => {
   });
 });
 
-describe('login by job ID (BR-263)', () => {
+describe('login by job ID', () => {
   it('takes the job ID in any case, the email and the mobile', async () => {
     const body = official({ mobile: f.fakeMobile() });
     const issued = (await create(body)).body.data;
@@ -366,7 +364,7 @@ describe('login by job ID (BR-263)', () => {
   });
 });
 
-describe('staff self-registration (BR-028 as amended by D-097)', () => {
+describe('staff self-registration (closed: the admin creates officials)', () => {
   it('is closed; a volunteer still starts a registration', async () => {
     const staff = await api().post('/api/v1/auth/register/start').send({ kind: 'staff' });
     expect(staff.status).toBe(422);

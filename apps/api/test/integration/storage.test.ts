@@ -13,7 +13,7 @@ import { dropParts, joinParts, PART_SIZE, storePart } from '../../src/files/part
 import { type Bucket, BUCKETS, createStorage, NotFoundError } from '../../src/storage';
 import { testEnv } from '../support/env';
 
-// The S3 driver against the real MinIO container (ADR-005, D-074, O-58): docker compose locally, a
+// The S3 driver against the real MinIO container: docker compose locally, a
 // service container in CI. It goes through the entry point, so the driver map is covered too. Test
 // objects live under a random prefix in the exports bucket and are removed at the end.
 const minio = {
@@ -40,7 +40,7 @@ const prefix = `u5-${randomUUID()}`;
 const key = (name: string) => `${prefix}/${name}`;
 const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 
-/** Yields `total` bytes in 64 KiB chunks without holding them all, like an upload stream (NS-04). */
+/** Yields `total` bytes in 64 KiB chunks without holding them all, like an upload stream. */
 function generatedStream(total: number): { stream: Readable; digest: () => string } {
   const hash = createHash('sha256');
   let sent = 0;
@@ -77,7 +77,7 @@ afterAll(async () => {
   admin.destroy();
 });
 
-describe('S3 storage driver on MinIO (ADR-005, NS-4x)', () => {
+describe('S3 storage driver on MinIO (NS-4x)', () => {
   it('is the driver STORAGE_DRIVER picks', () => {
     expect(storage.name).toBe('s3');
   });
@@ -152,14 +152,14 @@ describe('S3 storage driver on MinIO (ADR-005, NS-4x)', () => {
     await expect(storage.get('exports', key('missing.bin'))).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it('reports a missing bucket as a fault, not as a missing file (NE-ERR-02)', async () => {
+  it('reports a missing bucket as a fault, not as a missing file', async () => {
     const bucket = 'no-such-bucket' as Bucket;
     await expect(storage.get(bucket, key('x.bin'))).rejects.toMatchObject({ name: 'NoSuchBucket' });
     // HEAD carries no error code, so stat answers null for a missing bucket as for a missing key.
     expect(await storage.stat(bucket, key('x.bin'))).toBeNull();
   });
 
-  it('keeps the bucket private: an unauthenticated GET of an object URL is refused (NS-40)', async () => {
+  it('keeps the bucket private: an unauthenticated GET of an object URL is refused', async () => {
     await storage.put('exports', key('private.txt'), Readable.from([Buffer.from('secret')]), {
       contentType: 'text/plain',
     });

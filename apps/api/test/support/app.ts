@@ -20,7 +20,7 @@ export interface TestApp {
 }
 
 /**
- * The real Express app for Supertest (TS-01), built exactly as server.ts builds it, on the test
+ * The real Express app for Supertest, built exactly as server.ts builds it, on the test
  * configuration with optional service overrides and extra probe routers.
  */
 export function buildTestApp(
