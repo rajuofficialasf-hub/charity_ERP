@@ -1,6 +1,6 @@
 /* eslint-disable security/detect-object-injection -- walks OpenAPI documents by their own keys */
 /**
- * Compares the generated OpenAPI document with docs/api/openapi.yaml (API_STANDARDS 16, NFR-54).
+ * Compares the generated OpenAPI document with docs/api/openapi.yaml (API_STANDARDS 16).
  * Every generated operation must exist in the contract with the same annotations, parameters,
  * request body schema (references resolved, descriptive keywords ignored) and response codes, and
  * name a known permission. Operations of the contract that are not implemented yet are fine.

@@ -165,7 +165,7 @@ export class OtpService {
     if (!row) throw new ApiError('otp.invalid', 422);
     if (row.expiresAt <= now) throw new ApiError('otp.expired', 422);
     // The attempt is reserved before the comparison, in one conditional UPDATE, so parallel
-    // guesses cannot all pass the cap on the same stale count (C4 review of the stack-adoption plan).
+    // guesses cannot all pass the cap on the same stale count.
     const reserved = await this.prisma.otpCode.updateMany({
       where: { id: row.id, attempts: { lt: OTP_RULES.maxAttempts }, consumedAt: null },
       data: { attempts: { increment: 1 } },

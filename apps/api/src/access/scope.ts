@@ -204,7 +204,7 @@ async function ownAreas(db: Tx, actorId: string, inProjects: Set<string | null>)
  * grants that name an instance (panel grants, project-bound grants) keep it. ASSIGNED resolves per
  * entity with the work assignments of later tasks; the user entity has none.
  *
- * Conditions (RBAC.md 3, R5) narrow a grant for the route's entity; a condition the entity has no
+ * Conditions (RBAC.md 3) narrow a grant for the route's entity; a condition the entity has no
  * rule for drops the grant, so an unknown or not yet evaluated condition denies (fail closed).
  * For users, `own_region` limits an area grant to the volunteers of that area.
  */
@@ -254,7 +254,7 @@ export async function resolveInstances(
         else volunteerRegionProjects.add(g.projectId);
       }
       // the Procurement Team reaches beneficiaries only through the house-construction projects
-      // it is attached to (DECISION_LOG Q-46); the projects are checked below
+      // it is attached to (the Procurement Team); the projects are checked below
       if (
         entity === 'beneficiary' &&
         g.condition === 'house_construction_project' &&

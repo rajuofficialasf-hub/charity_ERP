@@ -16,7 +16,7 @@ import {
   urlFor,
 } from './support/db';
 
-// Reversible migrations (NFR-55, TEST_STRATEGY section 3.9). The round trip runs on a
+// Reversible migrations (TEST_STRATEGY section 3.9). The round trip runs on a
 // database holding the base and demo seed, so down.sql is proven to work with data.
 const created: string[] = [];
 afterAll(async () => {
@@ -80,7 +80,7 @@ describe('migrations', () => {
     }
   });
 
-  it('NFR-55 up, down and up again leave the identical schema; down removes everything, also with seed data', async () => {
+  it('up, down and up again leave the identical schema; down removes everything, also with seed data', async () => {
     const db = await freshDatabase('rt');
     const empty = await snapshot(db);
     await runMigrations(db, 'up');

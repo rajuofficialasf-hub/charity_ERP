@@ -272,7 +272,7 @@ export class RegistrationService {
       return await this.submitDraft(draft, body);
     } catch (error) {
       // A refused submit is counted on the draft, so one verified draft cannot test NIDs or
-      // references without end (C5 review of the plan of this task).
+      // references without end.
       if (error instanceof ApiError && [409, 422].includes(error.status))
         await this.draftAudit('auth.register_refused', draft.id, { code: error.code });
       throw error;

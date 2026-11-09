@@ -547,7 +547,7 @@ export class RegistrationsService {
     return rows.map((r) => changeView(r, false));
   }
 
-  /** The Department Head or the Monitoring Team decides a staff registration (R9). */
+  /** The Department Head or the Monitoring Team decides a staff registration. */
   async decideStaff(actor: Principal, userId: string, body: StaffDecision): Promise<void> {
     if (body.decision === 'approve') {
       if (!isGivableOfficialRole(this.registry, body.roleKey!))

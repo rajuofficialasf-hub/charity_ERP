@@ -243,7 +243,7 @@ describe('the profile and the link at a narrower scope', () => {
   });
 });
 
-describe('the staff directory (R8)', () => {
+describe('the staff directory', () => {
   const ids = (res: request.Response) => res.body.data.map((u: { id: string }) => u.id);
 
   it('lists department staff, other departments and partners apart', async () => {

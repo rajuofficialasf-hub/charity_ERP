@@ -83,7 +83,7 @@ export function effectivePermissions(
  * (every permission at GLOBAL minus `global_roles_excluded`), role defaults, project permission
  * sets and project extras, panel overrides; a live revoke override beats every grant. Volunteers
  * hold the SELF defaults of their role directly and everything else only on their projects (RBAC.md
- * 6; docs/DECISION_LOG.md Q-16), and never a sensitive permission. Pure: the
+ * 6), and never a sensitive permission. Pure: the
  * loader below reads the rows.
  */
 export function effectiveAccess(
@@ -112,8 +112,8 @@ export function effectiveAccess(
         });
 
   // 2. Role defaults. For a volunteer role, a permission that a permission set of that role
-  // contains comes only through the set on a project (3a, R9 of
-  // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md); account permissions (module
+  // contains comes only through the set on a project
+  // (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md); account permissions (module
   // M01: own sessions) stay direct; other non-SELF defaults count only on assigned projects.
   const volunteerProjects = [
     ...new Set([...facts.projectVolunteers.map((pv) => pv.projectId), ...facts.teamProjects]),

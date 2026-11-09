@@ -269,7 +269,7 @@ export const changeRequestAnswerSchema = z.strictObject({
 });
 export type ChangeRequestAnswer = z.infer<typeof changeRequestAnswerSchema>;
 
-/** The staff decision (R9): a role on approval, a reason on rejection. */
+/** The staff decision: a role on approval, a reason on rejection. */
 export const staffDecisionSchema = z
   .strictObject({
     decision: z.enum(['approve', 'reject']),

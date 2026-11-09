@@ -15,8 +15,8 @@ import {
   type Session,
 } from './support/auth-app';
 
-// Cross-region and cross-project access (R19, R20 of
-// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U7; RBAC.md 8.4: 404, never 403,
+// Cross-region and cross-project access (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md;
+// RBAC.md 8.4: 404, never 403,
 // for a record outside the caller's scope). Entities whose endpoints come in later tasks
 // (applications, beneficiaries, volunteers) get their scope filters and IDOR tests with them.
 let h: AuthHarness;

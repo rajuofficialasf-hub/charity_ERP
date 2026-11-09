@@ -128,7 +128,7 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
 
 /**
  * A signed-in answer holds the caller's own or other people's personal data, so no browser or
- * proxy keeps it (R7 of docs/plans/2026-10-14-1400-feat-volunteer-form-refine-plan.md). Public
+ * proxy keeps it (docs/plans/2026-10-14-1400-feat-volunteer-form-refine-plan.md). Public
  * routes carry no personal data; the ones that do (a draft) set the header themselves.
  */
 const noStore: RequestHandler = (_req, res, next) => {
