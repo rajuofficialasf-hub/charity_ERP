@@ -1,6 +1,6 @@
 /**
- * Project components of BR-063 (D-062). Projects are assembled from these; nothing
- * project-specific is hard-coded (BD-09). `project_components.component_key` stores the key.
+ * The components a project is assembled from (the business rules' list of eighteen). Projects are assembled from these; nothing
+ * project-specific is hard-coded. `project_components.component_key` stores the key.
  */
 export const COMPONENT_KEYS = [
   'application_form',

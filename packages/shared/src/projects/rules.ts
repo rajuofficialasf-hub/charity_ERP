@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * The four rules texts of a project that every assigned volunteer reads and accepts before working
- * on it (BR-039): the volunteer's duties, the implementation process, the Local দায়ী's duties and
+ * on it: the volunteer's duties, the implementation process, the Local দায়ী's duties and
  * the consequences of misconduct. Each is bilingual; the Local দায়ী part matters only while the
  * project runs dawah classes.
  */

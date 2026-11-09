@@ -9,7 +9,7 @@ import { loginRequestSchema, passwordChangeRequestSchema } from './schemas.js';
 
 const base = { minLength: PASSWORD_MIN_LENGTH };
 
-describe('password rules (AUTH.md 3, O-64, O-25, BR-203)', () => {
+describe('password rules (AUTH.md 3)', () => {
   it('accepts 8 characters with an upper-case letter and a digit, spaces included', () => {
     expect(checkPassword('Nadi 2026', base)).toEqual([]);
     expect(checkPassword('Kalo-megh7', base)).toEqual([]);
@@ -36,7 +36,7 @@ describe('password rules (AUTH.md 3, O-64, O-25, BR-203)', () => {
     ]);
   });
 
-  it('requires 12 characters for officials with GLOBAL scope (O-25), with the same letter rules', () => {
+  it('requires 12 characters for officials with GLOBAL scope, with the same letter rules', () => {
     expect(minPasswordLength(true)).toBe(PASSWORD_MIN_LENGTH_GLOBAL);
     expect(minPasswordLength(false)).toBe(PASSWORD_MIN_LENGTH);
     expect(checkPassword('Nadi 2026x', { minLength: minPasswordLength(true) })).toEqual([
@@ -45,7 +45,7 @@ describe('password rules (AUTH.md 3, O-64, O-25, BR-203)', () => {
     expect(checkPassword('Nadi kul 2026', { minLength: minPasswordLength(true) })).toEqual([]);
   });
 
-  it('does not look at the mobile number, the email or a list of common words (O-64)', () => {
+  it('does not look at the mobile number, the email or a list of common words', () => {
     expect(checkPassword('X01700000101', base)).toEqual([]);
     expect(checkPassword('Rahim.uddin1', base)).toEqual([]);
     expect(checkPassword('Bismillah786', base)).toEqual([]);

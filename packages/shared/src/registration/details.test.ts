@@ -14,7 +14,7 @@ import {
   skillsValueSchema,
 } from './details';
 
-// The personal, profession and skills data (DECISION_LOG O-65, D-092; BR-246).
+// The personal, profession and skills data.
 const ok = (schema: { safeParse: (v: unknown) => { success: boolean } }, v: unknown) =>
   schema.safeParse(v).success;
 
@@ -87,7 +87,7 @@ describe('the details of each profession', () => {
     });
     expect(parseProfessionDetails('student', { educationMedium: 'other' }).success).toBe(false);
     expect(parseProfessionDetails('imam', { mosqueType: 'masjid' }).success).toBe(false);
-    // the full-time answer is part of the skills now, not of the profession (O-66)
+    // the full-time answer is part of the skills now, not of the profession
     expect(parseProfessionDetails('job_seeker', { fullTimeAvailable: true }).success).toBe(false);
   });
 

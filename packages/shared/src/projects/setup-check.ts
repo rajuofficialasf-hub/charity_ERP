@@ -42,14 +42,14 @@ export type MissingItem =
   | `rules:${RulesPart}`;
 
 /**
- * Everything a draft needs before it can be activated (DECISION_LOG D-095): the basics, the
+ * Everything a draft needs before it can be activated: the basics, the
  * application window, the per-volunteer limit where the workflow has one, the budget, fund sources
  * that add up to the planned budget, at least one area with an RPM, a photo rule, and valid
  * settings for every enabled component. The values are checked, not only their presence: the
  * window runs forwards, the limit is a whole number of at least 1, cost and target are above zero.
  * The rules texts every volunteer accepts are needed too: the volunteer's duties, the
  * implementation process and the consequences of misconduct, and the Local দায়ী's duties while
- * dawah is on (DECISION_LOG D-096), and a published application form while the application-form
+ * dawah is on, and a published application form while the application-form
  * component is on. An empty list means the project may be activated.
  */
 export function setupCheck(input: SetupInput): MissingItem[] {

@@ -7,16 +7,16 @@ import { projectRulesSchema } from './rules.js';
 import { WORKFLOW_KEYS } from './workflow-defaults.js';
 
 /**
- * Master templates and copies of a project (BD-10, BR-064, BR-065). A new project started from a
+ * Master templates and copies of a project. A new project started from a
  * template or from a previous project takes the parts below as an independent snapshot; nothing
  * links it back to its source afterwards.
  */
 
 /**
- * BD-10's list of what a copy takes, and where each item lives in a template's definition. Stages,
+ * The approved list of what a copy takes, and where each item lives in a template's definition. Stages,
  * the photo rule, rating criteria, issue types and expense categories are component settings, so
  * they travel with the components. The form (as version 1), the document checklist and the scoring
- * criteria have no storage yet and join the copy in their own tasks (DECISION_LOG D-096).
+ * criteria have no storage yet and join the copy in their own tasks.
  */
 export const BD10_COPIED = {
   components_and_settings: 'components',
@@ -32,7 +32,7 @@ export const BD10_COPIED = {
 } as const;
 
 /**
- * BD-10's list of what a copy never takes, plus the setup parts that belong to one project only
+ * The approved list of what a copy never takes, plus the setup parts that belong to one project only
  * (fund sources, areas with their RPM, staff access).
  */
 export const NOT_COPIED = [

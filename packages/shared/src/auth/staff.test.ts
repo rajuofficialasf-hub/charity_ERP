@@ -22,7 +22,7 @@ const profile = {
 const issues = (result: { success: boolean; error?: { issues: { message: string }[] } }) =>
   result.success ? [] : result.error!.issues.map((i) => i.message);
 
-describe('job ID (DECISION_LOG D-097)', () => {
+describe('job ID', () => {
   it('is stored in capitals with English digits and without surrounding spaces', () => {
     expect(normalizeJobId('  asf-১০২৩ ')).toBe('ASF-1023');
     expect(jobIdSchema.parse('css/hq.07_a')).toBe('CSS/HQ.07_A');

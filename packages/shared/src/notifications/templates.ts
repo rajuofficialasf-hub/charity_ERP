@@ -2,7 +2,7 @@
  * Seed texts of the notification templates (NOTIFICATIONS.md §6): the Phase 1 events of §4.1 and
  * §4.2. Loaded into notification_templates by the base seed; officials edit them later through the
  * admin screens, each change a new version. Variables use {{name}}; numbers and dates are formatted
- * with English digits before rendering (UX-05). SMS texts carry no personal data except the
+ * with English digits before rendering. SMS texts carry no personal data except the
  * recipient's own code. An in-app text never names another person (only what happened, the project
  * and counts; docs/DECISION_LOG.md, the notifications decision of 2026-10-18): emails to officials
  * may. A variable may be bilingual data ({ bn, en }); it is shown in the reader's language. Later
@@ -106,7 +106,7 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
     },
   },
   {
-    // the set-password link of an official created by the admin (DECISION_LOG D-097)
+    // the set-password link of an official created by the admin
     key: 'staff_invitation',
     variables: ['name', 'job_id', 'link', 'hours'],
     channels: {
@@ -689,7 +689,7 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
       },
     ),
   },
-  // ---- 4.7 Media Team (D-101): the work by its title and project, never the beneficiary ----
+  // ---- 4.7 Media Team: the work by its title and project, never the beneficiary ----
   {
     key: 'media_referral_new',
     variables: ['project_name'],

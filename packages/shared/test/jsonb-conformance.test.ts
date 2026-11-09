@@ -26,7 +26,7 @@ import {
 } from '../src/jsonb/index.js';
 
 // The zod schemas mirror the JSON Schemas in docs/database/json-schemas/ (DATABASE_SCHEMA
-// section 20, D-055). Every sample must get the same verdict from both, and the expected one.
+// section 20). Every sample must get the same verdict from both, and the expected one.
 const docs = join(__dirname, '../../../docs');
 const schemaDir = join(docs, 'database/json-schemas');
 const templatesDir = join(docs, 'architecture/workflow-templates');
@@ -135,7 +135,7 @@ conform('distribution-items', '', distributionItemsSchema, [
 
 conform('followup-answers', '', followupAnswersSchema, [
   [
-    'O-23 answers',
+    'the follow-up answers',
     { business_started: true, current_income: 4500, main_problem: 'পুঁজি কম' },
     true,
   ],
@@ -186,7 +186,7 @@ conform('user-preferences', '', userPreferencesSchema, [
     { email_mode: 'digest', digest_time: '08:00', push_opt_in_sessions: [U] },
     true,
   ],
-  ['hijri setting removed (O-43)', { hijri_date: true }, false],
+  ['hijri setting removed', { hijri_date: true }, false],
   ['bad time', { digest_time: '8 am' }, false],
 ]);
 
@@ -399,7 +399,7 @@ for (const [key, cases] of Object.entries(componentCases)) {
 }
 
 describe('project-component-settings as a whole', () => {
-  it('accepts {} for components without settings (anyOf, T1.2)', () => {
+  it('accepts {} for components without settings (anyOf)', () => {
     expect(docSchema('project-component-settings')({})).toBe(true);
     expect(componentSettingsSchema('dispatch_receive').safeParse({}).success).toBe(true);
     expect(componentSettingsSchema('dispatch_receive').safeParse({ x: 1 }).success).toBe(false);

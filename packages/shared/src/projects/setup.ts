@@ -21,7 +21,7 @@ export const FUND_SOURCES = ['zakat', 'sadaqah', 'general', 'donor'] as const;
 /**
  * The fund sources with their amounts, and the budget when it changes with them: once a project is
  * active its fund sources always add up to its planned budget, so both are saved together
- * (DECISION_LOG D-095).
+ *.
  */
 export const fundSourcesSchema = z.strictObject({
   costPerBeneficiary: money.optional(),
@@ -34,7 +34,7 @@ export const fundSourcesSchema = z.strictObject({
           label: z.string().trim().min(1).max(200).optional(),
           amount: money,
         })
-        // a specific donor is named (BD-30)
+        // a specific donor is named
         .refine((f) => f.source !== 'donor' || f.label !== undefined, {
           message: 'a donor needs a name',
           path: ['label'],
@@ -48,8 +48,8 @@ export const areaCreateSchema = z.strictObject({ locationId: z.uuid(), rpmUserId
 export type AreaCreate = z.infer<typeof areaCreateSchema>;
 
 /**
- * The official roles that work under an RPM and may get project access (DECISION_LOG D-095; the
- * Implementer is retired, D-162: a Project Executive does the implementation work).
+ * The official roles that work under an RPM and may get project access (the Implementer role is
+ * retired: a Project Executive does the implementation work).
  */
 export const STAFF_ACCESS_ROLES = ['project_executive', 'official_daee'] as const;
 

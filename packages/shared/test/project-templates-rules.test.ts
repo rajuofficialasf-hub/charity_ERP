@@ -98,7 +98,7 @@ describe('the rules texts', () => {
 });
 
 describe('templates and copies', () => {
-  it('covers BD-10: what a copy takes and what it never takes', () => {
+  it('covers the approved lists of what a copy takes and what it never takes', () => {
     expect(Object.keys(BD10_COPIED).sort()).toEqual(
       [
         'components_and_settings',
@@ -120,7 +120,7 @@ describe('templates and copies', () => {
         .map(([item]) => item)
         .sort(),
     ).toEqual(['document_checklist', 'scoring_criteria']);
-    // BD-10's list, and the setup parts that belong to one project only
+    // the approved list, and the setup parts that belong to one project only
     expect([...NOT_COPIED].sort()).toEqual(
       [
         'applications',

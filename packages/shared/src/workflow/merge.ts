@@ -7,7 +7,7 @@ import { type WorkflowDefinition, workflowDefinitionSchema } from '../jsonb/work
  * child winning; every other field (title, version, stages, project_lifecycle, donor_flow, ...)
  * comes from the child when present, otherwise from the parent. The result keeps the child's
  * `template`, `version` and `extends`, and is validated with the zod schema.
- * Used by the seed (T1.3) and by the workflow engine (Phase 2), so both read the same definition.
+ * Used by the seed and by the workflow engine (Phase 2), so both read the same definition.
  */
 type Template = Record<string, unknown> & { template: string; extends?: string };
 

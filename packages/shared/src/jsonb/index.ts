@@ -26,7 +26,7 @@ export * from './workflow-definition.js';
 
 /**
  * Zod schema per JSONB column (DATABASE_SCHEMA section 20). Services validate every JSONB write
- * with these (D-055). project_components.settings depends on component_key: use
+ * with these. project_components.settings depends on component_key: use
  * componentSettingsSchema(componentKey). The JSON Schemas in docs/database/json-schemas/ stay the
  * contract; a conformance test keeps both in step.
  */

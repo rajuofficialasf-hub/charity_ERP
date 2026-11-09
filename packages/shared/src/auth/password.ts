@@ -1,11 +1,11 @@
 /**
- * Password rules (AUTH.md section 3, O-64, O-25, D-091). Pure functions shared by the API, which
+ * Password rules (AUTH.md section 3). Pure functions shared by the API, which
  * enforces the rules, and the PWA, which shows the same conditions as a checklist while typing.
  * The whole rule: a minimum length, one upper-case letter, one digit.
  */
 export const PASSWORD_MAX_LENGTH = 128;
 export const PASSWORD_MIN_LENGTH = 8;
-/** Officials with GLOBAL scope (Department Head, Monitoring Team) need a longer password (O-25). */
+/** Officials with GLOBAL scope (Department Head, Monitoring Team) need a longer password. */
 export const PASSWORD_MIN_LENGTH_GLOBAL = 12;
 
 export type PasswordProblem =

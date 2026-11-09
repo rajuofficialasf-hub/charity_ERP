@@ -3,7 +3,7 @@ import { boundedLabel } from '../jsonb/common.js';
 import { PROJECT_STATUSES } from './lifecycle.js';
 import { WORKFLOW_KEYS } from './workflow-defaults.js';
 
-/** A project code: 2 to 8 capital letters, also the prefix of the application ids (O-03). */
+/** A project code: 2 to 8 capital letters, also the prefix of the application ids. */
 export const projectCode = z.string().regex(/^[A-Z]{2,8}$/);
 const year = z.number().int().min(2020).max(2100);
 /** A calendar date, yyyy-mm-dd. */
@@ -18,7 +18,7 @@ export const projectCreateSchema = z.strictObject({
   year,
   name: boundedLabel,
   description: z.string().max(2000).optional(),
-  // a workflow's starting setup, a master template, or a copy of a previous project (BD-10)
+  // a workflow's starting setup, a master template, or a copy of a previous project
   source: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('workflow'), workflowKey: z.enum(WORKFLOW_KEYS) }),
     z.strictObject({ kind: z.literal('template'), templateId: z.uuid() }),
@@ -47,7 +47,7 @@ export const projectUpdateSchema = z
   .refine((b) => Object.keys(b).length > 0, 'at least one field is required');
 export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
 
-/** A later end date for the application window of an active project, with the reason (BD-16). */
+/** A later end date for the application window of an active project, with the reason. */
 export const extendDeadlineSchema = z.strictObject({
   newApplyTo: date,
   reason: z.string().trim().min(3).max(1000),

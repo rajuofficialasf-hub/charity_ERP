@@ -3,7 +3,7 @@ import { code64, looseLabel, snakeKey } from './common.js';
 
 // form_fields.logic / calculation / settings and form_sections.condition
 // (docs/database/json-schemas/form-field-logic.schema.json). Evaluated by the shared form
-// evaluator on the device and on the server (BR-076, written with the form engine in T2.3).
+// evaluator on the device and on the server, so both reach the same answer.
 
 export type Condition =
   | { field: string; op: ConditionOp; value?: unknown }

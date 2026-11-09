@@ -83,7 +83,7 @@ export type ComponentWithSettings = keyof typeof componentSettingsSchemas;
 export const emptySettingsSchema = z.strictObject({});
 
 /**
- * Which settings definition a component uses (D-062). Components not listed store {}.
+ * Which settings definition a component uses. Components not listed store {}.
  * `scoring` belongs to application_form and is configured with the quotas in Phase 2.
  */
 export const COMPONENT_SETTINGS_DEFINITION: Partial<Record<ComponentKey, ComponentWithSettings>> = {

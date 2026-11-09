@@ -3,7 +3,7 @@ import { USER_STATES } from '../auth/schemas.js';
 import { VOLUNTEER_TYPES } from '../registration/index.js';
 
 /**
- * The nationwide volunteer tab (DECISION_LOG O-67, D-094): the filters shared by the list and its
+ * The nationwide volunteer tab: the filters shared by the list and its
  * statistics, the row and the counts. The category filter takes the four categories and the
  * inactive flag of the volunteer record (both in the class `volunteer.rating`); the server refuses
  * it to a caller who may not see categories.

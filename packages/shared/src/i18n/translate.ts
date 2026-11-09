@@ -10,7 +10,7 @@ export type KeyPaths<T, P extends string = ''> = {
 
 export type MessageKey = KeyPaths<Messages>;
 
-/** Parameter values: numbers and dates arrive already formatted as strings (I18N 3.3, D-067). */
+/** Parameter values: numbers and dates arrive already formatted as strings (I18N 3.3). */
 export type MessageParams = Record<string, string | number>;
 
 export type Catalogues = Record<Locale, object>;
@@ -36,7 +36,7 @@ export interface Translator {
 /**
  * Builds a translator over a set of catalogues. Fallback (I18N 8): a key missing in the requested
  * language uses bn and is reported once; a key missing in bn too shows the generic error text.
- * Plural rules use the language; numbers are never formatted here (D-067).
+ * Plural rules use the language; numbers are never formatted here.
  */
 export function createTranslator(
   catalogues: Catalogues,

@@ -1,4 +1,4 @@
-/* The Bengali catalogue, one import per namespace (I18N.md 3.1, D-067). A new namespace is added
+/* The Bengali catalogue, one import per namespace (I18N.md 3.1). A new namespace is added
  * here and in catalogue-en.ts. */
 import bn_admin from './messages/bn/admin.json' with { type: 'json' };
 import bn_applications from './messages/bn/applications.json' with { type: 'json' };

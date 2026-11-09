@@ -1,4 +1,4 @@
-/* The English catalogue, one import per namespace (I18N.md 3.1, D-067). */
+/* The English catalogue, one import per namespace (I18N.md 3.1). */
 import type { Messages } from './catalogue-bn.js';
 import en_admin from './messages/en/admin.json' with { type: 'json' };
 import en_applications from './messages/en/applications.json' with { type: 'json' };
