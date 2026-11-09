@@ -29,7 +29,7 @@ import {
   applicationKey,
   MY_APPLICATIONS_KEY,
 } from './applications-api';
-import { answersOfNumber, answersOfProfile, lockedKeysOf } from './identity-answers';
+import { answersOfNumber, answersOfProfile, hasAddress, lockedKeysOf } from './identity-answers';
 import { loadStore, photoMessage, recordOf, storeMessage } from './use-local-records';
 import './applications.css';
 
@@ -289,8 +289,11 @@ function ApplicationForm({
    * next part. Without network the draft stays on the phone and the form goes on.
    */
   const save = async ({ answers, clientUuid }: Submission) => {
-    const store = await loadStore();
     const current = draft.current;
+    // the server takes a draft only with its address (BR-058): when the form asks the address in a
+    // later part, the earlier parts stay in memory and the draft is made once the address is in
+    if (!current.serverId && !current.clientUuid && !hasAddress(form, answers)) return;
+    const store = await loadStore();
     const saved = await store
       .saveDraft({
         projectId,
