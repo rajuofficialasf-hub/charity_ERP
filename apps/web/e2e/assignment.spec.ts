@@ -7,7 +7,7 @@ import { activeProject, code, ERR } from './support/projects';
 // mobile; the volunteer reads the rules part by part, accepts, and the project opens; another
 // volunteer never sees it. The officials work in a desktop window of their own; the volunteer's
 // part runs in the project's viewport, so on the phone project it is checked at phone width. Each
-// run makes its own project. the Monitoring Team creates projects in every program; the PMs of the
+// run makes its own project. The Monitoring Team creates projects in every program; the PMs of the
 // demo seed work in other specs
 const CREATOR = 'monitoring@example.org';
 const RPM = 'rpm.dhaka@example.org';
