@@ -552,6 +552,50 @@ describe('drafts, publishing and the field map', () => {
     ]);
   });
 
+  it("takes a coded question's options from its list at the save and the publish, never the builder's own (D-163)", async () => {
+    const pm = await as(world.users.monitoring);
+    const { versionId } = await distributionDraft();
+    const { etag, sections } = await current(pm, versionId);
+    const list = (
+      await h.db.query<{ code: string }>(
+        `SELECT code FROM reference_lists WHERE list_key = 'gender' AND active ORDER BY sort_order, code`,
+      )
+    ).rows.map((r) => r.code);
+    expect(list.length).toBeGreaterThan(0);
+    const genderCodes = (all: unknown) =>
+      fieldsOf(all as SectionView[])
+        .find((f) => f.standardColumn === 'gender_code')!
+        .options!.map((o) => o.code);
+    // the builder writes the gender question with options of its own
+    const own = [
+      { code: 'opt_aaaaaaaaaaaa', label: { bn: 'ছেলে', en: 'Boy' } },
+      { code: 'opt_bbbbbbbbbbbb', label: { bn: 'মেয়ে', en: 'Girl' } },
+    ].map((o) => ({ ...o, dependsOnOptionCode: null, allowsOtherText: false }));
+    const gendered = sections.map((section) => ({
+      ...section,
+      fields: (section.fields as Record<string, unknown>[]).map((f) =>
+        f.standardColumn === 'gender_code' ? { ...f, options: own } : f,
+      ),
+    }));
+    const saved = await update(pm, versionId, etag, gendered);
+    expect(saved.status).toBe(200);
+    expect(genderCodes(saved.body.data.sections)).toEqual(list);
+    // a draft written before the rule keeps codes of its own until the publish replaces them
+    await h.db.query(
+      `UPDATE field_options SET code = 'opt_' || substr(md5(id::text), 1, 12)
+       WHERE form_field_id IN (
+         SELECT id FROM form_fields WHERE form_version_id = $1 AND standard_column = 'gender_code'
+       )`,
+      [versionId],
+    );
+    const stale = await current(pm, versionId);
+    expect(genderCodes(stale.sections)).not.toEqual(list);
+    const published = await publish(pm, versionId, stale.etag);
+    expect(published.status).toBe(200);
+    expect(genderCodes(published.body.data.sections)).toEqual(list);
+    expect(genderCodes((await current(pm, versionId)).sections)).toEqual(list);
+  });
+
   it('publishes a draft, retires the previous version, and starts the next draft as a copy', async () => {
     const pm = await as(world.users.monitoring);
     const { project, formId, versionId } = await distributionDraft();
