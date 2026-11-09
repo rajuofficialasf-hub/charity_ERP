@@ -28,7 +28,8 @@ x-api-env: &api-env
   PORT: '4000'
   LOG_LEVEL: ${LOG_LEVEL:-info}
   DATABASE_URL: postgresql://${POSTGRES_USER:-css}:${POSTGRES_PASSWORD:-css_dev_only}@postgres:5432/css_erp_dev
-  # Dev-only placeholders of at least 32 characters; real environments get their own values.
+  # Dev-only placeholders of at least 32 characters, local only: a production start refuses them
+  # (and the css_dev_only passwords); real environments get their own values.
   CURSOR_SECRET: dev-only-cursor-secret-0123456789abcdef
   JWT_SECRET: dev-only-jwt-secret-0123456789abcdef0123
   AUTH_CSRF_SECRET: dev-only-csrf-secret-0123456789abcdef01

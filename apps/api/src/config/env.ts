@@ -154,12 +154,18 @@ const envSchema = z
         path: ['APP_ORIGIN'],
         message: 'must be an https origin in production (links sent by email)',
       });
-    if (env.NODE_ENV === 'production' && env.LOCAL_KEY_SECRET.startsWith('change-me'))
-      ctx.addIssue({
-        code: 'custom',
-        path: ['LOCAL_KEY_SECRET'],
-        message: 'the example value of .env.example is refused in production',
-      });
+    // a secret copied from .env.example or the dev compose file is public in the repository, so
+    // production refuses it; the message names the key and never the value
+    if (env.NODE_ENV === 'production')
+      for (const key of LOCAL_SECRET_KEYS) {
+        const value = key === 'DATABASE_URL' ? passwordOf(env.DATABASE_URL) : env[key];
+        if (value !== undefined && isLocalExample(value))
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'a local example value is refused in production',
+          });
+      }
     if (env.NODE_ENV === 'production' && env.FILE_SCANNER === 'skip')
       ctx.addIssue({
         code: 'custom',
@@ -199,6 +205,37 @@ const envSchema = z
   });
 
 export type Env = z.infer<typeof envSchema>;
+
+/** The secrets whose local example values production refuses; the optional ones when set. */
+const LOCAL_SECRET_KEYS = [
+  'JWT_SECRET',
+  'JWT_PREVIOUS_SECRET',
+  'AUTH_CSRF_SECRET',
+  'OTP_SECRET',
+  'CURSOR_SECRET',
+  'LOCAL_KEY_SECRET',
+  'LOCAL_KEY_PREVIOUS_SECRET',
+  'HEALTH_TOKEN',
+  'SMTP_PASSWORD',
+  'MINIO_ACCESS_KEY',
+  'MINIO_SECRET_KEY',
+  'DATABASE_URL',
+] as const;
+
+/** The examples of .env.example ("change-me…"), the dev compose file ("dev-only-…") and the dev database and MinIO ("css_dev_only…"). */
+function isLocalExample(value: string): boolean {
+  return (
+    value.startsWith('change-me') || value.startsWith('dev-only-') || value.includes('css_dev_only')
+  );
+}
+
+function passwordOf(url: string): string | undefined {
+  try {
+    return decodeURIComponent(new URL(url).password) || undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export function loadEnv(source: Record<string, string | undefined>): Env {
   // An empty value (`HEALTH_TOKEN=` in .env.example) means "not set", as in dotenv.

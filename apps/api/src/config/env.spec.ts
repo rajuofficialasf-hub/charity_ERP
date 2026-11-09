@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadEnv } from './env';
 
@@ -119,6 +121,92 @@ describe('loadEnv', () => {
     expect(refusal).toBe(
       'Error: Invalid configuration: FILE_SCANNER: a real virus scanner is required in production',
     );
+  });
+
+  describe('the local example secrets in production', () => {
+    // every secret value the two example files hand to a developer, read from the files themselves
+    // so a new example value is checked as soon as it is written there
+    // Vitest runs from apps/api
+    const root = resolve(process.cwd(), '../..');
+    const fromEnvExample = Object.fromEntries(
+      readFileSync(resolve(root, 'apps/api/.env.example'), 'utf8')
+        .split('\n')
+        .map((line) => /^([A-Z_]+)=(.+)$/.exec(line.trim()))
+        .filter((m): m is RegExpExecArray => m !== null)
+        .map((m) => [m[1]!, m[2]!]),
+    );
+    const fromCompose = Object.fromEntries(
+      readFileSync(resolve(root, 'infra/docker-compose.app.yml'), 'utf8')
+        .split('\n')
+        .map((line) => /^\s+([A-Z_]+): (.+)$/.exec(line))
+        .filter((m): m is RegExpExecArray => m !== null)
+        // a compose default `${NAME:-value}` is the value a developer gets
+        .map((m) => [m[1]!, m[2]!.replace(/\$\{[A-Z_]+:-([^}]*)\}/g, '$1').replace(/^'|'$/g, '')]),
+    );
+    const secrets = [
+      'JWT_SECRET',
+      'JWT_PREVIOUS_SECRET',
+      'AUTH_CSRF_SECRET',
+      'OTP_SECRET',
+      'CURSOR_SECRET',
+      'LOCAL_KEY_SECRET',
+      'LOCAL_KEY_PREVIOUS_SECRET',
+      'HEALTH_TOKEN',
+      'SMTP_PASSWORD',
+      'MINIO_ACCESS_KEY',
+      'MINIO_SECRET_KEY',
+      'DATABASE_URL',
+    ];
+    const cases = [
+      ...Object.entries(fromEnvExample).map(([key, value]) => ['.env.example', key, value]),
+      ...Object.entries(fromCompose).map(([key, value]) => ['the dev compose file', key, value]),
+    ].filter(([, key]) => secrets.includes(key!)) as [string, string, string][];
+    // a production configuration with real values; only the scanner is missing until deployment
+    const production = { ...base, NODE_ENV: 'production', APP_ORIGIN: 'https://erp.example.org' };
+    const scannerOnly =
+      'Error: Invalid configuration: FILE_SCANNER: a real virus scanner is required in production';
+    const refusalOf = (source: Record<string, string>) => {
+      try {
+        loadEnv(source);
+        return '';
+      } catch (error) {
+        return String(error);
+      }
+    };
+
+    it('reads a value for every secret the example files carry', () => {
+      expect(cases.map(([file, key]) => `${file} ${key}`)).toEqual(
+        expect.arrayContaining([
+          '.env.example JWT_SECRET',
+          '.env.example DATABASE_URL',
+          '.env.example MINIO_SECRET_KEY',
+          'the dev compose file JWT_SECRET',
+          'the dev compose file LOCAL_KEY_SECRET',
+          'the dev compose file MINIO_ACCESS_KEY',
+          'the dev compose file DATABASE_URL',
+        ]),
+      );
+    });
+
+    it.each(cases)(
+      'refuses the value of %s for %s, naming the key without the value',
+      (_, key, value) => {
+        const refusal = refusalOf({ ...production, [key]: value });
+        expect(refusal).toContain(key);
+        expect(refusal).not.toContain(value);
+      },
+    );
+
+    it('starts with real values and keeps the examples in development', () => {
+      expect(refusalOf(production)).toBe(scannerOnly);
+      expect(() =>
+        loadEnv({
+          ...base,
+          JWT_SECRET: fromEnvExample['JWT_SECRET']!,
+          DATABASE_URL: fromEnvExample['DATABASE_URL']!,
+        }),
+      ).not.toThrow();
+    });
   });
 
   it('marks files skipped outside production and refuses that scanner in production', () => {
