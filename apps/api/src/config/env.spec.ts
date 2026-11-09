@@ -261,11 +261,12 @@ describe('loadEnv', () => {
       expect(
         refusalOf({ ...production, DATABASE_URL: 'postgresql://css@db.example.org:5432/css_erp' }),
       ).toContain('DATABASE_URL: needs a password in production');
-      // a broken escape in the password is still checked, on its raw text
+      // a broken escape in the password is still checked, on its raw text: the example's
+      // password with a lone % after it
       expect(
         refusalOf({
           ...production,
-          DATABASE_URL: 'postgresql://css:css_dev_only%@db:5432/css_erp',
+          DATABASE_URL: fromEnvExample['DATABASE_URL']!.replace('@', '%@'),
         }),
       ).toContain('DATABASE_URL: a local example value');
     });
