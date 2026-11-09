@@ -53,6 +53,11 @@
   font-size: var(--text-label);
 }
 
+/* the green tint leaves the muted grey under 4.5:1, so a known person's details read in the body colour */
+.lookup-card.is-found .lookup-card-text {
+  color: var(--color-text-primary);
+}
+
 .lookup-card-text strong {
   color: var(--color-text-primary);
   font-size: var(--text-title);

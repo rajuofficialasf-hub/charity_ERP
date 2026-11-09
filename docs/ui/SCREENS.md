@@ -548,6 +548,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Layouts.**
   - Phone: a list of cards. Consent opens full screen with a sticky accept button.
   - Desktop: a list and a modal.
+- **One project on a phone (2026-11-09, with the redesign of SCR-031).** The name wraps on whole words in a card with the project code and the green "active" mark and the volunteer's work; "new application", "my applications" and "my team" are full-width buttons with icons; the applications sent (with a bar of the limit used), the application window and the limit are tiles. Nothing is cut at 360 px. The bottom tabs give a long label two lines instead of cutting it.
 - **Phase · task.** 1 · T1.12. **API.** tags projects, volunteers.
 
 ### SCR-031 New application with NID lookup

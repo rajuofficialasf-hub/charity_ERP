@@ -7,25 +7,144 @@
   list-style: none;
 }
 
+/* One project of the volunteer (D-166): the name on its own lines, the actions as large buttons
+   at the thumb, the facts as tiles. Nothing is cut on a 360 px phone. */
+.my-project-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+}
+
+.my-project-back:hover {
+  color: var(--color-text-primary);
+}
+
+.my-project {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.my-project-head {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  box-shadow: var(--elevation-1);
+}
+
+.my-project-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.my-project-code {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+}
+
+.my-project-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-success-soft);
+  color: var(--color-status-success);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+}
+
+.my-project-name {
+  margin: 0;
+  font-size: var(--text-hero);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-heading);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.my-project-role {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.my-project-role strong {
+  color: var(--color-text-primary);
+}
+
+.my-project-actions {
+  display: grid;
+  gap: var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .my-project-actions {
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+  }
+}
+
 .my-project-facts {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
   margin: 0;
 }
 
-.my-project-facts div {
+.my-project-fact {
   display: grid;
+  align-content: start;
   gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  box-shadow: inset 0 0 0 1px var(--color-border-default);
 }
 
-.my-project-facts dt {
+.my-project-fact.is-wide {
+  grid-column: 1 / -1;
+}
+
+.my-project-fact dt {
   color: var(--color-text-secondary);
   font-size: var(--text-label);
   font-weight: var(--font-weight-bold);
 }
 
-.my-project-facts dd {
+.my-project-fact dd {
   margin: 0;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.my-project-bar {
+  display: block;
+  height: 6px;
+  margin-top: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-muted);
+}
+
+.my-project-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-brand-primary);
 }
 
 .my-consent {

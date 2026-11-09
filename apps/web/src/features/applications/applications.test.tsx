@@ -337,10 +337,12 @@ describe('the new application', () => {
     // the address is in the next part: the server would refuse a draft now, so nothing is sent
     // (the page answers again once the sheet has closed)
     await user.click(await screen.findByRole('button', { name: 'পরের অংশ' }));
-    const division = await screen.findByRole('button', { name: /বিভাগ/ }, { timeout: 15_000 });
+    const division = await screen.findByRole('combobox', { name: /^বিভাগ/ }, { timeout: 15_000 });
     expect(created).toEqual([]);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    // a select-only combobox: a button, nothing to type in
+    expect(division.tagName).toBe('BUTTON');
+    expect(screen.queryByRole('textbox', { name: /বিভাগ/ })).not.toBeInTheDocument();
     await user.click(division);
     await user.click(await screen.findByRole('option', { name: 'ঢাকা বিভাগ' }));
     // each next level opens by itself once the one above it is picked

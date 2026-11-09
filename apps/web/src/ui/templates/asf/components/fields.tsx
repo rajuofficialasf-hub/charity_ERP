@@ -321,8 +321,12 @@ function SheetSelect({
         id={id}
         name={name}
         disabled={disabled}
+        // a select-only combobox: named by its label and value, nothing to type in
+        role="combobox"
+        aria-labelledby={`${id}-label ${id}-value`}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? `${id}-list` : undefined}
         aria-invalid={Boolean(error)}
         aria-describedby={helper ? `${id}-helper` : undefined}
         onClick={() => setOpen(true)}
@@ -345,16 +349,18 @@ function SheetSelect({
         })}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <Box component="span" sx={{ typography: 'caption', fontWeight: 600, color: error ? 'error.main' : 'text.secondary' }}>
+          <Box id={`${id}-label`} component="span" sx={{ typography: 'caption', fontWeight: 600, color: error ? 'error.main' : 'text.secondary' }}>
             {label}
             {required ? ' *' : ''}
           </Box>
           <Box
+            id={`${id}-value`}
             component="span"
             sx={{
               typography: 'body1',
               fontWeight: chosen ? 600 : 400,
-              color: chosen ? 'text.primary' : 'text.disabled',
+              // the placeholder in the secondary text colour: the disabled grey falls under 4.5:1
+              color: chosen ? 'text.primary' : 'text.secondary',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -395,6 +401,7 @@ function SheetSelect({
           {label}
         </Box>
         <Box
+          id={`${id}-list`}
           role="listbox"
           aria-labelledby={`${id}-title`}
           sx={{ overflowY: 'auto', px: 1.5, display: 'flex', flexDirection: 'column', gap: 0.25 }}

@@ -179,9 +179,11 @@ describe('the select', () => {
       );
     }
     const { container } = render(<Chain />);
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    // a select-only combobox: a button, nothing to type in
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Beneficiary type/ }));
+    const kind = screen.getByRole('combobox', { name: /^Beneficiary type/ });
+    expect(kind.tagName).toBe('BUTTON');
+    await user.click(kind);
     const sheet = await screen.findByRole('dialog', { name: 'Beneficiary type' });
     expect(within(sheet).getAllByRole('option').map((o) => o.textContent)).toEqual(['Elderly', 'Widow', 'Orphan', 'Other']);
     expect(within(sheet).getByRole('option', { name: 'Orphan' })).toBeDisabled();
@@ -189,8 +191,8 @@ describe('the select', () => {
     // the next level's sheet opens by itself; each field then shows its chosen value
     const union = await screen.findByRole('dialog', { name: 'Union' });
     await user.click(within(union).getByRole('option', { name: 'Ashulia' }));
-    expect(await screen.findByRole('button', { name: /Union.*Ashulia/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Beneficiary type.*Widow/ })).toBeInTheDocument();
+    expect(await screen.findByRole('combobox', { name: /Union.*Ashulia/ })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /Beneficiary type.*Widow/ })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 

@@ -7,6 +7,7 @@ import {
   type Page,
   type TestInfo,
 } from '@playwright/test';
+import { pickFrom } from './select';
 
 // Shared steps of the admin tab specs (volunteers.spec.ts, beneficiaries.spec.ts) against the demo
 // seed (docs/testing/DEMO_ACCOUNTS.md).
@@ -153,9 +154,7 @@ export const select = (page: Page, label: string) =>
 
 /** Picks an option from a Select. */
 export async function choose(page: Page, label: string, option: string): Promise<void> {
-  await select(page, label).click();
-  await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
-  await expect(page.getByRole('listbox')).toHaveCount(0);
+  await pickFrom(page, select(page, label), option);
 }
 
 /** Sets filters: inline beside the list on a desktop, in the filter sheet on a phone. */
