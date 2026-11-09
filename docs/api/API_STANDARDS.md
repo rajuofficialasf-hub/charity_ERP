@@ -193,7 +193,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | project | project.read_only | 409 | a setup change the project's state does not allow: identity or window while active, anything while closing, closed or cancelled (BR-257) |
 | project | project.deadline_not_later | 409 | a deadline extension to a date not after the current end date (BR-058) |
 | project | project.rpm_role_required | 422 | an area's RPM does not hold the RPM role (BR-060) |
-| project | project.staff_role_required | 422 | staff access for someone who is not a Project Executive, Official দায়ী or Implementer (D-095) |
+| project | project.staff_role_required | 422 | staff access for someone who is not a Project Executive or Official দায়ী (D-095; the Implementer is retired, D-162) |
 | project | project.area_exists | 409 | the same area with the same RPM is already on the project (BR-060) |
 | project | project.staff_exists | 409 | the person already has an active access on the project |
 | project | project.budget_mismatch | 422 | an active project whose fund sources would no longer add up to its planned budget; budget and fund sources change together (D-095) |

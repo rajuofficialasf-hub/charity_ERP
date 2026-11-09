@@ -41,7 +41,6 @@ const ROLE_RANK = new Map<string, number>([
   ['media_assistant_director', 3],
   ['project_executive', 4],
   ['official_daee', 5],
-  ['implementer', 6],
 ]);
 const rank = (roles: string[]) => Math.min(99, ...roles.map((r) => ROLE_RANK.get(r) ?? 99));
 

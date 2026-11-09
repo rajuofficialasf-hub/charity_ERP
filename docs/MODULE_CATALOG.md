@@ -128,7 +128,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 
 ### M13 Documents (SOP)
 - Purpose: project document checklist templates (seven projects pre-seeded), document register with status chain collected → verified → approved → archived, responsible official role, due dates, soft warning and 3-working-day countdown, non-compliance marking, hard-copy location codes, 5-year retention, cloud folder path program → project → year → district, deficiency reports (11 SOP items) with automatic escalation on the second report within a year, legacy audit marks, quarterly audit report, CSV export.
-- Primary users: PM, RPM, Project Executive, Implementer; Monitoring Team; volunteers never.
+- Primary users: PM, RPM, Project Executive; Monitoring Team; volunteers never.
 - Key entities: document_templates, documents, deficiency_reports, holiday_calendar (with M21).
 - Depends on: M06, M18, M17, M14, M21.
 - B1: shared service (documents). Phase: 0 (data model, done in T0.13); the checklist-template editor and the full register are built **last, after Phase 6** (O-34). Blueprint: A10 (documentation, SOP mapping table, legacy audit), Q-14; BD-35…BD-39. Tasks: T0.13 (design), then the T1.13 checklist part and T5.4 moved to the end of the plan.

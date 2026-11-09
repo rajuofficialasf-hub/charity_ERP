@@ -60,12 +60,6 @@ const ROLES: { role: string; loginId: string; page: string; api: string }[] = [
     api: '/registrations',
   },
   {
-    role: 'the Implementer',
-    loginId: 'implementer@example.org',
-    page: '/admin/permissions',
-    api: '/users',
-  },
-  {
     role: 'the Project Executive',
     loginId: 'executive@example.org',
     page: '/admin/handover',

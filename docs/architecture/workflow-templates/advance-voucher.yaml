@@ -88,7 +88,7 @@ activities:
 overrides:
   not_delivered_outcome: not_installed
   progress_actors: "general volunteers (safe_water_only) and paid volunteers at the same stages (A8.4)"
-  implementer_role: "Implementer holds the official permissions through the safe_water_only condition (O-26)"
+  implementer_role: "A Project Executive implements the project with the ordinary permissions; the Implementer role is retired (D-162)"
 
 project_close_guards: []
 

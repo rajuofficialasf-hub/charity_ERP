@@ -10,8 +10,8 @@ import { addStaff, type Area, candidates, endStaff, type StaffAccess } from './s
 import { SaveRow, SetupSection, useSetup, useStepSave } from './setup-context';
 
 /**
- * Staff access on the project: a Project Executive, an Official দায়ী or an Implementer gets view,
- * edit or delete access, in an area or on the whole project. An RPM gives view and edit in its own
+ * Staff access on the project: a Project Executive or an Official দায়ী gets view, edit or delete
+ * access, in an area or on the whole project. An RPM gives view and edit in its own
  * areas; only the PM gives delete (DECISION_LOG D-095). Ending access takes a reason.
  */
 export function StaffSection({

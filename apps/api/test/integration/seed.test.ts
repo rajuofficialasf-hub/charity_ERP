@@ -133,7 +133,7 @@ describe('base set', () => {
         // the code-point order of the database's "C" collation, so '.' and '_' sort alike on both sides
         .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
     );
-    expect(roles).toHaveLength(17);
+    expect(roles).toHaveLength(16);
     expect(permissions).toHaveLength(157);
   });
 
@@ -266,7 +266,6 @@ describe('demo set', () => {
       regional_program_manager: 3,
       project_executive: 1,
       official_daee: 1,
-      implementer: 1,
       procurement_team: 1,
       media_team: 1,
       media_director: 1,
@@ -281,7 +280,7 @@ describe('demo set', () => {
     expect(
       (await db.query('SELECT count(*)::int AS n FROM users WHERE is_system_owner')).rows[0].n,
     ).toBe(1);
-    expect(DEMO_STAFF).toHaveLength(16);
+    expect(DEMO_STAFF).toHaveLength(15);
     // the dedicated official of the handover journey holds one project area of its own (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14)
     const areas = (
       await db.query(
@@ -421,6 +420,6 @@ describe('demo set', () => {
       `SELECT count(*)::int AS n, count(*) FILTER (WHERE password_hash LIKE '$argon2id$v=19$m=19456,t=2,p=1$%')::int AS argon FROM users WHERE kind <> 'system'`,
     );
     expect(rows[0].argon).toBe(rows[0].n);
-    expect(rows[0].n).toBe(36);
+    expect(rows[0].n).toBe(35);
   });
 });
