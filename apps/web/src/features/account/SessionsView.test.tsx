@@ -9,7 +9,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { SessionsView } from './SessionsView';
 
-// SCR-006 my devices (AUTH.md 8).
+// The screen "My profile, edit request, device sessions, language" of docs/ui/SCREENS.md (AUTH.md 8).
 const session = (over: Partial<DeviceSession>): DeviceSession => ({
   id: '0190a1b2-0000-7000-8000-000000000001',
   deviceName: 'Chrome · Android',

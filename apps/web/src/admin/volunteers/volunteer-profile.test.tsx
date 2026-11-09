@@ -9,7 +9,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { VolunteerProfilePage } from './VolunteerProfilePage';
 
-// The official view of one volunteer (SCR-043): the sections, the parts
+// The official view of one volunteer (docs/ui/SCREENS.md "Volunteer profile"): the sections, the parts
 // the server leaves out, and a button only for an action the server allows. Test data only.
 const HEAD: Me = { ...ME, roles: ['department_head'] };
 const VOLUNTEER_ID = '01900000-0000-7000-8000-0000000000a1';

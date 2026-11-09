@@ -38,7 +38,7 @@ type Channels = Record<RegistrationChannel, ChannelState>;
 const NEW_CHANNELS: Channels = { sms: NEW_CHANNEL, email: NEW_CHANNEL };
 
 /**
- * SCR-002 registration on one page (AUTH.md 2): a green title band, the kind, a step indicator and
+ * The screen "Registration with two OTP steps" of docs/ui/SCREENS.md (AUTH.md 2): a green title band, the kind, a step indicator and
  * one card per step. The mobile and the email are verified inside their own fields; the next step
  * opens once both are. Everything stays in the page; a reload starts a new draft.
  */

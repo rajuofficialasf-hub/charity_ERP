@@ -56,7 +56,7 @@ const byName = (a: EffectivePermission, b: EffectivePermission) =>
   a.permission.localeCompare(b.permission) || a.scopeType.localeCompare(b.scopeType);
 
 /**
- * The permission panel and project grants (RBAC.md 7, SCR-062): reads of the catalogue and of a
+ * The permission panel and project grants (RBAC.md 7, docs/ui/SCREENS.md "Permission panel"): reads of the catalogue and of a
  * user's effective permissions, panel overrides by the Department Head and the Monitoring Team,
  * and the RPM's "if RPM grants" extras on a project. Every change runs in one transaction, writes
  * a `permission_change` audit entry with the old and new effective grants and bumps the target's

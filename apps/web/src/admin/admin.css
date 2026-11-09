@@ -26,7 +26,7 @@
   }
 }
 
-/* Permission panel (SCR-062): sections, module groups and the phone cards of the permission list. */
+/* Permission panel (docs/ui/SCREENS.md "Permission panel"): sections, module groups and the phone cards of the permission list. */
 .admin-panel-section,
 .admin-panel-group {
   display: grid;
@@ -63,7 +63,7 @@
   color: var(--color-status-danger);
 }
 
-/* Registrations (SCR-040): the photos of a registration side by side, wrapping on phones. */
+/* Registrations (docs/ui/SCREENS.md "Registration approval queue"): the photos of a registration side by side, wrapping on phones. */
 .admin-photos {
   display: flex;
   flex-wrap: wrap;

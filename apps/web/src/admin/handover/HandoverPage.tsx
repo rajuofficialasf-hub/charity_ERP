@@ -51,7 +51,7 @@ const handoverKey = (userId: string) => ['admin', 'handover', userId] as const;
 const userKey = (userId: string) => ['admin', 'user', userId] as const;
 
 /**
- * The staff handover (SCR-105): the Department Head or the Monitoring Team finds an official, hands
+ * The staff handover (docs/ui/SCREENS.md "Staff handover"): the Department Head or the Monitoring Team finds an official, hands
  * the pending work by category to other officials (one item or all), completes the handover and
  * then deactivates the account. The server refuses the deactivation while work is pending and
  * checks the receiver's role.

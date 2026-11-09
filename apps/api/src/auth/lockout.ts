@@ -12,7 +12,7 @@ export function afterFailure(
   return { failedCount: next, lockedUntil: null };
 }
 
-/** Whole minutes until a lock ends, at least 1 (shown on the login screen, SCR-001). */
+/** Whole minutes until a lock ends, at least 1 (shown on the login screen, docs/ui/SCREENS.md "Login and password reset"). */
 export function minutesLeft(lockedUntil: Date, now: Date): number {
   return Math.max(1, Math.ceil((lockedUntil.getTime() - now.getTime()) / 60_000));
 }

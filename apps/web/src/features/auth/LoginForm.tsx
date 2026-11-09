@@ -8,7 +8,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { ApiFailure, login } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 
-/** Text of a failed login (SCR-001 states): generic, lock time, retry time or the server message. */
+/** Text of a failed login (docs/ui/SCREENS.md "Login and password reset" states): generic, lock time, retry time or the server message. */
 function useFailureText() {
   const t = useTranslations('auth.login');
   const locale = useLocale() as Locale;
@@ -22,7 +22,7 @@ function useFailureText() {
   };
 }
 
-/** Sign in with mobile number or email and password (SCR-001, AUTH.md 4). */
+/** Sign in with mobile number or email and password (docs/ui/SCREENS.md "Login and password reset", AUTH.md 4). */
 export function LoginForm({ ended }: { ended?: string }) {
   const t = useTranslations('auth.login');
   const tr = useTranslations('registration');

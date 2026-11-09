@@ -1,5 +1,5 @@
 /*
- * The organogram (SCR-064). One markup, two drawings:
+ * The organogram (docs/ui/SCREENS.md "Organogram"). One markup, two drawings:
  * - a phone reads it as an indented tree: each level a column with a line on its left;
  * - from 768 px it is a chart from the top down: connectors drawn by the lists themselves, the
  *   cards centred under their supervisor, a level of only leaves standing in a column, and the

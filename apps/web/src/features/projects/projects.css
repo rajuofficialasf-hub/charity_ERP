@@ -1,4 +1,4 @@
-/* The volunteer's own projects: a list of cards, the consent flow and the team (SCR-010). */
+/* The volunteer's own projects: a list of cards, the consent flow and the team (docs/ui/SCREENS.md "My Work: Volunteer (General and Both)"). */
 .my-projects {
   display: grid;
   gap: var(--space-3);

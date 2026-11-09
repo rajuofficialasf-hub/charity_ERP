@@ -9,7 +9,7 @@ import { resetClientForTests } from '../../api/client';
 import { ChangePasswordView } from './ChangePasswordView';
 import { MyWorkPage } from '../home/MyWorkPage';
 
-// SCR-006 change password (AUTH.md 3).
+// The screen "My profile, edit request, device sessions, language" of docs/ui/SCREENS.md (AUTH.md 3).
 beforeEach(() => {
   resetClientForTests();
   refreshAs(ME);

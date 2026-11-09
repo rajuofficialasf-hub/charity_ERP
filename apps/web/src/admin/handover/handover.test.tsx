@@ -11,7 +11,7 @@ import { AdminLayout } from '../AdminLayout';
 import { HandoverPage } from './HandoverPage';
 import { stubScreen } from '../../../test/match-media';
 
-// The handover page (SCR-105). Test data only.
+// The handover page (docs/ui/SCREENS.md "Staff handover"). Test data only.
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const OFFICIAL = {
   id: '01900000-0000-7000-8000-0000000000b1',

@@ -59,7 +59,7 @@ const yearsBack = () => {
 };
 
 /**
- * The nationwide beneficiary tab (SCR-044): every beneficiary the caller's
+ * The nationwide beneficiary tab (docs/ui/SCREENS.md "Beneficiary tab"): every beneficiary the caller's
  * scope reaches, with the counts above, the search and the filters (kept in the URL; the search is
  * not). The Media and Procurement Teams get a limited view: the server leaves out what they may not
  * see, and the page offers only the filters they may use.

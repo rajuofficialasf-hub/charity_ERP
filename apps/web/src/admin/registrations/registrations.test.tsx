@@ -14,7 +14,7 @@ import { VolunteerProfilePage } from '../volunteers/VolunteerProfilePage';
 import { VolunteersPage } from '../volunteers/VolunteersPage';
 import { stubScreen } from '../../../test/match-media';
 
-// The registration admin page (SCR-040). Test data only.
+// The registration admin page (docs/ui/SCREENS.md "Registration approval queue"). Test data only.
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const RPM: Me = { ...ME, displayName: 'আরপিএম (নমুনা)', roles: ['regional_program_manager'] };
 const PM: Me = { ...ME, displayName: 'পিএম (নমুনা)', roles: ['program_manager'] };

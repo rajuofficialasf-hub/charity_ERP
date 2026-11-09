@@ -3,7 +3,7 @@ import { AuthShell } from '../../components/AuthShell';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ResetForm } from './ResetForm';
 
-/** SCR-001 password reset with the OTP step. */
+/** The password reset with the OTP step (docs/ui/SCREENS.md "Login and password reset"). */
 export function ResetPage() {
   const t = useTranslations('auth.reset');
   return (

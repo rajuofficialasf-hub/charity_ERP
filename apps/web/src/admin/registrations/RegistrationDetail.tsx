@@ -43,7 +43,7 @@ import { VOLUNTEERS_KEY } from '../volunteers/volunteers-api';
 import { LoadError } from '../../components/LoadError';
 
 /**
- * The page of one pending staff registration (SCR-040). A volunteer's registration is reviewed in
+ * The page of one pending staff registration (docs/ui/SCREENS.md "Registration approval queue"). A volunteer's registration is reviewed in
  * the volunteer tab, so an older link to it opens the volunteer's profile.
  */
 export function RegistrationDetail() {

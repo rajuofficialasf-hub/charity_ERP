@@ -12,7 +12,7 @@ import { BeneficiaryProfilePage } from './BeneficiaryProfilePage';
 import type { MessageKey } from '@css/shared/i18n';
 import { expectOnScreenColumns, serveExports } from '../../../test/msw/exports';
 
-// The beneficiary tab and the 360° shell (SCR-044, SCR-045): counts,
+// The beneficiary tab and the 360° shell (docs/ui/SCREENS.md "Beneficiary tab" and "Beneficiary 360 profile and merge"): counts,
 // filters in the URL, the limited view of the Media Team and the sections. Test data only.
 const PROJECT_ID = '01900000-0000-7000-8000-0000000000c1';
 const HEAD: Me = { ...ME, roles: ['department_head'] };

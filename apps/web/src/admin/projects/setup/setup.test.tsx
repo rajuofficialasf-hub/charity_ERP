@@ -10,7 +10,7 @@ import { resetClientForTests } from '../../../api/client';
 import { ProjectSetupPage } from './ProjectSetupPage';
 import { stubMatchMedia } from '../../../../test/match-media';
 
-// The project setup wizard (SCR-060): one step at a time, Back and Next saving the step,
+// The project setup wizard (docs/ui/SCREENS.md "Project setup with component toggles"): one step at a time, Back and Next saving the step,
 // save and exit, the step indicator with its marks, the first step creating the draft, the review
 // that activates, the state and phone rules and a stale version. Test data only.
 const PM: Me = { ...ME, roles: ['program_manager'] };

@@ -1,5 +1,5 @@
 /*
- * The form on a screen (docs/ui/SCREENS.md SCR-031): each part in a card; on a
+ * The form on a screen (docs/ui/SCREENS.md "New application with NID lookup"): each part in a card; on a
  * phone the parts as segments in a bar under the header, the actions in a bar at the thumb above
  * the bottom tabs, and short choices as large buttons or chips. Colours, radius and shadow come
  * from the app's tokens on the asf palette, in light and dark.
