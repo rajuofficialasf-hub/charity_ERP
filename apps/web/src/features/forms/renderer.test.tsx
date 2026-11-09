@@ -419,14 +419,81 @@ describe('one part per screen on a phone', () => {
   it('steps through the sections and checks each before the next', async () => {
     const user = userEvent.setup();
     open([], { layout: 'steps' });
-    expect(screen.getByText('অংশ 1 / 2')).toBeInTheDocument();
+    // the two parts and the check before the send
+    expect(screen.getByText('অংশ 1 / 3')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'ফর্মের অংশ' }))
+        .getAllByRole('listitem')
+        .map((i) => i.textContent),
+    ).toEqual(['basic_info', 'address', 'যাচাই']);
     expect(screen.queryByRole('button', { name: level('বিভাগ') })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
     expect(
       await screen.findByText(/পরের অংশে যাওয়ার আগে \d+টি সমস্যা ঠিক করুন/),
     ).toBeInTheDocument();
-    expect(screen.getByText('অংশ 1 / 2')).toBeInTheDocument();
+    expect(screen.getByText('অংশ 1 / 3')).toBeInTheDocument();
   });
+});
+
+describe('a phone (D-166)', () => {
+  it('takes short choices as buttons, reads the answers through before the send, and goes back to a part to change it', async () => {
+    const user = userEvent.setup();
+    const { submitted } = open(
+      [
+        section('needs', [
+          field('kinds', 'multi_select', {
+            label: T('ধরন'),
+            options: [option('old', { label: T('বৃদ্ধ') }), option('widow', { label: T('বিধবা') })],
+          }),
+        ]),
+      ],
+      { layout: 'steps' },
+    );
+    await user.type(screen.getByRole('textbox', { name: /^nid_or_birth_reg/ }), '1234567890');
+    await user.type(screen.getByRole('textbox', { name: /^mobile/ }), '01712345678');
+    await user.type(screen.getByRole('textbox', { name: /^name/ }), 'নমুনা');
+    await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
+    // one tap chooses, a second tap on the chosen one clears it
+    const female = screen.getByRole('radio', { name: 'female' });
+    await user.click(female);
+    expect(female).toHaveAttribute('aria-checked', 'true');
+    await user.click(screen.getByRole('radio', { name: 'male' }));
+    expect(female).toHaveAttribute('aria-checked', 'false');
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    for (const [label, name] of [
+      ['বিভাগ', 'ঢাকা বিভাগ'],
+      ['জেলা', 'ঢাকা জেলা'],
+      ['উপজেলা', 'সাভার'],
+      ['ইউনিয়ন', 'আশুলিয়া'],
+    ] as const) {
+      const box = await screen.findByRole('combobox', { name: level(label) });
+      await waitFor(() => expect(box).not.toHaveAttribute('aria-disabled', 'true'));
+      await user.click(box);
+      await user.click(await screen.findByRole('option', { name }));
+    }
+    await user.type(screen.getByRole('textbox', { name: /^village/ }), 'নমুনা গ্রাম');
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    // a multiple choice: each chip a toggle
+    const widow = await screen.findByRole('button', { name: 'বিধবা' });
+    await user.click(widow);
+    expect(widow).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    expect(await screen.findByText('পাঠানোর আগে দেখে নিন')).toBeInTheDocument();
+    expect(screen.getByText('অংশ 4 / 4')).toBeInTheDocument();
+    expect(screen.getByText('male')).toBeInTheDocument();
+    expect(screen.getByText('বিধবা')).toBeInTheDocument();
+    expect(submitted).toEqual([]);
+    // back to a part to change it, then on through the parts to the send
+    await user.click(screen.getByRole('button', { name: 'needs বদলান' }));
+    await user.click(await screen.findByRole('button', { name: 'বৃদ্ধ' }));
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    await user.click(await screen.findByRole('button', { name: 'পাঠান' }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(submitted[0]!.answers.find((x) => x.fieldKey === 'kinds')?.value).toEqual({
+      t: 'multi_select',
+      v: ['widow', 'old'],
+    });
+  }, 30_000);
 });
 
 describe('the answers', () => {

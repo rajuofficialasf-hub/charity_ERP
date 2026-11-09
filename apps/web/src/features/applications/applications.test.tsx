@@ -299,6 +299,11 @@ describe('the new application', () => {
     expect(options.clientUuid).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
+    // after the last part the answers are read through, each part with a way back, before the send
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    expect(await screen.findByText('পাঠানোর আগে দেখে নিন')).toBeInTheDocument();
+    expect(screen.getByText('শীতের কাপড় দরকার')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'note বদলান' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
     expect(
       await screen.findByText('আবেদন পাঠানো হয়েছে', {}, { timeout: 15_000 }),
@@ -327,8 +332,8 @@ describe('the new application', () => {
     await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
     await user.type(screen.getByRole('textbox', { name: /^mobile/ }), '01700001000');
     // on a phone a list opens as a sheet from the bottom, with nothing to type (D-166)
-    await user.click(screen.getByRole('button', { name: /gender/ }));
-    await user.click(await screen.findByRole('option', { name: 'female' }));
+    // a short choice is a row of buttons on a phone (D-166)
+    await user.click(screen.getByRole('radio', { name: 'female' }));
     // the address is in the next part: the server would refuse a draft now, so nothing is sent
     // (the page answers again once the sheet has closed)
     await user.click(await screen.findByRole('button', { name: 'পরের অংশ' }));

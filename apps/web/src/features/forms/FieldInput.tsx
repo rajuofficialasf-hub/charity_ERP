@@ -23,6 +23,7 @@ import { GpsField } from './GpsField';
 import { NumberTableInput } from './NumberTableInput';
 import type { FieldUpload } from './upload-adapter';
 import { UploadField } from './UploadField';
+import { ChoiceButtons, fitsButtons } from './ChoiceButtons';
 import { QuestionTitle } from './QuestionTitle';
 
 export interface FieldInputProps {
@@ -45,6 +46,8 @@ export interface FieldInputProps {
   pipe?: (text: string) => string;
   /** An address question tells the post code of the union chosen (null when none is known). */
   onPostCode?: (postCode: string | null) => void;
+  /** On a phone a short choice is drawn as large buttons or chips (D-166). */
+  compact?: boolean;
 }
 
 const choice = (value: AnswerValue | undefined) =>
@@ -70,6 +73,7 @@ export function FieldInput({
   locked: lockedByScreen = false,
   pipe = (text) => text,
   onPostCode,
+  compact = false,
 }: FieldInputProps) {
   const t = useTranslations('forms.renderer');
   const locale = useLocale();
@@ -89,6 +93,8 @@ export function FieldInput({
     otherId ? { value: otherId, text: other(value), onTextChange } : undefined;
   const setText = (t: 'short_text' | 'long_text' | 'phone' | 'email') => (v: string) =>
     onChange(v.trim() === '' ? null : { t, v });
+  // a short list with no "other" text is tapped on a phone, never opened
+  const buttons = compact && !otherId && fitsButtons(options);
 
   switch (field.type) {
     case 'note':
@@ -151,6 +157,16 @@ export function FieldInput({
         choice(value)
           ? onChange({ t: t2, v: choice(value)!, ...(text ? { other: text } : {}) })
           : undefined;
+      if (buttons)
+        return (
+          <ChoiceButtons
+            {...choosing}
+            id={id}
+            options={options}
+            value={choice(value) ? [choice(value)!] : []}
+            onChange={(codes) => onPick(codes[0] ?? '')}
+          />
+        );
       return t2 === 'radio' ? (
         <RadioGroup
           {...choosing}
@@ -172,6 +188,17 @@ export function FieldInput({
     case 'multi_select':
     case 'checkbox': {
       const t2 = field.type;
+      if (buttons)
+        return (
+          <ChoiceButtons
+            {...choosing}
+            id={id}
+            multiple
+            options={options}
+            value={choices(value)}
+            onChange={(ids) => onChange(ids.length ? { t: t2, v: ids } : null)}
+          />
+        );
       return (
         <CheckboxGroup
           {...choosing}
