@@ -63,7 +63,7 @@ On 2026-11-09 the owner made the standards the base of the project: anything out
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. Actions pinned by SHA
 - **Goal:** the workflow passes zizmor.
@@ -253,7 +253,7 @@ On 2026-11-09 the owner made the standards the base of the project: anything out
 ## Progress
 - **Branch:** `chore/ae-standards-small`
 - **Updated:** 2026-11-09 12:45
-- **Next:** U1, the CI triggers for develop and the decision record
+- **Next:** U2, pin the workflow actions by SHA
 - **Reviewed through:** none
 - **Uncommitted:** none
 - **Notes:** `develop` was created and pushed and made the default branch with `ae-branch.mjs setup --github`, and PR #48 was retargeted to develop. Branch protection is not available: the repository is private on GitHub's free plan, so neither main nor develop can be protected (the owner chose protection binding admins too); the plugin's guard is the only protection until the plan changes. The structure reviewer found the gap list wrong on RE-FX-02, so U8 was dropped.

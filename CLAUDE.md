@@ -23,6 +23,7 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 - Security first: every endpoint declares its permission name and scope; default deny; field-level protection in serializers and exports; no secrets in code, logs or commits.
 - Data integrity first: no hard delete of business data; unique constraints and idempotency keys as documented; every write audited where §13 requires it.
 - Git safety: never run git reset --hard, push --force, branch -D, rebase on shared history, or delete migrations. Never modify .env files that hold real secrets. Small commits per task; tag phase gates as gate-phase-N.
+- Branches (the standard's model, D-167): `main` holds released code and `develop` finished work; never commit to either. A work branch `<type>/<topic>` starts from `develop` (`ae-branch.mjs start`), its pull request goes into `develop` and is squash-merged after a green CI run; a release is a pull request from `develop` into `main` on the owner's word.
 - Large tasks: split into steps; finish, test and commit each step before starting the next. If the context gets long, write progress into docs/STATUS.md before continuing.
 - Decisions: every new business or architectural decision is appended to docs/DECISION_LOG.md before implementation. Proposals stay "proposed" until the owner confirms in chat.
 
