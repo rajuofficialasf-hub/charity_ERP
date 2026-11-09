@@ -68,6 +68,22 @@ export function answersOfProfile(
   return out.filter((a): a is Answer => a !== null);
 }
 
+/**
+ * Whether the answers hold the whole four-level address: the server takes a draft only with it
+ * (BR-058), since the application's region and the volunteer's limit come from it.
+ */
+export function hasAddress(definition: FormDefinition, answers: readonly Answer[]): boolean {
+  const field = fieldByColumn(definition, ADDRESS_COLUMNS);
+  const value = field && answers.find((a) => a.fieldKey === field.fieldKey)?.value;
+  return Boolean(
+    value?.t === 'bd_address' &&
+    value.division_id &&
+    value.district_id &&
+    value.upazila_id &&
+    value.union_id,
+  );
+}
+
 /** The answer of a new person: the number alone, on the identity question. */
 export function answersOfNumber(definition: FormDefinition, number: string): Answer[] {
   const field = fieldByColumn(definition, IDENTITY_COLUMN);
