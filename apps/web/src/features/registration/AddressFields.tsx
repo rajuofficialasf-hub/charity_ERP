@@ -72,7 +72,8 @@ export function AddressFields({
           // a list still loading cannot be opened empty
           disabled={(i > 0 && !parents[i]) || !lists[i]}
           // on a phone the next level opens by itself once the one above it is picked
-          autoOpen={i > 0}
+          // a filter may stop at any level, so only an address that is asked for opens the next one
+          autoOpen={!optional && i > 0}
           error={errors[labelSuffix ? `permanent-${level}` : level]}
           options={(lists[i] ?? []).map((l) => ({ value: l.id, label: l.name[locale] }))}
           onChange={(id) => {
