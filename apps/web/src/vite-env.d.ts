@@ -2,6 +2,8 @@
 /// <reference types="@serwist/vite/typings" />
 
 interface ImportMetaEnv {
+  /** The API's address in development; {host} is the page's own host. A production build has none. */
+  readonly VITE_API_BASE_URL?: string;
   /** Adds the dev-only component gallery route to a build (the E2E build only). */
   readonly VITE_DEV_GALLERY?: string;
   /** Shows the dummy-OTP note on the reset screen (development and E2E builds only, BD-49). */

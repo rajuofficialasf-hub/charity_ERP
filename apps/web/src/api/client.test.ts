@@ -63,7 +63,7 @@ describe('the API address', () => {
     expect(apiBase({ DEV: false, VITE_API_BASE_URL: 'https://other.example.org' })).toBe('/api/v1');
   });
 
-  it('sends the cookies along on every call, as the API may sit on its own port', async () => {
+  it('sends the cookies with an api() call, as the API may sit on its own port', async () => {
     let credentials: RequestCredentials | undefined;
     server.use(
       http.get('*/api/v1/public/settings', ({ request }) => {

@@ -25,7 +25,12 @@ export function securityHeaders(): RequestHandler {
  * same-origin only (the PWA is served by Caddy or the Vite proxy) and no allow header is sent.
  */
 export function corsAllowlist(origins: readonly string[]): RequestHandler {
-  return cors({ origin: [...origins], credentials: true });
+  // the client reads these from an answer; across origins a browser hides every other header
+  return cors({
+    origin: [...origins],
+    credentials: true,
+    exposedHeaders: ['Retry-After', 'X-Request-Id', 'Idempotent-Replay'],
+  });
 }
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
