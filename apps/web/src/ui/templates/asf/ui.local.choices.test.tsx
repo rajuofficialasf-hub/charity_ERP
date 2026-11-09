@@ -165,6 +165,35 @@ describe('the switch', () => {
 });
 
 describe('the select', () => {
+  it('opens a sheet from the bottom on a phone, with nothing to type, and opens the next level by itself', async () => {
+    stubWidth(true);
+    const user = userEvent.setup();
+    function Chain() {
+      const [kind, setKind] = useState('');
+      const [next, setNext] = useState('');
+      return (
+        <UiProvider>
+          <SelectField label="Beneficiary type" value={kind} onChange={setKind} options={kinds} />
+          <SelectField label="Union" value={next} onChange={setNext} disabled={kind === ''} autoOpen options={[{ value: 'u1', label: 'Ashulia' }]} />
+        </UiProvider>
+      );
+    }
+    const { container } = render(<Chain />);
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Beneficiary type/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Beneficiary type' });
+    expect(within(sheet).getAllByRole('option').map((o) => o.textContent)).toEqual(['Elderly', 'Widow', 'Orphan', 'Other']);
+    expect(within(sheet).getByRole('option', { name: 'Orphan' })).toBeDisabled();
+    await user.click(within(sheet).getByRole('option', { name: 'Widow' }));
+    // the next level's sheet opens by itself; each field then shows its chosen value
+    const union = await screen.findByRole('dialog', { name: 'Union' });
+    await user.click(within(union).getByRole('option', { name: 'Ashulia' }));
+    expect(await screen.findByRole('button', { name: /Union.*Ashulia/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Beneficiary type.*Widow/ })).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
   it('shows its placeholder and opens the "other" text box', async () => {
     const user = userEvent.setup();
     function Kind() {

@@ -326,29 +326,22 @@ describe('the new application', () => {
     await user.type(await screen.findByRole('textbox', { name: /^name/ }), 'নমুনা উপকারভোগী');
     await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
     await user.type(screen.getByRole('textbox', { name: /^mobile/ }), '01700001000');
-    await user.click(screen.getByRole('combobox', { name: /gender/ }));
+    // on a phone a list opens as a sheet from the bottom, with nothing to type (D-166)
+    await user.click(screen.getByRole('button', { name: /gender/ }));
     await user.click(await screen.findByRole('option', { name: 'female' }));
     // the address is in the next part: the server would refuse a draft now, so nothing is sent
-    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
-    const division = await screen.findByRole('combobox', { name: /বিভাগ/ }, { timeout: 15_000 });
+    // (the page answers again once the sheet has closed)
+    await user.click(await screen.findByRole('button', { name: 'পরের অংশ' }));
+    const division = await screen.findByRole('button', { name: /বিভাগ/ }, { timeout: 15_000 });
     expect(created).toEqual([]);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     await user.click(division);
     await user.click(await screen.findByRole('option', { name: 'ঢাকা বিভাগ' }));
-    for (const [label, name] of [
-      ['জেলা', 'ঢাকা জেলা'],
-      ['উপজেলা', 'সাভার'],
-      ['ইউনিয়ন', 'আশুলিয়া'],
-    ] as const) {
-      const box = screen.getByRole('combobox', {
-        // an address level's name holds the shown value and then the label
-        name: new RegExp(`(^|\\s)${label}(\\(|\\s|$)`),
-      });
-      await waitFor(() => expect(box).not.toHaveAttribute('aria-disabled', 'true'));
-      await user.click(box);
-      await user.click(await screen.findByRole('option', { name }));
-    }
-    await user.type(screen.getByRole('textbox', { name: /^village/ }), 'নমুনা গ্রাম');
+    // each next level opens by itself once the one above it is picked
+    for (const name of ['ঢাকা জেলা', 'সাভার', 'আশুলিয়া'])
+      await user.click(await screen.findByRole('option', { name }, { timeout: 15_000 }));
+    await user.type(await screen.findByRole('textbox', { name: /^village/ }), 'নমুনা গ্রাম');
     // with the address the draft is made, holding the first part's answers too
     await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
     await waitFor(() => expect(created).toHaveLength(1), { timeout: 15_000 });

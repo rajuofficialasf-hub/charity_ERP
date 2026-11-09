@@ -1,9 +1,14 @@
 import type { ReactNode } from 'react';
 import type { FieldStates, TextFieldExtendedProps, SelectFieldExtendedProps } from '@/ui/contract';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
+import MuiDrawer from '@mui/material/Drawer';
+import FormHelperText from '@mui/material/FormHelperText';
+import { alpha, type Theme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import IconButton from '@mui/material/IconButton';
@@ -181,8 +186,16 @@ export function TextField({
   );
 }
 
-/** A select over a short list; above 10 options, or with `searchable`, a combobox to type into. */
-export function SelectField({
+/**
+ * A select over a short list; above 10 options, or with `searchable`, a combobox to type into. On a
+ * phone it is a sheet from the bottom with nothing to type, so no keyboard opens.
+ */
+export function SelectField(props: SelectFieldExtendedProps) {
+  const phone = useMediaQuery((theme: Theme) => theme.breakpoints.down('md'), { noSsr: true });
+  return phone ? <SheetSelect {...props} /> : <MenuSelect {...props} />;
+}
+
+function MenuSelect({
   label,
   name,
   error,
@@ -263,6 +276,170 @@ export function SelectField({
         ))}
       </MuiTextField>
       {otherBox}
+    </Box>
+  );
+}
+
+/**
+ * The phone's select: the field shows its label and the chosen value, and a tap opens the options
+ * as a sheet from the bottom, one row each, the chosen one ticked. Nothing is typed, so no keyboard
+ * opens (DECISION_LOG D-166).
+ */
+function SheetSelect({
+  label,
+  name,
+  error,
+  hint,
+  required,
+  disabled,
+  value,
+  onChange,
+  onBlur,
+  options,
+  placeholder,
+  other,
+  autoOpen,
+}: SelectFieldExtendedProps) {
+  const id = useId();
+  const labels = useLabels();
+  const [open, setOpen] = useState(false);
+  const chosen = options.find((option) => option.value === value);
+  // the next level of an address opens by itself once the one above it is picked
+  const wasDisabled = useRef(disabled);
+  useEffect(() => {
+    if (autoOpen && wasDisabled.current && !disabled && !value && options.length > 0) setOpen(true);
+    wasDisabled.current = disabled;
+  }, [autoOpen, disabled, value, options.length]);
+  const close = () => {
+    setOpen(false);
+    onBlur?.();
+  };
+  const helper = error ?? hint;
+  return (
+    <Box>
+      <ButtonBase
+        id={id}
+        name={name}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-invalid={Boolean(error)}
+        aria-describedby={helper ? `${id}-helper` : undefined}
+        onClick={() => setOpen(true)}
+        sx={(theme) => ({
+          width: '100%',
+          minHeight: 56,
+          px: 1.75,
+          py: 1,
+          gap: 1.5,
+          justifyContent: 'space-between',
+          textAlign: 'left',
+          borderRadius: 1,
+          border: '1px solid',
+          borderColor: error ? theme.vars.palette.error.main : alpha(theme.palette.grey[500], 0.32),
+          bgcolor: theme.vars.palette.background.paper,
+          transition: 'border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          '&:hover': { borderColor: error ? theme.vars.palette.error.main : theme.vars.palette.text.secondary },
+          '&.Mui-disabled': { opacity: 0.5 },
+          '&.Mui-focusVisible': { outline: `2px solid ${theme.vars.palette.primary.main}`, outlineOffset: 2 },
+        })}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <Box component="span" sx={{ typography: 'caption', fontWeight: 600, color: error ? 'error.main' : 'text.secondary' }}>
+            {label}
+            {required ? ' *' : ''}
+          </Box>
+          <Box
+            component="span"
+            sx={{
+              typography: 'body1',
+              fontWeight: chosen ? 600 : 400,
+              color: chosen ? 'text.primary' : 'text.disabled',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {chosen?.label ?? placeholder ?? labels.selectPlaceholder}
+          </Box>
+        </Box>
+        <Icon name="chevron-down" size={20} />
+      </ButtonBase>
+      {helper ? (
+        <FormHelperText id={`${id}-helper`} error={Boolean(error)} sx={{ mx: 1.75 }}>
+          {helper}
+        </FormHelperText>
+      ) : null}
+      <MuiDrawer
+        anchor="bottom"
+        open={open}
+        onClose={close}
+        slotProps={{
+          paper: {
+            role: 'dialog',
+            'aria-labelledby': `${id}-title`,
+            sx: {
+              mx: 'auto',
+              width: 'min(560px, 100%)',
+              maxHeight: '78vh',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              pb: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+              display: 'flex',
+            },
+          },
+        }}
+      >
+        <Box aria-hidden sx={{ width: 40, height: 4, borderRadius: 4, bgcolor: 'divider', mx: 'auto', mt: 1, mb: 1.5, flex: 'none' }} />
+        <Box component="h2" id={`${id}-title`} sx={{ m: 0, px: 2.5, pb: 1, typography: 'h6', flex: 'none' }}>
+          {label}
+        </Box>
+        <Box
+          role="listbox"
+          aria-labelledby={`${id}-title`}
+          sx={{ overflowY: 'auto', px: 1.5, display: 'flex', flexDirection: 'column', gap: 0.25 }}
+        >
+          {options.map((option) => {
+            const selected = option.value === value;
+            return (
+              <ButtonBase
+                key={option.value}
+                role="option"
+                aria-selected={selected}
+                disabled={option.disabled}
+                autoFocus={selected}
+                onClick={() => {
+                  onChange(option.value);
+                  close();
+                }}
+                sx={(theme) => ({
+                  minHeight: 52,
+                  px: 1.5,
+                  gap: 1.5,
+                  borderRadius: 1.5,
+                  justifyContent: 'space-between',
+                  textAlign: 'left',
+                  typography: 'body1',
+                  fontWeight: selected ? 700 : 500,
+                  color: selected ? theme.vars.palette.primary.dark : theme.vars.palette.text.primary,
+                  bgcolor: selected ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                  '&:hover': {
+                    bgcolor: selected ? alpha(theme.palette.primary.main, 0.14) : theme.vars.palette.action.hover,
+                  },
+                  '&.Mui-focusVisible': { outline: `2px solid ${theme.vars.palette.primary.main}`, outlineOffset: -2 },
+                  ...theme.applyStyles('dark', {
+                    color: selected ? theme.vars.palette.primary.light : theme.vars.palette.text.primary,
+                  }),
+                })}
+              >
+                <span>{option.label}</span>
+                {selected ? <Icon name="check" size={20} /> : null}
+              </ButtonBase>
+            );
+          })}
+        </Box>
+      </MuiDrawer>
+      {other && value === other.value && <OtherText other={other} disabled={disabled} />}
     </Box>
   );
 }
