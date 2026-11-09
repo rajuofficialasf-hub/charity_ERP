@@ -77,7 +77,7 @@ afterAll(async () => {
   admin.destroy();
 });
 
-describe('S3 storage driver on MinIO (NS-4x)', () => {
+describe('S3 storage driver on MinIO', () => {
   it('is the driver STORAGE_DRIVER picks', () => {
     expect(storage.name).toBe('s3');
   });
