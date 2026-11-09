@@ -43,7 +43,8 @@ export function originCheck(appOrigin: string, allowed: readonly string[]): Requ
     const origin = req.get('origin');
     if (origin !== undefined && origins.has(origin)) return next();
     req.log?.warn(
-      { origin: origin ?? null, method: req.method },
+      // the path without its query string; the origin cut short, since the caller chose it
+      { origin: origin?.slice(0, 200) ?? null, method: req.method, path: req.path },
       'write refused by the origin check',
     );
     next(new ApiError('client.origin_refused', 403));
