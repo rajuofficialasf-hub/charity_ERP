@@ -2,6 +2,7 @@ import { fakeEmail, fakeMobile, fakeNid } from '@css/shared';
 import { devices, expect, type Page, test, type TestInfo } from '@playwright/test';
 import { fromProfileMenu, isPhone, mainMenu, openTab, scan } from './support/admin';
 import { activeProject, code, ERR } from './support/projects';
+import { pickFrom } from './support/select';
 
 // Registration on a phone from the login page to the pending confirmation (plans
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U11, and
@@ -45,14 +46,7 @@ type Person = ReturnType<typeof personFor>;
 
 /** Picks from a select, a combobox named by its label. */
 async function choose(page: Page, label: RegExp, option?: string) {
-  await page.getByRole('combobox', { name: label }).click();
-  const list = page.getByRole('listbox');
-  const choice = option
-    ? list.getByRole('option', { name: option, exact: true })
-    : list.getByRole('option').first();
-  await choice.click();
-  // the list closes before the next one opens
-  await expect(page.getByRole('listbox')).toHaveCount(0);
+  await pickFrom(page, page.getByRole('combobox', { name: label }), option);
 }
 
 async function photo(page: Page, label: RegExp, slot: string) {

@@ -8,7 +8,7 @@ import {
 } from '@playwright/test';
 import { apiAs, isPhone, openTab, scan, signIn } from './support/admin';
 import { activeProject, choice, code, ERR, question } from './support/projects';
-import { pickByLabel } from './support/forms';
+import { pickByLabel, sendToOffice } from './support/forms';
 import { act, savar } from './support/applications';
 
 // The application cycle across both screens (docs/MASTER_PROMPT.md, the critical journey
@@ -197,7 +197,8 @@ test.describe('the application cycle', () => {
     await page.getByRole('textbox', { name: /উপকারভোগীর নাম/ }).fill(name);
     await page.getByRole('textbox', { name: /পিতা বা স্বামীর নাম/ }).fill('নমুনা পিতা');
     await page.getByRole('textbox', { name: /উপকারভোগীর মোবাইল/ }).fill(`018${digits(8)}`);
-    await pickByLabel(page, 'লিঙ্গ', 'নারী');
+    // the options of a coded question come from its reference list (D-163)
+    await pickByLabel(page, 'লিঙ্গ', 'মহিলা');
     await pickByLabel(page, 'বিভাগ', 'ঢাকা');
     await pickByLabel(page, 'জেলা', 'ঢাকা');
     await pickByLabel(page, 'উপজেলা', 'সাভার');
@@ -210,7 +211,7 @@ test.describe('the application cycle', () => {
     }
     await page.getByRole('textbox', { name: /কেন সহায়তা দরকার/ }).fill('শীতের কাপড় দরকার');
     await noViolations(page, 'the form');
-    await page.getByRole('button', { name: 'অফিসে পাঠান' }).click();
+    await sendToOffice(page);
     await expect(
       page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' }),
     ).toBeVisible();
@@ -315,7 +316,7 @@ test.describe('the application cycle', () => {
     await page.getByRole('button', { name: 'পরের অংশ' }).click();
     await expect(page.getByText('খসড়া সংরক্ষিত হয়েছে')).toBeVisible();
     await page.getByRole('textbox', { name: /কেন সহায়তা দরকার/ }).fill('ঘর মেরামত দরকার');
-    await page.getByRole('button', { name: 'অফিসে পাঠান' }).click();
+    await sendToOffice(page);
     await expect(
       page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' }),
     ).toBeVisible();

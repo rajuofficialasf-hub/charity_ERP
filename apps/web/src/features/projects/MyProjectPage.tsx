@@ -1,6 +1,6 @@
 import { formatCount, formatDate } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, Checkbox, LinkButton, Skeleton, Stack, Stepper } from '@/ui';
+import { Alert, Button, Card, Checkbox, Icon, LinkButton, Skeleton, Stepper } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -42,7 +42,12 @@ function ProjectView() {
         async () => (await loadStore()).cachedProject(projectId),
       ),
   });
-  const back = <Link to="/my-projects">{t('mine.back')}</Link>;
+  const back = (
+    <Link className="my-project-back" to="/my-projects">
+      <Icon name="chevron-left" size={18} />
+      {t('mine.back')}
+    </Link>
+  );
   if (one.isPending) return <Skeleton shape="card" />;
   if (one.error)
     return (
@@ -86,48 +91,86 @@ function ProjectFacts({ project: p }: { project: MyProjectDetail }) {
           counted: formatCount(p.applicationsCounted, locale),
           left: formatCount(p.applicationsLeft, locale),
         });
-  const facts: [string, string][] = [
-    [
-      t('window'),
-      p.applyFrom && p.applyTo ? `${formatDate(p.applyFrom)} – ${formatDate(p.applyTo)}` : none,
-    ],
-    [t('limit'), p.perVolunteerLimit === null ? none : formatCount(p.perVolunteerLimit, locale)],
-    [t('applications'), applications],
-    ...(p.permissionSet ? [[t('set'), ts(p.permissionSet)] as [string, string]] : []),
-  ];
   const leads = p.leadsTeam;
+  const name = localized(p.name, locale);
+  // how much of the volunteer's limit is used, for the bar under the count
+  const used =
+    p.perVolunteerLimit && p.perVolunteerLimit > 0
+      ? Math.min(100, Math.round((p.applicationsCounted / p.perVolunteerLimit) * 100))
+      : null;
   return (
-    <Card
-      title={`${localized(p.name, locale)} (${p.code})`}
-      headingLevel={2}
-      action={
-        <Stack direction="row" gap={2} wrap>
-          {p.status === 'active' ? (
-            <LinkButton variant="primary" to={`/my-projects/${p.projectId}/apply`}>
-              {t('new_application')}
-            </LinkButton>
-          ) : null}
-          <LinkButton variant="secondary" to="/my-applications?tab=pending">
-            {t('my_applications')}
+    <section className="my-project" aria-labelledby="my-project-name">
+      <div className="my-project-head">
+        <div className="my-project-tags">
+          <span className="my-project-code">{p.code}</span>
+          <span className="my-project-state">
+            <Icon name="check" size={14} />
+            {tm('accepted')}
+          </span>
+        </div>
+        <h2 id="my-project-name" className="my-project-name">
+          {name}
+        </h2>
+        {p.permissionSet ? (
+          <p className="my-project-role">
+            {t('set')}: <strong>{ts(p.permissionSet)}</strong>
+          </p>
+        ) : null}
+      </div>
+      <div className="my-project-actions">
+        {p.status === 'active' ? (
+          <LinkButton
+            variant="primary"
+            fullWidth
+            startIcon="add"
+            to={`/my-projects/${p.projectId}/apply`}
+          >
+            {t('new_application')}
           </LinkButton>
-          {leads ? (
-            <LinkButton variant="secondary" to={`/my-projects/${p.projectId}/team`}>
-              {t('team')}
-            </LinkButton>
-          ) : null}
-        </Stack>
-      }
-    >
-      <p>{tm('accepted')}</p>
+        ) : null}
+        <LinkButton
+          variant="secondary"
+          fullWidth
+          startIcon="clipboard"
+          to="/my-applications?tab=pending"
+        >
+          {t('my_applications')}
+        </LinkButton>
+        {leads ? (
+          <LinkButton
+            variant="secondary"
+            fullWidth
+            startIcon="users"
+            to={`/my-projects/${p.projectId}/team`}
+          >
+            {t('team')}
+          </LinkButton>
+        ) : null}
+      </div>
       <dl className="my-project-facts">
-        {facts.map(([label, value]) => (
-          <div key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
+        <div className="my-project-fact is-wide">
+          <dt>{t('applications')}</dt>
+          <dd>{applications}</dd>
+          {used !== null ? (
+            <span className="my-project-bar" aria-hidden="true">
+              <span style={{ width: `${used}%` }} />
+            </span>
+          ) : null}
+        </div>
+        <div className="my-project-fact is-wide">
+          <dt>{t('window')}</dt>
+          <dd>
+            {p.applyFrom && p.applyTo
+              ? `${formatDate(p.applyFrom)} – ${formatDate(p.applyTo)}`
+              : none}
+          </dd>
+        </div>
+        <div className="my-project-fact">
+          <dt>{t('limit')}</dt>
+          <dd>{p.perVolunteerLimit === null ? none : formatCount(p.perVolunteerLimit, locale)}</dd>
+        </div>
       </dl>
-    </Card>
+    </section>
   );
 }
 

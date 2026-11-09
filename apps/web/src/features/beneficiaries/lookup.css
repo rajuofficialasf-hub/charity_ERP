@@ -1,0 +1,71 @@
+/*
+ * The answer of a lookup (docs/ui/SCREENS.md SCR-031; DECISION_LOG D-166): a card for the person,
+ * green for a known profile, quiet for a new person. Colours from the app's tokens on the asf palette.
+ */
+
+.lookup-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-muted);
+  box-shadow: inset 0 0 0 1px var(--color-border-default);
+}
+
+.lookup-card.is-found {
+  background: var(--color-bg-brand-tint);
+  box-shadow: inset 0 0 0 1px var(--color-bg-brand-soft);
+}
+
+/* a new person: a dashed outline, the details are typed below */
+.lookup-card.is-new {
+  background: var(--color-bg-surface);
+  box-shadow: none;
+  outline: 1px dashed var(--color-border-strong);
+  outline-offset: -1px;
+}
+
+.lookup-card-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+}
+
+.lookup-card.is-new .lookup-card-mark {
+  background: var(--color-bg-muted);
+}
+
+.lookup-card.is-found .lookup-card-mark {
+  color: var(--color-brand-primary-dark);
+}
+
+.lookup-card-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+}
+
+/* the green tint leaves the muted grey under 4.5:1, so a known person's details read in the body colour */
+.lookup-card.is-found .lookup-card-text {
+  color: var(--color-text-primary);
+}
+
+.lookup-card-text strong {
+  color: var(--color-text-primary);
+  font-size: var(--text-title);
+}
+
+.lookup-card-ben {
+  color: var(--color-brand-primary-dark);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}

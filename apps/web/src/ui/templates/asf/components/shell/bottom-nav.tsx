@@ -71,7 +71,17 @@ const itemSx = (variant: BottomNavProps['variant'], current: boolean) =>
     '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
   }) as const;
 
-const labelSx = { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
+// a label takes two short lines rather than being cut ("আমার আবেদন" on a 360 px phone, D-166)
+const labelSx = {
+  maxWidth: '100%',
+  display: '-webkit-box',
+  WebkitBoxOrient: 'vertical',
+  WebkitLineClamp: 2,
+  overflow: 'hidden',
+  fontSize: 11,
+  lineHeight: 1.2,
+  overflowWrap: 'normal',
+} as const;
 
 /** The few main destinations at a phone's bottom (tabs) or a tablet's side (rail), and "more". */
 export function BottomNav({ label, items, more, variant }: BottomNavProps) {

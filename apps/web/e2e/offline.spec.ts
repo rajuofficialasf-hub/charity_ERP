@@ -16,7 +16,7 @@ import {
   throttle3g,
   TINY_PNG,
 } from './support/offline';
-import { digits, pickByLabel } from './support/forms';
+import { digits, pickByLabel, sendToOffice } from './support/forms';
 import { activeProject, choice, code, ERR, question } from './support/projects';
 
 // The offline journeys of a volunteer's phone (docs/architecture/OFFLINE_SYNC.md, the test
@@ -147,7 +147,8 @@ async function identityOffline(page: Page, projectId: string, nid: string, name:
   await page.getByRole('textbox', { name: /উপকারভোগীর নাম/ }).fill(name);
   await page.getByRole('textbox', { name: /পিতা বা স্বামীর নাম/ }).fill('নমুনা পিতা');
   await page.getByRole('textbox', { name: /উপকারভোগীর মোবাইল/ }).fill(`018${digits(8)}`);
-  await pickByLabel(page, 'লিঙ্গ', 'নারী');
+  // the options of a coded question come from its reference list (D-163)
+  await pickByLabel(page, 'লিঙ্গ', 'মহিলা');
   await pickByLabel(page, 'বিভাগ', 'ঢাকা');
   await pickByLabel(page, 'জেলা', 'ঢাকা');
   await pickByLabel(page, 'উপজেলা', 'সাভার');
@@ -191,7 +192,7 @@ test.describe('the offline journeys', () => {
     await expect(page.getByText('ghor.png').first()).toBeVisible();
     await page.getByRole('textbox', { name: /মন্তব্য/ }).fill('অফলাইনে নেওয়া মন্তব্য');
     await noViolations(page, 'the form offline');
-    await page.getByRole('button', { name: 'অফিসে পাঠান' }).click();
+    await sendToOffice(page);
     // the queued send has its own card; the draft's save notice carries the same words
     await expect(page.getByRole('heading', { level: 2, name: 'ফোনে জমা আছে' })).toBeVisible();
     await expect(page.getByText('এই ফোনে জমা হয়েছে। নেট এলে অফিসে যাবে।')).toBeVisible();
@@ -278,7 +279,7 @@ test.describe('the offline journeys', () => {
     await goOffline(context);
     await identityOffline(page, projectId, KNOWN_NID, name);
     await page.getByRole('textbox', { name: /মন্তব্য/ }).fill('একই নম্বর, অন্য নাম');
-    await page.getByRole('button', { name: 'অফিসে পাঠান' }).click();
+    await sendToOffice(page);
     // the queued send has its own card; the draft's save notice carries the same words
     await expect(page.getByRole('heading', { level: 2, name: 'ফোনে জমা আছে' })).toBeVisible();
     await expect(page.getByText('এই ফোনে জমা হয়েছে। নেট এলে অফিসে যাবে।')).toBeVisible();
@@ -389,7 +390,7 @@ test.describe('the offline journeys', () => {
     const note = page.getByRole('textbox', { name: /মন্তব্য/ });
     await note.clear();
     await note.fill('ফোনের মন্তব্য');
-    await page.getByRole('button', { name: 'অফিসে পাঠান' }).click();
+    await sendToOffice(page);
     // the queued send has its own card; the draft's save notice carries the same words
     await expect(page.getByRole('heading', { level: 2, name: 'ফোনে জমা আছে' })).toBeVisible();
     await expect(page.getByText('এই ফোনে জমা হয়েছে। নেট এলে অফিসে যাবে।')).toBeVisible();

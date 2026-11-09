@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, request as apiRequest } from '@playwright/test';
 import { apiAs } from './admin';
+import { pickFrom } from './select';
 
 // Shared steps of the project specs (projects.spec.ts, assignment.spec.ts) against the demo seed
 // (docs/testing/DEMO_ACCOUNTS.md).
@@ -20,12 +21,10 @@ export const next = (page: Page) => page.getByRole('button', { name: 'পরে�
 export async function chooseIn(page: Page, scope: Locator, label: string, option: string) {
   // an earlier select is a button named by the value, then the label, then "(আবশ্যক)" for a
   // required field; an asf one (the address) a combobox named by the label
-  await scope
+  const trigger = scope
     .getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) })
-    .or(scope.getByRole('combobox', { name: new RegExp(`^${label}`) }))
-    .click();
-  await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
-  await expect(page.getByRole('listbox')).toHaveCount(0);
+    .or(scope.getByRole('combobox', { name: new RegExp(`^${label}`) }));
+  await pickFrom(page, trigger, option);
 }
 
 /** The first step of the wizard: Next creates the draft and opens the components step. */

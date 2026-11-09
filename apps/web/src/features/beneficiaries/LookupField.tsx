@@ -5,7 +5,7 @@ import {
   normalizeIdentityNumber,
 } from '@css/shared/beneficiaries';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, DescriptionList, Grid, RadioGroup, Stack, TextField } from '@/ui';
+import { Alert, Button, DescriptionList, Grid, Icon, Stack, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { type ReactNode, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -16,7 +16,9 @@ import {
 } from '../../admin/beneficiaries/beneficiaries-api';
 import { useLocationName } from '../../components/AddressNames';
 import { ApiFailure } from '../../api/client';
+import { ChoiceButtons } from '../forms/ChoiceButtons';
 import { QuestionTitle } from '../forms/QuestionTitle';
+import './lookup.css';
 
 type NumberKind = 'nid' | 'birthReg';
 type Asked = { number: string; kind: NumberKind; projectId: string };
@@ -104,16 +106,19 @@ export function LookupField({
   const failure = fresh && search.error instanceof ApiFailure ? search.error : null;
   return (
     <Stack gap={3}>
-      <RadioGroup
+      {/* the kind as two large buttons: one is always chosen (D-166) */}
+      <ChoiceButtons
+        id="lookup-kind"
         label={t('kind')}
-        orientation="horizontal"
-        value={kind}
+        required={false}
+        value={[kind]}
         options={[
           { value: 'nid', label: t('kind_nid') },
           { value: 'birthReg', label: t('kind_birth_reg') },
         ]}
-        onChange={(id) => {
-          setKind(id as NumberKind);
+        onChange={(codes) => {
+          if (!codes[0]) return;
+          setKind(codes[0] as NumberKind);
           reset();
         }}
       />
@@ -179,11 +184,32 @@ function Answer({
   // a blocked person cannot apply anywhere (the answer carries nothing else), and one
   // application per project is the rule
   if (result.found && result.blocked) return <Alert tone="error">{t('blocked')}</Alert>;
-  if (!result.found || !a) return <Alert tone="info">{t('not_found')}</Alert>;
+  if (!result.found || !a)
+    return (
+      <div className="lookup-card is-new" role="status">
+        <span className="lookup-card-mark" aria-hidden="true">
+          <Icon name="user-add" size={22} />
+        </span>
+        <span className="lookup-card-text">
+          <strong>{t('new_person')}</strong>
+          <span>{t('not_found')}</span>
+        </span>
+      </div>
+    );
   if (result.alreadyAppliedInProject)
     return <Alert tone="warning">{t('already_applied', { benNo: formatBenNo(a.benNo) })}</Alert>;
   return (
     <Stack gap={3}>
+      <div className="lookup-card is-found">
+        <span className="lookup-card-mark" aria-hidden="true">
+          <Icon name="user-check" size={22} />
+        </span>
+        <span className="lookup-card-text">
+          <span className="lookup-card-ben">{formatBenNo(a.benNo)}</span>
+          <strong>{a.name}</strong>
+          <span>{a.fatherOrHusbandName}</span>
+        </span>
+      </div>
       {result.mergedInto && (
         <Alert tone="info">{t('merged', { benNo: formatBenNo(result.mergedInto.benNo) })}</Alert>
       )}

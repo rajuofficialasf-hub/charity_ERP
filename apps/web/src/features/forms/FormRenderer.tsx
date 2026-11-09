@@ -13,14 +13,16 @@ import {
 } from '@css/shared/forms';
 import type { AnswerValue } from '@css/shared';
 import { formatCount } from '@css/shared/format';
-import { Alert, Button, ConfirmDialog, Stack, Stepper, Text } from '@/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Button, ConfirmDialog, DescriptionList, Stack, Text } from '@/ui';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { answeredRows, removeRow, setAnswer, answerOf, trimRows } from './answers';
 import { FieldInput } from './FieldInput';
 import { RepeatGroup } from './RepeatGroup';
 import type { UploadAdapter } from './upload-adapter';
 import { useFormAnswers } from './use-form-answers';
+import { answerText } from '../applications/AnswerList';
+import './forms.css';
 
 /** What a screen receives when the form is sent: the clean answers and the client id. */
 export interface Submission {
@@ -61,6 +63,8 @@ export interface RendererProps {
    * draft here); when it throws, the person stays on the part and the error's message is shown.
    */
   onPartDone?: (submission: Submission) => Promise<void>;
+  /** A short mark beside the parts on a phone, such as the draft's "saved". */
+  status?: ReactNode;
 }
 
 const PHONE = '(max-width: 767px)';
@@ -104,6 +108,7 @@ export function FormRenderer({
   lockedKeys,
   onPartDone,
   fillDefaults = true,
+  status,
 }: RendererProps) {
   const t = useTranslations('forms.renderer');
   const te = useTranslations('errors');
@@ -210,6 +215,8 @@ export function FormRenderer({
     });
   };
   const [summary, setSummary] = useState<string | null>(null);
+  // on a phone the answers are read through once before the send (D-166)
+  const [reviewing, setReviewing] = useState(false);
   const [sending, setSending] = useState(false);
   const sendingNow = useRef(false);
   const [uploading, setUploading] = useState<ReadonlySet<string>>(new Set());
@@ -256,6 +263,26 @@ export function FormRenderer({
     if (path in serverErrors) setEdited((set) => new Set(set).add(path));
   };
 
+  /** The whole form checked; on a problem the messages show and a phone goes to its part. */
+  const checkAll = () => {
+    const result = validate(form, state.answers, { audience, ...context });
+    if (result.ok) return result;
+    const found: Record<string, string> = {};
+    for (const e of result.errors) found[e.path] = messageOf(e.code, e.params);
+    setErrors(found);
+    setSummary(t('fix_before', { count: formatCount(Object.keys(found).length, locale) }));
+    // on a phone, go to the first part with a problem
+    const first = visible.findIndex((s) =>
+      s.fields.some((f) => Object.keys(found).some((p) => keyOf(p) === f.fieldKey)),
+    );
+    if (phone && first >= 0) {
+      setReviewing(false);
+      setState((s) => ({ ...s, step: first }));
+    }
+    return null;
+  };
+  const review = phone && Boolean(onSubmit);
+
   const next = async () => {
     if (uploading.size) return setSummary(t('upload_wait'));
     const found = problemsIn(shown);
@@ -266,6 +293,13 @@ export function FormRenderer({
     }
     setErrors({});
     setSummary(null);
+    // after the last part a phone reads the answers through before the send, which saves them
+    if (review && step >= visible.length - 1) {
+      if (!checkAll()) return;
+      setReviewing(true);
+      window.scrollTo?.({ top: 0 });
+      return;
+    }
     if (onPartDone) {
       try {
         await onPartDone({ answers: state.answers, clientUuid: state.clientUuid });
@@ -275,27 +309,26 @@ export function FormRenderer({
       }
     }
     setState((s) => ({ ...s, step: Math.min(step + 1, visible.length - 1) }));
+    window.scrollTo?.({ top: 0 });
   };
   const previous = () => {
     setSummary(null);
+    if (reviewing) return setReviewing(false);
     setState((s) => ({ ...s, step: Math.max(0, step - 1) }));
+    window.scrollTo?.({ top: 0 });
+  };
+  /** From the review back to one part, to change it. */
+  const openPart = (index: number) => {
+    setSummary(null);
+    setReviewing(false);
+    setState((s) => ({ ...s, step: index }));
+    window.scrollTo?.({ top: 0 });
   };
   const send = async () => {
     if (sendingNow.current) return;
     if (uploading.size) return setSummary(t('upload_wait'));
-    const result = validate(form, state.answers, { audience, ...context });
-    if (!result.ok) {
-      const found: Record<string, string> = {};
-      for (const e of result.errors) found[e.path] = messageOf(e.code, e.params);
-      setErrors(found);
-      setSummary(t('fix_before', { count: formatCount(Object.keys(found).length, locale) }));
-      // on a phone, go to the first part with a problem
-      const first = visible.findIndex((s) =>
-        s.fields.some((f) => Object.keys(found).some((p) => keyOf(p) === f.fieldKey)),
-      );
-      if (phone && first >= 0) setState((s) => ({ ...s, step: first }));
-      return;
-    }
+    const result = checkAll();
+    if (!result) return;
     if (!onSubmit) return;
     setErrors({});
     setSummary(null);
@@ -347,6 +380,7 @@ export function FormRenderer({
           })
         }
         nisabKnown={nisabValue !== undefined}
+        compact={phone}
       />
     );
   };
@@ -358,9 +392,11 @@ export function FormRenderer({
       if (group) groups.set(group, [...(groups.get(group) ?? []), f]);
     }
     return (
-      <section key={section.key} aria-labelledby={`section-${section.key}`}>
+      <section key={section.key} className="form-card" aria-labelledby={`section-${section.key}`}>
         <Stack gap={3}>
-          <strong id={`section-${section.key}`}>{section.title[locale]}</strong>
+          <strong id={`section-${section.key}`} className="form-card-title">
+            {section.title[locale]}
+          </strong>
           {section.fields.map((field) => {
             if (field.settings?.repeat?.group) return null;
             if (field.type !== 'repeat_group') return renderField(field, 0, false);
@@ -403,26 +439,120 @@ export function FormRenderer({
     );
   };
 
-  const last = !phone || step >= visible.length - 1;
+  const renderReview = () => (
+    <Stack gap={3}>
+      <strong className="form-review-title">{t('review_title')}</strong>
+      {visible.map((section, index) => {
+        const items = section.fields.flatMap((field) => {
+          if (field.settings?.repeat?.group || field.type === 'note') return [];
+          const value = answerOf(state, field.fieldKey);
+          if (!value) return [];
+          const label = field.label[locale];
+          if (
+            'v' in value &&
+            Array.isArray(value.v) &&
+            ['photo', 'file', 'signature'].includes(value.t)
+          )
+            return [
+              { label, value: t('files_count', { count: formatCount(value.v.length, locale) }) },
+            ];
+          const text = answerText(field, value, locale, t('yes'), t('no'));
+          return text === null ? [] : [{ label, value: text }];
+        });
+        return (
+          <section
+            key={section.key}
+            className="form-card"
+            aria-labelledby={`review-${section.key}`}
+          >
+            <Stack gap={2}>
+              <div className="form-card-head">
+                <strong id={`review-${section.key}`} className="form-card-title">
+                  {section.title[locale]}
+                </strong>
+                <Button
+                  variant="text"
+                  size="small"
+                  startIcon="edit"
+                  onClick={() => openPart(index)}
+                  ariaLabel={t('change_part', { part: section.title[locale] })}
+                >
+                  {t('change')}
+                </Button>
+              </div>
+              {items.length ? (
+                <DescriptionList items={items} />
+              ) : (
+                <Text tone="muted">{t('nothing_answered')}</Text>
+              )}
+            </Stack>
+          </section>
+        );
+      })}
+    </Stack>
+  );
+
+  const parts = review
+    ? [...visible.map((s) => s.title[locale]), t('review_part')]
+    : visible.map((s) => s.title[locale]);
+  const current = reviewing ? visible.length : step;
+  const last = !phone || reviewing || (!review && step >= visible.length - 1);
+  const actions = (
+    <Stack direction="row" gap={2} justify="between" wrap={!phone}>
+      {phone && (step > 0 || reviewing) ? (
+        <Button variant="secondary" onClick={previous}>
+          {t('previous')}
+        </Button>
+      ) : (
+        <span />
+      )}
+      {last ? (
+        <Button variant="primary" onClick={() => void send()} loading={sending}>
+          {sending ? t('sending') : (submitLabel ?? t('submit'))}
+        </Button>
+      ) : (
+        <Button variant="primary" endIcon="chevron-right" onClick={() => void next()}>
+          {t('next')}
+        </Button>
+      )}
+    </Stack>
+  );
   return (
     <Stack gap={4}>
-      {phone && visible.length > 1 ? (
-        <Stack gap={2}>
-          <Stepper
-            steps={visible.map((s) => s.title[locale])}
-            current={step}
-            label={t('steps_label')}
-          />
-          <Text tone="muted">
-            {t('step', {
-              current: formatCount(step + 1, locale),
-              total: formatCount(visible.length, locale),
-            })}
-          </Text>
-        </Stack>
+      {phone && parts.length > 1 ? (
+        <div className="form-parts-bar">
+          <div className="form-parts-head">
+            <span className="form-parts-count">
+              {t('step', {
+                current: formatCount(current + 1, locale),
+                total: formatCount(parts.length, locale),
+              })}
+            </span>
+            {status}
+          </div>
+          <ol className="form-parts" aria-label={t('steps_label')}>
+            {parts.map((title, i) => (
+              <li
+                key={title + i}
+                className={
+                  i < current
+                    ? 'form-part is-done'
+                    : i === current
+                      ? 'form-part is-now'
+                      : 'form-part'
+                }
+                aria-current={i === current ? 'step' : undefined}
+              >
+                <span className="form-part-mark" aria-hidden="true" />
+                <span className="form-part-name">{title}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
       ) : null}
-      {summary ? <Alert tone="error">{summary}</Alert> : null}
-      {shown.map(renderSection)}
+      {!phone && status ? status : null}
+      {summary && !phone ? <Alert tone="error">{summary}</Alert> : null}
+      {reviewing ? renderReview() : shown.map(renderSection)}
       <ConfirmDialog
         open={lowering !== null}
         title={t('trim_rows_title')}
@@ -452,24 +582,18 @@ export function FormRenderer({
           setLowering(null);
         }}
       />
-      <Stack direction="row" gap={2} justify="between" wrap>
-        {phone && step > 0 ? (
-          <Button variant="secondary" onClick={previous}>
-            {t('previous')}
-          </Button>
-        ) : (
-          <span />
-        )}
-        {last ? (
-          <Button variant="primary" onClick={() => void send()} loading={sending}>
-            {sending ? t('sending') : (submitLabel ?? t('submit'))}
-          </Button>
-        ) : (
-          <Button variant="primary" onClick={() => void next()}>
-            {t('next')}
-          </Button>
-        )}
-      </Stack>
+      {phone ? (
+        <div className="form-bar">
+          {summary ? (
+            <div className="form-bar-message" role="alert">
+              {summary}
+            </div>
+          ) : null}
+          {actions}
+        </div>
+      ) : (
+        actions
+      )}
     </Stack>
   );
 }

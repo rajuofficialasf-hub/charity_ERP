@@ -31,7 +31,13 @@
     "table_cell": "{row}: {col}",
     "required_mark": "(required)",
     "trim_rows_title": "The answers in the extra rows will be removed. Lower the number anyway?",
-    "trim_rows_confirm": "Lower it"
+    "trim_rows_confirm": "Lower it",
+    "review_part": "Check",
+    "review_title": "Check before you send",
+    "change": "Change",
+    "change_part": "Change {part}",
+    "files_count": "{count} file(s)",
+    "nothing_answered": "No answers"
   },
   "builder": {
     "title": "Application form",
