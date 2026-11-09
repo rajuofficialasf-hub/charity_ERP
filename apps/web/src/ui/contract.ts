@@ -931,8 +931,14 @@ export type SwitchProps = {
 export type SelectFieldExtendedProps = Omit<SelectFieldProps, "options"> & {
   options: readonly ChoiceOption[];
   placeholder?: string;
+  /** A list to type into (above 10 options by default); on a phone the list is never typed into. */
   searchable?: boolean;
   other?: OtherChoice;
+  /**
+   * On a phone, opens its list by itself once it turns ready with nothing chosen, such as the next
+   * level of an address after the one above it is picked.
+   */
+  autoOpen?: boolean;
 };
 
 /** Type to narrow a long list; `freeText` keeps text that is not one of the options. */

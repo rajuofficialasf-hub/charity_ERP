@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { pickChoiceButton, pickFrom } from './select';
 
 // The steps the form journeys share: the builder's own questions, its save and publish, and the
 // applicant's picks on the public page.
@@ -71,31 +72,47 @@ export async function settled(page: Page) {
 
 /**
  * Picks the first choice of a select, or the named one, on the applicant's page: an earlier select
- * is a button, an asf one (the address) a combobox.
+ * is a button, an asf one (the address) a combobox; on a phone a short choice is a row of buttons.
  */
 export async function pick(page: Page, scope: Locator, label: RegExp, option?: string) {
-  await scope
-    .getByRole('button', { name: label })
-    .or(scope.getByRole('combobox', { name: label }))
-    .click();
-  const list = page.getByRole('listbox');
-  await (
-    option
-      ? list.getByRole('option', { name: option, exact: true })
-      : list.getByRole('option').first()
-  ).click();
-  await expect(page.getByRole('listbox')).toHaveCount(0);
+  const group = scope.getByRole('radiogroup', { name: label });
+  if (await group.count()) {
+    const button = option
+      ? group.getByRole('radio', { name: option, exact: true })
+      : group.getByRole('radio').first();
+    await button.click();
+    await expect(button).toHaveAttribute('aria-checked', 'true');
+    return;
+  }
+  await pickFrom(
+    page,
+    scope.getByRole('button', { name: label }).or(scope.getByRole('combobox', { name: label })),
+    option,
+  );
 }
 
 /**
  * Picks an option of the renderer's select by its label: an earlier select is a button named by
- * its value, then the label; an asf one (the address) a combobox named by the label.
+ * its value, then the label; an asf one (the address) a combobox named by the label; on a phone a
+ * short choice is a row of buttons (D-166).
  */
 export async function pickByLabel(page: Page, label: string, option: string) {
-  await page
-    .getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) })
-    .or(page.getByRole('combobox', { name: new RegExp(`^${label}`) }))
-    .click();
-  await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
-  await expect(page.getByRole('listbox')).toHaveCount(0);
+  if (await pickChoiceButton(page, label, option)) return;
+  await pickFrom(
+    page,
+    page
+      .getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) })
+      .or(page.getByRole('combobox', { name: new RegExp(`^${label}`) })),
+    option,
+  );
+}
+
+/** Sends the application to the office: on a phone through the check of the answers first (D-166). */
+export async function sendToOffice(page: Page) {
+  const send = page.getByRole('button', { name: 'অফিসে পাঠান' });
+  if (!(await send.isVisible())) {
+    await page.getByRole('button', { name: 'পরের অংশ' }).click();
+    await expect(page.getByText('পাঠানোর আগে দেখে নিন')).toBeVisible();
+  }
+  await send.click();
 }

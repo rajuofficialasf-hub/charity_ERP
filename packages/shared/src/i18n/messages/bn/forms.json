@@ -31,7 +31,13 @@
     "table_cell": "{row}: {col}",
     "required_mark": "(আবশ্যক)",
     "trim_rows_title": "বাড়তি সারির উত্তর মুছে যাবে। তবু কমাবেন?",
-    "trim_rows_confirm": "কমান"
+    "trim_rows_confirm": "কমান",
+    "review_part": "যাচাই",
+    "review_title": "পাঠানোর আগে দেখে নিন",
+    "change": "বদলান",
+    "change_part": "{part} বদলান",
+    "files_count": "{count}টি",
+    "nothing_answered": "কোনো উত্তর নেই"
   },
   "builder": {
     "title": "আবেদন ফর্ম",

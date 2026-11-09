@@ -1,0 +1,221 @@
+/*
+ * The form on a screen (docs/ui/SCREENS.md SCR-031; DECISION_LOG D-166): each part in a card; on a
+ * phone the parts as segments in a bar under the header, the actions in a bar at the thumb above
+ * the bottom tabs, and short choices as large buttons or chips. Colours, radius and shadow come
+ * from the app's tokens on the asf palette, in light and dark.
+ */
+
+.form-card {
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  box-shadow: var(--elevation-1);
+}
+
+.form-card-title {
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-bold);
+}
+
+.form-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.form-review-title {
+  font-size: var(--text-display);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-heading);
+}
+
+/* the parts: a segment each, the done ones and the current one in the brand green */
+.form-parts-bar {
+  position: sticky;
+  /* under the asf shell's header, which is 72px high */
+  top: 72px;
+  z-index: var(--z-sticky);
+  display: grid;
+  gap: var(--space-2);
+  margin-inline: calc(var(--space-4) * -1);
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  background: rgba(var(--asf-palette-background-defaultChannel, 255 255 255) / 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.form-parts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 28px;
+}
+
+.form-parts-count {
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.form-parts {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.form-part {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.form-part-mark {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-border-default);
+  transition: background var(--motion-fast);
+}
+
+.form-part-name {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.form-part.is-done .form-part-mark,
+.form-part.is-now .form-part-mark {
+  background: var(--color-brand-primary);
+}
+
+.form-part.is-now .form-part-name {
+  color: var(--color-text-primary);
+}
+
+.form-part.is-done .form-part-name {
+  color: var(--color-brand-primary-dark);
+}
+
+/* the actions at the thumb: above the bottom tabs of a phone */
+.form-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-sticky);
+  display: grid;
+  gap: var(--space-2);
+  margin-inline: calc(var(--space-4) * -1);
+  padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  background: rgba(var(--asf-palette-background-paperChannel, 255 255 255) / 0.94);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--elevation-2);
+}
+
+@media (max-width: 599.95px) {
+  .form-bar {
+    bottom: 64px;
+    padding-bottom: var(--space-3);
+  }
+}
+
+.form-bar-message {
+  color: var(--color-status-danger);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+}
+
+/* a short choice: large buttons side by side, or chips that wrap */
+.choice-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.choice-label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+}
+
+.choice-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.choice-buttons.is-wide {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+}
+
+.choice-button {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast),
+    color var(--motion-fast);
+}
+
+.choice-buttons.is-wide .choice-button {
+  min-height: 52px;
+  border-radius: var(--radius-md);
+}
+
+.choice-button:hover:not(:disabled) {
+  border-color: var(--color-text-secondary);
+}
+
+.choice-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.choice-button[aria-checked='true'],
+.choice-button[aria-pressed='true'] {
+  border-color: var(--color-brand-primary);
+  background: var(--color-bg-brand-soft);
+  color: var(--color-brand-primary-dark);
+  box-shadow: inset 0 0 0 1px var(--color-brand-primary);
+}
+
+[data-color-scheme='dark'] .choice-button[aria-checked='true'],
+[data-color-scheme='dark'] .choice-button[aria-pressed='true'] {
+  color: var(--asf-palette-primary-light);
+}
+
+.choice-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.choice-help {
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+}
+
+.choice-help.is-error {
+  color: var(--color-status-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .form-part-mark,
+  .choice-button {
+    transition: none;
+  }
+}

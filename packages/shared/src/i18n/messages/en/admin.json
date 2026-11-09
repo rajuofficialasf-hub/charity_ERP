@@ -549,6 +549,7 @@
       "search": "Search",
       "pick_project": "Choose a project first",
       "not_found": "No profile has this number",
+      "new_person": "A new person",
       "blocked": "This person is blocked",
       "already_applied": "This person ({benNo}) has already applied in this project",
       "own_mobile": "This is your own mobile number. Enter another number for the beneficiary.",

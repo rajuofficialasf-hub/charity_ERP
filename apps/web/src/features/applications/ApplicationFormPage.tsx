@@ -3,7 +3,7 @@ import { maxSizeOf } from '@css/shared/files';
 import type { Answer } from '@css/shared/forms';
 import { formatCount, formatDate, isoDateInDhaka } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, LinkButton, Skeleton, Stack, Text } from '@/ui';
+import { Alert, Button, Card, Icon, LinkButton, Skeleton, Stack, Text } from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
 import { uuidv7 } from '@css/shared';
@@ -415,39 +415,52 @@ function ApplicationForm({
     [t, tq],
   );
 
-  if (sent)
+  if (sent) {
+    const appNo = sent.kind === 'sent' ? (sent.record?.appNo ?? null) : null;
     return (
-      <Card title={sent.kind === 'queued' ? ts('queued_title') : t('sent_title')} headingLevel={2}>
-        <Stack gap={2}>
-          <div role="status">
-            <Text>
-              {sent.kind === 'queued'
-                ? ts('saved_on_phone')
-                : sent.kind === 'sent' && sent.record?.appNo
-                  ? t('sent', { appNo: sent.record.appNo })
-                  : t('sent_no_number')}
-            </Text>
-          </div>
-          <Stack direction="row" gap={2} wrap>
-            <LinkButton variant="primary" to="/my-applications">
-              {t('see_mine')}
-            </LinkButton>
-            <LinkButton variant="secondary" to={`/my-projects/${projectId}/apply`}>
-              {t('another')}
-            </LinkButton>
-          </Stack>
-        </Stack>
-      </Card>
+      <div className="apply-done">
+        <span
+          className={sent.kind === 'queued' ? 'apply-done-mark is-waiting' : 'apply-done-mark'}
+          aria-hidden="true"
+        >
+          <Icon name={sent.kind === 'queued' ? 'cloud-upload' : 'check'} size={44} />
+        </span>
+        <h2 className="apply-done-title">
+          {sent.kind === 'queued' ? ts('queued_title') : t('sent_title')}
+        </h2>
+        {appNo ? <span className="apply-done-number">{appNo}</span> : null}
+        <div role="status">
+          <Text tone="muted">
+            {sent.kind === 'queued'
+              ? ts('saved_on_phone')
+              : appNo
+                ? t('sent', { appNo })
+                : t('sent_no_number')}
+          </Text>
+        </div>
+        <div className="apply-done-actions">
+          <LinkButton variant="primary" fullWidth to={`/my-projects/${projectId}/apply`}>
+            {t('another')}
+          </LinkButton>
+          <LinkButton variant="secondary" fullWidth to="/my-applications">
+            {t('see_mine')}
+          </LinkButton>
+        </div>
+      </div>
     );
+  }
+  // the draft's mark beside the parts: on the server, or on the phone without network
+  const status = saved ? (
+    <span className="apply-saved" role="status">
+      <Icon name="check" size={14} />
+      {navigator.onLine ? t('saved') : ts('saved_on_phone')}
+    </span>
+  ) : null;
   return (
     <Stack gap={3}>
       <h2>{t('form_title')}</h2>
-      {saved ? (
-        <div role="status">
-          <Text tone="muted">{navigator.onLine ? t('saved') : ts('saved_on_phone')}</Text>
-        </div>
-      ) : null}
       <FormRenderer
+        status={status}
         definition={form}
         audience="volunteer"
         today={isoDateInDhaka(new Date())}
