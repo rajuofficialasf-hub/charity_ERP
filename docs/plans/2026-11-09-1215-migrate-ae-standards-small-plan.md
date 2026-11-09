@@ -148,7 +148,7 @@ On 2026-11-09 the owner made the standards the base of the project: anything out
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### ~~U8~~. TanStack Query on the three pages (dropped: the plan review found the three pages already on `useQuery` and no effect that fetches anywhere in `apps/web/src`; RE-FX-02 is met)
 - **Goal:** the form builder, the project setup and the organogram load their data through queries.
@@ -253,7 +253,7 @@ On 2026-11-09 the owner made the standards the base of the project: anything out
 ## Progress
 - **Branch:** `chore/ae-standards-small`
 - **Updated:** 2026-11-09 12:45
-- **Next:** U3, the production refusal of the local secrets
+- **Next:** U3 tests once Node 24.16 or later is installed (the owner installs it), then U4
 - **Reviewed through:** none
-- **Uncommitted:** none
-- **Notes:** `develop` was created and pushed and made the default branch with `ae-branch.mjs setup --github`, and PR #48 was retargeted to develop. Branch protection is not available: the repository is private on GitHub's free plan, so neither main nor develop can be protected (the owner chose protection binding admins too); the plugin's guard is the only protection until the plan changes. U2: zizmor is not installed on this machine, so it did not run; the actions, the postgres and gitleaks images are pinned by SHA or digest and every checkout has persist-credentials false (its usual finding). The structure reviewer found the gap list wrong on RE-FX-02, so U8 was dropped.
+- **Uncommitted:** U3 written and typechecked, tests not run: apps/api/src/config/env.ts, env.spec.ts, apps/api/.env.example, infra/docker-compose.app.yml, docs/ops/DEPLOYMENT.md
+- **Notes:** `develop` was created and pushed and made the default branch with `ae-branch.mjs setup --github`, and PR #48 was retargeted to develop. Branch protection is not available: the repository is private on GitHub's free plan, so neither main nor develop can be protected (the owner chose protection binding admins too); the plugin's guard is the only protection until the plan changes. The API Vitest projects refuse Node 24.15.0 on Windows (the guard of D-164); the owner installs Node 24 LTS, so U3 to U6 and U11 wait for it, and U7 was built first. U7: one hook src/lib/use-row-keys.ts keeps a key per row beside the data; its own test proves a removed row takes its key, so no test per editor was added (the editors are controlled by their data). U2: zizmor is not installed on this machine, so it did not run; the actions, the postgres and gitleaks images are pinned by SHA or digest and every checkout has persist-credentials false (its usual finding). The structure reviewer found the gap list wrong on RE-FX-02, so U8 was dropped.

@@ -25,6 +25,7 @@ import { ConditionEditor } from './ConditionEditor';
 import { type FormulaNames, parseFormula, printFormula } from './formula';
 import { NumberText } from './NumberText';
 import { RowButtons } from './RowButtons';
+import { useRowKeys } from '../../lib/use-row-keys';
 
 /** A sum or product of parts. */
 type MathExpr = { op: MathOp; args: Expr[] };
@@ -319,6 +320,12 @@ function MathPart({
   onChange: (next: Expr) => void;
 }) {
   const t = useTranslations('forms.builder');
+  const rows = useRowKeys(expr.args.length);
+  // a part given as null is removed, and its key with it
+  const setArg = (i: number, next: Expr | null) => {
+    if (next === null) rows.remove(i);
+    onChange(withArg(expr, i, next));
+  };
   return (
     <div className="form-calc-group" role="group" aria-label={label}>
       <Stack gap={2}>
@@ -334,19 +341,19 @@ function MathPart({
         {expr.args.map((arg, i) => {
           const name = t('calc_part', { part: label, n: String(i + 1) });
           return (
-            <Stack key={i} gap={1}>
+            <Stack key={rows.keys[i]} gap={1}>
               <PartEditor
                 ctx={ctx}
                 label={name}
                 expr={arg}
                 depth={depth + 1}
-                onChange={(next) => onChange(withArg(expr, i, next ?? null))}
+                onChange={(next) => setArg(i, next ?? null)}
               />
               {expr.args.length > 1 ? (
                 <RowButtons
                   remove={{
                     label: t('calc_part_remove', { part: name }),
-                    onPress: () => onChange(withArg(expr, i, null)),
+                    onPress: () => setArg(i, null),
                   }}
                 />
               ) : null}
@@ -406,7 +413,9 @@ function StepPart({
   onChange: (next: Expr) => void;
 }) {
   const t = useTranslations('forms.builder');
+  const rows = useRowKeys(expr.if.length);
   const setBranch = (i: number, next: { when: Condition; then: Expr } | null) => {
+    if (next === null) rows.remove(i);
     const branches =
       next === null
         ? expr.if.filter((_, j) => j !== i)
@@ -420,7 +429,7 @@ function StepPart({
         {expr.if.map((branch, i) => {
           const n = String(i + 1);
           return (
-            <Stack key={i} gap={2}>
+            <Stack key={rows.keys[i]} gap={2}>
               <ConditionEditor
                 title={t('calc_if', { n })}
                 definition={ctx.definition}

@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { type FundSource, saveFundSources } from './setup-api';
 import { SaveNotice, SetupSection, useSetup, useStepSave } from './setup-context';
+import { useRowKeys } from '../../../lib/use-row-keys';
 
 type Row = { source: FundSource['source']; label: string; amount: string };
 
@@ -73,6 +74,7 @@ export function BudgetSection({ sources }: { sources: FundSource[] }) {
       await refresh();
     },
   });
+  const keys = useRowKeys(rows.length);
   const setRow = (i: number, patch: Partial<Row>) =>
     setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
@@ -91,7 +93,7 @@ export function BudgetSection({ sources }: { sources: FundSource[] }) {
       <p className="admin-muted">{t('planned', { amount: taka(planned, locale) })}</p>
       <h3 className="admin-setup-subtitle">{t('fund_sources')}</h3>
       {rows.map((r, i) => (
-        <div key={i} className="admin-setup-row">
+        <div key={keys.keys[i]} className="admin-setup-row">
           <SelectField
             label={t('fund_source')}
             value={r.source}
@@ -122,7 +124,10 @@ export function BudgetSection({ sources }: { sources: FundSource[] }) {
               label={t('remove_source', { number: String(i + 1) })}
               icon="delete"
 
-              onClick={() => setRows(rows.filter((_, j) => j !== i))}
+              onClick={() => {
+                keys.remove(i);
+                setRows(rows.filter((_, j) => j !== i));
+              }}
             />
           )}
         </div>
