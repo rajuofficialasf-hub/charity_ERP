@@ -44,6 +44,8 @@ x-api-env: &api-env
   MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-css_dev_only}
   MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-css_dev_only_secret}
   SMTP_HOST: mailpit
+  # Other browser origins allowed with credentials; empty while the web dev server proxies the API
+  ALLOWED_ORIGINS: ''
   SMTP_PORT: '1025'
   # The job consumers run inside the api in development (ADR-004).
   JOBS_INLINE: 'true'

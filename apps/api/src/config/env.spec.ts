@@ -123,6 +123,38 @@ describe('loadEnv', () => {
     );
   });
 
+  it('reads the allowed origins as exact origins and refuses anything else at startup', () => {
+    expect(
+      loadEnv({ ...base, ALLOWED_ORIGINS: 'https://erp.example.org, http://127.0.0.1:3000' })
+        .ALLOWED_ORIGINS,
+    ).toEqual(['https://erp.example.org', 'http://127.0.0.1:3000']);
+    expect(loadEnv(base).ALLOWED_ORIGINS).toEqual([]);
+    for (const bad of [
+      '*',
+      'https://erp.example.org/app',
+      'https://erp.example.org/',
+      'ftp://erp.example.org',
+      'erp.example.org',
+    ])
+      expect(() => loadEnv({ ...base, ALLOWED_ORIGINS: bad }), bad).toThrow(/ALLOWED_ORIGINS/);
+  });
+
+  it('allows only https origins on a real host in production', () => {
+    const production = { ...base, NODE_ENV: 'production', APP_ORIGIN: 'https://erp.example.org' };
+    const refusal = (origins: string) => {
+      try {
+        loadEnv({ ...production, ALLOWED_ORIGINS: origins });
+        return '';
+      } catch (error) {
+        return String(error);
+      }
+    };
+    expect(refusal('http://erp.example.org')).toContain('ALLOWED_ORIGINS');
+    expect(refusal('https://127.0.0.1')).toContain('ALLOWED_ORIGINS');
+    expect(refusal('https://localhost:3000')).toContain('ALLOWED_ORIGINS');
+    expect(refusal('https://erp.example.org')).not.toContain('ALLOWED_ORIGINS');
+  });
+
   describe('the local example secrets in production', () => {
     // every secret value the two example files hand to a developer, read from the files themselves
     // so a new example value is checked as soon as it is written there

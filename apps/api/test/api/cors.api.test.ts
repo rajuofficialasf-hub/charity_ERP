@@ -2,14 +2,14 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { buildTestApp } from '../support/app';
 
-// CORS allowlist (NE-SEC-02): only the configured origins get the allow headers, with credentials.
+// The CORS allowlist: only the configured origins get the allow headers, with credentials.
 describe('CORS allowlist', () => {
   it('answers an allowed origin with the allow and credentials headers', async () => {
     const t = buildTestApp({
-      envOverrides: { CORS_ORIGINS: 'https://erp.example.org, http://localhost:3000' },
+      envOverrides: { ALLOWED_ORIGINS: 'https://erp.example.org, http://localhost:3000' },
     });
     try {
-      expect(t.container.env.CORS_ORIGINS).toEqual([
+      expect(t.container.env.ALLOWED_ORIGINS).toEqual([
         'https://erp.example.org',
         'http://localhost:3000',
       ]);
@@ -31,8 +31,8 @@ describe('CORS allowlist', () => {
   });
 
   it('sends no allow header to another origin, and none at all when the list is empty', async () => {
-    const listed = buildTestApp({ envOverrides: { CORS_ORIGINS: 'https://erp.example.org' } });
-    const empty = buildTestApp({ envOverrides: { CORS_ORIGINS: '' } });
+    const listed = buildTestApp({ envOverrides: { ALLOWED_ORIGINS: 'https://erp.example.org' } });
+    const empty = buildTestApp({ envOverrides: { ALLOWED_ORIGINS: '' } });
     try {
       const other = await request(listed.app)
         .get('/health/live')

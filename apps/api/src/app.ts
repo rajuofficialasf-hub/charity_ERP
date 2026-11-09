@@ -72,7 +72,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   app.disable('x-powered-by');
   app.use(requestLogging(c.env, options.logStream));
   app.use(securityHeaders());
-  app.use(corsAllowlist(c.env.CORS_ORIGINS));
+  app.use(corsAllowlist(c.env.ALLOWED_ORIGINS));
   // the offline batch alone may carry a megabyte of records (and its envelope), parsed by its own
   // route once the caller and the rate limit have passed; every other body is read here
   const generalJson = express.json({ limit: JSON_BODY_LIMIT });

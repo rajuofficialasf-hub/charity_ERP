@@ -93,18 +93,26 @@ const envSchema = z
      */
     PERMISSIONS_FILE: z.string().min(1).optional(),
     /**
-     * Browser origins allowed to call the API with credentials (NE-SEC-02), comma separated.
-     * Empty by default: the PWA is served on the same origin (Caddy, the Vite proxy).
+     * Browser origins allowed to call the API with credentials, comma separated, each an exact
+     * `scheme://host[:port]`; a wildcard, a path or another scheme stops the start. Empty by
+     * default: the PWA is served on the same origin (Caddy, the Vite proxy).
      */
-    CORS_ORIGINS: z
+    ALLOWED_ORIGINS: z
       .string()
       .default('')
-      .transform((v) =>
-        v
+      .transform((v, ctx) => {
+        const origins = v
           .split(',')
           .map((o) => o.trim())
-          .filter(Boolean),
-      ),
+          .filter(Boolean);
+        for (const entry of origins)
+          if (!isExactOrigin(entry))
+            ctx.addIssue({
+              code: 'custom',
+              message: `"${entry}" is not an exact http(s) origin (scheme://host[:port])`,
+            });
+        return origins;
+      }),
     /**
      * The PWA's public origin, written into links sent by email (the set-password link,
      * DECISION_LOG D-097); https in production.
@@ -172,6 +180,14 @@ const envSchema = z
             message: 'a local example value is refused in production',
           });
       }
+    // in production a credentialed caller is a real https site, never this machine
+    for (const origin of env.ALLOWED_ORIGINS)
+      if (env.NODE_ENV === 'production' && !isPublicHttps(origin))
+        ctx.addIssue({
+          code: 'custom',
+          path: ['ALLOWED_ORIGINS'],
+          message: `"${origin}" must be https on a real host in production`,
+        });
     if (env.NODE_ENV === 'production' && env.FILE_SCANNER === 'skip')
       ctx.addIssue({
         code: 'custom',
@@ -227,6 +243,22 @@ const LOCAL_SECRET_KEYS = [
   'MINIO_SECRET_KEY',
   'DATABASE_URL',
 ] as const;
+
+/** An origin written exactly as the browser sends it: http(s), a host, a port at most. */
+function isExactOrigin(entry: string): boolean {
+  try {
+    const url = new URL(entry);
+    return (url.protocol === 'https:' || url.protocol === 'http:') && url.origin === entry;
+  } catch {
+    return false;
+  }
+}
+
+function isPublicHttps(origin: string): boolean {
+  const { protocol, hostname } = new URL(origin);
+  const loopback = hostname === 'localhost' || hostname === '[::1]' || hostname.startsWith('127.');
+  return protocol === 'https:' && !loopback;
+}
 
 /** The marks of the secrets the repository itself carries, which are therefore public. */
 const PUBLIC_SECRET_PREFIXES = [
