@@ -1,4 +1,5 @@
 import type { Me, TokenPair } from '@css/shared/auth';
+import { fromBase64Url } from '../offline/crypto';
 import { wipeLocalData } from './wipe';
 
 /**
@@ -14,6 +15,8 @@ export interface ApiErrorDetail {
   path?: string;
   code: string;
   message: string;
+  /** The values a few codes name, such as the project of a merge conflict (API_STANDARDS 8). */
+  params?: Record<string, string>;
 }
 
 /** An error answer of the API: catalogue code, localized message, details and Retry-After. */
@@ -36,6 +39,8 @@ export type SessionEnd = 'revoked' | 'expired' | 'logout';
 
 interface State {
   accessToken: string | null;
+  /** The session's device key that wraps the phone's store key; memory only, like the token. */
+  deviceKey: string | null;
   me: Me | null;
   refreshing: Promise<TokenPair | null> | null;
   listeners: Set<(me: Me | null, end?: SessionEnd) => void>;
@@ -50,6 +55,7 @@ const holder = globalThis as typeof globalThis & { [STATE_KEY]?: State };
 // eslint-disable-next-line security/detect-object-injection -- a fixed registered symbol, not input
 const state: State = (holder[STATE_KEY] ??= {
   accessToken: null,
+  deviceKey: null,
   me: null,
   refreshing: null,
   listeners: new Set(),
@@ -72,16 +78,99 @@ export function currentMe(): Me | null {
 
 function accept(pair: TokenPair): TokenPair {
   state.accessToken = pair.accessToken;
+  state.deviceKey = pair.deviceKey;
   state.me = pair.me;
   publish();
   return pair;
 }
 
+/** The session id claim of the access token; null for a token this server did not sign. */
+function sessionIdOf(token: string): string | null {
+  const part = token.split('.')[1];
+  if (!part) return null;
+  try {
+    // read by hand: a schema library here would land in the login chunk for one field
+    const claims: unknown = JSON.parse(new TextDecoder().decode(fromBase64Url(part)));
+    if (typeof claims !== 'object' || claims === null || !('sid' in claims)) return null;
+    return typeof claims.sid === 'string' ? claims.sid : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The phone's store, loaded only when a session needs it, so the login chunk stays small. */
+const offlineKeys = () => import('../offline/keys');
+
+/** A store that does not answer in time is treated as absent, so a sign-in never hangs on it. */
+const STORE_WAIT_MS = 2_000;
+function withinStoreWait<T>(work: Promise<T>): Promise<T | null> {
+  return Promise.race([
+    work,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), STORE_WAIT_MS)),
+  ]).catch(() => null);
+}
+
+/**
+ * The store work a sign-in left running in the background; a session's end waits for it, so a
+ * profile written late can never outlive the wipe.
+ */
+let storeWork: Promise<void> = Promise.resolve();
+
+/**
+ * Opens the store's keys for the signed-in session (docs/architecture/OFFLINE_SYNC.md, local
+ * storage security) and keeps the person's own profile there, so the installed app opens without
+ * network. A volunteer's store goes on to hold the data set and the outbox, so their sign-in waits
+ * for the key; an official's holds the profile alone (docs/DECISION_LOG.md D-142), which matters
+ * only at the next open without network, so their sign-in does not wait for it. A store that will
+ * not open never blocks the sign-in: the next flush reports what it cannot read.
+ */
+async function openStoreKeys(pair: TokenPair): Promise<void> {
+  const sessionId = sessionIdOf(pair.accessToken);
+  if (!sessionId) return;
+  const open = async () => {
+    const keys = await offlineKeys();
+    await keys.afterSignIn({
+      sessionId,
+      userId: pair.me.id,
+      deviceKey: pair.deviceKey,
+      previousDeviceKey: pair.previousDeviceKey,
+    });
+  };
+  const remember = async () => {
+    const { rememberMe } = await import('../offline/snapshot');
+    await rememberMe(pair.me);
+  };
+  // the store is optional for the session; its own screens say when it is unavailable
+  if (pair.me.kind === 'volunteer') {
+    try {
+      await open();
+    } catch {
+      return;
+    }
+    storeWork = remember().catch(() => undefined);
+  } else
+    storeWork = open()
+      .then(remember)
+      .catch(() => undefined);
+}
+
+/** Resolves once the store work a sign-in started in the background has finished. */
+export function storeSettled(): Promise<void> {
+  return storeWork;
+}
+
 /** Ends the session on this device; a revoked session also wipes the local data (AUTH.md 8). */
 async function endSession(end: SessionEnd): Promise<void> {
   state.accessToken = null;
+  state.deviceKey = null;
   state.me = null;
+  // a profile still being written must land before the wipe, never after it
+  await storeWork;
   if (end !== 'expired') await wipeLocalData();
+  else
+    await offlineKeys()
+      .then((keys) => keys.forgetKeys())
+      .catch(() => undefined);
   publish(end);
 }
 
@@ -118,6 +207,86 @@ async function failure(res: Response): Promise<ApiFailure> {
 const REVOKING = new Set(['auth.session_revoked', 'auth.refresh_reused']);
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Signs in from the phone's own store when the server cannot be reached
+ * (docs/architecture/OFFLINE_SYNC.md, offline cold start): the device-bound key opens the store
+ * and the cached `me` of the last sign-in says who. There is no token yet; the first request
+ * with network refreshes first. An official opens the same way, to the shell and the banner:
+ * their store holds the profile alone, so every read says it needs the connection.
+ */
+async function signInOffline(): Promise<boolean> {
+  if (state.me) return true;
+  const keys = await withinStoreWait(offlineKeys());
+  const opened = keys ? await withinStoreWait(keys.openOffline()) : null;
+  if (!opened) return false;
+  const me = await withinStoreWait(import('../offline/snapshot').then((s) => s.cachedMe()));
+  if (!me || me.id !== opened.userId) return false;
+  state.me = me;
+  publish();
+  return true;
+}
+
+/** The note of a logout the server never heard of (the network was away): finished at the next refresh. */
+const LOGOUT_PENDING_KEY = 'css_logout_pending';
+
+function noteLogoutPending(pendingCount: number | undefined): void {
+  try {
+    window.localStorage.setItem(LOGOUT_PENDING_KEY, JSON.stringify({ pendingCount }));
+  } catch {
+    // storage may be unavailable in a private window; the refresh cookie then lives on until it expires
+  }
+}
+
+function pendingLogout(): { pendingCount?: number } | null {
+  try {
+    const raw = window.localStorage.getItem(LOGOUT_PENDING_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { pendingCount?: unknown };
+    return typeof parsed.pendingCount === 'number' ? { pendingCount: parsed.pendingCount } : {};
+  } catch {
+    return null;
+  }
+}
+
+function clearLogoutPending(): void {
+  try {
+    window.localStorage.removeItem(LOGOUT_PENDING_KEY);
+  } catch {
+    // nothing to clear
+  }
+}
+
+/**
+ * Finishes a logout the network cut short (AUTH.md 8): the device was wiped, but the server
+ * session and the refresh cookie lived on, and a refresh would have signed the next person in.
+ * The cookie buys one token, which revokes the session; the person stays signed out either way.
+ */
+async function finishLogout(
+  attempt: () => Promise<Response>,
+  note: { pendingCount?: number },
+): Promise<void> {
+  const res = await attempt();
+  if (res.status >= 400 && res.status < 500) {
+    // the session is gone or the cookie no longer opens it: nothing left to revoke
+    clearLogoutPending();
+    return;
+  }
+  if (!res.ok) return;
+  const { data } = (await res.json()) as { data: TokenPair };
+  const done = await fetch(`${BASE}/auth/logout`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      Authorization: `Bearer ${data.accessToken}`,
+      'Content-Type': 'application/json',
+      'X-Client-Version': APP_VERSION,
+      'Accept-Language': language(),
+    },
+    body: JSON.stringify(note.pendingCount === undefined ? {} : note),
+  });
+  if (done.ok || done.status === 401) clearLogoutPending();
+}
+
 async function refreshOnce(): Promise<TokenPair | null> {
   // Without the CSRF cookie there is no session on this device: nothing to ask the server.
   if (!readCookie('css_csrf')) return null;
@@ -132,7 +301,20 @@ async function refreshOnce(): Promise<TokenPair | null> {
         'Accept-Language': language(),
       },
     });
-  let res = await attempt();
+  const unfinished = pendingLogout();
+  if (unfinished) {
+    await finishLogout(attempt, unfinished);
+    return null;
+  }
+  let res: Response;
+  try {
+    res = await attempt();
+  } catch (error) {
+    // no answer from the network at all: the session is not gone, and a volunteer's phone
+    // opens from its own store meanwhile
+    await signInOffline();
+    throw error;
+  }
   // Another tab may have rotated the token a moment ago; its new cookie is already here.
   if (res.status === 401) {
     const first = await failure(res.clone());
@@ -144,7 +326,16 @@ async function refreshOnce(): Promise<TokenPair | null> {
   if (res.ok) {
     const { data } = (await res.json()) as { data: TokenPair };
     // A login or logout happened meanwhile; this token belongs to the session before it.
-    return state.generation === started ? accept(data) : null;
+    if (state.generation !== started) return null;
+    // the ring opens before the session is published, so a flush that follows finds the key
+    await openStoreKeys(data);
+    if (state.generation !== started) {
+      await offlineKeys()
+        .then((keys) => keys.forgetKeys())
+        .catch(() => undefined);
+      return null;
+    }
+    return accept(data);
   }
   const error = await failure(res);
   // Same for a failure: it is about the session before the login or logout.
@@ -188,6 +379,9 @@ export interface RequestOptions {
  * retried; a revoked session wipes local data; any other failure is thrown as ApiFailure.
  */
 export async function api<T>(path: string, options: RequestOptions = {}, retry = true): Promise<T> {
+  // a session opened from the phone's store has no token: the first request with network
+  // refreshes first, and one still without network fails on the way as every request does
+  if (retry && state.me && !state.accessToken) await refreshSession().catch(() => undefined);
   const res = await fetch(`${BASE}${path}`, {
     method: options.method ?? 'GET',
     credentials: 'same-origin',
@@ -228,18 +422,36 @@ export async function api<T>(path: string, options: RequestOptions = {}, retry =
   throw error;
 }
 
-/** Logs in; the refresh and CSRF cookies are set by the response. */
+/**
+ * Logs in; the refresh and CSRF cookies are set by the response. The phone names the session its
+ * store was keyed under, so the server can hand that key back, and tells of records it lost
+ * before this login (docs/architecture/OFFLINE_SYNC.md, local storage security); the store's
+ * keys open before the sign-in is published.
+ */
 export async function login(loginId: string, password: string): Promise<Me> {
+  const keys = await withinStoreWait(offlineKeys());
+  const recoverSessionId = keys ? await withinStoreWait(keys.storedSessionId()) : null;
+  const lostPending = keys?.peekLostPending();
   const pair = await api<TokenPair>(
     '/auth/login',
     {
       method: 'POST',
-      body: { loginId, password, device: deviceInfo() },
+      body: {
+        loginId,
+        password,
+        device: deviceInfo(),
+        ...(recoverSessionId ? { recoverSessionId } : {}),
+        ...(lostPending ? { lostPending } : {}),
+      },
     },
     false,
   );
   state.generation += 1;
-  return accept(pair).me;
+  keys?.clearLostPending();
+  await openStoreKeys(pair);
+  accept(pair);
+  void keys?.requestPersistence();
+  return pair.me;
 }
 
 /**
@@ -247,9 +459,16 @@ export async function login(loginId: string, password: string): Promise<Me> {
  * expired access token is refreshed once first: without it the server session, and with it the
  * refresh cookie, would survive and the next page load would sign the user in again.
  */
-export async function logout(): Promise<void> {
+export async function logout(pendingCount?: number): Promise<void> {
   try {
-    await api<void>('/auth/logout', { method: 'POST' });
+    await api<void>('/auth/logout', {
+      method: 'POST',
+      ...(pendingCount === undefined ? {} : { body: { pendingCount } }),
+    });
+  } catch (error) {
+    // the server never heard of the logout: the next refresh finishes it instead of signing in
+    noteLogoutPending(pendingCount);
+    throw error;
   } finally {
     state.generation += 1;
     await endSession('logout');
@@ -293,9 +512,12 @@ export function deviceInfo(): {
 
 /** Test hook: forget the in-memory session. */
 export function resetClientForTests(): void {
+  clearLogoutPending();
   state.accessToken = null;
+  state.deviceKey = null;
   state.me = null;
   state.refreshing = null;
   state.listeners.clear();
   state.generation = 0;
+  storeWork = Promise.resolve();
 }

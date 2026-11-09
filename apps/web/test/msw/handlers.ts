@@ -19,6 +19,19 @@ export const PUBLIC_SETTINGS = {
   },
 };
 
+/** A data set with nothing in it, as the server answers a volunteer without projects. */
+export const EMPTY_SNAPSHOT = {
+  serverTime: '2026-10-31T10:00:00.000Z',
+  nextSince: '2026-10-31T09:59:00.000Z',
+  nextAfterId: null,
+  hasMore: false,
+  projects: [],
+  formVersions: [],
+  applications: [],
+  applicationIds: [],
+  locationsVersion: '0.0',
+};
+
 export const handlers = [
   http.get('*/api/v1/ping-sample', () => HttpResponse.json({ data: { pong: true } })),
   // every screen sits under the language provider, which reads the public settings
@@ -38,5 +51,12 @@ export const handlers = [
       data: [],
       meta: { requestId: 'test', nextCursor: null, prevCursor: null, unreadCount: 0 },
     }),
+  ),
+  // the sync engine of a signed-in volunteer pulls the data set and the locations master
+  http.get('*/api/v1/sync/snapshot', () =>
+    HttpResponse.json({ data: EMPTY_SNAPSHOT, meta: { requestId: 'test' } }),
+  ),
+  http.get('*/api/v1/locations/all', () =>
+    HttpResponse.json({ data: [], meta: { requestId: 'test' } }),
   ),
 ];

@@ -7,15 +7,19 @@ export { en } from './catalogue-en.js';
 
 export const NAMESPACES = [
   'admin',
+  'applications',
   'auth',
   'codes',
   'common',
   'errors',
+  'exports',
+  'forms',
   'gallery',
   'home',
   'nav',
   'projects',
   'registration',
+  'sync',
   'ui',
 ] as const;
 export type Namespace = (typeof NAMESPACES)[number];

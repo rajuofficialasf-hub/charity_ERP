@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { Spinner, VisuallyHidden } from '@css/ui';
+import { LoadingState } from '@/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
@@ -103,9 +103,8 @@ export function RequireAuth({ children }: { children: (me: Me) => ReactNode }) {
     return <Navigate to={PASSWORD_PATH} replace />;
   if (status !== 'signed-in' || !me)
     return (
-      <div className="app-loading" role="status" aria-busy="true">
-        <Spinner />
-        <VisuallyHidden>{t('loading')}</VisuallyHidden>
+      <div className="app-loading" aria-busy="true">
+        <LoadingState label={t('loading')} />
       </div>
     );
   return content;

@@ -9,6 +9,7 @@ import { type EffectiveAccess, effectiveAccess, loadAccessFacts } from './effect
 import { visibleFieldClasses } from './field-mask';
 import type { AccessRegistry } from './registry';
 import {
+  applicationWhere,
   beneficiaryWhere,
   holdsPermission,
   makeScope,
@@ -30,6 +31,7 @@ export interface RecordTarget {
   userId?: string;
   volunteerId?: string;
   beneficiaryId?: string;
+  applicationId?: string;
 }
 
 export interface RequestAccess extends EffectiveAccess {
@@ -72,7 +74,13 @@ export class AccessService {
     entity: string,
     db: Tx = this.prisma,
   ): Promise<Scope> {
-    if (entity === 'self' || permission === 'authenticated' || permission === 'entity')
+    // the markers carry no grants: the file service and the workflow engine decide per record
+    if (
+      entity === 'self' ||
+      permission === 'authenticated' ||
+      permission === 'entity' ||
+      permission === 'workflow'
+    )
       return makeScope(principal.userId, permission, entity, { ...NO_INSTANCES, self: true });
     const grants = access.grants.filter((g) => g.permission === permission);
     const revokes = access.instanceRevokes.filter((r) => r.permission === permission);
@@ -116,6 +124,13 @@ export class AccessService {
           !!target.beneficiaryId &&
           (await db.beneficiary.count({
             where: { AND: [{ id: target.beneficiaryId }, beneficiaryWhere(scope)] },
+          })) > 0
+        );
+      case 'application':
+        return (
+          !!target.applicationId &&
+          (await db.application.count({
+            where: { AND: [{ id: target.applicationId }, applicationWhere(scope)] },
           })) > 0
         );
       default:

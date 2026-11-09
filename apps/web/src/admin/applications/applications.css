@@ -1,0 +1,68 @@
+/* The office's application screens (docs/ui/SCREENS.md, "Application review list and detail"). */
+.admin-bulk-bar {
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-brand-soft);
+  border-radius: var(--radius-md);
+}
+
+.admin-change-log {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-change-log th,
+.admin-change-log td {
+  padding: var(--space-1) var(--space-2);
+  text-align: start;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.admin-change-log th[scope='col'] {
+  color: var(--color-text-secondary);
+  font-weight: 700;
+}
+
+/* The quota areas above the list: each place's figures, its bar and its pull. */
+.admin-quota-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-quota-row {
+  display: grid;
+  gap: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.admin-quota-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.admin-pull-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  /* an outline, not a tint: the quiet words beside the button keep their contrast */
+  border: 1px solid var(--asf-palette-divider, var(--color-border-default));
+  border-radius: var(--radius-md);
+}
+
+/* One answer open for correction on the office's record. */
+.admin-unlock {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border-default);
+}

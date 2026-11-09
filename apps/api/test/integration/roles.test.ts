@@ -42,6 +42,13 @@ describe('the application role after the role script', () => {
     expect(deletable.sort()).toEqual(['dawah_syllabus_topics', 'fund_sources', 'project_areas']);
   });
 
+  it('draws the BEN number of a new beneficiary from its sequence', async () => {
+    const { rows } = await db.query<{ ok: boolean }>(
+      `SELECT has_sequence_privilege('css_app', 'beneficiaries_ben_no_seq', 'USAGE') AS ok`,
+    );
+    expect(rows[0]!.ok).toBe(true);
+  });
+
   it('still writes the append-only logs by insert only', async () => {
     expect(await can('css_app', 'audit_log', 'INSERT')).toBe(true);
     expect(await can('css_app', 'audit_log', 'UPDATE')).toBe(false);

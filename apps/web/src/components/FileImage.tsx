@@ -1,11 +1,15 @@
-import { Skeleton } from '@css/ui';
+import { Skeleton } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
-import { api } from '../lib/api';
+import { api, ApiFailure } from '../lib/api';
 import './file-image.css';
 
-/** The photo types the API stores (registration photos, D-087); anything else is not shown. */
-const IMAGE_TYPES = new Set(['image/jpeg', 'image/png']);
+/** The photo types the API stores and the thumbnails it makes; anything else is not shown. */
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+/** The answers of a photo the scan has not cleared yet, and of one it blocked. */
+const QUARANTINED = 423;
+const BLOCKED = 410;
 
 /** Reads a photo as a data URL: nothing to revoke, and the cache drops it with the query. */
 const dataUrl = (blob: Blob) =>
@@ -27,8 +31,19 @@ const dataUrl = (blob: Blob) =>
  */
 export function FileImage({ fileId, alt }: { fileId: string; alt: string }) {
   const t = useTranslations('common');
+  const errors = useTranslations('errors');
   const file = useFileDataUrl(fileId);
-  if (file.error) return <p className="file-image-error">{t('state.error.text')}</p>;
+  if (file.error) {
+    // a photo the scan has not cleared yet, or one it blocked, says so instead of a failure
+    const status = file.error instanceof ApiFailure ? file.error.status : 0;
+    const text =
+      status === QUARANTINED
+        ? errors('file.quarantined')
+        : status === BLOCKED
+          ? errors('file.infected')
+          : t('state.error.text');
+    return <p className="file-image-error">{text}</p>;
+  }
   if (!file.data) return <Skeleton shape="card" />;
   return <img src={file.data} alt={alt} className="file-image" />;
 }

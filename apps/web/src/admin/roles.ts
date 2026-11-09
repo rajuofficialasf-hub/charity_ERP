@@ -48,6 +48,27 @@ export const BENEFICIARY_ADDRESS_ROLES: readonly string[] = [
   'procurement_team',
 ];
 
+/**
+ * Who gets the lookup by NID or birth registration on the beneficiary tab: the roles that hold
+ * `beneficiary.lookup` and can pick one of their projects there (the PM, the RPM, the Project
+ * Executive and the global roles, the same as `PROJECT_ROLES`). The Implementer holds the
+ * permission too but has no project list on this tab, so it looks up from the application form;
+ * the server checks the project.
+ */
+export const BENEFICIARY_LOOKUP_ROLES: readonly string[] = ADMIN_ROLES;
+
+/**
+ * Who sees the suggested duplicate profiles and the merge proposals and marks a pair as two people
+ * (`beneficiary.merge.dismiss`: the PM in its program, the RPM in its region and the global roles).
+ * Whether a merge or a proposal is offered follows the action flags of the two profiles.
+ */
+export const DUPLICATE_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+  'regional_program_manager',
+];
+
 /** Who sees volunteer categories and ratings (the class `volunteer.rating`). */
 export const CATEGORY_ROLES: readonly string[] = ADMIN_ROLES;
 
@@ -75,6 +96,12 @@ export const REGISTRATION_ROLES: readonly string[] = ADMIN_ROLES;
 
 /** Staff registration approvers (`staff.registration.approve`, BR-028). */
 export const STAFF_APPROVER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+
+/**
+ * Who decides an official's own change request (`staff_edit_request.approve`; docs/DECISION_LOG.md,
+ * the official's own profile of 2026-11-02): the two global roles, never the person who asked.
+ */
+export const STAFF_EDIT_DECIDER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 
 /** Edit request approvers (`edit_request.approve`, BR-031 as amended by DECISION_LOG D-085). */
 export const EDIT_REQUEST_ROLES: readonly string[] = [
@@ -153,6 +180,39 @@ export const HANDOVER_ROLES: readonly string[] = ['department_head', 'monitoring
 const holds = (me: Pick<Me, 'roles'>, roles: readonly string[]) =>
   me.roles.some((role) => roles.includes(role));
 
+/**
+ * The lists' export (`export.list`): the roles whose defaults hold it, and the two global roles.
+ * A volunteer never sees the button; the server checks the permission, its scope and every
+ * protected column again.
+ */
+export const EXPORT_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+  'regional_program_manager',
+  'project_executive',
+  'implementer',
+  'official_daee',
+  'finance_team',
+  'media_team',
+  'media_director',
+  'media_assistant_director',
+  'procurement_team',
+];
+
+/** The beneficiary's 360° profile as a PDF (`report.beneficiary_journey`) and the global roles. */
+export const JOURNEY_PDF_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+  'regional_program_manager',
+  'project_executive',
+  'official_daee',
+];
+
+export const canExport = (me: Pick<Me, 'roles'>) => holds(me, EXPORT_ROLES);
+export const canPrintProfile = (me: Pick<Me, 'roles'>) => holds(me, JOURNEY_PDF_ROLES);
+
 export const canManagePermissions = (me: Pick<Me, 'roles'>) => holds(me, PERMISSION_PANEL_ROLES);
 export const canAdministerSystem = (me: Pick<Me, 'roles'>) => holds(me, SYSTEM_ADMIN_ROLES);
 export const canKeepNisab = (me: Pick<Me, 'roles'>) => holds(me, NISAB_ROLES);
@@ -166,8 +226,22 @@ export const canSeeBeneficiaryDetails = (me: Pick<Me, 'roles'>) =>
   holds(me, BENEFICIARY_DETAIL_ROLES);
 export const canSeeBeneficiaryAddress = (me: Pick<Me, 'roles'>) =>
   holds(me, BENEFICIARY_ADDRESS_ROLES);
+export const canLookUpBeneficiaries = (me: Pick<Me, 'roles'>) =>
+  holds(me, BENEFICIARY_LOOKUP_ROLES);
+export const canReviewDuplicates = (me: Pick<Me, 'roles'>) => holds(me, DUPLICATE_ROLES);
 export const canApproveStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_APPROVER_ROLES);
 export const canDecideEdits = (me: Pick<Me, 'roles'>) => holds(me, EDIT_REQUEST_ROLES);
+export const canDecideStaffEdits = (me: Pick<Me, 'roles'>) => holds(me, STAFF_EDIT_DECIDER_ROLES);
+/**
+ * Who sees an official's projects and the figures of their work (`staff.work.view`): the two
+ * global roles, and the Program Manager for the projects of their program (the server narrows it).
+ */
+export const STAFF_WORK_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+];
+export const canSeeStaffWork = (me: Pick<Me, 'roles'>) => holds(me, STAFF_WORK_ROLES);
 export const canBlock = (me: Pick<Me, 'roles'>) => holds(me, BLOCKLIST_ROLES);
 export const canHandOver = (me: Pick<Me, 'roles'>) => holds(me, HANDOVER_ROLES);
 export const canEndSessions = (me: Pick<Me, 'roles'>) => holds(me, SESSION_ROLES);
@@ -178,7 +252,93 @@ export const canManagePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_AD
 export const canSeeProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_ROLES);
 export const canCreateProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_CREATE_ROLES);
 export const canAssignVolunteers = (me: Pick<Me, 'roles'>) => holds(me, ASSIGN_ROLES);
+
+/**
+ * Who hands a volunteer's applications to another (`application.transfer`): the two global roles,
+ * the RPM and the Executive the RPM grants it; who moves the old volunteer's team with them
+ * (`volunteer.team.transfer`): the RPM and the global roles. The server decides each by area.
+ */
+export const TRANSFER_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'regional_program_manager',
+  'project_executive',
+];
+export const TEAM_TRANSFER_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'regional_program_manager',
+];
+export const canTransferApplications = (me: Pick<Me, 'roles'>) => holds(me, TRANSFER_ROLES);
+export const canMoveTeams = (me: Pick<Me, 'roles'>) => holds(me, TEAM_TRANSFER_ROLES);
 export const canMarkPaid = (me: Pick<Me, 'roles'>) => holds(me, MARK_PAID_ROLES);
 export const canGrantOnProject = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_GRANT_ROLES);
 export const canSeeStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_DIRECTORY_ROLES);
 export const canManageOfficials = (me: Pick<Me, 'roles'>) => holds(me, OFFICIAL_ADMIN_ROLES);
+
+/**
+ * Who builds and publishes forms and the question library: the two global roles (`form.build`,
+ * `form.publish`, `form.library.manage`). A PM places a ready form on a project instead.
+ */
+export const FORM_BUILDER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+export const canBuildForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_BUILDER_ROLES);
+
+/**
+ * Who switches a project form's public link on and off (`form.public_link.manage`): the PM of the
+ * program and the two global roles. The server decides each change by the scope of the grant.
+ */
+export const PUBLIC_LINK_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+];
+export const canManagePublicLink = (me: Pick<Me, 'roles'>) => holds(me, PUBLIC_LINK_ROLES);
+
+/**
+ * Who places a published ready form on a project and takes its newer versions (`form.place`): the
+ * PM of the program and the two global roles. The server decides each placement by its scope.
+ */
+export const FORM_PLACE_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+];
+export const canPlaceForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_PLACE_ROLES);
+
+/** Who opens a project's applications: every official holding `application.view` (the server scopes the rows). */
+export const APPLICATION_ROLES: readonly string[] = ADMIN_ROLES;
+export const canSeeApplications = (me: Pick<Me, 'roles'>) => holds(me, APPLICATION_ROLES);
+
+/**
+ * Who may decide on applications (`application.approve`, `application.waitlist`): the two global
+ * roles, the PM, the RPM, and the Executive or Official দায়ী the RPM grants it to. The server
+ * decides each project by its scope and grants.
+ */
+export const DECISION_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+  'regional_program_manager',
+  'project_executive',
+  'official_daee',
+];
+export const canDecideApplications = (me: Pick<Me, 'roles'>) => holds(me, DECISION_ROLES);
+
+/** The Media Team's own roles: the members and the two directors. */
+export const MEDIA_ROLES: readonly string[] = [
+  'media_team',
+  'media_director',
+  'media_assistant_director',
+];
+
+/**
+ * Who opens the Media Team's screens (`media.work.view`): the Media Team, the referrers (PM, RPM)
+ * and the two global roles; a member sees only their own works (the server limits it).
+ */
+export const MEDIA_WORK_ROLES: readonly string[] = [
+  ...MEDIA_ROLES,
+  'program_manager',
+  'regional_program_manager',
+  'department_head',
+  'monitoring_team',
+];

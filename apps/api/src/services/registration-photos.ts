@@ -8,6 +8,8 @@ import type { Principal } from '../auth/principal';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { cleanImage, type CleanImage } from '../files/images';
 import { ApiError } from '../i18n/api-error';
+import { enqueueFileProcess } from '../jobs/file-process';
+import type { JobRunner } from '../jobs/job-runner';
 import type { AccountEvents } from '../notifications/account-events';
 import type { StorageDriver } from '../storage';
 import type { RegistrationService } from './registration';
@@ -30,8 +32,9 @@ const EXTENSION = { 'image/jpeg': 'jpg', 'image/png': 'png' } as const;
  * The photo and the NID photo of a registration (plan
  * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R4; DECISION_LOG D-087):
  * a JPEG or PNG of at most 2 MB, metadata stripped, stored privately under a key of ids only. The
- * object is written first and removed again when the database write fails (NS-06). Files stay
- * `virus_scan = pending` until the scanner of T2.1.
+ * object is written first and removed again when the database write fails, so no orphan object
+ * stays behind. The file is
+ * queued for processing and stays quarantined until the scan clears it.
  */
 export class RegistrationPhotosService {
   constructor(
@@ -41,6 +44,7 @@ export class RegistrationPhotosService {
     private readonly registration: RegistrationService,
     private readonly logger: Logger,
     private readonly events: AccountEvents,
+    private readonly jobs: JobRunner,
   ) {}
 
   /** Upload to a verified draft; a second upload to the slot replaces the first. */
@@ -83,15 +87,16 @@ export class RegistrationPhotosService {
     principal: Principal,
     input: { requestId: string; slot: PhotoSlot; source: PhotoSource; body: unknown },
   ): Promise<{ fileId: string }> {
-    // a correction until it is answered; a profile edit until it is decided (the answer of a
-    // correction has already written the photo into the profile)
+    // a correction until it is answered (the answer has already written the photo into the
+    // profile); a profile edit only until its first upload, so the approver decides on the photo
+    // they saw
     const where = {
       id: input.requestId,
       field: input.slot,
-      volunteer: { userId: principal.userId },
+      userId: principal.userId,
       OR: [
         { kind: 'registration_correction', status: 'open' },
-        { kind: 'profile_edit', status: { in: ['open', 'submitted'] } },
+        { kind: 'profile_edit', status: 'open' },
       ],
     };
     const request = await this.prisma.volunteerChangeRequest.findFirst({
@@ -156,6 +161,8 @@ export class RegistrationPhotosService {
           },
         });
         const old = await link(tx, id);
+        // the scan and the thumbnails, as for every upload; the photo is viewable once cleared
+        await enqueueFileProcess(this.jobs, tx, id);
         await this.audit.record(tx, {
           action: 'file.uploaded',
           entityType: 'file',

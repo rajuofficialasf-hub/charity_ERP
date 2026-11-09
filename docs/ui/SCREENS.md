@@ -1,6 +1,6 @@
 # SCREEN INVENTORY
 
-Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the pilot set are built in task T0.19b under `docs/ui/mockups/`. Components, layouts and states refer to `docs/ui/DESIGN_SYSTEM.md` (DS). Owner decisions: `docs/ui/DESIGN_BRIEF.md` (UX-01 to UX-13). Permissions: `docs/security/permissions.yaml`. API: `docs/api/openapi.yaml` (tags named per screen).
+Status: complete for Phase 0, written in task T0.19 (2026-10-10). The mockups of the pilot set built in task T0.19b were removed when the app moved to the asf UI system (D-151; they are in git history). Components, layouts and states refer to `docs/ui/DESIGN_SYSTEM.md` (DS). Owner decisions: `docs/ui/DESIGN_BRIEF.md` (UX-01 to UX-13). Permissions: `docs/security/permissions.yaml`. API: `docs/api/openapi.yaml` (tags named per screen).
 
 ## 1. Conventions
 
@@ -25,6 +25,15 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 - **Layouts.** Phone below 640 px, tablet 640 to 1023 px, desktop 1024 px and up (DS §2.8, §4).
 - **Phase and task.** The roadmap phase (constitution §8) and the PLAN task that builds the screen.
 - **Role labels.** Tables use short labels for the roles of `permissions.yaml`: Head = Department Head (`department_head`), Monitoring = Monitoring Team (`monitoring_team`), PM = Program Manager, RPM = Regional Program Manager, Executive = Project Executive, Finance, Procurement and Media = the Finance, Procurement and Media Teams; volunteer types use their full names (General Volunteer, Local দায়ী, দাঈ-স্বেচ্ছাসেবক (both), Team Member, Paid Volunteer).
+- **Look of the designed pages (D-145, plan `docs/plans/2026-11-01-1549-feat-visual-redesign-plan.md`; since D-150 drawn by the asf UI system, `apps/web/src/ui`, in light and dark).** The owner's prototype gives every signed-in page one anatomy:
+  - The shell (the asf shell): a sidebar on the page colour from 1200 px (the brand, the destinations in groups with their waiting counts and the person), the rail from 600 px, an app bar with the page's trail, the light and dark switch and the language, and the bottom tabs and the "আরও" sheet on a phone.
+  - The page header (`Page`): a small area label with a green dot, the title, one line on what the page is for (true to what the page does), and the page's buttons on the right.
+  - Count cards with an icon above a list, where the page already reads the numbers; a card that filters the list is outlined when chosen. A count that could not be read is left out, never shown as 0.
+  - Lists in one card (`DataTable` with its `FilterBar`; cards on a phone) with the search and the filters (lined up at their labels) above the table, a letter or photo tile beside each name (`PersonCell`), the state as a soft dot badge, and the row buttons on one line under the header "অ্যাকশন".
+  - A side column (`page-split`, from 1024 px) for a note that states a real rule of the page (the template copies, the publishing steps, the handover and deactivation rule, the least access, the safety tip), or for a setting beside a list; such notes are information, never status.
+  - Profiles head with the dark green banner (`ProfileBanner`, the asf primary dark to darker): the person, the state, the key facts as chips and the actions.
+  - Figures the prototype shows without data behind them (budget use, teams, monthly reviews, the role matrix, session totals) are left out until a feature supplies them.
+  - Screenshots of the 24 designed pages at 1280, 768 and 360 px come from `apps/web/e2e/screens.spec.ts` into `apps/web/test-results/screens/`.
 - **Detail level.**
   - Section 3 to 9 entries are full specifications.
   - Section 10 rows are short and are expanded into full entries at the start of their phase, together with their mockups (DESIGN_BRIEF §6).
@@ -52,7 +61,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-020 | My Work: Finance Team (derived) | parity | finance_team | 3 · T3.2 (placeholder in T1.15) |
 | SCR-021 | My Work: Procurement Team (derived) | parity | procurement_team | 4 · T4.1 (placeholder in T1.15) |
 | SCR-030 | My projects and project rules consent | phone-first | volunteers | 1 · T1.12 |
-| SCR-031 | New application with NID lookup | phone-first | volunteers, team members, RPM, Executive | 2 · T2.2, T2.4, T2.5 |
+| SCR-031 | New application with NID lookup | phone-first | volunteers, team members, RPM, Executive | 2 · T2.2, T2.4, T2.5, T2.4d |
 | SCR-032 | My applications and application detail | phone-first | volunteers, team members | 2 · T2.5 |
 | SCR-033 | Today's distribution (bulk) | phone-first | volunteers, RPM, Executive | 3 · T3.1 |
 | SCR-034 | Today's class (bulk) | phone-first | Local দায়ী | 5 · T5.1 |
@@ -62,12 +71,16 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-042 | Volunteer tab | parity | officials | 1 · T1.10 |
 | SCR-043 | Volunteer profile | parity | officials | 1 · T1.10, T1.12; later tabs per phase |
 | SCR-043b | Volunteers of a project (assignment) | parity | RPM, Executive (with the RPM's grant), PM, Head, Monitoring | 1 · T1.12 |
-| SCR-044 | Beneficiary tab | parity | officials, Media | 1 · T1.10 (list), 2 · T2.2 |
-| SCR-045 | Beneficiary 360 profile and merge | parity | officials | 1 · T1.10 (the shell, O-67; one profile layout, UX-22), 2 · T2.2 (merge and corrections) |
+| SCR-044 | Beneficiary tab | parity | officials, Media | 1 · T1.10 (list), 2 · T2.2 (BEN numbers, the lookup dialog) |
+| SCR-045 | Beneficiary 360 profile and merge | parity | officials | 1 · T1.10 (the shell, O-67; one profile layout, UX-22), 2 · T2.2 (history, actions, corrections, block, the revert) |
+| SCR-045b | Duplicate profiles and the comparison | parity | PM, RPM, Head, Monitoring | 2 · T2.2 |
 | SCR-050 | Project dashboard | parity | PM, RPM, Executive, Head, Monitoring, Finance | 3 · T3.3 |
 | SCR-051 | Admin area shell (`/admin`) with the dashboard placeholder | parity (notice on phones) | Head, Monitoring, PM | 1 · T1.7d (UX-15); pages in T1.13, T3.3, T6.1 |
 | SCR-060 | Project setup with component toggles | desktop-first | PM | 1 · T1.11, T1.12 |
-| SCR-061 | Form builder | desktop-first | PM | 2 · T2.4 |
+| SCR-061 | Form builder | desktop-first | Head, Monitoring (build); PM (place, read) | 2 · T2.4, T2.4b, T2.4c, T2.4d |
+| SCR-113 | Ready forms (`/admin/ready-forms`) and the question library (`/admin/question-library`) | desktop-first | Head, Monitoring | 2 · T2.4c |
+| SCR-114 | The export dialog of a list, and the PDF of a profile or an application | parity | the export roles (no volunteer) | 2 · T2.8 |
+| SCR-115 | My exports (`/account/exports`) | parity | the export roles | 2 · T2.8 |
 | SCR-062 | Permission panel | desktop-first | Head, Monitoring | 1 · T1.8 |
 | SCR-063 | Officials: department staff, other departments, partners; new official, link, profile | parity | Head, Monitoring (writes); PM, RPM (read) | 1 · D-097 |
 | SCR-064 | Organogram | parity | Head, Monitoring, PM, RPM | 1 · D-097 |
@@ -93,6 +106,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 ### SCR-001 Login and password reset
 
+- **Photo panel (UX-24, 2026-10-20; removed 2026-11-04, D-153).** The photo of the Foundation's building beside the card is gone on every width: the sign-in, password-reset and set-password pages show the logo, the system name and the card on the brand wash.
 - **Built (T1.7).** `/login` and `/login/reset` in apps/web (centered card on the brand wash of mockup 01; the reset flow is login id → code and new password → done; the dummy-OTP note appears only in development and E2E builds). Not yet: install state on iOS, the 426 banner (T1.13), registration link (T1.9).
 
 - **Purpose.** Sign in with mobile number and password; reset a forgotten password by OTP (AUTH.md).
@@ -134,6 +148,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 ### SCR-002 Registration with two OTP steps
 
+- **Two panels (UX-23, 2026-10-20; the owner's reference design; the photo removed 2026-11-04, D-153).** On the desktop a brand panel on the left on the brand ink (the logo on a white tile, the badge "চ্যারিটি ও সোশ্যাল সার্ভিস বিভাগ", the title at `--text-hero`, its line, the eight steps in two columns with the done ones ticked and the current one lit, the note that officials do not register here) and the form on the right ("ধাপ N / M" with a progress bar, the step's name as the heading with one hint line, the fields, "আগের ধাপ" and "পরের ধাপ"); on a phone the brand panel is a band of the logo, title and line above the form, and the list is for screen readers only. Replaces the green title band and the horizontal step row, which had made the form wider than its card.
 - **Since D-097 (2026-10-17).** Volunteers only: the page names no kind and says that officials do not register here; the admin creates their accounts (SCR-063) and they set the password through a link (SCR-065). Staff drafts are refused by the API (`registration.staff_by_invitation`).
 - **Purpose.** Volunteer and staff registration (BD-44, blueprint A5):
   1. Verify the mobile number by OTP.
@@ -255,6 +270,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
   - Token expired: the outbox is kept and the user is asked to sign in again (O-29).
   - Storage nearly full: a warning Alert.
 - **Components.** Card/Stat, Progress bar, Table (card list), Badge (sync), Alert, Confirm dialog.
+- **Built (T2.7).** `/sync` (`apps/web/src/features/sync/SyncCentrePage.tsx` with `RecordRow`, `PhotoSection`, `SyncReminder`): the last sync and "এখনই সিঙ্ক করুন" first, then the records grouped as "পাঠানো যায়নি" (with the reason in the request language and "আবার পাঠান" per record and for all), "পাঠানোর অপেক্ষায়", "অফিস যাচাই করছে" and "ছবি বাকি", each a card with the person, the kind, the project, the badge and "সম্পাদনা" or "খুলুন" (and "মুছুন" for a draft of the phone's own, behind a confirm); the photo section with the waiting and sent photos, the budget bar and "জায়গা খালি করুন"; the iPhone notice; the empty state "সব পাঠানো হয়েছে". The chip of the app bar (`SyncChip`) opens it and counts what waits; "more" lists it for a volunteer. The volunteer's lists and detail carry the sync badges (`SyncBadge`); the home's attention lists the device's own items and the day-old reminder; the install hint and the update banner are described in OFFLINE_SYNC.md §9.
 - **Layouts.**
   - Phone: a full page reached from the sync indicator.
   - Tablet and desktop: a drawer.
@@ -270,6 +286,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 - **Rebuilt (T1.9b, UX-18; plan `docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md`, U5).** `/account/profile` shows the own details in six section cards (personal, contact, address, work, bank, photos with the three images); after approval each detail but the volunteer type has "সম্পাদনা" beside it, which opens the request dialog with the new value and an optional reason; a detail with an open request shows "আপনার অপেক্ষায়" (with the code or the photo upload below it) or "অনুমোদনের অপেক্ষায়" instead.
 - **Built (T1.9).** `/account/profile` for volunteers (`apps/web/src/features/account/ProfileView.tsx`, `ChangeRequests.tsx`; plan `docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md`, U12): the own details in full, and after approval an edit request with the new value of one field (text, address cascade, bank details, photo upload); a new mobile or email waits for a code to the new address before it reaches the approver (D-085). The home page links the profile for volunteers.
 
+- **Officials (D-147, 2026-11-02; plan `docs/plans/2026-11-02-1800-feat-official-own-profile-plan.md`).** An official's `/account/profile` shows the banner (photo or initial, name, designation, state), "পরিচয় ও কর্মস্থল" (name, job ID, designation, roles, affiliation and unit, program, division, supervisor), "যোগাযোগ ও অ্যাকাউন্ট" (mobile, email, state, last login, the password and devices pages) and "আমার প্রকল্প" (the projects they work on by year, each with the figures of their work, BR-291 to BR-293; a global role sees one line and a link to the project list). The name, designation, mobile, email, photo, workplace, program and division are changed by a request the Department Head or the Monitoring Team decides (BR-289); the job ID, the roles and the supervisor only the deciders change, on the staff page (D-148). **Built (2026-11-03).** `OfficialProfile.tsx` with `OfficialDetails.tsx` (the edit mode of a section, the program picked from every active program, a contact's code through the official's own routes, the photo uploaded with the request) and `ProjectsWork.tsx` (also on the admin's official profile).
 - **Purpose.** Shows the user's own data and lets them ask for changes. Approved volunteers change their profile only through an edit request. It also lists device sessions and sets language and preferences.
 - **Roles.** Everyone.
 - **Priority.** parity.
@@ -470,6 +487,7 @@ The home of the Media Director, the Media Assistant Director and the members (DE
 
 - **Priority.** parity.
 - **Phase 1.** The home shows the attention list, the notifications and a "coming later" card.
+- **Built (T2.8b, 2026-10-27).** The home is `/media` for the three media roles (a phone tab of its own), the PM, the RPM and the two global roles (the sidebar's "মিডিয়ার কাজ"): the media items of "needs your attention" (`media_referrals_new`, `media_review_waiting`, `media_sent_back`, `media_on_hold`), the counts overall or of one program, and the referrals with their works, filtered by program, stage, priority and decision in the address; the My Work home's media widget shows the counts and leads there. A member sees only the works they are on. The portfolio is the member page `/media/members/:userId` (SCR-108). No consent is asked (D-137).
 
 ### SCR-020 My Work: Finance Team (derived)
 
@@ -577,7 +595,10 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Phone: the identity step, then one section per screen with next and back, and a sticky "save" and "send" bar.
   - Tablet: the same in a 720 px column.
   - Desktop: all sections on one page with a section index on the left. Officials entering from the office use this layout.
-- **Phase · task.** 2 · T2.2 (lookup), T2.4 (renderer), T2.5 (create, submit), T2.7 (offline). **API.** tags beneficiaries, applications, files, sync.
+- **Built in T2.5** at `/my-projects/:projectId/apply` (`features/applications/ApplicationFormPage`): the lookup with the auto-fill and the locked identity of a known person, the form of the project's published version for the volunteer audience, the draft saved when the first part is done (photos join after that), the send with the number, the limit and the closing date, the team member's draft without a send. Offline comes with T2.7.
+- **Built in T2.6.** The server refuses a new application beyond the volunteer's limit, outside the window (until the PM extends it with a reason), from a blocked volunteer, for a blocked person and for a second application of the same person in the project, and the page shows its message; the project's "applications left" reads the live count the limit itself uses.
+- **Built in T2.4d (D-133).** The form fills its defaults when it opens (a new form only, never a stored one), shows a read-only answer locked, works out conditional values and formulas as the answers change (a number with up to two decimals, an amount in taka, a text result by its label), gives a counted group as many rows as its number (a lower number asks before it removes filled rows), takes a number table one whole number per box (each box named by its row and column), and repeats an earlier answer in a question's text in the reader's language. The server writes the read-only answers itself and refuses rows that do not match their count at submission.
+- **Phase · task.** 2 · T2.2 (lookup), T2.4 (renderer), T2.5 (create, submit), T2.4d (form logic), T2.7 (offline). **API.** tags beneficiaries, applications, files, sync.
 
 ### SCR-032 My applications and application detail
 
@@ -617,7 +638,9 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Layouts.**
   - Phone: a list, then a full-screen detail.
   - Tablet: a list with a drawer.
-  - Desktop: a split view.
+  - Desktop: the list and the record as two pages (built in T2.5; a split view may follow).
+- **Built in T2.5** at `/my-applications` and `/my-applications/:applicationId` (`features/applications/{MyApplicationsPage,ApplicationDetailPage}`): the tabs by state with counts, the record with the answers without the official sections, the steps without the officials' names, the office's message of a rejection, the send and the edit of a draft. The sync badge comes with T2.7, the correction requests with T2.6.
+- **Built in T2.6.** An answer the office opened for correction shows "নতুন উত্তর দিন" on the record (`features/applications/UnlockedAnswer.tsx`: the question through `FieldInput`, starting from the previous answer) with "পাঠান"; the home counts it (`unlocks_to_fill`); a sent value waits for the office's check. After a transfer the application leaves the old volunteer's list, who gets a message with the count only, and the new volunteer finds it with its whole history.
 - **Phase · task.** 2 · T2.5. **API.** tag applications.
 
 ### SCR-033 Today's distribution (bulk)
@@ -718,6 +741,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 - **Purpose.** Review volunteer and staff registrations: approve, reject, or request a correction (blueprint A5 "verification and approval").
 - **T1.10.** Narrowed in T1.10 (O-67): the page keeps only the staff registrations; volunteer registrations live in the volunteer tab under the "pending" state, and old volunteer links redirect there. Edit requests keep their own page.
+- **Officials' requests (D-147, built 2026-11-03).** A third tab "অফিসিয়ালের অনুরোধ" (`StaffEditRequests.tsx`, `?tab=staff-edits`) for the Department Head and the Monitoring Team: the official, the detail, the value now beside the new one and the reason; approve or refuse with a reason (`staff_edit_request.approve`); a decider's own request shows "আপনার নিজের অনুরোধ" without buttons, and its count stands above the tabs.
 - **Roles.**
   - Volunteers: Department Head, Monitoring Team, PM, RPM and Project Executive.
   - Staff: Department Head and Monitoring Team only.
@@ -796,13 +820,19 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Layouts.**
   - Phone: cards with status, waiting time and score; filters in a bottom sheet; full-screen detail with a sticky approve, waitlist and reject bar.
   - Tablet: a compact table with the detail in a drawer.
-  - Desktop: a split view with the list on the left and the detail on the right; keyboard selection.
-- **Phase · task.** 2 · T2.5 (workflow), T2.6 (score, quota, waitlist, unlock). **API.** tags applications, activities.
+  - Desktop: a split view with the list on the left and the detail on the right; keyboard selection (T2.5 built the list and the record as two pages).
+- **Built in T2.5** at `/admin/projects/:projectId/applications` and `/admin/applications/:applicationId` (`admin/applications/{ApplicationsPage,ApplicationReviewPage}`): the list with the search, the status, area and flag filters in the address, the page numbers, the waiting time, and the bulk review start and approval of the ticked rows (one request, a result per row); the record with the signals (public entry, existing or repeated identity, the family duplicates), the answers including the official sections, the full-form edit under review, the steps with their actors and texts, the change log, and the moves of `availableActions`: review, send for approval, approve, reject (the office's reason and the volunteer's message), return from rejection, refuse a public entry, delete. The score, the quota bars, the waitlist, the field unlock, the transfer and the export come with T2.6.
+- **Built in T2.6 (score, quotas, waitlist).** The list shows a "স্কোর" column and offers the order "স্কোর বেশি আগে" (kept in the address as `sort=-score`) once a score exists; a form without points shows neither. Above the list, "এলাকার কোটা" shows each district or union quota with "লক্ষ্য · এসেছে · অনুমোদিত", a bar of the approvals against the target and "কোটা পূর্ণ" in the warning tone when full; each area the project weighs by has "পরেরজনকে আনুন (area)", an area without its own target once the list is filtered to it, and a project without quotas one "পরেরজনকে আনুন" (one request under an idempotency key; the notice names the application number pulled). The record shows the score breakdown (each part with its points and the total against the most it could reach, the score never deciding by itself) and the moves "অপেক্ষমাণ তালিকায় রাখুন" (with the office's reason) and "অপেক্ষমাণ তালিকা থেকে অনুমোদন"; a decision the record's `decisionHints` mark asks the comment before it is sent ("কেন স্কোরের ক্রম ভেঙে সিদ্ধান্ত নিচ্ছেন?", "এই এলাকার কোটা পূর্ণ। তবু কেন অনুমোদন দিচ্ছেন?"), and a 422 `workflow.comment_required` the screen did not foresee opens the same box with the reasons the server named.
+- **Built in T2.6 (field unlock).** On an approved record each answer that can open (text, number, choice, date, address; never the identity number, the name, the father's or husband's name, photos or files) has "সংশোধনের জন্য খুলুন", which asks the office's reason. "সংশোধনের জন্য খোলা উত্তর" lists the waiting unlocks with the reason, the previous and the new answer, "গ্রহণ করুন" and "ফেরত দিন" (with a reason) for an official who did not give the new answer (the one who did reads that another official verifies it), "আনলক বাতিল করুন" (with a reason), and the answer itself when the office gives it (no volunteer, or the official section). On the volunteer's application page (SCR-032) the open answers come first with "নতুন উত্তর দিন", the question drawn as in the form and "পাঠান", then "যাচাইয়ের অপেক্ষায়".
+- **Built in T2.6 (application transfer).** `/admin/projects/:projectId/transfer?from=<volunteer>` (`admin/projects/volunteers/TransferPage.tsx`), opened by "আবেদন হস্তান্তর" beside each volunteer of the project (SCR-043b) and beside each project on the volunteer's profile (SCR-043): the current volunteer, the applications with "সব বাছুন" and a tick each, the new volunteer from the project's volunteers or one added to the project with the handover ("প্রকল্পে নতুন যুক্ত করে দিন"), "টিমও নতুন স্বেচ্ছাসেবকের অধীনে যাবে" for those who may move teams, the warning before confirming when the new volunteer goes over the project's limit, the required reason and "হস্তান্তর করুন"; the answer names how many moved and warns when the limit is passed.
+- **Built in T2.6 (verification queue).** The list's "সব আবেদন / যাচাইয়ের অপেক্ষায়" switch keeps `status=needs_verification` in the address; the office's home counts the waiting entries and opens the oldest. On an entry the record offers "যাচাই করুন": the dialog looks the entry's number up now (so a profile made after the entry still links) and either links it to the profile it finds, shown with the lookup's BEN number, name and father's or husband's name and never the whole profile, or makes a new profile; it names a blocked person, who can only be refused, and shows a failed lookup as an error to retry; an optional "দায়িত্বপ্রাপ্ত স্বেচ্ছাসেবক" must have accepted the project's rules and be under its limit. "এন্ট্রি বাতিল করুন" stays.
+- **Phase · task.** 2 · T2.5 (workflow), T2.6 (score, quota, waitlist, unlock, transfer, verification). **API.** tags applications, activities.
 
 ### SCR-042 Volunteer tab
 
 - **Purpose.** The central, nationwide volunteer list (blueprint A5 "volunteer tab").
 - **T1.10.** Built in T1.10 (O-67; plan `docs/plans/2026-10-15-1030-feat-volunteer-beneficiary-tabs-plan.md`; `apps/web/src/admin/volunteers/`, E2E `apps/web/e2e/volunteers.spec.ts`): every volunteer in every state for each holder of `volunteer.view_all`, at `/admin/volunteers`. Filters (division to union, type, state, project, category, blocklisted) are kept in the URL; the search (name, mobile; NID only inside the `volunteer.view_sensitive` scope) is not. The statistics above the list follow the filters: volunteers (total, active, pending, blocked, deactivated; inactive only for those who see categories) and applications (total, approved, under review). The category column and filter appear only with `volunteer.rating.view`. The rating filter comes in Phase 5.
+- **T2.2.** The list shows the BEN number (`BEN-0000123`, D-112) of every row and finds a profile by it; a retired profile's number leads to the kept profile. "NID / জন্মনিবন্ধন দিয়ে খুঁজুন" opens the lookup dialog for the roles with a project list (PM, RPM, Project Executive, the global roles): a project picker, then the reusable `LookupField` of `apps/web/src/features/beneficiaries/` (the application form of T2.5 uses the same field): the number in Bengali or English digits, and the answer: the auto-fill with name, father or husband name and the number locked and the mobile editable, a link to the profile; or "এই নম্বরে কোনো প্রোফাইল নেই"; or "এই ব্যক্তি ব্লক করা আছেন" (nothing else); or "এই প্রকল্পে এই ব্যক্তির (BEN-…) আবেদন আগেই আছে"; a changed number, kind or project drops the answer. "সম্ভাব্য ডুপ্লিকেট" leads to SCR-045b for the roles that hold a merge permission. E2E `apps/web/e2e/beneficiaries.spec.ts`.
 - **Layout (UX-21, 2026-10-20).** The owner's reference layout: count cards with an icon, the label and the number that also filter the list (the chosen one outlined and the other numbers unchanged; the counts beyond five behind a last "আরও অবস্থা" card; the application counts are numbers only); one white panel with the search, a "ফিল্টার" button that opens the filters in place grouped as এলাকা and অন্যান্য (a bottom sheet on phones), the active filters as removable chips with "সব মুছুন", the table (a letter avatar or the photo, the name in bold with a muted line under it, the state as a coloured dot with its word, a dash for an empty value, a ⋮ action button per row) and numbered pages of ten with "1–10 দেখানো হচ্ছে · মোট N জন" (page numbers inside the counted range, D-105). Plan `docs/plans/2026-10-20-1500-feat-people-list-redesign-plan.md`.
 - **Roles.** Officials with `volunteer.view_all`.
 - **Priority.** parity.
@@ -838,6 +868,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-043b Volunteers of a project (assignment)
 
 - **Built (T1.12).** `/admin/projects/:projectId/volunteers` ("স্বেচ্ছাসেবক" on the project page): the assignments in the caller's areas with permission set, paid flag and consent state; "স্বেচ্ছাসেবক অ্যাসাইন করুন" for the RPM, the executive with the RPM's grant and the global roles (approved, not blocked volunteers of the caller's areas, filtered by area and searched by name or mobile, several at once, one set by type or a chosen one, the paid flag for the RPM); change the set (only the sets of the type) or the paid flag; end with a reason; the RPM's switch per executive "স্বেচ্ছাসেবক অ্যাসাইন করতে পারবেন" with a reason. Works at 360 px.
+- **Built in T2.6.** Each volunteer of the project has "আবেদন হস্তান্তর" for the roles that may transfer (`canTransferApplications` in `admin/roles.ts`), opening the transfer page of SCR-041 at `/admin/projects/:projectId/transfer?from=<volunteer>`.
 
 ### SCR-043 Volunteer profile
 
@@ -879,6 +910,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Phone: a header card, then scrollable tabs, with actions in a "more" sheet.
   - Tablet: tabs in full width.
   - Desktop: a header with actions, tabs, and two-column content.
+- **Built in T2.6.** Each project of the volunteer's work tab has the same transfer entry, for the same roles.
 - **Phase · task.** 1 · T1.10, T1.12; work summary and ratings 5 · T5.3; animals 4 · T4.4. **API.** tags volunteers, access.
 
 ### SCR-044 Beneficiary tab
@@ -886,6 +918,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The central list of beneficiary profiles across years and projects (blueprint A7 "beneficiary tab").
 - **T1.10.** Built in T1.10 (O-67; `apps/web/src/admin/beneficiaries/`, E2E `apps/web/e2e/beneficiaries.spec.ts`; the 360° shell at `/admin/beneficiaries/:beneficiaryId`, merge in T2.2): `/admin/beneficiaries`, the same filter pattern (area, type, project, year, blocklisted), search by name, by mobile with the contact class, by NID inside the `beneficiary.view_nid` scope; statistics (total, assisted this year, blocked). The Media and Procurement Teams get the limited view of BR-253.
 - **Layout (UX-21, 2026-10-20).** The owner's reference layout: count cards with an icon, the label and the number: total and blocked filter the list (the blocklist filter), assisted this year (approved help) is a number only because no list filter matches it, and a chosen card never narrows the counts; one white panel with the search, a "ফিল্টার" button that opens the filters in place grouped as এলাকা and অন্যান্য (a bottom sheet on phones), the active filters as removable chips with "সব মুছুন", the table (a letter avatar or the photo, the name in bold with a muted line under it, the status as a coloured dot with its word, a dash for an empty value, a ⋮ action button per row with the profile) and numbered pages of ten with "1–10 দেখানো হচ্ছে · মোট N জন" (page numbers inside the counted range, D-105). Plan `docs/plans/2026-10-20-1500-feat-people-list-redesign-plan.md`.
+- **Gender cards (D-146, 2026-11-02).** In the owner's order the cards are মোট উপকারভোগী, পুরুষ, মহিলা, এই বছর সহায়তা পেয়েছে and ব্লক লিস্ট; the men and the women filter the list by gender, only for officials who see the profile details (the filter is refused and the two counts are masked for the others).
 - **Roles.**
   - Officials with `beneficiary.view_all`.
   - Media Team (masked).
@@ -923,7 +956,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 - **Layout (UX-22, 2026-10-20).** The one profile layout, merged from the owner's picture and the earlier page: a breadcrumb; a header card on the brand's soft green with the photo or the initial, the name, the state as badges and the key facts as chips with copy buttons (only values the caller sees; a hidden value is never a chip); an action panel beside the card on a desktop and under it on a phone (every button with its words); one page without tabs, since the 360° view shows everything at once: the section cards on the left (মূল তথ্য, ঠিকানা, পরিবার, আবেদনের ইতিহাস, বিতরণ ও বাস্তবায়ন, দাওয়াহ, ফলো-আপ) and যোগাযোগ, বছরভিত্তিক প্রজেক্ট and কার্যক্রমের ইতিহাস as a timeline on the right; no action panel yet. Plan `docs/plans/2026-10-20-1900-feat-profile-layout-plan.md`.
 - **Purpose.** One beneficiary's full history (blueprint A7 "profile 360"). It covers identity, family, all applications across years, assistance received, photos, follow-ups, media consent, blocklist and status. It also hosts the merge flow for duplicates (BD-05).
-- **T1.10.** A shell is built in T1.10 (O-67): `/admin/beneficiaries/:beneficiaryId` with the sections basic data and address, projects by year, application history, distribution and implementation, dawah, follow-ups and activity history, each with real data where it exists and an empty state otherwise. Merge and corrections stay in T2.2.
+- **T1.10.** A shell is built in T1.10 (O-67): `/admin/beneficiaries/:beneficiaryId` with the sections basic data and address, projects by year, application history, distribution and implementation, dawah, follow-ups and activity history, each with real data where it exists and an empty state otherwise.
+- **T2.2.** The header shows the BEN number; a retired profile shows "এই প্রোফাইল BEN-… প্রোফাইলে মার্জ হয়েছে।" with the link to the kept one. The action panel offers only what the API's action flags allow (`actions` of the profile answer, each true by permission, scope and state): "যোগাযোগের তথ্য বদলান" (`ContactDialog`: mobile and the address as one chain, saved with If-Match; the shared-mobile warning names the profiles in scope), "সংশোধনের অনুরোধ করুন" (`CorrectionDialog`: one locked field, the new value and a reason), "ব্লকলিস্টে দিন" and "ব্লক তুলুন" (through `registrations/Blocklist.tsx` with a reason), and in the merge history "মার্জ ফেরত নিন" for the global roles. The history sections (`ProfileHistory.tsx`): the contact changes (mobile with the contact class, address with the address class), the correction requests with "অনুমোদন করুন" and "নাকচ করুন" for a deciding official who is not the requester, the block history with reasons (officials only), the merges (kept or retired, the other profile named only inside the caller's scope, the left-behind count), and the files (an NID photo only inside the NID scope). Applications left on a retired profile show on the kept one marked as coming through the merge. E2E `beneficiaries.spec.ts`, `beneficiary-merge.spec.ts`.
 - **Roles.** Officials. Merge by PM, Monitoring Team and Department Head. The RPM may propose a merge. Only the Monitoring Team reverts one.
 - **Priority.** parity.
 - **Data shown, by tab.**
@@ -961,6 +995,16 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Phone: a header card and scrollable tabs. The merge comparison is stacked field by field.
   - Desktop: a header, tabs and two-column content. The merge comparison is shown side by side.
 - **Phase · task.** 2 · T2.2. Follow-up 5 · T5.3. Consent 5 · T5.5. **API.** tag beneficiaries.
+
+### SCR-045b Duplicate profiles and the comparison
+
+- **Purpose.** The suggested duplicate pairs of the caller's scope (BD-05, D-117: name with father or husband and mobile; name with date of birth and union; one mobile on several profiles), the merge proposals waiting, the side-by-side comparison and the merge.
+- **T2.2.** `/admin/beneficiaries/duplicates` (`apps/web/src/admin/beneficiaries/duplicates/`): the heading "সম্ভাব্য ডুপ্লিকেট", two tabs (the matching pairs, the proposals), each pair with both names and BEN numbers and its rules as badges ("একই নাম, পিতা/স্বামী ও মোবাইল", "একই নাম, জন্মতারিখ ও ইউনিয়ন", "একই মোবাইল নম্বর"), the actions "তুলনা করুন" and "একই ব্যক্তি নন" (a mark with a reason, for the RPM and those who propose or merge), a cursor list. `/admin/beneficiaries/duplicates/compare?a=&b=` (`ComparePage`): two cards side by side (stacked under 640 px) with father or husband, mobile, area, village, the NID where the caller sees it, applications and projects; a radio "এই প্রোফাইল রাখুন" on each; then "মার্জ করুন" with a reason (the holders of merge; D-118: a PM only inside the PM's program, else the message of `beneficiary.merge_needs_global`), or "মার্জের প্রস্তাব দিন" (the proposers); a proposal is carried out from the proposals tab with a confirmation. A conflict (`beneficiary.merge_conflict`) lists the project of each pending application with the clash. Success: "প্রোফাইল মার্জ হয়েছে" on the kept profile; the revert lives on the profile (SCR-045) and ends with "মার্জ ফেরত নেওয়া হয়েছে". Not yet on the screen: listing and lifting the "not the same person" marks (`GET /beneficiary-merge-dismissals`, `/lift`).
+- **Roles.** PM, RPM, Department Head, Monitoring Team (the holders of `beneficiary.merge.dismiss`, `beneficiary.merge.propose` or `beneficiary.merge`); a volunteer and the Media Team never reach it.
+- **Priority.** parity.
+- **Components.** Tabs, Badge, Card, RadioGroup, ReasonDialog, ConfirmDialog, Alert.
+- **Layouts.** Phone: cards and a stacked comparison. Desktop: a table and two columns.
+- **Phase · task.** 2 · T2.2. **API.** tag beneficiaries (`/beneficiary-merge-candidates`, `/beneficiary-merge-dismissals`, `/beneficiary-merges`).
 
 ## 7. Management screens
 
@@ -1011,6 +1055,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-063 Officials
 
 - **Purpose.** The officials of the ERP kept apart by affiliation (DECISION_LOG D-097): the department's own staff, other departments of the Foundation, outside partners; the Department Head and the Monitoring Team create an official and keep the profile.
+- **Photos (D-147).** Each row shows the official's uploaded photo, otherwise the initial (BR-290).
 - **Roles.** Read: Department Head, Monitoring Team, PM (program), RPM (region) through `permission.view`. Create and new link: `user.create`; profile: `user.profile.manage` (both global roles only, GLOBAL scope).
 - **Priority.** parity; the title actions wrap on a phone and the tab list scrolls inside the page.
 - **Data shown.** The view switch "তালিকা | অর্গানোগ্রাম" beside the title; three stat cards with the count of each affiliation; three tabs (ডিপার্টমেন্ট কর্মী, ফাউন্ডেশনের অন্য বিভাগ, বাইরের সহযোগী) with search (name, job ID, email, mobile) and the program and role filters; rows: initials and name with the job ID as a chip (or "Job ID এখনও নেই"), designation with the roles as badges, program (department) or unit (others, "—" when none), state with an icon ("পাসওয়ার্ডের অপেক্ষায়" for an account whose link is still open); a card per official on a phone.
@@ -1027,6 +1072,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Priority.** parity.
 - - **Layout (UX-22, 2026-10-20).** The one profile layout, merged from the owner's picture and the earlier page: a breadcrumb; a header card on the brand's soft green with the photo or the initial, the name, the state as badges and the key facts as chips with copy buttons (only values the caller sees; a hidden value is never a chip); an action panel beside the card on a desktop and under it on a phone (every button with its words); the section cards পরিচয় (name, Job ID, designation, mobile, email), ভূমিকা ও অবস্থান (affiliation and unit, program, division, the supervisor as a link, roles) and অ্যাকাউন্ট (state, last sign-in) on the left, যোগাযোগ and ডিভাইস on the right. Plan `docs/plans/2026-10-20-1900-feat-profile-layout-plan.md`.
 - **Data.** The existing `GET /users/{userId}` (with the mobile, the email and the last sign-in), the program and role lists, `GET /users/{userId}/sessions`; no new API.
+- **Photo and projects (D-147).** The header shows the official's uploaded photo or the initial (BR-290); the Head, the Monitoring Team and the official's PM also see "প্রকল্প ও কাজ", the projects the official works on by year with the figures of their work (`GET /users/{userId}/projects-work`, BR-291 to BR-293).
 - **Actions.** প্রোফাইল সম্পাদনা (the edit dialog of SCR-063); নতুন পাসওয়ার্ড লিঙ্ক while the password is not set; ending a device session.
 - **States.** Loading, not found, error with retry; a role that only reads sees no action panel.
 - **Components.** Breadcrumb, ProfileHeader, ProfileSection, DescriptionList (two columns), ContactList, CopyButton, Badge, Modal.
@@ -1080,6 +1126,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Roles.** Department Head and Monitoring Team (`system.health.view`).
 - **Route.** `/admin/health`; sidebar "সিস্টেমের অবস্থা".
 - **Data.** The dummy OTP alert; ডাটাবেস, ফাইল স্টোরেজ, জব কিউ each চালু or বন্ধ; version, environment and the month the audit partitions reach; the stored files in total, by kind and by month for the last twelve months (English digits), with when they were measured; a notice instead of the figures when the database did not answer.
+- **Storage by bucket (T2.1).** A table before the kinds: each bucket with its files, bytes and the growth since the nightly snapshot of at least 30 days ago ("এখনো জানা নেই" until one exists); on a phone a list of cards.
 - **Built.** `apps/web/src/admin/system/HealthPage.tsx`; tests `system.test.tsx`, E2E above.
 
 ### SCR-074 Notification texts
@@ -1161,17 +1208,21 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Desktop: the section index on the left and the editor in the centre, with a summary of the selected components on the right.
   - Tablet: one column with the summary in a drawer.
   - Phone: read-mostly sections.
+- **Built in T2.6.** The areas step holds "কোটা" under the areas (`admin/projects/setup/QuotasSection.tsx`): a district or union of the project's areas with its target (one or more), editable while draft or active, every change audited; the received and approved counts are read live (`GET` and `PATCH /projects/:projectId/quotas`).
 - **Phase · task.** 1 · T1.11 (core), T1.12 (templates, consent, assignment). **API.** tags programs, projects, templates.
 
 ### SCR-061 Form builder
 
 - **Purpose.** The PM builds the project's application form. It is assembled from the section library and the field library, with field settings, visibility, conditions, calculations, a live preview and versions (BD-12 to BD-14, blueprint B3).
-- **Roles.** PM. Department Head and Monitoring Team. The library is managed with `form.library.manage`.
+- **Built (T2.4).** `/admin/projects/{id}/forms` lists the project's forms with "নতুন ফর্ম" (a library template, the mandatory core alone, or a copy of another project's published form); `/admin/projects/{id}/forms/{formId}` is the builder (`apps/web/src/admin/forms/`): the libraries with search and a tick, the outline with move-up, move-down, edit and remove (the core marked and locked), and the settings of the chosen part: labels and help in both languages, required, the seven named text checks, length, value and row limits, options with "other" and branching on an earlier answer, the project's own question (also as a row question of a repeat group), "show when" and "required when" as rows joined by all or any (a deeper seeded condition is read-only with a note), and the calculation as terms joined by plus and minus, two terms multiplied or divided, a repeat-group sum, age from a date of birth, or net assets against the nisab. The draft saves itself with its version; a version changed elsewhere reloads with a notice; leaving with an unsaved change asks first. The preview (a tab, or a fourth pane from 1280 px) draws the draft at a phone's or a computer's width, in bn or en, as a volunteer or an official, and keeps no answer. The version list shows each version with its change summary; publishing asks first with the summary and the note that earlier applications keep their version; a published version offers "নতুন সংস্করণ তৈরি করুন". The public link panel switches the link on with the form and gives its URL to copy. The setup review's missing "প্রকাশিত আবেদন ফর্ম" and the application form component open the builder. The version list names who published each version and who last changed the draft, with when (D-121 item 10); no other read names an official.
+- **Redesigned (T2.4b, D-122).** One clean page for a person with little technical knowledge: the form itself in the middle, drawn section by section as it will be filled (`FormCanvas`: a click chooses a question, the chosen one shows its type with move-up, move-down, copy and remove, a handle drags a question inside or across sections with `@dnd-kit` and the keyboard moves it with the buttons, each section ends with "এই অংশে প্রশ্ন যোগ করুন", a group's card with "সারিতে প্রশ্ন যোগ করুন", a removal offers "ফেরত আনুন" until the next change); on the left the two tabs "প্রশ্ন যোগ" (the 22 types in six groups with an icon, a plain name and an example; a press adds to the chosen section, a drag places the question) and "লাইব্রেরি" (the ready questions by their section, in the seed's order, with a search, one question's "+" or "পুরো অংশটি যোগ করুন", what the form holds marked "ফর্মে আছে"); on the right the tabs "প্রশ্নের সেটিং" (short groups: মূল তথ্য, অপশন, উত্তরের নিয়ম, সারি, হিসাব, কখন দেখাবে, কখন আবশ্যক হবে; a condition and a calculation read as one sentence with a button that opens their editor in a dialog) and "ফর্মের সেটিং" (the name, the versions, the public link); "প্রিভিউ" opens the preview in a dialog and "প্রকাশ করুন" sits in the header; nothing chosen shows the three steps. A new question of the project's own takes its type from the left and asks for its texts and the section (or the group's rows). A calculated question may stay without its rule in a draft, tagged "হিসাবের নিয়ম দিন"; publishing refuses it (D-123). The library holds the group "পরিবারের সদস্যরা" beside "আয়কারী" (D-124). The words say "প্রশ্ন", never "ফিল্ড".
+- **Ready forms (T2.4c, D-125 to D-129).** The same builder opens a ready form outside the projects (`/admin/ready-forms/{formId}`) and the question library (`/admin/question-library`). Only the Monitoring Team and the Department Head build; a PM, an RPM or a volunteer sees a form read-only or not at all. Nothing is pre-placed: a new form starts with one empty section, and "নতুন অংশ" adds another. A question takes a "পরিচয়-চিহ্ন" (one of the seven identity roles: NID or birth registration, name, father's or husband's name, mobile, gender, address, village) from the settings; the mark sets the question's type, keeps it required, unconditional and seen by everyone, and is shown on the canvas as "পরিচয়: …". A form of the kind "উপকারভোগীর আবেদন" publishes only with all seven marks, and a refused publish names the missing roles in one alert; a form of the kind "অন্যান্য" takes no marks. The kind shows beside the version in the header. On a project, "তৈরি ফর্ম বসান" places a published ready form as a published copy that names its source and opens read-only with a note; when the ready form has a newer version the builder offers "নতুন সংস্করণ নিন", and earlier applications keep their version. "নতুন ফর্ম" (a form of the project's own) stays for the two global roles. The public link shows only for a project's beneficiary application form.
+- **Roles.** Department Head and Monitoring Team build and publish (`form.build`, `form.publish`) and manage the library (`form.library.manage`); the PM places a ready form and takes its newer versions (`form.place`) and keeps the public link (`form.public_link.manage`) (D-125, D-129).
 - **Priority.** desktop-first.
 - **Data shown.**
-  - Left: the section library and field library with search, and a tick to add.
-  - Centre: the form outline. Sections are expandable, ordered with move-up and move-down buttons; there is no drag and drop.
-  - Right: field settings:
+  - Left: the question types in six groups, and the library by section with a search (T2.4b).
+  - Centre: the form as it will be filled, section by section; questions move by drag or by the chosen question's buttons (T2.4b; D-122 allows drag here only).
+  - Right: the question's settings in groups, or the form's settings:
     - label in bn and en
     - type
     - required
@@ -1181,27 +1232,78 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
     - calculation
   - A live preview that toggles between phone and desktop, in bn or en.
   - Version list with a change summary.
-  - The mandatory fields (BD-13) are marked and cannot be removed.
+  - The identity questions are marked by their role, not pre-placed (D-126, superseding the pre-placed core of BD-13).
 - **Actions.**
 
 | Action | Permission |
 |---|---|
 | Edit the draft version | `form.build` |
 | Publish (creates an immutable version) | `form.publish` |
-| Configure the public link (tree planting) | `form.public_link.manage` |
-| Manage the section and field library | `form.library.manage` |
+| Place a ready form on a project; take its newer version | `form.place` |
+| Configure the public link (a beneficiary application form only) | `form.public_link.manage` |
+| Edit and publish the question library | `form.library.manage` |
 
 - **States.**
   - Published versions are read-only, with a "create new version" action.
   - Logic errors, such as a circular condition, show inline.
   - Unsaved changes trigger a warning on leave.
   - Phone: the notice; label and option text edits only.
-- **Components.** Table (library list), Tabs, Field, Row / Toggle, Drawer (preview on tablet), Form renderer (preview), Modal (condition editor), Badge (version), Confirm dialog (publish).
+- **Components.** Tabs, Disclosure, Field, Row / Toggle, Menu (section), Form renderer (the canvas sketch and the preview), Modal (preview, condition and calculation editors, the new question), Badge (version), Confirm dialog (publish), Alert (undo).
 - **Layouts.**
-  - Desktop: three panes (library, outline, settings) with the preview as a tab or a fourth pane at 1280 px and wider.
-  - Tablet: the outline with settings in a drawer.
+  - Desktop: three panes (add, canvas, settings) from 1024 px, the side panes in view while the form scrolls; the preview in a dialog.
+  - Tablet: the panes stacked.
   - Phone: read-mostly.
-- **Phase · task.** 2 · T2.4. **API.** tag forms.
+- **Built in T2.6.** The settings pane has a "নম্বর" group for a choice question (points per option) and a number question (ranges with their points), outside a repeat group (`ScoreSettings.tsx`); the header's "স্কোর" button opens "অগ্রাধিকার স্কোর" (`ScoringDialog.tsx`: the points of "আগে সহায়তা পাননি" and the highest total, warning above 100). Scoring is optional; the points are never shown to a volunteer or a public-link visitor; the version summary names a points change.
+- **Built in T2.4d (D-133).** The calculation dialog builds a value by clicking parts that read as a sentence (`CalculationEditor.tsx`): an answer, a number, "হিসাব (+ − × ÷)" with its parts and brackets, "যদি … তবে" with a condition per branch and "নইলে", a text result, a group's sum or counted rows, a table cell, the age and the nisab rules; "সূত্র লিখুন" takes the same as a typed formula with the questions' names (`formula.ts`), naming a mistake and its place, and "দশমিকের পর ঘর" rounds it; the text results are kept with the question. A question may start with a default ("ডিফল্ট মান": today's date, a text or a number) and be read-only (`DefaultSettings.tsx`); a "সংখ্যার ছক" question has rows and columns named in both languages (`TableSettings.tsx`); a repeat group's rows may follow an earlier number ("সারির সংখ্যা যে প্রশ্ন থেকে", which gives that number a range of 0 to 50); a condition compares with a value or with another answer ("একটি মান / অন্য প্রশ্নের উত্তর"); "উত্তর বসান" puts an earlier answer into the question's text.
+- **Phase · task.** 2 · T2.4, T2.4b, T2.4c, T2.4d. **API.** tag forms.
+
+### SCR-113 Ready forms and the question library
+
+- **Purpose.** The Monitoring Team and the Department Head keep the organisation's forms in one catalogue outside the projects, and the one question library the builder picks from (D-125, D-127, D-129).
+- **Built (T2.4c).** `/admin/ready-forms` (`apps/web/src/admin/forms/ReadyFormsPage.tsx`) lists each ready form with its kind ("উপকারভোগীর আবেদন" or "অন্যান্য") and how far it is published ("সংস্করণ 1 প্রকাশিত", "খসড়া, এখনো প্রকাশিত হয়নি", "নতুন খসড়া খোলা আছে"); "নতুন তৈরি ফর্ম" asks for the name in both languages, the kind and the start (an empty form, or a copy of another published ready form) and opens the builder (SCR-061); "প্রশ্ন-লাইব্রেরি বদলান" opens the library in the same builder, where publishing makes its sections and questions the library every builder sees. The sidebar's "তৈরি ফর্ম" leads here.
+- **Roles.** Department Head, Monitoring Team. A PM reads the published ready forms only in the placement dialog of a project's forms (SCR-061).
+- **Priority.** desktop-first.
+- **Actions.**
+
+| Action | Permission |
+|---|---|
+| Create a ready form | `form.build` |
+| Build and publish a ready form | `form.build`, `form.publish` |
+| Edit and publish the question library | `form.library.manage` |
+
+- **States.** Empty ("এখনো কোনো তৈরি ফর্ম নেই।"); loading; error with retry.
+- **Components.** Button, Badge, Modal, TextField, RadioGroup, Select, EmptyState.
+- **Phase · task.** 2 · T2.4c. **API.** `GET /ready-forms`, `POST /ready-forms`, `GET /ready-forms/{formId}/published`, `POST /projects/{projectId}/forms/place`, `POST /forms/{formId}/take-version`, `GET /form-library`; tag forms.
+
+### SCR-114 The export dialog and the record PDFs
+
+- **Purpose.** An official takes a list away as Excel, CSV or PDF with the columns they choose, or prints a beneficiary's 360° profile or one application (D-143).
+- **Built (T2.8).** "এক্সপোর্ট" above the table of the volunteer, beneficiary and application lists (`apps/web/src/features/exports/ExportButton.tsx`, inside each list so it sends the list's filters and search) opens `ExportDialog.tsx` in its own chunk: the file type, then the columns in groups (the list's own, the further details, and on an application list the form questions by section with "পুরো অংশ বাছুন" and a search), the on-screen columns ticked the first time and the last choice per list on the device after that, "সব বাছুন" and "কোনোটিই না". Once started, `ExportProgress.tsx` shows waiting, the rows written of the total, then "ডাউনলোড করুন"; a failure says why and offers to try again; closing leaves the job running. "PDF নামান" on the beneficiary's profile (the journey report's roles) and on an application's review page (the export roles) starts the record's PDF and follows it in the same progress (`RecordPdfButton.tsx`).
+- **Roles.** The roles whose defaults hold `export.list` (PM, RPM, Project Executive, Implementer, Official দায়ী, Finance, Media, Procurement) and the two global roles; never a volunteer. The server checks the permission, its scope and every protected column again.
+- **Priority.** parity; the dialog is a full-screen sheet on a phone and fits 360 px.
+- **Actions.**
+
+| Action | Permission |
+|---|---|
+| Export a list | `export.list` and the list's own read permission |
+| Add identity or bank columns | `export.beneficiaries`, `export.volunteers` |
+| Add the official section's answers or the score | `export.forms` |
+| Print a beneficiary's profile | `report.beneficiary_journey` |
+| Print one application | `export.list` |
+
+- **States.** Columns loading; columns not loaded with a message; nothing ticked (the start stays disabled); a refusal over the row limit with the narrowing message; waiting; running with its progress; done with the download; failed with its reason; a job that cannot be read with a retry.
+- **Components.** Button, Modal, RadioGroup, CheckboxGroup, Checkbox, TextField, ProgressBar, Alert, Skeleton.
+- **Phase · task.** 2 · T2.8. **API.** `GET /exports/columns`, `POST /exports`, `GET /exports/{jobId}`, `POST /beneficiaries/{beneficiaryId}/pdf`, `POST /applications/{applicationId}/pdf`, `GET /files/{fileId}/content`
+
+### SCR-115 My exports
+
+- **Purpose.** A person finds their exports again and downloads them while the files are kept (30 days).
+- **Built (T2.8).** `/account/exports` (`apps/web/src/features/exports/MyExportsPage.tsx`), linked from the profile menu as "আমার এক্সপোর্ট" for the export roles: each export of the last 30 days with its list, file type, time, row count and state (অপেক্ষায়, তৈরি হচ্ছে with its progress, তৈরি with "ডাউনলোড করুন", হয়নি with its reason, মেয়াদ শেষ once the file is deleted); asked again every 3 seconds while one waits or runs.
+- **Roles.** Anyone signed in sees their own exports only; the download checks the person again (SCR-114).
+- **Priority.** parity.
+- **States.** Empty ("এখনও কোনো এক্সপোর্ট নেই।" with where to start); loading; error with retry.
+- **Components.** Card, Badge, ProgressBar, Button, EmptyState, ErrorState.
+- **Phase · task.** 2 · T2.8. **API.** `GET /exports`, `GET /files/{fileId}/content`
 
 ### SCR-062 Permission panel
 
@@ -1373,10 +1475,10 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 | SCR-105 | Staff handover | Reassign pending work before deactivation (BD-08). Built (T1.9, plan U14): `/admin/handover` finds an official, lists the pending work by category, hands one item or all to an official, completes the handover and deactivates with a reason; tests `apps/web/src/admin/handover/handover.test.tsx`, `apps/web/e2e/handover.spec.ts` | Head, Monitoring | `user.handover`, `user.state.change` | desktop-first | 1 · T1.9 |
 | SCR-106 | Admin settings | Organization, nisab, holidays, providers, alert thresholds, notification templates, i18n | Head, Monitoring, PM (nisab) | `settings.manage`, `nisab.set`, `holiday.manage`, `provider.settings.manage`, `notification.template.manage`, `i18n.manage` | desktop-first | 1 · T1.13, 6 · T6.2 |
 | SCR-107 | Locations and reference lists | Division to union master (four levels, O-09); reference lists (O-38) | Head, Monitoring | `location.manage`, `settings.manage` | desktop-first | 1 · T1.13 |
-| SCR-108 | Media referral and work | The referral (PM, RPM) with priority and note; the decision; the work with stages, members and production roles, script, content type, publications per platform, comments and history; the member profile with portfolio; the media section of the beneficiary profile (D-101) | PM, RPM (refer); Media Team | `media.referral.create`, `media.referral.decide`, `media.work.manage`, `story.manage`, `media.publication.review` | parity | 2 · T2.8b |
+| SCR-108 | Media referral and work | The referral (PM, RPM) with priority and note; the decision; the work with stages, members and production roles, script, content type, publications per platform, comments and history; the member profile with portfolio; the media section of the beneficiary profile (D-101) | PM, RPM (refer); Media Team | `media.referral.create`, `media.referral.decide`, `media.work.manage`, `story.manage`, `media.publication.review` | parity | 2 · T2.8b (built 2026-10-27: the referral dialog and the media badge on the application's office page; the work page `/media/referrals/:referralId`; the member page `/media/members/:userId`; the profile's "মিডিয়া" section; no consent, D-137) |
 | SCR-109 | Deficiency report | The deficiency report fields (SOP), escalation of repeats (BD-37) | officials | `deficiency.report` | parity | after 6 · T6.1: T5.4 (O-34) |
 | SCR-110 | Checklist template editor | Document checklist templates (BD-35) | Head, Monitoring, PM | `template.checklist.manage` | desktop-first | after 6 · T6.1: T5.4 (moved from T1.13 by O-34) |
-| SCR-111 | Public application form (tree planting) | Public link without login; entries go to needs verification (O-08, O-13) | the public | `public` | phone-first | 4 · T4.3 |
+| SCR-111 | Public application form | Public link without login at `/apply/{token}` (built in T2.4: `apps/web/src/features/forms/PublicApplyPage.tsx`, the form renderer with the public audience and a language switch, answers kept in the open tab only, one plain page for a link that takes nothing, and only "received" after sending; the API of T2.3: `GET /public/forms/{token}` shows the project's name and closing date with the volunteer-visible form, `POST …/applications` and `POST …/photos`, the `public-form` rate class); photo fields upload one photo at a time before the submission, at most five; entries go to needs verification and the applicant learns nothing about existing profiles (O-08, O-13, D-119) | the public | `public` | phone-first | 2 · T2.4 (screen), 4 · T4.3 (tree planting) |
 | SCR-112 | Programs | Programs list, create, assign PM | Head, Monitoring | `program.create`, `program.assign_pm`, `program.view` | desktop-first | 1 · T1.11 |
 
 ## 11. Coverage matrix

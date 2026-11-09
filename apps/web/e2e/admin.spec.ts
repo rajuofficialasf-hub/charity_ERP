@@ -13,7 +13,7 @@ const ACCOUNTS = {
 } as const;
 const accounts = (project: string) => ACCOUNTS[project === 'mobile' ? 'mobile' : 'desktop'];
 
-/** Signs in and returns the display name from the home heading ("স্বাগতম, <name>"). */
+/** Signs in and returns the display name from the profile chip of the app bar. */
 async function signIn(page: Page, loginId: string): Promise<string> {
   await page.goto('/login');
   await expect(page.getByRole('button', { name: 'লগইন', exact: true })).toBeEnabled();
@@ -24,9 +24,9 @@ async function signIn(page: Page, loginId: string): Promise<string> {
     .fill(PASSWORD);
   await page.getByRole('button', { name: 'লগইন', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  const heading = page.getByRole('heading', { level: 1, name: /^স্বাগতম, / });
-  await expect(heading).toBeVisible();
-  return ((await heading.textContent()) ?? '').replace(/^স্বাগতম, /, '');
+  await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
+  // the chip's name is in the page on a phone too, where only its letter shows
+  return (await page.getByTestId('profile-name').textContent()) ?? '';
 }
 
 const mainMenu = (page: Page) => page.getByRole('navigation', { name: 'প্রধান মেনু' });
@@ -58,13 +58,13 @@ test.describe('admin area', () => {
       await page.getByRole('banner').getByRole('button', { name: 'Profile menu' }).click();
       await page.getByRole('menuitem', { name: 'বাংলা' }).click();
     } else {
-      const toggle = page.getByRole('banner').getByRole('radiogroup', { name: 'ভাষা' });
-      await toggle.getByRole('radio', { name: 'English' }).click({ force: true });
+      const toggle = page.getByRole('banner').getByRole('group', { name: 'ভাষা' });
+      await toggle.getByRole('button', { name: 'English' }).click({ force: true });
       await expect(page.getByRole('heading', { level: 1, name: 'Beneficiaries' })).toBeVisible();
       await page
         .getByRole('banner')
-        .getByRole('radiogroup', { name: 'Language' })
-        .getByRole('radio', { name: 'বাংলা' })
+        .getByRole('group', { name: 'Language' })
+        .getByRole('button', { name: 'বাংলা' })
         .click({ force: true });
     }
     await expect(page.getByRole('heading', { level: 1, name: 'উপকারভোগী' })).toBeVisible();

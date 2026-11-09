@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { cloneTemplate } from './support/db';
@@ -15,6 +17,23 @@ beforeAll(async () => {
   loc = await f.locationTree(db);
 });
 afterAll(async () => drop());
+
+describe('change requests of volunteers and officials', () => {
+  it('an official asks without a volunteer; a registration correction always names one', async () => {
+    const official = await f.user(db);
+    await db.query(
+      `INSERT INTO volunteer_change_requests (id, user_id, kind, field, requested_by) VALUES ($1, $2, 'profile_edit', 'designation', $2)`,
+      [randomUUID(), official],
+    );
+    await expectSqlError(
+      db.query(
+        `INSERT INTO volunteer_change_requests (id, user_id, kind, field, requested_by) VALUES ($1, $2, 'registration_correction', 'name', $2)`,
+        [randomUUID(), official],
+      ),
+      SQLSTATE.checkViolation,
+    );
+  });
+});
 
 describe('beneficiary identity (BR-001, BR-002, BR-003)', () => {
   it('BR-003 NID is unique', async () => {
@@ -73,6 +92,160 @@ describe('beneficiary identity (BR-001, BR-002, BR-003)', () => {
   });
 });
 
+describe('BEN numbers and duplicate dismissals', () => {
+  const benNo = async (id: string) =>
+    (await db.query('SELECT ben_no FROM beneficiaries WHERE id = $1', [id])).rows[0]
+      .ben_no as number;
+
+  it('gives each new profile the next BEN number', async () => {
+    const first = await benNo(await f.beneficiary(db, loc));
+    const second = await benNo(await f.beneficiary(db, loc));
+    expect(first).toBeGreaterThan(0);
+    expect(second).toBeGreaterThan(first);
+  });
+
+  it('refuses a BEN number another profile holds', async () => {
+    const taken = await benNo(await f.beneficiary(db, loc));
+    await expectSqlError(
+      f.beneficiary(db, loc, { ben_no: taken }),
+      SQLSTATE.uniqueViolation,
+      /beneficiaries_ben_no_key/,
+    );
+  });
+
+  it('never changes a BEN number once given', async () => {
+    const id = await f.beneficiary(db, loc);
+    await expectSqlError(
+      db.query('UPDATE beneficiaries SET ben_no = ben_no + 1000000 WHERE id = $1', [id]),
+      SQLSTATE.checkViolation,
+      /ben_no/,
+    );
+  });
+
+  const dismiss = (
+    low: string,
+    high: string,
+    by: string,
+    reason = 'আলাদা মানুষ, বাবার নাম ভিন্ন',
+  ) =>
+    db.query(
+      `INSERT INTO beneficiary_merge_dismissals (id, low_id, high_id, reason, dismissed_by) VALUES ($1, $2, $3, $4, $5)`,
+      [randomUUID(), low, high, reason, by],
+    );
+  const marks = async (low: string, high: string) =>
+    (
+      await db.query(
+        'SELECT low_id, high_id, lifted_at FROM beneficiary_merge_dismissals WHERE low_id = $1 AND high_id = $2 ORDER BY dismissed_at, id',
+        [low, high],
+      )
+    ).rows;
+  const pair = async () => {
+    const ids = [await f.beneficiary(db, loc), await f.beneficiary(db, loc)].sort();
+    return { low: ids[0]!, high: ids[1]! };
+  };
+
+  it('keeps a dismissed pair in one order, the lower id first', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await expectSqlError(dismiss(high, low, by), SQLSTATE.checkViolation, /dismissals_pair_check/);
+    await expectSqlError(dismiss(low, low, by), SQLSTATE.checkViolation, /dismissals_pair_check/);
+    await dismiss(low, high, by);
+    expect(await marks(low, high)).toEqual([{ low_id: low, high_id: high, lifted_at: null }]);
+  });
+
+  it('holds one active dismissal per pair, and a new one after the mark is lifted', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await dismiss(low, high, by);
+    await expectSqlError(
+      dismiss(low, high, by),
+      SQLSTATE.uniqueViolation,
+      /beneficiary_merge_dismissals_active_key/,
+    );
+    await db.query(
+      `UPDATE beneficiary_merge_dismissals SET lifted_by = $1, lifted_at = now(), lift_reason = 'আবার যাচাই করা হবে' WHERE low_id = $2 AND high_id = $3`,
+      [by, low, high],
+    );
+    await dismiss(low, high, by);
+    const rows = await marks(low, high);
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((r) => r.lifted_at === null)).toHaveLength(1);
+  });
+
+  it('needs a reason of 3 to 1,000 characters, and lifts only with who, when and why', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await expectSqlError(dismiss(low, high, by, 'না'), SQLSTATE.checkViolation, /reason/);
+    await expectSqlError(
+      dismiss(low, high, by, 'ক'.repeat(1001)),
+      SQLSTATE.checkViolation,
+      /reason/,
+    );
+    await dismiss(low, high, by);
+    await expectSqlError(
+      db.query(
+        'UPDATE beneficiary_merge_dismissals SET lifted_at = now() WHERE low_id = $1 AND high_id = $2',
+        [low, high],
+      ),
+      SQLSTATE.checkViolation,
+      /lift/,
+    );
+  });
+
+  it('lifts a mark once and changes nothing else of it', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await dismiss(low, high, by);
+    const where = 'WHERE low_id = $1 AND high_id = $2';
+    await expectSqlError(
+      db.query(`UPDATE beneficiary_merge_dismissals SET reason = 'অন্য কারণ লেখা হলো' ${where}`, [
+        low,
+        high,
+      ]),
+      SQLSTATE.insufficientPrivilege,
+      /merge_dismissal_is_fixed/,
+    );
+    await db.query(
+      `UPDATE beneficiary_merge_dismissals SET lifted_by = $3, lifted_at = now(), lift_reason = 'আবার যাচাই করা হবে' ${where}`,
+      [low, high, by],
+    );
+    await expectSqlError(
+      db.query(
+        `UPDATE beneficiary_merge_dismissals SET lifted_by = NULL, lifted_at = NULL, lift_reason = NULL ${where}`,
+        [low, high],
+      ),
+      SQLSTATE.insufficientPrivilege,
+      /merge_dismissal_is_fixed/,
+    );
+  });
+
+  it('refuses a reason of white space only', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await expectSqlError(dismiss(low, high, by, '     '), SQLSTATE.checkViolation, /reason/);
+  });
+
+  it('compares names with tabs, line breaks and extra spaces as the same name', async () => {
+    const { rows } = await db.query(
+      `SELECT person_name_key($1) = person_name_key($2) AND person_name_key($1) = 'মোছাঃ রহিমা খাতুন' AS same`,
+      ['\tমোছাঃ  রহিমা\nখাতুন \n', 'মোছাঃ রহিমা খাতুন'],
+    );
+    expect(rows[0].same).toBe(true);
+  });
+
+  it('never deletes a dismissal', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await dismiss(low, high, by);
+    await expectSqlError(
+      db.query('DELETE FROM beneficiary_merge_dismissals WHERE low_id = $1', [low]),
+      SQLSTATE.insufficientPrivilege,
+      /append_only_table beneficiary_merge_dismissals/,
+    );
+    expect(await marks(low, high)).toHaveLength(1);
+  });
+});
+
 describe('applications', () => {
   it('BR-016 one live application per beneficiary per project; allowed again after soft delete', async () => {
     const p = await f.project(db);
@@ -106,15 +279,17 @@ describe('applications', () => {
     );
   });
 
-  it('only needs_verification may lack a beneficiary (BR-104)', async () => {
+  it('a submitted application has its person; a draft, a public entry, a rejected one and a deleted one may lack it', async () => {
     const p = await f.project(db);
     await expectSqlError(
       f.application(db, { project: p, loc }),
       SQLSTATE.checkViolation,
       /applications_beneficiary_check/,
     );
+    for (const status of ['draft', 'needs_verification', 'rejected'])
+      await expect(f.application(db, { project: p, loc }, { status })).resolves.toBeTruthy();
     await expect(
-      f.application(db, { project: p, loc }, { status: 'needs_verification' }),
+      f.application(db, { project: p, loc }, { status: 'deleted', deleted_at: new Date() }),
     ).resolves.toBeTruthy();
   });
 
@@ -1040,5 +1215,443 @@ describe('nisab versions', () => {
       SQLSTATE.restrictViolation,
       /never changes/,
     );
+  });
+});
+
+describe('upload sessions of the chunked upload', () => {
+  const session = async () => {
+    const userId = await f.volunteerUser(db);
+    const id = randomUUID();
+    await db.query(
+      `INSERT INTO upload_sessions (id, user_id, declared, client_uuid, bucket, object_key, part_count, expires_at)
+       VALUES ($1, $2, '{"size": 600000}', $3, 'photos', $4, 3, now() + interval '1 hour')`,
+      [id, userId, randomUUID(), `p/a/photo/${id}.jpg`],
+    );
+    return { id, userId };
+  };
+
+  it('records the parts, bytes and expiry of an upload, but never moves its target or deletes it', async () => {
+    const { id } = await session();
+    await db.query(
+      `UPDATE upload_sessions SET parts_received = '{1,2}', bytes_received = 524288,
+       expires_at = now() + interval '1 hour' WHERE id = $1`,
+      [id],
+    );
+    const stored = await db.query(
+      'SELECT parts_received, bytes_received FROM upload_sessions WHERE id = $1',
+      [id],
+    );
+    expect(stored.rows[0]).toEqual({ parts_received: [1, 2], bytes_received: '524288' });
+    await expectSqlError(
+      db.query('UPDATE upload_sessions SET bytes_received = 600001 WHERE id = $1', [id]),
+      SQLSTATE.checkViolation,
+    );
+    await expectSqlError(
+      db.query(`UPDATE upload_sessions SET object_key = 'elsewhere.jpg' WHERE id = $1`, [id]),
+      SQLSTATE.insufficientPrivilege,
+    );
+    await expectSqlError(
+      db.query('DELETE FROM upload_sessions WHERE id = $1', [id]),
+      SQLSTATE.insufficientPrivilege,
+    );
+  });
+
+  it('keeps one session per client id of a user, at most 80 parts, in a storage bucket', async () => {
+    const { userId } = await session();
+    const insert = (clientUuid: string, bucket: string, parts: number) =>
+      db.query(
+        `INSERT INTO upload_sessions (id, user_id, declared, client_uuid, bucket, object_key, part_count, expires_at)
+         VALUES ($1, $2, '{}', $3, $4, 'k.jpg', $5, now())`,
+        [randomUUID(), userId, clientUuid, bucket, parts],
+      );
+    const client = randomUUID();
+    await insert(client, 'photos', 1);
+    await expectSqlError(insert(client, 'photos', 1), SQLSTATE.uniqueViolation);
+    await expectSqlError(insert(randomUUID(), 'photos', 81), SQLSTATE.checkViolation);
+    await expectSqlError(insert(randomUUID(), 'uploads', 1), SQLSTATE.checkViolation);
+  });
+});
+
+describe('the number table question type', () => {
+  it('is a type a form field may have, and the migration back refuses while a form uses it', async () => {
+    const { rows } = await db.query<{ def: string }>(
+      `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname IN ('form_fields_type_check', 'form_library_fields_type_check')`,
+    );
+    expect(rows).toHaveLength(2);
+    for (const row of rows) expect(row.def).toContain("'number_table'");
+    const down = readFileSync(
+      join(__dirname, '../../prisma/migrations/20261026120000_number_table/down.sql'),
+      'utf8',
+    );
+    await db.query('BEGIN');
+    try {
+      await db.query(
+        `INSERT INTO form_library_fields (id, key, type, label_bn, label_en) VALUES ($1, $2, 'number_table', 'গবাদি পশু', 'Livestock')`,
+        [randomUUID(), `livestock_${Date.now()}`],
+      );
+      await expect(db.query(down)).rejects.toThrow(/number_table down/);
+    } finally {
+      await db.query('ROLLBACK');
+    }
+  });
+});
+
+describe('the media referrals and works', () => {
+  /** An approved application with its beneficiary, and a referral of it by a fresh official. */
+  async function referral(over: Record<string, unknown> = {}) {
+    const project = await f.project(db);
+    const beneficiaryId = await f.beneficiary(db, loc);
+    const applicationId = await f.application(
+      db,
+      { project, loc },
+      { status: 'approved', beneficiary_id: beneficiaryId },
+    );
+    const referrer = await f.user(db);
+    const id = randomUUID();
+    await db.query(
+      `INSERT INTO media_referrals (id, application_id, beneficiary_id, project_id, referred_by, priority, note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [id, applicationId, beneficiaryId, project.id, referrer, over.priority ?? 'high', 'নোট'],
+    );
+    return { id, applicationId, beneficiaryId, projectId: project.id, referrer };
+  }
+  async function accept(r: { id: string; referrer: string }) {
+    await db.query(
+      `UPDATE media_referrals SET state = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`,
+      [r.id, r.referrer],
+    );
+  }
+  async function work(referralId: string, stage = 'accepted') {
+    await f.referenceCode(db, 'media_stage', stage);
+    const id = randomUUID();
+    await db.query(
+      `INSERT INTO media_works (id, referral_id, title, stage_code) VALUES ($1, $2, 'কাজ', $3)`,
+      [id, referralId, stage],
+    );
+    return id;
+  }
+  async function platform(code: string) {
+    await db.query(
+      `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en, attributes)
+       VALUES ($1, 'media_platform', $2, $2, $2, '{"kind": "youtube"}'::jsonb) ON CONFLICT (list_key, code) DO NOTHING`,
+      [randomUUID(), code],
+    );
+  }
+
+  it('keeps one referral per application, a known priority and a reason with each refusal', async () => {
+    const r = await referral();
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_referrals (id, application_id, beneficiary_id, project_id, referred_by, priority, note)
+         VALUES ($1, $2, $3, $4, $5, 'normal', 'আবার')`,
+        [randomUUID(), r.applicationId, r.beneficiaryId, r.projectId, r.referrer],
+      ),
+      SQLSTATE.uniqueViolation,
+    );
+    await expectSqlError(referral({ priority: 'urgent' }), SQLSTATE.checkViolation);
+    // a refusal names its decider and its reason
+    await expectSqlError(
+      db.query(`UPDATE media_referrals SET state = 'rejected' WHERE id = $1`, [r.id]),
+      SQLSTATE.checkViolation,
+    );
+    await expectSqlError(
+      db.query(
+        `UPDATE media_referrals SET state = 'sent_back', decided_by = $2, decided_at = now(), decision_comment = ' ' WHERE id = $1`,
+        [r.id, r.referrer],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    await db.query(
+      `UPDATE media_referrals SET state = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`,
+      [r.id, r.referrer],
+    );
+  });
+
+  it('takes only listed stages, production roles and platforms, one work per accepted referral', async () => {
+    const r = await referral();
+    // no work without an accepted referral
+    await expectSqlError(work(randomUUID()), SQLSTATE.checkViolation);
+    await expectSqlError(work(r.id), SQLSTATE.checkViolation);
+    await accept(r);
+    const workId = await work(r.id);
+    // an accepted referral with a work stays accepted
+    await expectSqlError(
+      db.query(
+        `UPDATE media_referrals SET state = 'rejected', decision_comment = 'না' WHERE id = $1`,
+        [r.id],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    // nothing is published or done before the final review
+    await f.referenceCode(db, 'media_stage', 'published');
+    await expectSqlError(
+      db.query(`UPDATE media_works SET stage_code = 'published' WHERE id = $1`, [workId]),
+      SQLSTATE.checkViolation,
+    );
+    for (const change of [
+      "content_type = 'audio'",
+      "script_state = 'lost'",
+      'review_approved_at = now()',
+    ])
+      await expectSqlError(
+        db.query(`UPDATE media_works SET ${change} WHERE id = $1`, [workId]),
+        SQLSTATE.checkViolation,
+      );
+    await expectSqlError(work(r.id), SQLSTATE.uniqueViolation);
+    await expectSqlError(
+      db.query(`UPDATE media_works SET stage_code = 'nowhere' WHERE id = $1`, [workId]),
+      SQLSTATE.foreignKeyViolation,
+    );
+    // a work on hold remembers the stage it was held at, and only then
+    await f.referenceCode(db, 'media_stage', 'on_hold');
+    await expectSqlError(
+      db.query(`UPDATE media_works SET stage_code = 'on_hold' WHERE id = $1`, [workId]),
+      SQLSTATE.checkViolation,
+    );
+    await f.referenceCode(db, 'media_role', 'cinematographer');
+    const member = await f.user(db);
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_work_members (id, work_id, user_id, roles) VALUES ($1, $2, $3, ARRAY['juggler'])`,
+        [randomUUID(), workId, member],
+      ),
+      SQLSTATE.foreignKeyViolation,
+    );
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_work_members (id, work_id, user_id, roles) VALUES ($1, $2, $3, ARRAY[]::text[])`,
+        [randomUUID(), workId, member],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    const memberRow = randomUUID();
+    await db.query(
+      `INSERT INTO media_work_members (id, work_id, user_id, roles) VALUES ($1, $2, $3, ARRAY['cinematographer'])`,
+      [memberRow, workId, member],
+    );
+    await expectSqlError(
+      db.query(`UPDATE media_work_members SET roles = ARRAY['juggler'] WHERE id = $1`, [memberRow]),
+      SQLSTATE.foreignKeyViolation,
+    );
+    await platform('test_youtube');
+    // a published post has its https link and its date
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_publications (id, work_id, platform_code, state) VALUES ($1, $2, 'test_youtube', 'published')`,
+        [randomUUID(), workId],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_publications (id, work_id, platform_code, link) VALUES ($1, $2, 'test_youtube', 'javascript:alert(1)')`,
+        [randomUUID(), workId],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    await db.query(
+      `INSERT INTO media_publications (id, work_id, platform_code, state, link, published_on)
+       VALUES ($1, $2, 'test_youtube', 'published', 'https://youtu.be/dQw4w9WgXcQ', '2026-10-26')`,
+      [randomUUID(), workId],
+    );
+    // a link is at most 500 characters
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_publications (id, work_id, platform_code, link) VALUES ($1, $2, 'test_youtube', $3)`,
+        [randomUUID(), workId, `https://youtu.be/${'a'.repeat(500)}`],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    // comments and the history are never changed or removed
+    const comment = randomUUID();
+    await db.query(
+      `INSERT INTO media_comments (id, work_id, author_id, body) VALUES ($1, $2, $3, 'ভালো')`,
+      [comment, workId, member],
+    );
+    await expect(
+      db.query(`UPDATE media_comments SET body = 'বদল' WHERE id = $1`, [comment]),
+    ).rejects.toThrow();
+    await expect(db.query(`DELETE FROM media_comments WHERE id = $1`, [comment])).rejects.toThrow();
+  });
+
+  it('keeps a system entry active and named', async () => {
+    const id = randomUUID();
+    await db.query(
+      `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en, is_system) VALUES ($1, 'media_stage', 'test_system', 'ক', 'A', true)`,
+      [id],
+    );
+    // the labels change; the entry stays
+    await db.query(`UPDATE reference_lists SET label_bn = 'খ' WHERE id = $1`, [id]);
+    for (const change of ['active = false', "code = 'renamed'", 'is_system = false'])
+      await expectSqlError(
+        db.query(`UPDATE reference_lists SET ${change} WHERE id = $1`, [id]),
+        SQLSTATE.checkViolation,
+      );
+    await expectSqlError(
+      db.query(`DELETE FROM reference_lists WHERE id = $1`, [id]),
+      SQLSTATE.checkViolation,
+    );
+  });
+
+  it('ties a referral to its application, keeps the history, and the migration back refuses while a referral exists', async () => {
+    const r = await referral();
+    // the beneficiary and the project are the application's own, checked at commit
+    const other = await f.beneficiary(db, loc);
+    await db.query('BEGIN');
+    await db.query(`UPDATE media_referrals SET beneficiary_id = $2 WHERE id = $1`, [r.id, other]);
+    await expectSqlError(db.query('COMMIT'), SQLSTATE.checkViolation);
+    const step = randomUUID();
+    await db.query(
+      `INSERT INTO media_events (id, referral_id, kind, actor_id) VALUES ($1, $2, 'referred', $3)`,
+      [step, r.id, r.referrer],
+    );
+    await expect(
+      db.query(`UPDATE media_events SET kind = 'accepted' WHERE id = $1`, [step]),
+    ).rejects.toThrow();
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_events (id, referral_id, kind, actor_id) VALUES ($1, $2, 'teleported', $3)`,
+        [randomUUID(), r.id, r.referrer],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    const down = readFileSync(
+      join(__dirname, '../../prisma/migrations/20261026160000_media_team/down.sql'),
+      'utf8',
+    );
+    await db.query('BEGIN');
+    try {
+      await expect(db.query(down)).rejects.toThrow(/media_team down/);
+    } finally {
+      await db.query('ROLLBACK');
+    }
+  });
+});
+
+describe('export jobs', () => {
+  /** A job row of the given shape, by a fresh official. */
+  const job = async (over: Record<string, unknown> = {}) => {
+    const requester = await f.user(db);
+    const row = {
+      id: randomUUID(),
+      requested_by: requester,
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name', 'mobile'],
+      access: JSON.stringify({ actorId: requester, classes: ['beneficiary.contact'] }),
+      ...over,
+    };
+    const keys = Object.keys(row);
+    return db.query(
+      `INSERT INTO export_jobs (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`,
+      Object.values(row),
+    );
+  };
+
+  it('keeps the chosen columns and the access the request froze', async () => {
+    const { rows } = await job();
+    expect(rows[0]).toMatchObject({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name', 'mobile'],
+      rows_done: 0,
+      rows_total: null,
+      error_code: null,
+      finished_at: null,
+    });
+    expect(rows[0].access).toMatchObject({ classes: ['beneficiary.contact'] });
+  });
+
+  it('takes the three lists and the two records as kinds, and the three formats', async () => {
+    for (const kind of [
+      'volunteers',
+      'beneficiaries',
+      'applications',
+      'beneficiary_profile',
+      'application',
+    ])
+      await job({ kind });
+    for (const format of ['csv', 'xlsx', 'pdf']) await job({ format });
+    await expectSqlError(
+      job({ kind: 'donors' }),
+      SQLSTATE.checkViolation,
+      /export_jobs_kind_check/,
+    );
+    await expectSqlError(
+      job({ format: 'docx' }),
+      SQLSTATE.checkViolation,
+      /export_jobs_format_check/,
+    );
+  });
+
+  it('needs the chosen columns of a list, but none for a record printed whole', async () => {
+    await expectSqlError(
+      job({ kind: 'volunteers', columns: [] }),
+      SQLSTATE.checkViolation,
+      /export_jobs_columns_check/,
+    );
+    const { rows } = await job({ kind: 'beneficiary_profile', columns: [] });
+    expect(rows[0].columns).toEqual([]);
+  });
+
+  it('refuses a job written without its format, columns or frozen access', async () => {
+    for (const missing of ['format', 'columns', 'access']) {
+      const requester = await f.user(db);
+      const row: Record<string, unknown> = {
+        id: randomUUID(),
+        requested_by: requester,
+        kind: 'beneficiaries',
+        format: 'csv',
+        columns: ['name'],
+        access: '{}',
+      };
+      delete row[missing];
+      const keys = Object.keys(row);
+      await expectSqlError(
+        db.query(
+          `INSERT INTO export_jobs (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')})`,
+          Object.values(row),
+        ),
+        SQLSTATE.notNullViolation,
+        new RegExp(`"${missing}"`),
+      );
+    }
+  });
+
+  it('refuses a negative progress, a finished job without its file, and a failed one without its reason', async () => {
+    await expectSqlError(
+      job({ rows_done: -1 }),
+      SQLSTATE.checkViolation,
+      /export_jobs_progress_check/,
+    );
+    await expectSqlError(
+      job({ rows_total: -1 }),
+      SQLSTATE.checkViolation,
+      /export_jobs_progress_check/,
+    );
+    await expectSqlError(
+      job({ status: 'done' }),
+      SQLSTATE.checkViolation,
+      /export_jobs_done_file_check/,
+    );
+    await expectSqlError(
+      job({ status: 'failed' }),
+      SQLSTATE.checkViolation,
+      /export_jobs_failed_reason_check/,
+    );
+    const failed = await job({ status: 'failed', error_code: 'export.timed_out' });
+    expect(failed.rows[0].status).toBe('failed');
+  });
+
+  it('keeps a finished job with its file', async () => {
+    const owner = await f.user(db);
+    const fileId = randomUUID();
+    await db.query(
+      `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, uploaded_by, source, virus_scan)
+       VALUES ($1, 'exports', $2, 'export', 'text/csv', 12, $3, $4, 'system', 'clean')`,
+      [fileId, `2026/11/${fileId}/list.csv`, 'a'.repeat(64), owner],
+    );
+    const { rows } = await job({ status: 'done', file_id: fileId, rows_total: 3, rows_done: 3 });
+    expect(rows[0]).toMatchObject({ status: 'done', file_id: fileId, rows_done: 3 });
   });
 });

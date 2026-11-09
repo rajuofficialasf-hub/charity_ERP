@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context';
+import { seedFormTemplates } from '../../seed/sets/base/forms';
 import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
 import { seedWorkflows } from '../../seed/sets/base/workflows';
 import { accessWorld } from './support/access-fixtures';
@@ -13,6 +14,8 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { volunteer } from './support/fixtures';
+import { publishedForm, publishedReadyForm } from './support/forms';
 import { notificationsOf } from './support/notifications';
 
 // The life of a project: activation of a complete draft, the deadline extension, the two-step
@@ -34,6 +37,7 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.db);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
+  await seedFormTemplates(ctx);
 });
 afterAll(async () => h.close());
 
@@ -109,6 +113,7 @@ async function draft(complete: boolean, fundTotal = '100000.00') {
       misconduct: text('অনিয়ম'),
     });
   expect(rules.status).toBe(200);
+  await publishedForm(h, await as(world.users.monitoring), id);
   return id;
 }
 async function activated() {
@@ -131,6 +136,82 @@ describe('activation', () => {
       expect.arrayContaining(['window', 'limit', 'cost', 'target', 'fund_sources', 'area']),
     );
     expect(paths).toContain('photo_rule');
+  });
+
+  it('needs a published application form before it activates', async () => {
+    const pm = await as(world.users.pm);
+    // everything but the form
+    const id = await draft(false);
+    const created = await api().get(`/api/v1/projects/${id}`).set(bearer(pm));
+    await api()
+      .patch(`/api/v1/projects/${id}`)
+      .set(bearer(pm))
+      .set('If-Match', String(created.headers.etag))
+      .send({
+        applyFrom: '2026-11-01',
+        applyTo: '2026-12-31',
+        perVolunteerLimit: 50,
+        costPerBeneficiary: '1000.00',
+        targetBeneficiaries: 100,
+      });
+    await api()
+      .patch(`/api/v1/projects/${id}/fund-sources`)
+      .set(bearer(pm))
+      .send({ fundSources: [{ source: 'zakat', amount: '100000.00' }] });
+    await at(pm, `/projects/${id}/areas`).send({
+      locationId: world.dhaka.division,
+      rpmUserId: world.users.rpmDhaka,
+    });
+    const components = await api().get(`/api/v1/projects/${id}/components`).set(bearer(pm));
+    const distribution = components.body.data.find(
+      (c: { componentKey: string }) => c.componentKey === 'distribution',
+    );
+    await api()
+      .patch(`/api/v1/projects/${id}/components/distribution`)
+      .set(bearer(pm))
+      .set('If-Match', distribution.etag)
+      .send({ settings: { ...distribution.settings, rule: 'group' } });
+    const text = (bn: string) => ({ bn, en: `${bn} (en)` });
+    await api()
+      .put(`/api/v1/projects/${id}/rules`)
+      .set(bearer(pm))
+      .send({
+        volunteer_duties: text('দায়িত্ব'),
+        implementation_process: text('প্রক্রিয়া'),
+        misconduct: text('অনিয়ম'),
+      });
+    const refused = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.details).toEqual([
+      expect.objectContaining({ path: 'form', code: 'validation.required' }),
+    ]);
+    // a published form of the kind other cannot take applications, so it is not enough
+    const builder = await as(world.users.monitoring);
+    await placedOtherForm(builder, id);
+    const other = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
+    expect(other.status).toBe(409);
+    expect(other.body.error.details).toEqual([
+      expect.objectContaining({ path: 'form', code: 'validation.required' }),
+    ]);
+    // a draft form is not enough; the published one is (the Monitoring Team builds it)
+    const made = await at(builder, `/projects/${id}/forms`).send({
+      key: 'default',
+      title: { bn: 'আবেদন', en: 'Application' },
+      source: { kind: 'template', templateKey: 'form_distribution' },
+    });
+    expect(made.status).toBe(201);
+    const still = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
+    expect(still.status).toBe(409);
+    const read = await api()
+      .get(`/api/v1/form-versions/${made.body.data.draftVersionId}`)
+      .set(bearer(builder));
+    const published = await at(
+      builder,
+      `/form-versions/${made.body.data.draftVersionId}/publish`,
+    ).set('If-Match', read.headers.etag as string);
+    expect(published.status).toBe(200);
+    const res = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
+    expect(res.status).toBe(200);
   });
 
   it('activates a complete draft and stores the workflow snapshot', async () => {
@@ -192,6 +273,39 @@ describe('activation', () => {
     const id = await draft(true);
     const res = await at(pm, `/projects/${id}/activate`).set('If-Match', '"stale"');
     expect(res.status).toBe(412);
+  });
+});
+
+describe('the volunteers of a draft', () => {
+  it('hear of their assignment only when the project is activated, asked for their consent', async () => {
+    const id = await draft(true);
+    const a = await account(h.db, { kind: 'volunteer', role: 'volunteer_general' });
+    accounts.set(a.id, a);
+    const volunteerId = await volunteer(h.db, world.dhaka, a.id);
+    const rpm = await as(world.users.rpmDhaka);
+    const assigned = await at(rpm, `/projects/${id}/volunteers`).send({
+      volunteers: [{ volunteerId }],
+    });
+    expect(assigned.status).toBe(201);
+    // the draft is not theirs to see, so nothing points them to it yet
+    expect(await notificationsOf(h.db, 'project_assignment', a.id)).toHaveLength(0);
+    const own = () => api().get(`/api/v1/me/projects/${id}`);
+    expect((await own().set(bearer(await as(a.id)))).status).toBe(404);
+    const pm = await as(world.users.pm);
+    const res = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
+    expect(res.status).toBe(200);
+    const told = await notificationsOf(h.db, 'project_assignment', a.id);
+    expect(told.map((n) => n.params.projectId)).toEqual([id]);
+    // one notice asks for the consent; the activation's own notice is for the officials
+    expect(await notificationsOf(h.db, 'project_activated', a.id)).toHaveLength(0);
+    expect(
+      (await notificationsOf(h.db, 'project_activated', world.users.rpmDhaka)).map(
+        (n) => n.params.projectId,
+      ),
+    ).toContain(id);
+    const opened = await own().set(bearer(await as(a.id)));
+    expect(opened.status).toBe(200);
+    expect(opened.body.data).toMatchObject({ consentStatus: 'pending' });
   });
 });
 
@@ -384,3 +498,13 @@ describe('who may move a project', () => {
     expect(byMonitoring.status).toBe(200);
   });
 });
+
+/** A published ready form of the kind other, placed on the project by the builder. */
+async function placedOtherForm(builder: Session, projectId: string) {
+  const ready = await publishedReadyForm(h, builder, 'other');
+  const placed = await at(builder, `/projects/${projectId}/forms/place`).send({
+    readyFormId: ready,
+    key: 'survey',
+  });
+  expect(placed.status, JSON.stringify(placed.body)).toBe(201);
+}

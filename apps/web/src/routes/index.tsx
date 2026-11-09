@@ -3,11 +3,11 @@ import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { RouteError } from '../components/RouteError';
 import { LoginPage } from '../features/auth/LoginPage';
 
-/** The dev-only component gallery (T1.4) exists in `vite dev` and in the E2E build only. */
+/** The asf component gallery exists in `vite dev` and in the E2E build only. */
 export const GALLERY_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEV_GALLERY === '1';
 
 // Constant-folded at build time, so a normal production build has no gallery chunk at all.
-const GalleryPage = GALLERY_ENABLED ? lazy(() => import('../dev/GalleryPage')) : null;
+const AsfGalleryPage = GALLERY_ENABLED ? lazy(() => import('../dev/AsfGalleryPage')) : null;
 
 /**
  * Every screen of the PWA: the sign-in pages alone, every signed-in page inside the app shell.
@@ -29,6 +29,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
           path: '/invite',
           lazy: async () => ({
             Component: (await import('../features/auth/InvitePage')).InvitePage,
+          }),
+        },
+        {
+          path: '/apply/:token',
+          lazy: async () => ({
+            Component: (await import('../features/forms/PublicApplyPage')).PublicApplyPage,
           }),
         },
         {
@@ -58,6 +64,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               path: '/account/sessions',
               lazy: async () => ({
                 Component: (await import('../features/account/SessionsView')).SessionsView,
+              }),
+            },
+            {
+              path: '/account/exports',
+              lazy: async () => ({
+                Component: (await import('../features/exports/MyExportsPage')).MyExportsPage,
               }),
             },
             {
@@ -94,6 +106,59 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: '/my-projects/:projectId/apply',
+              lazy: async () => ({
+                Component: (await import('../features/applications/ApplicationFormPage'))
+                  .ApplicationFormPage,
+              }),
+            },
+            {
+              path: '/my-applications',
+              lazy: async () => ({
+                Component: (await import('../features/applications/MyApplicationsPage'))
+                  .MyApplicationsPage,
+              }),
+            },
+            {
+              path: '/my-applications/:applicationId',
+              lazy: async () => ({
+                Component: (await import('../features/applications/ApplicationDetailPage'))
+                  .ApplicationDetailPage,
+              }),
+            },
+            {
+              path: '/my-applications/:applicationId/edit',
+              lazy: async () => ({
+                Component: (await import('../features/applications/ApplicationFormPage'))
+                  .ApplicationFormPage,
+              }),
+            },
+            {
+              path: '/sync',
+              lazy: async () => ({
+                Component: (await import('../features/sync/SyncCentrePage')).SyncCentrePage,
+              }),
+            },
+            // the Media Team's screens are their own chunks, like the volunteer's pages
+            {
+              path: '/media',
+              lazy: async () => ({
+                Component: (await import('../features/media/MediaHomePage')).MediaHomePage,
+              }),
+            },
+            {
+              path: '/media/referrals/:referralId',
+              lazy: async () => ({
+                Component: (await import('../features/media/WorkPage')).WorkPage,
+              }),
+            },
+            {
+              path: '/media/members/:userId',
+              lazy: async () => ({
+                Component: (await import('../features/media/MemberPage')).MemberPage,
+              }),
+            },
+            {
               // The admin area is its own chunk: the other screens never load it.
               path: '/admin',
               lazy: async () => ({ Component: (await import('../admin/AdminLayout')).AdminLayout }),
@@ -110,6 +175,25 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   path: 'templates',
                   lazy: async () => ({
                     Component: (await import('../admin/templates/TemplatesPage')).TemplatesPage,
+                  }),
+                },
+                {
+                  path: 'ready-forms',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/ReadyFormsPage')).ReadyFormsPage,
+                  }),
+                },
+                {
+                  path: 'ready-forms/:formId',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/FormBuilderPage'))
+                      .ReadyFormBuilderPage,
+                  }),
+                },
+                {
+                  path: 'question-library',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/FormBuilderPage')).LibraryBuilderPage,
                   }),
                 },
                 {
@@ -140,10 +224,43 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   }),
                 },
                 {
+                  path: 'projects/:projectId/applications',
+                  lazy: async () => ({
+                    Component: (await import('../admin/applications/ApplicationsPage'))
+                      .ApplicationsPage,
+                  }),
+                },
+                {
+                  path: 'applications/:applicationId',
+                  lazy: async () => ({
+                    Component: (await import('../admin/applications/ApplicationReviewPage'))
+                      .ApplicationReviewPage,
+                  }),
+                },
+                {
+                  path: 'projects/:projectId/forms',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/FormsPage')).FormsPage,
+                  }),
+                },
+                {
+                  path: 'projects/:projectId/forms/:formId',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/FormBuilderPage')).FormBuilderPage,
+                  }),
+                },
+                {
                   path: 'projects/:projectId/volunteers',
                   lazy: async () => ({
                     Component: (await import('../admin/projects/volunteers/ProjectVolunteersPage'))
                       .ProjectVolunteersPage,
+                  }),
+                },
+                {
+                  path: 'projects/:projectId/transfer',
+                  lazy: async () => ({
+                    Component: (await import('../admin/projects/volunteers/TransferPage'))
+                      .TransferPage,
                   }),
                 },
                 {
@@ -164,6 +281,20 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   lazy: async () => ({
                     Component: (await import('../admin/beneficiaries/BeneficiariesPage'))
                       .BeneficiariesPage,
+                  }),
+                },
+                {
+                  path: 'beneficiaries/duplicates',
+                  lazy: async () => ({
+                    Component: (await import('../admin/beneficiaries/duplicates/DuplicatesPage'))
+                      .DuplicatesPage,
+                  }),
+                },
+                {
+                  path: 'beneficiaries/duplicates/compare',
+                  lazy: async () => ({
+                    Component: (await import('../admin/beneficiaries/duplicates/ComparePage'))
+                      .ComparePage,
                   }),
                 },
                 {
@@ -266,13 +397,13 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
             },
           ],
         },
-        ...(gallery && GalleryPage
+        ...(gallery && AsfGalleryPage
           ? [
               {
-                path: '/dev/components',
+                path: '/dev/asf',
                 element: (
                   <Suspense fallback={null}>
-                    <GalleryPage />
+                    <AsfGalleryPage />
                   </Suspense>
                 ),
               },

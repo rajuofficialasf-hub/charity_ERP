@@ -6,7 +6,6 @@ import { loadLocations } from '../../../src/locations/load';
 import { type SeedContext, seedId } from '../../context';
 import { inTransaction, REPO_ROOT } from '../util';
 import { seedAccess } from './access';
-import { seedFormTemplates } from './forms';
 import { seedNotificationTemplates } from './notifications';
 import { seedReferenceLists } from './reference-lists';
 import { seedSettings } from './settings';
@@ -43,6 +42,5 @@ export async function seedBase(ctx: SeedContext): Promise<void> {
     await seedAccess(ctx);
     await seedWorkflows(ctx);
     await seedNotificationTemplates(ctx);
-    await seedFormTemplates(ctx);
   });
 }

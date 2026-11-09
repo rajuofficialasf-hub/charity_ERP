@@ -2,7 +2,7 @@
 
 Status: complete, task T0.16 (2026-10-10); implemented in T1.2 (2026-10-11) as `apps/api/prisma/schema.prisma` and the initial migration `apps/api/prisma/migrations/20261011000000_init/` with a hand-written `down.sql` (ADR-003); seeds follow in T1.3. This dictionary is the physical form of `docs/database/ERD.md` (95 tables: the 90 entities of T0.15, `id_sequences`, and the four added in Phase 1: `project_rules_versions`, `project_consents`, `registration_drafts`, `account_invitations`); every table, column, constraint and index here must appear in the migrations, and a change here is a change there in the same commit (PROJECT_RULES §5). JSON Schemas for JSONB columns: `docs/database/json-schemas/`. The proposals of the first draft were accepted by the owner on 2026-10-10 (O-38, O-39); where the text says PROPOSAL the value is decided as listed in section 24.
 
-Note on human ids: the T0.16 prompt mentions "BEN-" ids "per DECISION_LOG". DECISION_LOG O-03 decided that the BEN-ID **is** the beneficiary's UUID v7; there is no `BEN-` sequence. Only applications carry a human id. This dictionary follows O-03.
+Note on human ids: the T0.16 prompt mentions "BEN-" ids "per DECISION_LOG". DECISION_LOG O-03 decided that the BEN-ID **is** the beneficiary's UUID v7. Since T2.2 (D-112) every profile also has a short sequential number `ben_no`, shown as `BEN-0000123`, from the sequence `beneficiaries_ben_no_seq`; the UUID stays the key and the merge pointer. Applications carry their own human id.
 
 ## 1. Scope and how to read it
 
@@ -79,13 +79,13 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-otp-purpose | registration, password_reset, contact_change (D-085) | otp_codes.purpose |
 | L-channel-otp | sms, email | otp_codes.channel |
 | L-location-level | division, district, upazila, union | locations.level |
-| L-location-kind | division, district, upazila, city_corporation, union, pourosova, thana | locations.kind (D-061; city_corporation at upazila level, pourosova and thana at union level) |
+| L-location-kind | division, district, upazila, city_corporation, union, pourosova, thana, other | locations.kind (D-061; city_corporation at upazila level, pourosova, thana and other (a cantonment or a forest range, D-160) at union level) |
 | L-project-status | draft, active, closing, closed, cancelled (a never-activated draft, BR-255) | projects.status |
 | L-quota-level | district, union | project_quotas.level |
 | L-fund-source | zakat, sadaqah, general, donor | fund_sources.source |
 | L-form-version-status | draft, published, retired | form_versions.status |
 | L-visibility | volunteer, official_only | form_sections.visibility |
-| L-field-type | short_text, long_text, number, decimal, money, phone, email, date, time, datetime, single_select, multi_select, radio, checkbox, photo, file, signature, gps, bd_address, repeat_group, calculation, note | form_fields.type, form_library_fields.type |
+| L-field-type | short_text, long_text, number, decimal, money, phone, email, date, time, datetime, single_select, multi_select, radio, checkbox, photo, file, signature, gps, bd_address, repeat_group, calculation, note, number_table (D-133) | form_fields.type, form_library_fields.type |
 | L-beneficiary-status | active, deceased, relocated | beneficiaries.status (O-18) |
 | L-volunteer-type | general, local_daee, both, team_member, paid | volunteers.type |
 | L-category | A, B, C, D | volunteers.category, volunteer_categories_log |
@@ -99,7 +99,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-assignment-target | application, beneficiary, location | work_assignments.target_type |
 | L-app-status | draft, needs_verification, submitted, under_review, reviewed, waitlisted, approved, rejected, implementation, completed, closed, deleted | applications.status (common states, BD-11) |
 | L-change-entity | application, beneficiary, volunteer | field_changes.entity_type |
-| L-change-kind | unlock, contact_update, correction, sync_conflict | field_changes.kind |
+| L-change-kind | unlock, contact_update, correction, sync_conflict, review_edit | field_changes.kind |
 | L-transition-scope | application, stage, project, donor_flow, field_unlock | workflow_transitions.scope |
 | L-activity-type | distribution, construction, purchase, training, visit, payment, voucher, expense, issue, inspection, follow_up | activities.type |
 | L-activity-status | planned, done, failed | activities.status |
@@ -125,9 +125,12 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-doc-requirement | required, if_needed, optional | documents.requirement |
 | L-doc-status | pending, collected, verified, approved, archived | documents.status (SOP chain, BD-35) |
 | L-doc-event | created, submitted, verified, approved, archived, deadline_extended, warning_sent, non_compliance, reopened | document_events.event |
-| L-media-status | planned, in_progress, published | media_subjects.media_status |
-| L-story-status | planned, in_progress, done, published | media_stories.status |
-| L-file-kind | distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, export, issue_photo | files.kind |
+| L-media-referral-state | pending, accepted, sent_back, rejected | media_referrals.state |
+| L-media-priority | high, normal, low | media_referrals.priority |
+| L-media-content | video, photo, both | media_works.content_type |
+| L-script-state | draft, in_review, final | media_works.script_state |
+| L-publication-state | waiting, published, taken_down | media_publications.state |
+| L-file-kind | distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, export, issue_photo, form_photo | files.kind |
 | L-file-source | camera, gallery, scan, system | files.source |
 | L-file-flag | no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect | files.flags (data-quality flags, O-30) |
 | L-scan | pending, clean, infected, failed, skipped | files.virus_scan |
@@ -274,9 +277,13 @@ Indexes: (user_id) WHERE revoked_at IS NULL; (permission_name, scope_type, scope
 | revoked_at | timestamptz | yes | — | — |
 | revoked_by | uuid | yes | — | FK users |
 | revoke_reason | text | yes | — | — |
+| local_key | bytea | yes | — | the device key sealed under `LOCAL_KEY_SECRET` and bound to the id (AUTH.md §5, T2.7); null after logout, revocation or the nightly cleanup |
+| local_key_recovered_at | timestamptz | yes | — | when the key was first handed back after the session ended; asked again only within 15 minutes, dropped by the cleanup a day later (T2.7) |
+| pending_count | integer | yes | — | records the device reported as still waiting (≥ 0), with pending_reported_at (T2.7) |
+| pending_reported_at | timestamptz | yes | — | — |
 | [L] | | | | |
 
-Indexes: (user_id) WHERE revoked_at IS NULL; UNIQUE (refresh_token_hash).
+Indexes: (user_id) WHERE revoked_at IS NULL; UNIQUE (refresh_token_hash). The status-log guard also lets local_key, local_key_recovered_at, pending_count and pending_reported_at change.
 
 ### otp_codes
 | Column | Type | Null | Default | Comment |
@@ -342,12 +349,13 @@ Index: (from_user_id).
 | kind | text | no | — | L-location-kind (D-061) |
 | code | text | no | — | internal code assigned once and never changed: `L-dd`, `L-dd-dd`, `L-dd-dd-dd`, `L-dd-dd-dd-ddd` (D-061) |
 | bbs_code | text | yes | — | official BBS geocode when supplied (D-061) |
+| post_code | varchar(4) | yes | — | the four-digit post code of an upazila, a thana or a union-level place, the place's own or its upazila's; null for a division, a district and a city corporation (D-160) |
 | name_bn, name_en | text | no | — | renamable (O-09) |
 | active | boolean | no | true | deactivate, never delete |
 | version | integer | no | 1 | bumped on change (offline snapshot) |
 | [A] | | | | |
 
-Constraints: UNIQUE (code); UNIQUE (bbs_code) WHERE bbs_code IS NOT NULL; CHECK (level = 'division') = (parent_id IS NULL); CHECK the kind matches the level (division → division, district → district, upazila → upazila or city_corporation, union → union, pourosova or thana). Indexes: (parent_id, active); (level, active). Loaded by `pnpm db:load-locations` from `docs/source/data/bd-locations.csv` (T1.2).
+Constraints: UNIQUE (code); UNIQUE (bbs_code) WHERE bbs_code IS NOT NULL; CHECK (level = 'division') = (parent_id IS NULL); CHECK the kind matches the level (division → division, district → district, upazila → upazila or city_corporation, union → union, pourosova, thana or other); CHECK post_code is null or four digits. Indexes: (parent_id, active); (level, active). Loaded by `pnpm db:load-locations` from `docs/source/data/bd-locations.csv` (T1.2; post codes and the kind `other` with migration `20261107120000_location_post_codes`, D-160).
 
 ### reference_lists
 | Column | Type | Null | Default | Comment |
@@ -549,12 +557,15 @@ Constraints: UNIQUE (project_id, location_id).
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
-| project_id | uuid | no | — | FK projects |
+| project_id | uuid | yes | — | FK projects; null for a ready form or the question library (D-129) |
 | key | text | no | — | application type (e.g. `default`, `institution`) |
 | title_bn, title_en | text | no | — | — |
+| kind | text | no | 'beneficiary_application' | `beneficiary_application`, `other` or `library`; the identity check of D-126 applies to the first |
+| source_form_id | uuid | yes | — | FK forms; the ready form a placed project form was copied from (D-129) |
+| source_version_no | int | yes | — | the ready form's version it copied |
 | [A] | | | | |
 
-Constraints: UNIQUE (project_id, key).
+Constraints: UNIQUE (project_id, key); UNIQUE (key) WHERE project_id IS NULL (`forms_ready_key_key`); one library (`forms_one_library_key`); CHECK kind; CHECK a library has no project; CHECK source and version together, only on a project form. Index on `source_form_id`. The migration `20261024100000_ready_forms` creates the empty question library with its open draft.
 
 ### form_versions
 | Column | Type | Null | Default | Comment |
@@ -565,9 +576,10 @@ Constraints: UNIQUE (project_id, key).
 | status | text | no | 'draft' | L-form-version-status |
 | published_at | timestamptz | yes | — | immutable after publish (BR-077) |
 | published_by | uuid | yes | — | FK users |
+| scoring | jsonb | yes | — | the form-level points of the priority score (`{ "not_previously_assisted": 0–100 }`, D-132), written with the definition's rows and copied with them; the points of each question sit in `form_fields.settings.score` (`docs/database/json-schemas/form-field-logic.schema.json`) |
 | [A] | | | | |
 
-Constraints: UNIQUE (form_id, version_no); partial UNIQUE (form_id) WHERE status = 'published' (one current version). A trigger refuses changes to sections, fields and options of a non-draft version.
+Constraints: UNIQUE (form_id, version_no); partial UNIQUE (form_id) WHERE status = 'published' (one current version); partial UNIQUE (form_id) WHERE status = 'draft' (one open draft, T2.3). A trigger refuses changes to sections, fields and options of a non-draft version, and the trigger `guard_form_version_status` lets a version row move only draft → published (with `published_at` and `published_by`) → retired, nothing else changing on a non-draft row (T2.3, `20261021140000_form_version_rules`).
 
 ### form_sections
 | Column | Type | Null | Default | Comment |
@@ -626,6 +638,7 @@ Constraints: UNIQUE (form_field_id, code).
 | title_bn, title_en | text | no | — | — |
 | default_visibility | text | no | 'volunteer' | L-visibility |
 | field_keys | text[] | no | '{}' | ordered library field keys |
+| sort_order | int | no | 0 | the order the builder lists sections in (the seed's order, D-122) |
 | [A] | | | | |
 
 ### form_library_fields
@@ -636,7 +649,8 @@ Constraints: UNIQUE (form_field_id, code).
 | type | text | no | — | L-field-type |
 | label_bn, label_en | text | no | — | — |
 | standard_column | text | yes | — | — |
-| default_settings | jsonb | no | '{}' | — |
+| default_settings | jsonb | no | '{}' | a repeat group's `repeat.earner` says whether its rows are earners (D-124) |
+| sort_order | int | no | 0 | the order the builder lists fields in (the seed's order, D-122) |
 | [A] | | | | |
 
 ## 10. Beneficiaries
@@ -645,6 +659,7 @@ Constraints: UNIQUE (form_field_id, code).
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK; the BEN-ID (O-03) |
+| ben_no | integer | no | nextval(`beneficiaries_ben_no_seq`) | the short BEN number, shown as `BEN-` and 7 digits (D-112); UNIQUE, CHECK > 0, never changed (trigger `beneficiaries_keep_ben_no`); existing rows numbered in `created_at, id` order |
 | nid | text | yes | — | CHECK `^([0-9]{10}|[0-9]{13}|[0-9]{17})$` (BR-002) |
 | birth_reg | text | yes | — | CHECK `^[0-9]{17}$` |
 | name | text | no | — | locked after creation (BR-006) |
@@ -677,7 +692,7 @@ Constraints: UNIQUE (form_field_id, code).
 | merged_into_id | uuid | yes | — | FK beneficiaries; retired profiles point to the kept one |
 | [A] | | | | |
 
-Constraints: CHECK nid IS NOT NULL OR birth_reg IS NOT NULL (BR-001); UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. Indexes: (mobile); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL; (id) WHERE merged_into_id IS NULL and (id) WHERE is_blocked AND merged_into_id IS NULL (the counts and the blocklist filter of the beneficiary tab, T1.10; docs/testing/PERFORMANCE.md).
+Constraints: CHECK nid IS NOT NULL OR birth_reg IS NOT NULL (BR-001); UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. Indexes: (mobile); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL; (id) WHERE merged_into_id IS NULL and (id) WHERE is_blocked AND merged_into_id IS NULL (the counts and the blocklist filter of the beneficiary tab, T1.10; docs/testing/PERFORMANCE.md). The duplicate suggestions (T2.2, D-113) read `beneficiaries_dup_name_father_mobile_idx` on (person_name_key(name), person_name_key(father_or_husband_name), mobile) and `beneficiaries_dup_name_dob_union_idx` on (person_name_key(name), dob, union_id), both WHERE merged_into_id IS NULL (the second also needs a dob); `person_name_key(text)` is an immutable SQL function (trimmed, inner spaces collapsed, lower case) that the queries use too, so a query and its index agree.
 
 ### beneficiary_family_members
 | Column | Type | Null | Default | Comment |
@@ -691,7 +706,7 @@ Constraints: CHECK nid IS NOT NULL OR birth_reg IS NOT NULL (BR-001); UNIQUE (ni
 | age_years | smallint | yes | — | — |
 | occupation_code | text | yes | — | — |
 | monthly_income | numeric(14,2) | yes | — | — |
-| is_earner | boolean | no | false | B3 earners repeat group |
+| is_earner | boolean | no | false | B3 earners repeat group; from the group's `repeat.earner` setting, true unless set (D-124) |
 | active | boolean | no | true | left the household: false |
 | [A] | | | | |
 
@@ -707,14 +722,14 @@ Index: (beneficiary_id) WHERE active.
 | reason | text | no | — | — |
 | proposed_by | uuid | no | — | FK users |
 | proposed_at | timestamptz | no | now() | — |
-| snapshot | jsonb | yes | — | both profiles before merge (for revert); set when merged |
+| snapshot | jsonb | yes | — | set when merged: the ids of every row moved to the kept profile, per table, the applications left on the retired profile, and the blocklist rows moved or released (ids only, never a reason); the revert moves exactly these back (D-113) |
 | merged_by | uuid | yes | — | FK users |
 | merged_at | timestamptz | yes | — | — |
 | reverted_by | uuid | yes | — | FK users |
 | reverted_at | timestamptz | yes | — | — |
 | [A] | | | | |
 
-Constraints: CHECK kept_id <> merged_id; CHECK (status NOT IN ('merged', 'reverted') OR merged_at IS NOT NULL); CHECK (status <> 'reverted' OR reverted_at IS NOT NULL); partial UNIQUE (merged_id) WHERE status = 'merged'. A proposal (status proposed) is created by an RPM with `beneficiary.merge.propose`; PM, Monitoring Team or Department Head merge it with `beneficiary.merge` (BD-05); the Monitoring Team reverts (T0.22 gate correction, matches openapi.yaml).
+Constraints: CHECK kept_id <> merged_id; CHECK (status NOT IN ('merged', 'reverted') OR merged_at IS NOT NULL); CHECK (status <> 'reverted' OR reverted_at IS NOT NULL); partial UNIQUE (merged_id) WHERE status = 'merged'. A proposal (status proposed) is created by an RPM with `beneficiary.merge.propose`; PM, Monitoring Team or Department Head merge it with `beneficiary.merge` (BD-05), or merge without a proposal (proposed_by = merged_by); the Monitoring Team or the Department Head reverts (`beneficiary.merge.revert`, D-113), and only while the kept profile is live.
 
 ### profile_correction_requests
 | Column | Type | Null | Default | Comment |
@@ -725,12 +740,34 @@ Constraints: CHECK kept_id <> merged_id; CHECK (status NOT IN ('merged', 'revert
 | old_value, new_value | text | no | — | — |
 | reason | text | no | — | — |
 | requested_by | uuid | no | — | FK users |
-| status | text | no | 'submitted' | L-request-status |
-| decided_by | uuid | yes | — | FK users |
+| status | text | no | 'submitted' | L-request-status; the correction flow writes `submitted`, `approved` and `rejected` only (`open` and `closed` are allowed by the CHECK and unused); a merge rejects the submitted requests of the retired profile with a merge reason |
+| decided_by | uuid | yes | — | FK users; never the requester (D-115) |
 | decided_at | timestamptz | yes | — | — |
 | [A] | | | | |
 
 Indexes: (beneficiary_id); (status).
+
+### beneficiary_merge_dismissals
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| low_id, high_id | uuid | no | — | FK beneficiaries; the pair in one order, CHECK low_id < high_id |
+| reason | text | no | — | why the two are different people; CHECK 3 to 1,000 characters |
+| dismissed_by | uuid | no | — | FK users |
+| dismissed_at | timestamptz | no | now() | — |
+| lifted_by, lifted_at, lift_reason | uuid, timestamptz, text | yes | — | set together when the mark is lifted (CHECK); the row stays |
+
+A suggested duplicate pair an official marked as not the same person (T2.2, D-113, `beneficiary.merge.dismiss`); the pair leaves the suggestions while the mark is active. Partial UNIQUE (low_id, high_id) WHERE lifted_at IS NULL; indexes (high_id), (dismissed_by), (lifted_by); no DELETE or TRUNCATE (D-060).
+
+### beneficiary_merge_candidates
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| low_id, high_id | uuid | no | — | PK (low_id, high_id); FK beneficiaries; CHECK low_id < high_id |
+| rules | text[] | no | — | at least one of name_dob_union, name_father_mobile, same_mobile |
+| active | boolean | no | true | false once the pair no longer holds |
+| computed_at | timestamptz | no | now() | — |
+
+The suggested duplicate pairs, kept instead of computed per request (T2.2, D-117): the write that changes a profile recomputes its own pairs, and the nightly job on the `duplicates` queue recomputes all of them and marks the pairs it did not find again as inactive. Derived data: rows are updated, never deleted, and the down migration drops the table (the job rebuilds it). Indexes (high_id) and (low_id, high_id) WHERE active.
 
 ### media_consents
 | Column | Type | Null | Default | Comment |
@@ -815,7 +852,7 @@ Constraints: partial UNIQUE (project_id, member_volunteer_id) WHERE removed_at I
 | consent_at | timestamptz | yes | — | — |
 | assigned_by | uuid | no | — | FK users |
 | ended_at | timestamptz | yes | — | assignment ended (transfer, block) |
-| applications_counted | integer | no | 0 | CHECK >= 0; applications counted against the limit, the team's included (BR-059, D-096; raised by Phase 2) |
+| applications_counted | integer | no | 0 | CHECK >= 0; not written: the limit and every screen count the owner's live applications instead (`apps/api/src/applications/limit.ts`; BR-059, D-096), so a transfer or a deletion can never leave it out of step |
 | [A] | | | | |
 
 Constraints: partial UNIQUE (project_id, volunteer_id) WHERE ended_at IS NULL. Indexes: (volunteer_id) WHERE ended_at IS NULL; (project_id, region_location_id).
@@ -913,11 +950,15 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | status | text | no | 'draft' | L-app-status |
 | stage | text | yes | — | template stage key (validated by the engine) |
 | outcome | text | yes | — | template outcome code |
-| flags | text[] | no | '{}' | needs-verification reasons: existing_identity, late_sync, stale_form_version, public_entry |
+| flags | text[] | no | '{}' | needs-verification reasons: existing_identity, late_sync, stale_form_version, public_entry, identity_blocked, identity_repeated (the last two set by the public link, O-08) |
+| total_score | numeric(5,2) | yes | — | CHECK 0–100; the priority score beside its breakdown in application_scores, so the office's list pages by score (index `(project_id, total_score DESC, id DESC)`); null for a form without points or before the application reaches the office (D-132) |
+| waitlisted_at | timestamptz | yes | — | when the application entered the waitlist; the pull takes the highest score, then the earliest (partial index on waitlisted rows) |
 | region_location_id | uuid | no | — | FK locations (division of the beneficiary address, for scope filters) |
 | district_id | uuid | no | — | FK locations (for district split and quotas) |
 | union_id | uuid | no | — | FK locations (union quotas) |
 | client_uuid | uuid | yes | — | UNIQUE (offline records) |
+| pending_photos | jsonb | no | '[]' | the photo slots an offline record still waits for; the upload for a slot fills the answer and removes it (OFFLINE_SYNC §5, T2.7) |
+| applicant_name | text | yes | — | the name typed on an entry that waits for verification (a public entry, or an offline entry whose number belongs to a profile with other names); every list and the record show it in the profile's place until the office links the entry; null on rows that never waited (D-141) |
 | client_created_at | timestamptz | yes | — | device time, offset-corrected |
 | submitted_at, reviewed_at, approved_at, completed_at | timestamptz | yes | — | — |
 | submitted_by, reviewed_by, approved_by, completed_by | uuid | yes | — | FK users; written by the workflow `actor_recorded_as` setting (WORKFLOW_ENGINE §5) |
@@ -929,7 +970,7 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | deleted_at | timestamptz | yes | — | soft delete of drafts and pending (status deleted) |
 | [A] | | | | |
 
-Constraints: partial UNIQUE (project_id, beneficiary_id) WHERE status <> 'deleted' AND beneficiary_id IS NOT NULL (BR-016); CHECK (status = 'needs_verification') OR beneficiary_id IS NOT NULL; CHECK (status = 'deleted') = (deleted_at IS NOT NULL); CHECK zakat_decision IN ('eligible','not_eligible'). The BD-03 trigger of section 18 fires on insert and on update of beneficiary_id or owner_volunteer_id. Indexes: see section 19 (project/status, project/region/status, owner/status, review queue, district quotas, status/project/beneficiary for the beneficiary tab count).
+Constraints: partial UNIQUE (project_id, beneficiary_id) WHERE status <> 'deleted' AND beneficiary_id IS NOT NULL (BR-016); CHECK beneficiary_id IS NOT NULL OR status IN ('draft', 'needs_verification', 'rejected', 'deleted') (a draft for a new person holds the number in its identity answer until the submission creates the profile; T2.5); CHECK (status = 'deleted') = (deleted_at IS NOT NULL); CHECK zakat_decision IN ('eligible','not_eligible'). The BD-03 trigger of section 18 fires on insert and on update of beneficiary_id or owner_volunteer_id. Indexes: see section 19 (project/status, project/region/status, owner/status, review queue, district quotas, status/project/beneficiary for the beneficiary tab count).
 
 ### application_answers
 | Column | Type | Null | Default | Comment |
@@ -967,9 +1008,15 @@ Constraints: UNIQUE (application_id, field_id, repeat_index). Index: GIN (value 
 | requested_by | uuid | yes | — | FK users |
 | approved_by | uuid | yes | — | FK users |
 | reason | text | yes | — | required for unlock and correction |
+| entered_by | uuid | yes | — | FK users; who entered the new value of an unlock (T2.6) |
+| entered_at | timestamptz | yes | — | when the new value was entered (T2.6) |
+| decided_by | uuid | yes | — | FK users; who accepted, refused or cancelled an unlock (T2.6) |
+| decided_at | timestamptz | yes | — | when; null while the unlock waits (T2.6) |
+| decision | text | yes | — | CHECK accepted, refused, cancelled (T2.6) |
+| decision_reason | text | yes | — | why it was refused or cancelled (T2.6) |
 | [L] | | | | append-only |
 
-Index: (entity_type, entity_id, created_at desc); (kind, unlock_state) WHERE unlock_state = 'open'.
+Index: (entity_type, entity_id, created_at desc); (kind, unlock_state) WHERE unlock_state = 'open'; (entered_by); (decided_by); UNIQUE (entity_id, field) WHERE kind = 'unlock' AND decided_at IS NULL, so one unlock per answer waits at a time (migration `20261025160000_field_unlock`). The status-log trigger lets an unlock row change only `unlock_state`, `new_value`, `approved_by`, `entered_by`, `entered_at`, `decided_by`, `decided_at`, `decision` and `decision_reason`. An unlock row of an application names the answer as `field_key` or `field_key[row]` for a row of a repeat group; it moves open → updated → relocked (`apps/api/src/applications/unlocks.ts`), and `approved_by` is set when the value is accepted.
 
 ### application_transfers
 | Column | Type | Null | Default | Comment |
@@ -1442,31 +1489,83 @@ Index: (document_id, created_at).
 
 The 11 SOP 7.4 fields are provisional until the SOP text is reviewed (O-30 item 5, O-34). Index: (responsible_user_id, event_date).
 
-### media_subjects
+### media_referrals (T2.8b, D-101, D-136)
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
-| beneficiary_id | uuid | no | — | FK beneficiaries |
-| project_id | uuid | yes | — | FK projects |
-| added_by | uuid | no | — | FK users (Media Team) |
-| media_status | text | no | 'planned' | L-media-status |
-| notes | text | yes | — | — |
+| application_id | uuid | no | — | FK applications; unique (one referral per application, BR-283) |
+| beneficiary_id | uuid | no | — | FK beneficiaries; follows a profile merge |
+| project_id | uuid | no | — | FK projects |
+| referred_by | uuid | no | — | FK users (the PM or RPM) |
+| priority | text | no | — | high, normal, low |
+| note | text | no | — | not blank |
+| story | text | yes | — | the referrer's story (BR-284) |
+| state | text | no | 'pending' | pending, accepted, sent_back, rejected |
+| decided_by | uuid | yes | — | FK users; set with every decision |
+| decided_at | timestamptz | yes | — | — |
+| decision_comment | text | yes | — | required when sent back or rejected |
 | [A] | | | | |
 
-Constraints: one subject per beneficiary and project, and one per beneficiary without a project (two partial unique indexes, T1.2).
+Constraints: a pending referral has no decider; a decided one has its decider and time, and a send-back or a rejection its comment. Indexes: beneficiary, project, referrer, (state, created_at), decider.
 
-### media_stories
+### media_works
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
-| media_subject_id | uuid | no | — | FK media_subjects |
-| title | text | no | — | — |
-| body | text | yes | — | writing area (O-28) |
+| referral_id | uuid | no | — | FK media_referrals; unique (one work per accepted referral) |
+| title | text | no | — | from the referral, editable by the directors |
+| stage_list / stage_code | text | no | 'media_stage' (generated) | reference list `media_stage` |
+| held_stage_code | text | yes | — | the stage a work on hold returns to; set exactly while on hold |
+| content_type | text | no | 'video' | video, photo, both |
+| script | jsonb | no | '{}' | summary, interview questions, scenes, voice-over, notes |
+| script_state | text | no | 'draft' | draft, in_review, final |
+| review_approved_by | uuid | yes | — | FK users; the final review |
+| review_approved_at | timestamptz | yes | — | set with review_approved_by |
+| [A] | | | | |
+
+### media_work_members
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| work_id | uuid | no | — | FK media_works |
+| user_id | uuid | no | — | FK users; unique per work |
+| roles | text[] | no | — | at least one code of the list `media_role` (trigger) |
+| [A] | | | | |
+
+### media_publications
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| work_id | uuid | no | — | FK media_works |
+| platform_list / platform_code | text | no | 'media_platform' (generated) | reference list `media_platform` |
+| state | text | no | 'waiting' | waiting, published, taken_down |
+| published_on | date | yes | — | required unless waiting |
+| link | text | yes | — | https only; required unless waiting (BR-285) |
+| note | text | yes | — | — |
+| [A] | | | | |
+
+### media_comments
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| work_id | uuid | no | — | FK media_works |
 | author_id | uuid | no | — | FK users |
-| status | text | no | 'planned' | L-story-status |
-| channel_code | text | yes | — | reference list `consent_channel` |
-| published_at | timestamptz | yes | — | — |
-| [A] | | | | |
+| body | text | no | — | not blank |
+| created_at | timestamptz | no | now() | append-only |
+
+### media_events
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| referral_id | uuid | no | — | FK media_referrals |
+| work_id | uuid | yes | — | FK media_works |
+| kind | text | no | — | referred, resent, accepted, sent_back, rejected, title_changed, stage_changed, held, resumed, cancelled, members_changed, content_type_changed, script_changed, publication_added, publication_changed, review_approved, review_sent_back |
+| from_value / to_value | text | yes | — | the change |
+| comment | text | yes | — | — |
+| actor_id | uuid | no | — | FK users |
+| created_at | timestamptz | no | now() | append-only |
+
+The early `media_subjects` and `media_stories` were never written and are dropped by `20261026160000_media_team` (its down.sql recreates them).
 
 ## 17. Files, notifications, sync, audit and operations
 
@@ -1504,7 +1603,7 @@ Constraints: UNIQUE (bucket, object_key); partial UNIQUE (project_id, sha256) WH
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | file_id | uuid | no | — | FK files |
-| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation, user (staff photo, D-082) |
+| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation, user (staff photo, D-082), public_submission (a public form photo before its submission claims it, keyed by the applicant's client id; never resolved by the file routes) |
 | entity_id | uuid | no | — | — |
 | slot | text | no | — | e.g. distribution_proof, final_photo |
 | position | smallint | no | 0 | — |
@@ -1518,12 +1617,16 @@ Constraints: UNIQUE (file_id, entity_type, entity_id, slot); partial UNIQUE (cli
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | user_id | uuid | no | — | FK users |
-| declared | jsonb | no | — | kind, entity, slot, mime, size, sha256, capture metadata |
-| multipart_upload_id | text | no | — | MinIO id |
-| parts_acknowledged | integer | no | 0 | — |
-| expires_at | timestamptz | no | — | +1 hour |
+| declared | jsonb | no | — | kind, record, slot, mime, size, sha256, capture metadata, source |
+| client_uuid | uuid | no | — | unique with user_id: a resent create answers the same session (D-108) |
+| bucket | text | no | — | the target bucket; CHECK documents, photos, vouchers, profiles, media |
+| object_key | text | no | — | the target key (FILES_AND_DOCUMENTS 8) |
+| part_count | integer | no | — | the 256 KB parts the declared size needs; CHECK 1–80 |
+| parts_received | integer[] | no | '{}' | the parts stored in the bucket `uploads` |
+| bytes_received | bigint | no | 0 | never more than the declared size |
+| expires_at | timestamptz | no | — | one hour after the last part |
 | finalized_file_id | uuid | yes | — | FK files |
-| [L] | | | | expired unfinalized rows deleted by a job |
+| [L] | | | | status log: an update may change parts_received, bytes_received, expires_at, finalized_file_id; expired unfinalized rows deleted by the nightly sweep (index on expires_at of the open ones) |
 
 ### notifications
 | Column | Type | Null | Default | Comment |
@@ -1620,6 +1723,7 @@ Partitioned by RANGE (created_at), one partition per month (section 22). PK (id,
 | received_at | timestamptz | no | now() | — |
 | record_count | smallint | no | — | CHECK 1–50 (O-29) |
 | results | jsonb | no | — | per-record results (`SyncResult[]`) |
+| request_hash | text | yes | — | a hash of the request under the key; a repeat with another request is refused, not replayed (T2.5) |
 
 Index: (device_session_id, received_at desc).
 
@@ -1645,16 +1749,23 @@ Constraints: partial UNIQUE (kind, subject_type, subject_id) WHERE status <> 're
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | requested_by | uuid | no | — | FK users |
-| kind | text | no | — | export type |
+| kind | text | no | — | volunteers, beneficiaries, applications (a list), beneficiary_profile, application (one record, its id in `filters`) (D-143) |
 | locale | text | no | 'bn' | L-locale; the requester's language at request time, reused on retry (I18N.md §5, O-44) |
-| filters | jsonb | no | '{}' | — |
+| filters | jsonb | no | '{}' | the list's filters and sort, or the record's id |
 | sensitive | boolean | no | false | audited when true |
-| status | text | no | 'queued' | L-job-status |
-| file_id | uuid | yes | — | FK files |
-| row_count | integer | yes | — | — |
+| status | text | no | 'queued' | L-job-status; `done` needs `file_id`, `failed` needs `error_code` |
+| file_id | uuid | yes | — | FK files (kind `export`, bucket `exports`) |
+| row_count | integer | yes | — | rows counted at the request |
+| format | text | no | — | csv, xlsx, pdf |
+| columns | text[] | no | — | the column ids the person chose, in the file's order; at least one for a list, empty for a record's PDF |
+| access | jsonb | no | — | the scope instances and field classes frozen at the request; the job never reads live access (D-143) |
+| rows_done | integer | no | 0 | progress, ≥ 0 |
+| rows_total | integer | yes | — | the rows the job will write, ≥ 0 |
+| error_code | text | yes | — | why a job failed (`export.timed_out` for a job the sweep stopped) |
+| finished_at | timestamptz | yes | — | when the job ended, done or failed |
 | [A] | | | | |
 
-Index: (requested_by, created_at desc).
+Index: (requested_by, created_at desc); (status, created_at) for the daily sweep of stuck jobs and expired files.
 
 ### storage_stats
 | Column | Type | Null | Default | Comment |
@@ -1734,6 +1845,8 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 | distributions.items | `distribution-items.schema.json` |
 | volunteer_ratings.proposed_scores, final_scores | `rating-scores.schema.json` |
 | followup_evaluations.answers | `followup-answers.schema.json` |
+| media_works.script | `media-work-script.schema.json` |
+| reference_lists.attributes | `reference-list-attributes.schema.json` |
 | projects.rules, project_templates.definition, profile_merges.snapshot, document_templates.rows, settings.value, notifications.params, outbound_messages.params, sync_batches.results, alerts.details, export_jobs.filters, upload_sessions.declared, field_changes values, audit_log old/new | defined as zod schemas in T1.2/T2.x next to their modules (small, module-internal shapes); audit_log old/new are free-form snapshots |
 
 ## 21. Soft delete policy
@@ -1741,7 +1854,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 - Nothing of business value is hard-deleted (constitution §2, BR-207). The application database role has **no DELETE privilege** on business tables, with one exception: three kinds of project setup rows, `fund_sources`, `project_areas` and `dawah_syllabus_topics`, which the project setup removes only while nothing refers to them (the foreign keys refuse a used row) and audits with their before state (DECISION_LOG D-106).
 - Allowed "deleted" states: `applications.status = 'deleted'` with `deleted_at` (only drafts and pending applications, by the owner or an official with the permission; BR-091); `files.deleted_at` only for `kind = 'export'` (regenerable).
 - Ending instead of deleting: `revoked_at` (roles, permissions, sessions, push subscriptions), `ended_at` (project staff and volunteer assignments), `removed_at` (team members), `released_at` (blocklist), `active = false` (locations, reference lists, templates, programs), `deactivated_at` (users), `reverted_at` (merges).
-- Technical rows the system may delete: expired `otp_codes`, expired unfinalized `upload_sessions`, export files after 30 days (O-30), expired unsubmitted `registration_drafts` with their photo `files` rows (D-082). These deletions are performed by jobs running under a dedicated role with DELETE only on those tables; the drafts and their photos only through the `SECURITY DEFINER` function `purge_expired_registration_drafts`, so the role has no DELETE on `files`.
+- Technical rows the system may delete: expired `otp_codes`, expired unfinalized `upload_sessions`, export files after 30 days (O-30), expired unsubmitted `registration_drafts` with their photo `files` rows (D-082). These deletions are performed by jobs running under a dedicated role with DELETE only on those tables; the drafts and their photos only through the `SECURITY DEFINER` function `purge_expired_registration_drafts`, so the role has no DELETE on `files`; the expired unfinalized upload sessions through `purge_expired_upload_sessions(limit)`, which returns their ids so the nightly sweep removes the stored parts.
 
 ## 22. Retention, partitioning and archiving
 
@@ -1758,7 +1871,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 |---|---|---|
 | css_migrate | owner of the schema; DDL | one-shot migration container (ADR-003) |
 | css_app | SELECT, INSERT, UPDATE on business tables; EXECUTE on discard_registration_photo (a replaced draft or change-request photo, D-082, D-087); INSERT only on append-only logs (audit_log, field_changes, budget_ledger, document_events, application_transfers, stock_movements); DELETE only on `fund_sources`, `project_areas` and `dawah_syllabus_topics` (D-106); no DDL | api and worker |
-| css_jobs_cleanup | DELETE on otp_codes, upload_sessions; UPDATE on files (exports); EXECUTE on purge_expired_registration_drafts | worker cleanup jobs only |
+| css_jobs_cleanup | DELETE on otp_codes, upload_sessions; UPDATE on files (exports); EXECUTE on purge_expired_registration_drafts, purge_expired_upload_sessions | worker cleanup jobs only |
 | css_readonly | SELECT on reporting views without sensitive columns | optional reporting, IT diagnostics |
 | css_backup | replication / pg_dump | backup tooling (O-06) |
 

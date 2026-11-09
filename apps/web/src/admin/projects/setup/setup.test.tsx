@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -8,6 +8,7 @@ import { ME, refreshAs, renderApp } from '../../../../test/auth';
 import { server } from '../../../../test/msw/server';
 import { resetClientForTests } from '../../../lib/api';
 import { ProjectSetupPage } from './ProjectSetupPage';
+import { stubMatchMedia } from '../../../../test/match-media';
 
 // The project setup wizard (SCR-060, UX-20): one step at a time, Back and Next saving the step,
 // save and exit, the step indicator with its marks, the first step creating the draft, the review
@@ -18,6 +19,15 @@ const PROGRAM = '01900000-0000-7000-8000-0000000000b1';
 
 let project: Record<string, unknown>;
 let writes: { path: string; body: unknown }[];
+let quotaRows: {
+  level: string;
+  locationId: string;
+  locationName?: { bn: string; en: string };
+  target: number;
+  received?: number;
+  approved?: number;
+  full?: boolean;
+}[];
 let patchStatus: number;
 let componentAnswer: { status: number; body: Record<string, unknown> } | null;
 let staffRows: Record<string, unknown>[];
@@ -57,6 +67,7 @@ function serve(status = 'draft') {
     budgetPlanned: null,
   };
   writes = [];
+  quotaRows = [];
   patchStatus = 200;
   componentAnswer = null;
   staffRows = [];
@@ -91,6 +102,21 @@ function serve(status = 'draft') {
         return HttpResponse.json(componentAnswer.body, { status: componentAnswer.status });
       return HttpResponse.json({ data: COMPONENTS[0], meta: {} });
     }),
+    http.get(`*/api/v1/projects/${ID}/forms`, () =>
+      HttpResponse.json({
+        data: [
+          {
+            id: '01900000-0000-7000-8000-0000000000f1',
+            key: 'default',
+            title: { bn: 'আবেদন', en: 'Application' },
+            publishedVersionId: '01900000-0000-7000-8000-0000000000f2',
+            draftVersionId: null,
+            kind: 'beneficiary_application',
+          },
+        ],
+        meta: { requestId: 'req_test' },
+      }),
+    ),
     http.get(`*/api/v1/projects/${ID}/fund-sources`, () =>
       HttpResponse.json({ data: [], meta: {} }),
     ),
@@ -109,6 +135,21 @@ function serve(status = 'draft') {
       }),
     ),
     http.get(`*/api/v1/projects/${ID}/areas`, () => HttpResponse.json({ data: [], meta: {} })),
+    http.get(`*/api/v1/projects/${ID}/quotas`, () =>
+      HttpResponse.json({ data: quotaRows, meta: {} }),
+    ),
+    http.patch(`*/api/v1/projects/${ID}/quotas`, async ({ request }) => {
+      const body = (await request.json()) as { quotas: typeof quotaRows };
+      writes.push({ path: 'quotas', body });
+      quotaRows = body.quotas.map((q) => ({
+        ...q,
+        locationName: { bn: 'সাভার', en: 'Savar' },
+        received: 0,
+        approved: 0,
+        full: false,
+      }));
+      return HttpResponse.json({ data: quotaRows, meta: {} });
+    }),
     http.get(`*/api/v1/projects/${ID}/staff`, () =>
       HttpResponse.json({ data: staffRows, meta: {} }),
     ),
@@ -313,9 +354,12 @@ describe('the setup wizard', () => {
     await user.click(within(budget).getByRole('button', { name: 'তহবিলের উৎস যোগ করুন' }));
     await user.type(within(budget).getByRole('textbox', { name: /পরিমাণ/ }), '900');
     await user.click(next());
-    expect(await within(budget).findByRole('alert')).toHaveTextContent(
-      'তহবিলের উৎসগুলোর মোট পরিকল্পিত বাজেটের সমান নয়। সক্রিয় প্রকল্প সমান হলেই সংরক্ষণ হয়।',
-    );
+    // the section's own note and the warning the step's Next found
+    expect(
+      await within(budget).findAllByText(
+        'তহবিলের উৎসগুলোর মোট পরিকল্পিত বাজেটের সমান নয়। সক্রিয় প্রকল্প সমান হলেই সংরক্ষণ হয়।',
+      ),
+    ).toHaveLength(2);
     expect(writes).toEqual([]);
     await user.clear(within(budget).getByRole('textbox', { name: /পরিমাণ/ }));
     await user.type(within(budget).getByRole('textbox', { name: /পরিমাণ/ }), '1000');
@@ -350,7 +394,7 @@ describe('the setup wizard', () => {
     const user = userEvent.setup();
     open('staff');
     const staff = await section('স্টাফের অ্যাক্সেস');
-    await user.click(within(staff).getByRole('button', { name: /ভূমিকা/ }));
+    await user.click(within(staff).getByRole('combobox', { name: /ভূমিকা/ }));
     await user.click(await screen.findByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
     await user.type(within(staff).getByRole('combobox', { name: /কর্মকর্তা/ }), 'নমুনা');
     await user.click(await screen.findByRole('option', { name: 'নমুনা এক্সিকিউটিভ' }));
@@ -405,6 +449,74 @@ describe('the setup wizard', () => {
     expect(router.state.location.state).toEqual({ notice: 'প্রকল্প সক্রিয় হয়েছে।' });
   });
 
+  it('leads a missing published form to the builder, or to a new form without one', async () => {
+    serve();
+    // the activation asks for a published form only while the application form is on
+    const draftOnly = (rows: unknown[]) =>
+      server.use(
+        http.get(`*/api/v1/projects/${ID}/forms`, () =>
+          HttpResponse.json({ data: rows, meta: { requestId: 'req_test' } }),
+        ),
+        http.get(`*/api/v1/projects/${ID}/components`, () =>
+          HttpResponse.json({
+            data: [
+              ...COMPONENTS,
+              { componentKey: 'application_form', enabled: true, settings: {}, etag: '"a1"' },
+            ],
+            meta: {},
+          }),
+        ),
+      );
+    draftOnly([
+      {
+        id: '01900000-0000-7000-8000-0000000000f1',
+        key: 'default',
+        title: { bn: 'আবেদন', en: 'Application' },
+        publishedVersionId: null,
+        draftVersionId: '01900000-0000-7000-8000-0000000000f3',
+        kind: 'beneficiary_application',
+      },
+    ]);
+    const first = open('review');
+    let review = within(await section('পর্যালোচনা'));
+    expect(await review.findByText('প্রকাশিত আবেদন ফর্ম')).toBeInTheDocument();
+    expect(review.getByRole('link', { name: 'ফর্ম বিল্ডার খুলুন' })).toHaveAttribute(
+      'href',
+      `/admin/projects/${ID}/forms/01900000-0000-7000-8000-0000000000f1`,
+    );
+    first.unmount();
+    resetClientForTests();
+    refreshAs({ ...ME, roles: ['program_manager'] });
+    draftOnly([]);
+    open('review');
+    review = within(await section('পর্যালোচনা'));
+    expect(await review.findByRole('link', { name: 'ফর্ম বিল্ডার খুলুন' })).toHaveAttribute(
+      'href',
+      `/admin/projects/${ID}/forms?new=1`,
+    );
+  });
+
+  it('links the application form component to the project form in the builder', async () => {
+    serve();
+    server.use(
+      http.get(`*/api/v1/projects/${ID}/components`, () =>
+        HttpResponse.json({
+          data: [
+            ...COMPONENTS,
+            { componentKey: 'application_form', enabled: true, settings: {}, etag: '"a1"' },
+          ],
+          meta: {},
+        }),
+      ),
+    );
+    open('components');
+    const components = within(await section('উপাদান'));
+    expect(await components.findByRole('link', { name: 'ফর্ম বিল্ডার খুলুন' })).toHaveAttribute(
+      'href',
+      `/admin/projects/${ID}/forms/01900000-0000-7000-8000-0000000000f1`,
+    );
+  });
+
   it('keeps the year read-only while active and every field on a closed project', async () => {
     serve('active');
     const { unmount } = open('basics');
@@ -439,16 +551,7 @@ describe('the setup wizard', () => {
   });
 
   it('on a phone keeps only the name, the dates and the switches editable', async () => {
-    vi.stubGlobal(
-      'matchMedia',
-      (query: string) =>
-        ({
-          matches: query.includes('max-width'),
-          media: query,
-          addEventListener: () => {},
-          removeEventListener: () => {},
-        }) as unknown as MediaQueryList,
-    );
+    stubMatchMedia((query) => query.includes('max-width'));
     serve();
     open('basics');
     expect(
@@ -478,9 +581,9 @@ describe('a new project', () => {
     await user.type(code, 'wc');
     await user.type(within(basics).getByRole('textbox', { name: /বাংলায় নাম/ }), 'শীতবস্ত্র');
     await user.type(within(basics).getByRole('textbox', { name: /ইংরেজিতে নাম/ }), 'Winter');
-    await user.click(within(basics).getByRole('button', { name: /প্রোগ্রাম/ }));
+    await user.click(within(basics).getByRole('combobox', { name: /প্রোগ্রাম/ }));
     await user.click(await screen.findByRole('option', { name: /মানবিক সহায়তা/ }));
-    await user.click(within(basics).getByRole('button', { name: /ওয়ার্কফ্লো/ }));
+    await user.click(within(basics).getByRole('combobox', { name: /ওয়ার্কফ্লো/ }));
     await user.click(await screen.findByRole('option', { name: 'বিতরণ' }));
     await user.click(next());
     expect(
@@ -538,6 +641,41 @@ describe('a half-filled form', () => {
       await within(areas).findByText('এলাকা যোগ করতে বিভাগ বা জেলা আর আরপিএম দুটোই দিন।'),
     ).toBeInTheDocument();
     expect(router.state.location.search).toBe('?step=areas');
+  });
+});
+
+describe('the quotas', () => {
+  const UNION = '01900000-0000-7000-8000-0000000000d4';
+  it('change a target and take a quota away, saved as one list', async () => {
+    serve();
+    quotaRows = [
+      {
+        level: 'union',
+        locationId: UNION,
+        locationName: { bn: 'সাভার', en: 'Savar' },
+        target: 50,
+        received: 72,
+        approved: 40,
+        full: false,
+      },
+    ];
+    const user = userEvent.setup();
+    const view = open('areas');
+    const quotas = await section('কোটা');
+    expect(within(quotas).getByText('লক্ষ্য 50 · এসেছে 72 · অনুমোদিত 40')).toBeInTheDocument();
+    const target = within(quotas).getByRole('textbox', { name: 'সাভার: লক্ষ্য' });
+    await user.clear(target);
+    await user.type(target, '45');
+    await user.click(within(quotas).getByRole('button', { name: 'কোটা সংরক্ষণ করুন' }));
+    await waitFor(() => expect(writes.filter((w) => w.path === 'quotas')).toHaveLength(1));
+    expect(writes.at(-1)!.body).toEqual({
+      quotas: [{ level: 'union', locationId: UNION, target: 45 }],
+    });
+    await user.click(within(quotas).getByRole('button', { name: 'সাভার-এর কোটা সরান' }));
+    await user.click(within(quotas).getByRole('button', { name: 'কোটা সংরক্ষণ করুন' }));
+    await waitFor(() => expect(writes.filter((w) => w.path === 'quotas')).toHaveLength(2));
+    expect(writes.at(-1)!.body).toEqual({ quotas: [] });
+    await expectNoAxeViolations(view.container);
   });
 });
 
@@ -630,7 +768,7 @@ describe('where a new project starts', () => {
     await user.type(within(basics).getByRole('textbox', { name: /প্রকল্প কোড/ }), 'NEW');
     await user.type(within(basics).getByRole('textbox', { name: /বাংলায় নাম/ }), 'নতুন');
     await user.type(within(basics).getByRole('textbox', { name: /ইংরেজিতে নাম/ }), 'New');
-    await user.click(within(basics).getByRole('button', { name: /প্রোগ্রাম/ }));
+    await user.click(within(basics).getByRole('combobox', { name: /প্রোগ্রাম/ }));
     await user.click(await screen.findByRole('option', { name: /মানবিক সহায়তা/ }));
     return { user, basics };
   };
@@ -659,7 +797,7 @@ describe('where a new project starts', () => {
     );
     const { user, basics } = await startNew();
     await user.click(within(basics).getByText('টেমপ্লেট থেকে'));
-    await user.click(within(basics).getByRole('button', { name: /টেমপ্লেট/ }));
+    await user.click(within(basics).getByRole('combobox', { name: /টেমপ্লেট/ }));
     await user.click(await screen.findByRole('option', { name: /শীতবস্ত্র টেমপ্লেট/ }));
     await user.click(next());
     await waitFor(() => expect(writes.find((w) => w.path === 'create')).toBeDefined());
@@ -681,7 +819,7 @@ describe('where a new project starts', () => {
     );
     const { user, basics } = await startNew();
     await user.click(within(basics).getByText('আগের প্রকল্প থেকে কপি'));
-    await user.click(within(basics).getByRole('button', { name: /যে প্রকল্প কপি হবে/ }));
+    await user.click(within(basics).getByRole('combobox', { name: /যে প্রকল্প কপি হবে/ }));
     await user.click(await screen.findByRole('option', { name: /OLD, 2025/ }));
     await user.click(next());
     await waitFor(() => expect(writes.find((w) => w.path === 'create')).toBeDefined());

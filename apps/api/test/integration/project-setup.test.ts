@@ -119,7 +119,7 @@ describe('components', () => {
     expect(await audit(id, 'project.component_change')).toHaveLength(1);
   });
 
-  it('checks empty settings too, and never takes a public-link token from the caller', async () => {
+  it('checks empty settings too, and switches the public link on only through its own route', async () => {
     const pm = await as(world.users.pm);
     const id = await draft();
     const empty = await at(pm, 'patch', `/projects/${id}/components/distribution`)
@@ -130,7 +130,17 @@ describe('components', () => {
       .set('If-Match', await etagOf(pm, id, 'public_link'))
       .send({ settings: { enabled: true, token: 'a-token-of-my-own-choice' } });
     expect(token.status).toBe(422);
-    expect(JSON.stringify(token.body.error.details)).toContain('settings.token');
+    expect(token.body.error.code).toBe('public.configure_through_link');
+    const on = await at(pm, 'patch', `/projects/${id}/components/public_link`)
+      .set('If-Match', await etagOf(pm, id, 'public_link'))
+      .send({ enabled: true });
+    expect(on.status).toBe(422);
+    expect(on.body.error.code).toBe('public.configure_through_link');
+    const off = await at(pm, 'patch', `/projects/${id}/components/public_link`)
+      .set('If-Match', await etagOf(pm, id, 'public_link'))
+      .send({ enabled: false });
+    expect(off.status).toBe(200);
+    expect(off.body.data.settings).toEqual({ enabled: false });
   });
 
   it('keeps an active project complete: no enabled component without valid settings', async () => {
@@ -146,17 +156,6 @@ describe('components', () => {
       .send({ enabled: true, settings: {} });
     // the settings fail their schema before the completeness rule is reached
     expect(stages.status).toBe(422);
-    // the public link starts without settings, which its schema needs once it is on
-    const noSettings = await at(pm, 'patch', `/projects/${id}/components/public_link`)
-      .set('If-Match', await etagOf(pm, id, 'public_link'))
-      .send({ enabled: true });
-    expect(noSettings.status).toBe(409);
-    expect(noSettings.body.error.code).toBe('workflow.guard.project_setup_complete');
-    expect(JSON.stringify(noSettings.body.error.details)).toContain('component:public_link');
-    const withList = await at(pm, 'patch', `/projects/${id}/components/public_link`)
-      .set('If-Match', await etagOf(pm, id, 'public_link'))
-      .send({ enabled: true, settings: { enabled: true } });
-    expect(withList.status).toBe(200);
   });
 
   it('refuses component writes to a volunteer and to the PM of another program', async () => {

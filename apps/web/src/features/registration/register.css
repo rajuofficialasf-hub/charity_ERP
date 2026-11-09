@@ -1,49 +1,182 @@
 /*
- * Registration on one page (SCR-002, UX-16; the owner's reference image): a white card with the
- * green title band on the soft canvas, a step indicator, one bordered section per step, two
- * columns of fields from 640 px. Tokens only (colors.md, DESIGN_SYSTEM).
+ * Registration (SCR-002; the owner's reference design): on the desktop the brand panel on the left
+ * (the logo, the title and the steps on the brand ink), the form on the right; on a phone the panel
+ * is a short band of text above the form.
+ * Tokens only (colors.md, DESIGN_SYSTEM): white text on the ink, green as the action colour.
  */
 .register-page {
-  /* the wash runs up under the top bar (UX-19), so the bar has no seam */
+  /* the page runs up under the top bar (UX-19), so the bar has no seam */
   min-height: 100dvh;
   margin-top: calc(-1 * var(--app-bar-height));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
-  padding: calc(var(--space-5) + var(--app-bar-height)) var(--space-4) var(--space-6);
-  background:
-    radial-gradient(
-      120% 50% at 50% -10%,
-      var(--color-bg-brand-soft) 0%,
-      rgba(206, 245, 227, 0) 70%
-    ),
-    var(--color-bg-canvas);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  /* the asf page colour, on which the asf fields' labels are readable in both modes */
+  background: var(--asf-palette-background-default, var(--color-bg-canvas));
 }
-.register-card {
+
+/* ---- the brand panel ---- */
+/* white text on the brand ink (colors.md 6: dark surfaces use ink with white text) */
+.register-brand {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  padding: calc(var(--app-bar-height) + var(--space-2)) 0 var(--space-5);
+  background: var(--color-brand-ink);
+  color: var(--color-text-on-brand);
+  isolation: isolate;
+}
+.register-brand > * {
+  margin-inline: var(--space-4);
+}
+/* the logo keeps its colours (colors.md 6.5), so it sits on a white tile */
+.register-logo {
+  justify-self: start;
+  display: inline-grid;
+  place-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  box-shadow: var(--elevation-2);
+}
+.register-logo img {
+  display: block;
+  width: auto;
+  height: 40px;
+}
+.register-logo:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.register-brand-text {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+.register-badge {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+}
+.register-title {
+  margin: 0;
+  font-size: var(--text-hero);
+  line-height: 1.3;
+  font-weight: var(--font-weight-bold);
+}
+.register-line {
+  margin: 0;
+  max-width: 34em;
+  color: rgba(255, 255, 255, 0.94);
+}
+.register-brand-note {
+  margin: 0;
+  padding: var(--space-3);
+  border-left: 3px solid var(--color-brand-accent);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.94);
+  font-size: var(--text-caption);
+}
+/* words for screen readers only */
+.register-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* the steps: on a phone for screen readers only, the progress bar of the form shows the place */
+.register-steps {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.register-step {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  color: rgba(255, 255, 255, 0.94);
+}
+.register-step-dot {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius-full);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+}
+.register-step[data-state='done'] {
+  color: rgba(255, 255, 255, 0.94);
+}
+.register-step[data-state='done'] .register-step-dot {
+  border-color: var(--color-brand-primary);
+  background: var(--color-brand-primary);
+  color: var(--color-text-on-brand);
+}
+.register-step[data-state='current'] {
+  color: var(--color-text-on-brand);
+  font-weight: var(--font-weight-bold);
+}
+.register-step[data-state='current'] .register-step-dot {
+  border-color: var(--color-text-on-brand);
+  background: var(--color-text-on-brand);
+  color: var(--color-brand-ink);
+  box-shadow: 0 0 0 4px rgba(0, 142, 72, 0.55);
+}
+
+/* ---- the form side ---- */
+.register-side {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  padding: var(--space-4) var(--space-4) var(--space-6);
+}
+.register-have {
+  margin: 0;
+  justify-self: end;
+  color: var(--color-text-secondary);
+}
+.register-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
   width: 100%;
-  max-width: 880px;
+  max-width: 640px;
+  justify-self: center;
+  padding: var(--space-4);
   border-radius: var(--radius-lg);
   background: var(--color-bg-surface);
   box-shadow: var(--elevation-2);
 }
-.register-body {
+.register-step-head {
   display: grid;
-  gap: var(--space-4);
-  padding: var(--space-4);
+  gap: var(--space-1);
+}
+.register-step-title {
+  margin: 0;
+  font-size: var(--text-display);
+  line-height: var(--leading-heading);
+  font-weight: var(--font-weight-bold);
 }
 .register-section {
   display: grid;
   gap: var(--space-4);
   min-width: 0;
   margin: 0;
-  padding: var(--space-4);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-lg);
-}
-.register-section-title {
   padding: 0;
-  font-weight: var(--font-weight-bold);
+  border: 0;
 }
 .register-grid {
   display: grid;
@@ -100,35 +233,40 @@
   font-weight: var(--font-weight-bold);
 }
 .register-muted {
+  margin: 0;
   color: var(--color-text-secondary);
 }
+/* the previous step on the start, the next one on the end; on a phone the next one comes first */
 .register-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: wrap-reverse;
   gap: var(--space-3);
-  justify-content: flex-end;
+  justify-content: space-between;
+  padding-top: var(--space-2);
+}
+.register-actions > :only-child {
+  margin-left: auto;
 }
 .register-done {
   justify-items: center;
+  text-align: center;
+}
+.register-done-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-brand-soft);
+  color: var(--color-brand-primary-dark);
 }
 .register-link {
   color: var(--color-brand-primary-dark);
   font-weight: var(--font-weight-bold);
 }
-.register-band-note {
-  margin: var(--space-2) 0 0;
-  color: var(--color-text-on-brand);
-}
-.register-foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
-}
+
 @media (min-width: 640px) {
-  .register-body {
+  .register-panel {
     padding: var(--space-5);
   }
   .register-grid {
@@ -136,5 +274,61 @@
   }
   .register-photos {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* the desktop: the brand panel beside the form, the whole height of the window */
+@media (min-width: 1024px) {
+  .register-page {
+    grid-template-columns: minmax(320px, 2fr) minmax(0, 3fr);
+  }
+  .register-brand {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    align-content: center;
+    gap: var(--space-5);
+    padding: calc(var(--app-bar-height) + var(--space-5)) 0 var(--space-6);
+  }
+  .register-brand > * {
+    margin-inline: var(--space-6);
+  }
+  .register-logo img {
+    height: 52px;
+  }
+  .register-title {
+    font-size: var(--text-hero);
+  }
+  .register-line {
+    font-size: var(--text-title);
+  }
+  .register-steps {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3) var(--space-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .register-side {
+    align-content: center;
+    padding: calc(var(--app-bar-height) + var(--space-3)) var(--space-6) var(--space-6);
+  }
+  .register-panel {
+    padding: var(--space-5) var(--space-6);
+    box-shadow: none;
+    background: transparent;
+  }
+  .register-have {
+    max-width: 640px;
+    width: 100%;
+    justify-self: center;
+    text-align: end;
   }
 }

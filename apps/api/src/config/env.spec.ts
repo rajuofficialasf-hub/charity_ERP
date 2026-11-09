@@ -10,9 +10,27 @@ const base = {
   JWT_SECRET: 'j'.repeat(32),
   AUTH_CSRF_SECRET: 'c'.repeat(32),
   OTP_SECRET: 'o'.repeat(32),
+  LOCAL_KEY_SECRET: 'l'.repeat(32),
 };
 
 describe('loadEnv', () => {
+  it('needs the secret that seals the device keys, and refuses the example value in production', () => {
+    expect(() => loadEnv({ ...base, LOCAL_KEY_SECRET: undefined as unknown as string })).toThrow(
+      /LOCAL_KEY_SECRET/,
+    );
+    expect(() =>
+      loadEnv({
+        ...base,
+        NODE_ENV: 'production',
+        APP_ORIGIN: 'https://erp.example.org',
+        LOCAL_KEY_SECRET: 'change-me-to-a-random-string-of-32-characters',
+      }),
+    ).toThrow(/LOCAL_KEY_SECRET/);
+    expect(
+      loadEnv({ ...base, LOCAL_KEY_PREVIOUS_SECRET: '' }).LOCAL_KEY_PREVIOUS_SECRET,
+    ).toBeUndefined();
+  });
+
   it('applies defaults and parses the port', () => {
     const env = loadEnv({ ...base, PORT: '4100' });
     expect(env).toMatchObject({
@@ -87,13 +105,25 @@ describe('loadEnv', () => {
     );
     // the set-password link goes out by email, so it must point at the https origin (D-097)
     expect(() => loadEnv({ ...base, NODE_ENV: 'production' })).toThrow(/APP_ORIGIN/);
-    expect(loadEnv(production)).toMatchObject({
-      OTP_DUMMY_ENABLED: false,
-      AUTH_COOKIE_SECURE: true,
-      TRUST_PROXY: 'loopback',
-      RATE_LIMITS_RELAXED: false,
-      SESSION_DEVICE_LIMIT_RELAXED: false,
-    });
+    // production starts only with a real virus scanner, which joins with the first deployment;
+    // until then the scanner is the one thing a production configuration lacks
+    const refusal = (() => {
+      try {
+        loadEnv(production);
+        return '';
+      } catch (error) {
+        return String(error);
+      }
+    })();
+    // exactly one problem: every other production setting and default is valid
+    expect(refusal).toBe(
+      'Error: Invalid configuration: FILE_SCANNER: a real virus scanner is required in production',
+    );
+  });
+
+  it('marks files skipped outside production and refuses that scanner in production', () => {
+    expect(loadEnv(base).FILE_SCANNER).toBe('skip');
+    expect(() => loadEnv({ ...base, FILE_SCANNER: 'none' })).toThrow(/FILE_SCANNER/);
   });
 
   it('needs a six-digit dummy code when the dummy OTP is on, and long auth secrets', () => {

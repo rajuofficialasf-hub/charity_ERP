@@ -1,6 +1,7 @@
 import type { Scope } from '../access/scope';
 import type { AccessService } from '../access/service';
 import { type PrismaService } from '../core/prisma.service';
+import { staffPhotos } from './staff-photos';
 
 /** One official in the organogram with the officials who report to them inside the same part. */
 export interface OrganogramNode {
@@ -11,6 +12,8 @@ export interface OrganogramNode {
   roles: string[];
   state: string;
   homeDivisionId: string | null;
+  /** The official's uploaded photo; null shows the initial. */
+  photoFileId: string | null;
   reports: OrganogramNode[];
 }
 
@@ -109,6 +112,7 @@ export class OrganogramService {
       ]),
     );
     const visible = new Set(visibleRows.map((r) => r.id));
+    const photos = await staffPhotos(this.prisma, [...visible]);
     const pmProgram = new Map<string, string>();
     for (const p of programs)
       if (p.pmUserId && !pmProgram.has(p.pmUserId)) pmProgram.set(p.pmUserId, p.id);
@@ -136,6 +140,7 @@ export class OrganogramService {
       roles: o.roles,
       state: o.state,
       homeDivisionId: o.homeDivisionId,
+      photoFileId: photos.get(o.id) ?? null,
       reports: sorted(children.get(o.id) ?? []).map((c) => node(c, children)),
     });
     const sorted = (list: Official[]) =>

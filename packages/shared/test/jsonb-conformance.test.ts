@@ -17,6 +17,8 @@ import {
   followupAnswersSchema,
   handoverScopeSchema,
   jsonbSchemas,
+  mediaScriptSchema,
+  referenceListAttributesSchema,
   ratingScoresSchema,
   scoreCriteriaSchema,
   userPreferencesSchema,
@@ -61,6 +63,8 @@ function conform(schemaName: string, fragment: string, zodSchema: z.ZodType, cas
 
 conform('application-answer-value', '', answerValueSchema, [
   ['short text', { t: 'short_text', v: 'রহিমা খাতুন' }, true],
+  ['number table', { t: 'number_table', v: { cow: { own: 2, shared: 1 } } }, true],
+  ['number table with a text cell', { t: 'number_table', v: { cow: { own: 'two' } } }, false],
   ['number', { t: 'number', v: 5 }, true],
   ['money as decimal string', { t: 'money', v: '1500.50' }, true],
   ['money with three decimals', { t: 'money', v: '1.505' }, false],
@@ -139,6 +143,27 @@ conform('followup-answers', '', followupAnswersSchema, [
   ['object value', { profit: { amount: 1 } }, false],
 ]);
 
+conform('media-work-script', '', mediaScriptSchema, [
+  [
+    'the parts',
+    { summary: 'একজন মায়ের গল্প', questions: 'কীভাবে শুরু করলেন?', voiceOver: '' },
+    true,
+  ],
+  ['empty', {}, true],
+  ['unknown part', { title: 'x' }, false],
+  ['not text', { scenes: ['one'] }, false],
+  // characters, not UTF-16 units: 15,000 emoji are within the limit, 20,001 letters are not
+  ['emoji within the limit', { summary: '\u{1F3A5}'.repeat(15000) }, true],
+  ['too long', { notes: 'a'.repeat(20001) }, false],
+]);
+
+conform('reference-list-attributes', '', referenceListAttributesSchema, [
+  ['a platform', { kind: 'youtube' }, true],
+  ['none', {}, true],
+  ['an unknown kind', { kind: 'tiktok' }, false],
+  ['unknown key', { colour: 'green' }, false],
+]);
+
 conform('handover-scope', '', handoverScopeSchema, [
   [
     'valid',
@@ -185,6 +210,11 @@ conform('form-field-logic', '', fieldLogicSchema, [
 ]);
 conform('form-field-logic', '#/$defs/condition', conditionSchema, [
   ['condition', { field: 'gender', op: 'in', value: ['female'] }, true],
+  [
+    'compared with another answer',
+    { field: 'expense', op: 'gt', value: { field: 'income' } },
+    true,
+  ],
   ['two shapes at once', { field: 'gender', op: 'eq', all: [] }, false],
 ]);
 conform('form-field-logic', '#/$defs/calculation', calculationSchema, [
@@ -199,6 +229,23 @@ conform('form-field-logic', '#/$defs/calculation', calculationSchema, [
     true,
   ],
   ['sum of a repeat group', { expr: { sum_repeat: { group: 'earners', field: 'income' } } }, true],
+  [
+    'a value by condition with a text result',
+    {
+      expr: {
+        if: [{ when: { field: 'ratio', op: 'gte', value: 1 }, then: { result: 'above' } }],
+        else: { result: 'severe' },
+      },
+    },
+    true,
+  ],
+  [
+    'rows counted by a condition',
+    { expr: { count_rows: { group: 'members', where: { field: 'income', op: 'gt', value: 0 } } } },
+    true,
+  ],
+  ['a branch list that is empty', { expr: { if: [], else: 0 } }, false],
+  ['a result code with a capital', { expr: { result: 'Above' } }, false],
   ['unknown function', { expr: { op: 'pow', args: [2, 3] } }, false],
   ['round 5', { expr: 1, round: 5 }, false],
 ]);
@@ -212,6 +259,12 @@ conform('form-field-logic', '#/$defs/settings', fieldSettingsSchema, [
     },
     true,
   ],
+  [
+    'text results',
+    { results: [{ code: 'severe', label: { bn: 'চরম দারিদ্র্য', en: 'Severe Poverty' } }] },
+    true,
+  ],
+  ['a result without a code', { results: [{ label: { bn: 'ক', en: 'a' } }] }, false],
   ['max_length 0', { validation: { max_length: 0 } }, false],
 ]);
 
@@ -404,6 +457,8 @@ it('jsonbSchemas covers every JSONB column of DATABASE_SCHEMA section 20 that ha
       'projects.workflow_snapshot',
       'volunteer_ratings.proposed_scores',
       'volunteer_ratings.final_scores',
+      'media_works.script',
+      'reference_lists.attributes',
     ]),
   );
 });

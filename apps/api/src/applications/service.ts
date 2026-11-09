@@ -1,0 +1,1734 @@
+import {
+  APPLICATION_ACTIONS,
+  APPLICATION_STATES,
+  type ApplicationAction,
+  scoreCriteriaSchema,
+  uuidv7,
+  type WorkflowDefinition,
+  workflowDefinitionSchema,
+} from '@css/shared';
+import {
+  type Answer,
+  type Audience,
+  type FormDefinition,
+  identityColumn,
+  split,
+} from '@css/shared/forms';
+import { isoDateInDhaka } from '@css/shared/format';
+import { z } from 'zod';
+import { type EffectiveAccess, WORKING_ASSIGNMENT, workingTeamProjects } from '../access/effective';
+import {
+  applicationWhere,
+  holdsPermission,
+  ownApplicationsWhere,
+  projectWhere,
+  type Scope,
+  teamLeadsOf,
+} from '../access/scope';
+import type { AccessService, RequestAccess } from '../access/service';
+import type { AuditWriter } from '../audit/audit-writer';
+import type { Principal } from '../auth/principal';
+import type { Env } from '../config/env';
+import { boundedRead } from '../core/bounded-read';
+import type { Clock } from '../core/clock';
+import {
+  isUniqueViolation,
+  isUniqueViolationOf,
+  isVolunteerMobileRefusal,
+} from '../core/db-errors';
+import { assertIfMatch, etagOf } from '../core/etag';
+import {
+  buildPage,
+  type CursorBody,
+  decodeCursor,
+  keysetWhere,
+  orderBy,
+  type PageNumberQuery,
+  type PageQuery,
+  pageOffset,
+  parseSort,
+} from '../core/pagination';
+import type { PrismaService, Tx } from '../core/prisma.service';
+import { literalContains } from '../core/search';
+import { Prisma } from '../generated/prisma/client';
+import { ApiError } from '../i18n/api-error';
+import type { BeneficiaryFamilyService } from '../services/beneficiary-family';
+import type { BeneficiaryIdentityService } from '../services/beneficiary-identity';
+import { type FormAudience, readDefinition, versionView } from '../services/forms';
+import { isAddressChain } from '../services/locations';
+import type { NisabService } from '../services/nisab';
+import { assertReachesApplication, isBlockedVolunteer } from './callers';
+import { liveApplicationCounts } from './limit';
+import type { MediaReferralsService } from '../services/media-referrals';
+import type { UnlocksService } from './unlocks';
+import type { ScoringService } from './scoring';
+import { type CommentReason, commentReasons } from './decision-rules';
+import type { Replayable } from '../services/uploads';
+import type { WorkflowEngine } from '../workflow/engine';
+import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards';
+import { pendingSlotsOf, slotParts } from './pending-photos';
+import { lateSync, staleVersion } from '../sync/rules';
+import { namesMatch } from '@css/shared/sync';
+import { type BuiltGuard, isBuiltGuard } from '../workflow/registry';
+import { readActivities } from './activities';
+import { readChanges, readTimeline } from './history';
+import type { SubmissionWriter } from './submission';
+import {
+  addressOf,
+  assertUploadsOwn,
+  changedAnswers,
+  checkAnswers,
+  fieldByColumn,
+  IDENTITY_COLUMN,
+  nisabOption,
+  readAnswers,
+  textOf,
+  typedName,
+  writeAnswers,
+} from './answers';
+import {
+  type ApplicationActionBody,
+  type ApplicationCreate,
+  type ApplicationFilter,
+  type ApplicationSummary,
+  type ApplicationUpdate,
+  type ApplicationView,
+  BENEFICIARY_CONTACT,
+  BENEFICIARY_NID,
+  OFFICIAL_SECTION,
+} from './view';
+
+export interface ApplicationViewer {
+  principal: Principal;
+  /** The route's scope: the applications the caller reaches, or the projects for a create. */
+  scope: Scope;
+  fieldClasses: ReadonlySet<string>;
+}
+
+/** What an offline record adds to a write: the photo slots the phone still holds, and the sync rules. */
+export interface WriteOptions {
+  pendingPhotos?: string[];
+  /**
+   * The record came through the offline sync (docs/architecture/OFFLINE_SYNC.md "Conflict rules at
+   * sync"): the device time of its making, moved onto the server's clock, decides a late or a
+   * stale record, and a known number under another name waits for the office instead of linking.
+   */
+  sync?: { createdAt: Date };
+  /** The phone's edit won over a later server edit of the draft: what lost goes on record with the write. */
+  conflict?: LastWriteConflict;
+}
+
+export interface LastWriteConflict {
+  clientUpdatedAt: string;
+  serverUpdatedAt: string;
+  serverAnswers: Prisma.InputJsonValue;
+}
+
+/** What a read answers, with the version the next write carries back in If-Match. */
+export interface ApplicationRead {
+  application: ApplicationView;
+  updatedAt: Date;
+}
+
+/** The permission an edit needs in each state (docs/architecture/WORKFLOW_ENGINE.md, section 3). */
+const EDIT_PERMISSION: Record<string, string> = {
+  draft: 'application.edit_draft',
+  submitted: 'application.edit_pending',
+  under_review: 'application.review',
+};
+
+/** The identity answers a known person's profile locks: the number, the name, the father or husband. */
+const LOCKED_COLUMNS = [IDENTITY_COLUMN, 'name', 'father_or_husband_name'] as const;
+
+/** The guards a draft passes before it is made, so a refusal comes before any writing. */
+const CREATE_GUARDS: BuiltGuard[] = [
+  'project.active',
+  'deadline.open',
+  'volunteer.not_blocked',
+  'consent.accepted',
+  'limit.not_exceeded',
+];
+
+const IDENTITY_NUMBER = /^(\d{10}|\d{13}|\d{17})$/;
+const TEAM_MEMBER_ROLE = 'volunteer_team_member';
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** Newest first by id (UUID v7 follows the time of creation and pages without gaps; a submission time can be null). */
+const LIST_SORT_FIELDS = ['id'];
+const DEFAULT_SORT = [{ field: 'id', direction: 'desc' as const }];
+/** The office's review queue: the highest score first, unscored last, then the newest. */
+const SCORE_SORT = [
+  { field: 'totalScore', direction: 'desc' as const },
+  { field: 'id', direction: 'desc' as const },
+];
+/** The decisions whose comment the review screen asks for before it sends. */
+const DECISIONS = ['approve', 'waitlist', 'reject', 'pull_from_waitlist'] as const;
+/** The states whose answers can still change the score; a decision freezes it. */
+const SCORED_WHILE = ['submitted', 'under_review'];
+/** The states a list leaves out unless asked for by name. */
+const HIDDEN_STATES = ['deleted'];
+
+/** The values a cursor of the score order carries: the score (or none) and the id. */
+const SCORE_CURSOR = z.tuple([z.number().nullable(), z.uuid()]);
+
+/**
+ * The order of the review queue as Prisma reads it: the score high to low with the unscored last,
+ * then the newest; reversed for a backward page.
+ */
+function scoreOrder(direction: 'next' | 'prev'): Prisma.ApplicationOrderByWithRelationInput[] {
+  return direction === 'next'
+    ? [{ totalScore: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }]
+    : [{ totalScore: { sort: 'asc', nulls: 'first' } }, { id: 'asc' }];
+}
+
+/** The rows after a cursor in the score order, where an unscored row comes after every score. */
+function scoreKeyset(cursor: CursorBody): Prisma.ApplicationWhereInput {
+  const parsed = SCORE_CURSOR.safeParse(cursor.v);
+  if (!parsed.success)
+    throw new ApiError('validation.failed', 422, undefined, [
+      { path: 'cursor', code: 'validation.failed' },
+    ]);
+  const [score, id] = parsed.data;
+  if (cursor.d === 'next')
+    return score === null
+      ? { totalScore: null, id: { lt: id } }
+      : {
+          OR: [
+            { totalScore: { lt: score } },
+            { totalScore: score, id: { lt: id } },
+            { totalScore: null },
+          ],
+        };
+  return score === null
+    ? { OR: [{ totalScore: null, id: { gt: id } }, { totalScore: { not: null } }] }
+    : { OR: [{ totalScore: { gt: score } }, { totalScore: score, id: { gt: id } }] };
+}
+
+/** The stored breakdown of a score, as the record shows it to the office. */
+function scoreItemsOf(criteria: unknown) {
+  return scoreCriteriaSchema.parse(criteria).items.map((item) => ({
+    key: item.key,
+    ...(item.label?.bn && item.label.en ? { label: { bn: item.label.bn, en: item.label.en } } : {}),
+    input: item.input ?? null,
+    max_points: item.max_points,
+    points: item.points,
+  }));
+}
+
+const VERSION_SELECT = {
+  id: true,
+  formId: true,
+  versionNo: true,
+  status: true,
+  publishedAt: true,
+} satisfies Prisma.FormVersionSelect;
+
+const PROJECT_SELECT = {
+  id: true,
+  status: true,
+  applyFrom: true,
+  applyTo: true,
+  perVolunteerLimit: true,
+  workflowSnapshot: true,
+  workflowDefinition: { select: { key: true, definition: true } },
+} satisfies Prisma.ProjectSelect;
+
+const ROW_SELECT = {
+  id: true,
+  appNo: true,
+  projectId: true,
+  formVersionId: true,
+  beneficiaryId: true,
+  beneficiary: { select: { name: true } },
+  applicantName: true,
+  candidateBeneficiaryId: true,
+  ownerVolunteerId: true,
+  createdByUserId: true,
+  createdBy: true,
+  submittedBy: true,
+  status: true,
+  stage: true,
+  outcome: true,
+  flags: true,
+  pendingPhotos: true,
+  clientCreatedAt: true,
+  districtId: true,
+  unionId: true,
+  submittedAt: true,
+  reviewedAt: true,
+  approvedAt: true,
+  decisionComment: true,
+  rejectionMessage: true,
+  identityKind: true,
+  nisabValue: true,
+  zakatDecision: true,
+  totalScore: true,
+  applicationScoresApplication: { select: { criteria: true } },
+  updatedAt: true,
+  project: { select: PROJECT_SELECT },
+} satisfies Prisma.ApplicationSelect;
+
+type Row = Prisma.ApplicationGetPayload<{ select: typeof ROW_SELECT }>;
+
+/** More own applications than a volunteer can have: a safety cap on the id list of a snapshot. */
+const OWN_IDS_MAX = 10_000;
+
+type Person = {
+  beneficiaryId: string | null;
+  identityKind: 'nid' | 'birth_reg' | null;
+  number: string | null;
+  answers: Answer[];
+  /** The profile the number belongs to when the typed names did not match it (a sync record). */
+  candidate?: string | null;
+};
+
+const iso = (d: Date | null) => (d ? d.toISOString() : null);
+const definitionKeys = (definition: FormDefinition) =>
+  definition.sections.flatMap((s) => s.fields.map((f) => f.fieldKey));
+const statusSchema = z.enum(APPLICATION_STATES);
+const identityKindSchema = z.enum(['nid', 'birth_reg']).nullable();
+
+/**
+ * The applications of the core cycle (docs/architecture/WORKFLOW_ENGINE.md, section 3): a draft
+ * is made on the project's published application form by a volunteer, a team member (under their
+ * lead) or an official; the person comes from the number in the identity answer and never from an
+ * id the client sends; a known person's identity answers are locked to the profile; the edits and
+ * the deletion follow the state; every state change goes through the engine. A volunteer on the
+ * blocklist reaches nothing.
+ */
+export class ApplicationsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly env: Env,
+    private readonly clock: Clock,
+    private readonly access: AccessService,
+    private readonly audit: AuditWriter,
+    private readonly identity: BeneficiaryIdentityService,
+    private readonly family: BeneficiaryFamilyService,
+    private readonly nisab: NisabService,
+    private readonly workflow: WorkflowEngine,
+    private readonly submission: SubmissionWriter,
+    private readonly scoring: ScoringService,
+    private readonly unlocks: UnlocksService,
+    private readonly media: MediaReferralsService,
+  ) {}
+
+  async create(
+    viewer: ApplicationViewer,
+    projectId: string,
+    body: ApplicationCreate,
+    options: WriteOptions = {},
+  ): Promise<Replayable<ApplicationRead>> {
+    if (body.projectId !== projectId)
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'projectId', code: 'validation.failed' },
+      ]);
+    const actor = viewer.principal.userId;
+    if (await this.blockedCaller(this.prisma, viewer.principal))
+      throw new ApiError('permission.not_found', 404);
+    const project = await this.reachedProject(viewer.principal, viewer.scope, projectId);
+    const earlier = await this.earlier(viewer, projectId, body.clientUuid);
+    if (earlier) return { replay: true, value: earlier };
+    const version = await this.versionFor(projectId, body.formVersionId, options.sync);
+    const held: string[] = [...version.flags];
+    // a record made while the window was open and synced after it closed waits for the office
+    if (options.sync && lateSync(options.sync.createdAt, this.clock.now(), project.applyTo))
+      held.push('late_sync');
+    const audience = this.audienceOf(viewer);
+    const definition = await readDefinition(this.prisma, version.id, audience);
+    const { checked, chain } = await this.checked(definition, body.answers, audience, true);
+    const access = await this.access.load(actor);
+    await this.gateLookup(viewer.principal, access, projectId, definition, checked.answers);
+    try {
+      const id = await this.prisma.$transaction(async (tx) => {
+        const owner = await this.ownerFor(tx, viewer.principal, projectId);
+        // one draft of an owner at a time, so parallel creates cannot pass the limit together
+        if (owner.ownerVolunteerId)
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`application-owner:${projectId}:${owner.ownerVolunteerId}`}))`;
+        const person = await this.resolvePerson(tx, definition, checked.answers, null, {
+          nameMatch: options.sync !== undefined,
+        });
+        if (person.candidate) held.push('existing_identity');
+        await this.assertOnePerProject(tx, projectId, person, null);
+        await this.assertMobile(tx, actor, checked.standard, owner.ownerUserId);
+        const id = uuidv7();
+        await this.runCreateGuards(tx, viewer.principal, access, {
+          id,
+          projectId,
+          formVersionId: version.id,
+          beneficiaryId: person.beneficiaryId,
+          ownerVolunteerId: owner.ownerVolunteerId,
+          createdByUserId: actor,
+          createdBy: actor,
+          submittedBy: null,
+          status: 'draft',
+          zakatDecision: null,
+          updatedAt: this.clock.now(),
+          pendingPhotos: options.pendingPhotos ?? [],
+          flags: held,
+          clientCreatedAt: options.sync?.createdAt ?? null,
+          project: { ...project, approval: null },
+        });
+        const status = held.length ? 'needs_verification' : 'draft';
+        await assertUploadsOwn(tx, actor, null, person.answers);
+        const [regionLocationId, districtId, , unionId] = chain;
+        await tx.application.create({
+          data: {
+            id,
+            projectId,
+            formVersionId: version.id,
+            beneficiaryId: person.beneficiaryId,
+            candidateBeneficiaryId: person.candidate ?? null,
+            // an entry held at its creation is named by what was typed until the office links it
+            applicantName: held.length ? typedName(checked.standard) : null,
+            identityKind: person.identityKind,
+            ownerVolunteerId: owner.ownerVolunteerId,
+            createdByUserId: actor,
+            status,
+            flags: held,
+            ...(held.length ? { submittedAt: this.clock.now() } : {}),
+            regionLocationId,
+            districtId,
+            unionId,
+            clientUuid: body.clientUuid,
+            clientCreatedAt: body.clientCreatedAt ? new Date(body.clientCreatedAt) : null,
+            pendingPhotos: options.pendingPhotos ?? [],
+            createdBy: actor,
+            updatedBy: actor,
+          },
+        });
+        await writeAnswers(tx, id, version.id, person.answers, actor);
+        await this.audit.record(tx, {
+          action: 'application.create',
+          entityType: 'application',
+          entityId: id,
+          clientUuid: body.clientUuid,
+          new: {
+            projectId,
+            status,
+            flags: held,
+            beneficiaryId: person.beneficiaryId,
+            candidateBeneficiaryId: person.candidate ?? null,
+            ownerVolunteerId: owner.ownerVolunteerId,
+          },
+        });
+        return id;
+      });
+      return { replay: false, value: await this.read(viewer, access, id) };
+    } catch (error) {
+      if (isVolunteerMobileRefusal(error))
+        throw new ApiError('beneficiary.mobile_is_volunteer_mobile', 409);
+      if (!isUniqueViolation(error)) throw error;
+      // the same client id arrived twice at once: the first one is the answer; otherwise the
+      // person already has an application in the project
+      const winner = await this.earlier(viewer, projectId, body.clientUuid);
+      if (winner) return { replay: true, value: winner };
+      throw new ApiError('beneficiary.already_applied', 409);
+    }
+  }
+
+  /**
+   * The project's published application form as the caller's audience sees it: what the new
+   * application screen draws. The caller must reach the project with the create permission.
+   */
+  async applicationForm(viewer: ApplicationViewer, projectId: string) {
+    await this.reachedProject(viewer.principal, viewer.scope, projectId);
+    const version = await this.prisma.formVersion.findFirst({
+      where: { status: 'published', form: { projectId, kind: 'beneficiary_application' } },
+      select: VERSION_SELECT,
+    });
+    if (!version) throw new ApiError('application.form_not_published', 422);
+    const definition = await readDefinition(this.prisma, version.id, this.audienceOf(viewer));
+    return versionView(version, definition);
+  }
+
+  async get(viewer: ApplicationViewer, applicationId: string): Promise<ApplicationRead> {
+    return this.readReached(viewer, { id: applicationId });
+  }
+
+  async getByNumber(viewer: ApplicationViewer, appNo: string): Promise<ApplicationRead> {
+    return this.readReached(viewer, { appNo });
+  }
+
+  /**
+   * Edits the answers in the state's permission (a draft by its volunteer or team member, a
+   * pending one by the main volunteer, one under review by the official, whose changes are logged
+   * field by field). A known person's identity answers stay the profile's; a draft whose number
+   * now matches a profile binds to it.
+   */
+  async update(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    body: ApplicationUpdate,
+    ifMatch: string | undefined,
+    options: WriteOptions = {},
+  ): Promise<ApplicationRead> {
+    const actor = viewer.principal.userId;
+    const access = await this.access.load(actor);
+    const row = await this.reachedRow(viewer.principal, access, applicationId, 'application.view');
+    const permission = EDIT_PERMISSION[row.status];
+    if (!permission) throw new ApiError('application.not_editable', 409);
+    await this.assertMay(viewer.principal, access, permission, applicationId);
+    assertIfMatch(ifMatch, row.updatedAt);
+    const audience = this.audienceOf(viewer);
+    const keys = new Set(
+      definitionKeys(await readDefinition(this.prisma, row.formVersionId, audience)),
+    );
+    const definition = await readDefinition(this.prisma, row.formVersionId, audience);
+    const previous = await readAnswers(
+      this.prisma,
+      applicationId,
+      audience === 'official'
+        ? definition
+        : await readDefinition(this.prisma, row.formVersionId, 'official'),
+    );
+    const { checked, chain } = await this.checked(
+      definition,
+      body.answers,
+      audience,
+      row.status === 'draft',
+      previous,
+    );
+    if (!row.beneficiaryId)
+      await this.gateLookup(viewer.principal, access, row.projectId, definition, checked.answers);
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // the version and the state are read again under the lock: two edits with the same
+        // version, or an edit racing a submission, must not both land
+        const [locked] = await tx.$queryRaw<{ status: string; updated_at: Date }[]>`
+          SELECT status, updated_at FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
+        if (!locked || locked.status !== row.status)
+          throw new ApiError('application.not_editable', 409);
+        assertIfMatch(ifMatch, locked.updated_at);
+        // one read of every stored answer: the caller's audience is compared and rewritten, the
+        // other audience's answers stay as they are
+        const stored = await readAnswers(
+          tx,
+          applicationId,
+          await readDefinition(tx, row.formVersionId, 'official'),
+        );
+        const before = stored.filter((a) => keys.has(a.fieldKey));
+        const kept = stored.filter((a) => !keys.has(a.fieldKey));
+        const person = await this.resolvePerson(tx, definition, checked.answers, row.beneficiaryId);
+        await this.assertOnePerProject(tx, row.projectId, person, applicationId);
+        const ownerUser = row.ownerVolunteerId
+          ? (
+              await tx.volunteer.findUnique({
+                where: { id: row.ownerVolunteerId },
+                select: { userId: true },
+              })
+            )?.userId
+          : undefined;
+        await this.assertMobile(tx, actor, checked.standard, ownerUser);
+        await assertUploadsOwn(tx, actor, applicationId, person.answers);
+        await writeAnswers(
+          tx,
+          applicationId,
+          row.formVersionId,
+          [...kept, ...person.answers],
+          actor,
+        );
+        const [regionLocationId, districtId, , unionId] = chain;
+        const now = this.clock.now();
+        await tx.application.update({
+          where: { id: applicationId },
+          data: {
+            beneficiaryId: person.beneficiaryId,
+            identityKind: person.identityKind,
+            regionLocationId,
+            districtId,
+            unionId,
+            ...(options.pendingPhotos
+              ? {
+                  pendingPhotos: await mergedSlots(
+                    tx,
+                    applicationId,
+                    options.pendingPhotos,
+                    person.answers,
+                  ),
+                }
+              : {}),
+            updatedAt: now,
+            updatedBy: actor,
+          },
+        });
+        if (SCORED_WHILE.includes(row.status)) await this.scoring.compute(tx, applicationId, actor);
+        const changes = changedAnswers(before, person.answers);
+        if (row.status === 'under_review' && changes.length)
+          await tx.fieldChange.createMany({
+            data: changes.map((c) => ({
+              id: uuidv7(),
+              entityType: 'application',
+              entityId: applicationId,
+              field: c.repeatIndex ? `${c.fieldKey}[${c.repeatIndex}]` : c.fieldKey,
+              oldValue: (c.old ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+              newValue: (c.new ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+              kind: 'review_edit',
+              createdBy: actor,
+            })),
+          });
+        if (options.conflict)
+          await this.audit.record(tx, {
+            action: 'sync.conflict_last_write',
+            entityType: 'application',
+            entityId: applicationId,
+            new: { kept: 'client', ...options.conflict },
+          });
+        await this.audit.record(tx, {
+          action: 'application.update',
+          entityType: 'application',
+          entityId: applicationId,
+          old: { status: row.status },
+          new: {
+            status: row.status,
+            changed: changes.map((c) => c.fieldKey),
+            ...(person.beneficiaryId !== row.beneficiaryId
+              ? { beneficiaryId: person.beneficiaryId }
+              : {}),
+          },
+        });
+      });
+    } catch (error) {
+      if (isVolunteerMobileRefusal(error))
+        throw new ApiError('beneficiary.mobile_is_volunteer_mobile', 409);
+      if (isUniqueViolation(error)) throw new ApiError('beneficiary.already_applied', 409);
+      throw error;
+    }
+    return this.read(viewer, access, applicationId);
+  }
+
+  /**
+   * Holds a draft for the office instead of submitting it: a send made while the window was open
+   * that arrives after it closed (docs/architecture/OFFLINE_SYNC.md "Conflict rules at sync").
+   * The send's permission and every guard of the submit move but the window run first, so only a
+   * record that could have gone in time waits; the window is then judged at the send's device time.
+   */
+  async holdForVerification(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    ifMatch: string | undefined,
+    flags: readonly string[],
+    sentAt: Date,
+  ): Promise<ApplicationRead> {
+    const actor = viewer.principal.userId;
+    const access = await this.access.load(actor);
+    const row = await this.reachedRow(viewer.principal, access, applicationId, 'application.view');
+    if (row.status !== 'draft') throw new ApiError('application.not_editable', 409);
+    const project = await this.prisma.project.findUniqueOrThrow({
+      where: { id: row.projectId },
+      select: PROJECT_SELECT,
+    });
+    const definition = workflowDefinitionSchema.parse(
+      project.workflowSnapshot ?? project.workflowDefinition.definition,
+    );
+    const submit = (definition.transitions ?? []).find(
+      (t) => t.from === 'draft' && t.to === 'submitted',
+    );
+    if (!submit?.permission) throw new ApiError('workflow.transition_not_allowed', 409);
+    await this.assertMay(viewer.principal, access, submit.permission, applicationId);
+    assertIfMatch(ifMatch, row.updatedAt);
+    const now = this.clock.now();
+    // a draft made online carries no device time: the send's stands for it
+    const madeAt = row.clientCreatedAt ?? sentAt;
+    const held = [...new Set([...row.flags, ...flags])];
+    await this.prisma.$transaction(async (tx) => {
+      await this.runGuards(
+        tx,
+        viewer.principal,
+        access,
+        {
+          id: row.id,
+          projectId: row.projectId,
+          formVersionId: row.formVersionId,
+          beneficiaryId: row.beneficiaryId,
+          ownerVolunteerId: row.ownerVolunteerId,
+          createdByUserId: row.createdByUserId,
+          createdBy: row.createdBy,
+          submittedBy: row.submittedBy,
+          status: row.status,
+          zakatDecision: row.zakatDecision,
+          updatedAt: row.updatedAt,
+          pendingPhotos: row.pendingPhotos,
+          flags: held,
+          clientCreatedAt: madeAt,
+          project: { ...project, approval: null },
+        },
+        (submit.guards ?? []).filter(isBuiltGuard).filter((g) => g !== 'deadline.open'),
+        'submitted',
+      );
+      // the entry waits without a profile: the lists name it by the typed name meanwhile
+      const form = await readDefinition(tx, row.formVersionId, 'official');
+      const { standard } = split(form, await readAnswers(tx, applicationId, form));
+      await tx.application.update({
+        where: { id: applicationId },
+        data: {
+          status: 'needs_verification',
+          applicantName: typedName(standard),
+          flags: held,
+          clientCreatedAt: madeAt,
+          submittedAt: now,
+          updatedAt: now,
+          updatedBy: actor,
+        },
+      });
+      await this.audit.record(tx, {
+        action: 'application.held_for_verification',
+        entityType: 'application',
+        entityId: applicationId,
+        old: { status: row.status },
+        new: { status: 'needs_verification', flags: held, sentAt: sentAt.toISOString() },
+      });
+    });
+    return this.read(viewer, access, applicationId);
+  }
+
+  /** A workflow action through the engine, which decides the permission, the scope and the guards. */
+  async act(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    action: ApplicationAction,
+    body: ApplicationActionBody,
+    ifMatch: string | undefined,
+  ): Promise<ApplicationRead> {
+    if (await this.blockedCaller(this.prisma, viewer.principal))
+      throw new ApiError('permission.not_found', 404);
+    // the zakat decision comes with its own step; a value nothing records is refused, not dropped
+    if (body.zakatDecision !== undefined) throw new ApiError('workflow.action_not_built', 409);
+    const verifying = action === 'verify_link' || action === 'verify_create';
+    const misplaced = (path: string) =>
+      new ApiError('validation.failed', 422, undefined, [{ path, code: 'validation.failed' }]);
+    if (body.linkBeneficiaryId !== undefined && action !== 'verify_link')
+      throw misplaced('linkBeneficiaryId');
+    if (body.ownerVolunteerId !== undefined && !verifying) throw misplaced('ownerVolunteerId');
+    if (action === 'verify_link' && !body.linkBeneficiaryId)
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'linkBeneficiaryId', code: 'validation.required' },
+      ]);
+    // a pull of one chosen application is the waitlist's own step: it needs the waitlist
+    // permission besides the approval its transition asks for (permissions.yaml)
+    if (action === 'pull_from_waitlist') {
+      const access = await this.access.load(viewer.principal.userId);
+      if (!holdsPermission('application.waitlist', access.grants)) {
+        this.access.denied(viewer.principal.userId, 'application.waitlist', 'application');
+        throw new ApiError('permission.denied', 403);
+      }
+    }
+    // a submission binds the person with the move (a submitted application always has one) and
+    // takes its number after it; a verification does the same once its own checks pass, and a
+    // public entry never rewrites a known person's contact data
+    const submit = action === 'submit';
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // the decisions of a project run one after another, as the pulls do, so the score order
+        // and a full quota are read as the last decision left them
+        if ((DECISIONS as readonly string[]).includes(action)) {
+          const row = await tx.application.findUnique({
+            where: { id: applicationId },
+            select: { projectId: true },
+          });
+          if (row)
+            await tx.$queryRaw`SELECT 1 AS held FROM pg_advisory_xact_lock(hashtextextended(${`waitlist:${row.projectId}`}, 0))`;
+        }
+        await this.workflow.transition(
+          tx,
+          viewer.principal,
+          applicationId,
+          action,
+          { reason: body.reason, comment: body.comment, message: body.message },
+          // the version the caller saw is required: the engine checks it once the permission and
+          // the scope have passed, so a hidden application still answers not-found
+          ifMatch ?? '',
+          submit
+            ? { beforeApply: (t, app) => this.submission.bindPerson(t, viewer.principal, app.id) }
+            : verifying
+              ? {
+                  beforeApply: async (t, app) => {
+                    const owner = await this.verified(t, viewer.principal, app.id, action, body);
+                    return {
+                      ...(owner ? { ownerVolunteerId: owner.volunteerId } : {}),
+                      ...(await this.submission.bindPerson(t, viewer.principal, app.id, {
+                        writeContact: false,
+                        ownerUserId: owner?.userId,
+                      })),
+                    };
+                  },
+                }
+              : {},
+        );
+        if (submit || verifying) await this.submission.number(tx, viewer.principal, applicationId);
+      });
+    } catch (error) {
+      // the database's own refusals at commit: the volunteer's own mobile as the person's, and
+      // another live application of the person in the project meanwhile
+      if (isVolunteerMobileRefusal(error))
+        throw new ApiError('beneficiary.mobile_is_volunteer_mobile', 409);
+      if (isUniqueViolationOf(error, 'applications_project_id_beneficiary_id_key'))
+        throw new ApiError('beneficiary.already_applied', 409);
+      // two verifications made a profile for one new number at once: the later one links instead
+      if (verifying && isUniqueViolation(error))
+        throw new ApiError('application.verify_identity_exists', 409);
+      throw error;
+    }
+    const access = await this.access.load(viewer.principal.userId);
+    return this.read(viewer, access, applicationId);
+  }
+
+  /** The steps of the application as the caller's audience may read them. */
+  async timeline(viewer: ApplicationViewer, applicationId: string) {
+    await this.readReached(viewer, { id: applicationId });
+    return readTimeline(this.prisma, applicationId, this.audienceOf(viewer));
+  }
+
+  /** The activities of the application, newest first, within the caller's scope. */
+  async activities(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    query: { limit: number; cursor?: string; type?: string },
+  ) {
+    await this.readReached(viewer, { id: applicationId });
+    const binding = `applications.activities|${viewer.principal.userId}|${applicationId}`;
+    const cursor = query.cursor
+      ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
+      : undefined;
+    const fetched = await readActivities(this.prisma, applicationId, {
+      limit: query.limit + 1,
+      beforeId: cursor ? String(cursor.v[0]) : undefined,
+      type: query.type,
+    });
+    return buildPage(fetched, {
+      limit: query.limit,
+      sort: [{ field: 'id', direction: 'desc' as const }],
+      direction: 'next',
+      hadCursor: Boolean(cursor),
+      secret: this.env.CURSOR_SECRET,
+      binding,
+    });
+  }
+
+  /** The change log of the answers, for the office (the route's permission says who). */
+  async changes(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    query: { limit: number; cursor?: string },
+  ) {
+    if (await this.blockedCaller(this.prisma, viewer.principal))
+      throw new ApiError('permission.not_found', 404);
+    const row = await this.prisma.application.findFirst({
+      where: { AND: [{ id: applicationId }, applicationWhere(viewer.scope)] },
+      select: { id: true },
+    });
+    if (!row) throw new ApiError('permission.not_found', 404);
+    const binding = `applications.changes|${viewer.principal.userId}|${applicationId}`;
+    const cursor = query.cursor
+      ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
+      : undefined;
+    const sort = [{ field: 'id', direction: 'desc' as const }];
+    const fetched = await readChanges(this.prisma, applicationId, {
+      limit: query.limit + 1,
+      beforeId: cursor ? String(cursor.v[0]) : undefined,
+    });
+    return buildPage(fetched, {
+      limit: query.limit,
+      sort,
+      direction: 'next',
+      hadCursor: Boolean(cursor),
+      secret: this.env.CURSOR_SECRET,
+      binding,
+    });
+  }
+
+  /** The applications of a project the caller's scope reaches, newest first. */
+  async list(
+    viewer: ApplicationViewer,
+    projectId: string,
+    query: ApplicationFilter & PageQuery & PageNumberQuery,
+  ) {
+    const actor = viewer.principal.userId;
+    const access = await this.access.load(actor);
+    const projectScope = await this.access.scopeFor(
+      viewer.principal,
+      access,
+      'application.view',
+      'project',
+    );
+    await this.reachedProject(viewer.principal, projectScope, projectId);
+    return this.page(viewer, `applications.list|${actor}|${projectId}`, { projectId }, query);
+  }
+
+  /**
+   * The query of a project's list as `list` reads it, for an export: the same reach of the
+   * project, the same filter inside the caller's scope and the same order, built with the caller's
+   * access of this moment. A blocked caller's query matches nothing, as the list shows nothing.
+   */
+  async listQuery(
+    viewer: ApplicationViewer,
+    projectId: string,
+    query: ApplicationFilter & { sort?: string },
+    loaded?: RequestAccess,
+  ): Promise<{ where: Prisma.ApplicationWhereInput; byScore: boolean }> {
+    // the caller's access of the same moment as its other checks, when it has it already
+    const access = loaded ?? (await this.access.load(viewer.principal.userId));
+    const projectScope = await this.access.scopeFor(
+      viewer.principal,
+      access,
+      'application.view',
+      'project',
+    );
+    await this.reachedProject(viewer.principal, projectScope, projectId);
+    const byScore = this.byScore(viewer, query.sort);
+    return { where: await this.listFilter(viewer, { projectId }, query), byScore };
+  }
+
+  /**
+   * The caller's own applications across their projects (a volunteer's "my applications"): the
+   * ones their volunteer owns and the ones they created while the owner is still their team lead
+   * there, whatever else their scope reaches.
+   */
+  async listMine(
+    viewer: ApplicationViewer,
+    query: ApplicationFilter & PageQuery & PageNumberQuery,
+  ) {
+    const userId = viewer.principal.userId;
+    return this.page(
+      viewer,
+      `applications.mine|${userId}`,
+      { OR: ownApplicationsWhere(userId, await teamLeadsOf(this.prisma, userId)) },
+      query,
+    );
+  }
+
+  /**
+   * The caller's own applications changed at or after a time (all of them without one), oldest
+   * change first and at most `limit`; `afterId` names the last row of the page before, and the
+   * database positions the next page after it by its own stamp and id, so rows changed in the
+   * same moment (a bulk review) page through too. With them come the ids of every own application
+   * the server still lists, so the phone's copy drops what left (a transfer, a deletion). Both
+   * reads see one snapshot of the database. A blocked volunteer has none.
+   */
+  async listMineSince(
+    viewer: ApplicationViewer,
+    window: { since?: Date; afterId?: string },
+    limit: number,
+  ): Promise<{ changed: ApplicationSummary[]; ids: string[]; hasMore: boolean }> {
+    const userId = viewer.principal.userId;
+    if (await this.blockedCaller(this.prisma, viewer.principal))
+      return { changed: [], ids: [], hasMore: false };
+    const own: Prisma.ApplicationWhereInput = {
+      AND: [
+        { OR: ownApplicationsWhere(userId, await teamLeadsOf(this.prisma, userId)) },
+        applicationWhere(viewer.scope),
+        { status: { not: 'deleted' } },
+      ],
+    };
+    const now = this.clock.now();
+    const [rows, ids] = await this.prisma.$transaction([
+      this.prisma.application.findMany({
+        // at or after: the phone's time has milliseconds, the rows microseconds, so the first row
+        // of a window may come again, never go missing
+        where: window.since ? { AND: [own, { updatedAt: { gte: window.since } }] } : own,
+        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+        ...(window.afterId ? { cursor: { id: window.afterId }, skip: 1 } : {}),
+        take: limit + 1,
+        select: ROW_SELECT,
+      }),
+      this.prisma.application.findMany({
+        where: own,
+        select: { id: true },
+        orderBy: { id: 'asc' },
+        take: OWN_IDS_MAX,
+      }),
+    ]);
+    const hasMore = rows.length > limit;
+    return {
+      changed: rows.slice(0, limit).map((r) => this.summaryOf(r, now)),
+      ids: ids.map((r) => r.id),
+      hasMore,
+    };
+  }
+
+  private async page(
+    viewer: ApplicationViewer,
+    binding: string,
+    base: Prisma.ApplicationWhereInput,
+    query: ApplicationFilter & PageQuery & PageNumberQuery,
+  ) {
+    // the score is the office's: a volunteer can neither read it nor learn its order
+    const byScore = query.sort === '-score';
+    // a cursor belongs to the order it was made in, so one order never reads another's cursor
+    const sortBinding = `${binding}|${byScore ? 'score' : (query.sort ?? 'id')}`;
+    const cursor = query.cursor
+      ? decodeCursor(this.env.CURSOR_SECRET, sortBinding, query.cursor)
+      : undefined;
+    const direction = cursor?.d ?? 'next';
+    const offset = pageOffset(query);
+    this.byScore(viewer, query.sort);
+    const sort = byScore ? SCORE_SORT : parseSort(query.sort, LIST_SORT_FIELDS, DEFAULT_SORT);
+    const filter = await this.listFilter(viewer, base, query);
+    const now = this.clock.now();
+    const { fetched, total } = await boundedRead(this.prisma, async (tx) => ({
+      fetched: await tx.application.findMany({
+        where: cursor
+          ? { AND: [filter, byScore ? scoreKeyset(cursor) : keysetWhere(sort, cursor)] }
+          : filter,
+        orderBy: byScore ? scoreOrder(direction) : orderBy(sort, direction),
+        skip: offset,
+        take: query.limit + 1,
+        select: ROW_SELECT,
+      }),
+      total: query.include === 'total' ? await tx.application.count({ where: filter }) : undefined,
+    }));
+    const { rows, meta } = buildPage(
+      fetched.map((r) => this.summaryOf(r, now)),
+      {
+        limit: query.limit,
+        sort,
+        direction,
+        hadCursor: Boolean(cursor) || Boolean(offset),
+        secret: this.env.CURSOR_SECRET,
+        binding: sortBinding,
+        total,
+      },
+    );
+    return { rows, meta };
+  }
+
+  /** Whether a list is read in the score order; that order is the office's alone. */
+  private byScore(viewer: ApplicationViewer, sort: string | undefined): boolean {
+    const byScore = sort === '-score';
+    if (byScore && this.audienceOf(viewer) !== 'official')
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'sort', code: 'validation.option_unknown' },
+      ]);
+    return byScore;
+  }
+
+  /** The rows of a list: the base, inside the caller's scope, filtered; none for a blocked caller. */
+  private async listFilter(
+    viewer: ApplicationViewer,
+    base: Prisma.ApplicationWhereInput,
+    query: ApplicationFilter,
+  ): Promise<Prisma.ApplicationWhereInput> {
+    if (await this.blockedCaller(this.prisma, viewer.principal)) return { id: { in: [] } };
+    return { AND: [base, applicationWhere(viewer.scope), this.filterOf(query)] };
+  }
+
+  private filterOf(query: ApplicationFilter): Prisma.ApplicationWhereInput {
+    const and: Prisma.ApplicationWhereInput[] = [];
+    const states = query.status
+      ?.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    and.push(states?.length ? { status: { in: states } } : { status: { notIn: HIDDEN_STATES } });
+    if (query.stage) and.push({ stage: query.stage });
+    if (query.districtId) and.push({ districtId: query.districtId });
+    if (query.unionId) and.push({ unionId: query.unionId });
+    if (query.ownerVolunteerId) and.push({ ownerVolunteerId: query.ownerVolunteerId });
+    if (query.flag) and.push({ flags: { has: query.flag } });
+    if (query.submittedFrom) and.push({ submittedAt: { gte: new Date(query.submittedFrom) } });
+    if (query.submittedTo)
+      and.push({ submittedAt: { lt: new Date(new Date(query.submittedTo).getTime() + DAY_MS) } });
+    if (query.q) {
+      const term = query.q.trim();
+      if (term)
+        and.push({
+          OR: [
+            { appNo: term.toUpperCase() },
+            { beneficiary: { name: { contains: literalContains(term), mode: 'insensitive' } } },
+          ],
+        });
+    }
+    return { AND: and };
+  }
+
+  private summaryOf(r: Row, now: Date): ApplicationSummary {
+    return {
+      id: r.id,
+      appNo: r.appNo,
+      projectId: r.projectId,
+      beneficiaryId: r.beneficiaryId,
+      beneficiaryName: r.beneficiary?.name ?? r.applicantName ?? null,
+      ownerVolunteerId: r.ownerVolunteerId,
+      status: statusSchema.parse(r.status),
+      stage: r.stage,
+      outcome: r.outcome,
+      flags: r.flags,
+      totalScore: r.totalScore === null ? null : Number(r.totalScore),
+      districtId: r.districtId,
+      unionId: r.unionId,
+      submittedAt: iso(r.submittedAt),
+      waitingDays: Math.max(0, Math.floor((now.getTime() - r.updatedAt.getTime()) / DAY_MS)),
+      pendingPhotos: pendingSlotsOf(r.pendingPhotos).length,
+      etag: etagOf(r.updatedAt),
+    };
+  }
+
+  private audienceOf(viewer: ApplicationViewer): FormAudience {
+    return viewer.fieldClasses.has(OFFICIAL_SECTION) ? 'official' : 'volunteer';
+  }
+
+  private async checked(
+    definition: FormDefinition,
+    raw: readonly unknown[],
+    audience: Audience,
+    draft: boolean,
+    previous: readonly Answer[] = [],
+  ) {
+    const today = isoDateInDhaka(this.clock.now());
+    // a read-only answer keeps the value it was first given (a date stays the day it was set)
+    const checked = checkAnswers(definition, raw, {
+      audience,
+      today,
+      draft,
+      previous,
+      ...(await nisabOption(this.nisab, today)),
+    });
+    const chain = addressOf(checked.standard);
+    if (!chain || !(await isAddressChain(this.prisma, chain)))
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'address', code: 'validation.address_incomplete' },
+      ]);
+    return { checked, chain };
+  }
+
+  /** The record an earlier create with this client id made on this project by this caller, if any. */
+  private async earlier(
+    viewer: ApplicationViewer,
+    projectId: string,
+    clientUuid: string,
+  ): Promise<ApplicationRead | null> {
+    const row = await this.prisma.application.findUnique({
+      where: { clientUuid },
+      select: { id: true, projectId: true, createdByUserId: true },
+    });
+    if (!row) return null;
+    if (row.projectId !== projectId || row.createdByUserId !== viewer.principal.userId)
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'clientUuid', code: 'validation.failed' },
+      ]);
+    // a create replayed after the application moved to another volunteer reads nothing
+    const userId = viewer.principal.userId;
+    const own = await this.prisma.application.count({
+      where: {
+        AND: [
+          { id: row.id },
+          { OR: ownApplicationsWhere(userId, await teamLeadsOf(this.prisma, userId)) },
+        ],
+      },
+    });
+    if (!own) throw new ApiError('permission.not_found', 404);
+    const access = await this.access.load(userId);
+    return this.read(viewer, access, row.id);
+  }
+
+  /**
+   * A number that names a known person goes through the lookup of the beneficiary service, so an
+   * application draft reveals no more than the lookup does: the same scope, the same daily limit
+   * outside the caller's area, the same audit entry, and nothing for a blocked person.
+   */
+  private async gateLookup(
+    principal: Principal,
+    access: EffectiveAccess,
+    projectId: string,
+    definition: FormDefinition,
+    answers: Answer[],
+  ): Promise<void> {
+    const field = fieldByColumn(definition, IDENTITY_COLUMN);
+    const number = field ? textOf(answers, field.fieldKey) : null;
+    if (!number || !IDENTITY_NUMBER.test(number)) return;
+    const permission = 'beneficiary.lookup';
+    if (!holdsPermission(permission, access.grants)) {
+      this.access.denied(principal.userId, permission, 'project');
+      throw new ApiError('permission.denied', 403);
+    }
+    const scope = await this.access.scopeFor(principal, access, permission, 'project');
+    const kind = identityColumn(number);
+    const found = await this.identity.lookup(
+      { principal, scope },
+      { projectId, ...(kind === 'nid' ? { nid: number } : { birthReg: number }) },
+    );
+    if (found.found && found.blocked) throw new ApiError('beneficiary.blocked', 409);
+  }
+
+  /**
+   * The version a new record is written under: the published one; through sync also a retired one
+   * the phone still had, kept as the record's own version, and flagged for the office when the
+   * record was made after the newer version came.
+   */
+  private async versionFor(
+    projectId: string,
+    formVersionId: string,
+    sync: WriteOptions['sync'],
+  ): Promise<{ id: string; flags: string[] }> {
+    const version = await this.prisma.formVersion.findFirst({
+      where: { id: formVersionId, form: { projectId, kind: 'beneficiary_application' } },
+      select: { id: true, status: true, formId: true },
+    });
+    if (!version) throw new ApiError('application.form_not_published', 422);
+    if (version.status === 'published') return { id: version.id, flags: [] };
+    if (!sync || version.status !== 'retired')
+      throw new ApiError('application.form_not_published', 422);
+    const successor = await this.prisma.formVersion.findFirst({
+      where: { formId: version.formId, status: 'published' },
+      select: { publishedAt: true },
+    });
+    const stale = staleVersion(sync.createdAt, successor?.publishedAt ?? null);
+    return { id: version.id, flags: stale ? ['stale_form_version'] : [] };
+  }
+
+  /** Whose application a draft is: the volunteer's own, a team member's lead's, nobody's for an official. */
+  private async ownerFor(
+    tx: Tx,
+    principal: Principal,
+    projectId: string,
+  ): Promise<{ ownerVolunteerId: string | null; ownerUserId: string | undefined }> {
+    if (principal.kind !== 'volunteer') return { ownerVolunteerId: null, ownerUserId: undefined };
+    const own = await tx.volunteer.findUnique({
+      where: { userId: principal.userId },
+      select: { id: true },
+    });
+    if (!own) throw new ApiError('permission.not_found', 404);
+    if (!principal.roles.includes(TEAM_MEMBER_ROLE))
+      return { ownerVolunteerId: own.id, ownerUserId: principal.userId };
+    const membership = await tx.volunteerTeam.findFirst({
+      where: {
+        projectId,
+        memberVolunteerId: own.id,
+        removedAt: null,
+        consentStatus: 'accepted',
+        leadVolunteer: {
+          projectVolunteersVolunteer: { some: { ...WORKING_ASSIGNMENT, projectId } },
+        },
+      },
+      select: { leadVolunteerId: true, leadVolunteer: { select: { userId: true } } },
+    });
+    if (!membership) throw new ApiError('application.team_lead_missing', 409);
+    return {
+      ownerVolunteerId: membership.leadVolunteerId,
+      ownerUserId: membership.leadVolunteer.userId,
+    };
+  }
+
+  /**
+   * The person behind the number in the identity answer: a live profile binds the application and
+   * locks the identity answers to its values; a blocked person is refused; no profile leaves the
+   * number in the answer for the submission to create one. An application already bound keeps its
+   * person: the number of its answer cannot name another.
+   */
+  private async resolvePerson(
+    tx: Tx,
+    definition: FormDefinition,
+    answers: Answer[],
+    boundTo: string | null = null,
+    options: { nameMatch?: boolean } = {},
+  ): Promise<Person> {
+    const field = fieldByColumn(definition, IDENTITY_COLUMN);
+    const number = field ? textOf(answers, field.fieldKey) : null;
+    const locked = (path: string) =>
+      new ApiError('validation.failed', 422, undefined, [
+        { path, code: 'beneficiary.locked_field' },
+      ]);
+    if (!number) {
+      if (boundTo) throw locked(field!.fieldKey);
+      return { beneficiaryId: null, identityKind: null, number: null, answers };
+    }
+    if (!IDENTITY_NUMBER.test(number))
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: field!.fieldKey, code: 'beneficiary.identity_missing' },
+      ]);
+    const kind = identityColumn(number);
+    const holder = await tx.beneficiary.findFirst({
+      where: kind === 'nid' ? { nid: number } : { birthReg: number },
+      select: { id: true, mergedIntoId: true },
+    });
+    const live = holder
+      ? holder.mergedIntoId
+        ? await this.identity.liveOf(tx, holder.id)
+        : holder.id
+      : null;
+    if (boundTo && live !== boundTo) throw locked(field!.fieldKey);
+    if (!live) return { beneficiaryId: null, identityKind: kind, number, answers };
+    await this.identity.assertMayApply(tx, live);
+    const profile = await tx.beneficiary.findUniqueOrThrow({
+      where: { id: live },
+      select: { nid: true, birthReg: true, name: true, fatherOrHusbandName: true },
+    });
+    // a record typed by hand offline: the names must be the profile's, else the office looks
+    if (options.nameMatch && !boundTo) {
+      const typed = (column: string) => {
+        const f = fieldByColumn(definition, column);
+        return f ? textOf(answers, f.fieldKey) : null;
+      };
+      if (
+        !namesMatch(typed('name'), profile.name) ||
+        !namesMatch(typed('father_or_husband_name'), profile.fatherOrHusbandName)
+      )
+        return { beneficiaryId: null, identityKind: kind, number, answers, candidate: live };
+    }
+    const values: Record<(typeof LOCKED_COLUMNS)[number], string> = {
+      // the number the volunteer typed: a birth registration never turns into the profile's NID
+      [IDENTITY_COLUMN]: number,
+      name: profile.name,
+      father_or_husband_name: profile.fatherOrHusbandName,
+    };
+    const lockedKeys = new Map(
+      LOCKED_COLUMNS.flatMap((column) => {
+        const f = fieldByColumn(definition, column);
+        return f ? [[f.fieldKey, values[column]] as const] : [];
+      }),
+    );
+    const rest = answers.filter((a) => !lockedKeys.has(a.fieldKey));
+    const own = [...lockedKeys].map(([fieldKey, v]) => ({
+      fieldKey,
+      repeatIndex: 0,
+      value: { t: 'short_text' as const, v },
+    }));
+    return {
+      beneficiaryId: live,
+      identityKind: profile.nid ? 'nid' : 'birth_reg',
+      number: values[IDENTITY_COLUMN],
+      answers: [...rest, ...own],
+    };
+  }
+
+  /**
+   * One application per person per project: a known person may not have another live one (the
+   * unique index holds it), and before the profile exists the same number may not be drafted
+   * twice; the number is locked for the transaction, so two drafts at once cannot both pass.
+   */
+  private async assertOnePerProject(
+    tx: Tx,
+    projectId: string,
+    person: Person,
+    exceptId: string | null,
+  ): Promise<void> {
+    if (person.beneficiaryId) {
+      const live = await tx.application.count({
+        where: {
+          projectId,
+          beneficiaryId: person.beneficiaryId,
+          status: { not: 'deleted' },
+          ...(exceptId ? { id: { not: exceptId } } : {}),
+        },
+      });
+      if (live > 0) throw new ApiError('beneficiary.already_applied', 409);
+      return;
+    }
+    const number = person.number;
+    if (!number) return;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`application-number:${projectId}:${number}`}))`;
+    const [row] = await tx.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n
+        FROM application_answers aa
+        JOIN form_fields f ON f.id = aa.field_id
+        JOIN applications a ON a.id = aa.application_id
+       WHERE a.project_id = ${projectId}::uuid
+         AND a.status <> 'deleted'
+         AND a.id <> ${exceptId ?? '00000000-0000-0000-0000-000000000000'}::uuid
+         AND f.standard_column = ${IDENTITY_COLUMN}
+         AND aa.value ->> 'v' = ${number}`;
+    if (Number(row?.n ?? 0) > 0) throw new ApiError('application.number_in_project', 409);
+  }
+
+  private async assertMobile(
+    tx: Tx,
+    actorId: string,
+    standard: Record<string, unknown>,
+    ownerUserId: string | undefined,
+  ): Promise<void> {
+    const mobile = standard.mobile;
+    if (typeof mobile !== 'string' || !mobile) return;
+    await this.identity.assertNotVolunteerMobile(tx, mobile, [
+      actorId,
+      ...(ownerUserId ? [ownerUserId] : []),
+    ]);
+  }
+
+  private async runCreateGuards(
+    tx: Tx,
+    principal: Principal,
+    access: EffectiveAccess,
+    application: EngineApplication,
+  ): Promise<void> {
+    await this.runGuards(tx, principal, access, application, CREATE_GUARDS, 'draft');
+  }
+
+  /** The named built guards against the application, as the engine runs them for a move to `to`. */
+  private async runGuards(
+    tx: Tx,
+    principal: Principal,
+    access: EffectiveAccess,
+    application: EngineApplication,
+    names: readonly BuiltGuard[],
+    to: string,
+  ): Promise<void> {
+    const ctx = new GuardContext(
+      tx,
+      application,
+      { userId: principal.userId, kind: principal.kind, access },
+      {},
+      this.clock,
+      to,
+    );
+    for (const name of names)
+      if ((await GUARDS[name](ctx)) !== true)
+        throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
+  }
+
+  /**
+   * Whether the caller may edit the record in its state: the state's permission within the
+   * caller's reach, and never for a blocked caller.
+   */
+  async mayEdit(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    status: string,
+  ): Promise<boolean> {
+    const permission = EDIT_PERMISSION[status];
+    if (!permission) return false;
+    if (await this.blockedCaller(this.prisma, viewer.principal)) return false;
+    const access = await this.access.load(viewer.principal.userId);
+    try {
+      await this.assertMay(viewer.principal, access, permission, applicationId);
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) return false;
+      throw error;
+    }
+  }
+
+  /**
+   * The project, when the caller's project scope reaches it: a global, program, project or area
+   * instance through the project filter; a SELF instance through the caller's own work on it (an
+   * accepted assignment, a staff place, or a team whose lead works there). Not-found otherwise.
+   */
+  private async reachedProject(principal: Principal, scope: Scope, projectId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: PROJECT_SELECT,
+    });
+    if (!project) throw new ApiError('permission.not_found', 404);
+    const i = scope.instances;
+    if (i.revokedProjectIds.includes(projectId)) throw new ApiError('permission.not_found', 404);
+    const filtered = await this.prisma.project.count({
+      where: { AND: [{ id: projectId }, projectWhere(scope)] },
+    });
+    if (filtered > 0) return project;
+    if (i.self && (await this.worksOn(principal.userId, projectId))) return project;
+    throw new ApiError('permission.not_found', 404);
+  }
+
+  private async worksOn(userId: string, projectId: string): Promise<boolean> {
+    const [staff, assignment, member] = await Promise.all([
+      this.prisma.projectStaff.count({ where: { projectId, userId, endedAt: null } }),
+      this.prisma.projectVolunteer.count({
+        where: { ...WORKING_ASSIGNMENT, projectId, volunteer: { userId } },
+      }),
+      this.prisma.volunteer.findUnique({ where: { userId }, select: { id: true } }),
+    ]);
+    if (staff + assignment > 0) return true;
+    return member ? (await workingTeamProjects(this.prisma, member.id)).includes(projectId) : false;
+  }
+
+  /** A volunteer on the blocklist reaches no application. */
+  /** Whether the caller is a volunteer on the blocklist, who no longer sees their applications. */
+  isBlocked(principal: Principal): Promise<boolean> {
+    return this.blockedCaller(this.prisma, principal);
+  }
+
+  private async blockedCaller(db: Tx | PrismaService, principal: Principal): Promise<boolean> {
+    return principal.kind === 'volunteer' && isBlockedVolunteer(db, principal.userId);
+  }
+
+  /** The row the caller's scope reaches by id or number, or not-found. */
+  private async readReached(
+    viewer: ApplicationViewer,
+    where: { id: string } | { appNo: string },
+  ): Promise<ApplicationRead> {
+    if (await this.blockedCaller(this.prisma, viewer.principal))
+      throw new ApiError('permission.not_found', 404);
+    const row = await this.prisma.application.findFirst({
+      where: { AND: [where, applicationWhere(viewer.scope)] },
+      select: { id: true },
+    });
+    if (!row) throw new ApiError('permission.not_found', 404);
+    const access = await this.access.load(viewer.principal.userId);
+    return this.read(viewer, access, row.id);
+  }
+
+  /** The row, when the caller holds the permission with a scope that reaches it (404 otherwise). */
+  private async reachedRow(
+    principal: Principal,
+    access: EffectiveAccess,
+    applicationId: string,
+    permission: string,
+  ): Promise<Row> {
+    if (await this.blockedCaller(this.prisma, principal))
+      throw new ApiError('permission.not_found', 404);
+    await this.assertMay(principal, access, permission, applicationId);
+    return this.prisma.application.findUniqueOrThrow({
+      where: { id: applicationId },
+      select: ROW_SELECT,
+    });
+  }
+
+  /** 403 without the permission, 404 when its scope misses the application. */
+  private async assertMay(
+    principal: Principal,
+    access: EffectiveAccess,
+    permission: string,
+    applicationId: string,
+  ): Promise<void> {
+    await assertReachesApplication(this.access, principal, access, permission, applicationId);
+  }
+
+  /**
+   * The checks of a verification, run once the engine has checked the caller: a link names the
+   * live profile behind the entry's identity number, one the caller's identity scope reaches; a
+   * new profile is made only when no profile holds the number; a chosen owner is an active,
+   * unblocked volunteer of the project who accepted its rules and is under its limit (the limit
+   * guard of the move ran before the owner was known), else the application stays the office's.
+   */
+  private async verified(
+    tx: Tx,
+    principal: Principal,
+    applicationId: string,
+    action: 'verify_link' | 'verify_create',
+    body: ApplicationActionBody,
+  ): Promise<{ volunteerId: string; userId: string } | null> {
+    const holder = await this.submission.identityHolder(tx, applicationId);
+    if (action === 'verify_link') {
+      if (!holder)
+        throw new ApiError('validation.failed', 422, undefined, [
+          { path: 'linkBeneficiaryId', code: 'application.verify_no_profile' },
+        ]);
+      if (!(await this.identity.seesHolder(tx, principal, holder)))
+        throw new ApiError('permission.not_found', 404);
+      if ((await this.identity.liveOf(tx, body.linkBeneficiaryId!)) !== holder)
+        throw new ApiError('validation.failed', 422, undefined, [
+          { path: 'linkBeneficiaryId', code: 'application.verify_other_person' },
+        ]);
+    } else if (holder) throw new ApiError('application.verify_identity_exists', 409);
+    if (!body.ownerVolunteerId) return null;
+    const { projectId, project } = await tx.application.findUniqueOrThrow({
+      where: { id: applicationId },
+      select: { projectId: true, project: { select: { perVolunteerLimit: true } } },
+    });
+    const [assignment, blocked] = await Promise.all([
+      tx.projectVolunteer.findFirst({
+        where: {
+          ...WORKING_ASSIGNMENT,
+          projectId,
+          volunteerId: body.ownerVolunteerId,
+          volunteer: { user: { state: 'active' } },
+        },
+        select: { volunteer: { select: { userId: true } } },
+      }),
+      tx.blocklist.count({
+        where: { subjectType: 'volunteer', subjectId: body.ownerVolunteerId, active: true },
+      }),
+    ]);
+    const unfit = (code: string) =>
+      new ApiError('validation.failed', 422, undefined, [{ path: 'ownerVolunteerId', code }]);
+    if (!assignment || blocked) throw unfit('application.verify_owner_unfit');
+    if (project.perVolunteerLimit !== null) {
+      // the same lock as the owner's own creates, so two verifications never both take the last place
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`application-owner:${projectId}:${body.ownerVolunteerId}`}))`;
+      const counts = await liveApplicationCounts(tx, [
+        { projectId, ownerVolunteerId: body.ownerVolunteerId },
+      ]);
+      if (counts(projectId, body.ownerVolunteerId) >= project.perVolunteerLimit)
+        throw unfit('application.verify_owner_full');
+    }
+    return { volunteerId: body.ownerVolunteerId, userId: assignment.volunteer.userId };
+  }
+
+  /** The record as the caller sees it. */
+  private async read(
+    viewer: ApplicationViewer,
+    access: EffectiveAccess,
+    applicationId: string,
+  ): Promise<ApplicationRead> {
+    const row = await this.prisma.application.findUniqueOrThrow({
+      where: { id: applicationId },
+      select: ROW_SELECT,
+    });
+    const audience = this.audienceOf(viewer);
+    const definition = await readDefinition(this.prisma, row.formVersionId, audience);
+    const [read, warnings, availableActions, version, mine] = await Promise.all([
+      readAnswers(this.prisma, applicationId, definition),
+      audience === 'official' && row.beneficiaryId
+        ? this.family.matches(this.prisma, row.projectId, row.beneficiaryId)
+        : [],
+      this.availableActions(viewer.principal, access, row),
+      this.prisma.formVersion.findUniqueOrThrow({
+        where: { id: row.formVersionId },
+        select: VERSION_SELECT,
+      }),
+      this.bringsIt(viewer.principal, row),
+    ]);
+    // Another volunteer on the project (a paid volunteer, a Local দায়ী) and the Procurement Team
+    // read the application without the person's identity number and mobile unless their role holds
+    // those classes (docs/BUSINESS_RULES.md, field-level protection); the volunteer who brings it
+    // typed them and reads them.
+    const hidden = new Set<string>();
+    if (!mine) {
+      const withheld: [string, string][] = [
+        [IDENTITY_COLUMN, BENEFICIARY_NID],
+        ['mobile', BENEFICIARY_CONTACT],
+      ];
+      for (const [column, fieldClass] of withheld) {
+        const field = fieldByColumn(definition, column);
+        if (field && !viewer.fieldClasses.has(fieldClass)) hidden.add(field.fieldKey);
+      }
+    }
+    const answers = read.filter((a) => !hidden.has(a.fieldKey));
+    return {
+      application: {
+        ...this.summaryOf(row, this.clock.now()),
+        formVersionId: row.formVersionId,
+        candidateBeneficiaryId: row.candidateBeneficiaryId,
+        createdByUserId: row.createdByUserId,
+        clientCreatedAt: iso(row.clientCreatedAt),
+        identityKind: identityKindSchema.parse(row.identityKind),
+        // the message for the volunteer reaches the one who brings it and the office, never the
+        // other volunteers of the project
+        rejectionMessage: audience === 'official' || mine ? row.rejectionMessage : null,
+        answers: answers.map((a) => ({ ...a, repeatIndex: a.repeatIndex ?? 0 })),
+        reviewedAt: iso(row.reviewedAt),
+        approvedAt: iso(row.approvedAt),
+        decisionComment: row.decisionComment,
+        scoreItems: row.applicationScoresApplication
+          ? scoreItemsOf(row.applicationScoresApplication.criteria)
+          : null,
+        zakat: row.nisabValue
+          ? {
+              nisabValue: row.nisabValue.toFixed(2),
+              decision: row.zakatDecision as 'eligible' | 'not_eligible' | null,
+            }
+          : null,
+        familyDuplicateWarnings: warnings,
+        availableActions,
+        decisionHints:
+          audience === 'official' ? await this.decisionHints(applicationId, availableActions) : {},
+        ...(await this.unlocks.forRecord(
+          viewer.principal,
+          access,
+          applicationId,
+          audience === 'official',
+        )),
+        ...(await this.media.forRecord(viewer.principal, access, {
+          id: applicationId,
+          status: row.status,
+          beneficiaryId: row.beneficiaryId,
+        })),
+        form: versionView(version, definition),
+      },
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  /** Whether the caller brings the application: its main volunteer, or the user who created it. */
+  private async bringsIt(
+    principal: Principal,
+    row: Pick<Row, 'ownerVolunteerId' | 'createdByUserId'>,
+  ): Promise<boolean> {
+    if (row.createdByUserId === principal.userId) return true;
+    if (!row.ownerVolunteerId) return false;
+    const owner = await this.prisma.volunteer.findUnique({
+      where: { id: row.ownerVolunteerId },
+      select: { userId: true },
+    });
+    return owner?.userId === principal.userId;
+  }
+
+  /**
+   * The comments each decision the caller may take now would ask for (a decision against the
+   * score order, an approval in a full quota area), so the review screen asks before it sends.
+   */
+  private async decisionHints(
+    applicationId: string,
+    actions: readonly string[],
+  ): Promise<Record<string, CommentReason[]>> {
+    const hints: Record<string, CommentReason[]> = {};
+    for (const action of DECISIONS)
+      if (actions.includes(action)) {
+        const reasons = await commentReasons(
+          this.prisma,
+          applicationId,
+          APPLICATION_ACTIONS[action].to,
+        );
+        if (reasons.length) hints[action] = reasons;
+      }
+    return hints;
+  }
+
+  /**
+   * The actions the caller may take now: each action of the table whose transition the project's
+   * workflow allows from this state, under a permission the caller holds with a scope that
+   * reaches the application. The guards are not run here; the engine runs them on the move.
+   */
+  private async availableActions(
+    principal: Principal,
+    access: EffectiveAccess,
+    row: Row,
+  ): Promise<string[]> {
+    const definition: WorkflowDefinition = workflowDefinitionSchema.parse(
+      row.project.workflowSnapshot ?? row.project.workflowDefinition.definition,
+    );
+    const reached = new Map<string, Promise<boolean>>();
+    const reaches = (permission: string) => {
+      if (!reached.has(permission))
+        reached.set(
+          permission,
+          (async () => {
+            if (!holdsPermission(permission, access.grants)) return false;
+            const scope = await this.access.scopeFor(principal, access, permission, 'application');
+            return this.access.reaches(scope, { applicationId: row.id });
+          })(),
+        );
+      return reached.get(permission)!;
+    };
+    const actions: string[] = [];
+    for (const [action, spec] of Object.entries(APPLICATION_ACTIONS)) {
+      if ('later' in spec && spec.later) continue;
+      if (!(spec.from as readonly string[]).includes(row.status)) continue;
+      const transition = (definition.transitions ?? []).find(
+        (t) =>
+          t.to === spec.to &&
+          (Array.isArray(t.from) ? t.from : [t.from]).includes(row.status) &&
+          t.permission,
+      );
+      if (transition?.permission && (await reaches(transition.permission))) actions.push(action);
+    }
+    return actions;
+  }
+}
+
+/**
+ * The slots an edited record still waits for: the ones it names now, plus the earlier ones whose
+ * question the edit did not answer with a real photo; a slot goes only when its photo arrives or
+ * its question is answered.
+ */
+async function mergedSlots(
+  tx: Tx,
+  applicationId: string,
+  named: readonly string[],
+  answers: readonly Answer[],
+): Promise<string[]> {
+  const row = await tx.application.findUnique({
+    where: { id: applicationId },
+    select: { pendingPhotos: true },
+  });
+  const answered = new Set(
+    answers
+      .filter((a) => {
+        const v = a.value as { t?: unknown; v?: unknown };
+        return v && v.t === 'photo' && Array.isArray(v.v) && v.v.length > 0;
+      })
+      .map((a) => `${a.fieldKey}${a.repeatIndex ? `#${a.repeatIndex}` : ''}`),
+  );
+  const kept = pendingSlotsOf(row?.pendingPhotos).filter((slot) => {
+    const { fieldKey, repeatIndex } = slotParts(slot);
+    return !answered.has(`${fieldKey}${repeatIndex ? `#${repeatIndex}` : ''}`);
+  });
+  return [...new Set([...kept, ...named])];
+}

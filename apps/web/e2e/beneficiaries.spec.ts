@@ -31,8 +31,10 @@ test.describe('the beneficiary tab', () => {
     await signIn(page, official(info));
     await openTab(page, TAB);
     const counts = page.getByRole('group', { name: 'উপকারভোগীর হিসাব' });
-    await expect(counts.getByText('মোট')).toBeVisible();
-    await expect(counts.getByText('ব্লক করা')).toBeVisible();
+    await expect(counts.getByText('মোট উপকারভোগী')).toBeVisible();
+    await expect(counts.getByText('পুরুষ')).toBeVisible();
+    await expect(counts.getByText('মহিলা')).toBeVisible();
+    await expect(counts.getByText('ব্লক লিস্ট')).toBeVisible();
 
     await filterBy(page, info, [
       ['বিভাগ', 'রংপুর'],
@@ -70,9 +72,10 @@ test.describe('the beneficiary tab', () => {
     await expect(select(page, 'উপজেলা')).toBeVisible();
     for (const label of ['ধরন', 'ব্লকলিস্ট', 'ইউনিয়ন'])
       await expect(select(page, label)).toHaveCount(0);
-    await expect(
-      page.getByRole('group', { name: 'উপকারভোগীর হিসাব' }).getByText('ব্লক করা'),
-    ).toHaveCount(0);
+    // the blocklist and the gender counts are details this team does not see
+    const masked = page.getByRole('group', { name: 'উপকারভোগীর হিসাব' });
+    for (const label of ['ব্লক লিস্ট', 'পুরুষ', 'মহিলা'])
+      await expect(masked.getByText(label)).toHaveCount(0);
     await expect(rows(page).getByText(/^017000010\d\d$/)).toHaveCount(0);
 
     await rows(page).getByRole('link').first().click();
@@ -80,5 +83,66 @@ test.describe('the beneficiary tab', () => {
     for (const section of ['পরিবার', 'আবেদনের ইতিহাস', 'দাওয়াহ', 'ফলো-আপ', 'কার্যক্রমের ইতিহাস'])
       await expect(page.getByRole('heading', { level: 2, name: section })).toHaveCount(0);
     await expect(page.getByText(/^017000010\d\d$/)).toHaveCount(0);
+  });
+});
+
+// The lookup cases of the demo seed (docs/testing/DEMO_ACCOUNTS.md): beneficiary 1 of Dhaka is
+// found, beneficiary 3 is blocked, and an unused NID finds nothing; all inside project WNT, which
+// the Dhaka RPM works on. Nothing here changes data, so both projects share the account.
+const FOUND_NID = '1000001000';
+const BLOCKED_NID = '1000001002';
+const UNKNOWN_NID = '1000099999';
+
+test.describe('the lookup by NID or birth registration', () => {
+  test('the RPM sees the auto-fill with the identity locked, each other answer, and finds the profile by its BEN number', async ({
+    page,
+  }) => {
+    await signIn(page, 'rpm.dhaka@example.org');
+    await openTab(page, TAB);
+    await page.getByRole('button', { name: 'NID / জন্মনিবন্ধন দিয়ে খুঁজুন' }).click();
+    const dialog = page.getByRole('dialog', { name: 'NID বা জন্মনিবন্ধন দিয়ে খুঁজুন' });
+    await expect(dialog).toBeVisible();
+    await select(page, 'প্রকল্প').click();
+    await page
+      .getByRole('listbox')
+      .getByRole('option', { name: /\(WNT\)$/ })
+      .click();
+
+    const number = dialog.getByRole('textbox', { name: /^NID নম্বর/ }).first();
+    const lookUp = async (nid: string) => {
+      await number.fill(nid);
+      await dialog.getByRole('button', { name: 'খুঁজুন' }).click();
+    };
+
+    await lookUp(FOUND_NID);
+    // the lock marker is read out with the field's description: "লক করা"
+    const name = dialog.getByRole('textbox', { name: 'নাম', exact: true });
+    await expect(name).toHaveValue(/\S/);
+    await expect(name).not.toBeEditable();
+    await expect(name).toHaveAccessibleDescription(/লক করা/);
+    const father = dialog.getByRole('textbox', { name: 'পিতা/স্বামীর নাম', exact: true });
+    await expect(father).not.toBeEditable();
+    await expect(father).toHaveAccessibleDescription(/লক করা/);
+    await expect(dialog.getByRole('textbox', { name: 'মোবাইল', exact: true })).toBeEditable();
+    const found = dialog.getByText(/^প্রোফাইল পাওয়া গেছে: BEN-\d{7}$/);
+    await expect(found).toBeVisible();
+    const benNo = /BEN-\d{7}/.exec((await found.textContent()) ?? '')![0];
+    expect((await scan(page)).violations).toEqual([]);
+
+    await lookUp(UNKNOWN_NID);
+    await expect(dialog.getByText('এই নম্বরে কোনো প্রোফাইল নেই')).toBeVisible();
+    await lookUp(BLOCKED_NID);
+    await expect(dialog.getByText('এই ব্যক্তি ব্লক করা আছেন')).toBeVisible();
+    await expect(dialog.getByRole('textbox', { name: 'নাম', exact: true })).toHaveCount(0);
+
+    await dialog.getByRole('button', { name: 'বন্ধ করুন' }).first().click();
+    await expect(dialog).toHaveCount(0);
+    await page.getByRole('searchbox').fill(benNo);
+    // the search waits for typing to pause, so the list narrows to the one person a moment later
+    await expect(rows(page).getByRole('link')).toHaveCount(1);
+    await expect(rows(page).getByText(benNo, { exact: true })).toBeVisible();
+    await rows(page).getByRole('link').click();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByText(`BEN নম্বর: ${benNo}`, { exact: true })).toBeVisible();
   });
 });

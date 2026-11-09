@@ -1,8 +1,7 @@
-import { Text } from '@css/ui';
+import { Icon, Text } from '@/ui';
 import { hasDigit, hasUppercase, PASSWORD_MIN_LENGTH, passwordLength } from '@css/shared/auth';
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Check, Circle } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 
 /**
@@ -39,11 +38,7 @@ export function PasswordRules({
       <ul className="rule-list">
         {rules.map((rule) => (
           <li key={rule.key} data-met={rule.met}>
-            {rule.met ? (
-              <Check size={16} aria-hidden="true" />
-            ) : (
-              <Circle size={16} aria-hidden="true" />
-            )}
+            {rule.met ? <Icon name="check" size={16} /> : <Icon name="radio" size={16} />}
             <span>{rule.text}</span>
           </li>
         ))}

@@ -1,7 +1,7 @@
 # advance-voucher.yaml - safe water (blueprint A8.4, B5, B6; BD-29).
 # Status: written in task T0.11 (2026-10-10). Validated by schema.json.
 template: advance_voucher
-version: 1
+version: 5
 title_en: Advance + construction + voucher
 title_bn: অ্যাডভান্স + নির্মাণ + ভাউচার
 extends: _common

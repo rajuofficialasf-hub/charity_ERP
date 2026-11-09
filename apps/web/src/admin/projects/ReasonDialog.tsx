@@ -1,6 +1,6 @@
 import { formatDate } from '@css/shared/format';
-import { Alert, Button, DateField, Modal, TextArea } from '@css/ui';
-import { useState } from 'react';
+import { Alert, Button, DateField, Dialog, TextField } from '@/ui';
+import { type ReactNode, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
 
@@ -15,6 +15,7 @@ export function ReasonDialog({
   date,
   pending,
   error,
+  errorDetails,
   onConfirm,
   onClose,
 }: {
@@ -25,6 +26,8 @@ export function ReasonDialog({
   date?: { current: string | null };
   pending: boolean;
   error: unknown;
+  /** What the error names beyond its message (the projects of a merge conflict). */
+  errorDetails?: ReactNode;
   onConfirm: (input: { reason: string; newApplyTo?: string }) => void;
   onClose: () => void;
 }) {
@@ -35,53 +38,55 @@ export function ReasonDialog({
   const later = !date || (newApplyTo !== null && (!date.current || newApplyTo > date.current));
   const ready = reason.trim().length >= 3 && later;
   return (
-    <Modal
+    <Dialog
       title={title}
-      size="sm"
-      isOpen
+      size="small"
+      open
       onClose={onClose}
       dismissible={!pending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={pending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button
-          variant={danger ? 'danger' : 'primary'}
-          onPress={() =>
-            onConfirm({ reason: reason.trim(), ...(newApplyTo ? { newApplyTo } : {}) })
-          }
-          disabled={!ready}
-          loading={pending}
-        >
-          {confirm}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
+            {tc('cancel')}
+          </Button>
+          <Button
+            variant={danger ? 'danger' : 'primary'}
+            onClick={() =>
+              onConfirm({ reason: reason.trim(), ...(newApplyTo ? { newApplyTo } : {}) })
+            }
+            disabled={!ready}
+            loading={pending}
+          >
+            {confirm}
+          </Button>
+        </>
       }
     >
       {error instanceof ApiFailure && (
-        <Alert tone="danger" live="alert">
+        <Alert tone="error">
           {error.message}
+          {errorDetails}
         </Alert>
       )}
       {date && (
         <DateField
           label={t('new_apply_to')}
-          helper={date.current ? t('after', { date: formatDate(date.current) }) : undefined}
+          hint={date.current ? t('after', { date: formatDate(date.current) }) : undefined}
           required
           min={date.current ?? undefined}
-          value={newApplyTo}
-          onChange={setNewApplyTo}
+          value={newApplyTo ?? ''}
+          onChange={(v) => setNewApplyTo(v || null)}
         />
       )}
-      <TextArea
+      <TextField
+        rows={4}
         label={t('reason')}
-        helper={t('reason_hint')}
+        hint={t('reason_hint')}
         required
         maxLength={1000}
         value={reason}
         onChange={setReason}
       />
-    </Modal>
+    </Dialog>
   );
 }

@@ -2,19 +2,16 @@ import { formatDate, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
   Card,
+  Chip,
   DescriptionList,
   EmptyState,
-  ErrorState,
-  Grid,
+  Page,
   Skeleton,
   Stack,
-  Text,
-} from '@css/ui';
+} from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, UserCheck } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -43,6 +40,7 @@ import type { ListNotice } from './RegistrationsPage';
 import { StaffDecisionDialog } from './StaffDecisionDialog';
 import { VolunteerDecisions } from './VolunteerDecisions';
 import { VOLUNTEERS_KEY } from '../volunteers/volunteers-api';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * The page of one pending staff registration (SCR-040). A volunteer's registration is reviewed in
@@ -99,7 +97,6 @@ export function RegistrationReview({
 }) {
   const { me } = useAuth();
   const t = useTranslations('admin.registrations');
-  const tc = useTranslations('common');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [staffOpen, setStaffOpen] = useState(false);
@@ -128,34 +125,27 @@ export function RegistrationReview({
   if (!me) return null;
   if (reg.isPending) return <Skeleton count={4} />;
   if (reg.error instanceof ApiFailure && reg.error.status === 404)
-    return <EmptyState icon={UserCheck} title={t('not_found')} />;
+    return <EmptyState title={t('not_found')} />;
   if (reg.error || !reg.data)
-    return (
-      <ErrorState
-        title={tc('state.error.text')}
-        requestId={reg.error instanceof ApiFailure ? reg.error.requestId : undefined}
-        onRetry={() => void reg.refetch()}
-      />
-    );
+    return <LoadError error={reg.error} onRetry={() => void reg.refetch()} />;
   const r = reg.data;
 
   return (
     <>
       <DocumentTitle title={r.displayName} />
-      <h1 className="admin-title">{r.displayName}</h1>
-      <Stack direction="row" wrap gap={2}>
-        <Badge label={r.kind === 'staff' ? t('kind.staff') : t('kind.volunteer')} />
-        <Badge
-          tone={r.status === 'in_correction' ? 'warning' : 'info'}
-          label={t(`status.${r.status}`)}
-        />
-      </Stack>
+      <Page title={r.displayName} documentTitle={false} />
+      <div className="admin-badges">
+        <Chip>{r.kind === 'staff' ? t('kind.staff') : t('kind.volunteer')}</Chip>
+        <Chip tone={r.status === 'in_correction' ? 'warning' : 'info'}>
+          {t(`status.${r.status}`)}
+        </Chip>
+      </div>
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
-      {r.blocklisted && <Alert tone="danger">{t('blocklisted')}</Alert>}
+      {r.blocklisted && <Alert tone="error">{t('blocklisted')}</Alert>}
 
       <Section title={t('actions')}>
         <Stack direction="row" wrap gap={2}>
@@ -181,7 +171,7 @@ export function RegistrationReview({
             </>
           ) : (
             canApproveStaff(me) && (
-              <Button icon={Check} onPress={() => setStaffOpen(true)}>
+              <Button startIcon="check" onClick={() => setStaffOpen(true)}>
                 {t('staff.decide')}
               </Button>
             )
@@ -196,7 +186,7 @@ export function RegistrationReview({
       <StaffDecisionDialog
         userId={userId}
         name={r.displayName}
-        isOpen={staffOpen}
+        open={staffOpen}
         onClose={() => setStaffOpen(false)}
         onDone={(decision) =>
           finished(decision === 'approve' ? t('staff.approved') : t('rejected'))
@@ -293,9 +283,9 @@ function Details({ registration: r }: { registration: RegistrationDetailView }) 
   return (
     <Section title={t('details')}>
       <Card>
-        <Text className="admin-muted">
+        <p className="admin-muted">
           {t('column.submitted')}: {formatDateTime(r.submittedAt, locale)}
-        </Text>
+        </p>
         <DescriptionList items={rows.map(([label, value]) => ({ label, value }))} />
       </Card>
     </Section>
@@ -316,7 +306,7 @@ function Photos({ registration: r }: { registration: RegistrationDetailView }) {
     <Section title={t('photos')}>
       <div className="admin-photos">
         {slots.map(([label, fileId, visible]) => (
-          <Grid gap={1} as="figure" key={label}>
+          <figure className="admin-photo" key={label}>
             <figcaption>{label}</figcaption>
             {!visible ? (
               <span>{t('hidden')}</span>
@@ -325,7 +315,7 @@ function Photos({ registration: r }: { registration: RegistrationDetailView }) {
             ) : (
               <span>{t('no_photo')}</span>
             )}
-          </Grid>
+          </figure>
         ))}
       </div>
     </Section>
@@ -337,21 +327,21 @@ function Corrections({ registration: r }: { registration: RegistrationDetailView
   const tf = useTranslations('registration');
   return (
     <Section title={t('corrections.title')}>
-      <Grid gap={2} as="ul" role="list">
+      <ul className="admin-plain-list">
         {r.corrections.map((c) => (
-          <Stack direction="row" wrap align="center" gap={2} as="li" key={c.id}>
-            <strong>
-              {c.field in FIELD_LABEL ? tf(FIELD_LABEL[c.field as RequestField]) : c.field}
-            </strong>
-            <Badge
-              size="sm"
-              tone={c.status === 'open' ? 'warning' : 'info'}
-              label={t(`corrections.status.${c.status}`)}
-            />
-            {c.note && <span className="admin-muted">{c.note}</span>}
-          </Stack>
+          <li key={c.id}>
+            <Stack direction="row" wrap align="center" gap={2}>
+              <strong>
+                {c.field in FIELD_LABEL ? tf(FIELD_LABEL[c.field as RequestField]) : c.field}
+              </strong>
+              <Chip tone={c.status === 'open' ? 'warning' : 'info'}>
+                {t(`corrections.status.${c.status}`)}
+              </Chip>
+              {c.note && <span className="admin-muted">{c.note}</span>}
+            </Stack>
+          </li>
         ))}
-      </Grid>
+      </ul>
     </Section>
   );
 }

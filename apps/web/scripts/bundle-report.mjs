@@ -4,8 +4,11 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
-/** The first-route budget of docs/NON_FUNCTIONAL_REQUIREMENTS.md, in compressed KB. */
-export const BUDGET_KB = 250;
+/**
+ * The first-route budget of the first-load requirement in docs/NON_FUNCTIONAL_REQUIREMENTS.md, in
+ * compressed KB.
+ */
+export const BUDGET_KB = 400;
 
 /** The value of one attribute of a tag, in any attribute order. */
 const attribute = (/** @type {string} */ tag, /** @type {string} */ name) =>

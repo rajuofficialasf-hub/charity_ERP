@@ -1,5 +1,5 @@
 import { CORRECTION_FIELDS, type CorrectionField } from '@css/shared/registration';
-import { Alert, Button, CheckboxGroup, Modal, TextArea } from '@css/ui';
+import { Alert, Button, CheckboxGroup, Dialog, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -13,12 +13,12 @@ import { requestCorrections } from './registrations-api';
  */
 export function CorrectionDialog({
   userId,
-  isOpen,
+  open,
   onClose,
   onDone,
 }: {
   userId: string;
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -46,42 +46,39 @@ export function CorrectionDialog({
   const failure = send.error instanceof ApiFailure ? send.error : null;
   const ready = fields.length > 0 && note.trim().length >= 3;
   return (
-    <Modal
+    <Dialog
       title={t('correct')}
-      isOpen={isOpen}
+      open={open}
       onClose={close}
       dismissible={!send.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={close} disabled={send.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => send.mutate()} disabled={!ready} loading={send.isPending}>
-          {t('correct_send')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={close} disabled={send.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button onClick={() => send.mutate()} disabled={!ready} loading={send.isPending}>
+            {t('correct_send')}
+          </Button>
+        </>
       }
     >
-      {failure && (
-        <Alert tone="danger" live="alert">
-          {failure.details[0]?.message ?? failure.message}
-        </Alert>
-      )}
+      {failure && <Alert tone="error">{failure.details[0]?.message ?? failure.message}</Alert>}
       <CheckboxGroup
         label={t('correct_fields')}
         required
         columns={2}
         value={fields}
         onChange={(ids) => setFields(ids as CorrectionField[])}
-        options={CORRECTION_FIELDS.map((f) => ({ id: f, label: tf(FIELD_LABEL[f]) }))}
+        options={CORRECTION_FIELDS.map((f) => ({ value: f, label: tf(FIELD_LABEL[f]) }))}
       />
-      <TextArea
+      <TextField
+        rows={4}
         label={t('correct_note')}
         required
         maxLength={1000}
         value={note}
         onChange={setNote}
       />
-    </Modal>
+    </Dialog>
   );
 }

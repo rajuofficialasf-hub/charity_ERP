@@ -12,7 +12,17 @@
       "edit_requests_pending": "{n, plural, other {{count}টি পরিবর্তনের অনুরোধ সিদ্ধান্তের অপেক্ষায়}}",
       "projects_draft": "{n, plural, other {{count}টি প্রকল্প খসড়ায়, এখনো চালু হয়নি}}",
       "deadlines_soon": "{n, plural, other {{count}টি প্রকল্পে 7 দিনের মধ্যে আবেদনের সময় শেষ}}",
-      "handovers_open": "{n, plural, other {{count}টি হ্যান্ডওভার শেষ হয়নি}}"
+      "handovers_open": "{n, plural, other {{count}টি হ্যান্ডওভার শেষ হয়নি}}",
+      "unlocks_to_fill": "{n, plural, other {আপনার আবেদনে {count}টি উত্তর সংশোধনের জন্য খোলা}}",
+      "unlocks_to_verify": "{n, plural, other {{count}টি সংশোধিত উত্তর যাচাইয়ের অপেক্ষায়}}",
+      "verifications_pending": "{n, plural, other {{count}টি এন্ট্রি যাচাইয়ের অপেক্ষায়}}",
+      "media_referrals_new": "{n, plural, other {{count}টি নতুন মিডিয়া রেফারেল সিদ্ধান্তের অপেক্ষায়}}",
+      "media_review_waiting": "{n, plural, other {{count}টি মিডিয়া কাজ চূড়ান্ত পর্যালোচনার অপেক্ষায়}}",
+      "media_sent_back": "{n, plural, other {{count}টি মিডিয়া কাজ সংশোধনের জন্য ফেরত এসেছে}}",
+      "media_on_hold": "{n, plural, other {আপনার {count}টি মিডিয়া কাজ স্থগিত আছে}}",
+      "sync_failed": "{n, plural, other {{count}টি রেকর্ড পাঠানো যায়নি}}",
+      "sync_verifying": "{n, plural, other {{count}টি আবেদন অফিস যাচাই করছে}}",
+      "photos_pending": "{n, plural, other {{count}টি ছবি এখনো যায়নি}}"
     }
   },
   "widget": {
@@ -33,7 +43,10 @@
     "permission_panel": "পারমিশন প্যানেল",
     "notifications": "সাম্প্রতিক নোটিফিকেশন",
     "notifications_empty": "কোনো নোটিফিকেশন নেই",
-    "all_notifications": "সব নোটিফিকেশন"
+    "all_notifications": "সব নোটিফিকেশন",
+    "media_work": "মিডিয়ার কাজ",
+    "open_media": "মিডিয়ার কাজ দেখুন",
+    "media_counts": "{new} নতুন · {progress} চলমান · {published} প্রকাশিত"
   },
   "later": {
     "badge": "শিগগিরই আসছে",
@@ -81,10 +94,6 @@
       "title": "নিরাপদ পানির প্রকল্প",
       "text": "প্রতিটি সাইটের অগ্রগতি এখানে দেখা যাবে।"
     },
-    "media_work": {
-      "title": "মিডিয়ার কাজের তালিকা",
-      "text": "বাছাই করা উপকারভোগী আর তাঁদের গল্প এখানে দেখা যাবে।"
-    },
     "finance_overview": {
       "title": "বাজেট ও পেমেন্ট",
       "text": "প্রোগ্রাম ও প্রকল্পের বাজেট আর পেমেন্ট এখানে দেখা যাবে।"
@@ -93,5 +102,16 @@
       "title": "সমাধানের অপেক্ষায় থাকা সমস্যা",
       "text": "গৃহনির্মাণ প্রকল্পের সমস্যাগুলো এখানে আসবে।"
     }
+  },
+  "page": {
+    "eyebrow": "কাজের কেন্দ্র",
+    "description": "আপনার কাজ, অনুমোদন ও অগ্রগতি এক জায়গায় দেখুন।"
+  },
+  "today": {
+    "title": "আজকের সারসংক্ষেপ",
+    "waiting": "{n, plural, other {আজ আপনার জন্য {count}টি কাজ অপেক্ষা করছে।}}",
+    "clear": "আজ আপনার জন্য কোনো কাজ অপেক্ষায় নেই।",
+    "tasks": "অপেক্ষমাণ কাজ",
+    "unread": "না-পড়া নোটিফিকেশন"
   }
 }

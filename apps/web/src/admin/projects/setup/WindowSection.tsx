@@ -1,5 +1,5 @@
 import { type ProjectUpdate, WORKFLOWS_WITHOUT_LIMIT } from '@css/shared/projects';
-import { DateField, NumberField } from '@css/ui';
+import { DateField, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -52,23 +52,23 @@ function WindowForm({ stale, onStale }: { stale: boolean; onStale: () => void })
       <div className="admin-setup-grid">
         <DateField
           label={t('apply_from')}
-          value={from}
-          onChange={setFrom}
-          readOnly={!editable('applyFrom')}
+          value={from ?? ''}
+          onChange={(v) => setFrom(v || null)}
+          disabled={!editable('applyFrom')}
         />
         <DateField
           label={t('apply_to')}
-          helper={project.status === 'active' ? t('apply_to_active') : undefined}
-          value={to}
-          onChange={setTo}
+          hint={project.status === 'active' ? t('apply_to_active') : undefined}
+          value={to ?? ''}
+          onChange={(v) => setTo(v || null)}
           error={order}
-          readOnly={!editable('applyTo')}
+          disabled={!editable('applyTo')}
         />
         {!noLimit && (
-          <NumberField
+          <TextField
+            type="integer"
             label={t('limit')}
-            helper={t('limit_hint')}
-            kind="integer"
+            hint={t('limit_hint')}
             value={limit}
             onChange={setLimit}
             readOnly={!editable('perVolunteerLimit')}

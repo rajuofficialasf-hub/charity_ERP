@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { EffectiveGrant, PanelOverride } from './effective';
 import {
+  applicationWhere,
   applyInstanceRevokes,
   beneficiaryRowsProjectWhere,
   beneficiaryWhere,
   holdsPermission,
   makeScope,
+  mediaReferralWhere,
   NO_INSTANCES,
   programWhere,
   projectWhere,
@@ -53,6 +55,8 @@ describe('scope instances', () => {
       { projectId: P2, locationId: DHAKA },
     ],
     volunteerAreas: [{ projectId: P1, locationId: DHAKA }],
+    revokedProjectIds: [],
+    revokedProgramIds: [],
   });
 
   it('subtracts a revoked region, project and program from the resolved instances', () => {
@@ -79,18 +83,186 @@ describe('scope instances', () => {
     expect(program.areas).toEqual([{ projectId: P2, locationId: DHAKA }]);
     expect(program.volunteerAreas).toEqual([]);
   });
+
+  it('keeps the revoked projects and programs for the filters (D-120)', () => {
+    const revoked = applyInstanceRevokes(
+      instances(),
+      [
+        revoke({ scopeType: 'PROJECT', scopeRef: P2 }),
+        revoke({ scopeType: 'PROGRAM', scopeRef: P2 }),
+        revoke({ scopeType: 'PROJECT', scopeRef: null }),
+      ],
+      [P1],
+    );
+    expect(revoked.revokedProjectIds).toEqual([P2, P1]);
+    expect(revoked.revokedProgramIds).toEqual([P2]);
+    // a PROJECT revoke does not touch the program of the project: the filters leave it out instead
+    const project = applyInstanceRevokes(instances(), [
+      revoke({ scopeType: 'PROJECT', scopeRef: P1 }),
+    ]);
+    expect(project.programIds).toEqual([P1, P2]);
+    expect(project.revokedProjectIds).toEqual([P1]);
+    expect(project.revokedProgramIds).toEqual([]);
+  });
+});
+
+// A project revoke beats every grant source (RBAC.md 7, DECISION_LOG D-120).
+describe('the revoked projects in every filter', () => {
+  const R = '00000000-0000-7000-8000-0000000000c3';
+  const outside = { id: { notIn: [R] } };
+  const scope = (entity: string, i: Partial<ScopeInstances>) =>
+    makeScope('actor', 'application.view_official_section', entity, {
+      ...NO_INSTANCES,
+      revokedProjectIds: [R],
+      ...i,
+    });
+
+  it("leaves the revoked project out of the PM's program, an area and GLOBAL", () => {
+    expect(projectWhere(scope('project', { programIds: [P1] }))).toEqual({
+      AND: [{ OR: [{ programId: { in: [P1] } }] }, outside],
+    });
+    expect(
+      projectWhere(scope('project', { areas: [{ projectId: null, locationId: DHAKA }] })),
+    ).toEqual({
+      AND: [{ OR: [{ projectAreasProject: { some: { locationId: DHAKA } } }] }, outside],
+    });
+    expect(projectWhere(scope('project', { global: true }))).toEqual(outside);
+    // still nothing without an instance
+    expect(projectWhere(scope('project', {}))).toEqual({ id: { in: [] } });
+  });
+
+  it('builds the program filter on the project filter and hides a revoked program at GLOBAL', () => {
+    const w = programWhere(scope('program', { projectIds: [P2] })) as {
+      OR: { projectsProgram: { some: unknown } }[];
+    };
+    expect(w.OR[0]!.projectsProgram.some).toEqual({
+      AND: [{ OR: [{ id: { in: [P2] } }] }, outside],
+    });
+    expect(programWhere(scope('program', { global: true, revokedProgramIds: [P1] }))).toEqual({
+      id: { notIn: [P1] },
+    });
+    expect(programWhere(scope('program', { global: true }))).toEqual({});
+  });
+
+  it('closes only the path through the revoked project for users', () => {
+    const w = userWhere(
+      scope('user', { programIds: [P1], areas: [{ projectId: null, locationId: DHAKA }] }),
+    ) as { OR: unknown[] };
+    // the home program and the home division are not reached through a project
+    expect(w.OR).toContainEqual({ homeProgramId: { in: [P1] } });
+    expect(w.OR).toContainEqual({ homeDivisionId: DHAKA });
+    expect(w.OR).toContainEqual({
+      projectStaffUser: {
+        some: { endedAt: null, project: { programId: { in: [P1] }, ...outside } },
+      },
+    });
+    expect(w.OR).toContainEqual({
+      projectAreasRpmUser: { some: { locationId: DHAKA, projectId: { notIn: [R] } } },
+    });
+    // GLOBAL reaches every person directly, never through a project
+    expect(userWhere(scope('user', { global: true }))).toEqual({});
+  });
+
+  it('leaves the revoked project out of the volunteer and beneficiary filters', () => {
+    const v = volunteerWhere(scope('volunteer', { programIds: [P1] })) as { OR: unknown[] };
+    expect(v.OR).toContainEqual({
+      division: {
+        projectAreasLocation: {
+          some: { project: { programId: { in: [P1] } }, projectId: { notIn: [R] } },
+        },
+      },
+    });
+    expect(beneficiaryWhere(scope('beneficiary', { programIds: [P1] }))).toEqual({
+      OR: [
+        {
+          applicationsBeneficiary: {
+            some: { project: { programId: { in: [P1] } }, projectId: { notIn: [R] } },
+          },
+        },
+      ],
+    });
+    // the rows inside a profile: no limit at GLOBAL or for an area, except the revoked project
+    expect(beneficiaryRowsProjectWhere(scope('beneficiary', { global: true }))).toEqual(outside);
+    expect(
+      beneficiaryRowsProjectWhere(
+        scope('beneficiary', { areas: [{ projectId: null, locationId: RANGPUR }] }),
+      ),
+    ).toEqual(outside);
+  });
 });
 
 describe('holding a permission', () => {
-  it('passes authenticated callers and the entity marker, denies workflow and unheld names', () => {
+  it('passes authenticated callers and the entity and workflow markers, denies unheld names', () => {
     const grants = [grant({}), grant({ permission: 'session.revoke_own', scopeType: 'SELF' })];
     expect(holdsPermission('authenticated', grants)).toBe(true);
     expect(holdsPermission('application.view', grants)).toBe(true);
     expect(holdsPermission('session.revoke_own', grants)).toBe(true);
     expect(holdsPermission('permission.view', grants)).toBe(false);
-    expect(holdsPermission('workflow', grants)).toBe(false);
-    // the file service decides an `entity` route per file (DECISION_LOG D-087)
+    // the file service decides an `entity` route per file (DECISION_LOG D-087); the workflow
+    // engine decides a `workflow` route per transition, with the permission the template names
     expect(holdsPermission('entity', grants)).toBe(true);
+    expect(holdsPermission('workflow', grants)).toBe(true);
+    expect(holdsPermission('public', grants)).toBe(false);
+  });
+});
+
+describe('the application filter', () => {
+  const where = (i: Partial<ScopeInstances>) =>
+    applicationWhere(
+      makeScope('actor', 'application.review', 'application', { ...NO_INSTANCES, ...i }),
+    );
+  const placedIn = (locationId: string) => ({
+    OR: [
+      { regionLocationId: locationId },
+      { districtId: locationId },
+      { unionId: locationId },
+      { union: { parentId: locationId } },
+    ],
+  });
+
+  it('reaches every application at GLOBAL but the revoked projects, and none without an instance', () => {
+    expect(where({ global: true })).toEqual({});
+    expect(where({ global: true, revokedProjectIds: [P2] })).toEqual({
+      projectId: { notIn: [P2] },
+    });
+    expect(where({})).toEqual({ id: { in: [] } });
+  });
+
+  it('keeps an area inside its project, so a region held in one project reaches no other project', () => {
+    const w = where({
+      areas: [
+        { projectId: P1, locationId: DHAKA },
+        { projectId: null, locationId: RANGPUR },
+      ],
+    }) as { AND: [{ OR: unknown[] }, unknown] };
+    expect(w.AND[0].OR).toEqual([{ AND: [{ projectId: P1 }, placedIn(DHAKA)] }, placedIn(RANGPUR)]);
+  });
+
+  it('adds up SELF, programs and projects into one OR', () => {
+    const w = where({ self: true, programIds: [P1], projectIds: [P2] }) as {
+      AND: [{ OR: unknown[] }, unknown];
+    };
+    expect(w.AND[0].OR).toEqual([
+      { ownerVolunteer: { userId: 'actor' } },
+      { createdByUserId: 'actor', ownerVolunteerId: null },
+      { project: { programId: { in: [P1] } } },
+      { projectId: { in: [P2] } },
+    ]);
+  });
+
+  it('keeps a creator on an application only while its owner is their team lead on that project', () => {
+    const w = where({
+      self: true,
+      teamLeads: [{ projectId: P1, leadVolunteerId: 'lead-a' }],
+    }) as { AND: [{ OR: unknown[] }, unknown] };
+    expect(w.AND[0].OR).toEqual([
+      { ownerVolunteer: { userId: 'actor' } },
+      { createdByUserId: 'actor', ownerVolunteerId: null },
+      { createdByUserId: 'actor', projectId: P1, ownerVolunteerId: 'lead-a' },
+    ]);
+    // with no team place left, only what the caller's own volunteer owns stays
+    const alone = where({ self: true }) as { AND: [{ OR: unknown[] }, unknown] };
+    expect(alone.AND[0].OR).not.toContainEqual({ createdByUserId: 'actor' });
   });
 });
 
@@ -253,6 +425,30 @@ describe('beneficiaryWhere and the rows inside a profile', () => {
     ).toBeNull();
     expect(beneficiaryRowsProjectWhere(scope({ projectIds: [P1] }))).toEqual({
       OR: [{ id: { in: [P1] } }],
+    });
+  });
+});
+
+describe('the media referral filter', () => {
+  const where = (i: Partial<ScopeInstances>) =>
+    mediaReferralWhere(
+      makeScope('actor', 'media.work.view', 'application', { ...NO_INSTANCES, ...i }),
+    );
+
+  it('reaches the referrals of the applications the scope reaches', () => {
+    expect(where({ global: true })).toEqual({ application: {} });
+    expect(where({ programIds: [P1] })).toEqual({
+      application: { AND: [{ OR: [{ project: { programId: { in: [P1] } } }] }, {}] },
+    });
+    expect(where({})).toEqual({ application: { id: { in: [] } } });
+  });
+
+  it('adds the works the caller is a member of for an ASSIGNED grant', () => {
+    expect(where({ assigned: true })).toEqual({
+      OR: [
+        { application: { id: { in: [] } } },
+        { work: { members: { some: { userId: 'actor' } } } },
+      ],
     });
   });
 });

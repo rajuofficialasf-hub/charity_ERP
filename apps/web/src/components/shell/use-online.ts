@@ -1,4 +1,3 @@
-import { BREAKPOINTS } from '@css/ui';
 import { useEffect, useState } from 'react';
 
 /** Whether the browser reports a connection; follows its `online` and `offline` events. */
@@ -19,8 +18,10 @@ export function useOnline(): boolean {
 
 export type ShellWidth = 'phone' | 'tablet' | 'desktop';
 
-const TABLET = `(min-width: ${BREAKPOINTS.sm}px)`;
-const DESKTOP = `(min-width: ${BREAKPOINTS.lg}px)`;
+// the asf theme's breakpoints sm (600 px) and lg (1200 px), where the shell turns its navigation
+// from tabs to the rail and from the rail to the sidebar (src/ui/templates/asf/theme/theme.ts)
+const TABLET = '(min-width: 600px)';
+const DESKTOP = '(min-width: 1200px)';
 
 const widthNow = (): ShellWidth => {
   // a browser without matchMedia (a test runner) is treated as a desktop
@@ -29,10 +30,7 @@ const widthNow = (): ShellWidth => {
   return window.matchMedia(TABLET).matches ? 'tablet' : 'phone';
 };
 
-/**
- * The width class of the screen, so the shell renders only the navigation of that width and
- * screen readers never meet the same links twice.
- */
+/** The width class of the screen, as the shell draws its navigation for it. */
 export function useShellWidth(): ShellWidth {
   const [width, setWidth] = useState(widthNow);
   useEffect(() => {

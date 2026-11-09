@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -9,6 +9,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { AdminLayout } from '../AdminLayout';
 import { PermissionsPage } from './PermissionsPage';
+import { stubScreen } from '../../../test/match-media';
 
 // The permission panel screen (SCR-062, RBAC.md 7; plan
 // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U8). Test data only.
@@ -84,6 +85,9 @@ async function chooseExecutive(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('option', { name: /প্রজেক্ট এক্সিকিউটিভ \(নমুনা\)/ }));
 }
 
+// the shell's sidebar, which these tests read, shows on a desktop screen
+beforeEach(() => stubScreen());
+
 beforeEach(() => {
   resetClientForTests();
   effective = [{ permission: 'application.review', scopeType: 'REGION', source: 'role_default' }];
@@ -97,6 +101,12 @@ describe('permission panel', () => {
     const { container } = renderPanel(HEAD);
     expect(
       await screen.findByRole('heading', { level: 1, name: 'পারমিশন প্যানেল' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('অ্যাক্সেস কন্ট্রোল')).toBeInTheDocument();
+    // before a choice: what to do, and the rule of the least access beside it
+    expect(screen.getByText('একজন ব্যবহারকারী বেছে নিন')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'যতটুকু দরকার, ততটুকু' }),
     ).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'প্রধান মেনু' });
     expect(within(nav).getByRole('link', { name: 'পারমিশন' })).toHaveAttribute(
@@ -136,7 +146,7 @@ describe('permission panel', () => {
     const dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
     await user.type(within(dialog).getByRole('combobox', { name: /পারমিশন/ }), 'permission.view');
     await user.click(await screen.findByRole('option', { name: 'permission.view' }));
-    await user.click(within(dialog).getByRole('button', { name: /স্কোপ/ }));
+    await user.click(within(dialog).getByRole('combobox', { name: /স্কোপ/ }));
     await user.click(await screen.findByRole('option', { name: 'সারা দেশ (GLOBAL)' }));
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'Monitoring help');
     await user.click(within(dialog).getByRole('button', { name: 'দিন' }));

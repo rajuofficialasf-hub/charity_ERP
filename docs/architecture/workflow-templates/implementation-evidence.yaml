@@ -1,7 +1,7 @@
 # implementation-evidence.yaml - self-reliance (স্বাবলম্বী) (blueprint A8.3, A9, B5; BD-26, BD-27, BD-28, BD-30).
 # Status: written in task T0.11 (2026-10-10). Validated by schema.json.
 template: implementation_evidence
-version: 1
+version: 5
 title_en: Implementation + evidence + follow-up
 title_bn: বাস্তবায়ন + এভিডেন্স + ফলো-আপ
 extends: _common

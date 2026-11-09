@@ -1,7 +1,7 @@
 import { toEnglishDigits } from '@css/shared';
 import { isoDateInDhaka } from '@css/shared/format';
 import { NISAB_MAX_DAYS_AHEAD, type NisabVersionView } from '@css/shared/settings';
-import { Alert, Button, DateField, Modal, TextField } from '@css/ui';
+import { Alert, Button, DateField, Dialog, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -53,31 +53,27 @@ export function NisabDialog({
       ? isoDateInDhaka(new Date(Date.parse(`${latest.effectiveFrom}T12:00:00Z`) + DAY))
       : today;
   return (
-    <Modal
+    <Dialog
       title={t('title')}
-      isOpen
+      open
       onClose={onClose}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={save.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => save.mutate()} disabled={!value || !date} loading={save.isPending}>
-          {tc('save')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={!value || !date} loading={save.isPending}>
+            {tc('save')}
+          </Button>
+        </>
       }
     >
       <p className="admin-muted">{t('hint')}</p>
-      {failure && !failure.details.length && (
-        <Alert tone="danger" live="alert">
-          {failure.message}
-        </Alert>
-      )}
+      {failure && !failure.details.length && <Alert tone="error">{failure.message}</Alert>}
       <TextField
         label={t('value')}
-        helper={t('value_hint')}
+        hint={t('value_hint')}
         required
         inputMode="numeric"
         maxLength={15}
@@ -87,22 +83,22 @@ export function NisabDialog({
       />
       <DateField
         label={t('effective_from')}
-        helper={t('effective_hint')}
+        hint={t('effective_hint')}
         required
         min={earliest}
         max={latestAllowed}
-        value={date}
-        onChange={setDate}
+        value={date ?? ''}
+        onChange={(iso) => setDate(iso || null)}
         error={detail('effectiveFrom')}
       />
       <TextField
         label={t('basis')}
-        helper={t('basis_hint')}
+        hint={t('basis_hint')}
         maxLength={500}
         value={note}
         onChange={setNote}
         error={detail('basisNote')}
       />
-    </Modal>
+    </Dialog>
   );
 }

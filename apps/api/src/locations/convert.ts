@@ -1,25 +1,41 @@
 import { parseCsvRecords, toCsv } from './csv';
 
 /**
- * Converts the owner's locations file (bd_location.json, 2026-10-11) into the committed CSV
- * docs/source/data/bd-locations.csv (D-061). Only automatic, mechanical fixes are applied and every
- * fix is reported; content corrections wait for the owner's review sheet.
+ * Converts the owner's locations file (bangladesh-admin.json, 2026-11-07) into the committed CSV
+ * docs/source/data/bd-locations.csv. The file lists the divisions, their districts with the
+ * upazilas (each with its unions, pourashavas and other places) and the city corporations with
+ * their thanas, every place with a post code where the file knows one. Only mechanical fixes are
+ * applied and every fix is reported; the rules of the conversion are in docs/source/data/README.md.
  */
 export type UpazilaKind = 'upazila' | 'city_corporation';
-export type UnionKind = 'union' | 'pourosova' | 'thana';
+export type UnionKind = 'union' | 'pourosova' | 'thana' | 'other';
 
-interface OwnerFile {
+interface OwnerPlace {
+  name_en: string;
+  name_native: string | null;
+  postcode?: string | null;
+  own_postcode?: boolean;
+}
+
+export interface OwnerFile {
   divisions: {
-    division_en: string;
-    division_bn: string;
+    name_en: string;
+    name_native: string | null;
     districts: {
-      district_en: string;
-      district_bn: string;
-      upazilas: {
-        upazila_en: string;
-        upazila_bn: string;
-        unions: { union_en: string; union_bn: string }[];
-      }[];
+      name_en: string;
+      name_native: string | null;
+      subdistricts: (OwnerPlace & {
+        unions: OwnerPlace[];
+        municipalities: OwnerPlace[];
+        other: OwnerPlace[];
+      })[];
+    }[];
+    city_corporations: {
+      name_en: string;
+      name_native: string | null;
+      /** The English name of the district the city belongs to. */
+      district: string;
+      city_districts: OwnerPlace[];
     }[];
   }[];
 }
@@ -35,148 +51,315 @@ export const CSV_COLUMNS = [
   'upazila_bn',
   'upazila_en',
   'upazila_kind',
+  'upazila_post_code',
   'union_code',
   'union_bn',
   'union_en',
   'union_kind',
+  'post_code',
+  'post_code_own',
   'verified',
 ] as const;
 export type LocationRow = Record<(typeof CSV_COLUMNS)[number], string>;
 
-/** Typos found in the 2026-10-11 review (only unambiguous ones). */
-const TYPO_FIXES: Record<string, string> = { emakre: 'Remakri', joyasreeup: 'Joyasree' };
-const WARD_ENTRY = /^Ward No\.\s*\d+$/i;
-// i18n-allow-bengali: the next two patterns match place-type words in the owner's location data.
-const POUROSOVA = /pourashava|pourosova|paurashava|pourashova|municipality|পৌরসভা/i; // i18n-allow-bengali
-const CITY_CORPORATION = /city corporation|সিটি কর্পোরেশন/i; // i18n-allow-bengali
+/** The level word the file writes after a Bengali name; the CSV keeps the bare name. */
+// i18n-allow-bengali: the pattern matches place-type words in the owner's location data.
+const LEVEL_WORD = /\s*(বিভাগ|জেলা|উপজেলা|ইউনিয়ন|থানা)$/u; // i18n-allow-bengali
+const POST_CODE = /^[0-9]{4}$/u;
 
 export interface ConversionResult {
   rows: LocationRow[];
   fixes: string[];
 }
 
-function cleanText(value: string, path: string, fixes: string[]): string {
-  const cleaned = value.normalize('NFC').replace(/\s+/g, ' ').trim();
-  if (cleaned !== value)
-    fixes.push(`${path}: whitespace or Unicode normalisation ("${value}" → "${cleaned}")`);
+function cleanText(value: string | null, path: string, fixes: string[]): string {
+  const given = value ?? '';
+  const cleaned = given.normalize('NFC').replace(/\s+/g, ' ').trim();
+  if (cleaned !== given)
+    fixes.push(`${path}: whitespace or Unicode normalisation ("${given}" → "${cleaned}")`);
+  if (cleaned === '') fixes.push(`${path}: name missing`);
   return cleaned;
 }
 
-function cleanEnglish(value: string, path: string, fixes: string[]): string {
-  let v = cleanText(value, path, fixes);
-  const typo = TYPO_FIXES[v.toLowerCase()];
-  if (typo && typo !== v) {
-    fixes.push(`${path}: spelling "${v}" → "${typo}"`);
-    v = typo;
+/** The Bengali name without its level word ("আমতলী উপজেলা" → "আমতলী"). */
+function bareBengali(value: string | null, path: string, fixes: string[]): string {
+  return cleanText(value, path, fixes).replace(LEVEL_WORD, '');
+}
+
+function postCodeOf(place: OwnerPlace, path: string, fixes: string[]): string {
+  const code = (place.postcode ?? '').trim();
+  if (code === '') return '';
+  if (!POST_CODE.test(code)) {
+    fixes.push(`${path}: post code "${code}" is not four digits and is left out`);
+    return '';
   }
-  // first letter upper case ("kotwali"), and "City corporation" written like the other eleven
-  const titled = (v.charAt(0).toUpperCase() + v.slice(1)).replace(/\bcorporation\b/, 'Corporation');
-  if (titled !== v) {
-    fixes.push(`${path}: capitalisation "${v}" → "${titled}"`);
-    v = titled;
-  }
-  return v;
+  return code;
 }
 
 const pathKey = (...names: string[]) => names.map((n) => n.toLowerCase()).join('>');
 
-/** Existing codes from a previous CSV, so that re-running the converter never changes a code. */
+/**
+ * Existing codes from a previous CSV, by the English and by the Bengali names along the path, so
+ * that re-running the converter keeps a place's code when either name still matches.
+ */
 function existingCodes(previousCsv?: string): Map<string, string> {
   const codes = new Map<string, string>();
   if (!previousCsv) return codes;
   for (const r of parseCsvRecords(previousCsv)) {
-    codes.set(pathKey(r.division_en ?? ''), r.division_code ?? '');
-    codes.set(pathKey(r.division_en ?? '', r.district_en ?? ''), r.district_code ?? '');
-    codes.set(
-      pathKey(r.division_en ?? '', r.district_en ?? '', r.upazila_en ?? ''),
-      r.upazila_code ?? '',
-    );
-    codes.set(
-      pathKey(r.division_en ?? '', r.district_en ?? '', r.upazila_en ?? '', r.union_en ?? ''),
-      r.union_code ?? '',
-    );
+    for (const lang of ['en', 'bn'] as const) {
+      const [dv, ds, up, un] = [
+        r[`division_${lang}`] ?? '',
+        r[`district_${lang}`] ?? '',
+        r[`upazila_${lang}`] ?? '',
+        r[`union_${lang}`] ?? '',
+      ];
+      codes.set(pathKey(lang, dv), r.division_code ?? '');
+      codes.set(pathKey(lang, dv, ds), r.district_code ?? '');
+      codes.set(pathKey(lang, dv, ds, up), r.upazila_code ?? '');
+      codes.set(pathKey(lang, dv, ds, up, un), r.union_code ?? '');
+    }
   }
   return codes;
 }
 
-/** Hands out L- codes: existing ones are kept, new ones take the next free number under the parent. */
+/**
+ * Hands out L- codes: a place whose English or Bengali path is known keeps its code, a new place
+ * takes the next free number under its parent. A code is handed out once per run, so two places
+ * that both match one old row never share it.
+ */
 class CodeAllocator {
   private readonly used = new Set<string>();
+  private readonly handed = new Set<string>();
   constructor(private readonly existing: Map<string, string>) {
     for (const code of existing.values()) this.used.add(code);
   }
-  code(key: string, parentCode: string, width: number): string {
-    const known = this.existing.get(key);
-    if (known) return known;
-    for (let n = 1; ; n++) {
-      const candidate = `${parentCode}-${String(n).padStart(width, '0')}`;
-      if (!this.used.has(candidate)) {
-        this.used.add(candidate);
-        this.existing.set(key, candidate);
-        return candidate;
+  /** The code of the first key found, or a new one; every key then names it. */
+  code(keys: string[], parentCode: string, width: number): string {
+    let found: string | undefined;
+    for (const key of keys) {
+      const known = this.existing.get(key);
+      if (known && !this.handed.has(known)) {
+        found = known;
+        break;
       }
     }
+    if (!found) {
+      for (let n = 1; ; n++) {
+        const candidate = `${parentCode}-${String(n).padStart(width, '0')}`;
+        if (!this.used.has(candidate)) {
+          found = candidate;
+          break;
+        }
+      }
+    }
+    this.used.add(found);
+    this.handed.add(found);
+    for (const key of keys) this.existing.set(key, found);
+    return found;
   }
+}
+
+/** The English and Bengali path keys of a place, with any earlier names the previous CSV used. */
+const keysOf = (en: string[], bn: string[], legacyEn: string[][] = []) => [
+  pathKey('en', ...en),
+  pathKey('bn', ...bn),
+  ...legacyEn.map((names) => pathKey('en', ...names)),
+];
+
+interface Parent {
+  code: string;
+  en: string[];
+  bn: string[];
+  legacyEn: string[][];
 }
 
 export function convertOwnerLocations(file: OwnerFile, previousCsv?: string): ConversionResult {
   const fixes: string[] = [];
   const codes = new CodeAllocator(existingCodes(previousCsv));
   const rows: LocationRow[] = [];
+  const emptyRows: string[] = [];
+  const add = (
+    division: Parent & { nameBn: string; nameEn: string },
+    district: Parent & { nameBn: string; nameEn: string },
+    upazila: Parent & { nameBn: string; nameEn: string; kind: UpazilaKind; postCode: string },
+    place: OwnerPlace,
+    kind: UnionKind,
+    nameEn: string,
+    nameBn: string,
+    inherited: boolean,
+  ) => {
+    const path = `${district.nameEn} > ${upazila.nameEn} > ${nameEn}`;
+    // a union without a post office of its own already carries its upazila's code in the file; a
+    // pourashava or another place gets none there and takes the upazila's here
+    const given = inherited ? '' : postCodeOf(place, path, fixes);
+    const isOwn = given !== '' && place.own_postcode !== false;
+    const postCode = given || upazila.postCode;
+    const uniCode = codes.code(
+      keysOf(
+        [...upazila.en, nameEn],
+        [...upazila.bn, nameBn],
+        upazila.legacyEn.map((names) => [...names, nameEn]),
+      ),
+      upazila.code,
+      3,
+    );
+    rows.push({
+      division_code: division.code,
+      division_bn: division.nameBn,
+      division_en: division.nameEn,
+      district_code: district.code,
+      district_bn: district.nameBn,
+      district_en: district.nameEn,
+      upazila_code: upazila.code,
+      upazila_bn: upazila.nameBn,
+      upazila_en: upazila.nameEn,
+      upazila_kind: upazila.kind,
+      upazila_post_code: upazila.postCode,
+      union_code: uniCode,
+      union_bn: nameBn,
+      union_en: nameEn,
+      union_kind: kind,
+      post_code: postCode,
+      post_code_own: postCode === '' ? '' : isOwn ? 'yes' : 'no',
+      verified: 'no',
+    });
+  };
+
   for (const dv of file.divisions) {
-    const divEn = cleanEnglish(dv.division_en, `division ${dv.division_en}`, fixes);
-    const divBn = cleanText(dv.division_bn, `division ${divEn} (bn)`, fixes);
-    const divCode = codes.code(pathKey(divEn), 'L', 2);
+    const divEn = cleanText(dv.name_en, `division ${dv.name_en}`, fixes);
+    const divBn = bareBengali(dv.name_native, `division ${divEn} (bn)`, fixes);
+    const divCode = codes.code(keysOf([divEn], [divBn]), 'L', 2);
+    const division = {
+      code: divCode,
+      en: [divEn],
+      bn: [divBn],
+      legacyEn: [],
+      nameBn: divBn,
+      nameEn: divEn,
+    };
+    const districts = new Map<string, Parent & { nameBn: string; nameEn: string }>();
     for (const ds of dv.districts) {
-      const disEn = cleanEnglish(ds.district_en, `${divEn} > ${ds.district_en}`, fixes);
-      const disBn = cleanText(ds.district_bn, `${divEn} > ${disEn} (bn)`, fixes);
-      const disCode = codes.code(pathKey(divEn, disEn), divCode, 2);
-      for (const u of ds.upazilas) {
-        const upaPath = `${disEn} > ${u.upazila_en}`;
-        const upaEn = cleanEnglish(u.upazila_en, upaPath, fixes);
-        const upaBn = cleanText(u.upazila_bn, `${disEn} > ${upaEn} (bn)`, fixes);
-        const upaKind: UpazilaKind = CITY_CORPORATION.test(`${upaEn} ${upaBn}`)
-          ? 'city_corporation'
-          : 'upazila';
-        const upaCode = codes.code(pathKey(divEn, disEn, upaEn), disCode, 2);
-        for (const un of u.unions) {
-          const rawEn = un.union_en.trim();
-          if (WARD_ENTRY.test(rawEn)) {
-            fixes.push(
-              `${disEn} > ${upaEn} > ${rawEn}: ward entry dropped (O-09, owner decision 2026-10-11)`,
-            );
-            continue;
-          }
-          const uniEn = cleanEnglish(un.union_en, `${disEn} > ${upaEn} > ${un.union_en}`, fixes);
-          const uniBn = cleanText(un.union_bn, `${disEn} > ${upaEn} > ${uniEn} (bn)`, fixes);
-          const uniKind: UnionKind =
-            upaKind === 'city_corporation'
-              ? 'thana'
-              : POUROSOVA.test(`${uniEn} ${uniBn}`)
-                ? 'pourosova'
-                : 'union';
-          const uniCode = codes.code(pathKey(divEn, disEn, upaEn, uniEn), upaCode, 3);
-          rows.push({
-            division_code: divCode,
-            division_bn: divBn,
-            division_en: divEn,
-            district_code: disCode,
-            district_bn: disBn,
-            district_en: disEn,
-            upazila_code: upaCode,
-            upazila_bn: upaBn,
-            upazila_en: upaEn,
-            upazila_kind: upaKind,
-            union_code: uniCode,
-            union_bn: uniBn,
-            union_en: uniEn,
-            union_kind: uniKind,
-            verified: 'no',
-          });
+      const disEn = cleanText(ds.name_en, `${divEn} > ${ds.name_en}`, fixes);
+      const disBn = bareBengali(ds.name_native, `${divEn} > ${disEn} (bn)`, fixes);
+      const disCode = codes.code(keysOf([divEn, disEn], [divBn, disBn]), divCode, 2);
+      const district = {
+        code: disCode,
+        en: [divEn, disEn],
+        bn: [divBn, disBn],
+        legacyEn: [],
+        nameBn: disBn,
+        nameEn: disEn,
+      };
+      districts.set(disEn.toLowerCase(), district);
+      for (const sd of ds.subdistricts) {
+        const upaEn = cleanText(sd.name_en, `${disEn} > ${sd.name_en}`, fixes);
+        const upaBn = bareBengali(sd.name_native, `${disEn} > ${upaEn} (bn)`, fixes);
+        const upaPath = `${disEn} > ${upaEn}`;
+        const upaCode = codes.code(
+          keysOf([divEn, disEn, upaEn], [divBn, disBn, upaBn]),
+          disCode,
+          2,
+        );
+        const postCode = postCodeOf(sd, upaPath, fixes);
+        if (postCode === '') fixes.push(`${upaPath}: no post code of its own in the file`);
+        const upazila = {
+          code: upaCode,
+          en: [divEn, disEn, upaEn],
+          bn: [divBn, disBn, upaBn],
+          legacyEn: [],
+          nameBn: upaBn,
+          nameEn: upaEn,
+          kind: 'upazila' as const,
+          postCode,
+        };
+        for (const u of sd.unions) {
+          const en = cleanText(u.name_en, `${upaPath} > ${u.name_en}`, fixes);
+          add(
+            division,
+            district,
+            upazila,
+            u,
+            'union',
+            en,
+            bareBengali(u.name_native, `${upaPath} > ${en} (bn)`, fixes),
+            false,
+          );
         }
+        // a pourashava keeps its level word in both names, as the earlier file wrote it; the
+        // file gives it no post code, so it takes the upazila's
+        for (const m of sd.municipalities) {
+          const en = `${cleanText(m.name_en, `${upaPath} > ${m.name_en}`, fixes)} Pourashava`;
+          const bn = `${bareBengali(m.name_native, `${upaPath} > ${en} (bn)`, fixes)} পৌরসভা`; // i18n-allow-bengali
+          add(division, district, upazila, m, 'pourosova', en, bn, true);
+        }
+        for (const o of sd.other) {
+          const en = cleanText(o.name_en, `${upaPath} > ${o.name_en}`, fixes);
+          add(
+            division,
+            district,
+            upazila,
+            o,
+            'other',
+            en,
+            cleanText(o.name_native, `${upaPath} > ${en} (bn)`, fixes),
+            true,
+          );
+        }
+        if (sd.unions.length + sd.municipalities.length + sd.other.length === 0)
+          emptyRows.push(upaPath);
       }
     }
+    // a city corporation sits under its district at upazila level, named after the city;
+    // the file of 2026-10-11 named it "City Corporation" alone ("North" and "South" in Dhaka)
+    for (const cc of dv.city_corporations) {
+      const cityEn = cleanText(cc.name_en, `${divEn} > ${cc.name_en}`, fixes);
+      const district = districts.get(
+        cleanText(cc.district, `${divEn} > ${cityEn} (district)`, fixes).toLowerCase(),
+      );
+      if (!district) {
+        fixes.push(
+          `${divEn} > ${cityEn}: district "${cc.district}" not in the division; city corporation left out`,
+        );
+        continue;
+      }
+      const upaEn = `${cityEn} City Corporation`;
+      const upaBn = cleanText(cc.name_native, `${district.nameEn} > ${upaEn} (bn)`, fixes);
+      const side = /\bnorth\b/i.test(cityEn) ? 'North ' : /\bsouth\b/i.test(cityEn) ? 'South ' : '';
+      const legacy = [[divEn, district.nameEn, `${side}City Corporation`]];
+      const upaCode = codes.code(
+        keysOf([divEn, district.nameEn, upaEn], [divBn, district.nameBn, upaBn], legacy),
+        district.code,
+        2,
+      );
+      const upazila = {
+        code: upaCode,
+        en: [divEn, district.nameEn, upaEn],
+        bn: [divBn, district.nameBn, upaBn],
+        legacyEn: legacy,
+        nameBn: upaBn,
+        nameEn: upaEn,
+        kind: 'city_corporation' as const,
+        postCode: '',
+      };
+      for (const th of cc.city_districts) {
+        const path = `${district.nameEn} > ${upaEn}`;
+        const en = cleanText(th.name_en, `${path} > ${th.name_en}`, fixes);
+        add(
+          division,
+          district,
+          upazila,
+          th,
+          'thana',
+          en,
+          bareBengali(th.name_native, `${path} > ${en} (bn)`, fixes),
+          false,
+        );
+      }
+      if (cc.city_districts.length === 0) emptyRows.push(`${district.nameEn} > ${upaEn}`);
+    }
   }
+  for (const path of emptyRows)
+    fixes.push(`${path}: no union-level place in the file; not in the CSV`);
   return { rows, fixes };
 }
 

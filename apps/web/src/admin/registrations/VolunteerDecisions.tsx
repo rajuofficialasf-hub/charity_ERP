@@ -1,6 +1,5 @@
-import { Button, ConfirmDialog } from '@css/ui';
+import { Button, ConfirmDialog } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, FilePenLine, X } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
@@ -74,25 +73,25 @@ export function VolunteerDecisions({
   return (
     <>
       <Button
-        icon={Check}
+        startIcon="check"
         disabled={blocklisted || inCorrection || (allowed && !allowed.approve)}
-        onPress={() => setDialog('approve')}
+        onClick={() => setDialog('approve')}
       >
         {t('approve')}
       </Button>
       <Button
         variant="secondary"
-        icon={FilePenLine}
+        startIcon="file-edit"
         disabled={allowed && !allowed.requestCorrection}
-        onPress={() => setDialog('correct')}
+        onClick={() => setDialog('correct')}
       >
         {t('correct')}
       </Button>
-      <Button variant="secondary" icon={X} onPress={() => setDialog('reject')}>
+      <Button variant="secondary" startIcon="close" onClick={() => setDialog('reject')}>
         {t('reject')}
       </Button>
       <ConfirmDialog
-        isOpen={dialog === 'approve'}
+        open={dialog === 'approve'}
         title={t('approve_title', { name })}
         message={
           <>
@@ -106,7 +105,7 @@ export function VolunteerDecisions({
         onCancel={close}
       />
       <ConfirmDialog
-        isOpen={dialog === 'reject'}
+        open={dialog === 'reject'}
         title={t('reject_title', { name })}
         message={decisionError && <p className="admin-error">{decisionError.message}</p>}
         tone="danger"
@@ -119,7 +118,7 @@ export function VolunteerDecisions({
       />
       <CorrectionDialog
         userId={userId}
-        isOpen={dialog === 'correct'}
+        open={dialog === 'correct'}
         onClose={close}
         onDone={() => {
           setDialog(null);

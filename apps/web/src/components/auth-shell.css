@@ -1,11 +1,16 @@
 /*
- * Sign-in screens (SCR-001, mockup 01-login.html): a soft brand wash with a floating card,
- * centered at 440 px from tablet up, full width with a 16 px gutter on phones. Tokens only.
+ * Sign-in screens: a soft brand wash with a floating card, centered at 440 px from tablet
+ * up, full width with a 16 px gutter on phones. Tokens only.
  */
-.auth-shell {
-  /* the wash runs up under the top bar (UX-19), so the bar has no seam */
+.auth-layout {
+  /* the page runs up under the top bar (UX-19), so the bar has no seam */
   min-height: 100dvh;
   margin-top: calc(-1 * var(--app-bar-height));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.auth-shell {
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -52,6 +57,11 @@
     padding: var(--space-5);
   }
 }
+@media (min-width: 1024px) {
+  .auth-shell {
+    justify-content: center;
+  }
+}
 
 /* Signed-in pages until the app shell of T1.15. */
 .account-page {
@@ -62,7 +72,14 @@
   gap: var(--space-4);
 }
 .account-page-wide {
-  max-width: 960px;
+  max-width: var(--content-max);
+  margin: 0;
+  padding: var(--space-4);
+}
+@media (min-width: 640px) {
+  .account-page-wide {
+    padding: var(--space-5);
+  }
 }
 .account-page h1 {
   font-size: var(--text-display);

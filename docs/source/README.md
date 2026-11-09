@@ -13,6 +13,6 @@ The items below are still to be supplied by the owner. Drop each file where show
 | [ ] | Exports of the current volunteer registration form and the two application forms, plus a few filled, anonymized samples | `docs/source/samples/` | T2.3, T2.9 |
 | [ ] | Bangladesh locations list as CSV (`division,district,upazila,union,ward`), if available | `docs/source/data/bd-locations.csv` | T1.2 (otherwise Claude loads an open dataset) |
 
-There is no Figma file. Screen mockups are built as clickable HTML in task T0.19b and live in `docs/ui/mockups/`.
+There is no Figma file. The clickable HTML mockups of task T0.19b were removed with D-151 (they are in git history); screens are shown in the running app.
 
 Never put real NIDs, phone numbers, bank details or donor data in this repository.

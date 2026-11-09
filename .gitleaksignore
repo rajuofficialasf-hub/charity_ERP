@@ -3,3 +3,6 @@
 # secrets belong here; each entry is recorded in docs/security/SECURITY_POLICY.md section 9.
 # T1.6 test cursor secret of the pagination integration test (a fixed fake string):
 ccb2433fb61daa980cee2e5764f8f7bef7748b5a:apps/api/test/integration/pagination.test.ts:generic-api-key:17
+# T2.7 stand-in device key of the web test fixtures (a made-up 43-character string the first commit
+# of the device key used; replaced by 'k'.repeat(43) in the same task, so only the history holds it):
+19834491a904d0c528fb043eeb4bdc2f73e3ba18:apps/web/test/auth.tsx:generic-api-key:68

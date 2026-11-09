@@ -15,12 +15,16 @@
     "search": "Search"
   },
   "state": {
+    "offline": {
+      "text": "No connection. This needs the network to load."
+    },
     "loading": "Loading",
     "empty": {
       "title": "Nothing here yet"
     },
     "error": {
-      "text": "Something went wrong. Try again."
+      "text": "Something went wrong. Try again.",
+      "request_id": "Request id: {id}"
     }
   },
   "language": {
@@ -52,6 +56,12 @@
     "consent_declined": "declined",
     "unknown_device": "an unnamed device",
     "fallback_title": "Notification",
-    "fallback_body": "This notification cannot be shown. Open the related page to see what happened."
+    "fallback_body": "This notification cannot be shown. Open the related page to see what happened.",
+    "media_accepted": "accepted",
+    "media_sent_back": "sent back for correction",
+    "media_rejected": "rejected"
+  },
+  "list": {
+    "result_count": "{shown} of {total}"
   }
 }

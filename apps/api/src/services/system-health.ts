@@ -22,6 +22,11 @@ export interface SystemHealthView extends Readiness {
   storage: {
     total: StorageFigure;
     byKind: (StorageFigure & { kind: string })[];
+    /**
+     * Each bucket now, and its growth in bytes since the nightly snapshot of at least 30 days ago
+     * (null until such a snapshot exists).
+     */
+    byBucket: (StorageFigure & { bucket: string; monthGrowth: number | null })[];
     /** The twelve months up to this one (Dhaka), oldest first; a month without files counts zero. */
     byMonth: (StorageFigure & { month: string })[];
     measuredAt: string;
@@ -112,8 +117,29 @@ export class SystemHealthService {
       month,
       ...figure(months.get(month)),
     }));
+    const monthAgo = new Date(now - 30 * 86_400_000);
+    const [buckets, snapshot] = await Promise.all([
+      this.prisma.$queryRaw<{ bucket: string; count: bigint; bytes: Prisma.Decimal | null }[]>`
+        SELECT bucket, count(*) AS count, sum(size_bytes) AS bytes
+          FROM files WHERE deleted_at IS NULL GROUP BY bucket ORDER BY bucket`,
+      this.prisma.$queryRaw<{ bucket: string | null; bytes: Prisma.Decimal | null }[]>`
+        SELECT s.bucket, sum(s.bytes) AS bytes FROM storage_stats s
+         WHERE s.captured_at = (SELECT max(captured_at) FROM storage_stats WHERE captured_at <= ${monthAgo})
+         GROUP BY s.bucket`,
+    ]);
+    const before = new Map(snapshot.map((s) => [s.bucket, Number(s.bytes?.toString() ?? 0)]));
     const storage = {
       total: figure(total),
+      byBucket: buckets.map((b) => {
+        const bytes = Number(b.bytes?.toString() ?? 0);
+        const then = before.get(b.bucket);
+        return {
+          bucket: b.bucket,
+          count: Number(b.count),
+          bytes,
+          monthGrowth: snapshot.length ? bytes - (then ?? 0) : null,
+        };
+      }),
       byKind: rows
         .filter((r) => r.kind !== null)
         .map((r) => ({ kind: r.kind!, ...figure(r) }))

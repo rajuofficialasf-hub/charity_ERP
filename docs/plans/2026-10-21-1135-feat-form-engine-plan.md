@@ -1,0 +1,232 @@
+---
+title: Form platform engine and API (T2.3)
+type: feat
+status: done
+source: brainstorm
+date: 2026-10-21
+doc_review: 2026-10-21
+---
+
+# Form platform engine and API (T2.3)
+
+## Goal
+A PM's form for a project is stored as versions built from the section and field libraries; the same evaluator decides on the phone and on the server which fields show, which are required, what the calculated fields hold and whether a set of answers is valid; a published version never changes; and a project can take applications from the public through a link that enters them for verification. The builder screen and the filling screen come in T2.4.
+
+## Problem
+The tables, the JSON schemas of the logic (`docs/database/json-schemas/form-field-logic.schema.json`, mirrored by `packages/shared/src/jsonb/form-logic.ts`), the answer value schema, the contract paths under the `forms` and `public` tags and the seeded libraries with the two appendix-খ forms (`apps/api/seed/sets/base/forms.ts`) all exist. Nothing reads, evaluates, validates, versions or publishes a form yet, and no project has a form. T2.4 (builder and renderer), T2.5 (applications) and T2.7 (offline) all stand on this engine.
+
+## Requirements
+
+### Libraries and definitions
+- **R1** The ten library sections (basic information, address, family and income, livelihood, project questions, financial status, loans, zakat assessment, official section, attachments) and the standard field library of appendix খ.৩ are readable by a PM through the API, with every field's type, bilingual label, standard column and default settings; both come from the seed and have no edit API in this task.
+- **R2** A form version holds sections with fields of every type of BR-074: short and long text, number, decimal, money, phone, email, date, time, date-time, single and multiple select, radio, checkbox, photo, file, signature, GPS, Bangladesh address (division → district → upazila → union), repeat group, calculation and note.
+- **R3** Every section and field carries a Bangla and an English label; fields also carry bilingual help text and placeholder, and options carry bilingual labels; nothing user-facing in a form is single-language.
+- **R4** A field's settings are the ones of BR-075: mandatory, default value, validation (min, max, length, and a named pattern from a fixed list: `nid`, `birth_reg`, `mobile`, `bangla_text`, `email`, `post_code`, `digits`; no free regex, and every text field has a maximum length, 4,000 characters unless the field sets a smaller one), options, options that depend on the previous answer, "অন্যান্য" opening a text box on the same field, show-if and required-if conditions, and a calculation; the server refuses a definition whose logic names a field that does not exist, a condition or calculation that reaches into a repeat group from outside it, or a calculation that depends on itself through any chain; the order of fields does not limit what a condition may refer to.
+- **R5** The mandatory core of BD-13 (NID or birth registration, name, father or husband name, mobile, gender, the four-level address, village) is in every version, required, volunteer-visible and standard-mapped; a draft that removes one, hides one or makes one optional is refused when saved and when published.
+- **R6** The beneficiary type field offers the BD-14 defaults (বৃদ্ধ, বিধবা, এতিম, প্রতিবন্ধী, অসুস্থ, শ্রমজীবী, অতিদরিদ্র, অন্যান্য) from the reference list; a project's form may change the list; "অন্যান্য" takes a text in the same answer.
+- **R7** A section is visible to volunteers or to officials only; an official-only section and its fields are never sent to a volunteer, a team member or the public, and an answer a volunteer sends for such a field is refused.
+- **R8** A standard field names its beneficiary column (or the family-member sub-table for the earners group) and a custom field none; the engine tells the application service which answers go to the profile and which stay as application answers, so T2.5 never decides this twice.
+
+### The engine (shared by server and client)
+- **R9** One evaluator in `packages/shared` takes a form version and a set of answers and returns, for every field, whether it shows, whether it is required, its allowed options, and the value of every calculated field; it runs with no I/O and gives the same answer on the phone and on the server for the same input. Supported: the condition operators of the schema (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `not_in`, `is_empty`, `not_empty`, `all`, `any`, `not`) and the calculation operators (`add`, `sub`, `mul`, `div`, `min`, `max`, `age_from_dob`, `compare_gte`, `sum_repeat`, the `nisab_value` setting, rounding).
+- **R10** The same package validates answers against a version: value shape per type, required (a hidden field is never required; a required-if condition is honoured), min, max, length and patterns, option membership including branching options and the "other" text, repeat-group row limits, a complete address (all four levels present; the server then checks that the chain is consistent, as the contact edit does), and a file reference only where the field takes files; every error names the field key, the repeat row and a message key. Calculated fields are recomputed by the server and a client-sent value is replaced, never trusted.
+- **R11** The two forms of appendix খ (distribution; self-reliance and house construction) load from the seeded templates into a project as version 1 and, fed with example answers, validate and calculate correctly: total family members, total household income across earners, gold and silver value, total assets, total debts, net assets, and the zakat proposal against the nisab in force; a test proves each with numbers.
+
+### Project forms and versions
+- **R12** A project with the application-form component gets a form in one of three ways: from a library form template, empty with the mandatory core only, or copied from a previous project (BD-10); the form starts as draft version 1, and the project's component settings name it.
+- **R13** Versions follow BD-12: a draft can be changed and published; publishing makes it immutable, retires the previous published version and leaves one published version per form; a change after publishing starts the next draft as a copy of the published version, and only one draft is open at a time; field keys stay stable across versions; every application records its version; an endpoint lists a form's fields across versions by key so reports can align them.
+- **R14** A published or draft version can be read by the officials of the project with every section, and by an assigned volunteer with the volunteer-visible sections only; the answer carries an ETag, and a draft is changed only with the matching If-Match.
+
+### Public link
+- **R15** A PM enables or disables a project's public link, chooses the one form it opens (a link opens exactly one form of the project; another project's form or more than one form is refused), and gets the URL; each change is audited; the token is random, long and not the project id.
+- **R16** Anyone with the link reads the published volunteer-visible form of an active project within its deadline, with the project's bilingual name and its closing date and nothing else about the project; a disabled link, a draft-only form, an inactive or closed project and an expired deadline all answer not found. A form whose volunteer-visible part holds a file or signature field cannot be put on the link, and publishing such a version while it is linked is refused; a GPS field is allowed.
+- **R17** A public submission is validated by the engine, stored as an application in `needs_verification` without a beneficiary profile, idempotent on its client id, flagged `identity_repeated` when its NID or mobile was already sent through the link that Dhaka day (O-08), `identity_known` when a live profile holds the number, and `identity_blocked` when that profile is blocked; the applicant sees only that the application was received and will be verified, never whether the number already has a profile or is blocked, and never any auto-fill.
+- **R18** A public form may hold photo fields: the applicant uploads photos without a login through a path bound to the link's token, limited three ways: at most 5 photos per submission (its client id; the sixth answers 429), at most 200 unclaimed photos or 500 MB per link at a time (429 until the sweep or a claim frees room), and the `public-form` class per address; each photo is at most 5 MB, JPEG, PNG or WebP, named for a photo field of the linked version (422 otherwise), scanned like every file, attached to the submission, and deleted when no submission claims them within 24 hours.
+- **R19** The public read and submit calls and the public upload are rate limited in the `public-form` class (20 an hour per address, O-08) and answer 429 with Retry-After; nothing public leaks a stack trace, a database error or an internal id of another record.
+
+### Contract and audit
+- **R20** Every endpoint is declared with `defineRoute`, matches `docs/api/openapi.yaml` (drift test), names its permission and scope (`form.build`, `form.publish`, `form.public_link.manage`, `project.view`, the public routes), and audits version creation, draft changes, publishing, public-link changes and public submissions.
+
+## Scope
+- In: the shared evaluator and validator; the library read API; form creation for a project (template, blank, copy); draft editing, versions, publishing; the version read with visibility filtering; the field map across versions; the public link, public form read, public submission and public photo upload; the seeded templates loaded and proven; the database changes this needs; contract, permissions, audit and documents.
+- Out (not now): the form builder and the filling renderer (T2.4); creating, editing, submitting and reviewing applications by signed-in users and the verification of public entries (T2.5, T2.6); the offline cache of form versions (T2.7); scoring and quotas; editing the libraries through the API; file and signature fields on the public form (photos only); a CAPTCHA (O-08).
+
+## Key decisions
+- **Expression language**: the JSON tree already defined in `form-field-logic.schema.json` and `@css/shared` (`conditionSchema`, `exprSchema`) is the language; no text formulas and no parser. Governs R4, R9.
+- **Public form reveals nothing** (owner, 2026-10-21): no lookup or auto-fill by NID, no "already exists", no "blocked"; matches and blocks are flags the verifying official sees. Governs R17.
+- **Public photos now** (owner, 2026-10-21): the public form may carry photo fields, through an anonymous upload path with its own limits rather than the signed-in upload API; the limits in R18 are proposals the owner can change. Governs R18.
+- **Named patterns only** (owner, 2026-10-21): a PM picks a validation pattern from a fixed list and never types a regex, and every text answer is bounded in length before any pattern runs, so no form can stall the server on public input. Governs R4, R10.
+- **One link opens one form** (owner, 2026-10-21): the public URL carries only the token, so the link names exactly one form; several application kinds become conditional sections of that form. Governs R15, R16.
+- **The public page shows the project's name and closing date** (owner, 2026-10-21), nothing else about the project. Governs R16.
+- **Libraries are read-only in this task** (owner, 2026-10-21): the seed is the only way to change them; `form.library.manage` keeps no default holder. Governs R1.
+- **A public entry has no profile**: the application row stores the answers and waits in `needs_verification`; the profile is matched or created by the official at verification (T2.6), as the offline NID collision of BD-48 does. Governs R17.
+- **One published and one draft at a time per form**: keeps the version rule simple for the builder and the offline cache. Governs R13.
+- **One public link per project, opening one form**: `project_components.settings.public_link.form_ids` keeps its shape but the configure call accepts exactly one id and checks in the service that it names a form of this project; every write and every public read goes through that check. Governs R15.
+
+## Success criteria
+- The evaluator and validator tests cover every operator, every field type, hidden-field exemption, branching options, repeat rows and the address chain, and the appendix-খ numbers of R11.
+- Versioning immutability is proven both by the service (409) and by the existing database trigger.
+- A volunteer never receives an official-only section in any read; the public never receives one either.
+- The public-link limits and the "reveals nothing" rule are proven by API tests.
+
+## Technical decisions
+- **Stack profile**: the one in `CLAUDE.md` (ST-43), unchanged: Express 5 with `defineRoute`, Prisma 7 with hand-written `down.sql`, the shared package for the engine, the storage adapter for photos, pg-boss for the sweep. Nothing is added (ST-40).
+- **The engine is a pure module in `packages/shared/src/forms/`** (BR-076, constitution §13 "no duplicated calculations"): definition types and their zod schema, the evaluator, the validator, the named patterns and the standard/custom split. No Prisma, no Node. The API wraps it; the web (T2.4) and the offline client (T2.7) import it unchanged. New pattern in this repo; the closest neighbours are `packages/shared/src/projects/setup-check.ts` (a pure check that returns a list of missing items) and `packages/shared/src/beneficiaries/` (rules with tests next to them).
+- **The definition shape is the contract's** (`FormVersion` → `FormSection` → `FormField` → `FieldOption` in `docs/api/openapi.yaml` 2693–2754): the engine takes exactly what the API answers and what the draft update sends, so the server, the builder and the phone all run on one shape. The database rows are mapped to it in one place (`services/forms.ts`).
+- **Library options from a reference list are copied into the project form when the template or library field is loaded** (`options_from_reference_list` in `apps/api/seed/sets/base/forms.ts`): the form then owns its options, which BD-14 lets the PM change per project, and a published version never changes when the admin edits a list later.
+- **Version rules in the database too** (DB-TX-03): a migration adds a partial unique index for one draft per form and a trigger on `form_versions` that allows only draft → published and published → retired (the existing `forbid_published_form_change` guards the children only, `apps/api/prisma/migrations/20261011000000_init/migration.sql` 4612–4634). The service refuses first with 409; the database backstops.
+- **Publishing retires in one transaction** (DB-TX-01): the published version is set retired, the draft published with `published_at` and `published_by`, the partial unique index on one published version holds throughout because the retire comes first.
+- **A public entry's location comes from its address answer**: the four-level address is mandatory core (BD-13), so `applications.region_location_id` (the division, as T1 fixtures and the review scope use it), `district_id` and `union_id` are filled from it; the row has no beneficiary, no owner volunteer and no creating user, status `needs_verification`, the flags `public_link` and, where the engine finds them, `identity_repeated` (O-08: the same NID or mobile through this link within the Dhaka day), `identity_known` (a live profile holds the number) and `identity_blocked`; the applicant's answer never carries any of them (owner decision). The flags column exists (`applications.flags text[]`).
+- **The public token is a capability, not a credential**: 32 random bytes base64url, stored in `project_components.settings.public_link.token` as the component schema already models; disabling and re-enabling issues a new token, so a leaked link is retired by a toggle; the URL is `${PUBLIC_WEB_ORIGIN}/apply/${token}` (the web route arrives in T2.4). Responses on the public routes never name a project id, a form id or any other record id except the submission's own. The token itself stays out of logs and audit rows: the pino redaction covers the `token` path parameter of the public routes, the `form.public_link_change` audit row records enabled, the form key and the actor but not the token, and the component settings read of project setup masks `public_link.token` for every caller without `form.public_link.manage`.
+- **Public photos follow the registration-photo pattern, not the chunked sessions**: one request per photo through `photoBody`, type by bytes (NS-03), `cleanImage`, stored with a server key (NS-01), scanned by `enqueueFileProcess` (`apps/api/src/services/registration-photos.ts` 1–80), with a new file kind `form_photo` in `@css/shared/files` (bucket `photos`, links to an application; the volunteer form of T2.5 uses the same kind through the normal upload sessions). A public photo is bound to the link token and the submission's client id; the submit links the files it names; a nightly sweep removes files no submission claimed within 24 hours (`jobs/upload-sweep.ts` is the example).
+- **Rate classes**: the public read, submit and photo routes use `public-form` (20 an hour per address, O-08; `apps/api/src/rate-limit/rate-limit.ts` 115) and the photo route adds two ceilings counted by the service from the `files` rows of the link: 5 photos per client id and 200 unclaimed photos or 500 MB per link; the service refuses with 429 and `Retry-After` through the existing error path (NE-SEC-04). The public submit keeps the app-wide 100 KB JSON limit (NE-REQ-02); for the public audience the validator caps every text at 4,000 characters and every repeat group at 50 rows even where the definition sets no limit.
+- **A read-only library needs its own permission**: `form.build` is held at PROGRAM, and `defineRoute` refuses a `none` scope for a permission held below GLOBAL (`apps/api/src/openapi/define-route.ts` 74–79), so the library read gets `form.library.view` (M07, default `program_manager@GLOBAL`, the global roles through their everything grant). `form.library.manage` keeps no default holder (owner decision).
+- **Creating a form is a new operation** (`POST /projects/{projectId}/forms`, `form.build`, scope project) with a source: a library template key, blank (the mandatory core only), or a previous project's published version (BD-10); the first version is draft 1; `project_components.settings.application_form.form_ids` names it. A project template saved from a project (`services/templates.ts` `saveFromProject`) also carries the published form definition, and `applyDefinition` loads it as draft 1 of the new project.
+- **Activation needs a published form** when the application-form component is on: `setupCheck` already says "the published form joins this check in its task" (`packages/shared/src/projects/setup-check.ts`); the item is `form`.
+- **Validation patterns are a fixed list** in `packages/shared/src/forms/patterns.ts` (the named keys above, each a bounded expression reviewed once); the definition schema refuses any other `pattern` value, so no PM-authored expression ever runs (NE-SEC-06 in spirit: no user-written code).
+- **Errors**: new codes under `form.*` and `public.*` in `packages/shared/src/i18n/messages/{bn,en}/errors.json`, raised with `ApiError` (`apps/api/src/http/errors.ts`); validation errors of answers use the existing `validation.failed` envelope with `details[]` naming `path` as `<fieldKey>` or `<fieldKey>[<row>]` and a message key.
+- **Rules cited**: ST-07 and NE-REQ-01 (zod at every boundary), NE-REQ-04 (thin routes), NE-SEC-03 (authorization in the service), NE-SEC-04 (public rate limits by IP), NE-SEC-11 (nothing internal leaks on the public routes), NS-01/03/04/05/06/10 (public photos), DB-TX-01/03, DB-MIG-05 (down.sql per `CLAUDE.md`), TS-01/02/12/13/14/23, ORG-CMT-10/40/50 (no plan or rule IDs in code or test names: every unit below hands the builder the meaning in words).
+
+## Implementation units
+
+Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. Code, comments, commit messages and test names carry the meaning in words.
+
+### U1. Version rules in the database
+- **Goal:** one open draft per form and a one-way version life cycle are enforced by the database.
+- **Requirements:** R13
+- **Files:** `apps/api/prisma/migrations/<stamp>_form_version_rules/{migration.sql,down.sql}`, `apps/api/prisma/schema.prisma` (the partial unique index as `@@index`/raw SQL comment as the merge-candidates migration did), `apps/api/test/integration/triggers.test.ts`, `apps/api/test/integration/migrations.test.ts` (round trip picks it up), `docs/database/DATABASE_SCHEMA.md` §9.
+- **Approach:** as `20261021090000_merge_candidates` (a hand-written SQL migration with its `down.sql`): `CREATE UNIQUE INDEX form_versions_one_draft_key ON form_versions (form_id) WHERE status = 'draft'`; a trigger function `guard_form_version_status` BEFORE UPDATE on `form_versions` that raises `form_version_transition` (SQLSTATE 23514) unless OLD/NEW status is draft→published (with `published_at` and `published_by` set) or published→retired, and refuses any other column change on a non-draft row except `status`, `published_at`, `published_by`, `updated_at`, `updated_by`; the `roles.sql` grants need nothing new.
+- **Tests:**
+  - integration: a second draft of one form is refused; published→draft, retired→published and a title change on a published row are refused; draft→published and published→retired pass; the round-trip test up–down–up passes.
+- **Done when:** the trigger and index tests pass and `pnpm db:migrate` applies cleanly on the dev database.
+- **Depends on:** none
+- **Size:** S
+- **Risk area:** migration
+- **Status:** done
+
+### U2. The shared engine: definition, evaluator, validator, split
+- **Goal:** one pure module answers what shows, what is required, what the calculated fields hold, whether answers are valid, and which answers belong to the profile.
+- **Requirements:** R2, R3, R4, R5, R6, R8, R9, R10, R11 (unit part)
+- **Files:** `packages/shared/src/forms/{index,definition,core,patterns,evaluate,validate,split,template}.ts` and their `*.test.ts`; `apps/api/seed/sets/base/forms.ts` (exports `SECTIONS`; its `FieldType`, `Option`, `LibraryField` and section types move to `packages/shared/src/forms/` and the seed imports them); `packages/shared/src/jsonb/answer-value.ts` (a `signature` file branch only; drop the `signature_ref` text branch if the JSON Schema agrees, else leave both and note it); `packages/shared/src/index.ts` exports; `docs/database/json-schemas/application-answer-value.schema.json` only if the branch changes (then `packages/shared/test/jsonb-conformance.test.ts` proves the mirror).
+- **Approach:**
+  - `definition.ts`: the zod schema of a version definition in the contract shape (sections with fields with options), with `superRefine` checks: unique section keys and field keys, every logic and calculation reference names an existing field, a reference from outside a repeat group to a field inside one is refused, no calculation cycle, `options_depend_on` names a select field of the same section or earlier, every label, help text, placeholder and option label carries both languages, `pattern` is one of the named keys, the mandatory core (`core.ts`: `nid_or_birth_reg`, `name`, `father_or_husband_name`, `mobile`, `gender`, `address`, `village`) present, required and in a volunteer-visible section, official-only sections never hold a core field.
+  - `template.ts`: builds a definition from the seeded library shapes (`LIBRARY_FIELDS`, `SECTIONS`, `FORM_TEMPLATES` of `apps/api/seed/sets/base/forms.ts`, whose types move to the shared package so both the seed and the service import them), resolving `options_from_reference_list` through a resolver the caller passes (the API passes the reference-list items; the test passes the BD-14 defaults).
+  - `patterns.ts`: the named patterns as bounded expressions with a length cap applied before any match; nothing else is accepted as a pattern.
+  - `evaluate.ts`: given a definition, answers (by field key and repeat row) and a context `{ nisabValue?: string, today: string }`, returns per field `{ visible, required, options }` and the calculated values; conditions on hidden fields count as empty; repeat rows evaluate per row; `age_from_dob` uses `today`; money math in paisa (`@css/shared/projects` `toPaisa`); `round` applied last; division by zero gives null.
+  - `validate.ts`: value shape per field type through `answerValueSchema`, the rules of R10, calculated answers ignored and recomputed, unknown field keys refused, official-only answers refused when the caller is a volunteer or the public (`audience: 'official' | 'volunteer' | 'public'`); returns `{ ok: true, computed, standard, custom }` or `{ ok: false, errors: [{ path, code }] }`.
+  - `split.ts`: standard answers to beneficiary columns by `standardColumn` (the address to its four ids, `nid_or_birth_reg` to `nid` or `birth_reg` by its format with the existing `isNidNumber`/`isBirthRegNumber`), the earners repeat group to family-member rows, the rest as custom answers.
+  - Example to follow: `packages/shared/src/projects/setup-check.ts` for a pure check returning typed items; tests as `packages/shared/src/beneficiaries/rules.test.ts`.
+- **Tests:**
+  - unit: every condition operator with text, number, option and empty values; `all`/`any`/`not` nesting; show-if hides and un-requires; required-if; options filtered by the previous answer and the "other" text accepted only where allowed; every field type's value shape; min/max/length and every named pattern, with a text over the cap refused before the pattern runs and a 100,000-character input answered in bounded time; a definition with a free regex as `pattern` and one with a single-language label are refused; repeat rows below the minimum and above the maximum; an address with a missing level fails and a complete one passes (the server checks the chain); the public audience is capped at 4,000 characters and 50 rows where the definition sets no limit; a calculated answer sent by the client is replaced; a definition with a missing core field, an optional core field, a core field in an official section, a dangling reference, a reference into a repeat group from outside, a calculation cycle through two fields and a duplicate key is refused with the right code; a condition may refer to a field that comes later; the two appendix-খ templates build into valid definitions and, with example answers, give total members 5 from 3 and 2, household income across two earners, gold and silver values from amount × price per ana, total assets, total debts, net assets, and the zakat proposal true and false around a nisab value; the split sends name and address to the profile and a project question to the answers.
+- **Done when:** `pnpm --filter @css/shared test` passes with the cases above and `pnpm typecheck` passes for shared and api.
+- **Depends on:** none
+- **Size:** L
+- **Risk area:** none
+- **Status:** done
+
+### U3. Forms of a project: library read, create, list, read a version
+- **Goal:** a PM reads the library, creates a project's form from a template, blank or a previous project, lists its versions, and anyone with project access reads a version with the sections their role may see.
+- **Requirements:** R1, R6, R7, R12, R14, R20
+- **Files:** `apps/api/src/services/{form-library,forms}.ts`, `apps/api/src/routes/forms.ts`, `apps/api/src/container.ts`, `apps/api/src/app.ts` (mount), `docs/api/openapi.yaml` (`GET /form-library`, `POST /projects/{projectId}/forms`, the `FormCreate` and `FormLibrary` schemas, `Form.publishedVersionId`), `docs/security/permissions.yaml` (`form.library.view`), `docs/security/RBAC.md`, `docs/security/AUTHORIZATION_MATRIX.md` (regenerated), `packages/shared/src/i18n/messages/{bn,en}/errors.json`, `apps/api/test/integration/forms.test.ts`, `apps/api/test/integration/support/fixtures.ts` (a `formVersion` helper that writes a definition through the service, so later tests build forms in one call).
+- **Approach:** services as `project-setup.ts` (scope through `access.findProject`, one transaction per write, audit rows); the version read maps rows to the contract shape in one function `definitionOf(versionId)` used by every later unit; a volunteer (the consent gate `WORKING_ASSIGNMENT` of `access/effective.ts`) and any caller without `application.view_official_section` get the volunteer-visible sections only; the ETag from `core/etag.ts` on the version's `updatedAt`; the library route on `form.library.view` with scope `none`; a create from a template loads the seeded `project_templates` row of `kind: 'form_template'` through `template.ts` of U2, from a previous project the published definition of a source project resolved through `access.findProject` for the caller (a source out of reach answers 404), blank the core only; the form id is written into `application_form.form_ids`; the versions list (`GET /forms/{formId}/versions`, `form.build`, scope project, not paginated) answers every version with its status and dates.
+- **Tests:**
+  - integration: the PM reads the library (ten sections, the field keys of appendix খ.৩); creates a form from each of the two templates, blank, and copied from another project, each as draft 1 with the core present and the beneficiary type options from the reference list; a second form with the same key is refused (409); the PM of another program, an RPM and a volunteer are refused the create and the versions list (403/404); a copy from a project the caller cannot reach answers 404 and names nothing; the version read gives an official every section and a volunteer and an executive without the official class no official-only section; an unassigned volunteer gets 404; the ETag is answered; unknown ids give 404 and a bad id 422.
+- **Done when:** the forms tests pass and the drift test and `authz:matrix` are green.
+- **Depends on:** U2
+- **Size:** L
+- **Risk area:** none
+- **Status:** done
+
+### U4. Drafts, publishing and the field map
+- **Goal:** a PM edits a draft, publishes it, starts the next draft from the published version, and reads the fields of a form across versions (`form.build`, scope project, officials who build only).
+- **Requirements:** R4, R5, R13, R20
+- **Files:** `apps/api/src/services/forms.ts`, `apps/api/src/routes/forms.ts`, `docs/api/openapi.yaml` (`GET /forms/{formId}/fields`, the `FormFieldMap` schema; `createDraft` body none), `apps/api/test/integration/forms.test.ts`, `apps/api/test/integration/triggers.test.ts` (unchanged, the service test adds the 409 path).
+- **Approach:** `updateDraft` replaces sections, fields and options of a draft inside one transaction (delete and re-insert, keeping field ids where the key is unchanged so answers of a draft version are never orphaned), after `definition.ts` of U2 accepts the body and `assertIfMatch`; `publish` runs the same check, retires the published version, publishes the draft and audits `form.publish` with the version number; `createDraft` copies the published version's rows as version n+1 and answers 409 while a draft exists; the field map (`GET /forms/{formId}/fields`, `form.build`, scope project) lists `{ fieldKey, type, label, standardColumn, versions: [n…] }` from every version of the form; publishing a version whose volunteer-visible part holds a file or signature field while the form is on the public link answers 422.
+- **Tests:**
+  - integration: a draft update with a removed core field, an optional core field, a dangling condition and a self-referencing calculation answers 422 with the field named; a valid update is read back unchanged; a stale If-Match answers 412; an update or publish of a published version answers 409; publishing retires the previous version and the form's `publishedVersionId` moves; a second open draft answers 409; a draft after publishing starts as a copy; the field map shows a field added in version 2 as present in [2] only; the PM of another program, the RPM and a volunteer are refused the update, the publish, the next draft and the field map (403/404); every write leaves an audit row.
+- **Done when:** the tests pass and the contract coverage lists no uncovered forms operation.
+- **Depends on:** U1, U3
+- **Size:** M
+- **Risk area:** none
+- **Status:** done
+
+### U5. The form inside project setup, templates and activation
+- **Goal:** a project cannot be activated without a published form, a project template carries its form, and a project copied from another gets the form as draft 1.
+- **Requirements:** R12, R13
+- **Files:** `packages/shared/src/projects/setup-check.ts` (+ test), `apps/api/src/services/{project-lifecycle,project-definition,templates,projects}.ts`, `packages/shared/src/projects/templates.ts` (the definition schema gains `form`), `docs/database/json-schemas/*template*.schema.json` if the template definition is schema-checked, `apps/api/test/integration/{project-lifecycle,templates,projects}.test.ts`, `packages/shared/test/projects.test.ts`.
+- **Approach:** `setupCheck` gains `publishedForm: boolean` and the item `form` when the application-form component is enabled and no published version exists; `projectDefinition` includes the published definition of the project's default form; `applyDefinition` creates the form with it as draft 1 through `services/forms.ts`; `saveFromProject` stores it in the template; the existing tests of what a copy takes and never takes gain the form (BD-10: the form as v1; answers never).
+- **Tests:**
+  - unit: the check names `form` only while the component is on and nothing is published.
+  - integration: activation of a project with the component and no published form answers 422 naming `form`; after publishing it activates; a template saved from a project holds the form, and a project started from it or copied from the project gets draft 1 with the same fields and no applications.
+  - existing: covered by `apps/api/test/integration/project-lifecycle.test.ts` and `templates.test.ts`; extend them.
+- **Done when:** the three test files pass.
+- **Depends on:** U4
+- **Size:** M
+- **Risk area:** none
+- **Status:** done
+
+### U6. The public link: configure, read, submit
+- **Goal:** a PM switches a project's public link on and off, and anyone with the link reads the form and submits an application that waits for verification and reveals nothing about anyone.
+- **Requirements:** R15, R16, R17, R19, R20
+- **Files:** `apps/api/src/services/{public-link,public-forms}.ts`, `apps/api/src/routes/{forms,public}.ts`, `apps/api/src/container.ts`, `apps/api/src/app.ts` (the public router outside `requireAccess`, as `routes/auth.ts` is), `apps/api/src/config/env.ts` (`PUBLIC_WEB_ORIGIN` for the URL, with `.env.example`), `docs/api/openapi.yaml` (`PublicForm` response with the project's name and closing date; `PublicApplicationCreate` without `projectId`, `formVersionId` and `beneficiaryId`), `docs/api/API_STANDARDS.md` (the `public-form` class on the three routes), `apps/api/test/integration/public-forms.test.ts`, `apps/api/test/api/guards.api.test.ts` (the rate class probe).
+- **Approach:** configure takes exactly one form id, checks in the service that it belongs to the project and that its published volunteer-visible part holds no file or signature field (422 otherwise), writes the `public_link` component settings through `project-setup.ts` with a fresh token on every enable, and audits `form.public_link_change` without the token; the component settings read masks the token for callers without `form.public_link.manage`, and the pino redaction covers the public routes' `token` parameter; the public read resolves the token to an enabled link of an active project within `applyTo`, answers the published volunteer-visible definition with the project's bilingual name and closing date, else 404 (one code `public.link_closed` for every reason, so a probe learns nothing); the submit validates with `validate.ts` as audience `public`, checks the address chain as `beneficiary-contact.ts` does, writes the application and its answers in one transaction with the flags of the technical decision, is idempotent on `clientUuid` through `IdempotencyService.replayByClientUuid`, audits `application.public_submitted` with the application id only, and answers `ActionResult` with the application id; the identity flags come from `BeneficiaryIdentityService.idsByIdentity` and `liveOf` without any lookup audit row; nothing on these routes sets a cookie or reads a session.
+- **Tests:**
+  - integration: enabling gives a URL with a 43-character token and a different one after disable and enable; the PM of another program and a volunteer are refused the configure call (403/404) and leave no audit row and no token; another project's form id, two form ids and a form with a file field answer 422; the audit row and the project setup read of an RPM hold no token; a disabled link, a project without a published form, a draft project, a closed project and a project past its closing date all answer the same 404; the public read never includes an official-only section nor a project id; a valid submission answers 201, stores the answers, fills region, district and union from the address, sets status `needs_verification` and the public flag, and a replay answers 200 with `Idempotent-Replay`; a submission whose NID belongs to a live profile, a blocked profile, or was sent an hour earlier through the same link answers exactly the same 201 body as a fresh one, and the flags are on the row; an official-only field in the body, a missing core field and a broken address chain answer 422 naming the field; the 21st read in an hour from one address answers 429 with Retry-After; no response body on the public routes contains a UUID other than the submission's own.
+- **Done when:** the public tests pass and the drift test is green.
+- **Depends on:** U4
+- **Size:** L
+- **Risk area:** public API, personal data
+- **Status:** done
+
+### U7. Public photos
+- **Goal:** an applicant on the public link uploads up to five photos that the submission then claims, and nothing unclaimed stays.
+- **Requirements:** R18, R19
+- **Files:** `packages/shared/src/files/index.ts` (`form_photo` kind, its types and 5 MB size, linked to an application), `apps/api/src/files/{policy,records}.ts`, `apps/api/src/services/public-photos.ts`, `apps/api/src/routes/public.ts`, `apps/api/src/jobs/upload-sweep.ts` (unclaimed public photos older than 24 hours), `docs/api/openapi.yaml` (`POST /public/forms/{token}/photos` with `clientUuid` and `fieldKey` in the query, answering the file id), `docs/architecture/FILES_AND_DOCUMENTS.md` (the public photo path), `apps/api/test/integration/{public-photos,upload-sweep}.test.ts`.
+- **Approach:** as `registration-photos.ts` `forDraft`: `photoBody`, `imageOf`, `cleanImage`, `store` under `public/<token hash>/<clientUuid>`, a `files` row with `uploaded_by` null and a `pending_public_claim` marker (a nullable `claim_client_uuid` column on `files`, or a `file_links` row to a reserved entity type `public_submission` keyed by the client id, whichever `records.ts` takes with less change: decide in the unit and note it), `enqueueFileProcess` for the scan; `fieldKey` must name a photo field of the linked version (422); the fifth photo of one client id is the last, the sixth answers 429; the link's unclaimed photos are counted and summed before every store, and 200 files or 500 MB answer 429 until the sweep or a claim frees room; the submit of U6 claims the files named in `photo` answers, refuses a file id of another client id or token (422), links them to the application and clears the marker; the sweep deletes unclaimed files after 24 hours through the storage adapter and marks the rows.
+- **Tests:**
+  - integration: a JPEG is accepted, stripped of its metadata and queued for the scan; a PDF, a 6 MB image, a sixth photo and a field key that is not a photo field are refused (415, 413, 429, 422); with 200 unclaimed photos on the link the next one answers 429 and a claim lets one through again; a submission naming the photo links it to the application and a submission naming a photo of another client id is refused; the sweep removes an unclaimed photo older than 24 hours and keeps a claimed and a fresh one; the file route of T2.1 streams the claimed photo to an official of the project and refuses a volunteer of another project.
+- **Done when:** the tests pass and `pnpm --filter @css/api contract:coverage` lists the route as covered.
+- **Depends on:** U6
+- **Size:** M
+- **Risk area:** file storage
+- **Status:** done
+
+### U8. Documents, registers and the decision record
+- **Goal:** every document names what was built, every rule of the form platform has its test recorded, and the owner's decisions are logged.
+- **Requirements:** R20
+- **Files:** `docs/DECISION_LOG.md` (D-119: the public form reveals nothing, public photos now, libraries read-only, named patterns only, one link opens one form, the public page shows the name and closing date, one draft and one published version, the public entry without a profile), `docs/BUSINESS_RULES.md` (the test-status register lines for the existing rules BR-072 to BR-089 and BR-209, and the note of BR-087; no new rule rows), `docs/database/DATABASE_SCHEMA.md` §9, `docs/architecture/WORKFLOW_ENGINE.md` (the public entry's flags), `docs/architecture/OFFLINE_SYNC.md` §8 (the definition the client caches is the version read), `docs/architecture/FILES_AND_DOCUMENTS.md`, `docs/api/API_STANDARDS.md`, `docs/security/RBAC.md`, `docs/ui/SCREENS.md` (SCR-111 names the public routes and the photo rule), `docs/testing/TEST_STRATEGY.md`, `docs/STATUS.md`, `CLAUDE.md` (the repository map: `packages/shared/src/forms`, `services/{forms,form-library,public-link,public-forms,public-photos}.ts`, `routes/{forms,public}.ts`).
+- **Approach:** the register lines as the T2.2 lines; `pnpm rules:status --phase 2 --report-only` shows BR-072 to BR-089 tested except BR-081 (manual) and BR-086 (E2E, T2.4).
+- **Tests:**
+  - integration: `pnpm docs:check` passes; `pnpm rules:status --phase 2 --report-only` lists the rules above as tested.
+- **Done when:** the checks pass and the map in `CLAUDE.md` names every new module.
+- **Depends on:** U7
+- **Size:** M
+- **Risk area:** none
+- **Status:** done
+
+## Checkpoints
+- **Mode:** grouped (one by one 7, grouped 15, all at once 1; N is over 4, so the one-by-one score was added to grouped)
+- **Signals:** N 8, L 1,850, R 3, Fd 2, C 6, P 1
+- **C1** after U2: the migration (U1) and the engine every later unit builds on, the one new pattern
+- **C2** after U4: the forms service and routes that U5, U6 and U7 extend
+- **C3** after U6: the public API and personal data, which U7 depends on
+- **C4** after U8: the end, with the public photos (U7) and the documents
+
+## Verification
+- `pnpm typecheck` · `pnpm lint` (incl. `pnpm i18n:check`) · `pnpm test`
+- `pnpm --filter @css/api exec vitest run --config vitest.db.config.mts` (needs `docker compose up -d`)
+- `pnpm --filter @css/api contract:coverage` · `pnpm --filter @css/api authz:matrix` · `pnpm docs:check` · `pnpm rules:status --phase 2 --report-only`
+- `pnpm db:migrate` on the dev database, then `pnpm db:seed --set all` still passes `apps/api/test/integration/seed.test.ts`
+- No e2e in this task: it has no screen; the builder and the public page of T2.4 add the journeys (SCR-061, SCR-111).
+
+## Risks and rollback
+- **Migration U1**: additive (an index and a trigger); `down.sql` drops both; no data changes, so it can be undone at any time.
+- **Public routes**: every answer goes through one closed-link code and one validation envelope; a leak of an internal id is a test failure (U6), not a review finding.
+- **Public photos**: unclaimed files are the only growth without a record; the sweep and its test (U7) bound it to 24 hours, and the storage figures of `storage-stats.ts` show the bucket.
+- **The engine's shape is the contract's**: a later change to `FormVersion` in the contract changes the engine's types; the drift test and `jsonb-conformance` catch a mismatch.
+
+## Definition of done
+- All units done and their tests pass
+- Verification commands pass
+- `ae-review` has run, with no open P0 or P1
+- Code from abandoned attempts is removed

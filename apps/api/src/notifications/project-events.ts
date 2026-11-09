@@ -22,17 +22,54 @@ export class ProjectEvents {
     return { bn: p.nameBn, en: p.nameEn };
   }
 
-  /** Activation reaches the RPMs of every area too; the later steps the people working on it. */
-  async lifecycle(tx: Tx, key: LifecycleKey, projectId: string, actorId: string): Promise<void> {
+  /** The later steps reach the people working on a project; the activation has its own. */
+  async lifecycle(
+    tx: Tx,
+    key: Exclude<LifecycleKey, 'project_activated'>,
+    projectId: string,
+    actorId: string,
+  ): Promise<void> {
+    await this.publishLifecycle(tx, key, projectId, actorId, { volunteers: true });
+  }
+
+  /**
+   * An activated project reaches the RPMs of every area and its staff. Its volunteers were
+   * assigned while it was a draft they could not see, so none has answered its rules yet: each is
+   * now asked for the consent instead.
+   */
+  async activated(tx: Tx, projectId: string, actorId: string): Promise<void> {
+    await this.publishLifecycle(tx, 'project_activated', projectId, actorId, {
+      rpms: true,
+      volunteers: false,
+    });
+    const waiting = await tx.projectVolunteer.findMany({
+      where: { projectId, endedAt: null, consentStatus: 'pending' },
+      select: { volunteerId: true },
+    });
+    await this.assigned(
+      tx,
+      projectId,
+      waiting.map((w) => w.volunteerId),
+      actorId,
+    );
+  }
+
+  private async publishLifecycle(
+    tx: Tx,
+    key: LifecycleKey,
+    projectId: string,
+    actorId: string,
+    reach: { rpms?: boolean; volunteers: boolean },
+  ): Promise<void> {
     await this.notifications.publish(tx, {
       key,
       recipients: [
         {
           project: {
             projectId,
-            rpms: key === 'project_activated',
+            rpms: reach.rpms ?? false,
             staff: true,
-            volunteers: true,
+            volunteers: reach.volunteers,
           },
         },
       ],

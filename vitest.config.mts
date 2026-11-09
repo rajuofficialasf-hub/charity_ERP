@@ -5,13 +5,7 @@ import { defineConfig } from 'vitest/config';
 // resolve to their TypeScript sources, so tests never need a prior build.
 export default defineConfig({
   test: {
-    projects: [
-      'packages/shared',
-      'packages/ui',
-      'apps/api',
-      'apps/api/vitest.db.config.mts',
-      'apps/web',
-    ],
+    projects: ['packages/shared', 'apps/api', 'apps/api/vitest.db.config.mts', 'apps/web'],
     coverage: {
       provider: 'v8',
       reporter: ['text-summary', 'html', 'json-summary'],

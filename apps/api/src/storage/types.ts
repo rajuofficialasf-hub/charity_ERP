@@ -1,9 +1,27 @@
 import type { Readable } from 'node:stream';
 import { ApiError } from '../i18n/api-error';
 
-/** Buckets of FILES_AND_DOCUMENTS 8 (created by infra/minio/bootstrap.sh, never by the app). */
-export const BUCKETS = ['documents', 'photos', 'vouchers', 'profiles', 'media', 'exports'] as const;
+/**
+ * Buckets of FILES_AND_DOCUMENTS 8 (created by infra/minio/bootstrap.sh, never by the app); `uploads`
+ * holds the 256 KB parts of an upload in progress, unversioned and emptied after two days.
+ */
+export const BUCKETS = [
+  'documents',
+  'photos',
+  'vouchers',
+  'profiles',
+  'media',
+  'exports',
+  'uploads',
+] as const;
 export type Bucket = (typeof BUCKETS)[number];
+
+/** A bucket name read from the database, or an error for a name the storage does not know. */
+export function knownBucket(name: string): Bucket {
+  const bucket = BUCKETS.find((b) => b === name);
+  if (!bucket) throw new Error(`unknown bucket ${name}`);
+  return bucket;
+}
 
 export interface ObjectInfo {
   size: number;
@@ -11,11 +29,10 @@ export interface ObjectInfo {
 }
 
 /**
- * The one interface every storage driver implements (NS-31), with streams in and out (NS-04).
- * Only the API reads and writes files: no bucket is public and the browser never receives a
- * storage URL (NS-41); authorized routes stream the bytes (NS-10; the file routes come with the
- * files task of docs/PLAN.md, T2.1). Object keys carry
- * entity ids, never personal data.
+ * The one interface every storage driver implements, with streams in and out so no file sits
+ * whole in memory. Only the API reads and writes files: no bucket is public and the browser never
+ * receives a storage address; the routes stream the bytes after their access check. Object keys
+ * carry entity ids, never personal data.
  */
 export interface StorageDriver {
   /** TEMP: `s3` (MinIO, D-074) is the first driver; the NAS driver arrives with the NAS. */

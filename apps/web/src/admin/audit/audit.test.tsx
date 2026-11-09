@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -63,9 +63,12 @@ describe('the audit viewer', () => {
     refreshAs(MONITORING);
     serve();
     const { container } = open();
-    const table = await screen.findByRole('grid', { name: 'অডিট লগের এন্ট্রি' });
-    expect(within(table).getAllByText('settings.change').length).toBeGreaterThan(0);
+    const table = await screen.findByRole('table', { name: 'অডিট লগের এন্ট্রি' });
+    // the table stands while its rows load
+    expect((await within(table).findAllByText('settings.change')).length).toBeGreaterThan(0);
     expect(screen.getByText('সময়সীমা: 17-09-2026 থেকে 17-10-2026')).toBeInTheDocument();
+    expect(screen.getByText('জবাবদিহি')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'শুধু পড়ার জন্য' })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -73,8 +76,8 @@ describe('the audit viewer', () => {
     refreshAs(MONITORING);
     serve();
     open();
-    await screen.findByRole('grid', { name: 'অডিট লগের এন্ট্রি' });
-    await userEvent.setup().click(screen.getByRole('button', { name: /পরের/ }));
+    await screen.findByRole('table', { name: 'অডিট লগের এন্ট্রি' });
+    await userEvent.setup().click(await screen.findByRole('button', { name: /পরের/ }));
     await waitFor(() => expect(requests.at(-1)?.get('cursor')).toBe('page-2'));
   });
 
@@ -118,7 +121,7 @@ describe('the audit viewer', () => {
     refreshAs(MONITORING);
     serve();
     open();
-    await screen.findByRole('grid', { name: 'অডিট লগের এন্ট্রি' });
+    await screen.findByRole('table', { name: 'অডিট লগের এন্ট্রি' });
     const user = userEvent.setup();
     const action = screen.getAllByRole('textbox', { name: /^কাজ/ })[0]!;
     await user.type(action, 'settings change');
@@ -131,7 +134,7 @@ describe('the audit viewer', () => {
     refreshAs(MONITORING);
     serve();
     open();
-    await screen.findByRole('grid', { name: 'অডিট লগের এন্ট্রি' });
+    await screen.findByRole('table', { name: 'অডিট লগের এন্ট্রি' });
     const user = userEvent.setup();
     const action = screen.getAllByRole('textbox', { name: /^কাজ/ })[0]!;
     await user.type(action, 'settings.change');

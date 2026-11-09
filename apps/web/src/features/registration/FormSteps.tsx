@@ -1,6 +1,6 @@
 import type { PhotoSlot } from '@css/shared/registration';
 import { BLOOD_GROUPS, TSHIRT_SIZES, VOLUNTEERING_AREAS } from '@css/shared/registration';
-import { Checkbox, DateField, PasswordField, Select, TextField } from '@css/ui';
+import { Checkbox, DateField, SelectField, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { PasswordRules } from '../../components/PasswordRules';
 import { AddressFields } from './AddressFields';
@@ -62,28 +62,28 @@ export function IdentityStep({ values, set, errors }: StepProps) {
       <DateField
         label={t('form.date_of_birth')}
         name="dateOfBirth"
-        value={values.dateOfBirth || null}
+        value={values.dateOfBirth || ''}
         onChange={(dateOfBirth) => set({ dateOfBirth: dateOfBirth ?? '' })}
         min="1900-01-01"
         max={new Date().toISOString().slice(0, 10)}
         error={errors.dateOfBirth}
       />
-      <Select
+      <SelectField
         label={t('form.blood_group')}
         name="bloodGroup"
         placeholder={t('form.choose')}
-        value={values.bloodGroup || null}
+        value={values.bloodGroup || ''}
         onChange={(id) => set({ bloodGroup: id ?? '' })}
-        options={BLOOD_GROUPS.map((id) => ({ id, label: id }))}
+        options={BLOOD_GROUPS.map((id) => ({ value: id, label: id }))}
         error={errors.bloodGroup}
       />
-      <Select
+      <SelectField
         label={t('form.tshirt_size')}
         name="tshirtSize"
         placeholder={t('form.choose')}
-        value={values.tshirtSize || null}
+        value={values.tshirtSize || ''}
         onChange={(id) => set({ tshirtSize: id ?? '' })}
-        options={TSHIRT_SIZES.map((id) => ({ id, label: id }))}
+        options={TSHIRT_SIZES.map((id) => ({ value: id, label: id }))}
         error={errors.tshirtSize}
       />
     </div>
@@ -112,11 +112,10 @@ export function AddressStep({ values, set, errors }: StepProps) {
       </div>
       <h3>{t('form.address_permanent')}</h3>
       <Checkbox
-        isSelected={values.permanentSame}
+        label={t('form.same_address')}
+        checked={values.permanentSame}
         onChange={(permanentSame) => set({ permanentSame })}
-      >
-        {t('form.same_address')}
-      </Checkbox>
+      />
       {!values.permanentSame && (
         <div className="register-grid">
           <PermanentAddressFields
@@ -126,14 +125,14 @@ export function AddressStep({ values, set, errors }: StepProps) {
           />
         </div>
       )}
-      <Select
+      <SelectField
         label={t('form.volunteering_area')}
         name="volunteeringArea"
         placeholder={t('form.choose')}
-        value={values.volunteeringArea || null}
+        value={values.volunteeringArea || ''}
         onChange={(id) => set({ volunteeringArea: id ?? '' })}
         options={VOLUNTEERING_AREAS.map((id) => ({
-          id,
+          value: id,
           label: t(`lists.volunteering_area.${id}`),
         }))}
         error={errors.volunteeringArea}
@@ -177,7 +176,8 @@ export function AccountStep({ values, set, errors }: StepProps) {
   return (
     <div className="register-stack">
       <div className="register-grid">
-        <PasswordField
+        <TextField
+          type="password"
           label={t('form.password')}
           name="password"
           value={values.password}
@@ -186,7 +186,8 @@ export function AccountStep({ values, set, errors }: StepProps) {
           required
           error={errors.password}
         />
-        <PasswordField
+        <TextField
+          type="password"
           label={t('form.confirm_password')}
           name="confirm"
           value={values.confirm}

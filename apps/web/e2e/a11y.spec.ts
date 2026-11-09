@@ -6,19 +6,26 @@ import {
   type Page,
   test,
 } from '@playwright/test';
-import { apiAs, openTab, PASSWORD, scan, signIn, switchLanguage } from './support/admin';
+import { apiAs, isPhone, openTab, PASSWORD, scan, signIn, switchLanguage } from './support/admin';
+import { DEMO_FINISHED, demoReadyForm } from './support/demo-form';
+import { settled } from './support/forms';
 import { activeProject, code, ERR } from './support/projects';
 
-// axe on every built Phase 1 screen in Bengali and in English, on the phone and the desktop
-// project (docs/MASTER_PROMPT.md, the accessibility line of the non-functional requirements; the
-// gate's accessibility check of docs/testing/TEST_STRATEGY.md section 3.6). The screens are those
-// of docs/ui/SCREENS.md with a Phase 1 task. A role sweeps only the pages it may open: the sweep
+// axe on every built Phase 1 and Phase 2 screen in Bengali and in English, on the phone and the
+// desktop project (docs/MASTER_PROMPT.md, the accessibility line of the non-functional
+// requirements; the gate's accessibility check of docs/testing/TEST_STRATEGY.md section 3.6). The
+// screens are those of docs/ui/SCREENS.md with a Phase 1 or Phase 2 task; the application review,
+// the own application and the media work pages are checked by their journeys
+// (applications.spec.ts, application-rules.spec.ts, media.spec.ts). A role sweeps only the pages it may open: the sweep
 // never asserts on a forbidden page. The project pages use a project of this run's own, made
 // through the setup wizard by the ERR Program Manager, with volunteer 3 assigned and consenting
 // through the API, so no other spec decides whether a record page exists; the volunteer and the
 // beneficiary come from the demo seed. The sign-in goes through the API with the language already
 // chosen on the device, because the login form would otherwise write the language onto the shared
-// account and change what the other specs see (docs/testing/DEMO_ACCOUNTS.md).
+// account and change what the other specs see (docs/testing/DEMO_ACCOUNTS.md). The sign-in,
+// registration and home pages, the account pages, the inbox, the volunteer's projects and
+// applications, the public application page, the sync centre, My exports and the Media Team's home
+// are swept in dark mode too.
 const LANGUAGES = ['bn', 'en'] as const;
 type Lang = (typeof LANGUAGES)[number];
 const PM = 'pm.err@example.org';
@@ -40,7 +47,7 @@ async function signInAs(page: Page, loginId: string, lang: Lang): Promise<void> 
   expect(login.ok(), `login as ${loginId}: ${login.status()}`).toBe(true);
   // the app restores the session from the refresh cookie with one silent refresh
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1, name: /^(স্বাগতম|Welcome), / })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /^(আমার কাজ|My Work)$/ })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', lang);
 }
 
@@ -57,13 +64,16 @@ async function sweep(page: Page, path: string, lang: Lang): Promise<void> {
 /** The first record link of the kind on the page; the demo seed guarantees one. */
 async function firstRecord(page: Page, prefix: string): Promise<string> {
   const links = page.locator(`main a[href^="${prefix}/"]`);
-  // the rows arrive after the heading; on a phone the card's link is clipped, so attached is enough
-  await expect(links.first()).toBeAttached();
-  const hrefs = await links.evaluateAll((as) =>
-    as.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''),
-  );
-  const href = hrefs.find((h) => /\/[0-9a-f-]{36}$/.test(h));
-  expect(href, `a record under ${prefix}`).toBeTruthy();
+  let href: string | undefined;
+  // the rows arrive after the heading, and a page link under the same prefix (the duplicates page)
+  // is there before them; on a phone the card's link is clipped, so attached is enough
+  await expect(async () => {
+    const hrefs = await links.evaluateAll((as) =>
+      as.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''),
+    );
+    href = hrefs.find((h) => /\/[0-9a-f-]{36}$/.test(h));
+    expect(href, `a record under ${prefix}`).toBeTruthy();
+  }).toPass();
   return href!;
 }
 
@@ -73,7 +83,7 @@ async function projectWithVolunteer(browser: Browser, request: APIRequestContext
   const desk = await officials.newPage();
   await signIn(desk, PM);
   await openTab(desk, 'প্রকল্প');
-  const projectId = await activeProject(desk, `অ্যাক্সেসিবিলিটির পরীক্ষা ${code()}`, ERR);
+  const projectId = await activeProject(desk, `অ্যাক্সেসিবিলিটির পরীক্ষা ${code()}`, ERR, PM);
   await officials.close();
   const head = await apiAs(request, HEAD);
   const volunteers = await head.get(`/volunteers?q=${VOLUNTEER}`);
@@ -109,6 +119,97 @@ test.describe('accessibility of the Phase 1 screens', () => {
       for (const path of ['/login', '/login/reset', '/register']) await sweep(page, path, lang);
       // a link nobody issued: the page says to ask for a new one
       await sweep(page, '/invite#not-a-link-of-this-run', lang);
+      // a public application link that takes nothing shows its one plain page
+      await sweep(page, '/apply/not-a-link-of-this-run-0123456789', lang);
+    });
+
+    test(`the sign-in, registration and home pages in dark mode, in ${lang}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: 'dark' });
+      for (const path of ['/login', '/login/reset', '/register']) await sweep(page, path, lang);
+      await sweep(page, '/apply/not-a-link-of-this-run-0123456789', lang);
+      await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'dark');
+      // the Department Head only reads, so the account may be shared with the other projects
+      await signInAs(page, HEAD, lang);
+      for (const path of [
+        '/',
+        '/account/profile',
+        '/account/sessions',
+        '/account/password',
+        '/notifications',
+        '/account/exports',
+        '/media',
+      ])
+        await sweep(page, path, lang);
+    });
+
+    test(`the system admin pages in dark mode, in ${lang}`, async ({ page }) => {
+      // ten pages, each opened in both languages
+      test.setTimeout(90_000);
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await signInAs(page, HEAD, lang);
+      for (const path of [
+        '/admin/permissions',
+        '/admin/nisab',
+        '/admin/programs',
+        '/admin/audit',
+        '/admin/sessions',
+        '/admin/health',
+        '/admin/notification-templates',
+        '/admin/deliveries',
+        '/admin/settings',
+        '/admin/handover',
+      ])
+        await sweep(page, path, lang);
+    });
+
+    test(`the beneficiary pages in dark mode, in ${lang}`, async ({ page }) => {
+      test.setTimeout(90_000);
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await signInAs(page, HEAD, lang);
+      await sweep(page, '/admin/beneficiaries', lang);
+      await sweep(page, await firstRecord(page, '/admin/beneficiaries'), lang);
+      await sweep(page, '/admin/beneficiaries/duplicates', lang);
+    });
+
+    test(`the project pages in dark mode, in ${lang}`, async ({ page }) => {
+      test.setTimeout(90_000);
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await signInAs(page, HEAD, lang);
+      await sweep(page, '/admin/projects', lang);
+      const project = await firstRecord(page, '/admin/projects');
+      for (const path of [project, `${project}/setup`, `${project}/volunteers`])
+        await sweep(page, path, lang);
+    });
+
+    test(`the people and registration pages in dark mode, in ${lang}`, async ({ page }) => {
+      // the lists, then a volunteer's and an official's profile reached from them
+      test.setTimeout(90_000);
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await signInAs(page, HEAD, lang);
+      for (const path of [
+        '/admin/templates',
+        '/admin/registrations',
+        '/admin/staff/organogram',
+        '/admin/staff',
+      ])
+        await sweep(page, path, lang);
+      await sweep(page, await firstRecord(page, '/admin/staff'), lang);
+      await sweep(page, '/admin/volunteers', lang);
+      await sweep(page, await firstRecord(page, '/admin/volunteers'), lang);
+    });
+
+    test(`a volunteer's pages in dark mode, in ${lang}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await signInAs(page, VOLUNTEER, lang);
+      await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'dark');
+      for (const path of [
+        '/account/profile',
+        '/notifications',
+        '/my-projects',
+        '/my-applications',
+        '/sync',
+      ])
+        await sweep(page, path, lang);
     });
 
     test(`a volunteer, in ${lang}`, async ({ browser, page, request }) => {
@@ -130,11 +231,19 @@ test.describe('accessibility of the Phase 1 screens', () => {
       await sweep(page, `/my-projects/${projectId}`, lang);
       await expect(page.getByRole('link', { name: /^(আমার টিম|My team)$/ })).toBeVisible();
       await sweep(page, `/my-projects/${projectId}/team`, lang);
+      // the own applications, the new application with its lookup, and the sync centre
+      await sweep(page, '/my-applications', lang);
+      await sweep(page, `/my-projects/${projectId}/apply`, lang);
+      await sweep(page, '/sync', lang);
     });
 
     test(`the Department Head, in ${lang}`, async ({ browser, page, request }) => {
       test.setTimeout(300_000);
       const projectId = await projectWithVolunteer(browser, request);
+      const found = await (await apiAs(request, HEAD)).get(`/volunteers?q=${VOLUNTEER}`);
+      expect(found.ok(), await found.text()).toBe(true);
+      const [volunteer] = ((await found.json()) as { data: { id: string }[] }).data;
+      expect(volunteer, 'the demo volunteer').toBeDefined();
       await signInAs(page, HEAD, lang);
       for (const path of [
         '/',
@@ -151,6 +260,11 @@ test.describe('accessibility of the Phase 1 screens', () => {
         `/admin/projects/${projectId}`,
         `/admin/projects/${projectId}/setup`,
         `/admin/projects/${projectId}/volunteers`,
+        `/admin/projects/${projectId}/applications`,
+        // the quota section of the areas step, the verification queue and the transfer
+        `/admin/projects/${projectId}/setup?step=areas`,
+        `/admin/projects/${projectId}/applications?status=needs_verification`,
+        `/admin/projects/${projectId}/transfer?from=${volunteer!.id}`,
         '/admin/settings',
         '/admin/nisab',
         '/admin/audit',
@@ -159,14 +273,77 @@ test.describe('accessibility of the Phase 1 screens', () => {
         '/admin/notification-templates',
         '/admin/deliveries',
         '/admin/permissions',
+        // the Media Team's home; its work page is checked by the media journey
+        '/media',
+        // the person's own exports
+        '/account/exports',
       ])
         await sweep(page, path, lang);
+      const media = await (await apiAs(request, HEAD)).get('/users?q=media%40example.org');
+      const [member] = ((await media.json()) as { data: { id: string }[] }).data;
+      await sweep(page, `/media/members/${member!.id}`, lang);
       // the record pages: the first row of each list
       for (const list of ['/admin/volunteers', '/admin/beneficiaries']) {
         await page.goto(list);
         await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
         await sweep(page, await firstRecord(page, list), lang);
       }
+      // the export dialog of a list, with its columns loaded
+      await page.goto('/admin/beneficiaries');
+      await page
+        .getByRole('button', { name: lang === 'bn' ? 'এক্সপোর্ট' : 'Export', exact: true })
+        .click();
+      await expect(page.getByRole('dialog').getByRole('checkbox').first()).toBeVisible();
+      expect((await scan(page)).violations, `the export dialog (${lang})`).toEqual([]);
+      // the project's forms and the builder of its form (the open public form is checked by the
+      // form builder's journey, whose project takes applications today)
+      const forms = await (await apiAs(request, HEAD)).get(`/projects/${projectId}/forms`);
+      expect(forms.ok()).toBe(true);
+      const [form] = ((await forms.json()) as { data: { id: string }[] }).data;
+      await sweep(page, `/admin/projects/${projectId}/forms`, lang);
+      await sweep(page, `/admin/projects/${projectId}/forms/${form!.id}`, lang);
+      // the ready forms, the question library in the same builder, and the placement dialog
+      await sweep(page, '/admin/ready-forms', lang);
+      await sweep(page, '/admin/question-library', lang);
+      await page.goto(`/admin/projects/${projectId}/forms`);
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+      await page
+        .getByRole('button', { name: lang === 'bn' ? 'তৈরি ফর্ম বসান' : 'Place a ready form' })
+        .click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      // axe reads the colours the dialog settles on, not a frame of its fade-in
+      await page.waitForFunction(() =>
+        document.getAnimations().every((a) => a.playState !== 'running'),
+      );
+      expect((await scan(page)).violations, `the placement dialog (${lang})`).toEqual([]);
+      // the builder with a number table chosen, then a calculation's formula in its editor; on a
+      // phone the builder edits only texts, so its settings are a computer's
+      if (isPhone(test.info())) return;
+      const demo = await demoReadyForm(page, HEAD, `ডেমো ${code()}`, DEMO_FINISHED);
+      await page.goto(`/admin/ready-forms/${demo}`);
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+      const bn = lang === 'bn';
+      await page
+        .getByRole('button', { name: bn ? 'গবাদি পশু বদলান' : 'Change Livestock', exact: true })
+        .click();
+      await expect(
+        page.getByRole('button', { name: bn ? 'সারি যোগ করুন' : /^Add a row/ }),
+      ).toBeVisible();
+      await settled(page);
+      expect((await scan(page)).violations, `the builder with a table (${lang})`).toEqual([]);
+      await page
+        .getByRole('button', { name: bn ? 'মোট সম্পদ বদলান' : 'Change Total assets', exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: bn ? 'হিসাব বদলান' : 'Change the calculation' })
+        .click();
+      const calc = page.getByRole('dialog');
+      await calc.getByText(bn ? 'সূত্র লিখুন' : 'Type a formula', { exact: true }).click();
+      await expect(calc.getByRole('textbox', { name: bn ? /^সূত্র/ : /^Formula/ })).toHaveValue(
+        'q_gold_anas * q_gold_price + q_cash',
+      );
+      await settled(page);
+      expect((await scan(page)).violations, `the formula editor (${lang})`).toEqual([]);
     });
   }
 });

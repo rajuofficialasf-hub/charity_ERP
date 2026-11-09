@@ -7,7 +7,7 @@ until mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSW
   sleep 1
 done
 
-for bucket in documents photos vouchers profiles media exports; do
+for bucket in documents photos vouchers profiles media exports uploads; do
   mc mb --ignore-existing "local/$bucket"
 done
 
@@ -17,9 +17,13 @@ mc version enable local/photos
 if ! mc ilm rule export local/exports >/dev/null 2>&1; then
   mc ilm rule add --expire-days 30 local/exports
 fi
+# the parts of uploads in progress: never versioned, anything left after two days goes
+if ! mc ilm rule export local/uploads >/dev/null 2>&1; then
+  mc ilm rule add --expire-days 2 local/uploads
+fi
 
-# No bucket is public: files are only reached through signed, expiring URLs (BR-204).
-for bucket in documents photos vouchers profiles media exports; do
+# No bucket is public: files are only reached through the API, which streams them.
+for bucket in documents photos vouchers profiles media exports uploads; do
   mc anonymous set none "local/$bucket"
 done
 

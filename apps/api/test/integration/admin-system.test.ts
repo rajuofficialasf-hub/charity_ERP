@@ -156,6 +156,10 @@ describe('the system health', () => {
       bytes: 700,
     });
     expect(storage.byMonth.filter((m: { count: number }) => m.count > 0)).toHaveLength(2);
+    // no nightly snapshot of a month ago yet, so no growth
+    expect(storage.byBucket).toEqual([
+      { bucket: 'private', count: 5, bytes: 5000, monthGrowth: null },
+    ]);
 
     // the figures are reused for a minute, then measured again
     await file('profile_photo', 100);
@@ -164,6 +168,35 @@ describe('the system health', () => {
     h.clock.advance(61_000);
     const later = await api().get('/api/v1/admin/health').set(bearer(s));
     expect(later.body.data.storage.total.count).toBe(6);
+  });
+
+  it('records one snapshot a day per bucket and project, and shows the growth since a month ago', async () => {
+    const before = await h.db.query('SELECT count(*)::int AS n FROM storage_stats');
+    const first = await h.container.storageStats.run();
+    const groups = await h.db.query(
+      `SELECT count(*)::int AS n FROM (SELECT DISTINCT bucket, project_id FROM files WHERE deleted_at IS NULL) g`,
+    );
+    expect(first.rows).toBe(groups.rows[0].n);
+    // a second run the same day writes nothing
+    expect(await h.container.storageStats.run()).toEqual({ rows: 0 });
+    const after = await h.db.query('SELECT count(*)::int AS n FROM storage_stats');
+    expect(after.rows[0].n - before.rows[0].n).toBe(first.rows);
+    // a snapshot of forty days ago gives the month's growth per bucket
+    await h.db.query(
+      `INSERT INTO storage_stats (id, captured_at, bucket, project_id, bytes, objects)
+       VALUES ($1, $2, 'private', NULL, 3000, 3)`,
+      [randomUUID(), new Date(h.clock.now().getTime() - 40 * 86_400_000)],
+    );
+    h.clock.advance(61_000);
+    const res = await api()
+      .get('/api/v1/admin/health')
+      .set(bearer(await head()));
+    const now = await h.db.query(
+      `SELECT sum(size_bytes)::bigint AS bytes FROM files WHERE deleted_at IS NULL AND bucket = 'private'`,
+    );
+    expect(
+      res.body.data.storage.byBucket.find((b: { bucket: string }) => b.bucket === 'private'),
+    ).toMatchObject({ monthGrowth: Number(now.rows[0].bytes) - 3000 });
   });
 
   it('still answers with the checks when the database reads fail', async () => {

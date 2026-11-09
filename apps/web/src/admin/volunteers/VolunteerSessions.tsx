@@ -1,13 +1,13 @@
 import type { DeviceSession } from '@css/shared/auth';
-import { formatDateTime } from '@css/shared/format';
+import { formatCount, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, ConfirmDialog, ErrorState, Grid, Skeleton, Stack, Text } from '@css/ui';
+import { Alert, Button, ConfirmDialog, Skeleton, Stack } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
 import { revokeUserSession, userSessions, VOLUNTEERS_KEY } from './volunteers-api';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * The devices a volunteer is signed in on, for an official who may sign them out (a lost phone,
@@ -15,7 +15,6 @@ import { revokeUserSession, userSessions, VOLUNTEERS_KEY } from './volunteers-ap
  */
 export function VolunteerSessions({ userId, canRevoke }: { userId: string; canRevoke: boolean }) {
   const t = useTranslations('admin.volunteers.profile');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const key = [...VOLUNTEERS_KEY, 'sessions', userId];
@@ -33,46 +32,66 @@ export function VolunteerSessions({ userId, canRevoke }: { userId: string; canRe
   });
   if (sessions.isPending) return <Skeleton count={2} />;
   if (sessions.error)
-    return (
-      <ErrorState
-        title={tc('state.error.text')}
-        requestId={sessions.error instanceof ApiFailure ? sessions.error.requestId : undefined}
-        onRetry={() => void sessions.refetch()}
-      />
-    );
+    return <LoadError error={sessions.error} onRetry={() => void sessions.refetch()} />;
   const device = (s: DeviceSession) => s.deviceName ?? t('unknown_device');
+  /** What the device last said it still holds, or null when it never said. */
+  const pendingOf = (s: DeviceSession, key: 'pending' | 'revoke_pending') =>
+    s.pendingCount && s.pendingReportedAt
+      ? t(key, {
+          n: s.pendingCount,
+          count: formatCount(s.pendingCount, locale),
+          time: formatDateTime(s.pendingReportedAt, locale),
+        })
+      : null;
   const failure = revoke.error instanceof ApiFailure ? revoke.error : null;
   return (
     <>
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
       {sessions.data.length === 0 ? (
-        <Text className="admin-muted">{t('no_sessions')}</Text>
+        <p className="admin-muted">{t('no_sessions')}</p>
       ) : (
-        <Grid gap={2} as="ul" role="list">
+        <ul className="admin-plain-list">
           {sessions.data.map((s) => (
-            <Stack direction="row" wrap align="center" gap={2} as="li" key={s.id}>
-              <strong>{device(s)}</strong>
-              <span className="admin-muted">
-                {t('last_seen', { date: formatDateTime(s.lastSeenAt, locale) })}
-              </span>
-              {canRevoke && (
-                <Button size="sm" variant="secondary" icon={LogOut} onPress={() => setTarget(s)}>
-                  {t('revoke')}
-                </Button>
-              )}
-            </Stack>
+            <li key={s.id}>
+              <Stack direction="row" wrap align="center" gap={2}>
+                <strong>{device(s)}</strong>
+                <span className="admin-muted">
+                  {t('last_seen', { date: formatDateTime(s.lastSeenAt, locale) })}
+                </span>
+                {pendingOf(s, 'pending') !== null && (
+                  <span className="admin-muted">{pendingOf(s, 'pending')}</span>
+                )}
+                {canRevoke && (
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    startIcon="sign-out"
+                    onClick={() => setTarget(s)}
+                  >
+                    {t('revoke')}
+                  </Button>
+                )}
+              </Stack>
+            </li>
           ))}
-        </Grid>
+        </ul>
       )}
       <ConfirmDialog
-        isOpen={target !== null}
+        open={target !== null}
         title={target ? t('revoke_title', { device: device(target) }) : ''}
         message={
-          failure && <p className="admin-error">{failure.details[0]?.message ?? failure.message}</p>
+          <>
+            {target && pendingOf(target, 'revoke_pending') && (
+              <p>{pendingOf(target, 'revoke_pending')}</p>
+            )}
+            {failure && (
+              <p className="admin-error">{failure.details[0]?.message ?? failure.message}</p>
+            )}
+          </>
         }
         tone="danger"
         reasonRequired

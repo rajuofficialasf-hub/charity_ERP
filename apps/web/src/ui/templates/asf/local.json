@@ -1,0 +1,226 @@
+{
+  "pieces": [
+    {
+      "name": "ColorModeButton",
+      "files": [
+        "components/shell/color-mode-button.tsx",
+        "components/index.ts"
+      ],
+      "note": "the asf shell's light and dark switch, exported as a piece of its own, so an app's own shell can carry it; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/color-mode-button.png"
+    },
+    {
+      "name": "DataTable and FilterBar (extended)",
+      "files": [
+        "components/data-table.tsx",
+        "components/filter-bar.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the lists of an ERP: cards on phones (cardRenderer) in one column that never grows past the screen, a long word breaking, row selection with a bulk bar, sort, row open and row actions, column priority and numeric columns, numbered pages and cursor paging with load more; the filter bar adds a delayed search, status chips, removable active filters and a filters panel on phones; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/data-table.png",
+      "screenshotPhone": "docs/ui/asf-pieces/data-table-phone.png"
+    },
+    {
+      "name": "Choices: Checkbox, CheckboxGroup, RadioGroup, Switch, Combobox, SelectField (extended)",
+      "files": [
+        "components/choices.tsx",
+        "components/fields.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the choices of the ERP's forms: an \"other\" choice opening a text box inside the same field, disabled options, a select that becomes a combobox above 10 options, and a combobox for server search or free text; built for the CSS ERP; each checkbox of a group carries its option as its value, as a native form sends it",
+      "screenshot": "docs/ui/asf-pieces/gallery-choices.png"
+    },
+    {
+      "name": "TextField (extended), ErrorSummary, FormSection",
+      "files": [
+        "components/fields.tsx",
+        "components/form-parts.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the text kinds of the ERP's forms (identity number, integer, decimal, money with the taka sign, mobile number, password with a show button; Bengali digits typed become English digits), a record field's states (locked with a correction link, changed with its previous value, officials only), an action inside a field's end, the error summary that links to each field, and the form section as a fieldset; built for the CSS ERP; the marks under a field (locked, changed, officials only) are part of its description, so a screen reader says a field is locked beside its help",
+      "screenshot": "docs/ui/asf-pieces/gallery-fields.png"
+    },
+    {
+      "name": "Dialog (extended), ConfirmDialog, Menu, Drawer (bottom sheet)",
+      "files": [
+        "components/dialog.tsx",
+        "components/menu.tsx",
+        "components/drawer.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the overlays of the ERP: a dialog that stays open while saving and fills a phone for a long form, a confirm dialog with what follows, a required reason and a busy confirm, a menu of links and actions for rows and profiles, and the drawer as a bottom sheet on phones; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-overlays.png"
+    },
+    {
+      "name": "FileUpload",
+      "files": [
+        "components/file-upload.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "photos and files for field work: the camera, the gallery or any file by the project's setting, a drop zone, the type and size checks with the reason in words, the number of files left, and each file's state (made smaller, waiting offline, uploading with its progress, being checked, ready, failed with a retry) with its preview and capture details; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-lists.png"
+    },
+    {
+      "name": "Stepper, Timeline, ProgressBar, Skeleton",
+      "files": [
+        "components/progress.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "progress for an ERP: a stepper whose steps can carry their own done or still-needed mark and open themselves, a record's history as a vertical timeline or a strip of stages with each state read out, a progress bar with its numbers written and up to four stacked parts with a legend, and loading shapes that say they are loading; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-progress.png"
+    },
+    {
+      "name": "IconTile, PersonCell, CopyButton, ProfileBanner, ProfileSection, ContactList",
+      "files": [
+        "components/people.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "people and profiles: a tinted tile with an icon, initial or photo, the first cell of a people list with the name as a link, a copy button that announces each copy, the dark profile banner with state chips, key facts with copy buttons and an action panel, profile sections that open and close by their title with an edit button beside it, and a contact list with call, message and copy; built for the CSS ERP; the banner's state chips take their dark-mode look on its dark green in both modes, a contact row moves its buttons under the value on a narrow screen and never breaks a number apart",
+      "screenshot": "docs/ui/asf-pieces/gallery-people.png"
+    },
+    {
+      "name": "DescriptionList (rows, extended)",
+      "files": [
+        "components/display.tsx"
+      ],
+      "note": "the rows layout keeps at least 40% of a row for the value, so a long label wraps before a number such as a mobile number breaks apart at 360 px; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-people.png"
+    },
+    {
+      "name": "StatusChip, StatFilterBar, OfflineBanner, Disclosure, ChoiceTiles, BulkList, BulkRow, AttentionCard, IconButton, Button size",
+      "files": [
+        "components/status.tsx",
+        "components/button.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the states and lists of an ERP: a status chip per record state with its own colour and icon, counts above a list that filter it with the rest behind a last card, the offline and sync banner that hides \"back online\" by itself, a disclosure that opens by its title, larger choice tiles under group titles, the bulk rows of a day's distribution with a quick action, the other outcomes in a menu and details, an attention card that links to its list, an icon-only button named by its tooltip, and a small button; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-states.png"
+    },
+    {
+      "name": "Icons for an ERP (79 more Solar icons)",
+      "files": [
+        "components/icon-data.ts",
+        "../../contract.ts",
+        "../../../../scripts/asf/build-icons.mjs",
+        "../../icon-map.md"
+      ],
+      "note": "the icons an ERP's pages need beyond the kit's set (lock and unlock, copy, crossed eye, people states, project, transfer, merge, history, devices, camera, the record states and more), from the pinned @iconify-json/solar 1.2.13; the build script refuses a body that holds more than a drawing, and icon-map.md names the asf icon for each Lucide icon the app used; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-buttons.png"
+    },
+    {
+      "name": "AppShell (extended) and BottomNav",
+      "files": [
+        "components/shell/app-shell.tsx",
+        "components/shell/nav-section.tsx",
+        "components/shell/bottom-nav.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the shell of a field app: the phone's tabs and the tablet's rail in place of the drawer (and the rail on every width for a person without sidebar groups), a count beside a link and in its name (99+ above 99), the app's own rule for the current page, a slot left in the header for the trail or the brand, a banner slot under the header, and a footer under the sidebar's links; built for the CSS ERP; its look is in the shell spec's pictures of the running app",
+      "screenshot": "docs/ui/asf-pieces/app-shell.png",
+      "screenshotPhone": "docs/ui/asf-pieces/app-shell-phone.png"
+    },
+    {
+      "name": "Spinner, Button end icon, StatCard link, SummaryBanner figures, readable chips, counts and error text",
+      "files": [
+        "components/progress.tsx",
+        "components/button.tsx",
+        "components/stats.tsx",
+        "components/display.tsx",
+        "components/text.tsx",
+        "components/shell/nav-section.tsx",
+        "components/shell/bottom-nav.tsx",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "a small named spinner for a wait inside a field, an icon after a button's words (the next step), a figure card that opens the list it counts, and the summary banner's figures as a valid list of terms and values with the icon inside the term; built for the CSS ERP; the soft chip's words take the darkest shade of their tone, the counts of the navigation the dark red with white, and an error in words the dark red (the light one in dark mode), because the kit's shades read 3.2 to 3.6:1; the gallery shows it in both languages and modes, checked with axe",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
+    },
+    {
+      "name": "Alert that can be put away, IconButton as a link, Button with a longer name, Tabs with counts",
+      "files": [
+        "components/alert.tsx",
+        "components/status.tsx",
+        "components/button.tsx",
+        "components/tabs.tsx",
+        "../../contract.ts"
+      ],
+      "note": "a close button on a note the person may put away (the install hint, the sync reminder, a notice), named by the dismiss label, and an icon-only link to an app path (the sync chip and the bell of the app bar), a tab's count after its label (the volunteer's applications by state), and a short button named by longer words that hold its own (a section's edit button); built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
+    },
+    {
+      "name": "DateField and MonthField in the app's words",
+      "files": [
+        "components/pickers.tsx",
+        "components/labels.ts",
+        "../../contract.ts"
+      ],
+      "note": "a date shows day-month-year in English digits (DD-MM-YYYY, as the app writes every date) instead of the kit's \"DD MMM YYYY\", and the picker's own words (the parts of a date, the calendar's buttons) come from the labels, so a Bengali page reads them in Bengali; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
+    },
+    {
+      "name": "Button that keeps the keyboard's focus, DataTable that scrolls sideways by keyboard",
+      "files": [
+        "components/button.tsx",
+        "components/data-table.tsx"
+      ],
+      "note": "a loading button is disabled, which drops the focus to the page (out of a dialog, where Escape then no longer reaches it): the button takes it back when its work ends, unless the person moved it; a table wider than its box makes the box a named region in the tab order, so the columns out of view can be reached without a pointer (the permission panel's effective permissions); built for the CSS ERP; also checked by the notification texts and permission specs check them in the browser",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
+    },
+    {
+      "name": "DataTable: page numbers beside a cursor pager",
+      "files": [
+        "components/data-table.tsx",
+        "../../contract.ts"
+      ],
+      "note": "a nationwide list counts its first rows and goes by cursor past them: the cursor pager takes the current page, how many are numbered and how to open one, and shows the page numbers between its own previous and next, which go on past the numbered pages (the volunteer tab); built for the CSS ERP; also checked by the volunteer tab's test and spec check it; each pager is named with its table (\"Volunteers: Pagination\"), so two lists on one page keep two landmarks",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
+    },
+    {
+      "name": "LinkButton with the extended icons",
+      "files": [
+        "../../contract.ts"
+      ],
+      "note": "a link that looks like a button takes the same icons as the button, the extended set (a way back, compare, merge on the duplicates page) and an end icon; built for the CSS ERP; also checked by the duplicates page's test checks it",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
+    },
+    {
+      "name": "Counts in the app's number locale",
+      "files": [
+        "components/labels.ts",
+        "components/status.tsx",
+        "components/progress.tsx",
+        "components/shared.ts",
+        "../../contract.ts"
+      ],
+      "note": "the stat bar, the offline banner and the progress bar wrote their counts in en-US grouping (2,000,000) beside the app's own formatter (20,00,000); the labels now carry `numberLocale`, which the app sets from its formatter's locale, and `useCount` formats with it; the digits stay English; built for the CSS ERP; the gallery shows it in both languages and modes, checked with axe",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
+    },
+    {
+      "name": "Theme: labels that read",
+      "files": [
+        "theme/overrides.ts",
+        "theme/theme.ts"
+      ],
+      "note": "the labels of fields and the legend of a radio or checkbox group take the secondary grey at rest and the text colour while focused, the dark red on an error (the light red in dark mode); the theme's main green (3.1:1) and disabled grey (2.7:1) do not reach 4.5:1 on white; built for the CSS ERP; the gallery spec and the a11y sweep check it in the browser; the overline (a page's area label, a menu group) is 12 px, the smallest text size, and its letters are spaced only in English, never in Bengali",
+      "screenshot": "docs/ui/asf-pieces/gallery-choices.png"
+    }
+  ]
+}

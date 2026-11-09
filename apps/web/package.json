@@ -5,25 +5,39 @@
   "description": "CSS ERP installable offline-first PWA (Vite + React single-page application)",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/fonts.mjs && vite",
+    "dev": "vite",
     "build": "node scripts/build.mjs",
     "build:e2e": "node scripts/build.mjs --e2e",
     "bundle:report": "node scripts/bundle-report.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "icons": "node scripts/icons.mjs"
   },
   "dependencies": {
     "@css/shared": "workspace:*",
-    "@css/ui": "workspace:*",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@fontsource-variable/noto-sans-bengali": "5.3.0",
+    "@fontsource-variable/public-sans": "5.3.0",
+    "@hookform/resolvers": "5.9.2",
+    "@mui/material": "9.5.0",
+    "@mui/x-date-pickers": "9.16.0",
     "@serwist/window": "9.5.13",
     "@tanstack/react-query": "5.104.1",
-    "lucide-react": "1.55.0",
+    "dayjs": "1.11.23",
+    "dexie": "4.4.7",
+    "exifr": "7.1.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "react-hook-form": "7.91.0",
     "react-router": "8.4.0",
     "serwist": "9.5.13",
-    "use-intl": "4.14.9"
+    "use-intl": "4.14.9",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
@@ -39,8 +53,10 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
     "axe-core": "4.14.0",
+    "fake-indexeddb": "6.2.7",
     "jsdom": "30.1.2",
     "msw": "2.15.0",
+    "sharp": "0.35.5",
     "typescript": "6.0.3",
     "vite": "8.3.4"
   }

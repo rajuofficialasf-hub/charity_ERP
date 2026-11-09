@@ -1,6 +1,5 @@
 import type { PhotoSlot, RegistrationChannel, RegistrationKind } from '@css/shared/registration';
-import { Alert, Button, PageBand, Stepper } from '@css/ui';
-import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
+import { Alert, Button, Icon, LinkButton, ProgressBar } from '@/ui';
 import { type FormEvent, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -198,37 +197,60 @@ export function RegisterPage() {
     setValues((v) => ({ ...v, photos: { ...v.photos, [slot]: ok } }));
 
   const title = done ? t('done.title') : t(`band.${kind}`);
+  const stepNames = steps.map((s) => t(`steps.${s}`));
   if (done)
     return (
       <>
-        <TopBar />
+        <TopBar showBrand={false} />
         <main id="main" className="register-page">
           <DocumentTitle title={title} />
-          <section className="register-card">
-            <PageBand title={title} subtitle={t('done.text')} />
-            <div className="register-body register-done">
-              <Button href="/login">{t('done.login')}</Button>
+          <RegisterBrand title={title} line={t('done.text')} />
+          <section className="register-side">
+            <div className="register-panel register-done">
+              <span className="register-done-mark" aria-hidden="true">
+                <Icon name="check" size={28} />
+              </span>
+              <LinkButton to="/login">{t('done.login')}</LinkButton>
             </div>
           </section>
         </main>
       </>
     );
 
-  const stepNames = steps.map((s) => t(`steps.${s}`));
   const canNext = key !== 'contact' || verified;
   return (
     <>
-      <TopBar />
+      <TopBar showBrand={false} />
       <main id="main" className="register-page">
         <DocumentTitle title={title} />
-        <section className="register-card">
-          <PageBand title={title} subtitle={t(`band.${kind}_line`)}>
-            <p className="register-band-note">{t('staff_by_admin')}</p>
-          </PageBand>
-          <form className="register-body" onSubmit={next} noValidate aria-label={title}>
-            <Stepper label={t('steps.label')} steps={stepNames} current={step} />
+        <RegisterBrand
+          title={title}
+          line={t(`band.${kind}_line`)}
+          note={t('staff_by_admin')}
+          steps={stepNames}
+          current={step}
+        />
+        <section className="register-side">
+          <p className="register-have">
+            {t('have_account')}{' '}
+            <a href="/login" className="register-link">
+              {t('verify.login')}
+            </a>
+          </p>
+          <form className="register-panel" onSubmit={next} noValidate aria-label={title}>
+            <ProgressBar
+              label={t('progress', { current: step + 1, total: steps.length })}
+              value={step + 1}
+              max={steps.length}
+              size="small"
+              showValue={false}
+            />
+            <div className="register-step-head">
+              <h2 className="register-step-title">{stepNames[step]}</h2>
+              <p className="register-muted">{t(`hint.${key}`)}</p>
+            </div>
             <fieldset className="register-section">
-              <legend className="register-section-title">{stepNames[step]}</legend>
+              <legend className="register-sr-only">{stepNames[step]}</legend>
               {key === 'contact' && (
                 <ContactStep
                   kind={kind}
@@ -254,17 +276,13 @@ export function RegisterPage() {
                 <PhotosStep draft={draft} errors={errors} onPhoto={photo} />
               )}
             </fieldset>
-            {error && (
-              <Alert tone="danger" live="alert">
-                {error}
-              </Alert>
-            )}
+            {error && <Alert tone="error">{error}</Alert>}
             <div className="register-actions">
               {step > 0 && (
                 <Button
                   variant="secondary"
-                  icon={ArrowLeft}
-                  onPress={() => {
+                  startIcon="arrow-left"
+                  onClick={() => {
                     setErrors({});
                     setStep(step - 1);
                   }}
@@ -273,26 +291,65 @@ export function RegisterPage() {
                 </Button>
               )}
               {step < steps.length - 1 ? (
-                <Button type="submit" icon={ArrowRight} disabled={!canNext}>
+                <Button type="submit" endIcon="arrow-right" disabled={!canNext}>
                   {t('nav.next')}
                 </Button>
               ) : (
-                <Button type="submit" icon={Send} loading={pending}>
+                <Button type="submit" startIcon="send" loading={pending}>
                   {t('form.submit')}
                 </Button>
               )}
             </div>
           </form>
         </section>
-        <footer className="register-foot">
-          <span>
-            {t('have_account')}{' '}
-            <a href="/login" className="register-link">
-              {t('verify.login')}
-            </a>
-          </span>
-        </footer>
       </main>
     </>
+  );
+}
+
+/**
+ * The brand panel of the registration: the logo, the page title and its line, and the steps as a
+ * list, done ones ticked and the current one lit. On a phone it is a short band above the form and the list stays for screen
+ * readers only.
+ */
+function RegisterBrand(props: {
+  title: string;
+  line: string;
+  note?: string;
+  steps?: string[];
+  current?: number;
+}) {
+  const t = useTranslations('registration');
+  const { steps = [], current = 0 } = props;
+  return (
+    <aside className="register-brand">
+      <a href="/" className="register-logo">
+        <img src="/brand/logo.svg" alt={t('logo_alt')} width={113} height={72} />
+      </a>
+      <div className="register-brand-text">
+        <span className="register-badge">{t('badge')}</span>
+        <h1 className="register-title">{props.title}</h1>
+        <p className="register-line">{props.line}</p>
+      </div>
+      {steps.length > 0 && (
+        <ol className="register-steps" aria-label={t('steps.label')}>
+          {steps.map((name, i) => (
+            <li
+              key={name}
+              className="register-step"
+              data-state={i < current ? 'done' : i === current ? 'current' : 'next'}
+              aria-current={i === current ? 'step' : undefined}
+            >
+              <span className="register-step-dot" aria-hidden="true">
+                {i < current ? <Icon name="check" size={14} /> : i + 1}
+              </span>
+              <span>{name}</span>
+              {i < current && <span className="register-sr-only">{t('step_done')}</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+      {props.note && <p className="register-brand-note">{props.note}</p>}
+    </aside>
   );
 }

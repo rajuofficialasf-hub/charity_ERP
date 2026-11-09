@@ -1,4 +1,9 @@
-import type { ProjectCreate, ProjectStatus, WorkflowKey } from '@css/shared/projects';
+import {
+  PROJECT_STATUSES,
+  type ProjectCreate,
+  type ProjectStatus,
+  type WorkflowKey,
+} from '@css/shared/projects';
 import { api } from '../../lib/api';
 import { listQuery } from '../list-query';
 
@@ -40,6 +45,28 @@ export const projectPage = (filters: FilterValues, cursor: string | null) =>
   api<{ data: Project[]; meta: PageMeta }>(
     `/projects${listQuery({ ...filters, cursor: cursor ?? undefined, include: 'total' })}`,
     { envelope: true },
+  );
+
+/** A count card of the list: every project (cancelled drafts left out, as in the list) or one state. */
+export type CountKey = 'all' | ProjectStatus;
+
+/**
+ * The number of projects per state for the program, year and window filters, the chosen state left
+ * out so each card keeps its number; each count is read as a page of one row with its total.
+ */
+export const projectCounts = (filters: FilterValues): Promise<{ key: CountKey; total: number }[]> =>
+  Promise.all(
+    (['all', ...PROJECT_STATUSES] as const).map((key) =>
+      api<{ data: Project[]; meta: PageMeta }>(
+        `/projects${listQuery({
+          ...filters,
+          status: key === 'all' ? undefined : key,
+          limit: '1',
+          include: 'total',
+        })}`,
+        { envelope: true },
+      ).then((page) => ({ key, total: page.meta.total ?? page.data.length })),
+    ),
   );
 
 /** The projects a picker offers: the newest 100 the caller reaches, cancelled drafts left out. */

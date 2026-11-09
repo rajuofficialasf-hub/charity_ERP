@@ -16,6 +16,8 @@ export const SENSITIVE_KEYS = [
   'token',
   'accessToken',
   'refreshToken',
+  'deviceKey',
+  'previousDeviceKey',
   'authorization',
   'cookie',
   'otp',
@@ -53,9 +55,13 @@ export const SENSITIVE_KEYS = [
 
 export const REDACT_PATHS = SENSITIVE_KEYS.flatMap((key) => [key, `*.${key}`, `*.*.${key}`]);
 
-/** Logged form of a request: method, path without query string, request and user ids. */
+/** The public link's token sits in the path of the public form routes; it is the whole access. */
+const PUBLIC_TOKEN_PATH = /(\/public\/forms\/)[^/?]+/;
+
+/** Logged form of a request: method, path without query string (the public token masked), ids. */
 function requestSerializer(req: IncomingMessage & { id?: string }) {
-  return { id: req.id, method: req.method, path: (req.url ?? '').split('?')[0] };
+  const path = (req.url ?? '').split('?')[0] ?? '';
+  return { id: req.id, method: req.method, path: path.replace(PUBLIC_TOKEN_PATH, '$1[redacted]') };
 }
 
 function responseSerializer(res: ServerResponse) {

@@ -1,7 +1,6 @@
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Button, DescriptionList, Drawer } from '@css/ui';
-import { History } from 'lucide-react';
+import { Button, DescriptionList, Drawer } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import type { AuditEntry } from './audit-api';
 
@@ -51,25 +50,23 @@ export function AuditDetail({
   return (
     <Drawer
       title={t('title')}
-      isOpen
+      open
       onClose={onClose}
-      footer={
+      actions={
         entry.entityId ? (
           <Button
             variant="secondary"
-            icon={History}
-            onPress={() => onHistory(entry.entityType, entry.entityId!)}
+            startIcon="history"
+            onClick={() => onHistory(entry.entityType, entry.entityId!)}
           >
             {t('history')}
           </Button>
         ) : undefined
       }
     >
-      <DescriptionList
-        labelWidth="sm"
-        className="admin-audit-facts"
-        items={facts.map(([label, value]) => ({ label, value }))}
-      />
+      <div className="admin-audit-facts">
+        <DescriptionList items={facts.map(([label, value]) => ({ label, value }))} />
+      </div>
       <div className="admin-audit-compare">
         <Snapshot label={t('old')} value={entry.old} />
         <Snapshot label={t('new')} value={entry.new} />

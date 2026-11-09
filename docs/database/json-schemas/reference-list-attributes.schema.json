@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://css-erp.assunnahfoundation.org/schemas/reference-list-attributes.json",
+  "title": "reference_lists.attributes",
+  "description": "What a reference-list entry carries beyond its labels: a media platform names its kind, which decides the host its links must have.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "youtube",
+        "facebook",
+        "other"
+      ]
+    }
+  }
+}

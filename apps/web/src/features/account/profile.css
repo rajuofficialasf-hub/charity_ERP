@@ -1,38 +1,13 @@
 /*
- * The own profile (SCR-006, UX-18, T1.9d): a header with the person, the sections as a navigation
- * (a column from 768 px, a scrolling row of chips on phones) and one section's details in a card;
+ * The own profile (docs/ui/SCREENS.md, "My profile, edit request, device sessions, language"):
+ * the set's banner with the person, the sections as a navigation (a column from 768 px, a
+ * scrolling row of chips on phones) and one section's details in a card;
  * the edit mode of a section lists its details with a checkbox each. Tokens only.
  */
 .profile {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-.profile-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3) var(--space-4);
-}
-.profile-head .profile-avatar {
-  width: 72px;
-  height: 72px;
-  font-size: 24px;
-}
-.profile-who {
-  flex: 1 1 12rem;
-  min-width: 0;
-}
-.profile-name {
-  margin: 0;
-  font-size: var(--text-display);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--leading-heading);
-  overflow-wrap: anywhere;
-}
-.profile-type {
-  margin: var(--space-1) 0 0;
-  color: var(--color-text-secondary);
 }
 .profile-layout {
   display: grid;
@@ -77,7 +52,8 @@
 .profile-nav-item[aria-current='true'] {
   border-color: transparent;
   background: var(--color-bg-brand-soft);
-  color: var(--color-brand-ink);
+  /* the text colour of the page, readable on the soft green in both modes (the brand ink stays dark) */
+  color: var(--color-text-primary);
 }
 .profile-nav-dot {
   width: 8px;
@@ -213,5 +189,112 @@
   .profile-row {
     grid-template-columns: 12rem minmax(0, 1fr);
     align-items: center;
+  }
+}
+
+/* An official's own profile: the account links, and the projects with the figures of their work. */
+.profile-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+}
+.work-every {
+  display: grid;
+  gap: var(--space-3);
+}
+.work-years {
+  display: grid;
+  gap: var(--space-4);
+}
+.work-year {
+  display: grid;
+  gap: var(--space-3);
+}
+.work-year-title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-bold);
+}
+.work-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.work-card-body {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.work-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.work-card-title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-bold);
+  overflow-wrap: anywhere;
+}
+.work-meta {
+  display: grid;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.work-meta > div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.work-meta dt,
+.work-figure-label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+}
+.work-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.work-group {
+  display: grid;
+  gap: var(--space-2);
+}
+.work-group-title {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-bold);
+}
+.work-figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+.work-figure {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  min-width: 0;
+}
+.work-figure-value {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-bold);
+}
+
+@media (min-width: 768px) {
+  .work-meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .work-figures {
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
   }
 }

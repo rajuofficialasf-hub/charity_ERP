@@ -1,8 +1,8 @@
+import { type ExtendedIconName, Icon } from '@/ui';
 import { useId } from 'react';
 import { useTranslations } from 'use-intl';
-import type { LucideIcon } from 'lucide-react';
 
-/** The sections of the profile as a list of buttons: one open at a time (UX-18, T1.9d). */
+/** The sections of the profile as a list of buttons: one open at a time. */
 export function ProfileNav<Key extends string>({
   sections,
   current,
@@ -10,7 +10,7 @@ export function ProfileNav<Key extends string>({
   busy,
   onSelect,
 }: {
-  sections: { key: Key; title: string; icon: LucideIcon }[];
+  sections: { key: Key; title: string; icon: ExtendedIconName }[];
   current: Key;
   /** Sections with a request waiting for the person (a code or a photo to give). */
   waiting: ReadonlySet<Key>;
@@ -22,7 +22,7 @@ export function ProfileNav<Key extends string>({
   const id = useId();
   return (
     <nav aria-label={t('nav_label')} className="profile-nav">
-      {sections.map(({ key, title, icon: Icon }) => {
+      {sections.map(({ key, title, icon }) => {
         const attention = waiting.has(key);
         return (
           <button
@@ -34,7 +34,7 @@ export function ProfileNav<Key extends string>({
             aria-describedby={attention ? `${id}-${key}` : undefined}
             onClick={() => onSelect(key)}
           >
-            <Icon size={18} aria-hidden="true" />
+            <Icon name={icon} size={18} />
             <span>{title}</span>
             {attention && (
               <>

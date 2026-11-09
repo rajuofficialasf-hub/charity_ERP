@@ -72,8 +72,8 @@ Channels: **A** in-app · **E** email · **S** SMS · **P** optional Web Push (i
 
 | Event | Recipients | Channels | Template key | Phase |
 |---|---|---|---|---|
-| Project activated | rpm(all areas), assigned staff, assigned volunteers | A | `project_activated` | 1 |
-| Volunteer assigned to a project (consent pending) | the volunteer | A | `project_assignment` | 1 |
+| Project activated | rpm(all areas), assigned staff (its volunteers get `project_assignment` instead, D-135) | A | `project_activated` | 1 |
+| Volunteer assigned to a project (consent pending) | the volunteer: at the assignment on a running project, at the activation for one assigned to the draft (D-135) | A | `project_assignment` | 1 |
 | Consent accepted / rejected | rpm(region) | A | `project_consent_result` | 1 |
 | Team member added to a project team | the team member | A | `team_member_added` | 1 |
 | Application deadline extended | assigned volunteers, rpm(all areas) | A | `deadline_extended` | 1 |
@@ -91,16 +91,39 @@ Channels: **A** in-app · **E** email · **S** SMS · **P** optional Web Push (i
 | Application entered needs verification (public link, offline collision, stale form) | reviewers(region) | A | `application_needs_verification` | 2 |
 | Application reviewed (awaiting approval) | approvers(region) | A, E (digest-eligible) | `application_reviewed` | 2 |
 | Application approved | owner, team (own records) | A | `application_approved` | 2 |
-| Application rejected (reason) | owner, team (own records) | A | `application_rejected` | 2 |
+| Application rejected (the message written for the volunteer; the office reason stays in the record) | owner, team (own records) | A | `application_rejected` | 2 |
+| Application returned from rejection to review | owner, team (own records) | A | `application_reopened` | 2 |
 | Application waitlisted / pulled from waitlist | owner | A | `application_waitlisted` | 2 |
-| Field unlocked for the volunteer | owner | A | `field_unlocked` | 2 |
-| Unlocked field updated (needs verification) | the official who unlocked | A | `field_updated` | 2 |
-| Applications transferred | new volunteer; old volunteer (count only, no details); rpm(region) | A | `application_transferred` | 2 |
+| Field unlocked for the volunteer (the question named, never the office's reason; not for an answer of the official section; built T2.6) | owner | A | `field_unlocked` | 2 |
+| Unlocked field updated (needs verification; built T2.6) | the official who unlocked | A | `field_updated` | 2 |
+| Applications transferred (built T2.6: the count and the project; the official who moved them is not told) | new volunteer | A | `application_transferred` | 2 |
+| Applications transferred away (the count only, never which; built T2.6) | old volunteer | A | `application_transferred_away` | 2 |
 | Application completed | owner | A | `application_completed` | 2 |
 | Sync result: records failed or need verification | the volunteer (in-app inbox and sync centre) | A | `sync_attention` | 2 |
-| Pending-sync reminder (24 h, then daily; O-29) | the volunteer | A (local notice on the device) | `sync_reminder` | 2 |
+| Pending-sync reminder (24 h, then daily; O-29) | the volunteer | A (local notice on the device; built in T2.7 as an alert of the home and the sync centre, `apps/web/src/features/sync/SyncReminder.tsx`, no server message and no template row) | `sync_reminder` | 2 |
 | Approval pending too long (5 days, O-04) | approvers(region); monitoring | A, E | `alert_approval_pending` | 5 |
 | Review pending too long (7 days, O-04) | reviewers(region); monitoring | A, E | `alert_review_pending` | 5 |
+
+### 4.7 Media Team (T2.8b, D-101, D-136)
+
+In the app only; a notice names the work, the program and the project, never the beneficiary's name or contacts (BR-286). No consent notice: D-137 withdrew the media consent.
+
+| Event | Recipients | Channels | Template key | Phase |
+|---|---|---|---|---|
+| A new media referral | media director, media assistant director | A | `media_referral_new` | 2 |
+| A decision on a referral (accepted, sent back, rejected) | the referrer | A | `media_referral_decided` | 2 |
+| Added to a media work | the member | A | `media_member_added` | 2 |
+| A work waits for the final review | media director | A | `media_review_waiting` | 2 |
+| A work is published | the referrer | A | `media_published` | 2 |
+
+### 4.8 Exports (T2.8, D-143)
+
+In the app only, to the person who asked for the export; the notice names the list, never a row of it, and leads to "My exports" (`/account/exports`). Published in the transaction that ends the job: `export_failed` only after the last attempt, or when the daily sweep fails a job stuck past 30 minutes (`export.timed_out`).
+
+| Event | Recipients | Channels | Template key | Phase |
+|---|---|---|---|---|
+| An export file is ready | the requester | A | `export_ready` | 2 |
+| An export failed | the requester | A | `export_failed` | 2 |
 
 ### 4.4 Field activities, money and stock (Phases 3–4)
 

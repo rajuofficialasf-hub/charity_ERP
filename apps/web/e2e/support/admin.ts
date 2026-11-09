@@ -16,8 +16,16 @@ export const PASSWORD = 'CssDemo2026';
 const PHONE_PROJECTS = new Set(['mobile', 'iphone']);
 export const isPhone = (info: TestInfo) => PHONE_PROJECTS.has(info.project.name);
 
-/** axe on the whole page. */
-export const scan = (page: Page) => new AxeBuilder({ page }).analyze();
+/**
+ * axe on the whole page, once nothing is still fading: a menu or dialog that is closing shows
+ * mid-transition colours, which axe would read as a contrast failure.
+ */
+export async function scan(page: Page) {
+  await page.waitForFunction(() =>
+    document.getAnimations().every((a) => a.playState !== 'running'),
+  );
+  return new AxeBuilder({ page }).analyze();
+}
 
 export async function signIn(page: Page, loginId: string): Promise<void> {
   await page.goto('/login');
@@ -28,7 +36,7 @@ export async function signIn(page: Page, loginId: string): Promise<void> {
     .first()
     .fill(PASSWORD);
   await page.getByRole('button', { name: 'লগইন', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
 }
 
 /**
@@ -40,7 +48,16 @@ export async function apiAs(
   loginId: string,
 ): Promise<{
   get: (path: string) => Promise<APIResponse>;
-  post: (path: string, data: unknown) => Promise<APIResponse>;
+  post: (
+    path: string,
+    data?: unknown,
+    extraHeaders?: Record<string, string>,
+  ) => Promise<APIResponse>;
+  patch: (
+    path: string,
+    data?: unknown,
+    extraHeaders?: Record<string, string>,
+  ) => Promise<APIResponse>;
 }> {
   const login = await request.post('/api/v1/auth/login', {
     data: {
@@ -54,12 +71,19 @@ export async function apiAs(
   const headers = { Authorization: `Bearer ${token}` };
   return {
     get: (path) => request.get(`/api/v1${path}`, { headers }),
-    post: (path, data) => request.post(`/api/v1${path}`, { headers, data }),
+    post: (path, data, extraHeaders = {}) =>
+      request.post(`/api/v1${path}`, { headers: { ...headers, ...extraHeaders }, data }),
+    patch: (path, data, extraHeaders = {}) =>
+      request.patch(`/api/v1${path}`, { headers: { ...headers, ...extraHeaders }, data }),
   };
 }
 
 /** The navigation of the app shell: the sidebar, the rail or the bottom tabs. */
 export const mainMenu = (page: Page) => page.getByRole('navigation', { name: 'প্রধান মেনু' });
+
+/** A destination's link by its label, alone or followed by the count of what waits there. */
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const destinationName = (label: string) => new RegExp(`^${escapeRegExp(label)}(, .*)?$`);
 
 /**
  * Opens a destination from the app shell: from the menu, else from "more", else (the volunteer or
@@ -68,7 +92,8 @@ export const mainMenu = (page: Page) => page.getByRole('navigation', { name: '�
 export async function openDestination(page: Page, name: string): Promise<void> {
   const nav = mainMenu(page);
   await expect(nav).toBeVisible();
-  const direct = nav.getByRole('link', { name, exact: true });
+  // a destination with something waiting is named with its count ("প্রকল্প, 4টি অপেক্ষমাণ")
+  const direct = nav.getByRole('link', { name: destinationName(name) });
   if ((await direct.count()) > 0) await direct.click();
   else {
     await nav.getByRole('button', { name: 'আরও' }).click();
@@ -97,8 +122,9 @@ export async function switchLanguage(page: Page, lang: 'bn' | 'en'): Promise<voi
   const current = await page.locator('html').getAttribute('lang');
   if (current === lang) return;
   const name = lang === 'en' ? 'English' : 'বাংলা';
-  const toggle = page.getByRole('banner').getByRole('radiogroup', { name: /^(ভাষা|Language)$/ });
-  if ((await toggle.count()) > 0) await toggle.getByRole('radio', { name }).click({ force: true });
+  // the language switch is a group of two pressed buttons in the bar; without it, the profile menu
+  const toggle = page.getByRole('banner').getByRole('group', { name: /^(ভাষা|Language)$/ });
+  if ((await toggle.count()) > 0) await toggle.getByRole('button', { name }).click();
   else {
     await page
       .getByRole('banner')
@@ -116,11 +142,14 @@ export async function fromProfileMenu(page: Page, item: string): Promise<void> {
 }
 
 /**
- * A Select button by its label: the button is named by the current value, then the label
- * ("বেছে নিন জেলা"), so the label must end the name and "জেলা" never matches "উপজেলা".
+ * A select by its label. An earlier select is a button named by the current value, then the label
+ * ("বেছে নিন জেলা"), so the label must end the name; an asf one (the address) is a combobox named by
+ * the label, so the label starts it. Either way "জেলা" never matches "উপজেলা".
  */
 export const select = (page: Page, label: string) =>
-  page.getByRole('button', { name: new RegExp(`\\s${label}$`) });
+  page
+    .getByRole('button', { name: new RegExp(`\\s${label}$`) })
+    .or(page.getByRole('combobox', { name: new RegExp(`^${label}`) }));
 
 /** Picks an option from a Select. */
 export async function choose(page: Page, label: string, option: string): Promise<void> {

@@ -77,7 +77,7 @@ export function parseSort(
   return fields;
 }
 
-interface CursorBody {
+export interface CursorBody {
   /** Sort values of the boundary row, in sort order. */
   v: unknown[];
   /** Direction the cursor pages towards. */

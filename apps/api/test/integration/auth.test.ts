@@ -9,6 +9,7 @@ import {
   bearer,
   login,
   PASSWORD,
+  type Session,
   sessionFrom,
 } from './support/auth-app';
 import { notificationsOf } from './support/notifications';
@@ -305,6 +306,7 @@ describe('access tokens on every request', () => {
       passwordChangeRequired: false,
       blockMessage: null,
       volunteerId: null,
+      photoFileId: null,
     });
   });
 });
@@ -441,6 +443,216 @@ describe('POST /auth/logout', () => {
     expect(await auditRows(h.db, 'auth.logout')).toEqual(
       expect.arrayContaining([expect.objectContaining({ actor_user_id: staff.id })]),
     );
+  });
+});
+
+/** The `sid` claim of an access token: the device session the phone should remember. */
+const sessionIdOf = (s: Session): string =>
+  (JSON.parse(Buffer.from(s.accessToken.split('.')[1]!, 'base64url').toString()) as { sid: string })
+    .sid;
+
+describe('the device key of a session', () => {
+  it('comes with the login and with every refresh, differs per device, and is never audited', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer' });
+    const phone = await login(h, volunteer);
+    const deviceKey = phone.body.deviceKey as string;
+    expect(deviceKey).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(phone.body.previousDeviceKey).toBeUndefined();
+    const refreshed = await post('/auth/refresh')
+      .set('Cookie', phone.cookieHeader)
+      .set('X-CSRF-Token', phone.csrf)
+      .expect(200);
+    expect(refreshed.body.data.deviceKey).toBe(deviceKey);
+    const tablet = await login(h, volunteer);
+    expect(tablet.body.deviceKey).not.toBe(deviceKey);
+    const audits = await auditRows(h.db, 'auth.login');
+    expect(JSON.stringify(audits)).not.toContain(deviceKey);
+    const row = await h.db.query('SELECT local_key FROM device_sessions WHERE id = $1', [
+      sessionIdOf(phone),
+    ]);
+    // the row holds the sealed key, never the key the phone was told
+    expect(Buffer.from(row.rows[0].local_key).toString('base64url')).not.toContain(deviceKey);
+  });
+
+  it('is handed back after the session expired, to the same user, and again for a short while', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer' });
+    // the oldest of five sessions: the sixth login would evict it, which must not cost the key
+    const old = await login(h, volunteer);
+    for (let i = 0; i < 4; i += 1) await login(h, volunteer);
+    const oldKey = old.body.deviceKey as string;
+    const oldSession = sessionIdOf(old);
+    h.clock.advance(31 * 24 * 3_600_000);
+    const again = await post('/auth/login')
+      .send({ loginId: volunteer.mobile, password: PASSWORD, recoverSessionId: oldSession })
+      .expect(200);
+    expect(again.body.data.previousDeviceKey).toBe(oldKey);
+    expect(again.body.data.deviceKey).not.toBe(oldKey);
+    expect(await auditRows(h.db, 'auth.outbox_recovered')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ entity_id: oldSession })]),
+    );
+    // the answer was lost on the network: the same ask within the grace is answered again
+    h.clock.advance(5 * 60_000);
+    const lost = await post('/auth/login')
+      .send({ loginId: volunteer.mobile, password: PASSWORD, recoverSessionId: oldSession })
+      .expect(200);
+    expect(lost.body.data.previousDeviceKey).toBe(oldKey);
+    h.clock.advance(20 * 60_000);
+    const late = await post('/auth/login')
+      .send({
+        loginId: volunteer.mobile,
+        password: PASSWORD,
+        recoverSessionId: oldSession,
+        lostPending: { count: 3, reason: 'unrecoverable' },
+      })
+      .expect(200);
+    expect(late.body.data.previousDeviceKey).toBeUndefined();
+    expect(await auditRows(h.db, 'sync.outbox_unrecoverable')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_id: oldSession,
+          new: expect.objectContaining({ count: 3, reason: 'gone' }),
+        }),
+      ]),
+    );
+  });
+
+  it('keeps the key of an ended session for thirty days, then the nightly cleanup drops it', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer' });
+    const kept = await login(h, volunteer);
+    h.clock.advance(2 * 24 * 3_600_000);
+    const dropped = await login(h, volunteer);
+    // the first session ended 31 days after its last refresh, the second 29 days after
+    h.clock.advance(59 * 24 * 3_600_000);
+    await h.container.localKeyCleanup.run();
+    const keyOf = async (s: Session) =>
+      (await h.db.query('SELECT local_key FROM device_sessions WHERE id = $1', [sessionIdOf(s)]))
+        .rows[0].local_key as Buffer | null;
+    expect(await keyOf(kept)).toBeNull();
+    expect(await keyOf(dropped)).not.toBeNull();
+    const late = await post('/auth/login')
+      .send({ loginId: volunteer.mobile, password: PASSWORD, recoverSessionId: sessionIdOf(kept) })
+      .expect(200);
+    expect(late.body.data.previousDeviceKey).toBeUndefined();
+    const inTime = await post('/auth/login')
+      .send({
+        loginId: volunteer.mobile,
+        password: PASSWORD,
+        recoverSessionId: sessionIdOf(dropped),
+      })
+      .expect(200);
+    expect(inTime.body.data.previousDeviceKey).toBe(dropped.body.deviceKey);
+    // a key handed back is dropped a day later
+    h.clock.advance(25 * 3_600_000);
+    await h.container.localKeyCleanup.run();
+    expect(await keyOf(dropped)).toBeNull();
+  });
+
+  it('replaces a sealed key no secret opens at the next refresh, and puts the loss on record', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer' });
+    const s = await login(h, volunteer);
+    const sid = sessionIdOf(s);
+    await h.db.query('UPDATE device_sessions SET local_key = $1 WHERE id = $2', [
+      Buffer.alloc(60, 7),
+      sid,
+    ]);
+    const refreshed = await post('/auth/refresh')
+      .set('Cookie', s.cookieHeader)
+      .set('X-CSRF-Token', s.csrf)
+      .expect(200);
+    expect(refreshed.body.data.deviceKey).not.toBe(s.body.deviceKey);
+    expect(await auditRows(h.db, 'sync.outbox_unrecoverable')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_id: sid,
+          new: expect.objectContaining({ reason: 'seal_unopenable' }),
+        }),
+      ]),
+    );
+  });
+
+  it('refuses malformed recovery and pending fields with 422', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer' });
+    for (const body of [
+      { recoverSessionId: 'not-a-uuid' },
+      { lostPending: { count: 100_001, reason: 'logout' } },
+      { lostPending: { count: 1, reason: 'stolen' } },
+    ])
+      await post('/auth/login')
+        .send({ loginId: volunteer.mobile, password: PASSWORD, ...body })
+        .expect(422);
+    const s = await login(h, volunteer);
+    await post('/auth/logout').set(bearer(s)).send({ pendingCount: 100_001 }).expect(422);
+    await post('/auth/logout').set(bearer(s)).send({ pendingCount: 'two' }).expect(422);
+  });
+
+  it('is never handed back for a live, a revoked, another user’s or a long-expired session', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer' });
+    const live = await login(h, volunteer);
+    const recoverLive = await post('/auth/login')
+      .send({ loginId: volunteer.mobile, password: PASSWORD, recoverSessionId: sessionIdOf(live) })
+      .expect(200);
+    expect(recoverLive.body.data.previousDeviceKey).toBeUndefined();
+
+    const revoked = await login(h, volunteer);
+    await post('/auth/logout').set(bearer(revoked)).expect(204);
+    const keyRow = await h.db.query('SELECT local_key FROM device_sessions WHERE id = $1', [
+      sessionIdOf(revoked),
+    ]);
+    expect(keyRow.rows[0].local_key).toBeNull();
+
+    const stranger = await account(h.db, { kind: 'volunteer' });
+    const strangers = await login(h, stranger);
+    h.clock.advance(31 * 24 * 3_600_000);
+    const theft = await post('/auth/login')
+      .send({
+        loginId: volunteer.mobile,
+        password: PASSWORD,
+        recoverSessionId: sessionIdOf(strangers),
+        lostPending: { count: 9, reason: 'unrecoverable' },
+      })
+      .expect(200);
+    expect(theft.body.data.previousDeviceKey).toBeUndefined();
+    const unrecoverable = await auditRows(h.db, 'sync.outbox_unrecoverable');
+    // a stranger's session id never becomes the entity of the caller's audit rows, and a live
+    // session's key stays, so nothing is recorded as lost for it
+    expect(unrecoverable.filter((r) => r.entity_id === sessionIdOf(strangers))).toEqual([]);
+    expect(unrecoverable.filter((r) => r.entity_id === sessionIdOf(live))).toEqual([]);
+
+    const forgotten = await login(h, volunteer);
+    h.clock.advance(61 * 24 * 3_600_000);
+    await h.container.localKeyCleanup.run();
+    const late = await post('/auth/login')
+      .send({
+        loginId: volunteer.mobile,
+        password: PASSWORD,
+        recoverSessionId: sessionIdOf(forgotten),
+      })
+      .expect(200);
+    expect(late.body.data.previousDeviceKey).toBeUndefined();
+  });
+
+  it('records a logout that left records on the phone, at once or at the next login', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer' });
+    const s = await login(h, volunteer);
+    await post('/auth/logout').set(bearer(s)).send({ pendingCount: 2 }).expect(204);
+    const row = await h.db.query<{ pending_count: number | null; revoked_at: Date | null }>(
+      'SELECT pending_count, revoked_at FROM device_sessions WHERE user_id = $1',
+      [volunteer.id],
+    );
+    expect(row.rows[0]).toMatchObject({ pending_count: 2 });
+    expect(row.rows[0]!.revoked_at).not.toBeNull();
+    await post('/auth/login')
+      .send({
+        loginId: volunteer.mobile,
+        password: PASSWORD,
+        lostPending: { count: 3, reason: 'logout' },
+      })
+      .expect(200);
+    const rows = await auditRows(h.db, 'auth.logout_with_pending');
+    expect(rows.map((r) => (r.new as { count: number }).count).sort()).toEqual([2, 3]);
+    const quiet = await login(h, volunteer);
+    await post('/auth/logout').set(bearer(quiet)).expect(204);
+    expect(await auditRows(h.db, 'auth.logout_with_pending')).toHaveLength(2);
   });
 });
 

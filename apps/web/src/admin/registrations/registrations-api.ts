@@ -118,3 +118,19 @@ export const decideEdit = (
   body: { decision: 'approve' } | { decision: 'reject'; reason: string },
 ) => api<ChangeRequest>(`/edit-requests/${id}/decision`, { method: 'POST', body });
 export const roles = () => api<RoleInfo[]>('/roles');
+
+/** An official's waiting request as its deciders see it: the person and their current value. */
+export interface StaffEditRequestRow extends ChangeRequest {
+  userId: string;
+  personName: string;
+  personJobId: string | null;
+  currentValue?: unknown;
+  /** The names of the program or division the two values name, by id. */
+  names: Record<string, { bn: string; en: string }>;
+}
+export const STAFF_EDITS_KEY = ['admin', 'staff-edit-requests'] as const;
+export const staffEditRequests = () => api<StaffEditRequestRow[]>('/staff-edit-requests?limit=100');
+export const decideStaffEdit = (
+  id: string,
+  body: { decision: 'approve' } | { decision: 'reject'; reason: string },
+) => api<ChangeRequest>(`/staff-edit-requests/${id}/decision`, { method: 'POST', body });

@@ -55,14 +55,23 @@
     "end_title": "End permission",
     "end_body": "This permission given in the panel will end: {permission}",
     "end_confirm": "End it",
-    "ended": "Permission ended"
+    "ended": "Permission ended",
+    "eyebrow": "Access control",
+    "description": "Choose a user to see their roles and effective permissions, and grant or end a permission. Every change is kept in the audit log.",
+    "pick_title": "Choose a user",
+    "pick_message": "Their roles and permissions show here once you choose them.",
+    "rule": {
+      "title": "Only what is needed",
+      "body": "Grant only what the work needs. Keep the permission to see NIDs and personal documents separate and narrow."
+    }
   },
   "registrations": {
     "title": "Registrations",
     "tabs": {
       "label": "Registration work",
       "pending": "Pending registrations",
-      "edits": "Edit requests"
+      "edits": "Edit requests",
+      "staff_edits": "Officials’ requests"
     },
     "column": {
       "name": "Name",
@@ -152,6 +161,21 @@
       "approved": "The new value was applied",
       "rejected": "The request was refused",
       "photo": "New photo"
+    },
+    "eyebrow": "Checks and approvals",
+    "description": "Check the staff registrations and the volunteers' requests to change their details.",
+    "stats": {
+      "label": "Waiting work"
+    },
+    "staff_edits": {
+      "empty": "No official’s request is waiting.",
+      "column": {
+        "person": "Official",
+        "current": "Value now"
+      },
+      "none": "None",
+      "own": "Your own request",
+      "photo_now": "Photo now"
     }
   },
   "handover": {
@@ -188,7 +212,24 @@
     "deactivate_confirm": "Deactivate the account",
     "deactivated": "The account was deactivated",
     "already": "This account is deactivated.",
-    "reason": "Reason"
+    "reason": "Reason",
+    "eyebrow": "Handover of duties",
+    "description": "When an official moves or changes duties, give their projects, applications and open work to the right person.",
+    "pick_title": "Choose an official",
+    "pick_message": "Their pending work shows here once you choose them.",
+    "rule": {
+      "title": "Before an account is closed",
+      "body": "An official's account cannot be deactivated until all their pending work is handed over. The handover record is kept."
+    },
+    "steps": {
+      "title": "Steps of a handover",
+      "find": "Find the official",
+      "find_hint": "By name, email or mobile number",
+      "assign": "Hand over the pending work",
+      "assign_hint": "The receiver needs a fitting role",
+      "complete": "Complete the handover",
+      "complete_hint": "Then deactivate the account with a reason"
+    }
   },
   "forbidden": {
     "title": "No access",
@@ -317,7 +358,10 @@
         "approved": "Registration approved",
         "blocked": "Put on the blocklist"
       },
-      "photo_failed": "Could not load"
+      "photo_failed": "Could not load",
+      "transfer": "Hand over applications",
+      "pending": "{n, plural, one {{count} record not yet sent (as of {time})} other {{count} records not yet sent (as of {time})}}",
+      "revoke_pending": "{n, plural, one {The {count} record not yet sent from this device will be lost.} other {The {count} records not yet sent from this device will be lost.}}"
     },
     "none": "None",
     "summary": "Showing {from}–{to} of {total} volunteers",
@@ -329,24 +373,29 @@
       "unblock": "Lift block",
       "sessions": "Devices and sessions",
       "sessions_title": "Devices of {name}"
-    }
+    },
+    "eyebrow": "People and field coordination",
+    "description": "Registration, skills, availability and project assignments in one place."
   },
   "beneficiaries": {
     "title": "Beneficiaries",
     "table": "Beneficiaries",
-    "search": "Search by name or number",
+    "search": "Search by name, number or BEN number",
     "stats": {
       "label": "Beneficiary counts",
-      "total": "Total",
+      "total": "All beneficiaries",
       "assisted": "Assisted this year",
-      "blocked": "Blocked"
+      "blocked": "Blocklist",
+      "male": "Male",
+      "female": "Female"
     },
     "column": {
       "name": "Name",
       "father": "Father's or husband's name",
       "type": "Type",
       "area": "Area",
-      "status": "Status"
+      "status": "Status",
+      "ben": "BEN number"
     },
     "filter": {
       "type": "Type",
@@ -355,7 +404,8 @@
       "blocked_yes": "Blocked",
       "blocked_no": "Not blocked",
       "group_area": "Area",
-      "group_other": "Other"
+      "group_other": "Other",
+      "gender": "Gender"
     },
     "types": {
       "elderly": "Elderly",
@@ -392,7 +442,12 @@
         "distributions": "Distribution and implementation",
         "dawah": "Dawah",
         "followups": "Follow-ups",
-        "activities": "Activity history"
+        "activities": "Activity history",
+        "corrections": "Correction requests",
+        "contact_log": "Contact changes",
+        "blocks": "Block history",
+        "merges": "Merge history",
+        "files": "Photos and files"
       },
       "mother": "Mother's name",
       "gender": "Gender",
@@ -410,14 +465,195 @@
       "evaluations": "Follow-up evaluations",
       "contact": "Contact",
       "call": "Call",
-      "age_value": "{age} years"
+      "age_value": "{age} years",
+      "ben": "BEN number",
+      "actions_label": "Actions",
+      "edit_contact": "Edit contact details",
+      "request_correction": "Request a correction",
+      "contact_saved": "Contact details saved",
+      "correction_sent": "Correction request sent",
+      "correction_approved": "Correction approved; the new value is on the profile",
+      "correction_rejected": "Correction request rejected",
+      "correction_approve": "Approve",
+      "correction_reject": "Reject",
+      "correction_approve_title": "Approve the correction of {field}?",
+      "correction_reject_title": "Reject the correction request for {field}?",
+      "correction_status": {
+        "submitted": "Awaiting decision",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "mobile_shared": "This mobile number is also on {count} other profiles.",
+      "mobile_shared_list": "This mobile number is also on {count} other profiles: {benNos}",
+      "merged_into": "This profile was merged into {benNo}.",
+      "merged_open": "Open the kept profile",
+      "merge_kept": "Merged with {benNo}",
+      "merge_merged": "Merged into {benNo}",
+      "merge_reverted": "Merge reverted",
+      "left_behind": "{count} applications stayed on the earlier profile",
+      "through_merge": "From a merged profile",
+      "blocked_on": "Blocked since {date}",
+      "released_on": "Block lifted on {date}. Reason: {reason}",
+      "reason": "Reason: {reason}",
+      "requested_on": "Requested on {date}",
+      "change": "{old} to {new}",
+      "place_changed": "Area changed",
+      "empty_value": "empty",
+      "fields": {
+        "mobile": "Mobile",
+        "division_id": "Division",
+        "district_id": "District",
+        "upazila_id": "Upazila",
+        "union_id": "Union",
+        "village": "Village",
+        "post_office": "Post office",
+        "post_code": "Post code",
+        "landmark": "Landmark",
+        "name": "Name",
+        "father_or_husband_name": "Father's/husband's name",
+        "nid": "NID",
+        "birth_reg": "Birth registration number"
+      },
+      "file_kinds": {
+        "distribution_proof": "Distribution proof",
+        "construction_proof": "Construction proof",
+        "evidence": "Evidence",
+        "voucher": "Voucher",
+        "payment_copy": "Payment copy",
+        "document": "Document",
+        "animal_photo": "Animal photo",
+        "profile_photo": "Profile photo",
+        "nid_photo": "NID photo",
+        "media_asset": "Media file",
+        "issue_photo": "Issue photo"
+      }
     },
     "none": "None",
     "summary": "Showing {from}–{to} of {total} beneficiaries",
     "action": {
       "menu": "Actions for {name}",
       "profile": "View profile"
-    }
+    },
+    "block": {
+      "consequence": "While blocked, no new application can be made for this person in any project. Ongoing applications continue as before.",
+      "done": "The beneficiary is on the blocklist"
+    },
+    "lookup": {
+      "open": "Find by NID / birth registration",
+      "title": "Find by NID or birth registration",
+      "kind": "Type of number",
+      "kind_nid": "NID",
+      "kind_birth_reg": "Birth registration",
+      "number_nid": "NID number",
+      "number_birth_reg": "Birth registration number",
+      "search": "Search",
+      "pick_project": "Choose a project first",
+      "not_found": "No profile has this number",
+      "blocked": "This person is blocked",
+      "already_applied": "This person ({benNo}) has already applied in this project",
+      "own_mobile": "This is your own mobile number. Enter another number for the beneficiary.",
+      "merged": "The profile with this number was merged into {benNo}, so that profile is shown.",
+      "found": "Profile found: {benNo}",
+      "name": "Name",
+      "father": "Father's/husband's name",
+      "mobile": "Mobile",
+      "mother": "Mother's name",
+      "gender": "Gender",
+      "age": "Age",
+      "village": "Village",
+      "area": "Area",
+      "profile": "View profile",
+      "offline_note": "No network, so the check will happen later. The number is taken as a new person's; the office will match it when the application arrives."
+    },
+    "contact": {
+      "title": "Edit contact details",
+      "mobile": "Mobile",
+      "village": "Village",
+      "post_office": "Post office",
+      "post_code": "Post code",
+      "landmark": "Landmark",
+      "save": "Save"
+    },
+    "correction": {
+      "title": "Request a correction",
+      "field": "Detail to correct",
+      "new_value": "Correct value",
+      "current": "Now: {value}",
+      "reason": "Reason",
+      "send": "Send request"
+    },
+    "duplicates": {
+      "title": "Possible duplicates",
+      "tabs": {
+        "label": "Duplicates and merges",
+        "pairs": "Matching pairs",
+        "proposals": "Merge proposals"
+      },
+      "table": "Possible duplicate pairs",
+      "column": {
+        "first": "First profile",
+        "second": "Second profile",
+        "rules": "Matched on"
+      },
+      "rules": {
+        "name_father_mobile": "Same name, father/husband and mobile",
+        "name_dob_union": "Same name, date of birth and union",
+        "same_mobile": "Same mobile number"
+      },
+      "pair": "{first} and {second}",
+      "compare": "Compare",
+      "dismiss": "Not the same person",
+      "dismiss_title": "Are {first} and {second} different people?",
+      "dismissed": "The pair is marked as two different people",
+      "empty": "There are no possible duplicates now.",
+      "summary": "Showing {count} pairs",
+      "proposals": {
+        "table": "Merge proposals",
+        "kept": "Profile to keep",
+        "merged": "Profile to merge",
+        "reason": "Reason",
+        "proposed_at": "Proposed on",
+        "open": "Review and merge",
+        "empty": "No merge proposal is waiting."
+      },
+      "eyebrow": "Data quality",
+      "description": "Review the identities that match. Compare every detail and the help history before a merge.",
+      "back": "Back to beneficiaries"
+    },
+    "merge": {
+      "title": "Compare profiles",
+      "keep": "Keep this profile",
+      "keep_required": "Choose the profile to keep",
+      "applications": "Applications",
+      "applications_value": "{count}",
+      "projects": "Projects",
+      "merge": "Merge",
+      "propose": "Propose a merge",
+      "merge_title": "Merge {merged} into {kept}?",
+      "propose_title": "Propose merging {merged} into {kept}?",
+      "execute_title": "Merge {merged} into {kept} as proposed?",
+      "proposal_reason": "Reason of the proposal: {reason}",
+      "merged": "Profiles merged",
+      "proposed": "Merge proposal sent",
+      "not_found": "One of the two profiles was not found.",
+      "proposal_missing": "This merge proposal is no longer waiting.",
+      "conflict": {
+        "application": "{project}: an application still waiting for a decision",
+        "project_unknown": "A project",
+        "hidden": "An application in a project outside your reach",
+        "class_attendance": "Both profiles have attendance in the same class",
+        "learning_progress": "Both profiles have progress on the same topic",
+        "exam_results": "Both profiles have a result in the same exam",
+        "file_links": "Both profiles have the same file",
+        "alerts": "Both profiles have an open alert of the same kind",
+        "other": "A record of the two profiles cannot be combined"
+      },
+      "revert": "Revert merge",
+      "revert_title": "Revert the merge with {benNo}?",
+      "reverted": "Merge reverted"
+    },
+    "eyebrow": "Beneficiary services",
+    "description": "Registration, verification, support and service history in one place."
   },
   "programs": {
     "title": "Programs",
@@ -451,6 +687,14 @@
       "pm": "Program Manager",
       "pm_hint": "Search by name; only a Program Manager can be chosen.",
       "active": "Active (takes new projects)"
+    },
+    "eyebrow": "Program management",
+    "description": "Manage the Foundation's programs and the Program Manager of each.",
+    "stats": {
+      "label": "Program counts",
+      "active": "Active programs",
+      "inactive": "Inactive programs",
+      "no_pm": "Programs without a PM"
     }
   },
   "projects": {
@@ -511,7 +755,8 @@
       "budget": "Planned budget",
       "activated": "Activated",
       "closed": "Closed",
-      "none": "Not set"
+      "none": "Not set",
+      "applications": "Applications"
     },
     "picker": "Project",
     "picker_option": "{name} {year} ({code})",
@@ -548,7 +793,8 @@
         "staff": "Staff access",
         "syllabus": "Dawah syllabus",
         "review": "Review",
-        "rules": "Rules"
+        "rules": "Rules",
+        "quotas": "Quotas"
       },
       "saved": "Saved.",
       "stale": "Someone changed this part meanwhile. The latest version is shown now; save again.",
@@ -583,7 +829,8 @@
       "no_areas": "No area yet.",
       "level": {
         "division": "Division",
-        "district": "District"
+        "district": "District",
+        "union": "Union"
       },
       "remove_area": "Remove the area {name}",
       "add_area": "Add an area",
@@ -634,6 +881,7 @@
         "fund_sources_total": "Fund sources equal to the planned budget",
         "area": "An area with its RPM",
         "photo_rule": "Photo rule",
+        "form": "A published application form",
         "component": "Settings of {name}",
         "rules": "Rules: {part}"
       },
@@ -683,7 +931,17 @@
           "gender_split": "Split by gender",
           "dedup_identical": "Warn on identical photos"
         }
-      }
+      },
+      "open_forms": "Open the form builder",
+      "quotas_hint": "How many people to help in each district or union. The review screen shows each area's target, what came and what was approved. A full quota never stops an approval, but asks for a comment.",
+      "no_quotas": "No quotas yet.",
+      "add_quota": "Add a quota",
+      "quota_target": "Target",
+      "quota_target_of": "{name}: target",
+      "remove_quota": "Remove the quota of {name}",
+      "save_quotas": "Save the quotas",
+      "quota_incomplete": "Give every quota a target of at least 1.",
+      "quota_progress": "Target {target} · came {received} · approved {approved}"
     },
     "picker_failed": "The projects could not be loaded.",
     "picker_chosen": "The chosen project",
@@ -821,7 +1079,41 @@
         "label": "{name}: may assign volunteers",
         "reason_title": "Reason for the change of permission",
         "confirm": "Save"
-      }
+      },
+      "transfer": "Hand over applications: {name}"
+    },
+    "transfer": {
+      "title": "Hand over applications: {name}",
+      "back": "Back to the project's volunteers",
+      "help": "Hand one volunteer's applications to another. The new volunteer carries on the work; the previous volunteer no longer sees these applications.",
+      "from_title": "Whose applications",
+      "from": "Current volunteer",
+      "applications_title": "Which applications",
+      "select_all": "Select all",
+      "no_applications": "This volunteer has no application to hand over.",
+      "pick_from": "Choose the current volunteer first.",
+      "unnamed": "No name",
+      "no_number": "No number",
+      "to_title": "To whom",
+      "to": "New volunteer",
+      "to_new": "Add to the project and hand over",
+      "to_new_help": "Choosing someone not yet on this project adds them to it with the handover.",
+      "move_team": "The team moves under the new volunteer too",
+      "move_team_help": "The team moves only when every application of this volunteer is handed over.",
+      "over_limit": "After the handover the new volunteer will hold {after} applications against the project's limit of {limit}. The handover is allowed, but they cannot start a new application until back under the limit.",
+      "reason": "Reason for the handover",
+      "reason_help": "The reason stays on the application's steps and in the audit log, read by the officials only.",
+      "submit": "Hand over",
+      "selected": "{count} selected",
+      "done": "{count} applications are handed over.",
+      "done_team": "{count} applications are handed over, and {team} team members moved under the new volunteer.",
+      "done_over_limit": "The new volunteer is now over the project's application limit."
+    },
+    "eyebrow": "Project management",
+    "description": "See each project's state, find projects by program and year, and open one to manage its setup and applications.",
+    "stats": {
+      "label": "Projects by state",
+      "all": "All projects"
     }
   },
   "templates": {
@@ -862,6 +1154,17 @@
       "replace_hint": "The template keeps its name; its contents become this project's setup.",
       "submit": "Save",
       "notice": "Template saved: {name}"
+    },
+    "eyebrow": "Project management",
+    "description": "Keep the setup of recurring projects and use it again for a new project.",
+    "stats": {
+      "label": "Template counts",
+      "active": "Active templates",
+      "inactive": "Inactive templates"
+    },
+    "rules": {
+      "title": "How templates work",
+      "body": "Choose a template when you create a new project. What a project takes from a template is its own copy, so changing or deactivating a template never changes an earlier project."
     }
   },
   "staff": {
@@ -1002,7 +1305,8 @@
         "place": "Role and place",
         "account": "Account",
         "contact": "Contact",
-        "devices": "Devices"
+        "devices": "Devices",
+        "work": "Projects and work"
       },
       "last_login": "Last sign-in",
       "never": "Not signed in yet",
@@ -1011,7 +1315,9 @@
       "call": "Call",
       "send_email": "Email",
       "none": "Not given"
-    }
+    },
+    "eyebrow": "People",
+    "description": "See the officials' profiles, roles and programs, and add a new official."
   },
   "settings": {
     "title": "Settings",
@@ -1067,11 +1373,13 @@
         "label": "Name",
         "code": "Code",
         "order": "Order",
-        "state": "State"
+        "state": "State",
+        "kind": "Kind"
       },
       "state": {
         "active": "On",
-        "inactive": "Off"
+        "inactive": "Off",
+        "system": "Needed by the system"
       },
       "dialog": {
         "create_title": "New item: {list}",
@@ -1083,7 +1391,19 @@
         "label_en": "Name (English)",
         "order": "Order",
         "order_hint": "Left empty, the item goes to the end",
-        "active": "On"
+        "active": "On",
+        "kind": "Kind",
+        "kind_hint": "Decides which links are accepted for this platform",
+        "system": "Needed by the system",
+        "system_hint": "The media rules use this stage, so it stays on. Its name can be changed."
+      },
+      "media_stage": "Media stages",
+      "media_role": "Production roles",
+      "media_platform": "Publication platforms",
+      "kind": {
+        "youtube": "YouTube",
+        "facebook": "Facebook",
+        "other": "Other website"
       }
     },
     "channels": {
@@ -1117,7 +1437,9 @@
       "endpoint": "Endpoint",
       "endpoint_hint": "An https address, without the key",
       "enabled": "SMS on"
-    }
+    },
+    "eyebrow": "System configuration",
+    "description": "Manage the organisation's details, the language, the alert thresholds, the lists and the notification channels."
   },
   "nisab": {
     "title": "Nisab",
@@ -1156,6 +1478,16 @@
       "effective_hint": "Today or later, at most a year ahead, after the latest version",
       "basis": "Basis",
       "basis_hint": "For example: by the price of silver"
+    },
+    "eyebrow": "Policies and limits",
+    "description": "Keep the zakat nisab and the date it takes effect from.",
+    "stats": {
+      "label": "Nisab figures",
+      "versions": "Versions kept"
+    },
+    "history": {
+      "title": "History of changes",
+      "body": "Each new value is kept as its own version and an earlier value is never erased, so the nisab in force on any date can always be seen."
     }
   },
   "audit": {
@@ -1165,7 +1497,6 @@
     "empty": "No entries for these filters",
     "system": "System",
     "open": "Show the details of {action}",
-    "open_short": "Details",
     "history_of": "The whole history of one entity: {type} · {id}",
     "history_clear": "Show all entries",
     "column": {
@@ -1200,6 +1531,12 @@
       "new": "New value",
       "nothing": "Nothing",
       "history": "The whole history of this entity"
+    },
+    "eyebrow": "Accountability",
+    "description": "Who changed or viewed what, and when: permission changes, views of sensitive data and important actions.",
+    "note": {
+      "title": "Read only",
+      "body": "No entry of the audit log can be changed or deleted. Secret values such as passwords or tokens are never shown."
     }
   },
   "sessions": {
@@ -1218,7 +1555,6 @@
     "ended": "The session of {name} has been ended.",
     "column": {
       "person": "Person",
-      "kind": "Account",
       "device": "Device",
       "version": "App version",
       "last_seen": "Last seen",
@@ -1228,7 +1564,8 @@
       "all": "All",
       "staff": "Officials",
       "volunteer": "Volunteers"
-    }
+    },
+    "eyebrow": "Security"
   },
   "health": {
     "title": "System health",
@@ -1240,7 +1577,6 @@
     },
     "up": "Up",
     "down": "Down",
-    "version": "Version",
     "environment": "Environment",
     "audit_partitions": "Audit log partitions reach the month",
     "unknown": "Not known",
@@ -1248,14 +1584,22 @@
     "storage_unknown": "The database did not answer, so the storage figures cannot be shown.",
     "figure": "{count} files, {size} in total",
     "measured": "Measured at {date}",
+    "by_bucket": "Storage by bucket",
+    "growth": "In the last month: {size}",
+    "growth_unknown": "Not known yet",
     "by_kind": "Files by kind",
     "by_month": "Files of the last 12 months",
     "column": {
       "kind": "Kind",
       "month": "Month",
+      "bucket": "Bucket",
       "count": "Count",
-      "size": "Size"
-    }
+      "size": "Size",
+      "growth": "Last month"
+    },
+    "eyebrow": "Administration",
+    "description": "The state of the database, the file storage and the job queue, and how the storage grows.",
+    "build": "Version {version}"
   },
   "notification_templates": {
     "title": "Notification templates",
@@ -1279,7 +1623,6 @@
     },
     "version": "{channel}, version {version}",
     "edit": "Edit {key}",
-    "edit_short": "Edit",
     "editor_title": "Edit {key}",
     "variables": "Values you can use: {list}",
     "variables_none": "This notification has no values to fill in.",
@@ -1294,7 +1637,8 @@
     "preview_title": "Preview with sample values",
     "save": "Save as new version",
     "cancel": "Cancel",
-    "saved": "{key} saved as version {version}."
+    "saved": "{key} saved as version {version}.",
+    "eyebrow": "Messages"
   },
   "deliveries": {
     "title": "Message deliveries",
@@ -1330,6 +1674,7 @@
     "to": "To",
     "empty": "No messages.",
     "system": "System",
-    "attempts": "Attempts: {count}"
+    "attempts": "Attempts: {count}",
+    "eyebrow": "Delivery audit"
   }
 }

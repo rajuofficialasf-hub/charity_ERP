@@ -23,7 +23,12 @@ export default defineConfig({
     {
       name: 'iphone',
       use: { ...devices['iPhone 13'] },
-      testMatch: ['**/auth.spec.ts', '**/registration.spec.ts', '**/home.spec.ts'],
+      testMatch: [
+        '**/auth.spec.ts',
+        '**/registration.spec.ts',
+        '**/home.spec.ts',
+        '**/shell.spec.ts',
+      ],
     },
   ],
   // The API on its own E2E database (seeded with the demo accounts, dummy OTP), then the web

@@ -1,13 +1,15 @@
 # CI for the CSS ERP on GitHub Actions (O-51; stages from TEST_STRATEGY section 6).
-# Every push and pull request: install, lint, typecheck, document checks, unit and API tests
-# against PostgreSQL 17, build, dependency audit and secret scan. Pushes to main also run E2E.
+# Every pull request and every push to main: install, lint, typecheck, document checks, unit and
+# API tests against PostgreSQL 17, build, dependency audit and secret scan. Pushes to main also run
+# E2E. A push to any other branch runs nothing, so a branch with a pull request runs once per push
+# and the free monthly minutes of a private repository last (D-138).
 # Nightly runs (full E2E on WebKit, visual regression) are added when those suites exist.
 
 name: CI
 
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
 
 permissions:
@@ -21,7 +23,8 @@ jobs:
   checks:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # the unit, component and database tests alone take about 17 minutes on the hosted runner
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17
@@ -71,12 +74,18 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm docs:check
+      # the export PDFs print through Chromium inside its sandbox: the browser with its system
+      # libraries, and the user namespaces the runner's AppArmor keeps closed by default
+      - run: pnpm --filter @css/api exec playwright-core install --with-deps chromium
+      - name: Allow the Chromium sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: pnpm test
       # every registered API operation answered its success status in a test (the responses were
       # validated against docs/api/openapi.yaml by the contract recorder during `pnpm test`)
       - run: pnpm --filter @css/api contract:coverage --no-run
       - run: pnpm build
-      # the first route of the PWA stays within 250 KB of compressed JavaScript
+      # the first route of the PWA stays within the budget of apps/web/scripts/bundle-report.mjs
+      # (compressed JavaScript; 400 KB while the web app moves to the asf UI system, then 250 KB)
       - run: pnpm --filter @css/web bundle:report
 
   security:
@@ -135,6 +144,9 @@ jobs:
       # Chromium runs every spec as a phone and a desktop; WebKit runs the sign-in, registration and
       # home specs as an iPhone (the `iphone` project of apps/web/playwright.config.ts)
       - run: pnpm --filter @css/web exec playwright install --with-deps chromium webkit
+      # the export journey prints a PDF through Chromium inside its sandbox (see the checks job)
+      - name: Allow the Chromium sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: pnpm e2e
       - if: failure()
         uses: actions/upload-artifact@v7

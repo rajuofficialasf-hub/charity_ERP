@@ -1,5 +1,4 @@
-import { Alert, Button } from '@css/ui';
-import { ArrowRight } from 'lucide-react';
+import { Alert, Button, LinkButton } from '@/ui';
 import type { ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
@@ -15,11 +14,14 @@ import { type StepId, stepOfMissing } from './wizard-steps';
 export function ReviewStep({
   missing,
   activation,
+  formHref,
   onOpen,
 }: {
   /** The missing items; null when the caller cannot see every part the check reads. */
   missing: string[] | null;
   activation: unknown;
+  /** Where a missing published form is made: the project's form in the builder. */
+  formHref: string;
   onOpen: (step: StepId) => void;
 }) {
   const { project } = useSetup();
@@ -44,15 +46,20 @@ export function ReviewStep({
           {open.map((item) => (
             <li key={item}>
               <span>{label(item)}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={ArrowRight}
-                iconPosition="end"
-                onPress={() => onOpen(stepOfMissing(item))}
-              >
-                {t('open_step')}
-              </Button>
+              {item === 'form' ? (
+                <LinkButton variant="text" endIcon="arrow-right" to={formHref}>
+                  {ts('open_forms')}
+                </LinkButton>
+              ) : (
+                <Button
+                  variant="text"
+                  size="small"
+                  endIcon="arrow-right"
+                  onClick={() => onOpen(stepOfMissing(item))}
+                >
+                  {t('open_step')}
+                </Button>
+              )}
             </li>
           ))}
         </ul>
@@ -64,9 +71,7 @@ export function ReviewStep({
       <ProjectFacts project={project} />
       {state}
       {activation instanceof ApiFailure && refused.length === 0 && (
-        <Alert tone="danger" live="alert">
-          {activation.message}
-        </Alert>
+        <Alert tone="error">{activation.message}</Alert>
       )}
     </SetupSection>
   );

@@ -77,7 +77,7 @@ Error:
 
 Messages come from the Bengali or English catalogue; digits are always 0–9 in both languages (UX-05).
 
-- `params` appears only for the codes whose parameters section 8 documents (today `permission.grant_refused` with `rule`); other codes keep their parameters inside the rendered message.
+- `params` appears only for the codes whose parameters section 8 documents (`permission.grant_refused` with `rule`; in a detail, `beneficiary.identity_taken` with `benNo` when the caller may see the holder, and `beneficiary.merge_conflict` with `projectId` and `applicationId`, or `ref`); other codes keep their parameters inside the rendered message.
 - `requestId` is returned in every response and in the `X-Request-Id` header; it is the correlation key in logs (SYSTEM_ARCHITECTURE §10).
 - Timestamps are ISO 8601 UTC with `Z`; dates are `YYYY-MM-DD`; money is a decimal **string** (`"1000.00"`) in BDT; counts are integers; booleans are booleans; all digits are 0–9 (UX-05).
 - Fields the caller may not see are **absent**, not null (field-level protection by removal, RBAC.md §8).
@@ -222,10 +222,16 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | file | file.type_not_allowed | 415 | type not allowed for the kind (FILES_AND_DOCUMENTS §5) |
 | file | file.too_large | 413 | above the size limit |
 | file | file.source_not_allowed | 422 | gallery under camera_only (UX-11) |
-| file | file.duplicate | 409 | identical bytes already in the project (O-30) |
+| file | file.duplicate | 409 | identical bytes already in the project (O-30); `params.fileId` names the other file only to a caller whose scope reaches one of its records |
 | file | file.quarantined | 423 | not scanned yet; cannot be previewed or downloaded (O-30) |
 | file | file.infected | 410 | blocked by the scanner |
 | file | file.session_expired | 410 | upload session expired |
+| file | file.kind_not_allowed | 422 | the kind cannot be linked to that record type (D-108) |
+| file | file.part_out_of_range | 422 | a part number outside the declared size (D-108) |
+| file | file.checksum_mismatch | 422 | the joined bytes do not match the declared SHA-256 or size (D-108) |
+| file | file.parts_missing | 409 | finalize before every part of the declared size arrived (D-108) |
+| file | file.sessions_limit | 429 | more than 20 open upload sessions (D-108) |
+| file | file.session_mismatch | 409 | a create repeats a client id of an earlier session with other file details (kind, record, slot, type, size or SHA-256) |
 | rate_limit | rate_limit.exceeded | 429 | with `Retry-After` |
 | export | export.not_ready, export.expired | 409, 410 | job still running; file removed after 30 days |
 | client | client.upgrade_required | 426 | PWA version below the minimum supported version; sync the outbox, then update (section 17) |
@@ -263,12 +269,15 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | otp-verify | 5 attempts per code (O-25); 20 per hour per IP (D-075) | code, IP |
 | password-reset | 5 per hour per login id (normalized spelling); 20 per hour per IP (D-075) | login id, IP |
 | refresh | 60 per hour | device session |
-| public-form | 20 per hour (O-08, NFR-41) | IP |
+| public-form | 20 per hour per route (O-08, NFR-41): the public form read, the public submission and the public photo upload each have their own budget per address | IP |
 | registration | 10 registrations started per IP per day, plus the `otp-request` windows (D-082) | IP, address |
 | reference-read | 300 per hour (public reference data, D-083) | IP |
 | default | 600 per minute per user (PROPOSAL, tuned by the load test T3.4) | user |
 | list | 60 per minute per user and 600 per minute per address; each read stops after 5 seconds with `server.busy` (O-67) | user, IP |
 | sync | 60 batches per minute per device session (PROPOSAL) | device session |
+| upload | 600 parts per hour per user (a photo of 1.6 MB is 7 parts; D-108) | user |
+| lookup | the beneficiary lookup by NID or birth registration: 60 per minute and 600 per day per user, and 120 per minute per address; every lookup is audited without the number (D-114) | user, IP |
+| export | 30 export requests per hour per user; each reads up to 100,000 rows in the worker (D-143) | user |
 
 Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a 429 carries `Retry-After`, which the PWA honours (O-29). Limits are enforced in the API (not only in Caddy) so they apply per account.
 
@@ -281,11 +290,11 @@ Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a
 - `X-Client-Version: <pwa version>` on every request (section 17); `X-Device-Session` is not needed because the session id is inside the token.
 - Public endpoints (login, OTP, registration, public form, health) are declared `x-permission: public` and listed in SECURITY_POLICY.
 
-## 12. Files and signed URLs
+## 12. Files, streamed through the API
 
-- File bytes never travel through JSON endpoints. Uploads use upload sessions (FILES_AND_DOCUMENTS §4): `POST /upload-sessions` (declares kind, entity, slot, mime, size, sha256, capture metadata, clientUuid) → presigned chunk URLs (256 KB parts, O-29) → `GET /upload-sessions/{id}` for resume → `POST /upload-sessions/{id}/finalize`.
-- Downloads: `POST /files/{fileId}/url` returns `{ url, expiresAt }` after the permission, scope and field-class checks; URLs expire within 15 minutes (NFR-28); quarantined files return 423 `file.quarantined` (O-30).
-- Records reference files by id in the slot fields (`photoFileIds`, `voucherFileId`); the API never embeds file URLs in list responses (they would expire and leak); clients ask for URLs when they display a file, thumbnails included.
+- File bytes never travel through JSON endpoints. Uploads use upload sessions (FILES_AND_DOCUMENTS §4): `POST /upload-sessions` (declares kind, record, slot, mime, size, sha256, capture metadata, clientUuid) → `PUT /upload-sessions/{id}/parts/{n}` with raw bytes (256 KB parts, O-29) → `GET /upload-sessions/{id}` for resume → `POST /upload-sessions/{id}/finalize` (D-108).
+- Downloads: `GET /files/{fileId}/content` (with `variant` for thumbnails) streams the bytes after the permission, scope and field-class checks, with `no-store` and `nosniff`; no URL to an object is ever issued (D-074, D-108); quarantined files return 423 `file.quarantined` and infected ones 410 `file.infected` (O-30).
+- Records reference files by id in the slot fields (`photoFileIds`, `voucherFileId`); clients fetch the content route by id when they display a file, thumbnails included.
 
 ## 13. Bulk-update pattern
 
@@ -299,23 +308,33 @@ Idempotency-Key: <uuid>
 200 { "data": { "results": [ { "clientUuid": "…", "result": "done" | "failed" | "pending_photos", "code": "workflow.guard.photos_required_per_rule", "status": "implementation", "stage": "distributed" } ] } }
 ```
 
-- Each row is processed independently through the same application service, guards, effects and audit as a single action; one failed row never rolls back the others.
+- Each row is processed independently through the same application service, guards, effects and audit as a single action; one failed row never rolls back the others (one savepoint per row inside the batch's transaction).
+- The review screen uses the same pattern for the common cycle: `POST /api/v1/projects/{projectId}/bulk/review` with `{ "action": "review" | "approve", "rows": [ { "clientUuid", "applicationId", "ifMatch" } ] }`; `ifMatch` is the row's `etag` from the list, so a row that changed since the list was read fails with `conflict.stale_version` while the others pass. The request is refused as a whole (403) when the caller holds no permission for the action at all, and (422) when the Idempotency-Key was used by someone else or with another request.
 - Permission is checked per row against the row's record and scope; `x-permission` on the endpoint names the screen's permission (e.g. `distribution.update`, `class.record`, `progress.update`, `site_verification.record`, `followup.record`).
 - The same payload shape is accepted inside `/sync/batch` for offline saves.
 
 ## 14. Export job pattern
 
 ```
-POST /api/v1/exports            { "kind": "applications", "filters": { … }, "format": "xlsx" | "csv" | "pdf" }
-202 { "data": { "jobId": "…", "status": "queued" } }
-GET  /api/v1/exports/{jobId}    → { status: queued | running | done | failed, rowCount, fileId }
-POST /api/v1/files/{fileId}/url → signed URL (15 minutes)
+GET  /api/v1/exports/columns?list=applications&projectId=…  → the columns the caller may export
+POST /api/v1/exports            { "kind": "applications", "format": "xlsx" | "csv" | "pdf",
+                                  "columns": ["app_no", "status", "q:monthly_income"],
+                                  "filters": { … }, "projectId": "…" }
+202 { "data": { "id": "…", "status": "queued", "rowsTotal": 1200, "rowsDone": 0, … } }
+GET  /api/v1/exports            → the caller's own jobs of the last 30 days
+GET  /api/v1/exports/{jobId}    → { status: queued | running | done | failed, rowsDone, rowsTotal, rowCount, fileId, errorCode }
+GET  /api/v1/files/{fileId}/content → the file, streamed after the checks (D-074)
 ```
+
+- The request needs `export.list` and the list's own read permission. It freezes the list's query (the list service's own `where` and order, inside the caller's scope of that moment) with the field classes the export may carry; the job replays exactly that query and never reads the caller's access again (D-143).
+- Refused before any job exists: an unknown column (422), a column of a class the caller may not export (403), a project out of the caller's reach (404), more than 100,000 rows or, for a PDF, 1,000 rows (422 `export.too_many_rows`, `export.pdf_too_many_rows`), and a fourth waiting or running export of the caller (409 `export.running_limit`; a job older than 30 minutes no longer counts).
+- The job writes in batches of 1,000 rows, never more than the limit even when rows were added after the count, and updates `rowsDone` after each batch. It streams the file into the `exports` bucket, then writes the `files` row (kind `export`, source `system`, scan `clean`) and `done` in one transaction. A failed attempt removes its partial object and is retried; only the last attempt writes `failed` with a fixed code (`export.failed`, `export.pdf_unavailable`, `export.pdf_failed`).
 
 - The export runs in the worker (ADR-004) with the requester's permissions, scope and field masks frozen at request time (RBAC.md §8).
 - Kinds that include identity, bank, donor or official-section fields require the matching `export.*` permission, set `sensitive = true` and write an audit entry with filters and row count (BR-224, BR-179).
-- Files are deleted after 30 days; the job row and the audit entry remain (O-30); `GET` on an expired job returns 410 `export.expired`.
-- The requester gets an in-app notification when the job is done.
+- The file streams from `GET /files/{fileId}/content` to its requester alone, as an attachment, and only while their account is active and their live access still holds `export.list` and, for a sensitive file, the export permissions of its protected classes; anyone else gets 404. Each download of a sensitive file writes `file.download_sensitive`.
+- A daily sweep on the `exports` queue deletes files after 30 days (the object first, then the file row marked deleted); the job row and the audit entry remain (O-30), and the requester's download of an expired file answers 410 `export.expired`. The same sweep fails a job waiting or running for more than 30 minutes with `export.timed_out` and removes what its attempts left.
+- The requester gets an in-app notification when the job is done (`export_ready`) or failed (`export_failed`).
 
 ## 15. Audit requirements per endpoint
 

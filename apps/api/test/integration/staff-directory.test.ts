@@ -324,6 +324,30 @@ describe('the organogram (BR-263)', () => {
     expect(flat(a.members)).toEqual(expect.arrayContaining([x.id, y.id]));
   });
 
+  it("carries each official's uploaded photo, and none for one without", async () => {
+    const file = randomUUID();
+    await h.db.query(
+      `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, source)
+       VALUES ($1, 'profiles', $2, 'profile_photo', 'image/jpeg', 4, $3, 'camera')`,
+      [file, `staff/${file}.jpg`, file.replace(/-/g, '').padEnd(64, '0')],
+    );
+    await h.db.query(
+      `INSERT INTO file_links (id, file_id, entity_type, entity_id, slot)
+       VALUES ($1, $2, 'user', $3, 'photo')`,
+      [randomUUID(), file, people.rpm!.id],
+    );
+    const res = await api().get('/api/v1/organogram').set(bearer(headSession));
+    const nodes = (
+      res.body.data.programs as { members: (Node & { photoFileId: string | null })[] }[]
+    )
+      .flatMap((p) => p.members)
+      .flatMap(function all(n): (Node & { photoFileId: string | null })[] {
+        return [n, ...(n.reports as (Node & { photoFileId: string | null })[]).flatMap(all)];
+      });
+    expect(nodes.find((n) => n.userId === people.rpm!.id)?.photoFileId).toBe(file);
+    expect(nodes.find((n) => n.userId === people.pm!.id)?.photoFileId).toBeNull();
+  });
+
   it('is refused to a volunteer', async () => {
     const volunteer = await account(h.db, { kind: 'volunteer' });
     const res = await api()

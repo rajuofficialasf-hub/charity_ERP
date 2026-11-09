@@ -9,7 +9,7 @@ import {
   QUALIFICATIONS,
   VEHICLES,
 } from '@css/shared/registration';
-import { CheckboxGroup, RadioGroup, Select, TextField } from '@css/ui';
+import { CheckboxGroup, RadioGroup, SelectField, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { type Address, AddressFields, EMPTY_ADDRESS } from './AddressFields';
 
@@ -145,13 +145,13 @@ export function ProfessionFields({ value, onChange, errors = {} }: GroupProps<Pr
     onChange({ ...value, details: { ...value.details, [field]: text } });
   return (
     <div className="register-stack">
-      <Select
+      <SelectField
         label={t('form.profession')}
         name="profession"
         placeholder={t('form.choose')}
-        value={value.profession || null}
+        value={value.profession || ''}
         onChange={(id) => onChange({ profession: (id ?? '') as Profession | '', details: {} })}
-        options={PROFESSIONS.map((id) => ({ id, label: t(`lists.profession.${id}`) }))}
+        options={PROFESSIONS.map((id) => ({ value: id, label: t(`lists.profession.${id}`) }))}
         required
         error={errors.profession}
       />
@@ -162,15 +162,15 @@ export function ProfessionFields({ value, onChange, errors = {} }: GroupProps<Pr
             const current = value.details[field] ?? '';
             if (CHOICE_FIELDS.has(field))
               return (
-                <Select
+                <SelectField
                   key={field}
                   label={text}
                   name={`professionDetails.${field}`}
                   placeholder={t('form.choose')}
-                  value={current || null}
+                  value={current || ''}
                   onChange={(id) => setDetail(field, id ?? '')}
                   options={DETAIL_OPTIONS[field as keyof typeof DETAIL_OPTIONS].map((id) => ({
-                    id,
+                    value: id,
                     label: optionLabel(field, id),
                   }))}
                   error={errors[`professionDetails.${field}`]}
@@ -204,7 +204,7 @@ export function SkillsFields({ value, onChange, errors = {} }: GroupProps<Skills
         columns={2}
         value={value.interestAreas}
         onChange={(interestAreas) => onChange({ ...value, interestAreas })}
-        options={INTEREST_AREAS.map((id) => ({ id, label: t(`lists.interest.${id}`) }))}
+        options={INTEREST_AREAS.map((id) => ({ value: id, label: t(`lists.interest.${id}`) }))}
         error={errors.interestAreas}
       />
       <div className="register-grid">
@@ -214,7 +214,7 @@ export function SkillsFields({ value, onChange, errors = {} }: GroupProps<Skills
           orientation="horizontal"
           value={value.vehicle || null}
           onChange={(vehicle) => onChange({ ...value, vehicle })}
-          options={VEHICLES.map((id) => ({ id, label: t(`lists.vehicle.${id}`) }))}
+          options={VEHICLES.map((id) => ({ value: id, label: t(`lists.vehicle.${id}`) }))}
           error={errors.vehicle}
         />
         <RadioGroup
@@ -224,8 +224,8 @@ export function SkillsFields({ value, onChange, errors = {} }: GroupProps<Skills
           value={value.canSwim || null}
           onChange={(canSwim) => onChange({ ...value, canSwim: canSwim as 'yes' | 'no' })}
           options={[
-            { id: 'yes', label: t('form.yes') },
-            { id: 'no', label: t('form.no') },
+            { value: 'yes', label: t('form.yes') },
+            { value: 'no', label: t('form.no') },
           ]}
           error={errors.canSwim}
         />
@@ -236,18 +236,21 @@ export function SkillsFields({ value, onChange, errors = {} }: GroupProps<Skills
           value={value.emergencyFullTime || null}
           onChange={(v) => onChange({ ...value, emergencyFullTime: v as 'yes' | 'no' })}
           options={[
-            { id: 'yes', label: t('form.yes') },
-            { id: 'no', label: t('form.no') },
+            { value: 'yes', label: t('form.yes') },
+            { value: 'no', label: t('form.no') },
           ]}
           error={errors.emergencyFullTime}
         />
-        <Select
+        <SelectField
           label={t('form.availability')}
           name="availability"
           placeholder={t('form.choose')}
-          value={value.availability || null}
+          value={value.availability || ''}
           onChange={(id) => onChange({ ...value, availability: id ?? '' })}
-          options={AVAILABILITIES.map((id) => ({ id, label: t(`lists.availability.${id}`) }))}
+          options={AVAILABILITIES.map((id) => ({
+            value: id,
+            label: t(`lists.availability.${id}`),
+          }))}
           error={errors.availability}
         />
       </div>
@@ -261,13 +264,13 @@ export function EducationFields({ value, onChange, errors = {} }: GroupProps<Edu
   const set = (patch: Partial<EducationState>) => onChange({ ...value, ...patch });
   return (
     <div className="register-grid">
-      <Select
+      <SelectField
         label={t('form.highest_qualification')}
         name="highestQualification"
         placeholder={t('form.choose')}
-        value={value.highestQualification || null}
+        value={value.highestQualification || ''}
         onChange={(id) => set({ highestQualification: id ?? '' })}
-        options={QUALIFICATIONS.map((id) => ({ id, label: t(`lists.qualification.${id}`) }))}
+        options={QUALIFICATIONS.map((id) => ({ value: id, label: t(`lists.qualification.${id}`) }))}
         error={errors['educationDetails.highestQualification']}
       />
       <TextField
@@ -305,7 +308,10 @@ export function EducationFields({ value, onChange, errors = {} }: GroupProps<Edu
         orientation="horizontal"
         value={value.status || null}
         onChange={(status) => set({ status: status as EducationState['status'] })}
-        options={EDUCATION_STATUSES.map((id) => ({ id, label: t(`lists.education_status.${id}`) }))}
+        options={EDUCATION_STATUSES.map((id) => ({
+          value: id,
+          label: t(`lists.education_status.${id}`),
+        }))}
         error={errors['educationDetails.status']}
       />
     </div>

@@ -15,7 +15,10 @@ export type RateLimitClass =
   | 'registration'
   | 'default'
   | 'list'
-  | 'sync';
+  | 'sync'
+  | 'upload'
+  | 'lookup'
+  | 'export';
 
 export interface RateWindow {
   limit: number;
@@ -136,4 +139,16 @@ export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
     { limit: 60, ttlMs: MINUTE, key: caller, shared: true },
   ],
   sync: [{ limit: 60, ttlMs: MINUTE, key: session }],
+  // The parts of chunked uploads: one budget per user across every upload (FILES_AND_DOCUMENTS 4).
+  upload: [{ limit: 600, ttlMs: HOUR, key: caller, shared: true }],
+  // The beneficiary lookup by NID or birth registration answers with a person's details, so trying
+  // numbers must not pay: per user a minute and a day, and per address before them
+  // (proposals, tuned with the load tests before the field rollout).
+  lookup: [
+    { limit: 120, ttlMs: MINUTE, key: (r) => `ip:${ip(r)}`, byIp: true, shared: true },
+    { limit: 60, ttlMs: MINUTE, key: caller, shared: true },
+    { limit: 600, ttlMs: DAY, key: caller, shared: true },
+  ],
+  // An export reads up to 100,000 rows in the worker: a person starts at most 30 an hour.
+  export: [{ limit: 30, ttlMs: HOUR, key: caller, shared: true }],
 };

@@ -5,6 +5,7 @@ import {
   isFakeMobile,
   isFakeNid,
   mergeWorkflowTemplates,
+  NOTIFICATION_TEMPLATES,
   workflowDefinitionSchema,
 } from '@css/shared';
 import { SETTING_DEFAULTS } from '@css/shared/settings';
@@ -12,7 +13,7 @@ import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { readPermissionsFile } from '../../seed/sets/base/access';
 import { deriveTransitions, readWorkflowTemplates } from '../../seed/sets/base/workflows';
-import { DEMO_STAFF } from '../../seed/sets/demo';
+import { DEMO_DUPLICATE_PAIRS, DEMO_STAFF } from '../../seed/sets/demo';
 import { runSeed, type SeedReport } from '../../seed/run';
 import { cloneTemplate } from './support/db';
 
@@ -39,10 +40,15 @@ const SEEDED_TABLES = [
   'user_roles',
   'volunteers',
   'beneficiaries',
+  'blocklist',
   'projects',
   'id_sequences',
   'project_areas',
   'project_components',
+  'forms',
+  'form_versions',
+  'applications',
+  'beneficiary_merge_candidates',
 ];
 
 async function contentHash(): Promise<Record<string, string>> {
@@ -112,7 +118,9 @@ describe('base set', () => {
         .sort((a, b) => a.key.localeCompare(b.key)),
     );
     const permissions = (
-      await db.query('SELECT name, module, sensitive, description FROM permissions ORDER BY name')
+      await db.query(
+        'SELECT name, module, sensitive, description FROM permissions ORDER BY name COLLATE "C"',
+      )
     ).rows;
     expect(permissions).toEqual(
       file.permissions
@@ -122,10 +130,11 @@ describe('base set', () => {
           sensitive: p.sensitive,
           description: p.description,
         }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        // the code-point order of the database's "C" collation, so '.' and '_' sort alike on both sides
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
     );
     expect(roles).toHaveLength(17);
-    expect(permissions).toHaveLength(150);
+    expect(permissions).toHaveLength(157);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
@@ -143,7 +152,7 @@ describe('base set', () => {
     }
   });
 
-  it('seeds the reference lists, notification templates and the two current forms', async () => {
+  it('seeds the reference lists and notification templates, and no form library or form template', async () => {
     const lists = (
       await db.query(
         'SELECT list_key, count(*)::int AS n FROM reference_lists GROUP BY list_key ORDER BY list_key',
@@ -158,25 +167,58 @@ describe('base set', () => {
       gender: 2,
       issue_type_default: 6,
       marital_status: 6,
+      media_platform: 4,
+      media_role: 6,
+      media_stage: 13,
       payment_method: 4,
       relationship: 17,
     });
+    // the media stages the rules need are system entries; each platform names its kind
+    const media = (
+      await db.query<{
+        list_key: string;
+        code: string;
+        is_system: boolean;
+        channel: string | null;
+      }>(
+        `SELECT list_key, code, is_system, attributes ->> 'kind' AS channel FROM reference_lists
+          WHERE list_key IN ('media_stage', 'media_platform') AND (is_system OR list_key = 'media_platform')
+          ORDER BY list_key, code`,
+      )
+    ).rows;
+    expect(media.map((m) => [m.list_key, m.code, m.is_system, m.channel])).toEqual([
+      ['media_platform', 'ahmadullah_facebook', false, 'facebook'],
+      ['media_platform', 'ahmadullah_youtube', false, 'youtube'],
+      ['media_platform', 'asf_facebook', false, 'facebook'],
+      ['media_platform', 'asf_youtube', false, 'youtube'],
+      ['media_stage', 'accepted', true, null],
+      ['media_stage', 'cancelled', true, null],
+      ['media_stage', 'done', true, null],
+      ['media_stage', 'in_review', true, null],
+      ['media_stage', 'on_hold', true, null],
+      ['media_stage', 'published', true, null],
+      ['media_stage', 'ready_to_publish', true, null],
+    ]);
     const notif = (
       await db.query(
         `SELECT count(DISTINCT key)::int AS keys, count(*) FILTER (WHERE locale = 'bn')::int AS bn, count(*) FILTER (WHERE locale = 'en')::int AS en FROM notification_templates`,
       )
     ).rows[0];
     expect(notif.bn).toBe(notif.en);
-    expect(notif.keys).toBe(33);
-    const forms = (await db.query('SELECT key, project_type FROM project_templates ORDER BY key'))
-      .rows;
-    expect(forms).toEqual([
-      { key: 'form_distribution', project_type: 'distribution' },
-      { key: 'form_self_reliance_construction', project_type: 'implementation_evidence' },
-    ]);
-    expect((await db.query('SELECT count(*)::int AS n FROM form_library_sections')).rows[0].n).toBe(
-      10,
+    expect(notif.keys).toBe(NOTIFICATION_TEMPLATES.length);
+    // the Monitoring Team builds the library and every form: the seed writes neither
+    const templates = await db.query(
+      `SELECT key FROM project_templates WHERE definition->>'kind' = 'form_template'`,
     );
+    expect(templates.rows).toEqual([]);
+    for (const table of ['form_library_sections', 'form_library_fields'])
+      expect((await db.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n, table).toBe(0);
+    // the library form the migration made stays empty, with its one draft
+    const library = await db.query(
+      `SELECT v.status, (SELECT count(*)::int FROM form_sections s WHERE s.form_version_id = v.id) AS sections
+         FROM forms f JOIN form_versions v ON v.form_id = f.id WHERE f.kind = 'library'`,
+    );
+    expect(library.rows).toEqual([{ status: 'draft', sections: 0 }]);
   });
 
   it('seeds every setting with its decided default, once', async () => {
@@ -256,14 +298,15 @@ describe('demo set', () => {
     expect(team[0].reference_nid).toBe(team[0].nid);
   });
 
-  it('has 50 beneficiaries in exactly two divisions and a draft winter project with components', async () => {
+  it('has 54 beneficiaries in exactly two divisions and a draft winter project with components', async () => {
     const divisions = (
       await db.query(
         `SELECT l.name_en, count(*)::int AS n FROM beneficiaries b JOIN locations l ON l.id = b.division_id GROUP BY l.name_en ORDER BY l.name_en`,
       )
     ).rows;
+    // 25 per division, and the four profiles of the duplicate pairs in Dhaka
     expect(divisions).toEqual([
-      { name_en: 'Dhaka', n: 25 },
+      { name_en: 'Dhaka', n: 29 },
       { name_en: 'Rangpur', n: 25 },
     ]);
     const project = (
@@ -286,6 +329,64 @@ describe('demo set', () => {
         ],
       },
     ]);
+  });
+
+  it('keeps two duplicate pairs the duplicate rules find, both people applied in program HUM', async () => {
+    const pairs = (
+      await db.query(
+        `SELECT x.nid AS low_nid, y.nid AS high_nid, c.rules, c.active,
+           person_name_key(x.name) = person_name_key(y.name)
+             AND person_name_key(x.father_or_husband_name) = person_name_key(y.father_or_husband_name)
+             AND x.mobile = y.mobile AS same_person_data
+         FROM beneficiary_merge_candidates c
+         JOIN beneficiaries x ON x.id = c.low_id
+         JOIN beneficiaries y ON y.id = c.high_id
+         ORDER BY least(x.nid, y.nid)`,
+      )
+    ).rows;
+    expect(pairs).toHaveLength(DEMO_DUPLICATE_PAIRS.length);
+    for (const [i, pair] of pairs.entries()) {
+      expect([pair.low_nid, pair.high_nid].sort()).toEqual([...DEMO_DUPLICATE_PAIRS[i]!.nids]);
+      expect(pair).toMatchObject({
+        rules: ['name_father_mobile', 'same_mobile'],
+        active: true,
+        same_person_data: true,
+      });
+    }
+    const applications = (
+      await db.query(
+        `SELECT b.nid, a.status, p.code, g.code AS program
+         FROM applications a
+         JOIN beneficiaries b ON b.id = a.beneficiary_id
+         JOIN projects p ON p.id = a.project_id
+         JOIN programs g ON g.id = p.program_id
+         ORDER BY b.nid`,
+      )
+    ).rows;
+    expect(applications).toEqual(
+      DEMO_DUPLICATE_PAIRS.flatMap((pair) =>
+        pair.nids.map((nid) => ({
+          nid,
+          status: 'under_review',
+          code: 'WNT',
+          program: 'HUM',
+        })),
+      ),
+    );
+  });
+
+  it('blocks exactly one Dhaka beneficiary, identified by NID, through an active blocklist row', async () => {
+    const { rows } = await db.query(
+      `SELECT b.nid, l.name_en AS division, bl.active, bl.reason
+       FROM beneficiaries b
+       JOIN locations l ON l.id = b.division_id
+       LEFT JOIN blocklist bl ON bl.subject_type = 'beneficiary' AND bl.subject_id = b.id
+       WHERE b.is_blocked`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ division: 'Dhaka', active: true });
+    expect(isFakeNid(rows[0].nid)).toBe(true);
+    expect(isDemoName(rows[0].reason)).toBe(true);
   });
 
   it('contains no real identities: every NID, birth registration, mobile, email and name is fake', async () => {

@@ -79,11 +79,11 @@ const nidOf = async (id: string) =>
   (await h.db.query('SELECT nid FROM beneficiaries WHERE id = $1', [id])).rows[0].nid as string;
 
 describe('the beneficiary list', () => {
-  it('filters by the area cascade, type, project, year and the blocked flag', async () => {
+  it('filters by the area cascade, type, gender, project, year and the blocked flag', async () => {
     const tree = await f.locationTree(h.db);
     const widow = await person(tree, { class_code: 'widow' });
     const blocked = await person(tree, { is_blocked: true });
-    const applicant = await person(tree);
+    const applicant = await person(tree, { gender_code: 'male' });
     const project = await f.project(h.db, { year: 2024 });
     await applyTo(project, tree, applicant);
     const head = await as(world.users.head);
@@ -97,11 +97,17 @@ describe('the beneficiary list', () => {
     ] as [string, string][])
       expect(ids(await list(head, { [column]: value })).length, column).toBe(3);
     expect(ids(await list(head, { unionId: tree.union, type: 'widow' }))).toEqual([widow]);
+    expect(ids(await list(head, { unionId: tree.union, gender: 'male' }))).toEqual([applicant]);
+    expect(ids(await list(head, { unionId: tree.union, gender: 'female' })).sort()).toEqual(
+      [widow, blocked].sort(),
+    );
     expect(ids(await list(head, { projectId: project.id }))).toEqual([applicant]);
     expect(ids(await list(head, { unionId: tree.union, year: '2024' }))).toEqual([applicant]);
     expect(ids(await list(head, { unionId: tree.union, blocked: 'true' }))).toEqual([blocked]);
     expect((await list(head, { year: '1999' })).status).toBe(422);
     expect((await list(head, { type: 'Widow!' })).status).toBe(422);
+    expect((await list(head, { gender: 'Male!' })).status).toBe(422);
+    expect((await list(head, { gender: 'other' })).status).toBe(422);
   });
 
   it('searches by name, by mobile for those who see it, and by NID only inside the NID scope', async () => {
@@ -132,17 +138,43 @@ describe('the beneficiary list', () => {
       'isBlocked',
       'fatherOrHusbandName',
       'classCode',
+      'photoFileId',
     ])
       expect(row, key).not.toHaveProperty(key);
-    for (const query of [{ unionId: tree.union }, { blocked: 'true' }, { type: 'widow' }] as Record<
-      string,
-      string
-    >[]) {
+    for (const query of [
+      { unionId: tree.union },
+      { blocked: 'true' },
+      { type: 'widow' },
+      { gender: 'female' },
+    ] as Record<string, string>[]) {
       const refused = await list(media, query);
       expect(refused.status).toBe(403);
       expect(refused.body.error.code).toBe('permission.denied');
       expect((await statistics(media, query)).status).toBe(403);
     }
+  });
+
+  it('carries the photo of a beneficiary in the row, and none for one without a photo', async () => {
+    const tree = await f.locationTree(h.db);
+    const photo = await f.insert(h.db, 'files', {
+      id: randomUUID(),
+      bucket: 'photos',
+      object_key: `beneficiaries/${randomUUID()}.jpg`,
+      kind: 'profile_photo',
+      mime: 'image/jpeg',
+      size_bytes: 10,
+      sha256: randomUUID().replace(/-/g, '').padEnd(64, '0'),
+      source: 'camera',
+    });
+    const pictured = await person(tree, { photo_file_id: photo });
+    const plain = await person(tree);
+    const head = await as(world.users.head);
+    const rows = (await list(head, { unionId: tree.union })).body.data as {
+      id: string;
+      photoFileId: string | null;
+    }[];
+    expect(rows.find((r) => r.id === pictured)?.photoFileId).toBe(photo);
+    expect(rows.find((r) => r.id === plain)?.photoFileId).toBeNull();
   });
 
   it('gives the Procurement Team only the beneficiaries of its house-construction projects', async () => {
@@ -209,16 +241,26 @@ describe('the beneficiary list', () => {
 });
 
 describe('the statistics of the beneficiary tab', () => {
-  it('count everyone, those assisted this year and the blocked, inside the caller scope', async () => {
+  it('count everyone, those assisted this year, the blocked, the men and the women, inside the caller scope', async () => {
     const tree = await f.locationTree(h.db);
     const assisted = await person(tree);
     await person(tree, { is_blocked: true });
-    await person(tree);
+    await person(tree, { gender_code: 'male' });
     await applyTo(house, tree, assisted);
     const head = await as(world.users.head);
     const res = await statistics(head, { districtId: tree.district });
     expect(res.headers['cache-control']).toBe('no-store');
-    expect(res.body.data).toEqual({ total: 3, assistedThisYear: 1, blocked: 1 });
+    expect(res.body.data).toEqual({
+      total: 3,
+      assistedThisYear: 1,
+      blocked: 1,
+      male: 1,
+      female: 2,
+    });
+    // the counts follow the filters in use, the gender among them
+    expect(
+      (await statistics(head, { districtId: tree.district, gender: 'male' })).body.data,
+    ).toEqual({ total: 1, assistedThisYear: 0, blocked: 0, male: 1, female: 0 });
     const media = await staff('media_team');
     expect((await statistics(media, { districtId: tree.district })).body.data).toEqual({
       total: 3,
@@ -247,7 +289,16 @@ describe('the 360° profile', () => {
       followUps: { calls: [], evaluations: [] },
       activities: [],
       familyMembers: [],
+      mergedInto: null,
+      contactLog: [],
+      corrections: [],
+      blocks: [],
+      merges: [],
+      files: [],
     });
+    const ben = (await h.db.query('SELECT ben_no FROM beneficiaries WHERE id = $1', [someone]))
+      .rows[0].ben_no as number;
+    expect(res.body.data.benNo).toBe(ben);
   });
 
   it('lists the projects by year and the application history', async () => {
@@ -340,12 +391,193 @@ describe('the 360° profile', () => {
     expect(data.activities).toHaveLength(20);
   });
 
-  it('answers 404 for a profile merged into another one', async () => {
+  it('answers a profile merged into another one with the kept profile it leads to', async () => {
     const kept = await person(world.dhaka);
     const merged = await person(world.dhaka, { merged_into_id: kept });
     const head = await as(world.users.head);
-    expect((await profile(head, merged)).status).toBe(404);
-    expect((await profile(head, kept)).status).toBe(200);
+    const res = await profile(head, merged);
+    expect(res.status).toBe(200);
+    const keptBen = (await h.db.query('SELECT ben_no FROM beneficiaries WHERE id = $1', [kept]))
+      .rows[0].ben_no as number;
+    expect(res.body.data.mergedInto).toEqual({ id: kept, benNo: keptBen });
+  });
+
+  it('shows the contact changes, the corrections and the merges of the person', async () => {
+    const someone = await person(world.dhaka, { mobile: '01822000001' });
+    const twin = await person(world.dhaka);
+    const head = await as(world.users.head);
+    const tag = (await profile(head, someone)).headers.etag as string;
+    await api()
+      .patch(`/api/v1/beneficiaries/${someone}/contact`)
+      .set(bearer(head))
+      .set('If-Match', tag)
+      .send({ mobile: '01822000002' })
+      .expect(200);
+    await api()
+      .post(`/api/v1/beneficiaries/${someone}/correction-requests`)
+      .set(bearer(await as(world.users.rpmDhaka)))
+      .send({ field: 'name', newValue: 'সংশোধিত নাম', reason: 'বানানের ভুল' })
+      .expect(201);
+    await api()
+      .post('/api/v1/beneficiary-merges/direct')
+      .set(bearer(head))
+      .send({ keptId: someone, mergedId: twin, reason: 'একই মানুষ' })
+      .expect(201);
+    const data = (await profile(head, someone)).body.data;
+    expect(data.contactLog).toEqual([
+      expect.objectContaining({
+        field: 'mobile',
+        oldValue: '01822000001',
+        newValue: '01822000002',
+      }),
+    ]);
+    expect(data.corrections).toEqual([
+      expect.objectContaining({ field: 'name', newValue: 'সংশোধিত নাম', status: 'submitted' }),
+    ]);
+    expect(data.merges).toEqual([
+      expect.objectContaining({ role: 'kept', otherId: twin, status: 'merged' }),
+    ]);
+  });
+
+  it('shows the block history to a PM, never to the Media Team or the Procurement Team', async () => {
+    const someone = await person(world.dhaka);
+    await applyTo(house, world.dhaka, someone);
+    await applyTo(world.a1, world.dhaka, someone);
+    await api()
+      .post(`/api/v1/beneficiaries/${someone}/block`)
+      .set(bearer(await as(world.users.rpmDhaka)))
+      .send({ reason: 'গোপন ব্লকের কারণ' })
+      .expect(201);
+    const pm = (await profile(await as(world.users.pm), someone)).body.data;
+    expect(pm.blocks).toEqual([
+      expect.objectContaining({ reason: 'গোপন ব্লকের কারণ', active: true }),
+    ]);
+    for (const s of [await staff('media_team'), procurement]) {
+      const res = await profile(s, someone);
+      expect(res.body.data).not.toHaveProperty('blocks');
+      expect(JSON.stringify(res.body)).not.toContain('গোপন ব্লকের কারণ');
+    }
+  });
+
+  it('says which actions the caller may take on the person, by permission and by state', async () => {
+    const someone = await person(world.dhaka);
+    const twin = await person(world.dhaka);
+    await applyTo(world.a1, world.dhaka, someone);
+    const actions = async (s: Session, id = someone) => (await profile(s, id)).body.data.actions;
+    const rpm = await as(world.users.rpmDhaka);
+    expect(await actions(rpm)).toMatchObject({
+      block: true,
+      unblock: false,
+      editContact: true,
+      requestCorrection: true,
+      proposeMerge: true,
+      merge: false,
+      revertMerge: false,
+    });
+    await api()
+      .post(`/api/v1/beneficiaries/${someone}/correction-requests`)
+      .set(bearer(rpm))
+      .send({ field: 'name', newValue: 'নতুন বানান', reason: 'বানান ঠিক করা' })
+      .expect(201);
+    await api()
+      .post(`/api/v1/beneficiaries/${someone}/block`)
+      .set(bearer(rpm))
+      .send({ reason: 'যাচাই চলছে' })
+      .expect(201);
+    expect(await actions(rpm)).toMatchObject({ block: false, unblock: true });
+    expect(await actions(await as(world.users.pm))).toMatchObject({
+      merge: true,
+      decideCorrection: true,
+      revertMerge: false,
+    });
+    const monitoring = await as(world.users.monitoring);
+    expect(await actions(monitoring)).toMatchObject({ revertMerge: false });
+    await api()
+      .post('/api/v1/beneficiary-merges/direct')
+      .set(bearer(monitoring))
+      .send({ keptId: someone, mergedId: twin, reason: 'একই মানুষ' })
+      .expect(201);
+    expect(await actions(monitoring)).toMatchObject({ revertMerge: true });
+    // a retired profile takes no edits, only the revert of its merge
+    expect(await actions(monitoring, twin)).toMatchObject({
+      block: false,
+      editContact: false,
+      merge: false,
+      revertMerge: true,
+    });
+    const media = await actions(await staff('media_team'));
+    expect(Object.values(media).every((v) => v === false)).toBe(true);
+  });
+
+  it('shows on the kept profile an application left on the retired one, marked so', async () => {
+    const kept = await person(world.dhaka);
+    const retired = await person(world.dhaka);
+    await applyTo(world.a1, world.dhaka, kept);
+    const left = await applyTo(world.a1, world.dhaka, retired, 'rejected');
+    const head = await as(world.users.head);
+    await api()
+      .post('/api/v1/beneficiary-merges/direct')
+      .set(bearer(head))
+      .send({ keptId: kept, mergedId: retired, reason: 'একই মানুষ' })
+      .expect(201);
+    const data = (await profile(head, kept)).body.data;
+    expect(data.merges[0].leftBehind).toBe(1);
+    expect(data.applications).toContainEqual(
+      expect.objectContaining({ id: left, throughMerge: true }),
+    );
+  });
+
+  it('keeps identity values of a correction and an NID photo from a caller without the NID class', async () => {
+    const someone = await person(world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    await api()
+      .post(`/api/v1/beneficiaries/${someone}/correction-requests`)
+      .set(bearer(rpm))
+      .send({ field: 'nid', newValue: f.fakeNid(), reason: 'কার্ডে নম্বর ভিন্ন' })
+      .expect(201);
+    const file = await f.insert(h.db, 'files', {
+      id: randomUUID(),
+      bucket: 'photos',
+      object_key: `nid/${randomUUID()}.jpg`,
+      kind: 'nid_photo',
+      mime: 'image/jpeg',
+      size_bytes: 10,
+      sha256: randomUUID().replace(/-/g, '').padEnd(64, '0'),
+      source: 'camera',
+    });
+    await f.insert(h.db, 'file_links', {
+      id: randomUUID(),
+      file_id: file,
+      entity_type: 'beneficiary',
+      entity_id: someone,
+      slot: 'nid_photo',
+    });
+    const full = (await profile(rpm, someone)).body.data;
+    expect(full.corrections[0].newValue).toEqual(expect.any(String));
+    expect(full.files).toEqual([expect.objectContaining({ fileId: file, kind: 'nid_photo' })]);
+    // the same official without the NID class, as a role without it would read the profile
+    const principal = { userId: world.users.rpmDhaka } as never;
+    const access = await h.container.access.load(world.users.rpmDhaka);
+    const scope = await h.container.access.scopeFor(
+      principal,
+      access,
+      'beneficiary.view_all',
+      'beneficiary',
+    );
+    const classes = new Set([...access.fieldClasses].filter((c) => c !== 'beneficiary.nid'));
+    const masked = await h.container.beneficiaries.profile(
+      { principal, scope, fieldClasses: classes },
+      someone,
+    );
+    expect(masked.corrections[0]).toMatchObject({ oldValue: null, newValue: null });
+    expect(masked.files).toEqual([]);
+  });
+
+  it('answers 404 for a retired profile outside the caller scope', async () => {
+    const kept = await person(world.dhaka);
+    const retired = await person(world.dhaka, { merged_into_id: kept });
+    expect((await profile(procurement, retired)).status).toBe(404);
+    expect((await profile(procurement, kept)).status).toBe(404);
   });
 
   it('answers 404 for an unknown id and 422 for a bad one', async () => {

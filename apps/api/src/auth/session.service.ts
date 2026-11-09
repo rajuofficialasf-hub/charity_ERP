@@ -4,6 +4,7 @@ import { type AuditWriter } from '../audit/audit-writer';
 import type { Clock } from '../core/clock';
 import { type PrismaService, type Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
+import { encodeLocalKey, newLocalKey, openLocalKey, sealLocalKey } from './local-key';
 import { hashRefreshToken, type TokenService } from './token.service';
 import type { AccountEvents } from '../notifications/account-events';
 
@@ -51,6 +52,17 @@ export interface NewSession {
   ip?: string;
 }
 
+/**
+ * How long after the first handback the phone may ask for an ended session's key again: a login
+ * answer lost on a poor network must not cost the outbox.
+ */
+export const LOCAL_KEY_RECOVERY_GRACE_MS = 15 * 60_000;
+
+/** What a phone asking for an ended session's key gets, and why not. */
+export type RecoveredKey =
+  | { key: string }
+  | { key: null; reason: 'unknown' | 'foreign' | 'live' | 'revoked' | 'gone' | 'unopenable' };
+
 export interface RevokeBy {
   /** Official or user who revoked; null for the system (device limit, reuse). */
   by: string | null;
@@ -73,26 +85,39 @@ export class SessionService {
     private readonly events: AccountEvents,
     /** Active sessions a user may hold; the E2E run raises it. */
     private readonly deviceLimit: number,
+    /** The current secret first, then the previous one during a rotation. */
+    private readonly localKeySecrets: string[],
   ) {}
+
+  private get sealingSecret(): string {
+    const [current] = this.localKeySecrets;
+    if (!current) throw new Error('local key secret missing');
+    return current;
+  }
 
   /** Creates a session; the sixth active session of a user revokes the oldest (O-25). */
   async create(
     tx: Tx,
     input: NewSession,
-  ): Promise<{ id: string; refreshToken: string; expiresAt: Date }> {
+  ): Promise<{ id: string; refreshToken: string; expiresAt: Date; localKey: string }> {
     const now = this.clock.now();
-    const active = await tx.deviceSession.findMany({
+    const open = await tx.deviceSession.findMany({
       where: { userId: input.userId, revokedAt: null, expiresAt: { gt: now } },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: { id: true },
+      select: { id: true, expiresAt: true, lastSeenAt: true, idleTimeout: true },
     });
-    const surplus = active.length - (this.deviceLimit - 1);
-    for (const old of active.slice(0, Math.max(0, surplus)))
+    // a session that idled past its refresh window cannot be used any more, so it neither counts
+    // against the limit nor is revoked for it: revoking it would only drop the device key a
+    // phone may still recover
+    const live = open.filter((s) => !this.ended(s, now));
+    const surplus = live.length - (this.deviceLimit - 1);
+    for (const old of live.slice(0, Math.max(0, surplus)))
       await this.revoke(tx, old.id, { by: null, reason: 'device_limit' });
 
     const id = uuidv7();
     const refreshToken = this.tokens.newRefreshToken(id);
     const expiresAt = new Date(now.getTime() + SESSION_RULES.hardLimitMs);
+    const localKey = newLocalKey();
     await tx.deviceSession.create({
       data: {
         id,
@@ -107,9 +132,65 @@ export class SessionService {
         expiresAt,
         createdAt: now,
         createdBy: input.userId,
+        localKey: sealLocalKey(localKey, id, this.sealingSecret),
       },
     });
-    return { id, refreshToken, expiresAt };
+    return { id, refreshToken, expiresAt, localKey: encodeLocalKey(localKey) };
+  }
+
+  /** A session the refresh would refuse: past its hard limit, or idle beyond its window. */
+  private ended(
+    session: { expiresAt: Date; lastSeenAt: Date; idleTimeout: boolean },
+    now: Date,
+  ): boolean {
+    const idleLimit = session.idleTimeout
+      ? SESSION_RULES.idleTimeoutMs
+      : SESSION_RULES.refreshWindowMs;
+    return (
+      session.expiresAt <= now ||
+      now.getTime() - session.lastSeenAt.getTime() >
+        Math.min(idleLimit, SESSION_RULES.refreshWindowMs)
+    );
+  }
+
+  /**
+   * The device key of an ended session, handed back to its own user: the first handback is
+   * stamped, and the phone may ask again for a short while in case the answer was lost; after
+   * that the key is dropped. Nothing for a live, revoked or foreign session, or one whose key the
+   * cleanup job already dropped.
+   */
+  async recoverKey(tx: Tx, sessionId: string, userId: string): Promise<RecoveredKey> {
+    const now = this.clock.now();
+    const session = await tx.deviceSession.findUnique({
+      where: { id: sessionId },
+      select: {
+        userId: true,
+        revokedAt: true,
+        expiresAt: true,
+        lastSeenAt: true,
+        idleTimeout: true,
+        localKey: true,
+        localKeyRecoveredAt: true,
+      },
+    });
+    if (!session) return { key: null, reason: 'unknown' };
+    if (session.userId !== userId) return { key: null, reason: 'foreign' };
+    if (session.revokedAt) return { key: null, reason: 'revoked' };
+    if (!session.localKey) return { key: null, reason: 'gone' };
+    if (!this.ended(session, now)) return { key: null, reason: 'live' };
+    const firstAt = session.localKeyRecoveredAt;
+    if (firstAt && now.getTime() - firstAt.getTime() > LOCAL_KEY_RECOVERY_GRACE_MS) {
+      await tx.deviceSession.update({ where: { id: sessionId }, data: { localKey: null } });
+      return { key: null, reason: 'gone' };
+    }
+    const key = openLocalKey(session.localKey, sessionId, this.localKeySecrets);
+    if (!key) return { key: null, reason: 'unopenable' };
+    if (!firstAt)
+      await tx.deviceSession.update({
+        where: { id: sessionId },
+        data: { localKeyRecoveredAt: now },
+      });
+    return { key: encodeLocalKey(key) };
   }
 
   /**
@@ -122,7 +203,13 @@ export class SessionService {
     refreshToken: string,
     ip: string | undefined,
     csrf: { header?: string; cookie?: string },
-  ): Promise<{ sessionId: string; userId: string; refreshToken: string; expiresAt: Date }> {
+  ): Promise<{
+    sessionId: string;
+    userId: string;
+    refreshToken: string;
+    expiresAt: Date;
+    localKey: string;
+  }> {
     const now = this.clock.now();
     const hash = hashRefreshToken(refreshToken);
     const session = await this.prisma.deviceSession.findUnique({
@@ -139,17 +226,26 @@ export class SessionService {
     )
       throw new ApiError('auth.csrf_failed', 403);
     if (session.revokedAt) throw new ApiError('auth.session_revoked', 401);
-    const idleLimit = session.idleTimeout
-      ? SESSION_RULES.idleTimeoutMs
-      : SESSION_RULES.refreshWindowMs;
-    if (
-      session.expiresAt <= now ||
-      now.getTime() - session.lastSeenAt.getTime() >
-        Math.min(idleLimit, SESSION_RULES.refreshWindowMs)
-    )
-      throw new ApiError('auth.refresh_invalid', 401);
+    if (this.ended(session, now)) throw new ApiError('auth.refresh_invalid', 401);
 
     const next = this.tokens.newRefreshToken(session.id);
+    // a session from before the device keys gets one now; a key sealed under the previous secret
+    // is sealed again under the current one; a key no secret opens (a rotation that dropped the
+    // previous secret too early) is replaced, and the loss is on record so it is noticed
+    const opened = session.localKey
+      ? openLocalKey(session.localKey, session.id, this.localKeySecrets)
+      : null;
+    if (session.localKey && !opened)
+      await this.prisma.$transaction((tx) =>
+        this.audit.record(tx, {
+          action: 'sync.outbox_unrecoverable',
+          entityType: 'device_session',
+          entityId: session.id,
+          actorUserId: session.userId,
+          new: { reason: 'seal_unopenable' },
+        }),
+      );
+    const localKey = opened ?? newLocalKey();
     const updated = await this.prisma.deviceSession.updateMany({
       where: { id: session.id, refreshTokenHash: hash, revokedAt: null },
       data: {
@@ -157,6 +253,7 @@ export class SessionService {
         previousTokenHash: hash,
         lastSeenAt: now,
         lastIp: ip ?? session.lastIp,
+        localKey: sealLocalKey(localKey, session.id, this.sealingSecret),
       },
     });
     // Another refresh with the same token won the race: treat like a parallel tab.
@@ -167,6 +264,7 @@ export class SessionService {
       userId: session.userId,
       refreshToken: next,
       expiresAt: session.expiresAt,
+      localKey: encodeLocalKey(localKey),
     };
   }
 
@@ -189,11 +287,25 @@ export class SessionService {
     throw new ApiError('auth.refresh_reused', 401);
   }
 
+  /** What the device still holds after a batch, for the sessions screens. */
+  async reportPending(tx: Tx, sessionId: string, count: number, now: Date): Promise<void> {
+    await tx.deviceSession.updateMany({
+      where: { id: sessionId, revokedAt: null },
+      data: { pendingCount: count, pendingReportedAt: now },
+    });
+  }
+
   /** Revokes one session (idempotent) and evicts it from the cache. */
   async revoke(tx: Tx, sessionId: string, by: RevokeBy): Promise<boolean> {
+    // the device key goes with the session: a revoked phone recovers nothing
     const result = await tx.deviceSession.updateMany({
       where: { id: sessionId, revokedAt: null },
-      data: { revokedAt: this.clock.now(), revokedBy: by.by, revokeReason: by.reason },
+      data: {
+        revokedAt: this.clock.now(),
+        revokedBy: by.by,
+        revokeReason: by.reason,
+        localKey: null,
+      },
     });
     this.cache.delete(sessionId);
     return result.count > 0;

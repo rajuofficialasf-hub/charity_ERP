@@ -1,4 +1,4 @@
-# ADR-005: MinIO object storage with presigned URLs, filesystem adapter for tests
+# ADR-005: MinIO object storage, filesystem adapter for tests (presigned URLs replaced by streaming through the API: D-074, D-108)
 
 Status: approved 2026-10-10 (DECISION_LOG D-053, confirmed by the owner in O-01). Written in task T0.8.
 
@@ -9,10 +9,10 @@ Photos (distribution, construction, placard, animal), vouchers, SOP documents, N
 ## Decision
 
 - MinIO (self-hosted, S3-compatible) as the object store in development, staging and production, behind a `StorageAdapter` interface in the `files` module.
-- `FilesystemStorage` implements the same interface for automated tests (fast, no container needed in unit and most API tests); the integration test suite that covers upload and signed URLs runs against the real MinIO container in CI.
+- `FilesystemStorage` implements the same interface for automated tests (fast, no container needed in unit and most API tests); the integration test suite that covers uploads and streaming runs against the real MinIO container in CI.
 - Buckets per environment: `photos`, `vouchers`, `documents` (SOP register, keyed program/project/year/district per BR-168), `exports` (the only bucket with a deletion policy), `profiles` (volunteer photos and NID photos, most restricted). Object keys carry the entity id, never personal data.
-- Downloads: the API checks permission, scope and field-level rules, then returns a presigned URL valid for at most 15 minutes (NFR-28; the only exception is the 30-day donor photo links of O-35); Caddy proxies the MinIO endpoint so that only presigned requests reach it; no bucket is public.
-- Uploads: the client requests an upload session, uploads in chunks (multipart) directly to a presigned upload URL, then calls the API to finalize; finalize validates type and size, runs the virus-scan hook, extracts metadata (capture time, GPS, source) and computes the duplicate hash (BR-109, NFR-27).
+- Downloads (amended by D-074 and D-108): the API checks permission, scope and field-level rules, then streams the object itself; no presigned URL is issued and the MinIO endpoint is not exposed; no bucket is public. The 30-day donor photo links of O-35 are decided again with the Qurbani module.
+- Uploads (amended by D-108): the client requests an upload session from the API and sends 256 KB parts to the API, which stores them as a multipart upload and, at finalize, validates type and size; the processing job runs the virus-scan hook, extracts metadata (capture time, GPS, source) and computes the duplicate hash (BR-109, NFR-27).
 - Backups: `mc mirror` of all buckets except `exports` to the backup target on the schedule of O-06; versioning enabled on `photos` and `documents` so that an accidental overwrite is recoverable.
 
 ## Alternatives considered

@@ -25,8 +25,23 @@ export const loginRequestSchema = z.strictObject({
       appVersion: z.string().max(32).optional(),
     })
     .optional(),
+  /** The device session the phone kept its encrypted outbox under, whose key it asks back. */
+  recoverSessionId: z.uuid().optional(),
+  /** Records the phone lost before this login: at an offline logout, or because nothing could open them. */
+  lostPending: z
+    .strictObject({
+      count: z.number().int().min(0).max(100_000),
+      reason: z.enum(['logout', 'unrecoverable']),
+    })
+    .optional(),
 });
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
+
+/** A logout may say how many records it leaves unsent on the device. */
+export const logoutRequestSchema = z.strictObject({
+  pendingCount: z.number().int().min(0).max(100_000).optional(),
+});
+export type LogoutRequest = z.infer<typeof logoutRequestSchema>;
 
 export const passwordChangeRequestSchema = z.strictObject({
   currentPassword: z.string().min(1).max(PASSWORD_MAX_LENGTH),
@@ -74,12 +89,18 @@ export interface Me {
   passwordChangeRequired?: boolean;
   blockMessage?: string | null;
   volunteerId?: string | null;
+  /** The person's uploaded photo (a volunteer's or an official's); null shows the initial. */
+  photoFileId?: string | null;
 }
 
 export interface TokenPair {
   accessToken: string;
   expiresAt: string;
   me: Me;
+  /** The session's device key (base64url, 32 bytes): wraps the phone's offline store key; memory only. */
+  deviceKey: string;
+  /** The key of the expired session the phone named, once, so it can re-key its outbox. */
+  previousDeviceKey?: string;
 }
 
 export interface DeviceSession {
@@ -91,4 +112,7 @@ export interface DeviceSession {
   lastSeenAt: string;
   current: boolean;
   revokedAt: string | null;
+  /** Records the device last reported as still waiting on it, and when; null before any report. */
+  pendingCount: number | null;
+  pendingReportedAt: string | null;
 }

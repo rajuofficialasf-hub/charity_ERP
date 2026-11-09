@@ -1,55 +1,49 @@
+import { formatBenNo } from '@css/shared/beneficiaries';
 import { formatDate } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
-  Avatar,
-  Badge,
-  Breadcrumb,
+  Alert,
+  Button,
+  Chip,
   ContactList,
   DescriptionList,
   EmptyState,
-  ErrorState,
-  Grid,
-  type ProfileFact,
-  ProfileHeader,
   ProfileSection,
   Skeleton,
   Stack,
   Text,
   Timeline,
-} from '@css/ui';
-import { useQuery } from '@tanstack/react-query';
-import {
-  BookOpen,
-  Briefcase,
-  CalendarDays,
-  ClipboardList,
-  Hash,
-  History,
-  MapPin,
-  Package,
-  PhoneCall,
-  Phone,
-  User,
-  Users,
-  UserX,
-} from 'lucide-react';
-import { type ReactNode } from 'react';
+  type ProfileFact,
+} from '@/ui';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
-import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { useFileDataUrl } from '../../components/FileImage';
+import { PersonBanner } from '../../components/PersonPhoto';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { telLink } from '../contact-links';
-import { canSeeBeneficiaries } from '../roles';
+import { BlocklistAction } from '../registrations/Blocklist';
+import { canPrintProfile, canSeeBeneficiaries } from '../roles';
+import { useHandedNotice } from '../use-handed-notice';
 import {
   BENEFICIARIES_KEY,
   BENEFICIARY_TYPES,
   type BeneficiaryProfile,
   beneficiaryProfile,
+  type ContactSaved,
 } from './beneficiaries-api';
+import { BeneficiaryArea } from './BeneficiaryArea';
+import { ContactDialog } from './ContactDialog';
+import { CorrectionDialog } from './CorrectionDialog';
+import { RevertMergeAction } from './duplicates/RevertMergeAction';
+import { ContactLog, Corrections, useFileKind } from './ProfileHistory';
+import { MediaWorksSection } from '../../features/media/MediaWorksSection';
+import { RecordPdfButton } from '../../features/exports/RecordPdfButton';
+import { PageCrumbs } from '../../components/shell/breadcrumb';
+import { LoadError } from '../../components/LoadError';
 
 /**
  * The 360° profile of one beneficiary in the one profile layout: the header card with the key facts,
@@ -63,7 +57,6 @@ export function BeneficiaryProfilePage() {
   const { me } = useAuth();
   const { beneficiaryId = '' } = useParams();
   const t = useTranslations('admin.beneficiaries.profile');
-  const tc = useTranslations('common');
   const profile = useQuery({
     queryKey: [...BENEFICIARIES_KEY, 'profile', beneficiaryId],
     queryFn: () => beneficiaryProfile(beneficiaryId),
@@ -83,28 +76,42 @@ export function BeneficiaryProfilePage() {
     return (
       <>
         {back}
-        <EmptyState icon={UserX} title={t('not_found')} />
+        <EmptyState title={t('not_found')} />
       </>
     );
   if (profile.error || !profile.data)
     return (
       <>
         {back}
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={profile.error instanceof ApiFailure ? profile.error.requestId : undefined}
-          onRetry={() => void profile.refetch()}
-        />
+        <LoadError error={profile.error} onRetry={() => void profile.refetch()} />
       </>
     );
-  return <Profile profile={profile.data} />;
+  return <Profile profile={profile.data.data} etag={profile.data.meta.etag} />;
 }
 
-function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
+function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: string }) {
   const t = useTranslations('admin.beneficiaries');
   const tp = useTranslations('admin.beneficiaries.profile');
+  const tm = useTranslations('media.section');
   const tf = useTranslations('registration');
   const locale = useLocale() as Locale;
+  const queryClient = useQueryClient();
+  const { me } = useAuth();
+  const printable = !!me && canPrintProfile(me);
+  const fileKind = useFileKind();
+  const [dialog, setDialog] = useState<'contact' | 'correction' | null>(null);
+  const { notice, setNotice, dismiss: dismissNotice } = useHandedNotice();
+  const [shared, setShared] = useState<ContactSaved['warnings']>([]);
+  const changed = (message: string) => {
+    setDialog(null);
+    setNotice(message);
+    void queryClient.invalidateQueries({ queryKey: BENEFICIARIES_KEY });
+  };
+  const contactSaved = (saved: ContactSaved) => {
+    changed(tp('contact_saved'));
+    setShared(saved.warnings);
+  };
+  const a = p.actions;
   const empty = tf('profile.empty');
   const hidden = tp('hidden');
   const nameOf = (project: { nameBn: string; nameEn: string }) =>
@@ -118,16 +125,33 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
       : (code ?? empty);
   const optional = (key: keyof BeneficiaryProfile, label: string, value: ReactNode) =>
     key in p ? [{ label, value }] : [];
-  const none = <Text className="admin-muted">{tp('no_rows')}</Text>;
+  const none = <p className="admin-muted">{tp('no_rows')}</p>;
   // the NID or the birth registration number only for a caller who sees identity numbers
   const identity = 'nid' in p ? (p.nid ?? p.birthReg ?? null) : null;
 
   const facts: ProfileFact[] = [
+    {
+      id: 'ben',
+      label: tp('ben'),
+      value: formatBenNo(p.benNo),
+      icon: 'id-card' as const,
+      showLabel: true,
+      copy: true,
+    },
     ...(identity
-      ? [{ id: 'id', label: tp('nid'), value: identity, icon: Hash, showLabel: true, copy: true }]
+      ? [
+          {
+            id: 'id',
+            label: tp('nid'),
+            value: identity,
+            icon: 'hash' as const,
+            showLabel: true,
+            copy: true,
+          },
+        ]
       : []),
     ...(p.mobile
-      ? [{ id: 'mobile', label: tp('mobile'), value: p.mobile, icon: Phone, copy: true }]
+      ? [{ id: 'mobile', label: tp('mobile'), value: p.mobile, icon: 'phone' as const, copy: true }]
       : []),
     ...(p.genderCode
       ? [
@@ -135,7 +159,7 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
             id: 'gender',
             label: tp('gender'),
             value: t(`gender.${p.genderCode as 'female'}`),
-            icon: User,
+            icon: 'user' as const,
           },
         ]
       : []),
@@ -145,7 +169,7 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
             id: 'age',
             label: tp('age'),
             value: tp('age_value', { age: p.ageYears }),
-            icon: CalendarDays,
+            icon: 'calendar' as const,
           },
         ]
       : []),
@@ -155,40 +179,102 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
             id: 'type',
             label: t('column.type'),
             value: typeLabel(p.classCode),
-            icon: Users,
+            icon: 'users' as const,
             showLabel: true,
           },
         ]
       : []),
   ];
 
+  const actions = (
+    <>
+      <RecordPdfButton kind="beneficiary_profile" id={p.id} />
+      {a.editContact && (
+        <Button variant="secondary" startIcon="edit-line" onClick={() => setDialog('contact')}>
+          {tp('edit_contact')}
+        </Button>
+      )}
+      {a.requestCorrection && (
+        <Button variant="secondary" startIcon="file" onClick={() => setDialog('correction')}>
+          {tp('request_correction')}
+        </Button>
+      )}
+      {(a.block || a.unblock) && (
+        <BlocklistAction
+          danger
+          beneficiaryId={p.id}
+          name={p.name}
+          blocked={a.unblock}
+          onDone={changed}
+        />
+      )}
+    </>
+  );
+  const hasActions = printable || a.editContact || a.requestCorrection || a.block || a.unblock;
+  const showCorrections = p.corrections.length > 0 || a.requestCorrection || a.decideCorrection;
+
   return (
-    <Grid gap={4}>
+    <Stack gap={4}>
       <DocumentTitle title={p.name} />
-      <Breadcrumb
+      <PageCrumbs
         items={[
           { id: 'list', label: tp('back'), href: '/admin/beneficiaries' },
           { id: 'profile', label: p.name },
         ]}
       />
-      <ProfileHeader
+      <PersonBanner
         name={p.name}
-        avatar={<HeaderAvatar name={p.name} fileId={p.photoFileId ?? null} />}
+        fileId={p.photoFileId}
         status={
           <>
-            <Badge
-              variant="dot"
-              tone={p.status === 'active' ? 'success' : 'warning'}
-              label={t(`status.${p.status as 'active'}`)}
-            />
-            {p.isBlocked && <Badge variant="dot" tone="danger" label={t('blocked')} />}
+            <Chip tone={p.status === 'active' ? 'success' : 'warning'}>
+              {t(`status.${p.status as 'active'}`)}
+            </Chip>
+            {p.isBlocked && <Chip tone="error">{t('blocked')}</Chip>}
           </>
         }
         facts={facts}
+        actions={hasActions ? actions : undefined}
+        actionsLabel={tp('actions_label')}
       />
+      {p.mergedInto && (
+        <Alert
+          tone="info"
+          action={<Link to={`/admin/beneficiaries/${p.mergedInto.id}`}>{tp('merged_open')}</Link>}
+        >
+          {tp('merged_into', { benNo: formatBenNo(p.mergedInto.benNo) })}
+        </Alert>
+      )}
+      {notice && (
+        <Alert tone="success" onDismiss={dismissNotice}>
+          {notice}
+        </Alert>
+      )}
+      {shared.map((w) => (
+        <Alert key={w.code} tone="warning" onDismiss={() => setShared([])}>
+          {w.benNos.length
+            ? tp('mobile_shared_list', { count: w.count, benNos: w.benNos.join(', ') })
+            : tp('mobile_shared', { count: w.count })}
+        </Alert>
+      ))}
+      {dialog === 'contact' && (
+        <ContactDialog
+          profile={p}
+          etag={etag}
+          onClose={() => setDialog(null)}
+          onDone={contactSaved}
+        />
+      )}
+      {dialog === 'correction' && (
+        <CorrectionDialog
+          profile={p}
+          onClose={() => setDialog(null)}
+          onDone={() => changed(tp('correction_sent'))}
+        />
+      )}
       <div className="admin-profile-grid">
-        <Grid gap={3}>
-          <ProfileSection title={tp('sections.basic')} icon={User}>
+        <Stack gap={3}>
+          <ProfileSection title={tp('sections.basic')} icon="user">
             <DescriptionList
               columns={2}
               items={[
@@ -208,11 +294,11 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
             />
           </ProfileSection>
 
-          <ProfileSection title={tp('sections.address')} icon={MapPin}>
+          <ProfileSection title={tp('sections.address')} icon="map-pin">
             <DescriptionList
               columns={2}
               items={[
-                { label: t('column.area'), value: <Area profile={p} /> },
+                { label: t('column.area'), value: <BeneficiaryArea profile={p} /> },
                 ...optional('village', tp('village'), p.village),
                 ...optional('postOffice', tp('post_office'), p.postOffice ?? empty),
                 ...optional('landmark', tp('landmark'), p.landmark ?? empty),
@@ -221,62 +307,71 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
           </ProfileSection>
 
           {p.familyMembers && (
-            <ProfileSection title={tp('sections.family')} icon={Users}>
+            <ProfileSection title={tp('sections.family')} icon="users">
               {p.familyMembers.length === 0 ? (
                 none
               ) : (
-                <Grid gap={1} as="ul" role="list">
+                <ul className="admin-plain-list">
                   {p.familyMembers.map((m) => (
                     <li key={m.id}>{m.name}</li>
                   ))}
-                </Grid>
+                </ul>
               )}
             </ProfileSection>
           )}
 
           {p.applications && (
-            <ProfileSection title={tp('sections.applications')} icon={ClipboardList}>
+            <ProfileSection title={tp('sections.applications')} icon="clipboard">
               {p.applications.length === 0 ? (
                 none
               ) : (
-                <Grid gap={2} as="ul" role="list">
-                  {p.applications.map((a) => (
-                    <Stack direction="row" wrap gap={2} as="li" key={a.id}>
-                      <strong>{a.appNo ?? projectName.get(a.projectId) ?? ''}</strong>
-                      <span>{projectName.get(a.projectId)}</span>
-                      <span className="admin-muted">
-                        {a.submittedAt ? formatDate(a.submittedAt) : empty}
-                      </span>
-                    </Stack>
+                <ul className="admin-plain-list">
+                  {p.applications.map((app) => (
+                    <li key={app.id}>
+                      <Stack direction="row" wrap gap={2}>
+                        <strong>{app.appNo ?? projectName.get(app.projectId) ?? ''}</strong>
+                        <span>{projectName.get(app.projectId)}</span>
+                        <span className="admin-muted">
+                          {app.submittedAt ? formatDate(app.submittedAt) : empty}
+                        </span>
+                        {app.throughMerge && <Chip>{tp('through_merge')}</Chip>}
+                      </Stack>
+                    </li>
                   ))}
-                </Grid>
+                </ul>
               )}
             </ProfileSection>
           )}
 
-          <ProfileSection title={tp('sections.distributions')} icon={Package}>
+          <ProfileSection title={tp('sections.distributions')} icon="package">
             {p.distributions.length === 0 ? (
               none
             ) : (
-              <Grid gap={2} as="ul" role="list">
+              <ul className="admin-plain-list">
                 {p.distributions.map((d) => (
                   <li key={d.id}>
                     {projectName.get(d.projectId) ?? ''} · {formatDate(d.doneAt)}
                   </li>
                 ))}
-              </Grid>
+              </ul>
             )}
           </ProfileSection>
 
+          {p.media && (
+            <ProfileSection title={tm('title')} icon="video">
+              <MediaWorksSection works={p.media} emptyText={tm('empty')} />
+            </ProfileSection>
+          )}
+
           {p.dawah && (
-            <ProfileSection title={tp('sections.dawah')} icon={BookOpen}>
+            <ProfileSection title={tp('sections.dawah')} icon="book">
               {p.dawah.attendance.length + p.dawah.exams.length === 0 ? (
                 none
               ) : (
-                <Grid gap={1} as="ul" role="list">
+                <ul className="admin-plain-list">
                   <li>
                     {tp('attendance', {
-                      present: p.dawah.attendance.filter((a) => a.present).length,
+                      present: p.dawah.attendance.filter((x) => x.present).length,
                       total: p.dawah.attendance.length,
                     })}
                   </li>
@@ -286,13 +381,13 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
                       total: p.dawah.exams.length,
                     })}
                   </li>
-                </Grid>
+                </ul>
               )}
             </ProfileSection>
           )}
 
           {p.followUps && (
-            <ProfileSection title={tp('sections.followups')} icon={PhoneCall}>
+            <ProfileSection title={tp('sections.followups')} icon="phone-call">
               {p.followUps.calls.length + p.followUps.evaluations.length === 0 ? (
                 none
               ) : (
@@ -305,16 +400,30 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
               )}
             </ProfileSection>
           )}
-        </Grid>
 
-        <Grid gap={3} as="aside">
+          {p.files && (
+            <ProfileSection title={tp('sections.files')} icon="file">
+              {p.files.length === 0 ? (
+                none
+              ) : (
+                <ul className="admin-plain-list">
+                  {p.files.map((f) => (
+                    <li key={f.fileId}>{fileKind(f.kind)}</li>
+                  ))}
+                </ul>
+              )}
+            </ProfileSection>
+          )}
+        </Stack>
+
+        <aside className="admin-profile-side">
           {p.mobile && (
-            <ProfileSection title={tp('contact')} icon={Phone}>
+            <ProfileSection title={tp('contact')} icon="phone">
               <ContactList
                 items={[
                   {
                     id: 'mobile',
-                    icon: Phone,
+                    icon: 'phone' as const,
                     label: tp('mobile'),
                     value: p.mobile,
                     href: telLink(p.mobile),
@@ -326,63 +435,116 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
             </ProfileSection>
           )}
 
-          <ProfileSection title={tp('sections.projects')} icon={Briefcase}>
+          <ProfileSection title={tp('sections.projects')} icon="briefcase">
             {p.projectsByYear.length === 0 ? (
               none
             ) : (
-              <Grid gap={2} as="ul" role="list">
+              <ul className="admin-plain-list">
                 {p.projectsByYear.map((y) => (
                   <li key={y.year}>
                     <strong>{y.year}</strong>: {y.projects.map(nameOf).join(', ')}
                   </li>
                 ))}
-              </Grid>
+              </ul>
             )}
           </ProfileSection>
 
+          {showCorrections && (
+            <Corrections requests={p.corrections} canDecide={a.decideCorrection} onDone={changed} />
+          )}
+
+          {p.contactLog && <ContactLog rows={p.contactLog} />}
+
+          {p.blocks && (
+            <ProfileSection title={tp('sections.blocks')} icon="block">
+              {p.blocks.length === 0 ? (
+                none
+              ) : (
+                <ul className="admin-plain-list">
+                  {p.blocks.map((b) => (
+                    <li className="admin-plain-item" key={b.id}>
+                      <Stack direction="row" wrap gap={2}>
+                        <strong>{tp('blocked_on', { date: formatDate(b.blockedAt) })}</strong>
+                        {b.active && <Chip tone="error">{t('blocked')}</Chip>}
+                      </Stack>
+                      <Text tone="muted">{tp('reason', { reason: b.reason })}</Text>
+                      {b.releasedAt && (
+                        <Text tone="muted">
+                          {tp('released_on', {
+                            date: formatDate(b.releasedAt),
+                            reason: b.releaseReason ?? empty,
+                          })}
+                        </Text>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </ProfileSection>
+          )}
+
+          {p.merges.length > 0 && (
+            <ProfileSection title={tp('sections.merges')} icon="merge">
+              <ul className="admin-plain-list">
+                {p.merges.map((m) => {
+                  const line = tp(m.role === 'kept' ? 'merge_kept' : 'merge_merged', {
+                    benNo: formatBenNo(m.otherBenNo),
+                  });
+                  return (
+                    <li className="admin-plain-item" key={m.id}>
+                      <Stack direction="row" wrap gap={2}>
+                        {m.otherId ? (
+                          <Link to={`/admin/beneficiaries/${m.otherId}`}>{line}</Link>
+                        ) : (
+                          <span>{line}</span>
+                        )}
+                        {m.status === 'reverted' && (
+                          <Chip tone="warning">{tp('merge_reverted')}</Chip>
+                        )}
+                      </Stack>
+                      {m.status === 'merged' && a.revertMerge && (
+                        <div>
+                          <RevertMergeAction
+                            mergeId={m.id}
+                            benNo={formatBenNo(m.otherBenNo)}
+                            onDone={changed}
+                          />
+                        </div>
+                      )}
+                      <Text tone="muted">
+                        {[
+                          m.mergedAt && formatDate(m.mergedAt),
+                          m.leftBehind > 0 && tp('left_behind', { count: m.leftBehind }),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </Text>
+                    </li>
+                  );
+                })}
+              </ul>
+            </ProfileSection>
+          )}
+
           {p.activities && (
-            <ProfileSection title={tp('sections.activities')} icon={History}>
+            <ProfileSection title={tp('sections.activities')} icon="history">
               {p.activities.length === 0 ? (
                 none
               ) : (
                 <Timeline
                   label={tp('sections.activities')}
-                  steps={p.activities.map((a) => ({
-                    id: a.id,
-                    title: projectName.get(a.projectId) ?? '',
-                    time: formatDate(a.doneAt),
+                  steps={p.activities.map((act) => ({
+                    id: act.id,
+                    title: projectName.get(act.projectId) ?? '',
+                    time: formatDate(act.doneAt),
                     status: 'done' as const,
                   }))}
                 />
               )}
             </ProfileSection>
           )}
-        </Grid>
+        </aside>
       </div>
-    </Grid>
-  );
-}
-
-function HeaderAvatar({ name, fileId }: { name: string; fileId: string | null }) {
-  const photo = useFileDataUrl(fileId);
-  return <Avatar name={name} letters={1} size="lg" src={photo.data ?? undefined} />;
-}
-
-/** The union (when sent), the upazila, the district and the division of the beneficiary. */
-function Area({ profile: p }: { profile: BeneficiaryProfile }) {
-  const locale = useLocale() as Locale;
-  const names = [
-    useLocationName(p.upazilaId, p.unionId ?? null),
-    useLocationName(p.districtId, p.upazilaId),
-    useLocationName(p.divisionId, p.districtId),
-    useLocationName(undefined, p.divisionId),
-  ];
-  return (
-    <>
-      {names
-        .map((n) => n?.[locale])
-        .filter(Boolean)
-        .join(', ')}
-    </>
+    </Stack>
   );
 }

@@ -45,8 +45,28 @@ describe('own device sessions', () => {
       lastSeenAt: expect.any(String),
       current: expect.any(Boolean),
       revokedAt: null,
+      pendingCount: null,
+      pendingReportedAt: null,
     });
     expect(res.body.meta).toMatchObject({ limit: 2, nextCursor: null });
+  });
+
+  it('shows what a device reported as still waiting on it, and when', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer' });
+    const a = await login(h, volunteer);
+    const b = await login(h, volunteer, { platform: 'ios' });
+    const list = await api().get('/api/v1/sessions').set(bearer(a)).expect(200);
+    const other = list.body.data.find((s: { current: boolean }) => !s.current);
+    await h.db.query(
+      'UPDATE device_sessions SET pending_count = 3, pending_reported_at = $2 WHERE id = $1',
+      [other.id, '2026-10-31T09:00:00.000Z'],
+    );
+    const res = await api().get('/api/v1/sessions').set(bearer(b)).expect(200);
+    const mine = res.body.data.find((s: { current: boolean }) => s.current);
+    expect(mine).toMatchObject({
+      pendingCount: 3,
+      pendingReportedAt: '2026-10-31T09:00:00.000Z',
+    });
   });
 
   it('revokes another own session, but not the current one or someone else’s', async () => {

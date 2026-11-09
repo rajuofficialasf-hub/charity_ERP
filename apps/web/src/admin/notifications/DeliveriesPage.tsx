@@ -1,22 +1,19 @@
 import { formatCount, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
-  Badge,
-  type BadgeTone,
+  Chip,
+  type ColorTone,
+  DataTable,
+  type DataTableExtendedColumn,
   DateField,
-  EmptyState,
-  ErrorState,
-  Select,
+  FilterBar,
+  Page,
+  SelectField,
   Stack,
-  Table,
-  type TableColumn,
-  TableToolbar,
-} from '@css/ui';
+} from '@/ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Send } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canAdministerSystem } from '../roles';
@@ -29,14 +26,16 @@ import {
   type Delivery,
   deliveriesPage,
 } from './notifications-admin-api';
+import { LoadError } from '../../components/LoadError';
+import { useCountLine } from '../list-paging';
 
 const CHANNEL_NAMES = ['email', 'sms', 'push'] as const;
 
-const TONE: Record<Delivery['status'], BadgeTone> = {
+const TONE: Record<Delivery['status'], ColorTone> = {
   queued: 'info',
   sending: 'info',
   sent: 'success',
-  failed: 'danger',
+  failed: 'error',
   dry_run: 'neutral',
   suppressed: 'warning',
 };
@@ -50,10 +49,8 @@ const TONE: Record<Delivery['status'], BadgeTone> = {
 export function DeliveriesPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.deliveries');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
-  const { filters, setFilters, change, cursor, setCursor, activeCount } =
-    useTabView(DELIVERY_FILTERS);
+  const { filters, setFilters, change, cursor, setCursor } = useTabView(DELIVERY_FILTERS);
   const allowed = Boolean(me && canAdministerSystem(me));
   // a stale link with another value shows everything instead of an error
   const status = DELIVERY_STATUSES.find((s) => s === filters.status);
@@ -65,20 +62,19 @@ export function DeliveriesPage() {
     enabled: allowed,
     placeholderData: keepPreviousData,
   });
+  const countLine = useCountLine();
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
 
   const rows = page.data?.data ?? [];
   const meta = page.data?.meta;
-  const statusBadge = (d: Delivery) => (
-    <Badge tone={TONE[d.status]} label={t(`status.${d.status}`)} />
-  );
+  const statusBadge = (d: Delivery) => <Chip tone={TONE[d.status]}>{t(`status.${d.status}`)}</Chip>;
   const channelName = (d: Delivery) => {
     const known = CHANNEL_NAMES.find((c) => c === d.channel);
     return known ? t(`channel.${known}`) : d.channel;
   };
   const recipient = (d: Delivery) => d.recipient?.name ?? t('system');
-  const columns: TableColumn<Delivery>[] = [
+  const columns: DataTableExtendedColumn<Delivery>[] = [
     {
       id: 'time',
       header: t('column.time'),
@@ -116,75 +112,72 @@ export function DeliveriesPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
-      <p className="admin-muted">{t('intro')}</p>
-      <Table
+      <Page
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('intro')}
+        documentTitle={false}
+      />
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={rows}
-        rowKey={(d) => d.id}
+        getRowId={(d) => d.id}
         rowLabel={(d) => `${formatDateTime(d.createdAt, locale)} ${d.templateKey}`}
         loading={page.isPending}
         error={
           page.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={page.error instanceof ApiFailure ? page.error.requestId : undefined}
-              onRetry={() => void page.refetch()}
-            />
+            <LoadError error={page.error} onRetry={() => void page.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={Send} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         toolbar={
-          <TableToolbar
+          <FilterBar
             chips={[
               { id: 'all', label: t('status.all') },
               ...DELIVERY_STATUSES.map((s) => ({ id: s, label: t(`status.${s}`) })),
             ]}
             activeChip={status ?? 'all'}
             onChipChange={(id) => change({ status: id === 'all' ? undefined : id })}
-            activeFilterCount={activeCount(['status'])}
             onClearFilters={() => setFilters(status ? { status } : {})}
-            filters={
-              <>
-                <Select
-                  label={t('channel.label')}
-                  options={[
-                    { id: 'all', label: t('channel.all') },
-                    ...DELIVERY_CHANNELS.map((c) => ({ id: c, label: t(`channel.${c}`) })),
-                  ]}
-                  value={channel ?? 'all'}
-                  onChange={(id) => change({ channel: id && id !== 'all' ? id : undefined })}
-                />
-                <DateField
-                  label={t('from')}
-                  value={filters.from ?? null}
-                  onChange={(from) => change({ from: from ?? undefined })}
-                />
-                <DateField
-                  label={t('to')}
-                  value={filters.to ?? null}
-                  onChange={(to) => change({ to: to ?? undefined })}
-                />
-              </>
-            }
-          />
+          >
+            <>
+              <SelectField
+                label={t('channel.label')}
+                options={[
+                  { value: 'all', label: t('channel.all') },
+                  ...DELIVERY_CHANNELS.map((c) => ({ value: c, label: t(`channel.${c}`) })),
+                ]}
+                value={channel ?? 'all'}
+                onChange={(id) => change({ channel: id && id !== 'all' ? id : undefined })}
+              />
+              <DateField
+                label={t('from')}
+                value={filters.from ?? ''}
+                onChange={(from) => change({ from: from || undefined })}
+              />
+              <DateField
+                label={t('to')}
+                value={filters.to ?? ''}
+                onChange={(to) => change({ to: to || undefined })}
+              />
+            </>
+          </FilterBar>
         }
-        pagination={
+        cursorPagination={
           meta
             ? {
-                shown: rows.length,
-                total: meta.nextCursor ? `${rows.length}+` : rows.length,
                 hasNext: meta.nextCursor !== null,
                 hasPrevious: meta.prevCursor !== null,
                 onNext: () => setCursor(meta.nextCursor),
                 onPrevious: () => setCursor(meta.prevCursor),
+                summary: countLine(rows.length, meta.nextCursor ? 'more' : rows.length),
               }
             : undefined
         }
         cardRenderer={(d) => (
           <div className="admin-permission-card">
-            <Stack direction="row" wrap align="center" gap={2} as="span">
+            <Stack direction="row" wrap align="center" gap={2}>
               <code lang="en">{d.templateKey}</code>
               {statusBadge(d)}
             </Stack>

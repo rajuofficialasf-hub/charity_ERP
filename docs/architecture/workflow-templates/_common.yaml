@@ -2,7 +2,7 @@
 # Status: written in task T0.11 (2026-10-10). Validated by schema.json. Templates declare `extends: _common`.
 # Permissions are names from docs/security/permissions.yaml; guards and effects are names from WORKFLOW_ENGINE.md sections 6-7.
 template: _common
-version: 1
+version: 5
 title_en: Common application cycle
 title_bn: কমন আবেদন চক্র
 source: [A7, B5, B7]
@@ -38,8 +38,8 @@ transitions:
     to: submitted
     permission: application.verify_needs_verification
     guards: [identity.present, beneficiary.not_blocked, deadline.open, limit.not_exceeded]
-    effects: [needs_verification.link, score.compute, audit:application.verified_link]
-    note: "Offline NID collision (BD-48) or public-link entry (O-08, O-13): the official links the record to the existing profile"
+    effects: [needs_verification.link, score.compute]
+    note: "Offline NID collision (BD-48) or public-link entry (O-08, O-13): the official links the record to the existing profile (action verify_link) or creates the new one (verify_create); the audit names the action"
   - from: needs_verification
     to: rejected
     permission: application.verify_needs_verification
@@ -64,7 +64,7 @@ transitions:
   - from: reviewed
     to: approved
     permission: application.approve
-    guards: [project.active, beneficiary.not_blocked, score.comment_if_against_order, zakat.eligible_if_zakat_fund]
+    guards: [project.active, score.comment_if_against_order, quota.comment_if_full, family.comment_if_match, zakat.eligible_if_zakat_fund, actor.not_creator]
     requires_comment_if: against_score_order
     effects: [score.snapshot, quota.increment, ledger.post:approved, lock:fields, audit:application.approve, notify:application_approved]
     actor_recorded_as: approved_by
@@ -72,26 +72,35 @@ transitions:
     to: rejected
     permission: application.reject
     requires_reason: true
-    guards: [score.comment_if_against_order]
+    guards: [score.comment_if_against_order, actor.not_creator]
     effects: [score.snapshot, audit:application.reject, notify:application_rejected]
   - from: reviewed
     to: waitlisted
     permission: application.waitlist
     requires_reason: true
-    guards: [score.comment_if_against_order]
+    guards: [score.comment_if_against_order, actor.not_creator]
     effects: [score.snapshot, waitlist.enqueue, audit:application.waitlisted, notify:application_waitlisted]
   - from: waitlisted
     to: approved
-    permission: application.waitlist
-    guards: [project.active, beneficiary.not_blocked]
-    effects: [waitlist.dequeue, quota.increment, ledger.post:approved, lock:fields, audit:application.approve, notify:application_approved]
+    permission: application.approve
+    guards: [project.active, score.comment_if_against_order, quota.comment_if_full, family.comment_if_match, zakat.eligible_if_zakat_fund, actor.not_creator]
+    requires_comment_if: against_score_order
+    effects: [waitlist.dequeue, score.snapshot, quota.increment, ledger.post:approved, lock:fields, audit:application.pull_from_waitlist, notify:application_approved]
     actor_recorded_as: approved_by
-    note: "One-click pull from the waitlist (BD-17)"
+    note: "One-click pull from the waitlist (BD-17): the highest score of the quota area, then the earliest waitlisted; pulling another one, or into a full quota area, asks for a comment (D-132). The pull is an approval: it needs application.approve (so a template's approval override, such as the PM's final approval of house construction, applies) and the zakat guard, besides application.waitlist on the pull route"
   - from: waitlisted
     to: rejected
     permission: application.reject
     requires_reason: true
-    effects: [waitlist.dequeue, audit:application.reject, notify:application_rejected]
+    guards: [score.comment_if_against_order, actor.not_creator]
+    effects: [waitlist.dequeue, score.snapshot, audit:application.reject, notify:application_rejected]
+  - from: rejected
+    to: reviewed
+    permission: application.approve
+    requires_reason: true
+    guards: [project.not_closed, limit.not_exceeded, actor.not_creator]
+    effects: [audit:application.reopened, notify:application_reopened]
+    note: "A wrong rejection is corrected on the same application: one person keeps one application per project (docs/DECISION_LOG.md, the application cycle)"
   - from: approved
     to: implementation
     auto: true

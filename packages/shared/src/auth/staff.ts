@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { toEnglishDigits } from '../digits.js';
+import type { ProjectStatus } from '../projects/lifecycle.js';
 import { PASSWORD_MAX_LENGTH } from './password.js';
 
 /**
@@ -69,6 +70,15 @@ const unitRule = {
   message: 'validation.affiliation_unit',
 };
 
+/** Where an official works: the affiliation and, outside the department, its unit. */
+export const staffWorkplaceSchema = z
+  .strictObject({
+    affiliation: profileShape.affiliation,
+    affiliationUnit: profileShape.affiliationUnit,
+  })
+  .refine(unitMatches, unitRule);
+export type StaffWorkplace = z.infer<typeof staffWorkplaceSchema>;
+
 /** POST /users: a new official with one role; the set-password link goes to the email. */
 export const staffCreateRequestSchema = z
   .strictObject({
@@ -117,4 +127,84 @@ export interface InvitationIssued {
   link: string;
   expiresAt: string;
   emailed: boolean;
+}
+
+/** A name in both languages (a program, a division). */
+interface Named {
+  id: string;
+  name: { bn: string; en: string };
+}
+
+/** A role by its key, with its name as the roles table keeps it. */
+export interface NamedRole {
+  key: string;
+  name: { bn: string; en: string };
+}
+
+/** An official's own profile (`GET /me/profile`): who they are, where they work, how to reach them. */
+export interface OwnStaffProfile {
+  id: string;
+  displayName: string;
+  jobId: string | null;
+  designation: string | null;
+  roles: NamedRole[];
+  affiliation: Affiliation | null;
+  affiliationUnit: string | null;
+  program: Named | null;
+  division: Named | null;
+  supervisor: { id: string; name: string } | null;
+  mobile: string | null;
+  email: string | null;
+  state: 'pending' | 'active' | 'blocked' | 'deactivated';
+  lastLoginAt: string | null;
+  photoFileId: string | null;
+}
+
+/** The figures of an official's work on one project (docs/BUSINESS_RULES.md, the work figures). */
+export interface ProjectWorkFigures {
+  /** In the official's area: the whole project for its PM or an access without an area. */
+  area: {
+    received: number;
+    waiting: number;
+    approved: number;
+    rejected: number;
+    waitlisted: number;
+    volunteers: number;
+  };
+  /** By the official, anywhere on the project. */
+  mine: {
+    reviewed: number;
+    approved: number;
+    rejected: number;
+    waitlisted: number;
+    /** The median days from submission to their first decision on an application; null without one. */
+    medianDays: number | null;
+  };
+}
+
+/** A project an official works on, with their roles and areas there and their figures. */
+export interface ProjectWork {
+  id: string;
+  code: string;
+  name: { bn: string; en: string };
+  year: number;
+  status: ProjectStatus;
+  program: Named;
+  applyFrom: string | null;
+  applyTo: string | null;
+  /** program_manager through the program, regional_program_manager through an area, or the access row's role. */
+  roles: NamedRole[];
+  /** The official's areas there; empty with `wholeProject`. */
+  areas: Named[];
+  wholeProject: boolean;
+  figures: ProjectWorkFigures;
+}
+
+/**
+ * An official's projects by year, newest first (`GET /me/projects-work`,
+ * `GET /users/{userId}/projects-work`). A person whom every project is open to gets no list.
+ */
+export interface ProjectsWork {
+  everyProject: boolean;
+  years: { year: number; projects: ProjectWork[] }[];
 }

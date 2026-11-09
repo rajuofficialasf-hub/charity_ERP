@@ -1,0 +1,124 @@
+import type { Client } from 'pg';
+import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { createContainer, closeContainer, type Container } from '../../src/container';
+import { testEnv } from '../support/env';
+import { cloneTemplate } from './support/db';
+import * as f from './support/fixtures';
+
+// The family-duplicate warning: other beneficiaries of the same project with the same mobile, or
+// the same union, village and father's or husband's name. It only warns, never refuses.
+let db: Client;
+let drop: () => Promise<void>;
+let container: Container;
+let loc: Awaited<ReturnType<typeof f.locationTree>>;
+let project: Awaited<ReturnType<typeof f.project>>;
+
+beforeAll(async () => {
+  const clone = await cloneTemplate(inject('templateDb'));
+  ({ client: db, drop } = clone);
+  container = createContainer(testEnv({ DATABASE_URL: clone.url }));
+  loc = await f.locationTree(db);
+  project = await f.project(db);
+});
+afterAll(async () => {
+  await closeContainer(container);
+  await drop();
+});
+
+const applicantIn = async (
+  p: Awaited<ReturnType<typeof f.project>>,
+  over: Record<string, unknown>,
+  status = 'submitted',
+) => {
+  const id = await f.beneficiary(db, loc, over);
+  await f.application(
+    db,
+    { project: p, loc },
+    { beneficiary_id: id, status, ...(status === 'deleted' ? { deleted_at: new Date() } : {}) },
+  );
+  return id;
+};
+const matches = (beneficiaryId: string, projectId = project.id) =>
+  container.prisma.$transaction((tx) =>
+    container.beneficiaryFamily.matches(tx, projectId, beneficiaryId),
+  );
+const benNo = async (id: string) =>
+  `BEN-${String((await db.query('SELECT ben_no FROM beneficiaries WHERE id = $1', [id])).rows[0].ben_no).padStart(7, '0')}`;
+
+describe('the family-duplicate warning', () => {
+  it('matches two applicants with one mobile, wherever they live', async () => {
+    const other = await f.locationTree(db);
+    const a = await applicantIn(project, { mobile: '01611000001', village: 'প্রথম গ্রাম' });
+    const bId = await f.beneficiary(db, other, { mobile: '01611000001', village: 'অন্য গ্রাম' });
+    await f.application(db, { project, loc: other }, { beneficiary_id: bId });
+    expect(await matches(a)).toEqual([
+      {
+        beneficiaryId: bId,
+        benNo: await benNo(bId),
+        name: 'নমুনা উপকারভোগী',
+        matchedOn: ['mobile'],
+      },
+    ]);
+  });
+
+  it('matches the same union, village and father, comparing names without extra spaces', async () => {
+    const a = await applicantIn(project, {
+      village: 'পূর্ব পাড়া',
+      father_or_husband_name: 'আব্দুল করিম',
+    });
+    const b = await applicantIn(project, {
+      village: ' পূর্ব  পাড়া ',
+      father_or_husband_name: 'আব্দুল  করিম',
+      name: 'রহিমা বেগম',
+    });
+    expect(await matches(a)).toEqual([
+      {
+        beneficiaryId: b,
+        benNo: await benNo(b),
+        name: 'রহিমা বেগম',
+        matchedOn: ['union_village_father'],
+      },
+    ]);
+  });
+
+  it('names both rules when both match', async () => {
+    const a = await applicantIn(project, {
+      mobile: '01611000003',
+      village: 'মধ্য পাড়া',
+      father_or_husband_name: 'জব্বার',
+    });
+    const b = await applicantIn(project, {
+      mobile: '01611000003',
+      village: 'মধ্য পাড়া',
+      father_or_husband_name: 'জব্বার',
+    });
+    expect((await matches(a)).map((m) => [m.beneficiaryId, m.matchedOn])).toEqual([
+      [b, ['mobile', 'union_village_father']],
+    ]);
+  });
+
+  it('does not match the same village with another father, nor another project', async () => {
+    const a = await applicantIn(project, {
+      village: 'দক্ষিণ পাড়া',
+      father_or_husband_name: 'রফিক',
+      mobile: '01611000004',
+    });
+    await applicantIn(project, {
+      village: 'দক্ষিণ পাড়া',
+      father_or_husband_name: 'শফিক',
+      mobile: '01611000005',
+    });
+    const elsewhere = await f.project(db);
+    await applicantIn(elsewhere, { mobile: '01611000004' });
+    expect(await matches(a)).toEqual([]);
+  });
+
+  it('ignores deleted applications and retired profiles', async () => {
+    const a = await applicantIn(project, { mobile: '01611000006' });
+    await applicantIn(project, { mobile: '01611000006' }, 'deleted');
+    const retired = await applicantIn(project, { mobile: '01611000006' });
+    const kept = await f.beneficiary(db, loc);
+    await db.query('UPDATE beneficiaries SET merged_into_id = $2 WHERE id = $1', [retired, kept]);
+    expect(await matches(a)).toEqual([]);
+  });
+});
