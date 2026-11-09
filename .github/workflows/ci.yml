@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:17
+        image: postgres:17@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
         env:
           POSTGRES_USER: css
           POSTGRES_PASSWORD: css_ci_only
@@ -55,9 +55,11 @@ jobs:
       MINIO_TEST_ACCESS_KEY: css_ci_only
       MINIO_TEST_SECRET_KEY: css_ci_only_secret
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -94,18 +96,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
       # High and critical advisories fail the build (O-46 item 6).
       - run: pnpm audit --audit-level high
       - name: gitleaks
-        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --redact --verbose
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f git /repo --redact --verbose
 
   e2e:
     name: E2E (Playwright)
@@ -117,7 +120,7 @@ jobs:
     # The E2E API recreates css_erp_test_e2e here, migrates and seeds it (T1.7).
     services:
       postgres:
-        image: postgres:17
+        image: postgres:17@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
         env:
           POSTGRES_USER: css
           POSTGRES_PASSWORD: css_ci_only
@@ -132,9 +135,11 @@ jobs:
     env:
       E2E_DATABASE_URL: postgresql://css:css_ci_only@127.0.0.1:5432/css_erp_test_e2e
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -150,7 +155,7 @@ jobs:
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: pnpm e2e
       - if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report
           path: apps/web/playwright-report

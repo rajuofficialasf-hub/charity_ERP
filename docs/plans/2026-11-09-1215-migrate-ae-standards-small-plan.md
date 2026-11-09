@@ -76,7 +76,7 @@ On 2026-11-09 the owner made the standards the base of the project: anything out
 - **Depends on:** U1
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U3. Production refuses the local secrets
 - **Goal:** a production start with any example or missing secret fails at once.
@@ -253,7 +253,7 @@ On 2026-11-09 the owner made the standards the base of the project: anything out
 ## Progress
 - **Branch:** `chore/ae-standards-small`
 - **Updated:** 2026-11-09 12:45
-- **Next:** U2, pin the workflow actions by SHA
+- **Next:** U3, the production refusal of the local secrets
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** `develop` was created and pushed and made the default branch with `ae-branch.mjs setup --github`, and PR #48 was retargeted to develop. Branch protection is not available: the repository is private on GitHub's free plan, so neither main nor develop can be protected (the owner chose protection binding admins too); the plugin's guard is the only protection until the plan changes. The structure reviewer found the gap list wrong on RE-FX-02, so U8 was dropped.
+- **Notes:** `develop` was created and pushed and made the default branch with `ae-branch.mjs setup --github`, and PR #48 was retargeted to develop. Branch protection is not available: the repository is private on GitHub's free plan, so neither main nor develop can be protected (the owner chose protection binding admins too); the plugin's guard is the only protection until the plan changes. U2: zizmor is not installed on this machine, so it did not run; the actions, the postgres and gitleaks images are pinned by SHA or digest and every checkout has persist-credentials false (its usual finding). The structure reviewer found the gap list wrong on RE-FX-02, so U8 was dropped.
