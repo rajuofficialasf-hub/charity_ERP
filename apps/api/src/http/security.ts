@@ -20,7 +20,7 @@ export function securityHeaders(): RequestHandler {
 }
 
 /**
- * CORS for the configured origins only, with credentials (NE-SEC-02). With no origins the API is
+ * CORS for the configured origins only, with credentials. With no origins the API is
  * same-origin only (the PWA is served by Caddy or the Vite proxy) and no allow header is sent.
  */
 export function corsAllowlist(origins: readonly string[]): RequestHandler {

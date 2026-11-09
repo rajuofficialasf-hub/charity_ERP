@@ -149,10 +149,30 @@ describe('loadEnv', () => {
         return String(error);
       }
     };
-    expect(refusal('http://erp.example.org')).toContain('ALLOWED_ORIGINS');
-    expect(refusal('https://127.0.0.1')).toContain('ALLOWED_ORIGINS');
-    expect(refusal('https://localhost:3000')).toContain('ALLOWED_ORIGINS');
-    expect(refusal('https://erp.example.org')).not.toContain('ALLOWED_ORIGINS');
+    for (const local of [
+      'http://erp.example.org',
+      'https://127.0.0.1',
+      'https://localhost:3000',
+      'https://0.0.0.0',
+      'https://10.0.0.5',
+      'https://[::1]',
+      'https://app.localhost',
+      'https://localhost.',
+    ])
+      expect(refusal(local), local).toContain('ALLOWED_ORIGINS');
+    // a wildcard is refused by the parsing, with its own message
+    expect(refusal('*')).toContain('ALLOWED_ORIGINS: "*" is not an exact http(s) origin');
+    // a real site, even one whose name starts with digits, leaves only the scanner missing
+    const scannerOnly =
+      'Error: Invalid configuration: FILE_SCANNER: a real virus scanner is required in production';
+    expect(refusal('https://erp.example.org')).toBe(scannerOnly);
+    expect(refusal('https://127.example.org')).toBe(scannerOnly);
+  });
+
+  it('refuses the allowlist under its earlier name instead of ignoring it', () => {
+    expect(() => loadEnv({ ...base, CORS_ORIGINS: 'https://erp.example.org' })).toThrow(
+      /CORS_ORIGINS: renamed, set ALLOWED_ORIGINS instead/,
+    );
   });
 
   describe('the local example secrets in production', () => {

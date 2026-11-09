@@ -254,10 +254,19 @@ function isExactOrigin(entry: string): boolean {
   }
 }
 
+/** https on a DNS name of a real site: no address literal, no name of this machine. */
 function isPublicHttps(origin: string): boolean {
-  const { protocol, hostname } = new URL(origin);
-  const loopback = hostname === 'localhost' || hostname === '[::1]' || hostname.startsWith('127.');
-  return protocol === 'https:' && !loopback;
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  const host = url.hostname.toLowerCase();
+  const ipv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+  const ipv6 = host.startsWith('[');
+  const local = host === 'localhost' || host === 'localhost.' || host.endsWith('.localhost');
+  return url.protocol === 'https:' && !ipv4 && !ipv6 && !local;
 }
 
 /** The marks of the secrets the repository itself carries, which are therefore public. */
@@ -297,6 +306,9 @@ export function loadEnv(source: Record<string, string | undefined>): Env {
   const present = Object.fromEntries(
     Object.entries(source).filter(([, value]) => value !== undefined && value !== ''),
   );
+  // the allowlist's earlier name would otherwise be ignored and leave the allowlist empty
+  if (present['CORS_ORIGINS'] !== undefined)
+    throw new Error('Invalid configuration: CORS_ORIGINS: renamed, set ALLOWED_ORIGINS instead');
   const result = envSchema.safeParse(present);
   if (!result.success) {
     const problems = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
