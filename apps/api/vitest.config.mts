@@ -1,5 +1,7 @@
 import { defineProject } from 'vitest/config';
-import { nodeSourceConditions } from '../../vitest.shared.mts';
+import { assertTestRuntime, nodeSourceConditions } from '../../vitest.shared.mts';
+
+assertTestRuntime();
 
 export default defineProject({
   resolve: { conditions: nodeSourceConditions },

@@ -34,7 +34,7 @@ Phase 1 has started: the repository holds the scaffold of task T1.1 (no business
 
 ### Prerequisites
 
-- Node.js 24 LTS (`.nvmrc`) and pnpm 12 (`corepack enable` or `npm install -g pnpm@12.10.1`)
+- Node.js 24 LTS, 24.16.0 or later (`.nvmrc`; older 24.x releases abort test workers on Windows, D-164) and pnpm 12 (`corepack enable` or `npm install -g pnpm@12.10.1`)
 - Docker Desktop with the engine running (Docker Compose v2.20 or newer)
 - Git with LF line endings (`.gitattributes` enforces them)
 

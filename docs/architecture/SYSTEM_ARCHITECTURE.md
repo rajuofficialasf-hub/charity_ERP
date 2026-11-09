@@ -132,7 +132,7 @@ The groups below are the audiences of the screens. Since T1.15 one layout route,
 |---|---|---|
 | `(auth)` | Everyone; phone first | login, registration with two OTP steps, password reset, consent flow |
 | `(volunteer)` | Volunteers, team members, Local দায়ীs, paid volunteers; phone first, offline capable | home with offline banner, my projects, new application with NID lookup, my applications, today's distribution / class / construction, expense claim, inbox |
-| `(official)` | Project Executive, RPM, Official দায়ী, Implementer; responsive, usable at 360 px | review queue and detail, volunteer and beneficiary tabs and profiles, issue log, site verification, payments and expense verification, document register, handover |
+| `(official)` | Project Executive, RPM, Official দায়ী; responsive, usable at 360 px | review queue and detail, volunteer and beneficiary tabs and profiles, issue log, site verification, payments and expense verification, document register, handover |
 | `(management)` | Department Head, Monitoring Team, PM; responsive | project, program, central and dawah dashboards, monitoring control centre, work summaries, audit viewer |
 | `(setup)` | PM, Department Head, Monitoring Team; desktop first with a phone notice | program and project setup, form builder, templates, permission panel, admin settings, checklist and rating editors |
 | `(public)` | Anyone; phone first | tree-planting public application form (BR-087) |

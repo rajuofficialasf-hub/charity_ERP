@@ -5,7 +5,7 @@
   "description": "ERP for the Charity & Social Service Department of As-Sunnah Foundation",
   "packageManager": "pnpm@12.10.1",
   "engines": {
-    "node": ">=24 <25",
+    "node": ">=24.16.0 <25",
     "pnpm": ">=12"
   },
   "scripts": {

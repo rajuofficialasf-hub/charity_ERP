@@ -102,6 +102,7 @@
     "option_remove": "Remove option {n}",
     "depends_on": "The options follow the answer to",
     "depends_on_hint": "Only the options that match the earlier answer are shown.",
+    "options_from_list": "This question's options come from the system's list, so they cannot be changed here. The list's options are set when the draft is saved.",
     "depends_none": "No question",
     "help_bn": "Help text (Bengali)",
     "help_en": "Help text (English)",

@@ -950,6 +950,8 @@ export type ComboboxProps = FieldBase & {
   serverSearch?: boolean;
   /** True while the server search runs. */
   loading?: boolean;
+  /** Called when the list opens, so a server search can offer its first options before any text. */
+  onOpen?: () => void;
   /** Text that is not one of the options is kept; `onChange` then receives the text itself. */
   freeText?: boolean;
 };

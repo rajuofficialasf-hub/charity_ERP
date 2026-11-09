@@ -14,10 +14,18 @@ export interface PanelUser {
 
 const MIN_SEARCH = 2;
 
+/** The users with one role, the first 50 by name (a role's people fit one list). */
+export const usersWithRole = (role: string) => (text: string) =>
+  api<PanelUser[]>(
+    `/users?kind=staff&state=active&role=${role}&limit=50${text ? `&q=${encodeURIComponent(text)}` : ''}`,
+  );
+
 /**
  * Finds a user by name, email or mobile through the server search (GET /users; the permission
  * panel and the handover page), or through another search the caller gives (the officials a
- * project may be given). The option shows the designation, not the contact details.
+ * project may be given). Opening the field lists the first ones by name before any text
+ * (DECISION_LOG D-161); two letters narrow the list on the server. The option shows the
+ * designation, not the contact details.
  */
 export function UserSearch({
   label,
@@ -35,20 +43,21 @@ export function UserSearch({
 }) {
   const t = useTranslations('admin.permissions');
   const [text, setText] = useState('');
+  const [opened, setOpened] = useState(false);
   const optionLabel = (u: PanelUser) =>
     u.designation
       ? t('user_option', { name: u.displayName, detail: u.designation })
       : u.displayName;
-  const searching =
-    text.trim().length >= MIN_SEARCH && (!selected || text !== optionLabel(selected));
-  const term = text.trim().slice(0, 100);
+  const typed = text.trim().length >= MIN_SEARCH && (!selected || text !== optionLabel(selected));
+  // until two letters are typed the list shows the first users by name
+  const term = typed ? text.trim().slice(0, 100) : '';
   const results = useQuery({
     queryKey: ['admin', 'user-search', search?.key ?? 'users', term],
     queryFn: () =>
       search
         ? search.find(term)
-        : api<PanelUser[]>(`/users?limit=20&q=${encodeURIComponent(term)}`),
-    enabled: searching,
+        : api<PanelUser[]>(`/users?limit=20${term ? `&q=${encodeURIComponent(term)}` : ''}`),
+    enabled: opened || typed,
   });
   // the chosen user stays an option while the text shows its label
   const users = [
@@ -64,6 +73,7 @@ export function UserSearch({
       valueLabel={selected ? optionLabel(selected) : undefined}
       onInputChange={setText}
       serverSearch
+      onOpen={() => setOpened(true)}
       loading={results.isFetching}
       onChange={(id) => onSelect(users.find((u) => u.id === id) ?? null)}
     />

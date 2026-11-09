@@ -464,6 +464,14 @@ describe('people to assign', () => {
     expect(rpms.body.data).toEqual([
       { id: rpm.id, displayName: 'খোঁজার আরপিএম', designation: null },
     ]);
+    // without a name the picker opens on the role's active officials (D-161)
+    const opened = await find(pm, 'role=regional_program_manager');
+    expect(opened.status).toBe(200);
+    const openedIds = opened.body.data.map((c: { id: string }) => c.id);
+    expect(openedIds).toContain(rpm.id);
+    expect(openedIds).not.toContain(gone.id);
+    expect(openedIds).not.toContain(revoked.id);
+    expect(openedIds).not.toContain(executive.id);
     const dhaka = await as(world.users.rpmDhaka);
     expect(
       (await find(dhaka, `role=regional_program_manager&q=${encodeURIComponent('খোঁজার')}`)).status,

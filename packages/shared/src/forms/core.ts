@@ -95,3 +95,29 @@ export const FAMILY_MEMBER_COLUMNS = [
 export type FamilyMemberColumn = (typeof FAMILY_MEMBER_COLUMNS)[number];
 export const isFamilyMemberColumn = (column: string): column is FamilyMemberColumn =>
   (FAMILY_MEMBER_COLUMNS as readonly string[]).includes(column);
+
+/**
+ * The reference list a coded column takes its codes from: the database keeps each of these codes
+ * against its list, so the options of a question that fills one are the list's, never the
+ * builder's own (DECISION_LOG D-163). A question inside a repeat group fills a family member's
+ * column, any other question the profile's.
+ */
+const PROFILE_COLUMN_LISTS: ReadonlyMap<string, string> = new Map([
+  ['gender_code', 'gender'],
+  ['marital_status_code', 'marital_status'],
+  ['education_code', 'education_level'],
+]);
+const MEMBER_COLUMN_LISTS: ReadonlyMap<string, string> = new Map([
+  ['relationship_code', 'relationship'],
+]);
+
+/** The reference list whose codes a question's options must be, or null for a free question. */
+export function listOfField(field: {
+  standardColumn?: string | null;
+  settings?: { repeat?: { group?: string } } | null;
+}): string | null {
+  const column = field.standardColumn;
+  if (!column) return null;
+  const lists = field.settings?.repeat?.group ? MEMBER_COLUMN_LISTS : PROFILE_COLUMN_LISTS;
+  return lists.get(column) ?? null;
+}

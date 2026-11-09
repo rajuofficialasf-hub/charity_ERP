@@ -185,6 +185,7 @@ export function Combobox({
   onInputChange,
   serverSearch,
   loading,
+  onOpen,
   freeText,
   valueLabel,
 }: ComboboxProps) {
@@ -210,6 +211,7 @@ export function Combobox({
         onChange(next?.value ?? null);
       }}
       onInputChange={(_, text) => onInputChange?.(text)}
+      onOpen={onOpen}
       onBlur={onBlur}
       noOptionsText={labels.noResults}
       loadingText={labels.loading}

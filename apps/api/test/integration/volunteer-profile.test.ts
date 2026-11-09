@@ -127,11 +127,25 @@ describe('the protected parts of a volunteer profile', () => {
       ],
       blocklist: { blocked: true, reason: 'Sample reason', blockedAt: expect.any(String) },
     });
-    const implementer = await staff('implementer');
-    const masked = (await profile(implementer, rated.volunteerId)).body.data;
+    // the Official দায়ী sees every volunteer and the blocklist reason, but not the ratings
+    const daee = await staff('official_daee');
+    const masked = (await profile(daee, rated.volunteerId)).body.data;
     for (const key of ['category', 'inactiveFlag', 'ratings'])
       expect(masked, key).not.toHaveProperty(key);
-    expect(masked.blocklist).toEqual({ blocked: true, blockedAt: expect.any(String) });
+    expect(masked.blocklist).toEqual({
+      blocked: true,
+      reason: 'Sample reason',
+      blockedAt: expect.any(String),
+    });
+    // a role outside the reason's class, given the volunteer tab in the panel, sees the block only
+    const procurement = await account(h.db, { role: 'procurement_team' });
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, reason, granted_by)
+       VALUES ($1, $2, 'volunteer.view_all', 'grant', 'GLOBAL', 'Test grant', $3)`,
+      [randomUUID(), procurement.id, world.users.head],
+    );
+    const outside = (await profile(await login(h, procurement), rated.volunteerId)).body.data;
+    expect(outside.blocklist).toEqual({ blocked: true, blockedAt: expect.any(String) });
   });
 });
 

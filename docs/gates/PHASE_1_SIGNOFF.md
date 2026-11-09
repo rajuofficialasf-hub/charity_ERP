@@ -7,9 +7,9 @@
 | Scope | T1.1 to T1.16 and the owner's design work after them (D-103, D-104, UX-21, UX-22, D-105) |
 | Baseline | Branch `chore/phase1-gate`; the tag `gate-phase-1` is set on the signed-off commit |
 | Testers | The official team: Department Head, Monitoring Team, PM, RPM, Project Executive (`docs/testing/uat/PHASE_1_UAT_BN.md`) |
-| UAT | **Pending** — feedback through `/css-uat Phase 1` |
-| Owner sign-off | **Pending** — signature lines at the end of the Bengali summary |
-| Next task after sign-off | T2.1 (file service), the first task of Phase 2 |
+| UAT | **Pending** — moved to the Phase 2 gate (T2.10) by the owner on 2026-10-21 (D-165): Phase 1 and Phase 2 are tested together; feedback through `/css-uat` |
+| Owner sign-off | **Pending** — signed with the Phase 2 sign-off (D-165); signature lines at the end of the Bengali summary |
+| Next task after sign-off | Phase 2 started before the sign-off (D-107); since D-165 this sign-off comes at the Phase 2 gate |
 
 ## 1. Gate steps (`/css-gate 1`)
 

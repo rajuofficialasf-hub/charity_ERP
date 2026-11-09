@@ -34,7 +34,6 @@ describe('admin role lists', () => {
       'regional_program_manager',
       'project_executive',
       'official_daee',
-      'implementer',
       'media_team',
       'media_director',
       'media_assistant_director',
@@ -46,7 +45,7 @@ describe('admin role lists', () => {
   });
 
   it('gives the volunteer tab to officials and the beneficiary tab also to Media and Procurement', () => {
-    for (const role of ['official_daee', 'implementer', 'regional_program_manager'])
+    for (const role of ['official_daee', 'regional_program_manager'])
       expect(canSeeVolunteers(as(role)), role).toBe(true);
     for (const role of ['media_team', 'procurement_team', 'finance_team'])
       expect(canSeeVolunteers(as(role)), role).toBe(false);

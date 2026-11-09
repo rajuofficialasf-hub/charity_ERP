@@ -22,7 +22,7 @@
     "openapi:generate": "tsx --conditions=@css/source scripts/openapi-generate.ts",
     "authz:matrix": "node scripts/authz-matrix.mjs",
     "e2e:server": "tsx --conditions=@css/source scripts/e2e-server.ts",
-    "jobs:install": "tsx --conditions=@css/source scripts/jobs-install.ts",
+    "jobs:install": "tsx --env-file-if-exists=.env --conditions=@css/source scripts/jobs-install.ts",
     "notifications:sync": "tsx --env-file-if-exists=.env --conditions=@css/source scripts/notifications-sync.ts",
     "worker": "node dist/worker.js",
     "dev:worker": "tsx watch --env-file-if-exists=.env --conditions=@css/source src/worker.ts",

@@ -2725,7 +2725,7 @@ components:
       required: [userId, roleKey]
       properties:
         userId: { type: string, format: uuid }
-        roleKey: { type: string, enum: [project_executive, official_daee, implementer] }
+        roleKey: { type: string, enum: [project_executive, official_daee] }
         areaLocationId: { type: string, format: uuid }
         canView: { type: boolean, default: true }
         canEdit: { type: boolean, default: false }
@@ -7981,7 +7981,7 @@ paths:
       operationId: projects.staff.add
       summary: Give a field official view, edit or delete access on the project
       description: >-
-        Only a Project Executive, Official দায়ী or Implementer (422 project.staff_role_required). An RPM gives view and edit in its own areas of the project only; delete access only the PM (D-095).
+        Only a Project Executive or Official দায়ী (422 project.staff_role_required; the Implementer is retired, D-162). An RPM gives view and edit in its own areas of the project only; delete access only the PM (D-095).
       x-permission: project.staff_access.manage
       x-scope: project
       x-audit: permission_change
@@ -8011,7 +8011,8 @@ paths:
       operationId: projects.candidate.list
       summary: Officials with a role, by name, to assign to the project (an RPM or field staff)
       description: >-
-        Active officials holding the role whose name contains q (at least 2 characters), at most 20,
+        Active officials holding the role, by name; without q the first 50 by name (the picker opens
+        on a list, D-161), with q (at least 2 characters) those whose name contains it, at most 50;
         names and designations only. The RPM of an area is looked up by the PM and the global roles
         only (403 otherwise); a field role also by an RPM of the project.
       x-permission: project.staff_access.manage
@@ -8025,10 +8026,10 @@ paths:
           required: true
           schema:
             type: string
-            enum: [regional_program_manager, project_executive, official_daee, implementer]
+            enum: [regional_program_manager, project_executive, official_daee]
         - name: q
           in: query
-          required: true
+          required: false
           schema: { type: string, minLength: 2, maxLength: 100 }
       responses:
         '200':

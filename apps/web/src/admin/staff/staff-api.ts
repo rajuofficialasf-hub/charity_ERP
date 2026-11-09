@@ -98,7 +98,7 @@ export const updateProfile = (userId: string, etag: string, body: StaffProfileRe
 /** Active department officials for the supervisor search. */
 export const findSupervisors = (text: string) =>
   api<StaffMember[]>(
-    `/users?kind=staff&affiliation=department&state=active&limit=20&q=${encodeURIComponent(text)}`,
+    `/users?kind=staff&affiliation=department&state=active&limit=50${text ? `&q=${encodeURIComponent(text)}` : ''}`,
   );
 
 /** One official in the organogram with those who report to them inside the same part. */

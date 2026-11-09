@@ -105,7 +105,7 @@ export interface StaffAccess {
 export const candidates = async (projectId: string, role: string, q: string) =>
   (
     await api<{ id: string; displayName: string; designation: string | null }[]>(
-      `/projects/${projectId}/candidates?role=${role}&q=${encodeURIComponent(q)}`,
+      `/projects/${projectId}/candidates?role=${role}${q ? `&q=${encodeURIComponent(q)}` : ''}`,
     )
   ).map((c) => ({ ...c, roles: [role] }));
 

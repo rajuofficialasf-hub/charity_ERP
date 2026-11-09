@@ -204,7 +204,7 @@ Forbidden:
 - [ ] Code, comments, documentation, commit messages, OpenAPI, tests, ADRs: English. The blueprint stays Bengali.
 - [ ] User-facing text only as bn/en i18n keys; never hard-coded.
 - [ ] All numbers (amounts, dates, counts, ids, phone numbers) use English digits 0–9 in both languages (UX-05); formatting lives in one central utility.
-- [ ] Role names in code and docs: Department Head, Monitoring Team, Program Manager (PM), Regional Program Manager (RPM), Project Executive, Implementer, Official দায়ী, Procurement Team, Media Team, Finance Team; volunteer types General, Local দায়ী, Both, Team Member, Paid Volunteer. RM = RPM; Monitoring Officer = Monitoring Team; Project Officer = Project Executive.
+- [ ] Role names in code and docs: Department Head, Monitoring Team, Program Manager (PM), Regional Program Manager (RPM), Project Executive, Official দায়ী, Procurement Team, Media Team, Finance Team; volunteer types General, Local দায়ী, Both, Team Member, Paid Volunteer. RM = RPM; Monitoring Officer = Monitoring Team; Project Officer = Project Executive.
 - [ ] Form labels, section names, options, statuses and stage names are bilingual data.
 
 ## 13. UI rules (CLAUDE.md, docs/ui/DESIGN_BRIEF.md)

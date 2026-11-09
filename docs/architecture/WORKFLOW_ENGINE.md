@@ -202,7 +202,7 @@ Stage keys are snake_case of the A8/B5 names; labels carry the Bengali and Engli
 
 - **PM final approval in house construction (BD-24):** the `construction.yaml` approval transition uses `application.approve` like every template; the permission's default grants already give the PM `application.approve` at PROGRAM under the condition `house_construction_only` (permissions.yaml), and the template names no role (BR-193). The RPM keeps approval too (A4 matrix row 15 shows both); the template adds the guard `approval.by_pm_required: true` → implemented as guard `approver.has_permission` with the PM condition, so that an RPM approval on a construction project is refused unless the panel grants it. Recorded in the template as `overrides.approval.require_condition: house_construction_only`.
 - **Official দায়ী approval (O-27):** no template change; the RPM grants `application.approve` per project.
-- **Implementer (O-26):** `advance-voucher.yaml` transitions use the ordinary permissions; the Implementer holds them through the `safe_water_only` condition.
+- **Implementer (O-26, retired by D-162):** `advance-voucher.yaml` transitions use the ordinary permissions; a Project Executive holds them, and the separate Implementer role is gone.
 - **Per-project overrides (data):** stage names and order (when editable), photo rule and source, limit, deadline, scoring criteria and weights, quotas, issue types, expense categories, follow-up template, document checklist. Stored in `project_components.settings` and the `projects` row (limits, deadline, quotas); the engine reads the project's snapshot, never the template file, after activation.
 
 ## 11. Project lifecycle workflow

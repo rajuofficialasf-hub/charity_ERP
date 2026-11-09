@@ -138,7 +138,7 @@ In the app only, to the person who asked for the export; the notice names the li
 | Expense payment recorded (transaction id) | claimant; finance | A | `expense_claim_paid` | 3 |
 | Workers assigned (Local দায়ী, paid volunteers) | the assigned workers | A | `workers_assigned` | 4 |
 | Advance sent (safe water) | the volunteer; finance | A | `advance_sent` | 4 |
-| Vouchers submitted | verifiers (Executive, RPM; Implementer on safe water) | A | `vouchers_submitted` | 4 |
+| Vouchers submitted | verifiers (Executive, RPM) | A | `vouchers_submitted` | 4 |
 | Vouchers verified and locked | the submitter | A | `vouchers_verified` | 4 |
 | Issue raised | rpm(region), Project Executive, Procurement Team (house construction) | A | `issue_raised` | 4 |
 | Issue assigned | assignee | A, E (staff) | `issue_assigned` | 4 |
