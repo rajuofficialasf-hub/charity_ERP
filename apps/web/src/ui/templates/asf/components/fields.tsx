@@ -7,7 +7,7 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import MuiDrawer from '@mui/material/Drawer';
 import FormHelperText from '@mui/material/FormHelperText';
-import { alpha, type Theme } from '@mui/material/styles';
+import { alpha, type Theme, useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
@@ -300,6 +300,7 @@ function SheetSelect({
   other,
   autoOpen,
 }: SelectFieldExtendedProps) {
+  const theme = useTheme();
   const id = useId();
   const labels = useLabels();
   const [open, setOpen] = useState(false);
@@ -380,6 +381,8 @@ function SheetSelect({
         anchor="bottom"
         open={open}
         onClose={close}
+        // above the modal layer: a select inside a dialog opens its sheet over that dialog
+        style={{ zIndex: theme.zIndex.modal + 1 }}
         slotProps={{
           paper: {
             role: 'dialog',

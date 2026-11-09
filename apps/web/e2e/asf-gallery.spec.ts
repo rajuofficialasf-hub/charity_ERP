@@ -43,6 +43,17 @@ for (const lang of ['bn', 'en'] as const) {
       await expect(page.locator('html')).toHaveAttribute('data-color-scheme', mode);
       for (const id of PIECES) await expect(page.getByTestId(`piece-${id}`)).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
+      // the page draws once before the stored mode applies, and the buttons ease their colours
+      // into it: axe measures colours, so the eased changes must have ended (the spinner and the
+      // loading shapes never end)
+      await page.evaluate(() =>
+        Promise.all(
+          document
+            .getAnimations()
+            .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+            .map((animation) => animation.finished),
+        ),
+      );
 
       // the widest piece wider than the screen, named, when anything scrolls sideways
       const wide = await page.evaluate(() =>
