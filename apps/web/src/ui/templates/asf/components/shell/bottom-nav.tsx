@@ -71,7 +71,7 @@ const itemSx = (variant: BottomNavProps['variant'], current: boolean) =>
     '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
   }) as const;
 
-// a label takes two short lines rather than being cut ("আমার আবেদন" on a 360 px phone, D-166)
+// a label takes two short lines rather than being cut ("আমার আবেদন" on a 360 px phone)
 const labelSx = {
   maxWidth: '100%',
   display: '-webkit-box',

@@ -39,7 +39,7 @@ const asPanelUser = (u: StaffMember): PanelUser => ({
 });
 
 /**
- * A new official (DECISION_LOG D-097, BR-261): job ID, name, designation, email, mobile, role,
+ * A new official: job ID, name, designation, email, mobile, role,
  * affiliation with its unit, home program, division and supervisor; the server creates the account
  * and the set-password link. With `official` it edits the profile of an existing official instead
  * (job ID, name, designation, affiliation, program, division, supervisor) with the version read

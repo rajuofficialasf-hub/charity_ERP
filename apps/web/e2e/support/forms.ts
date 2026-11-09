@@ -94,7 +94,7 @@ export async function pick(page: Page, scope: Locator, label: RegExp, option?: s
 /**
  * Picks an option of the renderer's select by its label: an earlier select is a button named by
  * its value, then the label; an asf one (the address) a combobox named by the label; on a phone a
- * short choice is a row of buttons (D-166).
+ * short choice is a row of buttons.
  */
 export async function pickByLabel(page: Page, label: string, option: string) {
   if (await pickChoiceButton(page, label, option)) return;
@@ -107,7 +107,7 @@ export async function pickByLabel(page: Page, label: string, option: string) {
   );
 }
 
-/** Sends the application to the office: on a phone through the check of the answers first (D-166). */
+/** Sends the application to the office: on a phone through the check of the answers first. */
 export async function sendToOffice(page: Page) {
   const send = page.getByRole('button', { name: 'অফিসে পাঠান' });
   if (!(await send.isVisible())) {

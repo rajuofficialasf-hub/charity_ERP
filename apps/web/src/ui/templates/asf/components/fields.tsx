@@ -283,7 +283,7 @@ function MenuSelect({
 /**
  * The phone's select: the field shows its label and the chosen value, and a tap opens the options
  * as a sheet from the bottom, one row each, the chosen one ticked. Nothing is typed, so no keyboard
- * opens (DECISION_LOG D-166).
+ * opens.
  */
 function SheetSelect({
   label,

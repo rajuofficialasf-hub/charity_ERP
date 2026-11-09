@@ -21,7 +21,7 @@ const BY_TYPE = 'by_type';
 const NO_AREA: Address = { divisionId: null, districtId: null, upazilaId: null, unionId: null };
 
 /**
- * Assigns several volunteers of the caller's areas at once (BR-037, BR-038): the approved, not
+ * Assigns several volunteers of the caller's areas at once: the approved, not
  * blocked volunteers the server offers, filtered by area and searched by name or mobile, with one
  * permission set for all (by default the one of each volunteer's type) and, for the RPM, the paid
  * flag. A set a type cannot hold is refused by the server; each assignment can be changed later.

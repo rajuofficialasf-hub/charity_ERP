@@ -7,12 +7,12 @@ import { ApiFailure } from '../../api/client';
 import { decideStaff, roles } from './registrations-api';
 
 type Decision = 'approve' | 'reject';
-/** The Main Admin's role is never given through a registration (BR-028, D-080). */
+/** The Main Admin's role is never given through a registration. */
 const NOT_GIVEN = 'department_head';
 
 /**
  * The Department Head or the Monitoring Team approves an official's registration with the role
- * it gets, or rejects it with a reason (BR-028; POST /staff-registrations/{userId}/decision).
+ * it gets, or rejects it with a reason (POST /staff-registrations/{userId}/decision).
  */
 export function StaffDecisionDialog({
   userId,

@@ -8,7 +8,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { LoginForm } from './LoginForm';
 
-// SCR-001 login (AUTH.md 4, 6; O-59).
+// SCR-001 login (AUTH.md 4, 6).
 beforeEach(() => {
   resetClientForTests();
   document.cookie = 'css_locale=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';

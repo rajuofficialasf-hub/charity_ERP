@@ -8,7 +8,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { OrganogramPage } from './OrganogramPage';
 
-// The department's organogram (DECISION_LOG D-097): the Head, the Monitoring Team and the programs with their reporting
+// The department's organogram: the Head, the Monitoring Team and the programs with their reporting
 // lines, and the officials without a place. Test data only.
 const HEAD: Me = { ...ME, roles: ['department_head'] };
 const VOLUNTEER: Me = { ...ME, kind: 'volunteer', roles: ['volunteer_general'] };

@@ -8,7 +8,7 @@ import { ApiFailure } from '../../api/client';
 import { requestCorrections } from './registrations-api';
 
 /**
- * Asks the registrant to correct the checked fields, with one note (BR-030; POST
+ * Asks the registrant to correct the checked fields, with one note (POST
  * /registrations/{userId}/correction-requests). Only the checked fields reopen for the registrant.
  */
 export function CorrectionDialog({

@@ -290,7 +290,7 @@ function ApplicationForm({
    */
   const save = async ({ answers, clientUuid }: Submission) => {
     const current = draft.current;
-    // the server takes a draft only with its address (BR-058): when the form asks the address in a
+    // the server takes a draft only with its address: when the form asks the address in a
     // later part, the earlier parts stay in memory and the draft is made once the address is in
     if (!current.serverId && !current.clientUuid && !hasAddress(form, answers)) return;
     const store = await loadStore();

@@ -19,7 +19,7 @@ const taka = (paisa: bigint | null, locale: Locale) =>
 
 /**
  * Cost per beneficiary × target, and the fund sources that pay for it, saved together: once the
- * project is active their total always equals the planned budget (DECISION_LOG D-095).
+ * project is active their total always equals the planned budget.
  */
 export function BudgetSection({ sources }: { sources: FundSource[] }) {
   const { project, editable, refresh } = useSetup();

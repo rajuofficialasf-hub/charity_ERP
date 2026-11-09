@@ -100,7 +100,7 @@ describe('the field settings', () => {
     expect(fieldOf(latest, 'phone_two').settings?.validation).toEqual({ pattern: 'mobile' });
   });
 
-  it('shows a coded question its list’s options to read, with no way to edit them (D-163)', async () => {
+  it('shows a coded question its list’s options to read, with no way to edit them', async () => {
     // the core's gender question fills the gender column: its options are the list's
     const def = definition();
     const gender = def.sections.flatMap((x) => x.fields).find((f) => f.fieldKey === 'gender')!;

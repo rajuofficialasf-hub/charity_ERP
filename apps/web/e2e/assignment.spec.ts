@@ -2,14 +2,13 @@ import { devices, expect, test } from '@playwright/test';
 import { isPhone, mainMenu, openTab, scan, signIn } from './support/admin';
 import { activeProject, code, ERR } from './support/projects';
 
-// Assign → consent → the project appears (plan
-// docs/plans/2026-10-17-0905-feat-templates-consent-assignment-plan.md, the end-to-end journey):
-// the Monitoring Team activates a project of ERR with rules in the Dhaka division; the Dhaka RPM assigns a
-// volunteer found by mobile; the volunteer reads the rules part by part, accepts, and the project
-// opens; another volunteer never sees it. The officials work in a desktop window of their own; the
-// volunteer's part runs in the project's viewport, so on the phone project it is checked at phone
-// width. Each run makes its own project.
-// the Monitoring Team creates projects in every program; the PMs of the demo seed work in other specs
+// Assign → consent → the project appears (the end-to-end journey): the Monitoring Team activates a
+// project of ERR with rules in the Dhaka division; the Dhaka RPM assigns a volunteer found by
+// mobile; the volunteer reads the rules part by part, accepts, and the project opens; another
+// volunteer never sees it. The officials work in a desktop window of their own; the volunteer's
+// part runs in the project's viewport, so on the phone project it is checked at phone width. Each
+// run makes its own project. the Monitoring Team creates projects in every program; the PMs of the
+// demo seed work in other specs
 const CREATOR = 'monitoring@example.org';
 const RPM = 'rpm.dhaka@example.org';
 // volunteers of the Dhaka division in the demo seed that no other spec signs in with

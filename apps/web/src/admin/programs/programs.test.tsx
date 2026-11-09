@@ -167,7 +167,7 @@ describe('the programs page', () => {
     open();
     await user.click(await screen.findByRole('button', { name: 'নতুন প্রোগ্রাম' }));
     const dialog = await screen.findByRole('dialog');
-    // nothing is asked of the server until the field opens (D-161)
+    // nothing is asked of the server until the field opens
     expect(searches).toEqual([]);
     await user.click(within(dialog).getByRole('combobox', { name: /প্রোগ্রাম ম্যানেজার/ }));
     await user.click(await screen.findByRole('option', { name: 'নমুনা পিএম দুই' }));

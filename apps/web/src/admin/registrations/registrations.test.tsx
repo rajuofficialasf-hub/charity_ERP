@@ -14,8 +14,7 @@ import { VolunteerProfilePage } from '../volunteers/VolunteerProfilePage';
 import { VolunteersPage } from '../volunteers/VolunteersPage';
 import { stubScreen } from '../../../test/match-media';
 
-// The registration admin page (SCR-040, BR-028 to BR-031, BD-06; plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U13). Test data only.
+// The registration admin page (SCR-040). Test data only.
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const RPM: Me = { ...ME, displayName: 'আরপিএম (নমুনা)', roles: ['regional_program_manager'] };
 const PM: Me = { ...ME, displayName: 'পিএম (নমুনা)', roles: ['program_manager'] };
@@ -528,7 +527,7 @@ describe('volunteer registration detail', () => {
     expect(screen.getAllByText('আপনার জন্য দেখানো হয় না').length).toBeGreaterThan(0);
   });
 
-  it('shows the personal, profession and skills data (O-65), and hides the protected ones without the class', async () => {
+  it('shows the personal, profession and skills data, and hides the protected ones without the class', async () => {
     renderPage(RPM, 'bn', REVIEW);
     await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     for (const text of ['17-05-1990', 'O+', 'নিজ ইউনিয়ন', 'ছাত্র'])

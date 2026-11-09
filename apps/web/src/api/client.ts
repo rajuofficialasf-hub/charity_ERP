@@ -136,7 +136,7 @@ let storeWork: Promise<void> = Promise.resolve();
  * Opens the store's keys for the signed-in session (docs/architecture/OFFLINE_SYNC.md, local
  * storage security) and keeps the person's own profile there, so the installed app opens without
  * network. A volunteer's store goes on to hold the data set and the outbox, so their sign-in waits
- * for the key; an official's holds the profile alone (docs/DECISION_LOG.md D-142), which matters
+ * for the key; an official's holds the profile alone, which matters
  * only at the next open without network, so their sign-in does not wait for it. A store that will
  * not open never blocks the sign-in: the next flush reports what it cannot read.
  */
@@ -491,7 +491,7 @@ export async function logout(pendingCount?: number): Promise<void> {
   }
 }
 
-/** The device facts sent at login; staff on a computer get the idle timeout (O-25, D-070). */
+/** The device facts sent at login; staff on a computer get the idle timeout. */
 export function deviceInfo(): {
   name: string;
   platform: 'android' | 'ios' | 'desktop' | 'other';

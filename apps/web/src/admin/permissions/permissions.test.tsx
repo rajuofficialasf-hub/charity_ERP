@@ -11,8 +11,7 @@ import { AdminLayout } from '../AdminLayout';
 import { PermissionsPage } from './PermissionsPage';
 import { stubScreen } from '../../../test/match-media';
 
-// The permission panel screen (SCR-062, RBAC.md 7; plan
-// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U8). Test data only.
+// The permission panel screen (SCR-062, RBAC.md 7). Test data only.
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const EXECUTIVE = {
   id: '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a60',

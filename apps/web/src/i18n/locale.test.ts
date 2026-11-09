@@ -16,7 +16,7 @@ const clear = () => {
   window.localStorage.clear();
 };
 
-// The device language (I18N 2, D-067 amended by D-073): cookie, then localStorage, then bn.
+// The device language (I18N 2): cookie, then localStorage, then bn.
 describe('device locale', () => {
   afterEach(clear);
 

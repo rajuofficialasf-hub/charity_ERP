@@ -89,7 +89,7 @@ export const EDITS_KEY = ['admin', 'edit-requests'] as const;
 
 /**
  * The pending staff registrations (the first 100). Volunteer registrations are reviewed in the
- * volunteer tab (DECISION_LOG O-67); a staff registration has no correction step.
+ * volunteer tab; a staff registration has no correction step.
  */
 export const pendingStaffRegistrations = () =>
   api<PendingRegistration[]>('/registrations?limit=100&kind=staff');

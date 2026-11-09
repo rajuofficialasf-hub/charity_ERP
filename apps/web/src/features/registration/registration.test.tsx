@@ -8,8 +8,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { RegisterPage } from './RegisterPage';
 
-// SCR-002 registration on one page (UX-16, UX-18; AUTH.md 2, DECISION_LOG D-090; plan
-// docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md, U4). Test data only.
+// SCR-002 registration on one page (AUTH.md 2). Test data only.
 const DRAFT = '01900000-0000-7000-8000-0000000000aa';
 const TOKEN = 'draft-token-0123456789abcdef0123456789abcdef';
 const DHAKA = '01900000-0000-7000-8000-0000000000d1';
@@ -185,7 +184,7 @@ async function chooseProfession(user: User, name: string) {
   await user.click(await screen.findByRole('option', { name }));
 }
 
-/** The minimum of the steps after the contacts, up to the skills step (O-65). */
+/** The minimum of the steps after the contacts, up to the skills step. */
 async function minimumToSkills(user: User) {
   await next(user);
   await user.type(screen.getByRole('textbox', { name: /Mother's name/ }), 'Mother');
@@ -210,7 +209,7 @@ async function uploadAll(user: User, container: HTMLElement, count: number) {
   );
 }
 
-describe('the contact step (UX-16)', () => {
+describe('the contact step', () => {
   it('verifies each contact inside its field; the next step opens only after both', async () => {
     const user = userEvent.setup();
     api();
@@ -426,7 +425,7 @@ describe('the steps after the contacts', () => {
         name: 'Yes',
       }),
     );
-    // there is no emergency contact (O-66)
+    // there is no emergency contact
     expect(screen.queryByRole('textbox', { name: /Guardian/ })).not.toBeInTheDocument();
     await next(user);
     expect(stepName()).toBe('7Account');
@@ -570,7 +569,7 @@ describe('the steps after the contacts', () => {
     await vi.waitFor(() => expect(stepName()).toBe('5Profession'));
   }, 60_000);
 
-  it('offers no official registration: the admin creates officials (D-097)', async () => {
+  it('offers no official registration: the admin creates officials', async () => {
     api();
     renderApp(<RegisterPage />, 'en', { path: '/register' });
     expect(

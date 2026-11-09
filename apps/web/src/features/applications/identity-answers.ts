@@ -70,7 +70,7 @@ export function answersOfProfile(
 
 /**
  * Whether the answers hold the whole four-level address: the server takes a draft only with it
- * (BR-058), since the application's region and the volunteer's limit come from it.
+ *, since the application's region and the volunteer's limit come from it.
  */
 export function hasAddress(definition: FormDefinition, answers: readonly Answer[]): boolean {
   const field = fieldByColumn(definition, ADDRESS_COLUMNS);

@@ -24,7 +24,7 @@ export const usersWithRole = (role: string) => (text: string) =>
  * Finds a user by name, email or mobile through the server search (GET /users; the permission
  * panel and the handover page), or through another search the caller gives (the officials a
  * project may be given). Opening the field lists the first ones by name before any text
- * (DECISION_LOG D-161); two letters narrow the list on the server. The option shows the
+ *; two letters narrow the list on the server. The option shows the
  * designation, not the contact details.
  */
 export function UserSearch({

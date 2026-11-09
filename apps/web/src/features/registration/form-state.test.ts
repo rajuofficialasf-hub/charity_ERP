@@ -9,7 +9,7 @@ import {
   skillsValue,
 } from './ProfileInputs';
 
-// The steps and the submit body of the volunteer form (O-65, O-66; BR-246, BR-248).
+// The steps and the submit body of the volunteer form.
 const ID = '01900000-0000-7000-8000-0000000000aa';
 const OTHER = '01900000-0000-7000-8000-0000000000bb';
 

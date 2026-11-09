@@ -1,11 +1,10 @@
 import type { Me } from '@css/shared/auth';
 
 /**
- * The audience of the admin area (SYSTEM_ARCHITECTURE 4.2, UX-15): Department Head, Monitoring
- * Team and Program Managers, and the RPM and the Project Executive for the registrations page
- * (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R7). These lists
+ * The audience of the admin area (SYSTEM_ARCHITECTURE 4.2): Department Head, Monitoring Team and
+ * Program Managers, and the RPM and the Project Executive for the registrations page. These lists
  * follow the role defaults of docs/security/permissions.yaml and only decide what the PWA shows;
- * every admin endpoint checks its own permission and scope on the server (RE-SEC-05, default deny).
+ * every admin endpoint checks its own permission and scope on the server (default deny).
  */
 export const ADMIN_ROLES: readonly string[] = [
   'department_head',
@@ -16,7 +15,7 @@ export const ADMIN_ROLES: readonly string[] = [
 ];
 
 /**
- * The nationwide volunteer tab (`volunteer.view_all`, DECISION_LOG O-67): the management roles and
+ * The nationwide volunteer tab (`volunteer.view_all`): the management roles and
  * the Official দায়ী.
  */
 export const VOLUNTEER_TAB_ROLES: readonly string[] = [...ADMIN_ROLES, 'official_daee'];
@@ -85,10 +84,10 @@ export const PROJECT_ROLES: readonly string[] = ADMIN_ROLES;
 /** Who creates a draft project (`project.create`: the PM in its program, and the global roles). */
 export const PROJECT_CREATE_ROLES: readonly string[] = PROGRAM_ROLES;
 
-/** Volunteer registration approvers (`registration.approve`, Q-19, BR-029). */
+/** Volunteer registration approvers (`registration.approve`). */
 export const REGISTRATION_ROLES: readonly string[] = ADMIN_ROLES;
 
-/** Staff registration approvers (`staff.registration.approve`, BR-028). */
+/** Staff registration approvers (`staff.registration.approve`). */
 export const STAFF_APPROVER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 
 /**
@@ -97,7 +96,7 @@ export const STAFF_APPROVER_ROLES: readonly string[] = ['department_head', 'moni
  */
 export const STAFF_EDIT_DECIDER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 
-/** Edit request approvers (`edit_request.approve`, BR-031 as amended by DECISION_LOG D-085). */
+/** Edit request approvers (`edit_request.approve`). */
 export const EDIT_REQUEST_ROLES: readonly string[] = [
   'department_head',
   'monitoring_team',
@@ -105,7 +104,7 @@ export const EDIT_REQUEST_ROLES: readonly string[] = [
   'project_executive',
 ];
 
-/** Volunteer blocklist (`volunteer.block`, `volunteer.unblock`, BD-06, BR-047). */
+/** Volunteer blocklist (`volunteer.block`, `volunteer.unblock`). */
 export const BLOCKLIST_ROLES: readonly string[] = [
   'department_head',
   'monitoring_team',
@@ -138,7 +137,7 @@ export const PROJECT_GRANT_ROLES: readonly string[] = [
 
 /**
  * The officials' directory and organogram (`permission.view`: the global roles, the PM in its
- * program, the RPM in its region; DECISION_LOG D-097).
+ * program, the RPM in its region).
  */
 export const STAFF_DIRECTORY_ROLES: readonly string[] = [
   'department_head',
@@ -162,7 +161,7 @@ export const NISAB_ROLES: readonly string[] = [
   'program_manager',
 ];
 
-/** The staff handover and the deactivation after it (`user.handover`, `user.state.change`; BD-08). */
+/** The staff handover and the deactivation after it (`user.handover`, `user.state.change`). */
 /** Who may see and end another person's device sessions (the permission `session.revoke_user`). */
 export const SESSION_ROLES: readonly string[] = [
   'department_head',

@@ -20,7 +20,7 @@ const SOURCE_KINDS: readonly SourceKind[] = ['workflow', 'template', 'copy'];
 /**
  * The first step of a new project: its code (capital letters, the prefix of its application ids),
  * name, year, program, and where it starts: a workflow, a master template, or a copy of a previous
- * project (BD-10; a template or a copy brings the components, settings, syllabus and rules). Next
+ * project (a template or a copy brings the components, settings, syllabus and rules). Next
  * creates the draft.
  */
 export function CreateStep({ onCreated }: { onCreated: (project: Project) => void }) {

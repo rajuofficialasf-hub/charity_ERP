@@ -50,7 +50,7 @@ const count = (nodes: OrganogramNode[]): number =>
   nodes.reduce((sum, n) => sum + 1 + count(n.reports), 0);
 
 /**
- * The department's organogram (DECISION_LOG D-097, BR-263, SCR-064) as a chart: the Department
+ * The department's organogram (SCR-064) as a chart: the Department
  * Head on top; one level below, the Monitoring Team (who report to the Head) beside a branch per
  * program; every official under the supervisor, each branch folded or opened with the button
  * under its card; the last level stands in a column, so a wide team stays narrow. The server

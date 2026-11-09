@@ -209,7 +209,7 @@ describe('API client', () => {
     expect(currentDataKey()).toBeNull();
   });
 
-  it('keeps local data, but forgets the open key, when the refresh token only expired (O-29)', async () => {
+  it('keeps local data, but forgets the open key, when the refresh token only expired', async () => {
     const events: (string | undefined)[] = [];
     server.use(
       http.post('*/api/v1/auth/login', () =>

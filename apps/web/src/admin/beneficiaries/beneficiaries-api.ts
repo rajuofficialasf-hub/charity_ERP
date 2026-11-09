@@ -23,7 +23,7 @@ export const FILTER_KEYS = [
 
 export type FilterValues = Partial<Record<(typeof FILTER_KEYS)[number], string>>;
 
-/** The default beneficiary types (BD-14); a project may rename them, the codes stay. */
+/** The default beneficiary types; a project may rename them, the codes stay. */
 export const BENEFICIARY_TYPES = [
   'elderly',
   'widow',

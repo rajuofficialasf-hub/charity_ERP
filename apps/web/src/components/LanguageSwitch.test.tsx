@@ -13,7 +13,7 @@ const clearLocale = () => {
   window.localStorage.clear();
 };
 
-describe('LanguageSwitch (I18N 2, D-067)', () => {
+describe('LanguageSwitch (I18N 2)', () => {
   beforeEach(() => {
     resetClientForTests();
     clearLocale();
@@ -33,7 +33,7 @@ describe('LanguageSwitch (I18N 2, D-067)', () => {
     expect(document.documentElement.lang).toBe('en');
   });
 
-  it('also stores the language on the account when signed in (O-56)', async () => {
+  it('also stores the language on the account when signed in', async () => {
     refreshAs(ME);
     let body: unknown;
     server.use(

@@ -58,7 +58,7 @@ export function LoginForm({ ended }: { ended?: string }) {
     setPending(true);
     try {
       const me = await login(loginId, password);
-      // The interface follows the user's stored language (I18N 2, O-56).
+      // The interface follows the user's stored language (I18N 2).
       if (me.language !== locale) setLocale(me.language);
       void navigate('/', { replace: true });
     } catch (failure) {

@@ -1,5 +1,5 @@
 // Production build (`pnpm build`) and the E2E build (`pnpm build:e2e`, `--e2e`): the E2E build
-// adds the dev-only gallery route and the dummy-OTP hint (BD-49); the E2E API address is given to
+// adds the dev-only gallery route and the dummy-OTP hint; the E2E API address is given to
 // `vite preview` by playwright.config.ts. The fonts come with the build (the asf fontsource packages).
 import { spawnSync } from 'node:child_process';
 

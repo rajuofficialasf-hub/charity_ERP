@@ -1,4 +1,4 @@
-/* The top bar of the pages without a sidebar (UX-19): brand at the start, language toggle at the end. */
+/* The top bar of the pages without a sidebar: brand at the start, language toggle at the end. */
 .top-bar {
   position: relative;
   z-index: 1;

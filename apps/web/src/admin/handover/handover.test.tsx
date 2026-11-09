@@ -11,8 +11,7 @@ import { AdminLayout } from '../AdminLayout';
 import { HandoverPage } from './HandoverPage';
 import { stubScreen } from '../../../test/match-media';
 
-// The handover page (SCR-105, BD-08, BR-034; plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14). Test data only.
+// The handover page (SCR-105). Test data only.
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const OFFICIAL = {
   id: '01900000-0000-7000-8000-0000000000b1',
@@ -40,7 +39,7 @@ type Item = {
 let pending: Item[];
 let completedAt: string | null;
 let state: string;
-/** The account row's version: every handover step bumps it (permission version, D-088). */
+/** The account row's version: every handover step bumps it (permission version). */
 let version: number;
 let calls: { method: string; url: string; body: unknown; ifMatch: string | null }[];
 

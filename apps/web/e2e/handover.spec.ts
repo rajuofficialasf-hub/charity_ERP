@@ -1,13 +1,12 @@
 import { type APIRequestContext, expect, type Page, test } from '@playwright/test';
 import { openTab, scan } from './support/admin';
 
-// The staff handover (BD-08, BR-034; plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14): the Department
-// Head cannot deactivate the dedicated demo official while work is pending, hands all of it to the
-// Dhaka RPM, completes the handover and deactivates the account. The E2E database is shared by
-// the repeats of a run, so the spec gives the work back and reactivates the official at the end
-// (through the API, as the Department Head). Repeats need one worker (`--repeat-each 3 --workers
-// 1`): parallel copies would share the one official and the Department Head's five sessions.
+// The staff handover: the Department Head cannot deactivate the dedicated demo official while work
+// is pending, hands all of it to the Dhaka RPM, completes the handover and deactivates the account.
+// The E2E database is shared by the repeats of a run, so the spec gives the work back and
+// reactivates the official at the end (through the API, as the Department Head). Repeats need one
+// worker (`--repeat-each 3 --workers 1`): parallel copies would share the one official and the
+// Department Head's five sessions.
 const PASSWORD = 'CssDemo2026';
 const OFFICIAL = 'handover.rpm@example.org';
 /** Either refusal of a deactivation with pending work (the first run, or after a repeat). */

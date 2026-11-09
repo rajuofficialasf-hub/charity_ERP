@@ -7,7 +7,7 @@ import { ApiFailure } from '../../api/client';
 import { renewLink, type StaffMember } from './staff-api';
 
 /**
- * A new set-password link for an official who has not set a password yet (BR-262): the open link
+ * A new set-password link for an official who has not set a password yet: the open link
  * stops working. A corrected email, when the first one was mistyped, goes with it.
  */
 export function RenewLinkDialog({

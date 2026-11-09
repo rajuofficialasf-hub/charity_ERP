@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 
 /**
- * The set-password link of a new official, shown once (DECISION_LOG D-097): whether the email went
+ * The set-password link of a new official, shown once: whether the email went
  * out, the link itself to copy for WhatsApp or another way, and until when it works. The page
  * keeps no copy of it; a lost link is replaced by a new one.
  */

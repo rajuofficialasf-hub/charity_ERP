@@ -10,7 +10,7 @@ import { EffectivePermissions } from './EffectivePermissions';
 
 /**
  * The permission panel (SCR-062, RBAC.md 7): the Department Head and the Monitoring Team find a
- * user, see the roles (read only, O-61) and the effective permissions, grant or remove a
+ * user, see the roles (read only) and the effective permissions, grant or remove a
  * permission and end a panel grant. The API checks `permission.panel.manage` on every change;
  * this page only decides what to show. The rule of the least access stands beside the search.
  */

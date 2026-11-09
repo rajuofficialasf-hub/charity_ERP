@@ -106,7 +106,7 @@ export function LookupField({
   const failure = fresh && search.error instanceof ApiFailure ? search.error : null;
   return (
     <Stack gap={3}>
-      {/* the kind as two large buttons: one is always chosen (D-166) */}
+      {/* the kind as two large buttons: one is always chosen */}
       <ChoiceButtons
         id="lookup-kind"
         label={t('kind')}

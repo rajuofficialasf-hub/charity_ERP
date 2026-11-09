@@ -19,7 +19,7 @@
     padding: var(--space-5);
   }
 }
-/* UX-04: management screens are best on a larger screen; phones see the notice. */
+/* Management screens are best on a larger screen; phones see the notice. */
 @media (min-width: 768px) {
   .admin-phone-notice {
     display: none;
@@ -140,7 +140,7 @@
 }
 
 /*
- * Project setup wizard (UX-20): the head with the step indicator, one step card, and the action
+ * Project setup wizard: the head with the step indicator, one step card, and the action
  * bar kept in view at the bottom; one readable column, full-width buttons on a phone.
  */
 .admin-wizard {
@@ -293,7 +293,7 @@
   margin-top: var(--space-4);
 }
 
-/* A profile's details beside its contact and history column (UX-22). */
+/* A profile's details beside its contact and history column. */
 .admin-profile-grid {
   display: grid;
   /* one column on a phone that never grows past the screen */

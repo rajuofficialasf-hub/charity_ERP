@@ -23,7 +23,7 @@ function useLinkToken(): string {
 
 /**
  * An official created by the admin chooses the first password through the single-use link
- * (DECISION_LOG D-097, AUTH.md 2.2, SCR-065): the page shows the name and the job ID of the open
+ * (AUTH.md 2.2, SCR-065): the page shows the name and the job ID of the open
  * link, the password rules of the account, then sends the person to log in with the job ID. A
  * used, replaced or expired link says to ask the admin for a new one.
  */

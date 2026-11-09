@@ -68,7 +68,7 @@ const StepSaveContext = createContext<(save: StepSave) => () => void>(() => () =
 export const StepSaveProvider = StepSaveContext.Provider;
 
 /**
- * Hands this step's save to the wizard, whose Next, step and save-and-exit buttons call it (UX-20).
+ * Hands this step's save to the wizard, whose Next, step and save-and-exit buttons call it.
  * Nothing changed: it moves on. A problem the step can see (a missing name, an order of dates):
  * it stays and says so. Otherwise it saves; a refusal stays, with the server's message shown by
  * `SaveNotice`. Returns the problem to show.

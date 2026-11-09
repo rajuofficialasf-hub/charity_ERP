@@ -24,7 +24,7 @@ import { type Template, templates, TEMPLATES_KEY } from './templates-api';
 import { LoadError } from '../../components/LoadError';
 
 /**
- * The organisation's project templates (BD-10; DECISION_LOG D-096): everyone who creates projects
+ * The organisation's project templates: everyone who creates projects
  * sees every template, renames and describes it, and deactivates or activates it. A template is
  * made or refilled from a project ("save as template" on the project page) and never deleted.
  */

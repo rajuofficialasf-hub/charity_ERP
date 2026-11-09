@@ -24,7 +24,7 @@ const FIELD_PATHS = ['permission', 'scopeRef', 'reason', 'expiresAt'];
 
 /**
  * Grant or remove a permission for one user at a scope, with a reason and an optional expiry
- * (POST /permission-grants). A refused change shows the server's message (D-078).
+ * (POST /permission-grants). A refused change shows the server's message.
  */
 export function GrantDialog({
   user,

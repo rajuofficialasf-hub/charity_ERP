@@ -44,7 +44,7 @@ const AFFILIATION_LOOK: Record<Affiliation, { icon: ExtendedIconName; tone: Colo
 };
 
 /**
- * The officials (DECISION_LOG D-097, SCR-063): the counts by affiliation, then the department's
+ * The officials (SCR-063): the counts by affiliation, then the department's
  * own staff, the officials from other departments of the Foundation and the outside partners,
  * each in its own tab with filters by program and role and a search by name, job ID, email or
  * mobile. The Department Head and the Monitoring Team create an official, edit a profile and send

@@ -3,7 +3,7 @@
  * up, full width with a 16 px gutter on phones. Tokens only.
  */
 .auth-layout {
-  /* the page runs up under the top bar (UX-19), so the bar has no seam */
+  /* the page runs up under the top bar, so the bar has no seam */
   min-height: 100dvh;
   margin-top: calc(-1 * var(--app-bar-height));
   display: grid;
@@ -63,7 +63,7 @@
   }
 }
 
-/* Signed-in pages until the app shell of T1.15. */
+/* Signed-in pages outside the app shell. */
 .account-page {
   max-width: 720px;
   margin: 0 auto;

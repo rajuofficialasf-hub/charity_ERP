@@ -7,7 +7,7 @@ import { server } from '../../test/msw/server';
 import { resetClientForTests } from '../api/client';
 import { TopBar } from './TopBar';
 
-describe('TopBar (UX-19)', () => {
+describe('TopBar', () => {
   beforeEach(() => {
     resetClientForTests();
     refreshAs(null);

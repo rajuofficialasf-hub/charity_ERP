@@ -4,18 +4,17 @@ import { fromProfileMenu, isPhone, mainMenu, openTab, scan } from './support/adm
 import { activeProject, code, ERR } from './support/projects';
 import { pickFrom } from './support/select';
 
-// Registration on a phone from the login page to the pending confirmation (plans
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U11, and
-// docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md, U4: one page, UX-16; AUTH.md 2), and the
-// approval journey of U13: an RPM asks for a correction, the volunteer fixes it on the phone and
+// Registration on a phone from the login page to the pending confirmation
+// (docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md: one page; AUTH.md 2), and the
+// approval journey: an RPM asks for a correction, the volunteer fixes it on the phone and
 // submits again, the RPM approves. The chain then continues to the first project (the second
 // critical journey of the Phase 1 gate, docs/testing/TEST_STRATEGY.md section 3.4): the Dhaka RPM
-// assigns the new volunteer to an active project of the division, the volunteer reads the rules
-// and consents, and the project shows as active; a main volunteer of the demo seed adds a team
-// member, who consents on their own. The API runs with the dummy OTP 123456 on a fresh E2E
-// database (recreated per run); every project, repeat and retry uses its own fake mobile, email
-// and NID in the ranges the demo seed leaves free, and makes its own project.
-// the PM of ERR creates the projects of this spec; the Monitoring Team's sessions are for the others
+// assigns the new volunteer to an active project of the division, the volunteer reads the rules and
+// consents, and the project shows as active; a main volunteer of the demo seed adds a team member,
+// who consents on their own. The API runs with the dummy OTP 123456 on a fresh E2E database
+// (recreated per run); every project, repeat and retry uses its own fake mobile, email and NID in
+// the ranges the demo seed leaves free, and makes its own project. the PM of ERR creates the
+// projects of this spec; the Monitoring Team's sessions are for the others
 const PM = 'pm.err@example.org';
 const RPM = 'rpm.dhaka@example.org';
 // the main volunteer of the demo seed and the team member registered under their NID
@@ -62,7 +61,7 @@ async function photo(page: Page, label: RegExp, slot: string) {
   await uploaded;
 }
 
-/** Verifies one contact inside its field (UX-16): "যাচাই করুন", the code below, "যাচাই হয়েছে". */
+/** Verifies one contact inside its field: "যাচাই করুন", the code below, "যাচাই হয়েছে". */
 async function verifyContact(page: Page, label: RegExp, value: string, codeLabel: RegExp) {
   const field = page
     .getByTestId('register-contact')
@@ -101,18 +100,18 @@ async function register(page: Page, person: Person) {
   await choose(page, /(^|\s)জেলা/, 'ঢাকা');
   await choose(page, /(^|\s)উপজেলা/, 'সাভার');
   await choose(page, /(^|\s)ইউনিয়ন/, 'সাভার');
-  // the present address is the permanent one unless the box is cleared (O-66)
+  // the present address is the permanent one unless the box is cleared
   await expect(
     page.getByRole('checkbox', { name: 'বর্তমান ঠিকানাই আমার স্থায়ী ঠিকানা' }),
   ).toBeChecked();
   await next(page);
 
-  // the education is its own step and optional (O-66)
+  // the education is its own step and optional
   await choose(page, /সর্বশেষ শিক্ষাগত যোগ্যতা/, 'স্নাতক (অনার্স বা ডিগ্রি)');
   await page.getByRole('textbox', { name: /শিক্ষাপ্রতিষ্ঠানের নাম/ }).fill('নমুনা বিশ্ববিদ্যালয়');
   await next(page);
 
-  // the profession is mandatory and shows its own fields only (O-65)
+  // the profession is mandatory and shows its own fields only
   await choose(page, /আপনার বর্তমান পেশা/, 'শিক্ষক');
   await page.getByRole('textbox', { name: /^পদবি/ }).fill('সহকারী শিক্ষক');
   await choose(page, /আপনার বর্তমান পেশা/, 'ছাত্র');
@@ -120,14 +119,14 @@ async function register(page: Page, person: Person) {
   await page.getByRole('textbox', { name: /শিক্ষাপ্রতিষ্ঠানের নাম/ }).fill('নমুনা বিদ্যালয়');
   await next(page);
 
-  // skills and the full-time answer, all optional; there is no emergency contact (O-66)
+  // skills and the full-time answer, all optional; there is no emergency contact
   await page.getByRole('checkbox', { name: 'প্রাথমিক চিকিৎসা ও উদ্ধারকাজ' }).check({ force: true });
   await expect(page.getByRole('textbox', { name: /জরুরি যোগাযোগ|অভিভাবক/ })).toHaveCount(0);
   await next(page);
-  // nobody is asked for a type, a reference or bank details (O-64)
+  // nobody is asked for a type, a reference or bank details
   await expect(page.getByRole('button', { name: /স্বেচ্ছাসেবকের ধরন/ })).toHaveCount(0);
   await expect(page.getByText(/ব্যাংক/)).toHaveCount(0);
-  // the password rules tick while typing (O-64)
+  // the password rules tick while typing
   const rules = page.getByRole('list').filter({ hasText: 'অন্তত 8টি অক্ষর' });
   await expect(rules.locator('[data-met="true"]')).toHaveCount(0);
   await page
@@ -138,7 +137,7 @@ async function register(page: Page, person: Person) {
   await page.getByLabel(/^পাসওয়ার্ড আবার লিখুন/).fill(PASSWORD);
   await next(page);
 
-  // the photos come last (UX-18): the own photo and both pages of the NID card
+  // the photos come last: the own photo and both pages of the NID card
   await photo(page, /^নিজের ছবি/, 'photo');
   await photo(page, /^NID কার্ডের প্রথম পাতা/, 'nid_photo');
   await photo(page, /^NID কার্ডের দ্বিতীয় পাতা/, 'nid_photo_back');

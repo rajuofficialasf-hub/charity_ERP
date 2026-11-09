@@ -215,7 +215,7 @@ export function FormRenderer({
     });
   };
   const [summary, setSummary] = useState<string | null>(null);
-  // on a phone the answers are read through once before the send (D-166)
+  // on a phone the answers are read through once before the send
   const [reviewing, setReviewing] = useState(false);
   const [sending, setSending] = useState(false);
   const sendingNow = useRef(false);
