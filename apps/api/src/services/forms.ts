@@ -740,8 +740,8 @@ async function scoringOf(db: Tx, versionId: string): Promise<{ scoring?: FormSco
  * The definition with the options of every question that fills a coded column taken from that
  * column's reference list: the active entries in their order, with the list's texts (DECISION_LOG
  * D-163). The database keeps these codes against the list, so an option of the builder's own would
- * fail the profile at the send. An entry that opened a text box keeps doing so. The same object
- * comes back when nothing changes.
+ * fail the profile at the send. An entry that opened a text box keeps doing so; a list without an
+ * active entry changes nothing. The same object comes back when nothing changes.
  */
 export async function withListOptions(tx: Tx, definition: FormDefinition): Promise<FormDefinition> {
   const listed = definition.sections.flatMap((s) =>
@@ -758,16 +758,16 @@ export async function withListOptions(tx: Tx, definition: FormDefinition): Promi
     ...section,
     fields: section.fields.map((field) => {
       const list = isChoiceType(field.type) ? listOfField(field) : null;
-      if (list === null) return field;
+      const entries = list === null ? [] : rows.filter((r) => r.listKey === list);
+      // a list with no active entry (a database not yet seeded) leaves the question as it is
+      if (entries.length === 0) return field;
       const before = new Map((field.options ?? []).map((o) => [o.code, o]));
-      const options: FieldOption[] = rows
-        .filter((r) => r.listKey === list)
-        .map((r) => ({
-          code: r.code,
-          label: { bn: r.labelBn, en: r.labelEn },
-          dependsOnOptionCode: null,
-          allowsOtherText: before.get(r.code)?.allowsOtherText ?? false,
-        }));
+      const options: FieldOption[] = entries.map((r) => ({
+        code: r.code,
+        label: { bn: r.labelBn, en: r.labelEn },
+        dependsOnOptionCode: null,
+        allowsOtherText: before.get(r.code)?.allowsOtherText ?? false,
+      }));
       const olds = field.options ?? [];
       const same =
         options.length === olds.length &&
