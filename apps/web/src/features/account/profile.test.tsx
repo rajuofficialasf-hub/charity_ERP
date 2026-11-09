@@ -1,4 +1,4 @@
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -9,8 +9,8 @@ import { resetClientForTests } from '../../lib/api';
 import type { ChangeRequest, OwnProfile } from './profile-api';
 import { ProfileView } from './ProfileView';
 
-// The own profile, correction answers and edit requests (BR-030, BR-031 as amended by D-085;
-// plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U12).
+// The own profile, correction answers and edit requests (docs/BUSINESS_RULES.md, the corrections
+// of a registration and the edit requests of an approved volunteer).
 const VOLUNTEER = '01900000-0000-7000-8000-0000000000b1';
 const DIVISION = '01900000-0000-7000-8000-0000000000d1';
 const DISTRICT = '01900000-0000-7000-8000-0000000000d2';
@@ -128,8 +128,11 @@ describe('ProfileView of a pending registrant', () => {
     serve(profile(), () => rows);
     const { container } = renderApp(<ProfileView />, 'bn', { path: '/account/profile' });
     expect(await screen.findByText('আপনি এখনো কোনো প্রজেক্টে যুক্ত হননি।')).toBeInTheDocument();
+    expect(screen.getByText('আমার অ্যাকাউন্ট')).toBeInTheDocument();
+    // the page title stays the one level-1 heading; the person heads the banner below it
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(await screen.findByRole('heading', { name: 'সংশোধনের অনুরোধ' })).toBeInTheDocument();
-    // the own NID and bank details in full (DECISION_LOG D-081)
+    // the own NID and bank details in full
     expect(screen.getByText('1000000000301')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'ব্যাংকের তথ্য' }));
     expect(screen.getByText(/0000111122223333, Savar Branch/)).toBeInTheDocument();
@@ -137,7 +140,7 @@ describe('ProfileView of a pending registrant', () => {
     // only the two requested fields can be answered
     expect(screen.getAllByRole('form')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'আবার জমা দিন' })).not.toBeInTheDocument();
-    // before approval nothing else can be changed (BR-031)
+    // before approval nothing else can be changed
     expect(screen.queryByRole('button', { name: /সম্পাদনা/ })).not.toBeInTheDocument();
     expect(screen.getByText('অনুমোদনের অপেক্ষায়')).toBeInTheDocument();
     await expectNoAxeViolations(container);
@@ -185,9 +188,12 @@ describe('ProfileView of an approved volunteer', () => {
     const user = userEvent.setup();
     serve(profile({ state: 'active', inAnyProject: true }), () => []);
     const { container } = renderApp(<ProfileView />, 'en', { path: '/account/profile' });
-    const header = await screen.findByRole('region', { name: 'নমুনা স্বেচ্ছাসেবক' });
-    expect(within(header).getByText('General volunteer')).toBeInTheDocument();
-    expect(within(header).getByText('Active')).toBeInTheDocument();
+    // the banner names the person under the page title, with the state and the type
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'নমুনা স্বেচ্ছাসেবক' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('General volunteer')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Profile sections' });
     expect(
       within(nav)
@@ -468,7 +474,7 @@ describe('the personal, profession, education and skills data in the profile', (
     await user.click(within(form).getByRole('checkbox', { name: 'Change Profession' }));
     // it starts with what the volunteer has
     expect(within(form).getByRole('textbox', { name: /^Designation/ })).toHaveValue('Mudarris');
-    await user.click(within(form).getByRole('button', { name: /current profession/ }));
+    await user.click(within(form).getByRole('combobox', { name: /current profession/ }));
     await user.click(await screen.findByRole('option', { name: 'Imam or muazzin' }));
     // the old profession's details are gone
     expect(within(form).queryByRole('textbox', { name: /^Designation/ })).not.toBeInTheDocument();
@@ -524,7 +530,7 @@ describe('the personal, profession, education and skills data in the profile', (
 
     const personal = await startEdit(user, 'Personal details');
     await user.click(within(personal).getByRole('checkbox', { name: 'Change Blood group' }));
-    await user.click(within(personal).getByRole('button', { name: /Blood group/ }));
+    await user.click(within(personal).getByRole('combobox', { name: /Blood group/ }));
     await user.click(await screen.findByRole('option', { name: 'AB-' }));
     await user.click(within(personal).getByRole('button', { name: 'Send request' }));
     await vi.waitFor(() => expect(calls).toHaveLength(4));
@@ -630,14 +636,14 @@ describe('the single new values of the profile edit', () => {
     await user.click(
       within(address).getByRole('checkbox', { name: 'Change Where you want to serve' }),
     );
-    await user.click(within(address).getByRole('button', { name: /Where you want to serve/ }));
+    await user.click(within(address).getByRole('combobox', { name: /Where you want to serve/ }));
     await user.click(await screen.findByRole('option', { name: 'Anywhere in the country' }));
     await user.click(within(address).getByRole('button', { name: 'Send request' }));
     await vi.waitFor(() => expect(calls).toHaveLength(1));
 
     const personal = await startEdit(user, 'Personal details');
     await user.click(within(personal).getByRole('checkbox', { name: 'Change T-shirt size' }));
-    await user.click(within(personal).getByRole('button', { name: /T-shirt size/ }));
+    await user.click(within(personal).getByRole('combobox', { name: /T-shirt size/ }));
     await user.click(await screen.findByRole('option', { name: 'XL' }));
     await user.click(within(personal).getByRole('button', { name: 'Send request' }));
     await vi.waitFor(() => expect(calls).toHaveLength(2));
@@ -660,19 +666,24 @@ describe('the single new values of the profile edit', () => {
 });
 
 describe('ProfileView states', () => {
-  it('an official without a volunteer profile sees the empty state', async () => {
+  it("an official gets the official's profile and never asks for a volunteer's", async () => {
     refreshAs({ ...ME, kind: 'staff', state: 'active' });
+    const volunteerRead = vi.fn();
     server.use(
-      http.get('*/api/v1/volunteers/me', () =>
+      http.get('*/api/v1/volunteers/me', () => {
+        volunteerRead();
+        return HttpResponse.json({ data: profile() });
+      }),
+      http.get('*/api/v1/me/profile', () =>
         HttpResponse.json(
           { error: { code: 'permission.not_found', message: 'Not found.', requestId: 'r' } },
           { status: 404 },
         ),
       ),
-      http.get('*/api/v1/me/change-requests', () => list([])),
     );
     renderApp(<ProfileView />, 'en', { path: '/account/profile' });
-    expect(await screen.findByText("This page is for a volunteer's profile.")).toBeInTheDocument();
+    expect(await screen.findByText('This page is for an official’s profile.')).toBeInTheDocument();
+    expect(volunteerRead).not.toHaveBeenCalled();
   });
 
   it('a failed request list shows an error with retry, not an empty list', async () => {

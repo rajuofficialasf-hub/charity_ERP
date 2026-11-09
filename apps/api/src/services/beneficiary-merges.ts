@@ -34,7 +34,7 @@ const MOVES = [
   { key: 'examResults', table: 'exam_results', column: 'beneficiary_id' },
   { key: 'callLogs', table: 'call_logs', column: 'beneficiary_id' },
   { key: 'followUps', table: 'followup_evaluations', column: 'beneficiary_id' },
-  { key: 'mediaSubjects', table: 'media_subjects', column: 'beneficiary_id' },
+  { key: 'mediaReferrals', table: 'media_referrals', column: 'beneficiary_id' },
   {
     key: 'fileLinks',
     table: 'file_links',
@@ -266,11 +266,15 @@ export class BeneficiaryMergesService {
     };
     for (const move of MOVES) {
       const extra = 'where' in move ? Prisma.raw(` AND ${move.where}`) : Prisma.empty;
-      const skip =
-        // an application left on the retired profile keeps every pointer it has
-        move.table === 'applications' && leftBehind.length
+      // an application left on the retired profile keeps every pointer it has, and its media
+      // referral stays with it
+      const skip = !leftBehind.length
+        ? Prisma.empty
+        : move.table === 'applications'
           ? Prisma.sql` AND id <> ALL(${leftBehind}::uuid[])`
-          : Prisma.empty;
+          : move.table === 'media_referrals'
+            ? Prisma.sql` AND application_id <> ALL(${leftBehind}::uuid[])`
+            : Prisma.empty;
       const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
         UPDATE ${Prisma.raw(move.table)} SET ${Prisma.raw(move.column)} = ${keptId}::uuid
         WHERE ${Prisma.raw(move.column)} = ${retiredId}::uuid${extra}${skip}
@@ -319,7 +323,8 @@ export class BeneficiaryMergesService {
    */
   private async assertWithinReach(tx: Tx, actor: Principal, retiredId: string) {
     const reach = await this.access.scopeOfUser(actor.userId, 'beneficiary.merge', 'project', tx);
-    if (reach.instances.global) return;
+    // a revoked project stays outside even a GLOBAL reach (D-120)
+    if (reach.instances.global && !reach.instances.revokedProjectIds.length) return;
     const outside = await tx.application.count({
       where: {
         beneficiaryId: retiredId,
@@ -350,11 +355,6 @@ export class BeneficiaryMergesService {
         JOIN exam_results k ON k.exam_id = r.exam_id AND k.beneficiary_id = ${keptId}::uuid
          AND k.family_member_id IS NULL
         WHERE r.beneficiary_id = ${retiredId}::uuid AND r.family_member_id IS NULL
-      UNION ALL
-      SELECT 'media_subjects', coalesce(r.project_id::text, 'none') FROM media_subjects r
-        JOIN media_subjects k ON k.beneficiary_id = ${keptId}::uuid
-         AND k.project_id IS NOT DISTINCT FROM r.project_id
-        WHERE r.beneficiary_id = ${retiredId}::uuid
       UNION ALL
       SELECT 'file_links', r.file_id::text FROM file_links r
         JOIN file_links k ON k.entity_type = 'beneficiary' AND k.entity_id = ${keptId}::uuid

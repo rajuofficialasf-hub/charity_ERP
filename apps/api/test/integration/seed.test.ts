@@ -5,6 +5,7 @@ import {
   isFakeMobile,
   isFakeNid,
   mergeWorkflowTemplates,
+  NOTIFICATION_TEMPLATES,
   workflowDefinitionSchema,
 } from '@css/shared';
 import { SETTING_DEFAULTS } from '@css/shared/settings';
@@ -117,7 +118,9 @@ describe('base set', () => {
         .sort((a, b) => a.key.localeCompare(b.key)),
     );
     const permissions = (
-      await db.query('SELECT name, module, sensitive, description FROM permissions ORDER BY name')
+      await db.query(
+        'SELECT name, module, sensitive, description FROM permissions ORDER BY name COLLATE "C"',
+      )
     ).rows;
     expect(permissions).toEqual(
       file.permissions
@@ -127,10 +130,11 @@ describe('base set', () => {
           sensitive: p.sensitive,
           description: p.description,
         }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        // the code-point order of the database's "C" collation, so '.' and '_' sort alike on both sides
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
     );
     expect(roles).toHaveLength(17);
-    expect(permissions).toHaveLength(152);
+    expect(permissions).toHaveLength(157);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
@@ -148,7 +152,7 @@ describe('base set', () => {
     }
   });
 
-  it('seeds the reference lists, notification templates and the two current forms', async () => {
+  it('seeds the reference lists and notification templates, and no form library or form template', async () => {
     const lists = (
       await db.query(
         'SELECT list_key, count(*)::int AS n FROM reference_lists GROUP BY list_key ORDER BY list_key',
@@ -163,25 +167,58 @@ describe('base set', () => {
       gender: 2,
       issue_type_default: 6,
       marital_status: 6,
+      media_platform: 4,
+      media_role: 6,
+      media_stage: 13,
       payment_method: 4,
       relationship: 17,
     });
+    // the media stages the rules need are system entries; each platform names its kind
+    const media = (
+      await db.query<{
+        list_key: string;
+        code: string;
+        is_system: boolean;
+        channel: string | null;
+      }>(
+        `SELECT list_key, code, is_system, attributes ->> 'kind' AS channel FROM reference_lists
+          WHERE list_key IN ('media_stage', 'media_platform') AND (is_system OR list_key = 'media_platform')
+          ORDER BY list_key, code`,
+      )
+    ).rows;
+    expect(media.map((m) => [m.list_key, m.code, m.is_system, m.channel])).toEqual([
+      ['media_platform', 'ahmadullah_facebook', false, 'facebook'],
+      ['media_platform', 'ahmadullah_youtube', false, 'youtube'],
+      ['media_platform', 'asf_facebook', false, 'facebook'],
+      ['media_platform', 'asf_youtube', false, 'youtube'],
+      ['media_stage', 'accepted', true, null],
+      ['media_stage', 'cancelled', true, null],
+      ['media_stage', 'done', true, null],
+      ['media_stage', 'in_review', true, null],
+      ['media_stage', 'on_hold', true, null],
+      ['media_stage', 'published', true, null],
+      ['media_stage', 'ready_to_publish', true, null],
+    ]);
     const notif = (
       await db.query(
         `SELECT count(DISTINCT key)::int AS keys, count(*) FILTER (WHERE locale = 'bn')::int AS bn, count(*) FILTER (WHERE locale = 'en')::int AS en FROM notification_templates`,
       )
     ).rows[0];
     expect(notif.bn).toBe(notif.en);
-    expect(notif.keys).toBe(33);
-    const forms = (await db.query('SELECT key, project_type FROM project_templates ORDER BY key'))
-      .rows;
-    expect(forms).toEqual([
-      { key: 'form_distribution', project_type: 'distribution' },
-      { key: 'form_self_reliance_construction', project_type: 'implementation_evidence' },
-    ]);
-    expect((await db.query('SELECT count(*)::int AS n FROM form_library_sections')).rows[0].n).toBe(
-      10,
+    expect(notif.keys).toBe(NOTIFICATION_TEMPLATES.length);
+    // the Monitoring Team builds the library and every form: the seed writes neither
+    const templates = await db.query(
+      `SELECT key FROM project_templates WHERE definition->>'kind' = 'form_template'`,
     );
+    expect(templates.rows).toEqual([]);
+    for (const table of ['form_library_sections', 'form_library_fields'])
+      expect((await db.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n, table).toBe(0);
+    // the library form the migration made stays empty, with its one draft
+    const library = await db.query(
+      `SELECT v.status, (SELECT count(*)::int FROM form_sections s WHERE s.form_version_id = v.id) AS sections
+         FROM forms f JOIN form_versions v ON v.form_id = f.id WHERE f.kind = 'library'`,
+    );
+    expect(library.rows).toEqual([{ status: 'draft', sections: 0 }]);
   });
 
   it('seeds every setting with its decided default, once', async () => {

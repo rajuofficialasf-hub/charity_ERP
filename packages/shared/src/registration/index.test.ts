@@ -8,6 +8,7 @@ import {
   EDIT_FIELDS,
   PHOTO_FIELDS,
   REQUEST_FIELD_LABEL,
+  STAFF_EDIT_FIELDS,
   draftExpiry,
   editRequestCreateSchema,
   otpSendRequestSchema,
@@ -283,7 +284,9 @@ describe('REQUEST_FIELD_LABEL', () => {
     const translator = createTranslator({ bn, en }, (key, locale) =>
       missing.push(`${locale}:${key}`),
     );
-    for (const field of [...new Set([...CORRECTION_FIELDS, ...EDIT_FIELDS, ...PHOTO_FIELDS])]) {
+    for (const field of [
+      ...new Set([...CORRECTION_FIELDS, ...EDIT_FIELDS, ...PHOTO_FIELDS, ...STAFF_EDIT_FIELDS]),
+    ]) {
       expect(Object.hasOwn(REQUEST_FIELD_LABEL, field), field).toBe(true);
       const key = `registration.${REQUEST_FIELD_LABEL[field as keyof typeof REQUEST_FIELD_LABEL]}`;
       translator('bn', key);

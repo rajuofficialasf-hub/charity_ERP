@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -9,6 +9,8 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { BeneficiariesPage } from './BeneficiariesPage';
 import { BeneficiaryProfilePage } from './BeneficiaryProfilePage';
+import type { MessageKey } from '@css/shared/i18n';
+import { expectOnScreenColumns, serveExports } from '../../../test/msw/exports';
 
 // The beneficiary tab and the 360° shell (SCR-044, SCR-045; DECISION_LOG O-67, D-094): counts,
 // filters in the URL, the limited view of the Media Team and the sections. Test data only.
@@ -123,13 +125,37 @@ afterEach(() => {
 });
 
 describe('the beneficiary tab', () => {
+  it('offers the export, with the table’s own columns ticked first, in its order', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, { total: 2, assistedThisYear: 1, blocked: 0 });
+    serveExports('beneficiaries');
+    const user = userEvent.setup();
+    openList();
+    // the BEN number's column is the page's "ben"
+    await expectOnScreenColumns(
+      user,
+      'beneficiaries',
+      (id) => `admin.beneficiaries.column.${id === 'ben_no' ? 'ben' : id}` as MessageKey,
+    );
+  });
+
   it('shows the counts and the rows, without accessibility violations', async () => {
     refreshAs(HEAD);
     serve(fullRow, { total: 2000000, assistedThisYear: 125000, blocked: 12 });
     const { container } = openList();
     const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
     expect(await within(counts).findByText('20,00,000')).toBeInTheDocument();
-    expect(within(counts).getByRole('button', { name: 'ব্লক করা 12' })).toHaveAttribute(
+    // the page header: the area and what the page is for, above the known title
+    expect(screen.getByText('উপকারভোগী সেবা')).toBeInTheDocument();
+    expect(
+      screen.getByText('নিবন্ধন, যাচাই, সহায়তা এবং সেবার ইতিহাস এক জায়গা থেকে পরিচালনা করুন।'),
+    ).toBeInTheDocument();
+    // the name opens the person's profile
+    expect(screen.getAllByRole('link', { name: 'নমুনা উপকারভোগী' })[0]).toHaveAttribute(
+      'href',
+      expect.stringMatching(/^\/admin\/beneficiaries\/[0-9a-f-]+$/),
+    );
+    expect(within(counts).getByRole('button', { name: 'ব্লক লিস্ট 12' })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -153,7 +179,7 @@ describe('the beneficiary tab', () => {
     await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
     // the filters from the URL show as chips
     expect(screen.getByRole('button', { name: 'ধরন: বিধবা সরান' })).toBeInTheDocument();
-    await user.click(await screen.findByRole('button', { name: /বছর$/ }));
+    await user.click(await screen.findByRole('combobox', { name: /বছর/ }));
     await user.click(await screen.findByRole('option', { name: year }));
     await waitFor(() => expect(router.state.location.search).toContain(`year=${year}`));
     await user.type(screen.getByRole('searchbox'), '01911000001');
@@ -170,13 +196,13 @@ describe('the beneficiary tab', () => {
     await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
     expect(screen.queryByRole('button', { name: /ধরন/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ব্লকলিস্ট/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /ইউনিয়ন/ })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /উপজেলা/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('combobox', { name: /ইউনিয়ন/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('combobox', { name: /উপজেলা/ }).length).toBeGreaterThan(0);
     expect(
       screen.queryByRole('columnheader', { name: 'পিতা বা স্বামীর নাম' }),
     ).not.toBeInTheDocument();
     const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
-    expect(within(counts).queryByText('ব্লক করা')).not.toBeInTheDocument();
+    expect(within(counts).queryByText('ব্লক লিস্ট')).not.toBeInTheDocument();
   });
 
   it('filters by the blocked count without narrowing the counts, shows the assisted count as a number, and offers the profile from the row menu', async () => {
@@ -190,16 +216,51 @@ describe('the beneficiary tab', () => {
     expect(
       within(counts).queryByRole('button', { name: /^এই বছর সহায়তা পেয়েছেন/ }),
     ).not.toBeInTheDocument();
-    await user.click(within(counts).getByRole('button', { name: 'ব্লক করা 1', pressed: false }));
+    await user.click(within(counts).getByRole('button', { name: 'ব্লক লিস্ট 1', pressed: false }));
     await waitFor(() => expect(router.state.location.search).toBe('?blocked=true'));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('blocked')).toBe('true'));
     expect(statUrls.at(-1)?.searchParams.get('blocked')).toBeNull();
-    const table = screen.getByRole('grid', { name: 'উপকারভোগী' });
-    await user.click(within(table).getByRole('button', { name: 'নমুনা উপকারভোগী-এর কাজ' }));
+    const table = await screen.findByRole('table', { name: 'উপকারভোগী' });
+    await user.click(await within(table).findByRole('button', { name: 'নমুনা উপকারভোগী-এর কাজ' }));
     expect(await screen.findByRole('menuitem', { name: 'প্রোফাইল দেখুন' })).toHaveAttribute(
       'href',
       expect.stringContaining('/admin/beneficiaries/'),
     );
+  });
+
+  it('counts the men and the women, and a press on one filters the list without narrowing the counts', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, { total: 30, assistedThisYear: 2, blocked: 1, male: 12, female: 18 });
+    const user = userEvent.setup();
+    const { router } = openList();
+    const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
+    expect(await within(counts).findByRole('button', { name: 'পুরুষ 12' })).toBeInTheDocument();
+    // everyone, the men, the women, those assisted this year, the blocklist
+    const order = ['মোট উপকারভোগী', 'পুরুষ', 'মহিলা', 'এই বছর সহায়তা পেয়েছেন', 'ব্লক লিস্ট'].map(
+      (label) => counts.textContent!.indexOf(label),
+    );
+    expect(order.every((at, i) => at >= 0 && (i === 0 || at > order[i - 1]!))).toBe(true);
+    await user.click(within(counts).getByRole('button', { name: 'মহিলা 18', pressed: false }));
+    await waitFor(() => expect(router.state.location.search).toBe('?gender=female'));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('gender')).toBe('female'));
+    expect(statUrls.at(-1)?.searchParams.get('gender')).toBeNull();
+    expect(within(counts).getByRole('button', { name: 'মহিলা 18' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // the chosen gender is a filter chip too, and the chip takes it away
+    await user.click(screen.getByRole('button', { name: /লিঙ্গ: মহিলা/ }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+  });
+
+  it('shows no gender counts to a caller who does not see the gender', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, { total: 30, assistedThisYear: 2 });
+    openList();
+    const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
+    expect(await within(counts).findByText('মোট উপকারভোগী')).toBeInTheDocument();
+    expect(within(counts).queryByText('পুরুষ')).toBeNull();
+    expect(within(counts).queryByText('মহিলা')).toBeNull();
   });
 
   it('shows the forbidden content to a volunteer', async () => {
@@ -298,7 +359,8 @@ describe('the 360° profile', () => {
       },
     );
     openProfile();
-    expect(await screen.findByText('1000000000777')).toBeInTheDocument();
+    // in the banner's facts and in the identity section
+    expect((await screen.findAllByText('1000000000777')).length).toBeGreaterThan(0);
     expect(screen.getByText('APP-2026-0001')).toBeInTheDocument();
     expect(screen.getAllByText(/শীতবস্ত্র 2026/).length).toBeGreaterThan(0);
   });
@@ -359,6 +421,109 @@ describe('the 360° profile', () => {
     expect(screen.queryByText(/^NID বা জন্মনিবন্ধন:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/20171234567890123/)).not.toBeInTheDocument();
     expect(screen.getByText('আপনার জন্য দেখানো হয় না')).toBeInTheDocument();
+  });
+
+  it('shows the published media works with YouTube’s own image and a card for Facebook', async () => {
+    refreshAs(HEAD);
+    serve(
+      fullRow,
+      {},
+      {
+        ...empty360,
+        media: [
+          {
+            referralId: '01900000-0000-7000-8000-0000000000a1',
+            workId: '01900000-0000-7000-8000-0000000000a2',
+            title: 'সেলাই মেশিনে ঘুরে দাঁড়ানো',
+            program: { id: PROJECT, name: { bn: 'স্বাবলম্বী প্রোগ্রাম', en: 'Self-reliance' } },
+            project: {
+              id: PROJECT,
+              name: { bn: 'স্বাবলম্বী 2026', en: 'Self-reliance 2026' },
+              year: 2026,
+            },
+            stageCode: 'published',
+            contentType: 'video',
+            summary: 'তিন মাসে নিজের দোকান দিয়েছেন।',
+            publishedOn: '2026-10-12',
+            publications: [
+              {
+                platformCode: 'asf_youtube',
+                link: 'https://youtu.be/dQw4w9WgXcQ',
+                publishedOn: '2026-10-12',
+                youtubeId: 'dQw4w9WgXcQ',
+              },
+              {
+                platformCode: 'asf_facebook',
+                link: 'https://www.facebook.com/AsSunnahFoundation/videos/1',
+                publishedOn: '2026-10-13',
+                youtubeId: null,
+              },
+            ],
+            members: [
+              {
+                userId: '01900000-0000-7000-8000-0000000000a3',
+                name: 'রুবেল আহমেদ',
+                roles: ['cinematographer'],
+              },
+            ],
+          },
+        ],
+      },
+    );
+    server.use(
+      http.get('*/api/v1/reference-lists/:list', ({ params }) =>
+        HttpResponse.json({
+          data:
+            params.list === 'media_platform'
+              ? [
+                  {
+                    code: 'asf_youtube',
+                    label: { bn: 'আস-সুন্নাহ ইউটিউব', en: 'ASF YouTube' },
+                    active: true,
+                    sortOrder: 1,
+                    system: false,
+                    kind: 'youtube',
+                  },
+                  {
+                    code: 'asf_facebook',
+                    label: { bn: 'আস-সুন্নাহ ফেসবুক', en: 'ASF Facebook' },
+                    active: true,
+                    sortOrder: 2,
+                    system: false,
+                    kind: 'facebook',
+                  },
+                ]
+              : params.list === 'media_role'
+                ? [
+                    {
+                      code: 'cinematographer',
+                      label: { bn: 'ক্যামেরা', en: 'Camera' },
+                      active: true,
+                      sortOrder: 1,
+                      system: false,
+                      kind: null,
+                    },
+                  ]
+                : [],
+          meta: {},
+        }),
+      ),
+    );
+    const { container } = openProfile();
+    const section = await screen.findByRole('region', { name: 'মিডিয়া' });
+    expect(await within(section).findByText('তিন মাসে নিজের দোকান দিয়েছেন।')).toBeInTheDocument();
+    const youtube = await within(section).findByRole('link', { name: 'আস-সুন্নাহ ইউটিউব-এ দেখুন' });
+    expect(youtube).toHaveAttribute('href', 'https://youtu.be/dQw4w9WgXcQ');
+    expect(youtube).toHaveAttribute('target', '_blank');
+    const images = section.querySelectorAll('img');
+    expect(images).toHaveLength(1);
+    expect(images[0]).toHaveAttribute('src', 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+    expect(images[0]).toHaveAttribute('referrerpolicy', 'no-referrer');
+    expect(
+      within(section).getByRole('link', { name: 'আস-সুন্নাহ ফেসবুক-এ দেখুন' }),
+    ).toBeInTheDocument();
+    expect(within(section).getAllByText('রুবেল আহমেদ (ক্যামেরা)')).toHaveLength(2);
+    await expectNoAxeViolations(container);
   });
 
   it('shows the Media Team only the sections the server sent', async () => {
@@ -455,7 +620,7 @@ describe('BEN numbers and the lookup', () => {
     const dialog = await screen.findByRole('dialog', { name: 'NID বা জন্মনিবন্ধন দিয়ে খুঁজুন' });
     // nothing is asked before a project is chosen
     expect(within(dialog).getByRole('button', { name: 'খুঁজুন' })).toBeDisabled();
-    await user.click(await within(dialog).findByRole('button', { name: /প্রকল্প/ }));
+    await user.click(await within(dialog).findByRole('combobox', { name: /প্রকল্প/ }));
     await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ 2026 (WC)' }));
     // a new project starts a new lookup, so the field is drawn afresh
     await user.type(within(dialog).getByRole('textbox', { name: /NID নম্বর/ }), '1000001000');

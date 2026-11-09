@@ -8,6 +8,7 @@ export type LiveWidget =
   | 'project_states'
   | 'templates'
   | 'shortcuts'
+  | 'media_work'
   | 'notifications';
 
 /** A widget whose module comes in a later phase: a quiet "coming later" card. */
@@ -23,7 +24,6 @@ export type LaterWidget =
   | 'work_progress'
   | 'alerts'
   | 'safe_water'
-  | 'media_work'
   | 'finance_overview'
   | 'procurement_issues';
 
@@ -100,6 +100,7 @@ const LIVE: readonly Widget[] = [
   'project_states',
   'templates',
   'shortcuts',
+  'media_work',
   'notifications',
 ];
 

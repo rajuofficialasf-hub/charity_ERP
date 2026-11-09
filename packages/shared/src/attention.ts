@@ -17,6 +17,22 @@ export const ATTENTION_ROUTES = {
   projects_draft: '/admin/projects?status=draft',
   deadlines_soon: '/admin/projects?status=active&endingSoon=true',
   handovers_open: '/admin/handover',
+  // the volunteer's open answers are on their applications
+  unlocks_to_fill: '/my-applications',
+  // the item opens the oldest waiting application; this is the place when none is named
+  unlocks_to_verify: '/admin/projects',
+  // the item opens the entry that has waited longest; this is the place when none is named
+  verifications_pending: '/admin/projects',
+  // the Media Team's home, filtered to what waits
+  media_referrals_new: '/media?state=pending',
+  media_review_waiting: '/media?stage=ready_to_publish',
+  media_sent_back: '/media?stage=in_review',
+  media_on_hold: '/media?stage=on_hold',
+  // the device's own items: records that could not be sent and photos still to go open the
+  // sync centre; records the office is verifying open the volunteer's waiting list
+  sync_failed: '/sync',
+  sync_verifying: '/my-applications?tab=pending',
+  photos_pending: '/sync',
 } as const;
 
 export type AttentionKind = keyof typeof ATTENTION_ROUTES;

@@ -9,11 +9,14 @@ async function main(): Promise<void> {
   const { logger } = container;
   await new JobConsumers(container.jobs, logger, {
     registrationCleanup: container.registrationCleanup,
+    localKeyCleanup: container.localKeyCleanup,
     uploadSweep: container.uploadSweep,
     storageStats: container.storageStats,
     mergeCandidates: container.beneficiaryMergeCandidates,
     fileProcessor: container.fileProcessor,
     delivery: container.delivery,
+    exportRunner: container.exportRunner,
+    exportSweep: container.exportSweep,
   }).register();
   logger.info('worker started');
 

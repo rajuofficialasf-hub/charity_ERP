@@ -35,6 +35,8 @@ GRANT SELECT, UPDATE ON files TO css_jobs_cleanup;
 GRANT EXECUTE ON FUNCTION purge_expired_registration_drafts(integer) TO css_jobs_cleanup;
 -- Upload sessions that expired before they were finalized, the same narrow way.
 GRANT EXECUTE ON FUNCTION purge_expired_upload_sessions(integer) TO css_jobs_cleanup;
+-- Public form photos no submission claimed within a day, the same narrow way.
+GRANT EXECUTE ON FUNCTION purge_unclaimed_public_photos(timestamptz, integer) TO css_jobs_cleanup;
 -- A replaced registration photo (second upload to a draft slot), the same narrow way.
 GRANT EXECUTE ON FUNCTION discard_registration_photo(uuid) TO css_app;
 

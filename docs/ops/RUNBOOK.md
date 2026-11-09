@@ -16,6 +16,8 @@ Severity levels, who to contact, first actions, communication to field users dur
 ## 4. Common tasks
 Revoke a device session, unlock an account, re-send donor emails, re-run a failed sync batch, regenerate an export, rotate a secret.
 
+Rotating `LOCAL_KEY_SECRET` (the seal of the device keys, AUTH.md §5): set `LOCAL_KEY_PREVIOUS_SECRET` to the current value and `LOCAL_KEY_SECRET` to the new one, restart the api and the worker; every session is re-sealed under the new secret at its next refresh (within 30 days, the refresh window), and a key the previous secret sealed still opens meanwhile. After 30 days clear `LOCAL_KEY_PREVIOUS_SECRET` and restart again; a session that never refreshed in that time has ended and its key is dropped by the nightly cleanup anyway.
+
 ## 5. Distribution-day readiness
 Pre-season checklist: load test done, helpline active, capacity verified, on-call.
 

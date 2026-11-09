@@ -140,6 +140,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: alerts, settings (alerts.* thresholds), followup_evaluations, work_summary (computed).
 - Depends on: M08, M09, M12, M13, M10, M16, M17.
 - B1: 9 Monitoring & Follow-up. Phase: 5. Blueprint: A10 (control centre, alerts, work summary), A6 (follow-up), Q-33; BD-19, BD-41, BD-42. Tasks: T5.2, T5.3.
+- First slice brought forward (D-147, Phase 2): an official's projects and the application figures of their work on their profile (BR-291 to BR-293).
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 4 (thresholds), 23 (follow-up template).
 
 ### M15 Audit Log
@@ -171,7 +172,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M18 Files & Media
 - Purpose: object storage adapter (MinIO; filesystem in tests), private files streamed by the API after the permission and scope check (no signed URLs, D-074), upload validation (type, size, virus-scan hook), client-side compression and resumable upload, photo metadata (capture time, GPS, source camera/gallery per project setting), duplicate-photo detection, voucher and document files, and the Media Team module (D-101): referrals of approved applications by PMs and RPMs, the director's decision, works with editable stages, production roles, scripts, publications on the platforms (consent-gated), the team's dashboard, member portfolios and the works on the beneficiary profile.
 - Primary users: volunteers and paid volunteers (photos, vouchers), officials (documents), Media Team (works, scripts, publications), PMs and RPMs (referrals).
-- Key entities: files (with photo metadata columns), media referrals, media works, media assignments, media publications, media comments (replacing media_subjects; designed in T2.8b), media_consents (owned by M05).
+- Key entities: files (with photo metadata columns), media referrals, media works, media work members, media publications, media comments and media events (replacing media_subjects and media_stories, migration `20261026160000_media_team`), media_consents (owned by M05).
 - Depends on: M02, M15, M05.
 - B1: shared service. Phase: 2 (file service; the Media Team module, T2.8b, D-101), 3 (photo rules). Blueprint: B8 (file access), B10 (photos), A8.1 (photo rule and metadata), A10 (media team), Q-12; BD-21, BD-38, UX-11. Tasks: T0.13, T2.1, T2.8b, T3.1.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 17 (consent capture and channels).

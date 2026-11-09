@@ -3,19 +3,17 @@ import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
-  Breadcrumb,
   Button,
   Card,
+  Chip,
   DescriptionList,
   EmptyState,
-  ErrorState,
+  Page,
   RadioGroup,
   Skeleton,
   Stack,
-} from '@css/ui';
+} from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { GitMerge, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -33,6 +31,8 @@ import {
 import { BeneficiaryArea } from '../BeneficiaryArea';
 import { MergeDialog, type MergeMode } from './MergeDialog';
 import { DUPLICATES_KEY, DUPLICATES_PATH, type MergeView, mergeProposals } from './merge-api';
+import { PageCrumbs } from '../../../components/shell/breadcrumb';
+import { LoadError } from '../../../components/LoadError';
 
 /**
  * Two beneficiary profiles side by side (a suggested pair or a proposal): the official chooses the
@@ -63,7 +63,6 @@ const profileQuery = (id: string) => ({
 function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: string | null }) {
   const t = useTranslations('admin.beneficiaries');
   const tm = useTranslations('admin.beneficiaries.merge');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -79,7 +78,7 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
   const [dialog, setDialog] = useState(false);
 
   const crumbs = (
-    <Breadcrumb
+    <PageCrumbs
       items={[
         { id: 'list', label: t('duplicates.title'), href: DUPLICATES_PATH },
         { id: 'compare', label: tm('title') },
@@ -90,7 +89,7 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
     <>
       <DocumentTitle title={tm('title')} />
       {crumbs}
-      <h1 className="admin-title">{tm('title')}</h1>
+      <Page title={tm('title')} documentTitle={false} />
     </>
   );
   const failed = [first, second].find((q) => q.error);
@@ -103,18 +102,14 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
     return (
       <>
         {heading}
-        <EmptyState icon={UserX} title={tm('not_found')} />
+        <EmptyState title={tm('not_found')} />
       </>
     );
   if (failed)
     return (
       <>
         {heading}
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={failed.error instanceof ApiFailure ? failed.error.requestId : undefined}
-          onRetry={() => void failed.refetch()}
-        />
+        <LoadError error={failed.error} onRetry={() => void failed.refetch()} />
       </>
     );
   if (!first.data || !second.data || (proposalId !== null && proposals.isPending))
@@ -131,11 +126,7 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
     return (
       <>
         {heading}
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={proposals.error instanceof ApiFailure ? proposals.error.requestId : undefined}
-          onRetry={() => void proposals.refetch()}
-        />
+        <LoadError error={proposals.error} onRetry={() => void proposals.refetch()} />
       </>
     );
   const proposal: MergeView | undefined = proposals.data?.find((m) => m.id === proposalId);
@@ -143,7 +134,7 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
     return (
       <>
         {heading}
-        <EmptyState icon={GitMerge} title={tm('proposal_missing')} />
+        <EmptyState title={tm('proposal_missing')} />
       </>
     );
 
@@ -204,11 +195,11 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
         ))}
       <div className="admin-compare">
         {sides.map((p) => (
-          <Card key={p.id} title={p.name} subtitle={formatBenNo(p.benNo)} headingLevel={2}>
+          <Card key={p.id} title={p.name} headingLevel={2}>
+            <p className="admin-muted">{formatBenNo(p.benNo)}</p>
             <Stack gap={3}>
-              {p.isBlocked && <Badge variant="dot" tone="danger" label={t('blocked')} />}
+              {p.isBlocked && <Chip tone="error">{t('blocked')}</Chip>}
               <DescriptionList
-                labelWidth="sm"
                 items={[
                   ...('fatherOrHusbandName' in p
                     ? [{ label: t('column.father'), value: p.fatherOrHusbandName }]
@@ -244,7 +235,7 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
                 <RadioGroup
                   name="kept-profile"
                   label={formatBenNo(p.benNo)}
-                  options={[{ id: p.id, label: tm('keep') }]}
+                  options={[{ value: p.id, label: tm('keep') }]}
                   value={kept === p.id ? p.id : null}
                   error={missingChoice && !kept ? tm('keep_required') : undefined}
                   onChange={(id) => {
@@ -259,7 +250,7 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
       </div>
       {mode && (
         <div>
-          <Button icon={GitMerge} onPress={start}>
+          <Button startIcon="merge" onClick={start}>
             {mode === 'propose' ? tm('propose') : tm('merge')}
           </Button>
         </div>

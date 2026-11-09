@@ -7,7 +7,7 @@ import type {
   MonitoringThresholds,
   OrganisationSetting,
 } from '@css/shared/settings';
-import { Alert, Button, Card, Form, FormGrid, Select, TextField } from '@css/ui';
+import { Alert, Button, Card, Grid, SelectField, TextField } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -51,11 +51,7 @@ function SaveRow({ pending, error }: { pending: boolean; error?: string }) {
   const t = useTranslations('admin.settings');
   return (
     <>
-      {error && (
-        <Alert tone="danger" live="alert">
-          {error}
-        </Alert>
-      )}
+      {error && <Alert tone="error">{error}</Alert>}
       <div className="admin-form-actions">
         <Button type="submit" loading={pending}>
           {t('save')}
@@ -93,8 +89,13 @@ export function OrganisationForm({
     <Card>
       <p className="admin-muted">{t('hint')}</p>
       <Changed entry={entry} />
-      <Form onSubmit={submitWith(() => save.mutate(v))} aria-label={t('form')}>
-        <FormGrid>
+      <form
+        method="post"
+        noValidate
+        onSubmit={submitWith(() => save.mutate(v))}
+        aria-label={t('form')}
+      >
+        <Grid columns={{ base: 1, md: 2 }} gap={3}>
           <TextField
             label={t('foundation_bn')}
             required
@@ -139,9 +140,9 @@ export function OrganisationForm({
             onChange={(email) => setV({ ...v, email })}
             error={fieldError('email')}
           />
-        </FormGrid>
+        </Grid>
         <SaveRow pending={save.isPending} error={generalError} />
-      </Form>
+      </form>
     </Card>
   );
 }
@@ -161,23 +162,25 @@ export function LanguageForm({
   return (
     <Card>
       <Changed entry={entry} />
-      <Form
+      <form
+        method="post"
+        noValidate
         onSubmit={submitWith(() => save.mutate({ defaultLanguage: language }))}
         aria-label={t('form')}
       >
-        <Select
+        <SelectField
           label={t('default')}
-          helper={t('hint')}
+          hint={t('hint')}
           required
           options={[
-            { id: 'bn', label: tl('bn') },
-            { id: 'en', label: tl('en') },
+            { value: 'bn', label: tl('bn') },
+            { value: 'en', label: tl('en') },
           ]}
           value={language}
           onChange={(id) => setLanguage(id === 'en' ? 'en' : 'bn')}
         />
         <SaveRow pending={save.isPending} error={generalError} />
-      </Form>
+      </form>
     </Card>
   );
 }
@@ -218,28 +221,28 @@ export function ThresholdsForm({
     <Card>
       <p className="admin-muted">{t('intro')}</p>
       <Changed entry={entry} />
-      <Form onSubmit={submitWith(submit)} aria-label={t('form')}>
-        <FormGrid>
+      <form method="post" noValidate onSubmit={submitWith(submit)} aria-label={t('form')}>
+        <Grid columns={{ base: 1, md: 2 }} gap={3}>
           {THRESHOLD_FIELDS.map((field) => (
             <TextField
               key={field}
               // eslint-disable-next-line security/detect-object-injection -- typed keys
               label={t(LABEL[field])}
-              helper={field === 'budgetAlertPercent' ? t('percent_hint') : t('days_hint')}
+              hint={field === 'budgetAlertPercent' ? t('percent_hint') : t('days_hint')}
               required
               inputMode="numeric"
               maxLength={3}
               // eslint-disable-next-line security/detect-object-injection -- typed keys
-              value={v[field]}
+              value={v[field] ?? ''}
               onChange={(value) =>
                 setV({ ...v, [field]: toEnglishDigits(value).replace(/[^0-9]/g, '') })
               }
               error={fieldError(field)}
             />
           ))}
-        </FormGrid>
+        </Grid>
         <SaveRow pending={save.isPending} error={generalError} />
-      </Form>
+      </form>
     </Card>
   );
 }

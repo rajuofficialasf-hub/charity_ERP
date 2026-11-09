@@ -31,8 +31,18 @@ export const FILE_KINDS = [
   'nid_photo',
   'media_asset',
   'issue_photo',
+  'form_photo',
 ] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
+
+/**
+ * The kinds only an official uploads (docs/architecture/FILES_AND_DOCUMENTS.md, who uploads):
+ * the copy of a payment is finance evidence and a document belongs to the register; a volunteer's
+ * file on the same record never takes their place.
+ */
+export const OFFICIAL_UPLOAD_KINDS: readonly FileKind[] = ['payment_copy', 'document'];
+export const officialOnlyKind = (kind: string): boolean =>
+  (OFFICIAL_UPLOAD_KINDS as readonly string[]).includes(kind);
 
 export const FILE_SOURCES = ['camera', 'gallery', 'scan'] as const;
 export type FileSource = (typeof FILE_SOURCES)[number];
@@ -64,6 +74,7 @@ export const KIND_TYPES: Record<FileKind, Partial<Record<FileType, number>>> = {
   issue_photo: PHOTO,
   profile_photo: PHOTO,
   nid_photo: PHOTO,
+  form_photo: PHOTO,
   voucher: { ...PHOTO, 'application/pdf': 10 * MB },
   payment_copy: { ...PHOTO, 'application/pdf': 10 * MB },
   document: { 'application/pdf': 20 * MB, 'image/jpeg': 20 * MB, 'image/png': 20 * MB },
@@ -75,7 +86,14 @@ export const KIND_TYPES: Record<FileKind, Partial<Record<FileType, number>>> = {
  * their own registration upload; beneficiary photos and media assets come with their modules.
  */
 export const UPLOAD_RECORD_KINDS = {
-  application: ['distribution_proof', 'construction_proof', 'evidence', 'voucher', 'payment_copy'],
+  application: [
+    'distribution_proof',
+    'construction_proof',
+    'evidence',
+    'voucher',
+    'payment_copy',
+    'form_photo',
+  ],
   activity: ['distribution_proof', 'construction_proof', 'evidence'],
   issue: ['issue_photo'],
   voucher: ['voucher'],
@@ -86,6 +104,17 @@ export const UPLOAD_RECORD_KINDS = {
 } as const satisfies Record<string, readonly FileKind[]>;
 export type UploadRecordType = keyof typeof UPLOAD_RECORD_KINDS;
 export const UPLOAD_RECORD_TYPES = Object.keys(UPLOAD_RECORD_KINDS) as UploadRecordType[];
+
+/**
+ * The photos of a public application (an applicant with no login): how many one submission may
+ * hold, how many unclaimed ones a link may hold at a time, and how long an unclaimed one stays.
+ */
+export const PUBLIC_PHOTO_LIMITS = {
+  perSubmission: 5,
+  perLinkFiles: 200,
+  perLinkBytes: 500 * MB,
+  unclaimedLifeMs: 24 * 60 * 60_000,
+} as const;
 
 /** Whether a kind may link to a record type. */
 export function kindAllowedOn(entityType: string, kind: FileKind): boolean {

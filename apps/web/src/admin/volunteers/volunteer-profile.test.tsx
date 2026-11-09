@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -127,11 +127,15 @@ describe('the volunteer profile for officials', () => {
       'ঠিকানা',
       'শিক্ষা ও দক্ষতা',
       'পেশা ও কাজ',
-      'ব্যাংকের তথ্য',
       'যোগাযোগ',
       'নিবন্ধনের ইতিহাস',
     ])
       expect(screen.getByRole('region', { name: section })).toBeInTheDocument();
+    // the bank details stay closed until asked for
+    expect(screen.getByRole('button', { name: 'ব্যাংকের তথ্য' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     const personal = screen.getByRole('region', { name: 'ব্যক্তিগত তথ্য' });
     // the NID, the date of birth and the blood group were left out by the server
     expect(within(personal).getAllByText('আপনার জন্য দেখানো হয় না')).toHaveLength(3);
@@ -195,12 +199,16 @@ describe('the volunteer profile for officials', () => {
     );
     const user = userEvent.setup();
     open();
-    expect(await screen.findByText('1000000000501')).toBeInTheDocument();
+    // in the banner's facts and in the personal details
+    expect((await screen.findAllByText('1000000000501')).length).toBeGreaterThan(0);
     expect(screen.getByText('17-05-1990')).toBeInTheDocument();
-    // the header shows the visible key facts with a copy button
-    expect(screen.getByText('NID নম্বর: 1000000000501')).toBeInTheDocument();
+    // the banner shows the NID and the mobile with a copy button; the rest is in the facts below
+    expect(
+      screen.getAllByText((_, el) => el?.textContent === 'NID নম্বর: 1000000000501').length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'NID নম্বর কপি করুন' })).toBeInTheDocument();
-    expect(screen.getByText('রক্তের গ্রুপ: O+')).toBeInTheDocument();
+    expect(screen.queryByText('রক্তের গ্রুপ: O+')).toBeNull();
+    expect(screen.getByText('O+')).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'কাজ ও প্রজেক্ট' }));
     expect(await screen.findByText('শীতবস্ত্র 2026')).toBeInTheDocument();
     expect(screen.getByText('পেইড ভলান্টিয়ার')).toBeInTheDocument();
@@ -216,7 +224,7 @@ describe('the volunteer profile for officials', () => {
     serve(profile({ actions: actions({ block: true, viewSessions: true, revokeSessions: true }) }));
     const user = userEvent.setup();
     open();
-    const panel = await screen.findByRole('group', { name: 'কাজ' });
+    const panel = await screen.findByRole('region', { name: 'কাজ' });
     expect(within(panel).getByRole('button', { name: 'ব্লকলিস্টে দিন' })).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'ডিভাইস' }));
     expect(await screen.findByText('নমুনা ফোন')).toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -76,6 +76,7 @@ describe('NotificationsPage', () => {
     ]);
     const { container } = renderApp(<NotificationsPage />, 'en');
     expect(await screen.findByRole('heading', { level: 1, name: 'Notifications' })).toBeVisible();
+    expect(screen.getByText('Updates and work')).toBeVisible();
     expect(await screen.findByRole('heading', { name: 'New project' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Today' })).toBeVisible();
     expect(screen.getByText('3 times')).toBeVisible();

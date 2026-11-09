@@ -1,4 +1,4 @@
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -174,14 +174,14 @@ async function chooseAddress(user: User) {
     [/Upazila/, 'Pirganj'],
     [/Union/, 'Chatra'],
   ] as const) {
-    await user.click(screen.getByRole('button', { name: label }));
+    await user.click(screen.getByRole('combobox', { name: label }));
     await user.click(await screen.findByRole('option', { name: option }));
   }
 }
 
 /** Picks the profession in its list (the first step of the profession fields). */
 async function chooseProfession(user: User, name: string) {
-  await user.click(screen.getByRole('button', { name: /current profession/ }));
+  await user.click(screen.getByRole('combobox', { name: /current profession/ }));
   await user.click(await screen.findByRole('option', { name }));
 }
 
@@ -369,7 +369,7 @@ describe('the steps after the contacts', () => {
     await chooseAddress(user);
     // the present address is the permanent one until the box is cleared
     expect(
-      screen.queryByRole('button', { name: /Division \(permanent\)/ }),
+      screen.queryByRole('combobox', { name: /Division \(permanent\)/ }),
     ).not.toBeInTheDocument();
     await user.click(
       screen.getByRole('checkbox', { name: 'My present address is my permanent address' }),
@@ -380,18 +380,18 @@ describe('the steps after the contacts', () => {
       [/Upazila \(permanent\)/, 'Pirganj'],
       [/Union \(permanent\)/, 'Chatra'],
     ] as const) {
-      await user.click(screen.getByRole('button', { name: label }));
+      await user.click(screen.getByRole('combobox', { name: label }));
       await user.click(await screen.findByRole('option', { name: option }));
     }
     await user.type(
       screen.getByRole('textbox', { name: /Village, road or house \(permanent\)/ }),
       'Old village',
     );
-    await user.click(screen.getByRole('button', { name: /Where you want to serve/ }));
+    await user.click(screen.getByRole('combobox', { name: /Where you want to serve/ }));
     await user.click(await screen.findByRole('option', { name: 'My own upazila' }));
     await next(user);
     expect(stepName()).toBe('4Education');
-    await user.click(screen.getByRole('button', { name: /Highest qualification/ }));
+    await user.click(screen.getByRole('combobox', { name: /Highest qualification/ }));
     await user.click(await screen.findByRole('option', { name: 'Masters' }));
     await user.type(screen.getByRole('textbox', { name: /Institution name/ }), 'Sample University');
     await user.type(screen.getByRole('textbox', { name: /Passing year/ }), '2016');
@@ -409,9 +409,9 @@ describe('the steps after the contacts', () => {
     ).not.toBeInTheDocument();
     // the profession is mandatory
     await next(user);
-    expect(screen.getByRole('button', { name: /current profession/ })).toHaveAccessibleDescription(
-      /Fill in this field/,
-    );
+    expect(
+      screen.getByRole('combobox', { name: /current profession/ }),
+    ).toHaveAccessibleDescription(/Fill in this field/);
     await chooseProfession(user, 'Teacher');
     await user.type(screen.getByRole('textbox', { name: /^Designation/ }), 'Lecturer');
     await next(user);

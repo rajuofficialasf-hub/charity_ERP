@@ -1,29 +1,28 @@
-import { SegmentedControl } from '@css/ui';
+import { LanguageSwitch as Switch } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { useLocaleSwitch } from '../i18n/LocaleProvider';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
 /**
- * Language switch (I18N 2, D-067): stores the choice on this device (cookie and localStorage),
- * on the account when signed in (PUT /me/language, O-56), and re-renders the app in the new
- * language. Language names are shown in their own language. A compact toggle for the top bar and
- * the bottom of the sidebar (UX-19).
+ * Language switch (docs/ui/I18N.md, "Languages and locale resolution"): stores the choice on this device (cookie
+ * and localStorage), on the account when signed in (PUT /me/language), and re-renders the app in
+ * the new language. Language names are shown in their own language. A compact toggle for the
+ * header and the sign-in pages, on the asf UI system's switch: a group of two pressed buttons.
  */
-export function LanguageSwitch({ className }: { className?: string }) {
+export function LanguageSwitch() {
   const t = useTranslations('common.language');
   const { locale, choose } = useChooseLanguage();
 
   return (
-    <SegmentedControl
+    <Switch
       label={t('label')}
       value={locale}
       onChange={choose}
       options={[
-        { id: 'bn', label: t('bn'), lang: 'bn' },
-        { id: 'en', label: t('en'), lang: 'en' },
+        { value: 'bn', label: t('bn') },
+        { value: 'en', label: t('en') },
       ]}
-      className={className}
     />
   );
 }

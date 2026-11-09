@@ -3,47 +3,29 @@ import { type Locale, localized } from '@css/shared/i18n';
 import { VOLUNTEER_TYPES } from '@css/shared/registration';
 import type { VolunteerRow } from '@css/shared/volunteers';
 import {
-  type ActiveFilter,
   Alert,
-  Avatar,
-  Badge,
-  EmptyState,
-  ErrorState,
-  FilterGroup,
-  MenuButton,
-  Modal,
-  Select,
+  Chip,
+  DataTable,
+  Dialog,
+  FilterBar,
+  Menu,
+  Page,
+  PersonCell,
+  SelectField,
   StatFilterBar,
+  type ActiveFilter,
+  type ColorTone,
   type StatFilterItem,
-  Table,
-  type TableColumn,
-  TableToolbar,
-} from '@css/ui';
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  BadgeCheck,
-  Ban,
-  CircleCheck,
-  CircleX,
-  ClipboardCheck,
-  ClipboardList,
-  Clock,
-  EllipsisVertical,
-  MonitorSmartphone,
-  Search,
-  Undo2,
-  User,
-  Users,
-  UserX,
-} from 'lucide-react';
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useFileDataUrl } from '../../components/FileImage';
 import { AddressFields } from '../../features/registration/AddressFields';
-import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { EmptyValue } from '../EmptyValue';
@@ -62,6 +44,8 @@ import {
 import { useTabView } from '../use-tab-view';
 import { VolunteerSessions } from './VolunteerSessions';
 import { FILTER_KEYS, VOLUNTEERS_KEY, volunteerPage, volunteerStatistics } from './volunteers-api';
+import { ExportButton } from '../../features/exports/ExportButton';
+import { LoadError } from '../../components/LoadError';
 
 const CATEGORIES = ['A', 'B', 'C', 'D', 'inactive'] as const;
 
@@ -82,11 +66,15 @@ export function VolunteersPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
+      <Page
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('description')}
+        documentTitle={false}
+      />
       {notice && (
         <Alert
           tone="success"
-          live="status"
           onDismiss={() =>
             void navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
           }
@@ -101,7 +89,6 @@ export function VolunteersPage() {
 
 function VolunteerTab({ categories }: { categories: boolean }) {
   const t = useTranslations('admin.volunteers');
-  const tc = useTranslations('common');
   const tr = useTranslations('registration.form.types');
   const tp = useTranslations('admin.projects');
   const locale = useLocale() as Locale;
@@ -110,8 +97,7 @@ function VolunteerTab({ categories }: { categories: boolean }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [blocking, setBlocking] = useState<VolunteerRow | null>(null);
   const [sessionsOf, setSessionsOf] = useState<VolunteerRow | null>(null);
-  const { filters, setFilters, change, q, onSearch, page, cursor, goTo, activeCount } =
-    useTabView(FILTER_KEYS);
+  const { filters, setFilters, change, q, onSearch, page, cursor, goTo } = useTabView(FILTER_KEYS);
 
   const list = useQuery({
     queryKey: [...VOLUNTEERS_KEY, 'page', filters, q, page, cursor],
@@ -138,27 +124,37 @@ function VolunteerTab({ categories }: { categories: boolean }) {
   const counts = stats.data;
   const statItems: StatFilterItem[] = counts
     ? [
-        { id: 'all', label: t('chips.all'), value: counts.volunteers.total, icon: Users },
+        {
+          id: 'all',
+          label: t('chips.all'),
+          value: counts.volunteers.total,
+          icon: 'users' as const,
+        },
         {
           id: 'active',
           label: t('stats.active'),
           value: counts.volunteers.active,
-          icon: CircleCheck,
+          icon: 'success' as const,
           tone: 'success',
         },
         {
           id: 'pending',
           label: t('stats.pending'),
           value: counts.volunteers.pending,
-          icon: Clock,
+          icon: 'clock' as const,
           tone: 'warning',
         },
-        { id: 'blocked', label: t('stats.blocked'), value: counts.volunteers.blocked, icon: Ban },
+        {
+          id: 'blocked',
+          label: t('stats.blocked'),
+          value: counts.volunteers.blocked,
+          icon: 'block' as const,
+        },
         {
           id: 'deactivated',
           label: t('stats.deactivated'),
           value: counts.volunteers.deactivated,
-          icon: CircleX,
+          icon: 'rejected' as const,
         },
         ...(counts.volunteers.inactive === undefined
           ? []
@@ -167,28 +163,28 @@ function VolunteerTab({ categories }: { categories: boolean }) {
                 id: 'inactive',
                 label: t('stats.inactive'),
                 value: counts.volunteers.inactive,
-                icon: UserX,
+                icon: 'user-block' as const,
               },
             ]),
         {
           id: 'applications',
           label: t('stats.applications'),
           value: counts.applications.total,
-          icon: ClipboardList,
+          icon: 'clipboard' as const,
           selectable: false,
         },
         {
           id: 'approved',
           label: t('stats.approved'),
           value: counts.applications.approved,
-          icon: BadgeCheck,
+          icon: 'verified' as const,
           selectable: false,
         },
         {
           id: 'under_review',
           label: t('stats.under_review'),
           value: counts.applications.underReview,
-          icon: Search,
+          icon: 'search' as const,
           selectable: false,
         },
       ]
@@ -205,21 +201,11 @@ function VolunteerTab({ categories }: { categories: boolean }) {
   const rows = list.data?.data ?? [];
   const showCategory = rows.some((r) => 'category' in r);
   const none = <EmptyValue label={t('none')} />;
-  const person = (r: VolunteerRow) => (
-    <span className="admin-person">
-      <RowAvatar row={r} />
-      <span className="admin-person-text">
-        <Link to={`/admin/volunteers/${r.id}`} className="admin-person-name">
-          {r.displayName}
-        </Link>
-        <span className="admin-person-meta">{tr(r.type)}</span>
-      </span>
-    </span>
-  );
+  const person = (r: VolunteerRow) => <RowPerson row={r} type={tr(r.type)} />;
   const state = (r: VolunteerRow) => (
     <span className="admin-badges">
-      <Badge variant="dot" tone={STATE_TONE[r.state] ?? 'neutral'} label={t(`state.${r.state}`)} />
-      {r.blocked && <Badge variant="dot" tone="danger" label={t('blocklisted')} />}
+      <Chip tone={STATE_TONE[r.state] ?? 'neutral'}>{t(`state.${r.state}`)}</Chip>
+      {r.blocked && <Chip tone="error">{t('blocklisted')}</Chip>}
     </span>
   );
   const projectNames = (r: VolunteerRow) =>
@@ -227,23 +213,22 @@ function VolunteerTab({ categories }: { categories: boolean }) {
       ? r.projects.map((p) => (locale === 'en' ? p.nameEn : p.nameBn)).join(', ')
       : none;
   const actions = (r: VolunteerRow) => (
-    <MenuButton
+    <Menu
       label={t('action.menu', { name: r.displayName })}
-      icon={EllipsisVertical}
       items={[
         {
           id: 'profile',
           label: t('action.profile'),
-          icon: User,
-          href: `/admin/volunteers/${r.id}`,
+          icon: 'user' as const,
+          to: `/admin/volunteers/${r.id}`,
         },
         ...(r.state === 'pending' && me && canApproveRegistrations(me)
           ? [
               {
                 id: 'review',
                 label: t('action.review'),
-                icon: ClipboardCheck,
-                href: `/admin/volunteers/${r.id}`,
+                icon: 'clipboard-check' as const,
+                to: `/admin/volunteers/${r.id}`,
               },
             ]
           : []),
@@ -252,8 +237,8 @@ function VolunteerTab({ categories }: { categories: boolean }) {
               {
                 id: 'block',
                 label: r.blocked ? t('action.unblock') : t('action.block'),
-                icon: r.blocked ? Undo2 : Ban,
-                onAction: () => setBlocking(r),
+                icon: r.blocked ? ('undo' as const) : ('block' as const),
+                onSelect: () => setBlocking(r),
               },
             ]
           : []),
@@ -262,15 +247,15 @@ function VolunteerTab({ categories }: { categories: boolean }) {
               {
                 id: 'sessions',
                 label: t('action.sessions'),
-                icon: MonitorSmartphone,
-                onAction: () => setSessionsOf(r),
+                icon: 'devices' as const,
+                onSelect: () => setSessionsOf(r),
               },
             ]
           : []),
       ]}
     />
   );
-  const columns: TableColumn<VolunteerRow>[] = [
+  const columns: DataTableExtendedColumn<VolunteerRow>[] = [
     { id: 'name', header: t('column.name'), cell: person, isRowHeader: true },
     { id: 'area', header: t('column.area'), cell: (r) => <Area row={r} />, priority: 2 },
     { id: 'projects', header: t('column.projects'), cell: projectNames, priority: 3 },
@@ -345,52 +330,44 @@ function VolunteerTab({ categories }: { categories: boolean }) {
   return (
     <>
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
       {stats.error ? (
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={stats.error instanceof ApiFailure ? stats.error.requestId : undefined}
-          onRetry={() => void stats.refetch()}
-        />
+        <LoadError error={stats.error} onRetry={() => void stats.refetch()} />
       ) : (
         <StatFilterBar
           label={t('stats.label')}
           items={statItems}
           selectedId={selectedCount}
           onSelect={selectCount}
+          visible={5}
           moreLabel={t('stats.more')}
-          moreValue={(n) => t('stats.more_value', { count: formatCount(n, locale) })}
+          moreValue={(n: number) => t('stats.more_value', { count: formatCount(n, locale) })}
           loading={stats.isPending}
         />
       )}
-      <Table
-        layout="panel"
+      <ExportButton list="volunteers" filters={{ ...filters, q }} />
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={rows}
-        rowKey={(r) => r.id}
+        getRowId={(r) => r.id}
         rowLabel={(r) => r.displayName}
         rowActions={actions}
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={Users} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         toolbar={
-          <TableToolbar
+          <FilterBar
             onSearch={onSearch}
             searchPlaceholder={t('search')}
-            filterMode="panel"
-            activeFilterCount={activeCount(inactiveCard ? ['state', 'category'] : ['state'])}
+            collapsible
             activeFilters={activeFilters}
             onClearFilters={() =>
               setFilters({
@@ -398,64 +375,65 @@ function VolunteerTab({ categories }: { categories: boolean }) {
                 ...(inactiveCard ? { category: 'inactive' } : {}),
               })
             }
-            filters={
-              <>
-                <FilterGroup title={t('filter.group_area')}>
-                  <AddressFields
-                    optional
-                    value={{
-                      divisionId: filters.divisionId ?? null,
-                      districtId: filters.districtId ?? null,
-                      upazilaId: filters.upazilaId ?? null,
-                      unionId: filters.unionId ?? null,
-                    }}
-                    onChange={(a) =>
-                      change({
-                        divisionId: a.divisionId ?? undefined,
-                        districtId: a.districtId ?? undefined,
-                        upazilaId: a.upazilaId ?? undefined,
-                        unionId: a.unionId ?? undefined,
-                      })
-                    }
+          >
+            <>
+              <fieldset className="admin-filter-group">
+                <legend>{t('filter.group_area')}</legend>
+                <AddressFields
+                  optional
+                  value={{
+                    divisionId: filters.divisionId ?? null,
+                    districtId: filters.districtId ?? null,
+                    upazilaId: filters.upazilaId ?? null,
+                    unionId: filters.unionId ?? null,
+                  }}
+                  onChange={(a) =>
+                    change({
+                      divisionId: a.divisionId ?? undefined,
+                      districtId: a.districtId ?? undefined,
+                      upazilaId: a.upazilaId ?? undefined,
+                      unionId: a.unionId ?? undefined,
+                    })
+                  }
+                />
+              </fieldset>
+              <fieldset className="admin-filter-group">
+                <legend>{t('filter.group_other')}</legend>
+                <ProjectPicker
+                  value={filters.projectId ?? null}
+                  onChange={(id) => change({ projectId: id || undefined })}
+                />
+                <SelectField
+                  label={t('filter.type')}
+                  value={filters.type ?? ''}
+                  options={VOLUNTEER_TYPES.map((type) => ({ value: type, label: tr(type) }))}
+                  onChange={(id) => change({ type: id || undefined })}
+                />
+                {categories && (
+                  <SelectField
+                    label={t('filter.category')}
+                    value={filters.category ?? ''}
+                    options={CATEGORIES.map((c) => ({
+                      value: c,
+                      label: c === 'inactive' ? t('filter.inactive') : c,
+                    }))}
+                    onChange={(id) => change({ category: id || undefined })}
                   />
-                </FilterGroup>
-                <FilterGroup title={t('filter.group_other')}>
-                  <ProjectPicker
-                    value={filters.projectId ?? null}
-                    onChange={(id) => change({ projectId: id ?? undefined })}
-                  />
-                  <Select
-                    label={t('filter.type')}
-                    value={filters.type ?? null}
-                    options={VOLUNTEER_TYPES.map((type) => ({ id: type, label: tr(type) }))}
-                    onChange={(id) => change({ type: id ?? undefined })}
-                  />
-                  {categories && (
-                    <Select
-                      label={t('filter.category')}
-                      value={filters.category ?? null}
-                      options={CATEGORIES.map((c) => ({
-                        id: c,
-                        label: c === 'inactive' ? t('filter.inactive') : c,
-                      }))}
-                      onChange={(id) => change({ category: id ?? undefined })}
-                    />
-                  )}
-                  <Select
-                    label={t('filter.blocked')}
-                    value={filters.blocked ?? null}
-                    options={[
-                      { id: 'true', label: t('filter.blocked_yes') },
-                      { id: 'false', label: t('filter.blocked_no') },
-                    ]}
-                    onChange={(id) => change({ blocked: id ?? undefined })}
-                  />
-                </FilterGroup>
-              </>
-            }
-          />
+                )}
+                <SelectField
+                  label={t('filter.blocked')}
+                  value={filters.blocked ?? ''}
+                  options={[
+                    { value: 'true', label: t('filter.blocked_yes') },
+                    { value: 'false', label: t('filter.blocked_no') },
+                  ]}
+                  onChange={(id) => change({ blocked: id || undefined })}
+                />
+              </fieldset>
+            </>
+          </FilterBar>
         }
-        pagination={
+        cursorPagination={
           meta
             ? numberedPaging({
                 meta,
@@ -469,10 +447,7 @@ function VolunteerTab({ categories }: { categories: boolean }) {
         }
         cardRenderer={(r) => (
           <div className="admin-person-card">
-            <div className="admin-person-card-head">
-              {person(r)}
-              {actions(r)}
-            </div>
+            <div className="admin-person-card-head">{person(r)}</div>
             <Area row={r} />
             {state(r)}
           </div>
@@ -480,7 +455,7 @@ function VolunteerTab({ categories }: { categories: boolean }) {
       />
       {blocking && (
         <BlocklistDialog
-          isOpen
+          open
           volunteerId={blocking.id}
           name={blocking.displayName}
           blocked={blocking.blocked}
@@ -488,37 +463,37 @@ function VolunteerTab({ categories }: { categories: boolean }) {
           onDone={changed}
         />
       )}
-      <Modal
+      <Dialog
         title={sessionsOf ? t('action.sessions_title', { name: sessionsOf.displayName }) : ''}
-        isOpen={sessionsOf !== null}
+        open={sessionsOf !== null}
         onClose={() => setSessionsOf(null)}
       >
         {sessionsOf && <VolunteerSessions userId={sessionsOf.userId} canRevoke />}
-      </Modal>
+      </Dialog>
     </>
   );
 }
 
 /** The tone of each account state's dot. */
-const STATE_TONE: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = {
+const STATE_TONE: Record<string, ColorTone> = {
   active: 'success',
   pending: 'warning',
-  blocked: 'danger',
+  blocked: 'error',
   deactivated: 'neutral',
 };
 
 /** The volunteer's own photo beside the name, or the first letter of the name without one. */
-function RowAvatar({ row }: { row: VolunteerRow }) {
-  return row.photoFileId ? (
-    <PhotoAvatar name={row.displayName} fileId={row.photoFileId} />
-  ) : (
-    <Avatar name={row.displayName} letters={1} size="sm" />
+/** The volunteer's name beside the photo (or the name's letter) and over the type. */
+function RowPerson({ row, type }: { row: VolunteerRow; type: string }) {
+  const photo = useFileDataUrl(row.photoFileId ?? null);
+  return (
+    <PersonCell
+      name={row.displayName}
+      to={`/admin/volunteers/${row.id}`}
+      secondary={type}
+      photo={photo.data ?? undefined}
+    />
   );
-}
-
-function PhotoAvatar({ name, fileId }: { name: string; fileId: string }) {
-  const photo = useFileDataUrl(fileId);
-  return <Avatar name={name} letters={1} size="sm" src={photo.data ?? undefined} />;
 }
 
 /** The district and upazila of a row, in the page language. */

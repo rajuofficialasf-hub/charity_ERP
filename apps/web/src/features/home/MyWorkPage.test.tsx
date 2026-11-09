@@ -1,12 +1,15 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { apiError, ME, refreshAs, renderInShell } from '../../../test/auth';
+import { apiError, ME, refreshAs, renderInShell, TEST_SESSION_ID } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
+import { afterSignIn } from '../../offline/keys';
+import { apply, applyResult, enqueue } from '../../offline/outbox';
+import { add as addPhoto } from '../../offline/photo-queue';
 import { MyWorkPage } from './MyWorkPage';
 import { ROLE_WIDGETS, widgetsFor } from './widgets';
 
@@ -58,7 +61,8 @@ describe('My Work home', () => {
     server.use(http.get('*/api/v1/me/projects', () => ok([PROJECT])));
     const { container } = openHome(VOLUNTEER);
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'স্বাগতম, স্বেচ্ছাসেবক (নমুনা)' }),
+      // the page is named for what it holds, without a greeting
+      await screen.findByRole('heading', { level: 1, name: 'আমার কাজ' }),
     ).toBeInTheDocument();
     const attention = screen.getByRole('region', { name: 'এখন আপনার কাজ' });
     expect(
@@ -77,13 +81,62 @@ describe('My Work home', () => {
       'href',
       `/my-projects/${PROJECT.projectId}/team`,
     );
-    const later = screen.getByRole('heading', { name: 'আমার আবেদন' }).closest('.ui-card');
+    const later = screen.getByRole('heading', { name: 'আমার আবেদন' }).closest('section');
     expect(later).toHaveTextContent('শিগগিরই আসছে');
     expect(within(later as HTMLElement).queryByRole('button')).toBeNull();
     expect(within(later as HTMLElement).queryByRole('link')).toBeNull();
     // ratings and categories are never shown to volunteers
     expect(document.body).not.toHaveTextContent(/রেটিং|ক্যাটাগরি/);
     await expectNoAxeViolations(container);
+  });
+
+  it('lists what this phone holds first: a refused record, photos still to go, and the day-old reminder once', async () => {
+    server.use(http.get('*/api/v1/me/projects', () => ok([])));
+    await afterSignIn({ sessionId: TEST_SESSION_ID, userId: ME.id, deviceKey: 'k'.repeat(43) });
+    const yesterday = new Date(Date.now() - 25 * 60 * 60_000);
+    const failed = await enqueue({
+      kind: 'application_draft',
+      projectId: PROJECT.projectId,
+      formVersionId: '01900000-0000-7000-8000-0000000000c2',
+      payload: { answers: [] },
+      now: yesterday,
+    });
+    await apply([failed.clientUuid], { type: 'flush', at: yesterday });
+    await applyResult(
+      { clientUuid: failed.clientUuid, result: 'failed', code: 'sync.deadline_passed' },
+      yesterday,
+    );
+    const waiting = await enqueue({
+      kind: 'application_draft',
+      projectId: PROJECT.projectId,
+      formVersionId: '01900000-0000-7000-8000-0000000000c2',
+      payload: { answers: [], second: true },
+    });
+    await addPhoto({
+      clientUuid: waiting.clientUuid,
+      slot: 'house_photo',
+      blob: new Blob([new Uint8Array(512)], { type: 'image/jpeg' }),
+      facts: { name: 'h.jpg', mime: 'image/jpeg', source: 'camera' },
+    });
+    const first = openHome(VOLUNTEER);
+    const attention = await screen.findByRole('region', { name: 'এখন আপনার কাজ' });
+    expect(
+      await within(attention).findByRole('link', { name: /1টি রেকর্ড পাঠানো যায়নি/ }),
+    ).toHaveAttribute('href', '/sync');
+    expect(within(attention).getByRole('link', { name: /1টি ছবি এখনো যায়নি/ })).toHaveAttribute(
+      'href',
+      '/sync',
+    );
+    const reminder = await screen.findByText('জমা কাজ পাঠানো বাকি');
+    expect(reminder.closest('[role="status"]')).toHaveTextContent(
+      '2টি রেকর্ড 1 দিন ধরে এই ফোনে অপেক্ষায়',
+    );
+    expect(screen.getByRole('link', { name: 'সিঙ্ক দেখুন' })).toHaveAttribute('href', '/sync');
+    first.unmount();
+    // the reminder came today already: the next open of the home does not repeat it
+    openHome(VOLUNTEER);
+    await screen.findByRole('link', { name: /1টি রেকর্ড পাঠানো যায়নি/ });
+    expect(screen.queryByText('জমা কাজ পাঠানো বাকি')).toBeNull();
   });
 
   it('gives a Local দায়ী today’s class as a card that comes later', async () => {
@@ -117,7 +170,7 @@ describe('My Work home', () => {
     openHome({ ...ME, roles: ['program_manager'] });
     const states = await screen.findByRole('heading', { name: 'প্রকল্পের অবস্থা' });
     expect(states).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: /সক্রিয়.*4/ })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /4\s*সক্রিয়/ })).toHaveAttribute(
       'href',
       '/admin/projects?status=active',
     );
@@ -171,6 +224,35 @@ describe('My Work home', () => {
     // every role has a home
     for (const role of Object.keys(ROLE_WIDGETS))
       expect(widgetsFor({ roles: [role], state: 'active' }).length).toBeGreaterThan(0);
+  });
+
+  it('opens with the area label, the line of purpose and the day summed up from what waits', async () => {
+    attentionIs([
+      { kind: 'unread_notifications', count: 2, href: '/notifications' },
+      { kind: 'projects_draft', count: 4, href: '/admin/projects?status=draft' },
+      { kind: 'handovers_open', count: 2, href: '/admin/handover' },
+    ]);
+    const { container } = openHome({ ...ME, roles: ['department_head'] });
+    expect(await screen.findByText('কাজের কেন্দ্র')).toBeInTheDocument();
+    expect(screen.getByText('আপনার কাজ, অনুমোদন ও অগ্রগতি এক জায়গায় দেখুন।')).toBeInTheDocument();
+    const today = screen.getByRole('region', { name: 'আজকের সারসংক্ষেপ' });
+    // the unread notifications are counted on their own, not among the tasks
+    expect(
+      await within(today).findByText(/আজ আপনার জন্য 6টি কাজ অপেক্ষা করছে।/),
+    ).toBeInTheDocument();
+    expect(within(today).getByText('অপেক্ষমাণ কাজ').parentElement).toHaveTextContent('6');
+    expect(within(today).getByText('না-পড়া নোটিফিকেশন').parentElement).toHaveTextContent('2');
+    await expectNoAxeViolations(container);
+  });
+
+  it('says the day is clear when nothing waits', async () => {
+    attentionIs([]);
+    openHome({ ...ME, roles: ['department_head'] });
+    const today = await screen.findByRole('region', { name: 'আজকের সারসংক্ষেপ' });
+    expect(
+      await within(today).findByText(/আজ আপনার জন্য কোনো কাজ অপেক্ষায় নেই।/),
+    ).toBeInTheDocument();
+    expect(within(today).getByText('অপেক্ষমাণ কাজ').parentElement).toHaveTextContent('0');
   });
 
   it('says calmly when nothing waits', async () => {

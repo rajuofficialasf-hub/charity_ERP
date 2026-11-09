@@ -20,6 +20,7 @@ import {
 } from '../core/pagination';
 import { pendingHandoverItems } from '../handover/providers';
 import { ApiError } from '../i18n/api-error';
+import { staffPhotos } from './staff-photos';
 
 export interface UserListQuery extends Omit<PageQuery, 'sort'> {
   q?: string;
@@ -133,9 +134,14 @@ export class UsersService {
       binding,
       total,
     });
+    const photos = await staffPhotos(
+      this.prisma,
+      rows.map((u) => u.id),
+    );
     return {
       rows: rows.map(({ userRolesUser, passwordHash, ...u }) => ({
         ...u,
+        photoFileId: photos.get(u.id) ?? null,
         roles: userRolesUser.map((r) => r.roleKey).sort(),
         awaitingPassword: awaitingPassword({ ...u, passwordHash }),
       })),
@@ -152,9 +158,11 @@ export class UsersService {
       updatedAt,
       ...user
     } = await this.access.findUser(scope, userId, userSelect);
+    const photos = await staffPhotos(this.prisma, [user.id]);
     return {
       user: {
         ...user,
+        photoFileId: photos.get(user.id) ?? null,
         roles: userRolesUser.map((r) => r.roleKey).sort(),
         awaitingPassword: awaitingPassword({ ...user, passwordHash }),
         lastLoginAt: user.lastLoginAt?.toISOString() ?? null,

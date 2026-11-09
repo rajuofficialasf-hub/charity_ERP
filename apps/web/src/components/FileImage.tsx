@@ -1,4 +1,4 @@
-import { Skeleton } from '@css/ui';
+import { Skeleton } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
 import { api, ApiFailure } from '../lib/api';

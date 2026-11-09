@@ -8,6 +8,7 @@ import {
 } from '@css/shared';
 import { hash } from '@node-rs/argon2';
 import { json, SEED_AT, type SeedContext, seedId } from '../../context';
+import { workflowVersionOf } from '../base/workflows';
 import { inTransaction } from '../util';
 
 /**
@@ -457,8 +458,8 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       name_en: 'Winter Clothing 2026',
       description: demoName('খসড়া প্রকল্প, ডেমো ডেটা'),
       status: 'draft',
-      workflow_definition_id: seedId('workflow:distribution:1'),
-      workflow_version: 1,
+      workflow_definition_id: seedId(`workflow:distribution:${workflowVersionOf('distribution')}`),
+      workflow_version: workflowVersionOf('distribution'),
       per_volunteer_limit: 50,
       cost_per_beneficiary: '1500.00',
       target_beneficiaries: 2000,
@@ -525,11 +526,13 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
     // the duplicate pairs: a draft form version of WNT for their applications, the four
     // profiles, one application each (under review, so a merge leaves the retired one's in place),
     // and the pair as the duplicate search keeps it
+    // its own key, so a form a person makes in WNT on a dev database (the app's usual first key is
+    // default) never collides with the seed's
     const formId = seedId('form:WNT:default');
     await ctx.upsert('forms', {
       id: formId,
       project_id: projectId,
-      key: 'default',
+      key: 'duplicate_pairs',
       title_bn: 'আবেদন ফর্ম',
       title_en: 'Application form',
       ...ctx.audit(),

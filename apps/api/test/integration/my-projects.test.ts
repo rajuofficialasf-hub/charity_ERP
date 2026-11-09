@@ -14,6 +14,7 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { applicationRow } from './support/applications';
 import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
 
@@ -67,8 +68,8 @@ async function newVolunteer(type = 'general') {
 async function assign(projectId: string, volunteerId: string, consent = 'pending') {
   const id = randomUUID();
   await h.db.query(
-    `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, assigned_by, consent_status, applications_counted)
-     VALUES ($1, $2, $3, $4, 'application_distribution', $5, $6, 7)`,
+    `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, assigned_by, consent_status)
+     VALUES ($1, $2, $3, $4, 'application_distribution', $5, $6)`,
     [id, projectId, volunteerId, world.dhaka.division, world.users.rpmDhaka, consent],
   );
   return id;
@@ -109,7 +110,7 @@ describe('my projects and the consent', () => {
       rulesVersion: 1,
       via: 'assignment',
       permissionSet: 'application_distribution',
-      applicationsCounted: 7,
+      applicationsCounted: 0,
       // a General volunteer assigned to the project may build a team
       leadsTeam: true,
     });
@@ -236,6 +237,48 @@ describe('my projects and the consent', () => {
   });
 });
 
+describe('the applications left', () => {
+  it('counts the live applications of the main volunteer, for the lead and the team member alike', async () => {
+    const project = await activeProject();
+    const { rows } = await h.db.query<{ id: string }>(
+      'SELECT v.id FROM form_versions v JOIN forms f ON f.id = v.form_id WHERE f.project_id = $1 LIMIT 1',
+      [project],
+    );
+    const versionId = rows[0]!.id;
+    await h.db.query(`UPDATE projects SET per_volunteer_limit = 5 WHERE id = $1`, [project]);
+    const lead = await newVolunteer('general');
+    await assign(project, lead.volunteerId, 'accepted');
+    const member = await newVolunteer('team_member');
+    await h.db.query(
+      `INSERT INTO volunteer_teams (id, project_id, lead_volunteer_id, member_volunteer_id, consent_status, consent_at)
+       VALUES ($1, $2, $3, $4, 'accepted', now())`,
+      [randomUUID(), project, lead.volunteerId, member.volunteerId],
+    );
+    // a draft of the team member counts for the lead; a rejected and a deleted one do not
+    for (const [status, createdBy, over] of [
+      ['draft', member.userId, {}],
+      ['submitted', lead.userId, { submitted_at: new Date() }],
+      ['rejected', lead.userId, {}],
+      ['deleted', lead.userId, { deleted_at: new Date() }],
+    ] as const)
+      await applicationRow(h.db, {
+        projectId: project,
+        versionId,
+        loc: world.dhaka,
+        status,
+        ownerVolunteerId: lead.volunteerId,
+        createdByUserId: createdBy,
+        over,
+      });
+    for (const userId of [lead.userId, member.userId]) {
+      const mine = await at(await as(userId), 'get', '/me/projects');
+      expect(
+        mine.body.data.find((p: { projectId: string }) => p.projectId === project),
+      ).toMatchObject({ applicationsCounted: 2, applicationsLeft: 3 });
+    }
+  });
+});
+
 describe('rules that change while the project runs', () => {
   const daee = text('দায়ীর দায়িত্ব');
   const dawahOn = async (projectId: string) => {
@@ -336,7 +379,7 @@ describe('a team member', () => {
     ).toMatchObject({
       via: 'team',
       consentStatus: 'pending',
-      applicationsCounted: 7,
+      applicationsCounted: 0,
       leadsTeam: false,
     });
     expect(await reaches(s, project)).toBe(false);

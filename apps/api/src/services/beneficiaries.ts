@@ -20,6 +20,7 @@ import {
 import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
+import { publishedWorksOf } from './media-home';
 import type { BeneficiaryIdentityService } from './beneficiary-identity';
 
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
@@ -72,6 +73,8 @@ export class BeneficiariesService {
     if (filter.unionId && !sees(ADDRESS)) this.refuse(viewer, ADDRESS);
     if (filter.blocked && !sees(CARE)) this.refuse(viewer, CARE);
     if (filter.type && !sees(DETAIL)) this.refuse(viewer, DETAIL);
+    // the gender is a profile detail too, so its filter would tell what the caller may not see
+    if (filter.gender && !sees(DETAIL)) this.refuse(viewer, DETAIL);
     const and: Prisma.BeneficiaryWhereInput[] = [
       beneficiaryWhere(viewer.scope),
       { mergedIntoId: null },
@@ -82,6 +85,7 @@ export class BeneficiariesService {
       if (value) and.push({ [column]: value });
     }
     if (filter.type) and.push({ classCode: filter.type });
+    if (filter.gender) and.push({ genderCode: filter.gender });
     if (filter.blocked) and.push({ isBlocked: filter.blocked === 'true' });
     if (filter.projectId || filter.year) {
       // a project-scoped caller filters only among its own projects, so the filter never tells it
@@ -167,6 +171,7 @@ export class BeneficiariesService {
           village: true,
           mobile: true,
           isBlocked: true,
+          photoFileId: true,
         },
       }),
       total: query.include === 'total' ? await tx.beneficiary.count({ where: filter }) : undefined,
@@ -185,8 +190,9 @@ export class BeneficiariesService {
   }
 
   /**
-   * The counts for the filters in use: everyone, those assisted this year, the blocked; one read,
-   * so the three counts share a snapshot and a connection.
+   * The counts for the filters in use: everyone, those assisted this year, the blocked, the men
+   * and the women; one read, so the counts share a snapshot and a connection. The response mask
+   * leaves out the counts of a class the caller does not see.
    */
   async statistics(filter: BeneficiaryFilter, viewer: BeneficiaryViewer) {
     const where = await this.where(filter, viewer);
@@ -210,6 +216,8 @@ export class BeneficiariesService {
         },
       }),
       blocked: await tx.beneficiary.count({ where: { AND: [where, { isBlocked: true }] } }),
+      male: await tx.beneficiary.count({ where: { AND: [where, { genderCode: 'male' }] } }),
+      female: await tx.beneficiary.count({ where: { AND: [where, { genderCode: 'female' }] } }),
     }));
   }
 
@@ -236,13 +244,14 @@ export class BeneficiariesService {
         ...read,
         seesNid,
         history: await this.history(tx, viewer, access, read.b.id, seesNid),
+        media: await publishedWorksOf(tx, read.b.id, rows ?? undefined),
       };
     });
     if (!found) {
       this.access.denied(viewer.principal.userId, viewer.scope.permission, 'beneficiary');
       throw new ApiError('permission.not_found', 404);
     }
-    const { b, applications, activities, distributions, seesNid, history } = found;
+    const { b, applications, activities, distributions, seesNid, history, media } = found;
     const years = new Map<number, { year: number; projects: Map<string, ProjectOfYear> }>();
     for (const a of applications) {
       const year = years.get(a.project.year) ?? { year: a.project.year, projects: new Map() };
@@ -349,6 +358,8 @@ export class BeneficiariesService {
         status: a.status,
         doneAt: a.doneAt.toISOString(),
       })),
+      // the published works about the person, for everyone who reads the profile
+      media,
     };
   }
 

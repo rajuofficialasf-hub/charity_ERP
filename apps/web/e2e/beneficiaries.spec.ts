@@ -31,8 +31,10 @@ test.describe('the beneficiary tab', () => {
     await signIn(page, official(info));
     await openTab(page, TAB);
     const counts = page.getByRole('group', { name: 'উপকারভোগীর হিসাব' });
-    await expect(counts.getByText('মোট')).toBeVisible();
-    await expect(counts.getByText('ব্লক করা')).toBeVisible();
+    await expect(counts.getByText('মোট উপকারভোগী')).toBeVisible();
+    await expect(counts.getByText('পুরুষ')).toBeVisible();
+    await expect(counts.getByText('মহিলা')).toBeVisible();
+    await expect(counts.getByText('ব্লক লিস্ট')).toBeVisible();
 
     await filterBy(page, info, [
       ['বিভাগ', 'রংপুর'],
@@ -70,9 +72,10 @@ test.describe('the beneficiary tab', () => {
     await expect(select(page, 'উপজেলা')).toBeVisible();
     for (const label of ['ধরন', 'ব্লকলিস্ট', 'ইউনিয়ন'])
       await expect(select(page, label)).toHaveCount(0);
-    await expect(
-      page.getByRole('group', { name: 'উপকারভোগীর হিসাব' }).getByText('ব্লক করা'),
-    ).toHaveCount(0);
+    // the blocklist and the gender counts are details this team does not see
+    const masked = page.getByRole('group', { name: 'উপকারভোগীর হিসাব' });
+    for (const label of ['ব্লক লিস্ট', 'পুরুষ', 'মহিলা'])
+      await expect(masked.getByText(label)).toHaveCount(0);
     await expect(rows(page).getByText(/^017000010\d\d$/)).toHaveCount(0);
 
     await rows(page).getByRole('link').first().click();
@@ -112,13 +115,14 @@ test.describe('the lookup by NID or birth registration', () => {
     };
 
     await lookUp(FOUND_NID);
-    // the lock marker is read out after the label: "নাম (লক করা)"
-    const name = dialog.getByRole('textbox', { name: /^নাম\s?\(লক করা\)$/ });
+    // the lock marker is read out with the field's description: "লক করা"
+    const name = dialog.getByRole('textbox', { name: 'নাম', exact: true });
     await expect(name).toHaveValue(/\S/);
     await expect(name).not.toBeEditable();
-    await expect(
-      dialog.getByRole('textbox', { name: /^পিতা\/স্বামীর নাম\s?\(লক করা\)$/ }),
-    ).not.toBeEditable();
+    await expect(name).toHaveAccessibleDescription(/লক করা/);
+    const father = dialog.getByRole('textbox', { name: 'পিতা/স্বামীর নাম', exact: true });
+    await expect(father).not.toBeEditable();
+    await expect(father).toHaveAccessibleDescription(/লক করা/);
     await expect(dialog.getByRole('textbox', { name: 'মোবাইল', exact: true })).toBeEditable();
     const found = dialog.getByText(/^প্রোফাইল পাওয়া গেছে: BEN-\d{7}$/);
     await expect(found).toBeVisible();
@@ -129,7 +133,7 @@ test.describe('the lookup by NID or birth registration', () => {
     await expect(dialog.getByText('এই নম্বরে কোনো প্রোফাইল নেই')).toBeVisible();
     await lookUp(BLOCKED_NID);
     await expect(dialog.getByText('এই ব্যক্তি ব্লক করা আছেন')).toBeVisible();
-    await expect(dialog.getByRole('textbox', { name: /^নাম\s?\(লক করা\)$/ })).toHaveCount(0);
+    await expect(dialog.getByRole('textbox', { name: 'নাম', exact: true })).toHaveCount(0);
 
     await dialog.getByRole('button', { name: 'বন্ধ করুন' }).first().click();
     await expect(dialog).toHaveCount(0);

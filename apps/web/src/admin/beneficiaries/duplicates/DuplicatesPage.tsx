@@ -2,22 +2,19 @@ import { formatCount, formatDate } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
-  Breadcrumb,
   Button,
-  EmptyState,
-  ErrorState,
-  Table,
-  type TableColumn,
+  Chip,
+  DataTable,
+  LinkButton,
+  Page,
   Tabs,
-} from '@css/ui';
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { GitCompare, GitMerge, Users, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
-import { ApiFailure } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
 import { ReasonDialog } from '../../projects/ReasonDialog';
@@ -33,6 +30,8 @@ import {
   mergeProposals,
   type MergeView,
 } from './merge-api';
+import { PageCrumbs } from '../../../components/shell/breadcrumb';
+import { LoadError } from '../../../components/LoadError';
 
 /**
  * The suggested duplicate profiles in the caller's scope, with the rules each pair meets: an
@@ -48,15 +47,25 @@ export function DuplicatesPage() {
   return (
     <>
       <DocumentTitle title={t('duplicates.title')} />
-      <Breadcrumb
+      <PageCrumbs
         items={[
           { id: 'list', label: t('profile.back'), href: '/admin/beneficiaries' },
           { id: 'duplicates', label: t('duplicates.title') },
         ]}
       />
-      <h1 className="admin-title">{t('duplicates.title')}</h1>
+      <Page
+        eyebrow={t('duplicates.eyebrow')}
+        title={t('duplicates.title')}
+        description={t('duplicates.description')}
+        actions={
+          <LinkButton variant="secondary" startIcon="arrow-left" to="/admin/beneficiaries">
+            {t('duplicates.back')}
+          </LinkButton>
+        }
+        documentTitle={false}
+      />
       {notice && (
-        <Alert tone="success" live="status" onDismiss={dismiss}>
+        <Alert tone="success" onDismiss={dismiss}>
           {notice}
         </Alert>
       )}
@@ -64,11 +73,11 @@ export function DuplicatesPage() {
         label={t('duplicates.tabs.label')}
         items={[
           {
-            id: 'pairs',
+            value: 'pairs',
             label: t('duplicates.tabs.pairs'),
             content: <Pairs onNotice={setNotice} />,
           },
-          { id: 'proposals', label: t('duplicates.tabs.proposals'), content: <Proposals /> },
+          { value: 'proposals', label: t('duplicates.tabs.proposals'), content: <Proposals /> },
         ]}
       />
     </>
@@ -77,7 +86,6 @@ export function DuplicatesPage() {
 
 function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
   const t = useTranslations('admin.beneficiaries.duplicates');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const [dismissing, setDismissing] = useState<MergeCandidate | null>(null);
@@ -113,25 +121,25 @@ function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
   const rules = (r: MergeCandidate) => (
     <span className="admin-badges">
       {r.matchedOn.map((rule) => (
-        <Badge key={rule} tone="info" label={t(`rules.${rule}`)} />
+        <Chip tone="info">{t(`rules.${rule}`)}</Chip>
       ))}
     </span>
   );
   const actions = (r: MergeCandidate) => (
     <span className="admin-badges">
-      <Button
+      <LinkButton
         variant="secondary"
-        size="sm"
-        icon={GitCompare}
-        href={comparePath(r.beneficiaryId, r.otherBeneficiaryId)}
+
+        startIcon="compare"
+        to={comparePath(r.beneficiaryId, r.otherBeneficiaryId)}
       >
         {t('compare')}
-      </Button>
+      </LinkButton>
       <Button
-        variant="ghost"
-        size="sm"
-        icon={UserX}
-        onPress={() => {
+        variant="text"
+        size="small"
+        startIcon="user-block"
+        onClick={() => {
           dismiss.reset();
           setDismissing(r);
         }}
@@ -140,7 +148,7 @@ function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
       </Button>
     </span>
   );
-  const columns: TableColumn<MergeCandidate>[] = [
+  const columns: DataTableExtendedColumn<MergeCandidate>[] = [
     {
       id: 'first',
       header: t('column.first'),
@@ -159,30 +167,23 @@ function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
 
   return (
     <>
-      <Table
-        layout="panel"
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={rows}
-        rowKey={(r) => `${r.beneficiaryId}|${r.otherBeneficiaryId}`}
+        getRowId={(r) => `${r.beneficiaryId}|${r.otherBeneficiaryId}`}
         rowLabel={pairName}
         rowActions={actions}
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={Users} title={t('empty')} headingLevel={2} />}
-        pagination={
+        emptyTitle={t('empty')}
+        cursorPagination={
           rows.length
             ? {
-                shown: rows.length,
-                total: rows.length,
                 hasPrevious: false,
                 hasNext: list.hasNextPage,
                 onNext: fetchMore,
@@ -196,7 +197,6 @@ function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
             {person(r.beneficiaryId, r.name, r.benNo)}
             {person(r.otherBeneficiaryId, r.otherName, r.otherBenNo)}
             {rules(r)}
-            {actions(r)}
           </div>
         )}
       />
@@ -216,7 +216,6 @@ function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
 
 function Proposals() {
   const t = useTranslations('admin.beneficiaries.duplicates.proposals');
-  const tc = useTranslations('common');
   const list = useQuery({ queryKey: [...DUPLICATES_KEY, 'proposals'], queryFn: mergeProposals });
   const rows = list.data ?? [];
   const person = (id: string, name: string, benNo: string) => (
@@ -228,16 +227,16 @@ function Proposals() {
     </span>
   );
   const open = (r: MergeView) => (
-    <Button
+    <LinkButton
       variant="secondary"
-      size="sm"
-      icon={GitMerge}
-      href={comparePath(r.keptId, r.mergedId, r.id)}
+
+      startIcon="merge"
+      to={comparePath(r.keptId, r.mergedId, r.id)}
     >
       {t('open')}
-    </Button>
+    </LinkButton>
   );
-  const columns: TableColumn<MergeView>[] = [
+  const columns: DataTableExtendedColumn<MergeView>[] = [
     {
       id: 'kept',
       header: t('kept'),
@@ -253,31 +252,25 @@ function Proposals() {
     { id: 'at', header: t('proposed_at'), cell: (r) => formatDate(r.proposedAt), priority: 2 },
   ];
   return (
-    <Table
-      layout="panel"
+    <DataTable
       label={t('table')}
       columns={columns}
       rows={rows}
-      rowKey={(r) => r.id}
+      getRowId={(r) => r.id}
       rowLabel={(r) => `${r.keptBenNo} ${r.mergedBenNo}`}
       rowActions={open}
       loading={list.isPending}
       error={
         list.error ? (
-          <ErrorState
-            title={tc('state.error.text')}
-            requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-            onRetry={() => void list.refetch()}
-          />
+          <LoadError error={list.error} onRetry={() => void list.refetch()} />
         ) : undefined
       }
-      emptyState={<EmptyState icon={GitMerge} title={t('empty')} headingLevel={2} />}
+      emptyTitle={t('empty')}
       cardRenderer={(r) => (
         <div className="admin-person-card">
           {person(r.keptId, r.keptName, r.keptBenNo)}
           {person(r.mergedId, r.mergedName, r.mergedBenNo)}
           <span>{r.reason}</span>
-          {open(r)}
         </div>
       )}
     />

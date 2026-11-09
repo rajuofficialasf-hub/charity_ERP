@@ -701,6 +701,24 @@ Load the two current forms from appendix খ (seeded in T1.3) through the engine
 Implement the form builder for PMs (key screen: section library on the left, live preview on the right, field settings panel, add by drag or tick, no-code logic editor, calculation editor, version list with a change summary, publish) and the runtime form renderer used by web and mobile (cascading address, repeat groups, live calculations, conditional logic, bilingual, official-only sections hidden from volunteers, photo and file fields using the T2.1 upload component, GPS field, draft autosave, validation messages localized). Mobile-first for the renderer; verify at 360×640 and keyboard-only. Match the approved mockups in docs/ui/mockups/ for the screens that exist. Tests with RTL for renderer behaviours; Playwright: PM builds a form from sections, publishes, edits → v2, old application keeps v1.
 ```
 
+#### T2.4b 🛠 ফর্ম বিল্ডারের নতুন নকশা `[D-122]` — ✅ সম্পন্ন (২২ অক্টোবর ২০২৬)
+- কম প্রযুক্তি-জ্ঞানের মানুষও যেন ফর্ম বানাতে পারেন, সেভাবে বিল্ডার নতুন করে সাজানো: তিন প্যানেল, ধরন দেখে প্রশ্ন যোগ, টেনে সাজানো (কীবোর্ডের বিকল্পসহ), শর্ত ও হিসাব বাক্যে পড়া যায়। প্ল্যান: `docs/plans/2026-10-22-2300-feat-form-builder-redesign-plan.md`।
+
+#### T2.4c 🛠 রেডি ফর্ম, প্রশ্ন লাইব্রেরি ও পরিচয়ের চিহ্ন `[D-125, D-126, D-127]` — ✅ সম্পন্ন (২৪ অক্টোবর ২০২৬)
+- মনিটরিং টিম ও বিভাগীয় প্রধান প্রকল্পের বাইরে রেডি ফর্ম আর প্রশ্ন লাইব্রেরি বানান; PM ফর্মটি প্রকল্পে বসান এবং নতুন সংস্করণ এলে নেন; সিস্টেম নিজে কোনো প্রশ্ন বসায় না। প্ল্যান: `docs/plans/2026-10-24-0930-feat-ready-forms-library-plan.md`।
+
+#### T2.4d 🛠 Kobo-র মতো ফর্ম লজিক `[D-128, D-133]` — ✅ সম্পন্ন (২৬ অক্টোবর ২০২৬)
+- শেষে দেখে নিন: ক্যারেট অনুযায়ী সোনার দাম আর মোট সম্পদের সূত্র বিল্ডারে বাক্য হিসেবে পড়া যায়, আর সার্ভার ও ফোনে একই ফল দেয়; আজকের তারিখ নিজে থেকে বসে; পরিবারের সদস্য সংখ্যা দিলে ততটি সারি আসে; মালিকের ডেমো ফর্মটি পুরোটা বিল্ডারে বানানো যায়।
+
+```text
+Extend the form engine and the builder per DECISION_LOG D-128, with the owner's Kobo XLSForm (SRP-26) as the reference case:
+(1) calculations with conditions (if … then … else …, nested; e.g. the gold price by karat, the poverty class), rounding, and free formulas of several terms with + − × ÷ and brackets (e.g. total assets = cash + bank + gold weight × price …), evaluated exactly by the one evaluator in @css/shared/forms on server and client, and shown and edited in the builder as sentences (sentences.ts, CalculationEditor), never as raw code;
+(2) a default value per question (today's date, a fixed text such as a number's prefix, a number) and read-only questions whose value only a calculation or the system sets;
+(3) per D-133, the owner's demo form (https://rajuofficialasf-hub.github.io/self-reliance-demo-form/) in full: a group's row count from a number answer (D-124 (3)), counting a group's rows by a condition, a condition comparing two answers, an earlier answer in a question's text, and a number table question. D-128's assigned names are withdrawn (D-133): who sent, approved or paid an application is traced in its steps and the audit log.
+Not in scope (D-128): an own regular expression or error message per question, images in a note, an "English only" text check, a unit after a shown value, gold prices from a setting.
+Published versions stay immutable; the new settings apply to drafts and old versions evaluate as before. Tests: evaluator cases (nesting, rounding, empty inputs, division by zero), the SRP-26 calculations reproduced, a read-only value the client sends never kept, the assignment names by area and their masking, builder component tests; Playwright: the Monitoring Team builds the gold and total-assets calculations as sentences and publishes, and a volunteer at 360 px sees the computed values, today's date and the assigned names. Update the form definition JSON Schemas, openapi.yaml where the definition changes, BUSINESS_RULES, SCREENS SCR-061 and STATUS.
+```
+
 #### T2.5 🛠 ওয়ার্কফ্লো ইঞ্জিন ও আবেদনের কোর চক্র `[P6.6-এর অংশ ১ + P2.4 কোড]`
 - শেষে দেখে নিন: প্রতিটি ট্রানজিশনের positive/negative টেস্ট (ভূমিকা অনুযায়ী); রিভিউ পর্দায় timeline ও change log; মোবাইলে নতুন আবেদন NID lookup-সহ।
 
@@ -740,6 +758,8 @@ Implement the export service: Excel (xlsx), CSV and PDF for any filtered list (v
 ```
 
 #### T2.8b 🛠 মিডিয়া টিম মডিউল `[D-101; T5.5 থেকে এগিয়ে আনা]`
+- ক্রম (D-134, ২৬ অক্টোবর ২০২৬): এই কাজটি T2.7 ও T2.8-এর আগে হবে; T2.9 ও Phase 2 গেট তিনটিই শেষ হওয়ার পরে।
+- অবস্থা (২৭ অক্টোবর ২০২৬): সম্পন্ন (প্ল্যান `docs/plans/2026-10-26-1502-feat-media-team-plan.md`)। D-137 অনুযায়ী উপকারভোগীর সম্মতির সব অংশ বাদ গেছে, তাই নিচের প্রম্পটের সম্মতি-সংক্রান্ত লাইনগুলো আর প্রযোজ্য নয়; রেফারেল সম্মতি ছাড়াই যায়।
 - শেষে দেখে নিন: সম্মতি ছাড়া referral যায় না; RPM-এর referral মিডিয়া ডিরেক্টর গ্রহণ করলে কাজ ধাপে ধাপে এগোয়; প্রকাশিত কাজ উপকারভোগীর প্রোফাইল ও সদস্যের পোর্টফোলিওতে দেখা যায়; মিডিয়া টিম আবেদন বা উপকারভোগীর তথ্য বদলাতে পারে না (matrix টেস্ট)।
 
 ```text
@@ -893,6 +913,7 @@ Implement the dawah module per MASTER_SPEC A৯ and BD-26, reusing the exam acti
 
 #### T5.2 🛠 মনিটরিং কন্ট্রোল সেন্টার, অডিট ভিউয়ার, কাজের সারসংক্ষেপ `[P6.15-এর অংশ ১]`
 - শেষে দেখে নিন: A১০-এর সব সতর্কবার্তা (থ্রেশহোল্ড সেটিং থেকে); কাজের সারসংক্ষেপ CSV/PDF; অডিট লগ entity ধরে ডাউনলোড।
+- Brought forward (D-147, 2026-11-02): an official's projects with the application figures of their work stand on their own profile and the admin's official profile; this task adds the table comparing officials, the exports and the distribution, photo and class figures.
 
 ```text
 Implement the monitoring control centre per MASTER_SPEC A১০ and BD-42: project progress (target vs applications, reviewed, approved, distributed/completed; budget vs spend), stuck work (which applications wait how long with whom), regularity of local দায়ীs, volunteers and paid volunteers, and the full alert set as scheduled jobs with admin thresholds — review pending, approval pending, no update, distribution without photos, budget near limit, incomplete activity, inactive volunteer, implementation delay, duplicate NID attempts, unbalanced stock, overdue documents (hook for T5.4), repeated deficiency reports (hook for T5.4) — with acknowledge/resolve tracking. Extend the audit log viewer: by project, beneficiary or person, with download. Implement the work summary per staff member and volunteer (applications brought, reviewed, approved, distributions, photos, classes, calls, last activity, time per step such as submission → review completion), filterable by year, project and date range, exportable CSV/PDF, visible to Department Head, Monitoring Team and permitted officials. Tests incl. scope; E2E for alerts appearing after seeded conditions.

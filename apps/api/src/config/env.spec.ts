@@ -10,9 +10,27 @@ const base = {
   JWT_SECRET: 'j'.repeat(32),
   AUTH_CSRF_SECRET: 'c'.repeat(32),
   OTP_SECRET: 'o'.repeat(32),
+  LOCAL_KEY_SECRET: 'l'.repeat(32),
 };
 
 describe('loadEnv', () => {
+  it('needs the secret that seals the device keys, and refuses the example value in production', () => {
+    expect(() => loadEnv({ ...base, LOCAL_KEY_SECRET: undefined as unknown as string })).toThrow(
+      /LOCAL_KEY_SECRET/,
+    );
+    expect(() =>
+      loadEnv({
+        ...base,
+        NODE_ENV: 'production',
+        APP_ORIGIN: 'https://erp.example.org',
+        LOCAL_KEY_SECRET: 'change-me-to-a-random-string-of-32-characters',
+      }),
+    ).toThrow(/LOCAL_KEY_SECRET/);
+    expect(
+      loadEnv({ ...base, LOCAL_KEY_PREVIOUS_SECRET: '' }).LOCAL_KEY_PREVIOUS_SECRET,
+    ).toBeUndefined();
+  });
+
   it('applies defaults and parses the port', () => {
     const env = loadEnv({ ...base, PORT: '4100' });
     expect(env).toMatchObject({

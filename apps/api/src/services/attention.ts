@@ -5,11 +5,18 @@ import {
   EDIT_ANSWERED_DAYS,
 } from '@css/shared';
 import type { ProjectFilter } from '@css/shared/projects';
-import { holdsPermission, projectWhere } from '../access/scope';
+import {
+  applicationWhere,
+  holdsPermission,
+  mediaReferralWhere,
+  projectWhere,
+} from '../access/scope';
 import type { AccessService } from '../access/service';
 import type { Principal } from '../auth/principal';
+import type { UnlocksService } from '../applications/unlocks';
 import type { Clock } from '../core/clock';
 import type { PrismaService } from '../core/prisma.service';
+import type { Prisma } from '../generated/prisma/client';
 import type { ChangeRequestsService } from './change-requests';
 import type { InboxService } from './inbox';
 import type { MyProjectsService } from './my-projects';
@@ -36,6 +43,7 @@ export class AttentionService {
     private readonly registrations: RegistrationsService,
     private readonly changeRequests: ChangeRequestsService,
     private readonly projects: ProjectsService,
+    private readonly unlocks: UnlocksService,
   ) {}
 
   async items(principal: Principal): Promise<AttentionItem[]> {
@@ -59,6 +67,9 @@ export class AttentionService {
       });
     };
     const now = this.clock.now();
+    // the entered values to verify: the item opens the application that has waited longest
+    const toDecide = this.unlocks.waitingToDecide(principal);
+    const hrefs: Partial<Record<AttentionKind, string>> = {};
     const counts: [AttentionKind, Promise<number>][] = [
       // the inbox opens once the registration is approved
       [
@@ -116,14 +127,92 @@ export class AttentionService {
             : 0,
         ),
       ],
+      ['unlocks_to_fill', this.unlocks.waitingToFill(principal)],
+      [
+        'verifications_pending',
+        this.verificationsPending(principal).then(({ count, first }) => {
+          if (first) hrefs.verifications_pending = `/admin/applications/${first}`;
+          return count;
+        }),
+      ],
+      ...this.mediaCounts(principal),
+      [
+        'unlocks_to_verify',
+        toDecide.then(({ count, first }) => {
+          if (first) hrefs.unlocks_to_verify = `/admin/applications/${first}`;
+          return count;
+        }),
+      ],
     ];
     const settled = await Promise.all(counts.map(async ([kind, n]) => [kind, await n] as const));
     return (
       settled
         .filter(([, count]) => count > 0)
         // eslint-disable-next-line security/detect-object-injection -- a typed kind
-        .map(([kind, count]) => ({ kind, count, href: ATTENTION_ROUTES[kind] }))
+        .map(([kind, count]) => ({ kind, count, href: hrefs[kind] ?? ATTENTION_ROUTES[kind] }))
     );
+  }
+
+  /**
+   * The public and offline entries waiting for verification inside the caller's verification
+   * scope, and the oldest one, which the item opens.
+   */
+  private async verificationsPending(
+    principal: Principal,
+  ): Promise<{ count: number; first: string | null }> {
+    const permission = 'application.verify_needs_verification';
+    const access = await this.access.load(principal.userId);
+    if (!holdsPermission(permission, access.grants)) return { count: 0, first: null };
+    const scope = await this.access.scopeFor(principal, access, permission, 'application');
+    const where = {
+      AND: [
+        { status: 'needs_verification', project: { status: 'active' } },
+        applicationWhere(scope),
+      ],
+    };
+    const [count, first] = await Promise.all([
+      this.prisma.application.count({ where }),
+      this.prisma.application.findFirst({
+        where,
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: { id: true },
+      }),
+    ]);
+    return { count, first: first?.id ?? null };
+  }
+
+  /**
+   * The Media Team's waiting work, each counted inside the scope of the permission that acts on
+   * it: the referrals to decide, the works waiting for the final review, the works sent back to
+   * the team, and the caller's own works on hold.
+   */
+  private mediaCounts(principal: Principal): [AttentionKind, Promise<number>][] {
+    if (principal.kind === 'volunteer') return [];
+    const access = this.access.load(principal.userId);
+    const reached = async (permission: string, where: Prisma.MediaReferralWhereInput) => {
+      const effective = await access;
+      if (!holdsPermission(permission, effective.grants)) return 0;
+      const scope = await this.access.scopeFor(principal, effective, permission, 'application');
+      return this.prisma.mediaReferral.count({
+        where: { AND: [mediaReferralWhere(scope), where] },
+      });
+    };
+    return [
+      ['media_referrals_new', reached('media.referral.decide', { state: 'pending' })],
+      [
+        'media_review_waiting',
+        reached('media.publication.review', {
+          work: { stageCode: 'ready_to_publish', reviewApprovedBy: null },
+        }),
+      ],
+      ['media_sent_back', reached('media.work.manage', { work: { stageCode: 'in_review' } })],
+      [
+        'media_on_hold',
+        this.prisma.mediaWork.count({
+          where: { stageCode: 'on_hold', members: { some: { userId: principal.userId } } },
+        }),
+      ],
+    ];
   }
 
   /** Projects the volunteer was assigned to whose rules wait for their answer. */

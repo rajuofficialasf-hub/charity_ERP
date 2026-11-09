@@ -105,7 +105,8 @@ export function settingsRouter(
     path: '/reference-lists/:listKey',
     status: 201,
     operationId: 'reference.list.addItem',
-    summary: 'Add an item to the expense category or issue type list',
+    summary:
+      'Add an item to an editable list: expense categories, issue types, media stages, production roles or publication platforms',
     permission: 'settings.manage',
     scope: 'global',
     audit: 'settings.change',
@@ -127,7 +128,7 @@ export function settingsRouter(
     audit: 'settings.change',
     params: { listKey, code: itemCode },
     body: referenceItemUpdateSchema,
-    responses: { 200: null, 401: null, 403: null, 404: null, 422: null },
+    responses: { 200: null, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: async ({ body, params, req }) =>
       ok(await c.referenceLists.update(principalOf(req), params.listKey, params.code, body)),
   });

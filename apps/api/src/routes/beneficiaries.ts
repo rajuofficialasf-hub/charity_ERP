@@ -18,6 +18,7 @@ import {
 import { type ReasonRequest, reasonRequestSchema } from '@css/shared/auth';
 import { type DecisionRequest, decisionRequestSchema } from '@css/shared/registration';
 import { Router } from 'express';
+import { publishedWorkView } from '../services/media-home';
 import { z, type ZodType } from 'zod';
 import { sensitive } from '../access/field-mask';
 import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
@@ -53,6 +54,7 @@ const beneficiaryRow = z.object({
   village: address(z.string()),
   mobile: contact(z.string()),
   isBlocked: care(z.boolean()),
+  photoFileId: detail(z.uuid().nullable()),
 });
 
 const count = () => z.number().int().min(0);
@@ -60,10 +62,13 @@ const beneficiaryStatistics = z.object({
   total: count(),
   assistedThisYear: count(),
   blocked: care(count()),
+  male: detail(count()),
+  female: detail(count()),
 });
 
 const at = () => z.iso.datetime({ offset: true });
-const beneficiaryProfile = z.object({
+/** The 360° profile, also read by its PDF through the same mask. */
+export const beneficiaryProfile = z.object({
   id: z.uuid(),
   benNo: benNo(),
   mergedInto: z.object({ id: z.uuid(), benNo: benNo() }).nullable(),
@@ -240,6 +245,8 @@ const beneficiaryProfile = z.object({
       }),
     ),
   ),
+  /** The published and done media works about the person. */
+  media: z.array(publishedWorkView),
 });
 
 /**

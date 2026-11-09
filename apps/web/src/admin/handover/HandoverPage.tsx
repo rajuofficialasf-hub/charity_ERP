@@ -2,17 +2,17 @@ import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Badge,
   Button,
+  Card,
+  Chip,
   ConfirmDialog,
-  ErrorState,
-  Grid,
+  EmptyState,
+  Page,
   Skeleton,
   Stack,
   Text,
-} from '@css/ui';
+} from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRightLeft, CheckCheck, UserX } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -21,6 +21,7 @@ import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canHandOver } from '../roles';
 import { type PanelUser, UserSearch } from '../UserSearch';
+import { LoadError } from '../../components/LoadError';
 
 const CATEGORIES = ['reviews_approvals', 'projects', 'documents', 'issues', 'followups'] as const;
 type Category = (typeof CATEGORIES)[number];
@@ -65,21 +66,55 @@ export function HandoverPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
-      <UserSearch
-        label={t('search')}
-        helper={t('search_hint')}
-        selected={official}
-        onSelect={setOfficial}
+      <Page
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('description')}
+        documentTitle={false}
       />
-      {official && <Handover key={official.id} official={official} />}
+      <div className="page-split">
+        <div className="page-split-main">
+          <Card>
+            <div className="admin-panel-section">
+              <UserSearch
+                label={t('search')}
+                helper={t('search_hint')}
+                selected={official}
+                onSelect={setOfficial}
+              />
+              {!official && (
+                <EmptyState icon="search" title={t('pick_title')} description={t('pick_message')} />
+              )}
+            </div>
+          </Card>
+          {official && (
+            <Card>
+              <Handover key={official.id} official={official} />
+            </Card>
+          )}
+        </div>
+        <aside className="page-split-side" aria-label={t('steps.title')}>
+          <Card title={t('rule.title')} headingLevel={2}>
+            <Text tone="muted">{t('rule.body')}</Text>
+          </Card>
+          <Card title={t('steps.title')} headingLevel={2}>
+            <ol className="admin-steps">
+              {(['find', 'assign', 'complete'] as const).map((step) => (
+                <li key={step}>
+                  <span className="admin-step-name">{t(`steps.${step}`)}</span>
+                  <span className="admin-step-hint">{t(`steps.${step}_hint`)}</span>
+                </li>
+              ))}
+            </ol>
+          </Card>
+        </aside>
+      </div>
     </>
   );
 }
 
 function Handover({ official }: { official: PanelUser }) {
   const t = useTranslations('admin.handover');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const [receiver, setReceiver] = useState<PanelUser | null>(null);
@@ -150,10 +185,9 @@ function Handover({ official }: { official: PanelUser }) {
   const loadError = account.error ?? handover.error;
   if (loadError || !account.data || !handover.data)
     return (
-      <ErrorState
-        title={tc('state.error.text')}
+      <LoadError
+        error={loadError}
         message={loadError instanceof ApiFailure ? loadError.message : undefined}
-        requestId={loadError instanceof ApiFailure ? loadError.requestId : undefined}
         onRetry={() => {
           void account.refetch();
           void handover.refetch();
@@ -172,20 +206,17 @@ function Handover({ official }: { official: PanelUser }) {
     <div className="admin-panel-section">
       <Stack direction="row" wrap align="center" gap={2}>
         <h2 className="admin-subtitle">{user.displayName}</h2>
-        <Badge
-          tone={deactivated ? 'neutral' : user.state === 'active' ? 'success' : 'warning'}
-          label={t(`state.${user.state}`)}
-        />
+        <Chip tone={deactivated ? 'neutral' : user.state === 'active' ? 'success' : 'warning'}>
+          {t(`state.${user.state}`)}
+        </Chip>
       </Stack>
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
       {actionError && (
-        <Alert tone="danger" live="alert">
-          {actionError.details[0]?.message ?? actionError.message}
-        </Alert>
+        <Alert tone="error">{actionError.details[0]?.message ?? actionError.message}</Alert>
       )}
       {deactivated ? (
         <Alert tone="info">{t('already')}</Alert>
@@ -200,10 +231,10 @@ function Handover({ official }: { official: PanelUser }) {
           />
           <div>
             <Button
-              icon={ArrowRightLeft}
+              startIcon="transfer"
               disabled={!receiver || view.pending.length === 0 || busy}
               loading={assign.isPending && assign.variables === undefined}
-              onPress={() => assign.mutate(undefined)}
+              onClick={() => assign.mutate(undefined)}
             >
               {t('assign_all')}
             </Button>
@@ -223,10 +254,10 @@ function Handover({ official }: { official: PanelUser }) {
             <div>
               <Button
                 variant="secondary"
-                icon={CheckCheck}
+                startIcon="check"
                 disabled={view.pending.length > 0 || busy}
                 loading={complete.isPending}
-                onPress={() => complete.mutate()}
+                onClick={() => complete.mutate()}
               >
                 {t('complete')}
               </Button>
@@ -235,9 +266,9 @@ function Handover({ official }: { official: PanelUser }) {
           <div>
             <Button
               variant="danger"
-              icon={UserX}
+              startIcon="user-block"
               disabled={busy || account.isFetching}
-              onPress={() => setDeactivating(true)}
+              onClick={() => setDeactivating(true)}
             >
               {t('deactivate')}
             </Button>
@@ -245,7 +276,7 @@ function Handover({ official }: { official: PanelUser }) {
         </>
       )}
       <ConfirmDialog
-        isOpen={deactivating}
+        open={deactivating}
         title={t('deactivate_title', { name: user.displayName })}
         message={
           deactivateError && (
@@ -254,7 +285,7 @@ function Handover({ official }: { official: PanelUser }) {
             </p>
           )
         }
-        consequence={[t('deactivate_consequence')]}
+        consequences={[t('deactivate_consequence')]}
         tone="danger"
         reasonRequired
         reasonLabel={t('reason')}
@@ -289,31 +320,26 @@ function CategoryItems({
         {t(`category.${category}`)}
       </h4>
       {items.length === 0 ? (
-        <Text className="admin-muted">{t('category_empty')}</Text>
+        <p className="admin-muted">{t('category_empty')}</p>
       ) : (
-        <Grid gap={2} as="ul" role="list">
+        <ul className="admin-plain-list">
           {items.map((item) => (
-            <Stack
-              direction="row"
-              wrap
-              align="center"
-              gap={2}
-              as="li"
-              key={`${item.itemType}:${item.itemId}`}
-            >
-              <span>{item.label}</span>
-              <Button
-                size="sm"
-                variant="secondary"
-                aria-label={t('assign_label', { item: item.label })}
-                disabled={!canAssign}
-                onPress={() => onAssign(item)}
-              >
-                {t('assign_one')}
-              </Button>
-            </Stack>
+            <li key={`${item.itemType}:${item.itemId}`}>
+              <Stack direction="row" wrap align="center" gap={2}>
+                <span>{item.label}</span>
+                <Button
+                  size="small"
+                  variant="secondary"
+                  ariaLabel={t('assign_label', { item: item.label })}
+                  disabled={!canAssign}
+                  onClick={() => onAssign(item)}
+                >
+                  {t('assign_one')}
+                </Button>
+              </Stack>
+            </li>
           ))}
-        </Grid>
+        </ul>
       )}
     </section>
   );

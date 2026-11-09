@@ -20,7 +20,6 @@ x-node: &node
     - api-node-modules:/app/apps/api/node_modules
     - web-node-modules:/app/apps/web/node_modules
     - shared-node-modules:/app/packages/shared/node_modules
-    - ui-node-modules:/app/packages/ui/node_modules
     - config-node-modules:/app/packages/config/node_modules
 
 # The API configuration (apps/api/src/config/env.ts); the same values serve the one-shot migrate.
@@ -34,6 +33,7 @@ x-api-env: &api-env
   JWT_SECRET: dev-only-jwt-secret-0123456789abcdef0123
   AUTH_CSRF_SECRET: dev-only-csrf-secret-0123456789abcdef01
   OTP_SECRET: dev-only-otp-secret-0123456789abcdef0123
+  LOCAL_KEY_SECRET: dev-only-local-key-secret-0123456789abcdef
   OTP_DUMMY_ENABLED: 'true'
   OTP_DUMMY_CODE: '123456'
   AUTH_COOKIE_SECURE: 'false'
@@ -151,5 +151,4 @@ volumes:
   api-node-modules:
   web-node-modules:
   shared-node-modules:
-  ui-node-modules:
   config-node-modules:

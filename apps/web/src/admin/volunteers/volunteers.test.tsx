@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -8,6 +8,8 @@ import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { VolunteersPage } from './VolunteersPage';
+import type { MessageKey } from '@css/shared/i18n';
+import { expectOnScreenColumns, serveExports } from '../../../test/msw/exports';
 
 // The volunteer tab: counts that filter, search, filters that
 // open in place with their chips, the row menu, numbered pages; the filters in the URL and the
@@ -121,6 +123,28 @@ beforeEach(() => {
 });
 
 describe('the volunteer tab', () => {
+  it('offers the export, with the table’s own columns ticked first, in its order', async () => {
+    refreshAs(HEAD);
+    // the head sees the category, so the page shows its column
+    serve([row({ category: 'A', inactiveFlag: false })]);
+    serveExports('volunteers');
+    const user = userEvent.setup();
+    open();
+    await expectOnScreenColumns(
+      user,
+      'volunteers',
+      (id) => `admin.volunteers.column.${id}` as MessageKey,
+    );
+  });
+
+  it('offers no export to a volunteer', async () => {
+    refreshAs(VOLUNTEER);
+    serve();
+    serveExports('volunteers');
+    open();
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'এক্সপোর্ট' })).toBeNull());
+  });
+
   it('shows the counts and the rows, in English digits, without accessibility violations', async () => {
     refreshAs(HEAD);
     serve();
@@ -128,13 +152,17 @@ describe('the volunteer tab', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' }),
     ).toBeInTheDocument();
+    expect(screen.getByText('মানবসম্পদ ও মাঠপর্যায়ের সমন্বয়')).toBeInTheDocument();
+    expect(
+      screen.getByText('নিয়োগ, দক্ষতা, প্রাপ্যতা এবং কর্মসূচিতে দায়িত্ব বণ্টন করুন।'),
+    ).toBeInTheDocument();
     const counts = await screen.findByRole('group', { name: 'স্বেচ্ছাসেবকের হিসাব' });
     expect(await within(counts).findByRole('button', { name: 'সব 1,250' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
     // the application counts sit behind the last card
-    expect(within(counts).getByRole('button', { name: 'আরও অবস্থা' })).toHaveTextContent('3টি');
+    expect(within(counts).getByRole('button', { name: /^আরও অবস্থা/ })).toHaveTextContent('3টি');
     expect((await screen.findAllByText('নমুনা স্বেচ্ছাসেবক')).length).toBeGreaterThan(0);
     expect((await screen.findAllByText('সাভার উপজেলা, ঢাকা জেলা')).length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);
@@ -172,7 +200,7 @@ describe('the volunteer tab', () => {
     const user = userEvent.setup();
     const { router } = open();
     await openFilters(user);
-    const [picker] = await screen.findAllByRole('button', { name: /প্রকল্প/ });
+    const [picker] = await screen.findAllByRole('combobox', { name: /প্রকল্প/ });
     await user.click(picker!);
     await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ 2026 (WC)' }));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('projectId')).toBe(PROJECT_ID));
@@ -201,7 +229,7 @@ describe('the volunteer tab', () => {
       (await screen.findAllByRole('columnheader', { name: 'ক্যাটাগরি' })).length,
     ).toBeGreaterThan(0);
     await openFilters(user);
-    expect(screen.getAllByRole('button', { name: /ক্যাটাগরি/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('combobox', { name: /ক্যাটাগরি/ }).length).toBeGreaterThan(0);
   });
 
   it('shows no category to an Official দায়ী, whose answer carries none', async () => {
@@ -248,14 +276,14 @@ describe('the volunteer tab', () => {
     const user = userEvent.setup();
     const { router } = open();
     const counts = await screen.findByRole('group', { name: 'স্বেচ্ছাসেবকের হিসাব' });
-    await user.click(within(counts).getByRole('button', { name: 'আরও অবস্থা' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'নিষ্ক্রিয় · 7' }));
+    await user.click(await within(counts).findByRole('button', { name: /^আরও অবস্থা/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'নিষ্ক্রিয় 7' }));
     await waitFor(() => expect(router.state.location.search).toBe('?category=inactive'));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('category')).toBe('inactive'));
     expect(statUrls.at(-1)?.searchParams.get('category')).toBeNull();
     // the card is not a filter of the panel: no count on the button, and clearing keeps it
     await openFilters(user);
-    await user.click(await screen.findByRole('button', { name: /ধরন/ }));
+    await user.click(await screen.findByRole('combobox', { name: /ধরন/ }));
     await user.click(await screen.findByRole('option', { name: 'স্থানীয় দায়ী' }));
     await waitFor(() => expect(router.state.location.search).toContain('type=local_daee'));
     await user.click(screen.getByRole('button', { name: 'সব মুছুন' }));
@@ -268,10 +296,10 @@ describe('the volunteer tab', () => {
     const user = userEvent.setup();
     const { router } = open('/admin/volunteers?state=pending');
     await openFilters(user);
-    await user.click(await screen.findByRole('button', { name: /ধরন/ }));
+    await user.click(await screen.findByRole('combobox', { name: /ধরন/ }));
     await user.click(await screen.findByRole('option', { name: 'স্থানীয় দায়ী' }));
     await waitFor(() => expect(router.state.location.search).toContain('type=local_daee'));
-    await user.click(screen.getByRole('button', { name: /ব্লকলিস্ট/ }));
+    await user.click(screen.getByRole('combobox', { name: /ব্লকলিস্ট/ }));
     await user.click(await screen.findByRole('option', { name: 'ব্লকলিস্টে আছে' }));
     await waitFor(() => expect(router.state.location.search).toContain('blocked=true'));
     await waitFor(() => {
@@ -307,8 +335,8 @@ describe('the volunteer tab', () => {
     );
     const user = userEvent.setup();
     const { router } = open();
-    const pager = await screen.findByRole('navigation', { name: 'পাতা বদল' });
-    expect(await within(pager).findByText('1–1 দেখানো হচ্ছে · মোট 23 জন')).toBeInTheDocument();
+    expect(await screen.findByText('1–1 দেখানো হচ্ছে · মোট 23 জন')).toBeInTheDocument();
+    const pager = screen.getByRole('navigation', { name: 'স্বেচ্ছাসেবক: পাতা বদল' });
     expect(listUrls.at(-1)?.searchParams.get('limit')).toBe('10');
     await user.click(within(pager).getByRole('button', { name: 'পাতা 3' }));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('page')).toBe('3'));
@@ -331,8 +359,8 @@ describe('the volunteer tab', () => {
     );
     const user = userEvent.setup();
     open();
-    const table = await screen.findByRole('grid', { name: 'স্বেচ্ছাসেবক' });
-    await user.click(within(table).getByRole('button', { name: 'নতুন জন-এর কাজ' }));
+    const table = await screen.findByRole('table', { name: 'স্বেচ্ছাসেবক' });
+    await user.click(await within(table).findByRole('button', { name: 'নতুন জন-এর কাজ' }));
     const menu = await screen.findByRole('menu');
     expect(
       within(menu)
@@ -343,7 +371,9 @@ describe('the volunteer tab', () => {
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'বাতিল' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
-    await user.click(within(table).getByRole('button', { name: 'নমুনা স্বেচ্ছাসেবক-এর কাজ' }));
+    await user.click(
+      await within(table).findByRole('button', { name: 'নমুনা স্বেচ্ছাসেবক-এর কাজ' }),
+    );
     await user.click(await screen.findByRole('menuitem', { name: 'ডিভাইস ও সেশন' }));
     expect(
       await screen.findByRole('dialog', { name: 'নমুনা স্বেচ্ছাসেবক-এর ডিভাইস' }),
@@ -355,8 +385,10 @@ describe('the volunteer tab', () => {
     serve();
     const user = userEvent.setup();
     open();
-    const table = await screen.findByRole('grid', { name: 'স্বেচ্ছাসেবক' });
-    await user.click(within(table).getByRole('button', { name: 'নমুনা স্বেচ্ছাসেবক-এর কাজ' }));
+    const table = await screen.findByRole('table', { name: 'স্বেচ্ছাসেবক' });
+    await user.click(
+      await within(table).findByRole('button', { name: 'নমুনা স্বেচ্ছাসেবক-এর কাজ' }),
+    );
     const menu = await screen.findByRole('menu');
     expect(
       within(menu)

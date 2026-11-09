@@ -1,8 +1,7 @@
 import type { InvitationIssued } from '@css/shared/auth';
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, Modal, Text, TextField } from '@css/ui';
-import { Copy } from 'lucide-react';
+import { Alert, Button, Dialog, Text, TextField } from '@/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 
@@ -34,33 +33,38 @@ export function LinkDialog({
     }
   };
   return (
-    <Modal
+    <Dialog
       title={t('title', { name })}
-      isOpen
+      open
       onClose={onClose}
-      primaryAction={<Button onPress={onClose}>{tc('close')}</Button>}
+      actions={
+        <>
+          <Button onClick={onClose}>{tc('close')}</Button>
+        </>
+      }
     >
-      <Alert tone={issued.emailed ? 'success' : 'warning'} live="status">
+      <Alert tone={issued.emailed ? 'success' : 'warning'}>
         {issued.emailed ? t('emailed') : t('not_emailed')}
       </Alert>
       <TextField
         label={t('field')}
-        helper={t('valid_until', { time: formatDateTime(issued.expiresAt, locale) })}
+        hint={t('valid_until', { time: formatDateTime(issued.expiresAt, locale) })}
         value={issued.link}
+        onChange={() => undefined}
         readOnly
         lang="en"
       />
       <div>
-        <Button variant="secondary" icon={Copy} onPress={() => void copy()}>
+        <Button variant="secondary" startIcon="copy" onClick={() => void copy()}>
           {t('copy')}
         </Button>
       </div>
       {copied && (
-        <Alert tone={copied === 'yes' ? 'success' : 'warning'} live="status">
+        <Alert tone={copied === 'yes' ? 'success' : 'warning'}>
           {copied === 'yes' ? t('copied') : t('copy_failed')}
         </Alert>
       )}
       <Text>{t('once')}</Text>
-    </Modal>
+    </Dialog>
   );
 }

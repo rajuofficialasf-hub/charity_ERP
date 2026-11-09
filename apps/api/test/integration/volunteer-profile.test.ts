@@ -222,8 +222,8 @@ describe('the action flags of a volunteer profile', () => {
     });
     const correcting = await someone(world.dhaka, 'pending');
     await h.db.query(
-      `INSERT INTO volunteer_change_requests (id, volunteer_id, kind, field, status, requested_by)
-       VALUES ($1, $2, 'registration_correction', 'name', 'open', $3)`,
+      `INSERT INTO volunteer_change_requests (id, user_id, volunteer_id, kind, field, status, requested_by)
+       VALUES ($1, (SELECT user_id FROM volunteers WHERE id = $2), $2, 'registration_correction', 'name', 'open', $3)`,
       [randomUUID(), correcting.volunteerId, world.users.rpmDhaka],
     );
     expect((await profile(rpm, correcting.volunteerId)).body.data.actions).toMatchObject({

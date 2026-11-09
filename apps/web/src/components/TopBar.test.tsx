@@ -1,4 +1,4 @@
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
@@ -17,7 +17,7 @@ describe('TopBar (UX-19)', () => {
     const { container } = renderApp(<TopBar />, 'en');
     const bar = screen.getByRole('banner');
     expect(bar.firstElementChild).toHaveAttribute('href', '/');
-    expect(within(bar).getByRole('radiogroup', { name: 'Language' })).toBe(
+    expect(within(bar).getByRole('group', { name: 'Language' })).toBe(
       bar.lastElementChild?.lastElementChild,
     );
     // signed out: no bell
@@ -51,6 +51,6 @@ describe('TopBar (UX-19)', () => {
     renderApp(<TopBar showBrand={false} />, 'en');
     const bar = screen.getByRole('banner');
     expect(within(bar).queryByRole('link')).not.toBeInTheDocument();
-    expect(within(bar).getByRole('radiogroup', { name: 'Language' })).toBeInTheDocument();
+    expect(within(bar).getByRole('group', { name: 'Language' })).toBeInTheDocument();
   });
 });

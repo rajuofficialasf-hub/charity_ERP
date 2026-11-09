@@ -60,7 +60,7 @@ async function signIn(page: Page, loginId: string, password = PASSWORD) {
     .fill(password);
   await page.getByRole('button', { name: 'লগইন', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
   await expect(page).toHaveTitle('চ্যারিটি ও সোশ্যাল সার্ভিস');
 }
 
@@ -103,7 +103,7 @@ test.describe('login and logout', () => {
   test('keeps the session across a reload (silent refresh)', async ({ page }, info) => {
     await signIn(page, account(info.project.name, 'reload'));
     await page.reload();
-    await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
   });
 });
 

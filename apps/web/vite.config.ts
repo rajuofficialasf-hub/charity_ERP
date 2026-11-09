@@ -45,6 +45,8 @@ export default defineConfig({
       swSrc: 'src/sw.ts',
       swDest: 'sw.js',
       globDirectory: 'dist',
+      // the shell, its chunks, the manifest, the icons and the self-hosted fonts of the design brief open offline
+      globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
       injectionPoint: 'self.__SW_MANIFEST',
       rollupFormat: 'iife',
       devOptions: { bundle: false },

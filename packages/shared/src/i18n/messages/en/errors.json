@@ -51,7 +51,18 @@
     "email_format": "Enter a valid email address.",
     "amount_format": "Enter an amount in Taka, with at most two decimals.",
     "list_code": "Use small English letters, digits and _ , starting with a letter.",
-    "https_public_url": "Enter an https address of the provider on the internet."
+    "https_public_url": "Enter an https address of the provider on the internet.",
+    "value_shape": "The answer is not in the shape this field takes.",
+    "too_short": "The text is too short.",
+    "whole_number": "A whole number is needed here.",
+    "post_code_format": "A post code has 4 digits.",
+    "digits_only": "Only digits are allowed here.",
+    "other_text_not_allowed": "This field takes no extra text with its choice.",
+    "rows_too_few": "Too few rows were given.",
+    "rows_too_many": "Too many rows were given.",
+    "address_incomplete": "Choose the division, district, upazila and union.",
+    "repeat_rows_mismatch": "The number of rows does not match the number given ({expected}).",
+    "table_cell": "Each box of the table takes a whole number from 0 to 1000000."
   },
   "beneficiary": {
     "identity_missing": "Enter the NID or the birth registration number.",
@@ -81,7 +92,7 @@
   "workflow": {
     "transition_not_allowed": "This action is not possible in the current state.",
     "reason_required": "Write a reason.",
-    "comment_required": "Write a comment for a decision against the score order.",
+    "comment_required": "Write a comment for this decision: it goes against the score order, the area's quota is full, or the person has a family match.",
     "guard": {
       "project_active": "The project is not active.",
       "project_not_closed": "The project is closed.",
@@ -95,6 +106,8 @@
       "volunteer_not_blocked": "The volunteer is blocklisted.",
       "consent_accepted": "The project rules have not been accepted.",
       "score_comment_if_against_order": "A decision against the score order needs a comment.",
+      "quota_comment_if_full": "An approval in an area whose quota is full needs a comment.",
+      "family_comment_if_match": "An approval of a person with a family match in the project needs a comment.",
       "zakat_eligible_if_zakat_fund": "Zakat eligibility is not confirmed for the zakat fund.",
       "receipt_confirmed": "The volunteer has not confirmed receipt of the goods.",
       "photos_required_per_rule": "The photos required by the project rule are missing.",
@@ -110,19 +123,30 @@
       "workers_assigned": "No Local Daee or paid volunteer is assigned to the area.",
       "animals_allocated": "Not all animals are allocated or their shares are incomplete.",
       "donor_notified": "Not all donors have been notified.",
-      "animal_photos_complete": "The three animal photos are not complete."
-    }
+      "animal_photos_complete": "The three animal photos are not complete.",
+      "actor_not_creator": "The person who brought the application cannot decide on it.",
+      "approver_has_permission": "In a house-construction project the PM gives the final approval."
+    },
+    "action_not_built": "This action is not available yet.",
+    "effect_not_built": "A result of this step is not built yet, so the step cannot run now.",
+    "guard_not_built": "A condition of this step is not built yet, so the step cannot run now.",
+    "message_required": "Write the message for the volunteer.",
+    "waitlist_empty": "Nobody is on this area's waitlist now."
   },
   "conflict": {
     "stale_version": "Someone else changed this record. Reload to see the latest version.",
     "locked_on_server": "The record is locked or approved on the server; the server value was kept."
   },
   "sync": {
+    "batch_in_progress": "This batch is still being processed. It will be tried again shortly.",
+    "dependency_failed": "An earlier record this one depends on failed.",
+    "target_unknown": "The record this change belongs to was not found on the server.",
     "batch_too_large": "Too much data was sent at once.",
     "deadline_passed": "The project deadline has passed.",
     "limit_exceeded": "Your application limit has been reached.",
     "project_closed": "The project is closed.",
     "not_permitted": "You no longer have permission for this action.",
+    "held_for_verification": "The office is checking this record; it cannot change until the office has decided.",
     "retry_exhausted": "Sync failed after many attempts. See the details."
   },
   "file": {
@@ -145,7 +169,14 @@
   },
   "export": {
     "not_ready": "The export is still being prepared.",
-    "expired": "The export file has expired."
+    "expired": "The export file has expired.",
+    "pdf_unavailable": "PDFs cannot be made on this server right now. Download Excel or CSV instead.",
+    "pdf_failed": "The PDF could not be made. Try again, or download Excel or CSV instead.",
+    "too_many_rows": "An export holds at most {limit} rows. Narrow the list by year, district or project and try again.",
+    "pdf_too_many_rows": "A PDF holds at most {limit} rows. Choose Excel or CSV for more.",
+    "running_limit": "At most {limit} exports can run at a time. Try again when one finishes.",
+    "failed": "The export could not be made. Try again.",
+    "timed_out": "The export did not finish in time. Try again, with a narrower list if needed."
   },
   "client": {
     "upgrade_required": "Update the app. Pending work is synced first."
@@ -199,6 +230,65 @@
     "rules_changed": "The project's rules have changed since you opened them. Read them again.",
     "rules_incomplete": "The project's rules are not complete yet. Ask the project's officials."
   },
+  "form": {
+    "key_taken": "The project already has a form with this key.",
+    "template_unknown": "No form template has this key.",
+    "nothing_published": "That form has no published version to copy.",
+    "not_draft": "Only a draft version can change or be published.",
+    "draft_exists": "This form already has an open draft; publish or change that one.",
+    "duplicate_key": "A section or question key is used twice.",
+    "label_language": "Every label needs both its Bangla and its English text.",
+    "pattern_unknown": "This validation pattern is not one of the named patterns.",
+    "unknown_reference": "The rule names a question this form does not have.",
+    "repeat_reference": "The rule reaches a list's row question from outside the list.",
+    "repeat_group_invalid": "The list is not set up correctly.",
+    "calculation_cycle": "The calculation depends on itself.",
+    "condition_cycle": "The conditions depend on each other in a circle.",
+    "calculation_misplaced": "Only a calculated question carries a calculation.",
+    "calculation_missing": "This calculated question has no rule yet.",
+    "options_misplaced": "Only a choice question carries options.",
+    "option_dependency": "An option depends on an option that does not exist.",
+    "core_field_missing": "Mark every identity question of a beneficiary application form.",
+    "core_field_optional": "An identity question must stay required.",
+    "core_field_hidden": "An identity question is seen by everyone, with no condition and outside official-only sections.",
+    "core_field_shape": "This identity question's type does not match its mark.",
+    "standard_column_unknown": "This question names a column a form may not fill.",
+    "standard_column_duplicate": "Two questions of the form fill the same column.",
+    "unknown_library_field": "The library has no question with this key.",
+    "unknown_library_section": "The library has no section with this key.",
+    "unknown_field": "The form has no question with this key.",
+    "official_only_field": "This question is for officials only.",
+    "unexpected_answer": "This question takes no answer.",
+    "duplicate_answer": "This question was answered twice.",
+    "score_range_invalid": "A points range starts above where it ends. Correct the range.",
+    "score_misplaced": "This question cannot carry points. Give points only to a choice or a number question, outside a list.",
+    "score_option_unknown": "Points are set for an option this question does not have.",
+    "score_over_max": "The form's points cannot add up to more than 100. Lower some of them.",
+    "repeat_group_too_large": "A list has too many questions.",
+    "not_of_project": "This form belongs to another project.",
+    "no_newer_version": "This form has no newer version to take.",
+    "placed_copy": "A form placed from a ready form is not changed here; take the ready form's newer version.",
+    "result_unknown": "The calculation gives a text result this question does not list. Add it to the results or change the step.",
+    "result_misplaced": "Only a calculated question can have text results.",
+    "comparison_type": "This rule compares a number with a text. Compare answers of the same kind.",
+    "reference_hidden": "This is shown to volunteers or the public but reads an answer of the official part. Use an answer they can see.",
+    "expression_too_large": "This rule is too long. Keep it within 20 levels and 500 parts.",
+    "read_only_invalid": "A read-only question needs a calculation or a default to take its value from.",
+    "default_misplaced": "This default does not fit the question: today's date goes on a date, a text on a text question, a number on a number or an amount.",
+    "repeat_count_invalid": "The number of rows can follow only an earlier whole-number question whose lowest value is 0 or more and highest value 50 or less.",
+    "pipe_order": "The text repeats the answer of a question that comes later. Use an earlier question.",
+    "table_invalid": "A number table needs at least one row and one column, each key once, at most 200 cells, and cannot sit inside a list."
+  },
+  "public": {
+    "link_closed": "This link is not open for applications.",
+    "form_unpublished": "The form of the link has no published version yet.",
+    "form_has_files": "A form on the public link cannot ask for files or signatures.",
+    "configure_through_link": "The public link is switched on, and its form chosen, through its own setting.",
+    "photo_limit": "At most 5 photos can be added to one application.",
+    "link_full": "This link is holding too many photos right now. Try again later.",
+    "photo_unknown": "This photo was not uploaded for this application.",
+    "form_not_application": "Only a beneficiary application form can open through the public link."
+  },
   "program": {
     "inactive": "This program is inactive; it takes no new projects.",
     "has_open_projects": "A program with a draft, active or closing project cannot be deactivated.",
@@ -221,7 +311,9 @@
     "withdrawn": "This version has already been withdrawn."
   },
   "reference": {
-    "code_taken": "This code is already in the list."
+    "code_taken": "This code is already in the list.",
+    "system_entry": "This entry is needed by the system's rules, so it stays active.",
+    "kind_in_use": "Links were already given on this platform, so its kind stays."
   },
   "audit": {
     "range_required": "Choose a date range of at most 366 days."
@@ -231,5 +323,49 @@
     "unsafe_text": "Remove links and the characters < and > from the text.",
     "placeholder_unknown": "This placeholder is not available for this notification.",
     "person_in_app": "An in-app text may not name a person; use it in the email only."
+  },
+  "application": {
+    "form_not_published": "The project's application form is not published.",
+    "team_lead_missing": "You have no lead volunteer on this project.",
+    "number_in_project": "An application with this number already exists in this project.",
+    "photo_slot_invalid": "A photo still on the phone can only stand for a photo question of the form.",
+    "upload_not_own": "This file is not your upload.",
+    "not_editable": "The application cannot be edited in its current state.",
+    "not_unlockable": "Only an answer of an approved application can be opened for correction.",
+    "unlock_identity": "The NID or birth registration, the name and the father's or husband's name cannot be opened this way. Send a profile correction request.",
+    "unlock_type": "A photo, file or calculated answer cannot be opened for correction.",
+    "unlock_open": "This answer is already open for correction.",
+    "unlock_not_open": "This unlock is no longer open for this step.",
+    "unlock_own_entry": "The person who entered the new answer cannot verify it.",
+    "unlock_stale": "The answer changed after the unlock was opened. Cancel the unlock and open it again.",
+    "unlock_unchanged": "The new answer is the same as the old one.",
+    "unlock_cleared": "This answer is also on the beneficiary's profile, so it cannot be left empty. Give the correct answer.",
+    "transfer_same": "Applications cannot be handed to the same volunteer.",
+    "transfer_target_unfit": "The new volunteer is not active or is blocklisted.",
+    "transfer_target_not_assigned": "The new volunteer is not on this project. Assign them first, or with the transfer.",
+    "transfer_not_owned": "The chosen applications are not this volunteer's, or there is nothing to hand over.",
+    "transfer_too_many": "More than 500 applications cannot move at once. Choose the applications and hand them over in steps.",
+    "transfer_team_partial": "The team moves only when every application of this volunteer is handed over.",
+    "verify_no_profile": "No profile holds this number. Create a new profile.",
+    "verify_other_person": "This entry's number belongs to another profile. Link it to the profile of its own number.",
+    "verify_identity_exists": "A profile with this number already exists. Link to it instead of creating a new one.",
+    "verify_owner_unfit": "The chosen volunteer is not active on this project or is blocklisted.",
+    "verify_owner_full": "The chosen volunteer has reached the application limit. Choose someone else or keep the application with the office."
+  },
+  "media": {
+    "referral_not_referable": "Only an approved application, or one past approval, can be sent to the Media Team.",
+    "referral_open": "This application is already with the Media Team. Wait for its decision.",
+    "referral_not_pending": "This referral has already been decided.",
+    "stage_not_allowed": "This work cannot move to that stage now.",
+    "work_closed": "This work is done or cancelled, so only comments can be added.",
+    "member_not_media": "Only an active member of the Media Team can be added to a work.",
+    "role_unknown": "Choose production roles from the list.",
+    "platform_unknown": "Choose a platform from the list.",
+    "link_invalid": "Give a full https link, without a user name or port.",
+    "link_host": "This link is not on the chosen platform. Give the platform's own link.",
+    "publish_before_review": "A work can be marked published only after the final review.",
+    "review_not_ready": "The final review is given only when the work is ready to publish.",
+    "unchanged": "Nothing was changed.",
+    "publication_last": "The last published post of a published work cannot be withdrawn. Publish another one first."
   }
 }

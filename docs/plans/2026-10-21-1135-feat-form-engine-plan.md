@@ -1,7 +1,7 @@
 ---
 title: Form platform engine and API (T2.3)
 type: feat
-status: ready
+status: done
 source: brainstorm
 date: 2026-10-21
 doc_review: 2026-10-21
@@ -102,7 +102,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** migration
-- **Status:** todo
+- **Status:** done
 
 ### U2. The shared engine: definition, evaluator, validator, split
 - **Goal:** one pure module answers what shows, what is required, what the calculated fields hold, whether answers are valid, and which answers belong to the profile.
@@ -122,7 +122,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** none
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U3. Forms of a project: library read, create, list, read a version
 - **Goal:** a PM reads the library, creates a project's form from a template, blank or a previous project, lists its versions, and anyone with project access reads a version with the sections their role may see.
@@ -135,7 +135,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** U2
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U4. Drafts, publishing and the field map
 - **Goal:** a PM edits a draft, publishes it, starts the next draft from the published version, and reads the fields of a form across versions (`form.build`, scope project, officials who build only).
@@ -148,7 +148,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** U1, U3
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U5. The form inside project setup, templates and activation
 - **Goal:** a project cannot be activated without a published form, a project template carries its form, and a project copied from another gets the form as draft 1.
@@ -163,7 +163,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** U4
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U6. The public link: configure, read, submit
 - **Goal:** a PM switches a project's public link on and off, and anyone with the link reads the form and submits an application that waits for verification and reveals nothing about anyone.
@@ -176,7 +176,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** U4
 - **Size:** L
 - **Risk area:** public API, personal data
-- **Status:** todo
+- **Status:** done
 
 ### U7. Public photos
 - **Goal:** an applicant on the public link uploads up to five photos that the submission then claims, and nothing unclaimed stays.
@@ -189,7 +189,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** U6
 - **Size:** M
 - **Risk area:** file storage
-- **Status:** todo
+- **Status:** done
 
 ### U8. Documents, registers and the decision record
 - **Goal:** every document names what was built, every rule of the form platform has its test recorded, and the owner's decisions are logged.
@@ -202,7 +202,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** U7
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ## Checkpoints
 - **Mode:** grouped (one by one 7, grouped 15, all at once 1; N is over 4, so the one-by-one score was added to grouped)

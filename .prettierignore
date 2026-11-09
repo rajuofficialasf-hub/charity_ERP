@@ -15,3 +15,8 @@ apps/web/public/sw.js
 
 # assunnah-engineering plugin cache (review packs, logs)
 .ae/
+
+# The asf UI system from the organization's kit keeps the kit's own formatting, so a later harvest
+# into the kit shows only real changes (docs/architecture/ADR/ADR-016-asf-ui-system.md).
+apps/web/src/ui/
+apps/web/scripts/asf/

@@ -1,5 +1,5 @@
+import { ConfirmDialog } from '@/ui';
 import type { EffectivePermission } from '@css/shared/access';
-import { ConfirmDialog } from '@css/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
 import { api, ApiFailure } from '../../lib/api';
@@ -29,7 +29,7 @@ export function RevokeDialog({
   const failure = end.error instanceof ApiFailure ? end.error : null;
   return (
     <ConfirmDialog
-      isOpen={grant !== null}
+      open={grant !== null}
       title={t('end_title')}
       message={
         <>

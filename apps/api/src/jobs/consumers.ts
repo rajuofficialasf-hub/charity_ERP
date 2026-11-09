@@ -8,7 +8,10 @@ import type { BeneficiaryMergeCandidatesService } from '../services/beneficiary-
 import { DUPLICATES_CRON, DUPLICATES_QUEUE } from './duplicates';
 import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats';
 import { UPLOAD_SWEEP_CRON, type UploadSweep } from './upload-sweep';
+import { LOCAL_KEY_CLEANUP_CRON, type LocalKeyCleanup } from './local-key-cleanup';
 import { FILE_PROCESS_QUEUE, type FileProcessJob, type FileProcessor } from './file-process';
+import { EXPORT_QUEUE, type ExportJobData, type ExportRunner } from './export-run';
+import { EXPORT_SWEEP_CRON, type ExportSweep, type ExportSweepData } from './export-sweep';
 
 /** The sample heartbeat job: proves enqueue, consume and scheduling end to end (ADR-004). */
 export const HEARTBEAT_QUEUE = 'maintenance' as const;
@@ -29,16 +32,25 @@ export interface UploadSweepData {
   kind: 'upload-sweep';
 }
 
-type MaintenanceData = HeartbeatData | RegistrationCleanupData | UploadSweepData;
+/** The daily drop of device keys of sessions that ended long ago. */
+export interface LocalKeyCleanupData {
+  kind: 'local-key-cleanup';
+}
+
+type MaintenanceData =
+  HeartbeatData | RegistrationCleanupData | UploadSweepData | LocalKeyCleanupData;
 
 /** The services the consumers call; a missing one leaves its queue unconsumed. */
 export interface ConsumerServices {
   registrationCleanup?: RegistrationCleanup;
   uploadSweep?: UploadSweep;
+  localKeyCleanup?: LocalKeyCleanup;
   storageStats?: StorageStats;
   mergeCandidates?: Pick<BeneficiaryMergeCandidatesService, 'refreshAll'>;
   fileProcessor?: FileProcessor;
   delivery?: NotificationDelivery;
+  exportRunner?: Pick<ExportRunner, 'run'>;
+  exportSweep?: Pick<ExportSweep, 'run'>;
 }
 
 /** Registers the consumers and schedules; runs in the worker, or in the api with JOBS_INLINE. */
@@ -60,6 +72,10 @@ export class JobConsumers {
         if (!this.services.uploadSweep) throw new Error('upload sweep not configured');
         return this.services.uploadSweep.run();
       }
+      if (job.data.kind === 'local-key-cleanup') {
+        if (!this.services.localKeyCleanup) throw new Error('local key cleanup not configured');
+        return this.services.localKeyCleanup.run();
+      }
       this.logger.info({ jobId: job.id }, 'heartbeat');
       return { kind: job.data.kind, handledAt: new Date().toISOString() };
     });
@@ -72,6 +88,24 @@ export class JobConsumers {
     if (fileProcessor)
       await this.jobs.work<FileProcessJob>(FILE_PROCESS_QUEUE, (job) =>
         fileProcessor.process(job.data.fileId),
+      );
+    // the export files, one job at a time; the attempt decides whether a failure is the last
+    // the daily sweep shares the queue, whose half-hour expiry fits its batches
+    const { exportRunner, exportSweep } = this.services;
+    if (exportRunner)
+      await this.jobs.work<ExportJobData | ExportSweepData>(EXPORT_QUEUE, (job) => {
+        if ('kind' in job.data) {
+          if (!exportSweep) throw new Error('export sweep not configured');
+          return exportSweep.run();
+        }
+        return exportRunner.run(job.data.jobId, job.retryCount, job.signal);
+      });
+    if (exportRunner && exportSweep)
+      await this.jobs.schedule(
+        EXPORT_QUEUE,
+        EXPORT_SWEEP_CRON,
+        { kind: 'export-sweep' } satisfies ExportSweepData,
+        'export-sweep',
       );
     if (this.services.registrationCleanup)
       await this.jobs.schedule(
@@ -86,6 +120,13 @@ export class JobConsumers {
         UPLOAD_SWEEP_CRON,
         { kind: 'upload-sweep' },
         'upload-sweep',
+      );
+    if (this.services.localKeyCleanup)
+      await this.jobs.schedule(
+        HEARTBEAT_QUEUE,
+        LOCAL_KEY_CLEANUP_CRON,
+        { kind: 'local-key-cleanup' },
+        'local-key-cleanup',
       );
     // the nightly storage figures of the system health page
     const { storageStats } = this.services;

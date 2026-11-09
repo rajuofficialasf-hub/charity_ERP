@@ -1,10 +1,9 @@
-import { Alert, ErrorState, Skeleton, Tabs } from '@css/ui';
+import { Alert, Page, Skeleton, Tabs } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canAdministerSystem } from '../roles';
@@ -12,6 +11,7 @@ import { ChannelsPanel } from './ChannelsPanel';
 import { ListsPanel } from './ListsPanel';
 import { LanguageForm, OrganisationForm, ThresholdsForm } from './SettingsForms';
 import { type GeneralSettings, SETTINGS_KEY, settings } from './settings-api';
+import { LoadError } from '../../components/LoadError';
 
 const TABS = ['organisation', 'language', 'thresholds', 'lists', 'channels'] as const;
 type Tab = (typeof TABS)[number];
@@ -25,7 +25,6 @@ type Tab = (typeof TABS)[number];
 export function SettingsPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.settings');
-  const tc = useTranslations('common');
   const [params, setParams] = useSearchParams();
   const asked = params.get('tab');
   const tab: Tab = (TABS as readonly string[]).includes(asked ?? '')
@@ -40,14 +39,7 @@ export function SettingsPage() {
   const saved = () => setNotice(t('saved'));
   const withSettings = (render: (s: GeneralSettings) => ReactNode) => {
     if (all.isPending) return <Skeleton count={4} />;
-    if (all.error)
-      return (
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={all.error instanceof ApiFailure ? all.error.requestId : undefined}
-          onRetry={() => void all.refetch()}
-        />
-      );
+    if (all.error) return <LoadError error={all.error} onRetry={() => void all.refetch()} />;
     return render(all.data);
   };
   const content: Record<Tab, ReactNode> = {
@@ -71,21 +63,26 @@ export function SettingsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
+      <Page
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('description')}
+        documentTitle={false}
+      />
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
+        <Alert tone="success" onDismiss={() => setNotice(undefined)}>
           {notice}
         </Alert>
       )}
       <Tabs
         label={t('tabs_label')}
-        selectedId={tab}
+        value={tab}
         onChange={(id) => {
           setNotice(undefined);
           setParams({ tab: id }, { replace: true });
         }}
         items={TABS.map((id) => ({
-          id,
+          value: id,
           label: t(`tab.${id}`),
           // eslint-disable-next-line security/detect-object-injection -- id is a Tab
           content: content[id],

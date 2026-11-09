@@ -1,3 +1,4 @@
+import type { PlatformKind } from '@css/shared';
 import type { Bilingual } from '@css/shared/i18n';
 import type {
   EditableList,
@@ -29,6 +30,10 @@ export interface ReferenceItem {
   label: Bilingual;
   active: boolean;
   sortOrder: number;
+  /** An entry the rules need: it stays active. */
+  system: boolean;
+  /** A media platform's kind; null on the other lists. */
+  kind: PlatformKind | null;
 }
 
 export interface Channels {

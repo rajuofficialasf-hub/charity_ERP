@@ -26,6 +26,20 @@ model IdSequence {
 
 model User {
   id                                   String                     @id @db.Uuid
+  mediaReferralsReferredBy             MediaReferral[]            @relation("media_referrals_referred_by")
+  mediaReferralsDecidedBy              MediaReferral[]            @relation("media_referrals_decided_by")
+  mediaReferralsCreatedBy              MediaReferral[]            @relation("media_referrals_created_by")
+  mediaReferralsUpdatedBy              MediaReferral[]            @relation("media_referrals_updated_by")
+  mediaWorksReviewApprovedBy           MediaWork[]                @relation("media_works_review_approved_by")
+  mediaWorksCreatedBy                  MediaWork[]                @relation("media_works_created_by")
+  mediaWorksUpdatedBy                  MediaWork[]                @relation("media_works_updated_by")
+  mediaWorkMembersUser                 MediaWorkMember[]          @relation("media_work_members_user_id")
+  mediaWorkMembersCreatedBy            MediaWorkMember[]          @relation("media_work_members_created_by")
+  mediaWorkMembersUpdatedBy            MediaWorkMember[]          @relation("media_work_members_updated_by")
+  mediaPublicationsCreatedBy           MediaPublication[]         @relation("media_publications_created_by")
+  mediaPublicationsUpdatedBy           MediaPublication[]         @relation("media_publications_updated_by")
+  mediaCommentsAuthor                  MediaComment[]             @relation("media_comments_author_id")
+  mediaEventsActor                     MediaEvent[]               @relation("media_events_actor_id")
   kind                                 String
   mobile                               String?
   email                                String?
@@ -168,6 +182,7 @@ model User {
   volunteerChangeRequestsDecidedBy     VolunteerChangeRequest[]   @relation("volunteer_change_requests_decided_by")
   volunteerChangeRequestsCreatedBy     VolunteerChangeRequest[]   @relation("volunteer_change_requests_created_by")
   volunteerChangeRequestsUpdatedBy     VolunteerChangeRequest[]   @relation("volunteer_change_requests_updated_by")
+  volunteerChangeRequestsUser          VolunteerChangeRequest[]   @relation("volunteer_change_requests_user_id")
   workAssignmentsAssigneeUser          WorkAssignment[]           @relation("work_assignments_assignee_user_id")
   workAssignmentsCreatedBy             WorkAssignment[]           @relation("work_assignments_created_by")
   workAssignmentsUpdatedBy             WorkAssignment[]           @relation("work_assignments_updated_by")
@@ -186,6 +201,8 @@ model User {
   fieldChangesRequestedBy              FieldChange[]              @relation("field_changes_requested_by")
   fieldChangesApprovedBy               FieldChange[]              @relation("field_changes_approved_by")
   fieldChangesCreatedBy                FieldChange[]              @relation("field_changes_created_by")
+  fieldChangesEnteredBy                FieldChange[]              @relation("field_changes_entered_by")
+  fieldChangesDecidedBy                FieldChange[]              @relation("field_changes_decided_by")
   applicationTransfersApprovedBy       ApplicationTransfer[]      @relation("application_transfers_approved_by")
   applicationTransfersCreatedBy        ApplicationTransfer[]      @relation("application_transfers_created_by")
   workflowDefinitionsCreatedBy         WorkflowDefinition[]       @relation("workflow_definitions_created_by")
@@ -264,12 +281,6 @@ model User {
   deficiencyReportsDecidedBy           DeficiencyReport[]         @relation("deficiency_reports_decided_by")
   deficiencyReportsCreatedBy           DeficiencyReport[]         @relation("deficiency_reports_created_by")
   deficiencyReportsUpdatedBy           DeficiencyReport[]         @relation("deficiency_reports_updated_by")
-  mediaSubjectsAddedBy                 MediaSubject[]             @relation("media_subjects_added_by")
-  mediaSubjectsCreatedBy               MediaSubject[]             @relation("media_subjects_created_by")
-  mediaSubjectsUpdatedBy               MediaSubject[]             @relation("media_subjects_updated_by")
-  mediaStoriesAuthor                   MediaStory[]               @relation("media_stories_author_id")
-  mediaStoriesCreatedBy                MediaStory[]               @relation("media_stories_created_by")
-  mediaStoriesUpdatedBy                MediaStory[]               @relation("media_stories_updated_by")
   filesUploadedBy                      File[]                     @relation("files_uploaded_by")
   filesCreatedBy                       File[]                     @relation("files_created_by")
   filesUpdatedBy                       File[]                     @relation("files_updated_by")
@@ -418,6 +429,13 @@ model DeviceSession {
   lastSeenAt                     DateTime           @default(now()) @map("last_seen_at") @db.Timestamptz(6)
   lastIp                         String?            @map("last_ip") @db.Inet
   idleTimeout                    Boolean            @default(false) @map("idle_timeout")
+  /// the device key sealed under the server's secret; dropped on logout, revocation and after thirty days
+  localKey                       Bytes?             @map("local_key")
+  /// when the key was first handed back after the session ended; asked again only for a short while
+  localKeyRecoveredAt            DateTime?          @map("local_key_recovered_at") @db.Timestamptz(6)
+  /// records the device reported as still waiting, and when
+  pendingCount                   Int?               @map("pending_count")
+  pendingReportedAt              DateTime?          @map("pending_reported_at") @db.Timestamptz(6)
   expiresAt                      DateTime           @map("expires_at") @db.Timestamptz(6)
   revokedAt                      DateTime?          @map("revoked_at") @db.Timestamptz(6)
   revokedBy                      String?            @map("revoked_by") @db.Uuid
@@ -525,6 +543,7 @@ model Location {
   kind                            String
   code                            String
   bbsCode                         String?            @map("bbs_code")
+  postCode                        String?            @map("post_code") @db.VarChar(4)
   nameBn                          String             @map("name_bn")
   nameEn                          String             @map("name_en")
   active                          Boolean            @default(true)
@@ -569,12 +588,18 @@ model Location {
 
 model ReferenceList {
   id                                       String                    @id @db.Uuid
+  mediaWorksStageCode                      MediaWork[]               @relation("media_works_stage_code")
+  mediaPublicationsPlatformCode            MediaPublication[]        @relation("media_publications_platform_code")
   listKey                                  String                    @map("list_key")
   code                                     String
   labelBn                                  String                    @map("label_bn")
   labelEn                                  String                    @map("label_en")
   active                                   Boolean                   @default(true)
   sortOrder                                Int                       @default(0) @map("sort_order")
+  /// a system entry the rules need: kept active, never renamed or deleted
+  isSystem                                 Boolean                   @default(false) @map("is_system")
+  /// per list: a media platform's kind (youtube, facebook, other)
+  attributes                               Json                      @default("{}")
   createdAt                                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy                                String?                   @map("created_by") @db.Uuid
   updatedAt                                DateTime                  @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -588,7 +613,6 @@ model ReferenceList {
   beneficiaryFamilyMembersGenderCode       BeneficiaryFamilyMember[] @relation("beneficiary_family_members_gender_code")
   workAssignmentsGenderScope               WorkAssignment[]          @relation("work_assignments_gender_scope")
   paymentsMethodCode                       Payment[]                 @relation("payments_method_code")
-  mediaStoriesChannelCode                  MediaStory[]              @relation("media_stories_channel_code")
 
   @@unique([listKey, code], map: "reference_lists_list_key_code_key")
   @@index([createdBy], map: "reference_lists_created_by_idx")
@@ -676,6 +700,7 @@ model Program {
 
 model Project {
   id                            String                @id @db.Uuid
+  mediaReferralsProject         MediaReferral[]       @relation("media_referrals_project_id")
   programId                     String                @map("program_id") @db.Uuid
   code                          String
   year                          Int                   @db.SmallInt
@@ -743,7 +768,6 @@ model Project {
   followupEvaluationsProject    FollowupEvaluation[]  @relation("followup_evaluations_project_id")
   documentsProject              Document[]            @relation("documents_project_id")
   deficiencyReportsProject      DeficiencyReport[]    @relation("deficiency_reports_project_id")
-  mediaSubjectsProject          MediaSubject[]        @relation("media_subjects_project_id")
   filesProject                  File[]                @relation("files_project_id")
   alertsProject                 Alert[]               @relation("alerts_project_id")
   storageStatsProject           StorageStat[]         @relation("storage_stats_project_id")
@@ -914,22 +938,33 @@ model FundSource {
 
 model Form {
   id               String        @id @db.Uuid
-  projectId        String        @map("project_id") @db.Uuid
+  /// null for a ready form or the question library
+  projectId        String?       @map("project_id") @db.Uuid
   key              String
   titleBn          String        @map("title_bn")
   titleEn          String        @map("title_en")
+  /// beneficiary_application | other | library
+  kind             String        @default("beneficiary_application")
+  /// the ready form a placed project form was copied from, and its version
+  sourceFormId     String?       @map("source_form_id") @db.Uuid
+  sourceVersionNo  Int?          @map("source_version_no")
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy        String?       @map("created_by") @db.Uuid
   updatedAt        DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
   updatedBy        String?       @map("updated_by") @db.Uuid
-  project          Project       @relation("forms_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  project          Project?      @relation("forms_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  sourceForm       Form?         @relation("forms_source_form_id", fields: [sourceFormId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  placedForms      Form[]        @relation("forms_source_form_id")
   createdByRef     User?         @relation("forms_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   updatedByRef     User?         @relation("forms_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   formVersionsForm FormVersion[] @relation("form_versions_form_id")
 
   @@unique([projectId, key], map: "forms_project_id_key_key")
+  @@unique([key], where: raw("project_id IS NULL"), map: "forms_ready_key_key")
+  @@unique([kind], where: raw("kind = 'library'"), map: "forms_one_library_key")
   @@index([createdBy], map: "forms_created_by_idx")
   @@index([updatedBy], map: "forms_updated_by_idx")
+  @@index([sourceFormId], map: "forms_source_form_id_idx")
   @@map("forms")
 }
 
@@ -940,6 +975,7 @@ model FormVersion {
   status                  String        @default("draft")
   publishedAt             DateTime?     @map("published_at") @db.Timestamptz(6)
   publishedBy             String?       @map("published_by") @db.Uuid
+  scoring                 Json?
   createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy               String?       @map("created_by") @db.Uuid
   updatedAt               DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -954,6 +990,7 @@ model FormVersion {
 
   @@unique([formId, versionNo], map: "form_versions_form_id_version_no_key")
   @@unique([formId], where: raw("status = 'published'"), map: "form_versions_form_id_key")
+  @@unique([formId], where: raw("status = 'draft'"), map: "form_versions_one_draft_key")
   @@index([publishedBy], map: "form_versions_published_by_idx")
   @@index([createdBy], map: "form_versions_created_by_idx")
   @@index([updatedBy], map: "form_versions_updated_by_idx")
@@ -1055,6 +1092,7 @@ model FormLibrarySection {
   titleEn                    String        @map("title_en")
   defaultVisibility          String        @default("volunteer") @map("default_visibility")
   fieldKeys                  String[]      @default([]) @map("field_keys")
+  sortOrder                  Int           @default(0) @map("sort_order")
   createdAt                  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy                  String?       @map("created_by") @db.Uuid
   updatedAt                  DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -1064,6 +1102,7 @@ model FormLibrarySection {
   formSectionsLibrarySection FormSection[] @relation("form_sections_library_section_id")
 
   @@unique([key], map: "form_library_sections_key_key")
+  @@index([sortOrder], map: "form_library_sections_sort_order_idx")
   @@index([createdBy], map: "form_library_sections_created_by_idx")
   @@index([updatedBy], map: "form_library_sections_updated_by_idx")
   @@map("form_library_sections")
@@ -1077,6 +1116,7 @@ model FormLibraryField {
   labelEn                String      @map("label_en")
   standardColumn         String?     @map("standard_column")
   defaultSettings        Json        @default("{}") @map("default_settings")
+  sortOrder              Int         @default(0) @map("sort_order")
   createdAt              DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy              String?     @map("created_by") @db.Uuid
   updatedAt              DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -1086,6 +1126,7 @@ model FormLibraryField {
   formFieldsLibraryField FormField[] @relation("form_fields_library_field_id")
 
   @@unique([key], map: "form_library_fields_key_key")
+  @@index([sortOrder], map: "form_library_fields_sort_order_idx")
   @@index([createdBy], map: "form_library_fields_created_by_idx")
   @@index([updatedBy], map: "form_library_fields_updated_by_idx")
   @@map("form_library_fields")
@@ -1093,6 +1134,7 @@ model FormLibraryField {
 
 model Beneficiary {
   id                                   String                     @id @db.Uuid
+  mediaReferralsBeneficiary            MediaReferral[]            @relation("media_referrals_beneficiary_id")
   /// the short BEN number officials read out (BEN-0000123); given once, never changed
   benNo                                Int                        @unique(map: "beneficiaries_ben_no_key") @default(autoincrement()) @map("ben_no")
   nid                                  String?
@@ -1162,7 +1204,6 @@ model Beneficiary {
   examResultsBeneficiary               ExamResult[]               @relation("exam_results_beneficiary_id")
   callLogsBeneficiary                  CallLog[]                  @relation("call_logs_beneficiary_id")
   followupEvaluationsBeneficiary       FollowupEvaluation[]       @relation("followup_evaluations_beneficiary_id")
-  mediaSubjectsBeneficiary             MediaSubject[]             @relation("media_subjects_beneficiary_id")
   mergeDismissalsLow                   MergeDismissal[]           @relation("beneficiary_merge_dismissals_low_id")
   mergeDismissalsHigh                  MergeDismissal[]           @relation("beneficiary_merge_dismissals_high_id")
   mergeCandidatesLow                   MergeCandidate[]           @relation("beneficiary_merge_candidates_low_id")
@@ -1629,7 +1670,10 @@ model Blocklist {
 
 model VolunteerChangeRequest {
   id             String    @id @db.Uuid
-  volunteerId    String    @map("volunteer_id") @db.Uuid
+  /// the person the request is about: a volunteer's user or an official
+  userId         String    @map("user_id") @db.Uuid
+  /// set for a volunteer's request, null for an official's
+  volunteerId    String?   @map("volunteer_id") @db.Uuid
   kind           String
   field          String
   newValue       String?   @map("new_value")
@@ -1642,12 +1686,14 @@ model VolunteerChangeRequest {
   createdBy      String?   @map("created_by") @db.Uuid
   updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   updatedBy      String?   @map("updated_by") @db.Uuid
-  volunteer      Volunteer @relation("volunteer_change_requests_volunteer_id", fields: [volunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  user           User      @relation("volunteer_change_requests_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  volunteer      Volunteer? @relation("volunteer_change_requests_volunteer_id", fields: [volunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   requestedByRef User      @relation("volunteer_change_requests_requested_by", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   decidedByRef   User?     @relation("volunteer_change_requests_decided_by", fields: [decidedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdByRef   User?     @relation("volunteer_change_requests_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   updatedByRef   User?     @relation("volunteer_change_requests_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
+  @@index([userId, status], map: "volunteer_change_requests_user_id_status_idx")
   @@index([volunteerId, status], map: "volunteer_change_requests_volunteer_id_status_idx")
   @@index([requestedBy], map: "volunteer_change_requests_requested_by_idx")
   @@index([decidedBy], map: "volunteer_change_requests_decided_by_idx")
@@ -1688,6 +1734,7 @@ model WorkAssignment {
 
 model Application {
   id                              String                @id @db.Uuid
+  mediaReferral                   MediaReferral?        @relation("media_referrals_application_id")
   appNo                           String?               @map("app_no")
   projectId                       String                @map("project_id") @db.Uuid
   formVersionId                   String                @map("form_version_id") @db.Uuid
@@ -1699,9 +1746,15 @@ model Application {
   stage                           String?
   outcome                         String?
   flags                           String[]              @default([])
+  totalScore                      Decimal?              @map("total_score") @db.Decimal(5, 2)
+  waitlistedAt                    DateTime?             @map("waitlisted_at") @db.Timestamptz(6)
   regionLocationId                String                @map("region_location_id") @db.Uuid
   districtId                      String                @map("district_id") @db.Uuid
   unionId                         String                @map("union_id") @db.Uuid
+  /// the photo slots an offline record still waits for; the upload for a slot fills the answer
+  pendingPhotos                   Json                  @default("[]") @map("pending_photos")
+  /// the name typed on an entry that waits for verification; the lists show it until the entry links to a profile
+  applicantName                   String?               @map("applicant_name")
   clientUuid                      String?               @map("client_uuid") @db.Uuid
   clientCreatedAt                 DateTime?             @map("client_created_at") @db.Timestamptz(6)
   submittedAt                     DateTime?             @map("submitted_at") @db.Timestamptz(6)
@@ -1717,6 +1770,9 @@ model Application {
   nisabValue                      Decimal?              @map("nisab_value") @db.Decimal(14, 2)
   zakatDecision                   String?               @map("zakat_decision")
   zakatDecidedBy                  String?               @map("zakat_decided_by") @db.Uuid
+  rejectionMessage                String?               @map("rejection_message")
+  /// which number identifies the person, written by the application service when it resolves the profile at submission
+  identityKind                    String?               @map("identity_kind")
   deletedAt                       DateTime?             @map("deleted_at") @db.Timestamptz(6)
   createdAt                       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy                       String?               @map("created_by") @db.Uuid
@@ -1754,6 +1810,7 @@ model Application {
   @@unique([clientUuid], map: "applications_client_uuid_key")
   @@unique([projectId, beneficiaryId], where: raw("status <> 'deleted' AND beneficiary_id IS NOT NULL"), map: "applications_project_id_beneficiary_id_key")
   @@index([projectId, status, submittedAt(sort: Desc)], map: "applications_project_id_status_submitted_at_idx")
+  @@index([projectId, status, createdAt(sort: Desc)], map: "applications_project_id_status_created_at_idx")
   @@index([projectId, regionLocationId, status], map: "applications_project_id_region_location_id_status_idx")
   @@index([projectId, districtId, status], map: "applications_project_id_district_id_status_idx")
   @@index([ownerVolunteerId, status], map: "applications_owner_volunteer_id_status_idx")
@@ -1774,6 +1831,8 @@ model Application {
   @@index([zakatDecidedBy], map: "applications_zakat_decided_by_idx")
   @@index([createdBy], map: "applications_created_by_idx")
   @@index([updatedBy], map: "applications_updated_by_idx")
+  @@index([projectId, totalScore(sort: Desc), id(sort: Desc)], map: "applications_project_id_total_score_id_idx")
+  @@index([projectId, waitlistedAt], map: "applications_project_id_waitlisted_at_idx", where: raw("status = 'waitlisted'"))
   @@map("applications")
 }
 
@@ -1821,28 +1880,39 @@ model ApplicationScore {
 }
 
 model FieldChange {
-  id             String   @id @db.Uuid
-  entityType     String   @map("entity_type")
-  entityId       String   @map("entity_id") @db.Uuid
+  id             String    @id @db.Uuid
+  entityType     String    @map("entity_type")
+  entityId       String    @map("entity_id") @db.Uuid
   field          String
-  oldValue       Json?    @map("old_value")
-  newValue       Json?    @map("new_value")
+  oldValue       Json?     @map("old_value")
+  newValue       Json?     @map("new_value")
   kind           String
-  unlockState    String?  @map("unlock_state")
-  requestedBy    String?  @map("requested_by") @db.Uuid
-  approvedBy     String?  @map("approved_by") @db.Uuid
+  unlockState    String?   @map("unlock_state")
+  requestedBy    String?   @map("requested_by") @db.Uuid
+  approvedBy     String?   @map("approved_by") @db.Uuid
   reason         String?
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy      String?  @map("created_by") @db.Uuid
-  requestedByRef User?    @relation("field_changes_requested_by", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  approvedByRef  User?    @relation("field_changes_approved_by", fields: [approvedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef   User?    @relation("field_changes_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  enteredBy      String?   @map("entered_by") @db.Uuid
+  enteredAt      DateTime? @map("entered_at") @db.Timestamptz(6)
+  decidedBy      String?   @map("decided_by") @db.Uuid
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  decision       String?
+  decisionReason String?   @map("decision_reason")
+  requestedByRef User?     @relation("field_changes_requested_by", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  enteredByRef   User?     @relation("field_changes_entered_by", fields: [enteredBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  decidedByRef   User?     @relation("field_changes_decided_by", fields: [decidedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  approvedByRef  User?     @relation("field_changes_approved_by", fields: [approvedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef   User?     @relation("field_changes_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
+  @@unique([entityId, field], where: raw("kind = 'unlock' AND decided_at IS NULL"), map: "field_changes_open_unlock_key")
   @@index([entityType, entityId, createdAt(sort: Desc)], map: "field_changes_entity_type_entity_id_created_at_idx")
   @@index([kind, unlockState], where: raw("unlock_state = 'open'"), map: "field_changes_kind_unlock_state_idx")
   @@index([requestedBy], map: "field_changes_requested_by_idx")
   @@index([approvedBy], map: "field_changes_approved_by_idx")
   @@index([createdBy], map: "field_changes_created_by_idx")
+  @@index([enteredBy], map: "field_changes_entered_by_idx")
+  @@index([decidedBy], map: "field_changes_decided_by_idx")
   @@map("field_changes")
 }
 
@@ -2714,61 +2784,6 @@ model DeficiencyReport {
   @@map("deficiency_reports")
 }
 
-model MediaSubject {
-  id                       String       @id @db.Uuid
-  beneficiaryId            String       @map("beneficiary_id") @db.Uuid
-  projectId                String?      @map("project_id") @db.Uuid
-  addedBy                  String       @map("added_by") @db.Uuid
-  mediaStatus              String       @default("planned") @map("media_status")
-  notes                    String?
-  createdAt                DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy                String?      @map("created_by") @db.Uuid
-  updatedAt                DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy                String?      @map("updated_by") @db.Uuid
-  beneficiary              Beneficiary  @relation("media_subjects_beneficiary_id", fields: [beneficiaryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  project                  Project?     @relation("media_subjects_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  addedByRef               User         @relation("media_subjects_added_by", fields: [addedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef             User?        @relation("media_subjects_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef             User?        @relation("media_subjects_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  mediaStoriesMediaSubject MediaStory[] @relation("media_stories_media_subject_id")
-
-  @@unique([beneficiaryId], where: raw("project_id IS NULL"), map: "media_subjects_beneficiary_id_key")
-  @@unique([beneficiaryId, projectId], where: raw("project_id IS NOT NULL"), map: "media_subjects_beneficiary_id_project_id_key")
-  @@index([projectId], map: "media_subjects_project_id_idx")
-  @@index([addedBy], map: "media_subjects_added_by_idx")
-  @@index([createdBy], map: "media_subjects_created_by_idx")
-  @@index([updatedBy], map: "media_subjects_updated_by_idx")
-  @@map("media_subjects")
-}
-
-model MediaStory {
-  id             String         @id @db.Uuid
-  mediaSubjectId String         @map("media_subject_id") @db.Uuid
-  title          String
-  body           String?
-  authorId       String         @map("author_id") @db.Uuid
-  status         String         @default("planned")
-  channelCode    String?        @map("channel_code")
-  publishedAt    DateTime?      @map("published_at") @db.Timestamptz(6)
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy      String?        @map("created_by") @db.Uuid
-  updatedAt      DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy      String?        @map("updated_by") @db.Uuid
-  channelList    String?        @default("consent_channel") @map("channel_list")
-  mediaSubject   MediaSubject   @relation("media_stories_media_subject_id", fields: [mediaSubjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  author         User           @relation("media_stories_author_id", fields: [authorId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  channel        ReferenceList? @relation("media_stories_channel_code", fields: [channelList, channelCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef   User?          @relation("media_stories_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef   User?          @relation("media_stories_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-
-  @@index([mediaSubjectId], map: "media_stories_media_subject_id_idx")
-  @@index([authorId], map: "media_stories_author_id_idx")
-  @@index([channelCode], map: "media_stories_channel_code_idx")
-  @@index([createdBy], map: "media_stories_created_by_idx")
-  @@index([updatedBy], map: "media_stories_updated_by_idx")
-  @@map("media_stories")
-}
-
 model File {
   id                                 String              @id @db.Uuid
   bucket                             String
@@ -2820,7 +2835,7 @@ model File {
   registrationDraftsNidPhotoBackFile RegistrationDraft[] @relation("registration_drafts_nid_photo_back_file_id")
 
   @@unique([bucket, objectKey], map: "files_bucket_object_key_key")
-  @@unique([projectId, sha256], where: raw("kind <> 'export'"), map: "files_project_id_sha256_key")
+  @@unique([projectId, sha256], where: raw("kind <> 'export' AND kind <> 'form_photo'"), map: "files_project_id_sha256_key")
   @@index([projectId, phash], map: "files_project_id_phash_idx")
   @@index([virusScan], where: raw("virus_scan = ANY (ARRAY['pending'::text, 'failed'::text])"), map: "files_virus_scan_idx")
   @@index([uploadedBy], map: "files_uploaded_by_idx")
@@ -3011,6 +3026,8 @@ model SyncBatche {
   receivedAt      DateTime      @default(now()) @map("received_at") @db.Timestamptz(6)
   recordCount     Int           @map("record_count") @db.SmallInt
   results         Json
+  /// a hash of the request under the key; a repeat with another request is refused, not replayed
+  requestHash     String?       @map("request_hash")
   user            User          @relation("sync_batches_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   deviceSession   DeviceSession @relation("sync_batches_device_session_id", fields: [deviceSessionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
@@ -3051,6 +3068,16 @@ model ExportJob {
   status         String   @default("queued")
   fileId         String?  @map("file_id") @db.Uuid
   rowCount       Int?     @map("row_count")
+  /// csv, xlsx or pdf
+  format         String
+  /// the column ids the person chose, in the file's order; empty only for a record's PDF
+  columns        String[]
+  /// the scope instances and field classes the request froze; the job never reads live access
+  access         Json
+  rowsDone       Int      @default(0) @map("rows_done")
+  rowsTotal      Int?     @map("rows_total")
+  errorCode      String?  @map("error_code")
+  finishedAt     DateTime? @map("finished_at") @db.Timestamptz(6)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy      String?  @map("created_by") @db.Uuid
   updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -3061,6 +3088,7 @@ model ExportJob {
   updatedByRef   User?    @relation("export_jobs_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([requestedBy, createdAt(sort: Desc)], map: "export_jobs_requested_by_created_at_idx")
+  @@index([status, createdAt], map: "export_jobs_status_created_at_idx")
   @@index([fileId], map: "export_jobs_file_id_idx")
   @@index([createdBy], map: "export_jobs_created_by_idx")
   @@index([updatedBy], map: "export_jobs_updated_by_idx")
@@ -3079,4 +3107,162 @@ model StorageStat {
   @@index([capturedAt, bucket], map: "storage_stats_captured_at_bucket_idx")
   @@index([projectId], map: "storage_stats_project_id_idx")
   @@map("storage_stats")
+}
+
+/// A media referral (D-101, D-136): one per application, its state cycling with each decision and
+/// send-again; accepting it creates the work.
+model MediaReferral {
+  id              String       @id @db.Uuid
+  applicationId   String       @unique(map: "media_referrals_application_id_key") @map("application_id") @db.Uuid
+  beneficiaryId   String       @map("beneficiary_id") @db.Uuid
+  projectId       String       @map("project_id") @db.Uuid
+  referredBy      String       @map("referred_by") @db.Uuid
+  priority        String
+  note            String
+  story           String?
+  state           String       @default("pending")
+  decidedBy       String?      @map("decided_by") @db.Uuid
+  decidedAt       DateTime?    @map("decided_at") @db.Timestamptz(6)
+  decisionComment String?      @map("decision_comment")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?      @map("created_by") @db.Uuid
+  updatedAt       DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy       String?      @map("updated_by") @db.Uuid
+  application     Application  @relation("media_referrals_application_id", fields: [applicationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  beneficiary     Beneficiary  @relation("media_referrals_beneficiary_id", fields: [beneficiaryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  project         Project      @relation("media_referrals_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  referredByRef   User         @relation("media_referrals_referred_by", fields: [referredBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  decidedByRef    User?        @relation("media_referrals_decided_by", fields: [decidedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef    User?        @relation("media_referrals_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef    User?        @relation("media_referrals_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  work            MediaWork?   @relation("media_works_referral_id")
+  events          MediaEvent[] @relation("media_events_referral_id")
+
+  @@index([beneficiaryId], map: "media_referrals_beneficiary_id_idx")
+  @@index([projectId], map: "media_referrals_project_id_idx")
+  @@index([referredBy], map: "media_referrals_referred_by_idx")
+  @@index([state, createdAt], map: "media_referrals_state_created_at_idx")
+  @@index([decidedBy], map: "media_referrals_decided_by_idx")
+  @@index([createdBy], map: "media_referrals_created_by_idx")
+  @@index([updatedBy], map: "media_referrals_updated_by_idx")
+  @@map("media_referrals")
+}
+
+/// The work of an accepted referral: its stage, members, script, publications, comments, history.
+model MediaWork {
+  id                  String             @id @db.Uuid
+  referralId          String             @unique(map: "media_works_referral_id_key") @map("referral_id") @db.Uuid
+  title               String
+  stageList           String?            @default("media_stage") @map("stage_list")
+  stageCode           String             @map("stage_code")
+  /// the stage a work on hold returns to
+  heldStageCode       String?            @map("held_stage_code")
+  contentType         String             @default("video") @map("content_type")
+  script              Json               @default("{}")
+  scriptState         String             @default("draft") @map("script_state")
+  reviewApprovedBy    String?            @map("review_approved_by") @db.Uuid
+  reviewApprovedAt    DateTime?          @map("review_approved_at") @db.Timestamptz(6)
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy           String?            @map("created_by") @db.Uuid
+  updatedAt           DateTime           @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy           String?            @map("updated_by") @db.Uuid
+  referral            MediaReferral      @relation("media_works_referral_id", fields: [referralId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  stage               ReferenceList?     @relation("media_works_stage_code", fields: [stageList, stageCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
+  reviewApprovedByRef User?              @relation("media_works_review_approved_by", fields: [reviewApprovedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef        User?              @relation("media_works_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef        User?              @relation("media_works_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  members             MediaWorkMember[]  @relation("media_work_members_work_id")
+  publications        MediaPublication[] @relation("media_publications_work_id")
+  comments            MediaComment[]     @relation("media_comments_work_id")
+  events              MediaEvent[]       @relation("media_events_work_id")
+
+  @@index([stageCode], map: "media_works_stage_code_idx")
+  @@index([reviewApprovedBy], map: "media_works_review_approved_by_idx")
+  @@index([createdBy], map: "media_works_created_by_idx")
+  @@index([updatedBy], map: "media_works_updated_by_idx")
+  @@map("media_works")
+}
+
+/// A member of a work with one or more production roles (codes of the list media_role).
+model MediaWorkMember {
+  id           String    @id @db.Uuid
+  workId       String    @map("work_id") @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  roles        String[]
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  work         MediaWork @relation("media_work_members_work_id", fields: [workId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  user         User      @relation("media_work_members_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef User?     @relation("media_work_members_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef User?     @relation("media_work_members_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([workId, userId], map: "media_work_members_work_id_user_id_key")
+  @@index([userId], map: "media_work_members_user_id_idx")
+  @@index([createdBy], map: "media_work_members_created_by_idx")
+  @@index([updatedBy], map: "media_work_members_updated_by_idx")
+  @@map("media_work_members")
+}
+
+/// A publication of a work on one platform (a code of the list media_platform).
+model MediaPublication {
+  id                 String         @id @db.Uuid
+  workId             String         @map("work_id") @db.Uuid
+  platformList       String?        @default("media_platform") @map("platform_list")
+  platformCode       String         @map("platform_code")
+  state              String         @default("waiting")
+  publishedOn        DateTime?      @map("published_on") @db.Date
+  link               String?
+  note               String?
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy          String?        @map("created_by") @db.Uuid
+  updatedAt          DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy          String?        @map("updated_by") @db.Uuid
+  work               MediaWork      @relation("media_publications_work_id", fields: [workId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  platform           ReferenceList? @relation("media_publications_platform_code", fields: [platformList, platformCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef       User?          @relation("media_publications_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef       User?          @relation("media_publications_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([workId], map: "media_publications_work_id_idx")
+  @@index([platformCode], map: "media_publications_platform_code_idx")
+  @@index([createdBy], map: "media_publications_created_by_idx")
+  @@index([updatedBy], map: "media_publications_updated_by_idx")
+  @@map("media_publications")
+}
+
+/// A comment on a work.
+model MediaComment {
+  id        String    @id @db.Uuid
+  workId    String    @map("work_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  body      String
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  work      MediaWork @relation("media_comments_work_id", fields: [workId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  author    User      @relation("media_comments_author_id", fields: [authorId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([workId, createdAt], map: "media_comments_work_id_created_at_idx")
+  @@index([authorId], map: "media_comments_author_id_idx")
+  @@map("media_comments")
+}
+
+/// One step in the history of a referral and its work, with who and when.
+model MediaEvent {
+  id         String        @id @db.Uuid
+  referralId String        @map("referral_id") @db.Uuid
+  workId     String?       @map("work_id") @db.Uuid
+  kind       String
+  fromValue  String?       @map("from_value")
+  toValue    String?       @map("to_value")
+  comment    String?
+  actorId    String        @map("actor_id") @db.Uuid
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  referral   MediaReferral @relation("media_events_referral_id", fields: [referralId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  work       MediaWork?    @relation("media_events_work_id", fields: [workId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  actor      User          @relation("media_events_actor_id", fields: [actorId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([referralId, createdAt], map: "media_events_referral_id_created_at_idx")
+  @@index([workId], map: "media_events_work_id_idx")
+  @@index([actorId], map: "media_events_actor_id_idx")
+  @@map("media_events")
 }

@@ -76,14 +76,15 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 - No query is built by string concatenation; Prisma or bound parameters only.
 - React escapes output; `dangerouslySetInnerHTML` is forbidden except for story text rendered after server-side sanitization with an allow-list of tags.
 - Uploaded file names are kept as metadata only; storage keys are generated (FILES_AND_DOCUMENTS), so a name can never become a path.
-- CSV exports neutralize cells starting with `=`, `+`, `-` or `@` to prevent formula injection in spreadsheets.
+- CSV exports neutralize free-text cells starting with `=`, `+`, `-`, `@`, a tab or a return with a leading apostrophe to prevent formula injection; Excel exports write every text as a plain text cell, never a formula or a link (T2.8).
+- PDF exports are printed from server-built HTML with every value escaped by a sandboxed headless Chromium (never `--no-sandbox`, never as root), with JavaScript off, a page CSP that loads nothing, and every request refused; a host that cannot give the sandbox keeps PDFs off with `export.pdf_unavailable` while Excel and CSV keep working (D-143). The worker host opens unprivileged user namespaces to Chromium alone through the AppArmor profile `infra/apparmor/css-erp-chromium`, not host-wide (D-144).
 
 ## 7. Web and transport security
 
 | Area | Rule |
 |---|---|
 | TLS | Caddy with automatic certificates; HTTP redirects to HTTPS; HSTS (D-056) |
-| Headers | `Content-Security-Policy: default-src 'self'; img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`; `X-Content-Type-Options: nosniff`; `Referrer-Policy: strict-origin-when-cross-origin`; `Permissions-Policy: camera=(self), geolocation=(self), microphone=()` |
+| Headers | `Content-Security-Policy: default-src 'self'; img-src 'self' blob: data: https://i.ytimg.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`; `X-Content-Type-Options: nosniff`; `Referrer-Policy: strict-origin-when-cross-origin`; `Permissions-Policy: camera=(self), geolocation=(self), microphone=()` |
 | CORS | Same origin only; no wildcard |
 | CSRF | The access token travels in the `Authorization` header (not a cookie); the refresh cookie requires the `X-CSRF-Token` header and SameSite=Strict |
 | Network | Only ports 80 and 443 public; PostgreSQL, the MinIO admin API, the worker and the metrics endpoint are reachable only on the internal Docker network or with authentication (D-056, D-057, NFR-61) |
@@ -105,7 +106,7 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 - They live only in per-environment `.env` files on the server, owned by the service user with mode 600, or in the server's secret store; only `.env.example` without values is in git.
 - Different values per environment; staging values never reach production.
 - Rotation: at go-live, once a year, when a person with access leaves, and immediately after a suspected incident.
-- gitleaks scans every commit in CI and as a pre-commit hook (O-46 item 6). Known false positives (test fixtures that are obviously not secrets) are listed by exact fingerprint in `.gitleaksignore` at the repository root, never by path or rule, so every other finding still fails CI; today one entry: the fixed test cursor secret of `apps/api/test/integration/pagination.test.ts` from T1.6 (2026-10-12). Development security limitation (O-52, 2026-10-11): the local pre-commit hook is not installed yet; CI scans the full git history on every push and the run fails when a secret is found. Local scanning is revisited when a suitable installation method exists.
+- gitleaks scans every commit in CI and as a pre-commit hook (O-46 item 6). Known false positives (test fixtures that are obviously not secrets) are listed by exact fingerprint in `.gitleaksignore` at the repository root, never by path or rule, so every other finding still fails CI; today two entries: the fixed test cursor secret of `apps/api/test/integration/pagination.test.ts` from T1.6 (2026-10-12), and the made-up device key of the web test fixtures (`apps/web/test/auth.tsx`) in the first commit of T2.7's device key (2026-10-31), replaced in the same task by a plainly fake value so that only the history holds it (2026-11-01). Development security limitation (O-52, 2026-10-11): the local pre-commit hook is not installed yet; CI scans the full git history on every push and the run fails when a secret is found. Local scanning is revisited when a suitable installation method exists.
 - Secrets are never logged, never placed in URLs, never sent to the browser except the user's own cookies.
 - Claude Code never reads or modifies `.env` files that hold real secrets (CLAUDE.md).
 
@@ -148,7 +149,7 @@ Every entry stores the actor, the originating user for jobs and sync, the actor'
 | Animal allocation | `animal.allocate`, `animal.deallocate` (Phase 4) |
 | Nisab changes | `nisab.change` |
 | Deletion | `application.delete` and every soft delete |
-| Template changes | `template.create`, `form.publish`, `form.version_created`, project template updates |
+| Template changes | `template.create`, `form.publish`, `form.version_created`, `form.ready_create`, `form.place`, `form.take_version`, project template updates |
 | Document deadline extensions | `document.deadline_extend` (documentation module, O-34) |
 | Deficiency reports | `deficiency.report` (documentation module, O-34) |
 | Media consent | `media_consent` |

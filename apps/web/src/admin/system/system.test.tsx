@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -109,13 +109,18 @@ describe('the active sessions', () => {
     refreshAs(HEAD);
     serve();
     const { container } = renderApp(<SessionsPage />, 'bn', { path: '/admin/sessions' });
-    const table = await screen.findByRole('grid', { name: 'সক্রিয় সেশন' });
-    expect(within(table).getAllByText('মেইন অ্যাডমিন').length).toBeGreaterThan(0);
+    const table = await screen.findByRole('table', { name: 'সক্রিয় সেশন' });
+    expect(screen.getByText('নিরাপত্তা')).toBeInTheDocument();
+    // the kind of each person, and the main admin marked beside it
+    // the table stands while its rows load
+    expect((await within(table).findAllByText('অফিসিয়াল · মেইন অ্যাডমিন')).length).toBeGreaterThan(
+      0,
+    );
     await expectNoAxeViolations(container);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'স্বেচ্ছাসেবক' }));
     await waitFor(() => expect(sessionRequests.at(-1)?.get('kind')).toBe('volunteer'));
-    const [end] = screen.getAllByRole('button', {
+    const [end] = await screen.findAllByRole('button', {
       name: 'নমুনা অফিসিয়াল-এর Pixel 7 · android সেশন বন্ধ করুন',
     });
     await user.click(end!);
@@ -133,9 +138,9 @@ describe('the active sessions', () => {
     refreshAs(HEAD);
     serve();
     renderApp(<SessionsPage />, 'bn', { path: '/admin/sessions' });
-    await screen.findByRole('grid', { name: 'সক্রিয় সেশন' });
+    await screen.findByRole('table', { name: 'সক্রিয় সেশন' });
     const user = userEvent.setup();
-    const [end] = screen.getAllByRole('button', {
+    const [end] = await screen.findAllByRole('button', {
       name: 'মেইন অ্যাডমিন (নমুনা)-এর Pixel 7 · android সেশন বন্ধ করুন',
     });
     await user.click(end!);
@@ -214,17 +219,22 @@ describe('the system health', () => {
     serve();
     const { container } = renderApp(<HealthPage />, 'bn', { path: '/admin/health' });
     expect(await screen.findByText('ডামি OTP চালু আছে')).toBeInTheDocument();
+    expect(screen.getByText('প্রশাসনিক পর্যবেক্ষণ')).toBeInTheDocument();
+    // a tile per service, and the environment with its version
+    const checks = within(screen.getByRole('list', { name: 'সেবাগুলোর অবস্থা' }));
+    expect(checks.getAllByRole('listitem')).toHaveLength(4);
+    expect(checks.getByText(/^ভার্সন /)).toBeInTheDocument();
     const storage = screen.getByText('ফাইল স্টোরেজ').closest('li') as HTMLElement;
     expect(within(storage).getByText('বন্ধ')).toBeInTheDocument();
     const database = screen.getByText('ডাটাবেস').closest('li') as HTMLElement;
     expect(within(database).getByText('চালু')).toBeInTheDocument();
     expect(screen.getByText('2027-12')).toBeInTheDocument();
     expect(screen.getByText(/^5টি ফাইল, মোট /)).toBeInTheDocument();
-    expect(screen.getByRole('grid', { name: 'ধরন অনুযায়ী ফাইল' })).toHaveTextContent(
+    expect(screen.getByRole('table', { name: 'ধরন অনুযায়ী ফাইল' })).toHaveTextContent(
       'profile_photo',
     );
     // each bucket with its growth since a month ago, in English digits
-    const buckets = screen.getByRole('grid', { name: 'বাকেট অনুযায়ী স্টোরেজ' });
+    const buckets = screen.getByRole('table', { name: 'বাকেট অনুযায়ী স্টোরেজ' });
     const photos = within(buckets).getByRole('row', { name: /photos/ });
     expect(photos).toHaveTextContent('+1');
     expect(photos).toHaveTextContent(/2\.5/);

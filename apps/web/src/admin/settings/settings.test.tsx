@@ -1,6 +1,6 @@
 import type { Me } from '@css/shared/auth';
 import { SETTING_DEFAULTS } from '@css/shared/settings';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -24,10 +24,39 @@ const SETTINGS = [
     updatedAt: '2026-10-16T05:00:00.000Z',
   },
 ];
+const item = { system: false, kind: null };
 const ITEMS = [
-  { code: 'decoration', label: { bn: 'সাজসজ্জা', en: 'Decoration' }, active: true, sortOrder: 1 },
-  { code: 'food', label: { bn: 'খাবার', en: 'Food' }, active: false, sortOrder: 2 },
+  {
+    code: 'decoration',
+    label: { bn: 'সাজসজ্জা', en: 'Decoration' },
+    active: true,
+    sortOrder: 1,
+    ...item,
+  },
+  { code: 'food', label: { bn: 'খাবার', en: 'Food' }, active: false, sortOrder: 2, ...item },
 ];
+const LISTS: Record<string, unknown[]> = {
+  media_stage: [
+    {
+      code: 'published',
+      label: { bn: 'প্রকাশিত', en: 'Published' },
+      active: true,
+      sortOrder: 1,
+      system: true,
+      kind: null,
+    },
+  ],
+  media_platform: [
+    {
+      code: 'asf_youtube',
+      label: { bn: 'আস-সুন্নাহ ইউটিউব', en: 'As-Sunnah YouTube' },
+      active: true,
+      sortOrder: 1,
+      system: false,
+      kind: 'youtube',
+    },
+  ],
+};
 const CHANNELS = {
   smtp: {
     host: 'mail.example.org',
@@ -88,12 +117,14 @@ function serve() {
         meta: {},
       });
     }),
-    http.get('*/api/v1/reference-lists/:list', () => HttpResponse.json({ data: ITEMS, meta: {} })),
+    http.get('*/api/v1/reference-lists/:list', ({ params }) =>
+      HttpResponse.json({ data: LISTS[String(params.list)] ?? ITEMS, meta: {} }),
+    ),
     http.post('*/api/v1/reference-lists/:list', async ({ request }) => {
       const body = (await request.json()) as { code: string; label: { bn: string; en: string } };
       added.push(body);
       return HttpResponse.json(
-        { data: { ...body, active: true, sortOrder: 3 }, meta: {} },
+        { data: { kind: null, ...body, active: true, sortOrder: 3, system: false }, meta: {} },
         { status: 201 },
       );
     }),
@@ -130,6 +161,7 @@ describe('the settings page', () => {
     serve();
     const { container } = open();
     const phone = await screen.findByRole('textbox', { name: /^যোগাযোগের মোবাইল/ });
+    expect(screen.getByText('সিস্টেম কনফিগারেশন')).toBeInTheDocument();
     expect(screen.getByText('এখনও ডিফল্ট মান চলছে।')).toBeInTheDocument();
     const user = userEvent.setup();
     await user.clear(phone);
@@ -180,7 +212,7 @@ describe('the settings page', () => {
     serve();
     open('lists');
     const expense = await screen.findByRole('heading', { level: 2, name: 'খরচের খাত' });
-    const card = expense.closest('.ui-card') as HTMLElement;
+    const card = expense.closest('section') as HTMLElement;
     expect(await within(card).findAllByText('সাজসজ্জা')).not.toHaveLength(0);
     expect(within(card).getAllByText('বন্ধ').length).toBeGreaterThan(0);
     const user = userEvent.setup();
@@ -209,6 +241,43 @@ describe('the settings page', () => {
     await user.click(within(edit).getByRole('button', { name: 'সংরক্ষণ' }));
     await waitFor(() => expect(itemPatches[0]).toMatchObject({ active: false }));
     // two dialogs typed through: slow when the whole suite shares the machine
+  }, 20_000);
+
+  it('keeps a system stage on, and asks a new platform for its kind', async () => {
+    refreshAs(HEAD);
+    serve();
+    open('lists');
+    const stages = await screen.findByRole('heading', { level: 2, name: 'মিডিয়ার ধাপ' });
+    const stageCard = stages.closest('section') as HTMLElement;
+    expect(await within(stageCard).findAllByText('সিস্টেমের প্রয়োজনীয়')).not.toHaveLength(0);
+    const user = userEvent.setup();
+    await user.click(within(stageCard).getAllByRole('button', { name: 'প্রকাশিত সম্পাদনা' })[0]!);
+    const edit = await screen.findByRole('dialog', { name: 'আইটেম সম্পাদনা: প্রকাশিত' });
+    expect(within(edit).queryByRole('switch', { name: 'চালু' })).toBeNull();
+    expect(within(edit).getByText(/মিডিয়ার নিয়মে এই ধাপ লাগে/)).toBeInTheDocument();
+    await user.click(within(edit).getByRole('button', { name: 'বাতিল' }));
+
+    const platforms = screen.getByRole('heading', { level: 2, name: 'প্রকাশের প্ল্যাটফর্ম' });
+    const card = platforms.closest('section') as HTMLElement;
+    expect(await within(card).findAllByText('YouTube')).not.toHaveLength(0);
+    await user.click(within(card).getByRole('button', { name: 'নতুন আইটেম' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'নতুন আইটেম: প্রকাশের প্ল্যাটফর্ম',
+    });
+    await user.type(within(dialog).getByRole('textbox', { name: /^কোড/ }), 'asf_website');
+    await user.type(within(dialog).getByRole('textbox', { name: /^নাম \(বাংলা\)/ }), 'ওয়েবসাইট');
+    await user.type(within(dialog).getByRole('textbox', { name: /^নাম \(ইংরেজি\)/ }), 'Website');
+    expect(within(dialog).getByRole('button', { name: 'সংরক্ষণ' })).toBeDisabled();
+    await user.click(within(dialog).getByRole('combobox', { name: /ধরন/ }));
+    await user.click(await screen.findByRole('option', { name: 'অন্য ওয়েবসাইট' }));
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() =>
+      expect(added[0]).toEqual({
+        code: 'asf_website',
+        label: { bn: 'ওয়েবসাইট', en: 'Website' },
+        kind: 'other',
+      }),
+    );
   }, 20_000);
 
   it('shows SMTP read-only, whether the SMS key is set and the red dummy OTP warning', async () => {
@@ -279,7 +348,7 @@ describe('the settings page', () => {
     serve();
     open('lists');
     const expense = await screen.findByRole('heading', { level: 2, name: 'খরচের খাত' });
-    const card = expense.closest('.ui-card') as HTMLElement;
+    const card = expense.closest('section') as HTMLElement;
     const user = userEvent.setup();
     await user.click(within(card).getByRole('button', { name: 'নতুন আইটেম' }));
     const dialog = await screen.findByRole('dialog', { name: 'নতুন আইটেম: খরচের খাত' });

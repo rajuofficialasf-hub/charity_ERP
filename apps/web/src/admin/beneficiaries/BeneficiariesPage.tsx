@@ -2,25 +2,23 @@ import { type BeneficiaryRow, formatBenNo } from '@css/shared/beneficiaries';
 import { formatCount } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
-  type ActiveFilter,
-  Avatar,
-  Badge,
   Button,
-  EmptyState,
-  ErrorState,
-  FilterGroup,
-  MenuButton,
-  Modal,
-  Select,
+  Chip,
+  DataTable,
+  Dialog,
+  FilterBar,
+  LinkButton,
+  Menu,
+  Page,
+  SelectField,
   Stack,
   StatFilterBar,
+  type ActiveFilter,
   type StatFilterItem,
-  Table,
-  type TableColumn,
-  TableToolbar,
-} from '@css/ui';
+  type DataTableExtendedColumn,
+} from '@/ui';
+import { PhotoPersonCell } from '../../components/PersonPhoto';
 import { useQuery } from '@tanstack/react-query';
-import { Ban, Copy, EllipsisVertical, HandHeart, Search, User, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -28,7 +26,6 @@ import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LookupField } from '../../features/beneficiaries/LookupField';
 import { AddressFields } from '../../features/registration/AddressFields';
-import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { EmptyValue } from '../EmptyValue';
@@ -52,6 +49,8 @@ import {
   FILTER_KEYS,
 } from './beneficiaries-api';
 import { DUPLICATES_PATH } from './duplicates/merge-api';
+import { ExportButton } from '../../features/exports/ExportButton';
+import { LoadError } from '../../components/LoadError';
 
 /** The years offered by the year filter: this one and the five before it. */
 const yearsBack = () => {
@@ -74,23 +73,28 @@ export function BeneficiariesPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title')}</h1>
-        {(canLookUpBeneficiaries(me) || canReviewDuplicates(me)) && (
-          <Stack direction="row" wrap gap={2}>
-            {canReviewDuplicates(me) && (
-              <Button variant="secondary" icon={Copy} href={DUPLICATES_PATH}>
-                {t('duplicates.title')}
-              </Button>
-            )}
-            {canLookUpBeneficiaries(me) && (
-              <Button variant="secondary" icon={Search} onPress={() => setLookup(true)}>
-                {t('lookup.open')}
-              </Button>
-            )}
-          </Stack>
-        )}
-      </div>
+      <Page
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('description')}
+        actions={
+          (canLookUpBeneficiaries(me) || canReviewDuplicates(me)) && (
+            <Stack direction="row" wrap gap={2}>
+              {canReviewDuplicates(me) && (
+                <LinkButton variant="secondary" startIcon="copy" to={DUPLICATES_PATH}>
+                  {t('duplicates.title')}
+                </LinkButton>
+              )}
+              {canLookUpBeneficiaries(me) && (
+                <Button variant="secondary" startIcon="search" onClick={() => setLookup(true)}>
+                  {t('lookup.open')}
+                </Button>
+              )}
+            </Stack>
+          )
+        }
+        documentTitle={false}
+      />
       {lookup && <LookupDialog onClose={() => setLookup(false)} />}
       <BeneficiaryTab details={canSeeBeneficiaryDetails(me)} union={canSeeBeneficiaryAddress(me)} />
     </>
@@ -99,15 +103,15 @@ export function BeneficiariesPage() {
 
 function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }) {
   const t = useTranslations('admin.beneficiaries');
-  const tc = useTranslations('common');
   const tp = useTranslations('admin.projects');
   const locale = useLocale() as Locale;
   // a filter the role may not use is never read from the URL (an older or shared link)
   const keys = FILTER_KEYS.filter(
-    (key) => (details || (key !== 'type' && key !== 'blocked')) && (union || key !== 'unionId'),
+    (key) =>
+      (details || (key !== 'type' && key !== 'blocked' && key !== 'gender')) &&
+      (union || key !== 'unionId'),
   );
-  const { filters, setFilters, change, q, onSearch, page, cursor, goTo, activeCount } =
-    useTabView(keys);
+  const { filters, setFilters, change, q, onSearch, page, cursor, goTo } = useTabView(keys);
 
   const list = useQuery({
     queryKey: [...BENEFICIARIES_KEY, 'page', filters, q, page, cursor],
@@ -115,7 +119,11 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
   });
   // a count card filters the list, not the counts: every card keeps its number when one is chosen
   const blockedCard = filters.blocked === 'true';
-  const statFilters = { ...filters, blocked: blockedCard ? undefined : filters.blocked };
+  const statFilters = {
+    ...filters,
+    blocked: blockedCard ? undefined : filters.blocked,
+    gender: undefined,
+  };
   const stats = useQuery({
     queryKey: [...BENEFICIARIES_KEY, 'statistics', statFilters, q],
     queryFn: () => beneficiaryStatistics(statFilters, q),
@@ -130,24 +138,56 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
   const counts = stats.data;
   const statItems: StatFilterItem[] = counts
     ? [
-        { id: 'all', label: t('stats.total'), value: counts.total, icon: Users },
+        { id: 'all', label: t('stats.total'), value: counts.total, icon: 'users' as const },
+        // the men and the women, only where the caller sees the gender
+        ...(counts.male === undefined || counts.female === undefined
+          ? []
+          : [
+              {
+                id: 'male',
+                label: t('stats.male'),
+                value: counts.male,
+                icon: 'user' as const,
+                tone: 'info',
+              } satisfies StatFilterItem,
+              {
+                id: 'female',
+                label: t('stats.female'),
+                value: counts.female,
+                icon: 'user' as const,
+                tone: 'primary',
+              } satisfies StatFilterItem,
+            ]),
         {
           id: 'assisted',
           label: t('stats.assisted'),
           value: counts.assistedThisYear,
-          icon: HandHeart,
+          icon: 'hand-heart' as const,
           tone: 'success',
           // approved help this year: no list filter matches it, so the card is a number only
           selectable: false,
         },
         ...(counts.blocked === undefined
           ? []
-          : [{ id: 'blocked', label: t('stats.blocked'), value: counts.blocked, icon: Ban }]),
+          : [
+              {
+                id: 'blocked',
+                label: t('stats.blocked'),
+                value: counts.blocked,
+                icon: 'block' as const,
+              },
+            ]),
       ]
     : [];
-  const selectedCount = blockedCard ? 'blocked' : 'all';
+  const genderCard =
+    filters.gender === 'male' || filters.gender === 'female' ? filters.gender : null;
+  const selectedCount = blockedCard ? 'blocked' : (genderCard ?? 'all');
+  // one card is chosen at a time: a gender card clears the blocked card and the other way round
   const selectCount = (id: string) =>
-    change({ blocked: id === 'blocked' ? 'true' : blockedCard ? undefined : filters.blocked });
+    change({
+      blocked: id === 'blocked' ? 'true' : blockedCard ? undefined : filters.blocked,
+      gender: id === 'male' || id === 'female' ? id : undefined,
+    });
 
   const rows = list.data?.data ?? [];
   const typeLabel = (code: string | null | undefined) =>
@@ -155,41 +195,35 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
       ? t(`types.${code as 'other'}`)
       : (code ?? '');
   const person = (r: BeneficiaryRow) => (
-    <span className="admin-person">
-      <Avatar name={r.name} letters={1} size="sm" />
-      <span className="admin-person-text">
-        <Link to={`/admin/beneficiaries/${r.id}`} className="admin-person-name">
-          {r.name}
-        </Link>
-        {r.classCode && <span className="admin-person-meta">{typeLabel(r.classCode)}</span>}
-      </span>
-    </span>
+    <PhotoPersonCell
+      fileId={r.photoFileId}
+      name={r.name}
+      href={`/admin/beneficiaries/${r.id}`}
+      secondary={r.classCode ? typeLabel(r.classCode) : undefined}
+    />
   );
   const status = (r: BeneficiaryRow) => (
     <span className="admin-badges">
-      <Badge
-        variant="dot"
-        tone={r.status === 'active' ? 'success' : 'warning'}
-        label={t(`status.${r.status as 'active'}`)}
-      />
-      {r.isBlocked && <Badge variant="dot" tone="danger" label={t('blocked')} />}
+      <Chip tone={r.status === 'active' ? 'success' : 'warning'}>
+        {t(`status.${r.status as 'active'}`)}
+      </Chip>
+      {r.isBlocked && <Chip tone="error">{t('blocked')}</Chip>}
     </span>
   );
   const actions = (r: BeneficiaryRow) => (
-    <MenuButton
+    <Menu
       label={t('action.menu', { name: r.name })}
-      icon={EllipsisVertical}
       items={[
         {
           id: 'profile',
           label: t('action.profile'),
-          icon: User,
-          href: `/admin/beneficiaries/${r.id}`,
+          icon: 'user' as const,
+          to: `/admin/beneficiaries/${r.id}`,
         },
       ]}
     />
   );
-  const columns: TableColumn<BeneficiaryRow>[] = [
+  const columns: DataTableExtendedColumn<BeneficiaryRow>[] = [
     { id: 'name', header: t('column.name'), cell: person, isRowHeader: true },
     { id: 'ben', header: t('column.ben'), cell: (r) => formatBenNo(r.benNo) },
     ...(rows.some((r) => 'fatherOrHusbandName' in r)
@@ -218,6 +252,15 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
             id: 'type',
             label: `${t('filter.type')}: ${typeLabel(filters.type)}`,
             onRemove: () => change({ type: undefined }),
+          },
+        ]
+      : []),
+    ...(genderCard
+      ? [
+          {
+            id: 'gender',
+            label: `${t('filter.gender')}: ${t(`stats.${genderCard}`)}`,
+            onRemove: () => change({ gender: undefined }),
           },
         ]
       : []),
@@ -254,110 +297,103 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
   return (
     <>
       {stats.error ? (
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={stats.error instanceof ApiFailure ? stats.error.requestId : undefined}
-          onRetry={() => void stats.refetch()}
-        />
+        <LoadError error={stats.error} onRetry={() => void stats.refetch()} />
       ) : (
         <StatFilterBar
           label={t('stats.label')}
           items={statItems}
           selectedId={selectedCount}
           onSelect={selectCount}
+          visible={5}
           moreLabel={t('stats.label')}
-          moreValue={(n) => formatCount(n, locale)}
+          moreValue={(n: number) => formatCount(n, locale)}
           loading={stats.isPending}
         />
       )}
-      <Table
-        layout="panel"
+      <ExportButton list="beneficiaries" filters={{ ...filters, q }} />
+      <DataTable
         label={t('table')}
         columns={columns}
         rows={rows}
-        rowKey={(r) => r.id}
+        getRowId={(r) => r.id}
         rowLabel={(r) => r.name}
         rowActions={actions}
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={HandHeart} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         toolbar={
-          <TableToolbar
+          <FilterBar
             onSearch={onSearch}
             searchPlaceholder={t('search')}
-            filterMode="panel"
-            activeFilterCount={activeCount(blockedCard ? ['blocked'] : [])}
+            collapsible
             activeFilters={activeFilters}
             onClearFilters={() => setFilters(blockedCard ? { blocked: 'true' } : {})}
-            filters={
-              <>
-                <FilterGroup title={t('filter.group_area')}>
-                  <AddressFields
-                    optional
-                    levels={union ? 4 : 3}
-                    value={{
-                      divisionId: filters.divisionId ?? null,
-                      districtId: filters.districtId ?? null,
-                      upazilaId: filters.upazilaId ?? null,
-                      unionId: filters.unionId ?? null,
-                    }}
-                    onChange={(a) =>
-                      change({
-                        divisionId: a.divisionId ?? undefined,
-                        districtId: a.districtId ?? undefined,
-                        upazilaId: a.upazilaId ?? undefined,
-                        unionId: a.unionId ?? undefined,
-                      })
-                    }
+          >
+            <>
+              <fieldset className="admin-filter-group">
+                <legend>{t('filter.group_area')}</legend>
+                <AddressFields
+                  optional
+                  levels={union ? 4 : 3}
+                  value={{
+                    divisionId: filters.divisionId ?? null,
+                    districtId: filters.districtId ?? null,
+                    upazilaId: filters.upazilaId ?? null,
+                    unionId: filters.unionId ?? null,
+                  }}
+                  onChange={(a) =>
+                    change({
+                      divisionId: a.divisionId ?? undefined,
+                      districtId: a.districtId ?? undefined,
+                      upazilaId: a.upazilaId ?? undefined,
+                      unionId: a.unionId ?? undefined,
+                    })
+                  }
+                />
+              </fieldset>
+              <fieldset className="admin-filter-group">
+                <legend>{t('filter.group_other')}</legend>
+                {details && (
+                  <SelectField
+                    label={t('filter.type')}
+                    value={filters.type ?? ''}
+                    options={BENEFICIARY_TYPES.map((type) => ({
+                      value: type,
+                      label: t(`types.${type}`),
+                    }))}
+                    onChange={(id) => change({ type: id || undefined })}
                   />
-                </FilterGroup>
-                <FilterGroup title={t('filter.group_other')}>
-                  {details && (
-                    <Select
-                      label={t('filter.type')}
-                      value={filters.type ?? null}
-                      options={BENEFICIARY_TYPES.map((type) => ({
-                        id: type,
-                        label: t(`types.${type}`),
-                      }))}
-                      onChange={(id) => change({ type: id ?? undefined })}
-                    />
-                  )}
-                  <ProjectPicker
-                    value={filters.projectId ?? null}
-                    onChange={(id) => change({ projectId: id ?? undefined })}
+                )}
+                <ProjectPicker
+                  value={filters.projectId ?? ''}
+                  onChange={(id) => change({ projectId: id || undefined })}
+                />
+                <SelectField
+                  label={t('filter.year')}
+                  value={filters.year ?? ''}
+                  options={yearsBack().map((year) => ({ value: year, label: year }))}
+                  onChange={(id) => change({ year: id || undefined })}
+                />
+                {details && (
+                  <SelectField
+                    label={t('filter.blocked')}
+                    value={filters.blocked ?? ''}
+                    options={[
+                      { value: 'true', label: t('filter.blocked_yes') },
+                      { value: 'false', label: t('filter.blocked_no') },
+                    ]}
+                    onChange={(id) => change({ blocked: id || undefined })}
                   />
-                  <Select
-                    label={t('filter.year')}
-                    value={filters.year ?? null}
-                    options={yearsBack().map((year) => ({ id: year, label: year }))}
-                    onChange={(id) => change({ year: id ?? undefined })}
-                  />
-                  {details && (
-                    <Select
-                      label={t('filter.blocked')}
-                      value={filters.blocked ?? null}
-                      options={[
-                        { id: 'true', label: t('filter.blocked_yes') },
-                        { id: 'false', label: t('filter.blocked_no') },
-                      ]}
-                      onChange={(id) => change({ blocked: id ?? undefined })}
-                    />
-                  )}
-                </FilterGroup>
-              </>
-            }
-          />
+                )}
+              </fieldset>
+            </>
+          </FilterBar>
         }
-        pagination={
+        cursorPagination={
           meta
             ? numberedPaging({
                 meta,
@@ -371,10 +407,7 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
         }
         cardRenderer={(r) => (
           <div className="admin-person-card">
-            <div className="admin-person-card-head">
-              {person(r)}
-              {actions(r)}
-            </div>
+            <div className="admin-person-card-head">{person(r)}</div>
             <span>{formatBenNo(r.benNo)}</span>
             <Area row={r} />
             {status(r)}
@@ -393,7 +426,7 @@ function LookupDialog({ onClose }: { onClose: () => void }) {
   const t = useTranslations('admin.beneficiaries.lookup');
   const [projectId, setProjectId] = useState<string | null>(null);
   return (
-    <Modal title={t('title')} isOpen fullOnPhone onClose={onClose}>
+    <Dialog title={t('title')} open fullScreenOnPhone onClose={onClose}>
       <ProjectPicker value={projectId} onChange={setProjectId} />
       <LookupField
         key={projectId ?? ''}
@@ -402,7 +435,7 @@ function LookupDialog({ onClose }: { onClose: () => void }) {
           <Link to={`/admin/beneficiaries/${found.beneficiaryId}`}>{t('profile')}</Link>
         )}
       />
-    </Modal>
+    </Dialog>
   );
 }
 

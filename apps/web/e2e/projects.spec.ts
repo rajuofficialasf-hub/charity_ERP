@@ -6,6 +6,8 @@ import {
   ERR,
   newDraft,
   next,
+  projectIdOf,
+  placeReadyForm,
   section,
   state,
   typeDate,
@@ -43,6 +45,11 @@ test.describe('programs and project setup', () => {
     await signIn(page, PM);
     await openTab(page, TAB);
     await newDraft(page, code(), name);
+
+    // the application form: a ready form the Monitoring Team builds and publishes through the API,
+    // placed on the project by the PM
+    const projectId = projectIdOf(page);
+    await placeReadyForm(page, PM, projectId);
 
     // the photo rule in the distribution component's settings
     await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();
@@ -186,7 +193,7 @@ test.describe('programs and project setup', () => {
     await basics.getByRole('textbox', { name: /ইংরেজিতে নাম/ }).fill(`${copyName} EN`);
     await chooseIn(page, basics, 'প্রোগ্রাম', ERR);
     await basics.getByText('আগের প্রকল্প থেকে কপি', { exact: true }).click();
-    await basics.getByRole('button', { name: /যে প্রকল্প কপি হবে/ }).click();
+    await basics.getByRole('combobox', { name: /যে প্রকল্প কপি হবে/ }).click();
     await page
       .getByRole('listbox')
       .getByRole('option', { name: new RegExp(`^${name} \\(`) })

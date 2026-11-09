@@ -536,6 +536,259 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
       },
     ),
   },
+  // ---- 4.3 Applications ----
+  {
+    key: 'application_submitted',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'নতুন আবেদন এসেছে',
+        body: '"{{project_name}}" প্রকল্পে নতুন আবেদন এসেছে। রিভিউ করুন।',
+      },
+      {
+        title: 'New application',
+        body: 'A new application has arrived in the project "{{project_name}}". Please review it.',
+      },
+    ),
+  },
+  {
+    key: 'application_reviewed',
+    variables: ['project_name'],
+    channels: {
+      ...inApp(
+        {
+          title: 'অনুমোদনের অপেক্ষায় আবেদন',
+          body: '"{{project_name}}" প্রকল্পে একটি আবেদন রিভিউ শেষে অনুমোদনের অপেক্ষায় আছে।',
+        },
+        {
+          title: 'Application awaiting approval',
+          body: 'An application in the project "{{project_name}}" has been reviewed and awaits approval.',
+        },
+      ),
+      email: {
+        bn: {
+          subject: 'অনুমোদনের অপেক্ষায় আবেদন: {{project_name}}',
+          body: '"{{project_name}}" প্রকল্পে একটি আবেদন রিভিউ শেষে অনুমোদনের অপেক্ষায় আছে। সিস্টেমে ঢুকে সিদ্ধান্ত দিন।',
+        },
+        en: {
+          subject: 'Application awaiting approval: {{project_name}}',
+          body: 'An application in the project "{{project_name}}" has been reviewed and awaits approval. Sign in to decide.',
+        },
+      },
+    },
+  },
+  {
+    key: 'application_approved',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'আবেদন অনুমোদিত',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি অনুমোদিত হয়েছে।',
+      },
+      {
+        title: 'Application approved',
+        body: 'Your application in the project "{{project_name}}" has been approved.',
+      },
+    ),
+  },
+  {
+    key: 'application_rejected',
+    variables: ['project_name', 'message'],
+    channels: inApp(
+      {
+        title: 'আবেদন গৃহীত হয়নি',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি এবার গৃহীত হয়নি। {{message}}',
+      },
+      {
+        title: 'Application not accepted',
+        body: 'Your application in the project "{{project_name}}" was not accepted this time. {{message}}',
+      },
+    ),
+  },
+  {
+    key: 'application_waitlisted',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'আবেদন অপেক্ষমাণ তালিকায়',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি এখন অপেক্ষমাণ তালিকায় আছে। সুযোগ এলে অফিস অনুমোদন দেবে, তখন জানানো হবে।',
+      },
+      {
+        title: 'Application on the waitlist',
+        body: 'Your application in the project "{{project_name}}" is now on the waitlist. When a place opens, the office will approve it and you will be told.',
+      },
+    ),
+  },
+  {
+    key: 'application_transferred',
+    variables: ['project_name', 'count'],
+    channels: inApp(
+      {
+        title: 'আবেদন আপনার দায়িত্বে এসেছে',
+        body: '"{{project_name}}" প্রকল্পের {{count}}টি আবেদন এখন আপনার দায়িত্বে। "আমার আবেদন"-এ দেখুন।',
+      },
+      {
+        title: 'Applications handed to you',
+        body: '{{count}} applications of the project "{{project_name}}" are now yours. See them in "My applications".',
+      },
+    ),
+  },
+  {
+    key: 'application_transferred_away',
+    variables: ['project_name', 'count'],
+    channels: inApp(
+      {
+        title: 'আবেদন অন্য স্বেচ্ছাসেবকের দায়িত্বে',
+        body: '"{{project_name}}" প্রকল্পে আপনার {{count}}টি আবেদন অফিস অন্য একজন স্বেচ্ছাসেবকের দায়িত্বে দিয়েছে।',
+      },
+      {
+        title: 'Applications handed to another volunteer',
+        body: 'The office handed {{count}} of your applications in the project "{{project_name}}" to another volunteer.',
+      },
+    ),
+  },
+  {
+    key: 'field_unlocked',
+    variables: ['project_name', 'field_name'],
+    channels: inApp(
+      {
+        title: 'উত্তর সংশোধনের জন্য খোলা হয়েছে',
+        body: '"{{project_name}}" প্রকল্পে আপনার একটি আবেদনের "{{field_name}}" উত্তরটি সংশোধনের জন্য খোলা হয়েছে। আবেদনটি খুলে নতুন উত্তর দিন।',
+      },
+      {
+        title: 'An answer is open for correction',
+        body: 'The answer "{{field_name}}" of one of your applications in the project "{{project_name}}" is open for correction. Open the application and give the new answer.',
+      },
+    ),
+  },
+  {
+    key: 'field_updated',
+    variables: ['project_name', 'field_name'],
+    channels: inApp(
+      {
+        title: 'নতুন উত্তর যাচাইয়ের অপেক্ষায়',
+        body: '"{{project_name}}" প্রকল্পে আপনার খোলা "{{field_name}}" উত্তরের নতুন মান এসেছে। যাচাই করে গ্রহণ করুন বা ফেরত দিন।',
+      },
+      {
+        title: 'A new answer awaits verification',
+        body: 'A new value came for the answer "{{field_name}}" you opened in the project "{{project_name}}". Verify it and accept it or send it back.',
+      },
+    ),
+  },
+  {
+    key: 'application_reopened',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'আবেদন আবার বিবেচনায়',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি আবার বিবেচনা করা হচ্ছে।',
+      },
+      {
+        title: 'Application reconsidered',
+        body: 'Your application in the project "{{project_name}}" is being considered again.',
+      },
+    ),
+  },
+  // ---- 4.7 Media Team (D-101): the work by its title and project, never the beneficiary ----
+  {
+    key: 'media_referral_new',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'নতুন মিডিয়া রেফারেল',
+        body: '"{{project_name}}" প্রকল্প থেকে একটি আবেদন মিডিয়া টিমে পাঠানো হয়েছে। খুলে দেখে সিদ্ধান্ত দিন।',
+      },
+      {
+        title: 'A new media referral',
+        body: 'An application of the project "{{project_name}}" was referred to the Media Team. Open it and decide.',
+      },
+    ),
+  },
+  {
+    key: 'media_referral_decided',
+    variables: ['project_name', 'result'],
+    channels: inApp(
+      {
+        title: 'মিডিয়া টিমের সিদ্ধান্ত',
+        body: '"{{project_name}}" প্রকল্পের যে আবেদন আপনি মিডিয়া টিমে পাঠিয়েছিলেন, তার সিদ্ধান্ত: {{result}}।',
+      },
+      {
+        title: "The Media Team's decision",
+        body: 'The application of the project "{{project_name}}" you referred to the Media Team: {{result}}.',
+      },
+    ),
+  },
+  {
+    key: 'media_member_added',
+    variables: ['work_title', 'project_name'],
+    channels: inApp(
+      {
+        title: 'নতুন মিডিয়া কাজে যুক্ত হয়েছেন',
+        body: '"{{project_name}}" প্রকল্পের "{{work_title}}" কাজে আপনাকে যুক্ত করা হয়েছে। আপনার ভূমিকা দেখে কাজ শুরু করুন।',
+      },
+      {
+        title: 'You were added to a media work',
+        body: 'You were added to the work "{{work_title}}" of the project "{{project_name}}". See your role and start.',
+      },
+    ),
+  },
+  {
+    key: 'media_review_waiting',
+    variables: ['work_title', 'project_name'],
+    channels: inApp(
+      {
+        title: 'চূড়ান্ত পর্যালোচনার অপেক্ষায়',
+        body: '"{{project_name}}" প্রকল্পের "{{work_title}}" কাজটি প্রকাশের জন্য প্রস্তুত। চূড়ান্ত পর্যালোচনা দিন।',
+      },
+      {
+        title: 'Waiting for the final review',
+        body: 'The work "{{work_title}}" of the project "{{project_name}}" is ready to publish. Give the final review.',
+      },
+    ),
+  },
+  {
+    key: 'media_published',
+    variables: ['work_title', 'project_name'],
+    channels: inApp(
+      {
+        title: 'মিডিয়া কাজ প্রকাশিত হয়েছে',
+        body: '"{{project_name}}" প্রকল্প থেকে আপনার পাঠানো আবেদনের মিডিয়া কাজ "{{work_title}}" প্রকাশিত হয়েছে।',
+      },
+      {
+        title: 'A media work was published',
+        body: 'The media work "{{work_title}}" of the application you referred from the project "{{project_name}}" was published.',
+      },
+    ),
+  },
+  // ---- exports: the requester alone hears about their own file ----
+  {
+    key: 'export_ready',
+    variables: ['list_name'],
+    channels: inApp(
+      {
+        title: 'এক্সপোর্ট তৈরি',
+        body: '"{{list_name}}" এক্সপোর্ট তৈরি হয়েছে। "আমার এক্সপোর্ট" থেকে নামিয়ে নিন। ফাইলটি 30 দিন থাকবে।',
+      },
+      {
+        title: 'Export ready',
+        body: 'The "{{list_name}}" export is ready. Download it from "My exports". The file is kept for 30 days.',
+      },
+    ),
+  },
+  {
+    key: 'export_failed',
+    variables: ['list_name'],
+    channels: inApp(
+      {
+        title: 'এক্সপোর্ট হয়নি',
+        body: '"{{list_name}}" এক্সপোর্ট তৈরি করা যায়নি। "আমার এক্সপোর্ট" থেকে কারণ দেখে আবার চেষ্টা করুন।',
+      },
+      {
+        title: 'Export failed',
+        body: 'The "{{list_name}}" export could not be made. See why in "My exports" and try again.',
+      },
+    ),
+  },
 ];
 
 /** Variables that name a person; an in-app text never uses them (only emails to officials may). */
@@ -575,8 +828,11 @@ export const TEMPLATE_SAMPLES: Record<string, string | number | { bn: string; en
   previous_name: 'নমুনা আগের জন',
   new_name: 'নমুনা নতুন জন',
   project_name: { bn: 'শীতবস্ত্র 2026', en: 'Winter Clothing 2026' },
+  message: 'এবার সম্ভব হলো না',
   result: { bn: 'সম্মতি দিয়েছেন', en: 'accepted' },
   new_date: '31-12-2026',
+  work_title: 'সেলাই মেশিনে ঘুরে দাঁড়ানো',
+  list_name: { bn: 'উপকারভোগীর তালিকা', en: 'Beneficiary list' },
 };
 
 /** A {{name}} placeholder; the renderer and the editor's check read the same pattern. */
@@ -604,8 +860,14 @@ export const IN_APP_PARAMS: readonly string[] = [
   'note',
   'summary',
   'device_name',
+  'message',
   'userId',
   'projectId',
+  'applicationId',
+  'work_title',
+  'referralId',
+  'list_name',
+  'jobId',
 ];
 
 export function inAppParams<T>(params: Record<string, T>): Record<string, T> {

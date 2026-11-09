@@ -1,9 +1,7 @@
 import type { PhotoSlot, RegistrationChannel, RegistrationKind } from '@css/shared/registration';
-import { Alert, Button, ProgressBar } from '@css/ui';
-import { ArrowLeft, ArrowRight, Check, Send } from 'lucide-react';
+import { Alert, Button, Icon, LinkButton, ProgressBar } from '@/ui';
 import { type FormEvent, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { BrandPhoto } from '../../components/BrandPhoto';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { TopBar } from '../../components/TopBar';
 import { type ChannelState, ContactStep, NEW_CHANNEL } from './ContactStep';
@@ -210,9 +208,9 @@ export function RegisterPage() {
           <section className="register-side">
             <div className="register-panel register-done">
               <span className="register-done-mark" aria-hidden="true">
-                <Check size={28} />
+                <Icon name="check" size={28} />
               </span>
-              <Button href="/login">{t('done.login')}</Button>
+              <LinkButton to="/login">{t('done.login')}</LinkButton>
             </div>
           </section>
         </main>
@@ -244,7 +242,7 @@ export function RegisterPage() {
               label={t('progress', { current: step + 1, total: steps.length })}
               value={step + 1}
               max={steps.length}
-              size="sm"
+              size="small"
               showValue={false}
             />
             <div className="register-step-head">
@@ -252,7 +250,7 @@ export function RegisterPage() {
               <p className="register-muted">{t(`hint.${key}`)}</p>
             </div>
             <fieldset className="register-section">
-              <legend className="ui-sr-only">{stepNames[step]}</legend>
+              <legend className="register-sr-only">{stepNames[step]}</legend>
               {key === 'contact' && (
                 <ContactStep
                   kind={kind}
@@ -278,17 +276,13 @@ export function RegisterPage() {
                 <PhotosStep draft={draft} errors={errors} onPhoto={photo} />
               )}
             </fieldset>
-            {error && (
-              <Alert tone="danger" live="alert">
-                {error}
-              </Alert>
-            )}
+            {error && <Alert tone="error">{error}</Alert>}
             <div className="register-actions">
               {step > 0 && (
                 <Button
                   variant="secondary"
-                  icon={ArrowLeft}
-                  onPress={() => {
+                  startIcon="arrow-left"
+                  onClick={() => {
                     setErrors({});
                     setStep(step - 1);
                   }}
@@ -297,11 +291,11 @@ export function RegisterPage() {
                 </Button>
               )}
               {step < steps.length - 1 ? (
-                <Button type="submit" icon={ArrowRight} disabled={!canNext}>
+                <Button type="submit" endIcon="arrow-right" disabled={!canNext}>
                   {t('nav.next')}
                 </Button>
               ) : (
-                <Button type="submit" icon={Send} loading={pending}>
+                <Button type="submit" startIcon="send" loading={pending}>
                   {t('form.submit')}
                 </Button>
               )}
@@ -314,9 +308,8 @@ export function RegisterPage() {
 }
 
 /**
- * The brand panel of the registration (UX-23): the photo of the Foundation's building with the logo
- * over it, then the page title and its line, and the steps as a list, done ones ticked and the
- * current one lit. On a phone it is a short band above the form and the list stays for screen
+ * The brand panel of the registration: the logo, the page title and its line, and the steps as a
+ * list, done ones ticked and the current one lit. On a phone it is a short band above the form and the list stays for screen
  * readers only.
  */
 function RegisterBrand(props: {
@@ -330,7 +323,6 @@ function RegisterBrand(props: {
   const { steps = [], current = 0 } = props;
   return (
     <aside className="register-brand">
-      <BrandPhoto className="register-photo" />
       <a href="/" className="register-logo">
         <img src="/brand/logo.svg" alt={t('logo_alt')} width={113} height={72} />
       </a>
@@ -349,10 +341,10 @@ function RegisterBrand(props: {
               aria-current={i === current ? 'step' : undefined}
             >
               <span className="register-step-dot" aria-hidden="true">
-                {i < current ? <Check size={14} /> : i + 1}
+                {i < current ? <Icon name="check" size={14} /> : i + 1}
               </span>
               <span>{name}</span>
-              {i < current && <span className="ui-sr-only">{t('step_done')}</span>}
+              {i < current && <span className="register-sr-only">{t('step_done')}</span>}
             </li>
           ))}
         </ol>

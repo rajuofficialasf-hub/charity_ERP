@@ -6,7 +6,9 @@ import type { RegisteredOperation } from '../../../src/openapi/registry';
  * The expected decision of the authorization matrix (RBAC.md 2 and 8; plan
  * docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U6): `public` passes everyone,
  * `authenticated` every signed-in user, `entity` too (the file service decides per file from the
- * linked record, DECISION_LOG D-087; covered by registration-photos.test.ts), and a permission the
+ * linked record, DECISION_LOG D-087; covered by registration-photos.test.ts), `workflow` too (the
+ * application service decides per application and action from the workflow definition; covered by
+ * applications.test.ts, application-cycle.test.ts and bulk-review.test.ts), and a permission the
  * users whose role holds it by default
  * (the effective grants of an account with only that role and no project assignment). A route
  * whose entity filters no data (none, global, system) needs the permission at GLOBAL without a
@@ -23,7 +25,7 @@ export function expectedAllowed(
 ): boolean {
   if (op.permission === 'public') return true;
   if (role === ANONYMOUS) return false;
-  if (op.permission === 'authenticated' || op.permission === 'entity') return true;
+  if (['authenticated', 'entity', 'workflow'].includes(op.permission)) return true;
   const { grants } = effectiveAccess(
     registry,
     {

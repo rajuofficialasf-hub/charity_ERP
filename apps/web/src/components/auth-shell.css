@@ -1,7 +1,6 @@
 /*
- * Sign-in screens (SCR-001, mockup 01-login.html): a soft brand wash with a floating card,
- * centered at 440 px from tablet up, full width with a 16 px gutter on phones; from 1024 px the
- * photo of the Foundation's building fills the left part of the window. Tokens only.
+ * Sign-in screens: a soft brand wash with a floating card, centered at 440 px from tablet
+ * up, full width with a 16 px gutter on phones. Tokens only.
  */
 .auth-layout {
   /* the page runs up under the top bar (UX-19), so the bar has no seam */
@@ -59,14 +58,6 @@
   }
 }
 @media (min-width: 1024px) {
-  .auth-layout {
-    grid-template-columns: minmax(320px, 2fr) minmax(0, 3fr);
-  }
-  .auth-photo {
-    position: sticky;
-    top: 0;
-    height: 100dvh;
-  }
   .auth-shell {
     justify-content: center;
   }
@@ -81,7 +72,14 @@
   gap: var(--space-4);
 }
 .account-page-wide {
-  max-width: 960px;
+  max-width: var(--content-max);
+  margin: 0;
+  padding: var(--space-4);
+}
+@media (min-width: 640px) {
+  .account-page-wide {
+    padding: var(--space-5);
+  }
 }
 .account-page h1 {
   font-size: var(--text-display);

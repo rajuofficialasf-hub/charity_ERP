@@ -89,7 +89,7 @@ const userOp = {
 /** User administration (AUTH.md 6, 7, 11; O-59 item 1 and 2; openapi tag users). */
 export function usersRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'users' | 'handover' | 'staffAccounts' | 'organogram'>,
+  c: Pick<Container, 'users' | 'handover' | 'staffAccounts' | 'organogram' | 'projectsWork'>,
 ): Router {
   const router = Router();
 
@@ -180,6 +180,20 @@ export function usersRouter(
       res.setHeader('ETag', etag);
       return ok(user, { etag });
     },
+  });
+
+  defineRoute<unknown, unknown, { userId: string }>(router, deps, {
+    ...userOp,
+    method: 'get',
+    path: '/users/:userId/projects-work',
+    operationId: 'users.user.projectsWork',
+    summary: "An official's projects by year with the figures of their work there",
+    permission: 'staff.work.view',
+    audit: 'none',
+    params: { userId: uuid },
+    responses: { 200: null, 401: null, 403: null, 404: null, 503: null },
+    handler: async ({ params, req }) =>
+      ok(await c.projectsWork.ofOfficial(scopeOf(req), params.userId)),
   });
 
   defineRoute<StaffProfileRequest, unknown, { userId: string }>(router, deps, {

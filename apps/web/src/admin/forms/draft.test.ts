@@ -1,0 +1,519 @@
+import { formDefinitionSchema } from '@css/shared/forms';
+import { describe, expect, it } from 'vitest';
+import { definition, field, keysOf, option, section, T } from '../../../test/forms';
+import {
+  addEmptySection,
+  addLibraryField,
+  addLibrarySection,
+  addOwnQuestion,
+  coreLocks,
+  duplicateField,
+  moveField,
+  moveFieldTo,
+  moveSection,
+  setOptions,
+  removeField,
+  removeSection,
+  setSectionCondition,
+  setIdentityRole,
+  setSectionVisibility,
+  updateField,
+} from './draft';
+
+const valid = (def: Parameters<typeof formDefinitionSchema.parse>[0]) =>
+  expect(formDefinitionSchema.safeParse(def).success).toBe(true);
+
+/** The library as the builder reads it: each field ready to place, a repeat group with its members. */
+const library = {
+  sections: [
+    {
+      key: 'family_income',
+      title: T('পরিবার ও আয়', 'Family and income'),
+      defaultVisibility: 'volunteer',
+      fieldKeys: ['members_14_plus', 'children_under_14', 'earners'],
+    },
+    {
+      key: 'official',
+      title: T('অফিসিয়াল', 'Official'),
+      defaultVisibility: 'official_only',
+      fieldKeys: ['local_imam_name'],
+    },
+  ],
+  fields: new Map([
+    [
+      'members_14_plus',
+      [field('members_14_plus', 'number', { libraryFieldKey: 'members_14_plus' })],
+    ],
+    [
+      'children_under_14',
+      [field('children_under_14', 'number', { libraryFieldKey: 'children_under_14' })],
+    ],
+    [
+      'earners',
+      [
+        field('earners', 'repeat_group', {
+          libraryFieldKey: 'earners',
+          settings: { repeat: { max_rows: 5 } },
+        }),
+        field('earner_name', 'short_text', { settings: { repeat: { group: 'earners' } } }),
+        field('earner_income', 'money', { settings: { repeat: { group: 'earners' } } }),
+      ],
+    ],
+    [
+      'local_imam_name',
+      [field('local_imam_name', 'short_text', { libraryFieldKey: 'local_imam_name' })],
+    ],
+  ]),
+};
+
+describe('adding from the library', () => {
+  it('brings a section with its fields in library order and its default visibility', () => {
+    const next = addLibrarySection(definition(), library.sections[0]!, library.fields);
+    const added = next.sections.at(-1)!;
+    expect(added).toMatchObject({
+      key: 'family_income',
+      librarySectionKey: 'family_income',
+      visibility: 'volunteer',
+    });
+    expect(added.fields.map((f) => f.fieldKey)).toEqual([
+      'members_14_plus',
+      'children_under_14',
+      'earners',
+      'earner_name',
+      'earner_income',
+    ]);
+    valid(next);
+    const official = addLibrarySection(next, library.sections[1]!, library.fields);
+    expect(official.sections.at(-1)!.visibility).toBe('official_only');
+  });
+
+  it('adds a section only once and never repeats a field the form already has', () => {
+    const once = addLibrarySection(definition(), library.sections[0]!, library.fields);
+    expect(addLibrarySection(once, library.sections[0]!, library.fields)).toBe(once);
+    const withField = addLibraryField(
+      once,
+      'family_income',
+      library.fields.get('members_14_plus')!,
+    );
+    expect(withField).toBe(once);
+  });
+
+  it('adds one library field, with its repeat members, at the end of a section', () => {
+    const next = addLibraryField(
+      definition(section('extra', [])),
+      'extra',
+      library.fields.get('earners')!,
+    );
+    expect(next.sections.at(-1)!.fields.map((f) => f.fieldKey)).toEqual([
+      'earners',
+      'earner_name',
+      'earner_income',
+    ]);
+    valid(next);
+  });
+});
+
+describe('the project own question', () => {
+  it('gets a key from its English label, unique in the form, and keeps it', () => {
+    const base = definition(section('project_questions', []));
+    const question = {
+      type: 'radio' as const,
+      label: T('আপনার কি নিজের ঘর আছে?', 'Do you have your own house?'),
+      options: [
+        option('yes', { label: T('হ্যাঁ', 'Yes') }),
+        option('no', { label: T('না', 'No') }),
+      ],
+    };
+    const first = addOwnQuestion(base, 'project_questions', question);
+    expect(first.fieldKey).toBe('q_do_you_have_your_own_house');
+    const second = addOwnQuestion(first.definition, 'project_questions', question);
+    expect(second.fieldKey).toBe('q_do_you_have_your_own_house_2');
+    const added = second.definition.sections.at(-1)!.fields;
+    expect(added.map((f) => f.libraryFieldKey)).toEqual([null, null]);
+    expect(added[0]!.options!.map((o) => o.code)).toEqual(['yes', 'no']);
+    valid(second.definition);
+  });
+
+  it('keeps the key of an own question after its label changes', () => {
+    const { definition: def, fieldKey } = addOwnQuestion(
+      definition(section('project_questions', [])),
+      'project_questions',
+      {
+        type: 'short_text',
+        label: T('পেশা', 'Work'),
+      },
+    );
+    expect(fieldKey).toBe('q_work');
+    const renamed = updateField(def, 'q_work', { label: T('বর্তমান পেশা', 'Current work') });
+    expect(keysOf(renamed)).toContain('q_work');
+  });
+
+  it('places a row question after the last field of its repeat group, and lets options follow an earlier answer', () => {
+    const base = definition(
+      section('family', [
+        field('occupation', 'radio', {
+          options: [option('business'), option('farming')],
+        }),
+        field('earners', 'repeat_group', { settings: { repeat: { min_rows: 0, max_rows: 5 } } }),
+        field('earner_name', 'short_text', { settings: { repeat: { group: 'earners' } } }),
+        field('family_note', 'long_text'),
+      ]),
+    );
+    const inGroup = addOwnQuestion(base, 'family', {
+      type: 'money',
+      label: T('আয়', 'Income'),
+      group: 'earners',
+    });
+    expect(inGroup.definition.sections.at(-1)!.fields.map((f) => f.fieldKey)).toEqual([
+      'occupation',
+      'earners',
+      'earner_name',
+      'q_income',
+      'family_note',
+    ]);
+    expect(inGroup.definition.sections.at(-1)!.fields[3]!.settings).toEqual({
+      repeat: { group: 'earners' },
+    });
+    const branching = addOwnQuestion(inGroup.definition, 'family', {
+      type: 'single_select',
+      label: T('কাজের ধরন', 'Kind of work'),
+      dependsOn: 'occupation',
+      options: [option('shop', { dependsOnOptionCode: 'business' })],
+    });
+    const added = branching.definition.sections.at(-1)!.fields.at(-1)!;
+    expect(added.logic).toEqual({ options_depend_on: 'occupation' });
+    valid(branching.definition);
+    // a group inside a group, or a group the section does not hold, adds nothing
+    expect(
+      addOwnQuestion(base, 'family', { type: 'repeat_group', label: T('দল'), group: 'earners' })
+        .fieldKey,
+    ).toBeNull();
+    expect(
+      addOwnQuestion(base, 'family', { type: 'short_text', label: T('x'), group: 'occupation' })
+        .fieldKey,
+    ).toBeNull();
+  });
+
+  it('frees the options of a later question that followed a removed option', () => {
+    const base = definition(
+      section('work', [
+        field('occupation', 'radio', { options: [option('business'), option('farming')] }),
+        field('business_kind', 'single_select', {
+          logic: { options_depend_on: 'occupation' },
+          options: [
+            option('shop', { dependsOnOptionCode: 'business' }),
+            option('crops', { dependsOnOptionCode: 'farming' }),
+          ],
+        }),
+      ]),
+    );
+    const next = setOptions(base, 'occupation', [option('farming')]);
+    const kinds = next.sections.at(-1)!.fields[1]!.options!;
+    expect(kinds.map((o) => o.dependsOnOptionCode)).toEqual([null, 'farming']);
+    valid(next);
+  });
+
+  it('moves a question to a place in another section, a group with its members, an identity question too', () => {
+    const def = definition(
+      section('one', [
+        field('a', 'number'),
+        field('g', 'repeat_group'),
+        field('m', 'short_text', { settings: { repeat: { group: 'g' } } }),
+        field('b', 'number'),
+      ]),
+      section('two', [field('c', 'number')]),
+    );
+    const moved = moveFieldTo(def, 'g', 'two', 0);
+    expect(moved.sections.at(-2)!.fields.map((f) => f.fieldKey)).toEqual(['a', 'b']);
+    expect(moved.sections.at(-1)!.fields.map((f) => f.fieldKey)).toEqual(['g', 'm', 'c']);
+    valid(moved);
+    // inside one section the index counts blocks, so b goes before the group
+    const within = moveFieldTo(def, 'b', 'one', 1);
+    expect(within.sections.at(-2)!.fields.map((f) => f.fieldKey)).toEqual(['a', 'b', 'g', 'm']);
+    // the same place is no change; a member stays in its group; an identity question moves
+    expect(moveFieldTo(def, 'a', 'one', 0)).toBe(def);
+    expect(moveFieldTo(def, 'm', 'two', 0)).toBe(def);
+    const marked = moveFieldTo(def, 'name', 'two', 0);
+    expect(marked.sections.at(-1)!.fields.map((f) => f.fieldKey)).toEqual(['name', 'c']);
+  });
+
+  it('puts an own question at a dropped place, counted in blocks', () => {
+    const def = definition(
+      section('one', [
+        field('a', 'number'),
+        field('g', 'repeat_group'),
+        field('m', 'short_text', { settings: { repeat: { group: 'g' } } }),
+        field('b', 'number'),
+      ]),
+    );
+    const own = { type: 'short_text' as const, label: T('নতুন', 'New') };
+    const placed = addOwnQuestion(def, 'one', own, 2);
+    expect(placed.definition.sections.at(-1)!.fields.map((f) => f.fieldKey)).toEqual([
+      'a',
+      'g',
+      'm',
+      'q_new',
+      'b',
+    ]);
+    const first = addOwnQuestion(def, 'one', own, 0);
+    expect(first.definition.sections.at(-1)!.fields[0]!.fieldKey).toBe('q_new');
+    const past = addOwnQuestion(def, 'one', own, 9);
+    expect(past.definition.sections.at(-1)!.fields.at(-1)!.fieldKey).toBe('q_new');
+    valid(placed.definition);
+  });
+
+  it('copies a question after itself with a marked label and a key of its own', () => {
+    const def = definition(
+      section('one', [
+        field('q_note', 'radio', { label: T('মন্তব্য', 'Note'), options: [option('a')] }),
+        field('g', 'repeat_group'),
+      ]),
+    );
+    const made = duplicateField(def, 'q_note', { bn: '(কপি)', en: '(copy)' });
+    expect(made.fieldKey).toBe('q_note_copy');
+    const [first, second] = made.definition.sections.at(-1)!.fields;
+    expect(second).toMatchObject({
+      fieldKey: 'q_note_copy',
+      libraryFieldKey: null,
+      standardColumn: null,
+      label: { bn: 'মন্তব্য (কপি)', en: 'Note (copy)' },
+      options: first!.options,
+    });
+    valid(made.definition);
+    expect(duplicateField(def, 'g', { bn: '(কপি)', en: '(copy)' }).fieldKey).toBeNull();
+    // the copy of an identity question carries no mark, so each role stays marked once
+    const copied = duplicateField(definition(), 'name', { bn: '(কপি)', en: '(copy)' });
+    const copy = copied.definition.sections[0]!.fields.find((f) => f.fieldKey === copied.fieldKey);
+    expect(copy).toMatchObject({ standardColumn: null });
+  });
+
+  it('adds nothing and names no key for a section the form does not have', () => {
+    const def = definition();
+    const result = addOwnQuestion(def, 'no_such_section', {
+      type: 'short_text',
+      label: T('x', 'x'),
+    });
+    expect(result).toEqual({ definition: def, fieldKey: null });
+  });
+
+  it('gives a label with no Latin letters a numbered key', () => {
+    const { fieldKey } = addOwnQuestion(
+      definition(section('project_questions', [])),
+      'project_questions',
+      {
+        type: 'short_text',
+        label: T('পেশা', 'পেশা'),
+      },
+    );
+    expect(fieldKey).toMatch(/^q_\d+$/);
+  });
+});
+
+describe('the identity questions', () => {
+  it('stay required, without a condition and seen by everyone, and are removed like any other', () => {
+    const def = definition();
+    expect(coreLocks(def.sections[0]!.fields[0]!)).toEqual({ optional: true, condition: true });
+    expect(
+      updateField(def, 'name', { required: false }).sections[0]!.fields.find(
+        (f) => f.fieldKey === 'name',
+      )!.required,
+    ).toBe(true);
+    expect(
+      updateField(def, 'name', {
+        logic: { show_if: { field: 'gender', op: 'eq', value: 'male' } },
+      }).sections[0]!.fields.find((f) => f.fieldKey === 'name')!.logic,
+    ).toBeUndefined();
+    expect(setSectionVisibility(def, 'basic_info', 'official_only')).toBe(def);
+    expect(setSectionCondition(def, 'address', { field: 'gender', op: 'eq', value: 'male' })).toBe(
+      def,
+    );
+    expect(keysOf(removeField(def, 'name'))).not.toContain('name');
+    expect(removeSection(def, 'address').sections.map((s) => s.key)).not.toContain('address');
+  });
+
+  it('never go into an official-only section', () => {
+    const def = definition(
+      section('office', [field('remark', 'long_text')], { visibility: 'official_only' }),
+    );
+    expect(moveFieldTo(def, 'name', 'office', 0)).toBe(def);
+  });
+
+  it('are known by their mark, not their key: a question keyed mobile without the mark is free', () => {
+    expect(coreLocks(field('mobile', 'phone'))).toEqual({ optional: false, condition: false });
+    expect(coreLocks(field('remark', 'short_text'))).toEqual({ optional: false, condition: false });
+  });
+
+  it('can still have their labels and help text changed', () => {
+    const next = updateField(definition(), 'village', {
+      label: T('গ্রাম/মহল্লা', 'Village or area'),
+    });
+    expect(next.sections[1]!.fields[1]!.label).toEqual(T('গ্রাম/মহল্লা', 'Village or area'));
+  });
+});
+
+describe('the identity mark', () => {
+  const own = () =>
+    definition(
+      section('mine', [
+        field('q_phone', 'short_text', { settings: { validation: { max_length: 20 } } }),
+        field('q_age', 'number', {
+          logic: { show_if: { field: 'q_phone', op: 'eq', value: 'x' } },
+        }),
+        field('g', 'repeat_group'),
+        field('member', 'short_text', { settings: { repeat: { group: 'g' } } }),
+      ]),
+      section('office', [field('remark', 'short_text')], { visibility: 'official_only' }),
+    );
+  const find = (def: ReturnType<typeof own>, key: string) =>
+    def.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === key)!;
+
+  it("sets the role's column and type, keeps it required, and takes the role from its earlier holder", () => {
+    const def = own();
+    const next = setIdentityRole(def, 'q_phone', 'mobile');
+    expect(find(next, 'q_phone')).toMatchObject({
+      type: 'phone',
+      standardColumn: 'mobile',
+      required: true,
+      settings: {},
+    });
+    // the core section's mobile question held the role before; it loses the mark
+    expect(find(next, 'mobile').standardColumn).toBeNull();
+    valid(next);
+  });
+
+  it('drops the show condition of the marked question, and clears the mark on request', () => {
+    const marked = setIdentityRole(own(), 'q_age', 'village');
+    expect(find(marked, 'q_age')).toMatchObject({ type: 'short_text', standardColumn: 'village' });
+    expect(find(marked, 'q_age').logic).toBeUndefined();
+    const cleared = setIdentityRole(marked, 'q_age', null);
+    expect(find(cleared, 'q_age').standardColumn).toBeNull();
+    // a question with no mark has nothing to clear
+    expect(setIdentityRole(cleared, 'q_age', null)).toBe(cleared);
+  });
+
+  it('is refused to a repeat group, its members and an official-only question', () => {
+    const def = own();
+    for (const key of ['g', 'member', 'remark'])
+      expect(setIdentityRole(def, key, 'name'), key).toBe(def);
+  });
+});
+
+describe('the other sections and fields', () => {
+  const extraSection = () =>
+    section('loans', [field('has_loan', 'radio'), field('loan_total', 'money')]);
+
+  it('make a section official-only, give it a condition, and remove it', () => {
+    const def = definition(extraSection());
+    expect(setSectionVisibility(def, 'loans', 'official_only').sections[2]!.visibility).toBe(
+      'official_only',
+    );
+    expect(setSectionVisibility(def, 'loans', 'volunteer')).toBe(def);
+    const when = { field: 'gender', op: 'eq' as const, value: 'female' };
+    expect(setSectionCondition(def, 'loans', when).sections[2]!.condition).toEqual(when);
+    expect(setSectionCondition(def, 'loans', null).sections[2]!.condition).toBeNull();
+    expect(removeSection(def, 'loans').sections.map((s) => s.key)).toEqual([
+      'basic_info',
+      'address',
+    ]);
+    expect(removeSection(def, 'no_such_section')).toBe(def);
+  });
+
+  it('change a field that is not core: required, a condition, a setting', () => {
+    const when = { field: 'has_loan', op: 'eq' as const, value: 'yes' };
+    const next = updateField(definition(extraSection()), 'loan_total', {
+      required: true,
+      logic: { show_if: when },
+      settings: { validation: { min: 0 } },
+    });
+    expect(next.sections[2]!.fields[1]).toMatchObject({
+      fieldKey: 'loan_total',
+      required: true,
+      logic: { show_if: when },
+      settings: { validation: { min: 0 } },
+    });
+    valid(next);
+    const def = definition();
+    expect(updateField(def, 'no_such_field', { required: true })).toBe(def);
+  });
+});
+
+describe('ordering', () => {
+  const extra = () =>
+    definition(
+      section('family_income', [
+        field('members_14_plus', 'number'),
+        field('earners', 'repeat_group'),
+        field('earner_name', 'short_text', { settings: { repeat: { group: 'earners' } } }),
+        field('earner_income', 'money', { settings: { repeat: { group: 'earners' } } }),
+        field('daily_income', 'money'),
+      ]),
+    );
+
+  it('moves a section up and down, and does nothing at either end', () => {
+    const def = extra();
+    expect(moveSection(def, 'family_income', -1).sections.map((s) => s.key)).toEqual([
+      'basic_info',
+      'family_income',
+      'address',
+    ]);
+    expect(moveSection(def, 'basic_info', -1)).toBe(def);
+    expect(moveSection(def, 'family_income', 1)).toBe(def);
+  });
+
+  it('moves a repeat group with its members, and a member only inside its group', () => {
+    const def = extra();
+    const keys = (d: typeof def) => d.sections[2]!.fields.map((f) => f.fieldKey);
+    expect(keys(moveField(def, 'family_income', 'earners', -1))).toEqual([
+      'earners',
+      'earner_name',
+      'earner_income',
+      'members_14_plus',
+      'daily_income',
+    ]);
+    expect(keys(moveField(def, 'family_income', 'daily_income', -1))).toEqual([
+      'members_14_plus',
+      'daily_income',
+      'earners',
+      'earner_name',
+      'earner_income',
+    ]);
+    expect(keys(moveField(def, 'family_income', 'earner_income', -1))).toEqual([
+      'members_14_plus',
+      'earners',
+      'earner_income',
+      'earner_name',
+      'daily_income',
+    ]);
+    expect(moveField(def, 'family_income', 'earner_name', -1)).toBe(def);
+    expect(moveField(def, 'family_income', 'members_14_plus', -1)).toBe(def);
+    valid(moveField(def, 'family_income', 'earners', -1));
+  });
+
+  it('removes a repeat group with its members', () => {
+    expect(extra().sections[2]!.fields.length).toBe(5);
+    expect(removeField(extra(), 'earners').sections[2]!.fields.map((f) => f.fieldKey)).toEqual([
+      'members_14_plus',
+      'daily_income',
+    ]);
+  });
+});
+
+describe('a new empty section', () => {
+  it('goes at the end, seen by everyone, under the first free number', () => {
+    const title = (n: number) => T(`অংশ ${n}`, `Section ${n}`);
+    const made = addEmptySection(definition(), title);
+    expect(made.key).toBe('section_3');
+    expect(made.definition.sections.at(-1)).toEqual({
+      key: 'section_3',
+      librarySectionKey: null,
+      title: T('অংশ 3', 'Section 3'),
+      visibility: 'volunteer',
+      condition: null,
+      fields: [],
+    });
+    valid(made.definition);
+    // a number already taken is skipped
+    expect(addEmptySection(made.definition, title).key).toBe('section_4');
+    expect(addEmptySection({ sections: [] }, title).key).toBe('section_1');
+  });
+});

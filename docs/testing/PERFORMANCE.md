@@ -145,7 +145,10 @@ has no duplicates) and marked inactive again by a run of the job:
 
 ## 6. First load of the PWA (NFR-15)
 
-NFR-15 allows at most 250 KB of compressed JavaScript for the first route. The first route is the
+NFR-15 allows at most 400 KB of compressed JavaScript for the first route, the lasting budget the
+owner set once the move to the asf UI system ended (D-154, in place of the 250 KB of O-47 and the
+move's temporary 400 KB of D-152); it is lowered when the date pickers' provider and the language
+catalogue leave the first route, a separate task. The first route is the
 entry script of `apps/web/dist/index.html` and every chunk it preloads, gzip level 9, as
 `pnpm --filter @css/web bundle:report` (after `pnpm --filter @css/web build`) prints and CI checks
 after the build; the command fails over the budget, and also fails when `index.html` names no entry
@@ -161,6 +164,15 @@ signed-in person adds when it is not cached yet, without failing on it.
 | 2026-10-19 (D-104): only the device language's catalogue at start, the MUI theme in | 229.7 KB | 18 |
 | 2026-10-20: the component set on MUI core, React Aria removed (D-103) | 211.8 KB | 18 |
 | 2026-10-20: Tailwind removed, the final state of the MUI work | 212.1 KB | 18 |
+| 2026-10-22 (T2.4): after T2.2 to T2.4; the Bengali catalogue at start is 35.8 KB with the form screens' texts | 222.2 KB | 19 |
+| 2026-10-22 (T2.4b): after the builder redesign; the builder's new texts (types, groups, sentences) sit in the catalogue the first route carries, `@dnd-kit` stays in the builder's lazy chunk | 223.7 KB | 19 |
+| 2026-11-01 (T2.8): after T2.5 to T2.8b and the export dialog; the dialog and its column picker load in their own lazy chunk when someone opens them, and the export words add 1.9 KB to the catalogue the first route carries | 243.2 KB | 23 |
+| 2026-11-02 (the visual redesign, D-145): the area labels, descriptions and notes of the designed pages add 3.3 KB to the Bengali catalogue the first route carries; the shell, the set's new pieces and the pages stay in their lazy chunks. The margin to the budget is 3.5 KB | 246.5 KB | 25 |
+| 2026-11-03 (an official's own profile, D-147, D-148): the texts of the official's profile, the projects and their figures and the officials' requests tab add 0.6 KB to the Bengali catalogue; the pages stay in their lazy chunks. The margin to the budget is 2.9 KB | 247.1 KB | 25 |
+| 2026-11-03 (the asf UI system, D-150, branch `feat/asf-ui`, plan step U2; not on `main`): the asf provider at the root (the MUI theme and baseline, the date pickers' provider with Day.js, the toasts) beside the earlier set, which stays until the last page moved. Over the budget on the branch; measured again after the shell (U8) and the first pages (U10), the decision (a split, a lazy load or a new budget for the owner) comes before the merge, never by cutting a feature | 284.8 KB | 30 |
+| 2026-11-03 (the asf UI system, plan step U8: the shell, the sign-in frame, the language switch and the shared pieces on asf; branch `feat/asf-ui`, not on `main`): the sign-in page now draws asf pieces, so asf's MUI parts join the first route beside the earlier set's provider (65.4 KB with its MUI parts). The icon drawings (141 Solar icons, 54 KB) load in their own chunk after the page appears; without that split the route was 430.7 KB. Over the budget while both UI systems are on the page; the owner set a temporary budget of 400 KB for the move (D-152), measured again once the earlier set leaves in U19 | 376.4 KB | 19 |
+| 2026-11-04 (the asf UI system, plan step U10: the sign-in, the registration and the home on asf; branch `feat/asf-ui`, not on `main`): the sign-in form now draws the asf text and password fields, its alert and its link buttons, so more of asf's MUI parts join the first route (9.0 KB more); the home of a signed-in person adds 42.2 KB on top when not cached (74.4 KB with the earlier set's home on 2026-11-02). Under the temporary budget of 400 KB (D-152) | 385.4 KB | 18 |
+| 2026-11-05 (the asf UI system, plan step U19: the earlier set, Lucide and the earlier fonts out; branch `feat/asf-ui`, not on `main`): only asf's provider and pieces are on the sign-in page. Of the route, the shared React chunk is 236.5 KB (MUI core about 40% of it, the MUI X date pickers' provider at the root of the asf provider about 19%, React Router about 11%), the bn catalogue 52.7 KB and the entry with React DOM and TanStack Query 74.0 KB; the home adds 40.8 KB when not cached. The owner set 400 KB as the lasting budget (D-154); the date pickers' provider (about 40 KB) and the catalogue by namespace (about 40 KB) can leave the route in a later task | 381.5 KB | 17 |
 
 What a signed-in page adds on top of the first route when it is not yet cached (static import
 closure of its chunks, gzip): the home with the shell 76.0 KB, my projects with the shell 72.1 KB,
@@ -170,7 +182,7 @@ Since D-104 the entry loads only the device language's catalogue (the Bengali on
 gzip, is counted in the first route) and fetches the other when the person switches. With the
 component set on MUI core (D-103) the login's fields are native elements and MUI's theme, button
 and style engine are the only MUI code on the first route; the home of a signed-in person adds
-63.9 KB on top (it was 76.0 KB with React Aria). The next step if the first route grows past the
+74.4 KB on top on 2026-11-02 with the redesigned shell and home (63.9 KB before; it was 76.0 KB with React Aria; 62.6 KB on 2026-10-22). The form builder and the public application page load in their own lazy chunks and add nothing to the first route. The next step if the first route grows past the
 budget is the gallery namespace, which only the gallery build needs.
 
 Lighthouse 12 on the mobile profile against the production build (`vite preview`, simulated slow
@@ -178,3 +190,41 @@ Lighthouse 12 on the mobile profile against the production build (`vite preview`
 Paint 3.7 s, Largest Contentful Paint 4.0 s, Total Blocking Time 100 ms, Cumulative Layout Shift
 0.002, total transfer 430 KiB (fonts and styles included). axe runs on every screen of the E2E
 suite on the mobile and the desktop profile.
+
+Lighthouse 12.8.2 again for T2.9 on 2026-11-07, after the move to the asf UI system, on the same
+page and build (first route 381.6 KB gzip):
+
+| Profile | Performance | Accessibility | Best Practices | FCP | LCP | TBT | TTI | Transfer |
+|---|---|---|---|---|---|---|---|---|
+| Mobile, simulated slow 4G (the default) | 58 | 100 | 100 | 4.4 s | 4.9 s | 520 ms | 5.2 s | 593 KiB |
+| The 3G profile of NFR-16 (300 ms, 1.6 Mbps, CPU ×4), simulated | 49 | | | 5.8 s | 6.7 s | 510 ms | 6.7 s | 593 KiB |
+| The same 3G profile with real throttling (`--throttling-method=devtools`) | 64 | | | 5.4 s | 5.4 s | 170 ms | 6.7 s | 593 KiB |
+
+The first visit of a phone on 3G is therefore about 6.7 s to interactive, over the 5 s of NFR-16.
+NFR-16 asks for the volunteer home after the first install, when the service worker serves the
+build from its cache; Lighthouse bypasses that cache (a second run with the storage kept still
+loaded the 593 KiB), so the installed case is measured on the phones of the device checklist
+(`docs/testing/uat/OFFLINE_DEVICE_CHECKLIST_BN.md`) before the Phase 2 gate. The cold first visit
+is what the planned slimming of the first route (the date pickers' provider and the catalogue by
+namespace, about 80 KB; D-154) improves.
+
+## Exports (T2.8)
+
+`pnpm --filter @css/api perf:exports` on css_erp_perf (after `perf:seed`, which also applies new
+migrations to an existing data set): as the Department Head it asks for the beneficiaries of the
+Dhaka division (more than the 100,000 rows a file holds) with eight columns, the NID among them,
+and runs the job in the same process with the real batches of 1,000 rows, the writers and the
+filesystem storage driver until the job stops at 100,000 rows; once as CSV, once as Excel. The
+memory is the process's peak resident set, sampled every 100 ms, against its baseline before the
+job (the Node process with Prisma and the container).
+
+| Measured 2026-11-01 on the owner's machine | Rows | Time | File | Peak above baseline |
+|---|---|---|---|---|
+| CSV | 100,000 | 5.8 s | 22.6 MB | 187 MB |
+| Excel | 100,000 | 6.9 s | 6.4 MB | 326 MB |
+
+The baseline was 399 MB. Excel holds its compressed sheets until the end (the streaming writer of
+`exceljs` commits the zip only once), which is the larger share; three running exports per person
+cap what one person can ask of the worker at once. A worker host should allow about 1 GB for the
+process with one large Excel export running.
+

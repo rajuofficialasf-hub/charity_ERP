@@ -235,10 +235,33 @@ describe('the activation check', () => {
       misconduct: { bn: 'অনিয়ম', en: 'Misconduct' },
     },
     dawahEnabled: false,
+    publishedForm: true,
   };
 
   it('finds nothing missing in a complete setup', () => {
     expect(setupCheck(complete)).toEqual([]);
+  });
+
+  it('needs a published form only while the application-form component is on', () => {
+    const withForm = {
+      ...complete,
+      components: [
+        ...complete.components,
+        { componentKey: 'application_form', enabled: true, settings: {} },
+      ],
+    };
+    expect(setupCheck({ ...withForm, publishedForm: true })).toEqual([]);
+    expect(setupCheck({ ...withForm, publishedForm: false })).toEqual(['form']);
+    expect(
+      setupCheck({
+        ...withForm,
+        publishedForm: false,
+        components: [
+          ...complete.components,
+          { componentKey: 'application_form', enabled: false, settings: {} },
+        ],
+      }),
+    ).toEqual([]);
   });
 
   it('checks the components on their own, as an active project keeps them', () => {

@@ -819,7 +819,7 @@ Note on the diagram: image4 marks `mobile*` as unique on both volunteers and ben
 | handovers | from_user_id, to_user_id, scope (JSONB), approved_by, at | Staff exit and handover (A5) |
 | fund_sources | project_id, source (zakat / sadaqah / general / specific donor), amount | Fund-source tags and separate accounts (B6) |
 | media_consents | beneficiary_id, granted, channels, date, by | Media-use consent (A10, SOP clause 12) |
-| media_stories | title, project_id, beneficiary_id, author, status, published_at, channel | Media Team stories and publication tracker |
+| media_referrals, media_works (with members, publications, comments, events) | the referral of an approved application, its work, script, stages and publications (D-101, D-136) | Media Team referrals, works and publication tracker |
 | device_sessions | user_id, device, last_seen, revoked_at | Session revocation for lost phones (B10) |
 
 ### B3. Dynamic form platform (beneficiary + application + dynamic form)

@@ -13,6 +13,8 @@ Version 1.1.4 (11 Oct 2026): owner decision in chat (DECISION_LOG D-073): the fr
 
 Version 1.1.5 (12 Oct 2026): the backend follows the organization's standard too (DECISION_LOG D-074, decided by the owner's delegation; ADR-014): Express 5 replaces NestJS, PostgreSQL 17, one storage adapter with private buckets and files streamed by the API (no signed URLs); §9 updated accordingly. auth-core is adopted later (D-074 §4).
 
+Version 1.1.6 (3 Nov 2026): owner decision in chat (DECISION_LOG D-150, ADR-016): the web app moves to the asf UI system of the organization's engineering kit; §12 colours and typography now follow asf (the green scale around #00A76F, Public Sans with Noto Sans Bengali), in light and dark; English digits stay (UX-05). The amendment was confirmed by the owner in chat on 2026-11-03.
+
 You are the lead software architect, senior full-stack engineer, database architect, security engineer, QA engineer, DevOps engineer and technical-documentation owner for this project. You work for the project owner (the department), who makes every business and architectural decision.
 
 This prompt is the constitution of the project. Give it once at the start of every session. Every task prompt that follows is a controlled change request under these rules.
@@ -333,16 +335,15 @@ Offline-first rules (blueprint B৭): every offline record carries a client_uuid
 12. DESIGN SYSTEM (starting tokens — use these; do not invent new ones per page)
 ==================================================
 
-Colors (brand palette taken from the website https://assunnahfoundation.org/ on 2026-10-10; derivations and contrast checks in docs/ui/brand/colors.md)
-* bg/canvas #F2F3F7 · bg/surface #FFFFFF · bg/muted #EEF2F0 · bg/brand-soft #CEF5E3
-* border/default #DFE3E8 · border/strong #7F8E9D
-* text/primary #0F2920 · text/secondary #526961 · text/on-brand #FFFFFF
-* brand/primary #008E48 (green, for large surfaces, icons and charts) · brand/primary-dark #007B3E (filled buttons and links with small text, 4.5:1 or better with white) · brand/ink #0F2920 · brand/accent #E8B65D (amber, decoration only) · brand/accent-ink #9B6119 (amber as small text)
-* status/success #2E7D4F · status/warning #B9770E · status/danger #C0392B · status/info #2B6CB0 (unchanged; status only, always with an icon and a label)
-Spacing scale: 4, 8, 12, 16, 24, 32 px. Radius: 6 (small), 10 (medium), 16 (large); the website uses 8 px for controls and 20 px for cards, and task T0.19 decides whether to align.
-Typography: UI text in the font stack UbuntuSans, Bornomala, sans-serif (the website's stack), weights 400 and 700 only, self-hosted. UbuntuSans draws Latin letters and digits, Bornomala draws Bengali. Medium and SemiBold are not available, so Bold replaces them for emphasis. Sizes Display 20 Bold, Title 16 Bold, Body 14 Regular, Label 12 Bold, Caption 11 Regular; line-height 150%. Task T0.19 confirms the mapping and tests a 16 px body on phones. The Bornomala licence is not yet verified (docs/ui/brand/colors.md).
+Colors (the asf system of the organization's engineering kit, D-150; the values live in `apps/web/src/ui/tokens.ts` and the template maps them for light and dark)
+* primary #C8FAD6 · #5BE49B · #00A76F (main) · #007867 (dark) · #004B50 (darker); white text only on dark and darker
+* neutral #FCFDFD, #F9FAFB, #F4F6F8, #DFE3E8, #C4CDD5, #919EAB, #637381, #454F5B, #1C252E (800, text and the dark primary button), #141A21 (900); text #1C252E / #637381 / #919EAB
+* info #00B8D9 · success #22C55E · warning #FFAB00 · error #FF5630, each with lighter, light, dark and darker shades; status only, in the soft style (the tone at 16% behind its dark shade), always with an icon and a label
+* dark mode: the same scales, neutral 900 page and neutral 800 paper; the app follows the device until the person picks
+Spacing: an 8 px unit. Radius: 6 (chips), 8 (fields, buttons), 16 (cards, dialogs). Shadows: the card's hairline with a soft drop.
+Typography: Public Sans for UI text, with Noto Sans Bengali for Bengali letters (both OFL, self-hosted through the build); product scale near 1.2 (page title 24 Bold, card title 18 Bold, body 14 to 16, caption 12); tabular digits in tables. English digits in both languages (UX-05). Icons: Solar (CC BY 4.0), duotone for concepts, line for small glyphs.
 Base components to build once and reuse: Button (primary/secondary), Badge/Status, Card/Stat, Field/Text (and select, date, number, file), Nav/Item, Row/Toggle, Table with filters/search/pagination, Modal, Drawer, Confirm dialog, File upload with preview, Alert, Tabs, Breadcrumb, Empty/Loading/Error states, Offline banner, Bulk-update list row with checkbox, Step/timeline, Progress bar.
-Look: professional, calm, institutional; green is the action colour and amber is a decorative accent; status colors only for status. The colours and fonts come from the Foundation's website (docs/ui/brand/colors.md); the logo file is still to be supplied in /docs/ui/brand/. Full direction: docs/ui/DESIGN_BRIEF.md.
+Look: professional, calm, institutional, like the organization's other apps on the asf system; primary buttons are dark on admin screens and green marks state and selection; status colors only for status. Full direction: the kit's `templates/asf/design/DESIGN.md`, ADR-016 and docs/ui/DESIGN_BRIEF.md.
 
 Key screens (no mockups exist yet; they are built as clickable HTML in task T0.19b, see docs/ui/DESIGN_BRIEF.md): project setup with component toggles; form builder (section library, preview, field settings, versions); application review list with detail panel, step timeline and change log; project dashboard with budget bars, funnel, monitoring alerts, volunteer summary; mobile volunteer home with offline banner; mobile new application with NID lookup and auto-fill; mobile today's distribution bulk screen; volunteer profile with permissions, work summary, ratings, animal allocation, blocklist/transfer; registration with OTP; document register; issue log; donor list.
 

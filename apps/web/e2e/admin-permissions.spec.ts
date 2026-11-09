@@ -70,10 +70,12 @@ test.describe('permission panel', () => {
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     await expect(dialog.getByRole('combobox', { name: /পারমিশন/ })).toHaveValue('permission.view');
-    await dialog.getByRole('button', { name: /স্কোপ/ }).press('Enter');
+    await dialog.getByRole('combobox', { name: /স্কোপ/ }).press('Enter');
     await expect(page.getByRole('option', { name: 'সারা দেশ (GLOBAL)' })).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(dialog.getByRole('button', { name: /স্কোপ/ })).toContainText('সারা দেশ (GLOBAL)');
+    await expect(dialog.getByRole('combobox', { name: /স্কোপ/ })).toContainText(
+      'সারা দেশ (GLOBAL)',
+    );
     const reason = `E2E: monitoring help (${info.project.name} ${Date.now() % 100000})`;
     await dialog.getByRole('textbox', { name: /কারণ/ }).fill(reason);
     await dialog.getByRole('button', { name: 'দিন', exact: true }).click();

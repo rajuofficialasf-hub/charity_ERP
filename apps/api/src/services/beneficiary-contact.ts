@@ -11,6 +11,7 @@ import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { BeneficiaryIdentityService } from './beneficiary-identity';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
+import { isAddressChain } from './locations';
 
 /** The contact columns an official edits outside an application, in the order they are logged. */
 const CONTACT_FIELDS = [
@@ -25,6 +26,8 @@ const CONTACT_FIELDS = [
   'landmark',
 ] as const;
 type ContactField = (typeof CONTACT_FIELDS)[number];
+/** The contact columns of a profile, with its version. */
+export type ContactRow = { id: string; updatedAt: Date } & Record<ContactField, unknown>;
 
 const SELECT = {
   id: true,
@@ -66,63 +69,7 @@ export class BeneficiaryContactService {
           throw new ApiError('permission.not_found', 404);
         }
         assertIfMatch(ifMatch, before.updatedAt);
-        const changed = CONTACT_FIELDS.filter(
-          // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
-          (field) => body[field] !== undefined && body[field] !== before[field],
-        );
-        if (body.unionId !== undefined) await this.assertChain(tx, body);
-        let warnings: Awaited<ReturnType<BeneficiaryIdentityService['sharedMobile']>> = [];
-        if (body.mobile !== undefined && changed.includes('mobile')) {
-          // the volunteers an application of the person belongs to, as the database checks them
-          const applications = await tx.application.findMany({
-            where: { beneficiaryId, status: { not: 'deleted' } },
-            select: { createdByUserId: true, ownerVolunteer: { select: { userId: true } } },
-          });
-          await this.identity.assertNotVolunteerMobile(tx, body.mobile, [
-            actor.userId,
-            ...applications.flatMap((a) => [
-              ...(a.ownerVolunteer ? [a.ownerVolunteer.userId] : []),
-              ...(a.createdByUserId ? [a.createdByUserId] : []),
-            ]),
-          ]);
-          warnings = await this.identity.sharedMobile(tx, actor, body.mobile, beneficiaryId);
-        }
-        const pick = (row: Record<ContactField, unknown>) =>
-          // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
-          Object.fromEntries(changed.map((field) => [field, row[field]]));
-        const after = changed.length
-          ? await tx.beneficiary.update({
-              where: { id: beneficiaryId },
-              data: { ...pick(body as Record<ContactField, unknown>), updatedBy: actor.userId },
-              select: SELECT,
-            })
-          : before;
-        if (changed.length) {
-          await tx.fieldChange.createMany({
-            data: changed.map((field) => ({
-              id: uuidv7(),
-              entityType: 'beneficiary',
-              entityId: beneficiaryId,
-              field: snake(field),
-              // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
-              oldValue: (before[field] ?? Prisma.JsonNull) as Prisma.InputJsonValue,
-              // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
-              newValue: (after[field] ?? Prisma.JsonNull) as Prisma.InputJsonValue,
-              kind: 'contact_update',
-              createdBy: actor.userId,
-            })),
-          });
-        }
-        // a new mobile or union changes which profiles look like the same person
-        if (changed.includes('mobile') || changed.includes('unionId'))
-          await this.candidates.refreshFor(tx, [beneficiaryId]);
-        await this.audit.record(tx, {
-          action: 'beneficiary.contact_updated',
-          entityType: 'beneficiary',
-          entityId: beneficiaryId,
-          old: pick(before) as Prisma.InputJsonValue,
-          new: pick(after) as Prisma.InputJsonValue,
-        });
+        const { after, warnings } = await this.apply(tx, actor, before, body);
         const { updatedAt, ...contact } = after;
         return { contact: { ...contact, warnings }, updatedAt };
       });
@@ -134,21 +81,83 @@ export class BeneficiaryContactService {
     }
   }
 
+  /** The contact columns of a live profile as `apply` reads them; the caller holds the row lock. */
+  async locked(tx: Tx, beneficiaryId: string): Promise<ContactRow> {
+    await tx.$queryRaw`SELECT id FROM beneficiaries WHERE id = ${beneficiaryId}::uuid FOR UPDATE`;
+    return tx.beneficiary.findUniqueOrThrow({ where: { id: beneficiaryId }, select: SELECT });
+  }
+
+  /**
+   * Writes the fields of `body` that differ from the profile, each with its change-log row, the
+   * own-mobile rule and the shared-mobile warning, then the audit entry; the submission of an
+   * application writes a known person's new mobile or address the same way.
+   */
+  async apply(tx: Tx, actor: Principal, before: ContactRow, body: ContactUpdate) {
+    const changed = CONTACT_FIELDS.filter(
+      // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
+      (field) => body[field] !== undefined && body[field] !== before[field],
+    );
+    if (body.unionId !== undefined) await this.assertChain(tx, body);
+    let warnings: Awaited<ReturnType<BeneficiaryIdentityService['sharedMobile']>> = [];
+    if (body.mobile !== undefined && changed.includes('mobile')) {
+      // the volunteers an application of the person belongs to, as the database checks them
+      const applications = await tx.application.findMany({
+        where: { beneficiaryId: before.id, status: { not: 'deleted' } },
+        select: { createdByUserId: true, ownerVolunteer: { select: { userId: true } } },
+      });
+      await this.identity.assertNotVolunteerMobile(tx, body.mobile, [
+        actor.userId,
+        ...applications.flatMap((a) => [
+          ...(a.ownerVolunteer ? [a.ownerVolunteer.userId] : []),
+          ...(a.createdByUserId ? [a.createdByUserId] : []),
+        ]),
+      ]);
+      warnings = await this.identity.sharedMobile(tx, actor, body.mobile, before.id);
+    }
+    const pick = (row: Record<ContactField, unknown>) =>
+      // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
+      Object.fromEntries(changed.map((field) => [field, row[field]]));
+    const after = changed.length
+      ? await tx.beneficiary.update({
+          where: { id: before.id },
+          data: { ...pick(body as Record<ContactField, unknown>), updatedBy: actor.userId },
+          select: SELECT,
+        })
+      : before;
+    if (changed.length) {
+      await tx.fieldChange.createMany({
+        data: changed.map((field) => ({
+          id: uuidv7(),
+          entityType: 'beneficiary',
+          entityId: before.id,
+          field: snake(field),
+          // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
+          oldValue: (before[field] ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+          // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
+          newValue: (after[field] ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+          kind: 'contact_update',
+          createdBy: actor.userId,
+        })),
+      });
+      // a new mobile or union changes which profiles look like the same person
+      if (changed.includes('mobile') || changed.includes('unionId'))
+        await this.candidates.refreshFor(tx, [before.id]);
+    }
+    // the entry is written for a save that changed nothing too, as the contact route always did
+    await this.audit.record(tx, {
+      action: 'beneficiary.contact_updated',
+      entityType: 'beneficiary',
+      entityId: before.id,
+      old: pick(before) as Prisma.InputJsonValue,
+      new: pick(after) as Prisma.InputJsonValue,
+    });
+    return { after, warnings, changed };
+  }
+
   /** The four places of an address must be a division, a district in it, and so on down. */
   private async assertChain(tx: Tx, body: ContactUpdate): Promise<void> {
     const ids = [body.divisionId, body.districtId, body.upazilaId, body.unionId] as string[];
-    const rows = await tx.location.findMany({
-      where: { id: { in: ids }, active: true },
-      select: { id: true, parentId: true, level: true },
-    });
-    const byId = new Map(rows.map((r) => [r.id, r]));
-    const levels = ['division', 'district', 'upazila', 'union'];
-    const chain = ids.every((id, i) => {
-      const row = byId.get(id);
-      // eslint-disable-next-line security/detect-object-injection -- index of a fixed list
-      return !!row && row.level === levels[i] && (i === 0 || row.parentId === ids[i - 1]);
-    });
-    if (!chain)
+    if (!(await isAddressChain(tx, ids)))
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'unionId', code: 'validation.failed' },
       ]);

@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -9,6 +9,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { AdminLayout } from '../AdminLayout';
 import { HandoverPage } from './HandoverPage';
+import { stubScreen } from '../../../test/match-media';
 
 // The handover page (SCR-105, BD-08, BR-034; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14). Test data only.
@@ -130,6 +131,9 @@ async function pick(user: ReturnType<typeof userEvent.setup>, label: RegExp, tex
   await user.click(await screen.findByRole('option', { name: new RegExp(text) }));
 }
 
+// the shell's sidebar, which these tests read, shows on a desktop screen
+beforeEach(() => stubScreen());
+
 beforeEach(() => {
   resetClientForTests();
   calls = [];
@@ -167,7 +171,19 @@ describe('handover page', () => {
       'aria-current',
       'page',
     );
+    // before a choice: what to do, the rule of the deactivation and the steps
+    expect(screen.getByText('একজন কর্মকর্তাকে বেছে নিন')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'অ্যাকাউন্ট বন্ধের নিয়ম' }),
+    ).toBeInTheDocument();
+    const steps = within(screen.getByRole('complementary', { name: 'হস্তান্তরের ধাপ' }));
+    expect(steps.getAllByRole('listitem').map((li) => li.firstChild?.textContent)).toEqual([
+      'কর্মকর্তা খুঁজুন',
+      'অপেক্ষমাণ কাজ হস্তান্তর করুন',
+      'হ্যান্ডওভার শেষ করুন',
+    ]);
     await pick(user, /কর্মকর্তা খুঁজুন/, 'বিদায়ী');
+    expect(screen.queryByText('একজন কর্মকর্তাকে বেছে নিন')).not.toBeInTheDocument();
     const projects = await screen.findByRole('region', { name: 'প্রজেক্ট' });
     expect(within(projects).getByText('WNT · ঢাকা')).toBeInTheDocument();
     expect(within(projects).getByText('UCD · স্বাবলম্বী')).toBeInTheDocument();
@@ -180,7 +196,8 @@ describe('handover page', () => {
     expect(screen.getByRole('button', { name: 'সব হস্তান্তর করুন' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'হ্যান্ডওভার শেষ করুন' })).toBeDisabled();
     await expectNoAxeViolations(container);
-  });
+    // two axe runs and an official picked: slow when the whole suite shares the machine
+  }, 15_000);
 
   it('hands one item over to the chosen official', async () => {
     const user = userEvent.setup();

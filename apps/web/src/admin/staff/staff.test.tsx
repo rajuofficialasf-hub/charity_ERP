@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -70,12 +70,80 @@ let created: unknown[];
 let renewed: unknown[];
 let profiles: { body: unknown; ifMatch: string | null }[];
 
+const PHOTO = '01900000-0000-7000-8000-0000000000f1';
+const WORK_PROJECT = '01900000-0000-7000-8000-0000000000f2';
+let workAnswer: 'list' | 'not_found' = 'list';
+let workReads = 0;
+
 function serve() {
   listQueries = [];
   created = [];
   renewed = [];
   profiles = [];
+  workAnswer = 'list';
+  workReads = 0;
   server.use(
+    http.get(`*/api/v1/files/${PHOTO}/content`, () =>
+      HttpResponse.arrayBuffer(new Uint8Array([137, 80, 78, 71]).buffer, {
+        headers: { 'Content-Type': 'image/png' },
+      }),
+    ),
+    http.get('*/api/v1/users/:userId/projects-work', () => {
+      workReads += 1;
+      if (workAnswer === 'not_found')
+        return HttpResponse.json(
+          { error: { code: 'permission.not_found', message: 'Not found.', requestId: 'r' } },
+          { status: 404 },
+        );
+      return HttpResponse.json({
+        data: {
+          everyProject: false,
+          years: [
+            {
+              year: 2026,
+              projects: [
+                {
+                  id: WORK_PROJECT,
+                  code: 'WC26',
+                  name: { bn: 'শীতবস্ত্র ২০২৬', en: 'Winter clothing 2026' },
+                  year: 2026,
+                  status: 'active',
+                  program: { id: PROGRAM.id, name: PROGRAM.name },
+                  applyFrom: null,
+                  applyTo: null,
+                  roles: [
+                    {
+                      key: 'regional_program_manager',
+                      name: { bn: 'রিজিওনাল প্রোগ্রাম ম্যানেজার', en: 'Regional Program Manager' },
+                    },
+                  ],
+                  areas: [{ id: DIVISION.id, name: DIVISION.name }],
+                  wholeProject: false,
+                  figures: {
+                    area: {
+                      received: 120,
+                      waiting: 3,
+                      approved: 80,
+                      rejected: 1,
+                      waitlisted: 2,
+                      volunteers: 12,
+                    },
+                    mine: {
+                      reviewed: 5,
+                      approved: 80,
+                      rejected: 1,
+                      waitlisted: 0,
+                      medianDays: 2.5,
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        meta: { requestId: 'r' },
+      });
+    }),
     http.get('*/api/v1/programs', () => HttpResponse.json({ data: [PROGRAM], meta: {} })),
     http.get('*/api/v1/roles', () =>
       HttpResponse.json({
@@ -168,6 +236,8 @@ describe('the officials page', () => {
     serve();
     const { container } = open();
     expect(await screen.findByRole('heading', { level: 1, name: 'কর্মী' })).toBeInTheDocument();
+    expect(screen.getByText('মানবসম্পদ')).toBeInTheDocument();
+    expect(screen.getByText(/কর্মীদের প্রোফাইল, ভূমিকা ও প্রোগ্রাম দেখুন/)).toBeInTheDocument();
     expect((await screen.findAllByText('CSS-201')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('পাসওয়ার্ডের অপেক্ষায়').length).toBeGreaterThan(0);
     expect(listQueries[0]!.get('kind')).toBe('staff');
@@ -209,8 +279,15 @@ describe('the officials page', () => {
     await user.type(within(dialog).getByRole('textbox', { name: /^নাম/ }), 'নতুন কর্মকর্তা');
     await user.type(within(dialog).getByRole('textbox', { name: /^পদবি/ }), 'Project Executive');
     await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'New@Example.org');
+    // each step shows its own two buttons: cancel and next first, back and create after
+    expect(within(dialog).getByRole('button', { name: 'বাতিল' })).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole('button', { name: 'অ্যাকাউন্ট তৈরি করুন' }),
+    ).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
-    await user.click(within(dialog).getByRole('button', { name: /^বেছে নিন ভূমিকা/ }));
+    expect(within(dialog).queryByRole('button', { name: 'পরের ধাপ' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'বাতিল' })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('combobox', { name: /ভূমিকা/ }));
     // the Department Head role is never offered
     expect(screen.queryByRole('option', { name: 'ডিপার্টমেন্ট হেড' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
@@ -246,7 +323,7 @@ describe('the officials page', () => {
     await user.type(within(dialog).getByRole('textbox', { name: /^পদবি/ }), 'পদ');
     await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'x@example.org');
     await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
-    await user.click(within(dialog).getByRole('button', { name: /^বেছে নিন ভূমিকা/ }));
+    await user.click(within(dialog).getByRole('combobox', { name: /ভূমিকা/ }));
     await user.click(screen.getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
     await user.click(within(dialog).getByRole('button', { name: 'অ্যাকাউন্ট তৈরি করুন' }));
     expect(
@@ -441,7 +518,8 @@ describe('the official profile', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Job ID: CSS-201')).toBeInTheDocument();
+    // the banner reads the label out before the value
+    expect(screen.getAllByText('CSS-201').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Job ID কপি করুন' })).toBeInTheDocument();
     for (const section of ['পরিচয়', 'ভূমিকা ও অবস্থান', 'অ্যাকাউন্ট', 'যোগাযোগ', 'ডিভাইস'])
       expect(screen.getByRole('region', { name: section })).toBeInTheDocument();
@@ -456,7 +534,7 @@ describe('the official profile', () => {
       'href',
       'mailto:rpm.dhaka%40example.org',
     );
-    const actions = screen.getByRole('group', { name: 'কাজ' });
+    const actions = screen.getByRole('region', { name: 'কাজ' });
     expect(within(actions).getByRole('button', { name: 'প্রোফাইল সম্পাদনা' })).toBeInTheDocument();
     // a new link only while the password is not set
     expect(
@@ -498,6 +576,60 @@ describe('the official profile', () => {
     await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
     expect(screen.queryByRole('group', { name: 'কাজ' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'ডিভাইস' })).not.toBeInTheDocument();
+  });
+
+  it("shows the official's photo and their projects with the figures to the Department Head", async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.get(`*/api/v1/users/${official().id}`, () =>
+        HttpResponse.json(
+          {
+            data: {
+              ...official({ photoFileId: PHOTO }),
+              mobile: null,
+              email: null,
+              lastLoginAt: null,
+              isSystemOwner: false,
+            },
+            meta: { requestId: 'r' },
+          },
+          { headers: { ETag: '"1"' } },
+        ),
+      ),
+    );
+    const { container } = openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    await waitFor(() =>
+      expect(container.querySelector('img[src^="data:image/png"]')).not.toBeNull(),
+    );
+    const work = await screen.findByRole('region', { name: 'প্রকল্প ও কাজ' });
+    expect(await within(work).findByText('শীতবস্ত্র ২০২৬')).toBeInTheDocument();
+    expect(within(work).getByText('তাঁর সিদ্ধান্ত')).toBeInTheDocument();
+  });
+
+  it("shows the projects section to the official's PM, and leaves it out outside their programs", async () => {
+    refreshAs(PM);
+    serve();
+    openProfile(official().id);
+    expect(await screen.findByRole('region', { name: 'প্রকল্প ও কাজ' })).toBeInTheDocument();
+    serve();
+    workAnswer = 'not_found';
+    openProfile(official().id);
+    await waitFor(() => expect(workReads).toBe(1));
+    await waitFor(() =>
+      expect(screen.getAllByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' })).toHaveLength(2),
+    );
+    expect(screen.getAllByRole('region', { name: 'প্রকল্প ও কাজ' })).toHaveLength(1);
+  });
+
+  it('does not ask for the projects of an official for an RPM', async () => {
+    refreshAs(RPM);
+    serve();
+    openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    expect(screen.queryByRole('region', { name: 'প্রকল্প ও কাজ' })).not.toBeInTheDocument();
+    expect(workReads).toBe(0);
   });
 
   it('shows the devices to the Monitoring Team', async () => {

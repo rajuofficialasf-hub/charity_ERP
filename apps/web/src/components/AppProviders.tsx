@@ -1,25 +1,19 @@
-import { formatCount } from '@css/shared/format';
-import { UiProvider } from '@css/ui';
+import { INTL_LOCALE } from '@css/shared/format';
+import { UiProvider } from '@/ui';
 import { useLocale, useMessages } from 'use-intl';
-import { useCallback, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
 /**
- * Supplies the design system with the `ui` catalogue texts and the central number formatter. Inside
- * the router, `navigate` lets the design system's links change the page without a reload.
+ * Supplies the asf UI system (docs/architecture/ADR/ADR-016-asf-ui-system.md) with its words from
+ * the catalogue's `ui.asf` group in the page language, and with the number locale of the app's own
+ * formatter, so its counts take the same grouping.
  */
-export function AppProviders({
-  children,
-  navigate,
-}: {
-  children: ReactNode;
-  navigate?: (href: string) => void;
-}) {
+export function AppProviders({ children }: { children: ReactNode }) {
   const locale = useLocale();
   const { ui } = useMessages();
-  const formatNumber = useCallback((value: number) => formatCount(value, locale), [locale]);
-  return (
-    <UiProvider locale={locale} messages={ui} formatNumber={formatNumber} navigate={navigate}>
-      {children}
-    </UiProvider>
+  const labels = useMemo(
+    () => ({ ...ui.asf, numberLocale: INTL_LOCALE[locale] }),
+    [ui.asf, locale],
   );
+  return <UiProvider labels={labels}>{children}</UiProvider>;
 }

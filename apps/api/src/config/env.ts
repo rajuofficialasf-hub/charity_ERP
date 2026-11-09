@@ -56,6 +56,11 @@ const envSchema = z
     FILE_SCANNER: z.enum(['skip']).default('skip'),
     /** The release shown on the system health page. */
     APP_VERSION: z.string().max(64).default('0.0.0-dev'),
+    /** The oldest PWA build the sync routes still accept; an older one is answered 426 (docs/api/API_STANDARDS.md "Versioning and client compatibility"). */
+    MIN_CLIENT_VERSION: z
+      .string()
+      .regex(/^\d+\.\d+\.\d+$/)
+      .default('0.0.0'),
     /** Signs access tokens (D-070); JWT_PREVIOUS_SECRET is still accepted during a rotation. */
     JWT_SECRET: z.string().min(32),
     JWT_PREVIOUS_SECRET: z.string().min(32).optional(),
@@ -63,6 +68,14 @@ const envSchema = z
     AUTH_CSRF_SECRET: z.string().min(32),
     /** HMAC key of OTP code and address hashes (AUTH.md 2, D-070). */
     OTP_SECRET: z.string().min(32),
+    /**
+     * Seals the device keys of sessions in the database (docs/architecture/AUTH.md "Tokens and
+     * device sessions"); LOCAL_KEY_PREVIOUS_SECRET is
+     * still accepted during a rotation, and a row is re-sealed under the current one at its next
+     * refresh.
+     */
+    LOCAL_KEY_SECRET: z.string().min(32),
+    LOCAL_KEY_PREVIOUS_SECRET: z.string().min(32).optional(),
     /** Fixed OTP code instead of SMS and email; development and test only (BD-44, BD-49). */
     OTP_DUMMY_ENABLED: flag,
     OTP_DUMMY_CODE: z
@@ -140,6 +153,12 @@ const envSchema = z
         code: 'custom',
         path: ['APP_ORIGIN'],
         message: 'must be an https origin in production (links sent by email)',
+      });
+    if (env.NODE_ENV === 'production' && env.LOCAL_KEY_SECRET.startsWith('change-me'))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LOCAL_KEY_SECRET'],
+        message: 'the example value of .env.example is refused in production',
       });
     if (env.NODE_ENV === 'production' && env.FILE_SCANNER === 'skip')
       ctx.addIssue({

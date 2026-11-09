@@ -1,6 +1,6 @@
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, Form, PasswordField, Text, TextField } from '@css/ui';
+import { Alert, Button, LinkButton, Text, TextField } from '@/ui';
 import { useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocaleSwitch } from '../../i18n/LocaleProvider';
@@ -68,7 +68,7 @@ export function LoginForm({ ended }: { ended?: string }) {
   };
 
   return (
-    <Form onSubmit={submit} aria-label={t('title')}>
+    <form method="post" noValidate onSubmit={submit} aria-label={t('title')}>
       <div className="auth-shell-stack">
         {ended === 'revoked' && <Alert tone="warning">{t('session_ended')}</Alert>}
         {ended === 'logout' && <Alert tone="success">{t('signed_out')}</Alert>}
@@ -81,7 +81,8 @@ export function LoginForm({ ended }: { ended?: string }) {
           autoComplete="username"
           required
         />
-        <PasswordField
+        <TextField
+          type="password"
           label={t('password')}
           name="password"
           value={password}
@@ -89,22 +90,18 @@ export function LoginForm({ ended }: { ended?: string }) {
           autoComplete="current-password"
           required
         />
-        {error && (
-          <Alert tone="danger" live="alert">
-            {error}
-          </Alert>
-        )}
+        {error && <Alert tone="error">{error}</Alert>}
         <Button type="submit" fullWidth loading={pending} disabled={offline}>
           {t('submit')}
         </Button>
-        <Button variant="ghost" href="/login/reset">
+        <LinkButton variant="text" to="/login/reset">
           {t('forgot')}
-        </Button>
+        </LinkButton>
         <Text>{tr('link_intro')}</Text>
-        <Button variant="secondary" href="/register" fullWidth>
+        <LinkButton variant="secondary" to="/register" fullWidth>
           {tr('link')}
-        </Button>
+        </LinkButton>
       </div>
-    </Form>
+    </form>
   );
 }

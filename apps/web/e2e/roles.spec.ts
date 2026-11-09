@@ -14,6 +14,12 @@ const ROLES: { role: string; loginId: string; page: string; api: string }[] = [
   {
     role: 'a General Volunteer',
     loginId: '01700000103',
+    page: '/admin/beneficiaries',
+    api: '/exports/columns?list=beneficiaries',
+  },
+  {
+    role: 'a General Volunteer',
+    loginId: '01700000103',
     page: '/admin/permissions',
     api: '/users',
   },
@@ -22,6 +28,18 @@ const ROLES: { role: string; loginId: string; page: string; api: string }[] = [
     loginId: 'finance@example.org',
     page: '/admin/volunteers',
     api: '/volunteers',
+  },
+  {
+    role: 'a General Volunteer',
+    loginId: '01700000103',
+    page: '/media',
+    api: '/media/summary',
+  },
+  {
+    role: 'the Finance Team',
+    loginId: 'finance@example.org',
+    page: '/media',
+    api: '/media-works',
   },
   {
     role: 'the Media Team',

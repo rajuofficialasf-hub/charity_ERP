@@ -1,5 +1,5 @@
 import { type MissingItem, setupCheck, WORKFLOWS_WITHOUT_LIMIT } from '@css/shared/projects';
-import type { StepMark } from '@css/ui';
+import type { StepMark } from '@/ui';
 import type { Project } from '../projects-api';
 import type { Area, FundSource, ProjectComponent } from './setup-api';
 
@@ -33,6 +33,7 @@ const STEP_OF = new Map<MissingItem, StepId>([
   ['fund_sources_total', 'budget'],
   ['area', 'areas'],
   ['photo_rule', 'components'],
+  ['form', 'components'],
 ]);
 export const stepOfMissing = (item: string): StepId =>
   item.startsWith('component:')
@@ -51,6 +52,7 @@ export function missingItems(
   fundSources: FundSource[],
   areas: Area[],
   rules: unknown,
+  publishedForm: boolean,
 ): MissingItem[] {
   return setupCheck({
     name: project.name,
@@ -67,6 +69,7 @@ export function missingItems(
     components: components.map((c) => ({ ...c, settings: c.settings ?? {} })),
     rules,
     dawahEnabled: project.dawahEnabled,
+    publishedForm,
   });
 }
 

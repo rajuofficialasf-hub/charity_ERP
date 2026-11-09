@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../auth/password.js';
 import { otpCodeSchema } from '../auth/schemas.js';
+import { staffWorkplaceSchema } from '../auth/staff.js';
 import {
   bloodGroupSchema,
   dateOfBirthSchema,
@@ -48,9 +49,11 @@ export const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 /** The draft token header (D-082): never in a URL or a log. */
 export const REGISTRATION_TOKEN_HEADER = 'X-Registration-Token';
 
+/** A Bangladesh mobile number as stored: 11 digits starting with 01 (the form patterns reuse it). */
+export const MOBILE_PATTERN = /^01[3-9][0-9]{8}$/;
 export const mobileSchema = z
   .string()
-  .regex(/^01[3-9][0-9]{8}$/, { message: 'validation.mobile_format' });
+  .regex(MOBILE_PATTERN, { message: 'validation.mobile_format' });
 export const nidSchema = z
   .string()
   .regex(/^([0-9]{10}|[0-9]{13}|[0-9]{17})$/, { message: 'validation.nid_format' });
@@ -306,6 +309,43 @@ export const PHOTO_FIELDS = PHOTO_SLOTS;
  * The catalogue label key of each field a correction or edit request may name (registration
  * namespace): the screens and the notifications name a field the same way.
  */
+/**
+ * The details an official may ask to change about themself (docs/DECISION_LOG.md, the official's
+ * own profile of 2026-11-02): the name, the designation, the contacts (a code to the new value
+ * first), the photo (the own upload fills it) and the workplace; the Department Head or the
+ * Monitoring Team decides. A program or division of null asks to clear it. The supervisor is not
+ * asked for: the deciders change it on the official's page (docs/DECISION_LOG.md, 2026-11-03).
+ */
+export const STAFF_EDIT_FIELD_VALUES = {
+  displayName: z.string().trim().min(1, { message: 'validation.required' }).max(200),
+  designation: z.string().trim().min(1, { message: 'validation.required' }).max(200),
+  mobile: EDIT_FIELD_VALUES.mobile,
+  email: EDIT_FIELD_VALUES.email,
+  workplace: staffWorkplaceSchema,
+  homeProgramId: z.uuid().nullable(),
+  homeDivisionId: z.uuid().nullable(),
+} as const;
+export type StaffValueField = keyof typeof STAFF_EDIT_FIELD_VALUES;
+export const STAFF_EDIT_FIELDS = [
+  ...(Object.keys(STAFF_EDIT_FIELD_VALUES) as StaffValueField[]),
+  'photo',
+] as const;
+export type StaffEditField = (typeof STAFF_EDIT_FIELDS)[number];
+
+export const staffEditRequestCreateSchema = z
+  .strictObject({
+    field: z.enum(STAFF_EDIT_FIELDS),
+    newValue: z
+      .union([z.string().max(2000), z.record(z.string(), z.unknown()), z.null()])
+      .optional(),
+    note: z.string().trim().max(1000).optional(),
+  })
+  .refine((v) => v.field === 'photo' || v.newValue !== undefined, {
+    path: ['newValue'],
+    message: 'validation.required',
+  });
+export type StaffEditRequestCreate = z.infer<typeof staffEditRequestCreateSchema>;
+
 export const REQUEST_FIELD_LABEL = {
   name: 'form.name',
   fatherName: 'form.father_name',
@@ -333,6 +373,11 @@ export const REQUEST_FIELD_LABEL = {
   nid_photo_back: 'form.nid_photo_back',
   mobile: 'form.mobile',
   email: 'form.email',
+  displayName: 'form.name',
+  designation: 'form.designation',
+  workplace: 'form.workplace',
+  homeProgramId: 'form.home_program',
+  homeDivisionId: 'form.division',
 } as const;
 
 export const editRequestCreateSchema = z

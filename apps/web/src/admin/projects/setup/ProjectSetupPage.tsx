@@ -1,7 +1,6 @@
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, ErrorState, Skeleton, Stepper, type StepMark } from '@css/ui';
+import { Alert, Page, Skeleton, Stepper, type StepMark } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Rocket } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -13,6 +12,7 @@ import { canCreateProjects, canSeeProjects } from '../../roles';
 import { ProjectStatusBadge } from '../ProjectStatusBadge';
 import { moveProject, type Project, PROJECTS_KEY } from '../projects-api';
 import { AreasSection } from './AreasSection';
+import { QuotasSection } from './QuotasSection';
 import { BasicsSection } from './BasicsSection';
 import { BudgetSection } from './BudgetSection';
 import { ComponentsSection } from './ComponentsSection';
@@ -22,12 +22,14 @@ import { RulesSection } from './RulesSection';
 import {
   areas,
   components,
+  forms,
   fundSources,
   projectWithEtag,
   rules,
   setupKey,
   staff,
   syllabus,
+  quotas,
 } from './setup-api';
 import { SetupProvider, StepSaveProvider } from './setup-context';
 import { StaffSection } from './StaffSection';
@@ -42,6 +44,7 @@ import {
   STEP_IDS,
   type StepId,
 } from './wizard-steps';
+import { LoadError } from '../../../components/LoadError';
 
 const PHONE = '(max-width: 639px)';
 
@@ -64,20 +67,25 @@ function useSetupPart<T>(projectId: string, name: string, fn: () => Promise<T>, 
 }
 
 /**
- * The step on screen hands its save to the wizard (`useStepSave`); a move first runs that save
- * and goes on only when it succeeded, so nothing typed is lost and a refusal stays visible.
+ * The parts of the step on screen hand their saves to the wizard (`useStepSave`); a move first
+ * runs them in order and goes on only when each succeeded, so nothing typed is lost and a
+ * refusal stays visible. A step may hold more than one part (the areas and their quotas).
  */
 function useStepRunner() {
-  const save = useRef<(() => Promise<boolean>) | null>(null);
-  const register = useCallback((next: (() => Promise<boolean>) | null) => {
-    save.current = next;
+  const saves = useRef(new Set<() => Promise<boolean>>());
+  const register = useCallback((next: () => Promise<boolean>) => {
+    saves.current.add(next);
+    return () => {
+      saves.current.delete(next);
+    };
   }, []);
   const [busy, setBusy] = useState(false);
   const run = async (then: () => void | Promise<void>) => {
     if (busy) return;
     setBusy(true);
     try {
-      if (!save.current || (await save.current())) await then();
+      for (const save of saves.current) if (!(await save())) return;
+      await then();
     } finally {
       setBusy(false);
     }
@@ -123,16 +131,13 @@ function WizardHead({
   return (
     <header className="admin-wizard-head">
       {back}
-      <div className="admin-title-row">
-        <h1 className="admin-title">{title}</h1>
-        {badge}
-      </div>
+      <Page title={title} documentTitle={false} />
+      {badge && <div data-testid="project-state">{badge}</div>}
       <Stepper
         label={t('steps')}
         steps={steps.map((s) => ts(s))}
         current={current}
         marks={marks}
-        missingLabel={t('missing_mark')}
         onSelect={onSelect}
       />
       <p className="admin-wizard-count">
@@ -179,7 +184,7 @@ function NewProjectWizard() {
         }}
         primary={{
           label: t('next'),
-          icon: ArrowRight,
+          icon: 'arrow-right' as const,
           onPress: () => {
             exit.current = false;
             void run(() => undefined);
@@ -196,7 +201,6 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   const t = useTranslations('admin.projects.wizard');
   const ts = useTranslations('admin.projects.setup');
   const tp = useTranslations('admin.projects');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -209,6 +213,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   const one = useSetupPart(projectId, 'project', () => projectWithEtag(projectId), true);
   const parts = useSetupPart(projectId, 'components', () => components(projectId), true);
   const areaList = useSetupPart(projectId, 'areas', () => areas(projectId), true);
+  const quotaList = useSetupPart(projectId, 'quotas', () => quotas(projectId), true);
   const staffList = useSetupPart(projectId, 'staff', () => staff(projectId), true);
   // fund sources are budget data, read only at program level
   const funds = useSetupPart(projectId, 'fund-sources', () => fundSources(projectId), configure);
@@ -216,6 +221,16 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   const topics = useSetupPart(projectId, 'syllabus', () => syllabus(projectId), dawah);
   // every official of the project reads the rules; the step is read-only without setup rights
   const rulesText = useSetupPart(projectId, 'rules', () => rules(projectId), true);
+  // activation needs a published form; the missing item opens the project's form in the builder,
+  // or the forms page with the new-form dialog when the project has none
+  const formList = useSetupPart(projectId, 'forms', () => forms(projectId), configure);
+  const firstForm = formList.data?.find((f) => f.key === 'default') ?? formList.data?.[0];
+  // the new-form dialog only for a project known to have no form; otherwise its forms page
+  const formHref = firstForm
+    ? `/admin/projects/${projectId}/forms/${firstForm.id}`
+    : formList.data
+      ? `/admin/projects/${projectId}/forms?new=1`
+      : `/admin/projects/${projectId}/forms`;
   const activate = useMutation({
     mutationFn: () => moveProject(projectId, 'activate', one.data!.meta.etag),
     onSuccess: async () => {
@@ -232,15 +247,30 @@ function ProjectWizard({ projectId }: { projectId: string }) {
     parts.isPending ||
     areaList.isPending ||
     rulesText.isPending ||
-    (configure && funds.isPending);
+    (configure && (funds.isPending || formList.isPending));
   // the budget is a step of the PM and the global roles, also while its fund sources fail to load
   const steps: StepId[] = STEP_IDS.filter(
     (s) => (s !== 'budget' || configure) && (s !== 'syllabus' || dawah),
   );
   // the check reads every part: without one of them the marks and the missing list stay off
   const missing =
-    configure && loaded && parts.data && funds.data && areaList.data && rulesText.data
-      ? missingItems(loaded, parts.data, funds.data, areaList.data, rulesText.data.rules)
+    configure &&
+    loaded &&
+    parts.data &&
+    funds.data &&
+    areaList.data &&
+    rulesText.data &&
+    formList.data
+      ? missingItems(
+          loaded,
+          parts.data,
+          funds.data,
+          areaList.data,
+          rulesText.data.rules,
+          formList.data.some(
+            (f) => f.publishedVersionId !== null && f.kind === 'beneficiary_application',
+          ),
+        )
       : null;
   const asked = params.get('step');
   const valid = isStepId(asked) && steps.includes(asked);
@@ -260,11 +290,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
         {one.error instanceof ApiFailure && one.error.status === 404 ? (
           <p>{tp('detail.not_found')}</p>
         ) : (
-          <ErrorState
-            title={tc('state.error.text')}
-            requestId={one.error instanceof ApiFailure ? one.error.requestId : undefined}
-            onRetry={() => void one.refetch()}
-          />
+          <LoadError error={one.error} onRetry={() => void one.refetch()} />
         )}
       </>
     );
@@ -272,13 +298,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   const refresh = () => queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
   // a part that did not load is an error with a retry, never "nothing configured"
   const failed = (query: { error: Error | null; refetch: () => unknown }) =>
-    query.error ? (
-      <ErrorState
-        title={tc('state.error.text')}
-        requestId={query.error instanceof ApiFailure ? query.error.requestId : undefined}
-        onRetry={() => void query.refetch()}
-      />
-    ) : null;
+    query.error ? <LoadError error={query.error} onRetry={() => void query.refetch()} /> : null;
 
   const step: StepId = valid ? asked : opening;
   const index = steps.indexOf(step);
@@ -297,10 +317,23 @@ function ProjectWizard({ projectId }: { projectId: string }) {
 
   const body = new Map<StepId, ReactNode>([
     ['basics', <BasicsSection key="basics" />],
-    ['components', failed(parts) ?? <ComponentsSection components={parts.data ?? []} />],
+    [
+      'components',
+      failed(parts) ?? <ComponentsSection components={parts.data ?? []} formHref={formHref} />,
+    ],
     ['budget', failed(funds) ?? (funds.data && <BudgetSection sources={funds.data} />)],
     ['window', <WindowSection key="window" />],
-    ['areas', failed(areaList) ?? (areaList.data && <AreasSection areas={areaList.data} />)],
+    [
+      'areas',
+      failed(areaList) ??
+        (areaList.data && (
+          <>
+            <AreasSection areas={areaList.data} />
+            {failed(quotaList) ??
+              (quotaList.data && <QuotasSection quotas={quotaList.data} manage={configure} />)}
+          </>
+        )),
+    ],
     [
       'staff',
       failed(staffList) ??
@@ -320,17 +353,22 @@ function ProjectWizard({ projectId }: { projectId: string }) {
         key="review"
         missing={missing}
         activation={activate.error}
+        formHref={formHref}
         onOpen={(target) => void go(target)}
       />,
     ],
   ]);
   const last = index === steps.length - 1;
   const primary = !last
-    ? { label: t('next'), icon: ArrowRight, onPress: () => void go(steps.at(index + 1)!) }
+    ? {
+        label: t('next'),
+        icon: 'arrow-right' as const,
+        onPress: () => void go(steps.at(index + 1)!),
+      }
     : // a draft is activated only when what it still needs is known
       project.status === 'draft' && configure && missing !== null
-      ? { label: t('activate'), icon: Rocket, onPress: () => activate.mutate() }
-      : { label: t('to_project'), icon: ArrowRight, onPress: () => void toProject() };
+      ? { label: t('activate'), icon: 'rocket' as const, onPress: () => activate.mutate() }
+      : { label: t('to_project'), icon: 'arrow-right' as const, onPress: () => void toProject() };
 
   return (
     <SetupProvider value={{ project, etag: meta.etag, phone, configure, refresh }}>
@@ -346,9 +384,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
           onSelect={(i) => void go(steps.at(i)!)}
         />
         {locked && (
-          <Alert tone="info" live="status">
-            {ts('read_only', { status: tp(`status.${project.status}`) })}
-          </Alert>
+          <Alert tone="info">{ts('read_only', { status: tp(`status.${project.status}`) })}</Alert>
         )}
         {phone && !locked && <Alert tone="info">{ts('phone_limits')}</Alert>}
         <StepSaveProvider value={register}>

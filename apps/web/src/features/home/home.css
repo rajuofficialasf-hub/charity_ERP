@@ -1,17 +1,60 @@
 /*
- * The My Work home (docs/ui/SCREENS.md, "My Work home per role"): one column on a phone, two on a
- * tablet, three on a desktop; "needs your attention" spans the whole row. Tokens only.
+ * The My Work home (docs/ui/SCREENS.md, "My Work home per role"): the day at a glance, a Program
+ * Manager's counts by state, then "needs your attention" with the latest notifications beside the
+ * other widgets: one column on a phone, the attention first; two from 1024 px, the widgets on the
+ * left. Tokens only.
  */
+
+/* a Program Manager's projects by state, a stat card each */
+.my-work-states {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+@media (min-width: 1024px) {
+  .my-work-states {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .my-work {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
+.my-work-side,
+.my-work-main {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .my-work-main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+@media (min-width: 1024px) {
+  .my-work {
+    grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+  }
+  /* the widgets on the left, the attention list and the notifications on the right */
+  .my-work-side {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .my-work-main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+}
 .my-work-attention {
   display: grid;
   gap: var(--space-3);
-  grid-column: 1 / -1;
 }
 .my-work-heading {
   margin: 0;
@@ -39,27 +82,23 @@
   color: var(--color-text-secondary);
   font-size: var(--text-caption);
 }
-.my-work-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
-}
 .my-work-shortcut {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-height: 44px;
 }
-.my-work-later .ui-badge {
-  justify-self: start;
+.my-work-later {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
 }
-@media (min-width: 640px) {
-  .my-work {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1024px) {
-  .my-work {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+/* a heading for screen readers only */
+.my-work-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

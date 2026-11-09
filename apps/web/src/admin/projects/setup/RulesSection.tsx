@@ -4,7 +4,7 @@ import {
   RULES_PARTS,
   type RulesPart,
 } from '@css/shared/projects';
-import { TextArea } from '@css/ui';
+import { TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -77,7 +77,7 @@ export function RulesSection({ current }: { current: RulesVersion }) {
         const text = texts[part];
         return (
           <div key={part} className="admin-setup-grid">
-            <TextArea
+            <TextField
               label={t('field_bn', { part: tp(part) })}
               required
               maxLength={10_000}
@@ -86,7 +86,7 @@ export function RulesSection({ current }: { current: RulesVersion }) {
               onChange={(bn) => set(part, { ...text, bn })}
               readOnly={!can}
             />
-            <TextArea
+            <TextField
               label={t('field_en', { part: tp(part) })}
               required
               maxLength={10_000}

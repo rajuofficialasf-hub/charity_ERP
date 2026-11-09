@@ -1,6 +1,6 @@
 # ADR-010: Offline outbox with client_uuid idempotency and server-decided conflicts
 
-Status: approved with `docs/architecture/OFFLINE_SYNC.md` (task T0.12, 2026-10-10); derives from BD-48, O-07, O-13 and blueprint B7.
+Status: approved with `docs/architecture/OFFLINE_SYNC.md` (task T0.12, 2026-10-10); derives from BD-48, O-07, O-13 and blueprint B7. Implemented in T2.7 (2026-10-31, D-139): the "session-derived key" of the decision became a data key wrapped under a server-issued device key and a device-bound browser key, because the refresh token is an HttpOnly cookie the app cannot read (OFFLINE_SYNC.md §7); only volunteers work offline in this task; Background Sync only wakes an open window.
 
 ## Context
 

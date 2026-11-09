@@ -1,4 +1,5 @@
 import express, { type Express, Router } from 'express';
+import { BATCH_ENVELOPE_BYTES, BATCH_MAX_BYTES } from '@css/shared/sync';
 import type { DestinationStream } from 'pino';
 import { requireAccess } from './auth/require-access';
 import type { Container } from './container';
@@ -17,7 +18,11 @@ import { usersRouter } from './routes/users';
 import { locationsRouter } from './routes/locations';
 import { filesRouter } from './routes/files';
 import { uploadsRouter } from './routes/uploads';
+import { exportsRouter } from './routes/exports';
 import { volunteersRouter } from './routes/volunteers';
+import { applicationsRouter } from './routes/applications';
+import { mediaRouter } from './routes/media';
+import { syncRouter } from './routes/sync';
 import { beneficiariesRouter } from './routes/beneficiaries';
 import { programsRouter } from './routes/programs';
 import { settingsRouter } from './routes/settings';
@@ -30,12 +35,18 @@ import { projectSetupRouter } from './routes/project-setup';
 import { myProjectsRouter } from './routes/my-projects';
 import { projectVolunteersRouter } from './routes/project-volunteers';
 import { templatesRouter } from './routes/templates';
+import { formsRouter } from './routes/forms';
+import { publicRouter } from './routes/public';
 import { registrationsRouter } from './routes/registrations';
 
 export const API_PREFIX = 'api/v1';
 
 /** Bodies above this size are refused (NE-REQ-02); the sync batch route sets its own limit. */
 export const JSON_BODY_LIMIT = '100kb';
+/** The offline batch: the records' limit plus the margin for the envelope around them. */
+export const SYNC_BODY_LIMIT = BATCH_MAX_BYTES + BATCH_ENVELOPE_BYTES;
+/** The routes that read their own, larger body after the access check. */
+const LARGE_BODY_PATHS = new Set(['/api/v1/sync/batch']);
 
 export interface AppOptions {
   /** Test hook: where log lines go (default stdout). */
@@ -62,7 +73,12 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   app.use(requestLogging(c.env, options.logStream));
   app.use(securityHeaders());
   app.use(corsAllowlist(c.env.CORS_ORIGINS));
-  app.use(express.json({ limit: JSON_BODY_LIMIT }));
+  // the offline batch alone may carry a megabyte of records (and its envelope), parsed by its own
+  // route once the caller and the rate limit have passed; every other body is read here
+  const generalJson = express.json({ limit: JSON_BODY_LIMIT });
+  app.use((req, res, next) =>
+    LARGE_BODY_PATHS.has(req.path) ? next() : generalJson(req, res, next),
+  );
   // The request context opens after the body is read: body-parser continues from the socket's
   // events, which would leave an AsyncLocalStorage context opened earlier behind. Body-parser
   // errors render with the X-Request-Id header instead of the context.
@@ -94,14 +110,20 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   api.use(locationsRouter(deps, c));
   api.use(filesRouter(deps, c));
   api.use(uploadsRouter(deps, c));
+  api.use(exportsRouter(deps, c));
   api.use(volunteersRouter(deps, c));
   api.use(beneficiariesRouter(deps, c));
+  api.use(applicationsRouter(deps, c));
+  api.use(mediaRouter(deps, c));
+  api.use(syncRouter(deps, c));
   api.use(programsRouter(deps, c));
   api.use(projectsRouter(deps, c));
   api.use(projectSetupRouter(deps, c));
   api.use(myProjectsRouter(deps, c));
   api.use(projectVolunteersRouter(deps, c));
   api.use(templatesRouter(deps, c));
+  api.use(formsRouter(deps, c));
+  api.use(publicRouter(deps, c));
   api.use(registrationsRouter(deps, c));
   api.use(settingsRouter(deps, c));
   api.use(auditRouter(deps, c));

@@ -1,4 +1,4 @@
-import { ErrorState } from '@css/ui';
+import { Button, Page } from '@/ui';
 import { isRouteErrorResponse, useRouteError } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { DocumentTitle } from './DocumentTitle';
@@ -7,15 +7,23 @@ import { DocumentTitle } from './DocumentTitle';
 export function RouteError() {
   const error = useRouteError();
   const t = useTranslations('common.state');
+  const tc = useTranslations('common.action');
   const notFound = isRouteErrorResponse(error) && error.status === 404;
   if (!notFound) console.error(error);
   return (
     <main id="main" className="account-page">
       <DocumentTitle title={notFound ? t('empty.title') : t('error.text')} />
-      <ErrorState
-        title={notFound ? t('empty.title') : t('error.text')}
-        onRetry={notFound ? undefined : () => window.location.reload()}
-      />
+      <div role={notFound ? undefined : 'alert'}>
+        <Page title={notFound ? t('empty.title') : t('error.text')} documentTitle={false}>
+          {!notFound && (
+            <div>
+              <Button variant="secondary" onClick={() => window.location.reload()}>
+                {tc('retry')}
+              </Button>
+            </div>
+          )}
+        </Page>
+      </div>
     </main>
   );
 }

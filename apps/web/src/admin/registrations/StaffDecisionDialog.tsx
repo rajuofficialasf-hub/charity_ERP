@@ -1,5 +1,5 @@
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, Modal, RadioGroup, Select, TextArea } from '@css/ui';
+import { Alert, Button, Dialog, RadioGroup, SelectField, TextField } from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -17,13 +17,13 @@ const NOT_GIVEN = 'department_head';
 export function StaffDecisionDialog({
   userId,
   name,
-  isOpen,
+  open,
   onClose,
   onDone,
 }: {
   userId: string;
   name: string;
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
   onDone: (decision: Decision) => void;
 }) {
@@ -33,7 +33,7 @@ export function StaffDecisionDialog({
   const [decision, setDecision] = useState<Decision>('approve');
   const [roleKey, setRoleKey] = useState<string | null>(null);
   const [reason, setReason] = useState('');
-  const catalogue = useQuery({ queryKey: ['admin', 'roles'], queryFn: roles, enabled: isOpen });
+  const catalogue = useQuery({ queryKey: ['admin', 'roles'], queryFn: roles, enabled: open });
   const save = useMutation({
     mutationFn: () =>
       decideStaff(
@@ -62,28 +62,26 @@ export function StaffDecisionDialog({
   const ready = decision === 'approve' ? roleKey !== null : reason.trim().length >= 3;
   const options = (catalogue.data ?? [])
     .filter((r) => r.kind === 'official' && r.key !== NOT_GIVEN)
-    .map((r) => ({ id: r.key, label: r.name[locale] }));
+    .map((r) => ({ value: r.key, label: r.name[locale] }));
   return (
-    <Modal
+    <Dialog
       title={t('staff.title', { name })}
-      isOpen={isOpen}
+      open={open}
       onClose={close}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={close} disabled={save.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => save.mutate()} disabled={!ready} loading={save.isPending}>
-          {t('staff.submit')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={close} disabled={save.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
+            {t('staff.submit')}
+          </Button>
+        </>
       }
     >
       {failure instanceof ApiFailure && (
-        <Alert tone="danger" live="alert">
-          {failure.details[0]?.message ?? failure.message}
-        </Alert>
+        <Alert tone="error">{failure.details[0]?.message ?? failure.message}</Alert>
       )}
       <RadioGroup
         label={t('staff.decision')}
@@ -91,29 +89,30 @@ export function StaffDecisionDialog({
         value={decision}
         onChange={(id) => setDecision(id as Decision)}
         options={[
-          { id: 'approve', label: t('staff.approve') },
-          { id: 'reject', label: t('staff.reject') },
+          { value: 'approve', label: t('staff.approve') },
+          { value: 'reject', label: t('staff.reject') },
         ]}
       />
       {decision === 'approve' ? (
-        <Select
+        <SelectField
           label={t('staff.role')}
           required
-          value={roleKey}
-          onChange={setRoleKey}
+          value={roleKey ?? ''}
+          onChange={(v) => setRoleKey(v || null)}
           options={options}
           searchable={false}
         />
       ) : (
-        <TextArea
+        <TextField
+          rows={4}
           label={t('reason')}
-          helper={t('staff.reason_hint')}
+          hint={t('staff.reason_hint')}
           required
           maxLength={1000}
           value={reason}
           onChange={setReason}
         />
       )}
-    </Modal>
+    </Dialog>
   );
 }

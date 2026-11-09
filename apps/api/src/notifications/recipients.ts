@@ -15,7 +15,15 @@ import type { Tx } from '../core/prisma.service';
  */
 export type RecipientRule =
   | { user: string }
-  | { holders: { permission: string; entity: 'user' | 'volunteer'; target: RecordTarget } }
+  | {
+      holders: {
+        permission: string;
+        entity: 'user' | 'volunteer' | 'application';
+        target: RecordTarget;
+        /** The everyday work of the regions is not for the two global roles' inboxes. */
+        withoutGlobalRoles?: boolean;
+      };
+    }
   | { roles: readonly string[] }
   | { project: ProjectRule };
 
@@ -99,14 +107,23 @@ export class RecipientResolver {
    */
   private async holders(
     tx: Tx,
-    rule: { permission: string; entity: 'user' | 'volunteer'; target: RecordTarget },
+    rule: {
+      permission: string;
+      entity: 'user' | 'volunteer' | 'application';
+      target: RecordTarget;
+      /** The everyday work of the regions is not for the two global roles' inboxes. */
+      withoutGlobalRoles?: boolean;
+    },
   ): Promise<Recipient[]> {
     const permission = this.registry.permissions.get(rule.permission);
     if (!permission) throw new Error(`unknown permission ${rule.permission}`);
     const roles = new Set(permission.defaults.map((d) => d.role));
-    for (const role of this.registry.roles.values())
-      if (role.globalScope && !permission.globalRolesExcluded.includes(role.key))
-        roles.add(role.key);
+    // the two global roles hold every permission; a rule may leave them out of the readers of the
+    // everyday work (every submission of the country is not for the Department Head's inbox)
+    if (!rule.withoutGlobalRoles)
+      for (const role of this.registry.roles.values())
+        if (role.globalScope && !permission.globalRolesExcluded.includes(role.key))
+          roles.add(role.key);
     const now = this.clock.now();
     const candidates = await tx.user.findMany({
       where: {

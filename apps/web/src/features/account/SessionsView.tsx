@@ -1,27 +1,38 @@
 import type { DeviceSession } from '@css/shared/auth';
-import { formatDateTime } from '@css/shared/format';
+import { formatCount, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState } from '@css/ui';
+import { Alert, Button, Card, Chip, ConfirmDialog, EmptyState, Icon, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleCheck, Laptop, Smartphone } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { LoadError } from '../../components/LoadError';
 import { api, ApiFailure } from '../../lib/api';
 
 const PLATFORMS = ['android', 'ios', 'desktop', 'other'] as const;
 const SESSIONS_KEY = ['sessions'] as const;
 
-/** My devices (SCR-006 sessions tab, AUTH.md 8): list, current marker, log out another device. */
+/**
+ * My devices (docs/architecture/AUTH.md, the device sessions): list, current marker, log out
+ * another device.
+ */
 export function SessionsView() {
   const t = useTranslations('auth.sessions');
   // The list loads only inside the signed-in frame, after the session has been restored.
   return (
-    <AccountPage title={() => t('title')}>
+    <AccountPage
+      title={() => t('title')}
+      eyebrow={t('eyebrow')}
+      description={t('description')}
+      wide
+    >
       {() => (
         <>
           <DocumentTitle title={t('title')} />
+          <Card title={t('unknown_note.title')} headingLevel={2}>
+            <Text tone="muted">{t('unknown_note.body')}</Text>
+          </Card>
           <SessionList />
         </>
       )}
@@ -31,7 +42,6 @@ export function SessionsView() {
 
 function SessionList() {
   const t = useTranslations('auth.sessions');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const [target, setTarget] = useState<DeviceSession | null>(null);
@@ -57,54 +67,66 @@ function SessionList() {
   };
   const failure = [sessions.error, revoke.error].find((e) => e instanceof ApiFailure);
   const rows = sessions.data;
+  /** What the device last said it still holds, or null when it never said. */
+  const pendingOf = (session: DeviceSession, key: 'pending' | 'revoke_pending') =>
+    session.pendingCount && session.pendingReportedAt
+      ? t(key, {
+          n: session.pendingCount,
+          count: formatCount(session.pendingCount, locale),
+          time: formatDateTime(session.pendingReportedAt, locale),
+        })
+      : null;
 
   return (
     <>
       {done && (
-        <Alert tone="success" live="status" onDismiss={() => setDone(false)}>
+        <Alert tone="success" onDismiss={() => setDone(false)}>
           {t('revoked')}
         </Alert>
       )}
       {failure && (
-        <ErrorState
-          title={tc('state.error.text')}
+        <LoadError
+          error={failure}
           message={failure.message}
-          requestId={failure.requestId}
           onRetry={() => {
             revoke.reset();
             void sessions.refetch();
           }}
         />
       )}
-      {rows && rows.length <= 1 && !failure && (
-        <EmptyState icon={CircleCheck} title={t('empty')} headingLevel={2} />
-      )}
+      {rows && rows.length <= 1 && !failure && <EmptyState icon="success" title={t('empty')} />}
       {rows && (
         <ul className="session-list">
           {rows.map((session) => (
             <li key={session.id}>
               <Card
                 title={session.deviceName ?? t('unknown_device')}
-                subtitle={platformName(session.platform)}
                 headingLevel={2}
-                actions={
+                action={
                   session.current ? (
-                    <Badge tone="success" icon={CircleCheck} label={t('current')} />
+                    <Chip tone="success">
+                      <Icon name="success" size={16} />
+                      {t('current')}
+                    </Chip>
                   ) : (
                     <Button
                       variant="secondary"
-                      size="sm"
-                      icon={session.platform === 'desktop' ? Laptop : Smartphone}
-                      onPress={() => setTarget(session)}
+                      size="small"
+                      startIcon={session.platform === 'desktop' ? 'laptop' : 'smartphone'}
+                      onClick={() => setTarget(session)}
                     >
                       {t('revoke')}
                     </Button>
                   )
                 }
               >
+                <Text tone="muted" size="small">
+                  {platformName(session.platform)}
+                </Text>
                 <div className="session-row">
                   <p>{t('last_seen', { time: formatDateTime(session.lastSeenAt, locale) })}</p>
                   <p>{t('created', { date: formatDateTime(session.createdAt, locale) })}</p>
+                  {pendingOf(session, 'pending') !== null && <p>{pendingOf(session, 'pending')}</p>}
                 </div>
               </Card>
             </li>
@@ -112,9 +134,16 @@ function SessionList() {
         </ul>
       )}
       <ConfirmDialog
-        isOpen={target !== null}
+        open={target !== null}
         title={t('revoke_title')}
-        message={t('revoke_body')}
+        message={
+          <>
+            <p>{t('revoke_body')}</p>
+            {target && pendingOf(target, 'revoke_pending') && (
+              <p>{pendingOf(target, 'revoke_pending')}</p>
+            )}
+          </>
+        }
         tone="danger"
         confirmLabel={t('revoke_confirm')}
         pending={revoke.isPending}

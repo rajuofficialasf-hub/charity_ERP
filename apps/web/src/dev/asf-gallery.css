@@ -1,0 +1,32 @@
+/* The asf gallery's frame: its sections as cards on the asf colours, in light and dark. */
+.asf-gallery {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.asf-gallery-section {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--asf-palette-divider);
+  border-radius: 16px;
+  background: var(--asf-palette-background-paper);
+}
+
+.asf-gallery-title {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.asf-gallery-body {
+  display: grid;
+  gap: 16px;
+}
+
+.asf-gallery-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}

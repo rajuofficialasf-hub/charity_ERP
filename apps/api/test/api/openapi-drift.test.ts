@@ -23,23 +23,28 @@ const permissions = new Set(
   ).permissions.map((p) => p.name),
 );
 
-// Fixtures use an operation of the contract that is not implemented yet (a new form version, a
-// later task of docs/PLAN.md).
+// Fixtures use an operation of the contract that is not implemented yet (the media consent of a
+// beneficiary, a later task of docs/PLAN.md).
 const contractOf = {
-  operationId: 'forms.version.createDraft',
-  tag: 'forms',
-  summary: 'Start a draft version of a form',
-  permission: 'form.build',
-  scope: 'project',
-  audit: 'form.version_created',
+  operationId: 'beneficiaries.consent.record',
+  tag: 'beneficiaries',
+  summary: 'Record or change media consent',
+  permission: 'beneficiary.consent.record',
+  scope: 'beneficiary',
+  audit: 'media_consent',
   idempotency: 'none' as const,
   rateLimit: 'default' as const,
   status: 201,
-  params: { formId: z.uuid() },
+  params: { beneficiaryId: z.uuid() },
+  body: z.object({
+    granted: z.boolean(),
+    channels: z.array(z.string()),
+    evidenceFileId: z.uuid().optional(),
+  }),
   // a success with a body declares its schema (the field mask reads it)
-  responses: { 201: z.object({ id: z.uuid() }), 404: null, 409: null },
+  responses: { 201: z.object({ id: z.uuid() }), 404: null, 422: null },
 };
-const FIXTURE_PATH = '/forms/:formId/versions';
+const FIXTURE_PATH = '/beneficiaries/:beneficiaryId/media-consent';
 
 function matching(deps: RouteDeps): Router {
   const router = Router();
@@ -84,7 +89,7 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
   it('an operation declared like the contract passes', async () => {
     open = buildTestApp({ routers: [matching] });
     const document = buildOpenApiDocument(open.registry);
-    expect(Object.keys(document.paths)).toContain('/forms/{formId}/versions');
+    expect(Object.keys(document.paths)).toContain('/beneficiaries/{beneficiaryId}/media-consent');
     expect(compareWithContract(document as never, contract as never, permissions)).toEqual([]);
   });
 
@@ -94,8 +99,10 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
     const problems = compareWithContract(document as never, contract as never, permissions).join(
       '\n',
     );
-    expect(problems).toMatch(/x-audit is "none", the contract says "form.version_created"/);
-    expect(problems).toMatch(/x-permission is "user.state.change", the contract says "form.build"/);
+    expect(problems).toMatch(/x-audit is "none", the contract says "media_consent"/);
+    expect(problems).toMatch(
+      /x-permission is "user.state.change", the contract says "beneficiary.consent.record"/,
+    );
     expect(problems).toMatch(/request body schema/);
     expect(problems).toMatch(/responses \["200"\] differ/);
   });

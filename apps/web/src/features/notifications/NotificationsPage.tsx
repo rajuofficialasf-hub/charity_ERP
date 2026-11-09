@@ -1,23 +1,12 @@
 import { formatCount, formatDate, formatTime, isoDateInDhaka } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  ErrorState,
-  SegmentedControl,
-  Skeleton,
-  Tabs,
-  Text,
-} from '@css/ui';
+import { Alert, Button, Card, Chip, EmptyState, RadioGroup, Skeleton, Tabs, Text } from '@/ui';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, CheckCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
+import { LoadError } from '../../components/LoadError';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import {
   type InboxEntry,
@@ -39,21 +28,32 @@ export function NotificationsPage() {
   const t = useTranslations('notifications');
   const [tab, setTab] = useState('all');
   return (
-    <AccountPage title={() => t('title')}>
+    <AccountPage
+      title={() => t('title')}
+      eyebrow={t('eyebrow')}
+      description={t('description')}
+      wide
+    >
       {(me) => (
-        <>
+        <div className={me.kind === 'staff' ? 'page-split' : undefined}>
           <DocumentTitle title={t('title')} />
-          <Tabs
-            label={t('tab.label')}
-            selectedId={tab}
-            onChange={setTab}
-            items={[
-              { id: 'all', label: t('tab.all'), content: <Inbox unread={false} /> },
-              { id: 'unread', label: t('tab.unread'), content: <Inbox unread /> },
-            ]}
-          />
-          {me.kind === 'staff' && <EmailPreference />}
-        </>
+          <Card>
+            <Tabs
+              label={t('tab.label')}
+              value={tab}
+              onChange={setTab}
+              items={[
+                { value: 'all', label: t('tab.all'), content: <Inbox unread={false} /> },
+                { value: 'unread', label: t('tab.unread'), content: <Inbox unread /> },
+              ]}
+            />
+          </Card>
+          {me.kind === 'staff' && (
+            <aside className="page-split-side" aria-label={t('email.title')}>
+              <EmailPreference />
+            </aside>
+          )}
+        </div>
       )}
     </AccountPage>
   );
@@ -98,19 +98,15 @@ function Inbox({ unread }: { unread: boolean }) {
   });
 
   if (list.isPending) return <Skeleton shape="row" count={4} />;
-  if (list.isError) return <ErrorState title={t('error')} onRetry={() => void list.refetch()} />;
+  if (list.isError)
+    return <LoadError title={t('error')} error={list.error} onRetry={() => void list.refetch()} />;
   const entries = list.data.pages.flatMap((p) => p.data);
   const unreadCount = list.data.pages[0]?.meta.unreadCount ?? 0;
   if (!entries.length)
     return unread ? (
-      <EmptyState icon={Bell} title={t('empty_unread.title')} headingLevel={2} />
+      <EmptyState title={t('empty_unread.title')} />
     ) : (
-      <EmptyState
-        icon={Bell}
-        title={t('empty.title')}
-        message={t('empty.message')}
-        headingLevel={2}
-      />
+      <EmptyState title={t('empty.title')} description={t('empty.message')} />
     );
 
   const days: { day: string; items: InboxEntry[] }[] = [];
@@ -128,22 +124,22 @@ function Inbox({ unread }: { unread: boolean }) {
   };
 
   return (
-    <div>
+    <div className="notification-inbox">
       {unreadCount > 0 && (
         <div className="notification-toolbar">
-          <Badge tone="info" label={`${t('unread')}: ${formatCount(unreadCount, locale)}`} />
+          <Chip tone="info">{`${t('unread')}: ${formatCount(unreadCount, locale)}`}</Chip>
           <Button
             variant="secondary"
-            size="sm"
-            icon={CheckCheck}
+            size="small"
+            startIcon="check"
             loading={read.isPending}
-            onPress={() => read.mutate({ all: true })}
+            onClick={() => read.mutate({ all: true })}
           >
             {t('mark_all')}
           </Button>
         </div>
       )}
-      {read.isError && <Alert tone="danger">{tc('state.error.text')}</Alert>}
+      {read.isError && <Alert tone="error">{tc('state.error.text')}</Alert>}
       {days.map(({ day, items }) => (
         <section key={day} aria-label={dayLabel(day)}>
           <h2 className="notification-day">{dayLabel(day)}</h2>
@@ -158,19 +154,23 @@ function Inbox({ unread }: { unread: boolean }) {
                 <p>{e.body}</p>
                 <div className="notification-meta">
                   <span>{formatTime(e.createdAt, locale)}</span>
-                  {!e.readAt && <Badge size="sm" tone="brand" label={t('unread')} />}
+                  {!e.readAt && <Chip tone="primary">{t('unread')}</Chip>}
                   {e.count > 1 && (
-                    <Badge size="sm" label={t('times', { count: formatCount(e.count, locale) })} />
+                    <Chip>{t('times', { count: formatCount(e.count, locale) })}</Chip>
                   )}
                 </div>
                 <div className="notification-actions">
                   {e.link && (
-                    <Button size="sm" variant="secondary" onPress={() => open(e)}>
+                    <Button size="small" variant="secondary" onClick={() => open(e)}>
                       {t('open')}
                     </Button>
                   )}
                   {!e.readAt && (
-                    <Button size="sm" variant="ghost" onPress={() => read.mutate({ ids: [e.id] })}>
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => read.mutate({ ids: [e.id] })}
+                    >
                       {t('mark_read')}
                     </Button>
                   )}
@@ -182,9 +182,9 @@ function Inbox({ unread }: { unread: boolean }) {
       ))}
       {list.hasNextPage && (
         <Button
-          variant="ghost"
+          variant="text"
           loading={list.isFetchingNextPage}
-          onPress={() => void list.fetchNextPage()}
+          onClick={() => void list.fetchNextPage()}
         >
           {t('load_more')}
         </Button>
@@ -204,18 +204,19 @@ function EmailPreference() {
     onSuccess: (saved) => queryClient.setQueryData(PREFERENCES_KEY, saved),
   });
   return (
-    <Card title={t('title')} headingLevel={2} className="notification-email">
+    <Card title={t('title')} headingLevel={2}>
       {current.isPending ? (
         <Skeleton shape="text" />
       ) : current.isError ? (
-        <Alert tone="danger">{tc('state.error.text')}</Alert>
+        <Alert tone="error">{tc('state.error.text')}</Alert>
       ) : (
         <>
-          <SegmentedControl
+          <RadioGroup
             label={t('label')}
+            orientation="horizontal"
             options={[
-              { id: 'digest', label: t('digest') },
-              { id: 'immediate', label: t('immediate') },
+              { value: 'digest', label: t('digest') },
+              { value: 'immediate', label: t('immediate') },
             ]}
             value={current.data.email_mode ?? 'digest'}
             onChange={(id) => {
@@ -225,8 +226,8 @@ function EmailPreference() {
             }}
           />
           <Text tone="muted">{t('help')}</Text>
-          {save.isSuccess && <Text role="status">{t('saved')}</Text>}
-          {save.isError && <Alert tone="danger">{tc('state.error.text')}</Alert>}
+          {save.isSuccess && <Alert tone="success">{t('saved')}</Alert>}
+          {save.isError && <Alert tone="error">{tc('state.error.text')}</Alert>}
         </>
       )}
     </Card>

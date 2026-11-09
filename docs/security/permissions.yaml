@@ -136,8 +136,8 @@ sensitive_fields:
     source: "A4 second table, B8"
   - key: application.official_section
     fields: [form sections with visibility official_only, application_scores.*]
-    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team, media_team, media_director, media_assistant_director]
-    source: "B3, B4: never returned to volunteers; Procurement and Media read applications (A4)"
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team]
+    source: "B3, B4: never returned to volunteers; Procurement reads applications (A4); the Media Team reads only the official comment of a referred application, through its work (D-101 (3), D-136)"
   - key: blocklist.reason
     fields: [blocklist.reason, blocklist.blocked_by]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
@@ -285,6 +285,26 @@ permissions:
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_team_member, scope: SELF }
       - { role: volunteer_paid, scope: SELF }
+  - name: staff_edit_request.submit
+    description: Ask for a change of one's own official details (name, designation, contact, photo, workplace)
+    module: M03
+    sensitive: false
+    default:
+      - { role: program_manager, scope: SELF }
+      - { role: regional_program_manager, scope: SELF }
+      - { role: project_executive, scope: SELF }
+      - { role: implementer, scope: SELF }
+      - { role: official_daee, scope: SELF }
+      - { role: procurement_team, scope: SELF }
+      - { role: media_team, scope: SELF }
+      - { role: media_director, scope: SELF }
+      - { role: media_assistant_director, scope: SELF }
+      - { role: finance_team, scope: SELF }
+  - name: staff_edit_request.approve
+    description: Decide an official's request to change their own details (never one's own request)
+    module: M03
+    sensitive: false
+    default: []
 
   # ---- M04 Volunteer Management --------------------------------------------------------------------
   - name: volunteer.view_all
@@ -627,13 +647,17 @@ permissions:
 
   # ---- M07 Form Platform ---------------------------------------------------------------------------
   - name: form.build
-    description: Edit a project's form draft (sections, fields, logic)
+    description: Build a form draft (sections, questions, logic) — the ready forms and the question library; held by the two global roles only
     module: M07
     sensitive: false
-    default:
-      - { role: program_manager, scope: PROGRAM }
+    default: []
   - name: form.publish
-    description: Publish a form version
+    description: Publish a form version; held by the two global roles only
+    module: M07
+    sensitive: false
+    default: []
+  - name: form.place
+    description: Place a published ready form on a project and take its newer versions, changing nothing in it
     module: M07
     sensitive: false
     default:
@@ -644,8 +668,13 @@ permissions:
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
+  - name: form.library.view
+    description: Read the question library the form builder picks from; held by the two global roles only
+    module: M07
+    sensitive: false
+    default: []
   - name: form.library.manage
-    description: Edit the section and field libraries
+    description: Edit and publish the question library; held by the two global roles only
     module: M07
     sensitive: false
     default: []
@@ -707,9 +736,6 @@ permissions:
       - { role: implementer, scope: REGION, condition: safe_water_only }
       - { role: official_daee, scope: ASSIGNED }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
-      - { role: media_team, scope: GLOBAL }
-      - { role: media_director, scope: GLOBAL }
-      - { role: media_assistant_director, scope: GLOBAL }
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_team_member, scope: SELF, condition: own_created }
@@ -726,9 +752,6 @@ permissions:
       - { role: implementer, scope: REGION, condition: safe_water_only }
       - { role: official_daee, scope: ASSIGNED }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
-      - { role: media_team, scope: GLOBAL }
-      - { role: media_director, scope: GLOBAL }
-      - { role: media_assistant_director, scope: GLOBAL }
   - name: application.review
     description: Take an application under review and edit the whole form
     module: M08
@@ -756,7 +779,7 @@ permissions:
       - { role: project_executive, scope: REGION, condition: if_rpm_grants }
       - { role: official_daee, scope: REGION, condition: if_rpm_grants }   # O-27
   - name: application.waitlist
-    description: Put a reviewed application on the waitlist or pull it from the waitlist
+    description: Put a reviewed application on the waitlist or pull it from the waitlist (the pull is an approval and also needs application.approve)
     module: M08
     sensitive: false
     default:
@@ -1123,6 +1146,12 @@ permissions:
     default:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION, condition: own_region }
+  - name: staff.work.view
+    description: An official's projects and the figures of their work there (the person's own figures need no grant)
+    module: M14
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
 
   # ---- M15 Audit Log -------------------------------------------------------------------------------
   - name: audit.view
@@ -1273,7 +1302,7 @@ permissions:
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_paid, scope: ASSIGNED }
   - name: media.referral.create
-    description: Refer an approved application of the caller's scope to the Media Team as publishable, with a priority and a note; refused without the beneficiary's recorded media consent (D-101)
+    description: Refer an approved application of the caller's scope to the Media Team as publishable, with a priority, a note and an optional story; no consent is asked (D-101, D-137)
     module: M18
     sensitive: false
     default:
@@ -1293,7 +1322,7 @@ permissions:
     default:
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }
-      - { role: media_team, scope: GLOBAL }
+      - { role: media_team, scope: ASSIGNED }
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: media.work.manage
@@ -1327,7 +1356,7 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }
-      - { role: media_team, scope: GLOBAL }
+      - { role: media_team, scope: ASSIGNED }
 
   # ---- M19 Locations -------------------------------------------------------------------------------
   - name: location.manage

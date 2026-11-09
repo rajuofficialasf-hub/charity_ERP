@@ -1,15 +1,5 @@
-import {
-  Alert,
-  Button,
-  ConfirmDialog,
-  EmptyState,
-  ErrorState,
-  Stack,
-  Table,
-  type TableColumn,
-} from '@css/ui';
+import { Alert, Button, ConfirmDialog, DataTable, Stack, type DataTableExtendedColumn } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, FilePenLine, X } from 'lucide-react';
 import { useState } from 'react';
 import { formatDate } from '@css/shared/format';
 import { useTranslations } from 'use-intl';
@@ -24,6 +14,7 @@ import { ApiFailure } from '../../lib/api';
 import { type AddressIds, AddressNames } from '../../components/AddressNames';
 import { FileImage } from '../../components/FileImage';
 import { decideEdit, EDITS_KEY, type EditRequestRow, editRequests } from './registrations-api';
+import { LoadError } from '../../components/LoadError';
 
 const PHOTO_FIELDS = new Set(['photo', 'nid_photo']);
 
@@ -36,7 +27,6 @@ const PHOTO_FIELDS = new Set(['photo', 'nid_photo']);
 export function EditRequests() {
   const t = useTranslations('admin.registrations.edits');
   const tr = useTranslations('admin.registrations');
-  const tc = useTranslations('common');
   const tf = useTranslations('registration');
   const queryClient = useQueryClient();
   const [refusing, setRefusing] = useState<EditRequestRow | null>(null);
@@ -102,27 +92,27 @@ export function EditRequests() {
   const actions = (r: EditRequestRow) => (
     <Stack direction="row" wrap gap={2}>
       <Button
-        size="sm"
-        icon={Check}
-        aria-label={t('approve_label', { name: who(r), field: field(r) })}
+        size="small"
+        startIcon="check"
+        ariaLabel={t('approve_label', { name: who(r), field: field(r) })}
         disabled={decide.isPending}
-        onPress={() => decide.mutate({ row: r })}
+        onClick={() => decide.mutate({ row: r })}
       >
         {t('approve')}
       </Button>
       <Button
-        size="sm"
+        size="small"
         variant="secondary"
-        icon={X}
-        aria-label={t('reject_label', { name: who(r), field: field(r) })}
+        startIcon="close"
+        ariaLabel={t('reject_label', { name: who(r), field: field(r) })}
         disabled={decide.isPending}
-        onPress={() => setRefusing(r)}
+        onClick={() => setRefusing(r)}
       >
         {t('reject')}
       </Button>
     </Stack>
   );
-  const columns: TableColumn<EditRequestRow>[] = [
+  const columns: DataTableExtendedColumn<EditRequestRow>[] = [
     { id: 'volunteer', header: t('column.volunteer'), cell: who, isRowHeader: true },
     { id: 'field', header: t('column.field'), cell: field },
     { id: 'value', header: t('column.value'), cell: value },
@@ -131,45 +121,38 @@ export function EditRequests() {
   return (
     <div className="admin-panel-section">
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
       {failure && !refusing && (
-        <Alert tone="danger" live="alert">
-          {failure.details[0]?.message ?? failure.message}
-        </Alert>
+        <Alert tone="error">{failure.details[0]?.message ?? failure.message}</Alert>
       )}
-      <Table
+      <DataTable
         label={tr('tabs.edits')}
         columns={columns}
         rows={list.data ?? []}
-        rowKey={(r) => r.id}
+        getRowId={(r) => r.id}
         rowLabel={(r) => `${who(r)} · ${field(r)}`}
         rowActions={actions}
         loading={list.isPending}
         error={
           list.error ? (
-            <ErrorState
-              title={tc('state.error.text')}
-              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
-              onRetry={() => void list.refetch()}
-            />
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
-        emptyState={<EmptyState icon={FilePenLine} title={t('empty')} headingLevel={2} />}
+        emptyTitle={t('empty')}
         cardRenderer={(r) => (
           <div className="admin-permission-card">
             <strong>{who(r)}</strong>
             <span>{field(r)}</span>
             <span>{value(r)}</span>
             {r.note && <span className="admin-muted">{r.note}</span>}
-            {actions(r)}
           </div>
         )}
       />
       <ConfirmDialog
-        isOpen={refusing !== null}
+        open={refusing !== null}
         title={refusing ? t('reject_title', { name: who(refusing), field: field(refusing) }) : ''}
         message={
           failure && <p className="admin-error">{failure.details[0]?.message ?? failure.message}</p>

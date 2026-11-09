@@ -14,7 +14,7 @@ Repository: https://github.com/rajuofficialasf-hub/charity_ERP
 | `docs/PLAN.md` | The owner's step-by-step plan: 78 task prompts for Phase 0-6 (Bengali guidance, English prompts) |
 | `docs/MODEL_GUIDE.md` | Which Claude model and effort level to use for each of the 78 tasks, why, and what to do when a usage limit runs out (Bengali) |
 | `docs/ui/DESIGN_BRIEF.md` | The owner's design decisions from the 2026-10-10 interview: look, devices, digits, photos, notifications |
-| `docs/ui/brand/colors.md` | Brand colours, ERP colour tokens with contrast checks, and fonts, taken from the Foundation's website |
+| `docs/ui/brand/colors.md` | The asf colour tokens with contrast checks in light and dark, the fonts, and the record of the earlier brand taken from the Foundation's website |
 | `docs/STATUS.md` | Session hand-off: current phase, next task, open decisions, known issues |
 | `docs/source/README.md` | Input files the owner still has to supply (mockups, SOP, samples, location data) |
 | `.claude/commands/` | Project slash commands: `/css-start`, `/css-end`, `/css-fix`, `/css-change`, `/css-bug`, `/css-review`, `/css-docsync`, `/css-status`, `/css-gate`, `/css-uat` |
@@ -34,7 +34,7 @@ Phase 1 has started: the repository holds the scaffold of task T1.1 (no business
 
 ### Prerequisites
 
-- Node.js 24 LTS, 24.16.0 or later (`.nvmrc`; older 24.x releases abort test workers on Windows, D-120) and pnpm 12 (`corepack enable` or `npm install -g pnpm@12.10.1`)
+- Node.js 24 LTS, 24.16.0 or later (`.nvmrc`; older 24.x releases abort test workers on Windows, D-164) and pnpm 12 (`corepack enable` or `npm install -g pnpm@12.10.1`)
 - Docker Desktop with the engine running (Docker Compose v2.20 or newer)
 - Git with LF line endings (`.gitattributes` enforces them)
 
@@ -66,9 +66,8 @@ The web app runs at http://127.0.0.1:3000 (Vite, proxying `/api/v1` to the API) 
 | Path | Contents |
 |---|---|
 | `apps/api` | Express 5 REST API (`/api/v1`, `src/server.ts`) and the pg-boss worker (`src/worker.ts`), Prisma schema and migrations in `prisma/` |
-| `apps/web` | Vite React single-page PWA (`src/`: React Router, TanStack Query, use-intl, Serwist service worker), Playwright tests in `e2e/` |
+| `apps/web` | Vite React single-page PWA (`src/`: React Router, TanStack Query, use-intl, Serwist service worker), the asf UI system in `src/ui/` (contract, tokens, the asf template on MUI core; pages import only `@/ui`), Playwright tests in `e2e/` |
 | `packages/shared` | Pure TypeScript shared by API and PWA: zod schemas, permission names, i18n keys, business-rule functions |
-| `packages/ui` | The component set: components on MUI core (template folder `src/templates/mui/`), layout pieces, design tokens, self-hosted fonts |
 | `packages/config` | Shared tsconfig, ESLint and Prettier configuration |
 | `infra/` | Docker Compose file for development services |
 | `scripts/` | Repository checks (`check-docs.mjs`) |
@@ -81,7 +80,7 @@ The web app runs at http://127.0.0.1:3000 (Vite, proxying `/api/v1` to the API) 
 | `pnpm build` | Builds every package and app |
 | `pnpm test` | Unit, component, API and database integration tests (Vitest, all packages; the database tests need `docker compose up -d`) |
 | `pnpm test:coverage` | The same with a coverage report |
-| `pnpm e2e` | Builds the packages, the API and the PWA with the dev component gallery, then runs Playwright (mobile and desktop) against the API on a fresh `css_erp_test_e2e` database with the demo accounts (needs `docker compose up -d`) |
+| `pnpm e2e` | Builds the packages, the API and the PWA with the dev asf gallery (`/dev/asf`), then runs Playwright (mobile and desktop) against the API on a fresh `css_erp_test_e2e` database with the demo accounts (needs `docker compose up -d`) |
 | `pnpm lint` | ESLint (including the hard-coded text rule), the Prettier check and `pnpm i18n:check` (`pnpm format` rewrites) |
 | `pnpm i18n:check` | Message catalogue check (bn/en parity, ICU, parameters, digits, error codes) and no Bengali text in code |
 | `pnpm typecheck` | TypeScript in every package |
@@ -113,6 +112,7 @@ All ports listen on 127.0.0.1 only. Overrides (ports, dev passwords) go in `infr
 - **Bad Gateway on the login page, and the API log in Docker says `Cannot find module ...`**: a pull added a package; the containers keep their own Linux dependencies in a volume, so install them there and restart: `docker compose run --rm setup`, `docker compose run --rm migrate`, then `docker compose restart api web`.
 - **`/health/ready` reports storage down after an update**: a new bucket was added to `infra/minio/bootstrap.sh`; run `docker compose run --rm minio-init` once (it only adds what is missing).
 - **Playwright cannot find a browser**: run `pnpm --filter @css/web exec playwright install chromium`.
+- **Export PDFs say they are unavailable**: the API prints PDFs through Chromium inside its sandbox and never without it. Install the browser once with `pnpm --filter @css/api exec playwright-core install chromium` (the same build the web tests use). Chromium refuses its sandbox to the root user, so in the Docker dev setup (which runs as root) PDFs stay unavailable while Excel and CSV work; run the API on the host, or run the API and the worker as a non-root user, to print them. On Linux hosts that close unprivileged user namespaces (Ubuntu 23.10 and later), allow them for the sandbox (`kernel.apparmor_restrict_unprivileged_userns=0`).
 - **The web app cannot reach the API** (`ECONNREFUSED 127.0.0.1:4000` in the Vite log): start the API (`pnpm dev` starts both) or set `CSS_API_ORIGIN` in `apps/web/.env` to where it runs.
 - **Line endings on Windows**: the repository keeps LF; if Git converted files, run `git config core.autocrlf false` and check out again.
 

@@ -20,6 +20,8 @@ export interface SetupInput {
   /** The current rules texts (`projects.rules`); the dawah part counts while dawah is on. */
   rules: unknown;
   dawahEnabled: boolean;
+  /** Whether a form of the project has a published version (the application form component needs one). */
+  publishedForm: boolean;
 }
 
 /** A missing item: a fixed key, or `component:<key>` for an enabled component with bad settings. */
@@ -35,6 +37,7 @@ export type MissingItem =
   | 'fund_sources_total'
   | 'area'
   | 'photo_rule'
+  | 'form'
   | `component:${string}`
   | `rules:${RulesPart}`;
 
@@ -46,8 +49,8 @@ export type MissingItem =
  * window runs forwards, the limit is a whole number of at least 1, cost and target are above zero.
  * The rules texts every volunteer accepts are needed too: the volunteer's duties, the
  * implementation process and the consequences of misconduct, and the Local দায়ী's duties while
- * dawah is on (DECISION_LOG D-096). The published form joins this check in its task. An empty list
- * means the project may be activated.
+ * dawah is on (DECISION_LOG D-096), and a published application form while the application-form
+ * component is on. An empty list means the project may be activated.
  */
 export function setupCheck(input: SetupInput): MissingItem[] {
   const missing: MissingItem[] = [];
@@ -73,6 +76,8 @@ export function setupCheck(input: SetupInput): MissingItem[] {
       missing.push('fund_sources_total');
   }
   if (input.areaCount === 0) missing.push('area');
+  const form = input.components.find((c) => c.componentKey === 'application_form');
+  if (form?.enabled && !input.publishedForm) missing.push('form');
   missing.push(...componentsCheck(input.components));
   missing.push(
     ...missingRuleParts(input.rules, input.dawahEnabled).map((part) => `rules:${part}` as const),

@@ -12,7 +12,7 @@ export const nodeSourceConditions = [
   ...defaultServerConditions.filter((c) => c !== 'module'),
 ];
 
-/** The first Node release whose libuv no longer breaks its stack cookie on Windows (D-120). */
+/** The first Node release whose libuv no longer breaks its stack cookie on Windows (D-164). */
 export const MIN_WINDOWS_NODE = '24.16.0';
 
 const versionNumber = (version: string) => {

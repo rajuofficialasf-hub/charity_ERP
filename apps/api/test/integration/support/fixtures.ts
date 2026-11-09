@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { fakeMobile as sharedFakeMobile, fakeNid as sharedFakeNid } from '@css/shared';
 import type { Client } from 'pg';
+import { mergedWorkflowDefinitions } from '../../../src/workflow/templates';
 
 /**
  * Minimal row builders for database tests. Identities are obviously fake (TEST_STRATEGY section 4):
@@ -95,7 +96,10 @@ export async function project(db: Client, over: Record<string, unknown> = {}) {
     version: 1,
     title_bn: 'ধাপ',
     title_en: 'Flow',
-    definition: '{}',
+    // a real definition (the distribution template), so the engine can read any fixture project
+    definition: JSON.stringify(
+      mergedWorkflowDefinitions().find((d) => d.template === 'distribution'),
+    ),
   });
   const code =
     'T' +
@@ -133,12 +137,15 @@ export async function beneficiary(
   loc: Awaited<ReturnType<typeof locationTree>>,
   over: Record<string, unknown> = {},
 ) {
+  // the gender list holds the two genders the tests give; any other code stays refused
   await referenceCode(db, 'gender', 'female');
+  await referenceCode(db, 'gender', 'male');
+  // each person their own family unless a test gives two the same father, village and union
   return insert(db, 'beneficiaries', {
     id: randomUUID(),
     nid: fakeNid(),
     name: 'নমুনা উপকারভোগী',
-    father_or_husband_name: 'নমুনা পিতা',
+    father_or_husband_name: `নমুনা পিতা ${randomUUID().slice(0, 8)}`,
     mobile: fakeMobile(),
     gender_code: 'female',
     division_id: loc.division,

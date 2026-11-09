@@ -2,6 +2,13 @@
 export const PROJECT_STATUSES = ['draft', 'active', 'closing', 'closed', 'cancelled'] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
+/** The status a stored row holds; a value outside the list is a programming error, not input. */
+export function projectStatusOf(value: string): ProjectStatus {
+  const status = PROJECT_STATUSES.find((s) => s === value);
+  if (!status) throw new Error(`unknown project status ${value}`);
+  return status;
+}
+
 export type ProjectAction = 'activate' | 'cancel' | 'start_closing' | 'close' | 'reopen';
 
 /**
@@ -45,7 +52,8 @@ export type SetupField =
   | 'areas'
   | 'staff'
   | 'syllabus'
-  | 'rules';
+  | 'rules'
+  | 'quotas';
 
 /** The end date moves only through the reasoned deadline extension once a project is active. */
 const FIXED_WHEN_ACTIVE: readonly SetupField[] = [...IDENTITY_FIELDS, 'applyTo'];

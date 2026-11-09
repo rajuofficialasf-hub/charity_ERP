@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { expectNoAxeViolations } from '@css/ui/testing';
+import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -135,6 +135,11 @@ describe('the duplicates list', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'সম্ভাব্য ডুপ্লিকেট' }),
     ).toBeVisible();
+    expect(screen.getByText('ডেটা গুণমান')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'উপকারভোগীতে ফিরুন' })).toHaveAttribute(
+      'href',
+      '/admin/beneficiaries',
+    );
     expect((await screen.findAllByText('একই নাম, পিতা/স্বামী ও মোবাইল')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('একই মোবাইল নম্বর').length).toBeGreaterThan(0);
     const compare = screen.getAllByRole('link', { name: 'তুলনা করুন' })[0]!;

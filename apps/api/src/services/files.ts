@@ -1,3 +1,4 @@
+import { slotParts } from '../applications/pending-photos';
 import { pipeline } from 'node:stream/promises';
 import type { Response } from 'express';
 import { UPLOAD_RECORD_KINDS, type UploadRecordType } from '@css/shared/files';
@@ -12,6 +13,7 @@ import type { Prisma } from '../generated/prisma/client';
 import type { PageMeta } from '../http/send';
 import { NEAR_DUPLICATE_BITS } from '../files/images-process';
 import { loadUploadRecord, scopeReachesRecord } from '../files/records';
+import { type ExportDownload, exportDownload, exportFileName } from '../exports/download';
 import { ApiError } from '../i18n/api-error';
 import { knownBucket, NotFoundError, type StorageDriver } from '../storage';
 
@@ -33,10 +35,13 @@ const REACHING_PERMISSIONS = [
 function viewPermissions(kind: string): string[] {
   switch (kind) {
     case 'voucher':
-    case 'payment_copy':
       return ['application.review', 'budget.view', 'file.upload'];
+    // finance evidence and the register's documents are the office's: a volunteer who may upload
+    // to the record reads only the files they uploaded themselves
+    case 'payment_copy':
+      return ['application.review', 'budget.view'];
     case 'document':
-      return ['document.register.view', 'file.upload'];
+      return ['document.register.view'];
     default:
       return ['application.view', 'file.upload'];
   }
@@ -164,6 +169,9 @@ export class FilesService {
     res: Response,
     variant?: FileVariant,
   ): Promise<void> {
+    // an export file is its job's: its own checks, an expiry answered as 410, and a download name
+    const exported = await exportDownload(this.prisma, this.access, principal, fileId);
+    if (exported) return this.streamExport(exported, res, variant);
     const file = await this.findFile(fileId);
     const owner = await this.viewer(principal, file);
     this.refuseQuarantined(file);
@@ -203,6 +211,40 @@ export class FilesService {
     res.setHeader('Content-Type', type);
     res.setHeader('Content-Length', String(size));
     res.setHeader('Content-Disposition', disposition(type, file.id));
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    await pipeline(body, res);
+  }
+
+  /** An export file to its requester, as an attachment; a sensitive one's download is audited. */
+  private async streamExport(
+    exported: ExportDownload,
+    res: Response,
+    variant: FileVariant | undefined,
+  ): Promise<void> {
+    if (variant) throw new ApiError('permission.not_found', 404);
+    const { file, job } = exported;
+    let body;
+    try {
+      body = await this.storage.get(knownBucket(file.bucket), file.objectKey);
+    } catch (error) {
+      if (error instanceof NotFoundError) throw new ApiError('permission.not_found', 404);
+      throw error;
+    }
+    // the trace of a download that is about to happen, never of one that could not
+    if (job.sensitive)
+      await this.prisma.$transaction((tx) =>
+        this.audit.record(tx, {
+          action: 'file.download_sensitive',
+          entityType: 'file',
+          entityId: file.id,
+          new: { jobId: job.id, kind: job.kind, format: job.format, rowCount: job.rowCount },
+        }),
+      );
+    res.status(200);
+    res.setHeader('Content-Type', file.mime);
+    res.setHeader('Content-Length', String(Number(file.sizeBytes)));
+    res.setHeader('Content-Disposition', `attachment; filename="${exportFileName(job)}"`);
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     await pipeline(body, res);
@@ -359,10 +401,38 @@ export class FilesService {
           break;
         }
       }
-    const linked = { deletedAt: null, fileLinksFile: { some: { entityType, entityId } } };
+    // the photos of an application's official-only questions stay with those who read that section
+    const officialKeys =
+      type === 'application' && !(await this.readsOfficialSection(principal, access, record))
+        ? await this.officialPhotoKeys(entityId)
+        : [];
+    const linked = {
+      deletedAt: null,
+      fileLinksFile: { some: { entityType, entityId } },
+      ...(officialKeys.length
+        ? {
+            NOT: {
+              fileLinksFile: {
+                some: {
+                  entityType,
+                  entityId,
+                  OR: officialKeys.flatMap((k) => [{ slot: k }, { slot: { startsWith: `${k}#` } }]),
+                },
+              },
+            },
+          }
+        : {}),
+    };
+    // the uploader lists their own files of a record; an application's only while they still own
+    // the application, so a transfer takes them from the old volunteer with the rest of the record
     const where = {
       ...linked,
-      OR: [{ kind: { in: kinds } }, { uploadedBy: principal.userId }],
+      OR: [
+        { kind: { in: kinds } },
+        ...(type !== 'application' || record.owners.includes(principal.userId)
+          ? [{ uploadedBy: principal.userId }]
+          : []),
+      ],
     };
     if (!kinds.length && !(await this.prisma.file.count({ where }))) throw refuse();
     return { where, access };
@@ -411,8 +481,20 @@ export class FilesService {
    * registration photo, which the NID audit names.
    */
   private async viewer(principal: Principal, file: StoredFile): Promise<string | null> {
-    const owner = PHOTO_KINDS.includes(file.kind) ? await this.ownerOf(file) : null;
-    const allowed = PHOTO_KINDS.includes(file.kind)
+    // an export file belongs to its job, whose own checks decide who reads it
+    if (file.kind === 'export') {
+      await exportDownload(this.prisma, this.access, principal, file.id);
+      return null;
+    }
+    // a photo on an application (a beneficiary's NID photo, say) follows the application, never
+    // the registration rule of a volunteer's own photos
+    const onApplication =
+      (await this.prisma.fileLink.count({
+        where: { fileId: file.id, entityType: 'application' },
+      })) > 0;
+    const registration = PHOTO_KINDS.includes(file.kind) && !onApplication;
+    const owner = registration ? await this.ownerOf(file) : null;
+    const allowed = registration
       ? !!owner && (await this.mayViewPhoto(principal, owner, file.kind))
       : await this.mayViewLinked(principal, file);
     if (!allowed) {
@@ -435,10 +517,9 @@ export class FilesService {
     file: StoredFile,
     loaded?: RequestAccess,
   ): Promise<boolean> {
-    if (file.uploadedBy === principal.userId) return true;
     const links = await this.prisma.fileLink.findMany({
       where: { fileId: file.id },
-      select: { entityType: true, entityId: true },
+      select: { entityType: true, entityId: true, slot: true },
     });
     const records = [];
     for (const link of links) {
@@ -450,13 +531,68 @@ export class FilesService {
       );
       if (record) records.push(record);
     }
+    // the uploader reads their own file; one of an application only while they still own the
+    // application, so a transfer takes it from the old volunteer with the rest of the record
+    if (
+      file.uploadedBy === principal.userId &&
+      (!links.some((l) => l.entityType === 'application') ||
+        records.some((r) => r.applicationId && r.owners.includes(principal.userId)))
+    )
+      return true;
     if (!records.length) return false;
     const access = loaded ?? (await this.access.load(principal.userId));
-    for (const permission of viewPermissions(file.kind)) {
+    // a photo answering a question of an official-only section is read as that section is: only
+    // with the official section's permission, never by a volunteer who views the application
+    const permissions = (await this.inOfficialSection(file.kind, links))
+      ? ['application.view_official_section']
+      : viewPermissions(file.kind);
+    for (const permission of permissions) {
       if (!access.grants.some((g) => g.permission === permission)) continue;
       const scope = await this.access.scopeFor(principal, access, permission, 'project');
       for (const record of records)
         if (await scopeReachesRecord(this.prisma, scope, record)) return true;
+    }
+    return false;
+  }
+
+  /** Whether the caller holds the official section's permission where the record is. */
+  private async readsOfficialSection(
+    principal: Principal,
+    access: RequestAccess,
+    record: NonNullable<Awaited<ReturnType<typeof loadUploadRecord>>>,
+  ): Promise<boolean> {
+    const permission = 'application.view_official_section';
+    if (!access.grants.some((g) => g.permission === permission)) return false;
+    const scope = await this.access.scopeFor(principal, access, permission, 'project');
+    return scopeReachesRecord(this.prisma, scope, record);
+  }
+
+  /** The question keys of an application's official-only sections, which its photo slots begin with. */
+  private async officialPhotoKeys(applicationId: string): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<{ field_key: string }[]>`
+      SELECT f.field_key FROM applications a
+        JOIN form_fields f ON f.form_version_id = a.form_version_id
+        JOIN form_sections s ON s.id = f.form_section_id
+       WHERE a.id = ${applicationId}::uuid AND s.visibility = 'official_only'`;
+    return rows.map((r) => r.field_key);
+  }
+
+  /** Whether a form photo of an application answers a question of an official-only section. */
+  private async inOfficialSection(
+    kind: string,
+    links: readonly { entityType: string; entityId: string; slot: string }[],
+  ): Promise<boolean> {
+    if (kind !== 'form_photo') return false;
+    for (const link of links) {
+      if (link.entityType !== 'application') continue;
+      const { fieldKey } = slotParts(link.slot);
+      const rows = await this.prisma.$queryRaw<{ visibility: string }[]>`
+        SELECT s.visibility FROM applications a
+          JOIN form_fields f ON f.form_version_id = a.form_version_id AND f.field_key = ${fieldKey}
+          JOIN form_sections s ON s.id = f.form_section_id
+         WHERE a.id = ${link.entityId}::uuid
+         LIMIT 1`;
+      if (rows[0]?.visibility === 'official_only') return true;
     }
     return false;
   }

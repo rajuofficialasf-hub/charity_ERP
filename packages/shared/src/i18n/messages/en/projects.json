@@ -8,7 +8,9 @@
     "accepted": "Active",
     "read_rules": "Read the rules",
     "open_project": "Open the project",
-    "back": "Back to my projects"
+    "back": "Back to my projects",
+    "not_found": "This project is not available to you now. It will show here once it is running and you are on it.",
+    "consent_needs_network": "Reading the rules and giving your consent needs network. Come back to this page when it returns."
   },
   "detail": {
     "window": "Application window",
@@ -18,7 +20,9 @@
     "applications_counted": "{counted} made",
     "set": "Your work",
     "team": "My team",
-    "none": "Not set"
+    "none": "Not set",
+    "new_application": "New application",
+    "my_applications": "My applications"
   },
   "consent": {
     "title": "Rules: {name}",

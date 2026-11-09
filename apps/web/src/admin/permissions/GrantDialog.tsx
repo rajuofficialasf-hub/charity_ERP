@@ -4,12 +4,11 @@ import {
   Button,
   Combobox,
   DateField,
-  Modal,
+  Dialog,
   RadioGroup,
-  Select,
-  TextArea,
+  SelectField,
   TextField,
-} from '@css/ui';
+} from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -29,12 +28,12 @@ const FIELD_PATHS = ['permission', 'scopeRef', 'reason', 'expiresAt'];
  */
 export function GrantDialog({
   user,
-  isOpen,
+  open,
   onClose,
   onDone,
 }: {
   user: PanelUser;
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
   onDone: (effect: Effect) => void;
 }) {
@@ -50,7 +49,7 @@ export function GrantDialog({
   const permissions = useQuery({
     queryKey: ['admin', 'permissions'],
     queryFn: permissionCatalogue,
-    enabled: isOpen,
+    enabled: open,
   });
   const save = useMutation({
     mutationFn: () =>
@@ -92,28 +91,26 @@ export function GrantDialog({
     (UNBOUND.includes(scopeType) || scopeRef.trim().length > 0);
 
   return (
-    <Modal
+    <Dialog
       title={t('grant')}
-      isOpen={isOpen}
+      open={open}
       onClose={close}
       dismissible={!save.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={close} disabled={save.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => save.mutate()} disabled={!ready} loading={save.isPending}>
-          {effect === 'grant' ? t('dialog.submit_grant') : t('dialog.submit_revoke')}
-        </Button>
+      actions={
+        <>
+          <Button variant="secondary" onClick={close} disabled={save.isPending}>
+            {tc('cancel')}
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
+            {effect === 'grant' ? t('dialog.submit_grant') : t('dialog.submit_revoke')}
+          </Button>
+        </>
       }
     >
       {failure &&
         (failure.details.length === 0 ||
           failure.details.some((d) => !FIELD_PATHS.includes(d.path ?? ''))) && (
-          <Alert tone="danger" live="alert">
-            {failure.message}
-          </Alert>
+          <Alert tone="error">{failure.message}</Alert>
         )}
       <RadioGroup
         label={t('dialog.effect')}
@@ -121,39 +118,40 @@ export function GrantDialog({
         value={effect}
         onChange={(id) => setEffect(id as Effect)}
         options={[
-          { id: 'grant', label: t('dialog.effect_grant') },
-          { id: 'revoke', label: t('dialog.effect_revoke') },
+          { value: 'grant', label: t('dialog.effect_grant') },
+          { value: 'revoke', label: t('dialog.effect_revoke') },
         ]}
       />
       <Combobox
         label={t('dialog.permission')}
         required
-        options={(permissions.data ?? []).map((p) => ({ id: p.name, label: p.name }))}
+        options={(permissions.data ?? []).map((p) => ({ value: p.name, label: p.name }))}
         value={permission}
         onChange={setPermission}
         error={detail('permission')}
       />
-      <Select
+      <SelectField
         label={t('dialog.scope')}
         required
         value={scopeType}
         onChange={(id) => id && setScopeType(id as ScopeTypeName)}
-        options={SCOPE_TYPES.map((s) => ({ id: s, label: t(`scope.${s}`) }))}
+        options={SCOPE_TYPES.map((s) => ({ value: s, label: t(`scope.${s}`) }))}
         searchable={false}
       />
       {!UNBOUND.includes(scopeType) && (
         <TextField
           label={t('dialog.scope_ref')}
-          helper={t('dialog.scope_ref_hint')}
+          hint={t('dialog.scope_ref_hint')}
           required
           value={scopeRef}
           onChange={setScopeRef}
           error={detail('scopeRef')}
         />
       )}
-      <TextArea
+      <TextField
+        rows={4}
         label={t('dialog.reason')}
-        helper={t('dialog.reason_hint')}
+        hint={t('dialog.reason_hint')}
         required
         maxLength={1000}
         value={reason}
@@ -162,11 +160,11 @@ export function GrantDialog({
       />
       <DateField
         label={t('dialog.expires')}
-        helper={t('dialog.expires_hint')}
-        value={expires}
-        onChange={setExpires}
+        hint={t('dialog.expires_hint')}
+        value={expires ?? ''}
+        onChange={(iso) => setExpires(iso || null)}
         error={detail('expiresAt')}
       />
-    </Modal>
+    </Dialog>
   );
 }
