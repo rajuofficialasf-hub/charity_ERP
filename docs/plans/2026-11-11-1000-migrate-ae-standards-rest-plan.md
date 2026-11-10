@@ -56,7 +56,7 @@ The owner made the standards the base of the project (D-167) and, on 2026-11-11,
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. Comments point at documents by heading
 - **Goal:** no code comment names a document section by number, and no decision ID is left in a comment.
@@ -221,7 +221,7 @@ The owner made the standards the base of the project (D-167) and, on 2026-11-11,
 ## Progress
 - **Branch:** `chore/ae-standards-rest`
 - **Updated:** 2026-11-11 12:00
-- **Next:** U1, the decisions in DECISION_LOG (D-169)
+- **Next:** checkpoint C1 (U1, a document; the review is the docs check), then U2, the comment pointers
 - **Reviewed through:** none
 - **Uncommitted:** none
 - **Notes:** the plan review (structure and security) asked for: the five `MINIO_*` names mapped one by one, the dev S3 key pair marked `css_dev_only` so production refuses it, SeaweedFS on 127.0.0.1 only, the dropped bucket rules said out loud, the unsafe Prisma raw calls refused, the sign-in failures kept one message, the three builder panels left out; all are in the plan.
