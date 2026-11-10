@@ -1,14 +1,21 @@
-import { Alert, Button, Card, Checkbox, Chip, EmptyState, IconButton, Skeleton } from '@/ui';
+import { Alert, Button, Card, Checkbox, Chip, EmptyState, Form, IconButton, Skeleton } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Link, useParams } from 'react-router';
 import { useTranslations } from 'use-intl';
+import { z } from 'zod';
+import { useSchemaResolver } from '../../lib/form-schema';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
 import { ApiFailure } from '../../api/client';
 import { addToTeam, removeFromTeam, team, type TeamMember } from './my-projects-api';
 import './projects.css';
+
+/** The volunteers chosen to join the team, one at least; the server holds the rest of the rules. */
+const ADD_SCHEMA = z.object({ memberVolunteerIds: z.array(z.string()).min(1) });
+type AddFields = z.infer<typeof ADD_SCHEMA>;
 
 /**
  * A main volunteer's team on a project (docs/BUSINESS_RULES.md, the team members): the volunteers
@@ -35,21 +42,30 @@ function TeamView() {
   const tm = useTranslations('projects.mine');
   const queryClient = useQueryClient();
   const key = ['me', 'projects', projectId, 'team'] as const;
-  const [chosen, setChosen] = useState<string[]>([]);
   const [notice, setNotice] = useState<string>();
+  const form = useForm<AddFields>({
+    resolver: useSchemaResolver(ADD_SCHEMA),
+    defaultValues: { memberVolunteerIds: [] },
+    reValidateMode: 'onSubmit',
+  });
+  const chosen = useWatch({ control: form.control, name: 'memberVolunteerIds' });
   const current = useQuery({ queryKey: key, queryFn: () => team(projectId) });
   const add = useMutation({
-    mutationFn: () => {
+    mutationFn: (ids: string[]) => {
       remove.reset();
       setNotice(undefined);
-      return addToTeam(projectId, chosen);
+      return addToTeam(projectId, ids);
     },
     onSuccess: (next) => {
       queryClient.setQueryData(key, next);
-      setChosen([]);
+      form.reset();
       setNotice(t('added'));
     },
   });
+  // the button's own path: someone chosen, and nothing twice while the addition is on its way
+  const send = ({ memberVolunteerIds }: AddFields) => {
+    if (memberVolunteerIds.length > 0 && !add.isPending) add.mutate(memberVolunteerIds);
+  };
   const remove = useMutation({
     mutationFn: (member: TeamMember) => {
       add.reset();
@@ -71,7 +87,8 @@ function TeamView() {
       </>
     );
   const { members, candidates } = current.data;
-  const failure = [add.error, remove.error].find((e) => e instanceof ApiFailure);
+  // a refused addition shows on its form; a refused removal above the team
+  const failure = remove.error instanceof ApiFailure ? remove.error : undefined;
   return (
     <>
       {back}
@@ -80,7 +97,7 @@ function TeamView() {
           {notice}
         </Alert>
       )}
-      {failure instanceof ApiFailure && <Alert tone="error">{failure.message}</Alert>}
+      {failure && <Alert tone="error">{failure.message}</Alert>}
       <Card title={t('members')} headingLevel={2}>
         {members.length === 0 ? (
           <EmptyState icon="users" title={t('no_members')} />
@@ -107,32 +124,42 @@ function TeamView() {
         {candidates.length === 0 ? (
           <p>{t('no_candidates')}</p>
         ) : (
-          <>
-            <ul className="my-team-list">
-              {candidates.map((c) => (
-                <li key={c.volunteerId}>
-                  <Checkbox
-                    label={c.displayName}
-                    checked={chosen.includes(c.volunteerId)}
-                    onChange={(on) =>
-                      setChosen(
-                        on
-                          ? [...chosen, c.volunteerId]
-                          : chosen.filter((id) => id !== c.volunteerId),
-                      )
-                    }
-                  />
-                </li>
-              ))}
-            </ul>
-            <Button
-              onClick={() => add.mutate()}
-              disabled={chosen.length === 0}
-              loading={add.isPending}
-            >
-              {t('add')}
-            </Button>
-          </>
+          <Form
+            form={form}
+            onSubmit={send}
+            label={t('candidates')}
+            error={add.error instanceof ApiFailure ? add.error.message : undefined}
+          >
+            <Controller
+              control={form.control}
+              name="memberVolunteerIds"
+              render={({ field }) => (
+                <ul className="my-team-list">
+                  {candidates.map((c) => (
+                    <li key={c.volunteerId}>
+                      <Checkbox
+                        label={c.displayName}
+                        checked={field.value.includes(c.volunteerId)}
+                        onChange={(on) =>
+                          field.onChange(
+                            on
+                              ? [...field.value, c.volunteerId]
+                              : field.value.filter((id) => id !== c.volunteerId),
+                          )
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            />
+            {/* the button keeps its own width instead of the form's full one */}
+            <div>
+              <Button type="submit" disabled={chosen.length === 0} loading={add.isPending}>
+                {t('add')}
+              </Button>
+            </div>
+          </Form>
         )}
       </Card>
     </>
