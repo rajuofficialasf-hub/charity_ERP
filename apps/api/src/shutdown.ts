@@ -13,7 +13,7 @@ export interface ShutdownSteps {
   closeServer?: () => Promise<void>;
   /** Closes the job queue, the PDF browser and the database (container.ts closeContainer). */
   closeResources: () => Promise<void>;
-  /** After this long the process exits with 1, whatever is still running. */
+  /** This long after the delay the process exits with 1, whatever is still running. */
   graceMs: number;
   exit: (code: number) => void;
   log: {
@@ -29,13 +29,14 @@ export function createShutdown(steps: ShutdownSteps): (signal: NodeJS.Signals) =
     stopping = true;
     steps.markUnready?.();
     steps.log.info({ signal }, 'shutting down');
-    setTimeout(() => {
-      steps.log.error({}, 'shutdown took too long, exiting');
-      steps.exit(1);
-    }, steps.graceMs).unref();
     void (async () => {
       let failed = false;
       if (steps.delayMs) await new Promise((resolve) => setTimeout(resolve, steps.delayMs));
+      // counted from here, so the delay never shortens the time the requests get to finish
+      setTimeout(() => {
+        steps.log.error({}, 'shutdown took too long, exiting');
+        steps.exit(1);
+      }, steps.graceMs).unref();
       try {
         await steps.closeServer?.();
       } catch (error) {

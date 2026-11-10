@@ -1,13 +1,16 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- every path is the configured root plus a known bucket and a key checked by assertKey, then confirmed inside the root by its real path */
+import { randomUUID } from 'node:crypto';
 import { constants, createReadStream, createWriteStream } from 'node:fs';
 import { access, lstat, mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { z } from 'zod';
 import { ApiError } from '../../i18n/api-error';
 import { assertKey, BUCKETS, type Bucket, NotFoundError, type StorageDriver } from '../types';
 
 const META_SUFFIX = '.meta.json';
 const PART_SUFFIX = '.part';
+const Meta = z.object({ contentType: z.string().optional() });
 
 function refused(): ApiError {
   return new ApiError('validation.failed', 422, undefined, [
@@ -43,8 +46,9 @@ async function deepestReal(path: string): Promise<string> {
 
 /**
  * The organization's NAS, mounted at STORAGE_ROOT: an object is a file under `<root>/<bucket>/`,
- * with its content type in a `.meta.json` beside it. A put lands under a `.part` name and is renamed
- * once complete, so a read never sees a partial object. Every operation first proves its path stays
+ * with its content type in a `.meta.json` beside it. A put writes both under names of its own
+ * ending in `.part` and renames them once complete, so a read never sees a partial object and two
+ * writes of one key (a retried upload part) never write into the same file. Every operation first proves its path stays
  * under the root, by its text and by its real path, so neither a crafted key nor a link inside the
  * share can lead to files outside it. Tests use it on a temporary folder.
  */
@@ -76,14 +80,18 @@ export function createNasDriver(root: string): StorageDriver {
     async put(bucket, key, body, meta) {
       const file = await path(bucket, key);
       await notLink(file);
-      const part = `${file}${PART_SUFFIX}`;
+      const own = randomUUID();
+      const part = `${file}.${own}${PART_SUFFIX}`;
+      const metaPart = `${file}${META_SUFFIX}.${own}${PART_SUFFIX}`;
       await mkdir(dirname(file), { recursive: true });
       try {
         await pipeline(body, createWriteStream(part));
-        await writeFile(`${file}${META_SUFFIX}`, JSON.stringify({ contentType: meta.contentType }));
+        await writeFile(metaPart, JSON.stringify({ contentType: meta.contentType }));
         await rename(part, file);
+        await rename(metaPart, `${file}${META_SUFFIX}`);
       } catch (error) {
         await rm(part, { force: true });
+        await rm(metaPart, { force: true });
         throw error;
       }
     },
@@ -103,14 +111,19 @@ export function createNasDriver(root: string): StorageDriver {
     async stat(bucket, key) {
       const file = await path(bucket, key);
       await notLink(file);
+      let size: number;
       try {
-        const info = await lstat(file);
-        const meta = JSON.parse(await readFile(`${file}${META_SUFFIX}`, 'utf8')) as {
-          contentType?: string;
-        };
-        return { size: info.size, contentType: meta.contentType };
+        size = (await lstat(file)).size;
       } catch (error) {
         if (isMissing(error)) return null;
+        throw error;
+      }
+      // a write or removal cut short can leave the object without its content type file
+      try {
+        const meta = Meta.parse(JSON.parse(await readFile(`${file}${META_SUFFIX}`, 'utf8')));
+        return { size, contentType: meta.contentType };
+      } catch (error) {
+        if (isMissing(error)) return { size, contentType: undefined };
         throw error;
       }
     },

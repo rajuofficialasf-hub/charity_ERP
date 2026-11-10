@@ -1,4 +1,12 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -52,6 +60,30 @@ describe('NAS storage driver', () => {
     ).rejects.toThrow('connection lost');
     expect(await storage.stat('photos', 'p/1.jpg')).toBeNull();
     await expect(storage.get('photos', 'p/1.jpg')).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('keeps two writes of one key apart, so a retried upload part never cuts the first short', async () => {
+    const storage = fresh();
+    const slow = new Readable({ read() {} });
+    const first = storage.put('uploads', 's/1', slow, { contentType: 'application/octet-stream' });
+    slow.push(Buffer.from('aaaa'));
+    await new Promise((r) => setTimeout(r, 20));
+    await storage.put('uploads', 's/1', body('bbbbbbbb'), {
+      contentType: 'application/octet-stream',
+    });
+    slow.push(Buffer.from('aaaa'));
+    slow.push(null);
+    await first;
+    const stored = await text(await storage.get('uploads', 's/1'));
+    expect(['aaaaaaaa', 'bbbbbbbb']).toContain(stored);
+  });
+
+  it('describes an object whose content type file is missing instead of calling it gone', async () => {
+    const root = tempRoot();
+    const storage = createNasDriver(root);
+    await storage.put('photos', 'a.jpg', body('jpeg'), { contentType: 'image/jpeg' });
+    rmSync(join(root, 'photos', 'a.jpg.meta.json'));
+    expect(await storage.stat('photos', 'a.jpg')).toEqual({ size: 4, contentType: undefined });
   });
 
   it('refuses keys that escape the bucket or collide with its own files', async () => {

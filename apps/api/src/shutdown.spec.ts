@@ -94,6 +94,15 @@ describe('the shutdown of a process', () => {
     expect(order).toEqual(['readiness fails', 'close server', 'close resources', 'exit 0']);
   });
 
+  it('counts the grace period from the end of the delay', async () => {
+    const { all, exit } = steps({ delayMs: 5_000, closeServer: () => new Promise(() => {}) });
+    createShutdown(all)('SIGTERM');
+    await vi.advanceTimersByTimeAsync(5_000 + GRACE - 1);
+    expect(exit).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
   it('closes only the resources in a process without a server, as the worker', async () => {
     const { all, order } = steps({ closeServer: undefined });
     createShutdown(all)('SIGTERM');

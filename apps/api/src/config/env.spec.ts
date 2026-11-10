@@ -65,6 +65,11 @@ describe('loadEnv', () => {
     );
   });
 
+  it('keeps the shutdown delay within what the container waits for', () => {
+    expect(loadEnv({ ...base, SHUTDOWN_DELAY_MS: '5000' }).SHUTDOWN_DELAY_MS).toBe(5_000);
+    expect(() => loadEnv({ ...base, SHUTDOWN_DELAY_MS: '5001' })).toThrow(/SHUTDOWN_DELAY_MS/);
+  });
+
   it('refuses inline jobs in production', () => {
     expect(() => loadEnv({ ...base, NODE_ENV: 'production', JOBS_INLINE: 'true' })).toThrow(
       /JOBS_INLINE/,

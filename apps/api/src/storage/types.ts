@@ -49,7 +49,7 @@ export interface StorageDriver {
   stat(bucket: Bucket, key: string): Promise<ObjectInfo | null>;
   /** Succeeds if the key is already gone. */
   remove(bucket: Bucket, key: string): Promise<void>;
-  /** Readiness: the store answers and the buckets exist (SYSTEM_ARCHITECTURE 10). */
+  /** Readiness: the store answers (S3: the buckets exist; NAS: the root is readable and writable). */
   ping(): Promise<boolean>;
 }
 

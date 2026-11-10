@@ -9,7 +9,7 @@ import { createShutdown } from './shutdown';
 /**
  * In-flight requests and, in development, the inline job consumers (pg-boss drains for up to 30 s,
  * JobRunner.stop) get this long after SIGTERM before the process exits anyway. The
- * container's stop_grace_period is longer than this plus SHUTDOWN_DELAY_MS.
+ * container's stop_grace_period (40 s) is longer than this plus the longest SHUTDOWN_DELAY_MS (5 s).
  */
 const SHUTDOWN_GRACE_MS = 35_000;
 
@@ -47,8 +47,7 @@ const shutdown = createShutdown({
       server.closeIdleConnections();
     }),
   closeResources: () => closeContainer(container),
-  // the delay comes before the drain, so it never shortens the time the requests get to finish
-  graceMs: env.SHUTDOWN_DELAY_MS + SHUTDOWN_GRACE_MS,
+  graceMs: SHUTDOWN_GRACE_MS,
   exit: (code) => process.exit(code),
   log: logger,
 });

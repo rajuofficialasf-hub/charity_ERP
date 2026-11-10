@@ -19,7 +19,7 @@ const envSchema = z
      * How long the API keeps serving after SIGTERM once readiness fails, so a load balancer that
      * polls readiness stops sending first; 0 when none does.
      */
-    SHUTDOWN_DELAY_MS: z.coerce.number().int().min(0).max(30_000).default(0),
+    SHUTDOWN_DELAY_MS: z.coerce.number().int().min(0).max(5_000).default(0),
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
@@ -310,7 +310,8 @@ export function loadEnv(source: Record<string, string | undefined>): Env {
   // the allowlist's earlier name would otherwise be ignored and leave the allowlist empty
   if (present['CORS_ORIGINS'] !== undefined)
     throw new Error('Invalid configuration: CORS_ORIGINS: renamed, set ALLOWED_ORIGINS instead');
-  // the folder driver of the tests became the NAS driver; its earlier names are refused by name
+  // a deployment that still sends a retired storage setting fails at start, naming the one to set,
+  // instead of starting without a store
   if (present['STORAGE_DRIVER'] === 'filesystem')
     throw new Error(
       'Invalid configuration: STORAGE_DRIVER: filesystem is now nas, set STORAGE_DRIVER=nas and STORAGE_ROOT',
