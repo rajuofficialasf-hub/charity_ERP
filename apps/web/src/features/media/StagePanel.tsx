@@ -141,11 +141,11 @@ export function StagePanel({
               label={t('work.content_type')}
               value={work.contentType}
               options={CONTENT_TYPES.map((c) => ({ value: c, label: t(`content.${c}`) }))}
-              onChange={(id) =>
-                id && id !== work.contentType
-                  ? (review.reset(), change.mutate({ contentType: id as ContentType }))
-                  : undefined
-              }
+              onChange={(id) => {
+                if (!id || id === work.contentType) return;
+                review.reset();
+                change.mutate({ contentType: id as ContentType });
+              }}
             />
           ) : null}
           {work.nextStages.length ? (

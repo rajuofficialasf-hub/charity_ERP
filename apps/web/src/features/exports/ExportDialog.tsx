@@ -21,7 +21,6 @@ export interface ExportDialogProps {
   onClose: () => void;
 }
 
-const FORMATS: ExportFormat[] = ['xlsx', 'csv', 'pdf'];
 const FORMAT_LABELS = new Map<ExportFormat, string>([
   ['xlsx', 'Excel'],
   ['csv', 'CSV'],
@@ -141,7 +140,10 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
               <RadioGroup
                 label={t('format')}
                 orientation="horizontal"
-                options={FORMATS.map((f) => ({ value: f, label: FORMAT_LABELS.get(f) ?? f }))}
+                options={EXPORT_FORMATS.map((f) => ({
+                  value: f,
+                  label: FORMAT_LABELS.get(f) ?? f,
+                }))}
                 value={field.value}
                 onChange={(id) => field.onChange(id as ExportFormat)}
                 {...(field.value === 'pdf' ? { hint: t('format_pdf_hint') } : {})}
