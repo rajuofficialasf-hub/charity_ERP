@@ -426,8 +426,8 @@ describe('the files of a record', () => {
     );
     await h.db.query(
       `WITH made AS (
-         INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, project_id, uploaded_by, source, virus_scan)
-         SELECT gen_random_uuid(), 'photos', 'cap/' || n || '.jpg', 'evidence', 'image/jpeg', 10,
+         INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, project_id, uploaded_by, source, virus_scan)
+         SELECT gen_random_uuid(), 'photos', 'nas', 'cap/' || n || '.jpg', 'evidence', 'image/jpeg', 10,
                 md5('cap' || n) || md5('cap-' || n), $1, $2, 'camera', 'skipped'
            FROM generate_series(1, 5001) AS n
          RETURNING id)
@@ -446,8 +446,8 @@ describe('the files of a record', () => {
   it('audits a list that holds NID photos as their view', async () => {
     const nid = randomUUID();
     await h.db.query(
-      `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, project_id, uploaded_by, source, virus_scan)
-       VALUES ($1, 'profiles', $2, 'nid_photo', 'image/jpeg', 10, $3, $4, $5, 'camera', 'skipped')`,
+      `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, project_id, uploaded_by, source, virus_scan)
+       VALUES ($1, 'profiles', 'nas', $2, 'nid_photo', 'image/jpeg', 10, $3, $4, $5, 'camera', 'skipped')`,
       [nid, `beneficiaries/${nid}.jpg`, sha256(Buffer.from(nid)), world.a1.id, world.users.general],
     );
     await h.db.query(

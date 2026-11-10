@@ -105,8 +105,8 @@ describe('the system health', () => {
     const uploader = await account(h.db, { role: 'department_head' });
     const file = (kind: string, size: number, deleted = false, at = h.clock.now()) =>
       h.db.query(
-        `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, uploaded_by, source, uploaded_at, deleted_at)
-         VALUES ($1, 'private', $2, $3, 'image/jpeg', $4, $5, $6, 'camera', $7, ${deleted ? 'now()' : 'NULL'})`,
+        `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, uploaded_by, source, uploaded_at, deleted_at)
+         VALUES ($1, 'private', 'nas', $2, $3, 'image/jpeg', $4, $5, $6, 'camera', $7, ${deleted ? 'now()' : 'NULL'})`,
         [
           randomUUID(),
           `test/${randomUUID()}`,

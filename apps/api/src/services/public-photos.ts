@@ -76,6 +76,7 @@ export class PublicPhotosService {
           data: {
             id,
             bucket: BUCKET,
+            storageDriver: this.storage.name,
             objectKey: key,
             kind: KIND,
             mime: image.mime,

@@ -2788,6 +2788,8 @@ model File {
   id                                 String              @id @db.Uuid
   bucket                             String
   objectKey                          String              @map("object_key")
+  /// the driver that holds the file: nas or s3 (the copy to the NAS moves it)
+  storageDriver                      String              @map("storage_driver")
   kind                               String
   mime                               String
   sizeBytes                          BigInt              @map("size_bytes")
@@ -2837,6 +2839,7 @@ model File {
   @@unique([bucket, objectKey], map: "files_bucket_object_key_key")
   @@unique([projectId, sha256], where: raw("kind <> 'export' AND kind <> 'form_photo'"), map: "files_project_id_sha256_key")
   @@index([projectId, phash], map: "files_project_id_phash_idx")
+  @@index([storageDriver, id], map: "files_storage_driver_id_idx")
   @@index([virusScan], where: raw("virus_scan = ANY (ARRAY['pending'::text, 'failed'::text])"), map: "files_virus_scan_idx")
   @@index([uploadedBy], map: "files_uploaded_by_idx")
   @@index([createdBy], map: "files_created_by_idx")

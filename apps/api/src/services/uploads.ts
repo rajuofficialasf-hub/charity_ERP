@@ -301,6 +301,7 @@ export class UploadsService {
       data: {
         id: declared.fileId,
         bucket: session.bucket,
+        storageDriver: this.storage.name,
         objectKey: session.objectKey,
         kind: declared.kind,
         mime: type,

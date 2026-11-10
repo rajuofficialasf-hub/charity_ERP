@@ -31,5 +31,10 @@ const drivers = {
 } satisfies Record<StorageDriver['name'], (env: Env) => StorageDriver>;
 
 export function createStorage(env: Env): StorageDriver {
-  return drivers[env.STORAGE_DRIVER](env);
+  return createDriver(env.STORAGE_DRIVER, env);
+}
+
+/** One driver by name, for the copy between drivers (scripts/storage-copy.ts). */
+export function createDriver(name: StorageDriver['name'], env: Env): StorageDriver {
+  return drivers[name](env);
 }

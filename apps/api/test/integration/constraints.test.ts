@@ -1647,8 +1647,8 @@ describe('export jobs', () => {
     const owner = await f.user(db);
     const fileId = randomUUID();
     await db.query(
-      `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, uploaded_by, source, virus_scan)
-       VALUES ($1, 'exports', $2, 'export', 'text/csv', 12, $3, $4, 'system', 'clean')`,
+      `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, uploaded_by, source, virus_scan)
+       VALUES ($1, 'exports', 'nas', $2, 'export', 'text/csv', 12, $3, $4, 'system', 'clean')`,
       [fileId, `2026/11/${fileId}/list.csv`, 'a'.repeat(64), owner],
     );
     const { rows } = await job({ status: 'done', file_id: fileId, rows_total: 3, rows_done: 3 });

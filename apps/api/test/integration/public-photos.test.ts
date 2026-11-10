@@ -163,8 +163,8 @@ async function plantUnclaimed(projectId: string, folder: string, count: number, 
     const id = randomUUID();
     const client = randomUUID();
     await h.db.query(
-      `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, project_id, source)
-       VALUES ($1, 'photos', $2, 'form_photo', 'image/jpeg', $3, $4, $5, 'gallery')`,
+      `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, project_id, source)
+       VALUES ($1, 'photos', 'nas', $2, 'form_photo', 'image/jpeg', $3, $4, $5, 'gallery')`,
       [
         id,
         `${folder}/${client}/${id}.jpg`,

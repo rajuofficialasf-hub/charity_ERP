@@ -14,7 +14,9 @@ const next = () => ++counter;
 export const fakeNid = () => sharedFakeNid(5000 + next());
 export const fakeMobile = () => sharedFakeMobile(5000 + (next() % 5000));
 
-async function insert(db: Client, table: string, row: Record<string, unknown>): Promise<string> {
+async function insert(db: Client, table: string, given: Record<string, unknown>): Promise<string> {
+  // a file row names the driver that holds it; the tests store on the NAS driver
+  const row = table === 'files' ? { storage_driver: 'nas', ...given } : given;
   const cols = Object.keys(row);
   const sql = `INSERT INTO "${table}" (${cols.map((c) => `"${c}"`).join(', ')}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`;
   const res = await db.query(sql, Object.values(row));

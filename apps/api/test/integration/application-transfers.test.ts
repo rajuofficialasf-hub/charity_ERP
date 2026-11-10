@@ -251,8 +251,8 @@ describe('a transfer', () => {
     const id = await draft(a);
     const fileId = randomUUID();
     await h.db.query(
-      `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, project_id, uploaded_by, source, virus_scan)
-       VALUES ($1, 'photos', $2, 'form_photo', 'image/jpeg', 10, $3, $4, $5, 'camera', 'skipped')`,
+      `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, project_id, uploaded_by, source, virus_scan)
+       VALUES ($1, 'photos', 'nas', $2, 'form_photo', 'image/jpeg', 10, $3, $4, $5, 'camera', 'skipped')`,
       [
         fileId,
         `applications/${fileId}.jpg`,
