@@ -254,14 +254,17 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const jobs = o.jobs ?? new JobRunner(env, logger);
   const health =
     o.health ??
-    new HealthService(env, {
-      database: async () => {
-        await prisma.$queryRaw`SELECT 1`;
-        return true;
+    new HealthService(
+      {
+        database: async () => {
+          await prisma.$queryRaw`SELECT 1`;
+          return true;
+        },
+        storage: () => storage.ping(),
+        queue: () => jobs.ping(),
       },
-      storage: () => storage.ping(),
-      queue: () => jobs.ping(),
-    });
+      logger,
+    );
   const audit = o.audit ?? new AuditWriter();
   const email =
     o.email ??

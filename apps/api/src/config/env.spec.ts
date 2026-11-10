@@ -45,9 +45,8 @@ describe('loadEnv', () => {
     });
   });
 
-  it('treats an empty value as unset, as in .env.example (HEALTH_TOKEN=, JWT_PREVIOUS_SECRET=)', () => {
-    const env = loadEnv({ ...base, HEALTH_TOKEN: '', JWT_PREVIOUS_SECRET: '' });
-    expect(env.HEALTH_TOKEN).toBeUndefined();
+  it('treats an empty value as unset, as in .env.example (JWT_PREVIOUS_SECRET=)', () => {
+    const env = loadEnv({ ...base, JWT_PREVIOUS_SECRET: '' });
     expect(env.JWT_PREVIOUS_SECRET).toBeUndefined();
   });
 
@@ -202,7 +201,6 @@ describe('loadEnv', () => {
       'CURSOR_SECRET',
       'LOCAL_KEY_SECRET',
       'LOCAL_KEY_PREVIOUS_SECRET',
-      'HEALTH_TOKEN',
       'SMTP_PASSWORD',
       'MINIO_ACCESS_KEY',
       'MINIO_SECRET_KEY',

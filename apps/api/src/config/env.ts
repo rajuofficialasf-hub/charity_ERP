@@ -20,8 +20,6 @@ const envSchema = z
       .default('info'),
     /** Signs pagination cursors so they cannot be forged (API_STANDARDS 4). */
     CURSOR_SECRET: z.string().min(32),
-    /** Bearer token that unlocks the detailed readiness payload; unset = never shown. */
-    HEALTH_TOKEN: z.string().min(24).optional(),
     /** Runs job consumers inside the API process; development and tests only. */
     JOBS_INLINE: flag,
     /**
@@ -237,7 +235,6 @@ const LOCAL_SECRET_KEYS = [
   'CURSOR_SECRET',
   'LOCAL_KEY_SECRET',
   'LOCAL_KEY_PREVIOUS_SECRET',
-  'HEALTH_TOKEN',
   'SMTP_PASSWORD',
   'MINIO_ACCESS_KEY',
   'MINIO_SECRET_KEY',
@@ -302,7 +299,7 @@ function passwordOf(url: string): string | undefined {
 }
 
 export function loadEnv(source: Record<string, string | undefined>): Env {
-  // An empty value (`HEALTH_TOKEN=` in .env.example) means "not set", as in dotenv.
+  // An empty value (`JWT_PREVIOUS_SECRET=` in .env.example) means "not set", as in dotenv.
   const present = Object.fromEntries(
     Object.entries(source).filter(([, value]) => value !== undefined && value !== ''),
   );

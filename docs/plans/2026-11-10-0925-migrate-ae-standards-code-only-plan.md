@@ -72,7 +72,7 @@ The small part of the standards (D-167, plan `docs/plans/2026-11-09-1215-migrate
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. The shutdown order
 - **Goal:** SIGTERM flips readiness first, waits the delay, then drains and closes in order, with a forced exit in the API and the worker.
@@ -245,8 +245,8 @@ The small part of the standards (D-167, plan `docs/plans/2026-11-09-1215-migrate
 
 ## Progress
 - **Branch:** `chore/ae-standards-code-only`
-- **Updated:** 2026-11-10 10:00
-- **Next:** U1, the probes: tests first in `apps/api/test/api/health.api.test.ts` and `health-ready.api.test.ts`
+- **Updated:** 2026-11-10 10:45
+- **Next:** checkpoint C1 (U1), then U2, the shutdown order: `shutdown.spec.ts` pinning today's order first
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the plan's security review asked for the OpenAPI document behind a sign-in in production (the owner chose it), a loopback-only contract test, a realpath check in the NAS driver, a size check before the copy flips a row, a 2 s reuse of the readiness result and no secrets in the probe logs; all are in the plan.
+- **Notes:** the plan's security review asked for the OpenAPI document behind a sign-in in production (the owner chose it), a loopback-only contract test, a realpath check in the NAS driver, a size check before the copy flips a row, a 2 s reuse of the readiness result and no secrets in the probe logs; all are in the plan. U1: the probes got the rate-limit class `probe` (no limit) in redocly.yaml and API_STANDARDS section 10, and a commented Redocly ignore file (`docs/api/.redocly.lint-ignore.yaml`) for the rule that wants a 4xx response, which a probe never gives; `HealthService.detail()` keeps each check's result for the system health page (admin session), sharing the probe's run; `markShuttingDown` is in U1 already, U2 wires it to the signal. The compose healthcheck on the new path is checked once this reaches develop (the main checkout runs develop).

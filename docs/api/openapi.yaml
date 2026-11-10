@@ -64,6 +64,8 @@ tags:
     description: Notification channels and system health (DECISION_LOG D-098)
   - name: sync
     description: Offline sync batch and snapshot (OFFLINE_SYNC.md)
+  - name: health
+    description: Liveness and readiness probes in the IETF health check format, for the proxy, Compose and the deploy scripts
 
 components:
   securitySchemes:
@@ -443,6 +445,12 @@ components:
 
   schemas:
     Uuid: { type: string, format: uuid }
+    HealthStatus:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [pass, warn, fail] }
     Money:
       type: string
       pattern: '^[0-9]{1,12}(\.[0-9]{1,2})?$'
@@ -4664,6 +4672,69 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
 
 paths:
+  # ======================= health =======================
+  /healthz:
+    get:
+      tags: [health]
+      operationId: health.live
+      summary: Liveness probe
+      security: []
+      description: >-
+        Liveness: pass whenever the process can answer. Never checks a dependency, so an outage elsewhere never gets a healthy API restarted. Not rate-limited and not in the request log.
+      x-permission: public
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: probe
+      responses:
+        '200':
+          description: The status alone; Cache-Control no-store; HEAD answers the same without a body
+          content:
+            application/health+json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+  /livez:
+    get:
+      tags: [health]
+      operationId: health.live.alias
+      summary: Liveness probe under the name Kubernetes uses
+      security: []
+      description: >-
+        Liveness: pass whenever the process can answer. Never checks a dependency, so an outage elsewhere never gets a healthy API restarted. Not rate-limited and not in the request log.
+      x-permission: public
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: probe
+      responses:
+        '200':
+          description: The status alone; Cache-Control no-store; HEAD answers the same without a body
+          content:
+            application/health+json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+  /readyz:
+    get:
+      tags: [health]
+      operationId: health.ready
+      summary: Readiness probe
+      security: []
+      description: >-
+        Readiness: the database and the job queue (critical) and the file store (not critical) checked side by side, each within 2 seconds; a finished result is reused for 2 seconds. warn when only the file store is down; fail with 503 when a critical check is down or the API is shutting down. Which check failed goes to the log only. Not rate-limited and not in the request log.
+      x-permission: public
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: probe
+      responses:
+        '200':
+          description: The status alone; Cache-Control no-store; HEAD answers the same without a body
+          content:
+            application/health+json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+        '503':
+          description: fail, a critical check is down or the API is shutting down
+          content:
+            application/health+json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
   # ======================= auth =======================
   /auth/invitations/check:
     post:

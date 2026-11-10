@@ -78,7 +78,7 @@ export class SystemHealthService {
 
   async view(): Promise<SystemHealthView> {
     const [readiness, partitions, storage] = await Promise.all([
-      this.health.readiness(),
+      this.health.detail(),
       orNull(
         () => this.prisma.$queryRaw<{ last: string | null }[]>`
           SELECT max(c.relname) AS last FROM pg_inherits i

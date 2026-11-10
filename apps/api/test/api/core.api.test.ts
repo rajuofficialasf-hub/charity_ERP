@@ -180,7 +180,7 @@ describe('API core: envelope, request id, validation, logging (API_STANDARDS 3, 
   });
 
   it('keeps health probes outside the envelope', async () => {
-    const res = await request(t.app).get('/health/live').expect(200);
-    expect(res.body).toEqual({ status: 'up' });
+    const res = await request(t.app).get('/api/v1/healthz').expect(200);
+    expect(JSON.parse(res.text)).toEqual({ status: 'pass' });
   });
 });

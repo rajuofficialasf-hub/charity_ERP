@@ -14,7 +14,7 @@ describe('CORS allowlist', () => {
         'http://localhost:3000',
       ]);
       const res = await request(t.app)
-        .get('/health/live')
+        .get('/api/v1/healthz')
         .set('Origin', 'http://localhost:3000')
         .expect(200);
       expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
@@ -39,12 +39,12 @@ describe('CORS allowlist', () => {
     const empty = buildTestApp({ envOverrides: { ALLOWED_ORIGINS: '' } });
     try {
       const other = await request(listed.app)
-        .get('/health/live')
+        .get('/api/v1/healthz')
         .set('Origin', 'https://evil.example')
         .expect(200);
       expect(other.headers['access-control-allow-origin']).toBeUndefined();
       const none = await request(empty.app)
-        .get('/health/live')
+        .get('/api/v1/healthz')
         .set('Origin', 'https://erp.example.org')
         .expect(200);
       expect(none.headers['access-control-allow-origin']).toBeUndefined();

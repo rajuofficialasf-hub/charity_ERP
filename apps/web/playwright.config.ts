@@ -39,7 +39,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'pnpm --filter @css/api e2e:server',
-      url: 'http://127.0.0.1:4100/health/live',
+      url: 'http://127.0.0.1:4100/api/v1/readyz',
       reuseExistingServer: false,
       timeout: 300_000,
       stdout: 'pipe',

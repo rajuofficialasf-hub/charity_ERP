@@ -265,6 +265,7 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 
 | Class (`x-rate-limit`) | Limit | Key |
 |---|---|---|
+| probe | none: the health probes only, so a busy client can never make the API look down to the proxy; readiness reuses a finished result for 2 seconds instead | none |
 | login | 10 per minute, 100 per hour | login id and IP |
 | otp-request | 5 per hour per number or address; 20 per hour per IP (O-25) | address, IP |
 | otp-verify | 5 attempts per code (O-25); 20 per hour per IP (D-075) | code, IP |

@@ -59,7 +59,7 @@ pnpm db:migrate && pnpm db:load-locations && pnpm db:seed --set all
 pnpm dev
 ```
 
-The web app runs at http://127.0.0.1:3000 (Vite, proxying `/api/v1` to the API) and the API at http://localhost:4000 (liveness: http://localhost:4000/health/live; business routes under `/api/v1`). For Playwright, install the browser once: `pnpm --filter @css/web exec playwright install chromium`.
+The web app runs at http://127.0.0.1:3000 (Vite, proxying `/api/v1` to the API) and the API at http://localhost:4000 (liveness: http://localhost:4000/api/v1/healthz, readiness: http://localhost:4000/api/v1/readyz; business routes under `/api/v1`). For Playwright, install the browser once: `pnpm --filter @css/web exec playwright install chromium`.
 
 ### Layout
 
@@ -110,7 +110,7 @@ All ports listen on 127.0.0.1 only. Overrides (ports, dev passwords) go in `infr
 - **`pnpm install` reports ignored build scripts**: only the packages listed under `allowBuilds` in `pnpm-workspace.yaml` may run install scripts; add a package there only after reviewing it.
 - **Prisma client missing**: run `pnpm --filter @css/api db:generate`.
 - **Bad Gateway on the login page, and the API log in Docker says `Cannot find module ...`**: a pull added a package; the containers keep their own Linux dependencies in a volume, so install them there and restart: `docker compose run --rm setup`, `docker compose run --rm migrate`, then `docker compose restart api web`.
-- **`/health/ready` reports storage down after an update**: a new bucket was added to `infra/minio/bootstrap.sh`; run `docker compose run --rm minio-init` once (it only adds what is missing).
+- **`/api/v1/readyz` answers `warn` (the file store is down) after an update**: a new bucket was added to `infra/minio/bootstrap.sh`; run `docker compose run --rm minio-init` once (it only adds what is missing).
 - **Playwright cannot find a browser**: run `pnpm --filter @css/web exec playwright install chromium`.
 - **Export PDFs say they are unavailable**: the API prints PDFs through Chromium inside its sandbox and never without it. Install the browser once with `pnpm --filter @css/api exec playwright-core install chromium` (the same build the web tests use). Chromium refuses its sandbox to the root user, so in the Docker dev setup (which runs as root) PDFs stay unavailable while Excel and CSV work; run the API on the host, or run the API and the worker as a non-root user, to print them. On Linux hosts that close unprivileged user namespaces (Ubuntu 23.10 and later), allow them for the sandbox (`kernel.apparmor_restrict_unprivileged_userns=0`).
 - **The web app cannot reach the API** (`ECONNREFUSED 127.0.0.1:4000` in the Vite log): start the API (`pnpm dev` starts both) or set `CSS_API_ORIGIN` in `apps/web/.env` to where it runs.
