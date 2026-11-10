@@ -1,5 +1,5 @@
 import { formatDate } from '@css/shared/format';
-import { CONTENT_TYPES, type ContentType } from '@css/shared/media';
+import { CONTENT_TYPES, type ContentType, workUpdateSchema } from '@css/shared/media';
 import {
   Alert,
   Button,
@@ -7,18 +7,32 @@ import {
   Chip,
   DescriptionList,
   Dialog,
+  Form,
+  FormSelectField,
+  FormTextField,
   SelectField,
   Stack,
   Text,
-  TextField,
 } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
+import { z } from 'zod';
+import { DialogButtons } from '../../components/DialogButtons';
+import { useSchemaResolver } from '../../lib/form-schema';
+import { CommentDialog } from './CommentDialog';
 import { type MediaReferral, type MediaWork, reviewWork, updateWork } from './media-api';
 import { useMediaLabels } from './use-media-lists';
 import { failureOf } from './work-errors';
-import { DialogButtons } from '../../components/DialogButtons';
+
+/** The stage to move to, one of those the rules leave the caller. */
+const STAGE_SCHEMA = z.object({ stage: z.string().min(1) });
+type StageFields = z.infer<typeof STAGE_SCHEMA>;
+
+/** The work's new name, by the rule of a change of the work: written, at most 200 characters. */
+const RENAME_SCHEMA = z.object({ title: workUpdateSchema.shape.title.unwrap() });
+type RenameFields = z.infer<typeof RENAME_SCHEMA>;
 
 /**
  * The work's stage, title and content type, and the final review: the stages offered are the ones
@@ -37,16 +51,19 @@ export function StagePanel({
   const t = useTranslations('media');
   const tc = useTranslations('common');
   const labels = useMediaLabels();
-  const [stage, setStage] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
-  const [title, setTitle] = useState(work.title);
   const [sendingBack, setSendingBack] = useState(false);
-  const [comment, setComment] = useState('');
   const texts = { stale: t('work.stale'), fallback: tc('state.error.text') };
+  const stageForm = useForm<StageFields>({
+    resolver: useSchemaResolver(STAGE_SCHEMA),
+    defaultValues: { stage: '' },
+    reValidateMode: 'onSubmit',
+  });
+  const stageChosen = useWatch({ control: stageForm.control, name: 'stage' }) !== '';
   const change = useMutation({
     mutationFn: (body: Parameters<typeof updateWork>[2]) => updateWork(work.id, work.version, body),
     onSuccess: (next, body) => {
-      setStage(null);
+      stageForm.reset();
       setRenaming(false);
       onSaved(next, body.stageCode ? t('work.stage_changed') : t('work.saved'));
     },
@@ -55,21 +72,25 @@ export function StagePanel({
     },
   });
   const review = useMutation({
-    mutationFn: (decision: 'approve' | 'send_back') =>
-      reviewWork(work.id, work.version, {
-        decision,
-        ...(decision === 'send_back' ? { comment: comment.trim() } : {}),
-      }),
+    mutationFn: (body: { decision: 'approve' | 'send_back'; comment?: string }) =>
+      reviewWork(work.id, work.version, body),
     onSuccess: (next) => {
       setSendingBack(false);
-      setComment('');
       onSaved(next, t('work.saved'));
     },
     onError: (error) => {
       if (failureOf(error, texts).stale) onStale();
     },
   });
-  const failure = change.error ?? review.error;
+  // a refused stage move shows on its own form; the card says what else was refused
+  const stageFailure = change.variables?.stageCode ? change.error : null;
+  const failure = (stageFailure ? null : change.error) ?? review.error;
+  // the button's own path: a stage chosen, and nothing twice while a change is on its way
+  const moveStage = ({ stage }: StageFields) => {
+    if (stage === '' || change.isPending) return;
+    review.reset();
+    change.mutate({ stageCode: stage });
+  };
   const ready = work.stageCode === 'ready_to_publish';
   return (
     <>
@@ -83,7 +104,6 @@ export function StagePanel({
               size="small"
               onClick={() => {
                 change.reset();
-                setTitle(work.title);
                 setRenaming(true);
               }}
             >
@@ -129,25 +149,27 @@ export function StagePanel({
             />
           ) : null}
           {work.nextStages.length ? (
-            <Stack direction="row" gap={2} wrap align="end">
-              <SelectField
-                label={t('work.stage_label')}
-                value={stage ?? ''}
-                options={work.nextStages.map((s) => ({ value: s, label: labels.stage(s) }))}
-                onChange={(v) => setStage(v || null)}
-              />
-              <Button
-                onClick={() => {
-                  if (!stage) return;
-                  review.reset();
-                  change.mutate({ stageCode: stage });
-                }}
-                disabled={!stage}
-                loading={change.isPending && !renaming}
-              >
-                {t('work.change_stage')}
-              </Button>
-            </Stack>
+            <Form
+              form={stageForm}
+              onSubmit={moveStage}
+              label={t('work.change_stage')}
+              error={stageFailure ? failureOf(stageFailure, texts).text : undefined}
+            >
+              <Stack direction="row" gap={2} wrap align="end">
+                <FormSelectField
+                  name="stage"
+                  label={t('work.stage_label')}
+                  options={work.nextStages.map((s) => ({ value: s, label: labels.stage(s) }))}
+                />
+                <Button
+                  type="submit"
+                  disabled={!stageChosen}
+                  loading={change.isPending && !renaming}
+                >
+                  {t('work.change_stage')}
+                </Button>
+              </Stack>
+            </Form>
           ) : null}
           {work.mayManage ? (
             <Text size="small" tone="muted">
@@ -178,7 +200,7 @@ export function StagePanel({
               <Button
                 onClick={() => {
                   change.reset();
-                  review.mutate('approve');
+                  review.mutate({ decision: 'approve' });
                 }}
                 loading={review.isPending}
               >
@@ -188,7 +210,6 @@ export function StagePanel({
                 variant="secondary"
                 onClick={() => {
                   review.reset();
-                  setComment('');
                   setSendingBack(true);
                 }}
               >
@@ -199,60 +220,77 @@ export function StagePanel({
         </Stack>
       </Card>
       {renaming ? (
-        <Dialog
-          title={t('work.rename')}
-          size="small"
-          open
+        <RenameDialog
+          current={work.title}
+          pending={change.isPending}
+          error={change.error ? failureOf(change.error, texts).text : undefined}
+          onSave={(title) => change.mutate({ title })}
           onClose={() => setRenaming(false)}
-          dismissible={!change.isPending}
-          actions={
-            <DialogButtons
-              onCancel={() => setRenaming(false)}
-              onConfirm={() => change.mutate({ title: title.trim() })}
-              confirmLabel={tc('action.save')}
-              disabled={!title.trim() || title.trim() === work.title}
-              pending={change.isPending}
-            />
-          }
-        >
-          {change.error ? <Alert tone="error">{failureOf(change.error, texts).text}</Alert> : null}
-          <TextField
-            label={t('work.title_label')}
-            required
-            maxLength={200}
-            value={title}
-            onChange={setTitle}
-          />
-        </Dialog>
+        />
       ) : null}
       {sendingBack ? (
-        <Dialog
+        <CommentDialog
           title={t('work.review_send_back_title')}
-          size="small"
-          open
+          label={t('decision.comment')}
+          confirmLabel={t('work.review_send_back')}
+          pending={review.isPending}
+          error={review.error ? failureOf(review.error, texts).text : undefined}
+          onConfirm={(comment) => review.mutate({ decision: 'send_back', comment })}
           onClose={() => setSendingBack(false)}
-          dismissible={!review.isPending}
-          actions={
-            <DialogButtons
-              onCancel={() => setSendingBack(false)}
-              onConfirm={() => review.mutate('send_back')}
-              confirmLabel={t('work.review_send_back')}
-              disabled={!comment.trim()}
-              pending={review.isPending}
-            />
-          }
-        >
-          {review.error ? <Alert tone="error">{failureOf(review.error, texts).text}</Alert> : null}
-          <TextField
-            rows={4}
-            label={t('decision.comment')}
-            required
-            maxLength={2000}
-            value={comment}
-            onChange={setComment}
-          />
-        </Dialog>
+        />
       ) : null}
     </>
+  );
+}
+
+/** Renames the work: the new name trimmed, sent only when it differs from the current one. */
+function RenameDialog({
+  current,
+  pending,
+  error,
+  onSave,
+  onClose,
+}: {
+  current: string;
+  pending: boolean;
+  /** The refusal of the last attempt, in the reader's words. */
+  error?: string;
+  onSave: (title: string) => void;
+  onClose: () => void;
+}) {
+  const t = useTranslations('media.work');
+  const tc = useTranslations('common.action');
+  const form = useForm<RenameFields>({
+    resolver: useSchemaResolver(RENAME_SCHEMA),
+    defaultValues: { title: current },
+    reValidateMode: 'onSubmit',
+  });
+  const values = useWatch({ control: form.control });
+  const ready = RENAME_SCHEMA.safeParse(values).success && values.title?.trim() !== current;
+  // the button's own path: a new name, and nothing twice while the change is on its way
+  const send = ({ title }: RenameFields) => {
+    if (ready && !pending) onSave(title.trim());
+  };
+  return (
+    <Dialog
+      title={t('rename')}
+      size="small"
+      open
+      onClose={onClose}
+      dismissible={!pending}
+      actions={
+        <DialogButtons
+          onCancel={onClose}
+          onConfirm={() => void form.handleSubmit(send)()}
+          confirmLabel={tc('save')}
+          disabled={!ready}
+          pending={pending}
+        />
+      }
+    >
+      <Form form={form} onSubmit={send} label={t('rename')} error={error}>
+        <FormTextField name="title" label={t('title_label')} required maxLength={200} />
+      </Form>
+    </Dialog>
   );
 }

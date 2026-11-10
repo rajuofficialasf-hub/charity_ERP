@@ -1,9 +1,12 @@
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, Card, Stack, Text, TextField, Timeline, type TimelineStep } from '@/ui';
+import { commentSchema } from '@css/shared/media';
+import { Button, Card, Form, FormTextField, Stack, Text, Timeline, type TimelineStep } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
+import type { z } from 'zod';
+import { useSchemaResolver } from '../../lib/form-schema';
 import { commentOnWork, type MediaEvent, type MediaReferral, type MediaWork } from './media-api';
 import { useMediaLabels } from './use-media-lists';
 import { failureOf } from './work-errors';
@@ -40,14 +43,23 @@ export function WorkComments({
   const t = useTranslations('media.work');
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
-  const [body, setBody] = useState('');
+  const form = useForm<z.infer<typeof commentSchema>>({
+    resolver: useSchemaResolver(commentSchema),
+    defaultValues: { body: '' },
+    reValidateMode: 'onSubmit',
+  });
+  const ready = commentSchema.safeParse(useWatch({ control: form.control })).success;
   const add = useMutation({
-    mutationFn: () => commentOnWork(work.id, body.trim()),
+    mutationFn: (body: string) => commentOnWork(work.id, body),
     onSuccess: (next) => {
-      setBody('');
+      form.reset();
       onSaved(next, t('saved'));
     },
   });
+  // the button's own path: nothing it would refuse, and nothing twice while one is on its way
+  const send = ({ body }: z.infer<typeof commentSchema>) => {
+    if (ready && !add.isPending) add.mutate(body.trim());
+  };
   return (
     <Card title={t('comments')} headingLevel={2}>
       <Stack gap={3}>
@@ -65,26 +77,21 @@ export function WorkComments({
         ) : (
           <Text tone="muted">{t('no_comments')}</Text>
         )}
-        {add.error ? (
-          <Alert tone="error">
-            {failureOf(add.error, { stale: t('stale'), fallback: tc('state.error.text') }).text}
-          </Alert>
-        ) : null}
-        <TextField
-          rows={4}
+        <Form
+          form={form}
+          onSubmit={send}
           label={t('new_comment')}
-          maxLength={4000}
-          value={body}
-          onChange={setBody}
-        />
-        <Button
-          variant="secondary"
-          onClick={() => add.mutate()}
-          disabled={!body.trim()}
-          loading={add.isPending}
+          error={
+            add.error
+              ? failureOf(add.error, { stale: t('stale'), fallback: tc('state.error.text') }).text
+              : undefined
+          }
         >
-          {t('add_comment')}
-        </Button>
+          <FormTextField name="body" rows={4} label={t('new_comment')} maxLength={4000} />
+          <Button type="submit" variant="secondary" disabled={!ready} loading={add.isPending}>
+            {t('add_comment')}
+          </Button>
+        </Form>
       </Stack>
     </Card>
   );
