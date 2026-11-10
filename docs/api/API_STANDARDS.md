@@ -77,7 +77,7 @@ Error:
 
 Messages come from the Bengali or English catalogue; digits are always 0–9 in both languages (UX-05).
 
-- `params` appears only for the codes whose parameters section 8 documents (`permission.grant_refused` with `rule`; in a detail, `beneficiary.identity_taken` with `benNo` when the caller may see the holder, and `beneficiary.merge_conflict` with `projectId` and `applicationId`, or `ref`); other codes keep their parameters inside the rendered message.
+- `params` appears only for the codes whose parameters section 8 documents (`permission.grant_refused` with `rule`; in a detail, `beneficiary.identity_taken` with `benNo` when the caller may see the holder, and `beneficiary.merge_conflict` with `projectId` and `applicationId`, or `ref`; `application.answer_not_in_list` with `question`, the label of the question in the request language, also in a sync row result, D-168); other codes keep their parameters inside the rendered message.
 - `requestId` is returned in every response and in the `X-Request-Id` header; it is the correlation key in logs (SYSTEM_ARCHITECTURE §10).
 - Timestamps are ISO 8601 UTC with `Z`; dates are `YYYY-MM-DD`; money is a decimal **string** (`"1000.00"`) in BDT; counts are integers; booleans are booleans; all digits are 0–9 (UX-05).
 - Fields the caller may not see are **absent**, not null (field-level protection by removal, RBAC.md §8).
@@ -265,6 +265,7 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 
 | Class (`x-rate-limit`) | Limit | Key |
 |---|---|---|
+| probe | none: the health probes only, so a busy client can never make the API look down to the proxy; readiness reuses a finished result for 2 seconds instead | none |
 | login | 10 per minute, 100 per hour | login id and IP |
 | otp-request | 5 per hour per number or address; 20 per hour per IP (O-25) | address, IP |
 | otp-verify | 5 attempts per code (O-25); 20 per hour per IP (D-075) | code, IP |

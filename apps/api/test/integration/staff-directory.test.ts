@@ -326,8 +326,8 @@ describe('the organogram', () => {
   it("carries each official's uploaded photo, and none for one without", async () => {
     const file = randomUUID();
     await h.db.query(
-      `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, source)
-       VALUES ($1, 'profiles', $2, 'profile_photo', 'image/jpeg', 4, $3, 'camera')`,
+      `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, source)
+       VALUES ($1, 'profiles', 'nas', $2, 'profile_photo', 'image/jpeg', 4, $3, 'camera')`,
       [file, `staff/${file}.jpg`, file.replace(/-/g, '').padEnd(64, '0')],
     );
     await h.db.query(

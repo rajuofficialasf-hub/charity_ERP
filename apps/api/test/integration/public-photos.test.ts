@@ -136,12 +136,13 @@ const submit = (token: string, clientUuid: string, photoIds: string[] = []) =>
 
 async function fileRow(id: string) {
   const res = await h.db.query(
-    `SELECT f.object_key, f.virus_scan, f.deleted_at, f.uploaded_by, f.project_id, l.entity_type, l.entity_id, l.slot
+    `SELECT f.object_key, f.storage_driver, f.virus_scan, f.deleted_at, f.uploaded_by, f.project_id, l.entity_type, l.entity_id, l.slot
        FROM files f LEFT JOIN file_links l ON l.file_id = f.id WHERE f.id = $1`,
     [id],
   );
   return res.rows[0] as {
     object_key: string;
+    storage_driver: string;
     virus_scan: string;
     deleted_at: Date | null;
     uploaded_by: string | null;
@@ -163,8 +164,8 @@ async function plantUnclaimed(projectId: string, folder: string, count: number, 
     const id = randomUUID();
     const client = randomUUID();
     await h.db.query(
-      `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, project_id, source)
-       VALUES ($1, 'photos', $2, 'form_photo', 'image/jpeg', $3, $4, $5, 'gallery')`,
+      `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, project_id, source)
+       VALUES ($1, 'photos', 'nas', $2, 'form_photo', 'image/jpeg', $3, $4, $5, 'gallery')`,
       [
         id,
         `${folder}/${client}/${id}.jpg`,
@@ -200,6 +201,7 @@ describe('uploading', () => {
     expect(JSON.stringify(res.body)).not.toContain(projectId);
     const row = await fileRow(fileId);
     expect(row).toMatchObject({
+      storage_driver: 'nas',
       virus_scan: 'pending',
       uploaded_by: null,
       project_id: projectId,

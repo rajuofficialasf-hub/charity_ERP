@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type Env, loadEnv } from '../../src/config/env';
 
-/** Configuration for API and integration tests: test database, filesystem storage, quiet logs. */
+/** Configuration for API and integration tests: test database, the NAS driver on a temporary folder, quiet logs. */
 export function testEnv(overrides: Record<string, string> = {}): Env {
   return loadEnv({
     NODE_ENV: 'test',
@@ -12,8 +12,8 @@ export function testEnv(overrides: Record<string, string> = {}): Env {
     CURSOR_SECRET: 'test-only-cursor-secret-0123456789abcdef',
     // TEST_LOG_LEVEL=error shows the API's error lines while hunting a 500 in a test
     LOG_LEVEL: process.env.TEST_LOG_LEVEL ?? 'silent',
-    STORAGE_DRIVER: 'filesystem',
-    STORAGE_FS_ROOT: mkdtempSync(join(tmpdir(), 'css-storage-')),
+    STORAGE_DRIVER: 'nas',
+    STORAGE_ROOT: mkdtempSync(join(tmpdir(), 'css-storage-')),
     JOBS_INLINE: 'true',
     JWT_SECRET: 'test-only-jwt-secret-0123456789abcdef0123',
     AUTH_CSRF_SECRET: 'test-only-csrf-secret-0123456789abcdef01',

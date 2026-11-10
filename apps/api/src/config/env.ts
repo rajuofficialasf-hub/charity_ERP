@@ -1,3 +1,4 @@
+import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 
 const flag = z
@@ -14,28 +15,35 @@ const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+    /**
+     * How long the API keeps serving after SIGTERM once readiness fails, so a load balancer that
+     * polls readiness stops sending first; 0 when none does.
+     */
+    SHUTDOWN_DELAY_MS: z.coerce.number().int().min(0).max(5_000).default(0),
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
     /** Signs pagination cursors so they cannot be forged (API_STANDARDS 4). */
     CURSOR_SECRET: z.string().min(32),
-    /** Bearer token that unlocks the detailed readiness payload; unset = never shown. */
-    HEALTH_TOKEN: z.string().min(24).optional(),
     /** Runs job consumers inside the API process; development and tests only. */
     JOBS_INLINE: flag,
     /**
-     * The storage driver (no default): `s3` is MinIO through the S3 API (TEMP until the NAS driver
-     * exists), `filesystem` the stand-in of automated tests.
+     * The storage driver (no default): `nas` stores under STORAGE_ROOT, the organization's NAS
+     * mount (tests use a temporary folder); `s3` is MinIO through the S3 API, TEMP until the NAS
+     * is mounted for the app.
      */
-    STORAGE_DRIVER: z.enum(['s3', 'filesystem']),
+    STORAGE_DRIVER: z.enum(['nas', 's3']),
     MINIO_ENDPOINT: z.string().default('127.0.0.1'),
     MINIO_PORT: z.coerce.number().int().min(1).max(65535).default(9000),
     MINIO_USE_SSL: flag,
     MINIO_ACCESS_KEY: z.string().optional(),
     MINIO_SECRET_KEY: z.string().optional(),
-    /** Root folder of FilesystemStorage (automated tests). */
-    STORAGE_FS_ROOT: z.string().optional(),
+    /** The NAS mount the nas driver stores under; an absolute path. */
+    STORAGE_ROOT: z
+      .string()
+      .refine((root) => isAbsolute(root), 'must be an absolute path')
+      .optional(),
     SMTP_HOST: z.string().default('127.0.0.1'),
     SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
     SMTP_SECURE: flag,
@@ -138,12 +146,6 @@ const envSchema = z
         path: ['JOBS_INLINE'],
         message: 'must be false in production',
       });
-    if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === 'filesystem')
-      ctx.addIssue({
-        code: 'custom',
-        path: ['STORAGE_DRIVER'],
-        message: 'the filesystem driver is for tests only',
-      });
     if (env.NODE_ENV === 'production' && env.OTP_DUMMY_ENABLED)
       ctx.addIssue({
         code: 'custom',
@@ -218,11 +220,11 @@ const envSchema = z
         path: ['MINIO_ACCESS_KEY'],
         message: 'required when STORAGE_DRIVER=s3',
       });
-    if (env.STORAGE_DRIVER === 'filesystem' && !env.STORAGE_FS_ROOT)
+    if (env.STORAGE_DRIVER === 'nas' && !env.STORAGE_ROOT)
       ctx.addIssue({
         code: 'custom',
-        path: ['STORAGE_FS_ROOT'],
-        message: 'required when STORAGE_DRIVER=filesystem',
+        path: ['STORAGE_ROOT'],
+        message: 'required when STORAGE_DRIVER=nas',
       });
   });
 
@@ -237,7 +239,6 @@ const LOCAL_SECRET_KEYS = [
   'CURSOR_SECRET',
   'LOCAL_KEY_SECRET',
   'LOCAL_KEY_PREVIOUS_SECRET',
-  'HEALTH_TOKEN',
   'SMTP_PASSWORD',
   'MINIO_ACCESS_KEY',
   'MINIO_SECRET_KEY',
@@ -302,13 +303,21 @@ function passwordOf(url: string): string | undefined {
 }
 
 export function loadEnv(source: Record<string, string | undefined>): Env {
-  // An empty value (`HEALTH_TOKEN=` in .env.example) means "not set", as in dotenv.
+  // An empty value (`JWT_PREVIOUS_SECRET=` in .env.example) means "not set", as in dotenv.
   const present = Object.fromEntries(
     Object.entries(source).filter(([, value]) => value !== undefined && value !== ''),
   );
   // the allowlist's earlier name would otherwise be ignored and leave the allowlist empty
   if (present['CORS_ORIGINS'] !== undefined)
     throw new Error('Invalid configuration: CORS_ORIGINS: renamed, set ALLOWED_ORIGINS instead');
+  // a deployment that still sends a retired storage setting fails at start, naming the one to set,
+  // instead of starting without a store
+  if (present['STORAGE_DRIVER'] === 'filesystem')
+    throw new Error(
+      'Invalid configuration: STORAGE_DRIVER: filesystem is now nas, set STORAGE_DRIVER=nas and STORAGE_ROOT',
+    );
+  if (present['STORAGE_FS_ROOT'] !== undefined)
+    throw new Error('Invalid configuration: STORAGE_FS_ROOT: renamed, set STORAGE_ROOT instead');
   const result = envSchema.safeParse(present);
   if (!result.success) {
     const problems = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');

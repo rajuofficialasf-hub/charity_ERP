@@ -1,0 +1,8 @@
+# Rules Redocly's linter skips for named parts of docs/api/openapi.yaml, each with its reason.
+# The health probes answer only 200 or 503: they take no input, need no session and are not
+# rate-limited, so no 4xx response exists to document.
+openapi.yaml:
+  operation-4xx-response:
+    - '#/paths/~1healthz/get/responses'
+    - '#/paths/~1livez/get/responses'
+    - '#/paths/~1readyz/get/responses'

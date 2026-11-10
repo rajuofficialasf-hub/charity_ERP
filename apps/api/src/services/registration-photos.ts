@@ -149,6 +149,7 @@ export class RegistrationPhotosService {
           data: {
             id,
             bucket: BUCKET,
+            storageDriver: this.storage.name,
             objectKey: key,
             kind: KIND[file.slot],
             mime: image.mime,

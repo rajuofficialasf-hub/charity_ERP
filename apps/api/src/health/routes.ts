@@ -1,25 +1,32 @@
-import { Router } from 'express';
-import type { HealthService } from './service';
+import { type Response, Router } from 'express';
+import type { HealthService, HealthStatus } from './service';
+
+/** The probe paths, also left out of the request log (core/logging.ts). */
+export const PROBE_PATHS = ['/api/v1/healthz', '/api/v1/livez', '/api/v1/readyz'] as const;
+
+function answer(res: Response, code: number, status: HealthStatus): void {
+  res
+    .status(code)
+    .set('Cache-Control', 'no-store')
+    .type('application/health+json')
+    .send(JSON.stringify({ status }));
+}
 
 /**
- * Liveness and readiness probes for Caddy and the IT team's uptime check (SYSTEM_ARCHITECTURE 10).
- * Served outside the /api/v1 prefix, outside the API contract and without rate limits.
+ * The probes in the IETF health check format, without authentication and before the rate limiters:
+ * liveness never touches a dependency, so an outage elsewhere never gets a healthy API restarted;
+ * readiness is what the proxy and the deploy scripts wait on.
  */
 export function healthRouter(health: HealthService): Router {
   const router = Router();
-  router.get('/health/live', (_req, res) => {
-    res.json({ status: 'up' });
-  });
-  router.get('/health/ready', async (req, res, next) => {
-    try {
-      const { ready, checks } = await health.readiness();
-      res.status(ready ? 200 : 503).json({
-        status: ready ? 'ready' : 'not_ready',
-        ...(health.authorized(req.headers.authorization) ? { checks } : {}),
-      });
-    } catch (error) {
-      next(error);
-    }
-  });
+  const live = (_req: unknown, res: Response) => answer(res, 200, 'pass');
+  for (const path of ['/api/v1/healthz', '/api/v1/livez']) router.head(path, live).get(path, live);
+
+  // Express passes a rejected handler to the error handler
+  const ready = async (_req: unknown, res: Response) => {
+    const status = await health.readiness();
+    answer(res, status === 'fail' ? 503 : 200, status);
+  };
+  router.head('/api/v1/readyz', ready).get('/api/v1/readyz', ready);
   return router;
 }

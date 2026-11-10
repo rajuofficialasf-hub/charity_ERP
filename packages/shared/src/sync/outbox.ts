@@ -21,6 +21,8 @@ export interface OutboxTracking {
   firstAttemptAt: Date | null;
   nextRetryAt: Date | null;
   failureCode: string | null;
+  /** The values the failure's message names (the question of an answer no longer in its list). */
+  failureParams?: Record<string, string> | null;
   serverId?: string | null;
   syncedAt?: Date | null;
   verificationReason?: string | null;
@@ -35,6 +37,7 @@ export type OutboxEvent =
       result: SyncResult;
       serverId?: string | null;
       code?: string | null;
+      params?: Record<string, string>;
       /** Photo slots of the record the server still waits for. */
       pendingPhotos?: number;
     }
@@ -71,12 +74,14 @@ export function transition<T extends OutboxTracking>(record: T, event: OutboxEve
           ...record,
           state: 'failed',
           failureCode: event.code ?? 'failed',
+          failureParams: event.params ?? null,
           nextRetryAt: null,
         };
       return {
         ...record,
         state: 'synced',
         failureCode: null,
+        failureParams: null,
         nextRetryAt: null,
         serverId: event.serverId ?? record.serverId ?? null,
         syncedAt: event.at,
@@ -92,11 +97,18 @@ export function transition<T extends OutboxTracking>(record: T, event: OutboxEve
       expectState(record, event, ['syncing']);
       const first = record.firstAttemptAt ?? event.at;
       if (retryExhausted(first, event.at))
-        return { ...record, state: 'failed', failureCode: RETRY_EXHAUSTED, nextRetryAt: null };
+        return {
+          ...record,
+          state: 'failed',
+          failureCode: RETRY_EXHAUSTED,
+          failureParams: null,
+          nextRetryAt: null,
+        };
       return {
         ...record,
         state: 'pending',
         failureCode: null,
+        failureParams: null,
         nextRetryAt: nextRetryAt(record.attempts, event.at, event.retryAfterSeconds, event.random),
       };
     }
@@ -110,6 +122,7 @@ export function transition<T extends OutboxTracking>(record: T, event: OutboxEve
         firstAttemptAt: null,
         nextRetryAt: null,
         failureCode: null,
+        failureParams: null,
       };
     case 'retry_now': {
       expectState(record, event, ['pending', 'failed']);
@@ -120,6 +133,7 @@ export function transition<T extends OutboxTracking>(record: T, event: OutboxEve
         state: 'pending',
         nextRetryAt: null,
         failureCode: null,
+        failureParams: null,
         attempts: exhausted ? 0 : record.attempts,
         firstAttemptAt: exhausted ? null : record.firstAttemptAt,
       };

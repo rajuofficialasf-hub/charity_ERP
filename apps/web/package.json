@@ -11,6 +11,7 @@
     "bundle:report": "node scripts/bundle-report.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test:contract": "vitest run -c vitest.contract.config.mts",
     "e2e": "playwright test",
     "icons": "node scripts/icons.mjs"
   },

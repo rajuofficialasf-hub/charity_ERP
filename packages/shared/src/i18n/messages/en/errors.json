@@ -326,6 +326,7 @@
     "person_in_app": "An in-app text may not name a person; use it in the email only."
   },
   "application": {
+    "answer_not_in_list": "The answer to “{question}” is no longer in its list, because the draft was made on an older version of the form. Delete the draft and apply again.",
     "form_not_published": "The project's application form is not published.",
     "team_lead_missing": "You have no lead volunteer on this project.",
     "number_in_project": "An application with this number already exists in this project.",

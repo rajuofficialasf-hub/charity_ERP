@@ -40,9 +40,14 @@ export interface SyncOutcome {
 /**
  * A world for the sync tests: an active project of the PM's program with its application form,
  * a Dhaka volunteer and a Rangpur volunteer with consent, the Dhaka RPM on the project's area, and
- * the helpers that shape records and batches the way the phone does.
+ * the helpers that shape records and batches the way the phone does. `genderCodes` are added to
+ * the gender list before the form is published, so the form offers them.
  */
-export async function syncWorld(h: AuthHarness, form: FormExtras = {}) {
+export async function syncWorld(
+  h: AuthHarness,
+  form: FormExtras = {},
+  options: { genderCodes?: string[] } = {},
+) {
   const accounts = new Map<string, Account>();
   const make = (kind: 'staff' | 'volunteer') => async (role: string) => {
     const a = await account(h.db, { kind, role });
@@ -53,6 +58,11 @@ export async function syncWorld(h: AuthHarness, form: FormExtras = {}) {
   const ctx = new SeedContext(h.db);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
+  for (const code of options.genderCodes ?? [])
+    await h.db.query(
+      `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en) VALUES ($1, 'gender', $2, $2, $2)`,
+      [randomUUID(), code],
+    );
   const api = () => request(h.server());
   const as = (userId: string) => login(h, accounts.get(userId)!);
   const at = (s: Session, method: 'get' | 'post' | 'put' | 'patch', path: string) =>

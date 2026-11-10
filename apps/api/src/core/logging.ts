@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { DestinationStream } from 'pino';
 import type { Options } from 'pino-http';
 import type { Env } from '../config/env';
+import { PROBE_PATHS } from '../health/routes';
 import { currentContext } from './request-context';
 import { requestIdOf } from './request-id';
 
@@ -64,6 +65,16 @@ function requestSerializer(req: IncomingMessage & { id?: string }) {
   return { id: req.id, method: req.method, path: path.replace(PUBLIC_TOKEN_PATH, '$1[redacted]') };
 }
 
+const PROBE_SET: ReadonlySet<string> = new Set(PROBE_PATHS);
+
+/** A path as Express matches it: without the query, any case, with or without a trailing slash. */
+function routedPath(url: string | undefined): string {
+  return (url ?? '')
+    .split('?')[0]!
+    .toLowerCase()
+    .replace(/(.)\/+$/, '$1');
+}
+
 function responseSerializer(res: ServerResponse) {
   return { statusCode: res.statusCode };
 }
@@ -86,7 +97,8 @@ export function loggerOptions(env: Env, stream?: DestinationStream): Options {
       return ctx?.userId ? { userId: ctx.userId } : {};
     },
     redact: { paths: REDACT_PATHS, censor: '[redacted]' },
-    autoLogging: { ignore: (req) => req.url === '/health/live' },
+    // the probes are polled every few seconds; a line each would bury the real requests
+    autoLogging: { ignore: (req) => PROBE_SET.has(routedPath(req.url)) },
     ...(stream ? { stream } : {}),
   };
 }

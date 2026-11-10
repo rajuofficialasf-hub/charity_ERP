@@ -146,7 +146,7 @@ describe('migrations', () => {
       await otp('registration');
       const file = (
         await client.query(
-          `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, source) VALUES (gen_random_uuid(), 'profiles', 'k/1.jpg', 'profile_photo', 'image/jpeg', 10, $1, 'gallery') RETURNING id`,
+          `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, source) VALUES (gen_random_uuid(), 'profiles', 'nas', 'k/1.jpg', 'profile_photo', 'image/jpeg', 10, $1, 'gallery') RETURNING id`,
           ['a'.repeat(64)],
         )
       ).rows[0].id as string;

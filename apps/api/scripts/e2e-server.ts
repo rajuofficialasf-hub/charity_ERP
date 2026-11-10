@@ -60,8 +60,8 @@ async function main(): Promise<void> {
     // The E2E build is served over plain http. Chromium treats 127.0.0.1 as a secure context and
     // keeps a Secure cookie there, WebKit does not and loses the session on the next reload.
     AUTH_COOKIE_SECURE: 'false',
-    STORAGE_DRIVER: 'filesystem',
-    STORAGE_FS_ROOT: mkdtempSync(join(tmpdir(), 'css-e2e-storage-')),
+    STORAGE_DRIVER: 'nas',
+    STORAGE_ROOT: mkdtempSync(join(tmpdir(), 'css-e2e-storage-')),
     JOBS_INLINE: 'false',
     // Every browser of the run shares one address; the limits are covered by the API tests.
     RATE_LIMITS_RELAXED: 'true',

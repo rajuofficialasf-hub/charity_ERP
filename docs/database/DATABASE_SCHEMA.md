@@ -1574,6 +1574,7 @@ The early `media_subjects` and `media_stories` were never written and are droppe
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | bucket | text | no | — | — |
+| storage_driver | text | no | 's3' | CHECK IN ('nas', 's3'): the driver that holds the file and its thumbnails; every writer sets it (the default is for an older API writing during a deploy, and fills the rows stored on MinIO before the column); `storage:copy` moves it (D-168) |
 | object_key | text | no | — | — |
 | kind | text | no | — | L-file-kind |
 | mime | text | no | — | — |
@@ -1596,7 +1597,7 @@ The early `media_subjects` and `media_stories` were never written and are droppe
 | deleted_at | timestamptz | yes | — | exports only |
 | [A] | | | | |
 
-Constraints: UNIQUE (bucket, object_key); partial UNIQUE (project_id, sha256) WHERE kind NOT IN ('export') (relaxable per project policy, O-30); CHECK deleted_at IS NULL OR kind = 'export'. Indexes: (project_id, phash); (virus_scan) WHERE virus_scan IN ('pending','failed').
+Constraints: UNIQUE (bucket, object_key); partial UNIQUE (project_id, sha256) WHERE kind NOT IN ('export') (relaxable per project policy, O-30); CHECK deleted_at IS NULL OR kind = 'export'. Indexes: (storage_driver, id) for the copy between drivers; (project_id, phash); (virus_scan) WHERE virus_scan IN ('pending','failed').
 
 ### file_links
 | Column | Type | Null | Default | Comment |

@@ -15,6 +15,7 @@
     "db:reset": "tsx scripts/db-reset.ts",
     "db:migrate:dev": "prisma migrate dev --create-only",
     "db:load-locations": "tsx --conditions=@css/source scripts/load-locations.ts",
+    "storage:copy": "tsx --env-file-if-exists=.env --conditions=@css/source scripts/storage-copy.ts",
     "locations:convert": "tsx --conditions=@css/source scripts/convert-locations.ts",
     "perf:seed": "tsx --conditions=@css/source scripts/perf-seed.ts",
     "perf:lists": "tsx --env-file-if-exists=.env --conditions=@css/source scripts/perf-lists.ts",

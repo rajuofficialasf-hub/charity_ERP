@@ -34,6 +34,7 @@ import { programsRouter } from './routes/programs';
 import { settingsRouter } from './routes/settings';
 import { auditRouter } from './routes/audit';
 import { adminSystemRouter } from './routes/admin-system';
+import { openapiRouter } from './routes/openapi';
 import { notificationsRouter } from './routes/notifications';
 import { sessionMonitorRouter } from './routes/session-monitor';
 import { projectsRouter } from './routes/projects';
@@ -136,6 +137,8 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   api.use(auditRouter(deps, c));
   api.use(adminSystemRouter(deps, c));
   api.use(notificationsRouter(deps, c));
+  // last: it describes every route registered above
+  api.use(openapiRouter(deps, c.env));
   for (const build of options.extraRouters ?? []) api.use(build(deps));
   app.use(`/${API_PREFIX}`, api);
 

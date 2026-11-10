@@ -5,7 +5,12 @@ import { SeedContext } from '../../seed/context';
 import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
 import { seedWorkflows } from '../../seed/sets/base/workflows';
 import { accessWorld } from './support/access-fixtures';
-import { applicationProject, applicationRow, IDENTITY_ANSWERS } from './support/applications';
+import {
+  applicationProject,
+  applicationRow,
+  IDENTITY_ANSWERS,
+  statusOf,
+} from './support/applications';
 import {
   type Account,
   account,
@@ -73,6 +78,12 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.db);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
+  // a gender code the form offers when it is published and the list later loses, as an older form
+  // version's own option codes are missing from the list
+  await h.db.query(
+    `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en) VALUES ($1, 'gender', 'retired_code', 'পুরনো', 'Old')`,
+    [randomUUID()],
+  );
   await volunteer(h.db, world.dhaka, world.users.team, { type: 'team_member' });
   const made = await at(await as(world.users.pm), 'post', '/projects').send({
     programId: world.a1.program,
@@ -300,6 +311,42 @@ describe('creating a draft', () => {
     );
     expect(taken.status, JSON.stringify(taken.body)).toBe(201);
     expect(answerOf(taken.body, 'q_photo')).toEqual({ t: 'photo', v: [mine] });
+  });
+});
+
+describe('sending an answer that is no longer in its list', () => {
+  it('names the question and the way out, and makes no profile', async () => {
+    const s = await as(world.users.general);
+    const nid = fakeNid();
+    const answers = identity(nid).map((a: { fieldKey: string; value: unknown }) =>
+      a.fieldKey === 'q_gender' ? { ...a, value: { t: 'single_select', v: 'retired_code' } } : a,
+    );
+    const made = await create(s, createBody(answers));
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    const id = made.body.data.id as string;
+    await h.db.query(
+      `DELETE FROM reference_lists WHERE list_key = 'gender' AND code = 'retired_code'`,
+    );
+
+    const bn = await act(s, id, 'submit');
+    expect(bn.status, JSON.stringify(bn.body)).toBe(422);
+    expect(bn.body.error).toMatchObject({
+      code: 'application.answer_not_in_list',
+      params: { question: 'প্রশ্ন' },
+      details: [{ path: 'answers.q_gender', code: 'validation.option_unknown' }],
+    });
+    expect(bn.body.error.message).toContain('প্রশ্ন');
+    const read = await at(s, 'get', `/applications/${id}`);
+    const en = await at(s, 'post', `/applications/${id}/actions/submit`)
+      .set('If-Match', read.headers.etag as string)
+      .set('Accept-Language', 'en')
+      .send({});
+    expect(en.body.error.params).toEqual({ question: 'Question' });
+    expect(en.body.error.message).toContain('Question');
+
+    const profile = await h.db.query('SELECT 1 FROM beneficiaries WHERE nid = $1', [nid]);
+    expect(profile.rowCount).toBe(0);
+    expect(await statusOf(h.db, id)).toBe('draft');
   });
 });
 

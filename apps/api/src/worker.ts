@@ -1,6 +1,10 @@
 import { loadEnv } from './config/env';
 import { closeContainer, createContainer } from './container';
 import { JobConsumers } from './jobs/consumers';
+import { createShutdown } from './shutdown';
+
+/** Running jobs get this long to finish after SIGTERM (pg-boss drains for up to 30 s). */
+const SHUTDOWN_GRACE_MS = 35_000;
 
 /** The worker process (SYSTEM_ARCHITECTURE 2.1): job consumers, maintenance, schedules. */
 async function main(): Promise<void> {
@@ -20,19 +24,13 @@ async function main(): Promise<void> {
   }).register();
   logger.info('worker started');
 
-  let stopping = false;
-  // SIGTERM stops intake and lets running jobs finish (JobRunner.stop).
-  const shutdown = (signal: NodeJS.Signals): void => {
-    if (stopping) return;
-    stopping = true;
-    logger.info({ signal }, 'worker shutting down');
-    closeContainer(container)
-      .then(() => process.exit(0))
-      .catch((error: unknown) => {
-        logger.error({ err: error }, 'error while closing resources');
-        process.exit(1);
-      });
-  };
+  // SIGTERM stops intake and lets running jobs finish (JobRunner.stop)
+  const shutdown = createShutdown({
+    closeResources: () => closeContainer(container),
+    graceMs: SHUTDOWN_GRACE_MS,
+    exit: (code) => process.exit(code),
+    log: logger,
+  });
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
 }

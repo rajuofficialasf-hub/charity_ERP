@@ -1,18 +1,8 @@
-import type { Bilingual, Locale } from '@css/shared/i18n';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
+import type { PublicSettings } from '../api/schemas';
 
-/** What every visitor reads from the server (docs/DECISION_LOG.md, the admin and settings decision). */
-export interface PublicSettings {
-  defaultLanguage: Locale;
-  organisation: {
-    foundationName: Bilingual;
-    departmentName: Bilingual;
-    address: Bilingual;
-    phone: string;
-    email: string;
-  };
-}
+export type { PublicSettings };
 
 export const PUBLIC_SETTINGS_KEY = ['public-settings'] as const;
 

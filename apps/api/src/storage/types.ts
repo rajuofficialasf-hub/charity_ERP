@@ -35,8 +35,8 @@ export interface ObjectInfo {
  * carry entity ids, never personal data.
  */
 export interface StorageDriver {
-  /** TEMP: `s3` (MinIO) is the first driver; the NAS driver arrives with the NAS. */
-  readonly name: 's3' | 'filesystem';
+  /** TEMP: `s3` (MinIO) goes once the app runs on the NAS only. */
+  readonly name: 'nas' | 's3';
   put(
     bucket: Bucket,
     key: string,
@@ -49,7 +49,7 @@ export interface StorageDriver {
   stat(bucket: Bucket, key: string): Promise<ObjectInfo | null>;
   /** Succeeds if the key is already gone. */
   remove(bucket: Bucket, key: string): Promise<void>;
-  /** Readiness: the store answers and the buckets exist (SYSTEM_ARCHITECTURE 10). */
+  /** Readiness: the store answers (S3: the buckets exist; NAS: the root is readable and writable). */
   ping(): Promise<boolean>;
 }
 

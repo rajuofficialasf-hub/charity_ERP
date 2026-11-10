@@ -16,7 +16,11 @@ const DAY = 24 * HOUR;
 
 beforeAll(async () => {
   h = await authHarness();
-  w = await syncWorld(h, { fields: [{ ...question('q_landmark') }] });
+  w = await syncWorld(
+    h,
+    { fields: [{ ...question('q_landmark') }] },
+    { genderCodes: ['retired_code'] },
+  );
 });
 afterAll(async () => h.close());
 
@@ -106,6 +110,26 @@ describe('a record that arrives after the deadline', () => {
         '2099-12-31',
       ]);
     }
+  });
+
+  it('names the question of an answer no longer in its list when a send from the phone is refused', async () => {
+    const s = await w.as(w.world.users.general);
+    const first = w.draft(
+      w.identity(undefined, undefined, { q_gender: { t: 'single_select', v: 'retired_code' } }),
+    );
+    const made = await w.batch(s, [first]).expect(200);
+    const id = w.resultOf(made, first.clientUuid).serverId;
+    // the list loses the code, as an older form version's own codes were never in it
+    await h.db.query(
+      `DELETE FROM reference_lists WHERE list_key = 'gender' AND code = 'retired_code'`,
+    );
+    const send = w.record({ kind: 'application_submit', target: id, payload: {} });
+    const refused = await w.batch(s, [send]).expect(200);
+    expect(w.resultOf(refused, send.clientUuid)).toMatchObject({
+      result: 'failed',
+      code: 'application.answer_not_in_list',
+      params: { question: 'প্রশ্ন' },
+    });
   });
 
   it('holds a submit made before the deadline and refuses one made after', async () => {

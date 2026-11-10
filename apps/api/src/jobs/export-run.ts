@@ -230,6 +230,7 @@ export class ExportRunner {
           data: {
             id: fileId,
             bucket: 'exports',
+            storageDriver: this.storage.name,
             objectKey: key,
             kind: 'export',
             mime: mimeOf(format),

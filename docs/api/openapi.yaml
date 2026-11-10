@@ -64,6 +64,8 @@ tags:
     description: Notification channels and system health (DECISION_LOG D-098)
   - name: sync
     description: Offline sync batch and snapshot (OFFLINE_SYNC.md)
+  - name: health
+    description: Liveness and readiness probes in the IETF health check format, for the proxy, Compose and the deploy scripts
 
 components:
   securitySchemes:
@@ -443,6 +445,12 @@ components:
 
   schemas:
     Uuid: { type: string, format: uuid }
+    HealthStatus:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [pass, warn, fail] }
     Money:
       type: string
       pattern: '^[0-9]{1,12}(\.[0-9]{1,2})?$'
@@ -490,7 +498,7 @@ components:
         params:
           type: object
           additionalProperties: { type: string }
-          description: Only for codes that document them in API_STANDARDS section 8 (beneficiary.identity_taken, beneficiary.merge_conflict)
+          description: Only for codes that document them in API_STANDARDS section 8 (beneficiary.identity_taken, beneficiary.merge_conflict, application.answer_not_in_list)
     ErrorResponse:
       type: object
       required: [error]
@@ -3926,6 +3934,10 @@ components:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
         result: { type: string, enum: [done, failed, pending_photos, needs_verification, synced] }
         code: { type: [string, 'null'], description: Error code when failed }
+        params:
+          type: object
+          additionalProperties: { type: string }
+          description: The values the refusal's message names, for the codes whose values are public (the question of an answer no longer in its list)
         serverId: { type: [string, 'null'], format: uuid }
         status: { type: [string, 'null'] }
         stage: { type: [string, 'null'] }
@@ -4664,6 +4676,69 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
 
 paths:
+  # ======================= health =======================
+  /healthz:
+    get:
+      tags: [health]
+      operationId: health.live
+      summary: Liveness probe
+      security: []
+      description: >-
+        Liveness: pass whenever the process can answer. Never checks a dependency, so an outage elsewhere never gets a healthy API restarted. Not rate-limited and not in the request log.
+      x-permission: public
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: probe
+      responses:
+        '200':
+          description: The status alone; Cache-Control no-store; HEAD answers the same without a body
+          content:
+            application/health+json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+  /livez:
+    get:
+      tags: [health]
+      operationId: health.live.alias
+      summary: Liveness probe under the name Kubernetes uses
+      security: []
+      description: >-
+        Liveness: pass whenever the process can answer. Never checks a dependency, so an outage elsewhere never gets a healthy API restarted. Not rate-limited and not in the request log.
+      x-permission: public
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: probe
+      responses:
+        '200':
+          description: The status alone; Cache-Control no-store; HEAD answers the same without a body
+          content:
+            application/health+json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+  /readyz:
+    get:
+      tags: [health]
+      operationId: health.ready
+      summary: Readiness probe
+      security: []
+      description: >-
+        Readiness: the database and the job queue (critical) and the file store (not critical) checked side by side, each within 2 seconds; a finished result is reused for 2 seconds. warn when only the file store is down; fail with 503 when a critical check is down or the API is shutting down. Which check failed goes to the log only. Not rate-limited and not in the request log.
+      x-permission: public
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: probe
+      responses:
+        '200':
+          description: The status alone; Cache-Control no-store; HEAD answers the same without a body
+          content:
+            application/health+json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+        '503':
+          description: fail, a critical check is down or the API is shutting down
+          content:
+            application/health+json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
   # ======================= auth =======================
   /auth/invitations/check:
     post:
@@ -11002,6 +11077,30 @@ paths:
               schema: { $ref: '#/components/schemas/LocationResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /openapi.json:
+    get:
+      tags: [reference]
+      operationId: reference.openapi.get
+      summary: The OpenAPI document of every route, for the web app’s contract test
+      security: []
+      description: >-
+        Built from the route registry: shapes only, never data. Open to everyone in development,
+        tests and staging, where the web app's contract test reads it; in production it needs a
+        signed-in session (no permission), so a stranger does not get the map of the routes
+        (DECISION_LOG D-168).
+      x-permission: public
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: reference-read
+      responses:
+        '200':
+          description: The OpenAPI 3.1 document of the running API
+          content:
+            application/json:
+              schema: { type: object, required: [openapi, paths], properties: { openapi: { type: string }, paths: { type: object } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /public/settings:
     get:
       tags: [reference]

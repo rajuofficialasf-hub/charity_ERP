@@ -1,7 +1,7 @@
 // pnpm --filter @css/api perf:exports: measures the export job on the large data set of perf:seed
 // (docs/testing/PERFORMANCE.md, section "Exports"). As the Department Head it asks for the Dhaka
 // division's beneficiaries, more than the 100,000 rows a file holds, and runs the job with the
-// real batches, writers and storage driver (the filesystem driver in a temporary folder) until it
+// real batches, writers and storage driver (the NAS driver on a temporary folder) until it
 // stops at the limit: once as CSV and once as Excel. It prints the time, the rows written, the
 // file's size and the peak memory of the process. Only the measurement database (checkPerfDbAccess).
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -26,8 +26,8 @@ const env = loadEnv({
   ...process.env,
   DATABASE_URL: url,
   LOG_LEVEL: 'warn',
-  STORAGE_DRIVER: 'filesystem',
-  STORAGE_FS_ROOT: root,
+  STORAGE_DRIVER: 'nas',
+  STORAGE_ROOT: root,
 });
 // the request's queue entry is not needed: the job is run here, in this process
 const noQueue = { enqueue: async () => null } as unknown as JobRunner;

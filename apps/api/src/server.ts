@@ -4,11 +4,12 @@ import { otpStartupMessage } from './auth/otp.service';
 import { loadEnv } from './config/env';
 import { closeContainer, createContainer } from './container';
 import { startInlineConsumers } from './jobs/consumers';
+import { createShutdown } from './shutdown';
 
 /**
  * In-flight requests and, in development, the inline job consumers (pg-boss drains for up to 30 s,
  * JobRunner.stop) get this long after SIGTERM before the process exits anyway. The
- * container's stop_grace_period is longer than this.
+ * container's stop_grace_period (40 s) is longer than this plus the longest SHUTDOWN_DELAY_MS (5 s).
  */
 const SHUTDOWN_GRACE_MS = 35_000;
 
@@ -37,25 +38,19 @@ server.listen(env.PORT, () => {
   logger.info({ port: env.PORT }, 'api listening');
 });
 
-let stopping = false;
-function shutdown(signal: NodeJS.Signals): void {
-  if (stopping) return;
-  stopping = true;
-  logger.info({ signal }, 'shutting down');
-  setTimeout(() => {
-    logger.error('shutdown took too long, exiting');
-    process.exit(1);
-  }, SHUTDOWN_GRACE_MS).unref();
-  server.close((error) => {
-    closeContainer(container)
-      .then(() => process.exit(error ? 1 : 0))
-      .catch((closeError: unknown) => {
-        logger.error({ err: closeError }, 'error while closing resources');
-        process.exit(1);
-      });
-  });
-  server.closeIdleConnections();
-}
+const shutdown = createShutdown({
+  markUnready: () => container.health.markShuttingDown(),
+  delayMs: env.SHUTDOWN_DELAY_MS,
+  closeServer: () =>
+    new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+      server.closeIdleConnections();
+    }),
+  closeResources: () => closeContainer(container),
+  graceMs: SHUTDOWN_GRACE_MS,
+  exit: (code) => process.exit(code),
+  log: logger,
+});
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);

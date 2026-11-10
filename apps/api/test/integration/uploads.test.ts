@@ -126,7 +126,13 @@ describe('a chunked upload', () => {
       flags: ['no_gps', 'stale_capture'],
     });
     const row = (await h.db.query('SELECT * FROM files WHERE id = $1', [file.id])).rows[0];
-    expect(row).toMatchObject({ bucket: 'photos', sha256: sha256(bytes), project_id: world.a1.id });
+    // the row names the driver that holds the file (the tests store on the NAS driver)
+    expect(row).toMatchObject({
+      bucket: 'photos',
+      storage_driver: 'nas',
+      sha256: sha256(bytes),
+      project_id: world.a1.id,
+    });
     expect(row.object_key).toMatch(
       new RegExp(`^${'[A-Z]{3,4}'}/${dhakaApplication}/distribution_proof/${file.id}\\.jpg$`),
     );
