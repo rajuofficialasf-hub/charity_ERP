@@ -1,5 +1,5 @@
-/* The Bengali catalogue, one import per namespace (I18N.md 3.1). A new namespace is added
- * here and in catalogue-en.ts. */
+/* The Bengali catalogue, one import per namespace (docs/ui/I18N.md, "Layout"). A new namespace is
+ * added here and in catalogue-en.ts. */
 import bn_admin from './messages/bn/admin.json' with { type: 'json' };
 import bn_applications from './messages/bn/applications.json' with { type: 'json' };
 import bn_auth from './messages/bn/auth.json' with { type: 'json' };
@@ -18,7 +18,10 @@ import bn_registration from './messages/bn/registration.json' with { type: 'json
 import bn_sync from './messages/bn/sync.json' with { type: 'json' };
 import bn_ui from './messages/bn/ui.json' with { type: 'json' };
 
-/** The bn catalogue is the source language; its shape types every key (I18N 3.4). */
+/**
+ * The bn catalogue is the source language; its shape types every key (docs/ui/I18N.md, "Typed keys
+ * and loading").
+ */
 export const bn = {
   admin: bn_admin,
   applications: bn_applications,

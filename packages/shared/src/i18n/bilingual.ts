@@ -2,13 +2,16 @@
 import { z } from 'zod';
 import { DEFAULT_LOCALE, type Locale } from './locales.js';
 
-/** A configuration text in both languages (I18N 7). */
+/** A configuration text in both languages (docs/ui/I18N.md, "Bilingual data"). */
 export interface Bilingual {
   bn: string;
   en: string;
 }
 
-/** Unicode NFC and trimmed: equal Bengali names compare equal (I18N 6.4). */
+/**
+ * Unicode NFC and trimmed: equal Bengali names compare equal (docs/ui/I18N.md, "Input parsing and
+ * normalization").
+ */
 export function normalizeText(value: string): string {
   return value.normalize('NFC').trim();
 }
@@ -16,17 +19,20 @@ export function normalizeText(value: string): string {
 /** zod text that is trimmed, NFC-normalized and not empty. */
 export const normalizedText = z.string().transform(normalizeText).pipe(z.string().min(1));
 
-/** zod `{ bn, en }` with both languages required and normalized (I18N 7.2). */
+/**
+ * zod `{ bn, en }` with both languages required and normalized (docs/ui/I18N.md, "Storage and
+ * validation").
+ */
 export const bilingualText = z.strictObject({ bn: normalizedText, en: normalizedText });
 
-/** Order in which languages are tried when a value is blank (I18N 8). */
+/** Order in which languages are tried when a value is blank (docs/ui/I18N.md, "Fallback rules"). */
 function fallbackOrder(locale: Locale): Locale[] {
   return locale === DEFAULT_LOCALE ? [DEFAULT_LOCALE, 'en'] : [locale, 'en', DEFAULT_LOCALE];
 }
 
 /**
  * The text of a bilingual value in the requested language, falling back to the other language when
- * it is blank (possible only in drafts; I18N 7.3, 8).
+ * it is blank (possible only in drafts; docs/ui/I18N.md, "Rendering" and "Fallback rules").
  */
 export function localized(value: Partial<Bilingual> | null | undefined, locale: Locale): string {
   if (!value) return '';
@@ -50,7 +56,10 @@ export function localizedColumn(
   return localized({ bn: pick('bn'), en: pick('en') }, locale);
 }
 
-/** Workflow definition parts that carry state and stage labels (WORKFLOW_ENGINE, I18N 7.1). */
+/**
+ * Workflow definition parts that carry state and stage labels (docs/architecture/WORKFLOW_ENGINE.md;
+ * docs/ui/I18N.md, "Where it lives").
+ */
 interface LabelledDefinition {
   states?: { key: string; label_bn: string; label_en: string }[];
   stages?: { list: { key: string; label_bn: string; label_en: string }[] };

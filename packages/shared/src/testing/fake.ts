@@ -1,7 +1,7 @@
 /**
- * Obviously fake identities for seeds and test fixtures (TEST_STRATEGY section 4). Each value
- * passes the production format checks but sits in a reserved range, so it can never be a real
- * person's data and a production guard can recognise it.
+ * Obviously fake identities for seeds and test fixtures (docs/testing/TEST_STRATEGY.md, "Test data
+ * strategy"). Each value passes the production format checks but sits in a reserved range, so it
+ * can never be a real person's data and a production guard can recognise it.
  */
 export const FAKE = {
   nidBase: 1000000000, // NIDs 1000000000 to 1000099999

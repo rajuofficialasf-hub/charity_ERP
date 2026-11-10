@@ -1,4 +1,5 @@
-// i18n check (I18N.md 4, T1.5), run by `pnpm i18n:check` and `pnpm lint` in CI:
+// i18n check (docs/ui/I18N.md, "No hard-coded strings: rule and enforcement"), run by
+// `pnpm i18n:check` and `pnpm lint` in CI:
 // 1. the catalogue check of packages/shared (parity, ICU, parameters, digits, error codes, unused keys);
 // 2. no Bengali script in code outside the catalogue, notification templates, seed data and tests.
 // Node 24 runs the TypeScript check module directly (type stripping).

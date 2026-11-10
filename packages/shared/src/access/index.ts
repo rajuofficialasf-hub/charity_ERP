@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 /**
  * Schemas of the `access` operations of docs/api/openapi.yaml (roles, permissions, effective
- * permissions, the permission panel and project grants; docs/security/RBAC.md 7). Request schemas
- * match the contract field for field; the drift test compares them.
+ * permissions, the permission panel and project grants; docs/security/RBAC.md, "Permission panel").
+ * Request schemas match the contract field for field; the drift test compares them.
  */
 export const SCOPE_TYPES = [
   'GLOBAL',

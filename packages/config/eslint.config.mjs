@@ -61,7 +61,8 @@ export const react = {
 
 /**
  * packages/shared runs in the browser offline and on the server, so it must stay pure TypeScript
- * (ADR-001, SYSTEM_ARCHITECTURE section 3): no Node built-ins, Express, Prisma or the web app's framework.
+ * (docs/architecture/SYSTEM_ARCHITECTURE.md, "Layering"): no Node built-ins, Express,
+ * Prisma or the web app's framework.
  */
 export const sharedPurity = {
   files: ['packages/shared/src/**/*.ts'],
@@ -123,7 +124,10 @@ export const templateBoundary = {
   },
 };
 
-/** No hard-coded user-facing text in the PWA (I18N 4, D-067). */
+/**
+ * No hard-coded user-facing text in the PWA (docs/ui/I18N.md, "No hard-coded strings: rule and
+ * enforcement").
+ */
 export const i18n = {
   files: ['apps/web/src/**/*.tsx'],
   plugins: { css: { rules: { 'no-literal-ui-text': noLiteralUiText } } },

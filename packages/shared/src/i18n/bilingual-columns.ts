@@ -1,7 +1,8 @@
 /**
- * Every bilingual database field (`<field>_bn` / `<field>_en`, I18N.md 7.1). The rendering helper,
- * the translation screen (i18n.manage), the third-language migration (I18N 11) and a schema test
- * read this registry; a new bilingual column is added here in the same change.
+ * Every bilingual database field (`<field>_bn` / `<field>_en`; docs/ui/I18N.md, "Where it lives").
+ * The rendering helper, the translation screen (i18n.manage), the third-language migration
+ * (docs/ui/I18N.md, "Adding a third language") and a schema test read this registry; a new
+ * bilingual column is added here in the same change.
  */
 export const BILINGUAL_COLUMNS = {
   roles: ['name'],

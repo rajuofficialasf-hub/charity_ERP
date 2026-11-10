@@ -1,7 +1,8 @@
 /**
- * Pseudo-locale for development only (I18N 4): every catalogue text is wrapped in markers, so any
- * unmarked text on screen is hard-coded. Placeholders stay intact because the whole message is
- * wrapped, not its parts. Never offered to users or shipped to production.
+ * Pseudo-locale for development only (docs/ui/I18N.md, "No hard-coded strings: rule and
+ * enforcement"): every catalogue text is wrapped in markers, so any unmarked text on screen is
+ * hard-coded. Placeholders stay intact because the whole message is wrapped, not its parts. Never
+ * offered to users or shipped to production.
  */
 export const PSEUDO_LOCALE = 'qps';
 

@@ -15,7 +15,7 @@ describe('hasOnlyEnglishDigits', () => {
   });
 });
 
-describe('toEnglishDigits (I18N 6.4)', () => {
+describe('toEnglishDigits', () => {
   it('converts Bengali digits and keeps everything else', () => {
     expect(toEnglishDigits('০১৭১২-৩৪৫৬৭৮')).toBe('01712-345678');
     expect(toEnglishDigits('৳ ১,২৫০.৫০')).toBe('৳ 1,250.50');

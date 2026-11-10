@@ -25,10 +25,10 @@ export * from './small.js';
 export * from './workflow-definition.js';
 
 /**
- * Zod schema per JSONB column (DATABASE_SCHEMA section 20). Services validate every JSONB write
- * with these. project_components.settings depends on component_key: use
- * componentSettingsSchema(componentKey). The JSON Schemas in docs/database/json-schemas/ stay the
- * contract; a conformance test keeps both in step.
+ * Zod schema per JSONB column (docs/database/DATABASE_SCHEMA.md, "JSONB columns and their JSON
+ * Schemas"). Services validate every JSONB write with these. project_components.settings depends on
+ * component_key: use componentSettingsSchema(componentKey). The JSON Schemas in
+ * docs/database/json-schemas/ stay the contract; a conformance test keeps both in step.
  */
 export const jsonbSchemas = {
   'application_answers.value': answerValueSchema,

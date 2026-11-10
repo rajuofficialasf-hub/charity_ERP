@@ -3,7 +3,7 @@ import { z } from 'zod';
 /** `{ bn?, en? }` label where both languages are optional and extra keys are tolerated. */
 export const looseLabel = z.looseObject({ bn: z.string().optional(), en: z.string().optional() });
 
-/** `{ bn, en }` with both languages required (bilingual configuration, I18N.md). */
+/** `{ bn, en }` with both languages required (bilingual configuration, docs/ui/I18N.md). */
 export const bilingual = z.strictObject({ bn: z.string(), en: z.string() });
 
 /** A bilingual configuration label of at most 200 characters per language. */

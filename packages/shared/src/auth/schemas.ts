@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from './password.js';
 
 /**
- * Request schemas of the auth, sessions and users operations (docs/api/openapi.yaml, AUTH.md).
+ * Request schemas of the auth, sessions and users operations (docs/api/openapi.yaml,
+ * docs/architecture/AUTH.md).
  * The API validates with them and the PWA builds its forms on them; the OpenAPI drift test keeps
  * them equal to the contract.
  */

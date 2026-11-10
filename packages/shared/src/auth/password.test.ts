@@ -9,7 +9,7 @@ import { loginRequestSchema, passwordChangeRequestSchema } from './schemas.js';
 
 const base = { minLength: PASSWORD_MIN_LENGTH };
 
-describe('password rules (AUTH.md 3)', () => {
+describe('password rules', () => {
   it('accepts 8 characters with an upper-case letter and a digit, spaces included', () => {
     expect(checkPassword('Nadi 2026', base)).toEqual([]);
     expect(checkPassword('Kalo-megh7', base)).toEqual([]);
