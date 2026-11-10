@@ -256,6 +256,7 @@ export async function applyResult(result: RowResult, at: Date): Promise<void> {
     result: result.result,
     serverId: result.serverId ?? null,
     code: result.code ?? null,
+    ...(result.params ? { params: result.params } : {}),
     pendingPhotos: result.pendingPhotos,
   });
   if (!secret.next) {

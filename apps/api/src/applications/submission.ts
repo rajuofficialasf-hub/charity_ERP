@@ -1,10 +1,11 @@
 import type { ContactUpdate } from '@css/shared/beneficiaries';
-import { identityColumn, split } from '@css/shared/forms';
+import { type FormDefinition, identityColumn, indexFields, split } from '@css/shared/forms';
 import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import { isForeignKeyViolation } from '../core/db-errors';
 import type { Tx } from '../core/prisma.service';
+import { currentContext } from '../core/request-context';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { BeneficiaryContactService } from '../services/beneficiary-contact';
@@ -98,6 +99,7 @@ export class SubmissionWriter {
       if (volunteers.length && mobile)
         await this.identity.assertNotVolunteerMobile(tx, mobile, volunteers);
       const dob = text(standard, 'dob');
+      await this.assertListed(tx, definition, text(standard, 'gender_code') ?? '');
       const profile = await this.createProfile(tx, actor, {
         ...(nid ? { nid } : {}),
         ...(birthReg ? { birthReg } : {}),
@@ -186,6 +188,30 @@ export class SubmissionWriter {
       'beneficiary',
     );
     return !!scope && (await this.access.reaches(scope, { beneficiaryId }, tx));
+  }
+
+  /**
+   * The person's gender answer is a code of the gender list, as the profile requires. An older
+   * version of a form could carry options of its own (codes such as `opt_…`), so a draft made on
+   * it can hold a code the list never had: the volunteer is told which question, in the request's
+   * language, and that the draft has to be made again on the current form.
+   */
+  private async assertListed(tx: Tx, definition: FormDefinition, code: string): Promise<void> {
+    const listed = await tx.referenceList.findFirst({
+      where: { listKey: 'gender', code },
+      select: { id: true },
+    });
+    if (listed) return;
+    const field = [...indexFields(definition).values()].find(
+      (located) => located.field.standardColumn === 'gender_code',
+    )?.field;
+    const locale = currentContext()?.locale ?? 'bn';
+    throw new ApiError(
+      'application.answer_not_in_list',
+      422,
+      { question: field?.label[locale] ?? '' },
+      [{ path: `answers.${field?.fieldKey ?? 'gender'}`, code: 'validation.option_unknown' }],
+    );
   }
 
   /** The profile from the answers; a code outside its reference list is the form's mistake, not the server's. */

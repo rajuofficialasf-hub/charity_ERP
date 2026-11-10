@@ -54,6 +54,8 @@ export const rowResultSchema = z.strictObject({
   clientUuid: z.uuid(),
   result: z.enum(SYNC_RESULTS),
   code: z.string().nullable().optional(),
+  /** The values the message of a refusal names, such as the question an answer belongs to. */
+  params: z.record(z.string(), z.string()).optional(),
   serverId: z.uuid().nullable().optional(),
   status: z.string().nullable().optional(),
   /** Photo slots the server still waits for after this record. */

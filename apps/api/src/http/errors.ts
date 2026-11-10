@@ -32,13 +32,15 @@ function bodyParserError(err: unknown): { status: number; code: string } | undef
 }
 
 /** Codes whose params are part of the contract and sent to the client (API_STANDARDS 3 and 8). */
-const PUBLIC_PARAMS = new Set([
+export const PUBLIC_PARAMS: ReadonlySet<string> = new Set([
   'permission.grant_refused',
   'file.duplicate',
   // the BEN number of the profile that holds a number, named only to a caller who may see it
   'beneficiary.identity_taken',
   // the project and application, or the class, topic, exam or file, that stops a merge
   'beneficiary.merge_conflict',
+  // the question whose answer is no longer in its list, in the request's language
+  'application.answer_not_in_list',
 ]);
 
 /**

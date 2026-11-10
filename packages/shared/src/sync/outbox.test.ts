@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PURGE_AFTER_DAYS } from './constants';
-import { mayPurge, type OutboxState, transition } from './outbox';
+import { mayPurge, type OutboxState, type OutboxTracking, transition } from './outbox';
 
 const NOW = new Date('2026-10-31T06:00:00.000Z');
 const DAY = 24 * 60 * 60_000;
@@ -12,6 +12,30 @@ const record = (state: OutboxState, extra: Partial<Parameters<typeof transition>
   nextRetryAt: null,
   failureCode: null,
   ...extra,
+});
+
+describe('the values of a refusal', () => {
+  const syncing: OutboxTracking = {
+    state: 'syncing',
+    attempts: 1,
+    firstAttemptAt: new Date(0),
+    nextRetryAt: null,
+    failureCode: null,
+  };
+  it('keeps the values a refusal names, and drops them when the record is edited', () => {
+    const failed = transition(syncing, {
+      type: 'result',
+      at: new Date(1),
+      result: 'failed',
+      code: 'application.answer_not_in_list',
+      params: { question: 'লিঙ্গ' },
+    });
+    expect(failed).toMatchObject({
+      failureCode: 'application.answer_not_in_list',
+      failureParams: { question: 'লিঙ্গ' },
+    });
+    expect(transition(failed, { type: 'edited', at: new Date(2) }).failureParams).toBeNull();
+  });
 });
 
 describe('an outbox record', () => {

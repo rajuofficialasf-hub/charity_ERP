@@ -48,8 +48,10 @@ function Detail() {
     queryFn: () => timeline(applicationId),
     enabled: one.data?.data.local !== true,
   });
-  const reasonOf = (code: string | null) =>
-    code && te.has(code as never) ? te(code as never) : t('detail.action_failed');
+  const reasonOf = (code: string | null, params?: Record<string, string> | null) =>
+    code && te.has(code as never)
+      ? te(code as never, (params ?? undefined) as never)
+      : t('detail.action_failed');
   const tSync = (key: 'store_unavailable' | 'record_on_its_way') => t(`sync.${key}`);
   const wordsOf = (error: unknown) =>
     storeMessage(error, tSync) ??
@@ -71,7 +73,8 @@ function Detail() {
       });
       if (!navigator.onLine) return 'queued' as const;
       const state = await store.settle(id);
-      if (state?.state === 'failed') throw new Error(reasonOf(state.failureCode));
+      if (state?.state === 'failed')
+        throw new Error(reasonOf(state.failureCode, state.failureParams));
       return state?.state === 'synced' ? ('sent' as const) : ('queued' as const);
     },
     onSuccess: async (outcome) => {
@@ -203,7 +206,8 @@ function Detail() {
                     });
                     if (!navigator.onLine) return 'queued';
                     const state = await store.settle(id);
-                    if (state?.state === 'failed') throw new Error(reasonOf(state.failureCode));
+                    if (state?.state === 'failed')
+                      throw new Error(reasonOf(state.failureCode, state.failureParams));
                     return state?.state === 'synced' ? 'sent' : 'queued';
                   }}
                   onSent={async () => {

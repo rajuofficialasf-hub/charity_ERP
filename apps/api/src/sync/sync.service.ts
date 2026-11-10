@@ -24,6 +24,7 @@ import type { Clock } from '../core/clock';
 import { etagOf } from '../core/etag';
 import type { PrismaService } from '../core/prisma.service';
 import type { IdempotencyService } from '../idempotency/idempotency.service';
+import { PUBLIC_PARAMS } from '../http/errors';
 import { ApiError } from '../i18n/api-error';
 import { readDefinition } from '../services/forms';
 import { clampedOffset, correctedDeviceTime, lateSync, verificationReason } from './rules';
@@ -81,6 +82,12 @@ interface SyncContext {
  * replay answers the stored results; a record that depends on a failed one fails with it. Only a
  * volunteer's records are processed: an official holds no outbox in this task.
  */
+/** The values of a refusal's message that the client may show, as the error block sends them. */
+function publicParams(error: ApiError): RowResult['params'] {
+  if (!error.params || !PUBLIC_PARAMS.has(error.code)) return undefined;
+  return Object.fromEntries(Object.entries(error.params).map(([k, v]) => [k, String(v)]));
+}
+
 export class SyncService {
   constructor(
     private readonly prisma: PrismaService,
@@ -182,10 +189,11 @@ export class SyncService {
     serverIds: ReadonlyMap<string, string>,
     failed: ReadonlySet<string>,
   ): Promise<RowResult> {
-    const refused = (code: string): RowResult => ({
+    const refused = (code: string, params?: RowResult['params']): RowResult => ({
       clientUuid: record.clientUuid,
       result: 'failed',
       code,
+      ...(params ? { params } : {}),
     });
     if (!context) return refused('sync.not_permitted');
     if (record.dependencies?.some((d) => failed.has(d))) return refused('sync.dependency_failed');
@@ -201,7 +209,7 @@ export class SyncService {
           return await this.fill(context, record);
       }
     } catch (error) {
-      if (error instanceof ApiError) return refused(codeOf(error));
+      if (error instanceof ApiError) return refused(codeOf(error), publicParams(error));
       // a database or programming error of one record: on record for the operators, the batch goes on
       this.logger.error(
         { err: error, clientUuid: record.clientUuid, kind: record.kind },

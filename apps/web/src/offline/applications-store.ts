@@ -52,6 +52,8 @@ export interface SyncInfo {
   clientUuid: string;
   state: OutboxState;
   failureCode: string | null;
+  /** The values the failure's message names, such as the question of an answer. */
+  failureParams: Record<string, string> | null;
   verificationReason: string | null;
   photosPending: boolean;
   serverId: string | null;
@@ -94,6 +96,7 @@ const infoOf = (row: OutboxRow): SyncInfo => ({
   clientUuid: row.clientUuid,
   state: row.state,
   failureCode: row.failureCode,
+  failureParams: row.failureParams ?? null,
   verificationReason: row.verificationReason ?? null,
   photosPending: Boolean(row.photosPending),
   serverId: row.serverId ?? null,
@@ -111,6 +114,7 @@ const directInfo = (clientUuid: string, serverId: string | null): SyncInfo => {
     clientUuid,
     state: 'synced',
     failureCode: null,
+    failureParams: null,
     verificationReason: null,
     photosPending: false,
     serverId,

@@ -171,8 +171,11 @@ async function seedPhone() {
   );
 }
 
+/** A refusal by its code, or its code with the values its message names. */
+type Refusal = string | { code: string; params: Record<string, string> };
+
 /** The batch endpoint accepting every record as the one application, or refusing the given kinds. */
-function serveBatch(posted: string[], refuse: Record<string, string> = {}) {
+function serveBatch(posted: string[], refuse: Record<string, Refusal> = {}) {
   server.use(
     http.post('*/api/v1/sync/batch', async ({ request }) => {
       const body = (await request.json()) as { records: { clientUuid: string; kind: string }[] };
@@ -180,16 +183,19 @@ function serveBatch(posted: string[], refuse: Record<string, string> = {}) {
       return HttpResponse.json({
         data: {
           serverTime: new Date().toISOString(),
-          results: body.records.map((r) =>
-            refuse[r.kind]
-              ? { clientUuid: r.clientUuid, result: 'failed', code: refuse[r.kind] }
-              : {
-                  clientUuid: r.clientUuid,
-                  result: 'synced',
-                  serverId: APP,
-                  status: r.kind === 'application_submit' ? 'submitted' : 'draft',
-                },
-          ),
+          results: body.records.map((r) => {
+            const refusal = refuse[r.kind];
+            if (!refusal)
+              return {
+                clientUuid: r.clientUuid,
+                result: 'synced',
+                serverId: APP,
+                status: r.kind === 'application_submit' ? 'submitted' : 'draft',
+              };
+            return typeof refusal === 'string'
+              ? { clientUuid: r.clientUuid, result: 'failed', code: refusal }
+              : { clientUuid: r.clientUuid, result: 'failed', ...refusal };
+          }),
         },
         meta: {},
       });
@@ -478,6 +484,44 @@ describe('applications without network', () => {
       failureCode: 'beneficiary.already_applied',
     });
     expect(screen.queryByText('ফোনে জমা আছে')).not.toBeInTheDocument();
+  });
+
+  it('names the question when a draft of an older form is refused at its send', async () => {
+    const user = userEvent.setup();
+    refreshAs(VOLUNTEER);
+    await seedPhone();
+    const store = await import('../../offline/applications-store');
+    await store.saveDraft({
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      clientUuid: LOCAL,
+      answers: answers('পুরনো খসড়া', 'প্রথম মন্তব্য'),
+    });
+    serveBatch([], {
+      application_draft: {
+        code: 'application.answer_not_in_list',
+        params: { question: 'লিঙ্গ' },
+      },
+    });
+    renderApp(<ApplicationFormPage />, 'bn', {
+      path: '/my-applications/:applicationId/edit',
+      initialPath: `/my-applications/${LOCAL}/edit`,
+    });
+    const note = await screen.findByRole('textbox', { name: /মন্তব্য/ }, { timeout: 5000 });
+    await user.clear(note);
+    await user.type(note, 'আবার');
+    await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
+    expect(
+      await screen.findByText(
+        '“লিঙ্গ” প্রশ্নের উত্তরটি এখন আর তালিকায় নেই, কারণ খসড়াটি ফর্মের পুরনো সংস্করণে তৈরি। খসড়াটি মুছে নতুন করে আবেদন করুন।',
+        {},
+        { timeout: 5000 },
+      ),
+    ).toBeInTheDocument();
+    expect(await offlineDb().outbox.get(LOCAL)).toMatchObject({
+      state: 'failed',
+      failureParams: { question: 'লিঙ্গ' },
+    });
   });
 
   it('shows the refusal of a correction sent online', async () => {

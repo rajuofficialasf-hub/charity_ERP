@@ -61,8 +61,10 @@ function Centre() {
   const [target, setTarget] = useState<OverviewRecord | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const reasonOf = (code: string | null) =>
-    code && te.has(code as never) ? te(code as never) : t('reason_unknown');
+  const reasonOf = (code: string | null, params?: Record<string, string> | null) =>
+    code && te.has(code as never)
+      ? te(code as never, (params ?? undefined) as never)
+      : t('reason_unknown');
   const tSync = (key: 'store_unavailable' | 'record_on_its_way') => ta(key);
   const failWith = (error: unknown) =>
     setNotice({
@@ -144,7 +146,11 @@ function Centre() {
               <RecordRow
                 key={record.clientUuid}
                 record={record}
-                reason={group === 'failed' ? reasonOf(record.sync.failureCode) : null}
+                reason={
+                  group === 'failed'
+                    ? reasonOf(record.sync.failureCode, record.sync.failureParams)
+                    : null
+                }
                 note={group === 'verifying' ? t('verifying_note') : null}
                 busy={busy === record.clientUuid}
                 onRetry={

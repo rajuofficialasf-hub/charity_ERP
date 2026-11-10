@@ -272,8 +272,10 @@ function ApplicationForm({
   const teamMember = me.roles.includes(TEAM_MEMBER);
 
   /** The server's refusal of a record, in the reader's words. */
-  const reasonOf = (code: string | null) =>
-    code && te.has(code as never) ? te(code as never) : t('save_failed');
+  const reasonOf = (code: string | null, params?: Record<string, string> | null) =>
+    code && te.has(code as never)
+      ? te(code as never, (params ?? undefined) as never)
+      : t('save_failed');
   /** A failure of the store itself (no store and no network) in the reader's words, else the error as it came. */
   const worded = (error: unknown): Error =>
     new Error(
@@ -308,7 +310,8 @@ function ApplicationForm({
     if (!current.serverId) current.clientUuid = saved.clientUuid;
     if (navigator.onLine) {
       const state = await store.settle(saved.clientUuid);
-      if (state?.state === 'failed') throw new Error(reasonOf(state.failureCode));
+      if (state?.state === 'failed')
+        throw new Error(reasonOf(state.failureCode, state.failureParams));
       const serverId = state?.serverId ?? current.serverId;
       if (serverId) {
         current.serverId = serverId;
@@ -346,7 +349,8 @@ function ApplicationForm({
         return;
       }
       const state = await store.settle(id);
-      if (state?.state === 'failed') throw new Error(reasonOf(state.failureCode));
+      if (state?.state === 'failed')
+        throw new Error(reasonOf(state.failureCode, state.failureParams));
       if (!state || state.state !== 'synced') {
         setSent({ kind: 'queued' });
         return;

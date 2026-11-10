@@ -26,6 +26,7 @@ const APP = '01900000-0000-7000-8000-0000000000c3';
 const FAILED = '01900000-0000-7000-8000-0000000000e1';
 const WAITING = '01900000-0000-7000-8000-0000000000e2';
 const VERIFYING = '01900000-0000-7000-8000-0000000000e3';
+const LATER = '01900000-0000-7000-8000-0000000000e4';
 const T0 = new Date('2026-10-31T10:00:00Z');
 
 const project = {
@@ -194,6 +195,28 @@ describe('the sync centre', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: /পাঠানো যায়নি/ })).toBeNull());
     // the record leaves the refused group as soon as it is on its way; the answer follows
     await waitFor(async () => expect((await offlineDb().outbox.get(FAILED))?.state).toBe('synced'));
+  });
+
+  it('names the question of an answer no longer in its list on a refused record', async () => {
+    await seedPhone();
+    await draft(LATER, 'পুরনো খসড়া');
+    await apply([LATER], { type: 'flush', at: T0 });
+    await applyResult(
+      {
+        clientUuid: LATER,
+        result: 'failed',
+        code: 'application.answer_not_in_list',
+        params: { question: 'লিঙ্গ' },
+      },
+      T0,
+    );
+    open();
+    const failed = await screen.findByRole('region', { name: /পাঠানো যায়নি/ });
+    expect(
+      within(failed).getByText(
+        '“লিঙ্গ” প্রশ্নের উত্তরটি এখন আর তালিকায় নেই, কারণ খসড়াটি ফর্মের পুরনো সংস্করণে তৈরি। খসড়াটি মুছে নতুন করে আবেদন করুন।',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('asks before dropping a draft of the phone’s own, then removes it with its photos', async () => {
