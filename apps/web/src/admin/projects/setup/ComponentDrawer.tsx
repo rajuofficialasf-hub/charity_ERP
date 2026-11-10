@@ -1,9 +1,9 @@
 import { type ComponentKey, photoRule, photoSource } from '@css/shared';
 import {
-  Alert,
   Button,
   Checkbox,
   Dialog,
+  Form,
   IconButton,
   RadioGroup,
   SelectField,
@@ -11,11 +11,13 @@ import {
   TextField,
 } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { ApiFailure } from '../../../api/client';
 import { type ProjectComponent, updateComponent } from './setup-api';
 import { useSetup } from './setup-context';
+import { useSchemaResolver } from '../../../lib/form-schema';
 
 type Settings = Record<string, unknown>;
 interface Item {
@@ -75,6 +77,10 @@ const asItems = (value: unknown): Item[] => (Array.isArray(value) ? (value as It
 const get = (settings: Settings, key: string) =>
   Object.hasOwn(settings, key) ? Object.getOwnPropertyDescriptor(settings, key)?.value : undefined;
 
+/** The settings as one value: the server checks them against the component's settings schema. */
+const DRAWER_SCHEMA = z.object({ settings: z.record(z.string(), z.unknown()) });
+type DrawerFields = z.infer<typeof DRAWER_SCHEMA>;
+
 /**
  * The settings of one component in a dialog, with fields per its settings schema: the photo rule
  * and photo sources, lists of codes with labels (rating criteria up to five, beneficiary types,
@@ -98,17 +104,27 @@ export function ComponentDrawer({
   const tk = useTranslations('admin.projects.component');
   const tc = useTranslations('common.action');
   const key = component.componentKey as ComponentKey;
-  const [settings, setSettings] = useState<Settings>({ ...(component.settings ?? {}) });
+  const form = useForm<DrawerFields>({
+    resolver: useSchemaResolver(DRAWER_SCHEMA),
+    defaultValues: { settings: { ...(component.settings ?? {}) } },
+  });
+  const settings = useWatch({ control: form.control, name: 'settings' });
+  const setSettings = (next: Settings) => form.setValue('settings', next);
   const set = (name: string, value: unknown) => setSettings({ ...settings, [name]: value });
   const save = useMutation({
-    mutationFn: () => updateComponent(project.id, key, component.etag ?? '', { settings }),
+    mutationFn: (v: DrawerFields) =>
+      updateComponent(project.id, key, component.etag ?? '', { settings: v.settings }),
     onSuccess: onSaved,
   });
-  const error = save.error;
+  const submit = (v: DrawerFields) => {
+    if (!readOnly) save.mutate(v);
+  };
+  const error = save.error instanceof ApiFailure ? save.error : undefined;
+  const title = t('title', { name: tk(key) });
 
   return (
     <Dialog
-      title={t('title', { name: tk(key) })}
+      title={title}
       size="large"
       fullScreenOnPhone
       open
@@ -120,57 +136,59 @@ export function ComponentDrawer({
             {tc(readOnly ? 'close' : 'cancel')}
           </Button>
           {readOnly ? null : (
-            <Button onClick={() => save.mutate()} loading={save.isPending}>
+            <Button onClick={() => void form.handleSubmit(submit)()} loading={save.isPending}>
               {tc('save')}
             </Button>
           )}
         </>
       }
     >
-      {error instanceof ApiFailure && (
-        <Alert tone={error.status === 412 ? 'warning' : 'error'}>
-          {error.status === 412 ? t('stale') : error.message}
-          {error.details.length > 0 && (
-            <ul>
-              {error.details.map((d) => (
-                <li key={d.path}>{t('field_error', { field: d.path ?? '' })}</li>
-              ))}
-            </ul>
-          )}
-        </Alert>
-      )}
-      {key === 'distribution' && (
-        <PhotoRule settings={settings} onChange={setSettings} readOnly={readOnly} />
-      )}
-      {key === 'stages' && (
-        <Stages
-          items={Array.isArray(get(settings, 'list')) ? (get(settings, 'list') as Stage[]) : []}
-          onChange={(items) => set('list', items)}
-          readOnly={readOnly}
-        />
-      )}
-      {/* eslint-disable-next-line security/detect-object-injection -- a ComponentKey of a constant table */}
-      {(LISTS[key] ?? []).map((list) => (
-        <CodeLabelList
-          key={list.key}
-          name={list.key}
-          max={list.max}
-          withActive={list.active === true}
-          items={asItems(get(settings, list.key))}
-          onChange={(items) => set(list.key, items)}
-          readOnly={readOnly}
-        />
-      ))}
-      {/* eslint-disable-next-line security/detect-object-injection -- a ComponentKey of a constant table */}
-      {(FLAGS[key] ?? []).map((flag) => (
-        <Switch
-          label={t(`flag.${flag}`)}
-          key={flag}
-          checked={get(settings, flag) === true}
-          onChange={(on) => set(flag, on)}
-          disabled={readOnly}
-        />
-      ))}
+      <Form
+        form={form}
+        onSubmit={submit}
+        label={title}
+        error={error && (error.status === 412 ? t('stale') : error.message)}
+      >
+        {error && error.details.length > 0 && (
+          <ul>
+            {error.details.map((d) => (
+              <li key={d.path}>{t('field_error', { field: d.path ?? '' })}</li>
+            ))}
+          </ul>
+        )}
+        {key === 'distribution' && (
+          <PhotoRule settings={settings} onChange={setSettings} readOnly={readOnly} />
+        )}
+        {key === 'stages' && (
+          <Stages
+            items={Array.isArray(get(settings, 'list')) ? (get(settings, 'list') as Stage[]) : []}
+            onChange={(items) => set('list', items)}
+            readOnly={readOnly}
+          />
+        )}
+        {/* eslint-disable-next-line security/detect-object-injection -- a ComponentKey of a constant table */}
+        {(LISTS[key] ?? []).map((list) => (
+          <CodeLabelList
+            key={list.key}
+            name={list.key}
+            max={list.max}
+            withActive={list.active === true}
+            items={asItems(get(settings, list.key))}
+            onChange={(items) => set(list.key, items)}
+            readOnly={readOnly}
+          />
+        ))}
+        {/* eslint-disable-next-line security/detect-object-injection -- a ComponentKey of a constant table */}
+        {(FLAGS[key] ?? []).map((flag) => (
+          <Switch
+            label={t(`flag.${flag}`)}
+            key={flag}
+            checked={get(settings, flag) === true}
+            onChange={(on) => set(flag, on)}
+            disabled={readOnly}
+          />
+        ))}
+      </Form>
     </Dialog>
   );
 }
