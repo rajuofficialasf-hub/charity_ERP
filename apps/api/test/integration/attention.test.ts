@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { isoDateInDhaka } from '@css/shared/format';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { accessWorld } from './support/access-fixtures';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -10,8 +10,8 @@ import {
   authHarness,
   bearer,
   login,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // "Needs your attention" of the My Work home: counted items for the caller's own work and for
 // the records their roles reach, each linked to the list that holds them.

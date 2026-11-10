@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { DestinationStream } from 'pino';
 import type { Options } from 'pino-http';
-import type { Env } from '../config/env';
-import { PROBE_PATHS } from '../health/routes';
-import { currentContext } from './request-context';
-import { requestIdOf } from './request-id';
+import type { Env } from '../config/env.js';
+import { PROBE_PATHS } from '../health/routes.js';
+import { currentContext } from './request-context.js';
+import { requestIdOf } from './request-id.js';
 
 /**
  * Field names that never reach a log line (docs/architecture/SYSTEM_ARCHITECTURE.md, "Configuration

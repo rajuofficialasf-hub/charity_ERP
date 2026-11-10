@@ -1,21 +1,27 @@
-import { slotParts } from '../applications/pending-photos';
+import { slotParts } from '../applications/pending-photos.js';
 import { pipeline } from 'node:stream/promises';
 import type { Response } from 'express';
 import { UPLOAD_RECORD_KINDS, type UploadRecordType } from '@css/shared/files';
-import { volunteerWhere } from '../access/scope';
-import type { AccessService, RequestAccess } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
-import { buildPage, decodeCursor, keysetWhere, orderBy, type SortField } from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import type { PageMeta } from '../http/send';
-import { NEAR_DUPLICATE_BITS } from '../files/images-process';
-import { loadUploadRecord, scopeReachesRecord } from '../files/records';
-import { type ExportDownload, exportDownload, exportFileName } from '../exports/download';
-import { ApiError } from '../i18n/api-error';
-import { knownBucket, NotFoundError, type StorageDriver } from '../storage';
+import { volunteerWhere } from '../access/scope.js';
+import type { AccessService, RequestAccess } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
+import {
+  buildPage,
+  decodeCursor,
+  keysetWhere,
+  orderBy,
+  type SortField,
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import type { PageMeta } from '../http/send.js';
+import { NEAR_DUPLICATE_BITS } from '../files/images-process.js';
+import { loadUploadRecord, scopeReachesRecord } from '../files/records.js';
+import { type ExportDownload, exportDownload, exportFileName } from '../exports/download.js';
+import { ApiError } from '../i18n/api-error.js';
+import { knownBucket, NotFoundError, type StorageDriver } from '../storage/index.js';
 
 const PHOTO_KINDS = ['profile_photo', 'nid_photo'];
 /** The near duplicates looked at for the one a caller may see; enough for any real burst. */

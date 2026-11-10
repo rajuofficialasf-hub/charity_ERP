@@ -38,14 +38,14 @@ import {
   readCookies,
   REFRESH_COOKIE,
   setSessionCookies,
-} from '../auth/cookies';
-import { principalOf } from '../auth/principal';
-import type { Container } from '../container';
-import { currentContext } from '../core/request-context';
-import { photoBody } from '../files/photo-body';
-import { ApiError } from '../i18n/api-error';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
-import type { IssuedSession } from '../services/auth';
+} from '../auth/cookies.js';
+import { principalOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { currentContext } from '../core/request-context.js';
+import { photoBody } from '../files/photo-body.js';
+import { ApiError } from '../i18n/api-error.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import type { IssuedSession } from '../services/auth.js';
 
 const authOp = { tag: 'auth', scope: 'self', idempotency: 'none' as const };
 

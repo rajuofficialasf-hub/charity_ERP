@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 // The lint guard that keeps the API's own code, the seed and the scripts on Prisma: no `pg` import
 // outside the pg-boss files and the tests, and no raw call that takes a built string.
-const root = join(__dirname, '../../../..');
+const root = join(import.meta.dirname, '../../../..');
 const eslint = new ESLint({ cwd: root });
 
 const errors = async (code: string, filePath: string, ruleId: string) => {

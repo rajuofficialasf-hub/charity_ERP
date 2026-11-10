@@ -12,7 +12,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import { assertKey, BUCKETS, NotFoundError, type StorageDriver } from '../types';
+import { assertKey, BUCKETS, NotFoundError, type StorageDriver } from '../types.js';
 
 export interface S3Options {
   /** The whole URL of the store, `scheme://host[:port]`. */

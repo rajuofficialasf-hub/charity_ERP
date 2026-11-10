@@ -1,3 +1,3 @@
 import { join } from 'node:path';
 
-export const REPO_ROOT = join(__dirname, '../../../..');
+export const REPO_ROOT = join(import.meta.dirname, '../../../..');

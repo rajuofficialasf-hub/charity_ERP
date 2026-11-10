@@ -1,8 +1,8 @@
 import { uuidv7 } from '@css/shared';
 import { createTransport, type Transporter } from 'nodemailer';
 import type { Logger } from 'pino';
-import type { Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
+import type { Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
 
 /**
  * Delivery adapters of the notifications module (docs/architecture/NOTIFICATIONS.md): narrow

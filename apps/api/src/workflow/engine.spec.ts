@@ -1,8 +1,8 @@
 import { APPLICATION_ACTIONS, APPLICATION_ACTION_NAMES } from '@css/shared';
 import { describe, expect, it } from 'vitest';
-import { loadAccessRegistry } from '../access/registry';
-import { assertWorkflowNamesKnown, DECLARED_GUARDS, isBuiltGuard } from './registry';
-import { mergedWorkflowDefinitions } from './templates';
+import { loadAccessRegistry } from '../access/registry.js';
+import { assertWorkflowNamesKnown, DECLARED_GUARDS, isBuiltGuard } from './registry.js';
+import { mergedWorkflowDefinitions } from './templates.js';
 
 // The engine's configuration: the action table against the templates, and the registry that
 // keeps a template from naming what nobody built.

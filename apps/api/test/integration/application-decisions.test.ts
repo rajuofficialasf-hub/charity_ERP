@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { accessWorld } from './support/access-fixtures';
-import { applicationProject, IDENTITY_ANSWERS } from './support/applications';
+import { SeedContext } from '../../seed/context.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { applicationProject, IDENTITY_ANSWERS } from './support/applications.js';
 import {
   type Account,
   account,
@@ -14,10 +14,10 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { fakeMobile, fakeNid, insert } from './support/fixtures';
-import { notificationsOf } from './support/notifications';
-import { option, question } from './support/forms';
+} from './support/auth-app.js';
+import { fakeMobile, fakeNid, insert } from './support/fixtures.js';
+import { notificationsOf } from './support/notifications.js';
+import { option, question } from './support/forms.js';
 
 // The decisions of the review against the score and the quotas: an approval while a
 // higher-scored application of the same quota area still waits, a waitlisting or a rejection

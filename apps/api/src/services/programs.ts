@@ -1,12 +1,12 @@
 import type { ProgramCreate, ProgramUpdate } from '@css/shared/projects';
 import { uuidv7 } from '@css/shared';
-import { type Scope, programWhere } from '../access/scope';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import { assertIfMatch } from '../core/etag';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
+import { type Scope, programWhere } from '../access/scope.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import { assertIfMatch } from '../core/etag.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
 
 const SELECT = {
   id: true,

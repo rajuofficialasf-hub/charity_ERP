@@ -2,8 +2,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Env } from '../config/env';
-import { createDriver, createStorage } from './index';
+import type { Env } from '../config/env.js';
+import { createDriver, createStorage } from './index.js';
 
 const env = {
   STORAGE_DRIVER: 'nas',

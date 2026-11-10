@@ -10,15 +10,15 @@ import {
   type EditRequestCreate,
   PHOTO_FIELDS,
 } from '@css/shared/registration';
-import { type Scope, volunteerWhere } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { OtpService } from '../auth/otp.service';
-import type { PermissionVersionService } from '../auth/permission-version.service';
-import type { Principal } from '../auth/principal';
-import type { SessionService } from '../auth/session.service';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
+import { type Scope, volunteerWhere } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { OtpService } from '../auth/otp.service.js';
+import type { PermissionVersionService } from '../auth/permission-version.service.js';
+import type { Principal } from '../auth/principal.js';
+import type { SessionService } from '../auth/session.service.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
 import {
   buildPage,
   decodeCursor,
@@ -26,12 +26,12 @@ import {
   orderBy,
   type PageQuery,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { AccountEvents } from '../notifications/account-events';
-import { addressProblem } from './registration';
-import { applyField, changeView, OBJECT_FIELDS } from './registrations';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { AccountEvents } from '../notifications/account-events.js';
+import { addressProblem } from './registration.js';
+import { applyField, changeView, OBJECT_FIELDS } from './registrations.js';
 
 const EDIT = 'profile_edit';
 

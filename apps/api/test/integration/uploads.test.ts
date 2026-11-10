@@ -2,8 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { UPLOAD_RULES } from '@css/shared/files';
-import { jpeg } from '../support/images';
-import { accessWorld } from './support/access-fixtures';
+import { jpeg } from '../support/images.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   account,
   auditRows,
@@ -12,8 +12,8 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // Chunked uploads through the API: the session, its parts, the resume, finalize with its checks,
 // the record scope at both ends, and the nightly sweep.

@@ -2,8 +2,8 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { normalizeText } from '@css/shared/i18n';
 import { z } from 'zod';
-import { ApiError } from '../i18n/api-error';
-import type { PageMeta } from '../http/send';
+import { ApiError } from '../i18n/api-error.js';
+import type { PageMeta } from '../http/send.js';
 
 /**
  * Pagination, sorting, filtering and search helpers (docs/api/API_STANDARDS.md, "Pagination: keyset

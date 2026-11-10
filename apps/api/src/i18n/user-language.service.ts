@@ -1,6 +1,6 @@
 import { isLocale, type Locale } from '@css/shared/i18n';
-import type { PrismaClient } from '../generated/prisma/client';
-import { ApiError } from './api-error';
+import type { PrismaClient } from '../generated/prisma/client.js';
+import { ApiError } from './api-error.js';
 
 /**
  * Stores a user's interface language in users.language (docs/ui/I18N.md, "Languages and locale

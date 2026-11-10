@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { accessWorld } from './support/access-fixtures';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -9,8 +9,8 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // The correction of a locked field of a beneficiary: one official requests it with a reason,
 // another one decides; an approval changes the field in the same transaction, logged and audited.

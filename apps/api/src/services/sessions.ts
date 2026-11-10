@@ -1,12 +1,12 @@
 import { type DeviceSession } from '@css/shared/auth';
-import type { Scope } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { SessionService } from '../auth/session.service';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { AccountEvents } from '../notifications/account-events';
+import type { Scope } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { SessionService } from '../auth/session.service.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { AccountEvents } from '../notifications/account-events.js';
 
 type SessionRow = Awaited<ReturnType<SessionService['list']>>[number];
 

@@ -1,8 +1,8 @@
 import { fromPrisma, type Job, PgBoss } from 'pg-boss';
 import type { Logger } from 'pino';
-import type { Env } from '../config/env';
-import type { Tx } from '../core/prisma.service';
-import { JOBS_SCHEMA, type QueueName } from './queues';
+import type { Env } from '../config/env.js';
+import type { Tx } from '../core/prisma.service.js';
+import { JOBS_SCHEMA, type QueueName } from './queues.js';
 
 export type JobHandler<T> = (job: Job<T>) => Promise<unknown>;
 

@@ -1,10 +1,10 @@
 // The storage entry point: the only place that knows which drivers exist. Everything
 // outside storage/ imports from here only and never checks which driver is active; the
 // container builds the one storage of the process with createStorage(env).
-import type { Env } from '../config/env';
-import { createNasDriver } from './drivers/nas';
-import { createS3Driver } from './drivers/s3'; // TEMP: remove when the app is on the NAS only
-import type { StorageDriver } from './types';
+import type { Env } from '../config/env.js';
+import { createNasDriver } from './drivers/nas.js';
+import { createS3Driver } from './drivers/s3.js'; // TEMP: remove when the app is on the NAS only
+import type { StorageDriver } from './types.js';
 
 export {
   assertKey,
@@ -14,7 +14,7 @@ export {
   NotFoundError,
   type ObjectInfo,
   type StorageDriver,
-} from './types';
+} from './types.js';
 
 // Adding or removing a driver is one file in drivers/ and one line here.
 const drivers = {

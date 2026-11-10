@@ -1,5 +1,5 @@
 import { uuidv7 } from '@css/shared';
-import type { PrismaService, Tx } from '../core/prisma.service';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
 
 /**
  * The uploaded photos of officials by user id. An official's photo is the file link of the user

@@ -3,13 +3,13 @@ import { UPLOAD_RULES } from '@css/shared/files';
 import { BATCH_MAX_BYTES, pendingPhotoAnswer } from '@css/shared/sync';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { jpeg } from '../support/images';
-import { requestHashOf } from '../../src/sync/sync.service';
-import { accessWorld } from './support/access-fixtures';
-import { applicationProject, IDENTITY_ANSWERS, principalOf } from './support/applications';
+import { SeedContext } from '../../seed/context.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { jpeg } from '../support/images.js';
+import { requestHashOf } from '../../src/sync/sync.service.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { applicationProject, IDENTITY_ANSWERS, principalOf } from './support/applications.js';
 import {
   account,
   type Account,
@@ -19,10 +19,10 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
-import { fakeMobile, fakeNid } from './support/fixtures';
-import { question } from './support/forms';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
+import { fakeMobile, fakeNid } from './support/fixtures.js';
+import { question } from './support/forms.js';
 
 // The batch a phone sends when the network returns (docs/architecture/OFFLINE_SYNC.md "Batch sync
 // endpoint"): every record through the ordinary application service as the volunteer, one result

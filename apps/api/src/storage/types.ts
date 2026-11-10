@@ -1,5 +1,5 @@
 import type { Readable } from 'node:stream';
-import { ApiError } from '../i18n/api-error';
+import { ApiError } from '../i18n/api-error.js';
 
 /**
  * The buckets (docs/architecture/FILES_AND_DOCUMENTS.md, "Storage layout (buckets and keys)"),

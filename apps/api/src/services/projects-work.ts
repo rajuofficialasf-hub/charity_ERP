@@ -1,11 +1,11 @@
 import type { ProjectsWork, ProjectWork, ProjectWorkFigures } from '@css/shared/auth';
 import { projectStatusOf } from '@css/shared/projects';
-import type { AccessService } from '../access/service';
-import type { Scope } from '../access/scope';
-import type { Principal } from '../auth/principal';
-import { boundedRead } from '../core/bounded-read';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
+import type { AccessService } from '../access/service.js';
+import type { Scope } from '../access/scope.js';
+import type { Principal } from '../auth/principal.js';
+import { boundedRead } from '../core/bounded-read.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /** The states in which an application waits for an official's decision. */
 const WAITING = ['needs_verification', 'submitted', 'under_review', 'reviewed'];

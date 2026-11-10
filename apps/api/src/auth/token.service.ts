@@ -1,8 +1,8 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { errors, jwtVerify, SignJWT } from 'jose';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import { ApiError } from '../i18n/api-error';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /** Access-token lifetime. */
 export const ACCESS_TOKEN_SECONDS = 15 * 60;

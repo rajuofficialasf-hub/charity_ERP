@@ -1,7 +1,7 @@
 import type { Request } from 'express';
 import { ipKeyGenerator } from 'express-rate-limit';
-import { normalizeLoginId } from '../auth/login-id';
-import { currentContext } from '../core/request-context';
+import { normalizeLoginId } from '../auth/login-id.js';
+import { currentContext } from '../core/request-context.js';
 
 /**
  * The rate-limit classes (docs/api/API_STANDARDS.md, "Rate limiting"), the same values as OpenAPI

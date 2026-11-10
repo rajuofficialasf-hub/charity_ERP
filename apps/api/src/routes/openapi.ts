@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import type { Env } from '../config/env';
-import { buildOpenApiDocument } from '../openapi/build-document';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import type { Env } from '../config/env.js';
+import { buildOpenApiDocument } from '../openapi/build-document.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 /**
  * Who may read the API's description: everyone in development, tests and staging, where the web

@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { PrismaClient } from '../../src/generated/prisma/client';
-import { ApiError } from '../../src/i18n/api-error';
-import { UserLanguageService } from '../../src/i18n/user-language.service';
-import { user } from './support/fixtures';
-import { cloneTemplate } from './support/db';
+import { PrismaClient } from '../../src/generated/prisma/client.js';
+import { ApiError } from '../../src/i18n/api-error.js';
+import { UserLanguageService } from '../../src/i18n/user-language.service.js';
+import { user } from './support/fixtures.js';
+import { cloneTemplate } from './support/db.js';
 
 // users.language is the stored interface language (docs/ui/I18N.md, "Languages and locale
 // resolution"); the endpoint is one of the auth routes.

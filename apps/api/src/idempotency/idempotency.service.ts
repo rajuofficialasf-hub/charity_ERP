@@ -1,10 +1,10 @@
 import { uuidv7 } from '@css/shared';
 import type { Response } from 'express';
-import { type PrismaService, type Tx } from '../core/prisma.service';
+import { type PrismaService, type Tx } from '../core/prisma.service.js';
 import { BATCH_IN_PROGRESS } from '@css/shared/sync';
-import { ApiError } from '../i18n/api-error';
-import { Prisma } from '../generated/prisma/client';
-import { isUniqueViolation } from '../core/db-errors';
+import { ApiError } from '../i18n/api-error.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { isUniqueViolation } from '../core/db-errors.js';
 
 const KEY = /^[A-Za-z0-9_-]{8,128}$/;
 

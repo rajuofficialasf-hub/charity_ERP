@@ -9,16 +9,16 @@
 // database first.
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
-import { prismaClientFor, type Tx } from '../src/core/prisma.service';
-import { Prisma, type PrismaClient } from '../src/generated/prisma/client';
+import { prismaClientFor, type Tx } from '../src/core/prisma.service.js';
+import { Prisma, type PrismaClient } from '../src/generated/prisma/client.js';
 import {
   FIRST_NAMES,
   FORM_TITLE_BN,
   LAST_NAMES,
   PROJECT_NAME_BN,
   VILLAGE_BN,
-} from '../seed/perf-data';
-import { perfDatabase } from './perf-db';
+} from '../seed/perf-data.js';
+import { perfDatabase } from './perf-db.js';
 
 const VOLUNTEERS = 50_000;
 const BENEFICIARIES = 2_000_000;

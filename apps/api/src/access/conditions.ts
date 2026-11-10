@@ -1,4 +1,4 @@
-import type { AccessRegistry } from './registry';
+import type { AccessRegistry } from './registry.js';
 
 /** The facts a condition may need; a missing fact means the condition fails (default deny). */
 export interface ConditionContext {

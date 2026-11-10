@@ -1,13 +1,13 @@
 import { scoreCriteriaSchema, uuidv7 } from '@css/shared';
 import { scoreOf } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
-import type { Clock } from '../core/clock';
-import type { SideEffect } from '../workflow/effects';
-import type { Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import type { NisabService } from '../services/nisab';
-import { readDefinition } from '../services/forms';
-import { nisabOption, readAnswers } from './answers';
+import type { Clock } from '../core/clock.js';
+import type { SideEffect } from '../workflow/effects.js';
+import type { Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import type { NisabService } from '../services/nisab.js';
+import { readDefinition } from '../services/forms.js';
+import { nisabOption, readAnswers } from './answers.js';
 
 /**
  * The priority score of an application, kept beside it: the breakdown in `application_scores`

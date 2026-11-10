@@ -16,7 +16,11 @@ import {
 } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
-import { type EffectiveAccess, WORKING_ASSIGNMENT, workingTeamProjects } from '../access/effective';
+import {
+  type EffectiveAccess,
+  WORKING_ASSIGNMENT,
+  workingTeamProjects,
+} from '../access/effective.js';
 import {
   applicationWhere,
   holdsPermission,
@@ -24,19 +28,19 @@ import {
   projectWhere,
   type Scope,
   teamLeadsOf,
-} from '../access/scope';
-import type { AccessService, RequestAccess } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
-import { boundedRead } from '../core/bounded-read';
-import type { Clock } from '../core/clock';
+} from '../access/scope.js';
+import type { AccessService, RequestAccess } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
+import { boundedRead } from '../core/bounded-read.js';
+import type { Clock } from '../core/clock.js';
 import {
   isUniqueViolation,
   isUniqueViolationOf,
   isVolunteerMobileRefusal,
-} from '../core/db-errors';
-import { assertIfMatch, etagOf } from '../core/etag';
+} from '../core/db-errors.js';
+import { assertIfMatch, etagOf } from '../core/etag.js';
 import {
   buildPage,
   type CursorBody,
@@ -47,32 +51,32 @@ import {
   type PageQuery,
   pageOffset,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { literalContains } from '../core/search';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { BeneficiaryFamilyService } from '../services/beneficiary-family';
-import type { BeneficiaryIdentityService } from '../services/beneficiary-identity';
-import { type FormAudience, readDefinition, versionView } from '../services/forms';
-import { isAddressChain } from '../services/locations';
-import type { NisabService } from '../services/nisab';
-import { assertReachesApplication, isBlockedVolunteer } from './callers';
-import { liveApplicationCounts } from './limit';
-import type { MediaReferralsService } from '../services/media-referrals';
-import type { UnlocksService } from './unlocks';
-import type { ScoringService } from './scoring';
-import { type CommentReason, commentReasons } from './decision-rules';
-import type { Replayable } from '../services/uploads';
-import type { WorkflowEngine } from '../workflow/engine';
-import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards';
-import { pendingSlotsOf, slotParts } from './pending-photos';
-import { lateSync, staleVersion } from '../sync/rules';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { literalContains } from '../core/search.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { BeneficiaryFamilyService } from '../services/beneficiary-family.js';
+import type { BeneficiaryIdentityService } from '../services/beneficiary-identity.js';
+import { type FormAudience, readDefinition, versionView } from '../services/forms.js';
+import { isAddressChain } from '../services/locations.js';
+import type { NisabService } from '../services/nisab.js';
+import { assertReachesApplication, isBlockedVolunteer } from './callers.js';
+import { liveApplicationCounts } from './limit.js';
+import type { MediaReferralsService } from '../services/media-referrals.js';
+import type { UnlocksService } from './unlocks.js';
+import type { ScoringService } from './scoring.js';
+import { type CommentReason, commentReasons } from './decision-rules.js';
+import type { Replayable } from '../services/uploads.js';
+import type { WorkflowEngine } from '../workflow/engine.js';
+import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards.js';
+import { pendingSlotsOf, slotParts } from './pending-photos.js';
+import { lateSync, staleVersion } from '../sync/rules.js';
 import { namesMatch } from '@css/shared/sync';
-import { type BuiltGuard, isBuiltGuard } from '../workflow/registry';
-import { readActivities } from './activities';
-import { readChanges, readTimeline } from './history';
-import type { SubmissionWriter } from './submission';
+import { type BuiltGuard, isBuiltGuard } from '../workflow/registry.js';
+import { readActivities } from './activities.js';
+import { readChanges, readTimeline } from './history.js';
+import type { SubmissionWriter } from './submission.js';
 import {
   addressOf,
   assertUploadsOwn,
@@ -85,7 +89,7 @@ import {
   textOf,
   typedName,
   writeAnswers,
-} from './answers';
+} from './answers.js';
 import {
   type ApplicationActionBody,
   type ApplicationCreate,
@@ -96,7 +100,7 @@ import {
   BENEFICIARY_CONTACT,
   BENEFICIARY_NID,
   OFFICIAL_SECTION,
-} from './view';
+} from './view.js';
 
 export interface ApplicationViewer {
   principal: Principal;

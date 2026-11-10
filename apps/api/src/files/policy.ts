@@ -1,5 +1,5 @@
 import type { FileKind, FileType } from '@css/shared/files';
-import type { Bucket } from '../storage';
+import type { Bucket } from '../storage/index.js';
 
 /** Enough of the start of a file to tell every allowed type. */
 export const MAGIC_LENGTH = 16;

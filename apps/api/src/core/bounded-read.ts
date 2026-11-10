@@ -1,5 +1,5 @@
-import { ApiError } from '../i18n/api-error';
-import type { PrismaService, Tx } from './prisma.service';
+import { ApiError } from '../i18n/api-error.js';
+import type { PrismaService, Tx } from './prisma.service.js';
 
 /** How long one read of a nationwide list may run. */
 export const LIST_QUERY_TIMEOUT_MS = 5_000;

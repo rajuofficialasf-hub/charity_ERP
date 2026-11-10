@@ -1,15 +1,15 @@
 import type { Request, RequestHandler, Response, Router } from 'express';
 import type { Logger } from 'pino';
 import type { ZodType } from 'zod';
-import { maskData, sensitiveClassesOf } from '../access/field-mask';
-import { type AccessRegistry, SCOPE_ENTITIES } from '../access/registry';
-import type { AuthedRequest } from '../auth/principal';
-import { assertAudited, WRITE_METHODS } from '../audit/write-route';
-import { mapData, send } from '../http/send';
-import { ApiError } from '../i18n/api-error';
-import { validate, validatedOf } from '../http/validate';
-import type { RateLimiters } from '../rate-limit/limiters';
-import { type HttpMethod, type OperationSpec, type RouteRegistry } from './registry';
+import { maskData, sensitiveClassesOf } from '../access/field-mask.js';
+import { type AccessRegistry, SCOPE_ENTITIES } from '../access/registry.js';
+import type { AuthedRequest } from '../auth/principal.js';
+import { assertAudited, WRITE_METHODS } from '../audit/write-route.js';
+import { mapData, send } from '../http/send.js';
+import { ApiError } from '../i18n/api-error.js';
+import { validate, validatedOf } from '../http/validate.js';
+import type { RateLimiters } from '../rate-limit/limiters.js';
+import { type HttpMethod, type OperationSpec, type RouteRegistry } from './registry.js';
 
 /** What every route gets from the app: the registry, the limiters and the logger. */
 export interface RouteDeps {

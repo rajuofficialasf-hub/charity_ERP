@@ -1,14 +1,14 @@
 import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
-import { loadEnv } from '../config/env';
-import { ApiError } from '../i18n/api-error';
-import { type EmailAdapter, type SmsAdapter, StubSmsAdapter } from '../notifications/adapters';
-import { RATE_LIMITS } from '../rate-limit/rate-limit';
-import { afterFailure, LOCKOUT_RULES, minutesLeft, UnknownIdLockout } from './lockout';
-import { normalizeLoginId } from './login-id';
-import { identifierHash, OtpDeliveryService } from './otp.service';
-import { PasswordHasher } from './password-hasher';
-import { ACCESS_TOKEN_SECONDS, hashRefreshToken, TokenService } from './token.service';
+import { loadEnv } from '../config/env.js';
+import { ApiError } from '../i18n/api-error.js';
+import { type EmailAdapter, type SmsAdapter, StubSmsAdapter } from '../notifications/adapters.js';
+import { RATE_LIMITS } from '../rate-limit/rate-limit.js';
+import { afterFailure, LOCKOUT_RULES, minutesLeft, UnknownIdLockout } from './lockout.js';
+import { normalizeLoginId } from './login-id.js';
+import { identifierHash, OtpDeliveryService } from './otp.service.js';
+import { PasswordHasher } from './password-hasher.js';
+import { ACCESS_TOKEN_SECONDS, hashRefreshToken, TokenService } from './token.service.js';
 
 const base = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/css_erp_dev',

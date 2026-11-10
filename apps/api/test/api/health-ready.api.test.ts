@@ -1,8 +1,8 @@
 import { Writable } from 'node:stream';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Container } from '../../src/container';
-import { buildTestApp, type TestApp } from '../support/app';
+import type { Container } from '../../src/container.js';
+import { buildTestApp, type TestApp } from '../support/app.js';
 
 // Readiness: the database and the job queue are critical, the file store is not. The body is the
 // status alone; which check failed goes only to the log. The dependencies are switchable stand-ins.

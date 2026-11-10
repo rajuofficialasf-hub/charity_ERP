@@ -1,7 +1,7 @@
 import type { Logger } from 'pino';
-import { SESSION_RULES } from '../auth/session.service';
-import type { Clock } from '../core/clock';
-import type { PrismaService } from '../core/prisma.service';
+import { SESSION_RULES } from '../auth/session.service.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService } from '../core/prisma.service.js';
 
 /** Daily at 03:50 Dhaka time on the maintenance queue of the background jobs. */
 export const LOCAL_KEY_CLEANUP_CRON = '50 3 * * *';

@@ -1,5 +1,5 @@
 import { type Response, Router } from 'express';
-import type { HealthService, HealthStatus } from './service';
+import type { HealthService, HealthStatus } from './service.js';
 
 /** The probe paths, also left out of the request log (core/logging.ts). */
 export const PROBE_PATHS = ['/api/v1/healthz', '/api/v1/livez', '/api/v1/readyz'] as const;

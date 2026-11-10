@@ -3,13 +3,13 @@ import { type VolunteerFilter, volunteerFilterSchema } from '@css/shared/volunte
 import { reasonRequestSchema, type ReasonRequest, USER_STATES } from '@css/shared/auth';
 import { Router } from 'express';
 import { z } from 'zod';
-import { sensitive } from '../access/field-mask';
-import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
-import { type PageQuery, pageNumberQuery, pageQuery } from '../core/pagination';
-import { page } from '../http/send';
-import type { Container } from '../container';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
-import { volunteerDetailsShape } from './volunteer-details-schema';
+import { sensitive } from '../access/field-mask.js';
+import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal.js';
+import { type PageQuery, pageNumberQuery, pageQuery } from '../core/pagination.js';
+import { page } from '../http/send.js';
+import type { Container } from '../container.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import { volunteerDetailsShape } from './volunteer-details-schema.js';
 
 const text = z.string().nullable();
 /** The own profile as the contract's OwnVolunteerProfile; only these fields leave. */

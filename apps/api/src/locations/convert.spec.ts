@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { convertOwnerLocations, locationsToCsv, type OwnerFile } from './convert';
-import { parseCsv, parseCsvRecords, toCsv } from './csv';
+import { convertOwnerLocations, locationsToCsv, type OwnerFile } from './convert.js';
+import { parseCsv, parseCsvRecords, toCsv } from './csv.js';
 
 const place = (
   name_en: string,

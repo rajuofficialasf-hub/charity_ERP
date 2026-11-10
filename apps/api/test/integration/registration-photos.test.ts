@@ -3,10 +3,10 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { gif, jpeg, METADATA_MARKER, png } from '../support/images';
-import { account, authHarness, type AuthHarness, bearer, login } from './support/auth-app';
-import * as f from './support/fixtures';
-import { TOKEN_HEADER, verifiedDraft } from './support/registration';
+import { gif, jpeg, METADATA_MARKER, png } from '../support/images.js';
+import { account, authHarness, type AuthHarness, bearer, login } from './support/auth-app.js';
+import * as f from './support/fixtures.js';
+import { TOKEN_HEADER, verifiedDraft } from './support/registration.js';
 
 // Registration photos and the photo stream.
 let h: AuthHarness;

@@ -2,14 +2,14 @@ import { randomBytes } from 'node:crypto';
 import { uuidv7 } from '@css/shared';
 import type { PublicLinkConfig } from '@css/shared/forms';
 import { editableIn, projectStatusOf } from '@css/shared/projects';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Env } from '../config/env';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { readDefinition } from './forms';
-import type { ProjectViewer, ProjectsService } from './projects';
-import { asksForFiles } from './public-link-rules';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Env } from '../config/env.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { readDefinition } from './forms.js';
+import type { ProjectViewer, ProjectsService } from './projects.js';
+import { asksForFiles } from './public-link-rules.js';
 
 export interface PublicLinkView {
   enabled: boolean;

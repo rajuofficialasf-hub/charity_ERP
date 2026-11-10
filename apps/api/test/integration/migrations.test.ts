@@ -3,9 +3,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { runSeed } from '../../seed/run';
-import { prismaClientFor } from '../../src/core/prisma.service';
-import { beneficiary, locationTree, project, user, volunteer } from './support/fixtures';
+import { runSeed } from '../../seed/run.js';
+import { prismaClientFor } from '../../src/core/prisma.service.js';
+import { beneficiary, locationTree, project, user, volunteer } from './support/fixtures.js';
 import {
   createDatabase,
   dropDatabase,
@@ -15,7 +15,7 @@ import {
   runMigrations,
   uniqueName,
   urlFor,
-} from './support/db';
+} from './support/db.js';
 
 // Reversible migrations (docs/testing/TEST_STRATEGY.md, "Data integrity"). The round trip runs on a
 // database holding the base and demo seed, so down.sql is proven to work with data.
@@ -372,8 +372,8 @@ describe('migrations', () => {
 
   it('schema.prisma and the migrations do not drift apart', async () => {
     const shadow = await freshDatabase('shadow');
-    const apiDir = join(__dirname, '../..');
-    const prismaCli = createRequire(join(apiDir, 'package.json')).resolve('prisma/build/index.js');
+    const apiDir = join(import.meta.dirname, '../..');
+    const prismaCli = createRequire(import.meta.url).resolve('prisma/build/index.js');
     const result = spawnSync(
       process.execPath,
       [

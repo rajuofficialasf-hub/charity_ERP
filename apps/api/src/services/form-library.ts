@@ -11,9 +11,9 @@ import {
   type SectionVisibility,
   type TemplateSources,
 } from '@css/shared/forms';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { ReferenceListsService } from './reference-lists';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { ReferenceListsService } from './reference-lists.js';
 
 /**
  * The question library as the builder reads it: the sections of the library form's published

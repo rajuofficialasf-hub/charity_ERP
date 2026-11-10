@@ -7,13 +7,13 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Principal } from '../src/auth/principal';
-import { loadEnv } from '../src/config/env';
-import { createContainer } from '../src/container';
-import { ExportsService } from '../src/exports/service';
-import { ExportRunner } from '../src/jobs/export-run';
-import type { JobRunner } from '../src/jobs/job-runner';
-import { perfDatabase } from './perf-db';
+import type { Principal } from '../src/auth/principal.js';
+import { loadEnv } from '../src/config/env.js';
+import { createContainer } from '../src/container.js';
+import { ExportsService } from '../src/exports/service.js';
+import { ExportRunner } from '../src/jobs/export-run.js';
+import type { JobRunner } from '../src/jobs/job-runner.js';
+import { perfDatabase } from './perf-db.js';
 
 /** The report goes to stdout (console.log is kept out of the code by the lint rules). */
 const out = (line = '') => process.stdout.write(`${line}\n`);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createContainer } from '../container';
-import { testEnv } from '../../test/support/env';
-import { parsePermissionsFile, readPermissionsFile } from './registry';
+import { createContainer } from '../container.js';
+import { testEnv } from '../../test/support/env.js';
+import { parsePermissionsFile, readPermissionsFile } from './registry.js';
 
 // The API and the worker refuse to start when permissions.yaml names a condition the access module
 // cannot check (docs/security/RBAC.md, "permissions.yaml schema and loading").

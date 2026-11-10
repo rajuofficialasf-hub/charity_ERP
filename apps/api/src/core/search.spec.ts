@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isNumberTerm, literalContains, mobileOf } from './search';
+import { isNumberTerm, literalContains, mobileOf } from './search.js';
 
 describe('the search terms of the nationwide lists', () => {
   it('reads a mobile number with or without the country prefix', () => {

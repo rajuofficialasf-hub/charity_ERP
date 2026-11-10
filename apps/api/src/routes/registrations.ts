@@ -18,15 +18,15 @@ import {
 } from '@css/shared/registration';
 import { Router } from 'express';
 import { z } from 'zod';
-import { sensitive } from '../access/field-mask';
-import { principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { currentContext } from '../core/request-context';
-import { type PageQuery, pageQuery } from '../core/pagination';
-import { ok, page } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
-import type { RegistrationListQuery } from '../services/registrations';
-import { volunteerDetailsShape } from './volunteer-details-schema';
+import { sensitive } from '../access/field-mask.js';
+import { principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { currentContext } from '../core/request-context.js';
+import { type PageQuery, pageQuery } from '../core/pagination.js';
+import { ok, page } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import type { RegistrationListQuery } from '../services/registrations.js';
+import { volunteerDetailsShape } from './volunteer-details-schema.js';
 
 const uuid = z.uuid();
 const nullableText = z.string().nullable();

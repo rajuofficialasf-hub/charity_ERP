@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { accessWorld } from './support/access-fixtures';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -10,8 +10,8 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // Profile merges: an RPM proposes, a PM or a global role merges (from a proposal or directly) with
 // the profile to keep and a reason; everything that points to the retired profile moves to the kept

@@ -6,7 +6,7 @@ import type {
   LibraryOption as Option,
   LibrarySection,
 } from '@css/shared/forms';
-import { json, type SeedContext, seedId } from '../../context';
+import { json, type SeedContext, seedId } from '../../context.js';
 
 /**
  * Not written by the base seed: the Monitoring Team builds the question library and every form

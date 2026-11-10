@@ -1,17 +1,17 @@
 import { uuidv7 } from '@css/shared';
 import type { ContactUpdate } from '@css/shared/beneficiaries';
-import type { AccessService } from '../access/service';
-import { beneficiaryWhere, type Scope } from '../access/scope';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import { assertIfMatch } from '../core/etag';
-import { isVolunteerMobileRefusal } from '../core/db-errors';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { BeneficiaryIdentityService } from './beneficiary-identity';
-import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
-import { isAddressChain } from './locations';
+import type { AccessService } from '../access/service.js';
+import { beneficiaryWhere, type Scope } from '../access/scope.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import { assertIfMatch } from '../core/etag.js';
+import { isVolunteerMobileRefusal } from '../core/db-errors.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
+import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
+import { isAddressChain } from './locations.js';
 
 /** The contact columns an official edits outside an application, in the order they are logged. */
 const CONTACT_FIELDS = [

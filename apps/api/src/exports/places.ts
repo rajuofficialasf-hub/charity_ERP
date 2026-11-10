@@ -1,4 +1,4 @@
-import type { PrismaService } from '../core/prisma.service';
+import type { PrismaService } from '../core/prisma.service.js';
 
 /** The names of locations by id in the file's language; an unknown id has no entry. */
 export async function placeNames(

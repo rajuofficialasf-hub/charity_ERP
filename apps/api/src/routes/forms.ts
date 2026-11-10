@@ -10,11 +10,11 @@ import {
 } from '@css/shared/forms';
 import { Router } from 'express';
 import { z } from 'zod';
-import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { etagOf } from '../core/etag';
-import { ok } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { etagOf } from '../core/etag.js';
+import { ok } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 const uuid = z.uuid();
 const bilingual = z.object({ bn: z.string(), en: z.string() });

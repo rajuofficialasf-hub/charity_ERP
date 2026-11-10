@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { accessWorld } from './support/access-fixtures';
+import { SeedContext } from '../../seed/context.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -12,9 +12,9 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { insert } from './support/fixtures';
-import { IDENTITY, question, section } from './support/forms';
+} from './support/auth-app.js';
+import { insert } from './support/fixtures.js';
+import { IDENTITY, question, section } from './support/forms.js';
 
 // The ready forms the Monitoring Team builds outside the projects, the one question library, the
 // placement of a ready form on a project by its PM, and the take of a newer version.

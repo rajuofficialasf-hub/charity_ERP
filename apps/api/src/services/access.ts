@@ -5,17 +5,17 @@ import type {
   ScopeTypeName,
 } from '@css/shared/access';
 import { uuidv7 } from '@css/shared';
-import { type EffectiveGrant, effectiveAccess, loadAccessFacts } from '../access/effective';
-import type { Scope } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PermissionVersionService } from '../auth/permission-version.service';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
-import type { AccountEvents } from '../notifications/account-events';
-import type { ProjectEvents } from '../notifications/project-events';
+import { type EffectiveGrant, effectiveAccess, loadAccessFacts } from '../access/effective.js';
+import type { Scope } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PermissionVersionService } from '../auth/permission-version.service.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError, type ApiErrorDetail } from '../i18n/api-error.js';
+import type { AccountEvents } from '../notifications/account-events.js';
+import type { ProjectEvents } from '../notifications/project-events.js';
 
 /** Rules of `permission.grant_refused` (docs/security/RBAC.md, "Permission panel"). */
 export type RefusalRule =

@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import type { Tx } from '../core/prisma.service';
-import type { AccessRegistry, DefaultGrant } from './registry';
-import { SCOPES, type ScopeType } from './schema';
+import type { Tx } from '../core/prisma.service.js';
+import type { AccessRegistry, DefaultGrant } from './registry.js';
+import { SCOPES, type ScopeType } from './schema.js';
 
 /** Where a grant comes from, the values of the contract's `EffectivePermission.source`. */
 export type GrantSource =

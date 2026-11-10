@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { uuidv7 } from '@css/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { maskAddress } from '../../src/services/deliveries';
+import { maskAddress } from '../../src/services/deliveries.js';
 import {
   type Account,
   account,
@@ -11,7 +11,7 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // The delivery page of the global roles (docs/architecture/NOTIFICATIONS.md, delivery and
 // status): status, attempts and the cleaned error, addresses partly hidden, never a text.

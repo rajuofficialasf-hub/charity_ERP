@@ -1,12 +1,12 @@
 import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { PrismaService } from '../../src/core/prisma.service';
-import { installJobs } from '../../src/jobs/install';
-import { JobRunner } from '../../src/jobs/job-runner';
-import { HEARTBEAT_CRON, HEARTBEAT_QUEUE, JobConsumers } from '../../src/jobs/consumers';
-import { QUEUE_NAMES } from '../../src/jobs/queues';
-import { testEnv } from '../support/env';
-import { cloneTemplate, dropDatabase } from './support/db';
+import { PrismaService } from '../../src/core/prisma.service.js';
+import { installJobs } from '../../src/jobs/install.js';
+import { JobRunner } from '../../src/jobs/job-runner.js';
+import { HEARTBEAT_CRON, HEARTBEAT_QUEUE, JobConsumers } from '../../src/jobs/consumers.js';
+import { QUEUE_NAMES } from '../../src/jobs/queues.js';
+import { testEnv } from '../support/env.js';
+import { cloneTemplate, dropDatabase } from './support/db.js';
 
 // pg-boss: the install step creates the schema and the queues; the runner never
 // runs DDL; jobs enqueued in a transaction exist only if it commits; the sample job runs and the

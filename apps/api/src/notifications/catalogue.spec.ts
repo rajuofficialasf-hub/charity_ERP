@@ -1,6 +1,6 @@
 import { NOTIFICATION_TEMPLATES } from '@css/shared';
 import { describe, expect, it } from 'vitest';
-import { NOTIFICATION_CATALOGUE } from './catalogue';
+import { NOTIFICATION_CATALOGUE } from './catalogue.js';
 
 // The catalogue of Phase 1 events against the seeded templates and the channel rules
 // (docs/architecture/NOTIFICATIONS.md).

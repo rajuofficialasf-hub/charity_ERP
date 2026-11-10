@@ -4,21 +4,21 @@ import {
   photoFieldKeys,
   slotParts,
   slotPath,
-} from '../applications/pending-photos';
+} from '../applications/pending-photos.js';
 import { type Answer, type FormDefinition, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
-import type { EffectiveAccess } from '../access/effective';
-import type { Clock } from '../core/clock';
-import type { Tx } from '../core/prisma.service';
-import { readDefinition } from '../services/forms';
-import type { BuiltGuard } from './registry';
-import { NOT_COUNTED_STATES } from '../applications/limit';
+import type { EffectiveAccess } from '../access/effective.js';
+import type { Clock } from '../core/clock.js';
+import type { Tx } from '../core/prisma.service.js';
+import { readDefinition } from '../services/forms.js';
+import type { BuiltGuard } from './registry.js';
+import { NOT_COUNTED_STATES } from '../applications/limit.js';
 import {
   againstScore,
   type CommentReason,
   familyMatch,
   quotaFull,
-} from '../applications/decision-rules';
+} from '../applications/decision-rules.js';
 
 /** The application a transition is about, with what the guards read of its project. */
 export interface EngineApplication {

@@ -5,14 +5,14 @@
 // times, and prints p50, p95 and the slowest SQL statement. For every case whose p95 is over
 // --explain-over ms, the slowest statement is run again under EXPLAIN (ANALYZE, BUFFERS).
 import { PrismaPg } from '@prisma/adapter-pg';
-import type { Principal } from '../src/auth/principal';
-import { loadEnv } from '../src/config/env';
-import { createContainer } from '../src/container';
-import type { PrismaService } from '../src/core/prisma.service';
-import { Prisma, PrismaClient } from '../src/generated/prisma/client';
-import type { BeneficiaryViewer } from '../src/services/beneficiaries';
-import { SEARCH_TERMS } from '../seed/perf-data';
-import { perfDatabase } from './perf-db';
+import type { Principal } from '../src/auth/principal.js';
+import { loadEnv } from '../src/config/env.js';
+import { createContainer } from '../src/container.js';
+import type { PrismaService } from '../src/core/prisma.service.js';
+import { Prisma, PrismaClient } from '../src/generated/prisma/client.js';
+import type { BeneficiaryViewer } from '../src/services/beneficiaries.js';
+import { SEARCH_TERMS } from '../seed/perf-data.js';
+import { perfDatabase } from './perf-db.js';
 
 const arg = (name: string, fallback: number) => {
   const i = process.argv.indexOf(name);

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { PERMISSION_SET_TYPES, PERMISSION_SETS } from '@css/shared/projects';
-import { assertConditionsCovered, checkCondition } from './conditions';
+import { assertConditionsCovered, checkCondition } from './conditions.js';
 import {
   type AccessFacts,
   effectiveAccess,
   effectivePermissions,
   type EffectiveGrant,
-} from './effective';
-import { loadAccessRegistry, parsePermissionsFile, readPermissionsFile } from './registry';
+} from './effective.js';
+import { loadAccessRegistry, parsePermissionsFile, readPermissionsFile } from './registry.js';
 
 const registry = loadAccessRegistry();
 const NOW = new Date('2026-10-12T06:00:00Z');

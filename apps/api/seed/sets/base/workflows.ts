@@ -1,8 +1,8 @@
 import { mergeWorkflowTemplates, type WorkflowDefinition } from '@css/shared';
-import { loadAccessRegistry } from '../../../src/access/registry';
-import { assertWorkflowNamesKnown } from '../../../src/workflow/registry';
-import { readWorkflowTemplates } from '../../../src/workflow/templates';
-import { json, type SeedContext, seedId } from '../../context';
+import { loadAccessRegistry } from '../../../src/access/registry.js';
+import { assertWorkflowNamesKnown } from '../../../src/workflow/registry.js';
+import { readWorkflowTemplates } from '../../../src/workflow/templates.js';
+import { json, type SeedContext, seedId } from '../../context.js';
 
 export { readWorkflowTemplates };
 

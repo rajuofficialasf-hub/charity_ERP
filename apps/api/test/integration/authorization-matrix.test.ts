@@ -4,16 +4,16 @@ import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { Router } from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { loadAccessRegistry } from '../../src/access/registry';
-import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
-import type { RegisteredOperation } from '../../src/openapi/registry';
-import { seedAccessCatalogue } from './support/access-fixtures';
-import { account, type AuthHarness, authHarness, bearer, login } from './support/auth-app';
-import { ANONYMOUS, deniedByAccessLayer, expectedAllowed, matrixReport } from './support/matrix';
+import { loadAccessRegistry } from '../../src/access/registry.js';
+import { defineRoute, type RouteDeps } from '../../src/openapi/define-route.js';
+import type { RegisteredOperation } from '../../src/openapi/registry.js';
+import { seedAccessCatalogue } from './support/access-fixtures.js';
+import { account, type AuthHarness, authHarness, bearer, login } from './support/auth-app.js';
+import { ANONYMOUS, deniedByAccessLayer, expectedAllowed, matrixReport } from './support/matrix.js';
 
 // Every registered endpoint × every role and an anonymous caller. The calls use nonexistent ids and
 // empty bodies, so no handler can change data.
-const REPORT = join(__dirname, '../../../../docs/security/AUTHORIZATION_MATRIX.md');
+const REPORT = join(import.meta.dirname, '../../../../docs/security/AUTHORIZATION_MATRIX.md');
 const MISSING_ID = '00000000-0000-7000-8000-00000000abcd';
 const registry = loadAccessRegistry();
 const roles = [...registry.roles.keys()];

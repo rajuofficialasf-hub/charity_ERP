@@ -3,8 +3,8 @@ import { Writable } from 'node:stream';
 import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
-import { accessWorld, seedAccessCatalogue } from './support/access-fixtures';
+import { defineRoute, type RouteDeps } from '../../src/openapi/define-route.js';
+import { accessWorld, seedAccessCatalogue } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -13,7 +13,7 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // Scope resolution and enforcement through the real endpoints (docs/security/RBAC.md, "Data scopes
 // and their resolution" and "Server-side enforcement").

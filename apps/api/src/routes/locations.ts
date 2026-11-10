@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import type { Container } from '../container';
-import { ok, send } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import type { Container } from '../container.js';
+import { ok, send } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 const listQuery = z.strictObject({ parentId: z.uuid().optional() });
 

@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { accessWorld } from './support/access-fixtures';
-import { applicationProject, applicationRow, IDENTITY_ANSWERS } from './support/applications';
+import { SeedContext } from '../../seed/context.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { applicationProject, applicationRow, IDENTITY_ANSWERS } from './support/applications.js';
 import {
   type Account,
   account,
@@ -14,8 +14,8 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { beneficiary, fakeMobile, fakeNid } from './support/fixtures';
+} from './support/auth-app.js';
+import { beneficiary, fakeMobile, fakeNid } from './support/fixtures.js';
 
 // The application through the common cycle on the API: the submission gives the number and the
 // person, the office reviews, edits, sends for approval and decides, a rejection can be returned,

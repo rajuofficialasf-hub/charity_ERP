@@ -1,7 +1,7 @@
-import type { Scope } from '../access/scope';
-import type { AccessService } from '../access/service';
-import { type PrismaService } from '../core/prisma.service';
-import { staffPhotos } from './staff-photos';
+import type { Scope } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import { type PrismaService } from '../core/prisma.service.js';
+import { staffPhotos } from './staff-photos.js';
 
 /** One official in the organogram with the officials who report to them inside the same part. */
 export interface OrganogramNode {

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { jpeg, png } from '../support/images';
+import { jpeg, png } from '../support/images.js';
 import {
   account,
   authHarness,
@@ -9,10 +9,10 @@ import {
   bearer,
   login,
   PASSWORD,
-} from './support/auth-app';
-import * as f from './support/fixtures';
-import { notificationsOf } from './support/notifications';
-import { TOKEN_HEADER, verifiedDraft, verifyContacts } from './support/registration';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
+import { notificationsOf } from './support/notifications.js';
+import { TOKEN_HEADER, verifiedDraft, verifyContacts } from './support/registration.js';
 
 // Submit and the pending account (docs/architecture/AUTH.md, "Registration with two OTPs" and
 // "Account states").

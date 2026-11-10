@@ -1,6 +1,6 @@
 import type { Request } from 'express';
-import type { Scope } from '../access/scope';
-import { ApiError } from '../i18n/api-error';
+import type { Scope } from '../access/scope.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /**
  * The authenticated caller of a request, set by requireAccess (docs/architecture/AUTH.md, "Tokens

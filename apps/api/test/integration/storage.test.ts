@@ -9,10 +9,10 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { dropParts, joinParts, PART_SIZE, storePart } from '../../src/files/parts';
-import { type Bucket, BUCKETS, createStorage, NotFoundError } from '../../src/storage';
-import type * as StorageTypes from '../../src/storage/types';
-import { testEnv } from '../support/env';
+import { dropParts, joinParts, PART_SIZE, storePart } from '../../src/files/parts.js';
+import { type Bucket, BUCKETS, createStorage, NotFoundError } from '../../src/storage/index.js';
+import type * as StorageTypes from '../../src/storage/types.js';
+import { testEnv } from '../support/env.js';
 
 // The S3 driver against a real SeaweedFS, the local S3 stand-in: the dev compose file's on this
 // machine, the one CI starts in its checks job. It goes through the entry point, so the driver map
@@ -115,7 +115,7 @@ describe('S3 storage driver on SeaweedFS', () => {
     // the driver checks the bucket list of storage/types.ts; one more name that no store holds
     // stands for a bucket the bootstrap did not create, without touching the real ones
     vi.resetModules();
-    vi.doMock('../../src/storage/types', async (importOriginal) => {
+    vi.doMock('../../src/storage/types.js', async (importOriginal) => {
       const real = await importOriginal<typeof StorageTypes>();
       return { ...real, BUCKETS: [...real.BUCKETS, `missing-${randomUUID().slice(0, 8)}`] };
     });
@@ -123,7 +123,7 @@ describe('S3 storage driver on SeaweedFS', () => {
       const { createStorage: createWithMissing } = await import('../../src/storage/index.js');
       expect(await createWithMissing(env).ping()).toBe(false);
     } finally {
-      vi.doUnmock('../../src/storage/types');
+      vi.doUnmock('../../src/storage/types.js');
       vi.resetModules();
     }
   });

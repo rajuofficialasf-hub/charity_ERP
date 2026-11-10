@@ -1,8 +1,8 @@
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import type { PrismaService } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { CHECK_TIMEOUT_MS, type HealthService, type Readiness } from '../health/service';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { CHECK_TIMEOUT_MS, type HealthService, type Readiness } from '../health/service.js';
 
 export interface StorageFigure {
   count: number;

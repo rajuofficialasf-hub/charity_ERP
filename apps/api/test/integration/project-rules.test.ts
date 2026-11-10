@@ -1,9 +1,9 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { accessWorld } from './support/access-fixtures';
+import { SeedContext } from '../../seed/context.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -12,7 +12,7 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // The four rules texts of a project, saved as versions, and the activation that needs them.
 let h: AuthHarness;

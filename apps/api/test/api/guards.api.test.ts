@@ -2,11 +2,11 @@ import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { AuditWriter } from '../../src/audit/audit-writer';
-import type { Tx } from '../../src/core/prisma.service';
-import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
-import { RATE_LIMITS } from '../../src/rate-limit/rate-limit';
-import { buildTestApp, type TestApp } from '../support/app';
+import { AuditWriter } from '../../src/audit/audit-writer.js';
+import type { Tx } from '../../src/core/prisma.service.js';
+import { defineRoute, type RouteDeps } from '../../src/openapi/define-route.js';
+import { RATE_LIMITS } from '../../src/rate-limit/rate-limit.js';
+import { buildTestApp, type TestApp } from '../support/app.js';
 
 // A transaction stand-in: the audit insert succeeds without a database.
 const fakeTx = { auditLog: { create: async () => ({}) } } as unknown as Tx;

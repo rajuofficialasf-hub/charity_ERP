@@ -1,7 +1,7 @@
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { TestProject } from 'vitest/node';
-import { COVERAGE_ROOT } from './contract';
+import { COVERAGE_ROOT } from './contract.js';
 
 declare module 'vitest' {
   export interface ProvidedContext {

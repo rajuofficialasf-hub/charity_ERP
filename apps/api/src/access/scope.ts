@@ -1,12 +1,12 @@
-import type { Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { PERMISSION_MARKERS } from '../openapi/drift';
+import type { Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { PERMISSION_MARKERS } from '../openapi/drift.js';
 import {
   type EffectiveGrant,
   type PanelOverride,
   WORKING_ASSIGNMENT,
   workingTeamProjects,
-} from './effective';
+} from './effective.js';
 
 /** A location, optionally inside one project (an area of a project or a panel-granted location). */
 export interface Area {

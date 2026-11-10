@@ -1,5 +1,5 @@
 import { NOTIFICATION_TEMPLATES, uuidv7 } from '@css/shared';
-import { prismaClientFor } from '../core/prisma.service';
+import { prismaClientFor } from '../core/prisma.service.js';
 
 /**
  * Inserts every notification template of packages/shared whose key, channel and language has no

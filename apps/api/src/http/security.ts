@@ -3,9 +3,9 @@ import type { RequestHandler } from 'express';
 import helmet from 'helmet';
 import type { DestinationStream } from 'pino';
 import { pinoHttp, type HttpLogger } from 'pino-http';
-import type { Env } from '../config/env';
-import { ApiError } from '../i18n/api-error';
-import { loggerOptions } from '../core/logging';
+import type { Env } from '../config/env.js';
+import { ApiError } from '../i18n/api-error.js';
+import { loggerOptions } from '../core/logging.js';
 
 /**
  * One structured line per request with the request id on `X-Request-Id`; bodies,

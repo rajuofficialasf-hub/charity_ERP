@@ -7,14 +7,14 @@ import {
   setupCheck,
   transitionFor,
 } from '@css/shared/projects';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Clock } from '../core/clock';
-import { assertIfMatch } from '../core/etag';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { ProjectViewer, ProjectsService } from './projects';
-import type { ProjectEvents } from '../notifications/project-events';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Clock } from '../core/clock.js';
+import { assertIfMatch } from '../core/etag.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { ProjectViewer, ProjectsService } from './projects.js';
+import type { ProjectEvents } from '../notifications/project-events.js';
 
 /**
  * The close guards a workflow may list. A guard whose module exists checks it here; the guards of

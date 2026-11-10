@@ -1,10 +1,10 @@
 import { reasonRequestSchema, type ReasonRequest } from '@css/shared/auth';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { page } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { page } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 const uuid = z.uuid();
 const sessionOp = { tag: 'sessions', idempotency: 'none' as const, rateLimit: 'default' as const };

@@ -1,50 +1,50 @@
 import express, { type Express, Router } from 'express';
 import { BATCH_ENVELOPE_BYTES, BATCH_MAX_BYTES } from '@css/shared/sync';
 import type { DestinationStream } from 'pino';
-import { requireAccess } from './auth/require-access';
-import type { Container } from './container';
-import { requestContext } from './core/request-context.middleware';
-import { healthRouter } from './health/routes';
-import { errorHandler, notFound } from './http/errors';
+import { requireAccess } from './auth/require-access.js';
+import type { Container } from './container.js';
+import { requestContext } from './core/request-context.middleware.js';
+import { healthRouter } from './health/routes.js';
+import { errorHandler, notFound } from './http/errors.js';
 import {
   corsAllowlist,
   originCheck,
   requestLogging,
   securityHeaders,
   trustProxySetting,
-} from './http/security';
-import type { RouteDeps } from './openapi/define-route';
-import { RouteRegistry } from './openapi/registry';
-import { createRateLimiters } from './rate-limit/limiters';
-import { authRouter } from './routes/auth';
-import { meRouter } from './routes/me';
-import { sessionsRouter } from './routes/sessions';
-import { accessRouter } from './routes/access';
-import { usersRouter } from './routes/users';
-import { locationsRouter } from './routes/locations';
-import { filesRouter } from './routes/files';
-import { uploadsRouter } from './routes/uploads';
-import { exportsRouter } from './routes/exports';
-import { volunteersRouter } from './routes/volunteers';
-import { applicationsRouter } from './routes/applications';
-import { mediaRouter } from './routes/media';
-import { syncRouter } from './routes/sync';
-import { beneficiariesRouter } from './routes/beneficiaries';
-import { programsRouter } from './routes/programs';
-import { settingsRouter } from './routes/settings';
-import { auditRouter } from './routes/audit';
-import { adminSystemRouter } from './routes/admin-system';
-import { openapiRouter } from './routes/openapi';
-import { notificationsRouter } from './routes/notifications';
-import { sessionMonitorRouter } from './routes/session-monitor';
-import { projectsRouter } from './routes/projects';
-import { projectSetupRouter } from './routes/project-setup';
-import { myProjectsRouter } from './routes/my-projects';
-import { projectVolunteersRouter } from './routes/project-volunteers';
-import { templatesRouter } from './routes/templates';
-import { formsRouter } from './routes/forms';
-import { publicRouter } from './routes/public';
-import { registrationsRouter } from './routes/registrations';
+} from './http/security.js';
+import type { RouteDeps } from './openapi/define-route.js';
+import { RouteRegistry } from './openapi/registry.js';
+import { createRateLimiters } from './rate-limit/limiters.js';
+import { authRouter } from './routes/auth.js';
+import { meRouter } from './routes/me.js';
+import { sessionsRouter } from './routes/sessions.js';
+import { accessRouter } from './routes/access.js';
+import { usersRouter } from './routes/users.js';
+import { locationsRouter } from './routes/locations.js';
+import { filesRouter } from './routes/files.js';
+import { uploadsRouter } from './routes/uploads.js';
+import { exportsRouter } from './routes/exports.js';
+import { volunteersRouter } from './routes/volunteers.js';
+import { applicationsRouter } from './routes/applications.js';
+import { mediaRouter } from './routes/media.js';
+import { syncRouter } from './routes/sync.js';
+import { beneficiariesRouter } from './routes/beneficiaries.js';
+import { programsRouter } from './routes/programs.js';
+import { settingsRouter } from './routes/settings.js';
+import { auditRouter } from './routes/audit.js';
+import { adminSystemRouter } from './routes/admin-system.js';
+import { openapiRouter } from './routes/openapi.js';
+import { notificationsRouter } from './routes/notifications.js';
+import { sessionMonitorRouter } from './routes/session-monitor.js';
+import { projectsRouter } from './routes/projects.js';
+import { projectSetupRouter } from './routes/project-setup.js';
+import { myProjectsRouter } from './routes/my-projects.js';
+import { projectVolunteersRouter } from './routes/project-volunteers.js';
+import { templatesRouter } from './routes/templates.js';
+import { formsRouter } from './routes/forms.js';
+import { publicRouter } from './routes/public.js';
+import { registrationsRouter } from './routes/registrations.js';
 
 export const API_PREFIX = 'api/v1';
 

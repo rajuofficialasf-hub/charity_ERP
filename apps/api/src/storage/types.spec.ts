@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUCKETS, knownBucket } from './types';
+import { BUCKETS, knownBucket } from './types.js';
 
 // A bucket name read back from the database is narrowed to the buckets the storage knows.
 describe('knownBucket', () => {

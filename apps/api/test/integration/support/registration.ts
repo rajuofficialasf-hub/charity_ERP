@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
 import request from 'supertest';
-import { ARGON2_OPTIONS } from '../../../src/auth/password-hasher';
-import { type AuthHarness, PASSWORD } from './auth-app';
-import { fakeMobile } from './fixtures';
+import { ARGON2_OPTIONS } from '../../../src/auth/password-hasher.js';
+import { type AuthHarness, PASSWORD } from './auth-app.js';
+import { fakeMobile } from './fixtures.js';
 
 /** The dummy OTP of the test configuration (test/support/env.ts). */
 export const DUMMY_CODE = '246810';

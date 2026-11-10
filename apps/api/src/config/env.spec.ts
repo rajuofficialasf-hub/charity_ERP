@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadEnv } from './env';
+import { loadEnv } from './env.js';
 
 const base = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/css_erp_dev',
@@ -256,7 +256,7 @@ describe('loadEnv', () => {
   describe('the local example secrets in production', () => {
     // every secret value the two example files hand to a developer, read from the files themselves
     // so a new example value is checked as soon as it is written there
-    const root = resolve(__dirname, '../../../..');
+    const root = resolve(import.meta.dirname, '../../../..');
     const fromEnvExample = Object.fromEntries(
       readFileSync(resolve(root, 'apps/api/.env.example'), 'utf8')
         .split('\n')

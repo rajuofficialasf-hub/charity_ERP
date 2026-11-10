@@ -1,6 +1,6 @@
-import { effectiveAccess } from '../../../src/access/effective';
-import type { AccessRegistry } from '../../../src/access/registry';
-import type { RegisteredOperation } from '../../../src/openapi/registry';
+import { effectiveAccess } from '../../../src/access/effective.js';
+import type { AccessRegistry } from '../../../src/access/registry.js';
+import type { RegisteredOperation } from '../../../src/openapi/registry.js';
 
 /**
  * The expected decision of the authorization matrix (docs/security/RBAC.md, "permissions.yaml

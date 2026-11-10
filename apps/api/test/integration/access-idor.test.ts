@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { projectWhere } from '../../src/access/scope';
-import type { Principal } from '../../src/auth/principal';
-import { accessWorld } from './support/access-fixtures';
-import { project, volunteer } from './support/fixtures';
+import { projectWhere } from '../../src/access/scope.js';
+import type { Principal } from '../../src/auth/principal.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { project, volunteer } from './support/fixtures.js';
 import {
   type Account,
   account,
@@ -13,7 +13,7 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // Cross-region and cross-project access
 // (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md; docs/security/RBAC.md,

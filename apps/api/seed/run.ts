@@ -3,12 +3,12 @@
 // NODE_ENV=production and any database that is not css_erp_dev* / css_erp_test*; every run leaves a
 // seed marker that the production start guard refuses.
 import 'dotenv/config';
-import { checkDestructiveDbAccess } from '../src/config/db-guard';
-import { prismaClientFor } from '../src/core/prisma.service';
-import type { PrismaClient } from '../src/generated/prisma/client';
-import { json, type TableCounts, SeedContext } from './context';
-import { seedBase } from './sets/base';
-import { seedDemo } from './sets/demo';
+import { checkDestructiveDbAccess } from '../src/config/db-guard.js';
+import { prismaClientFor } from '../src/core/prisma.service.js';
+import type { PrismaClient } from '../src/generated/prisma/client.js';
+import { json, type TableCounts, SeedContext } from './context.js';
+import { seedBase } from './sets/base/index.js';
+import { seedDemo } from './sets/demo/index.js';
 
 export type SeedSet = 'base' | 'demo';
 export const SEED_SETS: Record<
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
   }
 }
 
-if (require.main === module) {
+if (import.meta.main) {
   main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);

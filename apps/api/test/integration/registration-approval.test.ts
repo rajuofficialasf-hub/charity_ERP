@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { jpeg } from '../support/images';
-import { accessWorld } from './support/access-fixtures';
+import { jpeg } from '../support/images.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -12,10 +12,10 @@ import {
   login,
   PASSWORD,
   type Session,
-} from './support/auth-app';
-import { notificationsOf } from './support/notifications';
-import * as f from './support/fixtures';
-import { pendingStaffRegistration, TOKEN_HEADER, verifiedDraft } from './support/registration';
+} from './support/auth-app.js';
+import { notificationsOf } from './support/notifications.js';
+import * as f from './support/fixtures.js';
+import { pendingStaffRegistration, TOKEN_HEADER, verifiedDraft } from './support/registration.js';
 
 // Approval, rejection and correction requests.
 let h: AuthHarness;

@@ -7,16 +7,16 @@ import {
   type LookupRequest,
   parseBenNo,
 } from '@css/shared/beneficiaries';
-import type { AccessService } from '../access/service';
-import { beneficiaryWhere, type Scope } from '../access/scope';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
-import { isUniqueViolation } from '../core/db-errors';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { type Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
+import type { AccessService } from '../access/service.js';
+import { beneficiaryWhere, type Scope } from '../access/scope.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
+import { isUniqueViolation } from '../core/db-errors.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { type Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /** How far a chain of merges is followed (a kept profile can itself be merged later). */
 const MERGE_HOPS = 10;

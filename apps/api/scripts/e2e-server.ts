@@ -2,9 +2,9 @@ import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checkDestructiveDbAccess } from '../src/config/db-guard';
-import { prismaClientFor } from '../src/core/prisma.service';
-import { Prisma } from '../src/generated/prisma/client';
+import { checkDestructiveDbAccess } from '../src/config/db-guard.js';
+import { prismaClientFor } from '../src/core/prisma.service.js';
+import { Prisma } from '../src/generated/prisma/client.js';
 
 // The API for Playwright: recreates the css_erp_test_e2e database, migrates it, installs
 // the job schema, loads the base and demo seed (docs/testing/DEMO_ACCOUNTS.md) and starts the built
@@ -14,7 +14,7 @@ import { Prisma } from '../src/generated/prisma/client';
 const DATABASE_URL =
   process.env.E2E_DATABASE_URL ?? 'postgresql://css:css_dev_only@127.0.0.1:5433/css_erp_test_e2e';
 const PORT = process.env.E2E_API_PORT ?? '4100';
-const root = join(__dirname, '..');
+const root = join(import.meta.dirname, '..');
 
 function run(command: string, args: string[], env: NodeJS.ProcessEnv): void {
   const result = spawnSync(command, args, {

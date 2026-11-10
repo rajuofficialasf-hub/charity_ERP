@@ -1,7 +1,7 @@
-import { loadEnv } from './config/env';
-import { closeContainer, createContainer } from './container';
-import { JobConsumers } from './jobs/consumers';
-import { createShutdown } from './shutdown';
+import { loadEnv } from './config/env.js';
+import { closeContainer, createContainer } from './container.js';
+import { JobConsumers } from './jobs/consumers.js';
+import { createShutdown } from './shutdown.js';
 
 /** Running jobs get this long to finish after SIGTERM (pg-boss drains for up to 30 s). */
 const SHUTDOWN_GRACE_MS = 35_000;

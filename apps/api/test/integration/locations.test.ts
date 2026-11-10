@@ -2,12 +2,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { prismaClientFor } from '../../src/core/prisma.service';
-import type { PrismaClient } from '../../src/generated/prisma/client';
-import { type LocationRow } from '../../src/locations/convert';
-import { parseCsvRecords } from '../../src/locations/csv';
-import { loadLocations } from '../../src/locations/load';
-import { cloneTemplate } from './support/db';
+import { prismaClientFor } from '../../src/core/prisma.service.js';
+import type { PrismaClient } from '../../src/generated/prisma/client.js';
+import { type LocationRow } from '../../src/locations/convert.js';
+import { parseCsvRecords } from '../../src/locations/csv.js';
+import { loadLocations } from '../../src/locations/load.js';
+import { cloneTemplate } from './support/db.js';
 
 // Locations master loader: it writes through Prisma, the checks read through the test's own client.
 let db: Client;
@@ -147,7 +147,7 @@ describe('loadLocations', () => {
 
   it('loads the committed bd-locations.csv: 8 divisions, 64 districts, 500 upazilas and 12 city corporations, with their post codes', async () => {
     const csv = readFileSync(
-      join(__dirname, '../../../../docs/source/data/bd-locations.csv'),
+      join(import.meta.dirname, '../../../../docs/source/data/bd-locations.csv'),
       'utf8',
     );
     await loadLocations(prisma, parseCsvRecords(csv) as LocationRow[]);

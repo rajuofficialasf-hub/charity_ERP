@@ -1,10 +1,10 @@
-import { API_PREFIX } from '../app';
+import { API_PREFIX } from '../app.js';
 import {
   jsonSchemaOf,
   openApiPath,
   type RegisteredOperation,
   type RouteRegistry,
-} from './registry';
+} from './registry.js';
 
 type Operation = Record<string, unknown>;
 

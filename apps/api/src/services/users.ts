@@ -1,14 +1,14 @@
 import type { Affiliation, UserState, UserStateRequest } from '@css/shared/auth';
-import type { Scope } from '../access/scope';
-import type { AccessService } from '../access/service';
-import { type AuditWriter } from '../audit/audit-writer';
-import { type PermissionVersionService } from '../auth/permission-version.service';
-import type { Principal } from '../auth/principal';
-import { type SessionService } from '../auth/session.service';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import { assertIfMatch } from '../core/etag';
-import { type PrismaService } from '../core/prisma.service';
+import type { Scope } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import { type AuditWriter } from '../audit/audit-writer.js';
+import { type PermissionVersionService } from '../auth/permission-version.service.js';
+import type { Principal } from '../auth/principal.js';
+import { type SessionService } from '../auth/session.service.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import { assertIfMatch } from '../core/etag.js';
+import { type PrismaService } from '../core/prisma.service.js';
 import {
   buildPage,
   decodeCursor,
@@ -17,10 +17,10 @@ import {
   type PageQuery,
   parseSort,
   searchWhere,
-} from '../core/pagination';
-import { pendingHandoverItems } from '../handover/providers';
-import { ApiError } from '../i18n/api-error';
-import { staffPhotos } from './staff-photos';
+} from '../core/pagination.js';
+import { pendingHandoverItems } from '../handover/providers.js';
+import { ApiError } from '../i18n/api-error.js';
+import { staffPhotos } from './staff-photos.js';
 
 export interface UserListQuery extends Omit<PageQuery, 'sort'> {
   q?: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { ApiError } from '../i18n/api-error';
+import { ApiError } from '../i18n/api-error.js';
 import {
   buildPage,
   capTotal,
@@ -13,8 +13,8 @@ import {
   parseRange,
   parseSort,
   searchWhere,
-} from './pagination';
-import { issueCode } from '../http/validate';
+} from './pagination.js';
+import { issueCode } from '../http/validate.js';
 
 const SECRET = 'unit-test-secret-0123456789abcdefgh';
 

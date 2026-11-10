@@ -5,8 +5,8 @@ import { access, lstat, mkdir, readFile, realpath, rename, rm, writeFile } from 
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
-import { ApiError } from '../../i18n/api-error';
-import { assertKey, BUCKETS, type Bucket, NotFoundError, type StorageDriver } from '../types';
+import { ApiError } from '../../i18n/api-error.js';
+import { assertKey, BUCKETS, type Bucket, NotFoundError, type StorageDriver } from '../types.js';
 
 const META_SUFFIX = '.meta.json';
 const PART_SUFFIX = '.part';

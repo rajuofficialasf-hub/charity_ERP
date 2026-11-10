@@ -1,12 +1,12 @@
 import { type BeneficiaryFilter, parseBenNo } from '@css/shared/beneficiaries';
 import { APPROVED_STATES } from '@css/shared/volunteers';
-import type { AccessService } from '../access/service';
-import { beneficiaryRowsProjectWhere, beneficiaryWhere, type Scope } from '../access/scope';
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
-import { boundedRead } from '../core/bounded-read';
-import { isNumberTerm, literalContains, mobileOf } from '../core/search';
-import type { Clock } from '../core/clock';
+import type { AccessService } from '../access/service.js';
+import { beneficiaryRowsProjectWhere, beneficiaryWhere, type Scope } from '../access/scope.js';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
+import { boundedRead } from '../core/bounded-read.js';
+import { isNumberTerm, literalContains, mobileOf } from '../core/search.js';
+import type { Clock } from '../core/clock.js';
 import {
   buildPage,
   decodeCursor,
@@ -16,12 +16,12 @@ import {
   type PageNumberQuery,
   pageOffset,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { publishedWorksOf } from './media-home';
-import type { BeneficiaryIdentityService } from './beneficiary-identity';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { publishedWorksOf } from './media-home.js';
+import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
 
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
 const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);

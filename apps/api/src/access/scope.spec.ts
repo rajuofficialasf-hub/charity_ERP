@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { EffectiveGrant, PanelOverride } from './effective';
+import type { EffectiveGrant, PanelOverride } from './effective.js';
 import {
   applicationWhere,
   applyInstanceRevokes,
@@ -14,7 +14,7 @@ import {
   type ScopeInstances,
   userWhere,
   volunteerWhere,
-} from './scope';
+} from './scope.js';
 
 const grant = (over: Partial<EffectiveGrant>): EffectiveGrant => ({
   permission: 'application.view',

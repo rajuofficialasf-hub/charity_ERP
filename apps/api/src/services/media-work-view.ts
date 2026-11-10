@@ -8,12 +8,12 @@ import {
 } from '@css/shared/media';
 import { mediaScriptSchema } from '@css/shared';
 import { z } from 'zod';
-import type { EffectiveAccess } from '../access/effective';
-import { holdsPermission, mediaReferralWhere } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { Principal } from '../auth/principal';
-import { etagOf } from '../core/etag';
-import type { PrismaService, Tx } from '../core/prisma.service';
+import type { EffectiveAccess } from '../access/effective.js';
+import { holdsPermission, mediaReferralWhere } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { Principal } from '../auth/principal.js';
+import { etagOf } from '../core/etag.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
 
 /** Reads a referral and its work: the directors, the members of its work and the referrers. */
 export const VIEW_PERMISSION = 'media.work.view';

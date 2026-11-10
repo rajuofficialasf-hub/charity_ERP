@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { authHarness, type AuthHarness } from './support/auth-app';
-import * as f from './support/fixtures';
+import { authHarness, type AuthHarness } from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // The public locations list for the registration form. One listening server with keep-alive fetch:
 // hundreds of supertest connections are unstable on Windows (see authorization-matrix.test.ts).

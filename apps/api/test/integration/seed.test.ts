@@ -11,14 +11,14 @@ import {
 import { SETTING_DEFAULTS } from '@css/shared/settings';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { json, SeedContext } from '../../seed/context';
-import { readPermissionsFile } from '../../seed/sets/base/access';
-import { deriveTransitions, readWorkflowTemplates } from '../../seed/sets/base/workflows';
-import { DEMO_DUPLICATE_PAIRS, DEMO_STAFF } from '../../seed/sets/demo';
-import { runSeed, type SeedReport } from '../../seed/run';
-import { prismaClientFor } from '../../src/core/prisma.service';
-import type { PrismaClient } from '../../src/generated/prisma/client';
-import { cloneTemplate } from './support/db';
+import { json, SeedContext } from '../../seed/context.js';
+import { readPermissionsFile } from '../../seed/sets/base/access.js';
+import { deriveTransitions, readWorkflowTemplates } from '../../seed/sets/base/workflows.js';
+import { DEMO_DUPLICATE_PAIRS, DEMO_STAFF } from '../../seed/sets/demo/index.js';
+import { runSeed, type SeedReport } from '../../seed/run.js';
+import { prismaClientFor } from '../../src/core/prisma.service.js';
+import type { PrismaClient } from '../../src/generated/prisma/client.js';
+import { cloneTemplate } from './support/db.js';
 
 // Seed framework: deterministic, idempotent, fake data only, never outside dev/test. The seed
 // writes through Prisma; the checks read through the test's own client.

@@ -16,18 +16,18 @@ import {
   type VolunteerRegistrationSubmit,
   type RegistrationVerifyResult,
 } from '@css/shared/registration';
-import { type AuditEntry, type AuditWriter } from '../audit/audit-writer';
-import type { OtpService } from '../auth/otp.service';
-import type { PasswordHasher } from '../auth/password-hasher';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { currentContext } from '../core/request-context';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { linkStaffPhoto } from './staff-photos';
-import { registrationDetailsColumns } from './volunteer-details';
-import type { AccountEvents } from '../notifications/account-events';
+import { type AuditEntry, type AuditWriter } from '../audit/audit-writer.js';
+import type { OtpService } from '../auth/otp.service.js';
+import type { PasswordHasher } from '../auth/password-hasher.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { currentContext } from '../core/request-context.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { linkStaffPhoto } from './staff-photos.js';
+import { registrationDetailsColumns } from './volunteer-details.js';
+import type { AccountEvents } from '../notifications/account-events.js';
 
 type Draft = NonNullable<Awaited<ReturnType<PrismaService['registrationDraft']['findUnique']>>>;
 /** A draft with its token: both contacts are set and verified (the table's CHECKs). */

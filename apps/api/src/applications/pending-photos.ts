@@ -1,11 +1,11 @@
 import { FILE_FIELD_TYPES, type FormDefinition } from '@css/shared/forms';
 import { isPendingPhoto, photoSlot } from '@css/shared/sync';
 import { z } from 'zod';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Tx } from '../core/prisma.service';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Tx } from '../core/prisma.service.js';
 import { uuidv7 } from '@css/shared';
-import { ApiError } from '../i18n/api-error';
+import { ApiError } from '../i18n/api-error.js';
 
 /**
  * Photos that still wait on the phone when a record syncs (docs/architecture/OFFLINE_SYNC.md

@@ -6,8 +6,8 @@ import {
   sensitive,
   sensitiveClassesOf,
   visibleFieldClasses,
-} from './field-mask';
-import { loadAccessRegistry } from './registry';
+} from './field-mask.js';
+import { loadAccessRegistry } from './registry.js';
 
 // Field-level protection (docs/security/RBAC.md, "Field-level protection").
 const registry = loadAccessRegistry();

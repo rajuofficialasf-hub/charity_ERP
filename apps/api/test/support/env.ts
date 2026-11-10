@@ -1,7 +1,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type Env, loadEnv } from '../../src/config/env';
+import { type Env, loadEnv } from '../../src/config/env.js';
 
 /** Configuration for API and integration tests: test database, the NAS driver on a temporary folder, quiet logs. */
 export function testEnv(overrides: Record<string, string> = {}): Env {

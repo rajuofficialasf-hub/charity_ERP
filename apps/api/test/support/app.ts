@@ -1,16 +1,16 @@
 import type { Express } from 'express';
-import { type AppOptions, createApp } from '../../src/app';
-import type { Env } from '../../src/config/env';
+import { type AppOptions, createApp } from '../../src/app.js';
+import type { Env } from '../../src/config/env.js';
 import {
   closeContainer,
   type Container,
   type ContainerOptions,
   createContainer,
-} from '../../src/container';
-import type { RouteRegistry } from '../../src/openapi/registry';
-import { contractRecorder } from './contract';
-import { withAppOrigin } from './origin';
-import { testEnv } from './env';
+} from '../../src/container.js';
+import type { RouteRegistry } from '../../src/openapi/registry.js';
+import { contractRecorder } from './contract.js';
+import { withAppOrigin } from './origin.js';
+import { testEnv } from './env.js';
 
 export interface TestApp {
   app: Express;

@@ -1,5 +1,5 @@
 import type { CookieOptions, Request, Response } from 'express';
-import type { Env } from '../config/env';
+import type { Env } from '../config/env.js';
 
 /** Cookie names and paths of the session (openapi `refreshCookie`). */
 export const REFRESH_COOKIE = 'css_refresh';

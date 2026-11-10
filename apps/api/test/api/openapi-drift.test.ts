@@ -4,15 +4,19 @@ import { Router } from 'express';
 import yaml from 'js-yaml';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { sensitive } from '../../src/access/field-mask';
-import { buildOpenApiDocument } from '../../src/openapi/build-document';
-import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
-import { canonicalSchema, compareWithContract, PERMISSION_MARKERS } from '../../src/openapi/drift';
-import { buildTestApp, type TestApp } from '../support/app';
+import { sensitive } from '../../src/access/field-mask.js';
+import { buildOpenApiDocument } from '../../src/openapi/build-document.js';
+import { defineRoute, type RouteDeps } from '../../src/openapi/define-route.js';
+import {
+  canonicalSchema,
+  compareWithContract,
+  PERMISSION_MARKERS,
+} from '../../src/openapi/drift.js';
+import { buildTestApp, type TestApp } from '../support/app.js';
 
 // The generated document must match docs/api/openapi.yaml (docs/api/API_STANDARDS.md, "OpenAPI
 // annotations required on every operation").
-const repo = join(__dirname, '../../../..');
+const repo = join(import.meta.dirname, '../../../..');
 const contract = yaml.load(readFileSync(join(repo, 'docs/api/openapi.yaml'), 'utf8')) as {
   paths: Record<string, Record<string, { 'x-permission'?: unknown } | null>>;
 };

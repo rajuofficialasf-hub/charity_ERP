@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import { currentContext } from '../core/request-context';
+import { currentContext } from '../core/request-context.js';
 
 /**
  * Pagination fields of `meta` for lists (docs/api/API_STANDARDS.md, "Pagination: keyset cursors").

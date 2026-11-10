@@ -1,11 +1,11 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedFormTemplates } from '../../seed/sets/base/forms';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { accessWorld } from './support/access-fixtures';
-import { publishedForm } from './support/forms';
+import { SeedContext } from '../../seed/context.js';
+import { seedFormTemplates } from '../../seed/sets/base/forms.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { publishedForm } from './support/forms.js';
 import {
   type Account,
   account,
@@ -14,7 +14,7 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // Master templates and copies of a project: a new project takes exactly the copied parts of its
 // source as an independent snapshot (templates and copies).

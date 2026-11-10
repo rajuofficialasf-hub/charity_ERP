@@ -1,20 +1,20 @@
 import { EXPORT_RECORDS, type ExportRecord } from '@css/shared/exports';
 import { z } from 'zod';
-import { maskData } from '../access/field-mask';
-import { beneficiaryWhere } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { ApplicationsService } from '../applications/service';
-import { applicationView } from '../applications/view';
-import type { Principal } from '../auth/principal';
-import type { PrismaService } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { beneficiaryProfile } from '../routes/beneficiaries';
-import type { BeneficiariesService } from '../services/beneficiaries';
-import type { ApplicationForPdf } from './pdf/application';
-import type { ProfileForPdf } from './pdf/profile';
-import { classOf, IDENTITY_NUMBER, OFFICIAL_SECTION } from './questions';
-import type { ExportRows } from './rows';
+import { maskData } from '../access/field-mask.js';
+import { beneficiaryWhere } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { ApplicationsService } from '../applications/service.js';
+import { applicationView } from '../applications/view.js';
+import type { Principal } from '../auth/principal.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { beneficiaryProfile } from '../routes/beneficiaries.js';
+import type { BeneficiariesService } from '../services/beneficiaries.js';
+import type { ApplicationForPdf } from './pdf/application.js';
+import type { ProfileForPdf } from './pdf/profile.js';
+import { classOf, IDENTITY_NUMBER, OFFICIAL_SECTION } from './questions.js';
+import type { ExportRows } from './rows.js';
 
 /** The permission that lets a record leave as a PDF, beside the record's own read. */
 export const RECORD_PERMISSION: Readonly<Record<ExportRecord, string>> = {

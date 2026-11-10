@@ -1,13 +1,13 @@
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { buildTestApp } from '../test/support/app';
+import { buildTestApp } from '../test/support/app.js';
 
 // pnpm --filter @css/api contract:coverage: runs both API test projects with the contract
 // recorder and then names every registered operation that no test answered with its success
 // status (docs/testing/TEST_STRATEGY.md, section "API and contract"). `--no-run` only reads the
 // coverage lines of an earlier run.
-const api = join(__dirname, '..');
+const api = join(import.meta.dirname, '..');
 const coverageDir = process.env.CONTRACT_COVERAGE_DIR ?? join(api, 'test-results/contract');
 const noRun = process.argv.includes('--no-run');
 

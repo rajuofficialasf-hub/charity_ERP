@@ -1,6 +1,6 @@
 import { z, type ZodObject, type ZodType } from 'zod';
-import { PERMISSION_MARKERS } from './drift';
-import type { RateLimitClass } from '../rate-limit/rate-limit';
+import { PERMISSION_MARKERS } from './drift.js';
+import type { RateLimitClass } from '../rate-limit/rate-limit.js';
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
 

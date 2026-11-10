@@ -1,6 +1,6 @@
 import { EDIT_FIELDS } from '@css/shared/registration';
 import { describe, expect, it } from 'vitest';
-import { CLASS_OF } from './change-requests';
+import { CLASS_OF } from './change-requests.js';
 
 // The field class of an edit request's value (docs/security/RBAC.md, "Field-level protection").
 describe('the field class of the edit request values', () => {

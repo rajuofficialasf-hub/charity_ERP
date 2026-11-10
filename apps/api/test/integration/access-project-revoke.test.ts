@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { beneficiaryScopeSql, beneficiaryWhere, projectWhere } from '../../src/access/scope';
-import { Prisma } from '../../src/generated/prisma/client';
-import { accessWorld, seedAccessCatalogue } from './support/access-fixtures';
+import { beneficiaryScopeSql, beneficiaryWhere, projectWhere } from '../../src/access/scope.js';
+import { Prisma } from '../../src/generated/prisma/client.js';
+import { accessWorld, seedAccessCatalogue } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -11,8 +11,8 @@ import {
   authHarness,
   bearer,
   login,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // A panel revoke of one project beats every grant that reaches it: the PM's program, an area
 // without a project and GLOBAL (docs/security/RBAC.md, "Permission panel").

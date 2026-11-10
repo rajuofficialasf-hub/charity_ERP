@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import { ApiError } from '../i18n/api-error';
+import { ApiError } from '../i18n/api-error.js';
 
 /**
  * The version gate of the offline routes (docs/api/API_STANDARDS.md, "Breaking changes"): a

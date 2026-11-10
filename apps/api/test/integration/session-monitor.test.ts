@@ -7,7 +7,7 @@ import {
   bearer,
   login,
   systemOwner,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // Every active device session for the global roles; ending one keeps the Main Admin's sessions for
 // the Main Admin.

@@ -1,13 +1,18 @@
 import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
-import { HEARTBEAT_CRON, HEARTBEAT_QUEUE, JobConsumers, startInlineConsumers } from './consumers';
-import type { NotificationDelivery } from '../notifications/delivery';
-import type { JobRunner } from './job-runner';
-import type { FileProcessor } from './file-process';
-import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
-import { DUPLICATES_CRON, DUPLICATES_QUEUE } from './duplicates';
-import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats';
-import type { UploadSweep } from './upload-sweep';
+import {
+  HEARTBEAT_CRON,
+  HEARTBEAT_QUEUE,
+  JobConsumers,
+  startInlineConsumers,
+} from './consumers.js';
+import type { NotificationDelivery } from '../notifications/delivery.js';
+import type { JobRunner } from './job-runner.js';
+import type { FileProcessor } from './file-process.js';
+import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup.js';
+import { DUPLICATES_CRON, DUPLICATES_QUEUE } from './duplicates.js';
+import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats.js';
+import type { UploadSweep } from './upload-sweep.js';
 
 function fakeRunner(failWith?: Error) {
   const work = vi.fn(async () => {

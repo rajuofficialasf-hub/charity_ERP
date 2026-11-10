@@ -2,10 +2,10 @@ import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { sensitive } from '../../src/access/field-mask';
-import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
-import { seedAccessCatalogue } from './support/access-fixtures';
-import { account, type AuthHarness, authHarness, bearer, login } from './support/auth-app';
+import { sensitive } from '../../src/access/field-mask.js';
+import { defineRoute, type RouteDeps } from '../../src/openapi/define-route.js';
+import { seedAccessCatalogue } from './support/access-fixtures.js';
+import { account, type AuthHarness, authHarness, bearer, login } from './support/auth-app.js';
 
 // The field mask on real responses (docs/security/RBAC.md, "Field-level protection"). Test values
 // only.

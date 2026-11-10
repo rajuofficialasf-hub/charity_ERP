@@ -4,11 +4,11 @@ import { uuidv7 } from '@css/shared';
 import { type Locale } from '@css/shared/i18n';
 import { NOTIFICATION_TEMPLATES } from '@css/shared';
 import { renderNotification } from '@css/shared/i18n';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import { type PrismaService } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { EmailAdapter, SmsAdapter } from '../notifications/adapters';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import { type PrismaService } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { EmailAdapter, SmsAdapter } from '../notifications/adapters.js';
 
 /** OTP parameters (docs/architecture/AUTH.md, "Registration with two OTPs"). */
 export const OTP_RULES = {

@@ -5,11 +5,11 @@ import {
   type ReferenceItemCreate,
   type ReferenceItemUpdate,
 } from '@css/shared/settings';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
 
 const SELECT = {
   id: true,

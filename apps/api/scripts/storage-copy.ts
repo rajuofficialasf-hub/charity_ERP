@@ -4,11 +4,11 @@
 // settings must be set while it runs. It never deletes from the source, so a stopped run is run
 // again; it changes no business data, only which driver each file row names.
 import { parseArgs } from 'node:util';
-import { AuditWriter } from '../src/audit/audit-writer';
-import { type Env, loadEnv } from '../src/config/env';
-import { PrismaService } from '../src/core/prisma.service';
-import { copyFiles } from '../src/storage/copy';
-import { createDriver, type StorageDriver } from '../src/storage';
+import { AuditWriter } from '../src/audit/audit-writer.js';
+import { type Env, loadEnv } from '../src/config/env.js';
+import { PrismaService } from '../src/core/prisma.service.js';
+import { copyFiles } from '../src/storage/copy.js';
+import { createDriver, type StorageDriver } from '../src/storage/index.js';
 
 const NAMES: readonly StorageDriver['name'][] = ['nas', 's3'];
 

@@ -1,9 +1,9 @@
-import type { EffectiveAccess } from '../access/effective';
-import { holdsPermission } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { Principal } from '../auth/principal';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
+import type { EffectiveAccess } from '../access/effective.js';
+import { holdsPermission } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { Principal } from '../auth/principal.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /** Whether the user is a volunteer on the active blocklist; a blocked volunteer reaches no application. */
 export async function isBlockedVolunteer(db: Tx | PrismaService, userId: string): Promise<boolean> {

@@ -1,14 +1,14 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { holdsPermission } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
+import { holdsPermission } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
 import type { Logger } from 'pino';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { IdempotencyService } from '../idempotency/idempotency.service';
-import type { WorkflowEngine } from '../workflow/engine';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { IdempotencyService } from '../idempotency/idempotency.service.js';
+import type { WorkflowEngine } from '../workflow/engine.js';
 
 const uuid = z.uuid();
 

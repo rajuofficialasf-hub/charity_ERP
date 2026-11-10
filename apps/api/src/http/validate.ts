@@ -1,6 +1,6 @@
 import type { Request, RequestHandler, Response } from 'express';
 import type { z, ZodType } from 'zod';
-import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
+import { ApiError, type ApiErrorDetail } from '../i18n/api-error.js';
 
 export type Source = 'body' | 'query' | 'params';
 

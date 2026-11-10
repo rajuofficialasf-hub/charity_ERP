@@ -1,15 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type LocationRow } from '../../../src/locations/convert';
-import { parseCsvRecords } from '../../../src/locations/csv';
-import { loadLocations } from '../../../src/locations/load';
-import { type SeedContext, seedId } from '../../context';
-import { REPO_ROOT } from '../util';
-import { seedAccess } from './access';
-import { seedNotificationTemplates } from './notifications';
-import { seedReferenceLists } from './reference-lists';
-import { seedSettings } from './settings';
-import { seedWorkflows } from './workflows';
+import { type LocationRow } from '../../../src/locations/convert.js';
+import { parseCsvRecords } from '../../../src/locations/csv.js';
+import { loadLocations } from '../../../src/locations/load.js';
+import { type SeedContext, seedId } from '../../context.js';
+import { REPO_ROOT } from '../util.js';
+import { seedAccess } from './access.js';
+import { seedNotificationTemplates } from './notifications.js';
+import { seedReferenceLists } from './reference-lists.js';
+import { seedSettings } from './settings.js';
+import { seedWorkflows } from './workflows.js';
 
 export const SYSTEM_ACTOR_ID = seedId('user:system');
 

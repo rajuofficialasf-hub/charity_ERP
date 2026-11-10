@@ -1,6 +1,6 @@
 import { uuidv7 } from '@css/shared';
-import type { PrismaClient } from '../generated/prisma/client';
-import type { LocationRow } from './convert';
+import type { PrismaClient } from '../generated/prisma/client.js';
+import type { LocationRow } from './convert.js';
 
 /**
  * Loads the locations master from docs/source/data/bd-locations.csv into `locations`.

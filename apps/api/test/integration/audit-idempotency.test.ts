@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { AuditWriter } from '../../src/audit/audit-writer';
-import { PrismaService } from '../../src/core/prisma.service';
-import { runWithContext } from '../../src/core/request-context';
-import { IdempotencyService } from '../../src/idempotency/idempotency.service';
-import { testEnv } from '../support/env';
-import { cloneTemplate } from './support/db';
-import { insert, user } from './support/fixtures';
+import { AuditWriter } from '../../src/audit/audit-writer.js';
+import { PrismaService } from '../../src/core/prisma.service.js';
+import { runWithContext } from '../../src/core/request-context.js';
+import { IdempotencyService } from '../../src/idempotency/idempotency.service.js';
+import { testEnv } from '../support/env.js';
+import { cloneTemplate } from './support/db.js';
+import { insert, user } from './support/fixtures.js';
 
 // The audit writer writes inside the caller's transaction; idempotency on sync_batches
 // returns stored results for a repeated Idempotency-Key, also under concurrency.

@@ -1,4 +1,4 @@
-import { ApiError } from '../i18n/api-error';
+import { ApiError } from '../i18n/api-error.js';
 
 /**
  * Optimistic concurrency (docs/api/API_STANDARDS.md, "Concurrency control"): the ETag of a record

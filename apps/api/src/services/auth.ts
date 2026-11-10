@@ -9,22 +9,22 @@ import {
 } from '@css/shared/auth';
 import type { Locale } from '@css/shared/i18n';
 import type { Logger } from 'pino';
-import { type AuditWriter } from '../audit/audit-writer';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import { type PrismaService, type Tx } from '../core/prisma.service';
-import { currentContext } from '../core/request-context';
-import { ApiError } from '../i18n/api-error';
-import { UserLanguageService } from '../i18n/user-language.service';
-import { afterFailure, minutesLeft, UnknownIdLockout } from '../auth/lockout';
-import { normalizeLoginId } from '../auth/login-id';
-import { identifierHash, type OtpTarget, type OtpService } from '../auth/otp.service';
-import { type PasswordHasher } from '../auth/password-hasher';
-import type { Principal } from '../auth/principal';
-import { type SessionService } from '../auth/session.service';
-import { type TokenService } from '../auth/token.service';
-import type { AccountEvents } from '../notifications/account-events';
-import { staffPhotos } from './staff-photos';
+import { type AuditWriter } from '../audit/audit-writer.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import { type PrismaService, type Tx } from '../core/prisma.service.js';
+import { currentContext } from '../core/request-context.js';
+import { ApiError } from '../i18n/api-error.js';
+import { UserLanguageService } from '../i18n/user-language.service.js';
+import { afterFailure, minutesLeft, UnknownIdLockout } from '../auth/lockout.js';
+import { normalizeLoginId } from '../auth/login-id.js';
+import { identifierHash, type OtpTarget, type OtpService } from '../auth/otp.service.js';
+import { type PasswordHasher } from '../auth/password-hasher.js';
+import type { Principal } from '../auth/principal.js';
+import { type SessionService } from '../auth/session.service.js';
+import { type TokenService } from '../auth/token.service.js';
+import type { AccountEvents } from '../notifications/account-events.js';
+import { staffPhotos } from './staff-photos.js';
 
 /** What the controller needs to answer a login or refresh: the body and the cookie values. */
 export interface IssuedSession {

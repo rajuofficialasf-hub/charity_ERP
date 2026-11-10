@@ -1,7 +1,7 @@
 import { uuidv7 } from '@css/shared';
-import type { Tx } from '../core/prisma.service';
-import { currentContext } from '../core/request-context';
-import type { Prisma } from '../generated/prisma/client';
+import type { Tx } from '../core/prisma.service.js';
+import { currentContext } from '../core/request-context.js';
+import type { Prisma } from '../generated/prisma/client.js';
 
 /**
  * One business event for the audit trail (docs/MASTER_PROMPT.md, "STANDARDS";

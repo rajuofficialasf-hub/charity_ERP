@@ -3,12 +3,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { prismaClientFor } from '../../src/core/prisma.service';
-import { seedFormTemplates } from '../../seed/sets/base/forms';
-import { cloneTemplate, MIGRATIONS_DIR } from './support/db';
-import { expectSqlError, SQLSTATE } from './support/expect-sql';
-import * as f from './support/fixtures';
+import { SeedContext } from '../../seed/context.js';
+import { prismaClientFor } from '../../src/core/prisma.service.js';
+import { seedFormTemplates } from '../../seed/sets/base/forms.js';
+import { cloneTemplate, MIGRATIONS_DIR } from './support/db.js';
+import { expectSqlError, SQLSTATE } from './support/expect-sql.js';
+import * as f from './support/fixtures.js';
 
 // Forms outside projects: the ready forms PMs place, the one question library, and the source a
 // placed copy names.

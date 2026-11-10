@@ -1,4 +1,4 @@
-import { syncNotificationTemplates } from '../src/notifications/template-sync';
+import { syncNotificationTemplates } from '../src/notifications/template-sync.js';
 
 // Inserts the notification templates that are missing, never overwriting an edited one.
 // Part of `pnpm db:migrate`.

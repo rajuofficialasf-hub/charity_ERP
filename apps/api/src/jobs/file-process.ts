@@ -1,10 +1,10 @@
 import { buffer } from 'node:stream/consumers';
 import { Readable } from 'node:stream';
 import type { Logger } from 'pino';
-import type { PrismaService, Tx } from '../core/prisma.service';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { UPLOAD_RULES } from '@css/shared/files';
-import { readPhotoMetadata } from '../files/exif';
-import { photoFlags, projectPhotoSource } from '../files/flags';
+import { readPhotoMetadata } from '../files/exif.js';
+import { photoFlags, projectPhotoSource } from '../files/flags.js';
 import {
   checkImage,
   differenceHash,
@@ -12,12 +12,12 @@ import {
   NEAR_DUPLICATE_BITS,
   THUMBNAILS,
   thumbnail,
-} from '../files/images-process';
-import type { ScanResult, Scanner } from '../files/scanner';
-import { knownBucket, type StorageDriver } from '../storage';
-import { Prisma } from '../generated/prisma/client';
-import type { JobRunner } from './job-runner';
-import { JOBS_SCHEMA } from './queues';
+} from '../files/images-process.js';
+import type { ScanResult, Scanner } from '../files/scanner.js';
+import { knownBucket, type StorageDriver } from '../storage/index.js';
+import { Prisma } from '../generated/prisma/client.js';
+import type { JobRunner } from './job-runner.js';
+import { JOBS_SCHEMA } from './queues.js';
 
 /** The queue of photo post-processing and duplicate hashing (jobs/queues.ts). */
 export const FILE_PROCESS_QUEUE = 'photos' as const;

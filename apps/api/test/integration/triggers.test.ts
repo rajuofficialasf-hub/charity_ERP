@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { cloneTemplate } from './support/db';
-import { expectSqlError, inTransaction, SQLSTATE } from './support/expect-sql';
-import * as f from './support/fixtures';
+import { cloneTemplate } from './support/db.js';
+import { expectSqlError, inTransaction, SQLSTATE } from './support/expect-sql.js';
+import * as f from './support/fixtures.js';
 
 // Database triggers of docs/database/DATABASE_SCHEMA.md (the data-integrity tests).
 let db: Client;

@@ -1,12 +1,12 @@
 import { isoDateInDhaka } from '@css/shared/format';
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import { boundedRead } from '../core/bounded-read';
-import { buildPage, decodeCursor, parseRange } from '../core/pagination';
-import type { PrismaService } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import { boundedRead } from '../core/bounded-read.js';
+import { buildPage, decodeCursor, parseRange } from '../core/pagination.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
 
 export interface AuditListQuery {
   limit: number;

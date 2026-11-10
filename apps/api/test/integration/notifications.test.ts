@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { PrismaService } from '../../src/core/prisma.service';
-import { InAppAdapter, SmtpEmailAdapter } from '../../src/notifications/adapters';
-import { testEnv } from '../support/env';
-import { cloneTemplate } from './support/db';
-import { user } from './support/fixtures';
+import { PrismaService } from '../../src/core/prisma.service.js';
+import { InAppAdapter, SmtpEmailAdapter } from '../../src/notifications/adapters.js';
+import { testEnv } from '../support/env.js';
+import { cloneTemplate } from './support/db.js';
+import { user } from './support/fixtures.js';
 
 // In-app notifications are rows with template key and parameters
 // (docs/architecture/NOTIFICATIONS.md, "Delivery, outbox, retries and status"); email reaches

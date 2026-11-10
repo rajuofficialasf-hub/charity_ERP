@@ -1,5 +1,5 @@
 import { z, type ZodType } from 'zod';
-import type { AccessRegistry } from './registry';
+import type { AccessRegistry } from './registry.js';
 
 /**
  * Field-level protection (docs/security/RBAC.md, "Field-level protection"): a

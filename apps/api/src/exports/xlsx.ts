@@ -10,9 +10,9 @@ import {
   labelOf,
   OutputGuard,
   textsOf,
-} from './file';
-import type { RepeatRow } from './questions';
-import type { Cell } from './rows';
+} from './file.js';
+import type { RepeatRow } from './questions.js';
+import type { Cell } from './rows.js';
 
 /** Dhaka is six hours ahead of UTC all year; a spreadsheet shows a moment as it was read there. */
 const DHAKA_MS = 6 * 60 * 60 * 1000;

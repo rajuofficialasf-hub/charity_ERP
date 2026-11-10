@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { cloneTemplate } from './support/db';
-import { expectSqlError, SQLSTATE } from './support/expect-sql';
-import * as f from './support/fixtures';
+import { cloneTemplate } from './support/db.js';
+import { expectSqlError, SQLSTATE } from './support/expect-sql.js';
+import * as f from './support/fixtures.js';
 
 // Unique, check and soft-delete constraints of docs/database/DATABASE_SCHEMA.md (the
 // data-integrity tests).
@@ -1281,7 +1281,7 @@ describe('the number table question type', () => {
     expect(rows).toHaveLength(2);
     for (const row of rows) expect(row.def).toContain("'number_table'");
     const down = readFileSync(
-      join(__dirname, '../../prisma/migrations/20261026120000_number_table/down.sql'),
+      join(import.meta.dirname, '../../prisma/migrations/20261026120000_number_table/down.sql'),
       'utf8',
     );
     await db.query('BEGIN');
@@ -1517,7 +1517,7 @@ describe('the media referrals and works', () => {
       SQLSTATE.checkViolation,
     );
     const down = readFileSync(
-      join(__dirname, '../../prisma/migrations/20261026160000_media_team/down.sql'),
+      join(import.meta.dirname, '../../prisma/migrations/20261026160000_media_team/down.sql'),
       'utf8',
     );
     await db.query('BEGIN');

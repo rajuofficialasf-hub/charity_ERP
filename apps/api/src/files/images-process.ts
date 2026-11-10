@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp, { type Metadata } from 'sharp';
 
 // the worker decodes one photo at a time and keeps no decoded images between files
 sharp.cache(false);
@@ -30,7 +30,7 @@ const open = (bytes: Buffer) =>
  * unexpected image is refused before it is decoded.
  */
 export async function checkImage(bytes: Buffer): Promise<void> {
-  let meta: sharp.Metadata;
+  let meta: Metadata;
   try {
     meta = await open(bytes).metadata();
   } catch (error) {

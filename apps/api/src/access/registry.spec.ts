@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PERMISSIONS_FILE, loadAccessRegistry, parsePermissionsFile } from './registry';
+import { DEFAULT_PERMISSIONS_FILE, loadAccessRegistry, parsePermissionsFile } from './registry.js';
 
 const realText = readFileSync(DEFAULT_PERMISSIONS_FILE, 'utf8');
 

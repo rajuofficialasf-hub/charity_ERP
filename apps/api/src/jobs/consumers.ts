@@ -1,17 +1,17 @@
 import type { Logger } from 'pino';
-import type { Env } from '../config/env';
-import type { NotificationDelivery } from '../notifications/delivery';
-import type { DeliveryJob } from '../notifications/service';
-import type { JobRunner } from './job-runner';
-import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
-import type { BeneficiaryMergeCandidatesService } from '../services/beneficiary-merge-candidates';
-import { DUPLICATES_CRON, DUPLICATES_QUEUE } from './duplicates';
-import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats';
-import { UPLOAD_SWEEP_CRON, type UploadSweep } from './upload-sweep';
-import { LOCAL_KEY_CLEANUP_CRON, type LocalKeyCleanup } from './local-key-cleanup';
-import { FILE_PROCESS_QUEUE, type FileProcessJob, type FileProcessor } from './file-process';
-import { EXPORT_QUEUE, type ExportJobData, type ExportRunner } from './export-run';
-import { EXPORT_SWEEP_CRON, type ExportSweep, type ExportSweepData } from './export-sweep';
+import type { Env } from '../config/env.js';
+import type { NotificationDelivery } from '../notifications/delivery.js';
+import type { DeliveryJob } from '../notifications/service.js';
+import type { JobRunner } from './job-runner.js';
+import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup.js';
+import type { BeneficiaryMergeCandidatesService } from '../services/beneficiary-merge-candidates.js';
+import { DUPLICATES_CRON, DUPLICATES_QUEUE } from './duplicates.js';
+import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats.js';
+import { UPLOAD_SWEEP_CRON, type UploadSweep } from './upload-sweep.js';
+import { LOCAL_KEY_CLEANUP_CRON, type LocalKeyCleanup } from './local-key-cleanup.js';
+import { FILE_PROCESS_QUEUE, type FileProcessJob, type FileProcessor } from './file-process.js';
+import { EXPORT_QUEUE, type ExportJobData, type ExportRunner } from './export-run.js';
+import { EXPORT_SWEEP_CRON, type ExportSweep, type ExportSweepData } from './export-sweep.js';
 
 /** The sample heartbeat job: proves enqueue, consume and scheduling end to end. */
 export const HEARTBEAT_QUEUE = 'maintenance' as const;

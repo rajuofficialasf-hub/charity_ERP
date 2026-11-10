@@ -1,12 +1,12 @@
 import { uuidv7 } from '@css/shared';
 import type { DevicePlatform } from '@css/shared/auth';
-import { type AuditWriter } from '../audit/audit-writer';
-import type { Clock } from '../core/clock';
-import { type PrismaService, type Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import { encodeLocalKey, newLocalKey, openLocalKey, sealLocalKey } from './local-key';
-import { hashRefreshToken, type TokenService } from './token.service';
-import type { AccountEvents } from '../notifications/account-events';
+import { type AuditWriter } from '../audit/audit-writer.js';
+import type { Clock } from '../core/clock.js';
+import { type PrismaService, type Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import { encodeLocalKey, newLocalKey, openLocalKey, sealLocalKey } from './local-key.js';
+import { hashRefreshToken, type TokenService } from './token.service.js';
+import type { AccountEvents } from '../notifications/account-events.js';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;

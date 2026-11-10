@@ -8,8 +8,8 @@ import {
   type AuthHarness,
   bearer,
   login,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // An official's projects by year and the figures of their work there, and who may see them
 // (docs/DECISION_LOG.md, the official's own profile of 2026-11-02; docs/BUSINESS_RULES.md,

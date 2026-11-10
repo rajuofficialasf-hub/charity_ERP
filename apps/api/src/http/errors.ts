@@ -1,9 +1,9 @@
 import { type MessageKey, type MessageParams, translate } from '@css/shared/i18n';
 import type { ErrorRequestHandler, Request, RequestHandler, Response } from 'express';
 import type { Logger } from 'pino';
-import { currentContext } from '../core/request-context';
-import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
-import { requestLocale } from '../i18n/request-locale';
+import { currentContext } from '../core/request-context.js';
+import { ApiError, type ApiErrorDetail } from '../i18n/api-error.js';
+import { requestLocale } from '../i18n/request-locale.js';
 
 /** Errors that `express.json()` raises carry a body-parser `type`. */
 const BODY_PARSER_ERRORS: Record<string, { status: number; code: string }> = {

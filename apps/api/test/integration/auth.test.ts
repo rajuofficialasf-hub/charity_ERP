@@ -11,8 +11,8 @@ import {
   PASSWORD,
   type Session,
   sessionFrom,
-} from './support/auth-app';
-import { notificationsOf } from './support/notifications';
+} from './support/auth-app.js';
+import { notificationsOf } from './support/notifications.js';
 
 // Login, lockout, account states, refresh and logout (docs/architecture/AUTH.md, "Login" to "Role
 // or permission change forces a session refresh").

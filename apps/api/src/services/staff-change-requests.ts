@@ -8,12 +8,12 @@ import {
   type StaffEditRequestCreate,
   type StaffValueField,
 } from '@css/shared/registration';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PermissionVersionService } from '../auth/permission-version.service';
-import type { Principal } from '../auth/principal';
-import type { SessionService } from '../auth/session.service';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PermissionVersionService } from '../auth/permission-version.service.js';
+import type { Principal } from '../auth/principal.js';
+import type { SessionService } from '../auth/session.service.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
 import {
   buildPage,
   decodeCursor,
@@ -21,14 +21,14 @@ import {
   orderBy,
   type PageQuery,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { AccountEvents } from '../notifications/account-events';
-import { assertContactFree } from './change-requests';
-import { changeView } from './registrations';
-import { assertStaffRefs } from './staff-accounts';
-import { linkStaffPhoto, staffPhotos } from './staff-photos';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { AccountEvents } from '../notifications/account-events.js';
+import { assertContactFree } from './change-requests.js';
+import { changeView } from './registrations.js';
+import { assertStaffRefs } from './staff-accounts.js';
+import { linkStaffPhoto, staffPhotos } from './staff-photos.js';
 
 const EDIT = 'profile_edit';
 /** An official's request has no volunteer; the volunteer path never reaches it. */

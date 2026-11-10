@@ -1,14 +1,21 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { expect } from 'vitest';
-import { SeedContext } from '../../../seed/context';
-import { seedReferenceLists } from '../../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../../seed/sets/base/workflows';
-import { accessWorld } from './access-fixtures';
-import { applicationProject, IDENTITY_ANSWERS } from './applications';
-import { account, type Account, type AuthHarness, bearer, login, type Session } from './auth-app';
-import { fakeMobile, fakeNid } from './fixtures';
-import type { FormExtras } from './forms';
+import { SeedContext } from '../../../seed/context.js';
+import { seedReferenceLists } from '../../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../../seed/sets/base/workflows.js';
+import { accessWorld } from './access-fixtures.js';
+import { applicationProject, IDENTITY_ANSWERS } from './applications.js';
+import {
+  account,
+  type Account,
+  type AuthHarness,
+  bearer,
+  login,
+  type Session,
+} from './auth-app.js';
+import { fakeMobile, fakeNid } from './fixtures.js';
+import type { FormExtras } from './forms.js';
 
 /** One offline record as the phone sends it. */
 export type SyncKind =

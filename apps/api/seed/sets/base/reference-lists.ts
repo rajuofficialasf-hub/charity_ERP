@@ -1,4 +1,4 @@
-import { json, type SeedContext, seedId } from '../../context';
+import { json, type SeedContext, seedId } from '../../context.js';
 
 /**
  * System-wide reference lists and the per-project list defaults, with the labels the owner decided

@@ -3,7 +3,7 @@ import type { Writable } from 'node:stream';
 import type { ColumnKind } from '@css/shared/exports';
 import { formatDate, formatDateTime } from '@css/shared/format';
 import { bn, en, type MessageKey, translate } from '@css/shared/i18n';
-import type { Cell, CodedCell, CodedSource } from './rows';
+import type { Cell, CodedCell, CodedSource } from './rows.js';
 
 /** A column of an export file: its id among the row's cells, its header and how it is written. */
 export interface FileColumn {

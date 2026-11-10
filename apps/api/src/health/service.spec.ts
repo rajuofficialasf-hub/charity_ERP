@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CHECK_TIMEOUT_MS, HealthService, RESULT_REUSE_MS, type ReadinessChecks } from './service';
+import {
+  CHECK_TIMEOUT_MS,
+  HealthService,
+  RESULT_REUSE_MS,
+  type ReadinessChecks,
+} from './service.js';
 
 const up = async () => true;
 const log = { warn: vi.fn(), error: vi.fn() };

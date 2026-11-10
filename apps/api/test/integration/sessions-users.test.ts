@@ -10,9 +10,9 @@ import {
   login,
   PASSWORD,
   systemOwner,
-} from './support/auth-app';
-import { locationTree, project } from './support/fixtures';
-import { notificationsOf } from './support/notifications';
+} from './support/auth-app.js';
+import { locationTree, project } from './support/fixtures.js';
+import { notificationsOf } from './support/notifications.js';
 
 // Device lists and revocation, user administration, Main Admin protection and the
 // permission-version bump (docs/architecture/AUTH.md, "Lockout after failed attempts" to "Main

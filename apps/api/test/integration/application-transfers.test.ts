@@ -1,11 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { accessWorld } from './support/access-fixtures';
-import { applicationProject, IDENTITY_ANSWERS } from './support/applications';
+import { SeedContext } from '../../seed/context.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { applicationProject, IDENTITY_ANSWERS } from './support/applications.js';
 import {
   type Account,
   account,
@@ -14,9 +14,9 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { fakeMobile, fakeNid, volunteer } from './support/fixtures';
-import { notificationsOf } from './support/notifications';
+} from './support/auth-app.js';
+import { fakeMobile, fakeNid, volunteer } from './support/fixtures.js';
+import { notificationsOf } from './support/notifications.js';
 
 // The application transfer: the RPM hands all or chosen applications of one volunteer to another
 // on the project, with a reason. The new volunteer takes the owner's place and the old one, with

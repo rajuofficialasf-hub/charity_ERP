@@ -1,6 +1,6 @@
-import { type AuditWriter, type AuditEntry } from '../audit/audit-writer';
-import type { Tx } from '../core/prisma.service';
-import { type SessionService } from './session.service';
+import { type AuditWriter, type AuditEntry } from '../audit/audit-writer.js';
+import type { Tx } from '../core/prisma.service.js';
+import { type SessionService } from './session.service.js';
 
 /**
  * Forces a session refresh after a change to what a user may do (docs/architecture/AUTH.md, "Role

@@ -1,6 +1,6 @@
-import type { Tx } from '../core/prisma.service';
-import type { ApplicationEvents } from '../notifications/application-events';
-import { effectKey, BUILT_EFFECTS } from './registry';
+import type { Tx } from '../core/prisma.service.js';
+import type { ApplicationEvents } from '../notifications/application-events.js';
+import { effectKey, BUILT_EFFECTS } from './registry.js';
 
 /** What a transition's effects write into its audit entry and queue for after the commit. */
 export interface EffectOutcome {

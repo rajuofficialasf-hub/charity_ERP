@@ -1,8 +1,8 @@
 import type { Logger } from 'pino';
-import type { PrismaService } from '../core/prisma.service';
-import { dropParts } from '../files/parts';
-import { sweepUnclaimedPublicPhotos } from '../services/public-photos';
-import type { StorageDriver } from '../storage';
+import type { PrismaService } from '../core/prisma.service.js';
+import { dropParts } from '../files/parts.js';
+import { sweepUnclaimedPublicPhotos } from '../services/public-photos.js';
+import type { StorageDriver } from '../storage/index.js';
 
 /** Daily at 03:45 Dhaka time on the maintenance queue, after the registration cleanup. */
 export const UPLOAD_SWEEP_CRON = '45 3 * * *';

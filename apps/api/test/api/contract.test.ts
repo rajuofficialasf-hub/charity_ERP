@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { buildTestApp, type TestApp } from '../support/app';
-import { contractRecorder } from '../support/contract';
+import { buildTestApp, type TestApp } from '../support/app.js';
+import { contractRecorder } from '../support/contract.js';
 
 // Every JSON response of the test app is checked against docs/api/openapi.yaml by the recorder
 // (docs/testing/TEST_STRATEGY.md, section "API and contract"); the setup file fails a test on a

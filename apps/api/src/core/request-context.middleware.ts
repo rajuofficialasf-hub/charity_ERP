@@ -1,7 +1,7 @@
 import type { Request, RequestHandler } from 'express';
-import { requestLocale } from '../i18n/request-locale';
-import { runWithContext } from './request-context';
-import { requestIdOf } from './request-id';
+import { requestLocale } from '../i18n/request-locale.js';
+import { runWithContext } from './request-context.js';
+import { requestIdOf } from './request-id.js';
 
 /**
  * Opens the request context (request id, locale, IP) for everything that runs after it: access,

@@ -17,21 +17,21 @@ import { formatCount } from '@css/shared/format';
 import { FIELD_TYPES } from '@css/shared/forms';
 import type { Bilingual, MessageKey } from '@css/shared/i18n';
 import { translate } from '@css/shared/i18n';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { JobRunner } from '../jobs/job-runner';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { JobRunner } from '../jobs/job-runner.js';
 import {
   IDENTITY_NUMBER,
   OFFICIAL_SECTION,
   type ExportQuestions,
   type QuestionColumn,
-} from './questions';
-import type { ExportRecords } from './records';
-import type { ExportRows, FrozenList } from './rows';
+} from './questions.js';
+import type { ExportRecords } from './records.js';
+import type { ExportRows, FrozenList } from './rows.js';
 
 /** The limits a request is checked against; the tests pass smaller ones. */
 export interface ExportLimits {

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { fakeMobile as sharedFakeMobile, fakeNid as sharedFakeNid } from '@css/shared';
 import type { Client } from 'pg';
-import { mergedWorkflowDefinitions } from '../../../src/workflow/templates';
+import { mergedWorkflowDefinitions } from '../../../src/workflow/templates.js';
 
 /**
  * Minimal row builders for database tests. Identities are obviously fake

@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ApiError } from '../../src/i18n/api-error';
-import { buildTestApp, type TestApp } from '../support/app';
+import { ApiError } from '../../src/i18n/api-error.js';
+import { buildTestApp, type TestApp } from '../support/app.js';
 
 // A probe router that raises catalogue errors, mounted only in this test.
 const probe = Router();

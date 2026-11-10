@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { FrozenList } from '../../src/exports/rows';
-import { accessWorld } from './support/access-fixtures';
-import { principalOf } from './support/applications';
+import type { FrozenList } from '../../src/exports/rows.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { principalOf } from './support/applications.js';
 import {
   type Account,
   account,
@@ -11,8 +11,8 @@ import {
   authHarness,
   bearer,
   login,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // The rows an export reads: exactly the rows the list shows for the same filters, inside the
 // scope the person had when they asked, with the protected fields their export may carry and only

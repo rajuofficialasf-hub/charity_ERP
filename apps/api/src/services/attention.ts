@@ -10,19 +10,19 @@ import {
   holdsPermission,
   mediaReferralWhere,
   projectWhere,
-} from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { Principal } from '../auth/principal';
-import type { UnlocksService } from '../applications/unlocks';
-import type { Clock } from '../core/clock';
-import type { PrismaService } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import type { ChangeRequestsService } from './change-requests';
-import type { InboxService } from './inbox';
-import type { MyProjectsService } from './my-projects';
-import type { ProjectsService } from './projects';
-import { CORRECTION } from './registrations';
-import type { RegistrationsService } from './registrations';
+} from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { Principal } from '../auth/principal.js';
+import type { UnlocksService } from '../applications/unlocks.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import type { ChangeRequestsService } from './change-requests.js';
+import type { InboxService } from './inbox.js';
+import type { MyProjectsService } from './my-projects.js';
+import type { ProjectsService } from './projects.js';
+import { CORRECTION } from './registrations.js';
+import type { RegistrationsService } from './registrations.js';
 
 const DAY = 86_400_000;
 

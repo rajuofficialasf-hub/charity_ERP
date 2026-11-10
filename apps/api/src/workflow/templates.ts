@@ -5,7 +5,7 @@ import yaml from 'js-yaml';
 
 /** docs/architecture/workflow-templates from `src/workflow` and from `dist/workflow` alike. */
 export const DEFAULT_TEMPLATES_DIR = join(
-  __dirname,
+  import.meta.dirname,
   '../../../../docs/architecture/workflow-templates',
 );
 

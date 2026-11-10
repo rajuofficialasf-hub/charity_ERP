@@ -1,6 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import type { Env } from '../config/env';
-import { PrismaClient } from '../generated/prisma/client';
+import type { Env } from '../config/env.js';
+import { PrismaClient } from '../generated/prisma/client.js';
 
 /** The one Prisma client of the process, on the pg driver adapter of Prisma 7. */
 export class PrismaService extends PrismaClient {

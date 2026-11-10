@@ -3,9 +3,9 @@ import { Writable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { UPLOAD_RULES } from '@css/shared/files';
-import { FilesService } from '../../src/services/files';
-import { picture } from '../support/photos';
-import { accessWorld } from './support/access-fixtures';
+import { FilesService } from '../../src/services/files.js';
+import { picture } from '../support/photos.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -14,8 +14,8 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // Reading the files linked to a record: who may stream a file and its thumbnails, the quarantine,
 // the metadata with its position, and the near duplicate named only to who reaches it.

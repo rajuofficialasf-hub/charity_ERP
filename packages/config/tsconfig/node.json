@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "CSS ERP Node (CommonJS output for the Express api and the worker)",
+  "display": "CSS ERP Node (ES modules for the Express api and the worker)",
   "extends": "./base.json",
   "compilerOptions": {
     "module": "NodeNext",

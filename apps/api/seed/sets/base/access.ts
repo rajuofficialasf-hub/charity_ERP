@@ -1,8 +1,8 @@
 import { join } from 'node:path';
-import { readPermissionsFile as readValidated } from '../../../src/access/registry';
-import type { PermissionsFile } from '../../../src/access/schema';
-import type { SeedContext } from '../../context';
-import { REPO_ROOT } from '../util';
+import { readPermissionsFile as readValidated } from '../../../src/access/registry.js';
+import type { PermissionsFile } from '../../../src/access/schema.js';
+import type { SeedContext } from '../../context.js';
+import { REPO_ROOT } from '../util.js';
 
 /**
  * Roles and permissions from docs/security/permissions.yaml, the single source of truth (docs/security/RBAC.md),

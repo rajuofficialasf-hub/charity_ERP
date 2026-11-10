@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Env } from '../config/env';
-import { JobRunner } from './job-runner';
+import type { Env } from '../config/env.js';
+import { JobRunner } from './job-runner.js';
 
 const starts = vi.hoisted(() => vi.fn<() => Promise<void>>());
 

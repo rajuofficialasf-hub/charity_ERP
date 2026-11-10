@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import type { Tx } from '../src/core/prisma.service';
-import { Prisma, type PrismaClient } from '../src/generated/prisma/client';
+import type { Tx } from '../src/core/prisma.service.js';
+import { Prisma, type PrismaClient } from '../src/generated/prisma/client.js';
 
 /**
  * Seed helpers. Seeds are deterministic: every row gets an id from seedId(key), every write

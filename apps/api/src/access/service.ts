@@ -1,13 +1,13 @@
 import type { Logger } from 'pino';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { currentContext } from '../core/request-context';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { type EffectiveAccess, effectiveAccess, loadAccessFacts } from './effective';
-import { visibleFieldClasses } from './field-mask';
-import type { AccessRegistry } from './registry';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { currentContext } from '../core/request-context.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { type EffectiveAccess, effectiveAccess, loadAccessFacts } from './effective.js';
+import { visibleFieldClasses } from './field-mask.js';
+import type { AccessRegistry } from './registry.js';
 import {
   applicationWhere,
   beneficiaryWhere,
@@ -19,7 +19,7 @@ import {
   type Scope,
   userWhere,
   volunteerWhere,
-} from './scope';
+} from './scope.js';
 
 const ACCOUNT_KINDS = { in: ['staff', 'volunteer'] };
 

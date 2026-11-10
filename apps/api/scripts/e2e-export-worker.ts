@@ -1,6 +1,6 @@
-import { loadEnv } from '../src/config/env';
-import { closeContainer, createContainer } from '../src/container';
-import { JobConsumers } from '../src/jobs/consumers';
+import { loadEnv } from '../src/config/env.js';
+import { closeContainer, createContainer } from '../src/container.js';
+import { JobConsumers } from '../src/jobs/consumers.js';
 
 // The export jobs of the Playwright run: the E2E API starts no job consumers (its other journeys
 // rely on files and messages staying as the API left them), so this process consumes the exports

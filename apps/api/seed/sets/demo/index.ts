@@ -7,8 +7,8 @@ import {
   fakeNid,
 } from '@css/shared';
 import { hash } from '@node-rs/argon2';
-import { json, SEED_AT, type SeedContext, seedId } from '../../context';
-import { workflowVersionOf } from '../base/workflows';
+import { json, SEED_AT, type SeedContext, seedId } from '../../context.js';
+import { workflowVersionOf } from '../base/workflows.js';
 
 /**
  * Demo set: one account per official role, 20 volunteers, 50 beneficiaries in two divisions (one of

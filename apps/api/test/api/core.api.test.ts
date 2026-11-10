@@ -3,10 +3,10 @@ import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { pageQuery } from '../../src/core/pagination';
-import { ok, page } from '../../src/http/send';
-import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
-import { buildTestApp, type TestApp } from '../support/app';
+import { pageQuery } from '../../src/core/pagination.js';
+import { ok, page } from '../../src/http/send.js';
+import { defineRoute, type RouteDeps } from '../../src/openapi/define-route.js';
+import { buildTestApp, type TestApp } from '../support/app.js';
 
 const body = z.strictObject({
   name: z.string().min(1).max(10),

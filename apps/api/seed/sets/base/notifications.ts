@@ -1,5 +1,5 @@
 import { NOTIFICATION_TEMPLATES } from '@css/shared';
-import { type SeedContext, seedId } from '../../context';
+import { type SeedContext, seedId } from '../../context.js';
 
 /**
  * Notification templates of packages/shared (docs/architecture/NOTIFICATIONS.md, "Templates"),

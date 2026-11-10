@@ -1,6 +1,6 @@
 import { formatCount } from '@css/shared/format';
 import { translate } from '@css/shared/i18n';
-import { documentHtml, html } from './html';
+import { documentHtml, html } from './html.js';
 
 /**
  * A list printed as a landscape table: the list's name, the filters, the date and the number of

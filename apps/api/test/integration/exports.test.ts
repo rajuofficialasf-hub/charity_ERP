@@ -2,15 +2,15 @@ import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ExportRunner } from '../../src/jobs/export-run';
-import { exportDownload } from '../../src/exports/download';
-import { filterHeading } from '../../src/exports/heading';
-import { ExportSweep } from '../../src/jobs/export-sweep';
-import { ExportsService } from '../../src/exports/service';
-import type { BatchCursor, ExportRows, FrozenList } from '../../src/exports/rows';
-import type { StorageDriver } from '../../src/storage/types';
-import { accessWorld } from './support/access-fixtures';
-import { principalOf } from './support/applications';
+import { ExportRunner } from '../../src/jobs/export-run.js';
+import { exportDownload } from '../../src/exports/download.js';
+import { filterHeading } from '../../src/exports/heading.js';
+import { ExportSweep } from '../../src/jobs/export-sweep.js';
+import { ExportsService } from '../../src/exports/service.js';
+import type { BatchCursor, ExportRows, FrozenList } from '../../src/exports/rows.js';
+import type { StorageDriver } from '../../src/storage/types.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { principalOf } from './support/applications.js';
 import {
   type Account,
   account,
@@ -19,8 +19,8 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // The export API and its job: a person asks with the columns they may export, follows the job,
 // and finds a file of exactly the frozen rows; every refusal comes before any work starts.

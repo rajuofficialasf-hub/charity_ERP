@@ -13,16 +13,16 @@ import {
   type StaffCreate,
   type Syllabus,
 } from '@css/shared/projects';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PermissionVersionService } from '../auth/permission-version.service';
-import { assertIfMatch, etagOf } from '../core/etag';
-import { literalContains } from '../core/search';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { refuseIncompleteRules, storedRules, writeRulesVersion } from './project-rules';
-import type { ProjectViewer, ProjectsService } from './projects';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PermissionVersionService } from '../auth/permission-version.service.js';
+import { assertIfMatch, etagOf } from '../core/etag.js';
+import { literalContains } from '../core/search.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { refuseIncompleteRules, storedRules, writeRulesVersion } from './project-rules.js';
+import type { ProjectViewer, ProjectsService } from './projects.js';
 
 const isUniqueViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';

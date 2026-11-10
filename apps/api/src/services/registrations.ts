@@ -7,15 +7,15 @@ import {
   type RegistrationCorrectionCreate,
   type StaffDecision,
 } from '@css/shared/registration';
-import type { AccessRegistry } from '../access/registry';
-import { type Scope, volunteerWhere } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PermissionVersionService } from '../auth/permission-version.service';
-import type { Principal } from '../auth/principal';
-import type { SessionService } from '../auth/session.service';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
+import type { AccessRegistry } from '../access/registry.js';
+import { type Scope, volunteerWhere } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PermissionVersionService } from '../auth/permission-version.service.js';
+import type { Principal } from '../auth/principal.js';
+import type { SessionService } from '../auth/session.service.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
 import {
   buildPage,
   decodeCursor,
@@ -23,13 +23,13 @@ import {
   orderBy,
   type PageQuery,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { AccountEvents } from '../notifications/account-events';
-import { addressProblem } from './registration';
-import { DETAILS_SELECT, detailsUpdate, detailsView } from './volunteer-details';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { AccountEvents } from '../notifications/account-events.js';
+import { addressProblem } from './registration.js';
+import { DETAILS_SELECT, detailsUpdate, detailsView } from './volunteer-details.js';
 
 export type RegistrationStatus = 'awaiting_review' | 'in_correction';
 
