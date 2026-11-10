@@ -89,6 +89,18 @@ function holds(values: unknown, path: string): boolean {
   return true;
 }
 
+/** Puts each detail of a refused request that names a field of the form under that field. */
+function placeDetails<T extends FieldValues>(form: UseFormReturn<T>, failure: ApiFailure) {
+  const values = form.getValues();
+  let placed = 0;
+  for (const detail of failure.details)
+    if (detail.path && holds(values, detail.path)) {
+      form.setError(detail.path as Path<T>, { type: 'server', message: detail.message });
+      placed += 1;
+    }
+  return { placed, left: failure.details.length - placed };
+}
+
 /**
  * Puts each field message of a refused request under its field. True when at least one message
  * found a field of this form, so the screen shows no second message above them; a refusal that
@@ -98,27 +110,25 @@ export function showFieldErrors<T extends FieldValues>(
   form: UseFormReturn<T>,
   failure: unknown,
 ): boolean {
-  if (!(failure instanceof ApiFailure)) return false;
-  const values = form.getValues();
-  let placed = false;
-  for (const detail of failure.details)
-    if (detail.path && holds(values, detail.path)) {
-      form.setError(detail.path as Path<T>, { type: 'server', message: detail.message });
-      placed = true;
-    }
-  return placed;
+  return failure instanceof ApiFailure && placeDetails(form, failure).placed > 0;
 }
 
 /**
  * Shows a refused request on the form: its field messages under their fields, else the API's
- * message above the button, or `offline` when no answer came.
+ * message above the button, or `offline` when no answer came. With `everyDetail`, the API's
+ * message also shows above when one of the details names no field of the form, beside the ones
+ * placed, so no part of the refusal goes unsaid.
  */
 export function showFailure<T extends FieldValues>(
   form: UseFormReturn<T>,
   failure: unknown,
   offline: string,
+  { everyDetail = false }: { everyDetail?: boolean } = {},
 ): void {
-  if (showFieldErrors(form, failure)) return;
+  if (failure instanceof ApiFailure) {
+    const { placed, left } = placeDetails(form, failure);
+    if (placed > 0 && !(everyDetail && left > 0)) return;
+  }
   form.setError('root.server' as Path<T>, {
     message: failure instanceof ApiFailure ? failure.message : offline,
   });

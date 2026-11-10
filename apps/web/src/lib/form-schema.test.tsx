@@ -93,6 +93,25 @@ describe('showFailure', () => {
     );
   });
 
+  it('also shows the message above, when asked, for a detail that names no field of this form', () => {
+    const { result } = renderHook(useTwoFields);
+    const failure = new ApiFailure(422, 'validation.failed', 'Some information is not valid.', [
+      { path: 'code', code: 'validation.too_long', message: 'Too long.' },
+      { path: 'userId', code: 'validation.required', message: 'Fill in this field.' },
+    ]);
+    act(() => showFailure(result.current, failure, 'Offline.', { everyDetail: true }));
+    expect(result.current.getFieldState('code').error?.message).toBe('Too long.');
+    expect(result.current.formState.errors.root?.server?.message).toBe(
+      'Some information is not valid.',
+    );
+    act(() => result.current.clearErrors());
+    const placed = new ApiFailure(422, 'validation.failed', 'Some information is not valid.', [
+      { path: 'code', code: 'validation.too_long', message: 'Too long.' },
+    ]);
+    act(() => showFailure(result.current, placed, 'Offline.', { everyDetail: true }));
+    expect(result.current.formState.errors.root).toBeUndefined();
+  });
+
   it('says the device is offline when no answer came', () => {
     const { result } = renderHook(useTwoFields);
     act(() => showFailure(result.current, new TypeError('fetch failed'), 'Offline.'));

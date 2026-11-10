@@ -161,6 +161,51 @@ describe('permission panel', () => {
     expect((await screen.findAllByText('প্যানেল')).length).toBeGreaterThan(0);
   }, 15_000);
 
+  it('withholds a permission at a named scope until a date, and starts empty again', async () => {
+    const user = userEvent.setup();
+    const REGION = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a77';
+    server.use(
+      http.post('*/api/v1/permission-grants', async ({ request }) => {
+        lastGrant = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ data: { id: GRANT_ID }, meta }, { status: 201 });
+      }),
+    );
+    renderPanel(HEAD);
+    await chooseExecutive(user);
+    await user.click(await screen.findByRole('button', { name: 'পারমিশন দিন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
+    await user.click(within(dialog).getByRole('radio', { name: 'পারমিশন সরিয়ে নেওয়া' }));
+    const submit = within(dialog).getByRole('button', { name: 'সরিয়ে নিন' });
+    await user.type(within(dialog).getByRole('combobox', { name: /পারমিশন/ }), 'application');
+    await user.click(await screen.findByRole('option', { name: 'application.review' }));
+    await user.click(within(dialog).getByRole('combobox', { name: /স্কোপ/ }));
+    await user.click(await screen.findByRole('option', { name: 'রিজিওন (REGION)' }));
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), ' Not here ');
+    // a scope of a region names the region
+    expect(submit).toBeDisabled();
+    await user.type(within(dialog).getByRole('textbox', { name: /স্কোপের আইডি/ }), ` ${REGION} `);
+    expect(submit).toBeEnabled();
+    const date = within(dialog).getByRole('group', { name: /^মেয়াদ শেষের তারিখ/ });
+    await user.click(within(date).getAllByRole('spinbutton')[0]!);
+    await user.keyboard('31122026');
+    await user.click(submit);
+    expect(await screen.findByText('পারমিশন সরিয়ে নেওয়া হয়েছে')).toBeInTheDocument();
+    expect(lastGrant).toEqual({
+      userId: EXECUTIVE.id,
+      permission: 'application.review',
+      effect: 'revoke',
+      scopeType: 'REGION',
+      scopeRef: REGION,
+      reason: 'Not here',
+      expiresAt: '2026-12-31T23:59:59+06:00',
+    });
+    await user.click(await screen.findByRole('button', { name: 'পারমিশন দিন' }));
+    const again = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
+    expect(within(again).getByRole('radio', { name: 'পারমিশন দেওয়া' })).toBeChecked();
+    expect(within(again).getByRole('textbox', { name: /কারণ/ })).toHaveValue('');
+    expect(within(again).queryByRole('textbox', { name: /স্কোপের আইডি/ })).not.toBeInTheDocument();
+  }, 20_000);
+
   it('shows the message of a refused change', async () => {
     const user = userEvent.setup();
     server.use(
