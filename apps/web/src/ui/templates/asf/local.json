@@ -56,7 +56,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the overlays of the ERP: a dialog that stays open while saving and fills a phone for a long form, a confirm dialog with what follows, a required reason and a busy confirm, a menu of links and actions for rows and profiles, and the drawer as a bottom sheet on phones; built for the CSS ERP",
+      "note": "the overlays of the ERP: a dialog that stays open while saving and fills a phone for a long form, a confirm dialog with what follows, a required reason held in react-hook-form and a busy confirm, a menu of links and actions for rows and profiles, and the drawer as a bottom sheet on phones; built for the CSS ERP",
       "screenshot": "docs/ui/asf-pieces/gallery-overlays.png"
     },
     {
