@@ -4,6 +4,6 @@
     "types": ["vite/client", "node", "@testing-library/jest-dom/vitest"],
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src", "test", "e2e", "scripts", "vite.config.ts", "playwright.config.ts"],
+  "include": ["src", "test", "tests", "e2e", "scripts", "vite.config.ts", "playwright.config.ts"],
   "exclude": ["node_modules", "dist", "playwright-report", "test-results"]
 }

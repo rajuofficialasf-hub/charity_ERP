@@ -153,6 +153,17 @@ jobs:
       # the export journey prints a PDF through Chromium inside its sandbox (see the checks job)
       - name: Allow the Chromium sandbox
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      # the web app's contract test: real responses of the seeded E2E API, read with the app's own
+      # schemas; the server stops before Playwright starts its own on the same port
+      - name: Web contract test
+        run: |
+          pnpm --filter "./packages/*" build
+          pnpm --filter @css/api build
+          pnpm --filter @css/api e2e:server > e2e-contract-server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:4100/api/v1/readyz > /dev/null && break; sleep 5; done
+          CONTRACT_API_URL=http://127.0.0.1:4100 pnpm --filter @css/web test:contract
+          pkill -f e2e-server || true
+          fuser -k 4100/tcp || true
       - run: pnpm e2e
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

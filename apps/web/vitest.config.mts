@@ -13,7 +13,12 @@ export default defineProject({
   test: {
     name: 'web',
     environment: 'jsdom',
-    include: ['src/**/*.test.{ts,tsx}', 'test/**/*.test.{ts,tsx}'],
+    include: [
+      'src/**/*.test.{ts,tsx}',
+      'test/**/*.test.{ts,tsx}',
+      // the contract test's own helpers; the contract suites need a running API (vitest.contract.config.mts)
+      'tests/contract/support/**/*.test.ts',
+    ],
     setupFiles: ['test/setup.ts'],
   },
 });
