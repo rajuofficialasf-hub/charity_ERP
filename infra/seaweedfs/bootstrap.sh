@@ -7,12 +7,10 @@
 # No bucket gets an ACL, a policy or anonymous access: files are only reached through the API,
 # which streams them, and SeaweedFS refuses an unsigned request once an identity is configured.
 #
-# Two rules of the earlier MinIO bootstrap are left out on purpose, because SeaweedFS does not
-# carry them and development does not need them: the versioning of `documents` and `photos` is a
-# backup concern of production, kept by whichever store production runs
-# (docs/architecture/ADR/ADR-005-minio-object-storage.md), and the expiry of `exports` and
-# `uploads` is already done by the app's own sweeps (apps/api/src/jobs/export-sweep.ts,
-# apps/api/src/jobs/upload-sweep.ts).
+# No bucket versioning and no bucket expiry are set here, on purpose: keeping old versions of
+# `documents` and `photos` is a backup concern of the production store (docs/ops/DEPLOYMENT.md,
+# "Configuration", the start-up order), and the app's own sweeps already expire `exports` and
+# `uploads` (apps/api/src/jobs/export-sweep.ts, apps/api/src/jobs/upload-sweep.ts).
 set -eu
 
 : "${S3_ENDPOINT:?the store's URL, for example http://seaweedfs:8333}"
