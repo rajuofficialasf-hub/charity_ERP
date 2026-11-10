@@ -85,7 +85,7 @@ The owner made the standards the base of the project (D-167) and, on 2026-11-11,
 - **Depends on:** U1
 - **Size:** M
 - **Risk area:** file storage
-- **Status:** todo
+- **Status:** done
 
 ### U4. Prisma for the app's own database access
 - **Goal:** `src/` (outside the pg-boss files), the seed and the scripts reach the database through Prisma only.
@@ -220,8 +220,8 @@ The owner made the standards the base of the project (D-167) and, on 2026-11-11,
 
 ## Progress
 - **Branch:** `chore/ae-standards-rest`
-- **Updated:** 2026-11-11 18:40
-- **Next:** U3, SeaweedFS and the standard's S3 settings
+- **Updated:** 2026-11-11 19:30
+- **Next:** checkpoint C2 (U2, U3), then U4
 - **Reviewed through:** C1 at 39e7c8dc (a document; code review skipped, docs check passed)
 - **Uncommitted:** none
-- **Notes:** U2: kept on purpose, the ADR file names inside document paths (an ID in a path is a file name, not a citation), a date after DECISION_LOG.md and the project names A1 and B1 of the test fixtures (data); a section number in a comment did not always mean what that heading now says (RBAC "6" meant field-level protection, "8.4" the object-level checks), so those were mapped by topic. The plan review (structure and security) asked for: the five `MINIO_*` names mapped one by one, the dev S3 key pair marked `css_dev_only` so production refuses it, SeaweedFS on 127.0.0.1 only, the dropped bucket rules said out loud, the unsafe Prisma raw calls refused, the sign-in failures kept one message, the three builder panels left out; all are in the plan.
+- **Notes:** U2: kept on purpose, the ADR file names inside document paths (an ID in a path is a file name, not a citation), a date after DECISION_LOG.md and the project names A1 and B1 of the test fixtures (data); a section number in a comment did not always mean what that heading now says (RBAC "6" meant field-level protection, "8.4" the object-level checks), so those were mapped by topic. The plan review (structure and security) asked for: the five `MINIO_*` names mapped one by one, the dev S3 key pair marked `css_dev_only` so production refuses it, SeaweedFS on 127.0.0.1 only, the dropped bucket rules said out loud, the unsafe Prisma raw calls refused, the sign-in failures kept one message, the three builder panels left out; all are in the plan. U3: SeaweedFS `chrislusf/seaweedfs:4.53@sha256:ccad23e18639c8b98cee17e7100b95830a06077b56d8e5b006d6dcf8ec5e94a0` (`weed server -s3` with one identity in `infra/seaweedfs/s3.json`; it also starts an Iceberg catalogue and a Lance server inside the container, unpublished) and the bootstrap on `amazon/aws-cli:2.39.7@sha256:bba262340b0bc7cbf3a8a48612531263b56f4b280c4f036a07816af1b271bda0`; the dev compose file publishes the S3 port on 127.0.0.1:8334, not SeaweedFS's 8333, which another local SeaweedFS holds on the owner's machine; SeaweedFS answered every S3 call the driver makes as MinIO did (404 for a missing key, `NoSuchBucket` for a missing bucket, 403 to an unsigned GET or listing), and a developer's `apps/api/.env` (also read by the Docker api) must take the `S3_*` lines before the api starts again (README troubleshooting).
