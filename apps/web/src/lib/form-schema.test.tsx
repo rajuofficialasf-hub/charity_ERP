@@ -157,6 +157,18 @@ describe('showFailure', () => {
     );
   });
 
+  it('puts a message about a group of fields under the field the screen names for it', () => {
+    const { result } = renderHook(useTwoFields);
+    const failure = new ApiFailure(422, 'validation.failed', 'Some information is not valid.', [
+      { path: 'address', code: 'validation.failed', message: 'Not a place.' },
+    ]);
+    act(() =>
+      showFailure(result.current, failure, 'Offline.', { groups: { address: 'address.village' } }),
+    );
+    expect(result.current.getFieldState('address.village').error?.message).toBe('Not a place.');
+    expect(result.current.formState.errors.root).toBeUndefined();
+  });
+
   it('says the device is offline when no answer came', () => {
     const { result } = renderHook(useTwoFields);
     act(() => showFailure(result.current, new TypeError('fetch failed'), 'Offline.'));

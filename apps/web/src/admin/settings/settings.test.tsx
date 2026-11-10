@@ -414,6 +414,62 @@ describe('the settings page', () => {
     expect(added).toHaveLength(0);
   }, 20_000);
 
+  it('shows the server’s message on the names it refuses, and edits the names and the order', async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.post(
+        '*/api/v1/reference-lists/:list',
+        () =>
+          HttpResponse.json(
+            {
+              error: {
+                code: 'validation.failed',
+                message: 'কিছু তথ্য সঠিক নয়।',
+                requestId: 'req_x',
+                details: [{ path: 'label', code: 'x', message: 'এই নাম আগেই আছে।' }],
+              },
+            },
+            { status: 422 },
+          ),
+        { once: true },
+      ),
+    );
+    open('lists');
+    const expense = await screen.findByRole('heading', { level: 2, name: 'খরচের খাত' });
+    const card = expense.closest('section') as HTMLElement;
+    const user = userEvent.setup();
+    await user.click(within(card).getByRole('button', { name: 'নতুন আইটেম' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন আইটেম: খরচের খাত' });
+    await user.type(within(dialog).getByRole('textbox', { name: /^কোড/ }), 'food_pack');
+    const bn = within(dialog).getByRole('textbox', { name: /^নাম \(বাংলা\)/ });
+    await user.type(bn, 'খাবার');
+    await user.type(within(dialog).getByRole('textbox', { name: /^নাম \(ইংরেজি\)/ }), 'Food');
+    await user.type(within(dialog).getByRole('textbox', { name: /^ক্রম/ }), '7');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    // the names' message stands under the Bengali name, as the first of the two
+    await waitFor(() => expect(bn).toHaveAccessibleDescription('এই নাম আগেই আছে।'));
+    await user.click(within(dialog).getByRole('button', { name: 'বাতিল' }));
+
+    await user.click(within(card).getAllByRole('button', { name: 'সাজসজ্জা সম্পাদনা' })[0]!);
+    const edit = await screen.findByRole('dialog', { name: 'আইটেম সম্পাদনা: সাজসজ্জা' });
+    const order = within(edit).getByRole('textbox', { name: /^ক্রম/ });
+    await user.clear(order);
+    await user.type(order, '1২a5');
+    const en = within(edit).getByRole('textbox', { name: /^নাম \(ইংরেজি\)/ });
+    await user.type(en, ' ');
+    await user.click(within(edit).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() =>
+      expect(itemPatches).toEqual([
+        {
+          label: { bn: 'সাজসজ্জা', en: 'Decoration' },
+          active: true,
+          sortOrder: 15,
+        },
+      ]),
+    );
+  }, 20_000);
+
   it('shows the forbidden content to a Program Manager', async () => {
     refreshAs(PM);
     serve();

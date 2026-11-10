@@ -99,24 +99,37 @@ function holds(values: unknown, path: string): boolean {
 type DetailOptions = {
   /** The request carried the form's values under this key (`value` of a setting), so a detail's path starts with it. */
   under?: string;
+  /**
+   * The field that shows a detail about a group of fields, by the group's path: the names of two
+   * languages (`label`) under the first of them (`label.bn`).
+   */
+  groups?: Readonly<Record<string, string>>;
 };
 
 /** A detail's path inside the form, or none when it points outside the form's values. */
-function formPath(path: string | undefined, under: string | undefined): string | undefined {
-  if (!path || !under) return path;
-  return path.startsWith(`${under}.`) ? path.slice(under.length + 1) : undefined;
+function formPath(
+  path: string | undefined,
+  { under, groups = {} }: DetailOptions,
+): string | undefined {
+  const inner =
+    !path || !under
+      ? path
+      : path.startsWith(`${under}.`)
+        ? path.slice(under.length + 1)
+        : undefined;
+  return Object.entries(groups).find(([group]) => group === inner)?.[1] ?? inner;
 }
 
 /** Puts each detail of a refused request that names a field of the form under that field. */
 function placeDetails<T extends FieldValues>(
   form: UseFormReturn<T>,
   failure: ApiFailure,
-  { under }: DetailOptions = {},
+  options: DetailOptions = {},
 ) {
   const values = form.getValues();
   const left: string[] = [];
   for (const detail of failure.details) {
-    const path = formPath(detail.path, under);
+    const path = formPath(detail.path, options);
     if (path && holds(values, path))
       form.setError(path as Path<T>, { type: 'server', message: detail.message });
     else left.push(detail.message);
