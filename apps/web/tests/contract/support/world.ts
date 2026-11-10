@@ -2,6 +2,7 @@
 // office would build them: an active project with its published application form, a volunteer
 // assigned to it, and an application approved by the region's RPM.
 import { randomUUID } from 'node:crypto';
+import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
 import {
   applicationFormSchema,
@@ -62,9 +63,11 @@ export async function until<T>(ask: () => Promise<T>, done: (answer: T) => boole
   }
 }
 
-/** A day some days from today, as `yyyy-mm-dd`. */
-export const day = (offset: number) =>
-  new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+/**
+ * A day some days from today in Dhaka, as `yyyy-mm-dd`: the server counts days there, so a date
+ * taken in UTC would be yesterday's between midnight and six in the morning.
+ */
+export const day = (offset: number) => isoDateInDhaka(new Date(Date.now() + offset * 86_400_000));
 
 const question = (fieldKey: string, type: string, extra: Record<string, unknown> = {}) => ({
   fieldKey,
