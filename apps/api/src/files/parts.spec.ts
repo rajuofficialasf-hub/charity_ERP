@@ -5,11 +5,11 @@ import { join } from 'node:path';
 import { buffer } from 'node:stream/consumers';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../i18n/api-error';
-import { createFilesystemDriver } from '../storage/drivers/filesystem';
+import { createNasDriver } from '../storage/drivers/nas';
 import { dropParts, joinParts, MAX_PARTS, PART_SIZE, partCount, partKey, storePart } from './parts';
 
-// The parts of a chunked upload, on the filesystem driver the tests use.
-const fresh = () => createFilesystemDriver(mkdtempSync(join(tmpdir(), 'css-parts-')));
+// The parts of a chunked upload, on the NAS driver over a temporary folder.
+const fresh = () => createNasDriver(mkdtempSync(join(tmpdir(), 'css-parts-')));
 const code = (error: unknown) => (error instanceof ApiError ? error.code : String(error));
 const codeOf = (run: () => unknown) => {
   try {

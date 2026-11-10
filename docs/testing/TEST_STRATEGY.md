@@ -29,7 +29,7 @@ Status: complete for Phase 0, written in task T0.21 (2026-10-10). Binding for ev
 | Smoke | Playwright + HTTP checks against the deployed environment | `tests/smoke` | after every deployment (NFR-51) |
 | Device matrix and UAT | Manual Bengali scripts | `docs/testing/uat/` | before each gate |
 
-Test environment for automated layers (O-46 item 1): object storage through the local-filesystem adapter (ADR-005), email to Mailpit, SMS to the logging stub, jobs inline (`JOBS_INLINE=true`, test only, D-054), the dummy OTP (BD-44, BD-49), the clock injectable so deadlines, countdowns and token expiry are tested without waiting.
+Test environment for automated layers (O-46 item 1): object storage through the NAS driver on a temporary folder (ADR-005, D-168), email to Mailpit, SMS to the logging stub, jobs inline (`JOBS_INLINE=true`, test only, D-054), the dummy OTP (BD-44, BD-49), the clock injectable so deadlines, countdowns and token expiry are tested without waiting.
 
 ## 3. What each layer must cover
 

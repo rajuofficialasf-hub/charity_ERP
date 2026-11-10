@@ -65,18 +65,40 @@ describe('loadEnv', () => {
     );
   });
 
-  it('refuses inline jobs and filesystem storage in production', () => {
+  it('refuses inline jobs in production', () => {
     expect(() => loadEnv({ ...base, NODE_ENV: 'production', JOBS_INLINE: 'true' })).toThrow(
       /JOBS_INLINE/,
     );
-    expect(() =>
-      loadEnv({
-        ...base,
-        NODE_ENV: 'production',
-        STORAGE_DRIVER: 'filesystem',
-        STORAGE_FS_ROOT: '/tmp',
-      }),
-    ).toThrow(/STORAGE_DRIVER/);
+  });
+
+  it('stores on the NAS under an absolute root, also in production', () => {
+    const root = process.platform === 'win32' ? 'D:\\nas\\css-erp' : '/mnt/nas/css-erp';
+    const nas = { STORAGE_DRIVER: 'nas', STORAGE_ROOT: root };
+    expect(loadEnv({ ...base, ...nas }).STORAGE_ROOT).toBe(root);
+    const production = {
+      ...base,
+      ...nas,
+      NODE_ENV: 'production',
+      APP_ORIGIN: 'https://erp.example.org',
+    };
+    expect(() => loadEnv(production)).toThrow(
+      /^Invalid configuration: FILE_SCANNER: a real virus scanner is required in production$/,
+    );
+    expect(() => loadEnv({ ...base, STORAGE_DRIVER: 'nas' })).toThrow(
+      /STORAGE_ROOT: required when STORAGE_DRIVER=nas/,
+    );
+    expect(() => loadEnv({ ...base, ...nas, STORAGE_ROOT: 'nas/css-erp' })).toThrow(
+      /STORAGE_ROOT: must be an absolute path/,
+    );
+  });
+
+  it('refuses the test folder driver and its root under their earlier names', () => {
+    expect(() => loadEnv({ ...base, STORAGE_DRIVER: 'filesystem' })).toThrow(
+      /STORAGE_DRIVER: filesystem is now nas, set STORAGE_DRIVER=nas and STORAGE_ROOT/,
+    );
+    expect(() => loadEnv({ ...base, STORAGE_FS_ROOT: '/tmp' })).toThrow(
+      /STORAGE_FS_ROOT: renamed, set STORAGE_ROOT instead/,
+    );
   });
 
   it('needs MinIO keys for MinIO storage and a short cursor secret is refused', () => {

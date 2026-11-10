@@ -177,12 +177,7 @@ describe('POST /auth/register/photos/{slot}', () => {
       await h.db.query('DROP TRIGGER test_fail_files ON files');
       await h.db.query('DROP FUNCTION test_fail_files()');
     }
-    const dir = join(
-      h.container.env.STORAGE_FS_ROOT!,
-      'profiles',
-      'registration',
-      d.registrationId,
-    );
+    const dir = join(h.container.env.STORAGE_ROOT!, 'profiles', 'registration', d.registrationId);
     // the upload wrote into the draft's folder, and the object is gone again
     expect(existsSync(dir)).toBe(true);
     const left = readdirSync(dir);

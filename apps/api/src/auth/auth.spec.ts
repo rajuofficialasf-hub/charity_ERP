@@ -13,8 +13,8 @@ import { ACCESS_TOKEN_SECONDS, hashRefreshToken, TokenService } from './token.se
 const base = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/css_erp_dev',
   CURSOR_SECRET: 'x'.repeat(32),
-  STORAGE_DRIVER: 'filesystem',
-  STORAGE_FS_ROOT: '/tmp',
+  STORAGE_DRIVER: 'nas',
+  STORAGE_ROOT: '/tmp',
   JWT_SECRET: 'j'.repeat(32),
   AUTH_CSRF_SECRET: 'c'.repeat(32),
   OTP_SECRET: 'o'.repeat(32),

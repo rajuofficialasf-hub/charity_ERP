@@ -35,8 +35,8 @@ export interface ObjectInfo {
  * carry entity ids, never personal data.
  */
 export interface StorageDriver {
-  /** TEMP: `s3` (MinIO) is the first driver; the NAS driver arrives with the NAS. */
-  readonly name: 's3' | 'filesystem';
+  /** TEMP: `s3` (MinIO) goes once the app runs on the NAS only. */
+  readonly name: 'nas' | 's3';
   put(
     bucket: Bucket,
     key: string,
