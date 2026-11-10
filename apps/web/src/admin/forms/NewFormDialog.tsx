@@ -1,14 +1,47 @@
 import type { FormSource } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, Button, Dialog, RadioGroup, SelectField, TextField } from '@/ui';
+import {
+  Button,
+  Dialog,
+  Form,
+  FormSelectField,
+  FormTextField,
+  RadioGroup,
+  SelectField,
+} from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../api/client';
+import { z } from 'zod';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { pickerProjects, PROJECTS_KEY } from '../projects/projects-api';
 import { createForm, FORMS_KEY, library, projectForms } from './forms-api';
 
-type Kind = FormSource['kind'];
+/** Both names, and the template or the copied form the chosen start needs. */
+const NEW_FORM_SCHEMA = z
+  .object({
+    title: z.object({ bn: z.string(), en: z.string() }),
+    kind: z.enum(['template', 'blank', 'copy']),
+    templateKey: z.string(),
+    copyProject: z.string(),
+    copyForm: z.string(),
+  })
+  .superRefine((v, ctx) => {
+    const required = (path: string[]) =>
+      ctx.addIssue({ code: 'custom', path, message: 'validation.required' });
+    if (!v.title.bn.trim()) required(['title', 'bn']);
+    if (!v.title.en.trim()) required(['title', 'en']);
+    if (v.kind === 'template' && !v.templateKey) required(['templateKey']);
+    if (v.kind === 'copy' && !v.copyProject) required(['copyProject']);
+    if (v.kind === 'copy' && !v.copyForm) required(['copyForm']);
+  });
+type NewFormFields = z.infer<typeof NEW_FORM_SCHEMA>;
+
+/** The starting point the fields name. */
+function sourceOf(v: NewFormFields): FormSource {
+  if (v.kind === 'template') return { kind: 'template', templateKey: v.templateKey };
+  return v.kind === 'copy' ? { kind: 'copy', formId: v.copyForm } : { kind: 'blank' };
+}
 
 /**
  * Starts a new form of the project from a library template, from the mandatory core alone, or as
@@ -29,50 +62,52 @@ export function NewFormDialog({
   onCreated: (formId: string) => void;
 }) {
   const t = useTranslations('forms.builder');
+  const ts = useTranslations('common.state.error');
   const locale = useLocale() as Locale;
   const queries = useQueryClient();
-  const [nameBn, setNameBn] = useState('');
-  const [nameEn, setNameEn] = useState('');
-  const [kind, setKind] = useState<Kind>('template');
-  const [templateKey, setTemplateKey] = useState<string | null>(null);
-  const [copyProject, setCopyProject] = useState<string | null>(null);
-  const [copyForm, setCopyForm] = useState<string | null>(null);
+  const form = useForm<NewFormFields>({
+    resolver: useSchemaResolver(NEW_FORM_SCHEMA),
+    defaultValues: {
+      title: { bn: '', en: '' },
+      kind: 'template',
+      templateKey: '',
+      copyProject: '',
+      copyForm: '',
+    },
+    reValidateMode: 'onSubmit',
+  });
+  const values = useWatch({ control: form.control });
+  const ready = NEW_FORM_SCHEMA.safeParse(values).success;
   const lib = useQuery({ queryKey: [...FORMS_KEY, 'library'], queryFn: library, enabled: open });
   const projects = useQuery({
     queryKey: [...PROJECTS_KEY, 'picker'],
     queryFn: pickerProjects,
-    enabled: open && kind === 'copy',
+    enabled: open && values.kind === 'copy',
   });
   const sourceForms = useQuery({
-    queryKey: [...FORMS_KEY, copyProject],
-    queryFn: () => projectForms(copyProject!),
-    enabled: open && kind === 'copy' && copyProject !== null,
+    queryKey: [...FORMS_KEY, values.copyProject],
+    queryFn: () => projectForms(values.copyProject!),
+    enabled: open && values.kind === 'copy' && Boolean(values.copyProject),
   });
   const published = (sourceForms.data ?? []).filter((f) => f.publishedVersionId !== null);
-  const source: FormSource | null =
-    kind === 'blank'
-      ? { kind: 'blank' }
-      : kind === 'template'
-        ? templateKey
-          ? { kind: 'template', templateKey }
-          : null
-        : copyForm
-          ? { kind: 'copy', formId: copyForm }
-          : null;
   const create = useMutation({
-    mutationFn: () =>
+    mutationFn: (v: NewFormFields) =>
       createForm(projectId, {
         // the first form is the project's application form; another gets a key of its own
         key: firstForm ? 'default' : `form_${Date.now().toString(36)}`,
-        title: { bn: nameBn.trim(), en: nameEn.trim() },
-        source: source!,
+        title: { bn: v.title.bn.trim(), en: v.title.en.trim() },
+        source: sourceOf(v),
       }),
     onSuccess: async (made) => {
       await queries.invalidateQueries({ queryKey: [...FORMS_KEY, projectId] });
       onCreated(made.id);
     },
+    onError: (failure) => showFailure(form, failure, ts('text'), { firstDetail: true }),
   });
-  const ready = nameBn.trim() !== '' && nameEn.trim() !== '' && source !== null;
+  // Enter in a field submits too: nothing the button would refuse, and nothing twice
+  const send = (v: NewFormFields) => {
+    if (ready && !create.isPending) create.mutate(v);
+  };
   return (
     <Dialog
       title={t('new_title')}
@@ -84,78 +119,90 @@ export function NewFormDialog({
           <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
             {t('cancel')}
           </Button>
-          <Button onClick={() => create.mutate()} disabled={!ready} loading={create.isPending}>
+          <Button
+            onClick={() => void form.handleSubmit(send)()}
+            disabled={!ready}
+            loading={create.isPending}
+          >
             {t('create')}
           </Button>
         </>
       }
     >
-      {create.error instanceof ApiFailure ? (
-        <Alert tone="error">{create.error.details[0]?.message ?? create.error.message}</Alert>
-      ) : null}
-      <TextField
-        label={t('name_bn')}
-        required
-        maxLength={200}
-        value={nameBn}
-        onChange={setNameBn}
-      />
-      <TextField
-        label={t('name_en')}
-        required
-        maxLength={200}
-        lang="en"
-        value={nameEn}
-        onChange={setNameEn}
-      />
-      <RadioGroup
-        label={t('source')}
-        value={kind}
-        onChange={(id) => setKind(id as Kind)}
-        options={[
-          { value: 'template', label: t('source_template') },
-          { value: 'blank', label: t('source_blank') },
-          { value: 'copy', label: t('source_copy') },
-        ]}
-      />
-      {kind === 'template' ? (
-        <SelectField
-          label={t('template')}
-          required
-          value={templateKey ?? ''}
-          onChange={(v) => setTemplateKey(v || null)}
-          options={(lib.data?.templates ?? []).map((tpl) => ({
-            value: tpl.key,
-            label: localized(tpl.name, locale),
-          }))}
-        />
-      ) : null}
-      {kind === 'copy' ? (
-        <>
-          <SelectField
-            label={t('copy_project')}
-            required
-            value={copyProject ?? ''}
-            onChange={(id) => {
-              setCopyProject(id);
-              setCopyForm(null);
-            }}
-            options={(projects.data ?? [])
-              .filter((p) => p.id !== projectId)
-              .map((p) => ({ value: p.id, label: `${localized(p.name, locale)} (${p.year})` }))}
-          />
-          {copyProject ? (
-            <SelectField
-              label={t('copy_form')}
-              required
-              value={copyForm ?? ''}
-              onChange={(v) => setCopyForm(v || null)}
-              hint={sourceForms.isSuccess && published.length === 0 ? t('copy_none') : undefined}
-              options={published.map((f) => ({ value: f.id, label: localized(f.title, locale) }))}
+      <Form
+        form={form}
+        onSubmit={send}
+        label={t('new_title')}
+        error={form.formState.errors.root?.server?.message}
+      >
+        <FormTextField name="title.bn" label={t('name_bn')} required maxLength={200} />
+        <FormTextField name="title.en" label={t('name_en')} required maxLength={200} lang="en" />
+        <Controller
+          control={form.control}
+          name="kind"
+          render={({ field }) => (
+            <RadioGroup
+              label={t('source')}
+              value={field.value}
+              onChange={field.onChange}
+              options={[
+                { value: 'template', label: t('source_template') },
+                { value: 'blank', label: t('source_blank') },
+                { value: 'copy', label: t('source_copy') },
+              ]}
             />
-          ) : null}
-        </>
-      ) : null}
+          )}
+        />
+        {values.kind === 'template' ? (
+          <FormSelectField
+            name="templateKey"
+            label={t('template')}
+            required
+            options={(lib.data?.templates ?? []).map((tpl) => ({
+              value: tpl.key,
+              label: localized(tpl.name, locale),
+            }))}
+          />
+        ) : null}
+        {values.kind === 'copy' ? (
+          <>
+            <Controller
+              control={form.control}
+              name="copyProject"
+              render={({ field }) => (
+                <SelectField
+                  label={t('copy_project')}
+                  required
+                  value={field.value}
+                  onChange={(id) => {
+                    field.onChange(id);
+                    // the form chosen belonged to the project before
+                    form.setValue('copyForm', '');
+                  }}
+                  options={(projects.data ?? [])
+                    .filter((p) => p.id !== projectId)
+                    .map((p) => ({
+                      value: p.id,
+                      label: `${localized(p.name, locale)} (${p.year})`,
+                    }))}
+                />
+              )}
+            />
+            {values.copyProject ? (
+              <FormSelectField
+                name="copyForm"
+                label={t('copy_form')}
+                required
+                hint={sourceForms.isSuccess && published.length === 0 ? t('copy_none') : undefined}
+                options={published.map((f) => ({
+                  value: f.id,
+                  label: localized(f.title, locale),
+                }))}
+              />
+            ) : null}
+          </>
+        ) : null}
+      </Form>
     </Dialog>
   );
 }

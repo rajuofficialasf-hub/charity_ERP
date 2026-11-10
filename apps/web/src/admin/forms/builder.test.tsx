@@ -939,8 +939,13 @@ describe('a new form', () => {
 
   it('offers only the published forms of the projects the caller reaches as a copy', async () => {
     const user = userEvent.setup();
+    const posts: unknown[] = [];
     server.use(
       forms([]),
+      http.post(`*/api/v1/projects/${PROJECT}/forms`, async ({ request }) => {
+        posts.push(await request.json());
+        return apiError(409, 'form.key_taken', 'এই প্রকল্পে এই নামের ফর্ম আগেই আছে।');
+      }),
       http.get('*/api/v1/form-library', () =>
         HttpResponse.json({ data: LIBRARY, meta: { requestId: 'r' } }),
       ),
@@ -1000,6 +1005,19 @@ describe('a new form', () => {
     await user.click(within(dialog).getByRole('combobox', { name: /^ফর্ম/ }));
     expect(await screen.findByRole('option', { name: 'গত বছরের ফর্ম' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'শুধু খসড়া' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: 'গত বছরের ফর্ম' }));
+    await user.type(within(dialog).getByRole('textbox', { name: /ফর্মের নাম \(বাংলা\)/ }), 'আবেদন');
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ }),
+      'Application',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toEqual({
+      key: 'default',
+      title: { bn: 'আবেদন', en: 'Application' },
+      source: { kind: 'copy', formId: OTHER_FORM },
+    });
   });
 
   it('shows the server refusal of a new form and keeps the dialog open', async () => {
@@ -1026,5 +1044,47 @@ describe('a new form', () => {
       await within(dialog).findByText('এই প্রকল্পে এই নামের ফর্ম আগেই আছে।'),
     ).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'নতুন আবেদন ফর্ম' })).toBeInTheDocument();
+  });
+
+  it('shows what a refused field says when the refusal names one', async () => {
+    const user = userEvent.setup();
+    server.use(
+      forms([]),
+      http.get('*/api/v1/form-library', () =>
+        HttpResponse.json({ data: LIBRARY, meta: { requestId: 'r' } }),
+      ),
+      http.post(`*/api/v1/projects/${PROJECT}/forms`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              message: 'কিছু তথ্য সঠিক নয়।',
+              requestId: 'r',
+              details: [
+                {
+                  path: 'source.templateKey',
+                  code: 'form.template_unknown',
+                  message: 'এই টেমপ্লেটটি পাওয়া যায়নি।',
+                },
+              ],
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    openList();
+    await user.click(await screen.findByRole('button', { name: 'নতুন ফর্ম' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন আবেদন ফর্ম' });
+    await user.type(within(dialog).getByRole('textbox', { name: /ফর্মের নাম \(বাংলা\)/ }), 'আবেদন');
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ }),
+      'Application',
+    );
+    await user.click(within(dialog).getByRole('combobox', { name: /টেমপ্লেট/ }));
+    await user.click(await screen.findByRole('option', { name: 'বিতরণভিত্তিক আবেদন ফর্ম' }));
+    await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
+    expect(await within(dialog).findByText('এই টেমপ্লেটটি পাওয়া যায়নি।')).toBeInTheDocument();
+    expect(within(dialog).queryByText('কিছু তথ্য সঠিক নয়।')).not.toBeInTheDocument();
   });
 });

@@ -89,16 +89,33 @@ function holds(values: unknown, path: string): boolean {
   return true;
 }
 
+/** How a refused request's details map onto the form. */
+type DetailOptions = {
+  /** The request carried the form's values under this key (`value` of a setting), so a detail's path starts with it. */
+  under?: string;
+};
+
+/** A detail's path inside the form, or none when it points outside the form's values. */
+function formPath(path: string | undefined, under: string | undefined): string | undefined {
+  if (!path || !under) return path;
+  return path.startsWith(`${under}.`) ? path.slice(under.length + 1) : undefined;
+}
+
 /** Puts each detail of a refused request that names a field of the form under that field. */
-function placeDetails<T extends FieldValues>(form: UseFormReturn<T>, failure: ApiFailure) {
+function placeDetails<T extends FieldValues>(
+  form: UseFormReturn<T>,
+  failure: ApiFailure,
+  { under }: DetailOptions = {},
+) {
   const values = form.getValues();
-  let placed = 0;
-  for (const detail of failure.details)
-    if (detail.path && holds(values, detail.path)) {
-      form.setError(detail.path as Path<T>, { type: 'server', message: detail.message });
-      placed += 1;
-    }
-  return { placed, left: failure.details.length - placed };
+  const left: string[] = [];
+  for (const detail of failure.details) {
+    const path = formPath(detail.path, under);
+    if (path && holds(values, path))
+      form.setError(path as Path<T>, { type: 'server', message: detail.message });
+    else left.push(detail.message);
+  }
+  return { placed: failure.details.length - left.length, left };
 }
 
 /**
@@ -117,19 +134,25 @@ export function showFieldErrors<T extends FieldValues>(
  * Shows a refused request on the form: its field messages under their fields, else the API's
  * message above the button, or `offline` when no answer came. With `everyDetail`, the API's
  * message also shows above when one of the details names no field of the form, beside the ones
- * placed, so no part of the refusal goes unsaid.
+ * placed, so no part of the refusal goes unsaid. With `firstDetail`, the message above is the
+ * first detail that names no field of the form, where there is one, in place of the API's
+ * general one.
  */
 export function showFailure<T extends FieldValues>(
   form: UseFormReturn<T>,
   failure: unknown,
   offline: string,
-  { everyDetail = false }: { everyDetail?: boolean } = {},
+  {
+    everyDetail = false,
+    firstDetail = false,
+    ...options
+  }: DetailOptions & { everyDetail?: boolean; firstDetail?: boolean } = {},
 ): void {
+  let message = offline;
   if (failure instanceof ApiFailure) {
-    const { placed, left } = placeDetails(form, failure);
-    if (placed > 0 && !(everyDetail && left > 0)) return;
+    const { placed, left } = placeDetails(form, failure, options);
+    if (placed > 0 && !(everyDetail && left.length > 0)) return;
+    message = (firstDetail ? left[0] : undefined) ?? failure.message;
   }
-  form.setError('root.server' as Path<T>, {
-    message: failure instanceof ApiFailure ? failure.message : offline,
-  });
+  form.setError('root.server' as Path<T>, { message });
 }

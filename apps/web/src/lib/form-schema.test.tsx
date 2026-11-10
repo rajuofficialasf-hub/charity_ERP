@@ -112,6 +112,40 @@ describe('showFailure', () => {
     expect(result.current.formState.errors.root).toBeUndefined();
   });
 
+  it('shows, when asked, the first detail that names no field above the button', () => {
+    const { result } = renderHook(useTwoFields);
+    const failure = new ApiFailure(422, 'validation.failed', 'Some information is not valid.', [
+      { path: 'source.templateKey', code: 'validation.failed', message: 'Unknown template.' },
+      { path: 'key', code: 'validation.failed', message: 'Bad key.' },
+    ]);
+    act(() => showFailure(result.current, failure, 'Offline.', { firstDetail: true }));
+    expect(result.current.formState.errors.root?.server?.message).toBe('Unknown template.');
+    act(() => result.current.clearErrors());
+    const bare = new ApiFailure(409, 'form.key_taken', 'Taken.', []);
+    act(() => showFailure(result.current, bare, 'Offline.', { firstDetail: true }));
+    expect(result.current.formState.errors.root?.server?.message).toBe('Taken.');
+  });
+
+  it('reads the paths of a request that carried the values under a key', () => {
+    const { result } = renderHook(useTwoFields);
+    const failure = new ApiFailure(422, 'validation.failed', 'Some information is not valid.', [
+      { path: 'value.address.village', code: 'validation.too_long', message: 'Too long.' },
+    ]);
+    act(() => showFailure(result.current, failure, 'Offline.', { under: 'value' }));
+    expect(result.current.getFieldState('address.village').error?.message).toBe('Too long.');
+    expect(result.current.formState.errors.root).toBeUndefined();
+    act(() => result.current.clearErrors());
+    // a path outside the key is no field of the form
+    const outside = new ApiFailure(422, 'validation.failed', 'Some information is not valid.', [
+      { path: 'code', code: 'validation.too_long', message: 'Too long.' },
+    ]);
+    act(() => showFailure(result.current, outside, 'Offline.', { under: 'value' }));
+    expect(result.current.getFieldState('code').error).toBeUndefined();
+    expect(result.current.formState.errors.root?.server?.message).toBe(
+      'Some information is not valid.',
+    );
+  });
+
   it('says the device is offline when no answer came', () => {
     const { result } = renderHook(useTwoFields);
     act(() => showFailure(result.current, new TypeError('fetch failed'), 'Offline.'));
