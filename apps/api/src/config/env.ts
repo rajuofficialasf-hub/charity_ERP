@@ -33,15 +33,19 @@ const envSchema = z
     JOBS_INLINE: flag,
     /**
      * The storage driver (no default): `nas` stores under STORAGE_ROOT, the organization's NAS
-     * mount (tests use a temporary folder); `s3` is MinIO through the S3 API, TEMP until the NAS
-     * is mounted for the app.
+     * mount (tests use a temporary folder); `s3` is an S3 store through the S3 API (SeaweedFS in
+     * development and CI), TEMP until the NAS is mounted for the app.
      */
     STORAGE_DRIVER: z.enum(['nas', 's3']),
-    MINIO_ENDPOINT: z.string().default('127.0.0.1'),
-    MINIO_PORT: z.coerce.number().int().min(1).max(65535).default(9000),
-    MINIO_USE_SSL: flag,
-    MINIO_ACCESS_KEY: z.string().optional(),
-    MINIO_SECRET_KEY: z.string().optional(),
+    /** The S3 store as a whole URL, `scheme://host[:port]` without a path; required with `s3`. */
+    S3_ENDPOINT: z
+      .string()
+      .refine(isExactOrigin, 'must be an http(s) URL as scheme://host[:port], without a path')
+      .optional(),
+    /** The region the requests are signed for; a local store accepts any. */
+    S3_REGION: z.string().min(1).default('us-east-1'),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
     /** The NAS mount the nas driver stores under; an absolute path. */
     STORAGE_ROOT: z
       .string()
@@ -221,12 +225,10 @@ const envSchema = z
         path: ['AUTH_COOKIE_SECURE'],
         message: 'must be true in production',
       });
-    if (env.STORAGE_DRIVER === 's3' && (!env.MINIO_ACCESS_KEY || !env.MINIO_SECRET_KEY))
-      ctx.addIssue({
-        code: 'custom',
-        path: ['MINIO_ACCESS_KEY'],
-        message: 'required when STORAGE_DRIVER=s3',
-      });
+    if (env.STORAGE_DRIVER === 's3')
+      for (const key of ['S3_ENDPOINT', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const)
+        if (!env[key])
+          ctx.addIssue({ code: 'custom', path: [key], message: 'required when STORAGE_DRIVER=s3' });
     if (env.STORAGE_DRIVER === 'nas' && !env.STORAGE_ROOT)
       ctx.addIssue({
         code: 'custom',
@@ -247,10 +249,19 @@ const LOCAL_SECRET_KEYS = [
   'LOCAL_KEY_SECRET',
   'LOCAL_KEY_PREVIOUS_SECRET',
   'SMTP_PASSWORD',
-  'MINIO_ACCESS_KEY',
-  'MINIO_SECRET_KEY',
+  'S3_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
   'DATABASE_URL',
 ] as const;
+
+/** The earlier MinIO settings and the S3 setting each became; the endpoint is now one URL. */
+const RENAMED_STORAGE_SETTINGS = {
+  MINIO_ENDPOINT: 'S3_ENDPOINT',
+  MINIO_PORT: 'S3_ENDPOINT',
+  MINIO_USE_SSL: 'S3_ENDPOINT',
+  MINIO_ACCESS_KEY: 'S3_ACCESS_KEY_ID',
+  MINIO_SECRET_KEY: 'S3_SECRET_ACCESS_KEY',
+} as const;
 
 /** An origin written exactly as the browser sends it: http(s), a host, a port at most. */
 function isExactOrigin(entry: string): boolean {
@@ -285,7 +296,7 @@ const PUBLIC_SECRET_PREFIXES = [
   'test-only-', // the API tests
   'openapi-generation-only-', // the OpenAPI generator
 ];
-const PUBLIC_SECRET_PARTS = ['css_dev_only', 'css_ci_only']; // the dev and CI database and MinIO
+const PUBLIC_SECRET_PARTS = ['css_dev_only', 'css_ci_only']; // the dev and CI database and S3 store
 
 function isLocalExample(value: string): boolean {
   return (
@@ -325,6 +336,10 @@ export function loadEnv(source: Record<string, string | undefined>): Env {
     );
   if (present['STORAGE_FS_ROOT'] !== undefined)
     throw new Error('Invalid configuration: STORAGE_FS_ROOT: renamed, set STORAGE_ROOT instead');
+  const renamed = Object.entries(RENAMED_STORAGE_SETTINGS)
+    .filter(([old]) => present[old] !== undefined)
+    .map(([old, next]) => `${old}: renamed, set ${next} instead`);
+  if (renamed.length) throw new Error(`Invalid configuration: ${renamed.join('; ')}`);
   const result = envSchema.safeParse(present);
   if (!result.success) {
     const problems = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');

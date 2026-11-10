@@ -1,10 +1,10 @@
 # The application services for `docker compose up` on a fresh clone: one
-# command brings up PostgreSQL, MinIO, Mailpit (docker-compose.dev.yml), installs the workspace,
-# migrates and seeds the development database and starts the API and the web dev server. Local
-# development only; never used in CI, staging or production. The values below are dev-only
-# placeholders that never reach production: every published port binds to 127.0.0.1. `docker
-# compose up -d
-# postgres minio mailpit` followed by `pnpm dev` on the host keeps working as before.
+# command brings up PostgreSQL, SeaweedFS, Mailpit (docker-compose.dev.yml), installs the
+# workspace, migrates and seeds the development database and starts the API and the web dev
+# server. Local development only; never used in CI, staging or production. The values below are
+# dev-only placeholders that never reach production: every published port binds to 127.0.0.1.
+# `docker compose up -d postgres seaweedfs seaweedfs-init mailpit` followed by `pnpm dev` on the
+# host keeps working as before.
 
 x-node: &node
   build:
@@ -40,10 +40,12 @@ x-api-env: &api-env
   OTP_DUMMY_CODE: '123456'
   AUTH_COOKIE_SECURE: 'false'
   STORAGE_DRIVER: s3
-  MINIO_ENDPOINT: minio
-  MINIO_PORT: '9000'
-  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-css_dev_only}
-  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-css_dev_only_secret}
+  # SeaweedFS on the compose network (docker-compose.dev.yml) and its one local identity
+  # (seaweedfs/s3.json); the S3 port is not published from here.
+  S3_ENDPOINT: http://seaweedfs:8333
+  S3_REGION: us-east-1
+  S3_ACCESS_KEY_ID: css_dev_only
+  S3_SECRET_ACCESS_KEY: css_dev_only_secret
   SMTP_HOST: mailpit
   # The web app's origins, allowed with credentials: the browser calls the api on its own port.
   # The app opened from another address (a phone on the office network: http://<address>:3000)
@@ -115,7 +117,7 @@ services:
       migrate:
         condition: service_completed_successfully
       # The buckets exist once the bootstrap has run (docker-compose.dev.yml).
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
       mailpit:
         condition: service_started

@@ -5,10 +5,9 @@
 # that can be overridden from a root .env file (see infra/.env.example); staging and production
 # use their own compose project and secrets.
 #
-# Images are pinned by digest. MinIO no longer publishes official community images (late 2025),
-# so the MinIO server and client come from Chainguard, which builds them from the upstream
-# source; production storage packaging is decided before the first deployment (docs/STATUS.md,
-# docs/architecture/ADR/ADR-005-minio-object-storage.md).
+# Images are pinned by digest. The local S3 stand-in is SeaweedFS (development and CI only);
+# production storage is the NAS, or the store chosen before the first deployment
+# (docs/ops/DEPLOYMENT.md).
 
 name: css-erp-dev
 
@@ -34,29 +33,43 @@ services:
       timeout: 5s
       retries: 20
 
-  minio:
-    # chainguard/minio:latest (MinIO RELEASE.2026-09-22T19-25-18Z, AGPLv3)
-    image: chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf
-    command: ['server', '/data', '--address', ':9000', '--console-address', ':9001']
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-css_dev_only}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-css_dev_only_secret}
+  seaweedfs:
+    # chrislusf/seaweedfs:4.53 (Apache-2.0): master, volume, filer and the S3 gateway in one
+    # process. s3.json holds the one local identity, whose key pair carries the css_dev_only mark,
+    # so a production start refuses it; with an identity configured an unsigned request is refused.
+    # The S3 port is 8333 inside and 8334 on this machine, beside another local SeaweedFS on its
+    # default port.
+    image: chrislusf/seaweedfs@sha256:ccad23e18639c8b98cee17e7100b95830a06077b56d8e5b006d6dcf8ec5e94a0
+    command:
+      - server
+      - -dir=/data
+      - -s3
+      - -s3.port=8333
+      - -s3.config=/etc/seaweedfs/s3.json
+      - -master.volumeSizeLimitMB=1024
     ports:
-      - '127.0.0.1:${MINIO_PORT:-9000}:9000'
-      - '127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001'
+      - '127.0.0.1:${S3_PORT:-8334}:8333'
     volumes:
-      - minio-data:/data
+      - seaweedfs-data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO /dev/null http://127.0.0.1:8333/healthz']
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
-  minio-init:
-    # chainguard/minio-client:latest-dev (mc with a shell, used once to create the buckets)
-    image: chainguard/minio-client@sha256:2d11d09801b035510cb0c2ff0c64aa016fc94f0c4e7055a31ec17cf41dd154cb
+  seaweedfs-init:
+    # amazon/aws-cli:2.39.7, used once to create the buckets (seaweedfs/bootstrap.sh)
+    image: amazon/aws-cli@sha256:bba262340b0bc7cbf3a8a48612531263b56f4b280c4f036a07816af1b271bda0
     depends_on:
-      - minio
+      seaweedfs:
+        condition: service_healthy
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-css_dev_only}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-css_dev_only_secret}
+      S3_ENDPOINT: http://seaweedfs:8333
+      AWS_ACCESS_KEY_ID: css_dev_only
+      AWS_SECRET_ACCESS_KEY: css_dev_only_secret
     volumes:
-      - ./minio/bootstrap.sh:/bootstrap.sh:ro
+      - ./seaweedfs/bootstrap.sh:/bootstrap.sh:ro
     entrypoint: ['sh', '/bootstrap.sh']
     restart: 'no'
 
@@ -69,4 +82,4 @@ services:
 
 volumes:
   pg-data-17:
-  minio-data:
+  seaweedfs-data:

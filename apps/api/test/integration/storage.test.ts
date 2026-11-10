@@ -8,35 +8,37 @@ import {
   ListObjectsV2Command,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { dropParts, joinParts, PART_SIZE, storePart } from '../../src/files/parts';
 import { type Bucket, BUCKETS, createStorage, NotFoundError } from '../../src/storage';
+import type * as StorageTypes from '../../src/storage/types';
 import { testEnv } from '../support/env';
 
-// The S3 driver against the real MinIO container: docker compose locally, a
-// service container in CI. It goes through the entry point, so the driver map is covered too. Test
-// objects live under a random prefix in the exports bucket and are removed at the end.
-const minio = {
-  endPoint: process.env.MINIO_TEST_ENDPOINT ?? '127.0.0.1',
-  port: Number(process.env.MINIO_TEST_PORT ?? 9000),
-  accessKey: process.env.MINIO_TEST_ACCESS_KEY ?? 'css_dev_only',
-  secretKey: process.env.MINIO_TEST_SECRET_KEY ?? 'css_dev_only_secret',
+// The S3 driver against a real SeaweedFS, the local S3 stand-in: the dev compose file's on this
+// machine, the one CI starts in its checks job. It goes through the entry point, so the driver map
+// is covered too. Test objects live under a random prefix in the exports bucket and are removed at
+// the end. The defaults are the dev compose file's address and its local key pair.
+const s3 = {
+  endpoint: process.env.S3_TEST_ENDPOINT ?? 'http://127.0.0.1:8334',
+  accessKeyId: process.env.S3_TEST_ACCESS_KEY_ID ?? 'css_dev_only',
+  secretAccessKey: process.env.S3_TEST_SECRET_ACCESS_KEY ?? 'css_dev_only_secret',
 };
 const env = testEnv({
   STORAGE_DRIVER: 's3',
-  MINIO_ENDPOINT: minio.endPoint,
-  MINIO_PORT: String(minio.port),
-  MINIO_ACCESS_KEY: minio.accessKey,
-  MINIO_SECRET_KEY: minio.secretKey,
+  S3_ENDPOINT: s3.endpoint,
+  S3_ACCESS_KEY_ID: s3.accessKeyId,
+  S3_SECRET_ACCESS_KEY: s3.secretAccessKey,
 });
 const storage = createStorage(env);
 const admin = new S3Client({
   region: 'us-east-1',
-  endpoint: `http://${minio.endPoint}:${minio.port}`,
+  endpoint: s3.endpoint,
   forcePathStyle: true,
-  credentials: { accessKeyId: minio.accessKey, secretAccessKey: minio.secretKey },
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
+  credentials: { accessKeyId: s3.accessKeyId, secretAccessKey: s3.secretAccessKey },
 });
-const prefix = `u5-${randomUUID()}`;
+const prefix = `storage-${randomUUID()}`;
 const key = (name: string) => `${prefix}/${name}`;
 const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 
@@ -58,7 +60,8 @@ function generatedStream(total: number): { stream: Readable; digest: () => strin
   return { stream, digest: () => hash.digest('hex') };
 }
 
-// Locally infra/minio/bootstrap.sh creates the buckets; the CI MinIO starts empty.
+// infra/seaweedfs/bootstrap.sh creates the buckets, locally and in CI; a store started without it
+// gets them here, so the test needs only a running SeaweedFS.
 beforeAll(async () => {
   for (const Bucket of BUCKETS) {
     try {
@@ -77,7 +80,7 @@ afterAll(async () => {
   admin.destroy();
 });
 
-describe('S3 storage driver on MinIO', () => {
+describe('S3 storage driver on SeaweedFS', () => {
   it('is the driver STORAGE_DRIVER picks', () => {
     expect(storage.name).toBe('s3');
   });
@@ -100,8 +103,29 @@ describe('S3 storage driver on MinIO', () => {
     await expect(storage.remove('exports', key('report.csv'))).resolves.toBeUndefined();
     expect(await storage.ping()).toBe(true);
     expect(
-      await createStorage({ ...env, MINIO_ACCESS_KEY: 'wrong', MINIO_SECRET_KEY: 'wrong' }).ping(),
+      await createStorage({
+        ...env,
+        S3_ACCESS_KEY_ID: 'wrong',
+        S3_SECRET_ACCESS_KEY: 'wrong',
+      }).ping(),
     ).toBe(false);
+  });
+
+  it('reports not ready when one of the buckets is missing', async () => {
+    // the driver checks the bucket list of storage/types.ts; one more name that no store holds
+    // stands for a bucket the bootstrap did not create, without touching the real ones
+    vi.resetModules();
+    vi.doMock('../../src/storage/types', async (importOriginal) => {
+      const real = await importOriginal<typeof StorageTypes>();
+      return { ...real, BUCKETS: [...real.BUCKETS, `missing-${randomUUID().slice(0, 8)}`] };
+    });
+    try {
+      const { createStorage: createWithMissing } = await import('../../src/storage/index.js');
+      expect(await createWithMissing(env).ping()).toBe(false);
+    } finally {
+      vi.doUnmock('../../src/storage/types');
+      vi.resetModules();
+    }
   });
 
   it('streams a 6 MiB object in parts and gets back the same bytes', async () => {
@@ -163,7 +187,9 @@ describe('S3 storage driver on MinIO', () => {
     await storage.put('exports', key('private.txt'), Readable.from([Buffer.from('secret')]), {
       contentType: 'text/plain',
     });
-    const res = await fetch(`http://${minio.endPoint}:${minio.port}/exports/${key('private.txt')}`);
+    const res = await fetch(`${s3.endpoint}/exports/${key('private.txt')}`);
     expect(res.status).toBe(403);
+    // nor is the bucket listed to an unsigned caller
+    expect((await fetch(`${s3.endpoint}/exports`)).status).toBe(403);
   });
 });

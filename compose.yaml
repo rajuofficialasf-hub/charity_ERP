@@ -1,7 +1,8 @@
 # `docker compose up` from the repository root brings up the whole ERP for development:
-# the services of infra/docker-compose.dev.yml (PostgreSQL, MinIO, Mailpit) and the application
-# of infra/docker-compose.app.yml (install, migrate and seed, api, web). `docker compose up -d
-# postgres minio mailpit` starts the services only, for `pnpm dev` on the host.
+# the services of infra/docker-compose.dev.yml (PostgreSQL, SeaweedFS, Mailpit) and the
+# application of infra/docker-compose.app.yml (install, migrate and seed, api, web). `docker
+# compose up -d postgres seaweedfs seaweedfs-init mailpit` starts the services only, for `pnpm dev`
+# on the host.
 name: css-erp-dev
 
 include:

@@ -11,8 +11,7 @@ export const UPLOAD_SWEEP_CRON = '45 3 * * *';
  * Removes upload sessions that expired before they were finalized, and their stored parts
  * (docs/architecture/FILES_AND_DOCUMENTS.md, "Upload pipeline"). The rows go through the database
  * function `purge_expired_upload_sessions`, the only way a session is deleted; parts that cannot
- * be removed are logged and the uploads bucket empties itself after two days. The public photos no
- * submission claimed within a day go the same night. Idempotent: a second run finds nothing.
+ * be removed are logged. The public photos no submission claimed within a day go the same night. Idempotent: a second run finds nothing.
  */
 export class UploadSweep {
   constructor(
