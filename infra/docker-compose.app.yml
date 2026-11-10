@@ -1,8 +1,9 @@
-# The application services for `docker compose up` on a fresh clone (ORG-DEV-01, D-074): one
+# The application services for `docker compose up` on a fresh clone: one
 # command brings up PostgreSQL, MinIO, Mailpit (docker-compose.dev.yml), installs the workspace,
 # migrates and seeds the development database and starts the API and the web dev server. Local
 # development only; never used in CI, staging or production. The values below are dev-only
-# placeholders (BD-49): every published port binds to 127.0.0.1 (D-056). `docker compose up -d
+# placeholders that never reach production: every published port binds to 127.0.0.1. `docker
+# compose up -d
 # postgres minio mailpit` followed by `pnpm dev` on the host keeps working as before.
 
 x-node: &node
@@ -49,7 +50,8 @@ x-api-env: &api-env
   # sends that address, so a local compose.override.yaml adds it here.
   ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://127.0.0.1:3000,http://localhost:3000}
   SMTP_PORT: '1025'
-  # The job consumers run inside the api in development (ADR-004).
+  # The job consumers run inside the api in development; elsewhere the worker runs them
+  # (docs/architecture/ADR/ADR-004-pg-boss-background-jobs.md).
   JOBS_INLINE: 'true'
   # The browser reaches the api directly, so no proxy's address header is trusted.
   TRUST_PROXY: 'false'
@@ -117,7 +119,7 @@ services:
         condition: service_completed_successfully
       mailpit:
         condition: service_started
-    # SIGTERM lets the inline job consumers drain for up to 30 s (JobRunner.stop, D-054) before
+    # SIGTERM lets the inline job consumers drain for up to 30 s (JobRunner.stop) before
     # server.ts gives up; Docker's default 10 s would kill the process first.
     stop_grace_period: 40s
     restart: unless-stopped

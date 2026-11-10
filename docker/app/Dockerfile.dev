@@ -1,7 +1,7 @@
-# Local development image for the API and web dev servers (ORG-DEV-01). Not for production:
+# Local development image for the API and web dev servers. Not for production:
 # the repository is bind-mounted into /app at run time and the dependencies live in Docker
 # volumes, so nothing is copied here. node:24.21.0-bookworm-slim, pinned by digest like the other
-# development images (D-058).
+# development images.
 FROM node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 # OpenSSL for the Prisma CLI (migrate deploy); pnpm at the workspace's pinned version
 # (package.json "packageManager"); the pnpm store is a volume.

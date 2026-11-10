@@ -70,7 +70,7 @@ The owner made the standards the base of the project (D-167) and, on 2026-11-11,
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U3. SeaweedFS and the standard's S3 settings
 - **Goal:** development and CI store files in SeaweedFS through the S3 driver under the standard's setting names.
@@ -220,8 +220,8 @@ The owner made the standards the base of the project (D-167) and, on 2026-11-11,
 
 ## Progress
 - **Branch:** `chore/ae-standards-rest`
-- **Updated:** 2026-11-11 12:00
-- **Next:** U2, the comment pointers: the mapping script in the scratchpad, then the hand pass
+- **Updated:** 2026-11-11 18:40
+- **Next:** U3, SeaweedFS and the standard's S3 settings
 - **Reviewed through:** C1 at 39e7c8dc (a document; code review skipped, docs check passed)
 - **Uncommitted:** none
-- **Notes:** the plan review (structure and security) asked for: the five `MINIO_*` names mapped one by one, the dev S3 key pair marked `css_dev_only` so production refuses it, SeaweedFS on 127.0.0.1 only, the dropped bucket rules said out loud, the unsafe Prisma raw calls refused, the sign-in failures kept one message, the three builder panels left out; all are in the plan.
+- **Notes:** U2: kept on purpose, the ADR file names inside document paths (an ID in a path is a file name, not a citation), a date after DECISION_LOG.md and the project names A1 and B1 of the test fixtures (data); a section number in a comment did not always mean what that heading now says (RBAC "6" meant field-level protection, "8.4" the object-level checks), so those were mapped by topic. The plan review (structure and security) asked for: the five `MINIO_*` names mapped one by one, the dev S3 key pair marked `css_dev_only` so production refuses it, SeaweedFS on 127.0.0.1 only, the dropped bucket rules said out loud, the unsafe Prisma raw calls refused, the sign-in failures kept one message, the three builder panels left out; all are in the plan.

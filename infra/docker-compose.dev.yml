@@ -1,18 +1,21 @@
-# Development services for the CSS ERP (D-053, SYSTEM_ARCHITECTURE section 8).
+# Development services for the CSS ERP (docs/architecture/SYSTEM_ARCHITECTURE.md, "Environments
+# and deployment").
 # Start from the repository root with `docker compose up -d` (compose.yaml includes this file).
-# Every port is bound to 127.0.0.1 only (D-056). The credentials below are dev-only defaults
+# Every port is bound to 127.0.0.1 only. The credentials below are dev-only defaults
 # that can be overridden from a root .env file (see infra/.env.example); staging and production
-# use their own compose project and secrets (T3.0).
+# use their own compose project and secrets.
 #
 # Images are pinned by digest. MinIO no longer publishes official community images (late 2025),
 # so the MinIO server and client come from Chainguard, which builds them from the upstream
-# source; production storage packaging is decided before T3.0 (STATUS, ADR-005).
+# source; production storage packaging is decided before the first deployment (docs/STATUS.md,
+# docs/architecture/ADR/ADR-005-minio-object-storage.md).
 
 name: css-erp-dev
 
 services:
   postgres:
-    # postgres:17.11-alpine (ST-03, D-074). A 16 data directory cannot be opened by 17, so the
+    # postgres:17.11-alpine, the standard's PostgreSQL 17. A 16 data directory cannot be opened by
+    # 17, so the
     # volume is pg-data-17; the old `pg-data` volume of 16 stays until the owner removes it
     # (`docker volume rm css-erp-dev_pg-data`); dev data is seed data (`pnpm db:migrate && pnpm db:seed`).
     image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24

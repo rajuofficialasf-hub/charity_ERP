@@ -1,4 +1,4 @@
-# CI for the CSS ERP on GitHub Actions (stages from docs/testing/TEST_STRATEGY.md section 6).
+# CI for the CSS ERP on GitHub Actions (stages from docs/testing/TEST_STRATEGY.md, "CI gate").
 # Every pull request and every push to main or develop: install, lint, typecheck, document checks,
 # unit and API tests against PostgreSQL 17, build, dependency audit and secret scan. Pushes to main
 # and develop also run E2E: develop gets every merged change, main every release. A push to any
