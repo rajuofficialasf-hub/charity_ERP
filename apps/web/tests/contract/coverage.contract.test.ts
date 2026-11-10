@@ -13,7 +13,20 @@ const RECORD_DIR = join(__dirname, '../../test-results/contract');
  * Folders whose calls the next steps of the plan cover; emptied when every response of the app has
  * its schema (docs/plans/2026-11-10-0925-migrate-ae-standards-code-only-plan.md, the last unit).
  */
-const NOT_YET = ['admin/'];
+const NOT_YET = [
+  // projects, forms and the office's applications
+  'admin/applications/',
+  'admin/forms/',
+  'admin/programs/',
+  'admin/projects/',
+  'admin/templates/',
+  // the system administration
+  'admin/audit/',
+  'admin/nisab/',
+  'admin/notifications/',
+  'admin/settings/',
+  'admin/system/',
+];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
