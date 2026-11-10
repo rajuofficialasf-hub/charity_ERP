@@ -447,12 +447,20 @@ describe('the rows of an export job', () => {
     await runner().run(id, 0);
     const done = (await at(s, 'get', `/exports/${id}`)).body.data;
     expect(done).toMatchObject({ status: 'done', rowCount: 0 });
-    const file = await h.db.query<{ size_bytes: string; virus_scan: string; source: string }>(
-      'SELECT size_bytes, virus_scan, source FROM files WHERE id = $1',
-      [done.fileId],
-    );
+    const file = await h.db.query<{
+      size_bytes: string;
+      virus_scan: string;
+      source: string;
+      storage_driver: string;
+    }>('SELECT size_bytes, virus_scan, source, storage_driver FROM files WHERE id = $1', [
+      done.fileId,
+    ]);
     expect(Number(file.rows[0]!.size_bytes)).toBeGreaterThan(0);
-    expect(file.rows[0]).toMatchObject({ virus_scan: 'clean', source: 'system' });
+    expect(file.rows[0]).toMatchObject({
+      virus_scan: 'clean',
+      source: 'system',
+      storage_driver: 'nas',
+    });
     expect((await contentOf(done.fileId)).subarray(3).toString('utf8')).toBe('নাম,BEN নম্বর\r\n');
   });
 

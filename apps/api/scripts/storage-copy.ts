@@ -12,6 +12,14 @@ import { createDriver, type StorageDriver } from '../src/storage';
 
 const NAMES: readonly StorageDriver['name'][] = ['nas', 's3'];
 
+function positiveLimit(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const limit = Number(value);
+  if (!Number.isInteger(limit) || limit < 1)
+    throw new Error('--limit must be a whole number above 0');
+  return limit;
+}
+
 function driverName(value: string | undefined, flag: string): StorageDriver['name'] {
   const name = NAMES.find((n) => n === value);
   if (!name) throw new Error(`${flag} must be one of ${NAMES.join(', ')}`);
@@ -44,11 +52,13 @@ async function main(): Promise<void> {
       to: createDriver(toName, envFor(toName)),
       toName,
       dryRun: values['dry-run'],
-      limit: values.limit ? Number(values.limit) : undefined,
+      limit: positiveLimit(values.limit),
       actorUserId: actor?.id ?? null,
     });
     console.warn(`storage:copy ${fromName} -> ${toName}: ${JSON.stringify(report)}`);
-    if (report.missing.length || report.failed.length) process.exitCode = 1;
+    // anything left for a look or a later run: the switch waits for a clean run with the app stopped
+    if (report.missing.length || report.failed.length || report.unprocessed.length)
+      process.exitCode = 1;
   } finally {
     await prisma.$disconnect();
   }

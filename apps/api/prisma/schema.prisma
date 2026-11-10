@@ -2789,7 +2789,7 @@ model File {
   bucket                             String
   objectKey                          String              @map("object_key")
   /// the driver that holds the file: nas or s3 (the copy to the NAS moves it)
-  storageDriver                      String              @map("storage_driver")
+  storageDriver                      String              @default("s3") @map("storage_driver")
   kind                               String
   mime                               String
   sizeBytes                          BigInt              @map("size_bytes")

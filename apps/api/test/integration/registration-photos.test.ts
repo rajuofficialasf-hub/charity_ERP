@@ -77,6 +77,7 @@ describe('POST /auth/register/photos/{slot}', () => {
     const row = (await fileRow(photo.body.data.fileId))!;
     expect(row).toMatchObject({
       bucket: 'profiles',
+      storage_driver: 'nas',
       kind: 'profile_photo',
       mime: 'image/jpeg',
       source: 'camera',

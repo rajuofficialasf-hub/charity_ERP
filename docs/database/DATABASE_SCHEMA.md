@@ -1574,7 +1574,7 @@ The early `media_subjects` and `media_stories` were never written and are droppe
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | bucket | text | no | — | — |
-| storage_driver | text | no | — | CHECK IN ('nas', 's3'): the driver that holds the file and its thumbnails; every writer sets it, no default, so a forgotten one fails; `storage:copy` moves it (D-168) |
+| storage_driver | text | no | 's3' | CHECK IN ('nas', 's3'): the driver that holds the file and its thumbnails; every writer sets it (the default is for an older API writing during a deploy, and fills the rows stored on MinIO before the column); `storage:copy` moves it (D-168) |
 | object_key | text | no | — | — |
 | kind | text | no | — | L-file-kind |
 | mime | text | no | — | — |
