@@ -1,5 +1,6 @@
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
+import { failureReason } from '../sync/failure-reason';
 import { Alert, Button, Card, Chip, ConfirmDialog, LinkButton, Skeleton, Stack, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -49,9 +50,7 @@ function Detail() {
     enabled: one.data?.data.local !== true,
   });
   const reasonOf = (code: string | null, params?: Record<string, string> | null) =>
-    code && te.has(code as never)
-      ? te(code as never, (params ?? undefined) as never)
-      : t('detail.action_failed');
+    failureReason(te, code, params, t('detail.action_failed'));
   const tSync = (key: 'store_unavailable' | 'record_on_its_way') => t(`sync.${key}`);
   const wordsOf = (error: unknown) =>
     storeMessage(error, tSync) ??

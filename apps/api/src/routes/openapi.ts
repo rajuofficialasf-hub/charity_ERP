@@ -6,7 +6,8 @@ import { defineRoute, type RouteDeps } from '../openapi/define-route';
 /**
  * Who may read the API's description: everyone in development, tests and staging, where the web
  * app's contract test reads it, and only a signed-in person in production, so a stranger does not
- * get the map of the admin and permission routes (docs/DECISION_LOG.md, D-168).
+ * get the map of the admin and permission routes (the owner's choice, in the decision log entry on
+ * the code-only part of the standards, docs/DECISION_LOG.md).
  */
 export function openApiAccess(nodeEnv: Env['NODE_ENV']): 'public' | 'authenticated' {
   return nodeEnv === 'production' ? 'authenticated' : 'public';

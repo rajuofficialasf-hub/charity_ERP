@@ -40,11 +40,8 @@ export interface SyncOutcome {
 /**
  * A world for the sync tests: an active project of the PM's program with its application form,
  * a Dhaka volunteer and a Rangpur volunteer with consent, the Dhaka RPM on the project's area, and
- * the helpers that shape records and batches the way the phone does.
- */
-/**
- * A project with a published form, its areas and volunteers, for the sync tests. `genderCodes` are
- * added to the gender list before the form is published, so the form offers them.
+ * the helpers that shape records and batches the way the phone does. `genderCodes` are added to
+ * the gender list before the form is published, so the form offers them.
  */
 export async function syncWorld(
   h: AuthHarness,

@@ -301,6 +301,7 @@ export async function markFailed(
       ...row,
       state: 'failed',
       failureCode: code,
+      failureParams: null,
       nextRetryAt: null,
       updatedAt: at,
     });

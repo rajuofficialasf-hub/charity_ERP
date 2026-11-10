@@ -1,5 +1,6 @@
 import type { Me } from '@css/shared/auth';
 import { maxSizeOf } from '@css/shared/files';
+import { failureReason } from '../sync/failure-reason';
 import type { Answer } from '@css/shared/forms';
 import { formatCount, formatDate, isoDateInDhaka } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
@@ -273,9 +274,7 @@ function ApplicationForm({
 
   /** The server's refusal of a record, in the reader's words. */
   const reasonOf = (code: string | null, params?: Record<string, string> | null) =>
-    code && te.has(code as never)
-      ? te(code as never, (params ?? undefined) as never)
-      : t('save_failed');
+    failureReason(te, code, params, t('save_failed'));
   /** A failure of the store itself (no store and no network) in the reader's words, else the error as it came. */
   const worded = (error: unknown): Error =>
     new Error(

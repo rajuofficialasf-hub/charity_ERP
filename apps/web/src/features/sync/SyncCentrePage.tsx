@@ -1,5 +1,6 @@
 import { formatCount, formatDateTime, formatFileSize } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
+import { failureReason } from './failure-reason';
 import { Alert, Button, ConfirmDialog, EmptyState, Skeleton } from '@/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -62,9 +63,7 @@ function Centre() {
   const [busy, setBusy] = useState<string | null>(null);
 
   const reasonOf = (code: string | null, params?: Record<string, string> | null) =>
-    code && te.has(code as never)
-      ? te(code as never, (params ?? undefined) as never)
-      : t('reason_unknown');
+    failureReason(te, code, params, t('reason_unknown'));
   const tSync = (key: 'store_unavailable' | 'record_on_its_way') => ta(key);
   const failWith = (error: unknown) =>
     setNotice({

@@ -99,7 +99,8 @@ export class SubmissionWriter {
       if (volunteers.length && mobile)
         await this.identity.assertNotVolunteerMobile(tx, mobile, volunteers);
       const dob = text(standard, 'dob');
-      await this.assertListed(tx, definition, text(standard, 'gender_code') ?? '');
+      const genderCode = text(standard, 'gender_code');
+      if (genderCode) await this.assertListed(tx, definition, genderCode);
       const profile = await this.createProfile(tx, actor, {
         ...(nid ? { nid } : {}),
         ...(birthReg ? { birthReg } : {}),
@@ -205,13 +206,12 @@ export class SubmissionWriter {
     const field = [...indexFields(definition).values()].find(
       (located) => located.field.standardColumn === 'gender_code',
     )?.field;
+    // an empty answer, or one no question holds, keeps the profile's own refusal
+    if (!field) return;
     const locale = currentContext()?.locale ?? 'bn';
-    throw new ApiError(
-      'application.answer_not_in_list',
-      422,
-      { question: field?.label[locale] ?? '' },
-      [{ path: `answers.${field?.fieldKey ?? 'gender'}`, code: 'validation.option_unknown' }],
-    );
+    throw new ApiError('application.answer_not_in_list', 422, { question: field.label[locale] }, [
+      { path: `answers.${field.fieldKey}`, code: 'validation.option_unknown' },
+    ]);
   }
 
   /** The profile from the answers; a code outside its reference list is the form's mistake, not the server's. */

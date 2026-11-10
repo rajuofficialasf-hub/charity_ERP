@@ -1,5 +1,6 @@
 // The contract check of one response, and the record of which calls the run reached, for the
-// coverage check (scripts/contract-coverage.mjs) that compares them with the app's own calls.
+// coverage check (apps/web/tests/contract/coverage.contract.test.ts) that compares them with the
+// app's own calls.
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect } from 'vitest';

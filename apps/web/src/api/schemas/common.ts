@@ -2,7 +2,7 @@ import type { Bilingual } from '@css/shared/i18n';
 import { SUPPORTED_LOCALES } from '@css/shared/i18n';
 import { z } from 'zod';
 
-/** The pieces most responses share: a name in both languages, the language, a page's meta. */
+/** The pieces most responses share: a name in both languages and the language. */
 export const bilingual = z.object({
   bn: z.string(),
   en: z.string(),

@@ -74,6 +74,12 @@ interface SyncContext {
   view: ApplicationViewer;
 }
 
+/** The values of a refusal's message that the client may show, as the error block sends them. */
+function publicParams(error: ApiError): RowResult['params'] {
+  if (!error.params || !PUBLIC_PARAMS.has(error.code)) return undefined;
+  return Object.fromEntries(Object.entries(error.params).map(([k, v]) => [k, String(v)]));
+}
+
 /**
  * The batch a phone sends when the network returns (docs/architecture/OFFLINE_SYNC.md "Batch sync
  * endpoint"): each record goes through the ordinary application service with the volunteer as
@@ -82,12 +88,6 @@ interface SyncContext {
  * replay answers the stored results; a record that depends on a failed one fails with it. Only a
  * volunteer's records are processed: an official holds no outbox in this task.
  */
-/** The values of a refusal's message that the client may show, as the error block sends them. */
-function publicParams(error: ApiError): RowResult['params'] {
-  if (!error.params || !PUBLIC_PARAMS.has(error.code)) return undefined;
-  return Object.fromEntries(Object.entries(error.params).map(([k, v]) => [k, String(v)]));
-}
-
 export class SyncService {
   constructor(
     private readonly prisma: PrismaService,
