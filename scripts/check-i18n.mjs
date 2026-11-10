@@ -85,7 +85,8 @@ const allowed = [
   /^packages\/shared\/src\/testing\//,
   /^apps\/api\/seed\//,
   /\.(test|spec)\.(ts|tsx)$/,
-  /\/(test|e2e)\//,
+  // test data: the unit, E2E and contract tests' own names and labels
+  /\/(test|tests|e2e)\//,
 ];
 const scripts = walk('apps', (p) => /\.(ts|tsx|mjs|js)$/.test(p))
   .concat(walk('packages', (p) => /\.(ts|tsx|mjs|js)$/.test(p)))

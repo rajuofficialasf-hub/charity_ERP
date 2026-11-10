@@ -1,7 +1,7 @@
 ---
 title: Bring the repo to the As-Sunnah standards, the code-only part
 type: migrate
-status: in-progress
+status: done
 source: plan
 date: 2026-11-10
 doc_review: 2026-11-10
@@ -165,7 +165,7 @@ The small part of the standards (D-167, plan `docs/plans/2026-11-09-1215-migrate
 - **Depends on:** U6
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U8. Schemas of the people screens of the admin area
 - **Goal:** the volunteer, beneficiary, merge, registration, staff, user, permission and handover screens are covered.
@@ -179,7 +179,7 @@ The small part of the standards (D-167, plan `docs/plans/2026-11-09-1215-migrate
 - **Depends on:** U6
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U9. Schemas of the project, form and application screens of the admin area
 - **Goal:** programs, projects, setup, project volunteers, transfers, templates, the form builder and the office's applications are covered.
@@ -193,7 +193,7 @@ The small part of the standards (D-167, plan `docs/plans/2026-11-09-1215-migrate
 - **Depends on:** U6
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U10. Schemas of the system screens, and coverage closed
 - **Goal:** settings, nisab, audit, system health and notification admin are covered, and the coverage check allows no uncovered call.
@@ -207,7 +207,7 @@ The small part of the standards (D-167, plan `docs/plans/2026-11-09-1215-migrate
 - **Depends on:** U7, U8, U9
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ## Checkpoints
 - **Mode:** grouped (one by one 0, grouped 17, all at once 0; one by one scored 10, moved to grouped since N is over 4)
@@ -242,11 +242,3 @@ The small part of the standards (D-167, plan `docs/plans/2026-11-09-1215-migrate
 - Verification commands pass
 - `ae-review` has run, with no open P0 or P1
 - Code from abandoned attempts is removed
-
-## Progress
-- **Branch:** `chore/ae-standards-code-only`
-- **Updated:** 2026-11-10 21:40
-- **Next:** U7, the schemas of the volunteer's and the person's own screens (`features/**`, `lib/uploads.ts`, `offline/sync-api.ts`, `components/`), each module's types derived from its schema, a contract case per call, the area dropped from `NOT_YET`
-- **Reviewed through:** C4 at a30dea1b
-- **Uncommitted:** none
-- **Notes:** the plan's security review asked for the OpenAPI document behind a sign-in in production (the owner chose it), a loopback-only contract test, a realpath check in the NAS driver, a size check before the copy flips a row, a 2 s reuse of the readiness result and no secrets in the probe logs; all are in the plan. U1: the probes got the rate-limit class `probe` (no limit) in redocly.yaml and API_STANDARDS section 10, and a commented Redocly ignore file (`docs/api/.redocly.lint-ignore.yaml`) for the rule that wants a 4xx response, which a probe never gives; `HealthService.detail()` keeps each check's result for the system health page (admin session), sharing the probe's run; `markShuttingDown` is in U1 already, U2 wires it to the signal. The compose healthcheck on the new path is checked once this reaches develop (the main checkout runs develop). C1 review (logic, security, standards; T2): P1 readiness never fails on SIGTERM because nothing calls `markShuttingDown` yet, which is U2's job; P2 fixed: a failed pg-boss start was cached, keeping the critical queue check down until a restart (`job-runner.ts`, new `job-runner.spec.ts`); P3 fixed: the test-only `forget()`, a redundant try/catch, a map lookup, the log exclusion by case and trailing slash. The betterleaks P0 was the log test's fake credential; the value is now built from parts. The E2E server runs the built API (`dist/`), so a local Playwright run needs `pnpm --filter @css/api build` after an API change (`pnpm e2e` and CI build first). U2: the grace period counts from after the delay (`graceMs = SHUTDOWN_DELAY_MS + 35 s`), so a delay never shortens the drain; `SHUTDOWN_DELAY_MS` is capped at 30 s. The manual `docker compose stop api` check waits for develop on the main checkout. U3: `ping` keeps its signature without an AbortSignal (neither `fs.access` nor the MinIO client takes one; the health service already bounds each check to 2 s), a small departure from the plan's wording. The bucket is checked against the known list inside the driver too, so a crafted bucket name can't lead out of the root. A file-link test needs rights Windows grants here; the read-only root test runs only off Windows (CI). C2 review (T2; no P0 or P1): P2 fixed, one temporary name per key let a retried upload part truncate the first write (now a name per write, body and content type file); P2 fixed, a comment that told history; P3 fixed: the grace counted inside the shutdown after the delay, the delay capped at 5 s for the 40 s stop grace, the content type file parsed with zod and a missing one read as unknown, a stale storage line in SYSTEM_ARCHITECTURE; P3 left: a second signal does not force an exit (the grace timer does), and the NAS ping cannot tell an unmounted share from an empty folder (its comment now says what it checks); the two duplicate-code leads were small try/catch shapes, not taken. U4: the shared fixture `insert` of the database tests gives a file row `storage_driver: nas` unless the test names one (like the app on the test configuration), and eight raw SQL inserts name it; the copy writes one audit entry per batch by the system user (`users.kind = system`); the migration adds an index (storage_driver, id) for the copy. The dry run on the dev database was not run: the main checkout runs develop, whose API would then write rows without the driver; the integration dry-run case stands in, and the first real dry run is the RUNBOOK step at T3.0. After the merge, `pnpm db:migrate` on the dev database. C3 review (T2): P1 fixed, the switch could lose files written after the last pass and thumbnails made after a row was copied (the copy now waits with an unprocessed upload, reports what is left, and the runbook stops the api and drains the worker before the last pass); P2 fixed: the copy checks the SHA-256 read back from the target; P2 decided: the default s3 stays (expand only, a deploy may still run the earlier API; the drift test keeps the schema and the migrations equal), so the plan's "drop the default" is the later contract step after the switch, and each writer's test checks the driver instead of the types; P2 fixed: tests for a refusing target, a thumbnail failing or missing, batches and the limit; P3 fixed: one bad row no longer stops the run, the audit is written per batch even on an error, `--limit` is checked; P3 left: thumbnails copied one after the other (gentle on MinIO); `createDriver` got its own test. U5: the check runs before the profile is made (a foreign-key refusal aborts the transaction, so it cannot be read afterwards): the gender answer must be a code of the gender list; the profile takes no other coded column. The refusal travels with its values through the sync row result (`params` in `rowResultSchema` and openapi RowResult), the outbox keeps `failureParams`, and the three screens that word a refusal pass them. BR-296 added. U6 API part committed on its own: `routes/openapi.ts` (`reference.openapi.get`, public outside production, authenticated in production by `openApiAccess`, registered last in `app.ts`, sends with `res.json` so the contract recorder reads it), the authz matrix regenerated. U6 web part: the coverage check is the last contract file (a sequencer in `vitest.contract.config.mts` runs the suites one after another, coverage last), reading the calls the suites recorded in `apps/web/test-results/contract/`; its `NOT_YET` list holds the folders U7 to U10 cover; the client's own `api` and its retry are not calls. The session schemas are tied to the shared `Me` and `TokenPair` with `satisfies z.ZodType<…>` (the shared types stay, a combined repo keeps packages/shared). Run locally against `e2e:server` after `pnpm --filter @css/api build`: 3 of 3. C4 review (T2; no P0 or P1 after checking): P2 fixed, an empty gender answer was blamed on an old form (the check now only for a present code with its question found); P2 fixed: a decision number in a code comment, the batch description moved off its class, the OpenAPI test compared the builder with itself and never reached the production 401; P3 fixed: `markFailed` keeps no old values, one `failureReason` helper for the three screens, stale comments; left: the question is stored in the language of the send (a later language switch shows it in the other language), the OpenAPI document is public when a deploy forgets NODE_ENV (the app-wide default, a staging task item); the betterleaks lead on the demo password is the published test value the E2E specs hold too.

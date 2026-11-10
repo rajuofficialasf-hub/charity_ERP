@@ -53,7 +53,7 @@ export function GrantDialog({
   });
   const save = useMutation({
     mutationFn: () =>
-      api('/permission-grants', {
+      api<unknown>('/permission-grants', {
         method: 'POST',
         body: {
           userId: user.id,

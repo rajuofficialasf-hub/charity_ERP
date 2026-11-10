@@ -9,12 +9,6 @@ import { contractBase } from './support/session';
 const SRC = join(__dirname, '../../src');
 const RECORD_DIR = join(__dirname, '../../test-results/contract');
 
-/**
- * Folders whose calls the next steps of the plan cover; emptied when every response of the app has
- * its schema (docs/plans/2026-11-10-0925-migrate-ae-standards-code-only-plan.md, the last unit).
- */
-const NOT_YET = ['features/', 'admin/', 'components/', 'lib/uploads.ts', 'offline/'];
-
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
@@ -24,7 +18,7 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe.skipIf(!contractBase())('the contract run reaches every call of the app', () => {
-  it('has a case for each call outside the folders still to come', () => {
+  it('has a case for each call of the app', () => {
     const reached = new Set(
       readdirSync(RECORD_DIR).flatMap((file) =>
         readFileSync(join(RECORD_DIR, file), 'utf8')
@@ -36,7 +30,6 @@ describe.skipIf(!contractBase())('the contract run reaches every call of the app
     const missing: string[] = [];
     for (const file of sourceFiles(SRC)) {
       const name = relative(SRC, file).replace(/\\/g, '/');
-      if (NOT_YET.some((prefix) => name.startsWith(prefix))) continue;
       const { calls, unread } = callsIn(readFileSync(file, 'utf8'));
       for (const c of calls) if (!reached.has(c)) missing.push(`${name}: ${c}`);
       // the client's own `api` takes its path as an argument and retries with it

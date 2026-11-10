@@ -9,6 +9,7 @@ import {
   type RegistrationVerifyResult,
 } from '@css/shared/registration';
 import { api, ApiFailure } from '../../api/client';
+import type { Location, StoredFile } from '../../api/schemas';
 import { orCached } from '../../lib/or-cached';
 
 /**
@@ -21,12 +22,7 @@ export interface Draft {
   token?: string;
 }
 
-export interface Location {
-  id: string;
-  name: { bn: string; en: string };
-  /** The four-digit post code of an upazila or a union-level place; null above them. */
-  postCode: string | null;
-}
+export type { Location };
 
 /** A new draft of the kind; nothing is sent yet. */
 export const startDraft = (kind: RegistrationKind) =>
@@ -56,7 +52,7 @@ export const uploadDraftPhoto = async (
   photo: Blob,
   source: string,
 ) =>
-  api<{ fileId: string }>(
+  api<StoredFile>(
     `/auth/register/photos/${slot}?registrationId=${draft.registrationId}&source=${source}`,
     {
       method: 'POST',
@@ -76,7 +72,10 @@ export const submitRegistration = (draft: Draft, body: RegistrationSubmitRequest
  */
 export const locations = (parentId?: string) =>
   orCached(
-    () => api<Location[]>(`/locations${parentId ? `?parentId=${parentId}` : ''}`, {}, false),
+    () =>
+      parentId
+        ? api<Location[]>(`/locations?parentId=${parentId}`, {}, false)
+        : api<Location[]>('/locations', {}, false),
     async () => (await import('../../offline/snapshot')).cachedChildren(parentId ?? null),
   );
 

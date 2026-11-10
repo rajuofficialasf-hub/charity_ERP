@@ -1,29 +1,9 @@
 import { UPLOAD_RULES, type FileKind, type FileSource } from '@css/shared/files';
 import { isTransientStatus } from '@css/shared/sync';
 import { api, ApiFailure } from '../api/client';
+import type { UploadedFile, UploadSession } from '../api/schemas';
 
-/** An upload in progress as the server holds it. */
-export interface UploadSession {
-  id: string;
-  chunkSize: number;
-  partCount: number;
-  partsReceived: number[];
-  bytesReceived: number;
-  expiresAt: string;
-  fileId: string | null;
-}
-
-/** A stored file right after its upload. */
-export interface UploadedFile {
-  id: string;
-  kind: string;
-  mime: string;
-  sizeBytes: number;
-  capturedAt: string | null;
-  uploadedAt: string;
-  virusScan: 'pending' | 'clean' | 'infected' | 'failed' | 'skipped';
-  flags: string[];
-}
+export type { UploadedFile, UploadSession };
 
 /** What an upload declares: the record it links to and what the phone measured. */
 export interface UploadTarget {

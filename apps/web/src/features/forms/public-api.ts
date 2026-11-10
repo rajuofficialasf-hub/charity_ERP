@@ -1,23 +1,19 @@
-import type { Answer, FormDefinition } from '@css/shared/forms';
+import type { Answer } from '@css/shared/forms';
 import { api } from '../../api/client';
+import type { PublicForm, PublicSubmission, StoredFile } from '../../api/schemas';
 
-/** The form behind a public link, as the API answers it to anyone: the volunteer-visible part. */
-export interface PublicForm {
-  project: { name: { bn: string; en: string }; applyTo: string | null };
-  form: FormDefinition & { id: string; versionNo: number };
-}
-
-const base = (token: string) => `/public/forms/${encodeURIComponent(token)}`;
+export type { PublicForm };
 
 /** No login: the token in the path is the whole access, so no refresh is tried on a refusal. */
-export const publicForm = (token: string) => api<PublicForm>(base(token), {}, false);
+export const publicForm = (token: string) =>
+  api<PublicForm>(`/public/forms/${encodeURIComponent(token)}`, {}, false);
 
 export const submitPublic = (
   token: string,
   body: { clientUuid: string; clientCreatedAt: string; answers: Answer[] },
 ) =>
-  api<{ id: string; status: string }>(
-    `${base(token)}/applications`,
+  api<PublicSubmission>(
+    `/public/forms/${encodeURIComponent(token)}/applications`,
     { method: 'POST', body },
     false,
   );
@@ -29,8 +25,8 @@ export const uploadPublicPhoto = async (
   fieldKey: string,
   photo: Blob,
 ) =>
-  api<{ fileId: string }>(
-    `${base(token)}/photos?clientUuid=${encodeURIComponent(clientUuid)}&fieldKey=${encodeURIComponent(fieldKey)}`,
+  api<StoredFile>(
+    `/public/forms/${encodeURIComponent(token)}/photos?clientUuid=${encodeURIComponent(clientUuid)}&fieldKey=${encodeURIComponent(fieldKey)}`,
     {
       method: 'POST',
       rawBody: await photo.arrayBuffer(),

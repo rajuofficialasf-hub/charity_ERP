@@ -35,7 +35,9 @@ export function callsIn(source: string): { calls: string[]; unread: number[] } {
       continue;
     }
     const end = source.indexOf(quote, start + 1);
-    const path = source.slice(start + 1, end);
+    // the admin lists' `listQuery(…)` only ever adds a query (`?a=1` or nothing), so the path
+    // ends where it starts
+    const path = source.slice(start + 1, end).split('${listQuery(')[0]!;
     // the method sits in the options object that follows the path, before the call closes
     const rest = source.slice(end + 1, end + 400);
     const close = rest.search(/\)\s*[;,.)\n]/);

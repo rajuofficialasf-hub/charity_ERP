@@ -1,36 +1,8 @@
-import type { ExportFormat, ExportKind, ExportList, ExportRequest } from '@css/shared/exports';
-import type { Bilingual } from '@css/shared/i18n';
+import type { ExportList, ExportRequest } from '@css/shared/exports';
 import { api } from '../../api/client';
+import type { ExportColumns, ExportColumnView, ExportJob } from '../../api/schemas';
 
-/** One column the dialog offers, as `GET /exports/columns` answers it. */
-export interface ExportColumnView {
-  id: string;
-  label: Bilingual;
-  group: 'list' | 'detail' | 'question';
-  protected: boolean;
-  onScreen: boolean;
-  kind: string;
-  section: { key: string; title: Bilingual } | null;
-}
-
-/** An export job as its requester follows it. */
-export interface ExportJob {
-  id: string;
-  kind: ExportKind;
-  format: ExportFormat;
-  status: 'queued' | 'running' | 'done' | 'failed';
-  columns: string[];
-  rowsDone: number;
-  rowsTotal: number | null;
-  rowCount: number | null;
-  fileId: string | null;
-  sensitive: boolean;
-  errorCode: string | null;
-  createdAt: string;
-  finishedAt: string | null;
-  /** The file was deleted after its keep time; the job stays. */
-  expired: boolean;
-}
+export type { ExportColumnView, ExportJob };
 
 export const EXPORTS_KEY = ['exports'] as const;
 
@@ -52,7 +24,7 @@ export async function exportColumns(
   projectId?: string,
 ): Promise<ExportColumnView[]> {
   const query = new URLSearchParams({ list, ...(projectId ? { projectId } : {}) });
-  const data = await api<{ columns: ExportColumnView[] }>(`/exports/columns?${query.toString()}`);
+  const data = await api<ExportColumns>(`/exports/columns?${query.toString()}`);
   return data.columns;
 }
 
@@ -65,9 +37,9 @@ export function startRecordPdf(
   kind: 'beneficiary_profile' | 'application',
   id: string,
 ): Promise<ExportJob> {
-  const path =
-    kind === 'beneficiary_profile' ? `/beneficiaries/${id}/pdf` : `/applications/${id}/pdf`;
-  return api<ExportJob>(path, { method: 'POST' });
+  return kind === 'beneficiary_profile'
+    ? api<ExportJob>(`/beneficiaries/${id}/pdf`, { method: 'POST' })
+    : api<ExportJob>(`/applications/${id}/pdf`, { method: 'POST' });
 }
 
 export function exportJob(id: string): Promise<ExportJob> {

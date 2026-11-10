@@ -1,19 +1,9 @@
-import type { TemplateSave, TemplateUpdate, WorkflowKey } from '@css/shared/projects';
+import type { TemplateSave, TemplateUpdate } from '@css/shared/projects';
 import { api } from '../../api/client';
+import type { Template } from '../../api/schemas';
 import { listQuery } from '../list-query';
 
-/** A master project template as GET /templates returns it. */
-export interface Template {
-  id: string;
-  name: { bn: string; en: string };
-  description: string | null;
-  workflowKey: WorkflowKey;
-  active: boolean;
-  version: number;
-  sourceProjectId: string | null;
-  updatedAt: string;
-  updatedByName: string | null;
-}
+export type { Template };
 
 export const TEMPLATES_KEY = ['admin', 'templates'] as const;
 
