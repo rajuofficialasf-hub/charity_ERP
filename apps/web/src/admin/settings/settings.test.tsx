@@ -94,7 +94,7 @@ function serve() {
     http.patch('*/api/v1/settings/:key', async ({ params, request }) => {
       const body = (await request.json()) as { value: { budgetAlertPercent?: number } };
       patched.push({ key: String(params.key), body });
-      if (body.value.budgetAlertPercent === 150)
+      if (body.value.budgetAlertPercent === 99)
         return HttpResponse.json(
           {
             error: {
@@ -175,6 +175,33 @@ describe('the settings page', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('sends a save once when Enter is pressed again while it is on its way', async () => {
+    refreshAs(HEAD);
+    serve();
+    let answer: () => void = () => {};
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    const bodies: unknown[] = [];
+    server.use(
+      http.patch('*/api/v1/settings/:key', async ({ params, request }) => {
+        bodies.push(await request.json());
+        await answered;
+        return HttpResponse.json({
+          data: { key: params.key, value: SETTING_DEFAULTS.organisation, updatedAt: null },
+          meta: {},
+        });
+      }),
+    );
+    open();
+    const phone = await screen.findByRole('textbox', { name: /^যোগাযোগের মোবাইল/ });
+    const user = userEvent.setup();
+    await user.type(phone, '{Enter}');
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    await user.type(phone, '{Enter}');
+    answer();
+    expect(await screen.findByText('সেটিংস সংরক্ষিত হয়েছে।')).toBeInTheDocument();
+    expect(bodies).toEqual([{ value: SETTING_DEFAULTS.organisation }]);
+  });
+
   it('changes a threshold and shows the server message on the field it names', async () => {
     refreshAs(HEAD);
     serve();
@@ -191,10 +218,19 @@ describe('the settings page', () => {
       body: { value: { reviewPendingDays: 8, budgetAlertPercent: 90 } },
     });
     const budget = screen.getByRole('textbox', { name: /^বাজেট ব্যবহারের সতর্কসীমা/ });
+    // a value outside the setting's range is refused before the server is asked, in its words
     await user.clear(budget);
     await user.type(budget, '150');
     await user.click(screen.getByRole('button', { name: 'সংরক্ষণ করুন' }));
     expect(await screen.findByText('মানটি অনুমোদিত সীমার বাইরে।')).toBeInTheDocument();
+    expect(patched).toHaveLength(1);
+    // one the server refuses shows its message on the field it names
+    await user.clear(budget);
+    await user.type(budget, '99');
+    await user.click(screen.getByRole('button', { name: 'সংরক্ষণ করুন' }));
+    await waitFor(() => expect(patched).toHaveLength(2));
+    await waitFor(() => expect(budget).toHaveAccessibleDescription(/মানটি অনুমোদিত সীমার বাইরে।/));
+    expect(screen.queryByText('কিছু তথ্য সঠিক নয়।')).not.toBeInTheDocument();
   });
 
   it('keeps the default language', async () => {
@@ -308,12 +344,14 @@ describe('the settings page', () => {
   it('says when the dummy OTP is off, and shows a refused endpoint on its field', async () => {
     refreshAs(HEAD);
     serve();
+    let puts = 0;
     server.use(
       http.get('*/api/v1/admin/channels', () =>
         HttpResponse.json({ data: { ...CHANNELS, otpDummy: false }, meta: {} }),
       ),
-      http.put('*/api/v1/admin/channels/sms', () =>
-        HttpResponse.json(
+      http.put('*/api/v1/admin/channels/sms', () => {
+        puts += 1;
+        return HttpResponse.json(
           {
             error: {
               code: 'validation.failed',
@@ -329,18 +367,30 @@ describe('the settings page', () => {
             },
           },
           { status: 422 },
-        ),
-      ),
+        );
+      }),
     );
     open('channels');
     expect(await screen.findByText('ডামি OTP বন্ধ আছে।')).toBeInTheDocument();
     expect(screen.queryByText('ডামি OTP চালু আছে')).toBeNull();
     const user = userEvent.setup();
-    await user.type(screen.getByRole('textbox', { name: /^এন্ডপয়েন্ট/ }), 'http://10.0.0.1/send');
+    const endpoint = screen.getByRole('textbox', { name: /^এন্ডপয়েন্ট/ });
+    // an address inside the network is refused before the server is asked, in its words
+    await user.type(endpoint, 'http://10.0.0.1/send');
     await user.click(screen.getByRole('button', { name: 'সংরক্ষণ করুন' }));
     expect(
       await screen.findByText('প্রোভাইডারের ইন্টারনেটের https ঠিকানা দিন।'),
     ).toBeInTheDocument();
+    expect(puts).toBe(0);
+    // one the server refuses shows its message on the field it names
+    await user.clear(endpoint);
+    await user.type(endpoint, 'https://sms.example.com/send');
+    await user.click(screen.getByRole('button', { name: 'সংরক্ষণ করুন' }));
+    await waitFor(() => expect(puts).toBe(1));
+    await waitFor(() =>
+      expect(endpoint).toHaveAccessibleDescription(/প্রোভাইডারের ইন্টারনেটের https ঠিকানা দিন।/),
+    );
+    expect(screen.queryByText('কিছু তথ্য সঠিক নয়।')).not.toBeInTheDocument();
   });
 
   it('refuses a list code in capitals before asking the server', async () => {

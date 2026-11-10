@@ -1,20 +1,22 @@
-import type { SmsProviderSetting } from '@css/shared/settings';
+import { type SmsProviderSetting, smsProviderSettingSchema } from '@css/shared/settings';
 import {
   Alert,
   Button,
   Card,
   Chip,
   DescriptionList,
+  Form,
+  FormTextField,
   Grid,
   Skeleton,
   Stack,
   Switch,
-  TextField,
 } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type FormEvent, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../api/client';
+import { z } from 'zod';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { type Channels, CHANNELS_KEY, channels, setSms } from './settings-api';
 import { LoadError } from '../../components/LoadError';
 
@@ -30,79 +32,90 @@ export function DummyOtpAlert({ on }: { on: boolean }) {
   );
 }
 
+/** The SMS fields as typed: the body sent is trimmed, with empty text as null. */
+type SmsFields = { provider: string; senderId: string; endpoint: string; enabled: boolean };
+const text = (value: string) => (value.trim() === '' ? null : value.trim());
+const bodyOf = (v: SmsFields): SmsProviderSetting => ({
+  provider: text(v.provider),
+  senderId: text(v.senderId),
+  endpoint: text(v.endpoint),
+  enabled: v.enabled,
+});
+/** The setting's own rules, checked on the body the fields make. */
+const SMS_SCHEMA = z
+  .object({
+    provider: z.string(),
+    senderId: z.string(),
+    endpoint: z.string(),
+    enabled: z.boolean(),
+  })
+  .transform(bodyOf)
+  .pipe(smsProviderSettingSchema);
+
 function SmsForm({ data, onSaved }: { data: Channels; onSaved: () => void }) {
   const t = useTranslations('admin.settings.channels');
   const ts = useTranslations('admin.settings');
-  // the fields keep what is typed; the body is trimmed and empty text becomes null when sent
-  const [v, setV] = useState({
-    provider: data.sms.config.provider ?? '',
-    senderId: data.sms.config.senderId ?? '',
-    endpoint: data.sms.config.endpoint ?? '',
-    enabled: data.sms.config.enabled,
-  });
-  const text = (value: string) => (value.trim() === '' ? null : value.trim());
-  const body = (): SmsProviderSetting => ({
-    provider: text(v.provider),
-    senderId: text(v.senderId),
-    endpoint: text(v.endpoint),
-    enabled: v.enabled,
+  const te = useTranslations('common.state.error');
+  const form = useForm<SmsFields>({
+    resolver: useSchemaResolver(SMS_SCHEMA),
+    defaultValues: {
+      provider: data.sms.config.provider ?? '',
+      senderId: data.sms.config.senderId ?? '',
+      endpoint: data.sms.config.endpoint ?? '',
+      enabled: data.sms.config.enabled,
+    },
+    reValidateMode: 'onSubmit',
   });
   const queryClient = useQueryClient();
   const save = useMutation({
-    mutationFn: () => setSms(body()),
+    mutationFn: (v: SmsFields) => setSms(bodyOf(v)),
     onSuccess: (next) => {
       queryClient.setQueryData(CHANNELS_KEY, next);
       onSaved();
     },
+    onError: (failure) => showFailure(form, failure, te('text')),
   });
-  const failure = save.error instanceof ApiFailure ? save.error : undefined;
-  const detail = (path: string) => failure?.details.find((d) => d.path === path)?.message;
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    save.mutate();
+  // Enter in a field submits too; a save already on its way is not sent again
+  const submit = (v: SmsFields) => {
+    if (!save.isPending) save.mutate(v);
   };
   return (
-    <form method="post" noValidate onSubmit={submit} aria-label={t('sms_title')}>
+    <Form
+      form={form}
+      onSubmit={submit}
+      label={t('sms_title')}
+      error={form.formState.errors.root?.server?.message}
+    >
       <Grid columns={{ base: 1, md: 2 }} gap={3}>
-        <TextField
+        <FormTextField
+          name="provider"
           label={t('provider')}
           hint={t('provider_hint')}
           lang="en"
           maxLength={40}
-          value={v.provider}
-          onChange={(provider) => setV({ ...v, provider })}
-          error={detail('provider')}
         />
-        <TextField
-          label={t('sender')}
-          lang="en"
-          maxLength={20}
-          value={v.senderId}
-          onChange={(senderId) => setV({ ...v, senderId })}
-          error={detail('senderId')}
-        />
-        <TextField
+        <FormTextField name="senderId" label={t('sender')} lang="en" maxLength={20} />
+        <FormTextField
+          name="endpoint"
           label={t('endpoint')}
           hint={t('endpoint_hint')}
           lang="en"
           maxLength={500}
-          value={v.endpoint}
-          onChange={(endpoint) => setV({ ...v, endpoint })}
-          error={detail('endpoint')}
         />
       </Grid>
-      <Switch
-        label={t('enabled')}
-        checked={v.enabled}
-        onChange={(enabled) => setV({ ...v, enabled })}
+      <Controller
+        control={form.control}
+        name="enabled"
+        render={({ field }) => (
+          <Switch label={t('enabled')} checked={field.value} onChange={field.onChange} />
+        )}
       />
-      {failure && !failure.details.length && <Alert tone="error">{failure.message}</Alert>}
       <div className="admin-form-actions">
         <Button type="submit" loading={save.isPending}>
           {ts('save')}
         </Button>
       </div>
-    </form>
+    </Form>
   );
 }
 
