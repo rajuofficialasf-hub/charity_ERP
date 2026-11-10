@@ -36,3 +36,20 @@ export function expectContract<T>(
     );
   return parsed.data;
 }
+
+/**
+ * The whole answer `{ data, meta }` parsed with the web app's schema, for the calls that read the
+ * envelope (a page's cursor and total, a record's version).
+ */
+export function expectEnvelope<T>(
+  response: { status: number; body: unknown },
+  status: number,
+  schema: z.ZodType<T>,
+): T {
+  return expectContract({ status: response.status, body: { data: response.body } }, status, schema);
+}
+
+/** A call whose answer the app does not read (an empty 204, a streamed file): its status only. */
+export function expectStatus(response: { status: number; body: unknown }, status: number): void {
+  expect(response.status, JSON.stringify(response.body)).toBe(status);
+}

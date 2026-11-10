@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { callsIn, normalizedCall } from './calls';
-import { contractBase } from './session';
+import { at, contractBase } from './session';
 
 describe('the contract test’s address', () => {
   it('skips without an address and takes this machine only', () => {
@@ -28,6 +28,13 @@ describe('the app’s calls read from its source', () => {
       calls: ['GET /me/profile', 'GET /projects/{}/forms', 'POST /applications/{}/unlocks'],
       unread: [4],
     });
+  });
+
+  it('records a word in the path where the app’s source has a variable', () => {
+    const slot = 'photo';
+    const path = at`/me/photos/${slot}?requestId=${'0190a2c3-7b1d-7c2a-9b1e-2d3f4a5b6c7d'}`;
+    expect(path.url).toBe('/me/photos/photo?requestId=0190a2c3-7b1d-7c2a-9b1e-2d3f4a5b6c7d');
+    expect(normalizedCall('POST', path.marked)).toBe('POST /me/photos/{}');
   });
 
   it('writes a call of the run in the same form', () => {

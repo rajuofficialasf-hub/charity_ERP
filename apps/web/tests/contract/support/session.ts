@@ -31,30 +31,55 @@ export interface Caller {
 
 export interface Sent {
   status: number;
+  /** The parsed JSON answer; null for an empty or a non-JSON answer (a streamed file). */
   body: unknown;
+  /** The Content-Type the API answered with. */
+  contentType: string | null;
 }
 
-/** One request to the API as the app sends it, recorded for the coverage check. */
+/** A request path with its variable parts marked, as the app's source writes the call. */
+export interface MarkedPath {
+  url: string;
+  marked: string;
+}
+
+/**
+ * `` at`/reference-lists/${list}` ``: the path to send, recorded with each interpolated part
+ * marked, for a part that is a word rather than an id (a list's name, an action, a photo slot, a
+ * link's token), which the record could not otherwise tell from a fixed segment.
+ */
+export function at(strings: TemplateStringsArray, ...parts: unknown[]): MarkedPath {
+  const join = (fill: (part: unknown) => string) =>
+    String.raw({ raw: strings }, ...parts.map(fill));
+  return { url: join(String), marked: join(() => '${}') };
+}
+
+/**
+ * One request to the API as the app sends it, recorded for the coverage check. A byte body (a
+ * photo, an upload part) goes as it is, with the type the caller names in `headers`.
+ */
 export async function call(
   caller: Caller | null,
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
-  path: string,
+  path: string | MarkedPath,
   body?: unknown,
   headers: Record<string, string> = {},
 ): Promise<Sent> {
   const base = contractBase();
   if (!base) throw new Error('CONTRACT_API_URL is not set');
-  const res = await fetch(`${base}${path}`, {
+  const url = typeof path === 'string' ? path : path.url;
+  const raw = body instanceof Uint8Array;
+  const res = await fetch(`${base}${url}`, {
     method,
     headers: {
       Origin: APP_ORIGIN,
       'Accept-Language': 'bn',
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(body === undefined || raw ? {} : { 'Content-Type': 'application/json' }),
       ...(caller?.token ? { Authorization: `Bearer ${caller.token}` } : {}),
       ...(caller?.cookies.length ? { Cookie: caller.cookies.join('; ') } : {}),
       ...headers,
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: raw ? new Uint8Array(body) : body === undefined ? undefined : JSON.stringify(body),
   });
   if (caller) {
     const set = res.headers.getSetCookie().map((c) => c.split(';')[0]!);
@@ -63,10 +88,12 @@ export async function call(
       caller.cookies = [...caller.cookies.filter((c) => !c.startsWith(`${name}=`)), cookie];
     }
   }
-  const text = await res.text();
+  const contentType = res.headers.get('content-type');
+  const json = contentType?.includes('json') ?? false;
+  const text = json ? await res.text() : (await res.arrayBuffer(), '');
   const parsed: unknown = text ? JSON.parse(text) : null;
-  record(method, path, res.status);
-  return { status: res.status, body: parsed };
+  record(method, typeof path === 'string' ? path : path.marked, res.status);
+  return { status: res.status, body: parsed, contentType };
 }
 
 /** A signed-in session of a demo account by its login id (job id, email or mobile). */
