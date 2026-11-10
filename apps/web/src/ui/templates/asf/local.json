@@ -221,6 +221,15 @@
       ],
       "note": "the labels of fields and the legend of a radio or checkbox group take the secondary grey at rest and the text colour while focused, the dark red on an error (the light red in dark mode); the theme's main green (3.1:1) and disabled grey (2.7:1) do not reach 4.5:1 on white; built for the CSS ERP; the gallery spec and the a11y sweep check it in the browser; the overline (a page's area label, a menu group) is 12 px, the smallest text size, and its letters are spaced only in English, never in Bengali",
       "screenshot": "docs/ui/asf-pieces/gallery-choices.png"
+    },
+    {
+      "name": "FormTextField and FormSelectField (extended)",
+      "files": [
+        "components/form.tsx",
+        "../../contract.ts"
+      ],
+      "note": "the form-bound text and select fields take the extended field's props (a password with its show button, an identity number, inputMode, maxLength, an action inside the field's end, the locked state; a select's placeholder), and a text field takes `normalize`, which turns what is typed into the value the form keeps (the six digits of a code); built for the CSS ERP, so the sign-in, registration and account forms move onto the contract's Form; their look is the text and select fields'",
+      "screenshot": "docs/ui/asf-pieces/gallery-fields.png"
     }
   ]
 }

@@ -100,6 +100,34 @@ describe('the set-password page', () => {
     expect(screen.getByRole('link', { name: 'লগইনে যান' })).toHaveAttribute('href', '/login');
   });
 
+  it('in English: the same fields with their autocomplete, and nothing typed kept in storage', async () => {
+    serve();
+    const user = userEvent.setup();
+    window.history.replaceState(null, '', `/invite#${TOKEN}`);
+    renderApp(<InvitePage />, 'en', { path: '/invite' });
+    await screen.findByText(/CSS-310/);
+    const first = screen.getByLabelText(/^New password(?! again)/, { selector: 'input' });
+    const second = screen.getByLabelText(/^Confirm the new password/, { selector: 'input' });
+    for (const field of [first, second])
+      expect(field).toHaveAttribute('autocomplete', 'new-password');
+    await user.type(first, 'Nadi 2026');
+    await user.type(second, 'Nadi 2027');
+    await user.click(screen.getByRole('button', { name: 'Save the password' }));
+    expect(await screen.findByText('The two new passwords do not match.')).toBeInTheDocument();
+    await user.clear(second);
+    await user.type(second, 'Nadi 2026');
+    await user.click(screen.getByRole('button', { name: 'Save the password' }));
+    expect(await screen.findByText(/Log in with your job ID CSS-310/)).toBeInTheDocument();
+    expect(bodies.at(-1)).toEqual({
+      path: 'accept',
+      body: { token: TOKEN, password: 'Nadi 2026' },
+    });
+    for (const storage of [window.localStorage, window.sessionStorage])
+      for (let i = 0; i < storage.length; i++)
+        for (const secret of ['Nadi 2026', TOKEN])
+          expect(storage.getItem(storage.key(i) ?? '')).not.toContain(secret);
+  });
+
   it('keeps a weak or mistyped password on the form', async () => {
     serve();
     const user = userEvent.setup();

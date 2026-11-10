@@ -1,0 +1,94 @@
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMemo } from 'react';
+import type { FieldErrors, FieldValues, Path, Resolver, UseFormReturn } from 'react-hook-form';
+import { useTranslations } from 'use-intl';
+import type { z } from 'zod';
+import { ApiFailure } from '../api/client';
+
+/** A rule of a schema as the error function sees it: its kind and, for a length, the bound. */
+type Rule = { code: string; minimum?: unknown; format?: string };
+
+/** The errors-catalogue key of a rule that names no message of its own, by its kind. */
+function ruleKey(rule: Rule): string {
+  switch (rule.code) {
+    case 'invalid_type':
+      return 'validation.required';
+    case 'too_small':
+      return Number(rule.minimum) <= 1 ? 'validation.required' : 'validation.too_short';
+    case 'too_big':
+      return 'validation.too_long';
+    case 'invalid_format':
+      return rule.format === 'email' ? 'validation.email_format' : 'validation.failed';
+    default:
+      return 'validation.failed';
+  }
+}
+
+/** Every message of the errors as the person reads it; `ref` holds a DOM node and is left alone. */
+function sayAll(node: unknown, say: (message: string) => string): void {
+  if (!node || typeof node !== 'object') return;
+  const record = node as Record<string, unknown>;
+  if (typeof record.message === 'string') record.message = say(record.message);
+  for (const [key, child] of Object.entries(record)) if (key !== 'ref') sayAll(child, say);
+}
+
+/**
+ * The resolver of a form on a zod schema, a request schema of @css/shared where one fits, so the
+ * browser refuses what the API would refuse in the API's own words: a rule that names its message
+ * names a key of the errors catalogue ("validation.password_too_short"), a rule without one says
+ * what the field lacks by its kind (empty, too long), and a message the screen wrote itself stays
+ * as it is. The values reach the submit as typed, so the request stays the one the form sends.
+ */
+export function useSchemaResolver<S extends z.ZodType<FieldValues, FieldValues>>(
+  schema: S,
+): Resolver<z.input<S>> {
+  const t = useTranslations('errors');
+  return useMemo(() => {
+    type Key = Parameters<typeof t>[0];
+    const say = (message: string) => (t.has(message as Key) ? t(message as Key) : message);
+    const inner = zodResolver(
+      schema,
+      { error: (issue) => ruleKey(issue as Rule) },
+      { raw: true },
+    ) as unknown as Resolver<z.input<S>>;
+    return async (values, context, options) => {
+      const result = await inner(values, context, options);
+      sayAll(result.errors, say);
+      return result;
+    };
+  }, [schema, t]);
+}
+
+/**
+ * The field messages of a form's errors by their dotted path ("educationDetails.passingYear"), for
+ * the inputs that take their messages as one record.
+ */
+export function flatErrors(errors: FieldErrors): Record<string, string> {
+  const out: Record<string, string> = {};
+  const walk = (node: unknown, path: string) => {
+    if (!node || typeof node !== 'object') return;
+    const record = node as Record<string, unknown>;
+    // eslint-disable-next-line security/detect-object-injection -- a path of the form's own errors
+    if (path && typeof record.message === 'string' && record.message) out[path] = record.message;
+    for (const [key, child] of Object.entries(record))
+      if (!['ref', 'message', 'type', 'types'].includes(key))
+        walk(child, path ? `${path}.${key}` : key);
+  };
+  walk(errors, '');
+  return out;
+}
+
+/**
+ * Puts each field message of a refused request under its field. True when the refusal named
+ * fields, so the screen shows no second message above them.
+ */
+export function showFieldErrors<T extends FieldValues>(
+  form: UseFormReturn<T>,
+  failure: unknown,
+): boolean {
+  if (!(failure instanceof ApiFailure) || !failure.details.length) return false;
+  for (const detail of failure.details)
+    if (detail.path)
+      form.setError(detail.path as Path<T>, { type: 'server', message: detail.message });
+  return true;
+}

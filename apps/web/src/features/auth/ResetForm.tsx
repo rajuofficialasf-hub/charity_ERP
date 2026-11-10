@@ -1,18 +1,40 @@
-import { Alert, Button, LinkButton, Text, TextField } from '@/ui';
+import { passwordResetStartRequestSchema } from '@css/shared/auth';
+import { Alert, Button, Form, FormSubmitButton, FormTextField, LinkButton, Text } from '@/ui';
+import { useMutation } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { type FieldValues, useForm, type UseFormReturn, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
-import { type FormEvent, useState } from 'react';
+import { z } from 'zod';
 import { PasswordRules } from '../../components/PasswordRules';
 import { api, ApiFailure } from '../../api/client';
+import { showFieldErrors, useSchemaResolver } from '../../lib/form-schema';
 
 type Step = 'start' | 'code' | 'done';
+type StartFields = z.input<typeof passwordResetStartRequestSchema>;
+type CodeFields = { code: string; newPassword: string; confirm: string };
 
 /** Shown only in development and test builds, never in production. */
 const DUMMY_OTP_NOTE = import.meta.env.VITE_OTP_DUMMY === '1';
 
-/** Field errors of a 422 answer by field name. */
-function fieldErrors(error: unknown): Record<string, string> {
-  if (!(error instanceof ApiFailure)) return {};
-  return Object.fromEntries(error.details.map((d) => [d.path ?? '', d.message]));
+const sixDigits = (value: string) => value.replace(/\D/g, '').slice(0, 6);
+
+/**
+ * The code step: each field only has to be filled before the server answers (the code and the
+ * password rules are the server's to say), and the two new passwords must match.
+ */
+function useCodeSchema() {
+  const tp = useTranslations('auth.password');
+  return useMemo(
+    () =>
+      z
+        .object({
+          code: z.string().min(1),
+          newPassword: z.string().min(1),
+          confirm: z.string().min(1),
+        })
+        .refine((v) => v.newPassword === v.confirm, { path: ['confirm'], message: tp('mismatch') }),
+    [tp],
+  );
 }
 
 /**
@@ -21,57 +43,60 @@ function fieldErrors(error: unknown): Record<string, string> {
  */
 export function ResetForm() {
   const t = useTranslations('auth.reset');
-  const tp = useTranslations('auth.password');
   const tl = useTranslations('auth.login');
   const [step, setStep] = useState<Step>('start');
-  const [loginId, setLoginId] = useState('');
-  const [code, setCode] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [pending, setPending] = useState(false);
+  const startForm = useForm<StartFields>({
+    resolver: useSchemaResolver(passwordResetStartRequestSchema),
+    defaultValues: { loginId: '' },
+    reValidateMode: 'onSubmit',
+  });
+  const codeForm = useForm<CodeFields>({
+    resolver: useSchemaResolver(useCodeSchema()),
+    defaultValues: { code: '', newPassword: '', confirm: '' },
+    reValidateMode: 'onSubmit',
+  });
+  const password = useWatch({ control: codeForm.control, name: 'newPassword' });
 
-  const run = async (work: () => Promise<void>) => {
-    setError(null);
-    setErrors({});
-    setPending(true);
+  /** A refusal's field messages under their fields, else its message above the button. */
+  const refuse = <T extends FieldValues>(form: UseFormReturn<T>, failure: unknown) => {
+    if (!showFieldErrors(form, failure))
+      form.setError('root.server', {
+        message: failure instanceof ApiFailure ? failure.message : tl('offline'),
+      });
+  };
+
+  const sendCode = (loginId: string) =>
+    api<void>('/auth/password/reset/start', { method: 'POST', body: { loginId } }, false);
+
+  const start = async ({ loginId }: StartFields) => {
     try {
-      await work();
-    } catch (failure) {
-      const byField = fieldErrors(failure);
-      setErrors(byField);
-      if (!Object.keys(byField).length)
-        setError(failure instanceof ApiFailure ? failure.message : tl('offline'));
-    } finally {
-      setPending(false);
-    }
-  };
-
-  const start = (event?: FormEvent<HTMLFormElement>) => {
-    event?.preventDefault();
-    void run(async () => {
-      await api<void>('/auth/password/reset/start', { method: 'POST', body: { loginId } }, false);
+      await sendCode(loginId);
       setStep('code');
-    });
+    } catch (failure) {
+      refuse(startForm, failure);
+    }
   };
 
-  const complete = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    // Two values the user just typed on this device, not a secret check.
-    // eslint-disable-next-line security/detect-possible-timing-attacks
-    if (password !== confirm) {
-      setErrors({ confirm: tp('mismatch') });
-      return;
-    }
-    void run(async () => {
+  const resend = useMutation({
+    mutationFn: () => sendCode(startForm.getValues('loginId')),
+    onMutate: () => codeForm.clearErrors(),
+    onError: (failure) => refuse(codeForm, failure),
+  });
+
+  const complete = async ({ code, newPassword }: CodeFields) => {
+    try {
       await api<void>(
         '/auth/password/reset/complete',
-        { method: 'POST', body: { loginId, code, newPassword: password } },
+        {
+          method: 'POST',
+          body: { loginId: startForm.getValues('loginId'), code, newPassword },
+        },
         false,
       );
       setStep('done');
-    });
+    } catch (failure) {
+      refuse(codeForm, failure);
+    }
   };
 
   if (step === 'done')
@@ -84,76 +109,62 @@ export function ResetForm() {
       </div>
     );
 
-  if (step === 'start')
+  if (step === 'start') {
+    const error = startForm.formState.errors.root?.server?.message;
     return (
-      <form method="post" noValidate onSubmit={start} aria-label={t('title')}>
+      <Form form={startForm} onSubmit={start} label={t('title')}>
         <div className="auth-shell-stack">
           <Text>{t('intro')}</Text>
-          <TextField
-            label={tl('login_id')}
-            name="loginId"
-            value={loginId}
-            onChange={setLoginId}
-            autoComplete="username"
-            required
-            error={errors.loginId}
-          />
+          <FormTextField label={tl('login_id')} name="loginId" autoComplete="username" required />
           {error && <Alert tone="error">{error}</Alert>}
-          <Button type="submit" fullWidth loading={pending}>
-            {t('send')}
-          </Button>
+          <FormSubmitButton fullWidth>{t('send')}</FormSubmitButton>
           <LinkButton variant="text" to="/login">
             {t('back')}
           </LinkButton>
         </div>
-      </form>
+      </Form>
     );
+  }
 
+  const pending = codeForm.formState.isSubmitting || resend.isPending;
+  const error = codeForm.formState.errors.root?.server?.message;
   return (
-    <form method="post" noValidate onSubmit={complete} aria-label={t('title')}>
+    <Form form={codeForm} onSubmit={complete} label={t('title')}>
       <div className="auth-shell-stack">
         <Alert tone="info">{t('sent')}</Alert>
         {DUMMY_OTP_NOTE && <Alert tone="warning">{t('dummy_note')}</Alert>}
-        <TextField
+        <FormTextField
           label={t('code')}
           name="code"
-          value={code}
-          onChange={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
+          normalize={sixDigits}
           inputMode="numeric"
           autoComplete="one-time-code"
           maxLength={6}
           required
-          error={errors.code}
         />
-        <TextField
+        <FormTextField
           type="password"
           label={t('new_password')}
           name="newPassword"
-          value={password}
-          onChange={setPassword}
           autoComplete="new-password"
           required
-          error={errors.newPassword}
         />
         <PasswordRules password={password} id="reset-rules" />
-        <TextField
+        <FormTextField
           type="password"
           label={t('confirm_password')}
           name="confirm"
-          value={confirm}
-          onChange={setConfirm}
           autoComplete="new-password"
           required
-          error={errors.confirm}
         />
         {error && <Alert tone="error">{error}</Alert>}
         <Button type="submit" fullWidth loading={pending}>
           {t('submit')}
         </Button>
-        <Button variant="text" onClick={() => start()} disabled={pending}>
+        <Button variant="text" onClick={() => resend.mutate()} disabled={pending}>
           {t('resend')}
         </Button>
       </div>
-    </form>
+    </Form>
   );
 }
