@@ -8,7 +8,6 @@ import {
   inboxEntrySchema,
   inboxPageSchema,
   locationSchema,
-  meSchema,
   ownProfileSchema,
   ownStaffProfileSchema,
   preferencesSchema,
@@ -101,7 +100,7 @@ describe.skipIf(!contractBase())('the person’s own screens', () => {
     expect(districts.map((d) => d.id)).toContain(places.district);
     const applicant = await register();
     const person = await signIn(applicant.mobile);
-    expect(meSchema.parse(person.me).state).toBe('pending');
+    expect(person.me.state).toBe('pending');
   });
 
   it('answers a correction of the pending registration and sends it back', async () => {

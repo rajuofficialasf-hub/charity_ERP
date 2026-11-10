@@ -7,7 +7,6 @@ import {
   channelsSchema,
   deliveryPageSchema,
   handoverViewSchema,
-  meSchema,
   nisabVersionViewSchema,
   notificationTemplateSchema,
   panelUserSchema,
@@ -19,21 +18,24 @@ import {
   templatePreviewSchema,
 } from '../../src/api/schemas';
 import { expectContract, expectEnvelope, expectStatus } from './support/expect';
-import { approvedVolunteer, newOfficial } from './support/people';
-import { at, type Caller, call, contractBase, signIn } from './support/session';
+import { approvedVolunteer, newOfficial, register } from './support/people';
+import { at, call, contractBase, signIn } from './support/session';
 import { day, draftProject, HEAD, must, PM_HUM, RPM_DHAKA, savar, unread } from './support/world';
 
 // The system administration of the admin area, as the Department Head runs it: the settings and
 // the public settings, an editable reference list, the nisab versions, the audit log, the active
 // sessions, the system health, the message channels, the notification texts and the deliveries.
-// Each case leaves the shared settings as it found them.
+// The settings, the SMS setting and the notification text are saved as they were read, so the
+// configuration stays as found; some rows stay behind: the reference-list entries the cases add
+// (one switched off), the nisab version added and withdrawn, the notification text's next version,
+// and the people, the project and the handover the cases make.
 const REASON = 'চুক্তি পরীক্ষার কারণ';
 /** An editable list the case adds an entry of its own to. */
 const LIST = 'expense_category_default';
 /** A nisab in Taka the case sets and withdraws again. */
 const NISAB = '96000.00';
 
-const head = (): Promise<Caller> => signIn(HEAD);
+const head = () => signIn(HEAD);
 
 describe.skipIf(!contractBase())('the system administration', () => {
   it('reads the settings and saves one as it is, and reads the public settings', async () => {
@@ -117,7 +119,7 @@ describe.skipIf(!contractBase())('the system administration', () => {
 
   it('reads the audit log for the Head’s own changes of today', async () => {
     const caller = await head();
-    const me = meSchema.parse((caller as Caller & { me: unknown }).me);
+    const { me } = caller;
     // the Head's own change to read back
     expectStatus(
       await call(caller, 'POST', at`/reference-lists/${LIST}`, {
@@ -155,6 +157,8 @@ describe.skipIf(!contractBase())('the system administration', () => {
   });
 
   it('reads the system health and the message channels, and saves the SMS setting as it is', async () => {
+    // a registration's photo is a stored file the storage figures count
+    await register();
     const caller = await head();
     const health = expectContract(
       await call(caller, 'GET', '/admin/health'),
@@ -162,7 +166,6 @@ describe.skipIf(!contractBase())('the system administration', () => {
       systemHealthSchema,
     );
     expect(health.checks.database).toBe('up');
-    // the photos uploaded so far are stored, so the figures count them
     expect(health.storage?.total.count).toBeGreaterThan(0);
     const channels = expectContract(
       await call(caller, 'GET', '/admin/channels'),

@@ -95,7 +95,7 @@ describe.skipIf(!contractBase())('the Media Team’s screens and the exports', (
       z.array(mediaTeamMemberSchema),
     );
     const member = await signIn(MEDIA_MEMBER);
-    const memberId = (member.me as { id: string }).id;
+    const memberId = member.me.id;
     expect(team.map((m) => m.id)).toContain(memberId);
     work = expectContract(
       await call(

@@ -1,5 +1,7 @@
 // The contract test's way into a running API: the address from CONTRACT_API_URL, accepted only on
 // this machine, and a signed-in session of a demo account (docs/testing/DEMO_ACCOUNTS.md).
+import type { Me, TokenPair } from '@css/shared/auth';
+import { tokenPairSchema } from '../../../src/api/schemas';
 import { record } from './expect';
 
 /** The demo accounts' password and the dummy code of the seeded test API (test values only). */
@@ -98,8 +100,11 @@ export async function call(
   return { status: res.status, body: parsed, contentType };
 }
 
-/** A signed-in session of a demo account by its login id (job id, email or mobile). */
-export async function signIn(loginId: string): Promise<Caller & { me: unknown; pair: unknown }> {
+/**
+ * A signed-in session of a demo account by its login id (job id, email or mobile), with the
+ * sign-in's answer read with the app's own schema.
+ */
+export async function signIn(loginId: string): Promise<Caller & { me: Me; pair: TokenPair }> {
   const caller: Caller = { token: null, cookies: [] };
   const res = await call(caller, 'POST', '/auth/login', {
     loginId,
@@ -107,7 +112,7 @@ export async function signIn(loginId: string): Promise<Caller & { me: unknown; p
     device: { name: 'contract test', platform: 'other' },
   });
   if (res.status !== 200) throw new Error(`sign-in of ${loginId}: ${JSON.stringify(res.body)}`);
-  const pair = (res.body as { data: { accessToken: string; me: unknown } }).data;
+  const pair = tokenPairSchema.parse((res.body as { data?: unknown } | null)?.data);
   caller.token = pair.accessToken;
   return { ...caller, me: pair.me, pair };
 }
