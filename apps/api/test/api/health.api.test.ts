@@ -64,6 +64,12 @@ describe('liveness probes', () => {
     expect(logged.some((l) => l.req?.path === '/api/v1/healthz')).toBe(false);
   });
 
+  it('leaves no log line for a probe written in another case or with a trailing slash', async () => {
+    lines.length = 0;
+    await request(t.app).get('/API/V1/healthz/').expect(200);
+    expect(lines).toEqual([]);
+  });
+
   it('returns 404 for unknown /api/v1 routes', async () => {
     await request(t.app).get('/api/v1/does-not-exist').expect(404);
   });

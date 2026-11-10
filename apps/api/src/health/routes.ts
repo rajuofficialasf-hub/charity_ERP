@@ -22,13 +22,10 @@ export function healthRouter(health: HealthService): Router {
   const live = (_req: unknown, res: Response) => answer(res, 200, 'pass');
   for (const path of ['/api/v1/healthz', '/api/v1/livez']) router.head(path, live).get(path, live);
 
-  const ready = async (_req: unknown, res: Response, next: (error: unknown) => void) => {
-    try {
-      const status = await health.readiness();
-      answer(res, status === 'fail' ? 503 : 200, status);
-    } catch (error) {
-      next(error);
-    }
+  // Express passes a rejected handler to the error handler
+  const ready = async (_req: unknown, res: Response) => {
+    const status = await health.readiness();
+    answer(res, status === 'fail' ? 503 : 200, status);
   };
   router.head('/api/v1/readyz', ready).get('/api/v1/readyz', ready);
   return router;

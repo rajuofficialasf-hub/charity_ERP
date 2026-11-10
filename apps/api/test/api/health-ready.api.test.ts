@@ -1,6 +1,6 @@
 import { Writable } from 'node:stream';
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Container } from '../../src/container';
 import { buildTestApp, type TestApp } from '../support/app';
 
@@ -9,13 +9,19 @@ import { buildTestApp, type TestApp } from '../support/app';
 const state = { database: true, storage: true, queue: true };
 let databaseCalls = 0;
 
+// a driver error that carries a connection string with its credential, as a real one can
+const LEAKED = 'not-a-real-credential';
+const connection = new URL('postgresql://db:5432/css_erp');
+connection.username = 'css';
+connection.password = LEAKED;
+
 function standIns(): NonNullable<Parameters<typeof buildTestApp>[0]>['overrides'] {
   return {
     prisma: {
       $queryRaw: async () => {
         databaseCalls += 1;
         if (!state.database) {
-          throw new Error('connect ECONNREFUSED postgresql://css:secret-password@db:5432/css_erp');
+          throw new Error(`connect ECONNREFUSED ${connection.href}`);
         }
         return [{ '?column?': 1 }];
       },
@@ -33,7 +39,11 @@ describe('GET /api/v1/readyz', () => {
   let t: TestApp;
   const lines: string[] = [];
 
-  beforeAll(() => {
+  // a fresh app per test, so no readiness result is reused from the test before
+  beforeEach(() => {
+    Object.assign(state, { database: true, storage: true, queue: true });
+    databaseCalls = 0;
+    lines.length = 0;
     t = buildTestApp({
       envOverrides: { LOG_LEVEL: 'info' },
       logStream: new Writable({
@@ -46,14 +56,7 @@ describe('GET /api/v1/readyz', () => {
     });
   });
 
-  beforeEach(() => {
-    Object.assign(state, { database: true, storage: true, queue: true });
-    t.container.health.forget();
-    databaseCalls = 0;
-    lines.length = 0;
-  });
-
-  afterAll(async () => {
+  afterEach(async () => {
     await t.close();
   });
 
@@ -99,7 +102,7 @@ describe('GET /api/v1/readyz', () => {
     await request(t.app).get('/api/v1/readyz').expect(503);
     const text = lines.join('\n');
     expect(text).toContain('database');
-    expect(text).not.toContain('secret-password');
+    expect(text).not.toContain(LEAKED);
     expect(text).not.toContain('postgresql://');
   });
 

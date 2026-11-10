@@ -37,7 +37,12 @@ export class JobRunner {
       await boss.start();
       this.boss = boss;
       return boss;
-    })();
+    })().catch((error: unknown) => {
+      // a start that failed is tried again by the next caller, or a database outage at boot
+      // would leave the queue, and readiness with it, down until a restart
+      this.starting = undefined;
+      throw error;
+    });
     return this.starting;
   }
 

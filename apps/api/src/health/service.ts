@@ -10,16 +10,6 @@ export const CHECK_TIMEOUT_MS = 2_000;
  */
 export const RESULT_REUSE_MS = 2_000;
 
-/**
- * The database and the job queue (both PostgreSQL) are needed by nearly every request; the file
- * store only by the file routes, so its outage makes the API degraded, not unready.
- */
-const CHECKS: readonly { name: CheckName; critical: boolean }[] = [
-  { name: 'database', critical: true },
-  { name: 'queue', critical: true },
-  { name: 'storage', critical: false },
-];
-
 export interface ReadinessChecks {
   database: () => Promise<boolean>;
   storage: () => Promise<boolean>;
@@ -98,11 +88,6 @@ export class HealthService {
     this.shuttingDown = true;
   }
 
-  /** Drops the reused result, for tests that switch a dependency between calls. */
-  forget(): void {
-    this.last = undefined;
-  }
-
   private round(): Promise<Round> {
     if (this.last && Date.now() - this.last.at < RESULT_REUSE_MS) {
       return Promise.resolve(this.last.round);
@@ -115,13 +100,15 @@ export class HealthService {
   }
 
   private async checkAll(): Promise<Round> {
-    const runs = new Map(Object.entries(this.checks));
+    // the database and the job queue (both PostgreSQL) serve nearly every request; the file store
+    // only the file routes, so its outage makes the API degraded, not unready
+    const list: { name: CheckName; critical: boolean; run: () => Promise<boolean> }[] = [
+      { name: 'database', critical: true, run: this.checks.database },
+      { name: 'queue', critical: true, run: this.checks.queue },
+      { name: 'storage', critical: false, run: this.checks.storage },
+    ];
     const outcomes = await Promise.all(
-      CHECKS.map(async ({ name, critical }) => ({
-        name,
-        critical,
-        outcome: await check(runs.get(name)!),
-      })),
+      list.map(async ({ name, critical, run }) => ({ name, critical, outcome: await check(run) })),
     );
     let status: HealthStatus = 'pass';
     for (const { name, critical, outcome } of outcomes) {

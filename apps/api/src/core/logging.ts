@@ -67,6 +67,14 @@ function requestSerializer(req: IncomingMessage & { id?: string }) {
 
 const PROBE_SET: ReadonlySet<string> = new Set(PROBE_PATHS);
 
+/** A path as Express matches it: without the query, any case, with or without a trailing slash. */
+function routedPath(url: string | undefined): string {
+  return (url ?? '')
+    .split('?')[0]!
+    .toLowerCase()
+    .replace(/(.)\/+$/, '$1');
+}
+
 function responseSerializer(res: ServerResponse) {
   return { statusCode: res.statusCode };
 }
@@ -90,7 +98,7 @@ export function loggerOptions(env: Env, stream?: DestinationStream): Options {
     },
     redact: { paths: REDACT_PATHS, censor: '[redacted]' },
     // the probes are polled every few seconds; a line each would bury the real requests
-    autoLogging: { ignore: (req) => PROBE_SET.has((req.url ?? '').split('?')[0] ?? '') },
+    autoLogging: { ignore: (req) => PROBE_SET.has(routedPath(req.url)) },
     ...(stream ? { stream } : {}),
   };
 }
