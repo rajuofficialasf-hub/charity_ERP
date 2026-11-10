@@ -115,7 +115,7 @@ function probes(deps: RouteDeps): Router {
   return router;
 }
 
-describe('rate limits and audit enforcement (API_STANDARDS 10, 15)', () => {
+describe('rate limits and audit enforcement', () => {
   let t: TestApp;
 
   beforeAll(() => {
@@ -141,7 +141,8 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15)', () => {
       .expect(429);
     expect(blocked.body.error.code).toBe('rate_limit.exceeded');
     expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
-    // login id and IP are counted separately (AUTH.md 12): the IP window is spent as well
+    // login id and IP are counted separately (docs/architecture/AUTH.md, "Rate limiting"): the IP
+    // window is spent as well
     await request(t.app)
       .post('/api/v1/guard-probe/login')
       .send({ loginId: 'b@example.org' })
@@ -166,7 +167,7 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15)', () => {
     ]);
   });
 
-  it('counts every spelling of one login id in the same window (AUTH.md 1)', async () => {
+  it('counts every spelling of one login id in the same window', async () => {
     const spellings = ['01700000009', ' 0170-0000009 ', '+8801700000009', '8801700000009'];
     for (let i = 0; i < 10; i++)
       await request(t.app)

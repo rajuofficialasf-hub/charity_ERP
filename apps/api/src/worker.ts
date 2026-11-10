@@ -6,7 +6,10 @@ import { createShutdown } from './shutdown';
 /** Running jobs get this long to finish after SIGTERM (pg-boss drains for up to 30 s). */
 const SHUTDOWN_GRACE_MS = 35_000;
 
-/** The worker process (SYSTEM_ARCHITECTURE 2.1): job consumers, maintenance, schedules. */
+/**
+ * The worker process (docs/architecture/SYSTEM_ARCHITECTURE.md, "Workers: a separate process
+ * (decision)"): job consumers, maintenance, schedules.
+ */
 async function main(): Promise<void> {
   const env = loadEnv(process.env);
   const container = createContainer(env);

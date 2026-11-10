@@ -6,9 +6,10 @@ import { ApiError } from '../i18n/api-error';
 import type { PageMeta } from '../http/send';
 
 /**
- * Pagination, sorting, filtering and search helpers (API_STANDARDS 4 and 5): keyset cursors
- * signed with CURSOR_SECRET and bound to the endpoint and caller, whitelisted sorting with the id
- * as final tiebreaker, comma lists, From/To ranges, trigram-friendly search and capped totals.
+ * Pagination, sorting, filtering and search helpers (docs/api/API_STANDARDS.md, "Pagination: keyset
+ * cursors" and "Filtering, sorting and searching"): keyset cursors signed with CURSOR_SECRET and
+ * bound to the endpoint and caller, whitelisted sorting with the id as final tiebreaker, comma
+ * lists, From/To ranges, trigram-friendly search and capped totals.
  */
 export const DEFAULT_LIMIT = 25;
 export const MAX_LIMIT = 100;
@@ -180,7 +181,10 @@ export function buildPage<T extends Record<string, unknown>>(
   };
 }
 
-/** Totals are exact up to 10,000 rows and "10000+" beyond (API_STANDARDS 4). */
+/**
+ * Totals are exact up to 10,000 rows and "10000+" beyond (docs/api/API_STANDARDS.md, "Pagination:
+ * keyset cursors").
+ */
 export function capTotal(count: number): number | '10000+' {
   return count > TOTAL_CAP ? '10000+' : count;
 }

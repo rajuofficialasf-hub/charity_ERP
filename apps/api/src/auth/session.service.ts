@@ -11,7 +11,7 @@ import type { AccountEvents } from '../notifications/account-events';
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 
-/** Session lifetimes and limits (AUTH.md 5). */
+/** Session lifetimes and limits (docs/architecture/AUTH.md, "Tokens and device sessions"). */
 export const SESSION_RULES = {
   hardLimitMs: 180 * DAY,
   refreshWindowMs: 30 * DAY,
@@ -23,7 +23,7 @@ export const SESSION_RULES = {
   reuseGraceMs: 30_000,
 } as const;
 
-/** Everything a request needs about its session and user, cached per session (AUTH.md 5). */
+/** Everything a request needs about its session and user, cached per session. */
 export interface SessionFacts {
   sessionId: string;
   userId: string;
@@ -70,9 +70,10 @@ export interface RevokeBy {
 }
 
 /**
- * Device sessions (AUTH.md 5 and 8): creation with the device limit, refresh-token rotation with
- * reuse detection, revocation and the cached per-request check. Revocation evicts the cache entry
- * at once on this process; other processes see it within the cache time (one process today).
+ * Device sessions (docs/architecture/AUTH.md, "Tokens and device sessions" and "Devices: listing,
+ * remote revocation and local-data wipe"): creation with the device limit, refresh-token rotation
+ * with reuse detection, revocation and the cached per-request check. Revocation evicts the cache
+ * entry at once on this process; other processes see it within the cache time (one process today).
  */
 export class SessionService {
   private readonly cache = new Map<string, CacheEntry>();
@@ -194,7 +195,7 @@ export class SessionService {
   }
 
   /**
-   * Exchanges a refresh token for a new one (AUTH.md 5). Expired, idle or unknown tokens are
+   * Exchanges a refresh token for a new one. Expired, idle or unknown tokens are
    * `auth.refresh_invalid` (log in again, keep the outbox); a revoked session is
    * `auth.session_revoked`; replaying an already-rotated token revokes the session
    * (`auth.refresh_reused`), except within a few seconds of the rotation (parallel tabs).
@@ -330,7 +331,7 @@ export class SessionService {
     });
   }
 
-  /** Session and user facts for one request, cached for at most a minute (AUTH.md 5). */
+  /** Session and user facts for one request, cached for at most a minute. */
   async facts(sessionId: string): Promise<SessionFacts | null> {
     const now = this.clock.now().getTime();
     const hit = this.cache.get(sessionId);

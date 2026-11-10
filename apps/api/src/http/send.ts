@@ -1,7 +1,9 @@
 import type { Response } from 'express';
 import { currentContext } from '../core/request-context';
 
-/** Pagination fields of `meta` for lists (API_STANDARDS 4). */
+/**
+ * Pagination fields of `meta` for lists (docs/api/API_STANDARDS.md, "Pagination: keyset cursors").
+ */
 export interface PageMeta {
   nextCursor: string | null;
   prevCursor: string | null;
@@ -17,7 +19,10 @@ interface Enveloped {
   meta: Record<string, unknown>;
 }
 
-/** A single result: `{ data, meta: { requestId } }` (API_STANDARDS 3). */
+/**
+ * A single result: `{ data, meta: { requestId } }` (docs/api/API_STANDARDS.md, "Request and
+ * response envelope").
+ */
 export function ok<T>(data: T, meta: Record<string, unknown> = {}): Enveloped {
   return { [ENVELOPE]: true, data, meta };
 }
@@ -37,7 +42,8 @@ function isEnveloped(value: unknown): value is Enveloped {
 }
 
 /**
- * Sends a handler result in the envelope with the request id (SYSTEM_ARCHITECTURE 6 step 13):
+ * Sends a handler result in the envelope with the request id
+ * (docs/architecture/SYSTEM_ARCHITECTURE.md, "Request lifecycle (exact order of checks)", step 13):
  * `ok()`/`page()` keep their meta, any other value becomes `data`, and a route declared with
  * status 204 sends no body.
  */

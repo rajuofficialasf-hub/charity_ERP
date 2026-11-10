@@ -82,7 +82,7 @@ const logStream = new Writable({
   },
 });
 
-describe('API core: envelope, request id, validation, logging (API_STANDARDS 3, 7)', () => {
+describe('API core: envelope, request id, validation, logging', () => {
   let t: TestApp;
 
   beforeAll(() => {

@@ -7,7 +7,8 @@ import { cloneTemplate } from './support/db';
 import { expectSqlError, SQLSTATE } from './support/expect-sql';
 import * as f from './support/fixtures';
 
-// Unique, check and soft-delete constraints of DATABASE_SCHEMA.md (the data-integrity tests).
+// Unique, check and soft-delete constraints of docs/database/DATABASE_SCHEMA.md (the
+// data-integrity tests).
 let db: Client;
 let drop: () => Promise<void>;
 let loc: Awaited<ReturnType<typeof f.locationTree>>;
@@ -84,7 +85,7 @@ describe('beneficiary identity', () => {
     await expect(f.beneficiary(db, loc, { mobile })).resolves.toBeTruthy();
   });
 
-  it('gender must be a code of the reference list (composite FK, section 5.2)', async () => {
+  it('gender must be a code of the reference list (composite FK)', async () => {
     await expectSqlError(
       f.beneficiary(db, loc, { gender_code: 'unknown' }),
       SQLSTATE.foreignKeyViolation,

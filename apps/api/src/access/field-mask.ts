@@ -2,11 +2,12 @@ import { z, type ZodType } from 'zod';
 import type { AccessRegistry } from './registry';
 
 /**
- * Field-level protection (RBAC.md 6, constitution §5): a response schema marks each
- * protected field with its class from the `sensitive_fields` catalogue, and every response of a
- * route passes through `maskData` before it is sent (`defineRoute`), so a handler cannot forget it.
- * Hidden fields are removed, not blanked: a volunteer client never learns they exist. Exports
- * (the export service of docs/PLAN.md) reuse the same marks and the same function.
+ * Field-level protection (docs/security/RBAC.md, "Field-level protection"): a
+ * response schema marks each protected field with its class from the `sensitive_fields` catalogue,
+ * and every response of a route passes through `maskData` before it is sent (`defineRoute`), so a
+ * handler cannot forget it. Hidden fields are removed, not blanked: a volunteer client never learns
+ * they exist. Exports (the export service of docs/PLAN.md) reuse the same marks and the same
+ * function.
  */
 interface SensitiveMark {
   /** Class key from permissions.yaml `sensitive_fields`. */

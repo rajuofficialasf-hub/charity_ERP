@@ -1,7 +1,10 @@
 import { NOTIFICATION_TEMPLATES } from '@css/shared';
 import { type SeedContext, seedId } from '../../context';
 
-/** Notification templates of packages/shared (NOTIFICATIONS.md §6), version 1, bn and en. */
+/**
+ * Notification templates of packages/shared (docs/architecture/NOTIFICATIONS.md, "Templates"),
+ * version 1, bn and en.
+ */
 export async function seedNotificationTemplates(ctx: SeedContext): Promise<void> {
   for (const t of NOTIFICATION_TEMPLATES) {
     for (const [channel, texts] of Object.entries(t.channels)) {

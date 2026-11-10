@@ -46,9 +46,10 @@ const isUniqueViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 
 /**
- * Programs (docs/MASTER_SPEC.md, A6): the Department Head creates, renames,
- * deactivates and activates them and assigns their PM; officials read the programs in their scope.
- * A program is never deleted. Every change is audited in its transaction.
+ * Programs (docs/MASTER_SPEC.md, "Program and project setup (project configuration)"): the
+ * Department Head creates, renames, deactivates and activates them and assigns their PM; officials
+ * read the programs in their scope. A program is never deleted. Every change is audited in its
+ * transaction.
  */
 export class ProgramsService {
   constructor(

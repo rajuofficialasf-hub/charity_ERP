@@ -69,9 +69,10 @@ export interface BuiltApp {
 }
 
 /**
- * Builds the Express app from its services without listening (server.ts listens; tests build it
- * the same way). The order matters (SYSTEM_ARCHITECTURE 6): client address → logging → request
- * context → security headers → CORS → the origin check of writes → JSON → health probes → /api/v1 routes → 404 → errors.
+ * Builds the Express app from its services without listening (server.ts listens; tests build it the
+ * same way). The order matters (docs/architecture/SYSTEM_ARCHITECTURE.md, "Request lifecycle (exact
+ * order of checks)"): client address → logging → request context → security headers → CORS → the
+ * origin check of writes → JSON → health probes → /api/v1 routes → 404 → errors.
  */
 export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   const app = express();

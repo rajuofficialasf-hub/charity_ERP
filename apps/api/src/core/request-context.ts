@@ -3,7 +3,8 @@ import type { Locale } from '@css/shared/i18n';
 
 /**
  * Per-request facts shared by the logger, the audit writer and the error filter
- * (SYSTEM_ARCHITECTURE 6 step 2). Jobs and sync processing run with their own context.
+ * (docs/architecture/SYSTEM_ARCHITECTURE.md, "Request lifecycle (exact order of checks)", step 2).
+ * Jobs and sync processing run with their own context.
  */
 export interface RequestContext {
   requestId: string;

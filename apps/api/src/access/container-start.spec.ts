@@ -3,8 +3,8 @@ import { createContainer } from '../container';
 import { testEnv } from '../../test/support/env';
 import { parsePermissionsFile, readPermissionsFile } from './registry';
 
-// The API and the worker refuse to start when permissions.yaml names a condition the access
-// module cannot check (RBAC.md 2).
+// The API and the worker refuse to start when permissions.yaml names a condition the access module
+// cannot check (docs/security/RBAC.md, "permissions.yaml schema and loading").
 describe('container start', () => {
   it('refuses a permissions file with a condition that has no check', () => {
     const raw = structuredClone(readPermissionsFile()) as { conditions: Record<string, string> };

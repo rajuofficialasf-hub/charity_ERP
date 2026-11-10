@@ -79,7 +79,7 @@ describe('AuditWriter', () => {
   });
 });
 
-describe('IdempotencyService (API_STANDARDS 9)', () => {
+describe('IdempotencyService', () => {
   async function owner() {
     const userId = await user(db);
     const deviceSessionId = await insert(db, 'device_sessions', {

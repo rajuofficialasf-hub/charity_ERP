@@ -69,7 +69,8 @@ export const visibilityOf = (value: string): SectionVisibility => {
 };
 
 /**
- * The organisation-wide question library and the retired form templates of appendix খ. The library
+ * The organisation-wide question library and the retired form templates of the two current forms
+ * (docs/MASTER_SPEC.md, "Appendix B — Current form fields and mapping to the new system"). The library
  * is one form outside the projects that the Monitoring Team and the Department Head build and
  * publish like any form (docs/DECISION_LOG.md, the decisions on who builds forms and on the
  * library); its published version is what every builder picks from. The seeded library tables and

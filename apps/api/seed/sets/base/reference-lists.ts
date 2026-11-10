@@ -1,8 +1,9 @@
 import { json, type SeedContext, seedId } from '../../context';
 
 /**
- * System-wide reference lists (DATABASE_SCHEMA section 5.2) and the per-project list defaults
- * (section 5.3), with the labels the owner decided.
+ * System-wide reference lists and the per-project list defaults, with the labels the owner decided
+ * (docs/database/DATABASE_SCHEMA.md, "System-wide configurable lists (reference_lists, FK
+ * enforced)" and "Per-project lists (validated by the service against the project snapshot)").
  */
 type Entry = [code: string, bn: string, en: string, extra?: EntryExtra];
 /** A system entry the rules need (kept active, never renamed), and a list's own attributes. */

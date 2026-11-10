@@ -1,4 +1,7 @@
-/** Lockout rule (AUTH.md 6): 5 consecutive failures lock the login id for 15 minutes. */
+/**
+ * Lockout rule (docs/architecture/AUTH.md, "Lockout after failed attempts"): 5 consecutive failures
+ * lock the login id for 15 minutes.
+ */
 export const LOCKOUT_RULES = { maxFailures: 5, lockMs: 15 * 60_000 } as const;
 
 /** Next counter state after a failed attempt: either a higher count or a lock until a time. */
@@ -18,8 +21,8 @@ export function minutesLeft(lockedUntil: Date, now: Date): number {
 }
 
 /**
- * The same lockout for login ids without an account, kept in memory, so that a lock never tells
- * an attacker whether an account exists (AUTH.md 6). Bounded: the oldest entries are dropped.
+ * The same lockout for login ids without an account, kept in memory, so that a lock never tells an
+ * attacker whether an account exists. Bounded: the oldest entries are dropped.
  */
 export class UnknownIdLockout {
   private readonly entries = new Map<string, { failedCount: number; lockedUntil: Date | null }>();

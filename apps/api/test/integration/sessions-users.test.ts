@@ -15,7 +15,8 @@ import { locationTree, project } from './support/fixtures';
 import { notificationsOf } from './support/notifications';
 
 // Device lists and revocation, user administration, Main Admin protection and the
-// permission-version bump (AUTH.md 6 to 11).
+// permission-version bump (docs/architecture/AUTH.md, "Lockout after failed attempts" to "Main
+// Admin protection").
 let h: AuthHarness;
 
 beforeAll(async () => {
@@ -122,7 +123,7 @@ describe("an official revokes another user's device", () => {
     expect(await notificationsOf(h.db, 'session_revoked')).toHaveLength(1);
   });
 
-  it("answers 404 to an RPM for a volunteer outside the RPM's region (RBAC.md 8.4)", async () => {
+  it("answers 404 to an RPM for a volunteer outside the RPM's region", async () => {
     const rpm = await login(h, await account(h.db, { role: 'regional_program_manager' }));
     const volunteer = await account(h.db, { kind: 'volunteer' });
     const res = await api()
@@ -201,7 +202,8 @@ describe('user administration', () => {
     });
     expect(one.body.data).not.toHaveProperty('passwordHash');
     await api().get(`/api/v1/users/${randomUUID()}`).set(bearer(head)).expect(404);
-    // a PM without a program sees nobody (PROGRAM scope, RBAC.md 4)
+    // a PM without a program sees nobody (PROGRAM scope; docs/security/RBAC.md, "Data scopes and
+    // their resolution")
     const pm = await login(h, await account(h.db));
     const none = await api().get('/api/v1/users').set(bearer(pm)).expect(200);
     expect(none.body.data).toEqual([]);
@@ -358,7 +360,7 @@ describe('user administration', () => {
   });
 });
 
-describe('permission version (AUTH.md 9)', () => {
+describe('permission version', () => {
   it('a role change bumps the version, is audited and forces a silent refresh', async () => {
     const staff = await account(h.db);
     const s = await login(h, staff);

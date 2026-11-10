@@ -42,7 +42,8 @@ const P2 = '00000000-0000-7000-8000-0000000000b2';
 const DHAKA = '00000000-0000-7000-8000-0000000000d1';
 const RANGPUR = '00000000-0000-7000-8000-0000000000d2';
 
-// Scope resolution (RBAC.md 4 and 8).
+// Scope resolution (docs/security/RBAC.md, "Data scopes and their resolution" and "Server-side
+// enforcement").
 describe('scope instances', () => {
   const instances = (): ScopeInstances => ({
     global: false,
@@ -106,7 +107,7 @@ describe('scope instances', () => {
   });
 });
 
-// A project revoke beats every grant source (RBAC.md 7).
+// A project revoke beats every grant source (docs/security/RBAC.md, "Permission panel").
 describe('the revoked projects in every filter', () => {
   const R = '00000000-0000-7000-8000-0000000000c3';
   const outside = { id: { notIn: [R] } };

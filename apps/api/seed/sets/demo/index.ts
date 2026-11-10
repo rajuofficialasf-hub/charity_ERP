@@ -12,10 +12,11 @@ import { workflowVersionOf } from '../base/workflows';
 import { inTransaction } from '../util';
 
 /**
- * Demo set: one account per official role, 20 volunteers, 50 beneficiaries in two
- * divisions (one of them blocked) and one draft winter project. Every identity is obviously fake (TEST_STRATEGY §4);
- * the shared password is listed in docs/testing/DEMO_ACCOUNTS.md (development only).
- * Later tasks extend this set as their entities become functional.
+ * Demo set: one account per official role, 20 volunteers, 50 beneficiaries in two divisions (one of
+ * them blocked) and one draft winter project. Every identity is obviously fake
+ * (docs/testing/TEST_STRATEGY.md, "Test data strategy"); the shared password is listed in
+ * docs/testing/DEMO_ACCOUNTS.md (development only). Later tasks extend this set as their entities
+ * become functional.
  */
 export const DEMO_PASSWORD = 'CssDemo2026';
 const ARGON2 = { memoryCost: 19456, timeCost: 2, parallelism: 1, algorithm: 2 } as const; // Argon2id, as the API hashes

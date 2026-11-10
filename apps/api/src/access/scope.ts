@@ -15,8 +15,9 @@ export interface Area {
 }
 
 /**
- * The scope instances a caller holds for one permission (RBAC.md 4): GLOBAL, own records (SELF),
- * programs, projects and areas. Several grants add up.
+ * The scope instances a caller holds for one permission (docs/security/RBAC.md, "Data scopes and
+ * their resolution"): GLOBAL, own records (SELF), programs, projects and areas. Several grants add
+ * up.
  */
 export interface ScopeInstances {
   global: boolean;
@@ -131,11 +132,11 @@ const HOUSE_CONSTRUCTION_WORKFLOW = 'construction';
 const areaKey = (a: Area) => `${a.projectId}|${a.locationId}`;
 
 /**
- * Removes the instances a panel revoke names (RBAC.md 7: a revoke beats every grant source). A
- * revoked program also removes its projects and their areas (`projectsOfRevokedPrograms`). The
- * revoked projects and programs are kept, so the filters exclude them where a program, an area
- * without a project or GLOBAL still reaches them. Exported as a pure helper so its rules
- * are tested without a database.
+ * Removes the instances a panel revoke names (docs/security/RBAC.md, "Permission panel": a revoke
+ * beats every grant source). A revoked program also removes its projects and their areas
+ * (`projectsOfRevokedPrograms`). The revoked projects and programs are kept, so the filters exclude
+ * them where a program, an area without a project or GLOBAL still reaches them. Exported as a pure
+ * helper so its rules are tested without a database.
  */
 export function applyInstanceRevokes(
   instances: ScopeInstances,
@@ -198,15 +199,15 @@ async function ownAreas(db: Tx, actorId: string, inProjects: Set<string | null>)
 }
 
 /**
- * Resolves the instances of the grants of one permission from the assignment tables (RBAC.md 4):
- * PROGRAM from `programs.pm_user_id`, PROJECT from the caller's project assignments, REGION and the
- * area scopes from `project_areas` (the caller as RPM) and the caller's `project_staff` area;
- * grants that name an instance (panel grants, project-bound grants) keep it. ASSIGNED resolves per
- * entity with the work assignments of later tasks; the user entity has none.
+ * Resolves the instances of the grants of one permission from the assignment tables: PROGRAM from
+ * `programs.pm_user_id`, PROJECT from the caller's project assignments, REGION and the area scopes
+ * from `project_areas` (the caller as RPM) and the caller's `project_staff` area; grants that name
+ * an instance (panel grants, project-bound grants) keep it. ASSIGNED resolves per entity with the
+ * work assignments of later tasks; the user entity has none.
  *
- * Conditions (RBAC.md 3) narrow a grant for the route's entity; a condition the entity has no
- * rule for drops the grant, so an unknown or not yet evaluated condition denies (fail closed).
- * For users, `own_region` limits an area grant to the volunteers of that area.
+ * Conditions (docs/security/RBAC.md, "Roles") narrow a grant for the route's entity; a condition
+ * the entity has no rule for drops the grant, so an unknown or not yet evaluated condition denies
+ * (fail closed). For users, `own_region` limits an area grant to the volunteers of that area.
  */
 export async function resolveInstances(
   db: Tx,
@@ -441,11 +442,11 @@ const ADDRESS_COLUMNS = ['divisionId', 'districtId', 'upazilaId', 'unionId'] as 
 const ADDRESS_RELATIONS = ['division', 'district', 'upazila', 'union'] as const;
 
 /**
- * The volunteers a scope reaches by their address (entity `volunteer`, RBAC.md 4): everyone at
- * GLOBAL; the own row for SELF; for an area (REGION, a split district or a smaller area) the
- * volunteers whose division, district, upazila or union is that location; for PROGRAM and PROJECT
- * the volunteers in the area locations of those projects, never of a revoked one.
- * A pending or unassigned volunteer is on no project, so the address decides.
+ * The volunteers a scope reaches by their address (entity `volunteer`): everyone at GLOBAL; the own
+ * row for SELF; for an area (REGION, a split district or a smaller area) the volunteers whose
+ * division, district, upazila or union is that location; for PROGRAM and PROJECT the volunteers in
+ * the area locations of those projects, never of a revoked one. A pending or unassigned volunteer
+ * is on no project, so the address decides.
  */
 export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
   const i = scope.instances;

@@ -9,7 +9,10 @@ import { defineRoute, type RouteDeps } from '../openapi/define-route';
 const uuid = z.uuid();
 const sessionOp = { tag: 'sessions', idempotency: 'none' as const, rateLimit: 'default' as const };
 
-/** Device lists and remote revocation (AUTH.md 8, openapi tag sessions). */
+/**
+ * Device lists and remote revocation (docs/architecture/AUTH.md, "Devices: listing, remote
+ * revocation and local-data wipe"; openapi tag sessions).
+ */
 export function sessionsRouter(deps: RouteDeps, c: Pick<Container, 'deviceSessions'>): Router {
   const router = Router();
   const list = (rows: unknown[]) =>

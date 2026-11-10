@@ -10,7 +10,8 @@ import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
 import { canonicalSchema, compareWithContract, PERMISSION_MARKERS } from '../../src/openapi/drift';
 import { buildTestApp, type TestApp } from '../support/app';
 
-// The generated document must match docs/api/openapi.yaml (API_STANDARDS 16).
+// The generated document must match docs/api/openapi.yaml (docs/api/API_STANDARDS.md, "OpenAPI
+// annotations required on every operation").
 const repo = join(__dirname, '../../../..');
 const contract = yaml.load(readFileSync(join(repo, 'docs/api/openapi.yaml'), 'utf8')) as {
   paths: Record<string, Record<string, { 'x-permission'?: unknown } | null>>;
@@ -79,7 +80,7 @@ afterEach(async () => {
   open = undefined;
 });
 
-describe('OpenAPI drift test (API_STANDARDS 16)', () => {
+describe('OpenAPI drift test', () => {
   it('the application matches docs/api/openapi.yaml', async () => {
     open = buildTestApp();
     const document = buildOpenApiDocument(open.registry);

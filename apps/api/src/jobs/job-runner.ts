@@ -86,7 +86,10 @@ export class JobRunner {
     await boss.schedule(queue, cron, data, { tz: 'Asia/Dhaka', ...(key ? { key } : {}) });
   }
 
-  /** Readiness check: the queue schema is reachable (SYSTEM_ARCHITECTURE 10). */
+  /**
+   * Readiness check: the queue schema is reachable (docs/architecture/SYSTEM_ARCHITECTURE.md,
+   * "Logging and monitoring").
+   */
   async ping(): Promise<boolean> {
     const boss = await this.start();
     return boss.isInstalled();

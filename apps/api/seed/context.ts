@@ -42,7 +42,10 @@ export class SeedContext {
   actorId: string | null = null;
   constructor(readonly db: Client) {}
 
-  /** Audit columns of business tables, written by the system actor (DATABASE_SCHEMA section 3). */
+  /**
+   * Audit columns of business tables, written by the system actor
+   * (docs/database/DATABASE_SCHEMA.md, "Audit columns and the system actor").
+   */
   audit(): { created_by: string | null; updated_by: string | null } {
     return { created_by: this.actorId, updated_by: this.actorId };
   }

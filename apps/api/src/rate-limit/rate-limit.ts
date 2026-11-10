@@ -3,7 +3,10 @@ import { ipKeyGenerator } from 'express-rate-limit';
 import { normalizeLoginId } from '../auth/login-id';
 import { currentContext } from '../core/request-context';
 
-/** The rate-limit classes of API_STANDARDS 10, the same values as OpenAPI `x-rate-limit`. */
+/**
+ * The rate-limit classes (docs/api/API_STANDARDS.md, "Rate limiting"), the same values as OpenAPI
+ * `x-rate-limit`.
+ */
 export type RateLimitClass =
   | 'login'
   | 'otp-request'
@@ -52,8 +55,9 @@ const field = (req: Request, ...names: string[]) => {
 /** The client address through `trust proxy`, IPv6 grouped by /56 so a /64 is one client. */
 const ip = (req: Request) => (req.ip ? ipKeyGenerator(req.ip) : 'unknown');
 /**
- * A login id is counted in its normalized form (AUTH.md 1: spaces, dashes and the country prefix
- * removed, English digits), so spellings of one id share one window.
+ * A login id is counted in its normalized form (docs/architecture/AUTH.md, "Identities and
+ * accounts": spaces, dashes and the country prefix removed, English digits), so spellings of one id
+ * share one window.
  */
 const loginId = (req: Request) => {
   const raw = field(req, 'loginId', 'login', 'mobile', 'email');
@@ -77,7 +81,7 @@ const refreshSession = (req: Request) => {
 };
 const caller = (req: Request) => currentContext()?.userId ?? `ip:${ip(req)}`;
 
-/** Limits and keys per class (API_STANDARDS 10; default and sync are proposals tuned before the field pilot). */
+/** Limits and keys per class (default and sync are proposals tuned before the field pilot). */
 export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
   login: [
     { limit: 10, ttlMs: MINUTE, key: (r) => `id:${loginId(r)}` },
@@ -139,7 +143,8 @@ export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
     { limit: 60, ttlMs: MINUTE, key: caller, shared: true },
   ],
   sync: [{ limit: 60, ttlMs: MINUTE, key: session }],
-  // The parts of chunked uploads: one budget per user across every upload (FILES_AND_DOCUMENTS 4).
+  // The parts of chunked uploads: one budget per user across every upload
+  // (docs/architecture/FILES_AND_DOCUMENTS.md, "Upload pipeline").
   upload: [{ limit: 600, ttlMs: HOUR, key: caller, shared: true }],
   // The beneficiary lookup by NID or birth registration answers with a person's details, so trying
   // numbers must not pay: per user a minute and a day, and per address before them

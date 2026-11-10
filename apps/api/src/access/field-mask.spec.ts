@@ -9,7 +9,7 @@ import {
 } from './field-mask';
 import { loadAccessRegistry } from './registry';
 
-// Field-level protection (RBAC.md 6).
+// Field-level protection (docs/security/RBAC.md, "Field-level protection").
 const registry = loadAccessRegistry();
 
 describe('field mask per sensitive class', () => {

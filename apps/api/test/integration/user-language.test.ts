@@ -8,7 +8,8 @@ import { UserLanguageService } from '../../src/i18n/user-language.service';
 import { user } from './support/fixtures';
 import { cloneTemplate } from './support/db';
 
-// users.language is the stored interface language (I18N 2); the endpoint is one of the auth routes.
+// users.language is the stored interface language (docs/ui/I18N.md, "Languages and locale
+// resolution"); the endpoint is one of the auth routes.
 let db: Client;
 let drop: () => Promise<void>;
 let prisma: PrismaClient;
@@ -25,7 +26,7 @@ afterAll(async () => {
   await drop();
 });
 
-describe('UserLanguageService (I18N 2)', () => {
+describe('UserLanguageService', () => {
   it('stores bn or en in users.language', async () => {
     const id = await user(db);
     const service = new UserLanguageService(prisma);

@@ -41,11 +41,12 @@ function withoutToken(settings: unknown): Prisma.InputJsonValue {
 }
 
 /**
- * The parts of a project's setup that are saved on their own (docs/MASTER_SPEC.md, A6): components
- * and their settings, the budget with its fund sources, areas with their RPMs, staff access and the
- * dawah syllabus. Every write loads the project inside the caller's scope, locks its row, applies
- * the state rule and audits, in one transaction. An active project keeps what its activation
- * needed. A volunteer reads only the enabled components, the photo rule and the syllabus.
+ * The parts of a project's setup that are saved on their own (docs/MASTER_SPEC.md, "Program and
+ * project setup (project configuration)"): components and their settings, the budget with its fund
+ * sources, areas with their RPMs, staff access and the dawah syllabus. Every write loads the
+ * project inside the caller's scope, locks its row, applies the state rule and audits, in one
+ * transaction. An active project keeps what its activation needed. A volunteer reads only the
+ * enabled components, the photo rule and the syllabus.
  */
 export class ProjectSetupService {
   constructor(

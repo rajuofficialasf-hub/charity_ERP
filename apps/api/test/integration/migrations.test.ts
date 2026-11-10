@@ -16,7 +16,7 @@ import {
   urlFor,
 } from './support/db';
 
-// Reversible migrations (TEST_STRATEGY section 3.9). The round trip runs on a
+// Reversible migrations (docs/testing/TEST_STRATEGY.md, "Data integrity"). The round trip runs on a
 // database holding the base and demo seed, so down.sql is proven to work with data.
 const created: string[] = [];
 afterAll(async () => {

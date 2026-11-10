@@ -130,7 +130,10 @@ export interface ApplicationRead {
   updatedAt: Date;
 }
 
-/** The permission an edit needs in each state (docs/architecture/WORKFLOW_ENGINE.md, section 3). */
+/**
+ * The permission an edit needs in each state (docs/architecture/WORKFLOW_ENGINE.md, "Common
+ * application cycle").
+ */
 const EDIT_PERMISSION: Record<string, string> = {
   draft: 'application.edit_draft',
   submitted: 'application.edit_pending',
@@ -288,12 +291,11 @@ const statusSchema = z.enum(APPLICATION_STATES);
 const identityKindSchema = z.enum(['nid', 'birth_reg']).nullable();
 
 /**
- * The applications of the core cycle (docs/architecture/WORKFLOW_ENGINE.md, section 3): a draft
- * is made on the project's published application form by a volunteer, a team member (under their
- * lead) or an official; the person comes from the number in the identity answer and never from an
- * id the client sends; a known person's identity answers are locked to the profile; the edits and
- * the deletion follow the state; every state change goes through the engine. A volunteer on the
- * blocklist reaches nothing.
+ * The applications of the core cycle: a draft is made on the project's published application form
+ * by a volunteer, a team member (under their lead) or an official; the person comes from the number
+ * in the identity answer and never from an id the client sends; a known person's identity answers
+ * are locked to the profile; the edits and the deletion follow the state; every state change goes
+ * through the engine. A volunteer on the blocklist reaches nothing.
  */
 export class ApplicationsService {
   constructor(

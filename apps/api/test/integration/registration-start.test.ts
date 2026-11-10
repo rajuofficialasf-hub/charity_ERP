@@ -9,9 +9,9 @@ import type { StorageDriver } from '../../src/storage';
 import { account, authHarness, type AuthHarness } from './support/auth-app';
 import * as f from './support/fixtures';
 
-// Registration start and the per-channel codes (AUTH.md 2, and
-// docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md). The dummy OTP of the test
-// configuration is 246810.
+// Registration start and the per-channel codes (docs/architecture/AUTH.md, "Registration with two
+// OTPs"; and docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md). The dummy OTP of the
+// test configuration is 246810.
 const CODE = '246810';
 const TOKEN_HEADER = 'X-Registration-Token';
 const logLines: string[] = [];

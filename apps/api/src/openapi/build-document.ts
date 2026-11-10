@@ -9,9 +9,10 @@ import {
 type Operation = Record<string, unknown>;
 
 /**
- * The OpenAPI document generated from the route registry (API_STANDARDS 16):
- * paths relative to the `/api/v1` server like docs/api/openapi.yaml; bearer auth is the document
- * default, public operations declare `security: []` or their cookie requirement.
+ * The OpenAPI document generated from the route registry (docs/api/API_STANDARDS.md, "OpenAPI
+ * annotations required on every operation"): paths relative to the `/api/v1` server like
+ * docs/api/openapi.yaml; bearer auth is the document default, public operations declare `security:
+ * []` or their cookie requirement.
  */
 export function buildOpenApiDocument(registry: RouteRegistry): {
   openapi: string;

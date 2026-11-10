@@ -27,7 +27,7 @@ const names = (grants: EffectiveGrant[]) => new Set(grants.map((g) => g.permissi
 const on = (grants: EffectiveGrant[], projectId: string) =>
   new Set(grants.filter((g) => g.projectId === projectId).map((g) => g.permission));
 
-// Effective permissions from the four sources of RBAC.md 1.
+// Effective permissions from their four sources (docs/security/RBAC.md, "Model").
 describe('effective permissions', () => {
   it('gives GLOBAL roles every permission at GLOBAL, except system.owner.transfer for the Monitoring Team', () => {
     const head = effectivePermissions(registry, facts({ roles: ['department_head'] }), NOW);

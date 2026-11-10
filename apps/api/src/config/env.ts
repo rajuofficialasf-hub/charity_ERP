@@ -7,9 +7,9 @@ const flag = z
   .transform((v) => v === 'true' || v === '1');
 
 /**
- * Typed process configuration, validated once at start (SYSTEM_ARCHITECTURE section 9).
- * A missing or malformed value stops the process with a clear message. .env.example lists every
- * name with placeholder values only.
+ * Typed process configuration, validated once at start (docs/architecture/SYSTEM_ARCHITECTURE.md,
+ * "Configuration and secrets"). A missing or malformed value stops the process with a clear
+ * message. .env.example lists every name with placeholder values only.
  */
 const envSchema = z
   .object({
@@ -24,7 +24,10 @@ const envSchema = z
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
-    /** Signs pagination cursors so they cannot be forged (API_STANDARDS 4). */
+    /**
+     * Signs pagination cursors so they cannot be forged (docs/api/API_STANDARDS.md, "Pagination:
+     * keyset cursors").
+     */
     CURSOR_SECRET: z.string().min(32),
     /** Runs job consumers inside the API process; development and tests only. */
     JOBS_INLINE: flag,
@@ -74,7 +77,10 @@ const envSchema = z
     JWT_PREVIOUS_SECRET: z.string().min(32).optional(),
     /** Signs the double-submit CSRF token of the refresh endpoint. */
     AUTH_CSRF_SECRET: z.string().min(32),
-    /** HMAC key of OTP code and address hashes (AUTH.md 2). */
+    /**
+     * HMAC key of OTP code and address hashes (docs/architecture/AUTH.md, "Registration with two
+     * OTPs").
+     */
     OTP_SECRET: z.string().min(32),
     /**
      * Seals the device keys of sessions in the database (docs/architecture/AUTH.md "Tokens and
@@ -96,8 +102,9 @@ const envSchema = z
      */
     TRUST_PROXY: z.string().min(1).default('loopback'),
     /**
-     * docs/security/permissions.yaml (RBAC.md 2); unset = the file of the repository, which the
-     * production images of the api and the worker copy.
+     * docs/security/permissions.yaml (docs/security/RBAC.md, "permissions.yaml schema and
+     * loading"); unset = the file of the repository, which the production images of the api and the
+     * worker copy.
      */
     PERMISSIONS_FILE: z.string().min(1).optional(),
     /**

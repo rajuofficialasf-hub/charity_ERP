@@ -61,7 +61,10 @@ const CODES_PER_ACCOUNT_HOUR = 5;
 const isContact = (field: string): field is (typeof CONTACT_FIELDS)[number] =>
   (CONTACT_FIELDS as readonly string[]).includes(field);
 const isPhoto = (field: string) => (PHOTO_FIELDS as readonly string[]).includes(field);
-/** Values an approver sees only with the field class (RBAC.md 6). */
+/**
+ * Values an approver sees only with the field class (docs/security/RBAC.md, "Field-level
+ * protection").
+ */
 /** Exported for the unit test that every key is an editable field. */
 export const CLASS_OF: Record<string, string> = {
   nid: 'volunteer.identity',
@@ -76,7 +79,7 @@ type Row = Parameters<typeof changeView>[0];
 
 const editField = z.enum(EDIT_FIELDS as [EditField, ...EditField[]]);
 
-/** Whether an approver with these field classes may read the value of a field (RBAC.md 6). */
+/** Whether an approver with these field classes may read the value of a field. */
 function visible(field: string, classes: ReadonlySet<string>): boolean {
   const cls = CLASS_OF[field];
   return cls === undefined || classes.has(cls);

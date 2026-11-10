@@ -50,9 +50,10 @@ const awaitingPassword = (u: { kind: string; state: string; passwordHash: string
   u.kind === 'staff' && u.state === 'pending' && u.passwordHash === null;
 
 /**
- * Account transitions this endpoint performs (AUTH.md 7): staff suspension and its lift,
- * deactivation after a completed handover, reactivation. Approval and rejection of pending
- * registrations and the volunteer blocklist (volunteer.block) have their own flows.
+ * Account transitions this endpoint performs (docs/architecture/AUTH.md, "Account states"): staff
+ * suspension and its lift, deactivation after a completed handover, reactivation. Approval and
+ * rejection of pending registrations and the volunteer blocklist (volunteer.block) have their own
+ * flows.
  */
 const TRANSITIONS: Record<string, readonly UserState[]> = {
   active: ['blocked', 'deactivated'],
@@ -172,9 +173,10 @@ export class UsersService {
   }
 
   /**
-   * Changes the account state with a reason (AUTH.md 7, 10, 11): the Main Admin cannot be blocked
-   * or deactivated; deactivation needs a completed handover; the change bumps the permission
-   * version and a block or deactivation revokes every device session.
+   * Changes the account state with a reason (docs/architecture/AUTH.md, "Account states", "Staff
+   * handover before deactivation" and "Main Admin protection"): the Main Admin cannot be blocked or
+   * deactivated; deactivation needs a completed handover; the change bumps the permission version
+   * and a block or deactivation revokes every device session.
    */
   async changeState(
     actor: Principal,
@@ -242,7 +244,9 @@ export class UsersService {
     return this.get(scope, userId);
   }
 
-  /** Clears a login lock with a reason (AUTH.md 6). */
+  /**
+   * Clears a login lock with a reason (docs/architecture/AUTH.md, "Lockout after failed attempts").
+   */
   async unlock(actor: Principal, scope: Scope, userId: string, reason: string): Promise<void> {
     const now = this.clock.now();
     await this.prisma.$transaction(async (tx) => {

@@ -31,7 +31,10 @@ function bodyParserError(err: unknown): { status: number; code: string } | undef
   return typeof type === 'string' ? BODY_PARSER_ERRORS[type] : undefined;
 }
 
-/** Codes whose params are part of the contract and sent to the client (API_STANDARDS 3 and 8). */
+/**
+ * Codes whose params are part of the contract and sent to the client (docs/api/API_STANDARDS.md,
+ * "Request and response envelope" and "Error-code catalogue").
+ */
 export const PUBLIC_PARAMS: ReadonlySet<string> = new Set([
   'permission.grant_refused',
   'file.duplicate',
@@ -44,7 +47,8 @@ export const PUBLIC_PARAMS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Renders the error block of API_STANDARDS 3 in the request language (I18N 5):
+ * Renders the error block (docs/api/API_STANDARDS.md, "Request and response envelope") in the
+ * request language (docs/ui/I18N.md, "Server-side localization"):
  * `{ error: { code, messageKey, message, params?, details?, requestId } }`, with `Retry-After` for locks
  * and rate limits. Unknown failures become `server.internal`; stack traces and SQL stay in the
  * server log.

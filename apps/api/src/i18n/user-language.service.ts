@@ -3,7 +3,8 @@ import type { PrismaClient } from '../generated/prisma/client';
 import { ApiError } from './api-error';
 
 /**
- * Stores a user's interface language in users.language (I18N 2). The endpoint
+ * Stores a user's interface language in users.language (docs/ui/I18N.md, "Languages and locale
+ * resolution"). The endpoint
  * `PUT /api/v1/me/language` routes here once login exists, which also writes the audit entry
  * of the profile change; until then nothing calls it outside the tests.
  */

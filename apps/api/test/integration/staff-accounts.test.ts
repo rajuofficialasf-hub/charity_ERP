@@ -17,7 +17,8 @@ import {
 import * as f from './support/fixtures';
 
 // Officials created by the admin with a set-password link, login by job ID, staff self-registration
-// closed. test-only passwords for the rules of AUTH.md 3 (8 characters, 12 for a global role)
+// closed. test-only passwords for the rules of docs/architecture/AUTH.md, "Password rules" (8
+// characters, 12 for a global role)
 const TOO_SHORT = 'Ab1';
 const UNDER_TWELVE = `${PASSWORD.slice(0, 4)} 20261`;
 const TWELVE_OR_MORE = `${PASSWORD} 1`.slice(0, 14);

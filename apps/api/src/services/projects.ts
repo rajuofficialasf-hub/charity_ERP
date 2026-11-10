@@ -81,7 +81,7 @@ const toDate = (s: string | null | undefined) =>
 /** What a reader of a project sees: a volunteer the work facts only, an official the rest. */
 interface ViewOf {
   forVolunteer: boolean;
-  /** The budget amounts, only inside the caller's `budget.view` scope (RBAC.md, the budget rows). */
+  /** The budget amounts, only inside the caller's `budget.view` scope (docs/security/RBAC.md, the budget rows). */
   budget: boolean;
 }
 
@@ -158,10 +158,10 @@ function sameValue(key: keyof ProjectUpdate, value: unknown, current: unknown): 
 }
 
 /**
- * Projects (docs/MASTER_SPEC.md, A6): a PM creates a draft from a workflow in
- * its program; the setup changes as the project's state allows; a draft that was never activated
- * can be cancelled. Every write locks the project (or, on creation, the program) and is audited in
- * its transaction.
+ * Projects (docs/MASTER_SPEC.md, "Program and project setup (project configuration)"): a PM creates
+ * a draft from a workflow in its program; the setup changes as the project's state allows; a draft
+ * that was never activated can be cancelled. Every write locks the project (or, on creation, the
+ * program) and is audited in its transaction.
  */
 export class ProjectsService {
   constructor(

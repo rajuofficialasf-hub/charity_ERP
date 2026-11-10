@@ -55,8 +55,8 @@ function onField(error: unknown, path: string): unknown {
 }
 
 /**
- * Registration before login (AUTH.md 2): a draft between start
- * and submit, the two codes, the draft token and the team member's reference lookup.
+ * Registration before login (docs/architecture/AUTH.md, "Registration with two OTPs"): a draft
+ * between start and submit, the two codes, the draft token and the team member's reference lookup.
  */
 export class RegistrationService {
   constructor(
@@ -346,7 +346,8 @@ export class RegistrationService {
           where: { id: draft.id },
           data: { submittedUserId: id, submittedAt: now, tokenHash: null },
         });
-        // Personal identifiers stay out of the entry (RBAC.md 6): kinds and names only.
+        // Personal identifiers stay out of the entry (docs/security/RBAC.md, "Field-level
+        // protection"): kinds and names only.
         await this.audit.record(tx, {
           action: 'auth.registered',
           entityType: 'user',

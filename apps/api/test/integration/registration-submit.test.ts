@@ -14,7 +14,8 @@ import * as f from './support/fixtures';
 import { notificationsOf } from './support/notifications';
 import { TOKEN_HEADER, verifiedDraft, verifyContacts } from './support/registration';
 
-// Submit and the pending account (AUTH.md 2, 7).
+// Submit and the pending account (docs/architecture/AUTH.md, "Registration with two OTPs" and
+// "Account states").
 let h: AuthHarness;
 let loc: Awaited<ReturnType<typeof f.locationTree>>;
 let programId: string;

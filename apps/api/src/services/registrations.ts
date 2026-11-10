@@ -45,7 +45,10 @@ export const UNFINISHED = ['open', 'submitted'];
 /** Refused correction answers (invalid value, NID of another volunteer) an account allows per hour. */
 const MAX_REFUSED_ANSWERS = 10;
 const REFUSAL_WINDOW_MS = 3_600_000;
-/** Roles a staff decision or a new account may not give: the Main Admin's role (AUTH.md 11). */
+/**
+ * Roles a staff decision or a new account may not give: the Main Admin's role
+ * (docs/architecture/AUTH.md, "Main Admin protection").
+ */
 const NOT_BY_DECISION = new Set(['department_head']);
 
 /** An official role that a staff decision or the admin's new account may give. */
@@ -273,7 +276,10 @@ export class RegistrationsService {
     return this.prisma.user.count({ where: filter });
   }
 
-  /** One pending registration in scope, or 404 (RBAC.md 8.4). */
+  /**
+   * One pending registration in scope, or 404 (docs/security/RBAC.md, "Object-level checks for
+   * ASSIGNED and SELF").
+   */
   async detail(actor: Principal, scope: Scope, userId: string) {
     const staff = await this.decidesStaff(actor.userId);
     const user = await this.prisma.user.findFirst({
@@ -690,7 +696,8 @@ export class RegistrationsService {
           status: 'submitted',
         },
       });
-      // the field name only: identity and bank values stay out of the log (RBAC.md 6)
+      // the field name only: identity and bank values stay out of the log (docs/security/RBAC.md,
+      // "Field-level protection")
       await this.audit.record(tx, {
         action: 'auth.correction_answered',
         entityType: 'user',

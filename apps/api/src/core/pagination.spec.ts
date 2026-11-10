@@ -18,7 +18,7 @@ import { issueCode } from '../http/validate';
 
 const SECRET = 'unit-test-secret-0123456789abcdefgh';
 
-describe('cursors (API_STANDARDS 4)', () => {
+describe('cursors', () => {
   it('round-trips and refuses tampering, other bindings and garbage', () => {
     const cursor = encodeCursor(SECRET, 'GET /x|user-1', { v: ['b', 'id-2'], d: 'next' });
     expect(decodeCursor(SECRET, 'GET /x|user-1', cursor)).toEqual({ v: ['b', 'id-2'], d: 'next' });
@@ -33,7 +33,7 @@ describe('cursors (API_STANDARDS 4)', () => {
   });
 });
 
-describe('sorting and keyset (API_STANDARDS 4, 5)', () => {
+describe('sorting and keyset', () => {
   it('parses whitelisted sort fields and always ends with the id', () => {
     expect(parseSort('-submittedAt,appNo', ['submittedAt', 'appNo'], [])).toEqual([
       { field: 'submittedAt', direction: 'desc' },
@@ -91,7 +91,7 @@ describe('sorting and keyset (API_STANDARDS 4, 5)', () => {
   });
 });
 
-describe('filters and search (API_STANDARDS 5)', () => {
+describe('filters and search', () => {
   it('parses lists, ranges, totals and search terms', () => {
     expect(parseList(' submitted, reviewed,,submitted ')).toEqual(['submitted', 'reviewed']);
     expect(parseRange('2026-10-01', '2026-10-31')).toEqual({
@@ -116,7 +116,7 @@ describe('filters and search (API_STANDARDS 5)', () => {
   });
 });
 
-describe('validation codes (API_STANDARDS 7)', () => {
+describe('validation codes', () => {
   it('maps zod issues to catalogue codes', () => {
     const schema = z.object({
       name: z.string().min(1).max(5),

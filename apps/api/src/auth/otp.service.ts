@@ -10,7 +10,7 @@ import { type PrismaService } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
 import type { EmailAdapter, SmsAdapter } from '../notifications/adapters';
 
-/** OTP parameters (AUTH.md 2). */
+/** OTP parameters (docs/architecture/AUTH.md, "Registration with two OTPs"). */
 export const OTP_RULES = {
   validMs: 5 * 60_000,
   maxAttempts: 5,
@@ -48,9 +48,10 @@ export function otpStartupMessage(dummy: boolean): { level: 'warn' | 'info'; tex
 }
 
 /**
- * Delivery of an OTP (NOTIFICATIONS 9, AUTH.md 2.1): the dummy path sends nothing and accepts the
- * configured fixed code (development and test only, refused in production by the configuration);
- * the real path renders the bilingual template and sends through the SMS or email adapter.
+ * Delivery of an OTP (docs/architecture/NOTIFICATIONS.md, "OTP path"; docs/architecture/AUTH.md,
+ * "Dummy OTP in development and test"): the dummy path sends nothing and accepts the configured
+ * fixed code (development and test only, refused in production by the configuration); the real path
+ * renders the bilingual template and sends through the SMS or email adapter.
  */
 export class OtpDeliveryService {
   constructor(
@@ -96,9 +97,9 @@ export class OtpDeliveryService {
 }
 
 /**
- * One-time codes (AUTH.md 2): 6 digits, valid 5 minutes, at most 5 verification attempts
- * per code and 5 requests per address and hour; codes and addresses are stored only as HMACs and
- * a code is used once. A failed attempt is committed even though the request then fails.
+ * One-time codes: 6 digits, valid 5 minutes, at most 5 verification attempts per code and 5
+ * requests per address and hour; codes and addresses are stored only as HMACs and a code is used
+ * once. A failed attempt is committed even though the request then fails.
  */
 export class OtpService {
   constructor(

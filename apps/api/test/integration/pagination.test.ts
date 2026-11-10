@@ -12,8 +12,8 @@ import { PrismaClient } from '../../src/generated/prisma/client';
 import { cloneTemplate } from './support/db';
 import { user } from './support/fixtures';
 
-// Keyset pagination on a real table (API_STANDARDS 4): every row exactly once, forwards and back,
-// even with equal sort values (the id breaks ties).
+// Keyset pagination on a real table (docs/api/API_STANDARDS.md, "Pagination: keyset cursors"):
+// every row exactly once, forwards and back, even with equal sort values (the id breaks ties).
 const SECRET = 'integration-secret-0123456789abcdef';
 let db: Client;
 let drop: () => Promise<void>;

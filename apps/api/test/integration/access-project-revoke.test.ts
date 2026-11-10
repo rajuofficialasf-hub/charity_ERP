@@ -15,7 +15,7 @@ import {
 import * as f from './support/fixtures';
 
 // A panel revoke of one project beats every grant that reaches it: the PM's program, an area
-// without a project and GLOBAL (RBAC.md 7).
+// without a project and GLOBAL (docs/security/RBAC.md, "Permission panel").
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();

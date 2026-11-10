@@ -768,7 +768,10 @@ export const SECTIONS: LibrarySection[] = [
 const eq = (field: string, value: string): Condition =>
   conditionSchema.parse({ field, op: 'eq', value });
 
-/** Display conditions given by appendix খ.২ ("হ্যাঁ হলে দেখাবে", "পেশা = ব্যবসা হলে দেখাবে"). */
+/**
+ * Display conditions given by the current self-reliance form ("হ্যাঁ হলে দেখাবে", "পেশা = ব্যবসা হলে
+ * দেখাবে"; docs/MASTER_SPEC.md, "Self-reliance and house construction form").
+ */
 const CONDITIONS: Record<string, Condition> = {
   business_kind_current: eq('occupation', 'business'),
   day_labour_work: eq('occupation', 'day_labourer'),

@@ -18,7 +18,9 @@ export interface AccessDeps {
   logger: Logger;
 }
 
-/** Scope entities whose routes filter no data (RBAC.md 8). */
+/**
+ * Scope entities whose routes filter no data (docs/security/RBAC.md, "Server-side enforcement").
+ */
 const UNFILTERED = new Set(['none', 'global', 'system']);
 
 /** The access rule of an operation: its permission and the pending-account allowance. */
@@ -28,11 +30,14 @@ export type AccessRule = Pick<
 >;
 
 /**
- * Authentication and authorization of every route (SYSTEM_ARCHITECTURE 6, SECURITY_POLICY 5,
- * AUTH.md 5, 7, 9). Default deny: `defineRoute` refuses a route without a declared permission, and
- * only `public` passes without a bearer token. In order: bearer token → device session not revoked
- * → permission version current → account state → password change due → permission (the effective
- * grants of RBAC.md 1, docs/security/RBAC.md 8) → the scope handle of the route's entity. Fills
+ * Authentication and authorization of every route (docs/architecture/SYSTEM_ARCHITECTURE.md,
+ * "Request lifecycle (exact order of checks)"; docs/security/SECURITY_POLICY.md, "Authorization and
+ * field-level protection"; docs/architecture/AUTH.md, "Tokens and device sessions", "Account
+ * states" and "Role or permission change forces a session refresh"). Default deny: `defineRoute`
+ * refuses a route without a declared permission, and only `public` passes without a bearer token.
+ * In order: bearer token → device session not revoked → permission version current → account state
+ * → password change due → permission (the effective grants of docs/security/RBAC.md, "Model") → the
+ * scope handle of the route's entity. Fills
  * `req.principal`, `req.scope` and the request context so logs and audit entries carry the actor.
  * Runs before the rate limiters, so the per-user and per-session windows see the caller.
  */

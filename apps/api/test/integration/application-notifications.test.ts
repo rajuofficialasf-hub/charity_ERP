@@ -18,10 +18,10 @@ import {
 } from './support/auth-app';
 import { beneficiary, fakeMobile, fakeNid, volunteer } from './support/fixtures';
 
-// The application events of the notification matrix (docs/architecture/NOTIFICATIONS.md, 4.3):
-// the region's reviewers hear of a submission, the approvers of a review, the owner volunteer and
-// the creating team member of a decision, with the message written for them and never the
-// office's reason.
+// The application events of the notification matrix (docs/architecture/NOTIFICATIONS.md,
+// "Applications and workflow (Phase 2)"): the region's reviewers hear of a submission, the
+// approvers of a review, the owner volunteer and the creating team member of a decision, with the
+// message written for them and never the office's reason.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();

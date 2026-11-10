@@ -13,7 +13,7 @@ probe.get('/i18n-probe/crash', () => {
   throw new Error('select * from secret_table failed');
 });
 
-describe('API errors in the request language (I18N 2 and 5, API_STANDARDS 3 and 7)', () => {
+describe('API errors in the request language', () => {
   let t: TestApp;
 
   beforeAll(() => {

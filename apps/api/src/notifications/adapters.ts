@@ -5,7 +5,8 @@ import type { Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 
 /**
- * Delivery adapters of the notifications module (NOTIFICATIONS): narrow interfaces, no
+ * Delivery adapters of the notifications module (docs/architecture/NOTIFICATIONS.md): narrow
+ * interfaces, no
  * templates (the notifications service renders texts and runs the outbox). Every adapter returns a provider message id
  * or throws a DeliveryError that tells the outbox worker whether a retry can help.
  */
@@ -144,8 +145,9 @@ export interface InAppMessage {
 }
 
 /**
- * In-app notifications (NOTIFICATIONS 7): a `notifications` row with the template key and its
- * parameters, never rendered text, so the inbox follows the reader's language (I18N 5). Written
+ * In-app notifications (docs/architecture/NOTIFICATIONS.md, "Delivery, outbox, retries and
+ * status"): a `notifications` row with the template key and its parameters, never rendered text, so
+ * the inbox follows the reader's language (docs/ui/I18N.md, "Server-side localization"). Written
  * inside the business transaction.
  */
 export class InAppAdapter {

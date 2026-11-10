@@ -58,10 +58,12 @@ const isUniqueViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 
 /**
- * The system-wide reference lists (DATABASE_SCHEMA 5.2 and 5.3). Every signed-in user reads them;
- * the settings page keeps the expense categories and the issue types (`settings.manage`): items
- * are added, relabelled, ordered, deactivated and activated, never deleted, and a code never
- * changes, so old records keep their meaning. Every change is audited.
+ * The system-wide reference lists (docs/database/DATABASE_SCHEMA.md, "System-wide configurable
+ * lists (reference_lists, FK enforced)" and "Per-project lists (validated by the service against
+ * the project snapshot)"). Every signed-in user reads them; the settings page keeps the expense
+ * categories and the issue types (`settings.manage`): items are added, relabelled, ordered,
+ * deactivated and activated, never deleted, and a code never changes, so old records keep their
+ * meaning. Every change is audited.
  */
 export class ReferenceListsService {
   constructor(

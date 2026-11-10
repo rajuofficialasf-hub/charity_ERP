@@ -7,8 +7,10 @@ import { currentContext } from './request-context';
 import { requestIdOf } from './request-id';
 
 /**
- * Field names that never reach a log line (SYSTEM_ARCHITECTURE 9 and 10, SECURITY_POLICY):
- * secrets, OTP codes and personal data. Matched at any of the first three levels of a log object.
+ * Field names that never reach a log line (docs/architecture/SYSTEM_ARCHITECTURE.md, "Configuration
+ * and secrets" and "Logging and monitoring"; docs/security/SECURITY_POLICY.md, "Logging without
+ * sensitive data"): secrets, OTP codes and personal data. Matched at any of the first three levels
+ * of a log object.
  */
 export const SENSITIVE_KEYS = [
   'password',

@@ -30,7 +30,8 @@ export interface PublicSubmission {
 
 /**
  * The flags a public entry carries for the official who verifies it, from the list the
- * `applications_flags_check` constraint allows (DATABASE_SCHEMA: the needs-verification reasons).
+ * `applications_flags_check` constraint allows (the needs-verification reasons of
+ * docs/database/DATABASE_SCHEMA.md, "applications").
  */
 export const PUBLIC_FLAGS = {
   publicEntry: 'public_entry',

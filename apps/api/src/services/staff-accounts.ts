@@ -45,10 +45,10 @@ type ProfileRefs = Pick<
 >;
 
 /**
- * Officials created by the admin (AUTH.md 2): the account with its role and
- * place, the set-password link (a random token stored only as a SHA-256 hash, emailed and returned
- * once so the admin can copy it), its renewal, and its use. The account stays pending without a
- * password until the link is used.
+ * Officials created by the admin (docs/architecture/AUTH.md, "Officials created by the admin"): the
+ * account with its role and place, the set-password link (a random token stored only as a SHA-256
+ * hash, emailed and returned once so the admin can copy it), its renewal, and its use. The account
+ * stays pending without a password until the link is used.
  */
 export class StaffAccountsService {
   constructor(

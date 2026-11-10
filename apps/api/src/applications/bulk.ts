@@ -53,12 +53,12 @@ export const bulkResponse = z.object({ results: z.array(rowResult) });
 const ACTION_PERMISSION = { review: 'application.review', approve: 'application.approve' } as const;
 
 /**
- * The review screen's bulk action (docs/api/API_STANDARDS.md, section 13): up to fifty
+ * The review screen's bulk action (docs/api/API_STANDARDS.md, "Bulk-update pattern"): up to fifty
  * applications start their review or take their approval in one request, each row through the
  * engine on its own savepoint, so one refused row never rolls back the others; the whole request
- * runs once per Idempotency-Key and a repeat answers the stored results. The request is refused
- * as a whole when the caller holds no permission for the action at all, or when the key was used
- * by someone else or with other rows.
+ * runs once per Idempotency-Key and a repeat answers the stored results. The request is refused as
+ * a whole when the caller holds no permission for the action at all, or when the key was used by
+ * someone else or with other rows.
  */
 export class BulkReviewService {
   constructor(

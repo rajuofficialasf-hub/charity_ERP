@@ -5,9 +5,9 @@ import type { Queue } from 'pg-boss';
  * by the install step; a new queue is added here and to the next `pnpm db:migrate`.
  */
 export const QUEUES = {
-  /** Offline batch processing (OFFLINE_SYNC). */
+  /** Offline batch processing (docs/architecture/OFFLINE_SYNC.md). */
   sync: { retryLimit: 5, retryDelay: 30, retryBackoff: true, expireInSeconds: 300 },
-  /** Outbound email and SMS deliveries (NOTIFICATIONS). */
+  /** Outbound email and SMS deliveries (docs/architecture/NOTIFICATIONS.md). */
   notify: {
     retryLimit: 8,
     retryDelay: 60,
@@ -21,7 +21,10 @@ export const QUEUES = {
   exports: { retryLimit: 2, retryDelay: 60, retryBackoff: false, expireInSeconds: 1800 },
   /** Photo post-processing, duplicate hashing, donor photo emails. */
   photos: { retryLimit: 5, retryDelay: 60, retryBackoff: true, expireInSeconds: 600 },
-  /** Nightly storage growth figures (SYSTEM_ARCHITECTURE 11). */
+  /**
+   * Nightly storage growth figures (docs/architecture/SYSTEM_ARCHITECTURE.md, "Storage growth
+   * reporting").
+   */
   'storage-stats': { retryLimit: 3, retryDelay: 600, retryBackoff: false, expireInSeconds: 1800 },
   /** Nightly recomputation of the suggested duplicate beneficiaries. */
   duplicates: { retryLimit: 3, retryDelay: 600, retryBackoff: false, expireInSeconds: 1800 },

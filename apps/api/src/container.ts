@@ -277,10 +277,11 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       from: env.SMTP_FROM,
     });
   const sms = o.sms ?? new StubSmsAdapter(env.SMS_MODE, logger);
-  // Authentication (AUTH.md): built in dependency order, so each service gets its instances.
+  // Authentication (docs/architecture/AUTH.md): built in dependency order, so each service gets its instances.
   const hasher = o.hasher ?? new PasswordHasher();
   const tokens = o.tokens ?? new TokenService(env, clock);
-  // permissions.yaml must name only conditions the access module can check (RBAC.md 2).
+  // permissions.yaml must name only conditions the access module can check (docs/security/RBAC.md,
+  // "permissions.yaml schema and loading").
   const accessRegistry = o.accessRegistry ?? loadAccessRegistry(env.PERMISSIONS_FILE);
   assertConditionsCovered(accessRegistry);
   // the workflow templates may name only guards, effects and permissions that exist

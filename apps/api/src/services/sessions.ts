@@ -26,7 +26,10 @@ function view(row: SessionRow, currentId: string | null): DeviceSession {
   };
 }
 
-/** Device lists and remote revocation (AUTH.md 8, openapi tag sessions). */
+/**
+ * Device lists and remote revocation (docs/architecture/AUTH.md, "Devices: listing, remote
+ * revocation and local-data wipe"; openapi tag sessions).
+ */
 export class SessionsService {
   constructor(
     private readonly sessions: SessionService,
@@ -70,7 +73,7 @@ export class SessionsService {
 
   /**
    * The target account inside the caller's scope, or 404 (unknown, out of scope, system actor). An
-   * official below the global roles reaches only volunteers' devices (RBAC.md: an RPM sees the
+   * official below the global roles reaches only volunteers' devices (docs/security/RBAC.md: an RPM sees the
    * sessions of volunteers), never another official's, even one working in the same area.
    */
   private async target(actor: Principal, scope: Scope, userId: string) {
@@ -98,7 +101,8 @@ export class SessionsService {
     reason: string,
   ): Promise<void> {
     const user = await this.target(actor, scope, userId);
-    // The Main Admin's sessions are revoked only by the Main Admin (AUTH.md 11).
+    // The Main Admin's sessions are revoked only by the Main Admin (docs/architecture/AUTH.md,
+    // "Main Admin protection").
     if (user.isSystemOwner && user.id !== actor.userId)
       throw new ApiError('user.system_owner_protected', 409);
     await this.prisma.$transaction(async (tx) => {

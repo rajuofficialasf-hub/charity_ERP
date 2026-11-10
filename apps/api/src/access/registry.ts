@@ -64,7 +64,10 @@ export interface SensitiveFieldClass {
   visibleTo: string[];
 }
 
-/** The permission model of permissions.yaml, validated and indexed once per process (RBAC.md 2). */
+/**
+ * The permission model of permissions.yaml, validated and indexed once per process
+ * (docs/security/RBAC.md, "permissions.yaml schema and loading").
+ */
 export interface AccessRegistry {
   roles: ReadonlyMap<string, RoleDef>;
   permissions: ReadonlyMap<string, PermissionDef>;

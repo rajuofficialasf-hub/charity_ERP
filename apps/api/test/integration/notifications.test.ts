@@ -7,7 +7,8 @@ import { testEnv } from '../support/env';
 import { cloneTemplate } from './support/db';
 import { user } from './support/fixtures';
 
-// In-app notifications are rows with template key and parameters (NOTIFICATIONS 7); email reaches
+// In-app notifications are rows with template key and parameters
+// (docs/architecture/NOTIFICATIONS.md, "Delivery, outbox, retries and status"); email reaches
 // Mailpit through SMTP (docker compose locally, a service container in CI).
 const mailpit = {
   host: process.env.MAILPIT_TEST_HOST ?? '127.0.0.1',

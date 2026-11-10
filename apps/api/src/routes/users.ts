@@ -86,7 +86,10 @@ const userOp = {
   rateLimit: 'default' as const,
 };
 
-/** User administration (AUTH.md 6, 7, 11; openapi tag users). */
+/**
+ * User administration (docs/architecture/AUTH.md, "Lockout after failed attempts", "Account states"
+ * and "Main Admin protection"; openapi tag users).
+ */
 export function usersRouter(
   deps: RouteDeps,
   c: Pick<Container, 'users' | 'handover' | 'staffAccounts' | 'organogram' | 'projectsWork'>,

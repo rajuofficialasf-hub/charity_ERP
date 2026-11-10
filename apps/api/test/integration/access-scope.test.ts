@@ -15,7 +15,8 @@ import {
   type Session,
 } from './support/auth-app';
 
-// Scope resolution and enforcement through the real endpoints (RBAC.md 4 and 8).
+// Scope resolution and enforcement through the real endpoints (docs/security/RBAC.md, "Data scopes
+// and their resolution" and "Server-side enforcement").
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -28,7 +29,8 @@ const logStream = new Writable({
   },
 });
 
-// A route of entity `global` (filters no data): only a GLOBAL grant may pass (RBAC.md 8).
+// A route of entity `global` (filters no data): only a GLOBAL grant may pass
+// (docs/security/RBAC.md, "Server-side enforcement").
 function globalProbe(deps: RouteDeps): Router {
   const router = Router();
   defineRoute(router, deps, {

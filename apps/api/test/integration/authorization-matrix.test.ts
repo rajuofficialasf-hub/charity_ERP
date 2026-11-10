@@ -104,8 +104,9 @@ describe('authorization matrix', () => {
     expect(wrong).toEqual([]);
   });
 
-  // Cells written by hand from RBAC.md 5 and permissions.yaml, independent of the engine that the
-  // computed expectation above uses, so an engine bug cannot agree with itself.
+  // Cells written by hand from docs/security/RBAC.md, "Default matrix (generated view of
+  // permissions.yaml)" and permissions.yaml, independent of the engine that the computed
+  // expectation above uses, so an engine bug cannot agree with itself.
   it('matches the hand-checked cells of the default matrix', () => {
     const pinned: [string, string, boolean][] = [
       ['get /users', 'program_manager', true],

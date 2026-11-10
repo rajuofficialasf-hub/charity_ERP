@@ -24,11 +24,17 @@ const accessOp = {
 };
 const listOf = (item: ZodType) => z.object({ data: z.array(item), meta: z.object({}) });
 const one = (item: ZodType) => z.object({ data: item, meta: z.object({}) });
-/** A list that is not paginated: the whole list in one page (API_STANDARDS 4). */
+/**
+ * A list that is not paginated: the whole list in one page (docs/api/API_STANDARDS.md, "Pagination:
+ * keyset cursors").
+ */
 const whole = <T>(rows: T[]) =>
   page(rows, { nextCursor: null, prevCursor: null, limit: rows.length });
 
-/** The permission panel and project grants (RBAC.md 7, docs/ui/SCREENS.md "Permission panel"; openapi tag access). */
+/**
+ * The permission panel and project grants (docs/security/RBAC.md, "Permission panel";
+ * docs/ui/SCREENS.md "Permission panel"; openapi tag access).
+ */
 export function accessRouter(deps: RouteDeps, c: Pick<Container, 'accessPanel'>): Router {
   const router = Router();
 

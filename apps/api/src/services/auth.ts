@@ -47,9 +47,10 @@ const accountSelect = {
 } as const;
 
 /**
- * Login, refresh, logout, the current user, password change and reset (AUTH.md 3 to 8). Errors
- * never tell whether a login id exists: unknown ids and wrong passwords share the error, the
- * timing class and the lockout behaviour.
+ * Login, refresh, logout, the current user, password change and reset (docs/architecture/AUTH.md,
+ * "Password rules" to "Devices: listing, remote revocation and local-data wipe"). Errors never tell
+ * whether a login id exists: unknown ids and wrong passwords share the error, the timing class and
+ * the lockout behaviour.
  */
 export class AuthService {
   private readonly unknownIds = new UnknownIdLockout();
@@ -68,7 +69,8 @@ export class AuthService {
   ) {}
 
   /**
-   * Account for a login id: staff by job ID, email or mobile, volunteers by mobile (AUTH.md 1).
+   * Account for a login id: staff by job ID, email or mobile, volunteers by mobile
+   * (docs/architecture/AUTH.md, "Identities and accounts").
    */
   private findAccount(raw: string) {
     const id = normalizeLoginId(raw);
@@ -111,7 +113,8 @@ export class AuthService {
         lockedUntil = null;
         await this.prisma.$transaction(async (tx) => {
           // the counter is read again under a row lock, so wrong passwords sent in parallel are
-          // counted one by one and cannot slip past the lock (AUTH.md 6)
+          // counted one by one and cannot slip past the lock (docs/architecture/AUTH.md, "Lockout
+          // after failed attempts")
           const [fresh] = await tx.$queryRaw<
             { failed_login_count: number; locked_until: Date | null }[]
           >`SELECT failed_login_count, locked_until FROM users WHERE id = ${user.id}::uuid FOR UPDATE`;
@@ -412,7 +415,10 @@ export class AuthService {
       );
   }
 
-  /** Changes the own password; every other device session is revoked (AUTH.md 3). */
+  /**
+   * Changes the own password; every other device session is revoked (docs/architecture/AUTH.md,
+   * "Password rules").
+   */
   async changePassword(principal: Principal, body: PasswordChangeRequest): Promise<void> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: principal.userId },
@@ -475,8 +481,8 @@ export class AuthService {
   }
 
   /**
-   * Starts a password reset (AUTH.md 3): the same answer whether or not the login id exists;
-   * a code is issued only for an account that is not deactivated.
+   * Starts a password reset: the same answer whether or not the login id exists; a code is issued
+   * only for an account that is not deactivated.
    */
   async resetStart(loginId: string, locale: Locale): Promise<void> {
     const { user, key } = await this.findAccount(loginId);
@@ -553,7 +559,10 @@ export class AuthService {
     });
   }
 
-  /** Stores the own interface language (I18N 2) with its audit entry. */
+  /**
+   * Stores the own interface language (docs/ui/I18N.md, "Languages and locale resolution") with its
+   * audit entry.
+   */
   async setLanguage(principal: Principal, language: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const before = await tx.user.findUniqueOrThrow({

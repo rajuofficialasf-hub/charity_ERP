@@ -2,7 +2,11 @@ import type { Request } from 'express';
 import type { Scope } from '../access/scope';
 import { ApiError } from '../i18n/api-error';
 
-/** The authenticated caller of a request, set by requireAccess (AUTH.md 5, SYSTEM_ARCHITECTURE 6). */
+/**
+ * The authenticated caller of a request, set by requireAccess (docs/architecture/AUTH.md, "Tokens
+ * and device sessions"; docs/architecture/SYSTEM_ARCHITECTURE.md, "Request lifecycle (exact order
+ * of checks)").
+ */
 export interface Principal {
   userId: string;
   sessionId: string;
@@ -18,7 +22,10 @@ export interface Principal {
 export type AuthedRequest = Request & {
   principal?: Principal;
   scope?: Scope;
-  /** The protected field classes the caller may see (RBAC.md 6); absent means none. */
+  /**
+   * The protected field classes the caller may see (docs/security/RBAC.md, "Field-level
+   * protection"); absent means none.
+   */
   fieldClasses?: ReadonlySet<string>;
 };
 
