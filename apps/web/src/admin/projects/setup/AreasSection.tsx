@@ -54,7 +54,10 @@ export function AreasSection({ areas }: { areas: Area[] }) {
       refresh();
     },
   });
-  const submit = (v: AreaFields) => add.mutate(v);
+  // Enter in a field submits too; an add already on its way is not sent again
+  const submit = (v: AreaFields) => {
+    if (!add.isPending) add.mutate(v);
+  };
   const remove = useMutation({ mutationFn: removeArea, onSuccess: refresh });
   // an area filled in but not added yet is added when the wizard moves on; half of one stays
   const problem = useStepSave({

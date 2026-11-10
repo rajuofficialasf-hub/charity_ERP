@@ -116,8 +116,9 @@ export function ComponentDrawer({
       updateComponent(project.id, key, component.etag ?? '', { settings: v.settings }),
     onSuccess: onSaved,
   });
+  // Enter in a field submits too; a save already on its way is not sent again
   const submit = (v: DrawerFields) => {
-    if (!readOnly) save.mutate(v);
+    if (!readOnly && !save.isPending) save.mutate(v);
   };
   const error = save.error instanceof ApiFailure ? save.error : undefined;
   const title = t('title', { name: tk(key) });

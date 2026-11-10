@@ -68,8 +68,11 @@ export function ReasonDialog({
   const ready = schema.safeParse(useWatch({ control: form.control })).success;
   const failure = error instanceof ApiFailure ? error : undefined;
 
-  const send = ({ reason, newApplyTo }: ReasonFields) =>
+  // Enter in the date field submits too; a move already on its way is not sent twice
+  const send = ({ reason, newApplyTo }: ReasonFields) => {
+    if (pending) return;
     onConfirm({ reason: reason.trim(), ...(newApplyTo ? { newApplyTo } : {}) });
+  };
 
   return (
     <Dialog

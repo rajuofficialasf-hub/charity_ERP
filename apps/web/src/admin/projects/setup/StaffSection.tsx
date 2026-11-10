@@ -101,7 +101,10 @@ export function StaffSection({
       refresh();
     },
   });
-  const submit = (v: AccessFields) => add.mutate(v);
+  // Enter in a field submits too; an add already on its way is not sent again
+  const submit = (v: AccessFields) => {
+    if (!add.isPending) add.mutate(v);
+  };
 
   // an access filled in but not given yet is given when the wizard moves on; half of one stays
   const problem = useStepSave({

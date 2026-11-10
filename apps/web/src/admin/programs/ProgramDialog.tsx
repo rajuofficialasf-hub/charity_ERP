@@ -99,6 +99,8 @@ export function ProgramDialog({
     return saved;
   };
   const save = async (fields: ProgramFields) => {
+    // Enter in a field submits too: it sends only what the button would
+    if (!ready) return;
     let saved: Program;
     try {
       saved = await store(fields);

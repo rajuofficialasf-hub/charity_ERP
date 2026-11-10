@@ -109,11 +109,10 @@ export function VerifyDialog({
         ...(action === 'verify_link' && found ? { linkBeneficiaryId: found.beneficiaryId } : {}),
         ...(ownerVolunteerId ? { ownerVolunteerId } : {}),
       });
+      await onDone(action);
     } catch (failure) {
       showFailure(form, failure, tc('state.error.text'));
-      return;
     }
-    await onDone(action);
   };
   return (
     <Dialog
