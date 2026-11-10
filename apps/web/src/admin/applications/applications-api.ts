@@ -30,11 +30,16 @@ export type {
 };
 
 /** The comment reasons, to read them from a refusal's details. */
-const COMMENT_REASONS: readonly string[] = [
+const COMMENT_REASONS = [
   'against_score',
   'quota_full',
   'family_match',
-] satisfies CommentReason[];
+] as const satisfies readonly CommentReason[];
+// the list holds every reason the API may name: one missing from it fails the typecheck
+const everyReasonListed: Exclude<CommentReason, (typeof COMMENT_REASONS)[number]> extends never
+  ? true
+  : never = true;
+void everyReasonListed;
 
 /** The filters kept in the address; the division and the upazila only lead to the district and the union. */
 export const FILTER_KEYS = [
@@ -130,7 +135,10 @@ export const askedComments = (error: unknown): CommentReason[] | null =>
   error instanceof ApiFailure && error.code === 'workflow.comment_required'
     ? error.details
         .map((d) => d.path)
-        .filter((p): p is CommentReason => p !== undefined && COMMENT_REASONS.includes(p))
+        .filter(
+          (p): p is CommentReason =>
+            p !== undefined && (COMMENT_REASONS as readonly string[]).includes(p),
+        )
     : null;
 
 /** Opens one answer of an approved application for correction, saying why. */

@@ -23,8 +23,9 @@ import {
   approvedApplication,
   assign,
   consent,
-  must,
   HEAD,
+  must,
+  newPerson,
   PM_HUM,
   RPM_DHAKA,
   sentApplication,
@@ -68,7 +69,10 @@ describe.skipIf(!contractBase())('the office’s applications', () => {
     ).data;
 
   it('lists the applications with filters and reviews one through to approval', async () => {
-    const { id } = await sentApplication(project, volunteer);
+    // a relative applied for before: the same father's name and mobile, so a family match
+    const person = newPerson();
+    await sentApplication(project, volunteer, { ...person, name: newPerson().name });
+    const { id } = await sentApplication(project, volunteer, person);
     const page = expectEnvelope(
       await call(
         office,
@@ -82,7 +86,7 @@ describe.skipIf(!contractBase())('the office’s applications', () => {
     // an edit is logged in the change log while the application is under review
     await decide(id, 'review');
     const record = await read(id);
-    expect(record.data.decisionHints).toBeDefined();
+    expect(record.data.familyDuplicateWarnings.length).toBeGreaterThan(0);
     // the office's edit of the answers is the global roles' (a Project Executive with edit access
     // on the project does it in the field)
     const head = await signIn(HEAD);
@@ -108,8 +112,10 @@ describe.skipIf(!contractBase())('the office’s applications', () => {
       z.array(fieldChangeSchema),
     );
     expect(changes.length).toBeGreaterThan(0);
-    await decide(id, 'send_for_approval');
-    const approved = await decide(id, 'approve');
+    const reviewed = await decide(id, 'send_for_approval');
+    // the family match asks for a comment; the project sets no quota and every person scores the same
+    expect(reviewed.decisionHints.approve).toEqual(['family_match']);
+    const approved = await decide(id, 'approve', { comment: REASON });
     expect(approved.status).toBe('implementation');
     expect(approved.scoreItems?.length).toBeGreaterThan(0);
     const timeline = expectContract(
@@ -177,7 +183,9 @@ describe.skipIf(!contractBase())('the office’s applications', () => {
       200,
       pulledApplicationSchema,
     );
-    expect(pulled.data.id).toBeDefined();
+    // the one waitlisted application of the project is the next one
+    expect(pulled.data.id).toBe(id);
+    expect((await read(id)).data.status).toBe('implementation');
   });
 
   it('verifies an entry that came through the public link', async () => {

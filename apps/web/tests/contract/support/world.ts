@@ -44,11 +44,13 @@ export function must<T>(
 ): { data: T; meta: { etag?: string } } {
   if (sent.status !== status)
     throw new Error(`${what}: ${sent.status} ${JSON.stringify(sent.body)}`);
-  const parsed = z
-    .object({ data, meta: z.object({ etag: z.string().optional() }) })
-    .safeParse(sent.body);
+  const envelope: z.ZodType<{ data: T; meta: { etag?: string } }> = z.object({
+    data,
+    meta: z.object({ etag: z.string().optional() }),
+  });
+  const parsed = envelope.safeParse(sent.body);
   if (!parsed.success) throw new Error(`${what}: ${parsed.error.message}`);
-  return parsed.data as { data: T; meta: { etag?: string } };
+  return parsed.data;
 }
 
 /** Asks again every half second, for up to 20 seconds, until the answer is the awaited one. */
