@@ -6,66 +6,9 @@ import {
 } from '@css/shared/registration';
 import type { OwnStaffProfile, ProjectsWork } from '@css/shared/auth';
 import { api } from '../../api/client';
+import type { ChangeRequest, OwnProfile, StaffChoices, StoredFile } from '../../api/schemas';
 
-/** The own volunteer profile as GET /volunteers/me answers. */
-export interface OwnProfile {
-  userId: string;
-  volunteerId: string | null;
-  state: 'pending' | 'active' | 'blocked' | 'deactivated';
-  displayName: string;
-  mobile: string | null;
-  email: string | null;
-  inAnyProject: boolean;
-  fatherName: string;
-  motherName: string;
-  nid: string;
-  type: string;
-  whatsapp: string | null;
-  divisionId: string;
-  districtId: string;
-  upazilaId: string;
-  unionId: string;
-  addressLine: string | null;
-  education: string | null;
-  experience: string | null;
-  workDescription: string | null;
-  previousProjects: string | null;
-  facebookId: string | null;
-  bloodGroup: string | null;
-  dateOfBirth: string | null;
-  tshirtSize: string | null;
-  volunteeringArea: string | null;
-  profession: string | null;
-  professionDetails: Record<string, unknown>;
-  interestAreas: string[];
-  vehicle: string | null;
-  canSwim: boolean | null;
-  availability: string | null;
-  emergencyFullTime: boolean | null;
-  educationDetails: Record<string, unknown>;
-  permanentAddress: Record<string, unknown> | null;
-  bank: {
-    bankName?: string;
-    accountName?: string;
-    accountNumber?: string;
-    branchName?: string;
-    routingNumber?: string;
-  };
-  photoFileId: string | null;
-  nidPhotoFileId: string | null;
-  nidPhotoBackFileId: string | null;
-}
-
-export interface ChangeRequest {
-  id: string;
-  /** Null on an official's own request. */
-  volunteerId: string | null;
-  kind: 'registration_correction' | 'profile_edit';
-  field: string;
-  newValue?: unknown;
-  note: string | null;
-  status: 'open' | 'submitted' | 'approved' | 'rejected' | 'closed';
-}
+export type { ChangeRequest, OwnProfile, StaffChoices };
 
 export const PROFILE_KEY = ['volunteers', 'me'] as const;
 export const REQUESTS_KEY = ['me', 'change-requests'] as const;
@@ -88,7 +31,7 @@ export const verifyContactCode = (id: string, code: string) =>
   api<void>(`/me/change-requests/${id}/otp/verify`, { method: 'POST', body: { code } });
 
 export const uploadOwnPhoto = async (requestId: string, slot: PhotoSlot, photo: Blob) =>
-  api<{ fileId: string }>(`/me/photos/${slot}?requestId=${requestId}&source=gallery`, {
+  api<StoredFile>(`/me/photos/${slot}?requestId=${requestId}&source=gallery`, {
     method: 'POST',
     rawBody: await photo.arrayBuffer(),
     headers: { 'Content-Type': photo.type },
@@ -118,9 +61,5 @@ export const sendStaffContactCode = (id: string) =>
 export const verifyStaffContactCode = (id: string, code: string) =>
   api<void>(`/me/staff-change-requests/${id}/otp/verify`, { method: 'POST', body: { code } });
 
-/** The programs an official may ask to move to. */
-export interface StaffChoices {
-  programs: { id: string; name: { bn: string; en: string } }[];
-}
 export const STAFF_CHOICES_KEY = ['me', 'staff-change-requests', 'choices'] as const;
 export const staffChoices = () => api<StaffChoices>('/me/staff-change-requests/choices');
