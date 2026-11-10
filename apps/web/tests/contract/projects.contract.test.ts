@@ -21,15 +21,7 @@ import {
 import { expectContract, expectEnvelope, expectStatus } from './support/expect';
 import { newOfficial } from './support/people';
 import { at, type Caller, call, contractBase, signIn } from './support/session';
-import {
-  activeProject,
-  day,
-  draftProject,
-  HEAD,
-  MONITORING,
-  PM_HUM,
-  savar,
-} from './support/world';
+import { activeProject, day, draftProject, HEAD, MONITORING, PM_HUM, savar } from './support/world';
 
 // The programs and the projects of the admin area: a program made, edited and given a PM; a draft
 // project read and set up through every section of the setup and cancelled; a project saved as a
