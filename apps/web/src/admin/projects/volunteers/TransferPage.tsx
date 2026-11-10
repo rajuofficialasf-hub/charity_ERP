@@ -3,26 +3,28 @@ import { formatCount } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
-  Button,
   Card,
   Checkbox,
   EmptyState,
+  Form,
+  FormSubmitButton,
+  FormTextField,
   Page,
   SelectField,
   Skeleton,
   Stack,
   Switch,
   Text,
-  TextField,
 } from '@/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
 import { stateLabel } from '../../../features/applications/status';
-import { ApiFailure } from '../../../api/client';
 import { useAuth } from '../../../lib/auth';
+import { showFailure, useSchemaResolver } from '../../../lib/form-schema';
 import { ForbiddenContent } from '../../AdminLayout';
 import { canAssignVolunteers, canMoveTeams, canTransferApplications } from '../../roles';
 import { project as projectOf, PROJECTS_KEY } from '../projects-api';
@@ -34,12 +36,29 @@ import {
   transferCandidatesKey,
 } from './transfer-api';
 import { LoadError } from '../../../components/LoadError';
+import { z } from 'zod';
 
 /** A choice of the new volunteer: someone on the project, or someone added with the handover. */
 interface Target {
   volunteerId: string;
   add: boolean;
 }
+
+/** The applications ticked, the new volunteer, the team move and a reason of three letters. */
+const TRANSFER_SCHEMA = z
+  .object({
+    applicationIds: z.array(z.string()).min(1),
+    to: z.custom<Target | null>(),
+    moveTeam: z.boolean(),
+    reason: z.string(),
+  })
+  .superRefine((v, ctx) => {
+    if (!v.to) ctx.addIssue({ code: 'custom', path: ['to'], message: 'validation.required' });
+    if (v.reason.trim().length < 3)
+      ctx.addIssue({ code: 'custom', path: ['reason'], message: 'validation.too_short' });
+  });
+type TransferFields = z.infer<typeof TRANSFER_SCHEMA>;
+const EMPTY: TransferFields = { applicationIds: [], to: null, moveTeam: false, reason: '' };
 
 /** Every page of a cursor list, read one after another. */
 async function allPages<T>(
@@ -77,13 +96,18 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const from = params.get('from');
-  const [ticked, setTicked] = useState<Set<string>>(new Set());
-  const [to, setTo] = useState<Target | null>(null);
+  const form = useForm<TransferFields>({
+    resolver: useSchemaResolver(TRANSFER_SCHEMA),
+    defaultValues: EMPTY,
+    reValidateMode: 'onSubmit',
+  });
+  const values = useWatch({ control: form.control }) as TransferFields;
+  const ticked = new Set(values.applicationIds);
+  const to = values.to;
+  const setTicked = (ids: Set<string>) => form.setValue('applicationIds', [...ids]);
   // one key per attempt: a repeat after a lost answer is answered with the same move
   const [key, setKey] = useState(() => uuidv7());
   const fresh = () => setKey(uuidv7());
-  const [moveTeam, setMoveTeam] = useState(false);
-  const [reason, setReason] = useState('');
   const [result, setResult] = useState<TransferResult | null>(null);
   const project = useQuery({
     queryKey: [...PROJECTS_KEY, 'one-plain', projectId],
@@ -103,26 +127,26 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
     queryFn: () => transferCandidates(projectId, from ?? ''),
     enabled: Boolean(from),
   });
-  const send = useMutation({
-    mutationFn: () =>
-      transferApplications(projectId, key, {
+  const send = async (v: TransferFields) => {
+    let out: TransferResult;
+    try {
+      out = await transferApplications(projectId, key, {
         fromVolunteerId: from ?? '',
-        toVolunteerId: to?.volunteerId ?? '',
-        applicationIds: [...ticked],
-        reason: reason.trim(),
-        moveTeam,
-        assign: Boolean(to?.add),
-      }),
-    onSuccess: async (out) => {
-      setResult(out);
-      setTicked(new Set());
-      setReason('');
-      setMoveTeam(false);
-      setTo(null);
-      fresh();
-      await queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
-    },
-  });
+        toVolunteerId: v.to?.volunteerId ?? '',
+        applicationIds: v.applicationIds,
+        reason: v.reason.trim(),
+        moveTeam: v.moveTeam,
+        assign: Boolean(v.to?.add),
+      });
+    } catch (failure) {
+      showFailure(form, failure, tc('state.error.text'));
+      return;
+    }
+    setResult(out);
+    form.reset(EMPTY);
+    fresh();
+    await queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
+  };
   if (project.isPending || people.isPending) return <Skeleton shape="card" />;
   if (project.error || people.error)
     return (
@@ -142,7 +166,7 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
   const after = (target?.applicationsCounted ?? 0) + ticked.size;
   const overLimit = limit !== null && ticked.size > 0 && Boolean(to) && after > limit;
   const allTicked = list.length > 0 && ticked.size === list.length;
-  const ready = Boolean(from) && Boolean(to) && ticked.size > 0 && reason.trim().length >= 3;
+  const ready = Boolean(from) && TRANSFER_SCHEMA.safeParse(values).success;
   const toOptions = [
     ...everyone
       .filter((p) => p.volunteerId !== from)
@@ -153,7 +177,10 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
   ];
   const chooseTarget = (id: string | null) => {
     fresh();
-    setTo(id ? { volunteerId: id, add: !everyone.some((p) => p.volunteerId === id) } : null);
+    form.setValue(
+      'to',
+      id ? { volunteerId: id, add: !everyone.some((p) => p.volunteerId === id) } : null,
+    );
   };
   const toggle = (id: string, on: boolean) => {
     fresh();
@@ -185,7 +212,7 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
           options={everyone.map((p) => ({ value: p.volunteerId, label: p.displayName }))}
           onChange={(id) => {
             setTicked(new Set());
-            setTo(null);
+            form.setValue('to', null);
             setParams(id ? { from: id } : {}, { replace: true });
           }}
         />
@@ -235,7 +262,13 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
             hint={assigns ? t('to_new_help') : undefined}
           />
           {movesTeams ? (
-            <Switch label={t('move_team')} checked={moveTeam} onChange={setMoveTeam} />
+            <Controller
+              control={form.control}
+              name="moveTeam"
+              render={({ field }) => (
+                <Switch label={t('move_team')} checked={field.value} onChange={field.onChange} />
+              )}
+            />
           ) : null}
           {movesTeams ? <Text tone="muted">{t('move_team_help')}</Text> : null}
           {overLimit ? (
@@ -248,30 +281,26 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
           ) : null}
         </Stack>
       </Card>
-      <TextField
-        rows={4}
-        label={t('reason')}
-        hint={t('reason_help')}
-        value={reason}
-        onChange={setReason}
-        required
-        name="reason"
-      />
-      {send.error ? (
-        <Alert tone="error">
-          {send.error instanceof ApiFailure ? send.error.message : tc('state.error.text')}
-        </Alert>
-      ) : null}
-      <div>
-        <Button
-          variant="primary"
-          disabled={!ready}
-          loading={send.isPending}
-          onClick={() => send.mutate()}
-        >
-          {t('submit')}
-        </Button>
-      </div>
+      {/* the choices above are the form's too; the form element holds the reason and the send */}
+      <Form
+        form={form}
+        onSubmit={send}
+        label={t('submit')}
+        error={form.formState.errors.root?.server?.message}
+      >
+        <FormTextField
+          name="reason"
+          rows={4}
+          label={t('reason')}
+          hint={t('reason_help')}
+          required
+        />
+        <div>
+          <FormSubmitButton variant="primary" disabled={!ready}>
+            {t('submit')}
+          </FormSubmitButton>
+        </div>
+      </Form>
     </Stack>
   );
 }
