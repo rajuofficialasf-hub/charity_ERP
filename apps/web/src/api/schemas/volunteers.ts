@@ -45,8 +45,6 @@ export const volunteerStatisticsSchema = z.object({
   }),
 }) satisfies z.ZodType<VolunteerStatistics>;
 
-const bankField = z.string();
-
 /** `GET /volunteers/{volunteerId}`: the official view; protected parts are absent, not empty. */
 export const volunteerProfileSchema = z.object({
   id: z.uuid(),
@@ -87,11 +85,11 @@ export const volunteerProfileSchema = z.object({
   nidPhotoBackFileId: z.uuid().nullable().optional(),
   bank: z
     .object({
-      bankName: bankField.optional(),
-      accountName: bankField.optional(),
-      accountNumber: bankField.optional(),
-      branchName: bankField.optional(),
-      routingNumber: bankField.optional(),
+      bankName: z.string().optional(),
+      accountName: z.string().optional(),
+      accountNumber: z.string().optional(),
+      branchName: z.string().optional(),
+      routingNumber: z.string().optional(),
     })
     .optional(),
   photoFileId: z.uuid().nullable(),

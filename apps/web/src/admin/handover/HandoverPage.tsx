@@ -31,6 +31,14 @@ const CATEGORIES = [
   'issues',
   'followups',
 ] as const satisfies readonly PendingItem['category'][];
+// the list holds every category the API may name: one missing from it fails the typecheck
+const everyCategoryListed: Exclude<
+  PendingItem['category'],
+  (typeof CATEGORIES)[number]
+> extends never
+  ? true
+  : never = true;
+void everyCategoryListed;
 
 const handoverKey = (userId: string) => ['admin', 'handover', userId] as const;
 const userKey = (userId: string) => ['admin', 'user', userId] as const;

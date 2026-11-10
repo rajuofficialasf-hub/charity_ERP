@@ -10,6 +10,14 @@ export const DUPLICATE_RULES = [
   'name_father_mobile',
   'same_mobile',
 ] as const satisfies readonly MergeCandidate['matchedOn'][number][];
+// the list holds every rule the API may name: a rule missing from it fails the typecheck
+const everyRuleListed: Exclude<
+  MergeCandidate['matchedOn'][number],
+  (typeof DUPLICATE_RULES)[number]
+> extends never
+  ? true
+  : never = true;
+void everyRuleListed;
 export type DuplicateRule = (typeof DUPLICATE_RULES)[number];
 
 export type { MergeCandidate, MergeView };
