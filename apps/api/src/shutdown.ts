@@ -1,8 +1,14 @@
 /**
- * The shutdown of a process on SIGTERM or SIGINT, as one function a test can drive: stop taking
- * new work, let what runs finish, close the clients, and exit anyway after the grace period.
+ * The shutdown of a process on SIGTERM or SIGINT, as one function a test can drive: readiness fails
+ * at once, the server keeps serving for the delay (for a proxy that polls readiness), then stops
+ * accepting connections and lets the in-flight requests finish, the clients close, and the process
+ * exits anyway after the grace period.
  */
 export interface ShutdownSteps {
+  /** Makes the readiness probe fail, so a proxy stops sending new requests here. */
+  markUnready?: () => void;
+  /** How long the server keeps serving after readiness fails; 0 when no proxy polls it. */
+  delayMs?: number;
   /** Stops accepting connections and resolves once the in-flight requests have finished. */
   closeServer?: () => Promise<void>;
   /** Closes the job queue, the PDF browser and the database (container.ts closeContainer). */
@@ -21,6 +27,7 @@ export function createShutdown(steps: ShutdownSteps): (signal: NodeJS.Signals) =
   return (signal) => {
     if (stopping) return;
     stopping = true;
+    steps.markUnready?.();
     steps.log.info({ signal }, 'shutting down');
     setTimeout(() => {
       steps.log.error({}, 'shutdown took too long, exiting');
@@ -28,6 +35,7 @@ export function createShutdown(steps: ShutdownSteps): (signal: NodeJS.Signals) =
     }, steps.graceMs).unref();
     void (async () => {
       let failed = false;
+      if (steps.delayMs) await new Promise((resolve) => setTimeout(resolve, steps.delayMs));
       try {
         await steps.closeServer?.();
       } catch (error) {

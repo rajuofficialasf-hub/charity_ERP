@@ -14,6 +14,11 @@ const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+    /**
+     * How long the API keeps serving after SIGTERM once readiness fails, so a load balancer that
+     * polls readiness stops sending first; 0 when none does.
+     */
+    SHUTDOWN_DELAY_MS: z.coerce.number().int().min(0).max(30_000).default(0),
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])

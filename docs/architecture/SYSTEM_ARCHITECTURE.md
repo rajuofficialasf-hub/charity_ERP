@@ -75,7 +75,7 @@ Trade-off: two containers to monitor instead of one, and jobs must be written so
 Implementation requirements for production workers (D-054):
 
 - Retries: every queue declares a retry limit and backoff; a job that exhausts its retries is marked failed with the reason and raises an alert.
-- Graceful shutdown: on SIGTERM the worker stops taking new jobs, finishes or releases in-flight jobs within a bounded grace period, then exits; the deploy script waits for it.
+- Graceful shutdown: on SIGTERM the worker stops taking new jobs, finishes or releases in-flight jobs within a bounded grace period (35 seconds), then exits; the deploy script waits for it. The API on SIGTERM makes `/api/v1/readyz` answer 503 at once, keeps serving for `SHUTDOWN_DELAY_MS` (0 unless a proxy polls readiness), stops accepting connections, lets the in-flight requests finish, closes the job queue, the PDF browser and the database, and exits 1 anyway 35 seconds after the delay (`src/shutdown.ts`, D-168).
 - Timeouts: every job type has an expiry so that a hung job is released and retried instead of blocking the queue.
 - No duplicate side effects: handlers are idempotent, keyed by entity id or `client_uuid`; outbound messages and emails are sent through the outbox with a delivery record checked before sending, so an at-least-once redelivery never sends twice.
 

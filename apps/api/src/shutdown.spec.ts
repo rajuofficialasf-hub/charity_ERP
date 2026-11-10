@@ -75,6 +75,25 @@ describe('the shutdown of a process', () => {
     expect(exit).toHaveBeenCalledWith(1);
   });
 
+  it('makes readiness fail before anything else, so the proxy stops sending new requests', async () => {
+    const { all, order } = steps({ markUnready: () => order.push('readiness fails') });
+    createShutdown(all)('SIGTERM');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(order).toEqual(['readiness fails', 'close server', 'close resources', 'exit 0']);
+  });
+
+  it('keeps serving for the delay before it stops accepting connections', async () => {
+    const { all, order } = steps({
+      markUnready: () => order.push('readiness fails'),
+      delayMs: 5_000,
+    });
+    createShutdown(all)('SIGTERM');
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(order).toEqual(['readiness fails']);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(order).toEqual(['readiness fails', 'close server', 'close resources', 'exit 0']);
+  });
+
   it('closes only the resources in a process without a server, as the worker', async () => {
     const { all, order } = steps({ closeServer: undefined });
     createShutdown(all)('SIGTERM');
