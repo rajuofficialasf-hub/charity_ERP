@@ -135,14 +135,31 @@ export async function savar(caller: Caller | null): Promise<Places> {
   return { division, district, upazila, union };
 }
 
-/** A new person's answers to the project's form, at the Savar union. */
-export function answers(places: Places, name = `নমুনা উপকারভোগী ${digits(4)}`) {
+/** Who an application names: two applications naming the same person read as duplicates. */
+export interface Person {
+  name: string;
+  father: string;
+  mobile: string;
+}
+
+/**
+ * A person of their own: a name, a father's name and a mobile no other case uses, so no two
+ * cases' people read as one family or one person.
+ */
+export const newPerson = (): Person => ({
+  name: `নমুনা উপকারভোগী ${digits(6)}`,
+  father: `নমুনা পিতা ${digits(6)}`,
+  mobile: `018${digits(8)}`,
+});
+
+/** A person's answers to the project's form with a new identity number, at the Savar union. */
+export function answers(places: Places, person: Partial<Person> = {}) {
+  const { name, father, mobile } = { ...newPerson(), ...person };
   return [
     { fieldKey: 'q_id', value: { t: 'short_text', v: `3${digits(9)}` } },
     { fieldKey: 'q_name', value: { t: 'short_text', v: name } },
-    // a father's name of its own, so no two cases' people read as one family
-    { fieldKey: 'q_father', value: { t: 'short_text', v: `নমুনা পিতা ${digits(4)}` } },
-    { fieldKey: 'q_mobile', value: { t: 'phone', v: `018${digits(8)}` } },
+    { fieldKey: 'q_father', value: { t: 'short_text', v: father } },
+    { fieldKey: 'q_mobile', value: { t: 'phone', v: mobile } },
     { fieldKey: 'q_gender', value: { t: 'single_select', v: 'female' } },
     {
       fieldKey: 'q_address',
@@ -403,13 +420,14 @@ export async function consent(volunteer: Caller, projectId: string) {
 }
 
 /**
- * An application of a new person on the project by the volunteer, sent and approved by the Dhaka
- * RPM through review and approval. Answers its id.
+ * An application of a person (a new one unless given) on the project by the volunteer, sent to
+ * the office; its person's profile is made at the send. Answers the application and the profile.
  */
-export async function approvedApplication(
+export async function sentApplication(
   project: ActiveProject,
   volunteer: Caller,
-): Promise<string> {
+  person: Partial<Person> = {},
+): Promise<{ id: string; beneficiaryId: string }> {
   const form = must(
     await call(volunteer, 'GET', `/projects/${project.projectId}/application-form`),
     200,
@@ -422,16 +440,29 @@ export async function approvedApplication(
       projectId: project.projectId,
       formVersionId: form.id,
       clientCreatedAt: new Date().toISOString(),
-      answers: answers(project.places),
+      answers: answers(project.places, person),
     }),
     201,
     'application',
     withId,
   ).data;
-  await act(volunteer, made.id, 'submit');
+  const sent = await act(volunteer, made.id, 'submit');
+  if (!sent.data.beneficiaryId) throw new Error(`no profile for application ${made.id}`);
+  return { id: made.id, beneficiaryId: sent.data.beneficiaryId };
+}
+
+/**
+ * An application of a new person on the project by the volunteer, sent and approved by the Dhaka
+ * RPM through review and approval. Answers its id.
+ */
+export async function approvedApplication(
+  project: ActiveProject,
+  volunteer: Caller,
+): Promise<string> {
+  const { id } = await sentApplication(project, volunteer);
   const rpm = await signIn(RPM_DHAKA);
-  await act(rpm, made.id, 'review');
-  await act(rpm, made.id, 'send_for_approval');
-  await act(rpm, made.id, 'approve');
-  return made.id;
+  await act(rpm, id, 'review');
+  await act(rpm, id, 'send_for_approval');
+  await act(rpm, id, 'approve');
+  return id;
 }

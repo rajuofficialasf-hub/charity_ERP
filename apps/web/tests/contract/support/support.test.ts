@@ -23,9 +23,15 @@ describe('the app’s calls read from its source', () => {
       'const b = await api<{ data: Row[] }>(`/projects/${id}/forms?status=draft`);',
       "await api<Unlock>(`/applications/${id}/unlocks`, { method: 'POST', body });",
       'const c = api<T>(path);',
+      'const d = api<Page>(`/volunteers/statistics${listQuery({ ...filters, q })}`);',
     ].join('\n');
     expect(callsIn(source)).toEqual({
-      calls: ['GET /me/profile', 'GET /projects/{}/forms', 'POST /applications/{}/unlocks'],
+      calls: [
+        'GET /me/profile',
+        'GET /projects/{}/forms',
+        'POST /applications/{}/unlocks',
+        'GET /volunteers/statistics',
+      ],
       unread: [4],
     });
   });
