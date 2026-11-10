@@ -14,8 +14,7 @@ import * as f from './support/fixtures';
 import { notificationsOf } from './support/notifications';
 import { TOKEN_HEADER, verifiedDraft, verifyContacts } from './support/registration';
 
-// Submit and the pending account (AUTH.md 2, 7; DECISION_LOG D-081, D-086; plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U6).
+// Submit and the pending account (AUTH.md 2, 7).
 let h: AuthHarness;
 let loc: Awaited<ReturnType<typeof f.locationTree>>;
 let programId: string;
@@ -131,7 +130,7 @@ describe('POST /auth/register/submit', () => {
     expect((await submit(d.token, volunteerForm(d))).status).toBe(401);
   });
 
-  it('refuses the submit of a staff draft left open from before and creates nothing (D-097)', async () => {
+  it('refuses the submit of a staff draft left open from before and creates nothing', async () => {
     const d = await verifiedDraft(h, 'staff');
     const res = await submit(d.token, staffForm(d));
     expect(res.status).toBe(422);
@@ -427,7 +426,7 @@ describe('the personal, profession, education and address data', () => {
         'permanentAddress.districtId',
       ],
       [{ interestAreas: ['media', 'media'] }, 'interestAreas'],
-      // no longer asked: covered by the profession (O-65), the education section or dropped (O-66)
+      // no longer asked: covered by the profession, the education section or dropped
       [{ experience: 'পুরনো ফিল্ড' }, 'experience'],
       [{ education: 'স্নাতক' }, 'education'],
       [{ previousProjects: 'আগের প্রজেক্ট' }, 'previousProjects'],

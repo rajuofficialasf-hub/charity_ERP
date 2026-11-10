@@ -1,5 +1,5 @@
 import type { EmailMode, MarkRead } from '@css/shared';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
 /** One entry of the own inbox, rendered by the server in the reader's language. */
 export interface InboxEntry {

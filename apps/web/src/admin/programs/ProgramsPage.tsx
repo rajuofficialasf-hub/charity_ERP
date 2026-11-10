@@ -22,7 +22,7 @@ import { type Program, PROGRAMS_KEY, programs } from './programs-api';
 import { LoadError } from '../../components/LoadError';
 
 /**
- * The programs (DECISION_LOG D-095): officials see the programs in their scope with their PM; the
+ * The programs: officials see the programs in their scope with their PM; the
  * Department Head and the Monitoring Team create, rename, deactivate and activate them and assign
  * the PM. The server checks every write anyway.
  */

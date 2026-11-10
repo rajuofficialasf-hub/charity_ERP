@@ -24,11 +24,11 @@ export interface ScopeInstances {
   programIds: string[];
   projectIds: string[];
   areas: Area[];
-  /** Areas that reach volunteers only (condition `own_region` on the user entity, O-25). */
+  /** Areas that reach volunteers only (condition `own_region` on the user entity). */
   volunteerAreas: Area[];
   /**
    * Projects a panel revoke took out (a revoked project, or every project of a revoked program):
-   * every filter excludes them, whichever grant would reach them (DECISION_LOG D-120).
+   * every filter excludes them, whichever grant would reach them.
    */
   revokedProjectIds: string[];
   /** Programs a panel revoke took out; only GLOBAL needs them, the other instances drop them. */
@@ -94,8 +94,8 @@ export const NO_INSTANCES: ScopeInstances = {
 declare const SCOPE_BRAND: unique symbol;
 
 /**
- * The caller's scope for the route's permission and entity, made only by the access middleware
- * (O-62): data access of a scoped entity takes it as a required argument, so code without the
+ * The caller's scope for the route's permission and entity, made only by the access middleware:
+ * data access of a scoped entity takes it as a required argument, so code without the
  * caller's scope does not compile.
  */
 export interface Scope {
@@ -134,7 +134,7 @@ const areaKey = (a: Area) => `${a.projectId}|${a.locationId}`;
  * Removes the instances a panel revoke names (RBAC.md 7: a revoke beats every grant source). A
  * revoked program also removes its projects and their areas (`projectsOfRevokedPrograms`). The
  * revoked projects and programs are kept, so the filters exclude them where a program, an area
- * without a project or GLOBAL still reaches them (D-120). Exported as a pure helper so its rules
+ * without a project or GLOBAL still reaches them. Exported as a pure helper so its rules
  * are tested without a database.
  */
 export function applyInstanceRevokes(
@@ -204,9 +204,9 @@ async function ownAreas(db: Tx, actorId: string, inProjects: Set<string | null>)
  * grants that name an instance (panel grants, project-bound grants) keep it. ASSIGNED resolves per
  * entity with the work assignments of later tasks; the user entity has none.
  *
- * Conditions (RBAC.md 3, R5) narrow a grant for the route's entity; a condition the entity has no
+ * Conditions (RBAC.md 3) narrow a grant for the route's entity; a condition the entity has no
  * rule for drops the grant, so an unknown or not yet evaluated condition denies (fail closed).
- * For users, `own_region` limits an area grant to the volunteers of that area (O-25).
+ * For users, `own_region` limits an area grant to the volunteers of that area.
  */
 export async function resolveInstances(
   db: Tx,
@@ -254,7 +254,7 @@ export async function resolveInstances(
         else volunteerRegionProjects.add(g.projectId);
       }
       // the Procurement Team reaches beneficiaries only through the house-construction projects
-      // it is attached to (DECISION_LOG Q-46); the projects are checked below
+      // it is attached to (the Procurement Team); the projects are checked below
       if (
         entity === 'beneficiary' &&
         g.condition === 'house_construction_project' &&
@@ -410,7 +410,7 @@ function volunteersIn(a: Area, others: { projectId?: { notIn: string[] } }): Pri
  * the caller's programs and projects; for an area, the users working in that location (inside its
  * project when the area names one, by home division otherwise); for a volunteer area, only the
  * volunteers there. A revoked project reaches nobody; its people stay when another path reaches
- * them (D-120). No instance means no user.
+ * them. No instance means no user.
  */
 export function userWhere(scope: Scope): Prisma.UserWhereInput {
   const i = scope.instances;
@@ -441,11 +441,11 @@ const ADDRESS_COLUMNS = ['divisionId', 'districtId', 'upazilaId', 'unionId'] as 
 const ADDRESS_RELATIONS = ['division', 'district', 'upazila', 'union'] as const;
 
 /**
- * The volunteers a scope reaches by their address (entity `volunteer`; DECISION_LOG D-084, RBAC.md
- * 4): everyone at GLOBAL; the own row for SELF; for an area (REGION, a split district or a smaller
- * area) the volunteers whose division, district, upazila or union is that location; for PROGRAM
- * and PROJECT the volunteers in the area locations of those projects, never of a revoked one
- * (D-120). A pending or unassigned volunteer is on no project, so the address decides.
+ * The volunteers a scope reaches by their address (entity `volunteer`, RBAC.md 4): everyone at
+ * GLOBAL; the own row for SELF; for an area (REGION, a split district or a smaller area) the
+ * volunteers whose division, district, upazila or union is that location; for PROGRAM and PROJECT
+ * the volunteers in the area locations of those projects, never of a revoked one.
+ * A pending or unassigned volunteer is on no project, so the address decides.
  */
 export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
   const i = scope.instances;
@@ -468,10 +468,10 @@ export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
 }
 
 /**
- * The beneficiaries a scope reaches (entity `beneficiary`; DECISION_LOG D-094): everyone at GLOBAL;
+ * The beneficiaries a scope reaches (entity `beneficiary`): everyone at GLOBAL;
  * for an area the beneficiaries whose division, district, upazila or union is that location; for
  * PROGRAM and PROJECT the beneficiaries with an application in those projects (the Procurement
- * Team's house-construction projects among them), never through a revoked project (D-120). A
+ * Team's house-construction projects among them), never through a revoked project. A
  * beneficiary has no account, so SELF reaches nobody.
  */
 export function beneficiaryWhere(scope: Scope): Prisma.BeneficiaryWhereInput {
@@ -526,9 +526,8 @@ export function beneficiaryScopeSql(scope: Scope, alias: 'b' | 'x' | 'y'): Prism
 
 /**
  * The projects whose rows a caller sees inside one beneficiary's profile: no limit at GLOBAL or
- * for an area scope (the person is theirs) beyond the revoked projects (D-120), otherwise only the
- * scope's projects, so a team attached to a few projects never reads the person's other projects
- * (DECISION_LOG D-094).
+ * for an area scope (the person is theirs) beyond the revoked projects, otherwise only the
+ * scope's projects, so a team attached to a few projects never reads the person's other projects.
  */
 export function beneficiaryRowsProjectWhere(scope: Scope): Prisma.ProjectWhereInput | null {
   const i = scope.instances;
@@ -540,7 +539,7 @@ export function beneficiaryRowsProjectWhere(scope: Scope): Prisma.ProjectWhereIn
  * The projects a scope reaches (entity `project`): every project at GLOBAL; the projects of the
  * caller's programs; the caller's projects; the projects of the caller's areas (an area without a
  * project reaches the projects with an area in that location). A revoked project is left out
- * whichever of these reaches it (D-120). No instance means no project.
+ * whichever of these reaches it. No instance means no project.
  */
 export function projectWhere(scope: Scope): Prisma.ProjectWhereInput {
   const i = scope.instances;
@@ -562,7 +561,7 @@ export function projectWhere(scope: Scope): Prisma.ProjectWhereInput {
 /**
  * The programs a scope reaches: every program for GLOBAL, the caller's own programs (PROGRAM, the
  * PM), and the programs of the projects the caller reaches through a project or an area. A revoked
- * program is left out at GLOBAL too (D-120).
+ * program is left out at GLOBAL too.
  */
 export function programWhere(scope: Scope): Prisma.ProgramWhereInput {
   const i = scope.instances;

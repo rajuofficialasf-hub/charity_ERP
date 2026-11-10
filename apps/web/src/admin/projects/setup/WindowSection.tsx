@@ -3,7 +3,7 @@ import { DateField, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { updateProject } from './setup-api';
 import { Reseed, SaveNotice, SetupSection, useSetup, useStepSave } from './setup-context';
 

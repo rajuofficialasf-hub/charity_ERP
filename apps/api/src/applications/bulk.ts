@@ -93,8 +93,8 @@ export class BulkReviewService {
       body.rows.length,
       async (tx) => {
         const results: RowResult[] = [];
-        for (const [i, row] of body.rows.entries())
-          results.push(await this.row(tx, principal, projectId, body.action, row, i));
+        for (const row of body.rows)
+          results.push(await this.row(tx, principal, projectId, body.action, row));
         await this.audit.record(tx, {
           action: 'application.bulk_review',
           entityType: 'project',
@@ -119,10 +119,10 @@ export class BulkReviewService {
     projectId: string,
     action: BulkReview['action'],
     row: BulkReview['rows'][number],
-    index: number,
   ): Promise<RowResult> {
-    const savepoint = `bulk_row_${index}`;
-    await tx.$executeRawUnsafe(`SAVEPOINT ${savepoint}`);
+    // the rows run one after another, so one name serves: Postgres releases or rolls back the
+    // newest savepoint of that name
+    await tx.$executeRaw`SAVEPOINT bulk_row`;
     try {
       const inProject = await tx.application.count({
         where: { id: row.applicationId, projectId },
@@ -133,7 +133,7 @@ export class BulkReviewService {
         where: { id: row.applicationId },
         select: { status: true, stage: true },
       });
-      await tx.$executeRawUnsafe(`RELEASE SAVEPOINT ${savepoint}`);
+      await tx.$executeRaw`RELEASE SAVEPOINT bulk_row`;
       return {
         clientUuid: row.clientUuid,
         result: 'done',
@@ -143,7 +143,7 @@ export class BulkReviewService {
         stage: after.stage,
       };
     } catch (error) {
-      await tx.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+      await tx.$executeRaw`ROLLBACK TO SAVEPOINT bulk_row`;
       // a refusal is the row's result; anything else (a lock, a lost connection) fails the whole
       // request, so nothing is stored under the key and the same key can try again
       if (!(error instanceof ApiError)) {

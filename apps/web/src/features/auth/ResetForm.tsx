@@ -2,11 +2,11 @@ import { Alert, Button, LinkButton, Text, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { type FormEvent, useState } from 'react';
 import { PasswordRules } from '../../components/PasswordRules';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 
 type Step = 'start' | 'code' | 'done';
 
-/** Shown only in development and test builds, never in production (BD-49). */
+/** Shown only in development and test builds, never in production. */
 const DUMMY_OTP_NOTE = import.meta.env.VITE_OTP_DUMMY === '1';
 
 /** Field errors of a 422 answer by field name. */
@@ -15,7 +15,7 @@ function fieldErrors(error: unknown): Record<string, string> {
   return Object.fromEntries(error.details.map((d) => [d.path ?? '', d.message]));
 }
 
-/** Forgotten password: login id → OTP and new password → done (SCR-001, AUTH.md 3, O-05). */
+/** Forgotten password: login id → OTP and new password → done (docs/ui/SCREENS.md "Login and password reset", AUTH.md 3). */
 export function ResetForm() {
   const t = useTranslations('auth.reset');
   const tp = useTranslations('auth.password');

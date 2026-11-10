@@ -12,13 +12,13 @@ import { workflowVersionOf } from '../base/workflows';
 import { inTransaction } from '../util';
 
 /**
- * Demo set (T1.3): one account per official role, 20 volunteers, 50 beneficiaries in two
+ * Demo set: one account per official role, 20 volunteers, 50 beneficiaries in two
  * divisions (one of them blocked) and one draft winter project. Every identity is obviously fake (TEST_STRATEGY §4);
  * the shared password is listed in docs/testing/DEMO_ACCOUNTS.md (development only).
  * Later tasks extend this set as their entities become functional.
  */
 export const DEMO_PASSWORD = 'CssDemo2026';
-const ARGON2 = { memoryCost: 19456, timeCost: 2, parallelism: 1, algorithm: 2 } as const; // Argon2id, D-063
+const ARGON2 = { memoryCost: 19456, timeCost: 2, parallelism: 1, algorithm: 2 } as const; // Argon2id, as the API hashes
 
 export interface DemoStaff {
   key: string;
@@ -27,7 +27,7 @@ export interface DemoStaff {
   email: string;
   mobileIndex: number;
   designation: string;
-  /** The organisation's job ID, the login id of an official (DECISION_LOG D-097). */
+  /** The organisation's job ID, the login id of an official. */
   jobId: string;
   /** The key of the official this one reports to (the organogram); listed before this one. */
   supervisor?: string;
@@ -125,7 +125,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     supervisor: 'pm_ucd',
   },
   {
-    // the official of the handover journey (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14): holds one project area, deactivated in E2E
+    // the official of the handover journey: holds one project area, deactivated in E2E
     key: 'rpm_handover',
     role: 'regional_program_manager',
     name: 'আরপিএম হ্যান্ডওভার',
@@ -359,7 +359,7 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       });
     for (const s of DEMO_STAFF) await grant(userId(s.key), s.role);
 
-    // volunteers (the team member refers to volunteer 1 by NID, BR-040)
+    // volunteers (the team member refers to volunteer 1 by NID)
     const mainVolunteer = { id: seedId('volunteer:1'), nid: fakeNid(1) };
     for (const v of DEMO_VOLUNTEERS) {
       const home = (v.n % 2 === 1 ? dhaka : rangpur)[v.n]!;

@@ -62,13 +62,13 @@ describe('API errors in the request language (I18N 2 and 5, API_STANDARDS 3 and 
     });
   });
 
-  it('turns unexpected failures into server.internal without leaking details (BR-210)', async () => {
+  it('turns unexpected failures into server.internal without leaking details', async () => {
     const res = await request(t.app).get('/api/v1/i18n-probe/crash').expect(500);
     expect(res.body.error.code).toBe('server.internal');
     expect(JSON.stringify(res.body)).not.toMatch(/secret_table|select/);
   });
 
-  it('refuses malformed JSON and bodies over the limit (NE-REQ-02)', async () => {
+  it('refuses malformed JSON and bodies over the limit', async () => {
     const bad = await request(t.app)
       .post('/api/v1/does-not-exist')
       .set('Content-Type', 'application/json')

@@ -6,10 +6,10 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { VolunteerProfilePage } from './VolunteerProfilePage';
 
-// The official view of one volunteer (SCR-043; DECISION_LOG O-67, D-094): the sections, the parts
+// The official view of one volunteer (docs/ui/SCREENS.md "Volunteer profile"): the sections, the parts
 // the server leaves out, and a button only for an action the server allows. Test data only.
 const HEAD: Me = { ...ME, roles: ['department_head'] };
 const VOLUNTEER_ID = '01900000-0000-7000-8000-0000000000a1';

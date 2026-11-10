@@ -24,7 +24,7 @@ import {
 } from './ProfileInputs';
 
 /**
- * The steps of each kind (UX-16, UX-18, O-64, O-65): the contacts first, the photos always last.
+ * The steps of each kind: the contacts first, the photos always last.
  * A volunteer gives the identity, the address, the education, the profession and the skills in
  * between.
  */
@@ -60,7 +60,7 @@ export interface RegistrationValues {
   email: string;
   address: Address;
   addressLine: string;
-  /** The present address is the permanent one too (ticked at the start, O-66). */
+  /** The present address is the permanent one too (ticked at the start). */
   permanentSame: boolean;
   permanent: PermanentState;
   volunteeringArea: string;

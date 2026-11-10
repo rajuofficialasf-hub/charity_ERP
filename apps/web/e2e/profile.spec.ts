@@ -1,10 +1,9 @@
 import { expect, type Page, test } from '@playwright/test';
 import { fromProfileMenu, scan } from './support/admin';
 
-// The own profile by section with one edit mode (plan
-// docs/plans/2026-10-13-1500-feat-profile-redesign-plan.md, U3) against the API on its E2E
-// database. Each project signs in with its own volunteer and every repeat asks for another detail,
-// because a detail may have only one open request (D-085).
+// The own profile by section with one edit mode against the API on its E2E database. Each project
+// signs in with its own volunteer and every repeat asks for another detail, because a detail may
+// have only one open request.
 const PASSWORD = 'CssDemo2026';
 const VOLUNTEER = { desktop: '01700000113', mobile: '01700000114' } as const;
 const DETAILS = {

@@ -4,10 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { authHarness, type AuthHarness } from './support/auth-app';
 import * as f from './support/fixtures';
 
-// The public locations list for the registration form (DECISION_LOG D-083; plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U3).
-// One listening server with keep-alive fetch: hundreds of supertest connections are unstable on
-// Windows (see authorization-matrix.test.ts).
+// The public locations list for the registration form. One listening server with keep-alive fetch:
+// hundreds of supertest connections are unstable on Windows (see authorization-matrix.test.ts).
 let h: AuthHarness;
 let server: Server;
 let base: string;

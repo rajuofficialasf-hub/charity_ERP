@@ -9,11 +9,11 @@ import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 
 /**
- * The personal, profession and skills data of a volunteer in one place (DECISION_LOG O-65, D-092;
- * BR-246): the columns to select, the view an API answer carries, the columns of a registration and
- * the update an approved request makes. The values are validated by `@css/shared/registration`
- * before they get here; the profession details are parsed once more against their own profession,
- * so nothing but that profession's fields is ever stored.
+ * The personal, profession and skills data of a volunteer in one place: the columns to select, the
+ * view an API answer carries, the columns of a registration and the update an approved request
+ * makes. The values are validated by `@css/shared/registration` before they get here; the
+ * profession details are parsed once more against their own profession, so nothing but that
+ * profession's fields is ever stored.
  */
 export const DETAILS_SELECT = {
   bloodGroup: true,

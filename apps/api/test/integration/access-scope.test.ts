@@ -15,8 +15,7 @@ import {
   type Session,
 } from './support/auth-app';
 
-// Scope resolution and enforcement through the real endpoints (RBAC.md 4 and 8; plan
-// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U3).
+// Scope resolution and enforcement through the real endpoints (RBAC.md 4 and 8).
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -181,7 +180,7 @@ describe('scope on the user endpoints', () => {
       world.users.outsider,
     ]);
     expect(outsider.rows[0].state).toBe('active');
-    // a PM may not block anybody, even inside the scope (D-080): only the Department Head blocks
+    // a PM may not block anybody, even inside the scope: only the Department Head blocks
     const etag = (await api().get(`/api/v1/users/${world.users.executive}`).set(bearer(pm))).headers
       .etag as string;
     const refused = await api()
@@ -221,7 +220,7 @@ describe('scope on the user endpoints', () => {
       .set('If-Match', headEtag)
       .send({ state: 'blocked', reason: 'Head blocks' })
       .expect(200);
-    // lifting the block is the Department Head's too (D-080)
+    // lifting the block is the Department Head's too
     const blockedEtag = (await api().get(`/api/v1/users/${world.users.outsider}`).set(bearer(head)))
       .headers.etag as string;
     await api()

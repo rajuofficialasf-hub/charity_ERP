@@ -28,7 +28,7 @@ const one = (item: ZodType) => z.object({ data: item, meta: z.object({}) });
 const whole = <T>(rows: T[]) =>
   page(rows, { nextCursor: null, prevCursor: null, limit: rows.length });
 
-/** The permission panel and project grants (RBAC.md 7, SCR-062; openapi tag access). */
+/** The permission panel and project grants (RBAC.md 7, docs/ui/SCREENS.md "Permission panel"; openapi tag access). */
 export function accessRouter(deps: RouteDeps, c: Pick<Container, 'accessPanel'>): Router {
   const router = Router();
 

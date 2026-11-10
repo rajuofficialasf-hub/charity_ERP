@@ -5,9 +5,9 @@ import type {
   StaffProfileRequest,
   UserState,
 } from '@css/shared/auth';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
-/** An official as the user list returns it (GET /users; DECISION_LOG D-097). */
+/** An official as the user list returns it (GET /users). */
 export interface StaffMember {
   id: string;
   displayName: string;
@@ -115,7 +115,7 @@ export interface OrganogramNode {
   reports: OrganogramNode[];
 }
 
-/** GET /organogram: the department's own staff by program and supervisor (BR-263). */
+/** GET /organogram: the department's own staff by program and supervisor. */
 export interface Organogram {
   leadership: OrganogramNode[];
   programs: {

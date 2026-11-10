@@ -25,7 +25,7 @@ export interface RateWindow {
   ttlMs: number;
   /** The key this window counts by. */
   key: (req: Request) => string;
-  /** Counts by the client address (runs before the per-id windows, NE-SEC-04). */
+  /** Counts by the client address (runs before the per-id windows). */
   byIp?: boolean;
   /** One budget for every route of the class, not one per route. */
   shared?: boolean;
@@ -70,14 +70,14 @@ const address = (req: Request) => {
   return value === 'none' ? pathRequest(req) : value;
 };
 const session = (req: Request) => currentContext()?.deviceSessionId ?? `ip:${ip(req)}`;
-/** The refresh token starts with its session id (D-070), so refreshes count per session. */
+/** The refresh token starts with its session id, so refreshes count per session. */
 const refreshSession = (req: Request) => {
   const match = /(?:^|;\s*)css_refresh=([0-9a-f-]{36})\./.exec(req.headers.cookie ?? '');
   return match?.[1] ? `sid:${match[1]}` : `ip:${ip(req)}`;
 };
 const caller = (req: Request) => currentContext()?.userId ?? `ip:${ip(req)}`;
 
-/** Limits and keys per class (API_STANDARDS 10, O-08, O-25; default and sync are proposals tuned in T3.4). */
+/** Limits and keys per class (API_STANDARDS 10; default and sync are proposals tuned before the field pilot). */
 export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
   login: [
     { limit: 10, ttlMs: MINUTE, key: (r) => `id:${loginId(r)}` },
@@ -114,12 +114,12 @@ export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
   ],
   refresh: [{ limit: 60, ttlMs: HOUR, key: refreshSession }],
   'public-form': [{ limit: 20, ttlMs: HOUR, key: ip, byIp: true }],
-  // Public reference data for the registration form (DECISION_LOG D-083).
+  // Public reference data for the registration form.
   'reference-read': [{ limit: 300, ttlMs: HOUR, key: ip, byIp: true }],
-  // Registration drafts and the team member's reference lookup (DECISION_LOG D-082, D-088). The
+  // Registration drafts and the team member's reference lookup. The
   // 5 lookups per draft and per NID and day are counted by the service after the draft token is
   // checked, so nobody without a draft can use up a volunteer's NID.
-  // A start names nothing but its kind (D-090): it counts by the client address only; a submit
+  // A start names nothing but its kind: it counts by the client address only; a submit
   // also counts by its draft.
   registration: [
     { limit: 10, ttlMs: DAY, key: ip, byIp: true },
@@ -132,8 +132,8 @@ export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
     { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],
-  // The nationwide volunteer and beneficiary lists, their counts and profiles are heavy reads
-  // (DECISION_LOG O-67): a tighter budget per user, and one per address before it.
+  // The nationwide volunteer and beneficiary lists, their counts and profiles are heavy reads:
+  // a tighter budget per user, and one per address before it.
   list: [
     { limit: 600, ttlMs: MINUTE, key: (r) => `ip:${ip(r)}`, byIp: true, shared: true },
     { limit: 60, ttlMs: MINUTE, key: caller, shared: true },

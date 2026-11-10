@@ -8,7 +8,7 @@ import { QUEUE_NAMES } from '../../src/jobs/queues';
 import { testEnv } from '../support/env';
 import { cloneTemplate, dropDatabase } from './support/db';
 
-// pg-boss (ADR-004, D-069): the install step creates the schema and the queues; the runner never
+// pg-boss: the install step creates the schema and the queues; the runner never
 // runs DDL; jobs enqueued in a transaction exist only if it commits; the sample job runs and the
 // scheduled pattern is registered.
 let drop: () => Promise<void>;
@@ -42,7 +42,7 @@ async function waitFor<T>(probe: () => Promise<T | undefined>, timeoutMs = 20_00
   }
 }
 
-describe('jobs (ADR-004)', () => {
+describe('jobs', () => {
   it('installs every registered queue', async () => {
     const boss = await jobs.instance();
     const names = (await boss.getQueues()).map((q) => q.name);

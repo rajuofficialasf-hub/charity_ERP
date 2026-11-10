@@ -1,5 +1,5 @@
 import type { EditableChannel, TemplateEdit } from '@css/shared';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 import { listQuery } from '../list-query';
 
 export interface StoredText {

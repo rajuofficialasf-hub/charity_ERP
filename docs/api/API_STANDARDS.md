@@ -138,6 +138,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | auth | auth.refresh_invalid | 401 | refresh token expired or invalid → log in; keep the outbox (O-29) |
 | auth | auth.refresh_reused | 401 | refresh-token reuse detected → session revoked |
 | auth | auth.csrf_failed | 403 | refresh without a valid CSRF token |
+| client | client.origin_refused | 403 | a POST, PUT, PATCH or DELETE whose `Origin` is missing, `null`, or neither the PWA's own nor an allowed one; answered before any route |
 | auth | auth.current_password_invalid | 422 (as detail of validation.failed) | password change with a wrong current password (T1.7) |
 | auth | auth.password_unchanged | 422 (as detail of validation.failed) | password change to the password the account already has (O-66) |
 | auth | auth.invitation_invalid | 404 | the set-password link is unknown; ask the admin for a new link (D-097) |

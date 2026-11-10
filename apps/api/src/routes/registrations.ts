@@ -162,8 +162,8 @@ const ownOp = {
 const listMeta = (rows: unknown[]) => ({ limit: rows.length, nextCursor: null, prevCursor: null });
 
 /**
- * Registrations after submit (openapi tag registration; BR-028 to BR-030): the approvers' list,
- * detail and decisions, the staff decision, and the registrant's own corrections and resubmit.
+ * Registrations after submit (openapi tag registration): the approvers' list, detail and decisions,
+ * the staff decision, and the registrant's own corrections and resubmit.
  */
 export function registrationsRouter(
   deps: RouteDeps,
@@ -177,7 +177,7 @@ export function registrationsRouter(
     path: '/registrations',
     operationId: 'registration.pending.list',
     summary:
-      'Pending registrations within scope (volunteers by address, D-084; staff for staff approvers only)',
+      'Pending registrations within scope (volunteers by address, staff for staff approvers only)',
     permission: 'registration.approve',
     audit: 'none',
     query: listQuery,
@@ -225,7 +225,7 @@ export function registrationsRouter(
     path: '/registrations/:userId/reject',
     status: 204,
     operationId: 'registration.volunteer.reject',
-    summary: 'Reject a volunteer registration with a reason; the person may register again (D-086)',
+    summary: 'Reject a volunteer registration with a reason; the person may register again',
     permission: 'registration.approve',
     audit: 'auth.rejected',
     params: { userId: uuid },
@@ -242,7 +242,7 @@ export function registrationsRouter(
     status: 201,
     operationId: 'registration.correction.create',
     summary:
-      'Ask the registrant to correct the named fields with one note; one request row per field (the whole form is not returned, BR-030)',
+      'Ask the registrant to correct the named fields with one note; one request row per field (the whole form is not returned)',
     permission: 'registration.request_correction',
     audit: 'auth.correction_requested',
     params: { userId: uuid },
@@ -328,7 +328,7 @@ export function registrationsRouter(
     status: 201,
     operationId: 'registration.editRequest.submit',
     summary:
-      'Submit a profile edit request with the new value (approved volunteers cannot edit directly; BR-031 as amended by D-085)',
+      'Submit a profile edit request with the new value (approved volunteers cannot edit directly)',
     audit: 'auth.edit_requested',
     rateLimit: 'default',
     body: editRequestCreateSchema,
@@ -342,7 +342,7 @@ export function registrationsRouter(
     path: '/me/change-requests/:requestId/otp',
     status: 204,
     operationId: 'registration.contactChange.sendOtp',
-    summary: 'Send a code to the new mobile or email of an own contact edit request (D-085)',
+    summary: 'Send a code to the new mobile or email of an own contact edit request',
     audit: 'auth.otp_sent',
     rateLimit: 'otp-request',
     params: { requestId: uuid },
@@ -362,7 +362,7 @@ export function registrationsRouter(
     status: 204,
     operationId: 'registration.contactChange.verifyOtp',
     summary:
-      'Verify the code of a contact edit request; only then does the request reach the approvers (D-085)',
+      'Verify the code of a contact edit request; only then does the request reach the approvers',
     audit: 'auth.otp_verified',
     rateLimit: 'otp-verify',
     params: { requestId: uuid },
@@ -398,8 +398,7 @@ export function registrationsRouter(
     method: 'post',
     path: '/edit-requests/:requestId/decision',
     operationId: 'registration.editRequest.decide',
-    summary:
-      'Approve (the new value applies at once) or reject an edit request with a reason (D-085)',
+    summary: 'Approve (the new value applies at once) or reject an edit request with a reason',
     permission: 'edit_request.approve',
     audit: 'auth.edit_request_decided',
     params: { requestId: uuid },
@@ -431,8 +430,7 @@ export function registrationsRouter(
     path: '/me/staff-change-requests',
     status: 201,
     operationId: 'registration.staffEditRequest.submit',
-    summary:
-      "Ask for a change of an official's own name, designation, contact, photo or workplace (D-147)",
+    summary: "Ask for a change of an official's own name, designation, contact, photo or workplace",
     audit: 'auth.edit_requested',
     rateLimit: 'default',
     body: staffEditRequestCreateSchema,
@@ -541,8 +539,7 @@ export function registrationsRouter(
     path: '/me/registration/resubmit',
     status: 204,
     operationId: 'registration.correction.resubmit',
-    summary:
-      'Return the corrected registration to the approvers once every correction is answered (BR-030)',
+    summary: 'Return the corrected registration to the approvers once every correction is answered',
     audit: 'auth.correction_resubmitted',
     responses: { 204: null, 401: null, 409: null },
     handler: ({ req }) => c.registrations.resubmit(principalOf(req)),

@@ -27,7 +27,7 @@ describe('registration draft rules', () => {
     expect(REGISTRATION_RULES.draftLifeMs).toBe(86_400_000);
   });
 
-  it('the start names only the kind and defaults to a volunteer (D-090)', () => {
+  it('the start names only the kind and defaults to a volunteer', () => {
     expect(registrationStartRequestSchema.parse({})).toEqual({ kind: 'volunteer' });
     expect(registrationStartRequestSchema.safeParse({ mobile: '01712345678' }).success).toBe(false);
   });
@@ -97,7 +97,7 @@ describe('the registration submit schemas', () => {
     expect(issues({ ...staff, nid: '1000000000123' }).length).toBe(1);
   });
 
-  it('accepts the full form of O-65 and O-66 with the details as nested objects', () => {
+  it('accepts the full form with the personal, profession and skills details as nested objects', () => {
     expect(
       issues({
         ...volunteer,
@@ -171,13 +171,13 @@ describe('the registration submit schemas', () => {
     expect(issues({ ...volunteer, nid: '12345' })).toEqual([['nid', 'validation.nid_format']]);
   });
 
-  it('refuses what the owner removed from the registration: type, reference, bank, program, workplace (O-64)', () => {
+  it('refuses what the owner removed from the registration: type, reference, bank, program, workplace', () => {
     for (const extra of [
       { type: 'general' },
       { type: 'paid' },
       { referenceNid: '1000000000999' },
       { bank: { bankName: 'Test Bank' } },
-      // covered by the profession part (O-65), then by the education section (O-66), or not asked any more
+      // covered by the profession part, then by the education section, or not asked any more
       { experience: 'ব্যাংকে কাজ' },
       { workDescription: 'শিক্ষকতা' },
       { education: 'স্নাতক' },
@@ -231,7 +231,7 @@ describe('the edit request schemas', () => {
     expect(ok({ field: 'category', newValue: 'A' })).toBe(false);
   });
 
-  it('the new profile fields are editable: single values and the grouped profession, skills, education and permanent address (BR-247)', () => {
+  it('the new profile fields are editable: single values and the grouped profession, skills, education and permanent address', () => {
     for (const field of [
       'bloodGroup',
       'dateOfBirth',

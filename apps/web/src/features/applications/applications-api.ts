@@ -1,5 +1,5 @@
 import type { Answer, FormDefinition } from '@css/shared/forms';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
 /** A row of a list (the API's `ApplicationSummary`). */
 export interface ApplicationSummary {

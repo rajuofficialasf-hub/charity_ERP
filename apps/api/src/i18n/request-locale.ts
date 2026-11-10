@@ -1,7 +1,7 @@
 import { resolveLocale, type Locale } from '@css/shared/i18n';
 import type { Request } from 'express';
 
-/** The authenticated user's stored language, set on the request by the auth guard (T1.7). */
+/** The authenticated user's stored language, set on the request by the auth guard. */
 interface RequestWithUser extends Request {
   user?: { language?: string | null };
 }

@@ -6,7 +6,7 @@ import { useTranslations } from 'use-intl';
 import { AuthShell } from '../../components/AuthShell';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { PasswordRules } from '../../components/PasswordRules';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 
 /**
  * The token of the link `/invite#<token>`: read from the fragment, which the browser never sends
@@ -23,7 +23,7 @@ function useLinkToken(): string {
 
 /**
  * An official created by the admin chooses the first password through the single-use link
- * (DECISION_LOG D-097, AUTH.md 2.2, SCR-065): the page shows the name and the job ID of the open
+ * (AUTH.md 2.2, docs/ui/SCREENS.md "Set-password link of a new official"): the page shows the name and the job ID of the open
  * link, the password rules of the account, then sends the person to log in with the job ID. A
  * used, replaced or expired link says to ask the admin for a new one.
  */

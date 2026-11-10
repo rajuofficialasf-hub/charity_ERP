@@ -11,8 +11,8 @@ import { z, type ZodType } from 'zod';
 import { sensitive } from '../access/field-mask';
 
 /**
- * The response fields of the personal, profession and skills data (DECISION_LOG O-65, D-092;
- * BR-246, BR-248). The blood group and the date of birth belong to the class
+ * The response fields of the personal, profession and skills data. The blood group and the date of
+ * birth belong to the class
  * `volunteer.identity`; `protect` marks them for a view an approver opens. The own profile passes
  * `false`: it answers only for the signed-in volunteer, who may see their own values (as for the NID).
  */

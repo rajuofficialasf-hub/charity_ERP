@@ -6,7 +6,7 @@ import { type SessionService } from './session.service';
  * Forces a session refresh after a change to what a user may do (AUTH.md 9): increments
  * `users.permission_version`, so the next request with an older token gets 401
  * `auth.token_stale` and the PWA refreshes silently, and writes the audit entry of the change.
- * Role assignment (T1.8, T1.9), permission-panel changes (T1.8), blocklist and account-state
+ * Role assignment, permission-panel changes, blocklist and account-state
  * changes all go through here.
  */
 export class PermissionVersionService {

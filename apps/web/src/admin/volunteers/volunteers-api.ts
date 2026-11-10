@@ -1,7 +1,7 @@
 import type { VolunteerFilter, VolunteerRow, VolunteerStatistics } from '@css/shared/volunteers';
 import type { DeviceSession } from '@css/shared/auth';
 import type { VolunteerType } from '@css/shared/registration';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 import { listQuery } from '../list-query';
 import { PAGE_SIZE, pageParams } from '../list-paging';
 

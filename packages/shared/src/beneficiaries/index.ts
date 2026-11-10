@@ -4,7 +4,7 @@ export * from './identity.js';
 export * from './requests.js';
 
 /**
- * The nationwide beneficiary tab (DECISION_LOG O-67, D-094): the filters shared by the list and its
+ * The nationwide beneficiary tab: the filters shared by the list and its
  * counts. A filter on something a caller may not see (the union, the blocklist status) is refused
  * by the server; a search in digits matches the mobile number only for callers who see it, and an
  * NID or birth-registration number only inside the caller's `beneficiary.view_nid` scope.

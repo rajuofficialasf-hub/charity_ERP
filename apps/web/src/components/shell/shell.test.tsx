@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME, pair, refreshAs, renderApp, TEST_SESSION_ID } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { login, resetClientForTests } from '../../lib/api';
+import { login, resetClientForTests } from '../../api/client';
 import { announceUpdate, resetUpdateForTests } from '../../lib/app-update';
 import { afterSignIn } from '../../offline/keys';
 import { OfflineProvider } from '../../offline/OfflineProvider';

@@ -19,8 +19,8 @@ export const NEW_CHANNEL: ChannelState = { sent: false, verified: false, code: '
 const DUMMY_OTP_NOTE = import.meta.env.VITE_OTP_DUMMY === '1';
 
 /**
- * Step 1 (UX-16 of DECISION_LOG; plan docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md,
- * R2; the owner's reference image): the name, the father's name (volunteers) or the designation
+ * Step 1 (docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md; the owner's reference
+ * image): the name, the father's name (volunteers) or the designation
  * (officials) and the
  * mobile number and email, each verified inside its own field; the code input opens below the
  * field it belongs to.

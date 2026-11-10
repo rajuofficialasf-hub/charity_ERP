@@ -7,10 +7,10 @@ import { JOBS_SCHEMA, type QueueName } from './queues';
 export type JobHandler<T> = (job: Job<T>) => Promise<unknown>;
 
 /**
- * The pg-boss wrapper (ADR-004). The api only enqueues; consumers run in the worker process, or
+ * The pg-boss wrapper. The api only enqueues; consumers run in the worker process, or
  * inside the api when JOBS_INLINE is set (development and tests). Jobs are enqueued inside the
  * business transaction, so a job exists only if the write committed. The app never runs DDL: the
- * schema and the queues come from the install step (D-069).
+ * schema and the queues come from the install step.
  */
 export class JobRunner {
   private boss: PgBoss | undefined;
@@ -62,7 +62,7 @@ export class JobRunner {
     });
   }
 
-  /** Registers a consumer; handlers must be idempotent (at-least-once delivery, ADR-004). */
+  /** Registers a consumer; handlers must be idempotent (at-least-once delivery). */
   async work<T>(queue: QueueName, handler: JobHandler<T>): Promise<void> {
     const boss = await this.start(true);
     await boss.work<T>(queue, async (jobs) => {
@@ -73,7 +73,7 @@ export class JobRunner {
   }
 
   /**
-   * Scheduled job pattern: a cron expression in Asia/Dhaka time for a queue (ADR-004); `key`
+   * Scheduled job pattern: a cron expression in Asia/Dhaka time for a queue; `key`
    * keeps several schedules apart on one queue.
    */
   async schedule(queue: QueueName, cron: string, data: object = {}, key?: string): Promise<void> {
@@ -92,7 +92,7 @@ export class JobRunner {
     return this.start();
   }
 
-  /** Stops intake and lets running jobs finish within 30 seconds (SIGTERM, D-054). */
+  /** Stops intake and lets running jobs finish within 30 seconds (SIGTERM). */
   async stop(): Promise<void> {
     await this.boss?.stop({ graceful: true, timeout: 30_000, close: true });
     this.boss = undefined;

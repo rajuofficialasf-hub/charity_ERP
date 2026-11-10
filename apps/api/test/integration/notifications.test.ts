@@ -8,7 +8,7 @@ import { cloneTemplate } from './support/db';
 import { user } from './support/fixtures';
 
 // In-app notifications are rows with template key and parameters (NOTIFICATIONS 7); email reaches
-// Mailpit through SMTP (O-58: docker compose locally, a service container in CI).
+// Mailpit through SMTP (docker compose locally, a service container in CI).
 const mailpit = {
   host: process.env.MAILPIT_TEST_HOST ?? '127.0.0.1',
   smtpPort: Number(process.env.MAILPIT_TEST_SMTP_PORT ?? 1025),
@@ -55,7 +55,7 @@ describe('InAppAdapter', () => {
 
 describe('SmtpEmailAdapter with Mailpit', () => {
   it('delivers the message to the SMTP server', async () => {
-    const subject = `T1.6 smtp check ${randomUUID()}`;
+    const subject = `smtp check ${randomUUID()}`;
     const adapter = new SmtpEmailAdapter({
       host: mailpit.host,
       port: mailpit.smtpPort,

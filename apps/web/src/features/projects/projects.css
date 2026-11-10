@@ -1,4 +1,4 @@
-/* The volunteer's own projects: a list of cards, the consent flow and the team (SCR-010). */
+/* The volunteer's own projects: a list of cards, the consent flow and the team (docs/ui/SCREENS.md "My Work: Volunteer (General and Both)"). */
 .my-projects {
   display: grid;
   gap: var(--space-3);
@@ -7,7 +7,7 @@
   list-style: none;
 }
 
-/* One project of the volunteer (D-166): the name on its own lines, the actions as large buttons
+/* One project of the volunteer: the name on its own lines, the actions as large buttons
    at the thumb, the facts as tiles. Nothing is cut on a 360 px phone. */
 .my-project-back {
   display: inline-flex;

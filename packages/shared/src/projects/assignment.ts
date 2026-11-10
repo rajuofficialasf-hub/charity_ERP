@@ -2,9 +2,9 @@ import { z } from 'zod';
 import type { VolunteerType } from '../registration/index.js';
 
 /**
- * Volunteers on a project: the permission set an assignment gives (BR-038), who may lead a team
- * (BR-040), what a team member may do with applications (BR-041), and the per-volunteer
- * application limit (BR-059).
+ * Volunteers on a project: the permission set an assignment gives, who may lead a team,
+ * what a team member may do with applications, and the per-volunteer
+ * application limit.
  */
 
 /** The three permission sets of an assignment (`project_volunteers.permission_set`). */
@@ -47,7 +47,7 @@ export function permissionSetAllowed(set: PermissionSet, type: VolunteerType): b
   return PERMISSION_SET_TYPES[set].includes(type);
 }
 
-/** General and দাঈ-স্বেচ্ছাসেবক volunteers may add team members (BR-040). */
+/** General and দাঈ-স্বেচ্ছাসেবক volunteers may add team members. */
 export const TEAM_LEAD_TYPES: readonly VolunteerType[] = ['general', 'both'];
 
 /** What may be done with applications on a project, by the main volunteer or a team member. */
@@ -63,7 +63,7 @@ export const APPLICATION_CAPABILITIES = [
 export type ApplicationCapability = (typeof APPLICATION_CAPABILITIES)[number];
 
 /**
- * The team table of A5 (BR-041): a team member creates applications, edits their own drafts and
+ * The team table of A5: a team member creates applications, edits their own drafts and
  * sees the basic data of their approved ones, but never submits and never touches a submitted
  * application; the main volunteer does everything on the list. Phase 2's application routes read
  * this table.
@@ -77,7 +77,7 @@ export function teamCapabilities(role: 'main' | 'member'): ReadonlySet<Applicati
 }
 
 /**
- * How many more applications a volunteer may create on a project (BR-059): the main volunteer's
+ * How many more applications a volunteer may create on a project: the main volunteer's
  * counter includes the applications of their team. Null when the project has no limit.
  */
 export function applicationsLeft(limit: number | null, counted: number): number | null {

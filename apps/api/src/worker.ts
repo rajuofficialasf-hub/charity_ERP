@@ -2,7 +2,7 @@ import { loadEnv } from './config/env';
 import { closeContainer, createContainer } from './container';
 import { JobConsumers } from './jobs/consumers';
 
-/** The worker process (ADR-004, SYSTEM_ARCHITECTURE 2.1): job consumers, maintenance, schedules. */
+/** The worker process (SYSTEM_ARCHITECTURE 2.1): job consumers, maintenance, schedules. */
 async function main(): Promise<void> {
   const env = loadEnv(process.env);
   const container = createContainer(env);
@@ -21,7 +21,7 @@ async function main(): Promise<void> {
   logger.info('worker started');
 
   let stopping = false;
-  // SIGTERM stops intake and lets running jobs finish (JobRunner.stop, D-054).
+  // SIGTERM stops intake and lets running jobs finish (JobRunner.stop).
   const shutdown = (signal: NodeJS.Signals): void => {
     if (stopping) return;
     stopping = true;

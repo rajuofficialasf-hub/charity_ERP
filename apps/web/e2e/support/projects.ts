@@ -127,7 +127,12 @@ export async function placeReadyForm(
   projectId: string,
   sections: unknown[] = [IDENTITY_SECTION],
 ) {
-  const context = await apiRequest.newContext({ baseURL: new URL(page.url()).origin });
+  const origin = new URL(page.url()).origin;
+  // the API refuses a write without the app's origin, which a browser would send
+  const context = await apiRequest.newContext({
+    baseURL: origin,
+    extraHTTPHeaders: { Origin: origin },
+  });
   try {
     const builder = await apiAs(context, MONITORING);
     const made = await builder.post('/ready-forms', {

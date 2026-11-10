@@ -2,7 +2,7 @@ import { json, type SeedContext, seedId } from '../../context';
 
 /**
  * System-wide reference lists (DATABASE_SCHEMA section 5.2) and the per-project list defaults
- * (section 5.3), with the labels decided in O-17, O-22, O-38, BD-14, O-14 and O-53.
+ * (section 5.3), with the labels the owner decided.
  */
 type Entry = [code: string, bn: string, en: string, extra?: EntryExtra];
 /** A system entry the rules need (kept active, never renamed), and a list's own attributes. */

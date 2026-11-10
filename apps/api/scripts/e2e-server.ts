@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { Client } from 'pg';
 import { checkDestructiveDbAccess } from '../src/config/db-guard';
 
-// The API for Playwright (T1.7): recreates the css_erp_test_e2e database, migrates it, installs
+// The API for Playwright: recreates the css_erp_test_e2e database, migrates it, installs
 // the job schema, loads the base and demo seed (docs/testing/DEMO_ACCOUNTS.md) and starts the built
 // API on port 4100 with the dummy OTP, and a worker for the export jobs alone. Development and test
 // only: the database guard refuses anything but css_erp_test* and NODE_ENV=production. The values
@@ -63,12 +63,12 @@ async function main(): Promise<void> {
     STORAGE_DRIVER: 'filesystem',
     STORAGE_FS_ROOT: mkdtempSync(join(tmpdir(), 'css-e2e-storage-')),
     JOBS_INLINE: 'false',
-    // Every browser of the run shares one address; the limits are covered by the API tests (D-072).
+    // Every browser of the run shares one address; the limits are covered by the API tests.
     RATE_LIMITS_RELAXED: 'true',
     // The specs sign in with the same few demo accounts in parallel; the device limit is covered
     // by the API tests.
     SESSION_DEVICE_LIMIT_RELAXED: 'true',
-    // the set-password link of a new official opens the E2E build (D-097)
+    // the set-password link of a new official opens the E2E build
     APP_ORIGIN: process.env.E2E_APP_ORIGIN ?? 'http://127.0.0.1:3100',
   };
   run('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], env);

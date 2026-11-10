@@ -11,7 +11,7 @@ import { Alert, Button, Card, Grid, SelectField, TextField } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { PUBLIC_SETTINGS_KEY } from '../../lib/public-settings';
 import { type SettingEntry, SETTINGS_KEY, updateSetting } from './settings-api';
 

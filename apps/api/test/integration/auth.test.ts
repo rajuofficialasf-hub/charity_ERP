@@ -14,8 +14,7 @@ import {
 } from './support/auth-app';
 import { notificationsOf } from './support/notifications';
 
-// Login, lockout, account states, refresh and logout (AUTH.md 4 to 9; BR-023, BR-032, BR-033,
-// BR-201, BR-203, BR-209; O-05, O-25, O-59, D-070).
+// Login, lockout, account states, refresh and logout (AUTH.md 4 to 9).
 let h: AuthHarness;
 
 beforeAll(async () => {
@@ -180,7 +179,7 @@ describe('POST /auth/login', () => {
     expect(denied.body.error.code).toBe('auth.account_pending');
   });
 
-  it('refuses blocked and deactivated accounts without a session (O-59 item 4)', async () => {
+  it('refuses blocked and deactivated accounts without a session', async () => {
     const blocked = await account(h.db, { state: 'blocked' });
     const closed = await account(h.db, { state: 'deactivated' });
     const b = await post('/auth/login')
@@ -222,7 +221,7 @@ describe('POST /auth/login', () => {
     expect(s.accessToken.split('.')).toHaveLength(3);
   });
 
-  it('revokes the oldest session when a sixth device logs in (O-25)', async () => {
+  it('revokes the oldest session when a sixth device logs in', async () => {
     const volunteer = await account(h.db, { kind: 'volunteer' });
     const sessions = [];
     for (let i = 0; i < 6; i++) {
@@ -393,7 +392,7 @@ describe('POST /auth/refresh', () => {
       .set('X-CSRF-Token', desk.csrf)
       .expect(401);
     expect(idle.body.error.code).toBe('auth.refresh_invalid');
-    // a volunteer phone has no idle timeout (O-25)
+    // a volunteer phone has no idle timeout
     const phoneNext = sessionFrom(
       await post('/auth/refresh')
         .set('Cookie', phone.cookieHeader)
@@ -657,7 +656,7 @@ describe('the device key of a session', () => {
 });
 
 describe('PUT /me/language', () => {
-  it('stores the language with an audit entry (O-56)', async () => {
+  it('stores the language with an audit entry', async () => {
     const staff = await account(h.db);
     const s = await login(h, staff);
     await request(h.server())

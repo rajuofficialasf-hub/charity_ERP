@@ -1,7 +1,7 @@
 import { Skeleton } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
-import { api, ApiFailure } from '../lib/api';
+import { api, ApiFailure } from '../api/client';
 import './file-image.css';
 
 /** The photo types the API stores and the thumbnails it makes; anything else is not shown. */
@@ -25,9 +25,9 @@ const dataUrl = (blob: Blob) =>
   });
 
 /**
- * A private photo streamed by the API (GET /files/{fileId}/content with the access token; no
- * signed URL, DECISION_LOG D-074). The API decides per file who may see it and audits a view of an
- * NID photo; the page keeps the image only in its query cache.
+ * A private photo streamed by the API (GET /files/{fileId}/content with the access token; no signed
+ * URL). The API decides per file who may see it and audits a view of an NID photo; the page keeps
+ * the image only in its query cache.
  */
 export function FileImage({ fileId, alt }: { fileId: string; alt: string }) {
   const t = useTranslations('common');

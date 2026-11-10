@@ -11,7 +11,7 @@ import {
 } from '@css/shared/sync';
 import { uuidv7 } from '@css/shared';
 import { z } from 'zod';
-import { ApiFailure, currentMe, refreshSession } from '../lib/api';
+import { ApiFailure, currentMe, refreshSession } from '../api/client';
 import { offlineDb, type OutboxRow, sealedSchema } from './db';
 import { currentDataKey } from './keys';
 import {

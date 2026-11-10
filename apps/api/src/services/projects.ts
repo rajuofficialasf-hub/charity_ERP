@@ -158,7 +158,7 @@ function sameValue(key: keyof ProjectUpdate, value: unknown, current: unknown): 
 }
 
 /**
- * Projects (docs/MASTER_SPEC.md, A6; DECISION_LOG D-095): a PM creates a draft from a workflow in
+ * Projects (docs/MASTER_SPEC.md, A6): a PM creates a draft from a workflow in
  * its program; the setup changes as the project's state allows; a draft that was never activated
  * can be cancelled. Every write locks the project (or, on creation, the program) and is audited in
  * its transaction.
@@ -314,7 +314,7 @@ export class ProjectsService {
             updatedBy: actor,
           })),
         });
-        // a template or a copy brings its components, syllabus and rules (BD-10)
+        // a template or a copy brings its components, syllabus and rules
         if (start.definition) await applyDefinition(tx, id, start.definition, actor);
         // the application numbers of this project count from here
         await tx.idSequence.create({ data: { scopeKey: `app:${id}`, lastValue: 0 } });
@@ -435,8 +435,8 @@ export class ProjectsService {
 
   /**
    * Refuses a planned budget the column cannot hold and, once the project is active, one its fund
-   * sources no longer add up to: an active project's budget changes together with its fund sources
-   * (DECISION_LOG D-095). Pass the fund sources about to be saved, or leave them out to use the
+   * sources no longer add up to: an active project's budget changes together with its fund sources.
+   * Pass the fund sources about to be saved, or leave them out to use the
    * stored ones.
    */
   async checkBudget(

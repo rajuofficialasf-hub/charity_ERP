@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * The personal, profession and skills data of a volunteer (DECISION_LOG O-65, D-092; BR-246): the
+ * The personal, profession and skills data of a volunteer: the
  * fixed lists, the schema of each profession's own fields and the grouped values an edit request
  * carries. Pure and shared by the API (which validates and stores) and the PWA (which builds the
  * registration steps and the profile inputs on them). Every field is optional except the
@@ -76,12 +76,12 @@ export const skillsValueSchema = z.strictObject({
   vehicle: z.enum(VEHICLES).optional(),
   canSwim: z.boolean().optional(),
   availability: z.enum(AVAILABILITIES).optional(),
-  /** Can give full time in an emergency (a yes or no; O-66: only here, not in a profession). */
+  /** Can give full time in an emergency (a yes or no, asked only here and not in a profession). */
   emergencyFullTime: z.boolean().optional(),
 });
 export type SkillsValue = z.infer<typeof skillsValueSchema>;
 
-/** The hosts a Facebook account link may have besides the subdomains of facebook.com (O-66). */
+/** The hosts a Facebook account link may have besides the subdomains of facebook.com. */
 const FACEBOOK_HOSTS = new Set(['facebook.com', 'fb.com', 'www.fb.com', 'fb.me']);
 
 /** Facebook's own redirect hosts: a link there can send the reader anywhere. */
@@ -145,7 +145,7 @@ export const EDUCATION_STATUSES = ['studying', 'completed'] as const;
 export type Qualification = (typeof QUALIFICATIONS)[number];
 export type EducationStatus = (typeof EDUCATION_STATUSES)[number];
 
-/** Education as one value (O-66, BR-248); every part is optional. */
+/** Education as one value; every part is optional. */
 export const educationValueSchema = z.strictObject({
   highestQualification: z.enum(QUALIFICATIONS).optional(),
   institutionName: optionalText(200),

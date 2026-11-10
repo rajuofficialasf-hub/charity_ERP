@@ -1,5 +1,5 @@
 import type { CorrectionField } from '@css/shared/registration';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 import type { ChangeRequest } from '../../features/account/profile-api';
 
 /** A row of GET /registrations (pending volunteers in scope, staff for staff approvers). */
@@ -89,7 +89,7 @@ export const EDITS_KEY = ['admin', 'edit-requests'] as const;
 
 /**
  * The pending staff registrations (the first 100). Volunteer registrations are reviewed in the
- * volunteer tab (DECISION_LOG O-67); a staff registration has no correction step.
+ * volunteer tab; a staff registration has no correction step.
  */
 export const pendingStaffRegistrations = () =>
   api<PendingRegistration[]>('/registrations?limit=100&kind=staff');

@@ -5,10 +5,10 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { ResetForm } from './ResetForm';
 
-// SCR-001 password reset with the OTP step (AUTH.md 3).
+// The screen "Login and password reset" of docs/ui/SCREENS.md (AUTH.md 3).
 beforeEach(() => {
   resetClientForTests();
   refreshAs(null);

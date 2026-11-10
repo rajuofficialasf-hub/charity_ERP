@@ -99,7 +99,7 @@ export const isFamilyMemberColumn = (column: string): column is FamilyMemberColu
 /**
  * The reference list a coded column takes its codes from: the database keeps each of these codes
  * against its list, so the options of a question that fills one are the list's, never the
- * builder's own (DECISION_LOG D-163). A question inside a repeat group fills a family member's
+ * builder's own. A question inside a repeat group fills a family member's
  * column, any other question the profile's.
  */
 const PROFILE_COLUMN_LISTS: ReadonlyMap<string, string> = new Map([

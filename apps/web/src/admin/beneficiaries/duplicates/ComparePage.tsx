@@ -18,7 +18,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
 import { canReviewDuplicates } from '../../roles';

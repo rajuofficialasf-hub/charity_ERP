@@ -45,7 +45,7 @@ test.describe('admin area', () => {
     const profile = page.getByRole('banner').getByRole('button', { name: 'প্রোফাইল মেনু' });
     await expect(profile).toContainText(name);
 
-    // the UX-04 notice only on phones
+    // the larger-screen notice only on phones
     const notice = page.getByText('এই পর্দা বড় স্ক্রিনে ভালো চলে।');
     if (phone) await expect(notice).toBeVisible();
     else await expect(notice).toBeHidden();

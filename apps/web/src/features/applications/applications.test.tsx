@@ -15,7 +15,7 @@ vi.mock('../../lib/uploads', () => ({
 import { apiError, ME, refreshAs, renderApp } from '../../../test/auth';
 import { definition, field, section } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { uploadFile } from '../../lib/uploads';
 import { ApplicationDetailPage } from './ApplicationDetailPage';
 import { ApplicationFormPage } from './ApplicationFormPage';
@@ -331,8 +331,8 @@ describe('the new application', () => {
     await user.type(await screen.findByRole('textbox', { name: /^name/ }), 'নমুনা উপকারভোগী');
     await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
     await user.type(screen.getByRole('textbox', { name: /^mobile/ }), '01700001000');
-    // on a phone a list opens as a sheet from the bottom, with nothing to type (D-166)
-    // a short choice is a row of buttons on a phone (D-166)
+    // on a phone a list opens as a sheet from the bottom, with nothing to type
+    // a short choice is a row of buttons on a phone
     await user.click(screen.getByRole('radio', { name: 'female' }));
     // the address is in the next part: the server would refuse a draft now, so nothing is sent
     // (the page answers again once the sheet has closed)

@@ -26,7 +26,7 @@ const templateView = z.object({
 const listQuery = z.strictObject({ include: z.enum(['inactive']).optional() });
 
 /**
- * The master project templates (openapi tag templates; BD-10, BR-064, DECISION_LOG D-096): the
+ * The master project templates (openapi tag templates): the
  * library for everyone who creates projects, saving a project as a template, and renaming,
  * describing, deactivating and activating a template. Starting a project from a template is the
  * project creation with `source.kind` template.

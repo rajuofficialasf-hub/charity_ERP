@@ -3,7 +3,7 @@ import { Alert, Button } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { cancelProject, type LifecycleAction, moveProject, type Project } from './projects-api';
 import { ReasonDialog } from './ReasonDialog';
 import { useMissingLabel } from './setup/missing';

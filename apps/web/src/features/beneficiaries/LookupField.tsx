@@ -15,7 +15,7 @@ import {
   type LookupResult,
 } from '../../admin/beneficiaries/beneficiaries-api';
 import { useLocationName } from '../../components/AddressNames';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { ChoiceButtons } from '../forms/ChoiceButtons';
 import { QuestionTitle } from '../forms/QuestionTitle';
 import './lookup.css';
@@ -106,7 +106,7 @@ export function LookupField({
   const failure = fresh && search.error instanceof ApiFailure ? search.error : null;
   return (
     <Stack gap={3}>
-      {/* the kind as two large buttons: one is always chosen (D-166) */}
+      {/* the kind as two large buttons: one is always chosen */}
       <ChoiceButtons
         id="lookup-kind"
         label={t('kind')}

@@ -1,4 +1,4 @@
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 import { listQuery } from '../list-query';
 
 /** One active device session as GET /sessions/active returns it (never a token or an address). */

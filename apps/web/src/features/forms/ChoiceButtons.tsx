@@ -22,7 +22,7 @@ export const fitsButtons = (options: readonly { label: string }[]) =>
   options.length > 0 && options.length <= 8 && options.every((o) => o.label.length <= 24);
 
 /**
- * A short choice on a phone (DECISION_LOG D-166): up to three options as large buttons side by
+ * A short choice on a phone: up to three options as large buttons side by
  * side, more as chips that wrap; one tap chooses, a second tap on a chosen one clears it. A single
  * choice is a radio group, a multiple one a group of toggle buttons.
  */

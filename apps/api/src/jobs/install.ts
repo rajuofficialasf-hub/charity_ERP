@@ -2,7 +2,7 @@ import { PgBoss } from 'pg-boss';
 import { JOBS_SCHEMA, QUEUE_NAMES, QUEUES } from './queues';
 
 /**
- * Installs or upgrades the pg-boss schema and creates every registered queue (D-069). Runs as the
+ * Installs or upgrades the pg-boss schema and creates every registered queue. Runs as the
  * migrating role in `pnpm db:migrate`; the api and worker never run DDL. Idempotent.
  */
 export async function installJobs(connectionString: string): Promise<void> {

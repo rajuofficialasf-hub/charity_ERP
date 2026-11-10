@@ -6,7 +6,7 @@ import { refreshAs } from '../../test/auth';
 import { AppProviders } from '../components/AppProviders';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { AuthProvider } from '../lib/auth';
-import { resetClientForTests } from '../lib/api';
+import { resetClientForTests } from '../api/client';
 import { createQueryClient } from '../lib/query-client';
 import { routes } from './index';
 
@@ -26,7 +26,7 @@ function mount(path: string, gallery: boolean) {
   return router;
 }
 
-// The route table (ADR-013): a signed-out visitor lands on the login screen, the gallery exists
+// The route table: a signed-out visitor lands on the login screen, the gallery exists
 // only with the flag, and an unknown path shows the error boundary instead of a blank page.
 describe('routes', () => {
   beforeEach(() => {

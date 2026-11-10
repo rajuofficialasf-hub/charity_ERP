@@ -3,7 +3,7 @@ import { code64, dateTime, looseLabel } from './common.js';
 
 // The smaller JSONB shapes of docs/database/json-schemas/.
 
-/** application_scores.criteria (BD-17, BR-097, O-21). */
+/** application_scores.criteria. */
 export const scoreCriteriaSchema = z.strictObject({
   scoring_version: z.string(),
   items: z.array(
@@ -18,7 +18,7 @@ export const scoreCriteriaSchema = z.strictObject({
   total: z.number().min(0).max(100),
 });
 
-/** distributions.items (BD-23, BR-116). */
+/** distributions.items. */
 export const distributionItemsSchema = z.strictObject({
   items: z.array(
     z.strictObject({
@@ -30,13 +30,13 @@ export const distributionItemsSchema = z.strictObject({
   ),
 });
 
-/** followup_evaluations.answers (O-23): question code to a boolean, number or short text. */
+/** followup_evaluations.answers: question code to a boolean, number or short text. */
 export const followupAnswersSchema = z.record(
   code64,
   z.union([z.boolean(), z.number(), z.string().max(2000)]),
 );
 
-/** handovers.scope (BD-08, BR-034). */
+/** handovers.scope. */
 export const handoverScopeSchema = z.strictObject({
   items: z.array(
     z.strictObject({
@@ -62,12 +62,12 @@ export const handoverScopeSchema = z.strictObject({
   note: z.string().max(2000).optional(),
 });
 
-/** volunteer_ratings.proposed_scores and final_scores (BD-40, BR-042): at most 5 criteria, 1 to 5. */
+/** volunteer_ratings.proposed_scores and final_scores: at most 5 criteria, 1 to 5. */
 export const ratingScoresSchema = z
   .record(code64, z.int().min(1).max(5))
   .refine((scores) => Object.keys(scores).length <= 5, 'at most 5 criteria');
 
-/** users.preferences (NOTIFICATIONS.md section 5, O-35). */
+/** users.preferences (NOTIFICATIONS.md section 5). */
 export const userPreferencesSchema = z.strictObject({
   email_mode: z.enum(['digest', 'immediate']).optional(),
   digest_time: z

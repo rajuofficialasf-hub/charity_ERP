@@ -48,10 +48,10 @@ export interface RouteDefinition<
 }
 
 /**
- * Registers one operation (ADR-014, CONTRIBUTING "How to add an endpoint"): the OpenAPI
+ * Registers one operation (CONTRIBUTING "How to add an endpoint"): the OpenAPI
  * operation in the registry, the access rule, the rate-limit chain of its class, validation of
  * body, query and params, the handler, the envelope, and for writes the audit enforcement. A
- * write route must declare its audit action or it cannot be registered (BR-179, D-068).
+ * write route must declare its audit action or it cannot be registered.
  */
 export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown>>(
   router: Router,
@@ -61,17 +61,17 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
   const { method, path, status = 200, handler, before = [], streams = false, ...spec } = definition;
   const where = `${method.toUpperCase()} ${path}`;
   if (WRITE_METHODS.has(method) && !spec.audit)
-    throw new Error(`${where}: a write route must declare its audit action (BR-179)`);
+    throw new Error(`${where}: a write route must declare its audit action`);
   if (!spec.permission) throw new Error(`${where}: a route must declare its permission`);
   if (!deps.permissions.isKnownPermission(spec.permission))
     throw new Error(`${where}: unknown permission ${spec.permission} (not in permissions.yaml)`);
   // `entity` passes the access middleware for every active user; only the file service, which
-  // decides per file, may rely on it (DECISION_LOG D-087).
+  // decides per file, may rely on it.
   if (spec.permission === 'entity' && spec.scope !== 'file')
     throw new Error(`${where}: the entity marker is only for file routes (scope file)`);
   if (!(SCOPE_ENTITIES as readonly string[]).includes(spec.scope))
     throw new Error(`${where}: unknown scope entity ${spec.scope}`);
-  // A permission held below GLOBAL must name the entity its scope filters (O-62).
+  // A permission held below GLOBAL must name the entity its scope filters.
   const scoped = deps.permissions.permissions
     .get(spec.permission)
     ?.defaults.some((d) => d.scope !== 'GLOBAL');
@@ -128,7 +128,7 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
 
 /**
  * A signed-in answer holds the caller's own or other people's personal data, so no browser or
- * proxy keeps it (R7 of docs/plans/2026-10-14-1400-feat-volunteer-form-refine-plan.md). Public
+ * proxy keeps it (docs/plans/2026-10-14-1400-feat-volunteer-form-refine-plan.md). Public
  * routes carry no personal data; the ones that do (a draft) set the header themselves.
  */
 const noStore: RequestHandler = (_req, res, next) => {
@@ -147,7 +147,7 @@ const MASKED_ENTITIES = new Set([
 ]);
 
 /**
- * The schema of the success response's `data`, which the field mask runs on (RBAC.md 6, O-62). A
+ * The schema of the success response's `data`, which the field mask runs on (RBAC.md 6). A
  * route of a masked entity or with declared sensitive fields needs one; a schema may mark only the
  * classes the route declares in `sensitiveFields` (the contract's `x-sensitive-fields`).
  */

@@ -24,7 +24,7 @@ export const pageQuery = z.strictObject({
 export type PageQuery = z.infer<typeof pageQuery>;
 
 /**
- * The page number the volunteer and the beneficiary lists accept besides the cursor (D-105): an
+ * The page number the volunteer and the beneficiary lists accept besides the cursor: an
  * offset into the same order, so a person can jump to any page the counted total shows.
  */
 export const pageNumberQuery = z.strictObject({
@@ -217,7 +217,7 @@ export function parseRange(from?: string, to?: string): { gte?: Date; lte?: Date
 }
 
 /**
- * `q=` search over names and numbers (O-39): NFC-normalized, at least 2 characters, matched with
+ * `q=` search over names and numbers: NFC-normalized, at least 2 characters, matched with
  * case-insensitive contains, which PostgreSQL serves from the pg_trgm GIN indexes.
  */
 export function searchWhere(

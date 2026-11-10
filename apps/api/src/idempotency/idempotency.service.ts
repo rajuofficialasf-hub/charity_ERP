@@ -9,7 +9,7 @@ import { isUniqueViolation } from '../core/db-errors';
 const KEY = /^[A-Za-z0-9_-]{8,128}$/;
 
 /**
- * Idempotency per API_STANDARDS 9 and O-57, without a generic key table:
+ * Idempotency per API_STANDARDS 9, without a generic key table:
  * - clientUuid: the record's own unique column; a repeat returns the existing record with 200 and
  *   `Idempotent-Replay: true`;
  * - header: the `Idempotency-Key` of sync and bulk endpoints is stored with the per-record results

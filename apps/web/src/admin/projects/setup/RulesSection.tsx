@@ -34,10 +34,10 @@ function body(texts: Texts): ProjectRules {
 }
 
 /**
- * The four rules texts every volunteer reads and accepts before working on the project (BR-039;
- * DECISION_LOG D-096): the Local দায়ী part only while dawah is on. A draft may keep them unfinished
- * (the review lists what activation still needs); a running project keeps every required text.
- * Each saved change is a new version that every volunteer accepts again.
+ * The four rules texts every volunteer reads and accepts before working on the project: the Local
+ * দায়ী part only while dawah is on. A draft may keep them unfinished (the review lists what
+ * activation still needs); a running project keeps every required text. Each saved change is a new
+ * version that every volunteer accepts again.
  */
 export function RulesSection({ current }: { current: RulesVersion }) {
   const { project, editable, refresh } = useSetup();

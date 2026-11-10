@@ -58,7 +58,7 @@ interface Official {
 }
 
 /**
- * The organogram of the department (DECISION_LOG D-097, BR-263), computed from roles, the home
+ * The organogram of the department, computed from roles, the home
  * program, the supervisor and the programs' PMs; never drawn by hand. Only the department's own
  * staff appear, never another department of the Foundation or an outside partner, and never a
  * deactivated official. A program holds its PM, the officials whose home program it is, and those

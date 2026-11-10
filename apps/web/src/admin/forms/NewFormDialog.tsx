@@ -4,7 +4,7 @@ import { Alert, Button, Dialog, RadioGroup, SelectField, TextField } from '@/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { pickerProjects, PROJECTS_KEY } from '../projects/projects-api';
 import { createForm, FORMS_KEY, library, projectForms } from './forms-api';
 

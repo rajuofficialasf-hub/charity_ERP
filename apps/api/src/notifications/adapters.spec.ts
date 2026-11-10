@@ -11,7 +11,7 @@ import {
 
 const smtp = { host: 'unused', port: 25, secure: false, from: 'CSS ERP <no-reply@example.org>' };
 
-describe('notification adapters (ADR-007)', () => {
+describe('notification adapters', () => {
   it('sends email through the transport and returns the message id', async () => {
     const adapter = new SmtpEmailAdapter(smtp, createTransport({ jsonTransport: true }));
     const result = await adapter.send({

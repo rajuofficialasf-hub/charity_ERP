@@ -173,7 +173,7 @@ export function applicationsRouter(
     method: 'get',
     path: '/application-numbers/:appNo',
     operationId: 'applications.application.getByNumber',
-    summary: 'Get an application by its human number (O-03)',
+    summary: 'Get an application by its human number',
     permission: 'application.view',
     scope: 'application',
     audit: 'none',

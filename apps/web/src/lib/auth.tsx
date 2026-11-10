@@ -12,7 +12,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { currentMe, onSessionChange, refreshSession, type SessionEnd } from './api';
+import { currentMe, onSessionChange, refreshSession, type SessionEnd } from '../api/client';
 
 export type AuthStatus = 'loading' | 'signed-in' | 'signed-out';
 
@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userId.current !== null && next !== userId.current) queryClient.clear();
       // the same user with other permissions (a role granted or taken back): what the earlier
       // answers showed may no longer be theirs to see, so they are dropped and the open screen asks
-      // again (R8 of docs/plans/2026-10-14-1400-feat-volunteer-form-refine-plan.md)
+      // again (docs/plans/2026-10-14-1400-feat-volunteer-form-refine-plan.md)
       else if (
         me &&
         next === userId.current &&
@@ -98,7 +98,7 @@ export function RequireAuth({ children }: { children: (me: Me) => ReactNode }) {
     if (status === 'signed-out') void navigate(loginPath(ended), { replace: true });
   }, [status, ended, navigate]);
   const content = useMemo(() => (me ? children(me) : null), [me, children]);
-  // a new password is due before anything else (a global role was approved; O-66)
+  // a new password is due before anything else (a global role was approved)
   if (me?.passwordChangeRequired && pathname !== PASSWORD_PATH)
     return <Navigate to={PASSWORD_PATH} replace />;
   if (status !== 'signed-in' || !me)

@@ -8,7 +8,7 @@ export interface Bilingual {
   en: string;
 }
 
-/** Unicode NFC and trimmed: equal Bengali names compare equal (I18N 6.4, O-44 item 4). */
+/** Unicode NFC and trimmed: equal Bengali names compare equal (I18N 6.4). */
 export function normalizeText(value: string): string {
   return value.normalize('NFC').trim();
 }
@@ -16,7 +16,7 @@ export function normalizeText(value: string): string {
 /** zod text that is trimmed, NFC-normalized and not empty. */
 export const normalizedText = z.string().transform(normalizeText).pipe(z.string().min(1));
 
-/** zod `{ bn, en }` with both languages required and normalized (BR-245, I18N 7.2). */
+/** zod `{ bn, en }` with both languages required and normalized (I18N 7.2). */
 export const bilingualText = z.strictObject({ bn: normalizedText, en: normalizedText });
 
 /** Order in which languages are tried when a value is blank (I18N 8). */

@@ -22,7 +22,7 @@ import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { stateLabel as labelOf, stateTone } from '../../features/applications/status';
 import { AddressFields } from '../../features/registration/AddressFields';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { EmptyValue } from '../EmptyValue';

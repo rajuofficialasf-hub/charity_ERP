@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../test/auth';
 import { server } from '../../test/msw/server';
-import { resetClientForTests } from '../lib/api';
+import { resetClientForTests } from '../api/client';
 import { LanguageSwitch } from './LanguageSwitch';
 
 const clearLocale = () => {
@@ -13,7 +13,7 @@ const clearLocale = () => {
   window.localStorage.clear();
 };
 
-describe('LanguageSwitch (I18N 2, D-067)', () => {
+describe('LanguageSwitch (I18N 2)', () => {
   beforeEach(() => {
     resetClientForTests();
     clearLocale();
@@ -33,7 +33,7 @@ describe('LanguageSwitch (I18N 2, D-067)', () => {
     expect(document.documentElement.lang).toBe('en');
   });
 
-  it('also stores the language on the account when signed in (O-56)', async () => {
+  it('also stores the language on the account when signed in', async () => {
     refreshAs(ME);
     let body: unknown;
     server.use(

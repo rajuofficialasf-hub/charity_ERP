@@ -196,6 +196,25 @@ describe('the select', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('opens its sheet above a dialog it sits in, so an option can be chosen inside a dialog', async () => {
+    stubWidth(true);
+    const user = userEvent.setup();
+    function InDialog() {
+      const [kind, setKind] = useState('');
+      return (
+        <UiProvider>
+          <SelectField label="Beneficiary type" value={kind} onChange={setKind} options={kinds} />
+        </UiProvider>
+      );
+    }
+    render(<InDialog />);
+    await user.click(screen.getByRole('combobox', { name: /^Beneficiary type/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Beneficiary type' });
+    // a dialog lies on the modal layer (1300); the sheet's root must lie above it
+    const root = sheet.closest<HTMLElement>('.MuiDrawer-root');
+    expect(Number(root?.style.zIndex)).toBeGreaterThan(1300);
+  });
+
   it('shows its placeholder and opens the "other" text box', async () => {
     const user = userEvent.setup();
     function Kind() {

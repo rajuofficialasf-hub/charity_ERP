@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { apiError, ME, refreshAs, renderApp } from '../../../test/auth';
 import { definition, field, section } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { ApplicationReviewPage } from './ApplicationReviewPage';
 import { ApplicationsPage } from './ApplicationsPage';
 import type { MessageKey } from '@css/shared/i18n';

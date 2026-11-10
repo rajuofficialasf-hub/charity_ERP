@@ -1,5 +1,5 @@
 import type { NisabAdd, NisabVersionView } from '@css/shared/settings';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
 export const NISAB_KEY = ['admin', 'nisab'] as const;
 

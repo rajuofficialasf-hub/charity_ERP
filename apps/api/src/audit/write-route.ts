@@ -5,7 +5,7 @@ import { ApiError } from '../i18n/api-error';
 export const WRITE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 
 /**
- * Audit enforcement for write routes (BR-179, D-068): a route that declared an audit action and
+ * Audit enforcement for write routes: a route that declared an audit action and
  * finished without an `AuditWriter.record` call fails with `server.internal`, so no write path
  * can skip the audit. Routes without an action cannot be registered at all (define-route.ts).
  */

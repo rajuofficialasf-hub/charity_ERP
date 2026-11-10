@@ -14,7 +14,7 @@ import {
 } from '../../../test/msw/exports';
 import { server } from '../../../test/msw/server';
 import { SignedIn } from '../../../test/signed-in';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { ExportButton } from './ExportButton';
 import { rememberColumns, rememberedColumns } from './remembered-columns';
 

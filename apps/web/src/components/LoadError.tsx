@@ -1,6 +1,6 @@
 import { Alert, Button, Text } from '@/ui';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../lib/api';
+import { ApiFailure } from '../api/client';
 import { failedOnTheWay } from '../lib/or-cached';
 
 /**

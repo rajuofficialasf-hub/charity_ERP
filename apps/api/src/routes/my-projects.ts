@@ -47,9 +47,8 @@ const myProjectDetail = myProject.extend({
 });
 
 /**
- * A volunteer's own projects and the consent to their rules (openapi tag volunteers; BR-039,
- * DECISION_LOG D-096). Everything is the caller's own: the project must be one they are assigned to
- * or on a team for.
+ * A volunteer's own projects and the consent to their rules (openapi tag volunteers). Everything is
+ * the caller's own: the project must be one they are assigned to or on a team for.
  */
 export function myProjectsRouter(
   deps: RouteDeps,

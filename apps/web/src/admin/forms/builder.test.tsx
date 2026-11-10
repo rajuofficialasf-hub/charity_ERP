@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiError, ME, refreshAs, renderApp } from '../../../test/auth';
 import { coreSections, field, option, section, T } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { FormBuilderPage } from './FormBuilderPage';
 import { FormsPage } from './FormsPage';
 import { stubMatchMedia } from '../../../test/match-media';

@@ -4,8 +4,8 @@ import { ApiError } from '../i18n/api-error';
 import { DETAILS_SELECT, detailsView } from './volunteer-details';
 
 /**
- * Volunteer profiles (BR-026, BR-031). So far the own profile: the volunteer sees their own NID,
- * NID photo id and bank details in full (DECISION_LOG D-081), never their rating or category.
+ * Volunteer profiles. So far the own profile: the volunteer sees their own NID,
+ * NID photo id and bank details in full, never their rating or category.
  */
 export class VolunteersService {
   constructor(private readonly prisma: PrismaService) {}

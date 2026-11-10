@@ -7,7 +7,7 @@ import { apiError, ME, pair } from '../../test/auth';
 import { EMPTY_SNAPSHOT } from '../../test/msw/handlers';
 import { server } from '../../test/msw/server';
 import { fakeUploadServer } from '../../test/upload-server';
-import { login, resetClientForTests } from '../lib/api';
+import { login, resetClientForTests } from '../api/client';
 import { closeOfflineDb, OFFLINE_DB_NAME, offlineDb, type OutboxRow } from './db';
 import { currentDataKey, forgetKeys } from './keys';
 import { apply, applyResult, enqueue, readSecret } from './outbox';

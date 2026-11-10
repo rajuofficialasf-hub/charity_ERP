@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { DeliveriesPage } from './DeliveriesPage';
 import { NotificationTemplatesPage } from './NotificationTemplatesPage';
 import type { Delivery, NotificationTemplate } from './notifications-admin-api';

@@ -30,12 +30,10 @@ export interface ListNotice {
 }
 
 /**
- * The registrations page of the admin area (SCR-040; plan
- * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R7, R10): the pending
- * registrations in the approver's scope, for edit approvers the edit requests of approved
- * volunteers, and for the Department Head and the Monitoring Team the officials' own change
- * requests. The server decides what each list contains (scope, staff rows only for staff
- * approvers) and refuses every action outside it.
+ * The registrations page of the admin area (docs/ui/SCREENS.md "Registration approval queue"): the pending registrations in the approver's
+ * scope, for edit approvers the edit requests of approved volunteers, and for the Department Head
+ * and the Monitoring Team the officials' own change requests. The server decides what each list
+ * contains (scope, staff rows only for staff approvers) and refuses every action outside it.
  */
 export function RegistrationsPage() {
   const { me } = useAuth();

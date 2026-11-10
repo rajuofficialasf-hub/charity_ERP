@@ -8,7 +8,7 @@ import { UserLanguageService } from '../../src/i18n/user-language.service';
 import { user } from './support/fixtures';
 import { cloneTemplate } from './support/db';
 
-// users.language is the stored interface language (I18N 2, O-56); the endpoint arrives with T1.7.
+// users.language is the stored interface language (I18N 2); the endpoint is one of the auth routes.
 let db: Client;
 let drop: () => Promise<void>;
 let prisma: PrismaClient;

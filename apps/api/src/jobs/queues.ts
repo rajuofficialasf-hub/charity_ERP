@@ -1,13 +1,13 @@
 import type { Queue } from 'pg-boss';
 
 /**
- * The job queues and their retry, backoff and expiry policies (ADR-004, D-054). Queues are created
- * by the install step (D-069); a new queue is added here and to the next `pnpm db:migrate`.
+ * The job queues and their retry, backoff and expiry policies. Queues are created
+ * by the install step; a new queue is added here and to the next `pnpm db:migrate`.
  */
 export const QUEUES = {
   /** Offline batch processing (OFFLINE_SYNC). */
   sync: { retryLimit: 5, retryDelay: 30, retryBackoff: true, expireInSeconds: 300 },
-  /** Outbound email and SMS deliveries (NOTIFICATIONS, ADR-007). */
+  /** Outbound email and SMS deliveries (NOTIFICATIONS). */
   notify: {
     retryLimit: 8,
     retryDelay: 60,
@@ -27,7 +27,7 @@ export const QUEUES = {
   duplicates: { retryLimit: 3, retryDelay: 600, retryBackoff: false, expireInSeconds: 1800 },
   /** Priority score recomputation. */
   scores: { retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 600 },
-  /** Housekeeping, including the sample heartbeat job of T1.6. */
+  /** Housekeeping, including the sample heartbeat job. */
   maintenance: { retryLimit: 2, retryDelay: 60, retryBackoff: false, expireInSeconds: 120 },
 } as const satisfies Record<string, Omit<Queue, 'name'>>;
 

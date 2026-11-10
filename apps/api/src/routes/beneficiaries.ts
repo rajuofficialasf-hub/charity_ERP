@@ -384,9 +384,9 @@ const viewerOf = (req: AuthedRequest) => ({
 });
 
 /**
- * The nationwide beneficiary tab and the 360° profile shell (openapi tag beneficiaries;
- * DECISION_LOG O-67, D-094). The scope entity is the beneficiary, so a team that reaches only some
- * projects (the Procurement Team) sees only their beneficiaries.
+ * The nationwide beneficiary tab and the 360° profile shell (openapi tag beneficiaries). The scope
+ * entity is the beneficiary, so a team that reaches only some projects (the Procurement Team) sees
+ * only their beneficiaries.
  */
 export function beneficiariesRouter(
   deps: RouteDeps,

@@ -139,7 +139,7 @@ export function filesRouter(
       status: 201,
       operationId: 'registration.ownPhoto.upload',
       summary:
-        'Upload a photo for an own correction or edit request that names the photo field (same rules as the registration upload, D-087)',
+        'Upload a photo for an own correction or edit request that names the photo field (same rules as the registration upload)',
       permission: 'authenticated',
       scope: 'self',
       allowPending: true,

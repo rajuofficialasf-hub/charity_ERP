@@ -1,7 +1,7 @@
 import { hash, verify } from '@node-rs/argon2';
 
 /**
- * Argon2id parameters (SECURITY_POLICY 4, D-063): 19 MiB memory, 2 passes, 1 lane, the OWASP
+ * Argon2id parameters (SECURITY_POLICY 4): 19 MiB memory, 2 passes, 1 lane, the OWASP
  * minimum. `algorithm: 2` is Argon2id (the library's enum is a const enum).
  */
 export const ARGON2_OPTIONS = {

@@ -1,5 +1,5 @@
 import type { Answer, FormDefinition } from '@css/shared/forms';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
 /** The form behind a public link, as the API answers it to anyone: the volunteer-visible part. */
 export interface PublicForm {

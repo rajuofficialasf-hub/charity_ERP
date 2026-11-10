@@ -5,7 +5,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
 import { canCreateProjects, canSeeProjects } from '../../roles';
@@ -94,7 +94,7 @@ function useStepRunner() {
 }
 
 /**
- * The project setup as a wizard (SCR-060, UX-20): `/admin/projects/new` starts with the first
+ * The project setup as a wizard (docs/ui/SCREENS.md "Project setup with component toggles"): `/admin/projects/new` starts with the first
  * step, which creates the draft; `/admin/projects/:projectId/setup` walks the steps one at a time,
  * the current one kept in the address (`?step=`), a return opening the first step with something
  * missing. Back and Next save the step on screen; "save and exit" saves and opens the project; the

@@ -44,11 +44,11 @@ export interface BeneficiaryViewer {
 }
 
 /**
- * The nationwide beneficiary tab and the 360° profile shell (docs/MASTER_SPEC.md, "Beneficiary
- * 360° profile and beneficiary tab"; DECISION_LOG O-67, D-094). Everyone the caller's scope reaches,
- * filtered, searched and counted with one shared filter; a filter or a search on a field the
- * caller may not see is refused or never matches. Inside a profile a project-scoped caller (the
- * Procurement Team) sees only the rows of its own projects.
+ * The nationwide beneficiary tab and the 360° profile shell (docs/MASTER_SPEC.md, "Beneficiary 360°
+ * profile and beneficiary tab"). Everyone the caller's scope reaches, filtered, searched and
+ * counted with one shared filter; a filter or a search on a field the caller may not see is refused
+ * or never matches. Inside a profile a project-scoped caller (the Procurement Team) sees only the
+ * rows of its own projects.
  */
 export class BeneficiariesService {
   constructor(

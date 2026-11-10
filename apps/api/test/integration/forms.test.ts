@@ -17,8 +17,8 @@ import {
 } from './support/auth-app';
 
 // The forms of a project: the library the builder picks from, the first draft from a template,
-// blank or a copy, the versions, and the version read that keeps official-only sections from
-// those who may not see them (plan docs/plans/2026-10-21-1135-feat-form-engine-plan.md).
+// blank or a copy, the versions, and the version read that keeps official-only sections from those
+// who may not see them.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -552,7 +552,7 @@ describe('drafts, publishing and the field map', () => {
     ]);
   });
 
-  it("takes a coded question's options from its list at the save and the publish, never the builder's own (D-163)", async () => {
+  it("takes a coded question's options from its list at the save and the publish, never the builder's own", async () => {
     const pm = await as(world.users.monitoring);
     const { versionId } = await distributionDraft();
     const { etag, sections } = await current(pm, versionId);

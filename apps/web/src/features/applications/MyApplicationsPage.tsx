@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { orCached } from '../../lib/or-cached';
 import type { SyncInfo } from '../../offline/applications-store';
 import { MY_PROJECTS_KEY, myProjects } from '../projects/my-projects-api';

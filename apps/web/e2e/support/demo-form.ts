@@ -143,7 +143,12 @@ export async function demoReadyForm(
   title: string,
   sections: unknown[] = DEMO_SECTIONS,
 ): Promise<string> {
-  const context = await apiRequest.newContext({ baseURL: new URL(page.url()).origin });
+  const origin = new URL(page.url()).origin;
+  // the API refuses a write without the app's origin, which a browser would send
+  const context = await apiRequest.newContext({
+    baseURL: origin,
+    extraHTTPHeaders: { Origin: origin },
+  });
   try {
     const builder = await apiAs(context, loginId);
     const made = await builder.post('/ready-forms', {

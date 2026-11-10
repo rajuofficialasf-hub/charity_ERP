@@ -11,7 +11,7 @@ export interface ConditionContext {
   inOwnRegion?: boolean;
   /** The target volunteer of a deactivation, for `no_open_applications`. */
   target?: { openApplications?: number };
-  /** The actor is attached to the house-construction project (Procurement Team, Q-46). */
+  /** The actor is attached to the house-construction project (the Procurement Team). */
   attachedToProject?: boolean;
 }
 
@@ -54,7 +54,7 @@ const CONDITIONS: Record<string, ConditionCheck> = {
 
 /**
  * True when the named condition holds; an unknown name or a missing fact denies
- * (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, R5).
+ * (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md).
  */
 export function checkCondition(name: string, ctx: ConditionContext): boolean {
   const check = Object.hasOwn(CONDITIONS, name) ? CONDITIONS[name] : undefined;

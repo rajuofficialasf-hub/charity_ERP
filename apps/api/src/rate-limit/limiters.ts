@@ -4,7 +4,7 @@ import type { Env } from '../config/env';
 import { ApiError } from '../i18n/api-error';
 import { RATE_LIMITS, type RateLimitClass, type RateWindow } from './rate-limit';
 
-/** Limiter chains of the API_STANDARDS 10 classes, one chain per route (NE-SEC-04, D-068). */
+/** Limiter chains of the API_STANDARDS 10 classes, one chain per route. */
 export interface RateLimiters {
   for(cls: RateLimitClass | 'none', route: string): RequestHandler[];
 }
@@ -12,9 +12,9 @@ export interface RateLimiters {
 /**
  * express-rate-limit with in-process counters: every window of a class must have room; the
  * tightest window is applied last so its `RateLimit-*` headers win; a 429 carries `Retry-After`
- * and the catalogue code. `RATE_LIMITS_RELAXED` multiplies every limit by 100 for the E2E run
- * (D-072). Keys are our own strings (login id, address, session, user, IP), so the library's IP
- * validations are off; the client address itself comes through `trust proxy` (D-072).
+ * and the catalogue code. `RATE_LIMITS_RELAXED` multiplies every limit by 100 for the E2E run.
+ * Keys are our own strings (login id, address, session, user, IP), so the library's IP
+ * validations are off; the client address itself comes through `trust proxy`.
  */
 export function createRateLimiters(env: Env): RateLimiters {
   const factor = env.RATE_LIMITS_RELAXED ? 100 : 1;

@@ -1,4 +1,4 @@
-import { api } from '../../../lib/api';
+import { api } from '../../../api/client';
 import { PAGE_SIZE } from '../../list-paging';
 import { listQuery } from '../../list-query';
 import { BENEFICIARIES_KEY } from '../beneficiaries-api';

@@ -5,7 +5,7 @@ import { Client } from 'pg';
 import { checkDestructiveDbAccess } from '../../../src/config/db-guard';
 
 /**
- * Real PostgreSQL for integration tests (O-46 item 1): every test file works in its own database,
+ * Real PostgreSQL for integration tests: every test file works in its own database,
  * cloned from a migrated template. Only databases named css_erp_test* are ever created or dropped,
  * and the dev/test guard is checked before each of those operations.
  */

@@ -3,7 +3,7 @@ import type { StepMark } from '@/ui';
 import type { Project } from '../projects-api';
 import type { Area, FundSource, ProjectComponent } from './setup-api';
 
-/** The steps of the project setup in their order (UX-20); budget and syllabus come when they apply, the rules always. */
+/** The steps of the project setup in their order; budget and syllabus come when they apply, the rules always. */
 export const STEP_IDS = [
   'basics',
   'components',

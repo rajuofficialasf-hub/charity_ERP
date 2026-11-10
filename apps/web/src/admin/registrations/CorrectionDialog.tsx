@@ -4,11 +4,11 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { FIELD_LABEL } from '../../features/account/profile-api';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { requestCorrections } from './registrations-api';
 
 /**
- * Asks the registrant to correct the checked fields, with one note (BR-030; POST
+ * Asks the registrant to correct the checked fields, with one note (POST
  * /registrations/{userId}/correction-requests). Only the checked fields reopen for the registrant.
  */
 export function CorrectionDialog({

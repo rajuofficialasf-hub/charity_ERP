@@ -50,7 +50,7 @@ import { LoadError } from '../../components/LoadError';
 const CATEGORIES = ['A', 'B', 'C', 'D', 'inactive'] as const;
 
 /**
- * The nationwide volunteer tab (SCR-042; DECISION_LOG O-67): every volunteer the caller may see,
+ * The nationwide volunteer tab (docs/ui/SCREENS.md "Volunteer tab"): every volunteer the caller may see,
  * with the counts above, the state chips, the search and the filters. The filters live in the page
  * URL so a reload or a shared link shows the same view; the search term never does (it may be a
  * mobile number or an NID). The server decides what each row carries.

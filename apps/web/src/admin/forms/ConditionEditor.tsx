@@ -16,6 +16,7 @@ import { type Asker, conditionCandidates, OPS, opKindOf } from './candidates';
 import { type ConditionRow, conditionFromRows, rowsFromCondition } from './logic-rows';
 import { NumberText } from './NumberText';
 import { RowButtons } from './RowButtons';
+import { useRowKeys } from '../../lib/use-row-keys';
 
 /**
  * "Show when" or "required when" as rows (a question, a comparison and a value) joined by "all of
@@ -43,6 +44,7 @@ export function ConditionEditor({
   const view = rowsFromCondition(condition);
   const candidates = conditionCandidates(definition, asker);
   const byKey = new Map(candidates.map((f) => [f.fieldKey, f]));
+  const keys = useRowKeys(view.kind === 'complex' ? 0 : view.rows.length);
 
   if (view.kind === 'complex')
     return (
@@ -105,7 +107,7 @@ export function ConditionEditor({
           const field = byKey.get(row.field);
           const ops = field ? OPS[opKindOf(field)] : OPS.text;
           return (
-            <div key={i} className="form-settings-row">
+            <div key={keys.keys[i]} className="form-settings-row">
               <Stack gap={1}>
                 <SelectField
                   label={t('cond_field', { n })}
@@ -187,7 +189,10 @@ export function ConditionEditor({
                 <RowButtons
                   remove={{
                     label: t('cond_remove', { n }),
-                    onPress: () => write(rows.filter((_, j) => j !== i)),
+                    onPress: () => {
+                      keys.remove(i);
+                      write(rows.filter((_, j) => j !== i));
+                    },
                   }}
                 />
               </Stack>

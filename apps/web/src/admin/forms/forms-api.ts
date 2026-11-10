@@ -6,7 +6,7 @@ import type {
   FormPlace,
   ReadyFormCreate,
 } from '@css/shared/forms';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 import type { LibrarySectionView } from './draft';
 
 /** A form version as the API answers it: its state and its definition. */

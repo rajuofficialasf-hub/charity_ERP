@@ -3,7 +3,7 @@ export const SUPPORTED_LOCALES = ['bn', 'en'] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = 'bn';
 
-/** Name of the cookie that carries the web app's language (D-067). */
+/** Name of the cookie that carries the web app's language. */
 export const LOCALE_COOKIE = 'css_locale';
 
 export function isLocale(value: unknown): value is Locale {

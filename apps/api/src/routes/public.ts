@@ -57,7 +57,7 @@ export function publicRouter(
     status: 201,
     operationId: 'public.application.submit',
     summary:
-      'Submit a public application; it waits for verification without a profile, and the applicant learns nothing about existing profiles (O-08)',
+      'Submit a public application; it waits for verification without a profile, and the applicant learns nothing about existing profiles',
     audit: 'application.public_submitted',
     idempotency: 'clientUuid',
     params: tokenParams,

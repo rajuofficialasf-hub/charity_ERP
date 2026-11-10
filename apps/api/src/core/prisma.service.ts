@@ -2,7 +2,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import type { Env } from '../config/env';
 import { PrismaClient } from '../generated/prisma/client';
 
-/** The one Prisma client of the process (ADR-003), on the pg driver adapter of Prisma 7. */
+/** The one Prisma client of the process, on the pg driver adapter of Prisma 7. */
 export class PrismaService extends PrismaClient {
   constructor(env: Env) {
     super({ adapter: new PrismaPg({ connectionString: env.DATABASE_URL }) });

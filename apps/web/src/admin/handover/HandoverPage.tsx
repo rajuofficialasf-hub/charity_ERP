@@ -16,7 +16,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canHandOver } from '../roles';
@@ -51,11 +51,10 @@ const handoverKey = (userId: string) => ['admin', 'handover', userId] as const;
 const userKey = (userId: string) => ['admin', 'user', userId] as const;
 
 /**
- * The staff handover (SCR-105, BD-08, BR-034; plan
- * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R13, R14): the
- * Department Head or the Monitoring Team finds an official, hands the pending work by category to
- * other officials (one item or all), completes the handover and then deactivates the account. The
- * server refuses the deactivation while work is pending and checks the receiver's role.
+ * The staff handover (the "Staff handover" row of the screen index in docs/ui/SCREENS.md): the Department Head or the Monitoring Team finds an official, hands
+ * the pending work by category to other officials (one item or all), completes the handover and
+ * then deactivates the account. The server refuses the deactivation while work is pending and
+ * checks the receiver's role.
  */
 export function HandoverPage() {
   const { me } = useAuth();

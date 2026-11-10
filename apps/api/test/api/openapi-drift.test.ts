@@ -10,7 +10,7 @@ import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
 import { canonicalSchema, compareWithContract, PERMISSION_MARKERS } from '../../src/openapi/drift';
 import { buildTestApp, type TestApp } from '../support/app';
 
-// The generated document must match docs/api/openapi.yaml (API_STANDARDS 16, NFR-54).
+// The generated document must match docs/api/openapi.yaml (API_STANDARDS 16).
 const repo = join(__dirname, '../../../..');
 const contract = yaml.load(readFileSync(join(repo, 'docs/api/openapi.yaml'), 'utf8')) as {
   paths: Record<string, Record<string, { 'x-permission'?: unknown } | null>>;
@@ -107,8 +107,8 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
     expect(problems).toMatch(/responses \["200"\] differ/);
   });
 
-  // Routes, the contract and permissions.yaml agree three ways (R21 of
-  // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md): the drift check above compares
+  // Routes, the contract and permissions.yaml agree three ways
+  // (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md): the drift check above compares
   // the routes with the contract and the YAML; this covers the contract's operations not built yet.
   it('every x-permission of the contract is a marker or a permission of permissions.yaml', () => {
     const unknown: string[] = [];
@@ -151,7 +151,7 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
     );
   });
 
-  // The field mask needs the response schema (U4 of the plan above).
+  // The field mask needs the response schema.
   it('refuses a route with protected data but no response schema, or with undeclared classes', () => {
     const register = (over: Record<string, unknown>) => () =>
       buildTestApp({

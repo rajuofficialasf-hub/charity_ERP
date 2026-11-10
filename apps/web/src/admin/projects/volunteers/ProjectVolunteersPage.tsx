@@ -42,7 +42,7 @@ import { LoadError } from '../../../components/LoadError';
 const ASSIGN = 'volunteer.assign_project';
 
 /**
- * The volunteers of a project (BR-037, BR-038; DECISION_LOG D-096): officials see the assignments
+ * The volunteers of a project: officials see the assignments
  * of their areas with the permission set, the paid flag and whether the volunteer accepted the
  * rules; the RPM (and an executive with the RPM's grant) assigns several at once, changes a set or
  * the paid flag and ends an assignment with a reason; the RPM grants an executive the right to

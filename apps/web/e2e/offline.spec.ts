@@ -147,7 +147,7 @@ async function identityOffline(page: Page, projectId: string, nid: string, name:
   await page.getByRole('textbox', { name: /উপকারভোগীর নাম/ }).fill(name);
   await page.getByRole('textbox', { name: /পিতা বা স্বামীর নাম/ }).fill('নমুনা পিতা');
   await page.getByRole('textbox', { name: /উপকারভোগীর মোবাইল/ }).fill(`018${digits(8)}`);
-  // the options of a coded question come from its reference list (D-163)
+  // the options of a coded question come from its reference list
   await pickByLabel(page, 'লিঙ্গ', 'মহিলা');
   await pickByLabel(page, 'বিভাগ', 'ঢাকা');
   await pickByLabel(page, 'জেলা', 'ঢাকা');

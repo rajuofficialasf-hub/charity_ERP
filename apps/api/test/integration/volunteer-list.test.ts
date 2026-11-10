@@ -13,8 +13,7 @@ import {
 } from './support/auth-app';
 import * as f from './support/fixtures';
 
-// The nationwide volunteer tab: filters, search, counts and the protected parts (DECISION_LOG
-// O-67, D-094; plan docs/plans/2026-10-15-1030-feat-volunteer-beneficiary-tabs-plan.md).
+// The nationwide volunteer tab: filters, search, counts and the protected parts.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();

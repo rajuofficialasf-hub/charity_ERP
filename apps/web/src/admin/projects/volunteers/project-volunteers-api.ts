@@ -5,7 +5,7 @@ import type {
   PermissionSet,
 } from '@css/shared/projects';
 import type { VolunteerType } from '@css/shared/registration';
-import { api } from '../../../lib/api';
+import { api } from '../../../api/client';
 import { listQuery } from '../../list-query';
 import { PROJECTS_KEY } from '../projects-api';
 

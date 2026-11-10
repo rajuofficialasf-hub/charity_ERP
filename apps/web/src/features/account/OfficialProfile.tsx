@@ -17,7 +17,7 @@ import { useTranslations } from 'use-intl';
 import { useFileDataUrl } from '../../components/FileImage';
 import { LoadError } from '../../components/LoadError';
 import { canSeeProjects } from '../../admin/roles';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import {
   fieldLabelKey,

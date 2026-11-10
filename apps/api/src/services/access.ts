@@ -17,7 +17,7 @@ import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
 import type { AccountEvents } from '../notifications/account-events';
 import type { ProjectEvents } from '../notifications/project-events';
 
-/** Rules of `permission.grant_refused` (D-078, RBAC.md 7). */
+/** Rules of `permission.grant_refused` (RBAC.md 7). */
 export type RefusalRule =
   | 'owner_transfer_only_head'
   | 'global_scope_protected'
@@ -56,11 +56,11 @@ const byName = (a: EffectivePermission, b: EffectivePermission) =>
   a.permission.localeCompare(b.permission) || a.scopeType.localeCompare(b.scopeType);
 
 /**
- * The permission panel and project grants (RBAC.md 7, SCR-062): reads of the catalogue and of a
+ * The permission panel and project grants (RBAC.md 7, docs/ui/SCREENS.md "Permission panel"): reads of the catalogue and of a
  * user's effective permissions, panel overrides by the Department Head and the Monitoring Team,
  * and the RPM's "if RPM grants" extras on a project. Every change runs in one transaction, writes
  * a `permission_change` audit entry with the old and new effective grants and bumps the target's
- * permission version (BR-180, AUTH.md 9). Refusals are audited as `permission_change_refused`.
+ * permission version (AUTH.md 9). Refusals are audited as `permission_change_refused`.
  */
 export class AccessPanelService {
   constructor(
@@ -137,7 +137,7 @@ export class AccessPanelService {
   /**
    * The hard rules shared by the panel and project grants (RBAC.md 7): the owner transfer only
    * for the Department Head, no removal of the GLOBAL scope of a global role, and no sensitive
-   * permission for a volunteer, whatever the catalogue says (BR-046, BR-183).
+   * permission for a volunteer, whatever the catalogue says.
    */
   private refusal(
     target: Target,
@@ -161,7 +161,7 @@ export class AccessPanelService {
 
   /**
    * Audits a refused change in its own transaction (the change itself wrote nothing), then answers
-   * 409 for the Main Admin (BR-035) or 403 with the rule (D-078).
+   * 409 for the Main Admin or 403 with the rule.
    */
   private async refuse(
     targetId: string,
@@ -232,7 +232,7 @@ export class AccessPanelService {
       await this.lockUser(tx, body.userId);
       const target = await this.target(tx, body.userId);
       if (!target) throw new ApiError('permission.not_found', 404);
-      // the Main Admin cannot be changed at all, before every other rule (BR-035, D-078)
+      // the Main Admin cannot be changed at all, before every other rule
       if (target.isSystemOwner) return { refused: 'system_owner_protected' as const };
       const details = await this.invalid(tx, body);
       if (details.length) throw new ApiError('validation.failed', 422, undefined, details);

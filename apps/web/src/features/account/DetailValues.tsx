@@ -9,7 +9,7 @@ import { AddressNames } from '../../components/AddressNames';
 
 /**
  * The profession, the skills (with the full-time answer), the education and the permanent address
- * as lines of text (DECISION_LOG O-65, O-66, D-092),
+ * as lines of text,
  * for the own profile and for the approver's registration: one line per given value, labelled in
  * the language of the page.
  */

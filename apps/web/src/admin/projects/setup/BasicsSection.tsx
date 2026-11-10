@@ -4,7 +4,7 @@ import { SelectField, TextField } from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { PROGRAMS_KEY, programs } from '../../programs/programs-api';
 import { updateProject } from './setup-api';
 import { Reseed, SaveNotice, SetupSection, useSetup, useStepSave } from './setup-context';

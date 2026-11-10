@@ -7,7 +7,7 @@ import { startInlineConsumers } from './jobs/consumers';
 
 /**
  * In-flight requests and, in development, the inline job consumers (pg-boss drains for up to 30 s,
- * JobRunner.stop) get this long after SIGTERM before the process exits anyway (NE-ERR-04). The
+ * JobRunner.stop) get this long after SIGTERM before the process exits anyway. The
  * container's stop_grace_period is longer than this.
  */
 const SHUTDOWN_GRACE_MS = 35_000;

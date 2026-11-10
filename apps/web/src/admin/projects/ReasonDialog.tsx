@@ -2,7 +2,7 @@ import { formatDate } from '@css/shared/format';
 import { Alert, Button, DateField, Dialog, TextField } from '@/ui';
 import { type ReactNode, useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 
 /**
  * Asks for the reason of a lifecycle move (and, for the deadline extension, the new end date)

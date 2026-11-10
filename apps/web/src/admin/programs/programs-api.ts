@@ -1,5 +1,5 @@
 import type { ProgramCreate, ProgramUpdate } from '@css/shared/projects';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
 /** A program as GET /programs returns it. */
 export interface Program {

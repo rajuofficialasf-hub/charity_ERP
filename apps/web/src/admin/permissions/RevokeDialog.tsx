@@ -2,7 +2,7 @@ import { ConfirmDialog } from '@/ui';
 import type { EffectivePermission } from '@css/shared/access';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 
 /** Ends a permission given in the panel, with a reason (POST /permission-grants/{id}/revoke). */
 export function RevokeDialog({

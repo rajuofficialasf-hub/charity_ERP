@@ -3,7 +3,7 @@ import { Alert, Button, Card, Chip, Icon, Stack, Text, TextField } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { PhotoField } from '../registration/PhotoField';
 import {
   answerRequest,

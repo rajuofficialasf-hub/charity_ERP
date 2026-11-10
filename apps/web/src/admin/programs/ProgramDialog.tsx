@@ -3,7 +3,7 @@ import { Alert, Button, Dialog, Switch, TextField } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { type PanelUser, UserSearch, usersWithRole } from '../UserSearch';
 import {
   assignPm,

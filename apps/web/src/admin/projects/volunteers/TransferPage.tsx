@@ -21,7 +21,7 @@ import { Link, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
 import { stateLabel } from '../../../features/applications/status';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
 import { canAssignVolunteers, canMoveTeams, canTransferApplications } from '../../roles';

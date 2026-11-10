@@ -5,7 +5,7 @@ import type {
   ApplicationSummary,
 } from '../features/applications/applications-api';
 import type { MyProject } from '../features/projects/my-projects-api';
-import { api } from '../lib/api';
+import { api } from '../api/client';
 
 /** The data set the server answers for a phone (`GET /sync/snapshot`), one page at a time. */
 export interface SnapshotView {

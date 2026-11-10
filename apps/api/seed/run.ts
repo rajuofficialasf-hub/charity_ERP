@@ -1,7 +1,7 @@
 // pnpm db:seed [--set base|demo|all]: loads the deterministic development and test seed sets
-// (T1.3, TEST_STRATEGY section 4). Never for production: the guard refuses NODE_ENV=production and
+// (TEST_STRATEGY section 4). Never for production: the guard refuses NODE_ENV=production and
 // any database that is not css_erp_dev* / css_erp_test*; every run leaves a seed marker that the
-// production start guard refuses (O-46 item 8).
+// production start guard refuses.
 import 'dotenv/config';
 import { Client } from 'pg';
 import { checkDestructiveDbAccess } from '../src/config/db-guard';

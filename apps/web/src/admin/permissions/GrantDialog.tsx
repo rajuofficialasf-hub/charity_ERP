@@ -12,7 +12,7 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 import type { PanelUser } from '../UserSearch';
 import { permissionCatalogue } from './EffectivePermissions';
 
@@ -24,7 +24,7 @@ const FIELD_PATHS = ['permission', 'scopeRef', 'reason', 'expiresAt'];
 
 /**
  * Grant or remove a permission for one user at a scope, with a reason and an optional expiry
- * (POST /permission-grants). A refused change shows the server's message (D-078).
+ * (POST /permission-grants). A refused change shows the server's message.
  */
 export function GrantDialog({
   user,

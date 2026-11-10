@@ -13,6 +13,7 @@ import { ARGON2_OPTIONS } from '../../../src/auth/password-hasher';
 import { closeContainer, type Container, createContainer } from '../../../src/container';
 import { testEnv } from '../../support/env';
 import { contractRecorder } from '../../support/contract';
+import { withAppOrigin } from '../../support/origin';
 import { cloneTemplate } from './db';
 import { fakeMobile } from './fixtures';
 
@@ -96,7 +97,7 @@ export async function authHarness(
   });
   // every response is checked against the contract (test/support/contract.ts), through the
   // listening server and through the app a test serves itself
-  const wrapped = contractRecorder.wrap(app);
+  const wrapped = withAppOrigin(contractRecorder.wrap(app), container.env.APP_ORIGIN);
   const listening = createServer(wrapped);
   await new Promise<void>((resolve) => listening.listen(0, '127.0.0.1', resolve));
   return {

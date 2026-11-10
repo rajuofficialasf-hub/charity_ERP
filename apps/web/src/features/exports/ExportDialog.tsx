@@ -3,7 +3,7 @@ import { Alert, Button, Dialog, RadioGroup, Skeleton, Stack, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { ColumnPicker } from './ColumnPicker';
 import { ExportProgress } from './ExportProgress';
 import { EXPORTS_KEY, exportColumns, startExport } from './exports-api';

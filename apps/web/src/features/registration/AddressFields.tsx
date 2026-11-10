@@ -20,8 +20,8 @@ export const EMPTY_ADDRESS: Address = {
 const LEVELS = ['divisionId', 'districtId', 'upazilaId', 'unionId'] as const;
 
 /**
- * The cascading address (division → district → upazila → union) from the public locations list
- * (DECISION_LOG D-083): each list follows the choice above it, and changing a level clears the
+ * The cascading address (division → district → upazila → union) from the public locations list:
+ * each list follows the choice above it, and changing a level clears the
  * levels below.
  */
 export function AddressFields({
@@ -38,7 +38,7 @@ export function AddressFields({
   /** Told the union as it is chosen (null when the choice is cleared), for its post code. */
   onUnionChosen?: (union: Location | null) => void;
   errors?: Record<string, string | undefined>;
-  /** The levels are not mandatory (the permanent address, O-66). */
+  /** The levels are not mandatory (the permanent address). */
   optional?: boolean;
   /** Told after each label when two addresses are on one page, e.g. "(permanent)". */
   labelSuffix?: string;
@@ -71,8 +71,9 @@ export function AddressFields({
           value={value[level] ?? ''}
           // a list still loading cannot be opened empty
           disabled={(i > 0 && !parents[i]) || !lists[i]}
-          // on a phone the next level opens by itself once the one above it is picked (D-166)
-          autoOpen={i > 0}
+          // on a phone the next level opens by itself once the one above it is picked
+          // a filter may stop at any level, so only an address that is asked for opens the next one
+          autoOpen={!optional && i > 0}
           error={errors[labelSuffix ? `permanent-${level}` : level]}
           options={(lists[i] ?? []).map((l) => ({ value: l.id, label: l.name[locale] }))}
           onChange={(id) => {

@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { definition, field, option, section, T } from '../../../test/forms';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import type { Selection } from './selection';
 import { SettingsPane } from './SettingsPane';
 
@@ -100,7 +100,7 @@ describe('the field settings', () => {
     expect(fieldOf(latest, 'phone_two').settings?.validation).toEqual({ pattern: 'mobile' });
   });
 
-  it('shows a coded question its list’s options to read, with no way to edit them (D-163)', async () => {
+  it('shows a coded question its list’s options to read, with no way to edit them', async () => {
     // the core's gender question fills the gender column: its options are the list's
     const def = definition();
     const gender = def.sections.flatMap((x) => x.fields).find((f) => f.fieldKey === 'gender')!;
@@ -812,6 +812,26 @@ describe('the points of the priority score', () => {
     });
     await user.click(within(rows).getByRole('button', { name: 'সীমাটি সরান' }));
     expect(fieldOf(latest, 'members').settings?.score).toBeUndefined();
+  });
+
+  it('keeps a half-typed bound with its own range when a range above it is removed', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(section('more', [field('members', 'number', { label: T('সদস্য', 'Members') })])),
+      { section: 'more', field: 'members' },
+    );
+    await user.click(await screen.findByRole('button', { name: /নম্বর/ }));
+    for (let n = 0; n < 3; n += 1)
+      await user.click(await screen.findByRole('button', { name: 'সীমা যোগ করুন' }));
+    const rows = screen.getByRole('list', { name: 'নম্বরের সীমা' });
+    // the third range's lower bound, still being typed: "7." is not a finished number yet
+    await user.type(within(rows).getAllByRole('textbox', { name: /থেকে/ })[2]!, '7.');
+    await user.click(within(rows).getAllByRole('button', { name: 'সীমাটি সরান' })[0]!);
+    const bounds = within(rows).getAllByRole('textbox', { name: /থেকে/ });
+    expect(bounds).toHaveLength(2);
+    // the typing stays in the range it belongs to, now the second
+    expect(bounds[1]).toHaveValue('7.');
+    expect(bounds[0]).toHaveValue('');
   });
 
   it('offers no points on a text question', async () => {

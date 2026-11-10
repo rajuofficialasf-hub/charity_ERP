@@ -44,7 +44,7 @@ const listQuery = pageQuery.omit({ sort: true, include: true });
 const viewerOf = (req: AuthedRequest) => ({ principal: principalOf(req), scope: scopeOf(req) });
 
 /**
- * Volunteers on a project (openapi tag volunteers; BR-037, BR-038, DECISION_LOG D-096): the
+ * Volunteers on a project (openapi tag volunteers): the
  * volunteers the caller may assign, the assigned ones, assigning several at once, changing the set
  * or the paid flag, and ending an assignment with a reason.
  */

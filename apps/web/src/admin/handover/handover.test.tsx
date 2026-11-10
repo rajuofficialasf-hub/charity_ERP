@@ -6,13 +6,12 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderInShell } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { AdminLayout } from '../AdminLayout';
 import { HandoverPage } from './HandoverPage';
 import { stubScreen } from '../../../test/match-media';
 
-// The handover page (SCR-105, BD-08, BR-034; plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14). Test data only.
+// The handover page (the "Staff handover" row of the screen index in docs/ui/SCREENS.md). Test data only.
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const OFFICIAL = {
   id: '01900000-0000-7000-8000-0000000000b1',
@@ -40,7 +39,7 @@ type Item = {
 let pending: Item[];
 let completedAt: string | null;
 let state: string;
-/** The account row's version: every handover step bumps it (permission version, D-088). */
+/** The account row's version: every handover step bumps it (permission version). */
 let version: number;
 let calls: { method: string; url: string; body: unknown; ifMatch: string | null }[];
 

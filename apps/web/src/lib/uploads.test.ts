@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeUploadServer } from '../../test/upload-server';
-import { resetClientForTests } from './api';
+import { resetClientForTests } from '../api/client';
 import { server } from '../../test/msw/server';
 import { apiError } from '../../test/auth';
 import { http } from 'msw';

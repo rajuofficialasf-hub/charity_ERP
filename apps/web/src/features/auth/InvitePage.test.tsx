@@ -5,10 +5,10 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { apiError, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { InvitePage } from './InvitePage';
 
-// The set-password page of an official created by the admin (DECISION_LOG D-097, AUTH.md 2.2).
+// The set-password page of an official created by the admin (AUTH.md 2.2).
 // Test data only.
 const TOKEN = 'B'.repeat(42) + '_';
 const VIEW = {

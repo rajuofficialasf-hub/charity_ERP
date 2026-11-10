@@ -34,13 +34,11 @@ function shapeOf(elements: MessageFormatElement[], shape: MessageShape): Message
       case TYPE.time:
         shape.params.add(el.value);
         shape.problems.push(
-          `ICU ${TYPE[el.type]} argument "${el.value}": pass formatted text instead (D-067)`,
+          `ICU ${TYPE[el.type]} argument "${el.value}": pass formatted text instead`,
         );
         break;
       case TYPE.pound:
-        shape.problems.push(
-          '"#" prints the number with locale digits: use a formatted {count} (D-067)',
-        );
+        shape.problems.push('"#" prints the number with locale digits: use a formatted {count}');
         break;
       case TYPE.plural:
       case TYPE.select:
@@ -97,7 +95,7 @@ export function checkCatalogue(input: CatalogueInput): CatalogueReport {
     ['en', en],
   ] as const) {
     for (const [key, text] of messages) {
-      if (BENGALI_DIGIT.test(text)) errors.push(`${key} (${locale}): Bengali digits (UX-05)`);
+      if (BENGALI_DIGIT.test(text)) errors.push(`${key} (${locale}): Bengali digits`);
       let shape: MessageShape;
       try {
         shape = shapeOf(parse(text), {
@@ -114,7 +112,7 @@ export function checkCatalogue(input: CatalogueInput): CatalogueReport {
       for (const selector of shape.selectors)
         if (shape.shown.has(selector))
           errors.push(
-            `${key} (${locale}): plural or select argument "${selector}" is also shown; show a formatted argument (D-067)`,
+            `${key} (${locale}): plural or select argument "${selector}" is also shown; show a formatted argument`,
           );
       shapes.set(`${locale}:${key}`, shape);
     }

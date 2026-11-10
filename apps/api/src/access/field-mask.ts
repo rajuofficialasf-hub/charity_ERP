@@ -2,11 +2,11 @@ import { z, type ZodType } from 'zod';
 import type { AccessRegistry } from './registry';
 
 /**
- * Field-level protection (RBAC.md 6, BR-183, constitution §5): a response schema marks each
+ * Field-level protection (RBAC.md 6, constitution §5): a response schema marks each
  * protected field with its class from the `sensitive_fields` catalogue, and every response of a
  * route passes through `maskData` before it is sent (`defineRoute`), so a handler cannot forget it.
  * Hidden fields are removed, not blanked: a volunteer client never learns they exist. Exports
- * (the export task T2.8 of docs/PLAN.md) reuse the same marks and the same function.
+ * (the export service of docs/PLAN.md) reuse the same marks and the same function.
  */
 interface SensitiveMark {
   /** Class key from permissions.yaml `sensitive_fields`. */
@@ -25,8 +25,8 @@ export function sensitive<T extends ZodType>(schema: T, cls: string): T {
 
 /**
  * Marks an array of form answers (`{ visibility, … }` rows): every row whose visibility is not
- * exactly `volunteer` belongs to the class `application.official_section` (decision BD-12 of docs/DECISION_LOG.md). The row
- * schema must declare `visibility`, or the parse would strip it before the mask reads it.
+ * exactly `volunteer` belongs to the class `application.official_section`. The row schema must
+ * declare `visibility`, or the parse would strip it before the mask reads it.
  */
 export function officialRows<T extends ZodType>(
   schema: T,

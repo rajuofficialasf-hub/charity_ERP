@@ -12,7 +12,7 @@ export interface AuditEntry {
   old?: Prisma.InputJsonValue | null;
   new?: Prisma.InputJsonValue | null;
   reason?: string | null;
-  /** Offline record id when the write came from a device (BR-194). */
+  /** Offline record id when the write came from a device. */
   clientUuid?: string | null;
   /** Originating user when a job or sync acts for someone (SYSTEM_ARCHITECTURE 6). */
   onBehalfOfUserId?: string | null;
@@ -21,9 +21,9 @@ export interface AuditEntry {
 }
 
 /**
- * Writes audit entries inside the caller's transaction (BR-179), so an entry exists exactly when
+ * Writes audit entries inside the caller's transaction, so an entry exists exactly when
  * the business write committed. Actor, role, IP, device session and request id come from the
- * request context; the count feeds the audit enforcement of D-068.
+ * request context; the count feeds the check that an audited route wrote its entry.
  */
 export class AuditWriter {
   async record(tx: Tx, entry: AuditEntry): Promise<string> {

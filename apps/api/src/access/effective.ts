@@ -15,7 +15,7 @@ export interface EffectiveGrant {
   source: GrantSource;
   /** The project the grant is bound to (permission sets, project extras, project defaults). */
   projectId: string | null;
-  /** The panel override behind a `panel_grant` (D-079). */
+  /** The panel override behind a `panel_grant`. */
   grantId?: string;
 }
 
@@ -34,9 +34,9 @@ export interface AccessFacts {
   roles: string[];
   volunteerType: string | null;
   projectStaff: { projectId: string; roleKey: string; extraPermissions: string[] }[];
-  /** Assignments whose volunteer accepted the project's current rules (BR-039). */
+  /** Assignments whose volunteer accepted the project's current rules. */
   projectVolunteers: { projectId: string; permissionSet: string; extraPermissions: string[] }[];
-  /** Projects a team member works on through an accepted membership of a working team (BR-040). */
+  /** Projects a team member works on through an accepted membership of a working team. */
   teamProjects: string[];
   overrides: PanelOverride[];
 }
@@ -83,7 +83,7 @@ export function effectivePermissions(
  * (every permission at GLOBAL minus `global_roles_excluded`), role defaults, project permission
  * sets and project extras, panel overrides; a live revoke override beats every grant. Volunteers
  * hold the SELF defaults of their role directly and everything else only on their projects (RBAC.md
- * 6; docs/DECISION_LOG.md Q-16), and never a sensitive permission (BR-046, BR-183). Pure: the
+ * 6), and never a sensitive permission. Pure: the
  * loader below reads the rows.
  */
 export function effectiveAccess(
@@ -112,8 +112,8 @@ export function effectiveAccess(
         });
 
   // 2. Role defaults. For a volunteer role, a permission that a permission set of that role
-  // contains comes only through the set on a project (3a, R9 of
-  // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md); account permissions (module
+  // contains comes only through the set on a project
+  // (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md); account permissions (module
   // M01: own sessions) stay direct; other non-SELF defaults count only on assigned projects.
   const volunteerProjects = [
     ...new Set([...facts.projectVolunteers.map((pv) => pv.projectId), ...facts.teamProjects]),
@@ -205,8 +205,8 @@ export function effectiveAccess(
         grantId: o.id,
       });
   // Hard rules of RBAC.md 7 and 9, kept here too so a stray row cannot break them: revokes never
-  // strip the Department Head (Main Admin, BR-035); only the Department Head holds the owner
-  // transfer; volunteers never hold a sensitive permission (BR-046, BR-183).
+  // strip the Department Head (Main Admin); only the Department Head holds the owner
+  // transfer; volunteers never hold a sensitive permission.
   const head = facts.roles.includes('department_head');
   const revocations = head ? [] : live.filter((o) => o.effect === 'revoke');
   const official = facts.roles.some((r) => registry.roles.get(r)?.kind === 'official');
@@ -228,14 +228,14 @@ const overrideRow = z.object({
 
 /**
  * An assignment the volunteer works under: not ended, and the project's current rules accepted. A
- * rules change sets every acceptance back to pending, so an older acceptance never counts
- * (BR-039, DECISION_LOG D-096). Without it the volunteer holds no permission on the project.
+ * rules change sets every acceptance back to pending, so an older acceptance never counts.
+ * Without it the volunteer holds no permission on the project.
  */
 export const WORKING_ASSIGNMENT = { endedAt: null, consentStatus: 'accepted' } as const;
 
 /**
  * The projects a team member works on: an accepted, not removed membership whose main volunteer's
- * assignment on that project is working too (DECISION_LOG D-096). A blocked account does not get
+ * assignment on that project is working too. A blocked account does not get
  * this far: authentication refuses it.
  */
 export async function workingTeamProjects(db: Tx, memberVolunteerId: string): Promise<string[]> {

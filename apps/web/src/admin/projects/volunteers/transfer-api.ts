@@ -1,4 +1,4 @@
-import { api } from '../../../lib/api';
+import { api } from '../../../api/client';
 import { PROJECTS_KEY } from '../projects-api';
 
 /** An application of the old volunteer that the transfer may pick. */

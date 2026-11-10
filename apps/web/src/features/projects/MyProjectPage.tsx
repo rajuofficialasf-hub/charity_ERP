@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { orCached } from '../../lib/or-cached';
 import { loadStore } from '../applications/use-local-records';
 import { consent, MY_PROJECTS_KEY, myProject, type MyProjectDetail } from './my-projects-api';

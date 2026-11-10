@@ -23,7 +23,7 @@ import {
   SkillsText,
 } from '../../features/account/DetailValues';
 import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canApproveStaff, canBlock, canApproveRegistrations } from '../roles';
@@ -43,8 +43,8 @@ import { VOLUNTEERS_KEY } from '../volunteers/volunteers-api';
 import { LoadError } from '../../components/LoadError';
 
 /**
- * The page of one pending staff registration (SCR-040). A volunteer's registration is reviewed in
- * the volunteer tab (DECISION_LOG O-67), so an older link to it opens the volunteer's profile.
+ * The page of one pending staff registration (docs/ui/SCREENS.md "Registration approval queue"). A volunteer's registration is reviewed in
+ * the volunteer tab, so an older link to it opens the volunteer's profile.
  */
 export function RegistrationDetail() {
   const { me } = useAuth();
@@ -70,10 +70,9 @@ export function RegistrationDetail() {
 }
 
 /**
- * One pending registration (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md,
- * R7 to R9, R12): the submitted details and photos, the correction requests, and the decisions the
- * user's role allows. Used by the staff registration page and by the volunteer profile of a pending
- * volunteer. The server checks permission and scope again on every action.
+ * One pending registration: the submitted details and photos, the correction requests, and the
+ * decisions the user's role allows. Used by the staff registration page and by the volunteer
+ * profile of a pending volunteer. The server checks permission and scope again on every action.
  */
 export function RegistrationReview({
   userId,
@@ -235,14 +234,14 @@ function Details({ registration: r }: { registration: RegistrationDetailView }) 
           <EducationText key="education" education={v.educationDetails} />,
         ],
         [tf('form.education'), v.education ?? empty],
-        // the earlier work texts only when the volunteer has them (O-65)
+        // the earlier work texts only when the volunteer has them
         ...(v.experience ? [[tf('form.experience'), v.experience] as [string, ReactNode]] : []),
         ...(v.workDescription
           ? [[tf('form.work_description'), v.workDescription] as [string, ReactNode]]
           : []),
         [tf('form.previous_projects'), v.previousProjects ?? empty],
         [tf('form.facebook'), v.facebookId ?? empty],
-        // the personal data of O-65: the protected ones are absent without the identity class
+        // the personal data: the protected ones are absent without the identity class
         [
           tf('form.date_of_birth'),
           v.dateOfBirth === undefined ? hidden : v.dateOfBirth ? formatDate(v.dateOfBirth) : empty,

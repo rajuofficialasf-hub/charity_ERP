@@ -34,7 +34,7 @@ import {
   SkillsText,
 } from '../../features/account/DetailValues';
 import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { BlocklistAction } from '../registrations/Blocklist';

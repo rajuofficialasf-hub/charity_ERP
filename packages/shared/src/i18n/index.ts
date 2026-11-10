@@ -1,5 +1,5 @@
 /**
- * Entry `@css/shared/i18n` (I18N.md 3, D-067): the message catalogue, the server-side t(), locale
+ * Entry `@css/shared/i18n` (I18N.md 3): the message catalogue, the server-side t(), locale
  * resolution, bilingual-data helpers and the catalogue check. Kept out of the package index so the
  * web client never bundles every catalogue.
  */

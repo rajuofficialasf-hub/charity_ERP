@@ -5,8 +5,8 @@ import type { Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 
 /**
- * Delivery adapters of the notifications module (ADR-007, NOTIFICATIONS): narrow interfaces, no
- * templates (T1.14 renders texts and runs the outbox). Every adapter returns a provider message id
+ * Delivery adapters of the notifications module (NOTIFICATIONS): narrow interfaces, no
+ * templates (the notifications service renders texts and runs the outbox). Every adapter returns a provider message id
  * or throws a DeliveryError that tells the outbox worker whether a retry can help.
  */
 export class DeliveryError extends Error {
@@ -115,7 +115,7 @@ export function maskMobile(mobile: string): string {
 }
 
 /**
- * The SMS adapter until a provider is chosen (O-33): `logging` writes a masked line in development
+ * The SMS adapter until a provider is chosen: `logging` writes a masked line in development
  * and tests, `dry_run` accepts silently on staging. Neither logs the text (it may hold an OTP).
  */
 export class StubSmsAdapter implements SmsAdapter {

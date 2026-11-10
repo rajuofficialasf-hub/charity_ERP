@@ -2,7 +2,7 @@ import { Combobox } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { api } from '../lib/api';
+import { api } from '../api/client';
 
 /** A user as the user list returns it (GET /users). */
 export interface PanelUser {
@@ -23,8 +23,8 @@ export const usersWithRole = (role: string) => (text: string) =>
 /**
  * Finds a user by name, email or mobile through the server search (GET /users; the permission
  * panel and the handover page), or through another search the caller gives (the officials a
- * project may be given). Opening the field lists the first ones by name before any text
- * (DECISION_LOG D-161); two letters narrow the list on the server. The option shows the
+ * project may be given). Opening the field lists the first ones by name before any text;
+ * two letters narrow the list on the server. The option shows the
  * designation, not the contact details.
  */
 export function UserSearch({

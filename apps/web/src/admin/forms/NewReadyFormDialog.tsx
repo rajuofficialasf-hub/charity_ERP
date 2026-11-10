@@ -4,7 +4,7 @@ import { Alert, Button, Dialog, RadioGroup, SelectField, TextField } from '@/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { createReadyForm, type FormKind, READY_KEY, type ReadyFormView } from './forms-api';
 
 /** A key for a new ready form from its English name: small letters, digits and underscores. */

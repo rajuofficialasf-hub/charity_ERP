@@ -5,7 +5,7 @@ import { currentContext } from '../core/request-context';
 import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
 import { requestLocale } from '../i18n/request-locale';
 
-/** Errors that `express.json()` raises carry a body-parser `type` (NE-REQ-02). */
+/** Errors that `express.json()` raises carry a body-parser `type`. */
 const BODY_PARSER_ERRORS: Record<string, { status: number; code: string }> = {
   'entity.too.large': { status: 413, code: 'validation.malformed' },
   'entity.parse.failed': { status: 400, code: 'validation.malformed' },
@@ -45,7 +45,7 @@ const PUBLIC_PARAMS = new Set([
  * Renders the error block of API_STANDARDS 3 in the request language (I18N 5):
  * `{ error: { code, messageKey, message, params?, details?, requestId } }`, with `Retry-After` for locks
  * and rate limits. Unknown failures become `server.internal`; stack traces and SQL stay in the
- * server log (BR-210, NE-SEC-11).
+ * server log.
  */
 export function sendApiError(
   req: Request,
@@ -91,7 +91,7 @@ export const notFound: RequestHandler = (req, res) => {
   sendApiError(req, res, 404, 'permission.not_found');
 };
 
-/** The one error middleware (NE-ERR-01). */
+/** The one error middleware. */
 export function errorHandler(logger: Logger): ErrorRequestHandler {
   return (err: unknown, req, res, next) => {
     if (res.headersSent) {

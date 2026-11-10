@@ -1,6 +1,6 @@
-// TEMP: the S3 driver, pointed at MinIO (ADR-005, D-074) until the NAS driver exists (storage.md).
-// The only file that imports the AWS SDK (NS-42). The buckets are private (NS-40, bootstrap.sh)
-// and no signed or bucket URL reaches the browser (NS-41).
+// TEMP: the S3 driver, pointed at MinIO until the NAS driver exists (storage.md).
+// The only file that imports the AWS SDK. The buckets are private (bootstrap.sh)
+// and no signed or bucket URL reaches the browser.
 import type { Readable } from 'node:stream';
 import {
   DeleteObjectCommand,
@@ -22,7 +22,7 @@ export interface S3Options {
   secretKey: string;
 }
 
-// Outbound timeouts (NE-ERR-03, NS-44): a connection that isn't up in this long fails, and so does
+// Outbound timeouts: a connection that isn't up in this long fails, and so does
 // a request whose socket stays idle this long. Idle, not total, so a large file can still stream.
 const CONNECTION_TIMEOUT_MS = 5_000;
 const SOCKET_IDLE_TIMEOUT_MS = 30_000;
@@ -31,7 +31,7 @@ const REGION = 'us-east-1';
 
 /**
  * A missing key: `NoSuchKey` from GET, `NotFound` from HEAD. A missing bucket is an infrastructure
- * fault: GET reports it as `NoSuchBucket`, which propagates (NE-ERR-02); a HEAD response carries no
+ * fault: GET reports it as `NoSuchBucket`, which propagates; a HEAD response carries no
  * error code, so `stat` cannot tell the two apart and `ping` is the check for the buckets.
  */
 function isMissing(error: unknown): boolean {
@@ -56,7 +56,7 @@ export function createS3Driver(options: S3Options): StorageDriver {
   return {
     name: 's3',
 
-    // Upload streams the body in 5 MiB parts, so a large file never sits whole in memory (NS-04).
+    // Upload streams the body in 5 MiB parts, so a large file never sits whole in memory.
     async put(bucket, key, body, meta) {
       assertKey(key);
       await new Upload({

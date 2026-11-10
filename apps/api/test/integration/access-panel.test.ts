@@ -12,8 +12,7 @@ import {
 } from './support/auth-app';
 import { notificationsOf } from './support/notifications';
 
-// The permission panel API (RBAC.md 7; plan
-// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U5).
+// The permission panel API (RBAC.md 7).
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();

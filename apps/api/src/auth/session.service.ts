@@ -11,7 +11,7 @@ import type { AccountEvents } from '../notifications/account-events';
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 
-/** Session lifetimes and limits (AUTH.md 5, O-05, O-25, D-070). */
+/** Session lifetimes and limits (AUTH.md 5). */
 export const SESSION_RULES = {
   hardLimitMs: 180 * DAY,
   refreshWindowMs: 30 * DAY,
@@ -32,7 +32,7 @@ export interface SessionFacts {
   kind: string;
   state: string;
   permissionVersion: number;
-  /** A new password is due before anything else (DECISION_LOG O-66). */
+  /** A new password is due before anything else. */
   passwordChangeRequired: boolean;
   roles: string[];
   globalScope: boolean;
@@ -95,7 +95,7 @@ export class SessionService {
     return current;
   }
 
-  /** Creates a session; the sixth active session of a user revokes the oldest (O-25). */
+  /** Creates a session; the sixth active session of a user revokes the oldest. */
   async create(
     tx: Tx,
     input: NewSession,
@@ -381,7 +381,7 @@ export class SessionService {
     return facts;
   }
 
-  /** Records activity at most every five minutes per session (D-070). */
+  /** Records activity at most every five minutes per session. */
   async touch(sessionId: string, ip: string | undefined): Promise<void> {
     const now = this.clock.now();
     const entry = this.cache.get(sessionId);

@@ -10,7 +10,7 @@ import {
   SkillsText,
 } from '../../features/account/DetailValues';
 import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { type AddressIds, AddressNames } from '../../components/AddressNames';
 import { FileImage } from '../../components/FileImage';
 import { decideEdit, EDITS_KEY, type EditRequestRow, editRequests } from './registrations-api';
@@ -19,10 +19,9 @@ import { LoadError } from '../../components/LoadError';
 const PHOTO_FIELDS = new Set(['photo', 'nid_photo']);
 
 /**
- * The edit requests of approved volunteers in scope (BR-031 as amended by DECISION_LOG D-085; GET
- * /edit-requests): who asked, the detail, the new value and the reason given; approving applies
- * the value at once, refusing needs a reason. NID and bank values arrive only for roles that may
- * see them.
+ * The edit requests of approved volunteers in scope (GET /edit-requests): who asked, the detail,
+ * the new value and the reason given; approving applies the value at once, refusing needs a reason.
+ * NID and bank values arrive only for roles that may see them.
  */
 export function EditRequests() {
   const t = useTranslations('admin.registrations.edits');
@@ -53,7 +52,7 @@ export function EditRequests() {
     if (PHOTO_FIELDS.has(r.field) && typeof r.newValue === 'string')
       return <FileImage fileId={r.newValue} alt={t('photo')} />;
     if (r.field === 'address') return <AddressNames address={r.newValue as AddressIds} />;
-    // the new groups of O-65 are shown as labelled text, never as raw ids or "[object Object]"
+    // the personal, profession and skills groups are shown as labelled text, never as raw ids or "[object Object]"
     if (r.field === 'profession') {
       const v = r.newValue as { profession: string; details?: Record<string, unknown> };
       return <ProfessionText profession={v.profession} details={v.details ?? {}} />;

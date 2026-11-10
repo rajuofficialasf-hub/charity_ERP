@@ -55,7 +55,7 @@
   align-items: center;
 }
 
-/* The draft's "saved" mark beside the parts (DECISION_LOG D-166). */
+/* The draft's "saved" mark beside the parts. */
 .apply-saved {
   display: inline-flex;
   align-items: center;

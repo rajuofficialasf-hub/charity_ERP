@@ -19,16 +19,16 @@ import {
 export * from './details.js';
 
 /**
- * Registration before login (AUTH.md 2; DECISION_LOG D-082, D-086, D-088): request schemas of the
+ * Registration before login (AUTH.md 2): request schemas of the
  * `/auth/register/*` operations and the rules of a registration draft. The API validates with
  * them and the PWA builds the registration screens on them.
  */
 export const REGISTRATION_RULES = {
-  /** A draft lives this long after the start or the last verification (O-25). */
+  /** A draft lives this long after the start or the last verification. */
   draftLifeMs: 24 * 60 * 60_000,
   /** Refused submits (conflict or invalid form) a draft allows before 429. */
   maxRefusedSubmits: 5,
-  /** Codes one draft may send in its lifetime, across channels and address changes (D-090). */
+  /** Codes one draft may send in its lifetime, across channels and address changes. */
   maxSendsPerDraft: 6,
 } as const;
 
@@ -36,8 +36,8 @@ export const REGISTRATION_KINDS = ['volunteer', 'staff'] as const;
 export type RegistrationKind = (typeof REGISTRATION_KINDS)[number];
 
 /**
- * Photo slots of a registration and of a correction or edit request (D-087): the own photo and
- * both pages of the NID card (UX-18).
+ * Photo slots of a registration and of a correction or edit request: the own photo and
+ * both pages of the NID card.
  */
 export const PHOTO_SLOTS = ['photo', 'nid_photo', 'nid_photo_back'] as const;
 export type PhotoSlot = (typeof PHOTO_SLOTS)[number];
@@ -46,7 +46,7 @@ export type PhotoSource = (typeof PHOTO_SOURCES)[number];
 /** Largest photo the API accepts; the phone compresses below it. */
 export const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 
-/** The draft token header (D-082): never in a URL or a log. */
+/** The draft token header: never in a URL or a log. */
 export const REGISTRATION_TOKEN_HEADER = 'X-Registration-Token';
 
 /** A Bangladesh mobile number as stored: 11 digits starting with 01 (the form patterns reuse it). */
@@ -63,7 +63,7 @@ const emailSchema = z
   .max(254)
   .transform((v) => v.toLowerCase());
 
-/** A draft starts with its kind only; each contact comes with its own code (D-090). */
+/** A draft starts with its kind only; each contact comes with its own code. */
 export const registrationStartRequestSchema = z.strictObject({
   kind: z.enum(REGISTRATION_KINDS).default('volunteer'),
 });
@@ -72,14 +72,14 @@ export type RegistrationStartRequest = z.infer<typeof registrationStartRequestSc
 export const OTP_CHANNELS = ['sms', 'email'] as const;
 export type RegistrationChannel = (typeof OTP_CHANNELS)[number];
 
-/** Sends a code to one contact of the draft; a changed address clears that channel (D-090). */
+/** Sends a code to one contact of the draft; a changed address clears that channel. */
 export const otpSendRequestSchema = z.discriminatedUnion('channel', [
   z.strictObject({ registrationId: z.uuid(), channel: z.literal('sms'), address: mobileSchema }),
   z.strictObject({ registrationId: z.uuid(), channel: z.literal('email'), address: emailSchema }),
 ]);
 export type OtpSendRequest = z.infer<typeof otpSendRequestSchema>;
 
-/** Verifies the code of one channel (D-090). */
+/** Verifies the code of one channel. */
 export const otpVerifyRequestSchema = z.strictObject({
   registrationId: z.uuid(),
   channel: z.enum(OTP_CHANNELS),
@@ -92,7 +92,7 @@ export interface RegistrationStart {
 }
 
 /**
- * The answer of a verify (D-090): the channels verified so far; once both are, also the draft token
+ * The answer of a verify: the channels verified so far; once both are, also the draft token
  * and what the form needs.
  */
 export interface RegistrationVerifyResult extends Partial<RegistrationVerified> {
@@ -117,11 +117,11 @@ const password = z
   .min(PASSWORD_MIN_LENGTH, { message: 'validation.password_too_short' })
   .max(PASSWORD_MAX_LENGTH);
 
-/** Volunteer types of the one registration form (BR-033). */
+/** Volunteer types of the one registration form. */
 export const VOLUNTEER_TYPES = ['general', 'local_daee', 'both', 'team_member', 'paid'] as const;
 export type VolunteerType = (typeof VOLUNTEER_TYPES)[number];
 
-/** The permanent address (O-66, BR-248): the four levels of the present address and a line. */
+/** The permanent address: the four levels of the present address and a line. */
 export const permanentAddressSchema = z.strictObject({
   divisionId: z.uuid(),
   districtId: z.uuid(),
@@ -133,7 +133,7 @@ export type PermanentAddress = z.infer<typeof permanentAddressSchema>;
 
 /**
  * Optional bank details (A5, used when paying operational expenses): added later from the own
- * profile through an edit request, never at registration (O-64); the branch is its own field.
+ * profile through an edit request, never at registration; the branch is its own field.
  */
 export const bankDetailsSchema = z.strictObject({
   bankName: optionalText(200),
@@ -145,7 +145,7 @@ export const bankDetailsSchema = z.strictObject({
 export type BankDetails = z.infer<typeof bankDetailsSchema>;
 
 /**
- * The volunteer form (BR-026, O-64, O-65, D-092): no type, no reference and no bank details; every
+ * The volunteer form: no type, no reference and no bank details; every
  * volunteer registers as a general volunteer and the Foundation sets the role per project later.
  * Mandatory: the name, the parents' names, the NID, the address to the union and the profession;
  * the profession's details are one nested object checked against that profession's schema, and
@@ -194,7 +194,7 @@ export const volunteerRegistrationSubmitSchema = z
 export type VolunteerRegistrationSubmit = z.infer<typeof volunteerRegistrationSubmitSchema>;
 
 /**
- * The staff form (MASTER_SPEC A5, D-088, O-64): the name and the designation; no NID, parents,
+ * The staff form (MASTER_SPEC A5): the name and the designation; no NID, parents,
  * bank details, program or workplace (those are set after registration).
  */
 export const staffRegistrationSubmitSchema = z.strictObject({
@@ -221,8 +221,7 @@ export const addressValueSchema = z.strictObject({
 });
 
 /**
- * The volunteer fields a correction request may name, with the shape of their new value (BR-030;
- * DECISION_LOG D-085). The type and the team member's reference are not among them: they decide
+ * The volunteer fields a correction request may name, with the shape of their new value. The type and the team member's reference are not among them: they decide
  * the role and need the counted reference lookup, so a wrong one is rejected and registered again.
  * A photo's value is the file id the own photo upload stored on the request.
  */
@@ -270,7 +269,7 @@ export const changeRequestAnswerSchema = z.strictObject({
 });
 export type ChangeRequestAnswer = z.infer<typeof changeRequestAnswerSchema>;
 
-/** The staff decision (R9): a role on approval, a reason on rejection. */
+/** The staff decision: a role on approval, a reason on rejection. */
 export const staffDecisionSchema = z
   .strictObject({
     decision: z.enum(['approve', 'reject']),
@@ -288,7 +287,7 @@ export const staffDecisionSchema = z
 export type StaffDecision = z.infer<typeof staffDecisionSchema>;
 
 /**
- * The fields an approved volunteer may ask to change (BR-031 as amended by D-085): the correction
+ * The fields an approved volunteer may ask to change: the correction
  * fields plus the mobile and the email, which first need a code to the new value. A photo edit is
  * created without a value; the own photo upload fills it.
  */
@@ -392,7 +391,7 @@ export const editRequestCreateSchema = z
   );
 export type EditRequestCreate = z.infer<typeof editRequestCreateSchema>;
 
-/** An approver's decision on an edit request: a refusal needs a reason (D-085). */
+/** An approver's decision on an edit request: a refusal needs a reason. */
 export const decisionRequestSchema = z
   .strictObject({
     decision: z.enum(['approve', 'reject']),

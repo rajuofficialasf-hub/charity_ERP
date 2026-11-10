@@ -3,7 +3,7 @@ import { Alert, IconButton, LinkButton, Switch } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { ComponentDrawer } from './ComponentDrawer';
 import { type ProjectComponent, updateComponent } from './setup-api';
 import { SetupSection, useSetup } from './setup-context';
@@ -20,7 +20,7 @@ const hasSettings = (key: string) => {
 };
 
 /**
- * The components of the project as switches, each with its settings when it has some (BD-09):
+ * The components of the project as switches, each with its settings when it has some:
  * only what is switched on comes into the project. The photo rule is a project-wide setting kept
  * with the distribution component, so its settings stay open while that component is off.
  */

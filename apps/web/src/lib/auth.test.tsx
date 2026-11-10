@@ -4,12 +4,11 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ME, pair } from '../../test/auth';
 import { server } from '../../test/msw/server';
-import { login, logout, refreshSession, resetClientForTests } from './api';
+import { login, logout, refreshSession, resetClientForTests } from '../api/client';
 import { AuthProvider } from './auth';
 import { createQueryClient } from './query-client';
 
-// The session holder empties the server-data cache between sessions (AUTH.md 8; plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, C12 review).
+// The session holder empties the server-data cache between sessions (AUTH.md 8).
 beforeEach(() => {
   resetClientForTests();
   document.cookie = 'css_csrf=nonce.mac; path=/';

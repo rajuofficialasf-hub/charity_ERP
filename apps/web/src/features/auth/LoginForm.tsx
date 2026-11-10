@@ -5,10 +5,10 @@ import { useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocaleSwitch } from '../../i18n/LocaleProvider';
 import { type FormEvent, useEffect, useState } from 'react';
-import { ApiFailure, login } from '../../lib/api';
+import { ApiFailure, login } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 
-/** Text of a failed login (SCR-001 states): generic, lock time, retry time or the server message. */
+/** Text of a failed login (docs/ui/SCREENS.md "Login and password reset" states): generic, lock time, retry time or the server message. */
 function useFailureText() {
   const t = useTranslations('auth.login');
   const locale = useLocale() as Locale;
@@ -22,7 +22,7 @@ function useFailureText() {
   };
 }
 
-/** Sign in with mobile number or email and password (SCR-001, AUTH.md 4). */
+/** Sign in with mobile number or email and password (docs/ui/SCREENS.md "Login and password reset", AUTH.md 4). */
 export function LoginForm({ ended }: { ended?: string }) {
   const t = useTranslations('auth.login');
   const tr = useTranslations('registration');
@@ -58,7 +58,7 @@ export function LoginForm({ ended }: { ended?: string }) {
     setPending(true);
     try {
       const me = await login(loginId, password);
-      // The interface follows the user's stored language (I18N 2, O-56).
+      // The interface follows the user's stored language (I18N 2).
       if (me.language !== locale) setLocale(me.language);
       void navigate('/', { replace: true });
     } catch (failure) {

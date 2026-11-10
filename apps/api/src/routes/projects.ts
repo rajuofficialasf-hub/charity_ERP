@@ -56,7 +56,7 @@ const withEtag = (
 };
 
 /**
- * Projects (openapi tag projects; DECISION_LOG D-095): the list and the project in the caller's
+ * Projects (openapi tag projects): the list and the project in the caller's
  * scope, a draft created from a workflow, setup changes as the project's state allows, and the
  * cancel of a draft that was never activated.
  */
@@ -189,7 +189,7 @@ export function projectsRouter(
     ...action,
     path: '/projects/:projectId/extend-deadline',
     operationId: 'projects.project.extendDeadline',
-    summary: 'Extend the application deadline of an active project with a reason (BD-16)',
+    summary: 'Extend the application deadline of an active project with a reason',
     permission: 'project.deadline.extend',
     audit: 'project.deadline_extend',
     body: extendDeadlineSchema,
@@ -254,7 +254,7 @@ export function projectsRouter(
     ...action,
     path: '/projects/:projectId/reopen',
     operationId: 'projects.project.reopen',
-    summary: 'Reopen a closing or closed project with a reason (BD-20)',
+    summary: 'Reopen a closing or closed project with a reason',
     permission: 'project.reopen',
     audit: 'project.reopen',
     workflow: { scope: 'project', action: 'reopen' },

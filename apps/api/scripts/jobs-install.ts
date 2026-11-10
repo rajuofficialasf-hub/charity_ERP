@@ -1,6 +1,6 @@
 import { installJobs } from '../src/jobs/install';
 
-// Installs or upgrades the pg-boss schema and its queues as the migrating role (D-069).
+// Installs or upgrades the pg-boss schema and its queues as the migrating role.
 // Part of `pnpm db:migrate`; the api and worker processes never run DDL.
 async function main(): Promise<void> {
   const url = process.env.DATABASE_URL;

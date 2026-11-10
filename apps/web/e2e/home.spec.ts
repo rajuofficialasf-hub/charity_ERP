@@ -20,7 +20,7 @@ test.describe('home page', () => {
     );
   });
 
-  test('serves a manifest with the approved names (UX-09, O-31)', async ({ request }) => {
+  test('serves a manifest with the approved names', async ({ request }) => {
     const res = await request.get('/manifest.webmanifest');
     expect(res.ok()).toBe(true);
     const manifest = await res.json();

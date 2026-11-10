@@ -48,7 +48,7 @@ export const isProjectTemplate = (definition: unknown): boolean =>
   templateDefinitionSchema.safeParse(definition).success;
 
 /**
- * The organisation's master project templates (BD-10, BR-064; DECISION_LOG D-096): everyone who
+ * The organisation's master project templates: everyone who
  * creates projects reads and uses every template; those who manage templates save a project's
  * setup as a new template or onto an existing one (its version goes up), rename, describe,
  * deactivate and activate them. A template is never deleted, and projects started from it are
@@ -136,7 +136,7 @@ export class TemplatesService {
           action: 'template.update',
           entityType: 'project_template',
           entityId: after.id,
-          // the replaced contents stay readable in the audit log (before and after, BD-10)
+          // the replaced contents stay readable in the audit log (before and after)
           old: {
             version: before.version,
             sourceProjectId: before.sourceProjectId,

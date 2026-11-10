@@ -5,9 +5,9 @@ import {
   type StaffEditField,
 } from '@css/shared/registration';
 import type { OwnStaffProfile, ProjectsWork } from '@css/shared/auth';
-import { api } from '../../lib/api';
+import { api } from '../../api/client';
 
-/** The own volunteer profile as GET /volunteers/me answers (DECISION_LOG D-081). */
+/** The own volunteer profile as GET /volunteers/me answers. */
 export interface OwnProfile {
   userId: string;
   volunteerId: string | null;
@@ -102,7 +102,7 @@ export type RequestField = Exclude<
   Exclude<StaffEditField, EditField | PhotoSlot>
 >;
 
-/** An official's own profile and their projects with the figures of their work (D-147). */
+/** An official's own profile and their projects with the figures of their work. */
 export const STAFF_PROFILE_KEY = ['me', 'profile'] as const;
 export const OWN_WORK_KEY = ['me', 'projects-work'] as const;
 export const ownStaffProfile = () => api<OwnStaffProfile>('/me/profile');
@@ -110,7 +110,7 @@ export const ownProjectsWork = () => api<ProjectsWork>('/me/projects-work');
 export const projectsWorkOf = (userId: string) =>
   api<ProjectsWork>(`/users/${userId}/projects-work`);
 
-/** An official's own change request (D-147, D-148); the code routes are the official's own. */
+/** An official's own change request; the code routes are the official's own. */
 export const askStaffEdit = (body: { field: string; newValue?: unknown; note?: string }) =>
   api<ChangeRequest>('/me/staff-change-requests', { method: 'POST', body });
 export const sendStaffContactCode = (id: string) =>

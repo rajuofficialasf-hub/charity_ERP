@@ -1,8 +1,9 @@
 /* eslint-disable security/detect-object-injection -- keys are typed unions, or checked with Object.hasOwn before use */
 /**
- * Entry `@css/shared/format`: the one formatter of numbers, money, dates and times (I18N.md 6,
- * BR-219). English digits in both languages (UX-05), Taka display per O-42, 12-hour time with the
- * Bengali day periods first (O-43), Asia/Dhaka display time, no Hijri date. Words come from the
+ * Entry `@css/shared/format`: the one formatter of numbers, money, dates and times (I18N.md 6).
+ * English digits in both languages, Taka shown as the owner decided (exact in entry and lists,
+ * short in summaries), 12-hour time with the
+ * Bengali day periods first, Asia/Dhaka display time, no Hijri date. Words come from the
  * `common` catalogue only, so the web bundle does not carry the other namespaces.
  */
 import bnCommon from '../i18n/messages/bn/common.json' with { type: 'json' };
@@ -36,7 +37,7 @@ function nf(locale: Locale, options: Intl.NumberFormatOptions = {}): Intl.Number
   return f;
 }
 
-/** Counts and integers with lakh grouping; never in millions (O-42): 12,34,567. */
+/** Counts and integers with lakh grouping; never in millions: 12,34,567. */
 export function formatCount(value: number, locale: Locale = 'bn'): string {
   return nf(locale, { maximumFractionDigits: 0 }).format(value);
 }
@@ -52,7 +53,7 @@ export function formatPercent(ratio: number, locale: Locale = 'bn', maxDecimals 
 }
 
 /**
- * Taka with the sign before the amount and one space (I18N 6.2, O-42). Exact amounts (entry fields,
+ * Taka with the sign before the amount and one space (I18N 6.2). Exact amounts (entry fields,
  * ledgers, vouchers, exports) keep up to 2 decimals; `summary` amounts from 10 lakh are shown in
  * millions with at most 2 decimals and trailing zeros dropped. Negative amounts: −৳ 5,000.
  */
@@ -115,7 +116,7 @@ export function isoDateInDhaka(input: Date | string): string {
   return `${y}-${pad(m)}-${pad(d)}`;
 }
 
-/** Every date in screens, lists and exports: dd-mm-yyyy (O-43). */
+/** Every date in screens, lists and exports: dd-mm-yyyy. */
 export function formatDate(input: Date | string): string {
   const { y, m, d } = parts(input);
   return `${pad(d)}-${pad(m)}-${y}`;
@@ -153,7 +154,7 @@ function dayPeriod(hour: number): keyof (typeof bnCommon)['day_period'] {
   return 'night_late';
 }
 
-/** Time of day in 12-hour form: বিকাল 4:40 / 4:40 PM (O-43). */
+/** Time of day in 12-hour form: বিকাল 4:40 / 4:40 PM. */
 export function formatTime(input: Date | string, locale: Locale = 'bn'): string {
   const { h, min } = parts(input);
   const hour12 = h % 12 === 0 ? 12 : h % 12;

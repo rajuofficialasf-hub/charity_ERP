@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Client } from 'pg';
 
 /**
- * Seed helpers (T1.3). Seeds are deterministic: every row gets an id from seedId(key), every write
+ * Seed helpers. Seeds are deterministic: every row gets an id from seedId(key), every write
  * goes through upsert(), which touches a row only when a value differs, so a second run changes
  * nothing (not even updated_at). Development and test only (see run.ts).
  */

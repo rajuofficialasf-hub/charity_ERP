@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { coreSections, T } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { FormBuilderPage } from './FormBuilderPage';
 import { FormsPage } from './FormsPage';
 

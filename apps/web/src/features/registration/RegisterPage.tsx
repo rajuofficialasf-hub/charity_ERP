@@ -38,17 +38,15 @@ type Channels = Record<RegistrationChannel, ChannelState>;
 const NEW_CHANNELS: Channels = { sms: NEW_CHANNEL, email: NEW_CHANNEL };
 
 /**
- * SCR-002 registration on one page (UX-16, UX-18; AUTH.md 2, DECISION_LOG D-090; plan
- * docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md, R1 to R6, R11): a green title
- * band, the kind, a step indicator and one card per step. The mobile and the email are verified
- * inside their own fields; the next step opens once both are. Everything stays in the page; a
- * reload starts a new draft.
+ * The screen "Registration with two OTP steps" of docs/ui/SCREENS.md (AUTH.md 2): a green title band, the kind, a step indicator and
+ * one card per step. The mobile and the email are verified inside their own fields; the next step
+ * opens once both are. Everything stays in the page; a reload starts a new draft.
  */
 export function RegisterPage() {
   const t = useTranslations('registration');
   const tr = useTranslations();
   const tl = useTranslations('auth.login');
-  // officials no longer register themselves: the admin creates their account (D-097)
+  // officials no longer register themselves: the admin creates their account
   const kind: RegistrationKind = 'volunteer';
   const [draft, setDraft] = useState<Draft | null>(null);
   const [channels, setChannels] = useState<Channels>(NEW_CHANNELS);
@@ -68,7 +66,7 @@ export function RegisterPage() {
   const set = (patch: Partial<RegistrationValues>) => setValues((v) => ({ ...v, ...patch }));
   const channel = (c: RegistrationChannel, patch: Partial<ChannelState>) =>
     setChannels((old) => ({ ...old, [c]: { ...old[c], ...patch } }));
-  // the draft holds its token only once both contacts are verified (D-090)
+  // the draft holds its token only once both contacts are verified
   const verified = Boolean(draft?.token) && channels.sms.verified && channels.email.verified;
   /** What a refused call says: its own message, the first field message, else the generic text. */
   const messageOf = (f: ReturnType<typeof failureOf>) =>

@@ -2,6 +2,7 @@ import { type FieldScore, type FormField, scoreKindOf } from '@css/shared/forms'
 import { Button, Disclosure, IconButton, Stack, Text } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { NumberText } from './NumberText';
+import { useRowKeys } from '../../lib/use-row-keys';
 
 type Range = NonNullable<FieldScore['ranges']>[number];
 
@@ -70,6 +71,7 @@ function Ranges({
   onChange: (ranges: Range[]) => void;
 }) {
   const t = useTranslations('forms.builder');
+  const keys = useRowKeys(ranges.length);
   const set = (index: number, next: Partial<Range>) =>
     onChange(
       ranges.map((r, i) => {
@@ -87,7 +89,7 @@ function Ranges({
       <Text tone="muted">{t('score_ranges_hint')}</Text>
       <ul className="fb-score-ranges" aria-label={t('score_ranges')}>
         {ranges.map((range, i) => (
-          <li key={i} className="fb-score-range">
+          <li key={keys.keys[i]} className="fb-score-range">
             <NumberText
               label={t('score_range_min')}
               value={range.min}
@@ -112,8 +114,10 @@ function Ranges({
             <IconButton
               label={t('score_range_remove')}
               icon="close"
-
-              onClick={() => onChange(ranges.filter((_, j) => j !== i))}
+              onClick={() => {
+                keys.remove(i);
+                onChange(ranges.filter((_, j) => j !== i));
+              }}
             />
           </li>
         ))}

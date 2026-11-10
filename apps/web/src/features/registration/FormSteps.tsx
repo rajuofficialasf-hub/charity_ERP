@@ -170,7 +170,7 @@ export function SkillsStep({ values, set, errors }: StepProps) {
   );
 }
 
-/** The password, checked while it is typed (O-64). */
+/** The password, checked while it is typed. */
 export function AccountStep({ values, set, errors }: StepProps) {
   const t = useTranslations('registration');
   return (
@@ -208,7 +208,7 @@ const PHOTO_LABELS = {
   nid_photo_back: 'form.nid_photo_back',
 } as const;
 
-/** The last step (UX-18): the own photo and, for a volunteer, both pages of the NID card. */
+/** The last step: the own photo and, for a volunteer, both pages of the NID card. */
 export function PhotosStep({
   draft,
   errors,

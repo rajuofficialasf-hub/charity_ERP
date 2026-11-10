@@ -11,9 +11,11 @@ export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0, // one reported retry in E2E only (O-46 item 10)
+  retries: process.env.CI ? 1 : 0, // one reported retry in E2E only
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
-  use: { baseURL, trace: 'on-first-retry' },
+  // a browser sends its page's origin with every write; Playwright's own API requests (the
+  // helpers' seeding and sign-in) carry the same one, so the API's origin check lets them through
+  use: { baseURL, trace: 'on-first-retry', extraHTTPHeaders: { Origin: baseURL } },
   projects: [
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
     {

@@ -4,7 +4,7 @@ import type { ProjectStatus } from '../projects/lifecycle.js';
 import { PASSWORD_MAX_LENGTH } from './password.js';
 
 /**
- * Officials created by the admin (DECISION_LOG D-097, AUTH.md 2): the job ID, where an official
+ * Officials created by the admin (AUTH.md 2): the job ID, where an official
  * belongs, the create and profile requests and the set-password link. The API validates with
  * these schemas and the PWA builds its forms on them.
  */

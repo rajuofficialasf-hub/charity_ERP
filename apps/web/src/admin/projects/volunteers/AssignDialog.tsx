@@ -13,7 +13,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { type Address, AddressFields } from '../../../features/registration/AddressFields';
-import { ApiFailure } from '../../../lib/api';
+import { ApiFailure } from '../../../api/client';
 import { assign, type Assignment, type Candidate, candidates } from './project-volunteers-api';
 import { LoadError } from '../../../components/LoadError';
 
@@ -21,7 +21,7 @@ const BY_TYPE = 'by_type';
 const NO_AREA: Address = { divisionId: null, districtId: null, upazilaId: null, unionId: null };
 
 /**
- * Assigns several volunteers of the caller's areas at once (BR-037, BR-038): the approved, not
+ * Assigns several volunteers of the caller's areas at once: the approved, not
  * blocked volunteers the server offers, filtered by area and searched by name or mobile, with one
  * permission set for all (by default the one of each volunteer's type) and, for the RPM, the paid
  * flag. A set a type cannot hold is refused by the server; each assignment can be changed later.

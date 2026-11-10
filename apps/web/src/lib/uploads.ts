@@ -1,6 +1,6 @@
 import { UPLOAD_RULES, type FileKind, type FileSource } from '@css/shared/files';
 import { isTransientStatus } from '@css/shared/sync';
-import { api, ApiFailure } from './api';
+import { api, ApiFailure } from '../api/client';
 
 /** An upload in progress as the server holds it. */
 export interface UploadSession {

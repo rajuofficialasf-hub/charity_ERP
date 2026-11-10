@@ -323,7 +323,7 @@ export class BeneficiaryMergesService {
    */
   private async assertWithinReach(tx: Tx, actor: Principal, retiredId: string) {
     const reach = await this.access.scopeOfUser(actor.userId, 'beneficiary.merge', 'project', tx);
-    // a revoked project stays outside even a GLOBAL reach (D-120)
+    // a revoked project stays outside even a GLOBAL reach
     if (reach.instances.global && !reach.instances.revokedProjectIds.length) return;
     const outside = await tx.application.count({
       where: {

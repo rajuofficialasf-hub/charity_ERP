@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
-import { ApiFailure } from '../../lib/api';
+import { ApiFailure } from '../../api/client';
 import { AnswerList } from './AnswerList';
 import { ApplicationTimeline } from './ApplicationTimeline';
 import { actOn, applicationKey, MY_APPLICATIONS_KEY, timeline } from './applications-api';

@@ -1,7 +1,7 @@
 import type { CookieOptions, Request, Response } from 'express';
 import type { Env } from '../config/env';
 
-/** Cookie names and paths of the session (D-070, openapi `refreshCookie`). */
+/** Cookie names and paths of the session (openapi `refreshCookie`). */
 export const REFRESH_COOKIE = 'css_refresh';
 export const CSRF_COOKIE = 'css_csrf';
 export const CSRF_HEADER = 'x-csrf-token';

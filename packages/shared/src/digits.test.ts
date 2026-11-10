@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { hasOnlyEnglishDigits, toEnglishDigits } from './digits.js';
 
-describe('hasOnlyEnglishDigits (UX-05)', () => {
+describe('hasOnlyEnglishDigits', () => {
   it('accepts English digits inside Bengali text', () => {
     expect(hasOnlyEnglishDigits('আবেদন WNT-2026-00125')).toBe(true);
   });

@@ -7,7 +7,7 @@ import { cloneTemplate } from './support/db';
 import { expectSqlError, SQLSTATE } from './support/expect-sql';
 import * as f from './support/fixtures';
 
-// Unique, check and soft-delete constraints of DATABASE_SCHEMA.md (T1.2 data-integrity tests).
+// Unique, check and soft-delete constraints of DATABASE_SCHEMA.md (the data-integrity tests).
 let db: Client;
 let drop: () => Promise<void>;
 let loc: Awaited<ReturnType<typeof f.locationTree>>;
@@ -35,8 +35,8 @@ describe('change requests of volunteers and officials', () => {
   });
 });
 
-describe('beneficiary identity (BR-001, BR-002, BR-003)', () => {
-  it('BR-003 NID is unique', async () => {
+describe('beneficiary identity', () => {
+  it('NID is unique', async () => {
     const nid = f.fakeNid();
     await f.beneficiary(db, loc, { nid });
     await expectSqlError(
@@ -46,7 +46,7 @@ describe('beneficiary identity (BR-001, BR-002, BR-003)', () => {
     );
   });
 
-  it('BR-003 birth registration number is unique', async () => {
+  it('birth registration number is unique', async () => {
     const birthReg = '20261011000000001';
     await f.beneficiary(db, loc, { nid: null, birth_reg: birthReg });
     await expectSqlError(
@@ -56,7 +56,7 @@ describe('beneficiary identity (BR-001, BR-002, BR-003)', () => {
     );
   });
 
-  it('BR-001 NID or birth registration is mandatory', async () => {
+  it('NID or birth registration is mandatory', async () => {
     await expectSqlError(
       f.beneficiary(db, loc, { nid: null, birth_reg: null }),
       SQLSTATE.checkViolation,
@@ -64,7 +64,7 @@ describe('beneficiary identity (BR-001, BR-002, BR-003)', () => {
     );
   });
 
-  it('BR-002 NID must have 10, 13 or 17 digits', async () => {
+  it('NID must have 10, 13 or 17 digits', async () => {
     await expectSqlError(
       f.beneficiary(db, loc, { nid: '12345' }),
       SQLSTATE.checkViolation,
@@ -73,7 +73,7 @@ describe('beneficiary identity (BR-001, BR-002, BR-003)', () => {
     await expect(f.beneficiary(db, loc, { nid: '1000000000123' })).resolves.toBeTruthy();
   });
 
-  it('mobile must be an 11-digit Bangladesh number (O-39) and is not unique (O-02)', async () => {
+  it('mobile must be an 11-digit Bangladesh number and is not unique', async () => {
     await expectSqlError(
       f.beneficiary(db, loc, { mobile: '12345' }),
       SQLSTATE.checkViolation,
@@ -247,7 +247,7 @@ describe('BEN numbers and duplicate dismissals', () => {
 });
 
 describe('applications', () => {
-  it('BR-016 one live application per beneficiary per project; allowed again after soft delete', async () => {
+  it('one live application per beneficiary per project; allowed again after soft delete', async () => {
     const p = await f.project(db);
     const ben = await f.beneficiary(db, loc);
     const first = await f.application(db, { project: p, loc }, { beneficiary_id: ben });
@@ -264,7 +264,7 @@ describe('applications', () => {
     ).resolves.toBeTruthy();
   });
 
-  it('soft delete: status deleted and deleted_at go together (BR-091)', async () => {
+  it('soft delete: status deleted and deleted_at go together', async () => {
     const p = await f.project(db);
     const ben = await f.beneficiary(db, loc);
     await expectSqlError(
@@ -293,7 +293,7 @@ describe('applications', () => {
     ).resolves.toBeTruthy();
   });
 
-  it('BR-194 client_uuid is unique (offline idempotency)', async () => {
+  it('client_uuid is unique (offline idempotency)', async () => {
     const p = await f.project(db);
     const clientUuid = randomUUID();
     await f.application(
@@ -312,7 +312,7 @@ describe('applications', () => {
     );
   });
 
-  it('status must be a common workflow state (BD-11)', async () => {
+  it('status must be a common workflow state', async () => {
     const p = await f.project(db);
     const ben = await f.beneficiary(db, loc);
     await expectSqlError(
@@ -323,7 +323,7 @@ describe('applications', () => {
   });
 });
 
-describe('client_uuid uniqueness on every offline record (BR-194)', () => {
+describe('client_uuid uniqueness on every offline record', () => {
   it.each(['activities', 'issues', 'expense_claims', 'dawah_classes', 'followup_evaluations'])(
     '%s.client_uuid is unique',
     async (table) => {
@@ -410,7 +410,7 @@ describe('client_uuid uniqueness on every offline record (BR-194)', () => {
   });
 });
 
-describe('payments (BR-134)', () => {
+describe('payments', () => {
   async function claim() {
     const p = await f.project(db);
     const vol = await f.volunteer(db, loc, await f.volunteerUser(db));
@@ -435,7 +435,7 @@ describe('payments (BR-134)', () => {
       ...over,
     });
 
-  it('BR-134 transaction_id is unique', async () => {
+  it('transaction_id is unique', async () => {
     const { p, claimId } = await claim();
     const u = await f.user(db);
     const tx = 'TRX-' + randomUUID();
@@ -448,7 +448,7 @@ describe('payments (BR-134)', () => {
     );
   });
 
-  it('BR-134 a claim is paid only once', async () => {
+  it('a claim is paid only once', async () => {
     const { p, claimId } = await claim();
     const u = await f.user(db);
     await payment(p.id, { expense_claim_id: claimId, recorded_by: u });
@@ -474,7 +474,7 @@ describe('payments (BR-134)', () => {
   });
 });
 
-describe('Qurbani animals (BR-145, O-19)', () => {
+describe('Qurbani animals', () => {
   it('a cow has 7 shares, a goat 1', async () => {
     const p = await f.project(db);
     await expectSqlError(
@@ -535,10 +535,10 @@ describe('registration drafts and contact changes', () => {
       ...over,
     });
 
-  /** Both channels verified, as a draft that holds a token (D-090). */
+  /** Both channels verified, as a draft that holds a token. */
   const both = () => ({ mobile_verified_at: new Date(), email_verified_at: new Date() });
 
-  it('a draft may start without contacts; a channel is verified only with its address, a token only with both; at most 6 sends (D-090)', async () => {
+  it('a draft may start without contacts; a channel is verified only with its address, a token only with both; at most 6 sends', async () => {
     await expect(draft({ mobile: null, email: null })).resolves.toBeTruthy();
     await expectSqlError(
       draft({ mobile: null, mobile_verified_at: new Date() }),
@@ -652,7 +652,7 @@ describe('registration drafts and contact changes', () => {
       await photo(),
       await photo('nid_photo'),
     ];
-    // the NID back goes with the draft too (UX-18)
+    // the NID back goes with the draft too
     const expired = await draft({
       expires_at: past,
       photo_file_id: p1,
@@ -769,7 +769,7 @@ describe('other uniques', () => {
     );
   });
 
-  it('volunteers: one volunteer per user and NID unique among volunteers (O-20)', async () => {
+  it('volunteers: one volunteer per user and NID unique among volunteers', async () => {
     const u = await f.volunteerUser(db);
     const nid = f.fakeNid();
     await f.volunteer(db, loc, u, { nid });
@@ -822,7 +822,7 @@ describe('other uniques', () => {
     );
   });
 
-  it('locations: code unique; the kind must fit the level (D-061); divisions have no parent', async () => {
+  it('locations: code unique; the kind must fit the level; divisions have no parent', async () => {
     await expectSqlError(
       f.insert(db, 'locations', {
         id: randomUUID(),
@@ -873,7 +873,7 @@ describe('other uniques', () => {
     );
   });
 
-  it('files: deleted_at only for exports (BR-207)', async () => {
+  it('files: deleted_at only for exports', async () => {
     await expectSqlError(
       f.insert(db, 'files', {
         id: randomUUID(),
@@ -1064,7 +1064,7 @@ describe('rules versions, the consent log, team consent and the application coun
   });
 });
 
-describe('official accounts (DECISION_LOG D-097)', () => {
+describe('official accounts', () => {
   it('stores a job ID in capitals, unique, and never one that reads as a mobile number', async () => {
     await expect(f.user(db, { job_id: 'CON-0001' })).resolves.toBeTruthy();
     await expectSqlError(

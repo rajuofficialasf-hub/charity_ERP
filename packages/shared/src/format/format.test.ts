@@ -21,17 +21,17 @@ const at = (h: number, m = 0) => new Date(Date.UTC(2026, 9, 10, h - 6, m));
 const sample = at(16, 40);
 const BENGALI_DIGIT = /[০-৯]/u;
 
-describe('formatter (I18N 6.2, BR-219)', () => {
+describe('formatter (I18N 6.2)', () => {
   it('formats counts, decimals and percentages with lakh grouping in both languages', () => {
     for (const locale of ['bn', 'en'] as const) {
       expect(formatCount(1234567, locale)).toBe('12,34,567');
       expect(formatDecimal(28.8, 2, locale)).toBe('28.8');
       expect(formatPercent(0.62, locale)).toBe('62%');
     }
-    expect(formatCount(25_000_000)).toBe('2,50,00,000'); // counts never in millions (O-42)
+    expect(formatCount(25_000_000)).toBe('2,50,00,000'); // counts never in millions
   });
 
-  it('shows exact Taka and the O-42 summary boundaries', () => {
+  it('shows exact Taka and the boundaries of the short summary amounts', () => {
     expect(formatTaka(1_260_000)).toBe('৳ 12,60,000');
     expect(formatTaka(1250.5)).toBe('৳ 1,250.50');
     expect(formatTaka(-5000)).toBe('−৳ 5,000');
@@ -53,7 +53,7 @@ describe('formatter (I18N 6.2, BR-219)', () => {
     expect(formatWeekday(sample, 'en')).toBe('Saturday');
   });
 
-  it('writes 12-hour time with the Bengali day period first (O-43)', () => {
+  it('writes 12-hour time with the Bengali day period first', () => {
     expect(formatTime(sample, 'bn')).toBe('বিকাল 4:40');
     expect(formatTime(sample, 'en')).toBe('4:40 PM');
     expect(formatDateTime(sample, 'bn')).toBe('10-10-2026 বিকাল 4:40');
@@ -94,7 +94,7 @@ describe('formatter (I18N 6.2, BR-219)', () => {
     expect(formatGps(23.84561, 90.25672, 8.2)).toBe('23.8456, 90.2567 · ±8 m');
   });
 
-  it('never prints Bengali digits (UX-05)', () => {
+  it('never prints Bengali digits', () => {
     const outputs = [
       formatCount(9876543210, 'bn'),
       formatTaka(1_234_567.89, 'bn'),

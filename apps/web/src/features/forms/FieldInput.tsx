@@ -46,7 +46,7 @@ export interface FieldInputProps {
   pipe?: (text: string) => string;
   /** An address question tells the post code of the union chosen (null when none is known). */
   onPostCode?: (postCode: string | null) => void;
-  /** On a phone a short choice is drawn as large buttons or chips (D-166). */
+  /** On a phone a short choice is drawn as large buttons or chips. */
   compact?: boolean;
 }
 

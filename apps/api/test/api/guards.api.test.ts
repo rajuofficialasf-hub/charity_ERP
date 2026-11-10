@@ -115,7 +115,7 @@ function probes(deps: RouteDeps): Router {
   return router;
 }
 
-describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () => {
+describe('rate limits and audit enforcement (API_STANDARDS 10, 15)', () => {
   let t: TestApp;
 
   beforeAll(() => {
@@ -146,7 +146,7 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
       .post('/api/v1/guard-probe/login')
       .send({ loginId: 'b@example.org' })
       .expect(429);
-    // a user behind the trusted local proxy is counted by the forwarded address (D-072)
+    // a user behind the trusted local proxy is counted by the forwarded address
     await request(t.app)
       .post('/api/v1/guard-probe/login')
       .set('X-Forwarded-For', '203.0.113.9')
@@ -203,7 +203,7 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
       .expect(200);
   });
 
-  it('ignores a spoofed X-Forwarded-For when no proxy is trusted (NE-SEC-10)', async () => {
+  it('ignores a spoofed X-Forwarded-For when no proxy is trusted', async () => {
     const direct = buildTestApp({ envOverrides: { TRUST_PROXY: 'false' }, routers: [probes] });
     try {
       for (let i = 1; i <= 10; i++)
@@ -255,7 +255,7 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
     expect(res.body.error.code).toBe('server.internal');
   });
 
-  it('refuses to register a write route without an audit action (BR-179)', () => {
+  it('refuses to register a write route without an audit action', () => {
     expect(() =>
       buildTestApp({
         routers: [

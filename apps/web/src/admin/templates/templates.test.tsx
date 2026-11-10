@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { stubScreen } from '../../../test/match-media';
-import { resetClientForTests } from '../../lib/api';
+import { resetClientForTests } from '../../api/client';
 import { TemplatesPage } from './TemplatesPage';
 
 // The template library: everyone who creates projects sees, renames, describes, deactivates and

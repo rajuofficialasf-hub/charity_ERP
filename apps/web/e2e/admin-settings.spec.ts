@@ -2,10 +2,10 @@ import { expect, test } from '@playwright/test';
 import { isPhone, rows, scan, signIn } from './support/admin';
 import { typeDate } from './support/projects';
 
-// The admin and settings core (plan docs/plans/2026-10-17-1800-feat-admin-settings-core-plan.md):
-// a threshold is changed and found in the audit log, the dummy OTP warning is red, the sessions
-// and the health pages answer, and a Program Manager adds a nisab version with its effective date.
-// The Department Head works on a desktop and the Monitoring Team on a phone (docs/testing/DEMO_ACCOUNTS.md).
+// The admin and settings core: a threshold is changed and found in the audit log, the dummy OTP
+// warning is red, the sessions and the health pages answer, and a Program Manager adds a nisab
+// version with its effective date. The Department Head works on a desktop and the Monitoring Team
+// on a phone (docs/testing/DEMO_ACCOUNTS.md).
 const ADMIN = { desktop: 'head@example.org', mobile: 'monitoring@example.org' } as const;
 const PM = 'pm.hum@example.org';
 

@@ -62,7 +62,7 @@ const handoverView = z.object({
   outstandingCount: z.number().int(),
   completedAt: z.string().nullable(),
 });
-/** The link of a new official, shown once so the admin can copy it (D-097). */
+/** The link of a new official, shown once so the admin can copy it. */
 const invitationIssued = z.object({
   userId: uuid,
   link: z.string(),
@@ -86,14 +86,14 @@ const userOp = {
   rateLimit: 'default' as const,
 };
 
-/** User administration (AUTH.md 6, 7, 11; O-59 item 1 and 2; openapi tag users). */
+/** User administration (AUTH.md 6, 7, 11; openapi tag users). */
 export function usersRouter(
   deps: RouteDeps,
   c: Pick<Container, 'users' | 'handover' | 'staffAccounts' | 'organogram' | 'projectsWork'>,
 ): Router {
   const router = Router();
 
-  // Officials are created by the admin with a set-password link (DECISION_LOG D-097, BR-261).
+  // Officials are created by the admin with a set-password link.
   defineRoute<StaffCreateRequest>(router, deps, {
     ...userOp,
     method: 'post',
@@ -150,7 +150,7 @@ export function usersRouter(
     },
   });
 
-  // The department's organogram, computed from roles, programs and supervisors (D-097, BR-263).
+  // The department's organogram, computed from roles, programs and supervisors.
   defineRoute(router, deps, {
     ...userOp,
     method: 'get',
@@ -258,7 +258,7 @@ export function usersRouter(
     path: '/users/:userId/unlock',
     status: 204,
     operationId: 'users.user.unlock',
-    summary: 'Clear a login lock with a reason (O-59)',
+    summary: 'Clear a login lock with a reason',
     permission: 'user.lock.clear',
     audit: 'auth.lock_cleared',
     params: { userId: uuid },
@@ -268,7 +268,7 @@ export function usersRouter(
       c.users.unlock(principalOf(req), scopeOf(req), params.userId, body.reason),
   });
 
-  // The staff handover (BD-08, BR-034): the Department Head and the Monitoring Team only.
+  // The staff handover: the Department Head and the Monitoring Team only.
   const handoverOp = {
     ...userOp,
     permission: 'user.handover',
@@ -280,7 +280,7 @@ export function usersRouter(
     method: 'get',
     path: '/users/:userId/handover',
     operationId: 'users.handover.get',
-    summary: 'Pending work of an official by category, and the handover state (BD-08, BR-034)',
+    summary: 'Pending work of an official by category, and the handover state',
     audit: 'none',
     responses: { 200: handoverView, 401: null, 403: null, 404: null },
     handler: ({ params, req }) => c.handover.get(scopeOf(req), params.userId),

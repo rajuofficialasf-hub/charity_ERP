@@ -201,7 +201,7 @@ function pipeCandidates(definition: FormDefinition, field: FormField): FormField
 
 /**
  * The options of a question that fills a coded column: its reference list's, shown but never
- * edited here, since the database keeps the answer against that list (DECISION_LOG D-163).
+ * edited here, since the database keeps the answer against that list.
  */
 function ListOptions({ field }: { field: FormField }) {
   const t = useTranslations('forms.builder');
@@ -263,7 +263,7 @@ function FieldSettingsView({
     patch({ logic: compact({ ...field.logic, ...next }) });
   const rules = validationOf(field);
   const choice = isChoiceType(field.type);
-  // a coded column's question takes its list's options, set by the server at every save (D-163)
+  // a coded column's question takes its list's options, set by the server at every save
   const fromList = choice && listOfField(field) !== null;
   const parents = choice ? parentCandidates(definition, section.key, field.fieldKey) : [];
   const parent = parents.find((p) => p.fieldKey === field.logic?.options_depend_on) ?? null;

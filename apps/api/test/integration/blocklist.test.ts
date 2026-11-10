@@ -15,8 +15,7 @@ import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
 import type { Tx } from '../../src/core/prisma.service';
 
-// The volunteer blocklist (BD-06, BR-047; DECISION_LOG D-088; plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U9).
+// The volunteer blocklist.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();

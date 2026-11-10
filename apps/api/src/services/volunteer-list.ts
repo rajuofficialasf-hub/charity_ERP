@@ -56,7 +56,7 @@ export interface ListViewer {
 }
 
 /**
- * The nationwide volunteer tab (docs/MASTER_SPEC.md, "Volunteer tab"; DECISION_LOG O-67, D-094): every volunteer for a
+ * The nationwide volunteer tab (docs/MASTER_SPEC.md, "Volunteer tab"): every volunteer for a
  * holder of `volunteer.view_all`, filtered, searched and counted with one shared filter. A filter
  * or a search on something the caller may not see is refused or never matches, so the answer
  * cannot reveal what the field mask hides.

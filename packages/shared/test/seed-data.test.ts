@@ -99,15 +99,15 @@ describe('notification template seed (NOTIFICATIONS.md §6)', () => {
             .flatMap((s) => templateVariables(s!));
           for (const v of used)
             expect(t.variables, `${channel}/${locale} uses {{${v}}}`).toContain(v);
-          expect(`${text?.title ?? ''}${text?.body}`).not.toMatch(/[০-৯]/); // English digits only (UX-05)
+          expect(`${text?.title ?? ''}${text?.body}`).not.toMatch(/[০-৯]/); // English digits only
         }
       }
     },
   );
 });
 
-describe('components (D-062)', () => {
-  it('lists the 18 components of BR-063 and validates distribution settings with the photo rule', () => {
+describe('components', () => {
+  it('lists the 18 project components and validates distribution settings with the photo rule', () => {
     expect(COMPONENT_KEYS).toHaveLength(18);
     expect(componentSettingsSchema('distribution').safeParse({ rule: 'individual' }).success).toBe(
       true,

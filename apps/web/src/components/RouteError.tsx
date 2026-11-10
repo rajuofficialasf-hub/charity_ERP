@@ -3,7 +3,7 @@ import { isRouteErrorResponse, useRouteError } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { DocumentTitle } from './DocumentTitle';
 
-/** Route error boundary (RE-CMP-02): a useful page instead of a blank one; details stay in the console. */
+/** Route error boundary: a useful page instead of a blank one; details stay in the console. */
 export function RouteError() {
   const error = useRouteError();
   const t = useTranslations('common.state');

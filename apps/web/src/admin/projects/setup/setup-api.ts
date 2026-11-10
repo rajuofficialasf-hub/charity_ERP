@@ -8,7 +8,7 @@ import type {
   StaffCreate,
   Syllabus,
 } from '@css/shared/projects';
-import { api } from '../../../lib/api';
+import { api } from '../../../api/client';
 import { type Project, PROJECTS_KEY } from '../projects-api';
 
 export { projectWithEtag } from '../projects-api';

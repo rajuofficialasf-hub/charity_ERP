@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { refreshAs, renderApp } from '../../test/auth';
-import { resetClientForTests } from '../lib/api';
+import { resetClientForTests } from '../api/client';
 import { DialogButtons } from './DialogButtons';
 
 describe('DialogButtons', () => {

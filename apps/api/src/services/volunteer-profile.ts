@@ -83,7 +83,7 @@ const PROFILE_SELECT = {
 } as const;
 
 /**
- * The official's view of one volunteer (the volunteer profile screen; DECISION_LOG O-67, D-094): everything the tab
+ * The official's view of one volunteer (the volunteer profile screen): everything the tab
  * holds about the person, read-only. The identity fields and the bank details are sent only when
  * the caller's `volunteer.view_sensitive` scope reaches this volunteer; the field mask then removes
  * every class the caller does not see. The flags say which actions the caller may take here.

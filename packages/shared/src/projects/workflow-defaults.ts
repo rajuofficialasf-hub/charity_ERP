@@ -15,7 +15,7 @@ export type WorkflowKey = (typeof WORKFLOW_KEYS)[number];
 
 /**
  * The components a new project of each workflow starts with, from the "used today in" column of
- * the component table (docs/MASTER_SPEC.md, A6; DECISION_LOG D-095). The PM switches any of them
+ * the component table (docs/MASTER_SPEC.md, A6). The PM switches any of them
  * on or off afterwards; nothing here is a rule about what a project may use.
  */
 export const WORKFLOW_COMPONENTS: Record<WorkflowKey, readonly ComponentKey[]> = {
@@ -109,8 +109,8 @@ export const WORKFLOWS_WITHOUT_LIMIT: readonly WorkflowKey[] = ['open_applicatio
  * component with the photo-rule settings) whether that component is on or not. A fixed rule is
  * copied; "per project" means the PM must choose, so the rule starts missing and the activation
  * check reports it. The workflow's single photo source applies to the proof photos; vouchers and
- * payment copies start with the gallery allowed, as UX-11 allows it for vouchers and paper
- * documents.
+ * payment copies start with the gallery allowed, as the owner's photo-source decision allows it
+ * for vouchers and paper documents.
  */
 function photoRuleSettings(defaults: Record<string, unknown>): Record<string, unknown> {
   const rule = photoRule.safeParse(defaults.photo_rule);
@@ -144,7 +144,7 @@ function stageSettings(definition: WorkflowDefinition): Record<string, unknown> 
 /**
  * Every component row of a new project: switched on by `WORKFLOW_COMPONENTS`, with starting
  * settings from the workflow definition and the per-project list defaults (the beneficiary types
- * of BD-14, and the application kinds of the workflow, labelled from the reference lists).
+ * of the approved default list, and the application kinds of the workflow, labelled from the reference lists).
  */
 export function startingComponents(
   workflowKey: WorkflowKey,

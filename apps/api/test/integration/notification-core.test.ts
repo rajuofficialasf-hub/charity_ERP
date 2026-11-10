@@ -9,9 +9,8 @@ import { accessWorld } from './support/access-fixtures';
 import { account, type AuthHarness, authHarness } from './support/auth-app';
 import * as f from './support/fixtures';
 
-// Publishing an event: in-app rows and the email outbox are written in the event's transaction,
-// for the people the rules reach and nobody else (plan
-// docs/plans/2026-10-18-0911-feat-notifications-plan.md).
+// Publishing an event: in-app rows and the email outbox are written in the event's transaction, for
+// the people the rules reach and nobody else.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 

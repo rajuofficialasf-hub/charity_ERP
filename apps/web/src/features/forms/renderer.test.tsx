@@ -435,7 +435,7 @@ describe('one part per screen on a phone', () => {
   });
 });
 
-describe('a phone (D-166)', () => {
+describe('a phone', () => {
   it('takes short choices as buttons, reads the answers through before the send, and goes back to a part to change it', async () => {
     const user = userEvent.setup();
     const { submitted } = open(

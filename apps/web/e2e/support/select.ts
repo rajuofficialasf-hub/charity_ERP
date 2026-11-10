@@ -1,12 +1,12 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-/** Below the asf theme's `md` breakpoint a select is a sheet from the bottom (D-166). */
+/** Below the asf theme's `md` breakpoint a select is a sheet from the bottom. */
 const isPhoneWidth = (page: Page) => (page.viewportSize()?.width ?? 1280) < 900;
 
 /**
  * Opens a select and picks an option, the named one or the first. On a phone the select is a sheet
- * from the bottom, and the next level of an address opens by itself once the one above it is picked
- * (D-166), so a list already open is used as it is. While a sheet is open the rest of the page is
+ * from the bottom, and the next level of an address opens by itself once the one above it is picked,
+ * so a list already open is used as it is. While a sheet is open the rest of the page is
  * hidden from the accessibility tree, so the pick is followed by the list's own id: it is done when
  * that list has gone, whichever list opens after it.
  */
@@ -35,7 +35,7 @@ export async function pickFrom(page: Page, trigger: Locator, option?: string): P
 }
 
 /**
- * A short choice of the form renderer on a phone is a row of buttons (D-166): a radio group named
+ * A short choice of the form renderer on a phone is a row of buttons: a radio group named
  * by the question's label. Answers whether the question is drawn that way.
  */
 export async function pickChoiceButton(page: Page, label: string, option: string) {

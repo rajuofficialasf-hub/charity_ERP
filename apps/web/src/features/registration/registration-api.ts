@@ -8,12 +8,12 @@ import {
   type RegistrationChannel,
   type RegistrationVerifyResult,
 } from '@css/shared/registration';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure } from '../../api/client';
 import { orCached } from '../../lib/or-cached';
 
 /**
- * The calls of the registration before login (AUTH.md 2; DECISION_LOG D-082). The draft token
- * lives only in memory and travels in the X-Registration-Token header, never in a URL (NE-CFG-03).
+ * The calls of the registration before login (AUTH.md 2). The draft token
+ * lives only in memory and travels in the X-Registration-Token header, never in a URL.
  */
 export interface Draft {
   registrationId: string;
@@ -28,11 +28,11 @@ export interface Location {
   postCode: string | null;
 }
 
-/** A new draft of the kind; nothing is sent yet (D-090). */
+/** A new draft of the kind; nothing is sent yet. */
 export const startDraft = (kind: RegistrationKind) =>
   api<RegistrationStart>('/auth/register/start', { method: 'POST', body: { kind } }, false);
 
-/** Sends a code to one contact of the draft (D-090). */
+/** Sends a code to one contact of the draft. */
 export const sendCode = (registrationId: string, channel: RegistrationChannel, address: string) =>
   api<void>(
     '/auth/register/otp/send',
@@ -40,7 +40,7 @@ export const sendCode = (registrationId: string, channel: RegistrationChannel, a
     false,
   );
 
-/** Verifies the code of one channel; the second one answers the draft token (D-090). */
+/** Verifies the code of one channel; the second one answers the draft token. */
 export const verifyCode = (registrationId: string, channel: RegistrationChannel, code: string) =>
   api<RegistrationVerifyResult>(
     '/auth/register/otp/verify',
