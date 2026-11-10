@@ -155,6 +155,8 @@
   width: 100%;
   max-width: 640px;
   justify-self: center;
+  /* centred inside the form element as well, which lays its content out in a column */
+  margin-inline: auto;
   padding: var(--space-4);
   border-radius: var(--radius-lg);
   background: var(--color-bg-surface);

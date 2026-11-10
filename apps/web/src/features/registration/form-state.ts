@@ -3,6 +3,7 @@ import {
   dateOfBirthSchema,
   isFacebookLink,
   type PhotoSlot,
+  type RegistrationChannel,
   type RegistrationKind,
   type RegistrationSubmitRequest,
 } from '@css/shared/registration';
@@ -102,6 +103,11 @@ export const EMPTY_VALUES: RegistrationValues = {
   confirm: '',
   photos: { photo: false, nid_photo: false, nid_photo_back: false },
 };
+
+/** The form of the registration page: the values and the code typed for each contact. */
+export type RegistrationForm = RegistrationValues & { codes: Record<RegistrationChannel, string> };
+
+export const EMPTY_FORM: RegistrationForm = { ...EMPTY_VALUES, codes: { sms: '', email: '' } };
 
 export const MOBILE = /^01[3-9][0-9]{8}$/;
 export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
