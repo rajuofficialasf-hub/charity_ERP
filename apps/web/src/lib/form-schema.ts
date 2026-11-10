@@ -78,7 +78,10 @@ export function flatErrors(errors: FieldErrors): Record<string, string> {
   return out;
 }
 
-/** Whether a dotted path ("educationDetails.passingYear") names a value the form holds. */
+/**
+ * Whether a dotted path ("educationDetails.passingYear") names one field the form holds. A group of
+ * fields ("title" of `title.bn` and `title.en`) is no field: nothing on screen shows its message.
+ */
 function holds(values: unknown, path: string): boolean {
   let node = values;
   for (const key of path.split('.')) {
@@ -86,7 +89,10 @@ function holds(values: unknown, path: string): boolean {
     // eslint-disable-next-line security/detect-object-injection -- an own key, checked just above
     node = (node as Record<string, unknown>)[key];
   }
-  return true;
+  const group =
+    Array.isArray(node) ||
+    (node !== null && typeof node === 'object' && Object.getPrototypeOf(node) === Object.prototype);
+  return !group;
 }
 
 /** How a refused request's details map onto the form. */

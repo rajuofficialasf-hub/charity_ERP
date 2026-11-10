@@ -71,6 +71,17 @@ describe('showFailure', () => {
     return form;
   };
 
+  it('shows a message about a group of fields above the button, where it can be read', () => {
+    const { result } = renderHook(useTwoFields);
+    const failure = new ApiFailure(422, 'validation.failed', 'Some information is not valid.', [
+      { path: 'address', code: 'validation.failed', message: 'Not a place.' },
+    ]);
+    act(() => showFailure(result.current, failure, 'Offline.'));
+    expect(result.current.formState.errors.root?.server?.message).toBe(
+      'Some information is not valid.',
+    );
+  });
+
   it('puts a field message under its field and shows nothing above the button', () => {
     const { result } = renderHook(useTwoFields);
     const failure = new ApiFailure(422, 'validation.failed', 'Some information is not valid.', [

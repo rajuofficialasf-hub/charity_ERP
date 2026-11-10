@@ -63,8 +63,9 @@ function ConfirmBody({
 }: Omit<ConfirmDialogProps, 'open'> & { titleId: string }) {
   const labels = useLabels();
   const { control, handleSubmit } = useForm({ defaultValues: { reason: '' } });
-  const { field } = useController({ control, name: 'reason', rules: { validate: (value) => !reasonRequired || value.trim() !== '' } });
-  const ready = !reasonRequired || field.value.trim() !== '';
+  const reasonOk = (value: string) => !reasonRequired || value.trim() !== '';
+  const { field } = useController({ control, name: 'reason', rules: { validate: reasonOk } });
+  const ready = reasonOk(field.value);
   // the button confirms, never twice while the action runs; Enter in the reason writes a new line
   const confirm = handleSubmit(({ reason }) => {
     if (!pending) onConfirm(reason.trim());

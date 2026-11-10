@@ -104,7 +104,7 @@ export function NewFormDialog({
     },
     onError: (failure) => showFailure(form, failure, ts('text'), { firstDetail: true }),
   });
-  // Enter in a field submits too: nothing the button would refuse, and nothing twice
+  // the send button's own path: nothing it would refuse, and nothing twice while one is on its way
   const send = (v: NewFormFields) => {
     if (ready && !create.isPending) create.mutate(v);
   };
