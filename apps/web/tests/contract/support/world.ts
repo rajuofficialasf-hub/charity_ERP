@@ -60,7 +60,8 @@ export async function until<T>(ask: () => Promise<T>, done: (answer: T) => boole
   }
 }
 
-const day = (offset: number) =>
+/** A day some days from today, as `yyyy-mm-dd`. */
+export const day = (offset: number) =>
   new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
 const question = (fieldKey: string, type: string, extra: Record<string, unknown> = {}) => ({
@@ -82,7 +83,7 @@ const choice = (code: string) => ({
 });
 
 /** The identity questions, a note and a photo the public link may ask for too. */
-const SECTIONS = [
+export const APPLICATION_SECTIONS = [
   {
     key: 'section_1',
     librarySectionKey: null,
@@ -107,6 +108,9 @@ const SECTIONS = [
     ],
   },
 ];
+
+/** The form-level points of a scored form: a person never assisted before gets them all. */
+const SCORING = { not_previously_assisted: 10 };
 
 export interface Places {
   division: string;
@@ -216,9 +220,10 @@ export interface ActiveProject {
 /**
  * An active Humanitarian project of this run: a window around today, a budget from general
  * donations, the Dhaka division with its RPM, the rules, and the application form built and
- * published by the Monitoring Team and placed by the PM.
+ * published by the Monitoring Team and placed by the PM; with `scoring`, the form gives the
+ * priority score's points.
  */
-export async function activeProject(): Promise<ActiveProject> {
+export async function activeProject(options: { scoring?: boolean } = {}): Promise<ActiveProject> {
   const pm = await signIn(PM_HUM);
   const [rpm] = must(
     await call(pm, 'GET', `/users?q=${RPM_DHAKA}`),
@@ -326,7 +331,7 @@ export async function activeProject(): Promise<ActiveProject> {
       builder,
       'PATCH',
       `/form-versions/${ready.draftVersionId}`,
-      { sections: SECTIONS },
+      { sections: APPLICATION_SECTIONS, ...(options.scoring ? { scoring: SCORING } : {}) },
       { 'If-Match': await versionEtag() },
     ),
     200,
@@ -351,7 +356,7 @@ export async function activeProject(): Promise<ActiveProject> {
     withId,
   ).data;
   must(
-    await call(pm, 'POST', `/projects/${projectId}/activate`, undefined, {
+    await call(pm, 'POST', at`/projects/${projectId}/${'activate'}`, undefined, {
       'If-Match': await etag(),
     }),
     200,
