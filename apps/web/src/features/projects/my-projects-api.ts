@@ -1,45 +1,8 @@
-import type { Consent, PermissionSet, RulesPart } from '@css/shared/projects';
-import type { VolunteerType } from '@css/shared/registration';
+import type { Consent } from '@css/shared/projects';
 import { api } from '../../api/client';
+import type { MyProject, MyProjectDetail, Team, TeamMember } from '../../api/schemas';
 
-/** One of the caller's running projects (GET /me/projects). */
-export interface MyProject {
-  projectId: string;
-  code: string;
-  year: number;
-  name: { bn: string; en: string };
-  status: 'active' | 'closing';
-  applyFrom: string | null;
-  applyTo: string | null;
-  perVolunteerLimit: number | null;
-  dawahEnabled: boolean;
-  via: 'assignment' | 'team';
-  permissionSet: PermissionSet | null;
-  isPaid: boolean;
-  consentStatus: 'pending' | 'accepted';
-  rulesVersion: number;
-  applicationsCounted: number;
-  applicationsLeft: number | null;
-  /** The caller may build a team here (an assigned General or দাঈ-স্বেচ্ছাসেবক volunteer). */
-  leadsTeam: boolean;
-}
-
-/** The project with the rules parts to read (GET /me/projects/{id}). */
-export interface MyProjectDetail extends MyProject {
-  rules: { version: number; parts: { part: RulesPart; text: { bn: string; en: string } }[] };
-}
-
-export interface TeamMember {
-  volunteerId: string;
-  displayName: string;
-  type: VolunteerType;
-  consentStatus: 'pending' | 'accepted';
-  addedAt: string;
-}
-export interface Team {
-  members: TeamMember[];
-  candidates: { volunteerId: string; displayName: string; type: VolunteerType }[];
-}
+export type { MyProject, MyProjectDetail, Team, TeamMember };
 
 export const MY_PROJECTS_KEY = ['me', 'projects'] as const;
 
