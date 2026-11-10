@@ -1,0 +1,101 @@
+import { passwordChangeRequestSchema } from '@css/shared/auth';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { act, renderHook } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { useForm } from 'react-hook-form';
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { ApiFailure } from '../api/client';
+import { LocaleProvider } from '../i18n/LocaleProvider';
+import { flatErrors, showFailure, useSchemaResolver } from './form-schema';
+import { createQueryClient } from './query-client';
+
+const inEnglish = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={createQueryClient()}>
+    <LocaleProvider initial="en">{children}</LocaleProvider>
+  </QueryClientProvider>
+);
+
+const resolveWith = async <S extends z.ZodType<Record<string, unknown>, Record<string, unknown>>>(
+  schema: S,
+  values: Record<string, unknown>,
+) => {
+  const { result } = renderHook(() => useSchemaResolver(schema), { wrapper: inEnglish });
+  return result.current(values as z.input<S>, undefined, {
+    fields: {},
+    shouldUseNativeValidation: false,
+  });
+};
+
+describe('useSchemaResolver', () => {
+  it("says a rule's own catalogue key in the API's words and an empty field by its kind", async () => {
+    const { errors } = await resolveWith(passwordChangeRequestSchema, {
+      currentPassword: '',
+      newPassword: 'a1',
+    });
+    expect(errors.currentPassword?.message).toBe('Fill in this field.');
+    expect(errors.newPassword?.message).toBe('The password is too short.');
+  });
+
+  it('keeps a message the screen wrote itself and passes valid values through as typed', async () => {
+    const schema = z
+      .object({ a: z.string(), b: z.string() })
+      .refine((v) => v.a === v.b, { path: ['b'], message: 'The two do not match.' });
+    const refused = await resolveWith(schema, { a: 'x', b: 'y' });
+    expect(refused.errors.b?.message).toBe('The two do not match.');
+    const accepted = await resolveWith(schema, { a: ' x', b: ' x' });
+    expect(accepted.errors).toEqual({});
+    expect(accepted.values).toEqual({ a: ' x', b: ' x' });
+  });
+});
+
+describe('flatErrors', () => {
+  it('gives each nested message by its dotted path and leaves the rest out', () => {
+    expect(
+      flatErrors({
+        name: { type: 'server', message: 'Too long.' },
+        educationDetails: { passingYear: { type: 'server', message: 'Not a year.' } },
+        empty: { type: 'server', message: '' },
+      }),
+    ).toEqual({ name: 'Too long.', 'educationDetails.passingYear': 'Not a year.' });
+  });
+});
+
+describe('showFailure', () => {
+  const useTwoFields = () => {
+    const form = useForm<{ code: string; address: { village: string } }>({
+      defaultValues: { code: '', address: { village: '' } },
+    });
+    // the form state is a proxy: reading the errors once subscribes the hook to them, as a screen does
+    void form.formState.errors;
+    return form;
+  };
+
+  it('puts a field message under its field and shows nothing above the button', () => {
+    const { result } = renderHook(useTwoFields);
+    const failure = new ApiFailure(422, 'validation.failed', 'Some information is not valid.', [
+      { path: 'address.village', code: 'validation.too_long', message: 'Too long.' },
+    ]);
+    act(() => showFailure(result.current, failure, 'Offline.'));
+    expect(result.current.getFieldState('address.village').error?.message).toBe('Too long.');
+    expect(result.current.formState.errors.root).toBeUndefined();
+  });
+
+  it("shows the API's message above the button when no detail names a field of this form", () => {
+    const { result } = renderHook(useTwoFields);
+    const failure = new ApiFailure(422, 'validation.failed', 'Some information is not valid.', [
+      { path: 'loginId', code: 'validation.failed', message: 'Unknown.' },
+      { path: '', code: 'validation.failed', message: 'Whole request.' },
+    ]);
+    act(() => showFailure(result.current, failure, 'Offline.'));
+    expect(result.current.formState.errors.root?.server?.message).toBe(
+      'Some information is not valid.',
+    );
+  });
+
+  it('says the device is offline when no answer came', () => {
+    const { result } = renderHook(useTwoFields);
+    act(() => showFailure(result.current, new TypeError('fetch failed'), 'Offline.'));
+    expect(result.current.formState.errors.root?.server?.message).toBe('Offline.');
+  });
+});

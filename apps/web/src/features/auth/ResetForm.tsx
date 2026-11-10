@@ -2,12 +2,12 @@ import { passwordResetStartRequestSchema } from '@css/shared/auth';
 import { Alert, Button, Form, FormSubmitButton, FormTextField, LinkButton, Text } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { type FieldValues, useForm, type UseFormReturn, useWatch } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { PasswordRules } from '../../components/PasswordRules';
-import { api, ApiFailure } from '../../api/client';
-import { showFieldErrors, useSchemaResolver } from '../../lib/form-schema';
+import { api } from '../../api/client';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 
 type Step = 'start' | 'code' | 'done';
 type StartFields = z.input<typeof passwordResetStartRequestSchema>;
@@ -57,14 +57,6 @@ export function ResetForm() {
   });
   const password = useWatch({ control: codeForm.control, name: 'newPassword' });
 
-  /** A refusal's field messages under their fields, else its message above the button. */
-  const refuse = <T extends FieldValues>(form: UseFormReturn<T>, failure: unknown) => {
-    if (!showFieldErrors(form, failure))
-      form.setError('root.server', {
-        message: failure instanceof ApiFailure ? failure.message : tl('offline'),
-      });
-  };
-
   const sendCode = (loginId: string) =>
     api<void>('/auth/password/reset/start', { method: 'POST', body: { loginId } }, false);
 
@@ -73,14 +65,14 @@ export function ResetForm() {
       await sendCode(loginId);
       setStep('code');
     } catch (failure) {
-      refuse(startForm, failure);
+      showFailure(startForm, failure, tl('offline'));
     }
   };
 
   const resend = useMutation({
     mutationFn: () => sendCode(startForm.getValues('loginId')),
     onMutate: () => codeForm.clearErrors(),
-    onError: (failure) => refuse(codeForm, failure),
+    onError: (failure) => showFailure(codeForm, failure, tl('offline')),
   });
 
   const complete = async ({ code, newPassword }: CodeFields) => {
@@ -95,7 +87,7 @@ export function ResetForm() {
       );
       setStep('done');
     } catch (failure) {
-      refuse(codeForm, failure);
+      showFailure(codeForm, failure, tl('offline'));
     }
   };
 

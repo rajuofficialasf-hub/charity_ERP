@@ -78,17 +78,48 @@ export function flatErrors(errors: FieldErrors): Record<string, string> {
   return out;
 }
 
+/** Whether a dotted path ("educationDetails.passingYear") names a value the form holds. */
+function holds(values: unknown, path: string): boolean {
+  let node = values;
+  for (const key of path.split('.')) {
+    if (!node || typeof node !== 'object' || !Object.hasOwn(node, key)) return false;
+    // eslint-disable-next-line security/detect-object-injection -- an own key, checked just above
+    node = (node as Record<string, unknown>)[key];
+  }
+  return true;
+}
+
 /**
- * Puts each field message of a refused request under its field. True when the refusal named
- * fields, so the screen shows no second message above them.
+ * Puts each field message of a refused request under its field. True when at least one message
+ * found a field of this form, so the screen shows no second message above them; a refusal that
+ * names no field of the form leaves its message to the caller.
  */
 export function showFieldErrors<T extends FieldValues>(
   form: UseFormReturn<T>,
   failure: unknown,
 ): boolean {
-  if (!(failure instanceof ApiFailure) || !failure.details.length) return false;
+  if (!(failure instanceof ApiFailure)) return false;
+  const values = form.getValues();
+  let placed = false;
   for (const detail of failure.details)
-    if (detail.path)
+    if (detail.path && holds(values, detail.path)) {
       form.setError(detail.path as Path<T>, { type: 'server', message: detail.message });
-  return true;
+      placed = true;
+    }
+  return placed;
+}
+
+/**
+ * Shows a refused request on the form: its field messages under their fields, else the API's
+ * message above the button, or `offline` when no answer came.
+ */
+export function showFailure<T extends FieldValues>(
+  form: UseFormReturn<T>,
+  failure: unknown,
+  offline: string,
+): void {
+  if (showFieldErrors(form, failure)) return;
+  form.setError('root.server' as Path<T>, {
+    message: failure instanceof ApiFailure ? failure.message : offline,
+  });
 }

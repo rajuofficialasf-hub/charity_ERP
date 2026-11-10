@@ -9,8 +9,8 @@ import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { PasswordRules } from '../../components/PasswordRules';
 import { PERMISSION_PANEL_ROLES } from '../../admin/roles';
-import { api, ApiFailure, refreshSession } from '../../api/client';
-import { showFieldErrors, useSchemaResolver } from '../../lib/form-schema';
+import { api, refreshSession } from '../../api/client';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 
 type ChangeFields = { currentPassword: string; newPassword: string; confirm: string };
 
@@ -64,10 +64,7 @@ export function ChangePasswordView() {
       setDone(true);
       if (due) void startWorking();
     } catch (failure) {
-      if (!showFieldErrors(form, failure))
-        form.setError('root.server', {
-          message: failure instanceof ApiFailure ? failure.message : tl('offline'),
-        });
+      showFailure(form, failure, tl('offline'));
     }
   };
 
