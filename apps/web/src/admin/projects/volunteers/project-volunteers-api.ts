@@ -1,58 +1,29 @@
-import type {
-  AssignmentCreate,
-  AssignmentUpdate,
-  CandidateFilter,
-  PermissionSet,
-} from '@css/shared/projects';
-import type { VolunteerType } from '@css/shared/registration';
+import type { AssignmentCreate, AssignmentUpdate, CandidateFilter } from '@css/shared/projects';
 import { api } from '../../../api/client';
+import type {
+  Assignment,
+  AssignmentPage,
+  VolunteerCandidate as Candidate,
+  VolunteerCandidatePage,
+} from '../../../api/schemas';
+
+export type { Assignment, Candidate };
 import { listQuery } from '../../list-query';
 import { PROJECTS_KEY } from '../projects-api';
-
-/** An assignment as GET /projects/{id}/volunteers returns it. */
-export interface Assignment {
-  id: string;
-  volunteerId: string;
-  displayName: string;
-  type: VolunteerType;
-  regionLocationId: string;
-  permissionSet: PermissionSet;
-  isPaid: boolean;
-  consentStatus: 'pending' | 'accepted';
-  consentAt: string | null;
-  applicationsCounted: number;
-  assignedAt: string;
-}
-
-/** A volunteer the caller may assign: name, type and area only. */
-export interface Candidate {
-  volunteerId: string;
-  displayName: string;
-  type: VolunteerType;
-  divisionId: string;
-  districtId: string;
-  upazilaId: string;
-  unionId: string;
-  defaultPermissionSet: PermissionSet | null;
-}
-
-interface PageMeta {
-  nextCursor: string | null;
-}
 
 export const volunteersKey = (projectId: string) =>
   [...PROJECTS_KEY, 'volunteers', projectId] as const;
 
 /** GET /projects/{id}/volunteers: the assignments in the caller's areas, page by page. */
 export const assignments = (projectId: string, cursor: string | null) =>
-  api<{ data: Assignment[]; meta: PageMeta }>(
+  api<AssignmentPage>(
     `/projects/${projectId}/volunteers${listQuery({ limit: '100', cursor: cursor ?? undefined })}`,
     { envelope: true },
   );
 
 /** GET /projects/{id}/volunteer-candidates for the filters and a cursor. */
 export const candidates = (projectId: string, filter: CandidateFilter, cursor: string | null) =>
-  api<{ data: Candidate[]; meta: PageMeta }>(
+  api<VolunteerCandidatePage>(
     `/projects/${projectId}/volunteer-candidates${listQuery({
       ...filter,
       limit: '50',

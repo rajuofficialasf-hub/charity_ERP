@@ -12,6 +12,7 @@ import {
   identityRoleOf,
   isChoiceType,
 } from '@css/shared/forms';
+import type { LibrarySectionView } from '../../api/schemas';
 
 /**
  * The edits the form builder makes to a draft definition, as pure functions: each returns a new
@@ -24,12 +25,7 @@ import {
  */
 
 /** A library section as the library read gives it. */
-export interface LibrarySectionView {
-  key: string;
-  title: { bn: string; en: string };
-  defaultVisibility: string;
-  fieldKeys: string[];
-}
+export type { LibrarySectionView };
 
 /** The fields each library key places in a form: the field, and a repeat group's members after it. */
 export type LibraryFields = ReadonlyMap<string, readonly FormField[]>;

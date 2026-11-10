@@ -1,15 +1,8 @@
 import type { ProgramCreate, ProgramUpdate } from '@css/shared/projects';
 import { api } from '../../api/client';
+import type { Program, ProgramRecord } from '../../api/schemas';
 
-/** A program as GET /programs returns it. */
-export interface Program {
-  id: string;
-  code: string;
-  name: { bn: string; en: string };
-  pmUserId: string | null;
-  pmName: string | null;
-  active: boolean;
-}
+export type { Program };
 
 export const PROGRAMS_KEY = ['admin', 'programs'] as const;
 
@@ -21,7 +14,7 @@ export const createProgram = (body: ProgramCreate) =>
 
 /** GET /programs/{id} with its version, read when the edit opens. */
 export const programWithEtag = (programId: string) =>
-  api<{ data: Program; meta: { etag: string } }>(`/programs/${programId}`, { envelope: true });
+  api<ProgramRecord>(`/programs/${programId}`, { envelope: true });
 
 /** PATCH /programs/{id} with the version read when the edit opened (If-Match). */
 export const updateProgram = (programId: string, etag: string, body: ProgramUpdate) =>

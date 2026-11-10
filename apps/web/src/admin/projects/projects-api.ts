@@ -1,48 +1,19 @@
-import {
-  PROJECT_STATUSES,
-  type ProjectCreate,
-  type ProjectStatus,
-  type WorkflowKey,
-} from '@css/shared/projects';
+import { PROJECT_STATUSES, type ProjectCreate, type ProjectStatus } from '@css/shared/projects';
 import { api } from '../../api/client';
-import { listQuery } from '../list-query';
+import type { Project, ProjectPage, ProjectRecord } from '../../api/schemas';
 
-/** A project as an official sees it (GET /projects, GET /projects/{id}). */
-export interface Project {
-  id: string;
-  code: string;
-  year: number;
-  name: { bn: string; en: string };
-  status: ProjectStatus;
-  workflowKey: WorkflowKey;
-  applyFrom: string | null;
-  applyTo: string | null;
-  perVolunteerLimit: number | null;
-  dawahEnabled: boolean;
-  programId?: string;
-  description?: string | null;
-  costPerBeneficiary?: string | null;
-  targetBeneficiaries?: number | null;
-  budgetPlanned?: string | null;
-  activatedAt?: string | null;
-  closedAt?: string | null;
-}
+export type { Project };
+import { listQuery } from '../list-query';
 
 /** The keys of the filters the project list keeps in the page URL. */
 export const FILTER_KEYS = ['programId', 'year', 'status', 'endingSoon'] as const;
 export type FilterValues = Partial<Record<(typeof FILTER_KEYS)[number], string>>;
 
-interface PageMeta {
-  nextCursor: string | null;
-  prevCursor: string | null;
-  total?: number;
-}
-
 export const PROJECTS_KEY = ['admin', 'projects'] as const;
 
 /** GET /projects: one page for the filters and a cursor. */
 export const projectPage = (filters: FilterValues, cursor: string | null) =>
-  api<{ data: Project[]; meta: PageMeta }>(
+  api<ProjectPage>(
     `/projects${listQuery({ ...filters, cursor: cursor ?? undefined, include: 'total' })}`,
     { envelope: true },
   );
@@ -57,7 +28,7 @@ export type CountKey = 'all' | ProjectStatus;
 export const projectCounts = (filters: FilterValues): Promise<{ key: CountKey; total: number }[]> =>
   Promise.all(
     (['all', ...PROJECT_STATUSES] as const).map((key) =>
-      api<{ data: Project[]; meta: PageMeta }>(
+      api<ProjectPage>(
         `/projects${listQuery({
           ...filters,
           status: key === 'all' ? undefined : key,
@@ -79,7 +50,7 @@ export const createProject = (body: ProjectCreate) =>
 
 /** The project with its version, for the If-Match of a write. */
 export const projectWithEtag = (projectId: string) =>
-  api<{ data: Project; meta: { etag: string } }>(`/projects/${projectId}`, { envelope: true });
+  api<ProjectRecord>(`/projects/${projectId}`, { envelope: true });
 
 /** The lifecycle moves (POST /projects/{id}/<action>), each with the project's version. */
 export type LifecycleAction = 'activate' | 'extend-deadline' | 'start-closing' | 'close' | 'reopen';

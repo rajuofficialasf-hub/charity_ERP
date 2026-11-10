@@ -1,21 +1,8 @@
 import { api } from '../../../api/client';
+import type { TransferCandidate, TransferResult } from '../../../api/schemas';
 import { PROJECTS_KEY } from '../projects-api';
 
-/** An application of the old volunteer that the transfer may pick. */
-export interface TransferCandidate {
-  id: string;
-  appNo: string | null;
-  beneficiaryName: string | null;
-  status: string;
-}
-
-/** What one transfer did: the applications moved, the team members moved, the limit warning. */
-export interface TransferResult {
-  batchId: string;
-  moved: string[];
-  teamMoved: number;
-  overLimit: boolean;
-}
+export type { TransferCandidate, TransferResult };
 
 export const transferCandidatesKey = (projectId: string, volunteerId: string) =>
   [...PROJECTS_KEY, 'transfer', projectId, volunteerId] as const;
