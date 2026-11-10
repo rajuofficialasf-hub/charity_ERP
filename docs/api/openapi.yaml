@@ -11099,8 +11099,8 @@ paths:
           content:
             application/json:
               schema: { type: object, required: [openapi, paths], properties: { openapi: { type: string }, paths: { type: object } } }
-        '401': { : '#/components/responses/Unauthorized' }
-        '429': { : '#/components/responses/TooManyRequests' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /public/settings:
     get:
       tags: [reference]
