@@ -13,6 +13,11 @@ const errors = async (code: string, filePath: string, ruleId: string) => {
 };
 const pgImport = "import { Client } from 'pg';\nexport const C = Client;\n";
 const pgTypeImport = "import type { Client } from 'pg';\nexport type C = Client;\n";
+// the fixtures' database client: only the calls under test
+const db =
+  'type Db = { $queryRawUnsafe(q: string): unknown; $executeRawUnsafe(q: string): unknown;' +
+  ' $queryRaw(s: TemplateStringsArray, ...v: unknown[]): unknown;' +
+  ' $executeRaw(s: TemplateStringsArray, ...v: unknown[]): unknown };\n';
 
 describe('the database access rule', { timeout: 30_000 }, () => {
   it('refuses a pg import in the API code, the seed and the scripts', async () => {
@@ -43,9 +48,11 @@ describe('the database access rule', { timeout: 30_000 }, () => {
 
   it('refuses $queryRawUnsafe and $executeRawUnsafe in the API code, the seed and the scripts', async () => {
     const unsafe = [
-      'export const a = (p: any, s: string) => p.$queryRawUnsafe(s);\n',
-      'export const b = (p: any, s: string) => p.$executeRawUnsafe(s);\n',
-      "export const c = (p: any, s: string) => p['$queryRawUnsafe'](s);\n",
+      `${db}export const a = (p: Db, s: string) => p.$queryRawUnsafe(s);\n`,
+      `${db}export const b = (p: Db, s: string) => p.$executeRawUnsafe(s);\n`,
+      `${db}export const c = (p: Db, s: string) => p['$queryRawUnsafe'](s);\n`,
+      `${db}export const d = (p: Db | undefined, s: string) => p?.$queryRawUnsafe(s);\n`,
+      `${db}export const e = (p: Db, s: string) => { const { $executeRawUnsafe } = p; return $executeRawUnsafe(s); };\n`,
     ];
     for (const file of [
       'apps/api/src/services/example.ts',
@@ -61,8 +68,9 @@ describe('the database access rule', { timeout: 30_000 }, () => {
 
   it('allows the tagged $queryRaw and $executeRaw', async () => {
     const tagged =
-      'export const a = (p: any, id: string) => p.$queryRaw`SELECT 1 WHERE id = ${id}`;\n' +
-      'export const b = (p: any, id: string) => p.$executeRaw`DELETE FROM t WHERE id = ${id}`;\n';
+      db +
+      'export const a = (p: Db, id: string) => p.$queryRaw`SELECT 1 WHERE id = ${id}`;\n' +
+      'export const b = (p: Db, id: string) => p.$executeRaw`DELETE FROM t WHERE id = ${id}`;\n';
     expect(
       await errors(tagged, 'apps/api/src/services/example.ts', 'no-restricted-syntax'),
     ).toHaveLength(0);

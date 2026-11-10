@@ -180,6 +180,10 @@ export const apiRawSql = {
           selector: `MemberExpression[property.value='${name}']`,
           message: `${name} takes a built string; use the tagged $queryRaw or $executeRaw.`,
         },
+        {
+          selector: `ObjectPattern > Property[key.name='${name}']`,
+          message: `${name} takes a built string; use the tagged $queryRaw or $executeRaw.`,
+        },
       ]),
     ],
   },
