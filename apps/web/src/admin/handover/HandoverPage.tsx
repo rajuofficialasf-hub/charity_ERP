@@ -17,35 +17,20 @@ import { useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { api, ApiFailure } from '../../api/client';
+import type { HandoverAccount, HandoverView, PendingItem } from '../../api/schemas';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canHandOver } from '../roles';
 import { type PanelUser, UserSearch } from '../UserSearch';
 import { LoadError } from '../../components/LoadError';
 
-const CATEGORIES = ['reviews_approvals', 'projects', 'documents', 'issues', 'followups'] as const;
-type Category = (typeof CATEGORIES)[number];
-type UserState = 'pending' | 'active' | 'blocked' | 'deactivated';
-
-/** One piece of pending work (GET /users/{userId}/handover). */
-interface PendingItem {
-  category: Category;
-  itemType: string;
-  itemId: string;
-  projectId: string | null;
-  label: string;
-}
-interface HandoverView {
-  id: string | null;
-  fromUserId: string;
-  pending: PendingItem[];
-  outstandingCount: number;
-  completedAt: string | null;
-}
-interface UserEnvelope {
-  data: { id: string; displayName: string; state: UserState };
-  meta: { etag: string };
-}
+const CATEGORIES = [
+  'reviews_approvals',
+  'projects',
+  'documents',
+  'issues',
+  'followups',
+] as const satisfies readonly PendingItem['category'][];
 
 const handoverKey = (userId: string) => ['admin', 'handover', userId] as const;
 const userKey = (userId: string) => ['admin', 'user', userId] as const;
@@ -122,7 +107,7 @@ function Handover({ official }: { official: PanelUser }) {
 
   const account = useQuery({
     queryKey: userKey(official.id),
-    queryFn: () => api<UserEnvelope>(`/users/${official.id}`, { envelope: true }),
+    queryFn: () => api<HandoverAccount>(`/users/${official.id}`, { envelope: true }),
   });
   const handover = useQuery({
     queryKey: handoverKey(official.id),
@@ -163,7 +148,7 @@ function Handover({ official }: { official: PanelUser }) {
   });
   const deactivate = useMutation({
     mutationFn: (reason: string) =>
-      api(`/users/${official.id}/state`, {
+      api<unknown>(`/users/${official.id}/state`, {
         method: 'POST',
         body: { state: 'deactivated', reason: reason.trim() },
         headers: { 'If-Match': account.data!.meta.etag },
@@ -306,7 +291,7 @@ function CategoryItems({
   canAssign,
   onAssign,
 }: {
-  category: Category;
+  category: PendingItem['category'];
   items: PendingItem[];
   canAssign: boolean;
   onAssign: (item: PendingItem) => void;

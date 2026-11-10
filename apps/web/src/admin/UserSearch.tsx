@@ -3,14 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { api } from '../api/client';
+import type { PanelUser } from '../api/schemas';
 
-/** A user as the user list returns it (GET /users). */
-export interface PanelUser {
-  id: string;
-  displayName: string;
-  designation: string | null;
-  roles: string[];
-}
+export type { PanelUser };
 
 const MIN_SEARCH = 2;
 

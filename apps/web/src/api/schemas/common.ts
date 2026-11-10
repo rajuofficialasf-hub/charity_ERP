@@ -31,3 +31,21 @@ export const pageOf = <T extends z.ZodType>(item: T) =>
 /** One record read with its envelope, for the version a later write carries in If-Match. */
 export const recordOf = <T extends z.ZodType>(item: T) =>
   z.object({ data: item, meta: z.object({ etag: z.string().optional() }) });
+
+/** A record read with its envelope whose version a write must carry back in If-Match. */
+export const versionedOf = <T extends z.ZodType>(item: T) =>
+  z.object({ data: item, meta: z.object({ etag: z.string() }) });
+
+/**
+ * A page of a nationwide tab, read by number or by cursor, with a total that stops counting at
+ * 10000.
+ */
+export const tabPageOf = <T extends z.ZodType>(item: T) =>
+  z.object({
+    data: z.array(item),
+    meta: z.object({
+      nextCursor: z.string().nullable(),
+      prevCursor: z.string().nullable(),
+      total: z.union([z.number().int(), z.literal('10000+')]).optional(),
+    }),
+  });

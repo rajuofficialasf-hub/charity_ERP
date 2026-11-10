@@ -1,40 +1,18 @@
 import { api } from '../../../api/client';
+import type { MergeCandidate, MergeCandidatePage, MergeView } from '../../../api/schemas';
 import { PAGE_SIZE } from '../../list-paging';
 import { listQuery } from '../../list-query';
 import { BENEFICIARIES_KEY } from '../beneficiaries-api';
 
 /** Why two profiles look like one person (the rules of the suggestions, in their order). */
-export const DUPLICATE_RULES = ['name_dob_union', 'name_father_mobile', 'same_mobile'] as const;
+export const DUPLICATE_RULES = [
+  'name_dob_union',
+  'name_father_mobile',
+  'same_mobile',
+] as const satisfies readonly MergeCandidate['matchedOn'][number][];
 export type DuplicateRule = (typeof DUPLICATE_RULES)[number];
 
-/** A suggested pair: who and by which rules; never an identity number or a mobile. */
-export interface MergeCandidate {
-  beneficiaryId: string;
-  otherBeneficiaryId: string;
-  benNo: string;
-  otherBenNo: string;
-  name: string;
-  otherName: string;
-  matchedOn: DuplicateRule[];
-}
-
-/** A merge or a proposal of one: the pair, its state and the reason. */
-export interface MergeView {
-  id: string;
-  keptId: string;
-  mergedId: string;
-  keptBenNo: string;
-  mergedBenNo: string;
-  keptName: string;
-  mergedName: string;
-  status: 'proposed' | 'merged' | 'reverted';
-  reason: string;
-  proposedBy: string;
-  proposedAt: string;
-  mergedAt: string | null;
-  revertedAt: string | null;
-  leftBehind: number;
-}
+export type { MergeCandidate, MergeView };
 
 export const DUPLICATES_PATH = '/admin/beneficiaries/duplicates';
 
@@ -50,7 +28,7 @@ export const comparePath = (a: string, b: string, proposalId?: string) =>
 export const DUPLICATES_KEY = [...BENEFICIARIES_KEY, 'duplicates'] as const;
 
 export const candidatePage = (cursor: string | null) =>
-  api<{ data: MergeCandidate[]; meta: { nextCursor: string | null } }>(
+  api<MergeCandidatePage>(
     `/beneficiaries/merge-candidates${listQuery({
       cursor: cursor ?? undefined,
       limit: String(PAGE_SIZE),
