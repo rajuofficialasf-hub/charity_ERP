@@ -1,9 +1,11 @@
 import { programCode } from '@css/shared/projects';
-import { Alert, Button, Dialog, Switch, TextField } from '@/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Button, Dialog, Form, FormTextField, Switch } from '@/ui';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../api/client';
+import { z } from 'zod';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { type PanelUser, UserSearch, usersWithRole } from '../UserSearch';
 import {
   assignPm,
@@ -13,6 +15,13 @@ import {
   programWithEtag,
   updateProgram,
 } from './programs-api';
+
+type ProgramFields = {
+  code: string;
+  name: { bn: string; en: string };
+  active: boolean;
+  pm: PanelUser | null;
+};
 
 /**
  * Creates a program (code, name in both languages, an optional PM) or edits one: its name, whether
@@ -33,16 +42,39 @@ export function ProgramDialog({
 }) {
   const t = useTranslations('admin.programs.dialog');
   const tc = useTranslations('common.action');
-  const [code, setCode] = useState('');
-  const [codeError, setCodeError] = useState<string>();
-  const [nameBn, setNameBn] = useState(program?.name.bn ?? '');
-  const [nameEn, setNameEn] = useState(program?.name.en ?? '');
-  const [active, setActive] = useState(program?.active ?? true);
-  const [pm, setPm] = useState<PanelUser | null>(
-    program?.pmUserId
-      ? { id: program.pmUserId, displayName: program.pmName ?? '', designation: null, roles: [] }
-      : null,
+  const ts = useTranslations('common.state.error');
+  const creating = !program;
+  const codeInvalid = t('code_invalid');
+  // a new program's code is checked before sending; an edit sends no code
+  const schema = useMemo(
+    () =>
+      z
+        .object({
+          code: z.string(),
+          name: z.object({ bn: z.string(), en: z.string() }),
+          active: z.boolean(),
+          pm: z.custom<PanelUser | null>(),
+        })
+        .superRefine((v, ctx) => {
+          if (creating && !programCode.safeParse(v.code).success)
+            ctx.addIssue({ code: 'custom', path: ['code'], message: codeInvalid });
+        }),
+    [creating, codeInvalid],
   );
+  const form = useForm<ProgramFields>({
+    resolver: useSchemaResolver(schema),
+    defaultValues: {
+      code: '',
+      name: { bn: program?.name.bn ?? '', en: program?.name.en ?? '' },
+      active: program?.active ?? true,
+      pm: program?.pmUserId
+        ? { id: program.pmUserId, displayName: program.pmName ?? '', designation: null, roles: [] }
+        : null,
+    },
+    reValidateMode: 'onSubmit',
+  });
+  const values = useWatch({ control: form.control });
+  const pending = form.formState.isSubmitting;
   const queryClient = useQueryClient();
   // the version this edit started from: a change by someone else meanwhile answers 412
   const version = useQuery({
@@ -51,91 +83,100 @@ export function ProgramDialog({
     enabled: Boolean(program),
     staleTime: Infinity,
   });
-  const save = useMutation({
-    mutationFn: async () => {
-      const name = { bn: nameBn.trim(), en: nameEn.trim() };
-      if (!program) return createProgram({ code, name, ...(pm ? { pmUserId: pm.id } : {}) });
-      let saved = program;
-      // the rename first: assigning the PM changes the program's version as well
-      const renamed = name.bn !== program.name.bn || name.en !== program.name.en;
-      if (renamed || active !== program.active)
-        saved = await updateProgram(program.id, version.data!.meta.etag, {
-          ...(renamed ? { name } : {}),
-          ...(active !== program.active ? { active } : {}),
-        });
-      if (pm && pm.id !== program.pmUserId) saved = await assignPm(program.id, pm.id);
-      return saved;
-    },
-    onSuccess: onDone,
-    // a save that stopped halfway still changed the program: the list shows what is stored
-    onSettled: () => queryClient.invalidateQueries({ queryKey: PROGRAMS_KEY }),
-  });
-  const submit = () => {
-    if (!program && !programCode.safeParse(code).success) {
-      setCodeError(t('code_invalid'));
+
+  const store = async ({ code, name: typed, active, pm }: ProgramFields) => {
+    const name = { bn: typed.bn.trim(), en: typed.en.trim() };
+    if (!program) return createProgram({ code, name, ...(pm ? { pmUserId: pm.id } : {}) });
+    let saved = program;
+    // the rename first: assigning the PM changes the program's version as well
+    const renamed = name.bn !== program.name.bn || name.en !== program.name.en;
+    if (renamed || active !== program.active)
+      saved = await updateProgram(program.id, version.data!.meta.etag, {
+        ...(renamed ? { name } : {}),
+        ...(active !== program.active ? { active } : {}),
+      });
+    if (pm && pm.id !== program.pmUserId) saved = await assignPm(program.id, pm.id);
+    return saved;
+  };
+  const save = async (fields: ProgramFields) => {
+    let saved: Program;
+    try {
+      saved = await store(fields);
+    } catch (failure) {
+      showFailure(form, failure, ts('text'));
       return;
+    } finally {
+      // a save that stopped halfway still changed the program: the list shows what is stored
+      void queryClient.invalidateQueries({ queryKey: PROGRAMS_KEY });
     }
-    setCodeError(undefined);
-    save.mutate();
+    onDone(saved);
   };
   const ready =
-    nameBn.trim() !== '' &&
-    nameEn.trim() !== '' &&
-    (program ? version.data !== undefined : code !== '');
+    values.name?.bn?.trim() !== '' &&
+    values.name?.en?.trim() !== '' &&
+    (program ? version.data !== undefined : values.code !== '');
+  const title = program ? t('edit_title', { code: program.code }) : t('create_title');
   return (
     <Dialog
-      title={program ? t('edit_title', { code: program.code }) : t('create_title')}
+      title={title}
       open={open}
       onClose={onClose}
-      dismissible={!save.isPending}
+      dismissible={!pending}
       actions={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
             {tc('cancel')}
           </Button>
-          <Button onClick={submit} disabled={!ready} loading={save.isPending}>
+          <Button
+            onClick={() => void form.handleSubmit(save)()}
+            disabled={!ready}
+            loading={pending}
+          >
             {tc('save')}
           </Button>
         </>
       }
     >
-      {save.error instanceof ApiFailure && (
-        <Alert tone="error">{save.error.details[0]?.message ?? save.error.message}</Alert>
-      )}
-      {!program && (
-        <TextField
-          label={t('code')}
-          hint={t('code_hint')}
-          required
-          maxLength={12}
-          value={code}
-          onChange={setCode}
-          error={codeError}
+      <Form
+        form={form}
+        onSubmit={save}
+        label={title}
+        error={form.formState.errors.root?.server?.message}
+      >
+        {!program && (
+          <FormTextField
+            name="code"
+            label={t('code')}
+            hint={t('code_hint')}
+            required
+            maxLength={12}
+          />
+        )}
+        <FormTextField name="name.bn" label={t('name_bn')} required maxLength={200} />
+        <FormTextField name="name.en" label={t('name_en')} required maxLength={200} lang="en" />
+        <Controller
+          control={form.control}
+          name="pm"
+          render={({ field }) => (
+            <UserSearch
+              label={t('pm')}
+              helper={t('pm_hint')}
+              selected={field.value}
+              onSelect={field.onChange}
+              search={{ key: 'program-managers', find: usersWithRole('program_manager') }}
+            />
+          )}
         />
-      )}
-      <TextField
-        label={t('name_bn')}
-        required
-        maxLength={200}
-        value={nameBn}
-        onChange={setNameBn}
-      />
-      <TextField
-        label={t('name_en')}
-        required
-        maxLength={200}
-        lang="en"
-        value={nameEn}
-        onChange={setNameEn}
-      />
-      <UserSearch
-        label={t('pm')}
-        helper={t('pm_hint')}
-        selected={pm}
-        onSelect={setPm}
-        search={{ key: 'program-managers', find: usersWithRole('program_manager') }}
-      />
-      {program && <Switch label={t('active')} checked={active} onChange={setActive} />}
+        {program && (
+          <Controller
+            control={form.control}
+            name="active"
+            render={({ field }) => (
+              <Switch label={t('active')} checked={field.value} onChange={field.onChange} />
+            )}
+          />
+        )}
+      </Form>
     </Dialog>
   );
 }
