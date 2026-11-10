@@ -87,7 +87,7 @@ beforeAll(async () => {
   makeVolunteerUser = make('volunteer');
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
   await volunteer(h.db, world.dhaka, world.users.team, { type: 'team_member' });
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   const made = await at(await as(world.users.pm), 'post', '/projects').send({

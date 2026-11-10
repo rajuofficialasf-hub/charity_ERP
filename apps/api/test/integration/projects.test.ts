@@ -33,7 +33,7 @@ beforeAll(async () => {
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
   // the seeded workflow definitions and list defaults a project starts from
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
 });

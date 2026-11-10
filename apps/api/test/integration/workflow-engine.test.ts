@@ -47,7 +47,7 @@ beforeAll(async () => {
     return a.id;
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  await seedWorkflows(new SeedContext(h.db));
+  await seedWorkflows(new SeedContext(h.container.prisma));
   // a project of this file's own, in the PM's program, with the form placed and the snapshot
   const made = await api()
     .post('/api/v1/projects')

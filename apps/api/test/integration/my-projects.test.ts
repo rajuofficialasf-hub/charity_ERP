@@ -43,7 +43,7 @@ beforeAll(async () => {
     return a.id;
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
 });

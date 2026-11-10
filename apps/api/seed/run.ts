@@ -3,8 +3,9 @@
 // NODE_ENV=production and any database that is not css_erp_dev* / css_erp_test*; every run leaves a
 // seed marker that the production start guard refuses.
 import 'dotenv/config';
-import { Client } from 'pg';
 import { checkDestructiveDbAccess } from '../src/config/db-guard';
+import { prismaClientFor } from '../src/core/prisma.service';
+import type { PrismaClient } from '../src/generated/prisma/client';
 import { json, type TableCounts, SeedContext } from './context';
 import { seedBase } from './sets/base';
 import { seedDemo } from './sets/demo';
@@ -33,19 +34,18 @@ export function parseSets(args: string[]): SeedSet[] {
   throw new Error(`unknown seed set "${value}" (use base, demo or all)`);
 }
 
-/** Runs the seed sets on a connected client; each set is one transaction. */
+/** Runs the seed sets on a Prisma client; each set is one transaction. */
 export async function runSeed(
-  db: Client,
+  prisma: PrismaClient,
   sets: SeedSet[],
   env: NodeJS.ProcessEnv,
 ): Promise<SeedReport> {
   const guard = checkDestructiveDbAccess(env);
   if (!guard.allowed) throw new Error(`db:seed refused: ${guard.reason}`);
-  const ctx = new SeedContext(db);
+  const ctx = new SeedContext(prisma);
   for (const set of sets) {
     await SEED_SETS[set].run(ctx);
-    await db.query('BEGIN');
-    try {
+    await ctx.transaction(async () => {
       await ctx.upsert(
         'settings',
         {
@@ -57,11 +57,7 @@ export async function runSeed(
         },
         { key: ['key'] },
       );
-      await db.query('COMMIT');
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
-    }
+    });
   }
   return {
     database: guard.database,
@@ -73,17 +69,17 @@ export async function runSeed(
 
 async function main(): Promise<void> {
   const sets = parseSets(process.argv.slice(2));
-  const db = new Client({ connectionString: process.env.DATABASE_URL });
-  await db.connect();
+  // runSeed refuses a database outside the guard before the client opens a connection
+  const prisma = prismaClientFor(process.env.DATABASE_URL ?? '');
   try {
-    const report = await runSeed(db, sets, process.env);
+    const report = await runSeed(prisma, sets, process.env);
     console.warn(
       `db:seed (${report.database}) sets ${report.sets.join(', ')}: ${JSON.stringify(report.totals)}`,
     );
     for (const [table, c] of Object.entries(report.tables))
       console.warn(`  ${table}: ${JSON.stringify(c)}`);
   } finally {
-    await db.end();
+    await prisma.$disconnect();
   }
 }
 

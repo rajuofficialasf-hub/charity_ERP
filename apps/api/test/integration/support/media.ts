@@ -43,7 +43,7 @@ export async function mediaWorld() {
     return a.id;
   };
   const world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   media.director = await make('staff')('media_director');

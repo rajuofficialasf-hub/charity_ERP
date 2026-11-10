@@ -4,7 +4,7 @@ import { type LocationRow } from '../../../src/locations/convert';
 import { parseCsvRecords } from '../../../src/locations/csv';
 import { loadLocations } from '../../../src/locations/load';
 import { type SeedContext, seedId } from '../../context';
-import { inTransaction, REPO_ROOT } from '../util';
+import { REPO_ROOT } from '../util';
 import { seedAccess } from './access';
 import { seedNotificationTemplates } from './notifications';
 import { seedReferenceLists } from './reference-lists';
@@ -20,7 +20,7 @@ export const SYSTEM_ACTOR_ID = seedId('user:system');
  * and the form library with the two current forms (appendix খ).
  */
 export async function seedBase(ctx: SeedContext): Promise<void> {
-  await inTransaction(ctx.db, async () => {
+  await ctx.transaction(async () => {
     // The system actor writes job and seed rows (docs/database/DATABASE_SCHEMA.md, "Audit columns
     // and the system actor"); it cannot log in.
     await ctx.upsert('users', {
@@ -32,13 +32,13 @@ export async function seedBase(ctx: SeedContext): Promise<void> {
     ctx.actorId = SYSTEM_ACTOR_ID;
   });
   const csv = readFileSync(join(REPO_ROOT, 'docs/source/data/bd-locations.csv'), 'utf8');
-  const locations = await loadLocations(ctx.db, parseCsvRecords(csv) as LocationRow[]);
+  const locations = await loadLocations(ctx.prisma, parseCsvRecords(csv) as LocationRow[]);
   ctx.counts.set('locations', {
     inserted: locations.inserted,
     updated: locations.updated,
     unchanged: locations.unchanged,
   });
-  await inTransaction(ctx.db, async () => {
+  await ctx.transaction(async () => {
     await seedReferenceLists(ctx);
     await seedSettings(ctx);
     await seedAccess(ctx);

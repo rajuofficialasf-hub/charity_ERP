@@ -75,7 +75,7 @@ beforeAll(async () => {
     return a.id;
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   // a gender code the form offers when it is published and the list later loses, as an older form

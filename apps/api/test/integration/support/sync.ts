@@ -55,7 +55,7 @@ export async function syncWorld(
     return a.id;
   };
   const world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   for (const code of options.genderCodes ?? [])

@@ -2,8 +2,9 @@ import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Client } from 'pg';
 import { checkDestructiveDbAccess } from '../src/config/db-guard';
+import { prismaClientFor } from '../src/core/prisma.service';
+import { Prisma } from '../src/generated/prisma/client';
 
 // The API for Playwright: recreates the css_erp_test_e2e database, migrates it, installs
 // the job schema, loads the base and demo seed (docs/testing/DEMO_ACCOUNTS.md) and starts the built
@@ -32,13 +33,14 @@ async function recreate(url: string): Promise<void> {
   if (!guard.allowed) throw new Error(`refusing database "${name}": ${guard.reason}`);
   const admin = new URL(url);
   admin.pathname = '/postgres';
-  const client = new Client({ connectionString: admin.toString() });
-  await client.connect();
+  const prisma = prismaClientFor(admin.toString(), { max: 1 });
+  // a database name cannot be a parameter; this one matched the pattern above
+  const database = Prisma.raw(`"${name}"`);
   try {
-    await client.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
-    await client.query(`CREATE DATABASE "${name}"`);
+    await prisma.$executeRaw`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`;
+    await prisma.$executeRaw`CREATE DATABASE ${database}`;
   } finally {
-    await client.end();
+    await prisma.$disconnect();
   }
 }
 

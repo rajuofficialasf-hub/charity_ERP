@@ -37,7 +37,7 @@ beforeAll(async () => {
     return a.id;
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  await seedWorkflows(new SeedContext(h.db));
+  await seedWorkflows(new SeedContext(h.container.prisma));
   await h.db.query(`UPDATE projects SET status = 'active' WHERE id = $1`, [world.a1.id]);
 });
 afterAll(async () => h.close());

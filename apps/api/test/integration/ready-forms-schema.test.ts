@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { SeedContext } from '../../seed/context';
+import { prismaClientFor } from '../../src/core/prisma.service';
 import { seedFormTemplates } from '../../seed/sets/base/forms';
 import { cloneTemplate, MIGRATIONS_DIR } from './support/db';
 import { expectSqlError, SQLSTATE } from './support/expect-sql';
@@ -196,7 +197,12 @@ describe('the retirement of the seeded form templates', () => {
   it('makes the active templates inactive, and the reverse turns on only those it retired', async () => {
     const clone = await cloneTemplate(inject('templateDb'));
     try {
-      await seedFormTemplates(new SeedContext(clone.client));
+      const prisma = prismaClientFor(clone.url);
+      try {
+        await seedFormTemplates(new SeedContext(prisma));
+      } finally {
+        await prisma.$disconnect();
+      }
       // one template was switched off before the migration: the reverse must leave it off
       await clone.client.query(
         `UPDATE project_templates SET active = false WHERE key = 'form_self_reliance_construction'`,

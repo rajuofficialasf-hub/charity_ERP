@@ -9,7 +9,6 @@ import {
 import { hash } from '@node-rs/argon2';
 import { json, SEED_AT, type SeedContext, seedId } from '../../context';
 import { workflowVersionOf } from '../base/workflows';
-import { inTransaction } from '../util';
 
 /**
  * Demo set: one account per official role, 20 volunteers, 50 beneficiaries in two divisions (one of
@@ -285,23 +284,21 @@ interface UnionRef {
 }
 
 async function unionsOf(ctx: SeedContext, divisionEn: string, count: number): Promise<UnionRef[]> {
-  const res = await ctx.db.query<UnionRef>(
-    `SELECT dv.id AS division, d.id AS district, up.id AS upazila, u.id AS "union"
-     FROM locations u
-     JOIN locations up ON up.id = u.parent_id
-     JOIN locations d ON d.id = up.parent_id
-     JOIN locations dv ON dv.id = d.parent_id
-     WHERE dv.level = 'division' AND dv.name_en = $1 AND u.kind = 'union' AND u.active
-     ORDER BY u.code LIMIT $2`,
-    [divisionEn, count],
-  );
-  if (res.rows.length < count)
+  const unions = await ctx.db.$queryRaw<UnionRef[]>`
+    SELECT dv.id AS division, d.id AS district, up.id AS upazila, u.id AS "union"
+    FROM locations u
+    JOIN locations up ON up.id = u.parent_id
+    JOIN locations d ON d.id = up.parent_id
+    JOIN locations dv ON dv.id = d.parent_id
+    WHERE dv.level = 'division' AND dv.name_en = ${divisionEn} AND u.kind = 'union' AND u.active
+    ORDER BY u.code LIMIT ${count}::int`;
+  if (unions.length < count)
     throw new Error(`demo seed needs ${count} unions in ${divisionEn}; run the base set first`);
-  return res.rows;
+  return unions;
 }
 
 export async function seedDemo(ctx: SeedContext): Promise<void> {
-  await inTransaction(ctx.db, async () => {
+  await ctx.transaction(async () => {
     const passwordHash = await hash(DEMO_PASSWORD, ARGON2);
     const userId = (key: string) => seedId(`user:${key}`);
     const dhaka = await unionsOf(ctx, 'Dhaka', 25);

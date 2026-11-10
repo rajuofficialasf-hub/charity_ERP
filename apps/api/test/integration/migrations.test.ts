@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { runSeed } from '../../seed/run';
+import { prismaClientFor } from '../../src/core/prisma.service';
 import { beneficiary, locationTree, project, user, volunteer } from './support/fixtures';
 import {
   createDatabase,
@@ -86,16 +87,15 @@ describe('migrations', () => {
     await runMigrations(db, 'up');
     const first = await snapshot(db);
     expect((first.relations ?? []).length).toBeGreaterThan(91);
-    const client = newClient(urlFor(db));
-    await client.connect();
+    const prisma = prismaClientFor(urlFor(db));
     try {
-      const report = await runSeed(client, ['base', 'demo'], {
+      const report = await runSeed(prisma, ['base', 'demo'], {
         NODE_ENV: 'test',
         DATABASE_URL: urlFor(db),
       });
       expect(report.totals.inserted).toBeGreaterThan(700);
     } finally {
-      await client.end();
+      await prisma.$disconnect();
     }
     await runMigrations(db, 'down');
     expect(await snapshot(db)).toEqual(empty);

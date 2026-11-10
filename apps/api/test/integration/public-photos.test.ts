@@ -40,7 +40,7 @@ beforeAll(async () => {
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
   loc = await locationTree(h.db);
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   await seedFormTemplates(ctx);

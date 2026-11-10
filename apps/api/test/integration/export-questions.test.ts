@@ -105,7 +105,7 @@ beforeAll(async () => {
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
   const builder: Session = await login(h, accounts.get(world.users.monitoring)!);
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   const made = await api()

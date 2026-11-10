@@ -1,5 +1,5 @@
 import { NOTIFICATION_TEMPLATES, uuidv7 } from '@css/shared';
-import { Client } from 'pg';
+import { prismaClientFor } from '../core/prisma.service';
 
 /**
  * Inserts every notification template of packages/shared whose key, channel and language has no
@@ -8,8 +8,7 @@ import { Client } from 'pg';
  * administrator edited is never touched. Idempotent; returns the number of rows inserted.
  */
 export async function syncNotificationTemplates(connectionString: string): Promise<number> {
-  const db = new Client({ connectionString });
-  await db.connect();
+  const prisma = prismaClientFor(connectionString);
   let inserted = 0;
   try {
     for (const t of NOTIFICATION_TEMPLATES)
@@ -17,27 +16,17 @@ export async function syncNotificationTemplates(connectionString: string): Promi
         for (const locale of ['bn', 'en'] as const) {
           // eslint-disable-next-line security/detect-object-injection -- a typed locale
           const text = texts[locale];
-          const res = await db.query(
-            `INSERT INTO notification_templates (id, key, channel, locale, subject, title, body, variables, version, active)
-             SELECT $1, $2, $3, $4, $5, $6, $7, $8, 1, true
-             WHERE NOT EXISTS (
-               SELECT 1 FROM notification_templates WHERE key = $2 AND channel = $3 AND locale = $4
-             )`,
-            [
-              uuidv7(),
-              t.key,
-              channel,
-              locale,
-              text.subject ?? null,
-              text.title ?? null,
-              text.body,
-              t.variables,
-            ],
-          );
-          inserted += res.rowCount ?? 0;
+          inserted += await prisma.$executeRaw`
+            INSERT INTO notification_templates (id, key, channel, locale, subject, title, body, variables, version, active)
+            SELECT ${uuidv7()}::uuid, ${t.key}, ${channel}, ${locale}, ${text.subject ?? null},
+                   ${text.title ?? null}, ${text.body}, ${t.variables}::text[], 1, true
+            WHERE NOT EXISTS (
+              SELECT 1 FROM notification_templates
+              WHERE key = ${t.key} AND channel = ${channel} AND locale = ${locale}
+            )`;
         }
   } finally {
-    await db.end();
+    await prisma.$disconnect();
   }
   return inserted;
 }
