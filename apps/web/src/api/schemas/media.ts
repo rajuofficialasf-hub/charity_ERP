@@ -7,7 +7,7 @@ import {
   SCRIPT_STATES,
 } from '@css/shared/media';
 import { z } from 'zod';
-import { bilingual, date, dateTime } from './common';
+import { bilingual, date, dateTime, pageOf } from './common';
 
 /** An item of a reference list (the media stages, production roles and platforms). */
 export const referenceItemSchema = z.object({
@@ -93,10 +93,7 @@ export const mediaWorkRowSchema = z.object({
 export type MediaWorkRow = z.infer<typeof mediaWorkRowSchema>;
 
 /** A page of the works list with its cursor. */
-export const mediaWorkPageSchema = z.object({
-  data: z.array(mediaWorkRowSchema),
-  meta: z.object({ nextCursor: z.string().nullable().optional() }),
-});
+export const mediaWorkPageSchema = pageOf(mediaWorkRowSchema);
 export type MediaWorkPage = z.infer<typeof mediaWorkPageSchema>;
 
 export const mediaPublicationSchema = z.object({

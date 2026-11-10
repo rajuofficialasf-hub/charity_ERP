@@ -15,9 +15,12 @@ export const homeProjectSchema = z.object({
 });
 export type HomeProject = z.infer<typeof homeProjectSchema>;
 
-/** One project of a state with the total of that state, for the counts of a PM's home. */
+/**
+ * The first project of a state with the total of that state, for the counts of a PM's home: the
+ * widget reads the total, or the number of rows when the total is missing.
+ */
 export const projectCountSchema = z.object({
-  data: z.array(z.unknown()),
+  data: z.array(z.object({ id: z.uuid() })),
   meta: z.object({ total: z.number().int().optional() }),
 });
 export type ProjectCount = z.infer<typeof projectCountSchema>;

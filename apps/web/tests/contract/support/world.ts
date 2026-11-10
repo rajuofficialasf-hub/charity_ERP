@@ -2,6 +2,13 @@
 // office would build them: an active project with its published application form, a volunteer
 // assigned to it, and an application approved by the region's RPM.
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
+import {
+  applicationFormSchema,
+  applicationSchema,
+  locationSchema,
+  myProjectDetailSchema,
+} from '../../../src/api/schemas';
 import { at, type Caller, call, type Sent, signIn } from './session';
 
 /** The demo accounts the cases act as (docs/testing/DEMO_ACCOUNTS.md). */
@@ -20,15 +27,28 @@ export const PNG = Buffer.from(
 export const digits = (n: number) =>
   Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
 
-/** The answer's `data` and `meta` once its status is the expected one; any other answer throws. */
-export function must<T = unknown>(
+/** A record read for its id alone. */
+export const withId = z.object({ id: z.uuid() });
+/** An answer whose `data` the step does not read (it reads the version in `meta`, or nothing). */
+export const unread = z.unknown();
+
+/**
+ * The answer's `data`, parsed with the schema of what the step reads, and the version in `meta`,
+ * once its status is the expected one; any other status or shape throws, naming the step.
+ */
+export function must<T>(
   sent: Sent,
   status: number,
   what: string,
+  data: z.ZodType<T>,
 ): { data: T; meta: { etag?: string } } {
   if (sent.status !== status)
     throw new Error(`${what}: ${sent.status} ${JSON.stringify(sent.body)}`);
-  return sent.body as { data: T; meta: { etag?: string } };
+  const parsed = z
+    .object({ data, meta: z.object({ etag: z.string().optional() }) })
+    .safeParse(sent.body);
+  if (!parsed.success) throw new Error(`${what}: ${parsed.error.message}`);
+  return parsed.data as { data: T; meta: { etag?: string } };
 }
 
 /** Asks again every half second, for up to 20 seconds, until the answer is the awaited one. */
@@ -102,7 +122,8 @@ export async function savar(caller: Caller | null): Promise<Places> {
       await call(caller, 'GET', `/locations${parentId ? `?parentId=${parentId}` : ''}`),
       200,
       'locations',
-    ).data as { id: string; name: { bn: string } }[];
+      z.array(locationSchema),
+    ).data;
     const found = rows.find((r) => r.name.bn === name);
     if (!found) throw new Error(`no location ${name}`);
     return found.id;
@@ -137,6 +158,37 @@ export function answers(places: Places, name = `নমুনা উপকার�
   ];
 }
 
+/**
+ * A project code of its own: C and seven capital letters from a random UUID's hex digits (A for
+ * 0 to P for 15), so the runs on one long-lived database never meet a code already taken.
+ */
+const projectCode = () =>
+  `C${[...randomUUID().replace(/-/g, '').slice(0, 7)]
+    .map((hex) => String.fromCharCode(65 + parseInt(hex, 16)))
+    .join('')}`;
+
+/** A draft Humanitarian project of this year, made by its PM through the API; answers its id. */
+export async function draftProject(pm: Caller): Promise<string> {
+  const programs = must(
+    await call(pm, 'GET', '/programs'),
+    200,
+    'programs',
+    z.array(z.object({ id: z.uuid(), code: z.string() })),
+  ).data;
+  return must(
+    await call(pm, 'POST', '/projects', {
+      programId: programs.find((p) => p.code === 'HUM')!.id,
+      code: projectCode(),
+      year: new Date().getFullYear(),
+      name: { bn: 'চুক্তি পরীক্ষা', en: 'Contract test' },
+      source: { kind: 'workflow', workflowKey: 'distribution' },
+    }),
+    201,
+    'project',
+    withId,
+  ).data.id;
+}
+
 export interface ActiveProject {
   projectId: string;
   /** The project's application form (its id, not a version's). */
@@ -151,31 +203,17 @@ export interface ActiveProject {
  */
 export async function activeProject(): Promise<ActiveProject> {
   const pm = await signIn(PM_HUM);
-  const programs = must(await call(pm, 'GET', '/programs'), 200, 'programs').data as {
-    id: string;
-    code: string;
-  }[];
-  const programId = programs.find((p) => p.code === 'HUM')!.id;
-  const [rpm] = must<{ id: string }[]>(
+  const [rpm] = must(
     await call(pm, 'GET', `/users?q=${RPM_DHAKA}`),
     200,
     'rpm',
+    z.array(withId),
   ).data;
   const places = await savar(pm);
-  const created = must<{ id: string }>(
-    await call(pm, 'POST', '/projects', {
-      programId,
-      code: `C${String.fromCharCode(...Array.from({ length: 3 }, () => 65 + Math.floor(Math.random() * 26)))}`,
-      year: 2026,
-      name: { bn: 'চুক্তি পরীক্ষা', en: 'Contract test' },
-      source: { kind: 'workflow', workflowKey: 'distribution' },
-    }),
-    201,
-    'project',
-  );
-  const projectId = created.data.id;
+  const projectId = await draftProject(pm);
   const etag = async () =>
-    must(await call(pm, 'GET', `/projects/${projectId}`), 200, 'project read').meta.etag ?? '';
+    must(await call(pm, 'GET', `/projects/${projectId}`), 200, 'project read', unread).meta.etag ??
+    '';
   must(
     await call(
       pm,
@@ -192,6 +230,7 @@ export async function activeProject(): Promise<ActiveProject> {
     ),
     200,
     'basics',
+    unread,
   );
   must(
     await call(pm, 'PATCH', `/projects/${projectId}/fund-sources`, {
@@ -199,6 +238,7 @@ export async function activeProject(): Promise<ActiveProject> {
     }),
     200,
     'fund sources',
+    unread,
   );
   must(
     await call(pm, 'POST', `/projects/${projectId}/areas`, {
@@ -207,12 +247,20 @@ export async function activeProject(): Promise<ActiveProject> {
     }),
     201,
     'area',
+    unread,
   );
   const components = must(
     await call(pm, 'GET', `/projects/${projectId}/components`),
     200,
     'components',
-  ).data as { componentKey: string; etag: string; settings: Record<string, unknown> }[];
+    z.array(
+      z.object({
+        componentKey: z.string(),
+        etag: z.string(),
+        settings: z.record(z.string(), z.unknown()),
+      }),
+    ),
+  ).data;
   const distribution = components.find((c) => c.componentKey === 'distribution')!;
   must(
     await call(
@@ -224,6 +272,7 @@ export async function activeProject(): Promise<ActiveProject> {
     ),
     200,
     'photo rule',
+    unread,
   );
   const text = (bn: string) => ({ bn, en: `${bn} (en)` });
   must(
@@ -234,6 +283,7 @@ export async function activeProject(): Promise<ActiveProject> {
     }),
     200,
     'rules',
+    unread,
   );
   const builder = await signIn(MONITORING);
   const ready = must(
@@ -245,10 +295,15 @@ export async function activeProject(): Promise<ActiveProject> {
     }),
     201,
     'ready form',
-  ).data as { id: string; draftVersionId: string };
+    z.object({ id: z.uuid(), draftVersionId: z.uuid() }),
+  ).data;
   const versionEtag = async () =>
-    must(await call(builder, 'GET', `/form-versions/${ready.draftVersionId}`), 200, 'version').meta
-      .etag ?? '';
+    must(
+      await call(builder, 'GET', `/form-versions/${ready.draftVersionId}`),
+      200,
+      'version',
+      unread,
+    ).meta.etag ?? '';
   must(
     await call(
       builder,
@@ -259,6 +314,7 @@ export async function activeProject(): Promise<ActiveProject> {
     ),
     200,
     'form draft',
+    unread,
   );
   must(
     await call(builder, 'POST', `/form-versions/${ready.draftVersionId}/publish`, undefined, {
@@ -266,6 +322,7 @@ export async function activeProject(): Promise<ActiveProject> {
     }),
     200,
     'publish',
+    unread,
   );
   const placed = must(
     await call(pm, 'POST', `/projects/${projectId}/forms/place`, {
@@ -274,23 +331,26 @@ export async function activeProject(): Promise<ActiveProject> {
     }),
     201,
     'place form',
-  ).data as { id: string };
+    withId,
+  ).data;
   must(
     await call(pm, 'POST', `/projects/${projectId}/activate`, undefined, {
       'If-Match': await etag(),
     }),
     200,
     'activate',
+    unread,
   );
   return { projectId, formId: placed.id, places };
 }
 
 /** The volunteer's id by the mobile they sign in with. */
 export async function volunteerIdOf(head: Caller, mobile: string): Promise<string> {
-  const [found] = must<{ id: string }[]>(
+  const [found] = must(
     await call(head, 'GET', `/volunteers?q=${mobile}`),
     200,
     'volunteer',
+    z.array(withId),
   ).data;
   return found!.id;
 }
@@ -304,19 +364,26 @@ export async function assign(projectId: string, mobile: string): Promise<Caller>
     }),
     201,
     'assign',
+    unread,
   );
   return signIn(mobile);
 }
 
 /** Moves an application with the version it has now. */
 export async function act(caller: Caller, id: string, action: string, body: unknown = {}) {
-  const etag = must(await call(caller, 'GET', `/applications/${id}`), 200, 'application').meta.etag;
+  const { etag } = must(
+    await call(caller, 'GET', `/applications/${id}`),
+    200,
+    'application',
+    applicationSchema,
+  ).meta;
   return must(
     await call(caller, 'POST', at`/applications/${id}/actions/${action}`, body, {
       'If-Match': etag ?? '',
     }),
     200,
     action,
+    applicationSchema,
   );
 }
 
@@ -326,7 +393,8 @@ export async function consent(volunteer: Caller, projectId: string) {
     await call(volunteer, 'GET', `/me/projects/${projectId}`),
     200,
     'my project',
-  ).data as { rules: { version: number; parts: { part: string }[] } };
+    myProjectDetailSchema,
+  ).data;
   return call(volunteer, 'POST', `/me/projects/${projectId}/consent`, {
     rulesVersion: rules.version,
     decision: 'accepted',
@@ -346,7 +414,8 @@ export async function approvedApplication(
     await call(volunteer, 'GET', `/projects/${project.projectId}/application-form`),
     200,
     'form',
-  ).data as { id: string };
+    applicationFormSchema,
+  ).data;
   const made = must(
     await call(volunteer, 'POST', `/projects/${project.projectId}/applications`, {
       clientUuid: randomUUID(),
@@ -357,7 +426,8 @@ export async function approvedApplication(
     }),
     201,
     'application',
-  ).data as { id: string };
+    withId,
+  ).data;
   await act(volunteer, made.id, 'submit');
   const rpm = await signIn(RPM_DHAKA);
   await act(rpm, made.id, 'review');

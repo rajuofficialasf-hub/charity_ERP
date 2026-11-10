@@ -8,6 +8,7 @@ import {
   mediaSummarySchema,
   mediaTeamMemberSchema,
   mediaWorkPageSchema,
+  myProjectSchema,
   referenceItemSchema,
 } from '../../src/api/schemas';
 import { expectContract, expectEnvelope, expectStatus } from './support/expect';
@@ -38,13 +39,14 @@ describe.skipIf(!contractBase())('the Media Team’s screens and the exports', (
   beforeAll(async () => {
     const project = await activeProject();
     const volunteer = await assign(project.projectId, VOLUNTEER);
-    must(await consent(volunteer, project.projectId), 200, 'consent');
+    must(await consent(volunteer, project.projectId), 200, 'consent', myProjectSchema);
     applicationId = await approvedApplication(project, volunteer);
     head = await signIn(HEAD);
-    beneficiaryId = must<{ beneficiaryId: string }>(
+    beneficiaryId = must(
       await call(head, 'GET', `/applications/${applicationId}`),
       200,
       'application',
+      z.object({ beneficiaryId: z.uuid() }),
     ).data.beneficiaryId;
   });
 

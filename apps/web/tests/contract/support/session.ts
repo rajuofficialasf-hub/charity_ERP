@@ -4,6 +4,8 @@ import { record } from './expect';
 
 /** The demo accounts' password and the dummy code of the seeded test API (test values only). */
 export const DEMO_PASSWORD = 'CssDemo2026';
+/** The password a password case changes a demo account to, before it puts the demo one back. */
+export const CHANGED_PASSWORD = 'CssContract2026';
 export const DUMMY_OTP = process.env.CONTRACT_OTP_CODE ?? '123456';
 
 const LOOPBACK = new Set(['127.0.0.1', '::1', '[::1]', 'localhost']);

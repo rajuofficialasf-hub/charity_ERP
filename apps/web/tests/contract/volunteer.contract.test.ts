@@ -205,7 +205,8 @@ describe.skipIf(!contractBase())('the volunteer’s screens', () => {
       }),
       201,
       'unlock',
-    ).data as { id: string };
+      unlockSchema,
+    ).data;
     const record = expectEnvelope(
       await call(volunteer, 'GET', `/applications/${id}`),
       200,
@@ -283,7 +284,8 @@ describe.skipIf(!contractBase())('the volunteer’s screens', () => {
       }),
       200,
       'public link',
-    ).data as { url: string };
+      z.object({ url: z.string() }),
+    ).data;
     const token = link.url.split('/apply/')[1]!;
     const form = expectContract(
       await call(null, 'GET', at`/public/forms/${token}`),
