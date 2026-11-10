@@ -271,6 +271,26 @@ describe('the setup wizard', () => {
     expect(writes).toHaveLength(1);
   }, 20_000);
 
+  it('says a window ending before it opens at once, keeps the step, and saves nothing on Enter', async () => {
+    serve();
+    const user = userEvent.setup();
+    const { router } = open('window');
+    const window = await section('আবেদনের সময়সীমা ও সীমা');
+    const end = within(window).getByRole('group', { name: /^আবেদনের শেষ তারিখ/ });
+    await user.click(within(end).getAllByRole('spinbutton')[0]!);
+    await user.keyboard('01102026');
+    expect(
+      await within(window).findByText('শেষ তারিখ শুরুর তারিখের আগে হতে পারে না।'),
+    ).toBeInTheDocument();
+    await user.type(within(window).getByRole('textbox', { name: /আবেদন সীমা/ }), '50{Enter}');
+    await user.click(next());
+    expect(
+      await within(window).findAllByText('শেষ তারিখ শুরুর তারিখের আগে হতে পারে না।'),
+    ).toHaveLength(2);
+    expect(writes).toEqual([]);
+    expect(router.state.location.search).toBe('?step=window');
+  });
+
   it('saves before a step of the indicator opens', async () => {
     serve();
     const user = userEvent.setup();

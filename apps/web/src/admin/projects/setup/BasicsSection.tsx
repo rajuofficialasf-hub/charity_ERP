@@ -1,13 +1,48 @@
 import { localized, type Locale } from '@css/shared/i18n';
 import { type ProjectUpdate, WORKFLOW_KEYS, type WorkflowKey } from '@css/shared/projects';
-import { SelectField, TextField } from '@/ui';
+import { Form, FormSelectField, FormTextField } from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { ApiFailure } from '../../../api/client';
+import { useSchemaResolver } from '../../../lib/form-schema';
 import { PROGRAMS_KEY, programs } from '../../programs/programs-api';
+import type { Project } from '../projects-api';
 import { updateProject } from './setup-api';
 import { Reseed, SaveNotice, SetupSection, useSetup, useStepSave } from './setup-context';
+
+type BasicsFields = {
+  name: { bn: string; en: string };
+  description: string;
+  year: string;
+  programId: string;
+  workflowKey: string;
+};
+
+/** What the project's row holds now, as the fields show it. */
+const fieldsOf = (project: Project): BasicsFields => ({
+  name: { bn: project.name.bn, en: project.name.en },
+  description: project.description ?? '',
+  year: String(project.year),
+  programId: project.programId ?? '',
+  workflowKey: project.workflowKey,
+});
+
+/** The changed fields only; nothing changed sends nothing. */
+function bodyOf(project: Project, v: BasicsFields): ProjectUpdate {
+  const out: ProjectUpdate = {};
+  const name = { bn: v.name.bn.trim(), en: v.name.en.trim() };
+  if (name.bn !== project.name.bn || name.en !== project.name.en) out.name = name;
+  const text = v.description.trim();
+  if (text !== (project.description ?? '')) out.description = text || null;
+  if (Number(v.year) !== project.year) out.year = Number(v.year);
+  if (v.programId && v.programId !== project.programId) out.programId = v.programId;
+  if (v.workflowKey && v.workflowKey !== project.workflowKey)
+    out.workflowKey = v.workflowKey as WorkflowKey;
+  return out;
+}
 
 /** Name, description, year, program and workflow; the last three only while a draft. */
 export function BasicsSection() {
@@ -21,97 +56,97 @@ function BasicsForm({ stale, onStale }: { stale: boolean; onStale: () => void })
   const tz = useTranslations('admin.projects.wizard');
   const tw = useTranslations('admin.projects.workflow');
   const locale = useLocale() as Locale;
-  const [nameBn, setNameBn] = useState(project.name.bn);
-  const [nameEn, setNameEn] = useState(project.name.en);
-  const [description, setDescription] = useState(project.description ?? '');
-  const [year, setYear] = useState(String(project.year));
-  const [programId, setProgramId] = useState<string | null>(project.programId ?? null);
-  const [workflowKey, setWorkflowKey] = useState<string | null>(project.workflowKey);
+  const invalidText = tz('basics_invalid');
+  // a name in both languages and a year of four digits, as the step's own notice says
+  const schema = useMemo(
+    () =>
+      z.object({
+        name: z.object({ bn: z.string().trim().min(1), en: z.string().trim().min(1) }),
+        description: z.string(),
+        year: z.string().regex(/^\d{4}$/, { message: invalidText }),
+        programId: z.string(),
+        workflowKey: z.string(),
+      }),
+    [invalidText],
+  );
+  const form = useForm<BasicsFields>({
+    resolver: useSchemaResolver(schema),
+    defaultValues: fieldsOf(project),
+    reValidateMode: 'onSubmit',
+  });
+  const values = useWatch({ control: form.control }) as BasicsFields;
   // read for a viewer too: the disabled select names the program from this list
   const list = useQuery({ queryKey: PROGRAMS_KEY, queryFn: programs });
 
-  const body = (): ProjectUpdate => {
-    const out: ProjectUpdate = {};
-    const name = { bn: nameBn.trim(), en: nameEn.trim() };
-    if (name.bn !== project.name.bn || name.en !== project.name.en) out.name = name;
-    const text = description.trim();
-    if (text !== (project.description ?? '')) out.description = text || null;
-    if (Number(year) !== project.year) out.year = Number(year);
-    if (programId && programId !== project.programId) out.programId = programId;
-    if (workflowKey && workflowKey !== project.workflowKey)
-      out.workflowKey = workflowKey as WorkflowKey;
-    return out;
-  };
   const save = useMutation({
-    mutationFn: () => updateProject(project.id, etag, body()),
+    mutationFn: (v: BasicsFields) => updateProject(project.id, etag, bodyOf(project, v)),
     onError: (e) => e instanceof ApiFailure && e.status === 412 && onStale(),
   });
-  const ready = nameBn.trim() !== '' && nameEn.trim() !== '' && /^\d{4}$/.test(year);
+  const changed = Object.keys(bodyOf(project, values)).length > 0;
+  const store = async () => {
+    await save.mutateAsync(form.getValues());
+    await refresh();
+  };
   const problem = useStepSave({
-    changed: Object.keys(body()).length > 0,
-    invalid: ready ? undefined : tz('basics_invalid'),
-    save: async () => {
-      await save.mutateAsync();
-      await refresh();
-    },
+    changed,
+    invalid: schema.safeParse(values).success ? undefined : invalidText,
+    save: store,
   });
+  // the wizard's buttons save the step; Enter in a field only checks it, as before
+  const submit = () => undefined;
 
   return (
     <SetupSection id="basics" title={t('section.basics')}>
-      <div className="admin-setup-grid">
-        <TextField
-          label={td('name_bn')}
-          required
-          maxLength={200}
-          value={nameBn}
-          onChange={setNameBn}
-          readOnly={!editable('name')}
+      <Form form={form} onSubmit={submit} label={t('section.basics')}>
+        <div className="admin-setup-grid">
+          <FormTextField
+            name="name.bn"
+            label={td('name_bn')}
+            required
+            maxLength={200}
+            readOnly={!editable('name')}
+          />
+          <FormTextField
+            name="name.en"
+            label={td('name_en')}
+            required
+            maxLength={200}
+            lang="en"
+            readOnly={!editable('name')}
+          />
+          <FormTextField
+            name="year"
+            type="integer"
+            label={td('year')}
+            required
+            readOnly={!editable('year')}
+          />
+          <FormSelectField
+            name="programId"
+            label={td('program')}
+            disabled={!editable('programId')}
+            options={(list.data ?? [])
+              .filter((p) => p.active || p.id === project.programId)
+              .map((p) => ({ value: p.id, label: localized(p.name, locale) }))}
+          />
+          <FormSelectField
+            name="workflowKey"
+            label={td('workflow')}
+            hint={editable('workflowKey') ? t('workflow_change') : undefined}
+            disabled={!editable('workflowKey')}
+            searchable={false}
+            options={WORKFLOW_KEYS.map((key) => ({ value: key, label: tw(key) }))}
+          />
+        </div>
+        <FormTextField
+          name="description"
+          rows={4}
+          label={t('description')}
+          maxLength={2000}
+          readOnly={!editable('description')}
         />
-        <TextField
-          label={td('name_en')}
-          required
-          maxLength={200}
-          lang="en"
-          value={nameEn}
-          onChange={setNameEn}
-          readOnly={!editable('name')}
-        />
-        <TextField
-          type="integer"
-          label={td('year')}
-          required
-          value={year}
-          onChange={setYear}
-          readOnly={!editable('year')}
-        />
-        <SelectField
-          label={td('program')}
-          value={programId ?? ''}
-          onChange={(v) => setProgramId(v || null)}
-          disabled={!editable('programId')}
-          options={(list.data ?? [])
-            .filter((p) => p.active || p.id === project.programId)
-            .map((p) => ({ value: p.id, label: localized(p.name, locale) }))}
-        />
-        <SelectField
-          label={td('workflow')}
-          hint={editable('workflowKey') ? t('workflow_change') : undefined}
-          value={workflowKey ?? ''}
-          onChange={(v) => setWorkflowKey(v || null)}
-          disabled={!editable('workflowKey')}
-          searchable={false}
-          options={WORKFLOW_KEYS.map((key) => ({ value: key, label: tw(key) }))}
-        />
-      </div>
-      <TextField
-        rows={4}
-        label={t('description')}
-        maxLength={2000}
-        value={description}
-        onChange={setDescription}
-        readOnly={!editable('description')}
-      />
-      <SaveNotice mutation={save} problem={problem} stale={stale} />
+        <SaveNotice mutation={save} problem={problem} stale={stale} />
+      </Form>
     </SetupSection>
   );
 }
