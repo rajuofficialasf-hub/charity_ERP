@@ -1,9 +1,9 @@
-import { Alert, Button, Dialog, Grid, Stack, TextField } from '@/ui';
-import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Alert, Button, Dialog, Form, FormTextField, Grid } from '@/ui';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { AddressFields } from '../../features/registration/AddressFields';
-import { ApiFailure } from '../../api/client';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import {
   type BeneficiaryProfile,
   type ContactChange,
@@ -11,15 +11,52 @@ import {
   updateContact,
 } from './beneficiaries-api';
 
-type Address = {
-  divisionId: string | null;
-  districtId: string | null;
-  upazilaId: string | null;
-  unionId: string | null;
-};
+const place = z.string().nullable();
+/**
+ * The form holds the values as typed; what changed is sent and the server checks it (the mobile's
+ * and the post code's format). The four places of the address are one value, so a refusal of one
+ * of them is said above the form.
+ */
+const CONTACT_SCHEMA = z.object({
+  mobile: z.string(),
+  address: z.object({ divisionId: place, districtId: place, upazilaId: place, unionId: place }),
+  village: z.string(),
+  postOffice: z.string(),
+  postCode: z.string(),
+  landmark: z.string(),
+});
+type ContactFields = z.infer<typeof CONTACT_SCHEMA>;
 
 const TEXTS = ['village', 'postOffice', 'postCode', 'landmark'] as const;
-type TextKey = (typeof TEXTS)[number];
+
+/** What changed against the profile; the address only once all four places are chosen. */
+function changeOf(profile: BeneficiaryProfile, v: ContactFields) {
+  const change: ContactChange = {};
+  if (v.mobile.trim() !== (profile.mobile ?? '')) change.mobile = v.mobile.trim();
+  const { address } = v;
+  const placeMoved =
+    address.divisionId !== profile.divisionId ||
+    address.districtId !== profile.districtId ||
+    address.upazilaId !== profile.upazilaId ||
+    address.unionId !== (profile.unionId ?? null);
+  const addressComplete = Boolean(
+    address.divisionId && address.districtId && address.upazilaId && address.unionId,
+  );
+  if (placeMoved && addressComplete)
+    Object.assign(change, {
+      divisionId: address.divisionId,
+      districtId: address.districtId,
+      upazilaId: address.upazilaId,
+      unionId: address.unionId,
+    });
+  for (const key of TEXTS) {
+    // eslint-disable-next-line security/detect-object-injection -- a fixed list of field names
+    const value = v[key].trim();
+    // eslint-disable-next-line security/detect-object-injection -- a fixed list of field names
+    if (value && value !== (profile[key] ?? '')) change[key] = value;
+  }
+  return { change, ready: Object.keys(change).length > 0 && (!placeMoved || addressComplete) };
+}
 
 /**
  * Edits the mobile and the address of a beneficiary outside an application, with the version read
@@ -40,53 +77,38 @@ export function ContactDialog({
 }) {
   const t = useTranslations('admin.beneficiaries.contact');
   const tc = useTranslations('common.action');
-  const [mobile, setMobile] = useState(profile.mobile ?? '');
-  const [address, setAddress] = useState<Address>({
-    divisionId: profile.divisionId,
-    districtId: profile.districtId,
-    upazilaId: profile.upazilaId,
-    unionId: profile.unionId ?? null,
+  const ts = useTranslations('common.state.error');
+  const form = useForm<ContactFields>({
+    resolver: useSchemaResolver(CONTACT_SCHEMA),
+    defaultValues: {
+      mobile: profile.mobile ?? '',
+      address: {
+        divisionId: profile.divisionId,
+        districtId: profile.districtId,
+        upazilaId: profile.upazilaId,
+        unionId: profile.unionId ?? null,
+      },
+      village: profile.village ?? '',
+      postOffice: profile.postOffice ?? '',
+      postCode: profile.postCode ?? '',
+      landmark: profile.landmark ?? '',
+    },
+    reValidateMode: 'onSubmit',
   });
-  const [texts, setTexts] = useState<Record<TextKey, string>>({
-    village: profile.village ?? '',
-    postOffice: profile.postOffice ?? '',
-    postCode: profile.postCode ?? '',
-    landmark: profile.landmark ?? '',
-  });
+  const { ready } = changeOf(profile, useWatch({ control: form.control }) as ContactFields);
+  const pending = form.formState.isSubmitting;
+  const error = form.formState.errors.root?.server?.message;
 
-  const change: ContactChange = {};
-  if (mobile.trim() !== (profile.mobile ?? '')) change.mobile = mobile.trim();
-  const placeMoved =
-    address.divisionId !== profile.divisionId ||
-    address.districtId !== profile.districtId ||
-    address.upazilaId !== profile.upazilaId ||
-    address.unionId !== (profile.unionId ?? null);
-  const addressComplete = Boolean(
-    address.divisionId && address.districtId && address.upazilaId && address.unionId,
-  );
-  if (placeMoved && addressComplete)
-    Object.assign(change, {
-      divisionId: address.divisionId,
-      districtId: address.districtId,
-      upazilaId: address.upazilaId,
-      unionId: address.unionId,
-    });
-  for (const key of TEXTS) {
-    // eslint-disable-next-line security/detect-object-injection -- a fixed list of field names
-    const value = texts[key].trim();
-    // eslint-disable-next-line security/detect-object-injection -- a fixed list of field names
-    if (value && value !== (profile[key] ?? '')) change[key] = value;
-  }
-
-  const save = useMutation({
-    mutationFn: () => updateContact(profile.id, etag, change),
-    onSuccess: onDone,
-  });
-  const failure = save.error instanceof ApiFailure ? save.error : null;
-  const fieldError = (path: string) =>
-    failure?.details.find((d) => d.path === path || d.path?.endsWith(`.${path}`))?.message;
-  const ready = Object.keys(change).length > 0 && (!placeMoved || addressComplete);
-  const setText = (key: TextKey) => (value: string) => setTexts((v) => ({ ...v, [key]: value }));
+  const save = async (values: ContactFields) => {
+    let saved: ContactSaved;
+    try {
+      saved = await updateContact(profile.id, etag, changeOf(profile, values).change);
+    } catch (failure) {
+      showFailure(form, failure, ts('text'));
+      return;
+    }
+    onDone(saved);
+  };
 
   return (
     <Dialog
@@ -94,58 +116,37 @@ export function ContactDialog({
       open
       fullScreenOnPhone
       onClose={onClose}
-      dismissible={!save.isPending}
+      dismissible={!pending}
       actions={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
             {tc('cancel')}
           </Button>
-          <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
+          <Button
+            onClick={() => void form.handleSubmit(save)()}
+            disabled={!ready}
+            loading={pending}
+          >
             {t('save')}
           </Button>
         </>
       }
     >
-      {failure && <Alert tone="error">{failure.message}</Alert>}
-      <Stack gap={3}>
-        <TextField
-          type="tel"
-          label={t('mobile')}
-          value={mobile}
-          onChange={setMobile}
-          error={fieldError('mobile')}
+      <Form form={form} onSubmit={save} label={t('title')}>
+        {error && <Alert tone="error">{error}</Alert>}
+        <FormTextField name="mobile" type="tel" label={t('mobile')} />
+        <Controller
+          control={form.control}
+          name="address"
+          render={({ field }) => <AddressFields value={field.value} onChange={field.onChange} />}
         />
-        <AddressFields value={address} onChange={setAddress} />
-        <TextField
-          label={t('village')}
-          value={texts.village}
-          maxLength={200}
-          onChange={setText('village')}
-          error={fieldError('village')}
-        />
+        <FormTextField name="village" label={t('village')} maxLength={200} />
         <Grid columns={{ base: 1, sm: 2 }} gap={3}>
-          <TextField
-            label={t('post_office')}
-            value={texts.postOffice}
-            maxLength={100}
-            onChange={setText('postOffice')}
-          />
-          <TextField
-            label={t('post_code')}
-            value={texts.postCode}
-            maxLength={4}
-            inputMode="numeric"
-            onChange={setText('postCode')}
-            error={fieldError('postCode')}
-          />
+          <FormTextField name="postOffice" label={t('post_office')} maxLength={100} />
+          <FormTextField name="postCode" label={t('post_code')} maxLength={4} inputMode="numeric" />
         </Grid>
-        <TextField
-          label={t('landmark')}
-          value={texts.landmark}
-          maxLength={200}
-          onChange={setText('landmark')}
-        />
-      </Stack>
+        <FormTextField name="landmark" label={t('landmark')} maxLength={200} />
+      </Form>
     </Dialog>
   );
 }
