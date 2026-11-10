@@ -1,12 +1,33 @@
 import { formatDate } from '@css/shared/format';
-import { Alert, Button, DateField, Dialog, TextField } from '@/ui';
-import { type ReactNode, useState } from 'react';
+import { Button, Dialog, Form, FormDateField, FormTextField } from '@/ui';
+import { type ReactNode, useMemo } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { ApiFailure } from '../../api/client';
+import { useSchemaResolver } from '../../lib/form-schema';
+
+/**
+ * A reason of three letters at least, as the server requires, and, when the move asks for a new
+ * end date, one later than the current end date.
+ */
+function reasonSchema(date?: { current: string | null }) {
+  return z.object({ reason: z.string(), newApplyTo: z.string() }).superRefine((v, ctx) => {
+    if (v.reason.trim().length < 3)
+      ctx.addIssue({ code: 'custom', path: ['reason'], message: 'validation.too_short' });
+    if (date && !(v.newApplyTo && (!date.current || v.newApplyTo > date.current)))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['newApplyTo'],
+        message: v.newApplyTo ? 'project.deadline_not_later' : 'validation.required',
+      });
+  });
+}
+type ReasonFields = z.infer<ReturnType<typeof reasonSchema>>;
 
 /**
  * Asks for the reason of a lifecycle move (and, for the deadline extension, the new end date)
- * before it is sent; a reason has at least 3 characters, as the server requires.
+ * before it is sent; the caller sends it and hands back its pending state and refusal.
  */
 export function ReasonDialog({
   title,
@@ -33,10 +54,23 @@ export function ReasonDialog({
 }) {
   const t = useTranslations('admin.projects.lifecycle');
   const tc = useTranslations('common.action');
-  const [reason, setReason] = useState('');
-  const [newApplyTo, setNewApplyTo] = useState<string | null>(null);
-  const later = !date || (newApplyTo !== null && (!date.current || newApplyTo > date.current));
-  const ready = reason.trim().length >= 3 && later;
+  const current = date?.current;
+  const asksDate = Boolean(date);
+  const schema = useMemo(
+    () => reasonSchema(asksDate ? { current: current ?? null } : undefined),
+    [asksDate, current],
+  );
+  const form = useForm<ReasonFields>({
+    resolver: useSchemaResolver(schema),
+    defaultValues: { reason: '', newApplyTo: '' },
+    reValidateMode: 'onSubmit',
+  });
+  const ready = schema.safeParse(useWatch({ control: form.control })).success;
+  const failure = error instanceof ApiFailure ? error : undefined;
+
+  const send = ({ reason, newApplyTo }: ReasonFields) =>
+    onConfirm({ reason: reason.trim(), ...(newApplyTo ? { newApplyTo } : {}) });
+
   return (
     <Dialog
       title={title}
@@ -51,9 +85,7 @@ export function ReasonDialog({
           </Button>
           <Button
             variant={danger ? 'danger' : 'primary'}
-            onClick={() =>
-              onConfirm({ reason: reason.trim(), ...(newApplyTo ? { newApplyTo } : {}) })
-            }
+            onClick={() => void form.handleSubmit(send)()}
             disabled={!ready}
             loading={pending}
           >
@@ -62,31 +94,26 @@ export function ReasonDialog({
         </>
       }
     >
-      {error instanceof ApiFailure && (
-        <Alert tone="error">
-          {error.message}
-          {errorDetails}
-        </Alert>
-      )}
-      {date && (
-        <DateField
-          label={t('new_apply_to')}
-          hint={date.current ? t('after', { date: formatDate(date.current) }) : undefined}
+      <Form form={form} onSubmit={send} label={title} error={failure?.message}>
+        {failure && errorDetails}
+        {date && (
+          <FormDateField
+            name="newApplyTo"
+            label={t('new_apply_to')}
+            hint={date.current ? t('after', { date: formatDate(date.current) }) : undefined}
+            required
+            min={date.current ?? undefined}
+          />
+        )}
+        <FormTextField
+          name="reason"
+          rows={4}
+          label={t('reason')}
+          hint={t('reason_hint')}
           required
-          min={date.current ?? undefined}
-          value={newApplyTo ?? ''}
-          onChange={(v) => setNewApplyTo(v || null)}
+          maxLength={1000}
         />
-      )}
-      <TextField
-        rows={4}
-        label={t('reason')}
-        hint={t('reason_hint')}
-        required
-        maxLength={1000}
-        value={reason}
-        onChange={setReason}
-      />
+      </Form>
     </Dialog>
   );
 }

@@ -1,10 +1,14 @@
-import { MEDIA_PRIORITIES, type MediaPriority } from '@css/shared/media';
-import { Alert, Button, Dialog, RadioGroup, Text, TextField } from '@/ui';
-import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { MEDIA_PRIORITIES, type MediaPriority, referralCreateSchema } from '@css/shared/media';
+import { Button, Dialog, Form, FormTextField, RadioGroup, Text } from '@/ui';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { referToMedia } from '../../features/media/media-api';
-import { ApiFailure } from '../../api/client';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
+
+/** The referral's request, with the story left empty when none is written. */
+const REFERRAL_SCHEMA = referralCreateSchema.extend({ story: z.string().trim().max(10000) });
+type ReferralFields = z.infer<typeof REFERRAL_SCHEMA>;
 
 /**
  * Sends an approved application to the Media Team, or a returned referral again: a priority, a
@@ -25,67 +29,85 @@ export function ReferralDialog({
   const t = useTranslations('media.referral');
   const tm = useTranslations('media');
   const tc = useTranslations('common');
-  const [priority, setPriority] = useState<MediaPriority>('normal');
-  const [note, setNote] = useState('');
-  const [story, setStory] = useState('');
-  const send = useMutation({
-    mutationFn: () =>
-      referToMedia(applicationId, {
+  const form = useForm<ReferralFields>({
+    resolver: useSchemaResolver(REFERRAL_SCHEMA),
+    defaultValues: { priority: 'normal', note: '', story: '' },
+    reValidateMode: 'onSubmit',
+  });
+  const ready = REFERRAL_SCHEMA.safeParse(useWatch({ control: form.control })).success;
+  const pending = form.formState.isSubmitting;
+
+  const send = async ({ priority, note, story }: ReferralFields) => {
+    try {
+      await referToMedia(applicationId, {
         priority,
         note: note.trim(),
         ...(story.trim() ? { story: story.trim() } : {}),
-      }),
-    onSuccess: onDone,
-  });
-  const failure =
-    send.error instanceof ApiFailure
-      ? send.error.message
-      : send.error
-        ? tc('state.error.text')
-        : null;
+      });
+    } catch (failure) {
+      showFailure(form, failure, tc('state.error.text'));
+      return;
+    }
+    onDone();
+  };
+
   return (
     <Dialog
       title={t('title')}
       open
       onClose={onClose}
-      dismissible={!send.isPending}
+      dismissible={!pending}
       actions={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={send.isPending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
             {tc('action.cancel')}
           </Button>
-          <Button onClick={() => send.mutate()} disabled={!note.trim()} loading={send.isPending}>
+          <Button
+            onClick={() => void form.handleSubmit(send)()}
+            disabled={!ready}
+            loading={pending}
+          >
             {resend ? t('resend') : t('send')}
           </Button>
         </>
       }
     >
-      <Text tone="muted">{t('intro')}</Text>
-      {failure ? <Alert tone="error">{failure}</Alert> : null}
-      <RadioGroup
-        label={t('priority')}
-        orientation="horizontal"
-        options={MEDIA_PRIORITIES.map((p) => ({ value: p, label: tm(`priority.${p}`) }))}
-        value={priority}
-        onChange={(id) => setPriority(id as MediaPriority)}
-      />
-      <TextField
-        rows={4}
-        label={t('note')}
-        hint={t('note_hint')}
-        required
-        maxLength={2000}
-        value={note}
-        onChange={setNote}
-      />
-      <TextField
-        rows={4}
-        label={t('story')}
-        hint={t('story_hint')}
-        maxLength={10000}
-        value={story}
-        onChange={setStory}
-      />
+      <Form
+        form={form}
+        onSubmit={send}
+        label={t('title')}
+        error={form.formState.errors.root?.server?.message}
+      >
+        <Text tone="muted">{t('intro')}</Text>
+        <Controller
+          control={form.control}
+          name="priority"
+          render={({ field }) => (
+            <RadioGroup
+              label={t('priority')}
+              orientation="horizontal"
+              options={MEDIA_PRIORITIES.map((p) => ({ value: p, label: tm(`priority.${p}`) }))}
+              value={field.value}
+              onChange={(id) => field.onChange(id as MediaPriority)}
+            />
+          )}
+        />
+        <FormTextField
+          name="note"
+          rows={4}
+          label={t('note')}
+          hint={t('note_hint')}
+          required
+          maxLength={2000}
+        />
+        <FormTextField
+          name="story"
+          rows={4}
+          label={t('story')}
+          hint={t('story_hint')}
+          maxLength={10000}
+        />
+      </Form>
     </Dialog>
   );
 }

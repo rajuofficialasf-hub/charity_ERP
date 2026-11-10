@@ -1,15 +1,29 @@
 import { answerValueSchema } from '@css/shared';
 import { formatBenNo } from '@css/shared/beneficiaries';
 import { identityColumn } from '@css/shared/forms';
-import { Alert, Button, DescriptionList, Dialog, SelectField, Skeleton, Stack, Text } from '@/ui';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import {
+  Alert,
+  Button,
+  DescriptionList,
+  Dialog,
+  Form,
+  FormSelectField,
+  Skeleton,
+  Text,
+} from '@/ui';
+import { useQuery } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../api/client';
+import { z } from 'zod';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { lookupBeneficiary } from '../beneficiaries/beneficiaries-api';
 import { assignments, volunteersKey } from '../projects/volunteers/project-volunteers-api';
 import { type OfficeApplication, officeAct } from './applications-api';
 import { LoadError } from '../../components/LoadError';
+
+/** The volunteer who takes the application, or none: it stays the office's. */
+const VERIFY_SCHEMA = z.object({ ownerVolunteerId: z.string() });
+type VerifyFields = z.infer<typeof VERIFY_SCHEMA>;
 
 /** The identity number the entry gave, read from its answer. */
 function numberOf(a: OfficeApplication): string | null {
@@ -55,7 +69,13 @@ export function VerifyDialog({
   const t = useTranslations('applications.office.verify');
   const tc = useTranslations('common');
   const number = numberOf(a);
-  const [owner, setOwner] = useState<string | null>(null);
+  const form = useForm<VerifyFields>({
+    resolver: useSchemaResolver(VERIFY_SCHEMA),
+    defaultValues: { ownerVolunteerId: '' },
+    reValidateMode: 'onSubmit',
+  });
+  const pending = form.formState.isSubmitting;
+  const error = form.formState.errors.root?.server?.message;
   const lookup = useQuery({
     queryKey: ['admin', 'verify-lookup', a.id, number],
     queryFn: () =>
@@ -82,44 +102,43 @@ export function VerifyDialog({
           ? 'verify_link'
           : 'verify_create'
       : null;
-  const send = useMutation({
-    mutationFn: (chosen: 'verify_link' | 'verify_create') =>
-      officeAct(a.id, etag, chosen, {
-        ...(chosen === 'verify_link' && found ? { linkBeneficiaryId: found.beneficiaryId } : {}),
-        ...(owner ? { ownerVolunteerId: owner } : {}),
-      }),
-    onSuccess: (_, chosen) => onDone(chosen),
-  });
-  const failure =
-    send.error instanceof ApiFailure
-      ? (send.error.details[0]?.message ?? send.error.message)
-      : send.error
-        ? tc('state.error.text')
-        : null;
+  const send = async ({ ownerVolunteerId }: VerifyFields) => {
+    if (!action) return;
+    try {
+      await officeAct(a.id, etag, action, {
+        ...(action === 'verify_link' && found ? { linkBeneficiaryId: found.beneficiaryId } : {}),
+        ...(ownerVolunteerId ? { ownerVolunteerId } : {}),
+      });
+    } catch (failure) {
+      showFailure(form, failure, tc('state.error.text'));
+      return;
+    }
+    await onDone(action);
+  };
   return (
     <Dialog
       title={t('title')}
       size="small"
       open
       onClose={onClose}
-      dismissible={!send.isPending}
+      dismissible={!pending}
       actions={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={send.isPending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
             {tc('action.cancel')}
           </Button>
           <Button
             variant="primary"
-            onClick={() => action && send.mutate(action)}
+            onClick={() => void form.handleSubmit(send)()}
             disabled={!action || people.isError}
-            loading={send.isPending}
+            loading={pending}
           >
             {t(action === 'verify_create' ? 'confirm_create' : 'confirm_link')}
           </Button>
         </>
       }
     >
-      <Stack gap={3}>
+      <Form form={form} onSubmit={send} label={t('title')} error={error}>
         {number && lookup.isPending ? (
           <Skeleton shape="text" />
         ) : lookup.isError ? (
@@ -145,19 +164,17 @@ export function VerifyDialog({
         {people.isError ? (
           <LoadError error={people.error} onRetry={() => void people.refetch()} />
         ) : (
-          <SelectField
+          <FormSelectField
+            name="ownerVolunteerId"
             label={t('owner')}
             hint={t('owner_help')}
-            value={owner ?? ''}
             options={(people.data ?? []).map((p) => ({
               value: p.volunteerId,
               label: p.displayName,
             }))}
-            onChange={(v) => setOwner(v || null)}
           />
         )}
-        {failure ? <Alert tone="error">{failure}</Alert> : null}
-      </Stack>
+      </Form>
     </Dialog>
   );
 }
