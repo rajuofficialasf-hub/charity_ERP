@@ -11077,6 +11077,30 @@ paths:
               schema: { $ref: '#/components/schemas/LocationResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /openapi.json:
+    get:
+      tags: [reference]
+      operationId: reference.openapi.get
+      summary: The OpenAPI document of every route, for the web app’s contract test
+      security: []
+      description: >-
+        Built from the route registry: shapes only, never data. Open to everyone in development,
+        tests and staging, where the web app's contract test reads it; in production it needs a
+        signed-in session (no permission), so a stranger does not get the map of the routes
+        (DECISION_LOG D-168).
+      x-permission: public
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: reference-read
+      responses:
+        '200':
+          description: The OpenAPI 3.1 document of the running API
+          content:
+            application/json:
+              schema: { type: object, required: [openapi, paths], properties: { openapi: { type: string }, paths: { type: object } } }
+        '401': { : '#/components/responses/Unauthorized' }
+        '429': { : '#/components/responses/TooManyRequests' }
   /public/settings:
     get:
       tags: [reference]
