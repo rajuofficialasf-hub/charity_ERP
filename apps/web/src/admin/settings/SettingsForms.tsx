@@ -1,19 +1,19 @@
 import { toEnglishDigits } from '@css/shared';
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import type {
-  GeneralSettingKey,
-  LocalizationSetting,
-  MonitoringThresholds,
-  OrganisationSetting,
-} from '@css/shared/settings';
+import type { GeneralSettingKey } from '@css/shared/settings';
 import { Alert, Button, Card, Grid, SelectField, TextField } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { ApiFailure } from '../../api/client';
 import { PUBLIC_SETTINGS_KEY } from '../../lib/public-settings';
-import { type SettingEntry, SETTINGS_KEY, updateSetting } from './settings-api';
+import {
+  type GeneralSettings,
+  type SettingEntry,
+  SETTINGS_KEY,
+  updateSetting,
+} from './settings-api';
 
 /** Saves one setting key and reports the field errors the server names under `value.<field>`. */
 function useSave<K extends GeneralSettingKey>(key: K, onSaved: () => void) {
@@ -71,7 +71,7 @@ export function OrganisationForm({
   entry,
   onSaved,
 }: {
-  entry: SettingEntry<OrganisationSetting>;
+  entry: GeneralSettings['organisation'];
   onSaved: () => void;
 }) {
   const t = useTranslations('admin.settings.organisation');
@@ -152,7 +152,7 @@ export function LanguageForm({
   entry,
   onSaved,
 }: {
-  entry: SettingEntry<LocalizationSetting>;
+  entry: GeneralSettings['localization'];
   onSaved: () => void;
 }) {
   const t = useTranslations('admin.settings.language');
@@ -205,7 +205,7 @@ export function ThresholdsForm({
   entry,
   onSaved,
 }: {
-  entry: SettingEntry<MonitoringThresholds>;
+  entry: GeneralSettings['monitoring.thresholds'];
   onSaved: () => void;
 }) {
   const t = useTranslations('admin.settings.thresholds');

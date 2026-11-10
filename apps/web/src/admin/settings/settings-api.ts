@@ -1,51 +1,14 @@
-import type { PlatformKind } from '@css/shared';
-import type { Bilingual } from '@css/shared/i18n';
 import type {
   EditableList,
   GeneralSettingKey,
-  LocalizationSetting,
-  MonitoringThresholds,
-  OrganisationSetting,
   ReferenceItemCreate,
   ReferenceItemUpdate,
   SmsProviderSetting,
 } from '@css/shared/settings';
 import { api } from '../../api/client';
+import type { Channels, GeneralSettings, ReferenceItem, SettingEntry } from '../../api/schemas';
 
-/** One key of GET /settings; `updatedAt` is null while the default is in force. */
-export interface SettingEntry<T = unknown> {
-  key: GeneralSettingKey;
-  value: T;
-  updatedAt: string | null;
-}
-
-export interface GeneralSettings {
-  organisation: SettingEntry<OrganisationSetting>;
-  localization: SettingEntry<LocalizationSetting>;
-  'monitoring.thresholds': SettingEntry<MonitoringThresholds>;
-}
-
-export interface ReferenceItem {
-  code: string;
-  label: Bilingual;
-  active: boolean;
-  sortOrder: number;
-  /** An entry the rules need: it stays active. */
-  system: boolean;
-  /** A media platform's kind; null on the other lists. */
-  kind: PlatformKind | null;
-}
-
-export interface Channels {
-  smtp: { host: string; port: number; secure: boolean; from: string; loginSet: boolean };
-  sms: {
-    mode: 'logging' | 'dry_run';
-    keyPresent: boolean;
-    config: SmsProviderSetting;
-    updatedAt: string | null;
-  };
-  otpDummy: boolean;
-}
+export type { Channels, GeneralSettings, ReferenceItem, SettingEntry };
 
 export const SETTINGS_KEY = ['admin', 'settings'] as const;
 export const listKey = (list: EditableList) => ['admin', 'reference-list', list] as const;
@@ -61,7 +24,7 @@ export async function settings(): Promise<GeneralSettings> {
 export const updateSetting = <K extends GeneralSettingKey>(
   key: K,
   value: GeneralSettings[K]['value'],
-) => api<SettingEntry>(`/settings/${key}`, { method: 'PATCH', body: { value } });
+) => api<GeneralSettings[K]>(`/settings/${key}`, { method: 'PATCH', body: { value } });
 
 export const referenceItems = (list: EditableList) =>
   api<ReferenceItem[]>(`/reference-lists/${list}`);
