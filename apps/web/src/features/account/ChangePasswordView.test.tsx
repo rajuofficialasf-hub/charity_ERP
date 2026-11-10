@@ -9,7 +9,8 @@ import { resetClientForTests } from '../../api/client';
 import { ChangePasswordView } from './ChangePasswordView';
 import { MyWorkPage } from '../home/MyWorkPage';
 
-// The screen "My profile, edit request, device sessions, language" of docs/ui/SCREENS.md (AUTH.md 3).
+// The screen "My profile, edit request, device sessions, language" of docs/ui/SCREENS.md
+// (docs/architecture/AUTH.md, "Password rules").
 beforeEach(() => {
   resetClientForTests();
   refreshAs(ME);

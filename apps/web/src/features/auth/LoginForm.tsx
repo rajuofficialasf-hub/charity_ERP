@@ -22,7 +22,10 @@ function useFailureText() {
   };
 }
 
-/** Sign in with mobile number or email and password (docs/ui/SCREENS.md "Login and password reset", AUTH.md 4). */
+/**
+ * Sign in with mobile number or email and password (docs/ui/SCREENS.md "Login and password reset";
+ * docs/architecture/AUTH.md, "Login").
+ */
 export function LoginForm({ ended }: { ended?: string }) {
   const t = useTranslations('auth.login');
   const tr = useTranslations('registration');
@@ -58,7 +61,8 @@ export function LoginForm({ ended }: { ended?: string }) {
     setPending(true);
     try {
       const me = await login(loginId, password);
-      // The interface follows the user's stored language (I18N 2).
+      // The interface follows the user's stored language (docs/ui/I18N.md, "Languages and locale
+      // resolution").
       if (me.language !== locale) setLocale(me.language);
       void navigate('/', { replace: true });
     } catch (failure) {

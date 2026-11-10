@@ -7,7 +7,7 @@ import { apiAs, signIn } from './support/admin';
 // (docs/security/AUTHORIZATION_MATRIX.md). The Department Head and the Monitoring Team hold every
 // permission; their one exception, the Main Admin transfer, has no endpoint yet, so they have no
 // row. The accounts are only read here; both projects sign in with the same ones, chosen among
-// those whose sessions and passwords no other spec depends on (DEMO_ACCOUNTS.md).
+// those whose sessions and passwords no other spec depends on (docs/testing/DEMO_ACCOUNTS.md).
 const DENIED = 'এই পাতায় আপনার প্রবেশাধিকার নেই।';
 
 const ROLES: { role: string; loginId: string; page: string; api: string }[] = [

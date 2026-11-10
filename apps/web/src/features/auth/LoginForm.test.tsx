@@ -8,7 +8,8 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { LoginForm } from './LoginForm';
 
-// The screen "Login and password reset" of docs/ui/SCREENS.md (AUTH.md 4, 6).
+// The screen "Login and password reset" of docs/ui/SCREENS.md (docs/architecture/AUTH.md, "Login"
+// and "Lockout after failed attempts").
 beforeEach(() => {
   resetClientForTests();
   document.cookie = 'css_locale=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';

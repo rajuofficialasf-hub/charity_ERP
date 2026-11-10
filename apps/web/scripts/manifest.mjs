@@ -1,5 +1,5 @@
-// Web app manifest in the default language bn (I18N 2): the full name and the home-screen short
-// name from the catalogue; colours are the brand tokens of
+// Web app manifest in the default language bn (docs/ui/I18N.md, "Languages and locale resolution"):
+// the full name and the home-screen short name from the catalogue; colours are the brand tokens of
 // docs/ui/brand/colors.md (brand/primary, bg/canvas); the icons are built from the logo by
 // scripts/icons.mjs. Served at /manifest.webmanifest by the Vite plugin in vite.config.ts.
 import { translate } from '@css/shared/i18n';

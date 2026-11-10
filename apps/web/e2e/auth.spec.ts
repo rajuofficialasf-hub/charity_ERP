@@ -1,12 +1,13 @@
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
 import { fromProfileMenu, scan } from './support/admin';
 
-// Login, logout, devices and passwords against the API on its E2E database (AUTH.md 3 to 8).
-// Demo accounts and their password: docs/testing/DEMO_ACCOUNTS.md. The API runs with the dummy
-// OTP 123456 (apps/api/scripts/e2e-server.ts). Mobile and desktop share the database, so every
-// test uses its own account per project; the devices, change and reset accounts are signed in by
-// no other spec (another session would be one more device, and a changed password ends every
-// other login), see the account table of DEMO_ACCOUNTS.md.
+// Login, logout, devices and passwords against the API on its E2E database
+// (docs/architecture/AUTH.md, "Password rules" to "Devices: listing, remote revocation and
+// local-data wipe"). Demo accounts and their password: docs/testing/DEMO_ACCOUNTS.md. The API runs
+// with the dummy OTP 123456 (apps/api/scripts/e2e-server.ts). Mobile and desktop share the
+// database, so every test uses its own account per project; the devices, change and reset accounts
+// are signed in by no other spec (another session would be one more device, and a changed password
+// ends every other login), see the account table of docs/testing/DEMO_ACCOUNTS.md.
 const PASSWORD = 'CssDemo2026';
 const OTP = '123456';
 
@@ -128,7 +129,8 @@ test.describe('devices', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: 'ডিভাইস লগআউট করুন' }).click();
     await expect(page.getByText('ডিভাইসটি লগআউট করা হয়েছে।')).toBeVisible();
 
-    // The revoked device is sent to the login screen with the reason (AUTH.md 8).
+    // The revoked device is sent to the login screen with the reason (docs/architecture/AUTH.md,
+    // "Devices: listing, remote revocation and local-data wipe").
     await otherPage.reload();
     await expect(otherPage).toHaveURL(/\/login\?ended=revoked$/);
     await expect(otherPage.getByText('এই ডিভাইসের সেশন শেষ হয়েছে। আবার লগইন করুন।')).toBeVisible();

@@ -2,7 +2,8 @@ import rule from '@css/config/eslint-rules/no-literal-ui-text';
 import { RuleTester } from 'eslint';
 import { describe, it } from 'vitest';
 
-// The lint layer of I18N.md 4: a hard-coded user-facing string fails CI.
+// The lint layer of docs/ui/I18N.md, "No hard-coded strings: rule and enforcement": a hard-coded
+// user-facing string fails CI.
 RuleTester.describe = describe;
 RuleTester.it = it;
 RuleTester.itOnly = it.only;

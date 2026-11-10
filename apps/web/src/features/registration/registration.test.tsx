@@ -8,7 +8,8 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { RegisterPage } from './RegisterPage';
 
-// The screen "Registration with two OTP steps" of docs/ui/SCREENS.md (AUTH.md 2). Test data only.
+// The screen "Registration with two OTP steps" of docs/ui/SCREENS.md (docs/architecture/AUTH.md,
+// "Registration with two OTPs"). Test data only.
 const DRAFT = '01900000-0000-7000-8000-0000000000aa';
 const TOKEN = 'draft-token-0123456789abcdef0123456789abcdef';
 const DHAKA = '01900000-0000-7000-8000-0000000000d1';

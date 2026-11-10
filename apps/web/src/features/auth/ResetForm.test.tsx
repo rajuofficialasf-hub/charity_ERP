@@ -8,7 +8,8 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { ResetForm } from './ResetForm';
 
-// The screen "Login and password reset" of docs/ui/SCREENS.md (AUTH.md 3).
+// The screen "Login and password reset" of docs/ui/SCREENS.md (docs/architecture/AUTH.md, "Password
+// rules").
 beforeEach(() => {
   resetClientForTests();
   refreshAs(null);

@@ -26,7 +26,9 @@ import {
   apiBase,
 } from './client';
 
-// The PWA's API client (API_STANDARDS 11, AUTH.md 5 and 8).
+// The PWA's API client (docs/api/API_STANDARDS.md, "Authentication headers and token refresh";
+// docs/architecture/AUTH.md, "Tokens and device sessions" and "Devices: listing, remote revocation
+// and local-data wipe").
 beforeEach(() => {
   resetClientForTests();
   document.cookie = 'css_csrf=nonce.mac; path=/';
@@ -148,7 +150,7 @@ describe('API client', () => {
     expect(refreshes).toBe(1);
   });
 
-  it('wipes local data and signs out when the session was revoked (AUTH.md 8)', async () => {
+  it('wipes local data and signs out when the session was revoked', async () => {
     const events: (string | undefined)[] = [];
     onSessionChange((me, ended) => events.push(me ? 'in' : ended));
     window.sessionStorage.setItem('draft', 'x');

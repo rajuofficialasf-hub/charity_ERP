@@ -17,7 +17,10 @@ import type { PanelUser } from '../UserSearch';
 import { permissionCatalogue } from './EffectivePermissions';
 
 type Effect = 'grant' | 'revoke';
-/** Scopes without a reference (RBAC.md 4); every other scope names a program, project or location. */
+/**
+ * Scopes without a reference (docs/security/RBAC.md, "Data scopes and their resolution"); every
+ * other scope names a program, project or location.
+ */
 const UNBOUND: readonly ScopeTypeName[] = ['GLOBAL', 'SELF', 'ASSIGNED'];
 /** Detail paths shown at their field; any other answer is shown above the form. */
 const FIELD_PATHS = ['permission', 'scopeRef', 'reason', 'expiresAt'];

@@ -8,8 +8,8 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { InvitePage } from './InvitePage';
 
-// The set-password page of an official created by the admin (AUTH.md 2.2).
-// Test data only.
+// The set-password page of an official created by the admin (docs/architecture/AUTH.md, "Officials
+// created by the admin"). Test data only.
 const TOKEN = 'B'.repeat(42) + '_';
 const VIEW = {
   displayName: 'নতুন কর্মকর্তা',

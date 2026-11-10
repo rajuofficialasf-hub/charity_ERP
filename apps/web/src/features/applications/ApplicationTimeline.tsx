@@ -6,8 +6,8 @@ import type { TimelineEntry } from './applications-api';
 
 /**
  * The steps of an application as the volunteer reads them: each state entered, when, and the
- * message the office wrote for them; never the office's own reason or who decided (DESIGN_SYSTEM
- * 5.18).
+ * message the office wrote for them; never the office's own reason or who decided (docs/ui/DESIGN_SYSTEM.md,
+ * "Step / timeline").
  */
 export function ApplicationTimeline({ entries }: { entries: TimelineEntry[] }) {
   const t = useTranslations('applications');

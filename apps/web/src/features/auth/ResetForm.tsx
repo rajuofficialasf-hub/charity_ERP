@@ -15,7 +15,10 @@ function fieldErrors(error: unknown): Record<string, string> {
   return Object.fromEntries(error.details.map((d) => [d.path ?? '', d.message]));
 }
 
-/** Forgotten password: login id → OTP and new password → done (docs/ui/SCREENS.md "Login and password reset", AUTH.md 3). */
+/**
+ * Forgotten password: login id → OTP and new password → done (docs/ui/SCREENS.md "Login and
+ * password reset"; docs/architecture/AUTH.md, "Password rules").
+ */
 export function ResetForm() {
   const t = useTranslations('auth.reset');
   const tp = useTranslations('auth.password');

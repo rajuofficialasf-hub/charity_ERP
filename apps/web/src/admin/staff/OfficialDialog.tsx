@@ -25,7 +25,10 @@ import {
 import './staff.css';
 import { LoadError } from '../../components/LoadError';
 
-/** The Main Admin's role is never given to a new account (AUTH.md 11). */
+/**
+ * The Main Admin's role is never given to a new account (docs/architecture/AUTH.md, "Main Admin
+ * protection").
+ */
 const NOT_GIVEN = 'department_head';
 const NONE = 'none';
 /** The fields of the first step (identity and contacts). */

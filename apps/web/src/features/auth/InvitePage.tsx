@@ -23,9 +23,10 @@ function useLinkToken(): string {
 
 /**
  * An official created by the admin chooses the first password through the single-use link
- * (AUTH.md 2.2, docs/ui/SCREENS.md "Set-password link of a new official"): the page shows the name and the job ID of the open
- * link, the password rules of the account, then sends the person to log in with the job ID. A
- * used, replaced or expired link says to ask the admin for a new one.
+ * (docs/architecture/AUTH.md, "Officials created by the admin"; docs/ui/SCREENS.md "Set-password
+ * link of a new official"): the page shows the name and the job ID of the open link, the password
+ * rules of the account, then sends the person to log in with the job ID. A used, replaced or
+ * expired link says to ask the admin for a new one.
  */
 export function InvitePage() {
   const t = useTranslations('auth.invite');
