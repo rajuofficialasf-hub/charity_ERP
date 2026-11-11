@@ -19,7 +19,7 @@ Each table section lists its columns (type, null, default, comment), then its ke
 | Counts and scores | `integer` or `smallint` with CHECK ranges |
 | Time | `timestamptz` stored in UTC (`*_at`); business dates as `date` interpreted in Asia/Dhaka |
 | GPS | `latitude numeric(9,6)`, `longitude numeric(9,6)`, `gps_accuracy_m numeric(7,2)`; no PostGIS dependency (PROPOSAL) |
-| Bilingual configuration | `name_bn`, `name_en` (or `label_bn`, `label_en`, `title_bn`, `title_en`) both `not null` |
+| Bilingual configuration | `name_bn`, `name_en` (or `label_bn`, `label_en`, `title_bn`, `title_en`) both `not null`; a text of a form draft may hold the empty string in a language until its version is published (I18N.md §7.2, D-171) |
 | Lists of codes | `text[]` with a CHECK that every element is in the code list when the list is fixed |
 | JSONB | only where section 20 lists it; every JSONB column has a JSON Schema and the matching zod schema in `packages/shared` |
 | Enums | **No PostgreSQL ENUM types.** Fixed system codes are `text` + CHECK (section 5.1); configurable lists are rows in `reference_lists` (section 5.2) or per-project data validated by the service (section 5.3) |

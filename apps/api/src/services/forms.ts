@@ -105,7 +105,8 @@ function projectOf(form: { projectId: string | null }): string {
 
 /**
  * The engine's verdict on a definition as a 422: each problem names the field it is about (the
- * key the body gives at that place, or the one the engine names) and its catalogue code.
+ * key the body gives at that place, or the one the engine names) and its catalogue code. A text
+ * that lacks a language is named by the parameters of its detail, which the response carries.
  */
 function parseDefinition(body: unknown, schema = formDefinitionSchema): FormDefinition {
   const parsed = schema.safeParse(body);
@@ -122,9 +123,11 @@ function parseDefinition(body: unknown, schema = formDefinitionSchema): FormDefi
         ? params.fieldKey
         : (field?.fieldKey ?? section?.key ?? issue.path.map(String).join('.'));
     const code = issue.message.startsWith('form.') ? issue.message : 'validation.failed';
+    // the issue's own code travels in its parameters for the schema; the detail names it once
     const named: MessageParams = {};
     for (const [key, value] of Object.entries(params))
-      if (typeof value === 'string' || typeof value === 'number') named[key] = value;
+      if (key !== 'code' && (typeof value === 'string' || typeof value === 'number'))
+        named[key] = value;
     return { path: fieldKey, code, ...(Object.keys(named).length ? { params: named } : {}) };
   });
   throw new ApiError('validation.failed', 422, undefined, details);
@@ -267,7 +270,8 @@ export class FormsService {
 
   /**
    * Replaces the sections, fields and options of a draft with the body, after the engine accepts
-   * it; a field keeps its row id when its key stays, so nothing that points at it is orphaned.
+   * it; a field keeps its row id when its key stays, so nothing that points at it is orphaned. A
+   * draft may wait for a text in either language; its references, cycles and keys are checked now.
    */
   async updateDraft(
     viewer: ProjectViewer,
@@ -330,8 +334,9 @@ export class FormsService {
   }
 
   /**
-   * Publishes a draft: the stored definition must still pass the engine, the published sibling is
-   * retired first (one published version per form), then the draft gets its stamp.
+   * Publishes a draft: the stored definition must pass the engine's publish checks (every text in
+   * both languages among them), the published sibling is retired first (one published version per
+   * form), then the draft gets its stamp.
    */
   async publish(
     viewer: ProjectViewer,
@@ -347,8 +352,8 @@ export class FormsService {
       // option of the builder's own is ever published on such a question
       const definition = await withListOptions(tx, stored);
       if (definition !== stored) await replaceDefinitionRows(tx, versionId, definition, actor);
-      // a draft may hold a calculated question without its rule, and an application form its
-      // identity questions unmarked; the publish may not
+      // a draft may hold a text in one language only, a calculated question without its rule, and
+      // an application form its identity questions unmarked; the publish may not
       parseDefinition(definition, publishDefinitionSchema(formKindOf(row.form.kind)));
       if (row.form.projectId !== null)
         await this.assertLinkable(tx, row.form.projectId, row.formId, versionId);

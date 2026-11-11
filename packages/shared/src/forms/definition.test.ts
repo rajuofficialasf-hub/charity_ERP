@@ -9,9 +9,12 @@ import {
   T,
   yesNo,
 } from '../../test/forms-fixture.js';
+import { jsonbSchemas } from '../jsonb/index.js';
 import {
   checkDefinition,
+  fieldSettingsSchema,
   formDefinitionSchema,
+  publishDefinitionSchema,
   type FormDefinition,
   type FormField,
 } from './index.js';
@@ -27,7 +30,8 @@ const schemaCodes = (input: unknown) => {
 };
 
 // A definition is refused for what the shape cannot say: a lost core field, a dangling reference,
-// a reach into a repeat group, a cycle, a duplicate key, a free regex, a one-language label.
+// a reach into a repeat group, a cycle, a duplicate key, a free regex; a text may wait for its
+// second language until the form is published.
 describe('the identity of an application form', () => {
   // the check runs when an application form is published; a draft and another kind need none
   const atPublish = (
@@ -290,11 +294,7 @@ describe('the shape', () => {
     expect(schemaCodes(definition)).toEqual(['form.pattern_unknown']);
   });
 
-  it('refuses a label, help text, placeholder or option label in one language', () => {
-    const oneLanguage = { bn: '', en: 'Only English' };
-    expect(schemaCodes(definitionWith([field('a', 'short_text', { label: oneLanguage })]))).toEqual(
-      ['form.label_language'],
-    );
+  it('refuses a text that is not a pair of strings, or longer than its cap', () => {
     expect(
       schemaCodes(
         definitionWith([field('a', 'short_text', { settings: { help: { en: 'help' } as never } })]),
@@ -307,10 +307,11 @@ describe('the shape', () => {
         ]),
       ),
     ).toEqual(['form.label_language']);
-    expect(schemaCodes(definitionWith([], [section('s', [], { title: T('') })]))).toEqual([
-      'form.label_language',
-      'form.label_language',
-    ]);
+    expect(
+      formDefinitionSchema.safeParse(
+        definitionWith([field('a', 'short_text', { label: { bn: 'ক'.repeat(501), en: '' } })]),
+      ).success,
+    ).toBe(false);
   });
 
   it('refuses a text cap above 4,000 characters and an unknown field type', () => {
@@ -395,6 +396,176 @@ describe('the standard columns', () => {
     expect(checkDefinition(members)).toEqual([]);
     const twice = definitionWith([...group('beneficiary_family_members', 'monthly_income')]);
     expect(codesOf(twice)).toEqual([['form.standard_column_duplicate', 'earner_income']]);
+  });
+});
+
+describe('the texts of a form', () => {
+  const BN = (bn: string) => ({ bn, en: '' });
+  const EN = (en: string) => ({ bn: '', en });
+  // every kind of text a form holds, each missing a language
+  const waiting = (): FormDefinition =>
+    definitionWith(
+      [
+        field('amount', 'money', {
+          label: BN('পরিমাণ'),
+          settings: { help: BN('টাকায় লিখুন'), placeholder: EN('e.g. 500') },
+        }),
+        field('kind', 'radio', {
+          label: { bn: '', en: '' },
+          options: [option('a', { label: BN('ক') }), option('b', { label: EN('B') })],
+        }),
+        field('costs', 'number_table', {
+          settings: {
+            table: {
+              rows: [{ key: 'food', label: BN('খাবার') }],
+              cols: [{ key: 'month', label: EN('Month') }],
+            },
+          },
+        }),
+        field('level', 'calculation', {
+          settings: { results: [{ code: 'poor', label: BN('দরিদ্র') }] },
+          calculation: { expr: { result: 'poor' } },
+        }),
+      ],
+      [section('extra', [], { title: BN('বাড়তি') })],
+    );
+  const atPublish = (definition: FormDefinition) =>
+    checkDefinition(definition, { publishing: true, kind: 'beneficiary_application' });
+  const more = ['sections', 2, 'fields'] as const;
+
+  it('lets a draft wait for any text in either language, or in both', () => {
+    const draft = waiting();
+    expect(schemaCodes(draft)).toEqual([]);
+    expect(checkDefinition(draft)).toEqual([]);
+    expect(formDefinitionSchema.parse(draft)).toEqual(draft);
+  });
+
+  it('names every text that lacks a language when the form is published', () => {
+    expect(atPublish(waiting())).toEqual([
+      {
+        code: 'form.label_language',
+        path: [...more, 0, 'label', 'en'],
+        params: { fieldKey: 'amount', text: 'label', language: 'en' },
+      },
+      {
+        code: 'form.label_language',
+        path: [...more, 0, 'settings', 'help', 'en'],
+        params: { fieldKey: 'amount', text: 'help', language: 'en' },
+      },
+      {
+        code: 'form.label_language',
+        path: [...more, 0, 'settings', 'placeholder', 'bn'],
+        params: { fieldKey: 'amount', text: 'placeholder', language: 'bn' },
+      },
+      {
+        code: 'form.label_language',
+        path: [...more, 1, 'label', 'bn'],
+        params: { fieldKey: 'kind', text: 'label', language: 'bn' },
+      },
+      {
+        code: 'form.label_language',
+        path: [...more, 1, 'label', 'en'],
+        params: { fieldKey: 'kind', text: 'label', language: 'en' },
+      },
+      {
+        code: 'form.label_language',
+        path: [...more, 1, 'options', 0, 'label', 'en'],
+        params: { fieldKey: 'kind', text: 'option', option: 'a', language: 'en' },
+      },
+      {
+        code: 'form.label_language',
+        path: [...more, 1, 'options', 1, 'label', 'bn'],
+        params: { fieldKey: 'kind', text: 'option', option: 'b', language: 'bn' },
+      },
+      {
+        code: 'form.label_language',
+        path: [...more, 2, 'settings', 'table', 'rows', 0, 'label', 'en'],
+        params: { fieldKey: 'costs', text: 'table_row', row: 'food', language: 'en' },
+      },
+      {
+        code: 'form.label_language',
+        path: [...more, 2, 'settings', 'table', 'cols', 0, 'label', 'bn'],
+        params: { fieldKey: 'costs', text: 'table_col', col: 'month', language: 'bn' },
+      },
+      {
+        code: 'form.label_language',
+        path: [...more, 3, 'settings', 'results', 0, 'label', 'en'],
+        params: { fieldKey: 'level', text: 'result', result: 'poor', language: 'en' },
+      },
+      {
+        code: 'form.label_language',
+        path: ['sections', 3, 'title', 'en'],
+        params: { section: 'extra', text: 'title', language: 'en' },
+      },
+    ]);
+  });
+
+  it('refuses the publish through the schema with the same code at the same places', () => {
+    const result = publishDefinitionSchema('beneficiary_application').safeParse(waiting());
+    expect(result.success).toBe(false);
+    const issues = result.success ? [] : result.error.issues;
+    expect(new Set(issues.map((issue) => issue.message))).toEqual(new Set(['form.label_language']));
+    expect(issues).toHaveLength(11);
+    expect(issues[0]!.path).toEqual([...more, 0, 'label', 'en']);
+  });
+
+  it('counts a text of only spaces as missing, and stores it empty', () => {
+    const spaced = definitionWith([
+      field('a', 'short_text', { label: { bn: 'প্রশ্ন', en: '   ' } }),
+    ]);
+    expect(atPublish(spaced).map((issue) => issue.path)).toEqual([[...more, 0, 'label', 'en']]);
+    const stored = formDefinitionSchema.parse(spaced);
+    expect(stored.sections[2]!.fields[0]!.label).toEqual({ bn: 'প্রশ্ন', en: '' });
+  });
+
+  it('takes a help text or a placeholder empty in both languages as none', () => {
+    const none = { bn: '', en: '' };
+    const definition = definitionWith([
+      field('a', 'short_text', { settings: { help: none, placeholder: none } }),
+    ]);
+    expect(schemaCodes(definition)).toEqual([]);
+    expect(atPublish(definition)).toEqual([]);
+  });
+
+  it('finds nothing in a form written in both languages', () => {
+    expect(atPublish(definitionWith([yesNo('has_loan')]))).toEqual([]);
+    expect(
+      publishDefinitionSchema('beneficiary_application').safeParse(definitionWith()).success,
+    ).toBe(true);
+  });
+
+  it('still refuses a dangling reference, a cycle and a duplicate key in a draft that waits for its texts', () => {
+    const dangling = definitionWith([
+      field('a', 'short_text', {
+        label: BN('ক'),
+        logic: { show_if: { field: 'nope', op: 'eq', value: 'x' } },
+      }),
+    ]);
+    expect(schemaCodes(dangling)).toEqual(['form.unknown_reference']);
+    const cycle = definitionWith([
+      yesNo('a', { label: BN('ক'), logic: { show_if: { field: 'b', op: 'eq', value: 'yes' } } }),
+      yesNo('b', { label: BN('খ'), logic: { show_if: { field: 'a', op: 'eq', value: 'yes' } } }),
+    ]);
+    expect(schemaCodes(cycle)).toEqual(['form.condition_cycle']);
+    const twice = definitionWith([
+      field('x', 'short_text', { label: BN('ক') }),
+      field('x', 'short_text', { label: BN('খ') }),
+    ]);
+    expect(schemaCodes(twice)).toEqual(['form.duplicate_key']);
+  });
+
+  it('is read back from its stored columns as the draft save accepted it', () => {
+    // the API reads a stored question's settings through the engine's own schema, and the column's
+    // documented shape (docs/database/json-schemas/form-field-logic.schema.json) takes the same
+    const draft = formDefinitionSchema.parse(waiting());
+    for (const stored of draft.sections.flatMap((s) => s.fields)) {
+      const settings: unknown = JSON.parse(JSON.stringify(stored.settings ?? {}));
+      expect(fieldSettingsSchema.parse(settings), stored.fieldKey).toEqual(stored.settings ?? {});
+      expect(
+        jsonbSchemas['form_fields.settings'].safeParse(settings).success,
+        stored.fieldKey,
+      ).toBe(true);
+    }
   });
 });
 

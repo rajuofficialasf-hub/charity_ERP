@@ -259,7 +259,8 @@ export function formsRouter(
     method: 'patch',
     path: '/form-versions/:versionId',
     operationId: 'forms.version.updateDraft',
-    summary: 'Replace sections, fields and options of a draft version',
+    summary:
+      'Replace sections, fields and options of a draft version; a text may wait for its second language until the publish',
     audit: 'form.draft_changed',
     headers: ifMatch,
     params: versionParams,
@@ -277,7 +278,8 @@ export function formsRouter(
     method: 'post',
     path: '/form-versions/:versionId/publish',
     operationId: 'forms.version.publish',
-    summary: 'Publish a draft version; the previous version is retired; mandatory fields enforced',
+    summary:
+      'Publish a draft version; the previous version is retired; mandatory fields and every text in both languages enforced',
     permission: 'form.publish',
     audit: 'form.publish',
     headers: ifMatch,
