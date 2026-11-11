@@ -242,6 +242,18 @@ async function choose(
   await user.click(scope.getByRole('combobox', { name: label }));
   await user.click(await screen.findByRole('option', { name: optionName }));
 }
+/** The undo and redo buttons of the form head. */
+const undoButton = () =>
+  within(screen.getByTestId('form-head')).getByRole('button', { name: 'ফিরিয়ে আনুন' });
+const redoButton = () =>
+  within(screen.getByTestId('form-head')).getByRole('button', { name: 'আবার করুন' });
+/** A form with one question of its own, "মন্তব্য", in a part after the identity ones. */
+const withNote = (): FormDefinition['sections'] => [
+  ...titled({ sections: coreSections() }).sections,
+  section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })], {
+    title: T('অতিরিক্ত', 'Extra'),
+  }),
+];
 /** The field of the last saved draft. */
 const savedField = (key: string) =>
   saves
@@ -316,16 +328,9 @@ describe('the outline and the libraries', () => {
     expect(within(name).getByRole('button', { name: 'name সরান' })).toBeInTheDocument();
   });
 
-  it('removes a chosen question and brings it back with one press', async () => {
+  it('removes a chosen question, says how it comes back, and undoes the removal from the form head', async () => {
     const user = userEvent.setup();
-    api({
-      sections: [
-        ...titled({ sections: coreSections() }).sections,
-        section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })], {
-          title: T('অতিরিক্ত', 'Extra'),
-        }),
-      ],
-    });
+    api({ sections: withNote() });
     open();
     await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
     await user.click(screen.getByRole('button', { name: 'মন্তব্য সরান' }));
@@ -335,8 +340,15 @@ describe('the outline and the libraries', () => {
     expect(
       screen.getByText('এই অংশে এখনো কোনো প্রশ্ন নেই। বাঁ দিক থেকে প্রশ্ন যোগ করুন।'),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'ফেরত আনুন' }));
-    expect(await screen.findByRole('button', { name: 'মন্তব্য বদলান' })).toBeInTheDocument();
+    const notice = '“মন্তব্য” সরানো হয়েছে। ফিরিয়ে আনতে উপরের “ফিরিয়ে আনুন” বোতামে চাপুন।';
+    expect(screen.getByText(notice)).toBeInTheDocument();
+    await user.click(undoButton());
+    // back in its place, and chosen as it was when it was removed
+    expect(await screen.findByRole('button', { name: 'মন্তব্য বদলান' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByText(notice)).not.toBeInTheDocument();
     await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
     expect(saves.at(-1)!.body.sections.find((s) => s.key === 'extra')!.fields).toHaveLength(1);
   }, 15_000);
@@ -446,25 +458,102 @@ describe('the outline and the libraries', () => {
     expect(savedField('q_age')!.settings).toEqual({ repeat: { group: 'members' } });
   }, 15_000);
 
-  it('forgets the removal once another change follows, so an undo never drops that change', async () => {
+  it('undoes a removal and an added part one by one until the form is as it was, and redoes them', async () => {
     const user = userEvent.setup();
-    api({
-      sections: [
-        ...titled({ sections: coreSections() }).sections,
-        section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })], {
-          title: T('অতিরিক্ত', 'Extra'),
-        }),
-      ],
-    });
+    const start = withNote();
+    api({ sections: start });
     open();
     await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
     await user.click(screen.getByRole('button', { name: 'মন্তব্য সরান' }));
-    expect(await screen.findByRole('button', { name: 'ফেরত আনুন' })).toBeInTheDocument();
+    expect(await screen.findByText(/^“মন্তব্য” সরানো হয়েছে।/)).toBeInTheDocument();
     await addSection(user, 'পরিবার ও আয়');
+    expect(await screen.findByRole('list', { name: 'পরিবার ও আয়' })).toBeInTheDocument();
+    // the notice of the removal leaves with the next change; the way back stays
+    expect(screen.queryByText(/^“মন্তব্য” সরানো হয়েছে।/)).not.toBeInTheDocument();
+    await user.click(undoButton());
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'ফেরত আনুন' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('list', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument(),
     );
-  }, 15_000);
+    expect(screen.queryByRole('button', { name: 'মন্তব্য বদলান' })).not.toBeInTheDocument();
+    await user.click(undoButton());
+    expect(await screen.findByRole('button', { name: 'মন্তব্য বদলান' })).toBeInTheDocument();
+    expect(undoButton()).toBeDisabled();
+    await waitFor(() => expect(saves.at(-1)?.body.sections).toEqual(start), { timeout: 4000 });
+    // and forward again, the same two steps
+    await user.click(redoButton());
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'মন্তব্য বদলান' })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('list', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument();
+    await user.click(redoButton());
+    expect(await screen.findByRole('list', { name: 'পরিবার ও আয়' })).toBeInTheDocument();
+    expect(redoButton()).toBeDisabled();
+    await waitFor(
+      () =>
+        expect(saves.at(-1)?.body.sections.map((s) => [s.key, s.fields.length])).toEqual([
+          ['basic_info', start[0]!.fields.length],
+          ['address', start[1]!.fields.length],
+          ['extra', 0],
+          ['family_income', 2],
+        ]),
+      { timeout: 4000 },
+    );
+  }, 30_000);
+
+  it('has nothing to undo or redo when the form opens', async () => {
+    api();
+    open();
+    await outlineOf('মৌলিক তথ্য');
+    expect(undoButton()).toBeDisabled();
+    expect(redoButton()).toBeDisabled();
+  });
+
+  it('keeps the steps when the saved draft comes back, and saves the undone draft on its version', async () => {
+    const user = userEvent.setup();
+    api();
+    open();
+    await addSection(user, 'পরিবার ও আয়');
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    await screen.findByText('সংরক্ষিত');
+    // the save is one change, not a second step
+    await user.click(undoButton());
+    await waitFor(() =>
+      expect(screen.queryByRole('list', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument(),
+    );
+    expect(undoButton()).toBeDisabled();
+    expect(redoButton()).toBeEnabled();
+    await waitFor(() => expect(saves).toHaveLength(2), { timeout: 4000 });
+    expect(saves[1]!.ifMatch).toBe('"v2"');
+    expect(saves[1]!.body.sections.map((s) => s.key)).toEqual(['basic_info', 'address']);
+  }, 20_000);
+
+  it('undoes and redoes by the keyboard from the canvas, and leaves a text field its own undo', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য কপি করুন' }));
+    const copyButton = () => screen.queryByRole('button', { name: 'মন্তব্য (কপি) বদলান' });
+    await waitFor(() => expect(copyButton()).toBeInTheDocument());
+    // the focus on a question of the canvas
+    copyButton()!.focus();
+    await user.keyboard('{Control>}z{/Control}');
+    await waitFor(() => expect(copyButton()).not.toBeInTheDocument());
+    await user.keyboard('{Control>}y{/Control}');
+    await waitFor(() => expect(copyButton()).toBeInTheDocument());
+    await user.keyboard('{Control>}z{/Control}');
+    await waitFor(() => expect(copyButton()).not.toBeInTheDocument());
+    await user.keyboard('{Control>}{Shift>}z{/Shift}{/Control}');
+    await waitFor(() => expect(copyButton()).toBeInTheDocument());
+    // in a text field the keys are the field's own: the draft's steps stay as they are
+    const label = screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
+    await user.click(label);
+    await user.keyboard('{Control>}z{/Control}');
+    await user.keyboard('{Control>}y{/Control}');
+    expect(copyButton()).toBeInTheDocument();
+    expect(undoButton()).toBeEnabled();
+    expect(redoButton()).toBeDisabled();
+  }, 20_000);
 
   it('adds one library question to the chosen section and marks it as in the form', async () => {
     const user = userEvent.setup();
@@ -692,13 +781,26 @@ describe('saving', () => {
 
   it('reloads the draft when someone else changed it', async () => {
     const user = userEvent.setup();
-    api({ patch: () => apiError(412, 'conflict.stale_version', 'অন্য কেউ বদলেছেন।') });
+    api({
+      patch: () => {
+        // the other person's save moved the version on
+        etagNo += 1;
+        return apiError(412, 'conflict.stale_version', 'অন্য কেউ বদলেছেন।');
+      },
+    });
     open();
     await addSection(user, 'পরিবার ও আয়');
+    expect(undoButton()).toBeEnabled();
     expect(
       await screen.findByText(/অন্য কেউ এই খসড়া বদলেছেন/, {}, { timeout: 4000 }),
     ).toBeInTheDocument();
     await waitFor(() => expect(versionReads).toBeGreaterThan(1));
+    // their draft is on screen now, and no step of this one leads back over it
+    await waitFor(() =>
+      expect(screen.queryByRole('list', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument(),
+    );
+    expect(undoButton()).toBeDisabled();
+    expect(redoButton()).toBeDisabled();
   }, 15_000);
 
   it('saves a question whose English text is emptied, and still names it by its Bengali text on the canvas and in a condition', async () => {
@@ -768,6 +870,8 @@ describe('who may change what', () => {
     expect(await screen.findByText('সংস্করণ 1: প্রকাশিত')).toBeInTheDocument();
     expect(screen.getByText('এই সংস্করণ প্রকাশিত; বদলানো যায় না।')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'ফিরিয়ে আনুন' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'আবার করুন' })).not.toBeInTheDocument();
   });
 
   it('shows the outline read-only to a role that does not build forms', async () => {
@@ -803,6 +907,7 @@ describe('who may change what', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /নিচে নিন$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'ফিরিয়ে আনুন' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'ধরন বদলান' }));
     const label = screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
     await user.clear(label);

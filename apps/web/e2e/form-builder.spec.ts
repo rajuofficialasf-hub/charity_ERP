@@ -40,6 +40,23 @@ async function mark(page: Page, role: string) {
   await expect(page.locator('main').getByText(`পরিচয়: ${tag}`).first()).toBeVisible();
 }
 
+/**
+ * A new ready form for beneficiary applications, empty, open in the builder. Its key comes from
+ * the English name and the moment it is made, so tests that start together give different names.
+ */
+async function newReadyForm(page: Page, title: string, english: string) {
+  await page.goto('/admin/ready-forms');
+  await page.getByRole('button', { name: 'নতুন তৈরি ফর্ম' }).click();
+  const create = page.getByRole('dialog', { name: 'নতুন তৈরি ফর্ম' });
+  await create.getByRole('textbox', { name: /ফর্মের নাম \(বাংলা\)/ }).fill(title);
+  await create.getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ }).fill(english);
+  await expect(create.getByRole('radio', { name: 'উপকারভোগীর আবেদন' })).toBeChecked();
+  await create.getByRole('button', { name: 'তৈরি করুন' }).click();
+  await expect(page).toHaveURL(/\/admin\/ready-forms\/[0-9a-f-]{36}$/);
+  await expect(page.getByTestId('form-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
+  await expect(page.getByTestId('form-head').getByText('1টি অংশ · 0টি প্রশ্ন')).toBeVisible();
+}
+
 test('the Monitoring Team builds a ready form, the PM places it, an applicant sends it, and version 2 follows', async ({
   page,
   browser,
@@ -52,20 +69,9 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
 
   // the Monitoring Team: a new ready form for beneficiary applications, empty
   await signIn(page, MONITORING);
-  await page.goto('/admin/ready-forms');
-  await page.getByRole('button', { name: 'নতুন তৈরি ফর্ম' }).click();
-  const create = page.getByRole('dialog', { name: 'নতুন তৈরি ফর্ম' });
   const title = `স্বাবলম্বী আবেদন ${code()}`;
-  await create.getByRole('textbox', { name: /ফর্মের নাম \(বাংলা\)/ }).fill(title);
-  await create
-    .getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ })
-    .fill('Self-reliance application');
-  await expect(create.getByRole('radio', { name: 'উপকারভোগীর আবেদন' })).toBeChecked();
-  await create.getByRole('button', { name: 'তৈরি করুন' }).click();
-  await expect(page).toHaveURL(/\/admin\/ready-forms\/[0-9a-f-]{36}$/);
+  await newReadyForm(page, title, 'Self-reliance application');
   const readyUrl = page.url();
-  await expect(page.getByTestId('form-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
-  await expect(page.getByTestId('form-head').getByText('1টি অংশ · 0টি প্রশ্ন')).toBeVisible();
 
   // the identity questions, written by the builder and marked one by one
   const identity: [string, [string, string], string, [string, string][]?][] = [
@@ -314,4 +320,52 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     await phone.close();
     await desk.close();
   }
+});
+
+test('a removed question comes back with the undo of the form head, and the draft saves', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'the builders work on a computer');
+  test.setTimeout(120_000);
+  await signIn(page, MONITORING);
+  await newReadyForm(page, `ফিরিয়ে আনা ${code()}`, `Undo check ${code()}`);
+  const head = page.getByTestId('form-head');
+  const undo = head.getByRole('button', { name: 'ফিরিয়ে আনুন' });
+  const redo = head.getByRole('button', { name: 'আবার করুন' });
+  await expect(undo).toBeDisabled();
+  await expect(redo).toBeDisabled();
+
+  await ownQuestion(page, 'অংশ 1', 'ছোট লেখা', ['পেশা', 'Occupation']);
+  await ownQuestion(page, 'অংশ 1', 'সংখ্যা', ['পরিবারের সদস্য', 'Family members']);
+  const first = page.getByRole('button', { name: 'পেশা বদলান' });
+  const second = page.getByRole('button', { name: 'পরিবারের সদস্য বদলান' });
+  await expect(head.getByText('1টি অংশ · 2টি প্রশ্ন')).toBeVisible();
+
+  // the question added last is the chosen one, so its bar is open
+  await page.getByRole('button', { name: 'পরিবারের সদস্য সরান' }).click();
+  await expect(second).toHaveCount(0);
+  await expect(
+    page.getByText(
+      '“পরিবারের সদস্য” সরানো হয়েছে। ফিরিয়ে আনতে উপরের “ফিরিয়ে আনুন” বোতামে চাপুন।',
+    ),
+  ).toBeVisible();
+  await undo.click();
+  await expect(second).toBeVisible();
+  await expect(first).toBeVisible();
+  await expect(redo).toBeEnabled();
+  await saved(page);
+
+  // the keys do the same from the canvas: the removal again, and back
+  await second.focus();
+  await page.keyboard.press('Control+y');
+  await expect(second).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect(second).toBeVisible();
+  await saved(page);
+
+  // what was saved is the form with both questions
+  await page.reload();
+  await expect(head.getByText('1টি অংশ · 2টি প্রশ্ন')).toBeVisible();
+  await expect(second).toBeVisible();
+  await expect(undo).toBeDisabled();
 });

@@ -10,6 +10,15 @@
   align-items: center;
   gap: var(--space-2);
 }
+/* undo and redo beside the save state; the redo arrow is the undo arrow turned to the right */
+.fb-history {
+  display: inline-flex;
+  align-items: center;
+}
+.fb-history-redo {
+  display: inline-flex;
+  transform: scaleX(-1);
+}
 .fb-panes {
   display: grid;
   gap: var(--space-4);
