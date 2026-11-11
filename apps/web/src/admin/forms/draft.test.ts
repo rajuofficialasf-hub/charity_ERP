@@ -13,11 +13,15 @@ import {
   moveSection,
   setOptions,
   removeField,
+  removeFieldWithUses,
   removeSection,
+  removeSectionWithUses,
   setSectionCondition,
   setIdentityRole,
   setSectionVisibility,
   updateField,
+  usesOf,
+  usesOfSection,
 } from './draft';
 
 const valid = (def: Parameters<typeof formDefinitionSchema.parse>[0]) =>
@@ -515,5 +519,329 @@ describe('a new empty section', () => {
     // a number already taken is skipped
     expect(addEmptySection(made.definition, title).key).toBe('section_4');
     expect(addEmptySection({ sections: [] }, title).key).toBe('section_1');
+  });
+});
+
+describe('a row question of a repeat group', () => {
+  const grouped = () =>
+    definition(
+      section('family', [
+        field('before', 'number'),
+        field('members', 'repeat_group'),
+        field('m_name', 'short_text', {
+          label: T('সদস্যের নাম', 'Member name'),
+          standardColumn: 'name',
+          settings: { repeat: { group: 'members' }, validation: { max_length: 80 } },
+        }),
+        field('m_age', 'number', { settings: { repeat: { group: 'members' } } }),
+        field('after', 'number'),
+      ]),
+    );
+  const mark = { bn: '(কপি)', en: '(copy)' };
+  const familyKeys = (def: ReturnType<typeof definition>) =>
+    def.sections[2]!.fields.map((f) => f.fieldKey);
+
+  it('is removed on its own: the group and its other rows stay', () => {
+    const next = removeField(grouped(), 'm_name');
+    expect(familyKeys(next)).toEqual(['before', 'members', 'm_age', 'after']);
+    valid(next);
+    // the last row question goes too, and the group stays, empty
+    const empty = removeField(next, 'm_age');
+    expect(familyKeys(empty)).toEqual(['before', 'members', 'after']);
+    valid(empty);
+  });
+
+  it('is copied right after itself inside the group, with a key of its own', () => {
+    const made = duplicateField(grouped(), 'm_name', mark);
+    expect(made.fieldKey).toBe('q_member_name_copy');
+    expect(familyKeys(made.definition)).toEqual([
+      'before',
+      'members',
+      'm_name',
+      'q_member_name_copy',
+      'm_age',
+      'after',
+    ]);
+    expect(made.definition.sections[2]!.fields[3]).toMatchObject({
+      label: { bn: 'সদস্যের নাম (কপি)', en: 'Member name (copy)' },
+      libraryFieldKey: null,
+      standardColumn: null,
+      settings: { repeat: { group: 'members' }, validation: { max_length: 80 } },
+    });
+    valid(made.definition);
+    // the last row question's copy stays inside the group, before the next plain question
+    const last = duplicateField(grouped(), 'm_age', mark);
+    expect(familyKeys(last.definition)).toEqual([
+      'before',
+      'members',
+      'm_name',
+      'm_age',
+      last.fieldKey,
+      'after',
+    ]);
+    valid(last.definition);
+    // a whole group is still not copied
+    expect(duplicateField(grouped(), 'members', mark).fieldKey).toBeNull();
+  });
+});
+
+describe('the uses of a question', () => {
+  type Def = ReturnType<typeof definition>;
+  const eq = (key: string, value: unknown = 'yes') => ({ field: key, op: 'eq' as const, value });
+  const yesNo = [option('yes'), option('no')];
+  /** A part with the question `source`, and a part after it with the questions the test gives. */
+  const using = (source: ReturnType<typeof field>, users: ReturnType<typeof field>[], more = {}) =>
+    definition(section('one', [source]), section('two', users, more));
+  const twoOf = (def: Def) => def.sections.find((s) => s.key === 'two')!;
+  const userOf = (def: Def, key = 'user') => twoOf(def).fields.find((f) => f.fieldKey === key)!;
+  /** The keys after the identity questions. */
+  const keys = (def: Def) => keysOf(def).slice(keysOf(definition()).length);
+
+  it('finds a show condition, and removing drops the condition with the question', () => {
+    const def = using(field('src', 'radio', { options: yesNo }), [
+      field('user', 'short_text', { logic: { show_if: eq('src') } }),
+      field('other', 'short_text', { logic: { show_if: eq('gender', 'female') } }),
+    ]);
+    valid(def);
+    expect(usesOf(def, 'src')).toEqual([
+      { kind: 'show_if', used: ['src'], section: 'two', field: 'user' },
+    ]);
+    const next = removeFieldWithUses(def, 'src');
+    expect(keys(next)).toEqual(['user', 'other']);
+    expect(userOf(next).logic).toBeUndefined();
+    // a condition on another question stays as it was
+    expect(userOf(next, 'other')).toBe(userOf(def, 'other'));
+    valid(next);
+  });
+
+  it('finds a required condition and a comparison with its answer; a group of conditions loses only that leaf', () => {
+    const def = using(field('src', 'number'), [
+      field('n', 'number'),
+      field('user', 'short_text', {
+        logic: {
+          required_if: { all: [eq('gender', 'female'), { any: [eq('src', 1)] }] },
+          show_if: { field: 'n', op: 'gt', value: { field: 'src' } },
+        },
+      }),
+      field('negated', 'short_text', {
+        logic: { show_if: { not: eq('src', 2) }, validation: { max_length: 20 } },
+      }),
+    ]);
+    valid(def);
+    expect(usesOf(def, 'src')).toEqual([
+      { kind: 'show_if', used: ['src'], section: 'two', field: 'user' },
+      { kind: 'required_if', used: ['src'], section: 'two', field: 'user' },
+      { kind: 'show_if', used: ['src'], section: 'two', field: 'negated' },
+    ]);
+    const next = removeFieldWithUses(def, 'src');
+    expect(userOf(next).logic).toEqual({ required_if: { all: [eq('gender', 'female')] } });
+    // the rest of a question's logic stays when its condition goes
+    expect(userOf(next, 'negated').logic).toEqual({ validation: { max_length: 20 } });
+    valid(next);
+  });
+
+  it("finds a part's condition, and removing leaves the part always shown", () => {
+    const def = using(field('src', 'radio', { options: yesNo }), [field('user', 'short_text')], {
+      condition: eq('src'),
+    });
+    valid(def);
+    expect(usesOf(def, 'src')).toEqual([
+      { kind: 'section_condition', used: ['src'], section: 'two' },
+    ]);
+    const next = removeFieldWithUses(def, 'src');
+    expect(twoOf(next).condition).toBeNull();
+    valid(next);
+  });
+
+  it('finds a calculation by a term, a branch condition and a table cell, and removing takes the rule and keeps the question', () => {
+    const term = using(field('src', 'number'), [
+      field('user', 'calculation', {
+        calculation: { expr: { op: 'add', args: [{ field: 'src' }, 1] }, round: 2 },
+      }),
+      field('branch', 'calculation', {
+        calculation: { expr: { if: [{ when: eq('src', 1), then: 1 }], else: 0 } },
+      }),
+      field('free', 'calculation', { calculation: { expr: { op: 'add', args: [1, 2] } } }),
+    ]);
+    valid(term);
+    expect(usesOf(term, 'src')).toEqual([
+      { kind: 'calculation', used: ['src'], section: 'two', field: 'user' },
+      { kind: 'calculation', used: ['src'], section: 'two', field: 'branch' },
+    ]);
+    const next = removeFieldWithUses(term, 'src');
+    expect(keys(next)).toEqual(['user', 'branch', 'free']);
+    expect(userOf(next).calculation).toBeUndefined();
+    expect(userOf(next, 'branch').calculation).toBeUndefined();
+    expect(userOf(next, 'free')).toBe(userOf(term, 'free'));
+    valid(next);
+
+    const cell = using(
+      field('src', 'number_table', {
+        settings: {
+          table: { rows: [{ key: 'r', label: T('র') }], cols: [{ key: 'c', label: T('ক') }] },
+        },
+      }),
+      [
+        field('user', 'calculation', {
+          calculation: { expr: { cell: { field: 'src', row: 'r', col: 'c' } } },
+        }),
+      ],
+    );
+    valid(cell);
+    expect(usesOf(cell, 'src')).toEqual([
+      { kind: 'calculation', used: ['src'], section: 'two', field: 'user' },
+    ]);
+    const cleared = removeFieldWithUses(cell, 'src');
+    expect(userOf(cleared).calculation).toBeUndefined();
+    valid(cleared);
+  });
+
+  it('finds the sum and the count of a group in a calculation, for the group and for its row question', () => {
+    const def = definition(
+      section('one', [
+        field('members', 'repeat_group'),
+        field('m_income', 'money', { settings: { repeat: { group: 'members' } } }),
+        field('m_earns', 'radio', {
+          options: yesNo,
+          settings: { repeat: { group: 'members' } },
+          logic: { show_if: { field: 'm_income', op: 'not_empty' } },
+        }),
+      ]),
+      section('two', [
+        field('total', 'calculation', {
+          calculation: { expr: { sum_repeat: { group: 'members', field: 'm_income' } } },
+        }),
+        field('earners', 'calculation', {
+          calculation: { expr: { count_rows: { group: 'members', where: eq('m_earns') } } },
+        }),
+        field('rows', 'calculation', {
+          calculation: { expr: { count_rows: { group: 'members' } } },
+        }),
+      ]),
+    );
+    valid(def);
+    // a row question: the other row question that reads it, and the sum over it
+    expect(usesOf(def, 'm_income')).toEqual([
+      { kind: 'show_if', used: ['m_income'], section: 'one', field: 'm_earns' },
+      { kind: 'calculation', used: ['m_income'], section: 'two', field: 'total' },
+    ]);
+    expect(usesOf(def, 'm_earns')).toEqual([
+      { kind: 'calculation', used: ['m_earns'], section: 'two', field: 'earners' },
+    ]);
+    const without = removeFieldWithUses(def, 'm_income');
+    expect(keys(without)).toEqual(['members', 'm_earns', 'total', 'earners', 'rows']);
+    expect(userOf(without, 'total').calculation).toBeUndefined();
+    expect(userOf(without, 'earners').calculation).toBeDefined();
+    valid(without);
+    // the group goes with its row questions: what reads any of them is a use, a row question
+    // reading another row question of the same group is not
+    expect(usesOf(def, 'members')).toEqual([
+      { kind: 'calculation', used: ['members', 'm_income'], section: 'two', field: 'total' },
+      { kind: 'calculation', used: ['members', 'm_earns'], section: 'two', field: 'earners' },
+      { kind: 'calculation', used: ['members'], section: 'two', field: 'rows' },
+    ]);
+    const gone = removeFieldWithUses(def, 'members');
+    expect(keys(gone)).toEqual(['total', 'earners', 'rows']);
+    for (const key of ['total', 'earners', 'rows'])
+      expect(userOf(gone, key).calculation).toBeUndefined();
+    valid(gone);
+  });
+
+  it("finds the question a group's rows are counted from, and removing unsets it", () => {
+    const def = using(field('src', 'number', { settings: { validation: { min: 0, max: 5 } } }), [
+      field('user', 'repeat_group', { settings: { repeat: { count_from: 'src', max_rows: 5 } } }),
+    ]);
+    valid(def);
+    expect(usesOf(def, 'src')).toEqual([
+      { kind: 'count_from', used: ['src'], section: 'two', field: 'user' },
+    ]);
+    const next = removeFieldWithUses(def, 'src');
+    expect(userOf(next).settings).toEqual({ repeat: { max_rows: 5 } });
+    valid(next);
+  });
+
+  it('finds the options that follow its answer, and removing frees them', () => {
+    const def = using(field('src', 'radio', { options: yesNo }), [
+      field('user', 'single_select', {
+        logic: { options_depend_on: 'src' },
+        options: [option('a', { dependsOnOptionCode: 'yes' }), option('b')],
+      }),
+    ]);
+    valid(def);
+    expect(usesOf(def, 'src')).toEqual([
+      { kind: 'options_depend_on', used: ['src'], section: 'two', field: 'user' },
+    ]);
+    const next = removeFieldWithUses(def, 'src');
+    expect(userOf(next).logic).toBeUndefined();
+    expect(userOf(next).options!.map((o) => o.dependsOnOptionCode)).toEqual([null, null]);
+    valid(next);
+  });
+
+  it('finds its answer inserted in a label or a help text, and removing takes it out of the text', () => {
+    const def = using(field('src', 'number'), [
+      field('user', 'short_text', {
+        label: T('{{src|কয়েকটি}} গরুর জন্য কত টাকা?', 'How much for {{src}} cows?'),
+      }),
+      field('helped', 'short_text', {
+        label: T('{{name}} কী চান?', 'What does {{name}} want?'),
+        settings: { help: T('আগে বলেছেন {{src}}টি', 'You said {{src}} before') },
+      }),
+    ]);
+    valid(def);
+    expect(usesOf(def, 'src')).toEqual([
+      { kind: 'pipe', used: ['src'], section: 'two', field: 'user' },
+      { kind: 'pipe', used: ['src'], section: 'two', field: 'helped' },
+    ]);
+    const next = removeFieldWithUses(def, 'src');
+    expect(userOf(next).label).toEqual(T('গরুর জন্য কত টাকা?', 'How much for cows?'));
+    // another question's inserted answer stays in the text
+    expect(userOf(next, 'helped').label).toEqual(userOf(def, 'helped').label);
+    expect(userOf(next, 'helped').settings!.help).toEqual(T('আগে বলেছেন টি', 'You said before'));
+    valid(next);
+  });
+
+  it('names nothing for a question nothing reads, and removes it as before', () => {
+    const def = using(field('src', 'number', { logic: { show_if: eq('gender', 'female') } }), [
+      field('user', 'short_text', { logic: { show_if: eq('gender', 'female') } }),
+    ]);
+    expect(usesOf(def, 'src')).toEqual([]);
+    expect(usesOf(def, 'no_such_question')).toEqual([]);
+    expect(removeFieldWithUses(def, 'src')).toEqual(removeField(def, 'src'));
+    expect(removeFieldWithUses(def, 'no_such_question')).toBe(def);
+  });
+
+  it('names for a part only the uses from outside it, and removing the part cleans them', () => {
+    const def = definition(
+      section('one', [
+        field('src', 'radio', { options: yesNo }),
+        field('n', 'number'),
+        // inside the part: goes with it, and is no use to name
+        field('inner', 'short_text', { logic: { show_if: eq('src') } }),
+      ]),
+      section('two', [
+        field('user', 'short_text', { logic: { show_if: eq('src') } }),
+        field('sum', 'calculation', {
+          calculation: { expr: { op: 'add', args: [{ field: 'n' }, 1] } },
+        }),
+      ]),
+      section('three', [field('last', 'short_text')], { condition: eq('src', 'no') }),
+    );
+    valid(def);
+    expect(usesOfSection(def, 'one')).toEqual([
+      { kind: 'show_if', used: ['src'], section: 'two', field: 'user' },
+      { kind: 'calculation', used: ['n'], section: 'two', field: 'sum' },
+      { kind: 'section_condition', used: ['src'], section: 'three' },
+    ]);
+    // a part nothing outside reads, and one the form does not have
+    expect(usesOfSection(def, 'three')).toEqual([]);
+    expect(usesOfSection(def, 'no_such_part')).toEqual([]);
+    const next = removeSectionWithUses(def, 'one');
+    expect(next.sections.map((s) => s.key)).toEqual(['basic_info', 'address', 'two', 'three']);
+    expect(userOf(next).logic).toBeUndefined();
+    expect(userOf(next, 'sum').calculation).toBeUndefined();
+    expect(next.sections.at(-1)!.condition).toBeNull();
+    valid(next);
+    expect(removeSectionWithUses(def, 'three')).toEqual(removeSection(def, 'three'));
+    expect(removeSectionWithUses(def, 'no_such_part')).toBe(def);
   });
 });

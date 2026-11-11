@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { definitionWith, field, option, T, TODAY } from '../../test/forms-fixture.js';
-import { answerTexts, evaluate, pipeKeys, pipeText, type Answer } from './index.js';
+import { answerTexts, evaluate, pipeKeys, pipeText, pipeWithout, type Answer } from './index.js';
 
 // A question's text may repeat an earlier answer: in the reader's language, as plain text, with a
 // fallback while the answer is empty.
@@ -127,5 +127,11 @@ describe('an earlier answer in a question’s text', () => {
 
   it('lists the keys a text names', () => {
     expect(pipeKeys('{{a}} and {{b|x}}, not {c} or {{Bad}}')).toEqual(['a', 'b']);
+  });
+
+  it('takes the tokens of the named keys out of a text and leaves the rest as written', () => {
+    const gone = (key: string) => key === 'a';
+    expect(pipeWithout('{{a}} and {{b|x}}, then {{a|none}}.', gone)).toBe(' and {{b|x}}, then .');
+    expect(pipeWithout('{{b}} {a} {{Bad}} {{a_b}}', gone)).toBe('{{b}} {a} {{Bad}} {{a_b}}');
   });
 });

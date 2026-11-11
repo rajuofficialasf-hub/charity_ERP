@@ -32,3 +32,11 @@ export function pipeText(text: string, read: (key: string) => string | null): st
     return found ? (read(found.key) ?? found.fallback ?? '') : whole;
   });
 }
+
+/** The text without the tokens of the keys `gone` names; every other token stays as written. */
+export function pipeWithout(text: string, gone: (key: string) => boolean): string {
+  return text.replace(BRACES, (whole, inside: string) => {
+    const found = token(inside);
+    return found && gone(found.key) ? '' : whole;
+  });
+}

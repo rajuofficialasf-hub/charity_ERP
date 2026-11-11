@@ -1,7 +1,9 @@
-import type { Condition } from '@css/shared';
+import { type Condition, isFieldRef } from '@css/shared';
 import {
+  conditionFields,
   CORE_FIELDS,
   type CoreFieldKey,
+  exprReferences,
   type FieldOption,
   type FieldType,
   type FormDefinition,
@@ -11,6 +13,8 @@ import {
   emptySection,
   identityRoleOf,
   isChoiceType,
+  pipeKeys,
+  pipeWithout,
 } from '@css/shared/forms';
 import type { LibrarySectionView } from '../../api/schemas';
 
@@ -273,6 +277,233 @@ export function removeSection(def: FormDefinition, key: string): FormDefinition 
   return { sections: def.sections.filter((s) => s.key !== key) };
 }
 
+/** How another place of the form reads a question's answer. */
+export type UseKind =
+  | 'show_if'
+  | 'required_if'
+  | 'section_condition'
+  | 'calculation'
+  | 'count_from'
+  | 'options_depend_on'
+  | 'pipe';
+
+/** One place that reads a question about to be removed. */
+export interface FieldUse {
+  kind: UseKind;
+  /** The removed questions it reads: the question asked about, a group's row questions with it. */
+  used: string[];
+  /** The part it is in; the part's own condition when no question is named. */
+  section: string;
+  field?: string;
+}
+
+/** The kinds of use a question makes of others, in the order they are named. */
+const FIELD_USES = [
+  'show_if',
+  'required_if',
+  'calculation',
+  'count_from',
+  'options_depend_on',
+  'pipe',
+] as const satisfies readonly UseKind[];
+
+/** The texts of a question that may repeat an earlier answer. */
+const pipedTexts = (field: FormField) => [
+  field.label.bn,
+  field.label.en,
+  field.settings?.help?.bn ?? '',
+  field.settings?.help?.en ?? '',
+];
+
+/** Every question a calculation reads: its terms, table cells, branch conditions, sums and counts. */
+function calculationKeys(field: FormField): string[] {
+  if (!field.calculation) return [];
+  const refs = exprReferences(field.calculation.expr);
+  return [
+    ...refs.fields,
+    ...refs.sums.flatMap((sum) => [sum.group, sum.field]),
+    ...refs.counts.flatMap((count) => [
+      count.group,
+      ...(count.where ? conditionFields(count.where) : []),
+    ]),
+  ];
+}
+
+/** The questions a question reads, by the kind of use. */
+function readBy(field: FormField, kind: (typeof FIELD_USES)[number]): string[] {
+  const one = (key: string | undefined) => (key === undefined ? [] : [key]);
+  switch (kind) {
+    case 'show_if':
+      return field.logic?.show_if ? conditionFields(field.logic.show_if) : [];
+    case 'required_if':
+      return field.logic?.required_if ? conditionFields(field.logic.required_if) : [];
+    case 'calculation':
+      return calculationKeys(field);
+    case 'count_from':
+      return one(field.settings?.repeat?.count_from);
+    case 'options_depend_on':
+      return one(field.logic?.options_depend_on);
+    case 'pipe':
+      return pipedTexts(field).flatMap(pipeKeys);
+  }
+}
+
+/** The places left in the form that read one of the questions `gone` names, in form order. */
+function usesOfKeys(def: FormDefinition, gone: ReadonlySet<string>, goneSection?: string) {
+  const uses: FieldUse[] = [];
+  for (const section of def.sections) {
+    if (section.key === goneSection) continue;
+    const note = (kind: UseKind, read: string[], field?: string) => {
+      const used = [...new Set(read)].filter((key) => gone.has(key));
+      if (used.length)
+        uses.push({ kind, used, section: section.key, ...(field === undefined ? {} : { field }) });
+    };
+    if (section.condition) note('section_condition', conditionFields(section.condition));
+    for (const field of section.fields) {
+      if (gone.has(field.fieldKey)) continue;
+      for (const kind of FIELD_USES) note(kind, readBy(field, kind), field.fieldKey);
+    }
+  }
+  return uses;
+}
+
+/** The keys that go when a question is removed: its own, and a repeat group's row questions. */
+function removedWith(def: FormDefinition, fieldKey: string): Set<string> {
+  return new Set(
+    def.sections
+      .flatMap((s) => s.fields)
+      .filter((f) => f.fieldKey === fieldKey || groupOf(f) === fieldKey)
+      .map((f) => f.fieldKey),
+  );
+}
+
+const sectionKeys = (def: FormDefinition, key: string) =>
+  new Set(def.sections.find((s) => s.key === key)?.fields.map((f) => f.fieldKey));
+
+/**
+ * Where the rest of the form reads a question: a show or required condition, a part's condition,
+ * a calculation (a term, a table cell, a branch's condition, a sum or a count of rows), the
+ * number of a group's rows, the options that follow its answer, and its answer repeated in a
+ * label or a help text. A repeat group is asked about together with its row questions, which go
+ * with it; what they read among themselves is not a use.
+ */
+export function usesOf(def: FormDefinition, fieldKey: string): FieldUse[] {
+  return usesOfKeys(def, removedWith(def, fieldKey));
+}
+
+/** Where the other parts of the form read the questions of a part. */
+export function usesOfSection(def: FormDefinition, key: string): FieldUse[] {
+  return usesOfKeys(def, sectionKeys(def, key), key);
+}
+
+/** A condition without the comparisons that read a removed question; null when none is left. */
+function pruned(condition: Condition, gone: ReadonlySet<string>): Condition | null {
+  // the same list when nothing in it read a removed question
+  const kept = (list: Condition[]) => {
+    let changed = false;
+    const next = list.flatMap((c) => {
+      const left = pruned(c, gone);
+      if (left !== c) changed = true;
+      return left ? [left] : [];
+    });
+    return changed ? next : list;
+  };
+  if ('all' in condition) {
+    const all = kept(condition.all);
+    return all === condition.all ? condition : all.length ? { all } : null;
+  }
+  if ('any' in condition) {
+    const any = kept(condition.any);
+    return any === condition.any ? condition : any.length ? { any } : null;
+  }
+  if ('not' in condition) {
+    const not = pruned(condition.not, gone);
+    return not === condition.not ? condition : not ? { not } : null;
+  }
+  const reads = isFieldRef(condition.value)
+    ? [condition.field, condition.value.field]
+    : [condition.field];
+  return reads.some((key) => gone.has(key)) ? null : condition;
+}
+
+/** A text without the removed questions' answers in it, the gap they leave closed. */
+function unpiped(text: string, gone: ReadonlySet<string>): string {
+  const next = pipeWithout(text, (key) => gone.has(key));
+  return next === text ? text : next.replace(/\s{2,}/g, ' ').trim();
+}
+
+/** A question that no longer reads the removed ones; the same object when it read none. */
+function withoutUses(field: FormField, gone: ReadonlySet<string>): FormField {
+  if (!FIELD_USES.some((kind) => readBy(field, kind).some((key) => gone.has(key)))) return field;
+  const next: FormField = { ...field };
+  const { show_if: showIf, required_if: requiredIf, ...rest } = field.logic ?? {};
+  const logic: NonNullable<FormField['logic']> = rest;
+  const show = showIf ? pruned(showIf, gone) : null;
+  if (show) logic.show_if = show;
+  const required = requiredIf ? pruned(requiredIf, gone) : null;
+  if (required) logic.required_if = required;
+  if (logic.options_depend_on !== undefined && gone.has(logic.options_depend_on)) {
+    delete logic.options_depend_on;
+    // an option follows an answer of the question that is gone, so it follows none
+    next.options = (field.options ?? []).map((o) =>
+      o.dependsOnOptionCode ? { ...o, dependsOnOptionCode: null } : o,
+    );
+  }
+  if (Object.keys(logic).length) next.logic = logic;
+  else delete next.logic;
+  // the rule goes whole: half a sum would be a wrong answer, and the publish check asks for a rule
+  if (calculationKeys(field).some((key) => gone.has(key))) delete next.calculation;
+  const repeat = field.settings?.repeat;
+  if (repeat?.count_from !== undefined && gone.has(repeat.count_from)) {
+    const { count_from: _source, ...rows } = repeat;
+    next.settings = { ...next.settings, repeat: rows };
+  }
+  next.label = { bn: unpiped(field.label.bn, gone), en: unpiped(field.label.en, gone) };
+  const help = next.settings?.help;
+  if (help)
+    next.settings = {
+      ...next.settings,
+      help: { bn: unpiped(help.bn, gone), en: unpiped(help.en, gone) },
+    };
+  return next;
+}
+
+/** The form without what read the removed questions, so the draft names nothing that is gone. */
+function cleaned(def: FormDefinition, gone: ReadonlySet<string>): FormDefinition {
+  return {
+    ...def,
+    sections: def.sections.map((section) => {
+      const condition = section.condition ? pruned(section.condition, gone) : section.condition;
+      let changed = condition !== section.condition;
+      const fields = section.fields.map((f) => {
+        const next = withoutUses(f, gone);
+        if (next !== f) changed = true;
+        return next;
+      });
+      return changed ? { ...section, condition, fields } : section;
+    }),
+  };
+}
+
+/**
+ * Removes a question (a repeat group with its row questions) together with every use `usesOf`
+ * names: a condition that read only it goes, a group of conditions loses that comparison, a
+ * calculation that read it loses its rule (the question stays, and publishing asks for a rule),
+ * a group's rows follow no question, options that followed its answer always show, and its answer
+ * is taken out of the texts it was repeated in. A question nothing reads is removed as by
+ * `removeField`.
+ */
+export function removeFieldWithUses(def: FormDefinition, fieldKey: string): FormDefinition {
+  const next = removeField(def, fieldKey);
+  return next === def ? def : cleaned(next, removedWith(def, fieldKey));
+}
+
+/** Removes a part with its questions and every use of them in the other parts. */
+export function removeSectionWithUses(def: FormDefinition, key: string): FormDefinition {
+  const next = removeSection(def, key);
+  return next === def ? def : cleaned(next, sectionKeys(def, key));
+}
+
 /** A section that holds an identity question stays visible to everyone. */
 export function setSectionVisibility(
   def: FormDefinition,
@@ -396,7 +627,8 @@ export function moveFieldTo(
 /**
  * Copies a question right after itself as one of the project's own, with the label marked as a
  * copy in both languages and a key of its own; its options, settings, logic and calculation come
- * along; the copy carries no identity mark. A repeat group and a member of one are not copied.
+ * along; the copy carries no identity mark. A row question of a repeat group is copied inside its
+ * group; a whole repeat group is not copied.
  */
 export function duplicateField(
   def: FormDefinition,
@@ -406,8 +638,7 @@ export function duplicateField(
   const section = def.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
   const field = section?.fields.find((f) => f.fieldKey === fieldKey);
   if (!section || !field) return { definition: def, fieldKey: null };
-  if (field.type === 'repeat_group' || groupOf(field) !== undefined)
-    return { definition: def, fieldKey: null };
+  if (field.type === 'repeat_group') return { definition: def, fieldKey: null };
   const label = { bn: `${field.label.bn} ${mark.bn}`, en: `${field.label.en} ${mark.en}` };
   const key = ownQuestionKey(def, label.en);
   const copy: FormField = {
