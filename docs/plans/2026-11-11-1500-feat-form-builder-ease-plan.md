@@ -4,6 +4,7 @@ type: feat
 status: ready
 source: plan
 date: 2026-11-11
+doc_review: 2026-11-11
 ---
 
 # An easier form builder
@@ -49,12 +50,14 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 
 ## Technical decisions
 - **Stack profile** (ST-40 to ST-45): unchanged. No new dependency: `@dnd-kit` (already in the builder's chunk), react-hook-form and zod are in place. The builder stays a lazy chunk; the first route's budget (400 KB, D-154) is checked, not expected to move.
+- **One validator, one stored shape**: `packages/shared/src/forms/definition.ts` validates the draft save and the publish; `packages/shared/src/jsonb/form-logic.ts` holds the looser shape of the stored columns (its table and result labels are optional already). U2 confirms which schema reads a stored definition back and pins the two together with a test, so a draft the save accepted is always readable.
 - **Leniency lives in the shared engine** (ST-07: the backend's schema is the source of truth): `label()` of `packages/shared/src/forms/definition.ts` accepts empty strings; `checkDefinition(..., { publishing: true })` reports `form.label_language` (the existing code and message) for every text missing a language, with the path of its place. Reference checks, cycles and key rules stay strict in drafts. Published versions are complete already and immutable, so no migration and no change to stored data.
-- **Fallback when reading a draft**: every place that prints a form text uses `localized()` of `@css/shared/i18n` (it already falls back to the other language); the answering screens only ever show published versions.
+- **Fallback when reading a draft**: no applicant path reads a draft: the public link, the creation of an application, the exports and the answer list take published (or retired) versions only, whose texts are complete. A draft is drawn only in the builder (the canvas, the preview, the sentences, the change summary, the lists), and those print a text with `localized()` of `@css/shared/i18n`, which already falls back to the other language. The answering screens need no change.
 - **History without an API change**: the draft is one immutable object and every edit goes through `change()` of `FormBuilderPage.tsx`, and a save sends the whole definition, so undo is "set the earlier draft and schedule a save". A new hook `use-draft-history.ts` keeps past and future stacks of `{ definition, selection }` (capped at 100), merges changes under a second apart with the same selection, ignores the server's echo after a save, and empties on a version switch or a stale reload.
+- **A key never comes from a text**: today a question's key is a slug of its English label (`draft.ts`), and an option's code is made beside it; with English optional at creation a key would become `q`, `q_2`. From U7 a new or copied question takes `q_` plus six random letters and digits, from U9 a new option takes its code the same way: unique in the form, never shown, never reused for another question in a later version (exports match questions across versions by key). Existing keys stay as they are.
 - **Uses of a question are pure data**: `usesOf(definition, fieldKey)` and `removeFieldWithUses` join the pure edits of `draft.ts`, tested like the rest.
 - **Identity questions come from the library** (`GET /form-library`, seeded in `apps/api/seed/sets/base/forms.ts`): the one click adds the library's question of each missing identity role, so their texts are the department's own and bilingual; a role the library lacks is added as an empty question of the right type with its mark, to be worded by the user.
-- **Problems are computed, not remembered**: the publish list is `checkDefinition(draft, { publishing: true, kind })` on every render (pure, shared with the server), joined with the last refusal of the server; nothing is wiped by an edit, an entry leaves when its cause does.
+- **Problems are computed, not remembered**: the publish list is `checkDefinition(draft, { publishing: true, kind })`, memoised on the draft object (pure, shared with the server), joined with the last refusal of the server; nothing is wiped by an edit, an entry leaves when its cause does.
 - **Design inside the asf system** (D-150, RE-UI-01 to RE-UI-05): pages import only `@/ui`; layout in `builder.css` on the page tokens; no new colour; the axe sweep and the 360 px rule keep passing. Bengali and English copy goes through `ae-bangla-copy`.
 - **Tests first where behaviour changes** (TS-24): `draft.test.ts`, `builder.test.tsx`, `settings.test.tsx`, `versions.test.tsx` and the E2E helper `apps/web/e2e/support/forms.ts` (`ownQuestion`) cover today's flows; they are updated, not duplicated.
 
@@ -76,11 +79,11 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 ### U2. Drafts save incomplete; publishing demands every text
 - **Goal:** the engine and the API accept a draft with missing texts and refuse a publish with any.
 - **Requirements:** R2
-- **Files:** `packages/shared/src/forms/definition.ts` (+ `definition.test.ts`), `packages/shared/src/jsonb/` (the stored definition's schema, if it repeats the rule), `apps/api/src/services/forms.ts`, `ready-forms.ts`, `form-library.ts` (draft save and publish paths), `apps/api/test/integration/forms*.test.ts`, `docs/api/openapi.yaml` and the route schemas of `apps/api/src/routes/forms.ts` if they state a minimum length, `apps/web/src/admin/forms/{sentences.ts,diff.ts,form-summary.ts,candidates.ts}` and `apps/web/src/features/forms/` where a text is printed without `localized()`, `docs/architecture/` or `docs/api/API_STANDARDS.md` where the draft rule is described
+- **Files:** `packages/shared/src/forms/definition.ts` (+ `definition.test.ts`), `packages/shared/src/jsonb/` (the stored definition's schema, if it repeats the rule), `apps/api/src/services/forms.ts`, `ready-forms.ts`, `form-library.ts` (draft save and publish paths), `apps/api/test/integration/forms*.test.ts`, the readers of form texts on the API side (`apps/api/src/exports/{questions.ts,service.ts,pdf/application.ts}`, `apps/api/src/jobs/export-run.ts`, `apps/api/src/applications/{submission.ts,service.ts}`: read only, see the test below), `packages/shared/src/i18n/messages/{bn,en}/errors.json` (the message of `form.label_language` no longer says "label"), `docs/api/openapi.yaml` and the route schemas of `apps/api/src/routes/forms.ts` if they state a minimum length, `apps/web/src/admin/forms/{sentences.ts,diff.ts,form-summary.ts,candidates.ts}` and `apps/web/src/features/forms/` where a text is printed without `localized()`, `docs/architecture/` or `docs/api/API_STANDARDS.md` where the draft rule is described
 - **Approach:** `calculation_missing` is already a publish-only check in `checkDefinition`; texts follow it. Example of the fallback: `localized()` in `packages/shared/src/i18n/bilingual.ts`.
 - **Tests:**
   - unit: a draft with an empty English label, an empty option, a one-language help text and an empty part title passes `formDefinitionSchema`; `checkDefinition(publishing)` reports `form.label_language` with the path of each (label, help, option, part title, table row and column, calculation result); a text of only spaces counts as missing; a dangling reference is still refused in a draft.
-  - integration: `PATCH /form-versions/{id}` with an empty English label answers 200 and stores it; `POST …/publish` answers 422 with a detail per missing text; a complete form publishes as before; another program's PM is still refused (403) on both; the OpenAPI drift test and the contract recorder pass.
+  - integration: `PATCH /form-versions/{id}` with an empty English label answers 200 and stores it; `POST …/publish` answers 422 with a detail per missing text; a complete form publishes as before; another program's PM is still refused (403) on both; a draft version is offered to no applicant path (the public link, the creation of an application and the export of questions answer as today for a form whose only version is a draft with missing texts); the OpenAPI drift test and the contract recorder pass.
   - existing: covered by `definition.test.ts`, the forms integration tests; updated, not duplicated.
 - **Done when:** the tests above pass; `pnpm --filter @css/api contract:coverage --no-run` stays complete.
 - **Depends on:** U1
@@ -107,8 +110,8 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 ### U4. Safe deleting
 - **Goal:** parts, row questions and used questions are deleted without surprises.
 - **Requirements:** R4
-- **Files:** `apps/web/src/admin/forms/{draft.ts,draft.test.ts,candidates.ts,FormCanvas.tsx,RepeatSettings.tsx,FormBuilderPage.tsx}`, a small `UsesDialog.tsx` (new), `builder.test.tsx`, `forms.json`
-- **Approach:** the question bar of a head row (`FormCanvas.tsx`) is the example for the row question's bar; the dialog is the contract's `ConfirmDialog`.
+- **Files:** `apps/web/src/admin/forms/{draft.ts,draft.test.ts,candidates.ts,FormCanvas.tsx,RepeatSettings.tsx,FormBuilderPage.tsx}`, a small `UsesDialog.tsx` (new: the contract's `Dialog` with the list of uses in its body), `builder.test.tsx`, `forms.json`
+- **Approach:** the question bar of a head row (`FormCanvas.tsx`) is the example for the row question's bar; the dialogs of `admin/forms` (the contract's `Dialog` with its actions) are the example for `UsesDialog.tsx`.
 - **Tests:**
   - unit: `usesOf` finds a question used by a show condition, a required condition, a calculation, a count source, an options dependency and an inserted answer; `removeFieldWithUses` leaves a definition that passes the draft schema; removing a row question keeps the group.
   - component: deleting a part then "ফিরিয়ে আনুন" restores it with its questions; a row question has "সরান" and "কপি"; deleting a used question opens a dialog listing "যেখানে ব্যবহার হচ্ছে" with each question's name, and confirming removes both.
@@ -139,11 +142,11 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 - **Files:** `apps/web/src/admin/forms/PublishChecklist.tsx` (new), `FormBuilderPage.tsx`, `FormCanvas.tsx` (scroll to and select a question), `use-draft-save.ts` (`detailsOf` keeps every message of a path), `builder.test.tsx`, `forms.json`
 - **Approach:** `checkDefinition` is pure and exported; the messages are the errors catalogue's (`useTranslations('errors')`), as `lib/form-schema.ts` words them. The list is a popover under a button "প্রকাশের আগে ঠিক করুন (n)" beside Publish.
 - **Tests:**
-  - component: a form with a question without an English text and without its identity questions shows the button with its count; the list names each problem with its question; a click selects the question and scrolls it into view; fixing one lowers the count without pressing Publish; Publish with entries opens the list instead of the confirmation; with none it confirms and publishes; a refusal of the server not in the local list appears in it.
-  - e2e: `form-builder.spec.ts`: a new beneficiary form shows "প্রকাশের আগে ঠিক করুন" and the missing identity questions; after they are added and every text filled the button is gone and "প্রকাশ করুন" publishes.
+  - component: a form with a question without an English text and without its identity questions shows the button with its count; the list names each problem with its question and words it by its place ("প্রশ্নের ইংরেজি লেখা বাকি", "অপশনের ইংরেজি লেখা বাকি", "অংশের নাম বাকি"), not with the catalogue's one sentence; a click selects the question and scrolls it into view; fixing one lowers the count without pressing Publish; Publish with entries opens the list instead of the confirmation; with none it confirms and publishes; a refusal of the server not in the local list appears in it.
+  - e2e: `form-builder.spec.ts`: a new beneficiary form with one question typed in Bengali only shows "প্রকাশের আগে ঠিক করুন" with its count, the list names the missing identity questions and the missing English text, and a click on that line selects the question. (The journey goes on to add the identity questions in U8 and to fill the texts and publish in U10.)
   - existing: the publish cases of `builder.test.tsx` and `versions.test.tsx`; updated.
 - **Done when:** no publish refusal is shown only inside a question; the tests pass.
-- **Depends on:** U2
+- **Depends on:** U2, U5
 - **Size:** M
 - **Risk area:** none
 - **Status:** todo
@@ -152,14 +155,14 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 - **Goal:** a question is added in place with one click and moved by a button.
 - **Requirements:** R7
 - **Files:** `apps/web/src/admin/forms/{AddPane.tsx,FormCanvas.tsx,FormBuilderPage.tsx,SettingsPane.tsx,draft.ts,draft.test.ts,OwnQuestionDialog.tsx (removed),RowButtons.tsx}`, `builder.test.tsx`, `ready-forms.test.tsx`, `apps/web/e2e/support/forms.ts` (`ownQuestion`), `apps/web/e2e/{form-builder,form-logic}.spec.ts`, `forms.json`
-- **Approach:** `addOwnField` of `draft.ts` gains "after this question"; the type tiles of `AddPane.tsx` are reused in a menu (`@/ui` `Menu`) for "এখানে প্রশ্ন যোগ করুন"; the new question's Bengali text field takes focus (a ref handed to `SettingsPane`). The empty library says it is empty, not "no question by this name".
+- **Approach:** `addOwnQuestion` of `draft.ts` gains "after this question" and makes the key without the text (Technical decisions); the type tiles of `AddPane.tsx` are reused in a menu (`@/ui` `Menu`) for "এখানে প্রশ্ন যোগ করুন"; the new question's Bengali text field takes focus (a ref handed to `SettingsPane`). The empty library says it is empty, not "no question by this name".
 - **Tests:**
-  - unit: a question added with another selected lands right after it; with a part selected, at its end; into a repeat group's rows when a row is selected.
+  - unit: a question added with another selected lands right after it; with a part selected, at its end; into a repeat group's rows when a row is selected; a new and a copied question take a key of the form `q_` plus six letters or digits, different each time and never a slug of the text.
   - component: a click on "ছোট লেখা" adds a question with no dialog, selected, with focus in "প্রশ্নের লেখা (বাংলা)"; "এখানে প্রশ্ন যোগ করুন" opens the types and adds there; a library question added is selected; "অন্য অংশে নিন" lists the other parts and moves the question; an empty library says "লাইব্রেরিতে এখনো কোনো প্রশ্ন নেই".
   - e2e: `form-builder.spec.ts` at 1280 px: on a ready form, click "ছোট লেখা", type the Bengali text, the canvas shows it; click "অন্য অংশে নিন" → "অংশ 2", the question is under "অংশ 2". The existing journeys (build, publish, public link at 360 px; the demo form's logic) pass through the changed helper.
   - existing: the add cases of `builder.test.tsx`; the dialog's cases move to the inline flow.
 - **Done when:** `OwnQuestionDialog.tsx` is gone and nothing imports it; the tests pass.
-- **Depends on:** U2
+- **Depends on:** U2, U4
 - **Size:** L
 - **Risk area:** none
 - **Status:** todo
@@ -172,7 +175,7 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 - **Tests:**
   - unit: on an empty beneficiary form the edit adds one question per identity role, marked, from the library where it has one; roles already marked are not added twice; a form of the kind "other" gets nothing.
   - component: the button adds the questions, the list's identity line disappears, and one undo takes them all away.
-  - e2e: covered by U6's journey (the identity questions are added with this button).
+  - e2e: `form-builder.spec.ts`, the journey of U6 goes on: "পরিচয়ের প্রশ্নগুলো যোগ করুন" adds the questions and the identity line leaves the list.
   - existing: the identity cases of `settings.test.tsx`; kept.
 - **Done when:** a new beneficiary form reaches "no identity problem" in one click.
 - **Depends on:** U6
@@ -186,7 +189,7 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 - **Files:** `apps/web/src/admin/forms/{OptionsEditor.tsx,RowButtons.tsx,builder.css}`, `settings.test.tsx`, `forms.json`
 - **Approach:** the rows of `ConditionEditor.tsx` (one line, icon buttons with names) are the example; "other text" and "depends on" move into a row menu.
 - **Tests:**
-  - component: each option is one row with Bengali and English side by side; Enter in a row adds the next and focuses it; pasting three lines makes three options; "হ্যাঁ / না বসান" fills an empty list with the two in both languages; the icon buttons carry the option's name ("অপশন 2 সরান"); an option with only Bengali saves in a draft.
+  - component: each option is one row with Bengali and English side by side; Enter in a row adds the next and focuses it; pasting three lines makes three options; "হ্যাঁ / না বসান" fills an empty list with the two in both languages; the icon buttons carry the option's name ("অপশন 2 সরান"); an option with only Bengali saves in a draft; a new option's code does not come from its text.
   - existing: the options cases of `settings.test.tsx`; updated.
 - **Done when:** eight options fit one screen of the settings pane at 1280 px; the tests pass.
 - **Depends on:** U2
@@ -202,7 +205,7 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 - **Tests:**
   - unit: `textsOf` lists part titles, question texts, help texts, options, table rows and columns and calculation results with their paths; `setText` changes exactly one.
   - component: the header button "অনুবাদ" opens the table; the count of missing texts matches the list of U6; typing an English text fills it in the draft (one undo step per field); "শুধু বাকি" hides the complete rows; the list's "ইংরেজি লেখা বাকি" line opens the dialog.
-  - e2e: covered by U6's journey (the missing English texts are filled here).
+  - e2e: `form-builder.spec.ts`, the journey ends here: "অনুবাদ" opens the table, the missing English texts are typed, the button "প্রকাশের আগে ঠিক করুন" is gone and "প্রকাশ করুন" publishes version 1.
 - **Done when:** a form built in Bengali only becomes publishable from this one view.
 - **Depends on:** U2, U6
 - **Size:** M
@@ -253,7 +256,7 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 - **Status:** todo
 
 ### U14. A long form stays quick
-- **Goal:** typing in one question does not redraw the others.
+- **Goal:** typing in one question does not redraw the others (the review found no `memo` in the builder: a keystroke redraws every part, every question row and every real input of the canvas).
 - **Requirements:** R14
 - **Files:** `apps/web/src/admin/forms/{FormCanvas.tsx,FormBuilderPage.tsx}`, a render-count case in `builder.test.tsx`
 - **Approach:** `memo` on the part card and the question row with callbacks that take keys (the draft already shares structure and keys are stable).
@@ -261,7 +264,7 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
   - component: in a form of 100 questions, typing in one question's text renders that question's row once per keystroke and no other row (a render counter in the test).
   - existing: every canvas case of `builder.test.tsx` stays green.
 - **Done when:** the test passes.
-- **Depends on:** none
+- **Depends on:** U7, U12
 - **Size:** S
 - **Risk area:** none
 - **Status:** todo
@@ -300,4 +303,4 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 - **Next:** U2, drafts save incomplete; publishing demands every text
 - **Reviewed through:** none yet
 - **Uncommitted:** none
-- **Notes:** U1: the rule register already let a draft wait for its translations (BR-245, O-43); the form engine was stricter than the rule, so U2 brings the engine to the rule rather than changing it; the screen inventory is updated with the units that change the screen (U11, U13).
+- **Notes:** The plan review asked for: the real name of the add function, the statement that no applicant path reads a draft, the API-side readers of form texts named in U2 with a test, the E2E journey split across U6, U8 and U10 instead of U6 waiting for U8, a key that never comes from a text, the missing dependencies (U6 on U5, U7 on U4, U14 on U7 and U12), the publish list worded by place and memoised, and the one validator named; all are in the plan. Kept against its advice: U14 (the code review found the cause) and U10 (the owner accepted the translations view). U1: the rule register already let a draft wait for its translations (BR-245, O-43); the form engine was stricter than the rule, so U2 brings the engine to the rule rather than changing it; the screen inventory is updated with the units that change the screen (U11, U13).
