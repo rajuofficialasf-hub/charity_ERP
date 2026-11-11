@@ -302,7 +302,10 @@ function FieldSettingsView({
                 const token = ` {{${id}}}`;
                 patch({ label: { bn: field.label.bn + token, en: field.label.en + token } });
               }}
-              options={pipeSources.map((f) => ({ value: f.fieldKey, label: f.label[locale] }))}
+              options={pipeSources.map((f) => ({
+                value: f.fieldKey,
+                label: localized(f.label, locale),
+              }))}
             />
           ) : null}
           <TextField
@@ -373,7 +376,10 @@ function FieldSettingsView({
                   }}
                   options={[
                     { value: NONE, label: t('depends_none') },
-                    ...parents.map((p) => ({ value: p.fieldKey, label: p.label[locale] })),
+                    ...parents.map((p) => ({
+                      value: p.fieldKey,
+                      label: localized(p.label, locale),
+                    })),
                   ]}
                 />
               ) : null}
@@ -510,7 +516,10 @@ function StartCard() {
   );
 }
 
-/** A help text is kept in both languages or not at all; one language alone waits for the other. */
+/**
+ * A help text empty in both languages is none; one language alone is kept in the draft and waits
+ * for the other until the form is published.
+ */
 function helpOf(bn: string, en: string): FieldSettings['help'] {
   return bn === '' && en === '' ? undefined : { bn, en };
 }

@@ -1,5 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import type { FieldType, FormDefinition } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { Button, Disclosure, Icon, IconButton, Stack, Tabs, Text, TextField } from '@/ui';
 import { type PointerEventHandler, useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -175,7 +176,7 @@ function LibraryList({
       <Text tone="muted">{t('library_hint')}</Text>
       {groups.length === 0 ? <Text tone="muted">{t('search_none')}</Text> : null}
       {groups.map(({ section, questions }) => {
-        const title = section.title[locale];
+        const title = localized(section.title, locale);
         const inForm = has.has(section.key);
         return (
           <Disclosure
@@ -196,7 +197,7 @@ function LibraryList({
             <Stack gap={2}>
               <ul className="fb-lib-list" aria-label={t('library_list', { title })}>
                 {questions.map((f) => {
-                  const label = f.label[locale];
+                  const label = localized(f.label, locale);
                   const meta = TYPE_META[f.type];
                   return (
                     <li key={f.key} className="fb-lib-q">

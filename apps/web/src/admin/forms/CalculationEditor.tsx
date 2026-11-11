@@ -1,5 +1,6 @@
 import type { Condition, Expr } from '@css/shared';
 import type { Calculation, CalculationResult, FormDefinition, FormField } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { Alert, Button, SelectField, Stack, Text, TextField, RadioGroup } from '@/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -204,7 +205,7 @@ function PartEditor({
     (k) => k === kind || ((!nests(k) || depth < MAX_DEPTH) && startPart(k, ctx.starts) !== null),
   );
   const { offers } = ctx;
-  const labelOf = (f: FormField) => f.label[locale];
+  const labelOf = (f: FormField) => localized(f.label, locale);
   return (
     <div className="form-calc-part">
       <Stack gap={2}>
@@ -241,7 +242,7 @@ function PartEditor({
             onChange={(id) => id && onChange({ result: id })}
             options={(ctx.field.settings?.results ?? []).map((r) => ({
               value: r.code,
-              label: r.label[locale],
+              label: localized(r.label, locale),
             }))}
           />
         ) : null}
@@ -498,7 +499,10 @@ function CountPart({
         label={t('calc_group', { part: label })}
         value={group}
         onChange={(id) => id && onChange({ count_rows: { group: id } })}
-        options={ctx.offers.groups.map((g) => ({ value: g.fieldKey, label: g.label[locale] }))}
+        options={ctx.offers.groups.map((g) => ({
+          value: g.fieldKey,
+          label: localized(g.label, locale),
+        }))}
       />
       <ConditionEditor
         title={t('calc_count_where')}
@@ -539,19 +543,22 @@ function CellPart({
           const col = next?.settings?.table?.cols[0]?.key;
           if (next && row && col) onChange({ cell: { field: next.fieldKey, row, col } });
         }}
-        options={ctx.offers.tables.map((f) => ({ value: f.fieldKey, label: f.label[locale] }))}
+        options={ctx.offers.tables.map((f) => ({
+          value: f.fieldKey,
+          label: localized(f.label, locale),
+        }))}
       />
       <SelectField
         label={t('calc_table_row', { part: label })}
         value={expr.cell.row}
         onChange={(id) => id && onChange({ cell: { ...expr.cell, row: id } })}
-        options={rows.map((r) => ({ value: r.key, label: r.label[locale] }))}
+        options={rows.map((r) => ({ value: r.key, label: localized(r.label, locale) }))}
       />
       <SelectField
         label={t('calc_table_col', { part: label })}
         value={expr.cell.col}
         onChange={(id) => id && onChange({ cell: { ...expr.cell, col: id } })}
-        options={cols.map((c) => ({ value: c.key, label: c.label[locale] }))}
+        options={cols.map((c) => ({ value: c.key, label: localized(c.label, locale) }))}
       />
     </Stack>
   );

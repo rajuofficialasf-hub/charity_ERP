@@ -1,5 +1,6 @@
 import { type Condition, type ConditionOp, isFieldRef } from '@css/shared';
 import type { FormDefinition, FormField } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import {
   Alert,
   Button,
@@ -116,7 +117,10 @@ export function ConditionEditor({
                     const next = id ? byKey.get(id) : undefined;
                     if (next) setRow(i, fresh(next));
                   }}
-                  options={candidates.map((f) => ({ value: f.fieldKey, label: f.label[locale] }))}
+                  options={candidates.map((f) => ({
+                    value: f.fieldKey,
+                    label: localized(f.label, locale),
+                  }))}
                 />
                 <SelectField
                   label={t('cond_op', { n })}
@@ -168,7 +172,7 @@ export function ConditionEditor({
                     }
                     options={others(row.field, field).map((f) => ({
                       value: f.fieldKey,
-                      label: f.label[locale],
+                      label: localized(f.label, locale),
                     }))}
                   />
                 ) : field ? (
@@ -234,7 +238,10 @@ function ValueInput({
   if (op === 'is_empty' || op === 'not_empty') return null;
   const kind = opKindOf(field);
   if (kind === 'choice') {
-    const options = (field.options ?? []).map((o) => ({ value: o.code, label: o.label[locale] }));
+    const options = (field.options ?? []).map((o) => ({
+      value: o.code,
+      label: localized(o.label, locale),
+    }));
     if (op === 'in' || op === 'not_in')
       return (
         <CheckboxGroup

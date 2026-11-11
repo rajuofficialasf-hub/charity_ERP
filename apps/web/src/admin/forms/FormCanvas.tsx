@@ -24,6 +24,7 @@ import {
   type FormSection,
   identityRoleOf,
 } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import {
   Alert,
   Button,
@@ -203,7 +204,7 @@ function SectionCard({
   const locale = useLocale();
   const hintId = useId();
   const full = mode === 'full';
-  const title = section.title[locale];
+  const title = localized(section.title, locale);
   const heads = section.fields.filter((f) => groupOf(f) === undefined);
   const { setNodeRef, isOver } = useDroppable({
     id: `${SECTION_DROP}${section.key}`,
@@ -353,7 +354,7 @@ function QuestionRow({
   const tt = useTranslations('forms.types');
   const locale = useLocale();
   const full = mode === 'full';
-  const label = field.label[locale];
+  const label = localized(field.label, locale);
   const isSelected = selected === field.fieldKey;
   const {
     attributes,
@@ -471,7 +472,7 @@ function MemberRow({
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
-  const label = field.label[locale];
+  const label = localized(field.label, locale);
   return (
     <li className={`fb-q fb-q-member${selected ? ' is-selected' : ''}`}>
       <div className="fb-q-main">
@@ -516,7 +517,7 @@ function MemberRow({
 function QuestionPreview({ field }: { field: FormField }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
-  const label = field.label[locale];
+  const label = localized(field.label, locale);
   if (field.type === 'bd_address')
     return (
       <Stack gap={1}>

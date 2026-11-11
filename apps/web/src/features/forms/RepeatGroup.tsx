@@ -1,5 +1,6 @@
 import { formatCount } from '@css/shared/format';
 import type { FormField } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { Button, Stack, Text } from '@/ui';
 import type { ReactNode } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -27,7 +28,7 @@ export function RepeatGroup({
 }) {
   const t = useTranslations('forms.renderer');
   const locale = useLocale();
-  const label = group.label[locale];
+  const label = localized(group.label, locale);
   const min = group.settings?.repeat?.min_rows ?? 0;
   const max = group.settings?.repeat?.max_rows;
   return (

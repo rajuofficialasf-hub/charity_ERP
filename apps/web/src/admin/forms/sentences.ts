@@ -1,6 +1,7 @@
 import type { Condition, ConditionOp, Expr } from '@css/shared';
 import type { Locale } from '@css/shared/i18n';
 import { type FormDefinition, type FormField, resultLabelOf } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { rowsFromCondition } from './logic-rows';
 
 /**
@@ -38,7 +39,7 @@ const fieldOf = (definition: FormDefinition, key: string): FormField | undefined
   definition.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === key);
 
 const labelOf = (definition: FormDefinition, key: string, locale: Locale) =>
-  fieldOf(definition, key)?.label[locale] ?? key;
+  localized(fieldOf(definition, key)?.label, locale) || key;
 
 /**
  * A compared value as the reader sees it: an option by its label, a list by its labels, another
@@ -56,9 +57,9 @@ function valueText(
     return `“${labelOf(definition, String((value as { field: string }).field), locale)}”`;
   if (typeof value === 'string') {
     const option = field?.options?.find((o) => o.code === value);
-    if (option) return option.label[locale];
+    if (option) return localized(option.label, locale);
     const result = field ? resultLabelOf(field, value) : null;
-    if (result) return result[locale];
+    if (result) return localized(result, locale);
   }
   if (value === undefined || value === null) return '';
   return String(value);
@@ -139,7 +140,7 @@ export function exprText(
   if ('field' in expr) return label(expr.field);
   if ('result' in expr) {
     const result = resultLabelOf(field, expr.result);
-    return `“${result ? result[locale] : expr.result}”`;
+    return `“${result ? localized(result, locale) : expr.result}”`;
   }
   if ('setting' in expr) return '';
   if ('sum_repeat' in expr)
@@ -159,8 +160,8 @@ export function exprText(
     const colLabel = table?.settings?.table?.cols.find((c) => c.key === expr.cell.col)?.label;
     return words.cell(
       labelOf(definition, expr.cell.field, locale),
-      rowLabel ? rowLabel[locale] : expr.cell.row,
-      colLabel ? colLabel[locale] : expr.cell.col,
+      rowLabel ? localized(rowLabel, locale) : expr.cell.row,
+      colLabel ? localized(colLabel, locale) : expr.cell.col,
     );
   }
   if ('if' in expr) {

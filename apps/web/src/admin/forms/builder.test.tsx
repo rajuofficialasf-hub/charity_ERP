@@ -701,6 +701,41 @@ describe('saving', () => {
     await waitFor(() => expect(versionReads).toBeGreaterThan(1));
   }, 15_000);
 
+  it('saves a question whose English text is emptied, and still names it by its Bengali text on the canvas and in a condition', async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section(
+          'extra',
+          [
+            field('q_kind', 'radio', {
+              label: T('ধরন', 'Kind'),
+              options: [option('a', { label: T('ক', 'A') })],
+            }),
+            field('q_why', 'long_text', {
+              label: T('কারণ', 'Reason'),
+              logic: { show_if: { field: 'q_kind', op: 'eq', value: 'a' } },
+            }),
+          ],
+          { title: T('অতিরিক্ত', 'Extra') },
+        ),
+      ],
+    });
+    open('en');
+    await user.click(await screen.findByRole('button', { name: 'Change Kind' }));
+    await user.clear(screen.getByRole('textbox', { name: /^Label \(English\)/ }));
+    // the draft saves with the text missing, and the question reads in the other language
+    await waitFor(() => expect(savedField('q_kind')?.label).toEqual({ bn: 'ধরন', en: '' }), {
+      timeout: 4000,
+    });
+    expect(await screen.findByText('Saved')).toBeInTheDocument();
+    expect(screen.queryByText('Not saved')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Change ধরন' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Change Reason' }));
+    expect(await screen.findByText(/Shown when “ধরন” = /)).toBeInTheDocument();
+  }, 20_000);
+
   it('asks before leaving while a change is not saved', async () => {
     const user = userEvent.setup();
     api({ patch: () => apiError(500, 'server.internal', 'কিছু একটা ভুল হয়েছে।') });

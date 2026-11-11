@@ -252,7 +252,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     if (!field || next === draft) return;
     setSelected(null);
     change(next);
-    setUndo({ definition: draft, label: field.label[locale] });
+    setUndo({ definition: draft, label: localized(field.label, locale) });
   };
   const copy = (fieldKey: string) => {
     const section = sectionOf(fieldKey);

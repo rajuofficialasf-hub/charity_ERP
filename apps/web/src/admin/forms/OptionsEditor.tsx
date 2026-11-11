@@ -1,4 +1,5 @@
 import type { FieldOption, FormField } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { Button, Checkbox, SelectField, Stack, Text, TextField } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { RowButtons } from './RowButtons';
@@ -92,7 +93,10 @@ export function OptionsEditor({
                     />
                     {parent ? (
                       <SelectField
-                        label={t('option_depends', { n, question: parent.label[locale] })}
+                        label={t('option_depends', {
+                          n,
+                          question: localized(parent.label, locale),
+                        })}
                         value={option.dependsOnOptionCode ?? ALWAYS}
                         onChange={(id) =>
                           change(i, { dependsOnOptionCode: !id || id === ALWAYS ? null : id })
@@ -101,7 +105,7 @@ export function OptionsEditor({
                           { value: ALWAYS, label: t('option_always') },
                           ...(parent.options ?? []).map((p) => ({
                             value: p.code,
-                            label: p.label[locale],
+                            label: localized(p.label, locale),
                           })),
                         ]}
                       />

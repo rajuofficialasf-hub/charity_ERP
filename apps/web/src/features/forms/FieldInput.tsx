@@ -6,6 +6,7 @@ import {
   resultLabelOf,
 } from '@css/shared/forms';
 import { formatDecimal, formatTaka } from '@css/shared/format';
+import { localized } from '@css/shared/i18n';
 import {
   CheckboxGroup,
   DateField,
@@ -77,9 +78,9 @@ export function FieldInput({
 }: FieldInputProps) {
   const t = useTranslations('forms.renderer');
   const locale = useLocale();
-  const label = pipe(field.label[locale]);
-  const helpText = field.settings?.help?.[locale];
-  const help = helpText === undefined ? undefined : pipe(helpText);
+  const label = pipe(localized(field.label, locale));
+  const helpText = localized(field.settings?.help, locale);
+  const help = helpText === '' ? undefined : pipe(helpText);
   // a read-only answer comes from its default or calculation, never from the person
   const locked = lockedByScreen || field.settings?.read_only === true;
   const common = { label, name: id, required: state.required, error, hint: help };
@@ -87,7 +88,7 @@ export function FieldInput({
   const textual = { ...common, id, locked };
   // a choice the person may not change is a disabled one
   const choosing = { ...common, disabled: locked };
-  const options = state.options.map((o) => ({ value: o.code, label: o.label[locale] }));
+  const options = state.options.map((o) => ({ value: o.code, label: localized(o.label, locale) }));
   const otherId = state.options.find((o) => o.allowsOtherText)?.code;
   const otherOf = (onTextChange: (text: string) => void): OtherChoice | undefined =>
     otherId ? { value: otherId, text: other(value), onTextChange } : undefined;
@@ -291,7 +292,7 @@ function shown(
   if (typeof value === 'number') return formatDecimal(value, field.calculation?.round ?? 2, locale);
   // a text result shows by its label in the reader's language
   const result = resultLabelOf(field, value);
-  if (result) return locale === 'bn' ? result.bn : result.en;
+  if (result) return localized(result, locale);
   // an amount comes as its decimal text, shown in taka
   const amount = Number(value);
   return value.trim() !== '' && Number.isFinite(amount) ? formatTaka(amount, locale) : value;

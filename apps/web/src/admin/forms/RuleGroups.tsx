@@ -1,5 +1,6 @@
 import type { Condition } from '@css/shared';
 import type { Calculation, CalculationResult, FormDefinition, FormField } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { Button, Dialog, Disclosure, Stack } from '@/ui';
 import { type ReactNode, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -177,7 +178,7 @@ export function CalcGroup({
       ? t('calc_complex')
       : rules.kind === 'none'
         ? t('calc_none')
-        : t('calc_is', { label: field.label[locale], rules: rules.text });
+        : t('calc_is', { label: localized(field.label, locale), rules: rules.text });
   return (
     <RuleCard
       title={t('calc')}

@@ -1,4 +1,5 @@
 import type { FormDefinition } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { Text } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { type Change, diffDefinitions, type FieldAspect, type SectionAspect } from './diff';
@@ -19,18 +20,21 @@ export function useChangeSentences() {
       case 'section_added':
       case 'section_removed':
       case 'section_moved':
-        return t(c.kind, { title: c.title[locale] });
+        return t(c.kind, { title: localized(c.title, locale) });
       case 'section_changed':
-        return t(c.kind, { title: c.title[locale], what: aspects(c.what) });
+        return t(c.kind, { title: localized(c.title, locale), what: aspects(c.what) });
       case 'field_added':
       case 'field_removed':
       case 'field_moved':
-        return t(c.kind, { label: c.label[locale] });
+        return t(c.kind, { label: localized(c.label, locale) });
       case 'field_changed':
-        return t(c.kind, { label: c.label[locale], what: aspects(c.what) });
+        return t(c.kind, { label: localized(c.label, locale), what: aspects(c.what) });
       case 'option_added':
       case 'option_removed':
-        return t(c.kind, { label: c.label[locale], option: c.optionLabel[locale] });
+        return t(c.kind, {
+          label: localized(c.label, locale),
+          option: localized(c.optionLabel, locale),
+        });
     }
   };
   return (before: FormDefinition | null, after: FormDefinition): string[] =>

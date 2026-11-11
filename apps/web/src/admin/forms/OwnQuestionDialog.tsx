@@ -4,6 +4,7 @@ import {
   type FormDefinition,
   isChoiceType,
 } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { Button, Dialog, Form, FormSelectField, FormTextField, SelectField, TextField } from '@/ui';
 import { useMemo } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -165,7 +166,7 @@ export function OwnQuestionDialog({
                 }}
                 options={definition.sections.map((s) => ({
                   value: s.key,
-                  label: s.title[locale],
+                  label: localized(s.title, locale),
                 }))}
               />
             )}
@@ -178,7 +179,7 @@ export function OwnQuestionDialog({
             hint={t('own_group_hint')}
             options={[
               { value: NONE, label: t('own_group_none') },
-              ...groups.map((g) => ({ value: g.fieldKey, label: g.label[locale] })),
+              ...groups.map((g) => ({ value: g.fieldKey, label: localized(g.label, locale) })),
             ]}
           />
         ) : null}
@@ -189,7 +190,7 @@ export function OwnQuestionDialog({
             hint={t('depends_on_hint')}
             options={[
               { value: NONE, label: t('depends_none') },
-              ...parents.map((p) => ({ value: p.fieldKey, label: p.label[locale] })),
+              ...parents.map((p) => ({ value: p.fieldKey, label: localized(p.label, locale) })),
             ]}
           />
         ) : null}

@@ -1,4 +1,5 @@
 import { type FieldScore, type FormField, scoreKindOf } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { Button, Disclosure, IconButton, Stack, Text } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { NumberText } from './NumberText';
@@ -40,7 +41,7 @@ export function ScoreSettings({
           (field.options ?? []).map((option) => (
             <NumberText
               key={option.code}
-              label={t('score_option', { option: option.label[locale] })}
+              label={t('score_option', { option: localized(option.label, locale) })}
               integer
               value={score.options?.[option.code]}
               onChange={(points) => {
