@@ -27,6 +27,7 @@ import {
   updateField,
 } from './draft';
 import type { Selection } from './selection';
+import { TYPED, type Typed } from './use-draft-history';
 import { OptionsEditor } from './OptionsEditor';
 import { ScoreSettings } from './ScoreSettings';
 import { parentCandidates } from './candidates';
@@ -62,7 +63,8 @@ export function SettingsPane({
   mode: 'full' | 'texts';
   /** Whether questions take identity marks: a beneficiary application form and the library. */
   identityMarks?: boolean;
-  onChange: (definition: FormDefinition) => void;
+  /** `how` says the change was typed, so the history joins it to the typing just before it. */
+  onChange: (definition: FormDefinition, how?: Typed) => void;
 }) {
   const section = definition.sections.find((s) => s.key === selected?.section);
   const field = section?.fields.find((f) => f.fieldKey === selected?.field);
@@ -99,14 +101,17 @@ function SectionSettings({
   definition: FormDefinition;
   section: FormSection;
   mode: 'full' | 'texts';
-  onChange: (definition: FormDefinition) => void;
+  onChange: (definition: FormDefinition, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const core = hasIdentity(section);
   const setTitle = (title: FormSection['title']) =>
-    onChange({
-      sections: definition.sections.map((s) => (s.key === section.key ? { ...s, title } : s)),
-    });
+    onChange(
+      {
+        sections: definition.sections.map((s) => (s.key === section.key ? { ...s, title } : s)),
+      },
+      TYPED,
+    );
   return (
     <Stack gap={2}>
       <Disclosure title={t('group_basics')} headingLevel={2} defaultOpen>
@@ -137,8 +142,8 @@ function SectionSettings({
           definition={definition}
           asker={{ group: null }}
           condition={section.condition}
-          onChange={(condition) =>
-            onChange(setSectionCondition(definition, section.key, condition ?? null))
+          onChange={(condition, how) =>
+            onChange(setSectionCondition(definition, section.key, condition ?? null), how)
           }
           defaultOpen
         />
@@ -229,7 +234,7 @@ function FieldSettingsView({
   field: FormField;
   mode: 'full' | 'texts';
   identityMarks: boolean;
-  onChange: (definition: FormDefinition) => void;
+  onChange: (definition: FormDefinition, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
@@ -238,13 +243,13 @@ function FieldSettingsView({
   const markable = canMarkIdentity(section, field);
   const group = field.settings?.repeat?.group ?? null;
   const asker = { fieldKey: field.fieldKey, group };
-  const patch = (next: Partial<FormField>) =>
-    onChange(updateField(definition, field.fieldKey, next));
-  const setSettings = (next: Partial<FieldSettings>) =>
-    patch({ settings: compact({ ...field.settings, ...next }) ?? {} });
+  const patch = (next: Partial<FormField>, how?: Typed) =>
+    onChange(updateField(definition, field.fieldKey, next), how);
+  const setSettings = (next: Partial<FieldSettings>, how?: Typed) =>
+    patch({ settings: compact({ ...field.settings, ...next }) ?? {} }, how);
   // a group's rows and their count source change together: the count question keeps a range
   // the rows can hold
-  const setRepeat = (next: Partial<NonNullable<FieldSettings['repeat']>>) => {
+  const setRepeat = (next: Partial<NonNullable<FieldSettings['repeat']>>, how?: Typed) => {
     const settings = compact({
       ...field.settings,
       repeat: compact({ ...field.settings?.repeat, ...next }),
@@ -255,12 +260,13 @@ function FieldSettingsView({
         updateField(definition, field.fieldKey, { settings: settings ?? {} }),
         updated,
       ),
+      how,
     );
   };
-  const setValidation = (next: Partial<FieldValidation>) =>
-    setSettings({ validation: compact({ ...field.settings?.validation, ...next }) });
-  const setLogic = (next: Partial<NonNullable<FormField['logic']>>) =>
-    patch({ logic: compact({ ...field.logic, ...next }) });
+  const setValidation = (next: Partial<FieldValidation>, how?: Typed) =>
+    setSettings({ validation: compact({ ...field.settings?.validation, ...next }) }, how);
+  const setLogic = (next: Partial<NonNullable<FormField['logic']>>, how?: Typed) =>
+    patch({ logic: compact({ ...field.logic, ...next }) }, how);
   const rules = validationOf(field);
   const choice = isChoiceType(field.type);
   // a coded column's question takes its list's options, set by the server at every save
@@ -274,14 +280,16 @@ function FieldSettingsView({
   if (mode === 'texts')
     return (
       <Stack gap={2}>
-        <Texts value={field.label} onChange={(label) => patch({ label })} />
+        <Texts value={field.label} onChange={(label) => patch({ label }, TYPED)} />
         {fromList ? (
           <ListOptions field={field} />
         ) : choice ? (
           <OptionsEditor
             options={field.options ?? []}
             mode="texts"
-            onChange={(options) => onChange(setOptions(definition, field.fieldKey, options))}
+            onChange={(options, how) =>
+              onChange(setOptions(definition, field.fieldKey, options), how)
+            }
           />
         ) : null}
       </Stack>
@@ -291,7 +299,7 @@ function FieldSettingsView({
     <Stack gap={2}>
       <Disclosure title={t('group_basics')} headingLevel={2} defaultOpen>
         <Stack gap={3}>
-          <Texts value={field.label} onChange={(label) => patch({ label })} />
+          <Texts value={field.label} onChange={(label) => patch({ label }, TYPED)} />
           {pipeSources.length > 0 ? (
             <SelectField
               label={t('pipe')}
@@ -312,13 +320,17 @@ function FieldSettingsView({
             label={t('help_bn')}
             hint={t('help_hint')}
             value={field.settings?.help?.bn ?? ''}
-            onChange={(bn) => setSettings({ help: helpOf(bn, field.settings?.help?.en ?? '') })}
+            onChange={(bn) =>
+              setSettings({ help: helpOf(bn, field.settings?.help?.en ?? '') }, TYPED)
+            }
           />
           <TextField
             label={t('help_en')}
             lang="en"
             value={field.settings?.help?.en ?? ''}
-            onChange={(en) => setSettings({ help: helpOf(field.settings?.help?.bn ?? '', en) })}
+            onChange={(en) =>
+              setSettings({ help: helpOf(field.settings?.help?.bn ?? '', en) }, TYPED)
+            }
           />
           {answers ? (
             <Switch
@@ -388,7 +400,9 @@ function FieldSettingsView({
                 options={field.options ?? []}
                 mode="full"
                 parent={parent}
-                onChange={(options) => onChange(setOptions(definition, field.fieldKey, options))}
+                onChange={(options, how) =>
+                  onChange(setOptions(definition, field.fieldKey, options), how)
+                }
               />
             </Stack>
           )}
@@ -415,7 +429,7 @@ function FieldSettingsView({
               min={rules.min_length}
               max={rules.max_length}
               orderMessage={t('limits_order')}
-              onApply={(min, max) => setValidation({ min_length: min, max_length: max })}
+              onApply={(min, max) => setValidation({ min_length: min, max_length: max }, TYPED)}
             />
           </Stack>
         </Disclosure>
@@ -428,20 +442,20 @@ function FieldSettingsView({
             min={rules.min}
             max={rules.max}
             orderMessage={t('limits_order')}
-            onApply={(min, max) => setValidation({ min, max })}
+            onApply={(min, max) => setValidation({ min, max }, TYPED)}
           />
         </Disclosure>
       ) : null}
       {takesDefault(field) && group === null ? (
         <Disclosure title={t('group_default')} hint={t('optional')} headingLevel={2}>
-          <DefaultSettings field={field} onChange={(next) => setSettings(next)} />
+          <DefaultSettings field={field} onChange={setSettings} />
         </Disclosure>
       ) : null}
       {field.type === 'number_table' && field.settings?.table ? (
         <Disclosure title={t('group_table')} headingLevel={2} defaultOpen>
           <TableSettings
             table={field.settings.table}
-            onChange={(table) => setSettings({ table })}
+            onChange={(table, how) => setSettings({ table }, how)}
           />
         </Disclosure>
       ) : null}
@@ -450,7 +464,7 @@ function FieldSettingsView({
           <RepeatSettings
             definition={definition}
             field={field}
-            onRows={(min, max) => setRepeat({ min_rows: min, max_rows: max })}
+            onRows={(min, max) => setRepeat({ min_rows: min, max_rows: max }, TYPED)}
             counts={countCandidates(definition, field.fieldKey)}
             onCountFrom={(key) => setRepeat({ count_from: key ?? undefined })}
           />
@@ -458,15 +472,15 @@ function FieldSettingsView({
       ) : null}
       {/* points inside a group's rows are refused at publish, so a group's question offers none */}
       {group === null ? (
-        <ScoreSettings field={field} onChange={(score) => setSettings({ score })} />
+        <ScoreSettings field={field} onChange={(score, how) => setSettings({ score }, how)} />
       ) : null}
       {field.type === 'calculation' ? (
         <CalcGroup
           definition={definition}
           field={field}
           asker={asker}
-          onChange={(calculation) => patch({ calculation })}
-          onResults={(results) => setSettings({ results })}
+          onChange={(calculation, how) => patch({ calculation }, how)}
+          onResults={(results, how) => setSettings({ results }, how)}
         />
       ) : null}
       {locks.condition ? (
@@ -478,7 +492,7 @@ function FieldSettingsView({
             definition={definition}
             asker={asker}
             condition={field.logic?.show_if}
-            onChange={(show_if) => setLogic({ show_if })}
+            onChange={(show_if, how) => setLogic({ show_if }, how)}
             defaultOpen
           />
           {answers ? (
@@ -487,7 +501,7 @@ function FieldSettingsView({
               definition={definition}
               asker={asker}
               condition={field.logic?.required_if}
-              onChange={(required_if) => setLogic({ required_if })}
+              onChange={(required_if, how) => setLogic({ required_if }, how)}
             />
           ) : null}
         </>

@@ -56,12 +56,15 @@ export function CanvasDnd({
   definition,
   onChange,
   onDropType,
+  onDragging,
   children,
 }: {
   definition: FormDefinition;
   onChange: (definition: FormDefinition) => void;
   /** A type dropped on a section at a block index. */
   onDropType: (type: FieldType, sectionKey: string, index: number) => void;
+  /** Whether a question or a type is being dragged, by the pointer or by the keyboard. */
+  onDragging?: (dragging: boolean) => void;
   children: ReactNode;
 }) {
   const tt = useTranslations('forms.types');
@@ -70,10 +73,16 @@ export function CanvasDnd({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-  const started = (event: DragStartEvent) =>
+  const started = (event: DragStartEvent) => {
+    onDragging?.(true);
     setActiveType(typeFromDragId(String(event.active.id)) ?? null);
-  const dropped = (event: DragEndEvent) => {
+  };
+  const ended = () => {
+    onDragging?.(false);
     setActiveType(null);
+  };
+  const dropped = (event: DragEndEvent) => {
+    ended();
     const id = String(event.active.id);
     const over = event.over ? String(event.over.id) : null;
     if (!over || over === id) return;
@@ -89,7 +98,7 @@ export function CanvasDnd({
       collisionDetection={closestCenter}
       onDragStart={started}
       onDragEnd={dropped}
-      onDragCancel={() => setActiveType(null)}
+      onDragCancel={ended}
     >
       {children}
       <DragOverlay dropAnimation={null}>

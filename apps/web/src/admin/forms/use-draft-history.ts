@@ -4,8 +4,15 @@ import type { Selection } from './selection';
 
 /** How many steps back the builder remembers. */
 export const HISTORY_LIMIT = 100;
-/** Changes closer together than this, with the same part chosen, are one step (typing). */
+/** Typed changes closer together than this, with the same part chosen, are one step. */
 export const MERGE_WINDOW_MS = 1000;
+
+/**
+ * How a change was made, when it was typed letter by letter (a text, a number): it joins the
+ * typing just before it into one step. Every other change is a step of its own.
+ */
+export const TYPED = { merge: true } as const;
+export type Typed = typeof TYPED;
 
 /** The draft at one moment, with the part of the form that was chosen then. */
 export interface HistoryStep {
@@ -18,7 +25,7 @@ interface Stacks {
   past: HistoryStep[];
   /** The drafts a redo leads on to, the next one last. */
   future: HistoryStep[];
-  /** When the last change was made and what was chosen then; none after an undo or a redo. */
+  /** When the last typed change was made and what was chosen then; none after any other step. */
   last: { at: number; selection: Selection | null } | null;
 }
 
@@ -33,19 +40,19 @@ const pushed = (steps: HistoryStep[], step: HistoryStep) => [...steps, step].sli
  * The undo and redo of the builder's draft. The draft on screen stays the page's own: each call
  * hands in the draft and the selection as they are at that moment, and an undo or a redo hands
  * back the ones to show, which the page sets and saves like any other change. So the saved draft
- * the server sends back takes the place of the one on screen without a step. Changes made within
- * a second of each other with the same part chosen are one step; a change after an undo drops
- * what could be redone.
+ * the server sends back takes the place of the one on screen without a step. Each change is a
+ * step of its own, except typing: typed changes within a second of each other with the same part
+ * chosen are one step. A change after an undo drops what could be redone.
  */
 export function useDraftHistory({ now = Date.now }: { now?: () => number } = {}) {
   const [stacks, setStacks] = useState<Stacks>(EMPTY);
 
   /**
-   * Call before a change, with the draft and the selection it leaves. `merge: false` keeps the
-   * change a step of its own (an added, copied or removed question), whatever comes before or
-   * after it.
+   * Call before a change, with the draft and the selection it leaves. `merge: true` (`TYPED`)
+   * lets the change join the typing just before it; without it the change is a step of its own
+   * (a click on move, a switch, an added or removed question), whatever comes before or after it.
    */
-  const record = (leaving: HistoryStep, { merge = true }: { merge?: boolean } = {}) => {
+  const record = (leaving: HistoryStep, { merge = false }: { merge?: boolean } = {}) => {
     const at = now();
     setStacks(({ past, last }) => {
       const typing =

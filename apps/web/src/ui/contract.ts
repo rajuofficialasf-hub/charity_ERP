@@ -366,6 +366,7 @@ export type ExtendedIconName =
   | "history"
   | "video"
   | "undo"
+  | "redo"
   | "checklist"
   | "checkbox"
   | "hash"

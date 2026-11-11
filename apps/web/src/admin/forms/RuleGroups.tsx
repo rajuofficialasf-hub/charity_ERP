@@ -8,6 +8,7 @@ import { CalculationEditor } from './CalculationEditor';
 import type { Asker } from './candidates';
 import { ConditionEditor } from './ConditionEditor';
 import { calculationRules, conditionRules, type RuleWords } from './sentences';
+import type { Typed } from './use-draft-history';
 
 /** The words of the sentences, from the catalogue. */
 function useRuleWords(): RuleWords {
@@ -121,7 +122,7 @@ export function ConditionGroup({
   definition: FormDefinition;
   asker: Asker;
   condition: Condition | null | undefined;
-  onChange: (condition: Condition | undefined) => void;
+  onChange: (condition: Condition | undefined, how?: Typed) => void;
   defaultOpen?: boolean;
 }) {
   const t = useTranslations('forms.builder');
@@ -166,8 +167,8 @@ export function CalcGroup({
   definition: FormDefinition;
   field: FormField;
   asker: Asker;
-  onChange: (calculation: Calculation | undefined) => void;
-  onResults: (results: CalculationResult[] | undefined) => void;
+  onChange: (calculation: Calculation | undefined, how?: Typed) => void;
+  onResults: (results: CalculationResult[] | undefined, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();

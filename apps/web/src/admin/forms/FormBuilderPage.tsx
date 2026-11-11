@@ -58,7 +58,7 @@ import { PreviewPane } from './PreviewPane';
 import { PublicLinkPanel } from './PublicLinkPanel';
 import { SettingsPane } from './SettingsPane';
 import { UsesDialog } from './UsesDialog';
-import { type HistoryStep, useDraftHistory } from './use-draft-history';
+import { type HistoryStep, type Typed, useDraftHistory } from './use-draft-history';
 import { detailsOf, useDraftSave } from './use-draft-save';
 import { ScoringDialog } from './ScoringDialog';
 import { VersionList } from './VersionList';
@@ -66,8 +66,6 @@ import './builder.css';
 import { LoadError } from '../../components/LoadError';
 
 const PHONE = '(max-width: 767px)';
-/** An added, copied or removed question or part is a step of its own to undo, however quick. */
-const ALONE = { merge: false } as const;
 
 function useMedia(media: string) {
   const [matches, setMatches] = useState(() => window.matchMedia?.(media).matches === true);
@@ -122,6 +120,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   // a question or a part other places of the form read, waiting for the word to remove it
   const [removing, setRemoving] = useState<{ field: string } | { section: string } | null>(null);
   const history = useDraftHistory();
+  // a question is being dragged: the undo and redo keys rest until it lands
+  const [dragging, setDragging] = useState(false);
   // a question of the project's own being asked for: its type, its section and, after a drop,
   // its place; the key opens the dialog afresh each time
   const [asking, setAsking] = useState<{
@@ -263,24 +263,31 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     ? ((s) => (s ? { section: s.key, field: selected.field } : null))(sectionOf(selected.field))
     : selected;
   const shown: HistoryStep = { definition: draft, selection };
-  /** Every change to the draft: kept as a step to undo, shown, and saved a little later. */
-  const change = (next: FormDefinition, step?: { merge: false }) => {
-    if (next === draft || mode === 'read') return;
+  /** Shows a draft in place of the one on screen and saves it a little later. */
+  const apply = (next: FormDefinition) => {
     // the messages of a refused publish belong to the draft as it was then
     if (publish.error) publish.reset();
     setRemoved(null);
-    history.record(shown, step);
     setDraft(next);
     save.schedule(next);
   };
-  /** Shows the draft an undo or a redo leads to, with what was chosen then, and saves it. */
+  /**
+   * Every change to the draft: kept as a step to undo, shown, and saved a little later. A typed
+   * change (`how`) joins the typing just before it; any other is a step of its own.
+   */
+  const change = (next: FormDefinition, how?: Typed) => {
+    if (next === draft || mode === 'read') return;
+    history.record(shown, how);
+    apply(next);
+  };
+  /**
+   * Shows the draft an undo or a redo leads to, with what was chosen then, and saves it. The
+   * right pane stays on the tab it shows: a person reading the form's versions keeps their place.
+   */
   const restore = (step: HistoryStep | null) => {
     if (!step) return;
-    if (publish.error) publish.reset();
-    setRemoved(null);
-    setDraft(step.definition);
-    setSelected(step.selection);
-    save.schedule(step.definition);
+    setSelectedOnly(step.selection);
+    apply(step.definition);
   };
   const labelOf = (fieldKey: string) => {
     const field = draft.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === fieldKey);
@@ -295,7 +302,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     setRemoving(null);
     if (name === null || next === draft) return;
     if (chosen) setSelected(null);
-    change(next, ALONE);
+    change(next);
     setRemoved(name);
   };
   const removeFieldNow = (fieldKey: string) =>
@@ -319,7 +326,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     const section = sectionOf(fieldKey);
     const made = duplicateField(draft, fieldKey, { bn: t('copy_mark_bn'), en: t('copy_mark_en') });
     if (!section || !made.fieldKey) return;
-    change(made.definition, ALONE);
+    change(made.definition);
     setSelected({ section: section.key, field: made.fieldKey });
   };
   const versionLabel = t(
@@ -385,7 +392,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
           bn: t('section_n_bn', { n: String(n) }),
           en: t('section_n_en', { n: String(n) }),
         }));
-        change(made.definition, ALONE);
+        change(made.definition);
         setSelected({ section: made.key });
       }}
       onAddRow={(groupKey) => {
@@ -414,9 +421,9 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
             fields={fields}
             definition={draft}
             targetSection={target}
-            onAddSection={(s) => change(addLibrarySection(draft, s, fields), ALONE)}
+            onAddSection={(s) => change(addLibrarySection(draft, s, fields))}
             onAddField={(key) => {
-              if (target) change(addLibraryField(draft, target, fields.get(key) ?? []), ALONE);
+              if (target) change(addLibraryField(draft, target, fields.get(key) ?? []));
             }}
             onAddType={(type) => {
               // a chosen repeat group takes the question into its rows
@@ -489,6 +496,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
         definition={draft}
         onChange={change}
         onDropType={(type, section, at) => setAsking({ key: Date.now(), type, section, at })}
+        onDragging={setDragging}
       >
         {panes}
       </CanvasDnd>
@@ -554,6 +562,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
             <HistoryButtons
               canUndo={history.canUndo}
               canRedo={history.canRedo}
+              resting={dragging}
               onUndo={() => restore(history.undo(shown))}
               onRedo={() => restore(history.redo(shown))}
             />
@@ -625,7 +634,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
             const added = addOwnQuestion(draft, sectionKey, question, asking.at);
             setAsking(null);
             if (!added.fieldKey) return;
-            change(added.definition, ALONE);
+            change(added.definition);
             setSelected({ section: sectionKey, field: added.fieldKey });
           }}
         />

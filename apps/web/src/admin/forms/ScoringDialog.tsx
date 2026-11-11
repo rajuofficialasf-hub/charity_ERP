@@ -3,6 +3,7 @@ import { Alert, Button, Dialog, Stack, Text } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { setFormScoring } from './draft';
 import { NumberText } from './NumberText';
+import { TYPED, type Typed } from './use-draft-history';
 
 /**
  * The form-level side of the priority score: the points of "not previously assisted" and the
@@ -16,7 +17,7 @@ export function ScoringDialog({
 }: {
   definition: FormDefinition;
   readOnly: boolean;
-  onChange: (definition: FormDefinition) => void;
+  onChange: (definition: FormDefinition, how?: Typed) => void;
   onClose: () => void;
 }) {
   const t = useTranslations('forms.builder');
@@ -45,7 +46,7 @@ export function ScoringDialog({
               label={t('scoring_not_assisted')}
               integer
               value={definition.scoring?.not_previously_assisted}
-              onChange={(points) => onChange(setFormScoring(definition, points))}
+              onChange={(points) => onChange(setFormScoring(definition, points), TYPED)}
             />
             <Text tone="muted">{t('scoring_not_assisted_hint')}</Text>
           </div>

@@ -113,14 +113,14 @@
       "screenshot": "docs/ui/asf-pieces/gallery-states.png"
     },
     {
-      "name": "Icons for an ERP (79 more Solar icons)",
+      "name": "Icons for an ERP (80 more Solar icons)",
       "files": [
         "components/icon-data.ts",
         "../../contract.ts",
         "../../../../scripts/asf/build-icons.mjs",
         "../../icon-map.md"
       ],
-      "note": "the icons an ERP's pages need beyond the kit's set (lock and unlock, copy, crossed eye, people states, project, transfer, merge, history, devices, camera, the record states and more), from the pinned @iconify-json/solar 1.2.13; the build script refuses a body that holds more than a drawing, and icon-map.md names the asf icon for each Lucide icon the app used; built for the CSS ERP",
+      "note": "the icons an ERP's pages need beyond the kit's set (lock and unlock, copy, crossed eye, people states, project, transfer, merge, history, undo and redo, devices, camera, the record states and more), from the pinned @iconify-json/solar 1.2.13; the build script refuses a body that holds more than a drawing, and icon-map.md names the asf icon for each Lucide icon the app used; built for the CSS ERP",
       "screenshot": "docs/ui/asf-pieces/gallery-buttons.png"
     },
     {

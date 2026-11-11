@@ -4,6 +4,7 @@ import { Button, Disclosure, IconButton, Stack, Text } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { NumberText } from './NumberText';
 import { useRowKeys } from '../../lib/use-row-keys';
+import { TYPED, type Typed } from './use-draft-history';
 
 type Range = NonNullable<FieldScore['ranges']>[number];
 
@@ -26,7 +27,8 @@ export function ScoreSettings({
   onChange,
 }: {
   field: FormField;
-  onChange: (score: FieldScore | undefined) => void;
+  /** `how` says a number was typed, so the history joins it to the typing just before it. */
+  onChange: (score: FieldScore | undefined, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale() as 'bn' | 'en';
@@ -48,14 +50,14 @@ export function ScoreSettings({
                 const options = { ...score.options };
                 if (points === undefined) delete options[option.code];
                 else options[option.code] = points;
-                onChange(scoreOrNone({ options }));
+                onChange(scoreOrNone({ options }), TYPED);
               }}
             />
           ))
         ) : (
           <Ranges
             ranges={score.ranges ?? []}
-            onChange={(ranges) => onChange(scoreOrNone({ ranges }))}
+            onChange={(ranges, how) => onChange(scoreOrNone({ ranges }), how)}
           />
         )}
       </Stack>
@@ -69,10 +71,11 @@ function Ranges({
   onChange,
 }: {
   ranges: readonly Range[];
-  onChange: (ranges: Range[]) => void;
+  onChange: (ranges: Range[], how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const keys = useRowKeys(ranges.length);
+  // every box of a range is typed
   const set = (index: number, next: Partial<Range>) =>
     onChange(
       ranges.map((r, i) => {
@@ -84,6 +87,7 @@ function Ranges({
           points: merged.points,
         };
       }),
+      TYPED,
     );
   return (
     <Stack gap={2}>

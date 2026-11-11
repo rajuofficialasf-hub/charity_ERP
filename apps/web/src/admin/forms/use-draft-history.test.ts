@@ -3,10 +3,11 @@ import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { field, section, T } from '../../../test/forms';
 import type { Selection } from './selection';
-import { HISTORY_LIMIT, type HistoryStep, useDraftHistory } from './use-draft-history';
+import { HISTORY_LIMIT, type HistoryStep, TYPED, useDraftHistory } from './use-draft-history';
 
 // The builder's undo and redo: the drafts left behind by each change with the part chosen then,
-// typing in one place as one step, and nothing kept across another version.
+// each change a step of its own except typing in one place, and nothing kept across another
+// version.
 
 /** A draft whose one question carries this text. */
 const draftOf = (text: string): FormDefinition => ({
@@ -31,6 +32,10 @@ function history() {
     change(leaving: HistoryStep, afterMs: number, options?: { merge?: boolean }) {
       clock.ms += afterMs;
       act(() => hook.result.current.record(leaving, options));
+    },
+    /** A typed change that leaves this draft behind, after so many milliseconds. */
+    type(leaving: HistoryStep, afterMs: number) {
+      this.change(leaving, afterMs, TYPED);
     },
     undo(current: HistoryStep) {
       let step: HistoryStep | null = null;
@@ -80,53 +85,62 @@ describe('the history of a draft', () => {
     expect(h.now.canRedo).toBe(false);
   });
 
-  it('keeps three changes within a second at one selection as one step', () => {
+  it('keeps three typed changes within a second at one selection as one step', () => {
     const h = history();
     const start = at(draftOf(''));
-    h.change(start, 0);
-    h.change(at(draftOf('ক')), 300);
-    h.change(at(draftOf('কখ')), 900);
+    h.type(start, 0);
+    h.type(at(draftOf('ক')), 300);
+    h.type(at(draftOf('কখ')), 900);
     expect(h.undoAll(at(draftOf('কখগ')))).toEqual([start]);
   });
 
-  it('starts a new step a second after the last change', () => {
+  it('keeps two changes that were not typed apart, however soon and at one selection', () => {
     const h = history();
     const first = at(draftOf(''));
     const second = at(draftOf('ক'));
     h.change(first, 0);
-    h.change(second, 1000);
+    h.change(second, 50);
     expect(h.undoAll(at(draftOf('কখ')))).toEqual([second, first]);
   });
 
-  it('starts a new step when another part is chosen, however soon', () => {
+  it('starts a new typed step a second after the last one', () => {
+    const h = history();
+    const first = at(draftOf(''));
+    const second = at(draftOf('ক'));
+    h.type(first, 0);
+    h.type(second, 1000);
+    expect(h.undoAll(at(draftOf('কখ')))).toEqual([second, first]);
+  });
+
+  it('starts a new step when another part is chosen, however soon the typing', () => {
     const h = history();
     const first = at(draftOf(''), NOTE);
     const second = at(draftOf('ক'), PART);
     const third = at(draftOf('কখ'), null);
-    h.change(first, 0);
-    h.change(second, 100);
-    h.change(third, 100);
+    h.type(first, 0);
+    h.type(second, 100);
+    h.type(third, 100);
     expect(h.undoAll(at(draftOf('কখগ'), null))).toEqual([third, second, first]);
   });
 
-  it('keeps a change asked to stand alone apart from the ones around it', () => {
+  it('keeps a change that was not typed apart from the typing around it', () => {
     const h = history();
     const first = at(draftOf(''));
     const second = at(draftOf('ক'));
     const third = at(draftOf('কখ'));
-    h.change(first, 0);
-    h.change(second, 100, { merge: false });
-    h.change(third, 100);
+    h.type(first, 0);
+    h.change(second, 100);
+    h.type(third, 100);
     expect(h.undoAll(at(draftOf('কখগ')))).toEqual([third, second, first]);
   });
 
-  it('does not join a change to the one before an undo', () => {
+  it('does not join typing to the typing before an undo', () => {
     const h = history();
     const first = at(draftOf(''));
-    h.change(first, 0);
+    h.type(first, 0);
     const undone = h.undo(at(draftOf('ক')));
     // typed again at once, in the same place
-    h.change(undone!, 100);
+    h.type(undone!, 100);
     expect(h.now.canRedo).toBe(false);
     expect(h.undoAll(at(draftOf('খ')))).toEqual([first]);
   });
@@ -172,8 +186,8 @@ describe('the history of a draft', () => {
     act(() => h.now.clear());
     expect(h.now.canUndo).toBe(false);
     expect(h.now.canRedo).toBe(false);
-    // and the next change does not join one made before
-    h.change(at(draftOf('গ')), 100);
+    // and the next typing does not join what was typed before
+    h.type(at(draftOf('গ')), 100);
     expect(h.undoAll(at(draftOf('ঘ')))).toHaveLength(1);
   });
 });

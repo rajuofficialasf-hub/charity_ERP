@@ -3,6 +3,7 @@ import { localized } from '@css/shared/i18n';
 import { Button, Checkbox, SelectField, Stack, Text, TextField } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { RowButtons } from './RowButtons';
+import { TYPED, type Typed } from './use-draft-history';
 
 /** The id the "always" choice of a branching option takes in its list. */
 const ALWAYS = '*';
@@ -43,7 +44,8 @@ export function OptionsEditor({
   /** false inside a group that already shows the title. */
   heading?: boolean;
   options: readonly FieldOption[];
-  onChange: (options: FieldOption[]) => void;
+  /** `how` says a text was typed, so the history joins it to the typing just before it. */
+  onChange: (options: FieldOption[], how?: Typed) => void;
   mode: 'full' | 'texts';
   /** The earlier question whose answer decides which options show, when the question branches. */
   parent?: FormField | null;
@@ -51,8 +53,11 @@ export function OptionsEditor({
   const t = useTranslations('forms.builder');
   const locale = useLocale();
   const full = mode === 'full';
-  const change = (index: number, patch: Partial<FieldOption>) =>
-    onChange(options.map((o, i) => (i === index ? { ...o, ...patch } : o)));
+  const change = (index: number, patch: Partial<FieldOption>, how?: Typed) =>
+    onChange(
+      options.map((o, i) => (i === index ? { ...o, ...patch } : o)),
+      how,
+    );
   const move = (index: number, direction: -1 | 1) => {
     const next = [...options];
     [next[index], next[index + direction]] = [next[index + direction]!, next[index]!];
@@ -75,14 +80,14 @@ export function OptionsEditor({
                   label={t('option_bn', { n })}
                   required
                   value={option.label.bn}
-                  onChange={(bn) => change(i, { label: { ...option.label, bn } })}
+                  onChange={(bn) => change(i, { label: { ...option.label, bn } }, TYPED)}
                 />
                 <TextField
                   label={t('option_en', { n })}
                   required
                   lang="en"
                   value={option.label.en}
-                  onChange={(en) => change(i, { label: { ...option.label, en } })}
+                  onChange={(en) => change(i, { label: { ...option.label, en } }, TYPED)}
                 />
                 {full ? (
                   <>

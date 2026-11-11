@@ -555,6 +555,136 @@ describe('the outline and the libraries', () => {
     expect(redoButton()).toBeDisabled();
   }, 20_000);
 
+  it('keeps two quick moves of a question as two steps to undo', async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section(
+          'family_income',
+          [
+            field('a', 'number', { label: T('প্রথম') }),
+            field('b', 'number', { label: T('দ্বিতীয়') }),
+            field('c', 'number', { label: T('তৃতীয়') }),
+          ],
+          { title: T('পরিবার ও আয়', 'Family and income') },
+        ),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'প্রথম বদলান' }));
+    const list = await outlineOf('পরিবার ও আয়');
+    const order = () => list.getAllByRole('listitem').map((li) => li.textContent);
+    const is = (...labels: string[]) => labels.map((label) => expect.stringContaining(label));
+    // two clicks one after the other, well within a second
+    await user.click(screen.getByRole('button', { name: 'প্রথম নিচে নিন' }));
+    await user.click(screen.getByRole('button', { name: 'প্রথম নিচে নিন' }));
+    expect(order()).toEqual(is('দ্বিতীয়', 'তৃতীয়', 'প্রথম'));
+    await user.click(undoButton());
+    expect(order()).toEqual(is('দ্বিতীয়', 'প্রথম', 'তৃতীয়'));
+    await user.click(undoButton());
+    expect(order()).toEqual(is('প্রথম', 'দ্বিতীয়', 'তৃতীয়'));
+    expect(undoButton()).toBeDisabled();
+  }, 20_000);
+
+  it('keeps a switch and the typing right after it as steps of their own, and the typing as one', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    const required = screen.getByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' });
+    await user.click(required);
+    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' দিন');
+    expect(await screen.findByRole('button', { name: 'মন্তব্য দিন বদলান' })).toBeInTheDocument();
+    // the four letters typed are one step back
+    await user.click(undoButton());
+    expect(await screen.findByRole('button', { name: 'মন্তব্য বদলান' })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' })).toBeChecked();
+    // and the switch another
+    await user.click(undoButton());
+    expect(screen.getByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' })).not.toBeChecked();
+    expect(undoButton()).toBeDisabled();
+  }, 20_000);
+
+  it('leaves the right pane on the form tab when a change is undone', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য কপি করুন' }));
+    await screen.findByRole('button', { name: 'মন্তব্য (কপি) বদলান' });
+    await user.click(screen.getByRole('tab', { name: 'ফর্মের সেটিং' }));
+    expect(screen.getByRole('tab', { name: 'ফর্মের সেটিং' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await user.click(undoButton());
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'মন্তব্য (কপি) বদলান' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('tab', { name: 'ফর্মের সেটিং' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await user.click(redoButton());
+    await screen.findByRole('button', { name: 'মন্তব্য (কপি) বদলান' });
+    expect(screen.getByRole('tab', { name: 'ফর্মের সেটিং' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    // the question chosen at that step is chosen again, under the tab that was left alone
+    await user.click(screen.getByRole('tab', { name: 'প্রশ্নের সেটিং' }));
+    expect(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('মন্তব্য (কপি)');
+  }, 20_000);
+
+  it('undoes by the keyboard from a switch, and not while a dialog is open', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    const required = () => screen.getByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' });
+    await user.click(required());
+    expect(required()).toBeChecked();
+    // a switch holds no text of its own: the keys are the draft's
+    required().focus();
+    await user.keyboard('{Control>}z{/Control}');
+    expect(required()).not.toBeChecked();
+    await user.keyboard('{Control>}y{/Control}');
+    expect(required()).toBeChecked();
+    // a dialog over the page: the focus on one of its buttons
+    await user.click(screen.getByRole('button', { name: 'স্কোর' }));
+    const dialog = await screen.findByRole('dialog', { name: 'অগ্রাধিকার স্কোর' });
+    within(dialog).getByRole('button', { name: 'ঠিক আছে' }).focus();
+    await user.keyboard('{Control>}z{/Control}');
+    // and on the page's body, as after a click on the dialog's text
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+    await user.keyboard('{Control>}z{/Control}');
+    await user.click(within(dialog).getByRole('button', { name: 'ঠিক আছে' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(required()).toBeChecked();
+    expect(redoButton()).toBeDisabled();
+  }, 20_000);
+
+  it('leaves the undo keys alone while a question is being moved by its handle', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য কপি করুন' }));
+    const copyButton = () => screen.queryByRole('button', { name: 'মন্তব্য (কপি) বদলান' });
+    await waitFor(() => expect(copyButton()).toBeInTheDocument());
+    // picked up with the keyboard, the question is on its way
+    screen.getByRole('button', { name: 'মন্তব্য টেনে সরান' }).focus();
+    await user.keyboard('[Space]');
+    await user.keyboard('{Control>}z{/Control}');
+    expect(copyButton()).toBeInTheDocument();
+    // put down where it was, the keys are the draft's again
+    await user.keyboard('[Escape]');
+    await user.keyboard('{Control>}z{/Control}');
+    await waitFor(() => expect(copyButton()).not.toBeInTheDocument());
+  }, 20_000);
+
   it('adds one library question to the chosen section and marks it as in the form', async () => {
     const user = userEvent.setup();
     api();
