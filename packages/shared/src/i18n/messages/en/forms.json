@@ -73,6 +73,7 @@
     "option_en": "Option {n} (English)",
     "leave_title": "Not saved. Leave anyway?",
     "leave_message": "The last changes could not be saved. If you leave, they are lost.",
+    "leave_saving_message": "The last changes are still being saved, and it is taking long. If you leave now, they may be lost.",
     "leave_confirm": "Leave",
     "leave_stay": "Stay",
     "not_found": "The form was not found",

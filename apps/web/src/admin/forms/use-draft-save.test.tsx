@@ -7,12 +7,15 @@ import { apiError, ME, refreshAs, renderApp } from '../../../test/auth';
 import { field, section, T } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
+import { RETRY_AFTER_MAX_SECONDS } from '@css/shared/sync';
 import { useAuth } from '../../lib/auth';
 import type { FormVersion } from './forms-api';
 import {
+  LEAVE_ASK_AFTER_MS,
   SAVE_DELAY_MS,
   SAVE_RETRY_DELAYS_MS,
   SAVE_RETRY_EVERY_MS,
+  SAVE_TIMEOUT_MS,
   detailsOf,
   type SaveState,
   useDraftSave,
@@ -41,9 +44,11 @@ let states: SaveState[];
 let holding: boolean;
 let held: (() => void)[];
 const release = () => held.shift()!();
+/** What the page's own code throws once a save went through, when the test sets one. */
+let afterSave: Error | null;
 
 /** The server answers each save with the next of these; the last one repeats. */
-function api(...answers: (() => Response)[]) {
+function api(...answers: (() => Response | Promise<Response>)[]) {
   saves = [];
   let etagNo = 1;
   server.use(
@@ -56,7 +61,7 @@ function api(...answers: (() => Response)[]) {
         left: screen.queryByTestId('location') !== null,
       });
       if (holding) await new Promise<void>((resolve) => held.push(resolve));
-      const response = answer();
+      const response = await answer();
       if (response.status !== 200) return response;
       etagNo += 1;
       return HttpResponse.json(
@@ -72,6 +77,16 @@ function api(...answers: (() => Response)[]) {
 const ok = () => HttpResponse.json({});
 const down = () => apiError(500, 'server.internal', 'কিছু একটা সমস্যা হয়েছে।');
 const cut = () => HttpResponse.error();
+/** A connection that hangs: the server never answers. */
+const never = () => new Promise<Response>(() => undefined);
+/** A busy server that says how many seconds to wait. */
+const busy = (after: string) => () =>
+  HttpResponse.json(
+    {
+      error: { code: 'rate_limit.exceeded', message: 'একটু পরে আবার চেষ্টা করুন।', requestId: 'r' },
+    },
+    { status: 429, headers: { 'Retry-After': after } },
+  );
 const refusedDraft = () =>
   HttpResponse.json(
     {
@@ -98,7 +113,10 @@ function Harness() {
   const save = useDraftSave({
     version: VERSION,
     etag,
-    onSaved: (_saved, next) => setEtag(next),
+    onSaved: (_saved, next) => {
+      if (afterSave) throw afterSave;
+      setEtag(next);
+    },
     onStale: () => {
       staleCalls += 1;
     },
@@ -114,7 +132,12 @@ function Harness() {
       <output data-testid="message">{save.failure?.message ?? ''}</output>
       <output data-testid="errors">{JSON.stringify(detailsOf(save.details))}</output>
       <output data-testid="flags">
-        {[save.refused && 'refused', save.stale && 'stale', save.leave.asking && 'asking']
+        {[
+          save.refused && 'refused',
+          save.stale && 'stale',
+          save.leave.asking && 'asking',
+          save.leave.saving && 'slow',
+        ]
           .filter(Boolean)
           .join(' ')}
       </output>
@@ -184,6 +207,7 @@ beforeEach(() => {
   states = [];
   holding = false;
   held = [];
+  afterSave = null;
 });
 afterEach(() => vi.useRealTimers());
 
@@ -351,6 +375,72 @@ describe('saving the draft', () => {
     expect(saves).toHaveLength(1);
   });
 
+  it('counts a save that never answers as failed after its time limit, and sends it again', async () => {
+    api(never, ok);
+    await open();
+    press('change');
+    await pass(SAVE_DELAY_MS);
+    await until(() => expect(saves).toHaveLength(1));
+    expect(text('state')).toBe('saving');
+    await pass(SAVE_TIMEOUT_MS - 1);
+    expect(text('state')).toBe('saving');
+    await pass(1);
+    await until(() => expect(text('state')).toBe('failed'));
+    // a failure on the way, like a lost connection: tried again after the first wait
+    expect(text('failure')).toBe('retrying');
+    expect(saves).toHaveLength(1);
+    await pass(SAVE_RETRY_DELAYS_MS[0]!);
+    await until(() => expect(text('state')).toBe('saved'));
+    expect(saves.map((s) => s.text)).toEqual(['বদল 1', 'বদল 1']);
+    // an answered save leaves no time limit running
+    await pass(10 * SAVE_TIMEOUT_MS);
+    expect(text('state')).toBe('saved');
+    expect(saves).toHaveLength(2);
+  });
+
+  it.each([
+    ['a wait the server asks for', '10', 10_000],
+    ['a day, cut to the longest wait followed', '86400', RETRY_AFTER_MAX_SECONDS * 1_000],
+    ['a wait too long for a timer', '99999999999', RETRY_AFTER_MAX_SECONDS * 1_000],
+  ])('waits as the busy server asks, never beyond the cap: %s', async (_name, after, wait) => {
+    api(busy(after), ok);
+    await open();
+    press('change');
+    await pass(SAVE_DELAY_MS);
+    await until(() => expect(text('state')).toBe('failed'));
+    expect(text('failure')).toBe('retrying');
+    // not at once, and not after the usual first wait
+    await pass(SAVE_RETRY_DELAYS_MS[0]!);
+    expect(saves).toHaveLength(1);
+    await pass(wait - SAVE_RETRY_DELAYS_MS[0]! - 1);
+    expect(saves).toHaveLength(1);
+    await pass(1);
+    await until(() => expect(text('state')).toBe('saved'));
+    expect(saves).toHaveLength(2);
+  });
+
+  it('does not send the draft again when the page fails after the save, and reports that error as it is', async () => {
+    api(ok);
+    afterSave = new Error('the page broke after the save');
+    // where the browser sends an uncaught error (the test's browser has no such place of its own)
+    const reported: unknown[] = [];
+    vi.stubGlobal('reportError', (error: unknown) => reported.push(error));
+    try {
+      await open();
+      press('change');
+      await pass(SAVE_DELAY_MS);
+      await until(() => expect(reported).toEqual([afterSave]));
+      // the draft is on the server: nothing failed on the way, and nothing is sent again
+      expect(text('state')).toBe('saved');
+      expect(text('failure')).toBe('');
+      await pass(10 * SAVE_RETRY_EVERY_MS);
+      expect(saves).toHaveLength(1);
+      expect(reported).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('starts no wait when a save fails after the page is gone', async () => {
     api(down);
     holding = true;
@@ -409,5 +499,112 @@ describe('leaving the page', () => {
     expect(saves).toHaveLength(3);
     press('go');
     await until(() => expect(screen.getByTestId('location')).toHaveTextContent('/elsewhere'));
+  });
+
+  it('asks once the save before leaving takes long, and leaves by itself when it then goes through', async () => {
+    api(ok);
+    holding = true;
+    const { router } = await open();
+    press('change');
+    void router.navigate('/elsewhere');
+    await until(() => expect(held).toHaveLength(1));
+    await pass(LEAVE_ASK_AFTER_MS - 1);
+    expect(text('flags')).toBe('');
+    await pass(1);
+    await until(() => expect(text('flags')).toBe('asking slow'));
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+    release();
+    await until(() => expect(screen.getByTestId('location')).toHaveTextContent('/elsewhere'));
+    expect(saves).toHaveLength(1);
+  });
+
+  it('stays when the person says so while the save still runs, and that save no longer decides', async () => {
+    api(ok);
+    holding = true;
+    const { router } = await open();
+    press('change');
+    void router.navigate('/elsewhere');
+    await until(() => expect(held).toHaveLength(1));
+    await pass(LEAVE_ASK_AFTER_MS);
+    await until(() => expect(text('flags')).toBe('asking slow'));
+    press('stay');
+    await settle();
+    expect(text('flags')).toBe('');
+    release();
+    await until(() => expect(text('state')).toBe('saved'));
+    await settle();
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+  });
+
+  it('goes when the person says so while the save still runs', async () => {
+    api(ok);
+    holding = true;
+    const { router } = await open();
+    press('change');
+    void router.navigate('/elsewhere');
+    await pass(LEAVE_ASK_AFTER_MS);
+    await until(() => expect(text('flags')).toBe('asking slow'));
+    press('go');
+    await until(() => expect(screen.getByTestId('location')).toHaveTextContent('/elsewhere'));
+  });
+
+  it('asks when the save before leaving never answers', async () => {
+    api(never);
+    const { router } = await open();
+    press('change');
+    void router.navigate('/elsewhere');
+    await pass(LEAVE_ASK_AFTER_MS);
+    await until(() => expect(text('flags')).toBe('asking slow'));
+    // the time limit turns the hang into a failed save: the question stays, no longer as "saving"
+    await pass(SAVE_TIMEOUT_MS - LEAVE_ASK_AFTER_MS);
+    await until(() => expect(text('flags')).toBe('asking'));
+    expect(text('state')).toBe('failed');
+  });
+
+  it('keeps one save for a held departure: a further try to leave starts no other', async () => {
+    api(down, ok);
+    holding = true;
+    const { router } = await open();
+    press('change');
+    void router.navigate('/elsewhere');
+    await until(() => expect(held).toHaveLength(1));
+    // the person tries again, and somewhere else, while the first try is held
+    void router.navigate('/elsewhere');
+    void router.navigate('/another');
+    await settle();
+    expect(saves).toHaveLength(1);
+    expect(held).toHaveLength(1);
+    // that one save fails: asked once, nothing sent meanwhile
+    release();
+    await until(() => expect(text('flags')).toBe('asking'));
+    expect(saves).toHaveLength(1);
+    void router.navigate('/another');
+    await settle();
+    expect(saves).toHaveLength(1);
+    expect(text('flags')).toBe('asking');
+    // going leads to the place asked for last
+    press('go');
+    await until(() => expect(screen.getByTestId('location')).toHaveTextContent('/another'));
+  });
+
+  it('lets a departure after a stay be decided by its own save, not by the one before', async () => {
+    api(down, ok);
+    holding = true;
+    const { router } = await open();
+    press('change');
+    void router.navigate('/elsewhere');
+    await until(() => expect(held).toHaveLength(1));
+    await pass(LEAVE_ASK_AFTER_MS);
+    await until(() => expect(text('flags')).toBe('asking slow'));
+    press('stay');
+    await settle();
+    // the first save is still on its way when the person leaves again
+    void router.navigate('/elsewhere');
+    await settle();
+    expect(text('flags')).toBe('');
+    // it fails; the second departure joined it, so the person is asked, once
+    release();
+    await until(() => expect(text('flags')).toBe('asking'));
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
   });
 });

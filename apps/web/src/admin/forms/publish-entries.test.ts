@@ -6,7 +6,9 @@ import {
   problemsByPlace,
   publishEntries,
   type PublishEntry,
+  standing,
 } from './publish-entries';
+import { moveSection, updateField } from './draft';
 
 // What stands between a draft and its publishing, as the list beside the Publish button reads it:
 // the engine's own check of the draft, joined with what the server said last.
@@ -257,6 +259,55 @@ describe('what the server said last', () => {
       { path: 'basic_info', code: 'form.too_long', message: 'x' },
     ]);
     expect(entry).toMatchObject({ group: 'server', place: { section: 'basic_info' } });
+  });
+});
+
+describe('what the server said about a draft that has changed since', () => {
+  const refusedDraft = form(
+    extra(
+      field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') }),
+      field('q_more', 'short_text', { label: T('আরও', 'More') }),
+    ),
+    section('last', [field('q_last', 'number', { label: T('শেষ', 'Last') })]),
+  );
+  const about = (path: string) => ({ path, code: 'form.too_long', message: 'x' });
+  const details = [
+    about('q_note'),
+    about('q_more'),
+    about('extra'),
+    about('last'),
+    about('sections'),
+  ];
+  const pathsOf = (now: FormDefinition) => standing(details, refusedDraft, now).map((d) => d.path);
+
+  it('keeps everything while the draft is as the server saw it, as the same list', () => {
+    expect(standing(details, refusedDraft, refusedDraft)).toBe(details);
+    // without the draft it was said about, nothing can be told apart
+    expect(standing(details, null, form())).toBe(details);
+  });
+
+  it('drops what names a question once that question is edited, and its part with it', () => {
+    const edited = updateField(refusedDraft, 'q_note', { label: T('মন্তব্য লিখুন', 'Note') });
+    // the other question of the part, the other part and the whole form stay
+    expect(pathsOf(edited)).toEqual(['q_more', 'last', 'sections']);
+    // undone, the question is as the server saw it again
+    expect(pathsOf(refusedDraft)).toEqual(['q_note', 'q_more', 'extra', 'last', 'sections']);
+  });
+
+  it('drops what names a question or a part that is gone', () => {
+    const without = {
+      ...refusedDraft,
+      sections: refusedDraft.sections.filter((s) => s.key !== 'last'),
+    };
+    expect(pathsOf(without)).toEqual(['q_note', 'q_more', 'extra', 'sections']);
+  });
+
+  it('keeps everything through a move of a part and through the copy of the draft a save hands back', () => {
+    const moved = moveSection(refusedDraft, 'last', -1);
+    expect(pathsOf(moved)).toEqual(['q_note', 'q_more', 'extra', 'last', 'sections']);
+    // the same draft as new objects, as the server's answer to a save is read
+    const echoed = JSON.parse(JSON.stringify(moved)) as FormDefinition;
+    expect(pathsOf(echoed)).toEqual(['q_note', 'q_more', 'extra', 'last', 'sections']);
   });
 });
 

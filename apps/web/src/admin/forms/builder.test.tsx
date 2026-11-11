@@ -1,6 +1,6 @@
 import type { FormDefinition, FormField } from '@css/shared/forms';
 import { expectNoAxeViolations } from '@/ui/testing';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { FormBuilderPage } from './FormBuilderPage';
 import { FormsPage } from './FormsPage';
+import { LEAVE_ASK_AFTER_MS, SAVE_DELAY_MS, SAVE_RETRY_EVERY_MS } from './use-draft-save';
 import { stubMatchMedia } from '../../../test/match-media';
 
 // The form builder: the libraries on one side, the outline in the middle, the draft saved by
@@ -216,7 +217,10 @@ beforeEach(() => {
   resetClientForTests();
   refreshAs({ ...ME, roles: ['monitoring_team'] });
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 /** The canvas's list of a section's questions. */
 const outlineOf = async (title: string) => within(await screen.findByRole('list', { name: title }));
@@ -242,6 +246,52 @@ async function choose(
   await user.click(scope.getByRole('combobox', { name: label }));
   await user.click(await screen.findByRole('option', { name: optionName }));
 }
+/**
+ * The waits of the save on a clock the test moves by hand. The library's own waiting helpers
+ * lean on the same clock, so with it the screen is given its turns here, and presses are plain
+ * events.
+ */
+const byHand = {
+  start: () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }),
+  /** Lets the network and the screen settle; the clock does not move. */
+  settle: async (turns = 20) => {
+    for (let turn = 0; turn < turns; turn += 1)
+      await act(async () => {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      });
+  },
+  /** Settles until the search finds what it looks for. */
+  found: async <T,>(find: () => T): Promise<T> => {
+    for (let turn = 0; turn < 300; turn += 1) {
+      try {
+        return find();
+      } catch {
+        await byHand.settle(1);
+      }
+    }
+    return find();
+  },
+  /** Moves the clock on, then lets what it started settle. */
+  pass: async (ms: number) => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+    await byHand.settle();
+  },
+  /** Adds a library section whole, as `addSection` does. */
+  addSection: async (title: string) => {
+    fireEvent.click(screen.getByRole('tab', { name: 'লাইব্রেরি' }));
+    const group = await byHand.found(() =>
+      screen.getByRole('button', { name: new RegExp(`^${title}`) }),
+    );
+    if (group.getAttribute('aria-expanded') === 'false') fireEvent.click(group);
+    fireEvent.click(
+      await byHand.found(() =>
+        screen.getByRole('button', { name: `${title}: পুরো অংশটি যোগ করুন` }),
+      ),
+    );
+  },
+};
 /** The undo and redo buttons of the form head. */
 const undoButton = () =>
   within(screen.getByTestId('form-head')).getByRole('button', { name: 'ফিরিয়ে আনুন' });
@@ -1123,7 +1173,6 @@ describe('the own question', () => {
 
 describe('saving', () => {
   it('puts the engine message on the question the server names', async () => {
-    const user = userEvent.setup();
     api({
       patch: () =>
         HttpResponse.json(
@@ -1146,16 +1195,20 @@ describe('saving', () => {
         ),
     });
     open();
-    await addSection(user, 'পরিবার ও আয়');
+    await screen.findByRole('tab', { name: 'লাইব্রেরি' });
+    byHand.start();
+    await byHand.addSection('পরিবার ও আয়');
+    await byHand.pass(SAVE_DELAY_MS);
     expect(
-      await screen.findByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।', {}, { timeout: 4000 }),
+      await byHand.found(() => screen.getByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।')),
     ).toBeInTheDocument();
     // the head says it is not saved and why; the same draft would be refused again, so no retry
     const head = within(screen.getByTestId('form-head'));
     expect(head.getByText('সংরক্ষণ হয়নি')).toBeInTheDocument();
     expect(head.getByText('কিছু তথ্য সঠিক নয়।')).toBeInTheDocument();
     expect(head.queryByRole('button', { name: 'আবার চেষ্টা করুন' })).not.toBeInTheDocument();
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    // however long it waits, the refused draft is not sent a second time
+    await byHand.pass(10 * SAVE_RETRY_EVERY_MS);
     expect(saves).toHaveLength(1);
   }, 15_000);
 
@@ -1400,6 +1453,44 @@ describe('saving', () => {
       ).getByRole('button', { name: 'চলে যান' }),
     );
     expect(await screen.findByTestId('location')).toHaveTextContent('/admin/projects');
+  }, 20_000);
+
+  it('asks while the save before leaving takes long, and leaves by itself once it is through', async () => {
+    api();
+    // the server keeps the save waiting until the test lets it answer
+    let answer: () => void = () => undefined;
+    const waiting = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    server.use(
+      http.patch('*/api/v1/form-versions/:id', async () => {
+        await waiting;
+        return undefined;
+      }),
+    );
+    const { router } = open();
+    await screen.findByRole('tab', { name: 'লাইব্রেরি' });
+    byHand.start();
+    await byHand.addSection('পরিবার ও আয়');
+    void router.navigate('/admin/projects');
+    await byHand.settle();
+    // held for the save, and nothing is asked in its first moments
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+    await byHand.pass(LEAVE_ASK_AFTER_MS);
+    const dialog = await byHand.found(() =>
+      screen.getByRole('dialog', { name: 'সংরক্ষণ হয়নি, তবুও চলে যাবেন?' }),
+    );
+    expect(dialog).toHaveTextContent(
+      'শেষ বদলগুলো এখনো সংরক্ষণ হচ্ছে, সময় লাগছে। এখন চলে গেলে সেগুলো না-ও থাকতে পারে।',
+    );
+    expect(within(dialog).getByRole('button', { name: 'চলে যান' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'থাকুন' })).toBeInTheDocument();
+    answer();
+    expect(await byHand.found(() => screen.getByTestId('location'))).toHaveTextContent(
+      '/admin/projects',
+    );
+    expect(saves).toHaveLength(1);
   }, 20_000);
 
   it('turns read-only with a notice when the server refuses the save to a builder without the official part', async () => {

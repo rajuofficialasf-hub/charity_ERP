@@ -326,6 +326,26 @@ describe('a refusal of the server', () => {
     expect(row.getByText(EMPTY_LIST)).toBeInTheDocument();
   }, 30_000);
 
+  it('leaves the list once the question it names is edited, without a press of Publish', async () => {
+    const user = userEvent.setup();
+    api(complete(), { publish: refuseOnce() });
+    open();
+    await publishNow(user);
+    await user.click(within(await list()).getByRole('button', { name: 'বন্ধ করুন' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(await listButton(1)).toBeInTheDocument();
+    // the person changes that very question: whether it is right now is for the server to say
+    await user.click(screen.getByRole('button', { name: 'gender বদলান' }));
+    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' ক');
+    await waitFor(noListButton);
+    expect(screen.queryByText(EMPTY_LIST)).not.toBeInTheDocument();
+    expect(publishes).toBe(1);
+    // and it stays away once the change is saved
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    await screen.findByText('সংরক্ষিত');
+    noListButton();
+  }, 30_000);
+
   it('does not hold Publish back, and leaves at the next try', async () => {
     const user = userEvent.setup();
     api(complete(), { publish: refuseOnce() });

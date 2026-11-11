@@ -1,9 +1,9 @@
 import type { FormDefinition } from '@css/shared/forms';
-import { isTransientStatus } from '@css/shared/sync';
+import { isTransientStatus, RETRY_AFTER_MAX_SECONDS } from '@css/shared/sync';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useBlocker } from 'react-router';
 import { type ApiErrorDetail, ApiFailure } from '../../api/client';
-import { type FormVersion, saveDraft } from './forms-api';
+import { type FormVersion, type FormVersionRecord, saveDraft } from './forms-api';
 
 /** How long the builder waits after the last change before it saves. */
 export const SAVE_DELAY_MS = 1500;
@@ -11,6 +11,10 @@ export const SAVE_DELAY_MS = 1500;
 export const SAVE_RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
 /** The wait between the tries that follow those. */
 export const SAVE_RETRY_EVERY_MS = 30_000;
+/** How long a save may go without an answer before it counts as failed on the way. */
+export const SAVE_TIMEOUT_MS = 20_000;
+/** How long a departure is held for its save before the person is asked. */
+export const LEAVE_ASK_AFTER_MS = 3_000;
 
 export type SaveState = 'saved' | 'pending' | 'saving' | 'failed';
 
@@ -49,19 +53,41 @@ export function detailsOf(
   return Object.fromEntries(byPlace);
 }
 
-/** A failure worth sending again: the network, a timeout, a busy or failing server. */
+/**
+ * A failed request worth sending again: no answer (the network, or the time limit that cut a
+ * hanging one off), a timeout, a busy or failing server.
+ */
 const failedOnTheWay = (error: unknown) =>
   !(error instanceof ApiFailure) || isTransientStatus(error.status);
+
+/** The wait a busy server asked for, never longer than the longest one followed. */
+function askedWaitMs(error: unknown): number {
+  const seconds = error instanceof ApiFailure ? error.retryAfter : undefined;
+  if (seconds === undefined || !Number.isFinite(seconds) || seconds <= 0) return 0;
+  return Math.min(seconds, RETRY_AFTER_MAX_SECONDS) * 1_000;
+}
+
+/** An error of the page's own code goes where uncaught errors go, as the error it is. */
+function report(error: unknown): void {
+  if (typeof globalThis.reportError === 'function') globalThis.reportError(error);
+  else
+    queueMicrotask(() => {
+      throw error;
+    });
+}
 
 /**
  * Saves the builder's draft by itself: a while after the last change the whole draft goes to the
  * server with the version it was read at, one save at a time; a change made meanwhile is saved
- * next. A save that fails on the way (no network, a failing server) is sent again by itself after
- * a growing wait, at once when the browser is back online, and when the person asks; a draft the
+ * next. A save that fails on the way (no network, no answer within the time limit, a failing
+ * server) is sent again by itself after a growing wait (the wait a busy server asks for, up to a
+ * cap), at once when the browser is back online, and when the person asks; a draft the
  * server refuses waits for the next change. What the server names in a refused draft comes back
- * as its details, until a save goes through; a version changed elsewhere reloads the draft; a refusal of the person turns the
- * builder read-only. Leaving with a change not yet saved saves it first and goes on; only when
- * that save fails is the person asked.
+ * as its details with the draft they are about, until a save goes through; a version changed
+ * elsewhere reloads the draft; a refusal of the person turns the builder read-only. What the page
+ * does with a saved draft (`onSaved`) is not part of the save: an error there is reported as it
+ * is, and nothing is sent again. Leaving with a change not yet saved saves it first and goes on;
+ * the person is asked when that save fails, and when it takes long.
  */
 export function useDraftSave({
   version,
@@ -76,7 +102,10 @@ export function useDraftSave({
 }) {
   const [state, setState] = useState<SaveState>('saved');
   const [failure, setFailure] = useState<SaveFailure | null>(null);
-  const [details, setDetails] = useState<readonly ApiErrorDetail[]>(NO_DETAILS);
+  const [refusal, setRefusal] = useState<{
+    details: readonly ApiErrorDetail[];
+    draft: FormDefinition | null;
+  }>({ details: NO_DETAILS, draft: null });
   const [refused, setRefused] = useState(false);
   const [stale, setStale] = useState(false);
   const queued = useRef<FormDefinition | null>(null);
@@ -101,14 +130,60 @@ export function useDraftSave({
     clearTimeout(retryTimer.current);
     retryTimer.current = undefined;
   };
+  /** The wait before a held departure asks the person, and the departure being held (0: none). */
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const leaving = useRef(0);
+  const departures = useRef(0);
   useEffect(() => {
     gone.current = false;
     return () => {
       gone.current = true;
       clearTimeout(timer.current);
       clearTimeout(retryTimer.current);
+      clearTimeout(leaveTimer.current);
     };
   }, []);
+
+  /** A request that did not save the draft: what it says, and whether it is sent again. */
+  const failed = (error: unknown, definition: FormDefinition): void => {
+    const message = error instanceof ApiFailure ? error.message : null;
+    if (error instanceof ApiFailure && error.status === 412) {
+      queued.current = null;
+      setStale(true);
+      setFailure(null);
+      setState('saved');
+      onStale();
+      return;
+    }
+    if (error instanceof ApiFailure && error.status === 403) {
+      queued.current = null;
+      refusedNow.current = true;
+      setRefused(true);
+      setFailure({ kind: 'other', message });
+      setState('failed');
+      return;
+    }
+    // keep the change for the next try, unless a newer one is waiting
+    queued.current ??= definition;
+    const draftRefused = error instanceof ApiFailure && error.status === 422;
+    if (draftRefused) setRefusal({ details: refusalOf(error), draft: definition });
+    const again = failedOnTheWay(error);
+    setFailure({ kind: again ? 'retrying' : draftRefused ? 'draft' : 'other', message });
+    setState('failed');
+    // a newer change is about to be sent anyway; otherwise this one is, after its wait
+    if (again && timer.current === undefined && !gone.current) {
+      const wait = SAVE_RETRY_DELAYS_MS[failures.current] ?? SAVE_RETRY_EVERY_MS;
+      failures.current += 1;
+      clearTimeout(retryTimer.current);
+      retryTimer.current = setTimeout(
+        () => {
+          retryTimer.current = undefined;
+          void send();
+        },
+        Math.max(wait, askedWaitMs(error)),
+      );
+    }
+  };
 
   /** Sends what waits, one draft after the other; false when a draft could not be saved. */
   const work = async (): Promise<boolean> => {
@@ -118,59 +193,34 @@ export function useDraftSave({
       if (!version || !tag.current || refusedNow.current) return false;
       queued.current = null;
       setState('saving');
+      // a connection that hangs gives no answer and no error: the time limit makes it one
+      const limit = new AbortController();
+      const limitTimer = setTimeout(() => limit.abort(), SAVE_TIMEOUT_MS);
+      let saved: FormVersionRecord;
       try {
-        const saved = await saveDraft(version.id, tag.current, definition);
-        tag.current = saved.meta.etag;
-        failures.current = 0;
-        setDetails(NO_DETAILS);
-        setStale(false);
-        setFailure(null);
-        onSaved(saved.data, saved.meta.etag);
-        // a change made while this save ran goes next
-        if (queued.current) continue;
-        setState('saved');
-        return true;
+        saved = await saveDraft(version.id, tag.current, definition, limit.signal);
       } catch (error) {
-        const message = error instanceof ApiFailure ? error.message : null;
-        if (error instanceof ApiFailure && error.status === 412) {
-          queued.current = null;
-          setStale(true);
-          setFailure(null);
-          setState('saved');
-          onStale();
-          return false;
-        }
-        if (error instanceof ApiFailure && error.status === 403) {
-          queued.current = null;
-          refusedNow.current = true;
-          setRefused(true);
-          setFailure({ kind: 'other', message });
-          setState('failed');
-          return false;
-        }
-        // keep the change for the next try, unless a newer one is waiting
-        queued.current ??= definition;
-        const draftRefused = error instanceof ApiFailure && error.status === 422;
-        if (draftRefused) setDetails(refusalOf(error));
-        const again = failedOnTheWay(error);
-        setFailure({ kind: again ? 'retrying' : draftRefused ? 'draft' : 'other', message });
-        setState('failed');
-        // a newer change is about to be sent anyway; otherwise this one is, after its wait
-        if (again && timer.current === undefined && !gone.current) {
-          const wait = SAVE_RETRY_DELAYS_MS[failures.current] ?? SAVE_RETRY_EVERY_MS;
-          failures.current += 1;
-          const asked = error instanceof ApiFailure ? (error.retryAfter ?? 0) * 1000 : 0;
-          clearTimeout(retryTimer.current);
-          retryTimer.current = setTimeout(
-            () => {
-              retryTimer.current = undefined;
-              void send();
-            },
-            Math.max(wait, asked),
-          );
-        }
+        failed(error, definition);
         return false;
+      } finally {
+        clearTimeout(limitTimer);
       }
+      tag.current = saved.meta.etag;
+      failures.current = 0;
+      setRefusal({ details: NO_DETAILS, draft: null });
+      setStale(false);
+      setFailure(null);
+      // the draft is saved whatever the page does with it next: an error of the page's own is
+      // not a failed save, so it is neither sent again nor shown as a lost connection
+      try {
+        onSaved(saved.data, saved.meta.etag);
+      } catch (error) {
+        report(error);
+      }
+      // a change made while this save ran goes next
+      if (queued.current) continue;
+      setState('saved');
+      return true;
     }
   };
 
@@ -216,28 +266,60 @@ export function useDraftSave({
   }, [waitsForNetwork]);
 
   const unsaved = state === 'pending' || state === 'saving' || state === 'failed';
-  /** How the save before a departure ended; none while it runs, and when nobody is leaving. */
-  const [leaveSave, setLeaveSave] = useState<'saved' | 'failed' | null>(null);
+  /**
+   * How the save before a departure stands: over (`saved`, `failed`) or taking long (`slow`);
+   * none in its first moments, and when nobody is leaving.
+   */
+  const [leaveSave, setLeaveSave] = useState<'saved' | 'failed' | 'slow' | null>(null);
+  /** The held departure is over, by the person's word or by the router. */
+  const endLeave = () => {
+    leaving.current = 0;
+    clearTimeout(leaveTimer.current);
+    leaveTimer.current = undefined;
+  };
   const blocker = useBlocker(({ currentLocation, nextLocation }) => {
     if (!unsaved || refused || currentLocation.pathname === nextLocation.pathname) return false;
+    // a departure is held already and its one save decides: a further try starts no other
+    if (leaving.current) return true;
     // the departure is held while the change is saved; how that ends decides what follows
+    departures.current += 1;
+    const mine = departures.current;
+    leaving.current = mine;
     setLeaveSave(null);
-    void saveNow().then((saved) => setLeaveSave(saved ? 'saved' : 'failed'));
+    clearTimeout(leaveTimer.current);
+    // a save that takes long leaves the person looking at nothing: they are asked meanwhile
+    leaveTimer.current = setTimeout(() => {
+      if (leaving.current === mine) setLeaveSave((now) => now ?? 'slow');
+    }, LEAVE_ASK_AFTER_MS);
+    void saveNow().then((saved) => {
+      // a departure the person called off, or an earlier one, decides nothing
+      if (leaving.current !== mine) return;
+      clearTimeout(leaveTimer.current);
+      setLeaveSave(saved ? 'saved' : 'failed');
+    });
     return true;
   });
   const held = blocker.state === 'blocked';
-  // saved: the departure goes on by itself; the person is asked only when the save failed
+  // the router let go of the departure (it went on, or another navigation took its place)
+  useEffect(() => {
+    if (!held) endLeave();
+  }, [held]);
+  // saved: the departure goes on by itself; the person is asked when the save failed or is slow
   useEffect(() => {
     if (held && leaveSave === 'saved') blocker.proceed?.();
   }, [held, leaveSave, blocker]);
   const leave = {
-    /** The save before leaving failed, and the person decides. */
-    asking: held && leaveSave === 'failed',
+    /** The save before leaving failed or is taking long, and the person decides. */
+    asking: held && (leaveSave === 'failed' || leaveSave === 'slow'),
+    /** The person is asked while that save still runs. */
+    saving: held && leaveSave === 'slow',
     stay: () => {
+      endLeave();
       setLeaveSave(null);
       blocker.reset?.();
     },
     go: () => {
+      endLeave();
       setLeaveSave(null);
       blocker.proceed?.();
     },
@@ -254,7 +336,9 @@ export function useDraftSave({
   return {
     state,
     failure: state === 'failed' ? failure : null,
-    details,
+    details: refusal.details,
+    /** The draft those details are about: the one the server refused. */
+    refusedDraft: refusal.draft,
     refused,
     stale,
     schedule,

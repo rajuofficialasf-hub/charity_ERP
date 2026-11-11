@@ -64,6 +64,7 @@ import {
   problemsByPlace,
   publishEntries,
   type PublishEntry,
+  standing,
 } from './publish-entries';
 import { SettingsPane } from './SettingsPane';
 import { UsesDialog } from './UsesDialog';
@@ -76,6 +77,12 @@ import { LoadError } from '../../components/LoadError';
 
 const PHONE = '(max-width: 767px)';
 const NO_DETAILS: readonly ApiErrorDetail[] = [];
+/** What the server named when it refused a publish, and the draft it was asked about. */
+interface Refusal {
+  details: readonly ApiErrorDetail[];
+  draft: FormDefinition | null;
+}
+const NO_REFUSAL: Refusal = { details: NO_DETAILS, draft: null };
 const NO_ENTRIES: readonly PublishEntry[] = [];
 
 function useMedia(media: string) {
@@ -102,7 +109,7 @@ function useMedia(media: string) {
  * and its publishing is listed beside the Publish button while the form is built, each line
  * leading to its place; Publish opens that list while the draft's own check finds anything, and
  * asks first with the summary of the changes once it finds nothing; what the server refuses
- * lands in the same list.
+ * lands in the same list, and leaves it once the question or the part it names is changed.
  */
 /** The builder of a ready form outside the projects (`/admin/ready-forms/:formId`). */
 export const ReadyFormBuilderPage = () => (
@@ -131,9 +138,9 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const [publishing, setPublishing] = useState(false);
   // the list of what to fix before publishing, open
   const [listing, setListing] = useState(false);
-  // what the server named when it last refused the publish; it stays through the edits, until
-  // the server is asked again or another draft takes this one's place
-  const [refusal, setRefusal] = useState(NO_DETAILS);
+  // what the server named when it last refused the publish; it stays through the edits made
+  // elsewhere, until the server is asked again or another draft takes this one's place
+  const [refusal, setRefusal] = useState(NO_REFUSAL);
   // the question or the part the canvas is asked to bring into view, until it has
   const [reveal, setReveal] = useState<Selection | null>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -187,14 +194,18 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   };
   const publish = useMutation({
     mutationFn: () => publishVersion(versionId!, etag!),
-    // the server is asked again, so its earlier word no longer stands
-    onMutate: () => setRefusal(NO_DETAILS),
+    // the server is asked again, so its earlier word no longer stands; what it says now is about
+    // the draft as it is at this moment
+    onMutate: () => {
+      setRefusal(NO_REFUSAL);
+      return { draft };
+    },
     onSuccess: async (done) => {
       setPublishing(false);
       queries.setQueryData([...FORMS_KEY, 'version', done.data.id], done);
       await afterChange();
     },
-    onError: (error) => {
+    onError: (error, _nothing, asked) => {
       setPublishing(false);
       // a draft changed elsewhere is read again, so the next try carries its new version
       if (error instanceof ApiFailure && error.status === 412)
@@ -202,7 +213,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       // what the refusal names goes into the list, which opens to say so
       const details = refusalOf(error);
       if (details.length === 0) return;
-      setRefusal(details);
+      setRefusal({ details, draft: asked?.draft ?? null });
       setListing(true);
     },
   });
@@ -252,7 +263,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       // a removal that was being asked about belonged to the draft that is gone, and so did
       // what the server said about it
       setRemoving(null);
-      setRefusal(NO_DETAILS);
+      setRefusal(NO_REFUSAL);
       setListing(false);
     }
     setSeen(read.data);
@@ -271,8 +282,17 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   // a draft is published from a computer, by a builder the server lets save it
   const canPublish = builder && isDraft && !viewing && !phone && !save.refused;
   const kind = form?.kind;
+  // what the server named in the save it refused last, where the draft is still as it was then:
+  // a question or a part changed since waits for the server's next word
+  const saveRefused = useMemo(
+    () => (draft ? standing(save.details, save.refusedDraft, draft) : NO_DETAILS),
+    [save.details, save.refusedDraft, draft],
+  );
   // what the server named last, in a refused save and in a refused publish
-  const refused = useMemo(() => [...save.details, ...refusal], [save.details, refusal]);
+  const refused = useMemo(
+    () => [...saveRefused, ...(draft ? standing(refusal.details, refusal.draft, draft) : [])],
+    [saveRefused, refusal, draft],
+  );
   // what stands between the draft and its publishing: the engine's own check of the draft as it
   // is now, so an entry leaves with its cause, joined with what only the server knows
   const entries = useMemo(
@@ -284,8 +304,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   // what the server said about a question or a part shows on it: a refused save's messages, and
   // of a refused publish those the list cannot word itself
   const errors = useMemo(
-    () => detailsOf([...save.details, ...entries.filter((e) => e.group === 'server')]),
-    [save.details, entries],
+    () => detailsOf([...saveRefused, ...entries.filter((e) => e.group === 'server')]),
+    [saveRefused, entries],
   );
   // nothing left to list: the list is closed, and stays so when a problem comes back
   if (listing && entries.length === 0) setListing(false);
@@ -780,7 +800,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
           </>
         }
       >
-        <Text>{t('leave_message')}</Text>
+        <Text>{t(save.leave.saving ? 'leave_saving_message' : 'leave_message')}</Text>
       </Dialog>
     </>
   );

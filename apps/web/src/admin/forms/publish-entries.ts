@@ -108,7 +108,7 @@ function mark(code: string, path: string, params: Record<string, string> | undef
  * in the draft, grouped and counted for the list, then what the server refused last (`refused`,
  * the details of a 422 of the publish or of the save) where the check here does not find it. The
  * check is the server's own, so an entry leaves as soon as its cause does; a server-only entry
- * stays for as long as the caller passes it.
+ * stays for as long as the caller passes it (`standing` tells which of them still do).
  */
 export function publishEntries(
   definition: FormDefinition,
@@ -171,6 +171,39 @@ export function publishEntries(
     ...others.values(),
     ...server.values(),
   ];
+}
+
+/**
+ * A question or a part as the server saw it: the same object, or one that reads the same, since
+ * a save hands the whole draft back as new objects.
+ */
+const asItWas = (was: unknown, now: unknown) =>
+  was === now || JSON.stringify(was) === JSON.stringify(now);
+
+/**
+ * What the server said about a draft (`refusedDraft`) that still stands for the draft as it is
+ * now. A detail that names a question or a part leaves once that question or part is no longer
+ * as the server saw it, changed or gone: whether the change put it right is for the server to
+ * say at the next try. A detail that names neither stays, and so does every one when the draft
+ * it was said about is not known. The same list comes back when all of it stands.
+ */
+export function standing(
+  details: readonly ApiErrorDetail[],
+  refusedDraft: FormDefinition | null,
+  definition: FormDefinition,
+): readonly ApiErrorDetail[] {
+  if (!refusedDraft || refusedDraft === definition || details.length === 0) return details;
+  const fieldIn = (def: FormDefinition, key: string) =>
+    def.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === key);
+  const sectionIn = (def: FormDefinition, key: string) => def.sections.find((s) => s.key === key);
+  const left = details.filter((detail) => {
+    const path = detail.path ?? '';
+    const was = fieldIn(refusedDraft, path) ?? sectionIn(refusedDraft, path);
+    if (!was) return true;
+    const now = 'fieldKey' in was ? fieldIn(definition, path) : sectionIn(definition, path);
+    return now !== undefined && asItWas(was, now);
+  });
+  return left.length === details.length ? details : left;
 }
 
 /** How many texts of the form still lack a language, over every entry of the list. */
