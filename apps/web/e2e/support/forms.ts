@@ -51,12 +51,12 @@ export async function publish(page: Page, versionNo: number) {
   await expect(confirm).toHaveCount(0);
 }
 
-/** Asks to publish, confirms, and expects the refusal to keep the draft open. */
-export async function publishRefused(page: Page) {
-  await saved(page);
-  await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
-  await page.getByRole('button', { name: 'সংস্করণ প্রকাশ করুন' }).click();
-  await expect(page.getByTestId('form-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
+/** The list of what to fix before publishing, opened by its button beside Publish. */
+export async function openFixList(page: Page, count: number) {
+  await page.getByRole('button', { name: `প্রকাশের আগে ঠিক করুন (${count})`, exact: true }).click();
+  const list = page.getByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' });
+  await expect(list).toBeVisible();
+  return list;
 }
 
 /**

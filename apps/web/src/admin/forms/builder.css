@@ -32,6 +32,45 @@
   display: inline-flex;
   align-items: center;
 }
+/* the list of what to fix before publishing: a line with a place is a button that leads there */
+.fb-fix-group {
+  display: grid;
+  gap: var(--space-2);
+}
+.fb-fix-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fb-fix-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.fb-fix-item:hover {
+  background: var(--color-bg-muted);
+}
+.fb-fix-item:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+.fb-fix-name {
+  font-weight: var(--font-weight-bold);
+}
+.fb-fix-plain {
+  margin: 0;
+  padding: var(--space-1) 0;
+}
 .fb-panes {
   display: grid;
   gap: var(--space-4);

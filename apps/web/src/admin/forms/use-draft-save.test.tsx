@@ -13,6 +13,7 @@ import {
   SAVE_DELAY_MS,
   SAVE_RETRY_DELAYS_MS,
   SAVE_RETRY_EVERY_MS,
+  detailsOf,
   type SaveState,
   useDraftSave,
 } from './use-draft-save';
@@ -78,7 +79,11 @@ const refusedDraft = () =>
         code: 'validation.failed',
         messageKey: 'errors.validation.failed',
         message: 'কিছু তথ্য সঠিক নয়।',
-        details: [{ path: 'q_note', code: 'form.unknown_reference', message: 'ঘরটি ফর্মে নেই।' }],
+        details: [
+          { path: 'q_note', code: 'form.unknown_reference', message: 'ঘরটি ফর্মে নেই।' },
+          { path: 'q_note', code: 'form.pipe_order', message: 'পরের প্রশ্নের উত্তর বসানো হয়েছে।' },
+          { path: 'q_note', code: 'form.unknown_reference', message: 'ঘরটি ফর্মে নেই।' },
+        ],
         requestId: 'r',
       },
     },
@@ -107,7 +112,7 @@ function Harness() {
       <output data-testid="state">{save.state}</output>
       <output data-testid="failure">{save.failure?.kind ?? ''}</output>
       <output data-testid="message">{save.failure?.message ?? ''}</output>
-      <output data-testid="errors">{JSON.stringify(save.errors)}</output>
+      <output data-testid="errors">{JSON.stringify(detailsOf(save.details))}</output>
       <output data-testid="flags">
         {[save.refused && 'refused', save.stale && 'stale', save.leave.asking && 'asking']
           .filter(Boolean)
@@ -292,7 +297,10 @@ describe('saving the draft', () => {
     await until(() => expect(text('state')).toBe('failed'));
     expect(text('failure')).toBe('draft');
     expect(text('message')).toBe('কিছু তথ্য সঠিক নয়।');
-    expect(JSON.parse(text('errors')!)).toEqual({ q_note: 'ঘরটি ফর্মে নেই।' });
+    // every message of the question, the same sentence once
+    expect(JSON.parse(text('errors')!)).toEqual({
+      q_note: ['ঘরটি ফর্মে নেই।', 'পরের প্রশ্নের উত্তর বসানো হয়েছে।'],
+    });
     await pass(10 * SAVE_RETRY_EVERY_MS);
     act(() => {
       window.dispatchEvent(new Event('online'));

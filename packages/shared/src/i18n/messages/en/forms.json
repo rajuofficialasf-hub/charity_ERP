@@ -177,6 +177,57 @@
     "net": "Net-assets question",
     "publish": "Publish",
     "publish_wait": "The draft can be published once it is saved",
+    "needs_fixing": "Needs fixing",
+    "publish_list": {
+      "button": "Fix before publishing ({n})",
+      "title": "Fix before publishing",
+      "intro": "The form cannot be published until these are fixed. Press a line to go to its place.",
+      "identity": "Identity questions still missing: {roles}",
+      "groups": {
+        "texts": "Texts still missing",
+        "other": "Other things to fix",
+        "server": "Found at the last try"
+      },
+      "server_hint": "After fixing these, press “Publish” again.",
+      "line": "{name}: {what}",
+      "many": "{what} ({n})",
+      "unnamed_question": "Unnamed question",
+      "unnamed_section": "Unnamed section",
+      "text": {
+        "title": {
+          "bn": "The section's name is missing in Bengali",
+          "en": "The section's name is missing in English"
+        },
+        "label": {
+          "bn": "The question's Bengali text is missing",
+          "en": "The question's English text is missing"
+        },
+        "help": {
+          "bn": "The help text is missing in Bengali",
+          "en": "The help text is missing in English"
+        },
+        "placeholder": {
+          "bn": "The example text shown in the empty box is missing in Bengali",
+          "en": "The example text shown in the empty box is missing in English"
+        },
+        "option": {
+          "bn": "An option's Bengali text is missing",
+          "en": "An option's English text is missing"
+        },
+        "table_row": {
+          "bn": "A table row's name is missing in Bengali",
+          "en": "A table row's name is missing in English"
+        },
+        "table_col": {
+          "bn": "A table column's name is missing in Bengali",
+          "en": "A table column's name is missing in English"
+        },
+        "result": {
+          "bn": "A calculation result's name is missing in Bengali",
+          "en": "A calculation result's name is missing in English"
+        }
+      }
+    },
     "new_version": "Make a new version",
     "back_to_current": "Back to the current version",
     "publish_title": "Publish version {n}?",
@@ -398,8 +449,7 @@
         "gender": "Gender",
         "address": "Address (division to union)",
         "village": "Village"
-      },
-      "missing": "Mark every identity question of a beneficiary application form. Still missing: {roles}."
+      }
     },
     "library_title": "Question library",
     "kind": {

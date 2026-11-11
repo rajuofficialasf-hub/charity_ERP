@@ -3,10 +3,10 @@ import { scan, signIn, switchLanguage } from './support/admin';
 import {
   dayFromToday,
   digits,
+  openFixList,
   ownQuestion,
   pick,
   publish,
-  publishRefused,
   saved,
   settled,
 } from './support/forms';
@@ -96,9 +96,16 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     await ownQuestion(page, 'অংশ 1', type, label, options);
     await mark(page, role);
   }
-  await publishRefused(page);
+  // Publish does not ask while something is left: it opens the list, which names the role
+  await saved(page);
+  await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
+  const fixes = page.getByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' });
+  await expect(fixes.getByText('পরিচয়ের প্রশ্ন বাকি: গ্রাম', { exact: true })).toBeVisible();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(fixes).toHaveCount(0);
   await expect(
-    page.getByText('উপকারভোগীর আবেদন-ফর্মে পরিচয়ের সব প্রশ্ন চিহ্নিত করুন। এখনো বাকি: গ্রাম।'),
+    page.getByRole('button', { name: 'প্রকাশের আগে ঠিক করুন (1)', exact: true }),
   ).toBeVisible();
   const [vType, vLabel, vRole] = identity[6]!;
   await ownQuestion(page, 'অংশ 1', vType, vLabel);
@@ -320,6 +327,61 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     await phone.close();
     await desk.close();
   }
+});
+
+// A form built in Bengali first: what stands between it and its publishing is listed beside the
+// Publish button, and each line leads to its place.
+test('a new application form lists what to fix before publishing, and a line leads to its question', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'the builders work on a computer');
+  test.setTimeout(120_000);
+  await signIn(page, MONITORING);
+  await newReadyForm(page, `প্রকাশের তালিকা ${code()}`, `Publish list ${code()}`);
+  // nothing to list yet but the identity questions
+  await expect(
+    page.getByRole('button', { name: 'প্রকাশের আগে ঠিক করুন (1)', exact: true }),
+  ).toBeVisible();
+
+  // one question, then its English text emptied in the right pane: the draft still saves
+  await ownQuestion(page, 'অংশ 1', 'ছোট লেখা', ['পরিবারের সদস্য', 'Family members']);
+  const question = page.getByRole('button', { name: 'পরিবারের সদস্য বদলান' });
+  await page.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }).fill('');
+  await saved(page);
+  // the question carries the mark, by an icon with a name
+  await expect(
+    page
+      .getByRole('list', { name: 'অংশ 1', exact: true })
+      .getByRole('img', { name: 'ঠিক করতে হবে' }),
+  ).toBeVisible();
+
+  // another place is chosen, so the way back to the question shows
+  await page.getByRole('button', { name: 'অংশ 1', exact: true }).click();
+  await expect(question).toHaveAttribute('aria-pressed', 'false');
+  const list = await openFixList(page, 2);
+  await expect(
+    list.getByText(
+      'পরিচয়ের প্রশ্ন বাকি: এনআইডি বা জন্মনিবন্ধন নম্বর, নাম, পিতা বা স্বামীর নাম, মোবাইল নম্বর, লিঙ্গ, ঠিকানা (বিভাগ থেকে ইউনিয়ন), গ্রাম',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await settled(page);
+  expect((await scan(page)).violations, 'the list of what to fix').toEqual([]);
+  await list.getByRole('button', { name: 'পরিবারের সদস্য: প্রশ্নের ইংরেজি লেখা বাকি' }).click();
+  // the list closes, the question is chosen with the focus, and its settings are in the right pane
+  await expect(list).toHaveCount(0);
+  await expect(question).toHaveAttribute('aria-pressed', 'true');
+  await expect(question).toBeFocused();
+  await expect(question).toBeInViewport();
+  await expect(page.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue(
+    'পরিবারের সদস্য',
+  );
+  await expect(page.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ })).toHaveValue('');
+
+  // Publish says the same instead of asking
+  await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
+  await expect(list).toBeVisible();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
 });
 
 test('a removed question and a removed part come back with the undo of the form head, and the draft saves', async ({

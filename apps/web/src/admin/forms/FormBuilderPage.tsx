@@ -1,4 +1,4 @@
-import { CORE_FIELD_KEYS, type FieldType, type FormDefinition } from '@css/shared/forms';
+import type { FieldType, FormDefinition } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
 import {
   Alert,
@@ -21,7 +21,7 @@ import { useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useOnline } from '../../components/shell/use-online';
-import { ApiFailure } from '../../api/client';
+import { type ApiErrorDetail, ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { canBuildForms, canManagePublicLink, canPlaceForms } from '../roles';
 import {
@@ -58,16 +58,25 @@ import { OwnQuestionDialog } from './OwnQuestionDialog';
 import type { BuilderMode, Selection } from './selection';
 import { PreviewPane } from './PreviewPane';
 import { PublicLinkPanel } from './PublicLinkPanel';
+import { PublishChecklist, useEntryWords } from './PublishChecklist';
+import {
+  type EntryTarget,
+  problemsByPlace,
+  publishEntries,
+  type PublishEntry,
+} from './publish-entries';
 import { SettingsPane } from './SettingsPane';
 import { UsesDialog } from './UsesDialog';
 import { type HistoryStep, type Typed, useDraftHistory } from './use-draft-history';
-import { detailsOf, useDraftSave } from './use-draft-save';
+import { detailsOf, refusalOf, useDraftSave } from './use-draft-save';
 import { ScoringDialog } from './ScoringDialog';
 import { VersionList } from './VersionList';
 import './builder.css';
 import { LoadError } from '../../components/LoadError';
 
 const PHONE = '(max-width: 767px)';
+const NO_DETAILS: readonly ApiErrorDetail[] = [];
+const NO_ENTRIES: readonly PublishEntry[] = [];
 
 function useMedia(media: string) {
   const [matches, setMatches] = useState(() => window.matchMedia?.(media).matches === true);
@@ -89,8 +98,11 @@ function useMedia(media: string) {
  * on the way and says so in the form head, and every change to it can be undone and redone from
  * there; leaving saves first. A published version opens read-only. The
  * preview opens from the header in a dialog; the form's name, its versions with their change
- * summaries and its public link sit in the right pane's second tab; publishing asks first with
- * the summary.
+ * summaries and its public link sit in the right pane's second tab. What stands between the draft
+ * and its publishing is listed beside the Publish button while the form is built, each line
+ * leading to its place; Publish opens that list while the draft's own check finds anything, and
+ * asks first with the summary of the changes once it finds nothing; what the server refuses
+ * lands in the same list.
  */
 /** The builder of a ready form outside the projects (`/admin/ready-forms/:formId`). */
 export const ReadyFormBuilderPage = () => (
@@ -117,6 +129,13 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   // an earlier version opened from the list; otherwise the draft, else the published version
   const [viewing, setViewing] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  // the list of what to fix before publishing, open
+  const [listing, setListing] = useState(false);
+  // what the server named when it last refused the publish; it stays through the edits, until
+  // the server is asked again or another draft takes this one's place
+  const [refusal, setRefusal] = useState(NO_DETAILS);
+  // the question or the part the canvas is asked to bring into view, until it has
+  const [reveal, setReveal] = useState<Selection | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [scoring, setScoring] = useState(false);
   // the question or part removed last, named until the next change so its way back is said
@@ -168,6 +187,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   };
   const publish = useMutation({
     mutationFn: () => publishVersion(versionId!, etag!),
+    // the server is asked again, so its earlier word no longer stands
+    onMutate: () => setRefusal(NO_DETAILS),
     onSuccess: async (done) => {
       setPublishing(false);
       queries.setQueryData([...FORMS_KEY, 'version', done.data.id], done);
@@ -178,6 +199,11 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       // a draft changed elsewhere is read again, so the next try carries its new version
       if (error instanceof ApiFailure && error.status === 412)
         void queries.invalidateQueries({ queryKey: versionKey });
+      // what the refusal names goes into the list, which opens to say so
+      const details = refusalOf(error);
+      if (details.length === 0) return;
+      setRefusal(details);
+      setListing(true);
     },
   });
   const next = useMutation({ mutationFn: () => newVersion(formId), onSuccess: afterChange });
@@ -223,8 +249,11 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     const ownSave = seen?.data.id === read.data.data.id && read.data.meta.etag === etag;
     if (!ownSave) {
       history.clear();
-      // a removal that was being asked about belonged to the draft that is gone
+      // a removal that was being asked about belonged to the draft that is gone, and so did
+      // what the server said about it
       setRemoving(null);
+      setRefusal(NO_DETAILS);
+      setListing(false);
     }
     setSeen(read.data);
     setDraft({
@@ -237,6 +266,29 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     () => new Map((lib.data?.fields ?? []).map((f) => [f.key, f.formFields])),
     [lib.data],
   );
+  const builder = Boolean(me && canBuildForms(me));
+  const isDraft = read.data?.data.status === 'draft';
+  // a draft is published from a computer, by a builder the server lets save it
+  const canPublish = builder && isDraft && !viewing && !phone && !save.refused;
+  const kind = form?.kind;
+  // what the server named last, in a refused save and in a refused publish
+  const refused = useMemo(() => [...save.details, ...refusal], [save.details, refusal]);
+  // what stands between the draft and its publishing: the engine's own check of the draft as it
+  // is now, so an entry leaves with its cause, joined with what only the server knows
+  const entries = useMemo(
+    () => (draft && canPublish ? publishEntries(draft, kind, refused) : NO_ENTRIES),
+    [draft, canPublish, kind, refused],
+  );
+  const say = useEntryWords();
+  const problems = useMemo(() => problemsByPlace(entries, say), [entries, say]);
+  // what the server said about a question or a part shows on it: a refused save's messages, and
+  // of a refused publish those the list cannot word itself
+  const errors = useMemo(
+    () => detailsOf([...save.details, ...entries.filter((e) => e.group === 'server')]),
+    [save.details, entries],
+  );
+  // nothing left to list: the list is closed, and stays so when a problem comes back
+  if (listing && entries.length === 0) setListing(false);
 
   if (sum.isPending || (versionId && read.isPending)) return <Skeleton shape="card" />;
   const notFound =
@@ -255,9 +307,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     );
 
   const version = read.data.data;
-  const builder = Boolean(me && canBuildForms(me));
   const linkManager = Boolean(me && canManagePublicLink(me));
-  const isDraft = version.status === 'draft';
   const mode: BuilderMode =
     !builder || !isDraft || save.refused ? 'read' : phone ? 'texts' : 'full';
   const sectionOf = (fieldKey: string) =>
@@ -269,7 +319,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const shown: HistoryStep = { definition: draft, selection };
   /** Shows a draft in place of the one on screen and saves it a little later. */
   const apply = (next: FormDefinition) => {
-    // the messages of a refused publish belong to the draft as it was then
+    // a publish that failed without naming anything is said above the panes until the next change
     if (publish.error) publish.reset();
     setRemoved(null);
     setDraft(next);
@@ -365,26 +415,34 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   // a library question goes to the chosen section, or to the last one when none is chosen
   const target =
     draft.sections.find((s) => s.key === selection?.section)?.key ?? draft.sections.at(-1)?.key;
-  // a refused publish names its questions like a refused save; a newer edit's messages win
-  const publishDetails = detailsOf(publish.error);
-  const errors = { ...publishDetails, ...save.errors };
-  // a refusal about the whole form names no question or section, so it shows above the outline
+  // where there is no list (a phone, a published version), a refused save's message that names
+  // no question and no part of the draft shows above the outline
   const named = new Set(draft.sections.flatMap((s) => [s.key, ...s.fields.map((f) => f.fieldKey)]));
-  // the identity roles no question is marked with yet: one alert naming them all
-  const missingRoles = CORE_FIELD_KEYS.filter((k) => !named.has(k) && k in errors);
-  const unplaced = Object.entries(errors).filter(
-    ([key]) => !named.has(key) && !missingRoles.some((k) => k === key),
-  );
+  const unplaced = canPublish
+    ? []
+    : Object.entries(errors).flatMap(([key, messages]) => (named.has(key) ? [] : messages));
   const published = versions.data?.find((v) => v.status === 'published') ?? null;
-  const canPublish = builder && isDraft && !viewing && !phone && !save.refused;
+  // what the check of the draft finds, the server would refuse too; what only the server said
+  // is for the server to say again, so it does not hold Publish back
+  const blocked = entries.some((e) => e.group !== 'server');
+  /** Shows the place of a line of the list: the question or the part, or the points of the score. */
+  const go = (place: EntryTarget) => {
+    setListing(false);
+    if (place === 'scoring') {
+      setScoring(true);
+      return;
+    }
+    setSelected(place);
+    setReveal(place);
+  };
   // a draft is published at the version it was saved at, so publishing waits for the save
   const publishWaits = save.state !== 'saved';
   const canStartNext =
     builder && !phone && !placed && version.status === 'published' && !form?.draftVersionId;
-  // a refusal that names no question shows above the panes: any refused new version, and a
-  // refused publish without messages for the outline
+  // a refusal that names nothing shows above the panes: any refused new version, and a failed
+  // publish whose answer names no place for the list
   const failure = [
-    Object.keys(publishDetails).length ? null : publish.error,
+    refusalOf(publish.error).length ? null : publish.error,
     next.error,
     take.error,
   ].find((e): e is ApiFailure => e instanceof ApiFailure);
@@ -394,6 +452,9 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       definition={draft}
       mode={mode}
       errors={errors}
+      problems={problems}
+      reveal={reveal}
+      onRevealed={() => setReveal(null)}
       selected={selection}
       onSelect={setSelected}
       onChange={change}
@@ -543,12 +604,26 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
                 </Button>
               ) : null}
               {canPublish ? (
+                <PublishChecklist
+                  entries={entries}
+                  definition={draft}
+                  open={listing}
+                  onOpen={() => setListing(true)}
+                  onClose={() => setListing(false)}
+                  onGo={go}
+                />
+              ) : null}
+              {canPublish ? (
                 // a disabled button takes no pointer, so the reason hangs on the wrap around it
                 <span className="fb-publish" title={publishWaits ? t('publish_wait') : undefined}>
                   <Button
                     onClick={() => {
-                      publish.reset();
-                      setPublishing(true);
+                      // with something left to fix the list says so, with nothing the question
+                      if (blocked) setListing(true);
+                      else {
+                        publish.reset();
+                        setPublishing(true);
+                      }
                     }}
                     // the confirmation lists what changed, so it waits for the versions too
                     disabled={publishWaits || !etag || !versions.isSuccess}
@@ -615,15 +690,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       ) : null}
       {!isDraft && !placed ? <Alert tone="info">{t('read_only')}</Alert> : null}
       {save.refused ? <Alert tone="warning">{t('no_official')}</Alert> : null}
-      {missingRoles.length ? (
-        <Alert tone="error">
-          {t('identity.missing', {
-            roles: missingRoles.map((k) => t(`identity.roles.${k}`)).join(', '),
-          })}
-        </Alert>
-      ) : null}
-      {unplaced.map(([key, message]) => (
-        <Alert key={key} tone="error">
+      {unplaced.map((message) => (
+        <Alert key={message} tone="error">
           {message}
         </Alert>
       ))}

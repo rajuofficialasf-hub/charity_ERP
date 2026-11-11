@@ -1229,7 +1229,7 @@ describe('saving', () => {
     expect(saves).toHaveLength(1);
   }, 20_000);
 
-  it('shows a refusal about the whole form above the outline', async () => {
+  it('lists a refusal about the whole form beside the Publish button', async () => {
     const user = userEvent.setup();
     api({
       patch: () =>
@@ -1248,7 +1248,39 @@ describe('saving', () => {
     });
     open();
     await addSection(user, 'পরিবার ও আয়');
+    await user.click(
+      await screen.findByRole('button', { name: 'প্রকাশের আগে ঠিক করুন (1)' }, { timeout: 4000 }),
+    );
+    const list = await screen.findByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' });
+    expect(within(list).getByText('ফর্মটি অনেক বড়।')).toBeInTheDocument();
+  }, 15_000);
+
+  it('shows a refusal about the whole form above the outline on a phone, where there is no list', async () => {
+    const user = userEvent.setup();
+    stubMatchMedia((q) => q.includes('max-width'));
+    api({
+      sections: withNote(),
+      patch: () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              messageKey: 'errors.validation.failed',
+              message: 'কিছু তথ্য সঠিক নয়।',
+              details: [{ path: 'sections', code: 'form.too_many', message: 'ফর্মটি অনেক বড়।' }],
+              requestId: 'r',
+            },
+          },
+          { status: 422 },
+        ),
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' খ');
     expect(await screen.findByText('ফর্মটি অনেক বড়।', {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^প্রকাশের আগে ঠিক করুন/ }),
+    ).not.toBeInTheDocument();
   }, 15_000);
 
   it('opens the saved draft again after leaving, and saves the next change on its version', async () => {

@@ -37,15 +37,20 @@ import {
   Text,
   type ExtendedIconName,
 } from '@/ui';
-import { type ReactNode, useId, useState } from 'react';
+import { type ReactNode, useEffect, useEffectEvent, useId, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { FieldInput } from '../../features/forms/FieldInput';
 import { moveField, moveFieldTo, moveSection } from './draft';
 import { dropTarget, SECTION_DROP, typeFromDragId } from './drop-target';
+import type { PlaceProblems } from './publish-entries';
 import type { BuilderMode, Selection } from './selection';
 import { TYPE_META } from './type-meta';
 
 const groupOf = (field: FormField) => field.settings?.repeat?.group;
+
+/** The messages of the server about questions and parts, by the key each names. */
+type Messages = Record<string, string[]>;
+const NO_PROBLEMS: PlaceProblems = { fields: new Map(), sections: new Map() };
 
 /**
  * The drag context around the panes: a question moves by its handle inside or across sections,
@@ -113,12 +118,17 @@ export function CanvasDnd({
  * the chosen one shows its type with the move, copy and remove buttons (a row question of a list
  * too, inside its list), a handle drags a question to another place or section (the keyboard
  * moves it with the buttons), and each section ends with the way to add a question to it.
- * Removing is the page's: it asks first when something else reads what goes.
+ * Removing is the page's: it asks first when something else reads what goes. A question or a part
+ * with something to fix before publishing carries a mark, and says what once it is chosen; the
+ * page has one brought into view and given the focus through `reveal`.
  */
 export function FormCanvas({
   definition,
   mode,
   errors,
+  problems = NO_PROBLEMS,
+  reveal = null,
+  onRevealed,
   selected,
   onSelect,
   onChange,
@@ -131,7 +141,13 @@ export function FormCanvas({
 }: {
   definition: FormDefinition;
   mode: BuilderMode;
-  errors: Record<string, string>;
+  errors: Messages;
+  /** What is to fix before publishing, by question and by part; none where nothing is published. */
+  problems?: PlaceProblems;
+  /** The question or the part to bring into view and give the focus, once. */
+  reveal?: Selection | null;
+  /** The place asked for is in view: the page forgets the request. */
+  onRevealed?: () => void;
   selected: Selection | null;
   onSelect: (selection: Selection) => void;
   onChange: (definition: FormDefinition) => void;
@@ -146,6 +162,22 @@ export function FormCanvas({
   onAddSection: () => void;
 }) {
   const t = useTranslations('forms.builder');
+  const root = useRef<HTMLElement>(null);
+  const revealed = useEffectEvent(() => onRevealed?.());
+  useEffect(() => {
+    if (!reveal) return;
+    revealed();
+    const [mark, key, button] = reveal.field
+      ? (['data-question', reveal.field, '.fb-q-select'] as const)
+      : (['data-part', reveal.section, '.fb-sec-select'] as const);
+    const place = [...(root.current?.querySelectorAll<HTMLElement>(`[${mark}]`) ?? [])].find(
+      (el) => el.getAttribute(mark) === key,
+    );
+    if (!place) return;
+    // jsdom has no scrolling
+    place.scrollIntoView?.({ block: 'center' });
+    place.querySelector<HTMLElement>(button)?.focus({ preventScroll: true });
+  }, [reveal]);
   const body = definition.sections.map((s, i) => (
     <SectionCard
       key={s.key}
@@ -154,6 +186,7 @@ export function FormCanvas({
       count={definition.sections.length}
       mode={mode}
       errors={errors}
+      problems={problems}
       selected={selected}
       onSelect={onSelect}
       onMoveSection={(dir) => onChange(moveSection(definition, s.key, dir))}
@@ -166,7 +199,7 @@ export function FormCanvas({
     />
   ));
   return (
-    <section aria-label={t('outline')}>
+    <section ref={root} aria-label={t('outline')}>
       <Stack gap={4}>
         {body}
         {mode === 'full' ? (
@@ -187,6 +220,7 @@ function SectionCard({
   count,
   mode,
   errors,
+  problems,
   selected,
   onSelect,
   onMoveSection,
@@ -201,7 +235,8 @@ function SectionCard({
   index: number;
   count: number;
   mode: BuilderMode;
-  errors: Record<string, string>;
+  errors: Messages;
+  problems: PlaceProblems;
   selected: Selection | null;
   onSelect: (selection: Selection) => void;
   onMoveSection: (direction: -1 | 1) => void;
@@ -230,8 +265,8 @@ function SectionCard({
       first={i === 0}
       last={i === heads.length - 1}
       mode={mode}
-      error={errors[f.fieldKey]}
-      memberErrors={errors}
+      errors={errors}
+      problems={problems.fields}
       selected={selected?.field ?? null}
       onSelect={(key) => onSelect({ section: section.key, field: key })}
       onMove={(dir) => onMoveField(f.fieldKey, dir)}
@@ -243,11 +278,14 @@ function SectionCard({
       onCopyMember={onCopyField}
     />
   ));
+  const chosen = selected?.section === section.key && !selected.field;
+  const fix = problems.sections.get(section.key);
   return (
     <section
       ref={setNodeRef}
-      className={`fb-sec${isOver ? ' is-over' : ''}${selected?.section === section.key && !selected.field ? ' is-selected' : ''}`}
+      className={`fb-sec${isOver ? ' is-over' : ''}${chosen ? ' is-selected' : ''}`}
       aria-label={title}
+      data-part={section.key}
     >
       <div className="fb-sec-head">
         <h2 className="fb-sec-title">
@@ -266,6 +304,7 @@ function SectionCard({
           )}
           <Text tone="muted">{t('questions_count', { n: String(section.fields.length) })}</Text>
           {section.visibility === 'official_only' ? <Chip>{t('official_only')}</Chip> : null}
+          <FixMark fix={fix} />
         </h2>
         {mode === 'read' ? null : (
           <span id={hintId} hidden>
@@ -314,7 +353,12 @@ function SectionCard({
           />
         ) : null}
       </div>
-      {errors[section.key] ? <Alert tone="error">{errors[section.key]}</Alert> : null}
+      {chosen && fix?.length ? (
+        <div className="fb-q-tags">
+          <FixLines fix={fix} />
+        </div>
+      ) : null}
+      <Refusals messages={errors[section.key]} />
       {full ? (
         <SortableContext
           items={heads.map((f) => f.fieldKey)}
@@ -347,8 +391,8 @@ function QuestionRow({
   first,
   last,
   mode,
-  error,
-  memberErrors,
+  errors,
+  problems,
   selected,
   onSelect,
   onMove,
@@ -364,8 +408,8 @@ function QuestionRow({
   first: boolean;
   last: boolean;
   mode: BuilderMode;
-  error?: string;
-  memberErrors: Record<string, string>;
+  errors: Messages;
+  problems: PlaceProblems['fields'];
   selected: string | null;
   onSelect: (fieldKey: string) => void;
   onMove: (direction: -1 | 1) => void;
@@ -397,6 +441,7 @@ function QuestionRow({
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`fb-q${isSelected ? ' is-selected' : ''}${isDragging ? ' is-dragging' : ''}`}
+      data-question={field.fieldKey}
     >
       {full ? (
         <button
@@ -422,8 +467,8 @@ function QuestionRow({
         <div className="fb-q-preview" inert>
           <QuestionPreview field={field} />
         </div>
-        <QuestionTags field={field} />
-        {error ? <Alert tone="error">{error}</Alert> : null}
+        <QuestionTags field={field} fix={problems.get(field.fieldKey)} chosen={isSelected} />
+        <Refusals messages={errors[field.fieldKey]} />
         {members.length ? (
           <ul aria-label={t('members_of', { label })} className="fb-q-members">
             {members.map((m, i) => (
@@ -433,7 +478,8 @@ function QuestionRow({
                 first={i === 0}
                 last={i === members.length - 1}
                 mode={mode}
-                error={memberErrors[m.fieldKey]}
+                messages={errors[m.fieldKey]}
+                fix={problems.get(m.fieldKey)}
                 selected={selected === m.fieldKey}
                 onSelect={() => onSelect(m.fieldKey)}
                 onMove={(dir) => onMoveMember(m.fieldKey, dir)}
@@ -484,7 +530,8 @@ function MemberRow({
   first,
   last,
   mode,
-  error,
+  messages,
+  fix,
   selected,
   onSelect,
   onMove,
@@ -495,7 +542,8 @@ function MemberRow({
   first: boolean;
   last: boolean;
   mode: BuilderMode;
-  error?: string;
+  messages?: string[];
+  fix?: readonly string[];
   selected: boolean;
   onSelect: () => void;
   onMove: (direction: -1 | 1) => void;
@@ -506,7 +554,10 @@ function MemberRow({
   const locale = useLocale();
   const label = localized(field.label, locale);
   return (
-    <li className={`fb-q fb-q-member${selected ? ' is-selected' : ''}`}>
+    <li
+      className={`fb-q fb-q-member${selected ? ' is-selected' : ''}`}
+      data-question={field.fieldKey}
+    >
       <div className="fb-q-main">
         {mode === 'read' ? null : (
           <button
@@ -520,8 +571,8 @@ function MemberRow({
         <div className="fb-q-preview" inert>
           <QuestionPreview field={field} />
         </div>
-        <QuestionTags field={field} />
-        {error ? <Alert tone="error">{error}</Alert> : null}
+        <QuestionTags field={field} fix={fix} chosen={selected} />
+        <Refusals messages={messages} />
       </div>
       {selected && mode === 'full' ? (
         <div className="fb-q-bar" role="group" aria-label={t('question_actions', { label })}>
@@ -587,7 +638,47 @@ function QuestionPreview({ field }: { field: FormField }) {
   );
 }
 
-function QuestionTags({ field }: { field: FormField }) {
+/** What the server said about a question or a part, each message in a note of its own. */
+function Refusals({ messages }: { messages?: string[] }) {
+  return messages?.map((message) => (
+    <Alert key={message} tone="error">
+      {message}
+    </Alert>
+  ));
+}
+
+/**
+ * The mark of a question or a part with something to fix before publishing: an icon with a name,
+ * so it is not told by colour alone.
+ */
+function FixMark({ fix }: { fix?: readonly string[] }) {
+  const t = useTranslations('forms.builder');
+  if (!fix) return null;
+  return (
+    <span className="fb-tag fb-tag-warn">
+      <Icon name="warning" size={16} label={t('needs_fixing')} />
+    </span>
+  );
+}
+
+/** What is to fix at a question or a part, shown once it is chosen. */
+function FixLines({ fix }: { fix: readonly string[] }) {
+  return fix.map((line) => (
+    <span key={line} className="fb-tag fb-tag-warn">
+      {line}
+    </span>
+  ));
+}
+
+function QuestionTags({
+  field,
+  fix,
+  chosen,
+}: {
+  field: FormField;
+  fix?: readonly string[];
+  chosen: boolean;
+}) {
   const t = useTranslations('forms.builder');
   const role = identityRoleOf(field);
   type Tag = { icon: ExtendedIconName; text: string; tone: string };
@@ -611,9 +702,11 @@ function QuestionTags({ field }: { field: FormField }) {
       : null,
   ];
   const shown = tags.filter((x): x is Tag => x !== null);
-  if (!shown.length) return null;
+  if (!shown.length && !fix) return null;
   return (
     <div className="fb-q-tags">
+      <FixMark fix={fix} />
+      {chosen && fix ? <FixLines fix={fix} /> : null}
       {shown.map((tag) => (
         <span key={tag.text} className={`fb-tag fb-tag-${tag.tone}`}>
           <Icon name={tag.icon} size={16} />

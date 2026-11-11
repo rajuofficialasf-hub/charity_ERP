@@ -217,32 +217,9 @@ describe('a key for a new ready form', () => {
 });
 
 describe('the builder of a ready form', () => {
-  it('shows the kind, offers no public link, and names a missing identity role on a refused publish', async () => {
+  it('shows the kind, offers no public link, and names the missing identity roles before any publish', async () => {
     const user = userEvent.setup();
     api();
-    server.use(
-      http.post(`*/api/v1/form-versions/${DRAFT}/publish`, () =>
-        HttpResponse.json(
-          {
-            error: {
-              code: 'validation.failed',
-              messageKey: 'errors.validation.failed',
-              message: 'কিছু তথ্য সঠিক নয়।',
-              details: [
-                {
-                  path: 'mobile',
-                  code: 'form.core_field_missing',
-                  messageKey: 'errors.form.core_field_missing',
-                  message: 'উপকারভোগীর আবেদন-ফর্মে পরিচয়ের সব প্রশ্ন চিহ্নিত করুন।',
-                },
-              ],
-              requestId: 'r',
-            },
-          },
-          { status: 422 },
-        ),
-      ),
-    );
     renderApp(<ReadyFormBuilderPage />, 'bn', {
       path: '/admin/ready-forms/:formId',
       initialPath: `/admin/ready-forms/${READY}`,
@@ -253,13 +230,21 @@ describe('the builder of a ready form', () => {
     expect(screen.getByText('উপকারভোগীর আবেদন')).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'ফর্মের সেটিং' }));
     expect(screen.queryByRole('button', { name: 'পাবলিক আবেদনের লিংক' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'প্রকাশ করুন' }));
-    await user.click(await screen.findByRole('button', { name: 'সংস্করণ প্রকাশ করুন' }));
+    // the list beside the button counts them, and Publish opens it without asking the server
+    // (this file answers no publish, so a request would fail the test)
     expect(
-      await screen.findByText(
-        'উপকারভোগীর আবেদন-ফর্মে পরিচয়ের সব প্রশ্ন চিহ্নিত করুন। এখনো বাকি: মোবাইল নম্বর।',
+      await screen.findByRole('button', { name: 'প্রকাশের আগে ঠিক করুন (1)' }),
+    ).toBeInTheDocument();
+    const publish = screen.getByRole('button', { name: 'প্রকাশ করুন' });
+    await waitFor(() => expect(publish).toBeEnabled());
+    await user.click(publish);
+    const list = within(await screen.findByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' }));
+    expect(
+      list.getByText(
+        'পরিচয়ের প্রশ্ন বাকি: এনআইডি বা জন্মনিবন্ধন নম্বর, নাম, পিতা বা স্বামীর নাম, মোবাইল নম্বর, লিঙ্গ, ঠিকানা (বিভাগ থেকে ইউনিয়ন), গ্রাম',
       ),
     ).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
   it('opens the question library in the same builder, under its own name', async () => {

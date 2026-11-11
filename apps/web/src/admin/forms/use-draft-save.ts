@@ -2,7 +2,7 @@ import type { FormDefinition } from '@css/shared/forms';
 import { isTransientStatus } from '@css/shared/sync';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useBlocker } from 'react-router';
-import { ApiFailure } from '../../api/client';
+import { type ApiErrorDetail, ApiFailure } from '../../api/client';
 import { type FormVersion, saveDraft } from './forms-api';
 
 /** How long the builder waits after the last change before it saves. */
@@ -26,11 +26,28 @@ export interface SaveFailure {
   message: string | null;
 }
 
-/** The messages of a refused save or publish by the question or section they name. */
-export const detailsOf = (error: unknown): Record<string, string> =>
-  error instanceof ApiFailure && error.status === 422
-    ? Object.fromEntries(error.details.map((d) => [d.path ?? '', d.message] as const))
-    : {};
+const NO_DETAILS: readonly ApiErrorDetail[] = [];
+
+/** What a refused save or publish names: the details of a 422, none of any other answer. */
+export const refusalOf = (error: unknown): readonly ApiErrorDetail[] =>
+  error instanceof ApiFailure && error.status === 422 ? error.details : NO_DETAILS;
+
+/**
+ * The messages of a refusal by the question or section they name: every message of a place, in
+ * the server's order, the same sentence said once.
+ */
+export function detailsOf(
+  details: readonly Pick<ApiErrorDetail, 'path' | 'message'>[],
+): Record<string, string[]> {
+  const byPlace = new Map<string, string[]>();
+  for (const detail of details) {
+    const path = detail.path ?? '';
+    const messages = byPlace.get(path) ?? [];
+    if (!messages.includes(detail.message)) messages.push(detail.message);
+    byPlace.set(path, messages);
+  }
+  return Object.fromEntries(byPlace);
+}
 
 /** A failure worth sending again: the network, a timeout, a busy or failing server. */
 const failedOnTheWay = (error: unknown) =>
@@ -41,8 +58,8 @@ const failedOnTheWay = (error: unknown) =>
  * server with the version it was read at, one save at a time; a change made meanwhile is saved
  * next. A save that fails on the way (no network, a failing server) is sent again by itself after
  * a growing wait, at once when the browser is back online, and when the person asks; a draft the
- * server refuses waits for the next change. The server's messages for named questions come back
- * by question; a version changed elsewhere reloads the draft; a refusal of the person turns the
+ * server refuses waits for the next change. What the server names in a refused draft comes back
+ * as its details, until a save goes through; a version changed elsewhere reloads the draft; a refusal of the person turns the
  * builder read-only. Leaving with a change not yet saved saves it first and goes on; only when
  * that save fails is the person asked.
  */
@@ -59,7 +76,7 @@ export function useDraftSave({
 }) {
   const [state, setState] = useState<SaveState>('saved');
   const [failure, setFailure] = useState<SaveFailure | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [details, setDetails] = useState<readonly ApiErrorDetail[]>(NO_DETAILS);
   const [refused, setRefused] = useState(false);
   const [stale, setStale] = useState(false);
   const queued = useRef<FormDefinition | null>(null);
@@ -105,7 +122,7 @@ export function useDraftSave({
         const saved = await saveDraft(version.id, tag.current, definition);
         tag.current = saved.meta.etag;
         failures.current = 0;
-        setErrors({});
+        setDetails(NO_DETAILS);
         setStale(false);
         setFailure(null);
         onSaved(saved.data, saved.meta.etag);
@@ -134,7 +151,7 @@ export function useDraftSave({
         // keep the change for the next try, unless a newer one is waiting
         queued.current ??= definition;
         const draftRefused = error instanceof ApiFailure && error.status === 422;
-        if (draftRefused) setErrors(detailsOf(error));
+        if (draftRefused) setDetails(refusalOf(error));
         const again = failedOnTheWay(error);
         setFailure({ kind: again ? 'retrying' : draftRefused ? 'draft' : 'other', message });
         setState('failed');
@@ -237,7 +254,7 @@ export function useDraftSave({
   return {
     state,
     failure: state === 'failed' ? failure : null,
-    errors,
+    details,
     refused,
     stale,
     schedule,
