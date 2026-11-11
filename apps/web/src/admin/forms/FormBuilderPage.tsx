@@ -29,7 +29,10 @@ import {
   addOwnQuestion,
   duplicateField,
   type LibraryFields,
-  removeField,
+  removeFieldWithUses,
+  removeSectionWithUses,
+  usesOf,
+  usesOfSection,
 } from './draft';
 import { useChangeSentences } from './ChangeSummary';
 import {
@@ -54,6 +57,7 @@ import type { BuilderMode, Selection } from './selection';
 import { PreviewPane } from './PreviewPane';
 import { PublicLinkPanel } from './PublicLinkPanel';
 import { SettingsPane } from './SettingsPane';
+import { UsesDialog } from './UsesDialog';
 import { type HistoryStep, useDraftHistory } from './use-draft-history';
 import { detailsOf, useDraftSave } from './use-draft-save';
 import { ScoringDialog } from './ScoringDialog';
@@ -113,8 +117,10 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const [publishing, setPublishing] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [scoring, setScoring] = useState(false);
-  // the question removed last, named until the next change so its way back is said
+  // the question or part removed last, named until the next change so its way back is said
   const [removed, setRemoved] = useState<string | null>(null);
+  // a question or a part other places of the form read, waiting for the word to remove it
+  const [removing, setRemoving] = useState<{ field: string } | { section: string } | null>(null);
   const history = useDraftHistory();
   // a question of the project's own being asked for: its type, its section and, after a drop,
   // its place; the key opens the dialog afresh each time
@@ -211,7 +217,11 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     // stored, and the steps still lead back from it; any other read (another version, a draft
     // changed elsewhere, a published one) is a draft the steps do not belong to
     const ownSave = seen?.data.id === read.data.data.id && read.data.meta.etag === etag;
-    if (!ownSave) history.clear();
+    if (!ownSave) {
+      history.clear();
+      // a removal that was being asked about belonged to the draft that is gone
+      setRemoving(null);
+    }
     setSeen(read.data);
     setDraft({
       sections: read.data.data.sections,
@@ -272,13 +282,38 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     setSelected(step.selection);
     save.schedule(step.definition);
   };
-  const remove = (fieldKey: string) => {
+  const labelOf = (fieldKey: string) => {
     const field = draft.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === fieldKey);
-    const next = removeField(draft, fieldKey);
-    if (!field || next === draft) return;
-    setSelected(null);
+    return field ? localized(field.label, locale) : null;
+  };
+  const titleOf = (sectionKey: string) => {
+    const section = draft.sections.find((s) => s.key === sectionKey);
+    return section ? localized(section.title, locale) : null;
+  };
+  /** A removal is one step to undo, with whatever read the removed questions gone in the same step. */
+  const removeNow = (next: FormDefinition, name: string | null, chosen: boolean) => {
+    setRemoving(null);
+    if (name === null || next === draft) return;
+    if (chosen) setSelected(null);
     change(next, ALONE);
-    setRemoved(localized(field.label, locale));
+    setRemoved(name);
+  };
+  const removeFieldNow = (fieldKey: string) =>
+    removeNow(removeFieldWithUses(draft, fieldKey), labelOf(fieldKey), true);
+  const removeSectionNow = (sectionKey: string) =>
+    removeNow(
+      removeSectionWithUses(draft, sectionKey),
+      titleOf(sectionKey),
+      selection?.section === sectionKey,
+    );
+  // what nothing else reads goes at once; otherwise the dialog names the uses first
+  const remove = (fieldKey: string) => {
+    if (usesOf(draft, fieldKey).length) setRemoving({ field: fieldKey });
+    else removeFieldNow(fieldKey);
+  };
+  const removeSection = (sectionKey: string) => {
+    if (usesOfSection(draft, sectionKey).length) setRemoving({ section: sectionKey });
+    else removeSectionNow(sectionKey);
   };
   const copy = (fieldKey: string) => {
     const section = sectionOf(fieldKey);
@@ -342,6 +377,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       onSelect={setSelected}
       onChange={change}
       onRemoveField={remove}
+      onRemoveSection={removeSection}
       onCopyField={copy}
       onAddTo={(sectionKey) => setSelected({ section: sectionKey })}
       onAddSection={() => {
@@ -592,6 +628,26 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
             change(added.definition, ALONE);
             setSelected({ section: sectionKey, field: added.fieldKey });
           }}
+        />
+      ) : null}
+      {mode === 'full' && removing && 'field' in removing ? (
+        <UsesDialog
+          definition={draft}
+          target="question"
+          label={labelOf(removing.field) ?? ''}
+          uses={usesOf(draft, removing.field)}
+          onCancel={() => setRemoving(null)}
+          onConfirm={() => removeFieldNow(removing.field)}
+        />
+      ) : null}
+      {mode === 'full' && removing && 'section' in removing ? (
+        <UsesDialog
+          definition={draft}
+          target="section"
+          label={titleOf(removing.section) ?? ''}
+          uses={usesOfSection(draft, removing.section)}
+          onCancel={() => setRemoving(null)}
+          onConfirm={() => removeSectionNow(removing.section)}
         />
       ) : null}
       <ConfirmDialog

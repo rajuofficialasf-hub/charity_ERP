@@ -40,7 +40,7 @@ import {
 import { type ReactNode, useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { FieldInput } from '../../features/forms/FieldInput';
-import { moveField, moveFieldTo, moveSection, removeSection } from './draft';
+import { moveField, moveFieldTo, moveSection } from './draft';
 import { dropTarget, SECTION_DROP, typeFromDragId } from './drop-target';
 import type { BuilderMode, Selection } from './selection';
 import { TYPE_META } from './type-meta';
@@ -101,9 +101,10 @@ export function CanvasDnd({
 
 /**
  * The form as it will be filled, drawn section by section: a click on a question chooses it,
- * the chosen one shows its type with the move, copy and remove buttons, a handle drags a
- * question to another place or section (the keyboard moves it with the buttons), and each
- * section ends with the way to add a question to it.
+ * the chosen one shows its type with the move, copy and remove buttons (a row question of a list
+ * too, inside its list), a handle drags a question to another place or section (the keyboard
+ * moves it with the buttons), and each section ends with the way to add a question to it.
+ * Removing is the page's: it asks first when something else reads what goes.
  */
 export function FormCanvas({
   definition,
@@ -113,6 +114,7 @@ export function FormCanvas({
   onSelect,
   onChange,
   onRemoveField,
+  onRemoveSection,
   onCopyField,
   onAddTo,
   onAddRow,
@@ -125,6 +127,7 @@ export function FormCanvas({
   onSelect: (selection: Selection) => void;
   onChange: (definition: FormDefinition) => void;
   onRemoveField: (fieldKey: string) => void;
+  onRemoveSection: (sectionKey: string) => void;
   onCopyField: (fieldKey: string) => void;
   /** The person wants a question in this section: the left pane takes over. */
   onAddTo: (sectionKey: string) => void;
@@ -145,7 +148,7 @@ export function FormCanvas({
       selected={selected}
       onSelect={onSelect}
       onMoveSection={(dir) => onChange(moveSection(definition, s.key, dir))}
-      onRemoveSection={() => onChange(removeSection(definition, s.key))}
+      onRemoveSection={() => onRemoveSection(s.key)}
       onMoveField={(key, dir) => onChange(moveField(definition, s.key, key, dir))}
       onRemoveField={onRemoveField}
       onCopyField={onCopyField}
@@ -225,8 +228,10 @@ function SectionCard({
       onMove={(dir) => onMoveField(f.fieldKey, dir)}
       onMoveMember={(key, dir) => onMoveField(key, dir)}
       onRemove={() => onRemoveField(f.fieldKey)}
+      onRemoveMember={onRemoveField}
       onAddRow={() => onAddRow(f.fieldKey)}
       onCopy={() => onCopyField(f.fieldKey)}
+      onCopyMember={onCopyField}
     />
   ));
   return (
@@ -332,7 +337,9 @@ function QuestionRow({
   onMove,
   onMoveMember,
   onRemove,
+  onRemoveMember,
   onCopy,
+  onCopyMember,
   onAddRow,
 }: {
   field: FormField;
@@ -347,7 +354,9 @@ function QuestionRow({
   onMove: (direction: -1 | 1) => void;
   onMoveMember: (fieldKey: string, direction: -1 | 1) => void;
   onRemove: () => void;
+  onRemoveMember: (fieldKey: string) => void;
   onCopy: () => void;
+  onCopyMember: (fieldKey: string) => void;
   onAddRow: () => void;
 }) {
   const t = useTranslations('forms.builder');
@@ -411,6 +420,8 @@ function QuestionRow({
                 selected={selected === m.fieldKey}
                 onSelect={() => onSelect(m.fieldKey)}
                 onMove={(dir) => onMoveMember(m.fieldKey, dir)}
+                onCopy={() => onCopyMember(m.fieldKey)}
+                onRemove={() => onRemoveMember(m.fieldKey)}
               />
             ))}
           </ul>
@@ -460,6 +471,8 @@ function MemberRow({
   selected,
   onSelect,
   onMove,
+  onCopy,
+  onRemove,
 }: {
   field: FormField;
   first: boolean;
@@ -469,6 +482,8 @@ function MemberRow({
   selected: boolean;
   onSelect: () => void;
   onMove: (direction: -1 | 1) => void;
+  onCopy: () => void;
+  onRemove: () => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
@@ -507,6 +522,8 @@ function MemberRow({
             disabled={last}
             onClick={() => onMove(1)}
           />
+          <IconButton label={t('copy', { label })} icon="copy" onClick={onCopy} />
+          <IconButton label={t('remove', { label })} icon="delete" onClick={onRemove} />
         </div>
       ) : null}
     </li>

@@ -569,6 +569,232 @@ describe('the outline and the libraries', () => {
   });
 });
 
+describe('deleting', () => {
+  const removedNotice = (label: string) =>
+    `“${label}” সরানো হয়েছে। ফিরিয়ে আনতে উপরের “ফিরিয়ে আনুন” বোতামে চাপুন।`;
+  const yes = (key: string) => ({ field: key, op: 'eq' as const, value: 'yes' });
+  /**
+   * "গরু আছে?" decides whether "গরুর সংখ্যা" shows and whether the part "আরও" shows; "মোট" in
+   * that part adds "গরুর সংখ্যা" up; "মন্তব্য" is read by nothing.
+   */
+  const withUses = (): FormDefinition['sections'] => [
+    ...titled({ sections: coreSections() }).sections,
+    section(
+      'extra',
+      [
+        field('has_cow', 'radio', {
+          label: T('গরু আছে?', 'Has a cow?'),
+          options: [option('yes'), option('no')],
+        }),
+        field('cows', 'number', {
+          label: T('গরুর সংখ্যা', 'Number of cows'),
+          logic: { show_if: yes('has_cow') },
+        }),
+        field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') }),
+      ],
+      { title: T('অতিরিক্ত', 'Extra') },
+    ),
+    section(
+      'more',
+      [
+        field('total', 'calculation', {
+          label: T('মোট', 'Total'),
+          calculation: { expr: { op: 'add', args: [{ field: 'cows' }, 1] } },
+        }),
+      ],
+      { title: T('আরও', 'More'), condition: yes('has_cow') },
+    ),
+  ];
+  const savedSection = (key: string) => saves.at(-1)?.body.sections.find((s) => s.key === key);
+
+  it('brings a removed part back with its questions by the undo of the form head, as a step of its own', async () => {
+    const user = userEvent.setup();
+    const start = withNote();
+    api({ sections: start });
+    open();
+    // moved up first: the removal right after it is still a step of its own
+    await user.click(await screen.findByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'অতিরিক্ত উপরে নিন' }));
+    await user.click(await screen.findByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'অতিরিক্ত সরান' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('list', { name: 'অতিরিক্ত' })).not.toBeInTheDocument(),
+    );
+    // nothing else reads its question, so nothing is asked
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText(removedNotice('অতিরিক্ত'))).toBeInTheDocument();
+    await user.click(undoButton());
+    const back = await outlineOf('অতিরিক্ত');
+    expect(back.getByRole('button', { name: 'মন্তব্য বদলান' })).toBeInTheDocument();
+    expect(screen.queryByText(removedNotice('অতিরিক্ত'))).not.toBeInTheDocument();
+    // one step back: the part is where the move left it, with its question, and that is saved
+    await waitFor(
+      () =>
+        expect(saves.at(-1)?.body.sections.map((s) => s.key)).toEqual([
+          'basic_info',
+          'extra',
+          'address',
+        ]),
+      { timeout: 4000 },
+    );
+    expect(savedSection('extra')).toEqual(start[2]);
+    expect(undoButton()).toBeEnabled();
+  }, 20_000);
+
+  it('copies and removes a row question of a list from its own bar, and the list stays', async () => {
+    const user = userEvent.setup();
+    const inGroup = { settings: { repeat: { group: 'members' } } };
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section(
+          'family',
+          [
+            field('members', 'repeat_group', { label: T('পরিবারের সদস্যরা', 'Family members') }),
+            field('m_name', 'short_text', { label: T('সদস্যের নাম', 'Member name'), ...inGroup }),
+            field('m_age', 'number', { label: T('বয়স', 'Age'), ...inGroup }),
+          ],
+          { title: T('পরিবার', 'Family') },
+        ),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'সদস্যের নাম বদলান' }));
+    const bar = within(screen.getByRole('group', { name: 'সদস্যের নাম: কাজ' }));
+    expect(bar.getByRole('button', { name: 'সদস্যের নাম সরান' })).toBeInTheDocument();
+    await user.click(bar.getByRole('button', { name: 'সদস্যের নাম কপি করুন' }));
+    const rows = () =>
+      within(screen.getByRole('list', { name: 'পরিবারের সদস্যরা: প্রতিটি সারির প্রশ্ন' }))
+        .getAllByRole('button', { name: / বদলান$/ })
+        .map((b) => b.getAttribute('aria-label'));
+    // the copy stands right after it inside the list, and is the chosen one
+    await waitFor(() =>
+      expect(rows()).toEqual(['সদস্যের নাম বদলান', 'সদস্যের নাম (কপি) বদলান', 'বয়স বদলান']),
+    );
+    expect(screen.getByRole('button', { name: 'সদস্যের নাম (কপি) বদলান' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await user.click(screen.getByRole('button', { name: 'সদস্যের নাম বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'সদস্যের নাম সরান' }));
+    await waitFor(() => expect(rows()).toEqual(['সদস্যের নাম (কপি) বদলান', 'বয়স বদলান']));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText(removedNotice('সদস্যের নাম'))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'পরিবারের সদস্যরা বদলান' })).toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(savedSection('family')?.fields.map((f) => f.fieldKey)).toEqual([
+          'members',
+          'q_member_name_copy',
+          'm_age',
+        ]),
+      { timeout: 4000 },
+    );
+    expect(savedField('q_member_name_copy')!.settings).toEqual(inGroup.settings);
+    // the removal is one step back
+    await user.click(undoButton());
+    await waitFor(() =>
+      expect(rows()).toEqual(['সদস্যের নাম বদলান', 'সদস্যের নাম (কপি) বদলান', 'বয়স বদলান']),
+    );
+  }, 30_000);
+
+  it('names where a question is used before removing it, and removes the uses with it in one step', async () => {
+    const user = userEvent.setup();
+    const start = withUses();
+    api({ sections: start });
+    const view = open();
+    await user.click(await screen.findByRole('button', { name: 'গরু আছে? বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'গরু আছে? সরান' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'এই প্রশ্নটি অন্য জায়গায় ব্যবহার হচ্ছে',
+    });
+    const uses = within(within(dialog).getByRole('list', { name: 'যেখানে ব্যবহার হচ্ছে' }));
+    expect(uses.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      '“গরুর সংখ্যা” প্রশ্নের “কখন দেখাবে” শর্তে',
+      '“আরও” অংশের “অংশটি কখন দেখাবে” শর্তে',
+    ]);
+    await expectNoAxeViolations(view.container);
+    // cancelled: nothing changed
+    await user.click(within(dialog).getByRole('button', { name: 'বাতিল' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'গরু আছে? বদলান' })).toBeInTheDocument();
+    expect(undoButton()).toBeDisabled();
+    expect(saves).toHaveLength(0);
+    // confirmed: the question goes, and so do the condition of the question and of the part
+    await user.click(screen.getByRole('button', { name: 'গরু আছে? সরান' }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: 'প্রশ্ন ও এই ব্যবহারগুলো সরান',
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'গরু আছে? বদলান' })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText(removedNotice('গরু আছে?'))).toBeInTheDocument();
+    await waitFor(() => expect(savedField('cows')).toBeDefined(), { timeout: 4000 });
+    expect(savedField('has_cow')).toBeUndefined();
+    expect(savedField('cows')!.logic).toBeUndefined();
+    expect(savedSection('more')!.condition).toBeNull();
+    // what read another question keeps reading it
+    expect(savedField('total')!.calculation).toEqual(start[3]!.fields[0]!.calculation);
+    // one step back brings the question and both conditions
+    await user.click(undoButton());
+    expect(await screen.findByRole('button', { name: 'গরু আছে? বদলান' })).toBeInTheDocument();
+    expect(undoButton()).toBeDisabled();
+    await waitFor(() => expect(saves.at(-1)?.body.sections).toEqual(start), { timeout: 4000 });
+  }, 30_000);
+
+  it('removes a question nothing uses at once, without asking', async () => {
+    const user = userEvent.setup();
+    api({ sections: withUses() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য সরান' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'মন্তব্য বদলান' })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText(removedNotice('মন্তব্য'))).toBeInTheDocument();
+  }, 15_000);
+
+  it('names the uses from other parts before removing a part, each with the question that is used', async () => {
+    const user = userEvent.setup();
+    const start = withUses();
+    api({ sections: start });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'অতিরিক্ত সরান' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'এই অংশের প্রশ্ন অন্য জায়গায় ব্যবহার হচ্ছে',
+    });
+    // the condition inside the part itself goes with it and is not named
+    const uses = within(within(dialog).getByRole('list', { name: 'যেখানে ব্যবহার হচ্ছে' }));
+    expect(uses.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'গরু আছে?: “আরও” অংশের “অংশটি কখন দেখাবে” শর্তে',
+      'গরুর সংখ্যা: “মোট” প্রশ্নের হিসাবে',
+    ]);
+    expect(
+      within(dialog).getByText('যে প্রশ্নের হিসাব সরবে, তার হিসাব নতুন করে ঠিক করতে হবে।'),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'অংশ ও এই ব্যবহারগুলো সরান' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('list', { name: 'অতিরিক্ত' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText(removedNotice('অতিরিক্ত'))).toBeInTheDocument();
+    // the question that added its answer up stays, without its rule
+    const more = await outlineOf('আরও');
+    expect(more.getByRole('listitem')).toHaveTextContent('হিসাবের নিয়ম দিন');
+    await waitFor(() => expect(savedSection('more')).toBeDefined(), { timeout: 4000 });
+    expect(savedSection('extra')).toBeUndefined();
+    expect(savedSection('more')!.condition).toBeNull();
+    expect(savedField('total')!.calculation).toBeUndefined();
+    await user.click(undoButton());
+    expect(await screen.findByRole('list', { name: 'অতিরিক্ত' })).toBeInTheDocument();
+    await waitFor(() => expect(saves.at(-1)?.body.sections).toEqual(start), { timeout: 4000 });
+  }, 30_000);
+});
+
 describe('the points of the score', () => {
   it('sets the points of "not previously assisted" in the score dialog, shows the maximum, and saves them', async () => {
     const user = userEvent.setup();

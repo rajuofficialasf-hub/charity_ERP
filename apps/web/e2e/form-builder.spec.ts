@@ -322,7 +322,7 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
   }
 });
 
-test('a removed question comes back with the undo of the form head, and the draft saves', async ({
+test('a removed question and a removed part come back with the undo of the form head, and the draft saves', async ({
   page,
 }, info) => {
   test.skip(info.project.name !== 'desktop', 'the builders work on a computer');
@@ -363,9 +363,31 @@ test('a removed question comes back with the undo of the form head, and the draf
   await expect(second).toBeVisible();
   await saved(page);
 
-  // what was saved is the form with both questions
-  await page.reload();
+  // a whole part comes back the same way: a second part with a question, removed from its menu
+  await page.getByRole('button', { name: 'নতুন অংশ' }).click();
+  await expect(page.getByRole('button', { name: 'অংশ 2', exact: true })).toBeVisible();
+  await ownQuestion(page, 'অংশ 2', 'ছোট লেখা', ['গ্রামের নাম', 'Village name']);
+  const third = page.getByRole('button', { name: 'গ্রামের নাম বদলান' });
+  const secondPart = page.getByRole('list', { name: 'অংশ 2', exact: true });
+  await expect(head.getByText('2টি অংশ · 3টি প্রশ্ন')).toBeVisible();
+  await page.getByRole('button', { name: 'অংশ 2: আরও কাজ' }).click();
+  await page.getByRole('menuitem', { name: 'অংশ 2 সরান' }).click();
+  await expect(secondPart).toHaveCount(0);
+  await expect(third).toHaveCount(0);
   await expect(head.getByText('1টি অংশ · 2টি প্রশ্ন')).toBeVisible();
+  await expect(
+    page.getByText('“অংশ 2” সরানো হয়েছে। ফিরিয়ে আনতে উপরের “ফিরিয়ে আনুন” বোতামে চাপুন।'),
+  ).toBeVisible();
+  await undo.click();
+  await expect(secondPart).toBeVisible();
+  await expect(secondPart.getByRole('button', { name: 'গ্রামের নাম বদলান' })).toBeVisible();
+  await expect(head.getByText('2টি অংশ · 3টি প্রশ্ন')).toBeVisible();
+  await saved(page);
+
+  // what was saved is the form with both parts and their questions
+  await page.reload();
+  await expect(head.getByText('2টি অংশ · 3টি প্রশ্ন')).toBeVisible();
   await expect(second).toBeVisible();
+  await expect(third).toBeVisible();
   await expect(undo).toBeDisabled();
 });
