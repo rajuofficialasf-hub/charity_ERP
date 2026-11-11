@@ -71,7 +71,7 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. Drafts save incomplete; publishing demands every text
 - **Goal:** the engine and the API accept a draft with missing texts and refuse a publish with any.
@@ -297,7 +297,7 @@ The builder of T2.4b (D-122) is sound underneath (pure tested edits, one change 
 ## Progress
 - **Branch:** `feat/form-builder-ease`
 - **Updated:** 2026-11-11 15:00
-- **Next:** U1, the decision and the rules
+- **Next:** U2, drafts save incomplete; publishing demands every text
 - **Reviewed through:** none yet
 - **Uncommitted:** none
-- **Notes:** none yet
+- **Notes:** U1: the rule register already let a draft wait for its translations (BR-245, O-43); the form engine was stricter than the rule, so U2 brings the engine to the rule rather than changing it; the screen inventory is updated with the units that change the screen (U11, U13).
