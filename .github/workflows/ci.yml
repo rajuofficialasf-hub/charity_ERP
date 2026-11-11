@@ -4,6 +4,10 @@
 # and develop also run E2E: develop gets every merged change, main every release. A push to any
 # other branch runs nothing, so a branch with a pull request runs once per push
 # and the free monthly minutes of a private repository last.
+# E2E runs as four shards side by side (`--shard=i/4`). The hosted runner of a private repository
+# has two cores, so Playwright runs one worker, and the whole suite on one runner takes about
+# 29 minutes, more than the job's limit; each shard has its own PostgreSQL service and its own
+# E2E API, so the shards never share a database, and each finishes in about 13 minutes.
 # Nightly runs (full E2E on WebKit, visual regression) are added when those suites exist.
 
 name: CI
@@ -129,13 +133,20 @@ jobs:
         run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f git /repo --redact --verbose
 
   e2e:
-    name: E2E (Playwright)
+    name: E2E (Playwright ${{ matrix.shard }}/4)
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     # A secret or an unaccepted advisory stops the pipeline before E2E.
     needs: [checks, security]
     runs-on: ubuntu-latest
+    # one shard: about 3 minutes of setup and builds, then up to about 10 minutes of tests
     timeout-minutes: 20
-    # The E2E API recreates css_erp_test_e2e here, migrates and seeds it.
+    # every shard runs to its end, so one run reports the failures of all four
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    # The E2E API of each shard recreates css_erp_test_e2e in the shard's own service, migrates and
+    # seeds it.
     services:
       postgres:
         image: postgres:17@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
@@ -172,8 +183,10 @@ jobs:
       - name: Allow the Chromium sandbox
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       # the web app's contract test: real responses of the seeded E2E API, read with the app's own
-      # schemas; the server stops before Playwright starts its own on the same port
+      # schemas; the server stops before Playwright starts its own on the same port. It runs once,
+      # in the first shard.
       - name: Web contract test
+        if: matrix.shard == 1
         run: |
           pnpm --filter "./packages/*" build
           pnpm --filter @css/api build
@@ -182,10 +195,13 @@ jobs:
           CONTRACT_API_URL=http://127.0.0.1:4100 pnpm --filter @css/web test:contract
           pkill -f e2e-server || true
           fuser -k 4100/tcp || true
-      - run: pnpm e2e
+      # the root script builds, then hands the shard to `playwright test`
+      - run: pnpm e2e --shard="$SHARD/4"
+        env:
+          SHARD: ${{ matrix.shard }}
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: apps/web/playwright-report
           retention-days: 14
