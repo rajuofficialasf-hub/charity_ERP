@@ -315,7 +315,11 @@ describe('a project form whose texts wait for a language', () => {
       'form.label_language',
       'q_a',
     );
-    await refusedWith([question('q_a', 'short_text', { label: BN('ক'.repeat(501)) })], null, 'q_a');
+    await refusedWith(
+      [question('q_a', 'short_text', { label: BN('ক'.repeat(501)) })],
+      'form.label_language',
+      'q_a',
+    );
     expect((await read(mt, versionId)).sections).toEqual(before.sections);
   });
 

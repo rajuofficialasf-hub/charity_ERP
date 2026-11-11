@@ -27,6 +27,22 @@ describe('an earlier answer in a question’s text', () => {
     expect(pipeText('How many {{q_farm|animals}}?', textsOf([farm], 'en'))).toBe('How many Cow?');
   });
 
+  it('reads a choice of a draft written in one language by that language', () => {
+    const definition = definitionWith([
+      field('q_farm', 'single_select', {
+        options: [option('cow', { label: { bn: 'গরু', en: '' } })],
+      }),
+      field('q_count', 'number'),
+    ]);
+    const read = answerTexts(
+      definition,
+      [farm],
+      evaluate(definition, [farm], { today: TODAY }),
+      'en',
+    );
+    expect(pipeText('How many {{q_farm|animals}}?', read)).toBe('How many গরু?');
+  });
+
   it('reads the fallback, or nothing, while the answer is empty', () => {
     expect(pipeText('কতটি {{q_farm|পশু}} পালন করতে চান?', textsOf([], 'bn'))).toBe(
       'কতটি পশু পালন করতে চান?',

@@ -920,3 +920,33 @@ describe('rows that follow a count', () => {
     expect(again).toHaveValue('2');
   });
 });
+
+describe('a draft written in one language, as the builder draws it', () => {
+  const draft = () =>
+    section('draft', [
+      field('q_help', 'radio', {
+        label: T('সাহায্যের ধরন', ''),
+        options: [
+          option('food', { label: T('খাদ্য', '') }),
+          option('cloth', { label: T('', 'Clothing') }),
+        ],
+      }),
+      field('q_stock', 'number_table', {
+        label: T('গবাদি পশু', ''),
+        settings: {
+          table: {
+            rows: [{ key: 'cow', label: T('গরু', '') }],
+            cols: [{ key: 'own', label: T('', 'Own') }],
+          },
+        },
+      }),
+    ]);
+
+  it('reads each text in the language it has, whichever language the reader chose', () => {
+    open([draft()], {}, 'en');
+    const choice = screen.getByRole('radiogroup', { name: /সাহায্যের ধরন/ });
+    expect(within(choice).getByText('খাদ্য')).toBeInTheDocument();
+    expect(within(choice).getByText('Clothing')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'গরু: Own' })).toBeInTheDocument();
+  });
+});

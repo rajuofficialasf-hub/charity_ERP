@@ -1,3 +1,4 @@
+import { localized } from '../i18n/bilingual.js';
 import type { AnswerValue } from '../jsonb/answer-value.js';
 import { isFieldRef, withinLimits } from '../jsonb/form-logic.js';
 import { fromPaisa, isAmount, toPaisa } from '../projects/budget.js';
@@ -655,7 +656,8 @@ export function answerTexts(
   const fields = indexFields(definition);
   const states = new Map(Object.entries(evaluation.fields));
   const computed = new Map(Object.entries(evaluation.computed));
-  const inLocale = (text: { bn: string; en: string }) => (locale === 'bn' ? text.bn : text.en);
+  // a draft's text may lack a language: the other one is read, as everywhere a draft is drawn
+  const inLocale = (text: { bn: string; en: string }) => localized(text, locale);
   return (key) => {
     const located = fields.get(key);
     if (!located) return null;
