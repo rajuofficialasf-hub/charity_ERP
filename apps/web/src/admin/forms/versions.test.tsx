@@ -325,6 +325,29 @@ describe('publishing', () => {
     expect(screen.queryByText('এই সংস্করণ প্রকাশিত; বদলানো যায় না।')).not.toBeInTheDocument();
   });
 
+  it('says why Publish waits while a change is not saved', async () => {
+    const user = userEvent.setup();
+    api();
+    open();
+    const reason = 'খসড়া সংরক্ষণ হলে তবেই প্রকাশ করা যাবে';
+    const publish = () => screen.getByRole('button', { name: 'প্রকাশ করুন' });
+    await screen.findByRole('button', { name: 'প্রকাশ করুন' });
+    await waitFor(() => expect(publish()).toBeEnabled());
+    expect(screen.queryByTitle(reason)).not.toBeInTheDocument();
+    // a change the server of this file never takes
+    await user.click(screen.getByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'অতিরিক্ত উপরে নিন' }));
+    expect(publish()).toBeDisabled();
+    // the reason on the pointer's way to the button, and in words for a screen reader
+    expect(screen.getByTitle(reason)).toContainElement(publish());
+    expect(within(screen.getByTitle(reason)).getByText(reason)).toBeInTheDocument();
+    // and still so once the save has failed
+    await screen.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
+    expect(patches).toBe(1);
+    expect(publish()).toBeDisabled();
+    expect(screen.getByTitle(reason)).toContainElement(publish());
+  }, 15_000);
+
   it('offers no publish to a role that does not publish forms', async () => {
     const user = userEvent.setup();
     refreshAs({ ...ME, roles: ['regional_program_manager'] });

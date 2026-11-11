@@ -8,6 +8,7 @@ import {
   Dialog,
   Disclosure,
   EmptyState,
+  Icon,
   Page,
   Skeleton,
   Stack,
@@ -19,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { useOnline } from '../../components/shell/use-online';
 import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { canBuildForms, canManagePublicLink, canPlaceForms } from '../roles';
@@ -83,8 +85,9 @@ function useMedia(media: string) {
  * The form builder of a project's form, a ready form or the question library (docs/ui/SCREENS.md,
  * "Form builder"): the library,
  * the outline and the settings of the chosen part side by side on a computer, the outline alone
- * with text edits on a phone. The draft saves itself, and every change to it can be undone and
- * redone from the form head; a published version opens read-only. The
+ * with text edits on a phone. The draft saves itself, tries again by itself when a save fails
+ * on the way and says so in the form head, and every change to it can be undone and redone from
+ * there; leaving saves first. A published version opens read-only. The
  * preview opens from the header in a dialog; the form's name, its versions with their change
  * summaries and its public link sit in the right pane's second tab; publishing asks first with
  * the summary.
@@ -109,6 +112,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const locale = useLocale() as Locale;
   const { me } = useAuth();
   const phone = useMedia(PHONE);
+  const online = useOnline();
   const queries = useQueryClient();
   // an earlier version opened from the list; otherwise the draft, else the published version
   const [viewing, setViewing] = useState<string | null>(null);
@@ -343,6 +347,14 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       : save.state === 'failed'
         ? t('save_failed')
         : t('saved');
+  // why the draft is not saved: what happens next when the save is tried again by itself,
+  // otherwise the server's own words
+  const saveDetail =
+    save.failure === null
+      ? null
+      : save.failure.kind === 'retrying'
+        ? t(online ? 'save_will_retry' : 'save_offline')
+        : save.failure.message;
   const title = form?.title
     ? localized(form.title, locale)
     : scope === 'library'
@@ -365,6 +377,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   );
   const published = versions.data?.find((v) => v.status === 'published') ?? null;
   const canPublish = builder && isDraft && !viewing && !phone && !save.refused;
+  // a draft is published at the version it was saved at, so publishing waits for the save
+  const publishWaits = save.state !== 'saved';
   const canStartNext =
     builder && !phone && !placed && version.status === 'published' && !form?.draftVersionId;
   // a refusal that names no question shows above the panes: any refused new version, and a
@@ -529,16 +543,20 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
                 </Button>
               ) : null}
               {canPublish ? (
-                <Button
-                  onClick={() => {
-                    publish.reset();
-                    setPublishing(true);
-                  }}
-                  // the confirmation lists what changed, so it waits for the versions too
-                  disabled={save.state !== 'saved' || !etag || !versions.isSuccess}
-                >
-                  {t('publish')}
-                </Button>
+                // a disabled button takes no pointer, so the reason hangs on the wrap around it
+                <span className="fb-publish" title={publishWaits ? t('publish_wait') : undefined}>
+                  <Button
+                    onClick={() => {
+                      publish.reset();
+                      setPublishing(true);
+                    }}
+                    // the confirmation lists what changed, so it waits for the versions too
+                    disabled={publishWaits || !etag || !versions.isSuccess}
+                  >
+                    {t('publish')}
+                  </Button>
+                  {publishWaits ? <span className="app-sr-only">{t('publish_wait')}</span> : null}
+                </span>
               ) : null}
             </>
           }
@@ -554,9 +572,21 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
             })}
           </Text>
           {isDraft && mode !== 'read' ? (
-            <p className="admin-muted" aria-live="polite">
-              {saveLabel}
-            </p>
+            <>
+              <p
+                className={`fb-save${save.state === 'failed' ? ' is-failed' : ''}`}
+                aria-live="polite"
+              >
+                {save.state === 'failed' ? <Icon name="error" size={16} /> : null}
+                <span>{saveLabel}</span>
+                {saveDetail ? <span>{saveDetail}</span> : null}
+              </p>
+              {save.failure && save.failure.kind !== 'draft' ? (
+                <Button size="small" variant="secondary" startIcon="refresh" onClick={save.retry}>
+                  {t('save_retry')}
+                </Button>
+              ) : null}
+            </>
           ) : null}
           {mode === 'full' ? (
             <HistoryButtons
@@ -671,14 +701,14 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       />
       <Dialog
         title={t('leave_title')}
-        open={save.blocker.state === 'blocked'}
-        onClose={() => save.blocker.reset?.()}
+        open={save.leave.asking}
+        onClose={save.leave.stay}
         actions={
           <>
-            <Button variant="secondary" onClick={() => save.blocker.proceed?.()}>
+            <Button variant="secondary" onClick={save.leave.go}>
               {t('leave_confirm')}
             </Button>
-            <Button onClick={() => save.blocker.reset?.()}>{t('leave_stay')}</Button>
+            <Button onClick={save.leave.stay}>{t('leave_stay')}</Button>
           </>
         }
       >

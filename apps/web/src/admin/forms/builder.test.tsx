@@ -280,6 +280,9 @@ describe('the outline and the libraries', () => {
       'family_income',
     ]);
     expect(await screen.findByText('সংরক্ষিত')).toBeInTheDocument();
+    // saved, the draft may be published: the button waits for nothing
+    expect(screen.getByRole('button', { name: 'প্রকাশ করুন' })).toBeEnabled();
+    expect(screen.queryByTitle('খসড়া সংরক্ষণ হলে তবেই প্রকাশ করা যাবে')).not.toBeInTheDocument();
   }, 15_000);
 
   it('moves a question down and back up with the keyboard, and saves the order', async () => {
@@ -1147,8 +1150,84 @@ describe('saving', () => {
     expect(
       await screen.findByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।', {}, { timeout: 4000 }),
     ).toBeInTheDocument();
-    expect(screen.getByText('সংরক্ষণ হয়নি')).toBeInTheDocument();
+    // the head says it is not saved and why; the same draft would be refused again, so no retry
+    const head = within(screen.getByTestId('form-head'));
+    expect(head.getByText('সংরক্ষণ হয়নি')).toBeInTheDocument();
+    expect(head.getByText('কিছু তথ্য সঠিক নয়।')).toBeInTheDocument();
+    expect(head.queryByRole('button', { name: 'আবার চেষ্টা করুন' })).not.toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(saves).toHaveLength(1);
   }, 15_000);
+
+  it('says in the form head that a save failed, tries again by itself, and saves', async () => {
+    const user = userEvent.setup();
+    let failing = true;
+    api();
+    // the first save fails on the server; the ones after it reach the handler above
+    server.use(
+      http.patch('*/api/v1/form-versions/:id', () => {
+        if (!failing) return undefined;
+        failing = false;
+        return apiError(500, 'server.internal', 'কিছু একটা ভুল হয়েছে।');
+      }),
+    );
+    open();
+    await addSection(user, 'পরিবার ও আয়');
+    const head = within(screen.getByTestId('form-head'));
+    const failed = await head.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
+    // announced where the save state always is, with what happens next and a way to hurry it
+    expect(failed.closest('[aria-live="polite"]')).toHaveTextContent(
+      'সংরক্ষণ হয়নিএকটু পরে নিজে থেকেই আবার চেষ্টা করা হবে।',
+    );
+    expect(head.getByRole('button', { name: 'আবার চেষ্টা করুন' })).toBeInTheDocument();
+    // two seconds later it is sent again, and goes through
+    expect(await head.findByText('সংরক্ষিত', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(saves).toHaveLength(1);
+    expect(saves[0]!.ifMatch).toBe('"v1"');
+    expect(head.queryByRole('button', { name: 'আবার চেষ্টা করুন' })).not.toBeInTheDocument();
+    expect(head.queryByText('সংরক্ষণ হয়নি')).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('saves at once by the retry button, and says so while the connection is away', async () => {
+    const user = userEvent.setup();
+    let failing = true;
+    api();
+    server.use(
+      http.patch('*/api/v1/form-versions/:id', () => (failing ? HttpResponse.error() : undefined)),
+    );
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    try {
+      open();
+      await addSection(user, 'পরিবার ও আয়');
+      const head = within(screen.getByTestId('form-head'));
+      await head.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
+      expect(head.getByText('সংযোগ নেই। সংযোগ ফিরলেই আবার চেষ্টা করা হবে।')).toBeInTheDocument();
+      failing = false;
+      await user.click(head.getByRole('button', { name: 'আবার চেষ্টা করুন' }));
+      expect(await head.findByText('সংরক্ষিত')).toBeInTheDocument();
+      expect(saves).toHaveLength(1);
+    } finally {
+      onLine.mockRestore();
+    }
+  }, 20_000);
+
+  it('saves again as soon as the browser says the connection is back', async () => {
+    const user = userEvent.setup();
+    let failing = true;
+    api();
+    server.use(
+      http.patch('*/api/v1/form-versions/:id', () => (failing ? HttpResponse.error() : undefined)),
+    );
+    open();
+    await addSection(user, 'পরিবার ও আয়');
+    const head = within(screen.getByTestId('form-head'));
+    await head.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
+    failing = false;
+    window.dispatchEvent(new Event('online'));
+    // well before the two seconds of the first wait
+    expect(await head.findByText('সংরক্ষিত', {}, { timeout: 1000 })).toBeInTheDocument();
+    expect(saves).toHaveLength(1);
+  }, 20_000);
 
   it('shows a refusal about the whole form above the outline', async () => {
     const user = userEvent.setup();
@@ -1251,17 +1330,45 @@ describe('saving', () => {
     expect(await screen.findByText(/Shown when “ধরন” = /)).toBeInTheDocument();
   }, 20_000);
 
-  it('asks before leaving while a change is not saved', async () => {
+  it('saves a change that still waits before the page is left, and asks nothing', async () => {
+    const user = userEvent.setup();
+    api();
+    const { router } = open();
+    await addSection(user, 'পরিবার ও আয়');
+    // at once, before the wait after a change is over
+    expect(saves).toHaveLength(0);
+    void router.navigate('/admin/projects');
+    await screen.findByTestId('location');
+    expect(saves).toHaveLength(1);
+    expect(saves[0]!.body.sections.map((s) => s.key)).toContain('family_income');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // and the builder opens again with it
+    await router.navigate(`/admin/projects/${PROJECT}/forms/${FORM}`);
+    expect(await screen.findByRole('list', { name: 'পরিবার ও আয়' })).toBeInTheDocument();
+  }, 15_000);
+
+  it('asks before leaving only when the change cannot be saved', async () => {
     const user = userEvent.setup();
     api({ patch: () => apiError(500, 'server.internal', 'কিছু একটা ভুল হয়েছে।') });
     const { router } = open();
     await addSection(user, 'পরিবার ও আয়');
-    await screen.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
     void router.navigate('/admin/projects');
-    const dialog = await screen.findByRole('dialog', { name: 'সংরক্ষণ না করেই চলে যাবেন?' });
+    const dialog = await screen.findByRole('dialog', { name: 'সংরক্ষণ হয়নি, তবুও চলে যাবেন?' });
+    expect(saves).toHaveLength(1);
+    expect(dialog).toHaveTextContent('শেষ বদলগুলো সংরক্ষণ করা যায়নি। চলে গেলে সেগুলো থাকবে না।');
     await user.click(within(dialog).getByRole('button', { name: 'থাকুন' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(await screen.findByRole('list', { name: 'পরিবার ও আয়' })).toBeInTheDocument();
-  }, 15_000);
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+    // asked again at the next try, and gone on the person's word
+    void router.navigate('/admin/projects');
+    await user.click(
+      within(
+        await screen.findByRole('dialog', { name: 'সংরক্ষণ হয়নি, তবুও চলে যাবেন?' }),
+      ).getByRole('button', { name: 'চলে যান' }),
+    );
+    expect(await screen.findByTestId('location')).toHaveTextContent('/admin/projects');
+  }, 20_000);
 
   it('turns read-only with a notice when the server refuses the save to a builder without the official part', async () => {
     const user = userEvent.setup();
