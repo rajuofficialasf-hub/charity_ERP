@@ -3,12 +3,12 @@ import pino from 'pino';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { UPLOAD_RULES } from '@css/shared/files';
-import { enqueuePendingFiles, FileProcessor } from '../../src/jobs/file-process';
-import { skippingScanner } from '../../src/files/scanner';
-import { oversizedPng, photoWithExif, picture } from '../support/photos';
-import { accessWorld } from './support/access-fixtures';
-import { account, type AuthHarness, authHarness, login } from './support/auth-app';
-import * as f from './support/fixtures';
+import { enqueuePendingFiles, FileProcessor } from '../../src/jobs/file-process.js';
+import { skippingScanner } from '../../src/files/scanner.js';
+import { oversizedPng, photoWithExif, picture } from '../support/photos.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { account, type AuthHarness, authHarness, login } from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // The processing of an uploaded file: the scan, the photo's own metadata, the thumbnails, the
 // near duplicates of a project, and the files it refuses to decode.

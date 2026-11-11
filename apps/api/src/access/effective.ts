@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import type { Tx } from '../core/prisma.service';
-import type { AccessRegistry, DefaultGrant } from './registry';
-import { SCOPES, type ScopeType } from './schema';
+import type { Tx } from '../core/prisma.service.js';
+import type { AccessRegistry, DefaultGrant } from './registry.js';
+import { SCOPES, type ScopeType } from './schema.js';
 
 /** Where a grant comes from, the values of the contract's `EffectivePermission.source`. */
 export type GrantSource =
@@ -29,7 +29,7 @@ export interface PanelOverride {
   expiresAt: Date | null;
 }
 
-/** The rows of one user that decide the effective permissions (RBAC.md 1). */
+/** The rows of one user that decide the effective permissions (docs/security/RBAC.md, "Model"). */
 export interface AccessFacts {
   roles: string[];
   volunteerType: string | null;
@@ -79,12 +79,12 @@ export function effectivePermissions(
 }
 
 /**
- * The effective grants of one user from the four sources of RBAC.md 1, in order: GLOBAL roles
- * (every permission at GLOBAL minus `global_roles_excluded`), role defaults, project permission
- * sets and project extras, panel overrides; a live revoke override beats every grant. Volunteers
- * hold the SELF defaults of their role directly and everything else only on their projects (RBAC.md
- * 6), and never a sensitive permission. Pure: the
- * loader below reads the rows.
+ * The effective grants of one user from their four sources (docs/security/RBAC.md, "Model"), in
+ * order: GLOBAL roles (every permission at GLOBAL minus `global_roles_excluded`), role defaults,
+ * project permission sets and project extras, panel overrides; a live revoke override beats every
+ * grant. Volunteers hold the SELF defaults of their role directly and everything else only on their
+ * projects (docs/security/RBAC.md, "Volunteer permission sets and RPM-granted extras"), and never a
+ * sensitive permission. Pure: the loader below reads the rows.
  */
 export function effectiveAccess(
   registry: AccessRegistry,
@@ -142,7 +142,7 @@ export function effectiveAccess(
   // a permission whose defaults for these roles are all "if RPM grants" needs the extra (3b)
   for (const pv of facts.projectVolunteers) {
     const set = registry.permissionSets.get(pv.permissionSet);
-    // A set counts only for the roles it is meant for (RBAC.md 6).
+    // A set counts only for the roles it is meant for.
     if (!set || !set.forRoles.some((r) => facts.roles.includes(r))) continue;
     for (const permission of set.permissions) {
       const defaults = defaultsOf(permission, facts.roles);
@@ -161,8 +161,8 @@ export function effectiveAccess(
     }
   }
 
-  // 3b. Project extras: only permissions the role holds "if RPM grants" (RBAC.md 6), at the scope
-  // of that default without its condition; anything else in the column is ignored
+  // 3b. Project extras: only permissions the role holds "if RPM grants", at the scope of that
+  // default without its condition; anything else in the column is ignored
   const extras = [
     ...facts.projectVolunteers.map((pv) => ({
       projectId: pv.projectId,
@@ -204,9 +204,9 @@ export function effectiveAccess(
         projectId: o.scopeType === 'PROJECT' ? o.scopeRef : null,
         grantId: o.id,
       });
-  // Hard rules of RBAC.md 7 and 9, kept here too so a stray row cannot break them: revokes never
-  // strip the Department Head (Main Admin); only the Department Head holds the owner
-  // transfer; volunteers never hold a sensitive permission.
+  // Hard rules kept here too so a stray row cannot break them (docs/security/RBAC.md, "Permission
+  // panel" and "Special cases"): revokes never strip the Department Head (Main Admin); only the
+  // Department Head holds the owner transfer; volunteers never hold a sensitive permission.
   const head = facts.roles.includes('department_head');
   const revocations = head ? [] : live.filter((o) => o.effect === 'revoke');
   const official = facts.roles.some((r) => registry.roles.get(r)?.kind === 'official');

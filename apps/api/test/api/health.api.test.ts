@@ -1,8 +1,8 @@
 import { Writable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Container } from '../../src/container';
-import { buildTestApp, type TestApp } from '../support/app';
+import type { Container } from '../../src/container.js';
+import { buildTestApp, type TestApp } from '../support/app.js';
 
 // Liveness: the process answers, whatever its dependencies do, in the health check format.
 const LIVENESS = ['/api/v1/healthz', '/api/v1/livez'] as const;

@@ -1,14 +1,14 @@
 import { syncBatchRequestSchema, type SyncBatchRequest } from '@css/shared/sync';
 import express, { Router } from 'express';
 import { z } from 'zod';
-import { maskData } from '../access/field-mask';
-import { type AuthedRequest, principalOf } from '../auth/principal';
-import { SYNC_BODY_LIMIT } from '../app';
-import type { Container } from '../container';
-import { clientVersionGate } from '../http/client-version';
-import { ok, send } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
-import { snapshotEtag, snapshotView } from '../sync/snapshot';
+import { maskData } from '../access/field-mask.js';
+import { type AuthedRequest, principalOf } from '../auth/principal.js';
+import { SYNC_BODY_LIMIT } from '../app.js';
+import type { Container } from '../container.js';
+import { clientVersionGate } from '../http/client-version.js';
+import { ok, send } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import { snapshotEtag, snapshotView } from '../sync/snapshot.js';
 
 const snapshotQuery = z.strictObject({
   since: z.iso.datetime({ offset: true }).optional(),

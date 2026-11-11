@@ -1,12 +1,13 @@
 /**
- * Seed texts of the notification templates (NOTIFICATIONS.md §6): the Phase 1 events of §4.1 and
- * §4.2. Loaded into notification_templates by the base seed; officials edit them later through the
- * admin screens, each change a new version. Variables use {{name}}; numbers and dates are formatted
- * with English digits before rendering. SMS texts carry no personal data except the
- * recipient's own code. An in-app text never names another person (only what happened, the project
- * and counts; docs/DECISION_LOG.md, the notifications decision of 2026-10-18): emails to officials
- * may. A variable may be bilingual data ({ bn, en }); it is shown in the reader's language. Later
- * phases add their keys here.
+ * Seed texts of the notification templates (docs/architecture/NOTIFICATIONS.md, "Templates"): the
+ * Phase 1 events of its matrix, "Registration, accounts and security (Phase 1)" and "Projects,
+ * assignment and consent (Phase 1)". Loaded into notification_templates by the base seed; officials
+ * edit them later through the admin screens, each change a new version. Variables use {{name}};
+ * numbers and dates are formatted with English digits before rendering. SMS texts carry no personal
+ * data except the recipient's own code. An in-app text never names another person (only what
+ * happened, the project and counts; docs/DECISION_LOG.md, the notifications decision of
+ * 2026-10-18): emails to officials may. A variable may be bilingual data ({ bn, en }); it is shown
+ * in the reader's language. Later phases add their keys here.
  */
 export type NotificationChannel = 'in_app' | 'email' | 'sms';
 export type Locale = 'bn' | 'en';

@@ -9,11 +9,12 @@ import {
   type TemplateSources,
 } from '@css/shared/forms';
 import { describe, expect, it } from 'vitest';
-import { FORM_TEMPLATES, LIBRARY_FIELDS, SECTIONS } from '../../seed/sets/base/forms';
-import { REFERENCE_LISTS } from '../../seed/sets/base/reference-lists';
+import { FORM_TEMPLATES, LIBRARY_FIELDS, SECTIONS } from '../../seed/sets/base/forms.js';
+import { REFERENCE_LISTS } from '../../seed/sets/base/reference-lists.js';
 
-// The two seeded application forms of appendix খ, built through the engine with the seeded
-// reference lists: valid definitions whose calculations give the blueprint's numbers.
+// The two seeded application forms of the current forms (docs/MASTER_SPEC.md, "Appendix B — Current
+// form fields and mapping to the new system"), built through the engine with the seeded reference
+// lists: valid definitions whose calculations give the blueprint's numbers.
 const sources: TemplateSources = {
   libraryFields: LIBRARY_FIELDS,
   librarySections: SECTIONS,

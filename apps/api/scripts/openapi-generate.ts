@@ -1,10 +1,10 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createApp } from '../src/app';
-import { loadEnv } from '../src/config/env';
-import { closeContainer, createContainer } from '../src/container';
-import { buildOpenApiDocument } from '../src/openapi/build-document';
+import { createApp } from '../src/app.js';
+import { loadEnv } from '../src/config/env.js';
+import { closeContainer, createContainer } from '../src/container.js';
+import { buildOpenApiDocument } from '../src/openapi/build-document.js';
 
 // Writes the OpenAPI document generated from the route registry to openapi.generated.json
 // (gitignored) for review next to docs/api/openapi.yaml; the drift test in test/api checks them in
@@ -24,7 +24,7 @@ async function main(): Promise<void> {
   });
   const container = createContainer(env);
   const { registry } = createApp(container);
-  const target = join(__dirname, '..', 'openapi.generated.json');
+  const target = join(import.meta.dirname, '..', 'openapi.generated.json');
   writeFileSync(target, JSON.stringify(buildOpenApiDocument(registry), null, 2) + '\n');
   await closeContainer(container);
   process.stdout.write(`written ${target}\n`);

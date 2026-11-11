@@ -1,8 +1,8 @@
-import type { Clock } from '../core/clock';
-import type { Tx } from '../core/prisma.service';
-import { NOTIFICATION_CATALOGUE } from './catalogue';
-import type { RecipientRule } from './recipients';
-import type { NotificationService } from './service';
+import type { Clock } from '../core/clock.js';
+import type { Tx } from '../core/prisma.service.js';
+import { NOTIFICATION_CATALOGUE } from './catalogue.js';
+import type { RecipientRule } from './recipients.js';
+import type { NotificationService } from './service.js';
 
 /** The application an event is about, as the engine holds it after the move. */
 export interface ApplicationEventTarget {

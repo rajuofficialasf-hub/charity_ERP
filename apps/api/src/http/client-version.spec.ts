@@ -1,8 +1,8 @@
 import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { ApiError } from '../i18n/api-error';
-import { belowMinimum, clientVersionGate, parseVersion } from './client-version';
+import { ApiError } from '../i18n/api-error.js';
+import { belowMinimum, clientVersionGate, parseVersion } from './client-version.js';
 
 describe('the client version gate', () => {
   it('reads a version with or without a v, and nothing else', () => {

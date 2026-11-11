@@ -1,8 +1,8 @@
 /* eslint-disable security/detect-object-injection -- keys are typed unions, or checked with Object.hasOwn before use */
 /**
- * Entry `@css/shared/format`: the one formatter of numbers, money, dates and times (I18N.md 6).
- * English digits in both languages, Taka shown as the owner decided (exact in entry and lists,
- * short in summaries), 12-hour time with the
+ * Entry `@css/shared/format`: the one formatter of numbers, money, dates and times
+ * (docs/ui/I18N.md, "Number, date and time formatting"). English digits in both languages, Taka
+ * shown as the owner decided (exact in entry and lists, short in summaries), 12-hour time with the
  * Bengali day periods first, Asia/Dhaka display time, no Hijri date. Words come from the
  * `common` catalogue only, so the web bundle does not carry the other namespaces.
  */
@@ -10,11 +10,14 @@ import bnCommon from '../i18n/messages/bn/common.json' with { type: 'json' };
 import enCommon from '../i18n/messages/en/common.json' with { type: 'json' };
 import type { Locale } from '../i18n/locales.js';
 
-/** The digit system (I18N 6.1). Bengali digits would need an owner decision and this constant. */
+/**
+ * The digit system (docs/ui/I18N.md, "One formatter"). Bengali digits would need an owner decision
+ * and this constant.
+ */
 export const DIGITS = 'latn';
 export const TIME_ZONE = 'Asia/Dhaka';
 
-/** Intl locale tags with Latin digits (I18N 6.1). */
+/** Intl locale tags with Latin digits. */
 export const INTL_LOCALE: Record<Locale, string> = {
   bn: `bn-BD-u-nu-${DIGITS}`,
   en: `en-IN-u-nu-${DIGITS}`,
@@ -22,7 +25,7 @@ export const INTL_LOCALE: Record<Locale, string> = {
 
 const WORDS = { bn: bnCommon, en: enCommon };
 const MINUS = '−';
-/** The taka sign, written before amounts with one space (I18N 6.2). */
+/** The taka sign, written before amounts with one space (docs/ui/I18N.md, "Formats"). */
 export const TAKA_SIGN = '৳';
 const TAKA = TAKA_SIGN;
 
@@ -53,9 +56,9 @@ export function formatPercent(ratio: number, locale: Locale = 'bn', maxDecimals 
 }
 
 /**
- * Taka with the sign before the amount and one space (I18N 6.2). Exact amounts (entry fields,
- * ledgers, vouchers, exports) keep up to 2 decimals; `summary` amounts from 10 lakh are shown in
- * millions with at most 2 decimals and trailing zeros dropped. Negative amounts: −৳ 5,000.
+ * Taka with the sign before the amount and one space. Exact amounts (entry fields, ledgers,
+ * vouchers, exports) keep up to 2 decimals; `summary` amounts from 10 lakh are shown in millions
+ * with at most 2 decimals and trailing zeros dropped. Negative amounts: −৳ 5,000.
  */
 export function formatTaka(
   value: number,
@@ -143,7 +146,7 @@ export function formatWeekday(input: Date | string, locale: Locale = 'bn'): stri
   }).format(parts(input).date);
 }
 
-/** Bengali day periods of the 24-hour clock (I18N 6.3). */
+/** Bengali day periods of the 24-hour clock (docs/ui/I18N.md, "Day periods for 12-hour time"). */
 function dayPeriod(hour: number): keyof (typeof bnCommon)['day_period'] {
   if (hour < 4) return 'night_early';
   if (hour < 6) return 'dawn';

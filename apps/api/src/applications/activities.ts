@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Tx } from '../core/prisma.service';
+import type { Tx } from '../core/prisma.service.js';
 
 const uuid = z.uuid();
 

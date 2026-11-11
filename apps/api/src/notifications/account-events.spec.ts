@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fieldName } from './account-events';
+import { fieldName } from './account-events.js';
 
 // A request field is named in both languages as the screens name it.
 describe('fieldName', () => {

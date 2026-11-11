@@ -1,8 +1,9 @@
 /**
- * ESLint rule `css/no-literal-ui-text` (I18N.md 4, D-067): user-facing text must come from the
- * catalogue (t()) or from bilingual data, never from a literal in JSX. Reports JSX text and string
- * literals in text props that contain a letter of any script; punctuation, digits and symbols
- * alone (for example "-", "·", "৳") are allowed.
+ * ESLint rule `css/no-literal-ui-text` (docs/ui/I18N.md, "No hard-coded strings: rule and
+ * enforcement"): user-facing text must come from the catalogue (t()) or from bilingual data,
+ * never from a literal in JSX. Reports JSX text and string literals in text props that contain a
+ * letter of any script; punctuation, digits and symbols alone (for example "-", "·", "৳") are
+ * allowed.
  */
 const LETTER = /\p{L}/u;
 

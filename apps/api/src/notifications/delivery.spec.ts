@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { composeEmail, escapeHtml, GIVE_UP_MS, retryDelay, safeError, Throttle } from './delivery';
+import {
+  composeEmail,
+  escapeHtml,
+  GIVE_UP_MS,
+  retryDelay,
+  safeError,
+  Throttle,
+} from './delivery.js';
 
 /** A clock that moves only when the throttle sleeps. */
 function fakeTime() {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createShutdown, type ShutdownSteps } from './shutdown';
+import { createShutdown, type ShutdownSteps } from './shutdown.js';
 
 const GRACE = 35_000;
 

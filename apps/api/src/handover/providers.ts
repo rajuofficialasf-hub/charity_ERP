@@ -1,6 +1,6 @@
 import { uuidv7 } from '@css/shared';
-import type { Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
+import type { Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /**
  * The pending work of an official, by provider. Each module that gives an official work plugs in a

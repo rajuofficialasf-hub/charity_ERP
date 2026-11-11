@@ -115,7 +115,7 @@ export function parseRegister(markdown) {
 }
 
 /**
- * The phase map table of MODULE_CATALOG.md: module codes per phase number.
+ * The phase map table of docs/MODULE_CATALOG.md: module codes per phase number.
  * @param {string} markdown
  * @returns {Map<number, Set<string>>}
  */

@@ -1,7 +1,7 @@
 /**
- * Entry `@css/shared/i18n` (I18N.md 3): the message catalogue, the server-side t(), locale
- * resolution, bilingual-data helpers and the catalogue check. Kept out of the package index so the
- * web client never bundles every catalogue.
+ * Entry `@css/shared/i18n` (docs/ui/I18N.md, "Message catalogue"): the message catalogue, the
+ * server-side t(), locale resolution, bilingual-data helpers and the catalogue check. Kept out of
+ * the package index so the web client never bundles every catalogue.
  */
 export { bn, en, NAMESPACES, type Messages, type Namespace } from './catalogue.js';
 export {

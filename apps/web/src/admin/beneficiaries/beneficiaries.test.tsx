@@ -749,6 +749,62 @@ describe('the profile actions', () => {
     expect(screen.getByRole('dialog', { name: 'যোগাযোগের তথ্য বদলান' })).toBeInTheDocument();
   });
 
+  it('asks for a correction of a locked field with the number in plain digits', async () => {
+    refreshAs(RPM);
+    serve(fullRow, {}, { ...empty360, nid: '1234567890', actions: ALL_ACTIONS });
+    const sent: unknown[] = [];
+    let refuse = true;
+    server.use(
+      http.post('*/api/v1/beneficiaries/:id/correction-requests', async ({ request }) => {
+        sent.push(await request.json());
+        if (refuse) {
+          refuse = false;
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'validation.failed',
+                message: 'তথ্য ঠিক নেই।',
+                requestId: 'r',
+                details: [{ path: 'reason', code: 'validation.too_long', message: 'অনেক লম্বা।' }],
+              },
+            },
+            { status: 422 },
+          );
+        }
+        return HttpResponse.json(
+          { data: { id: REQUEST_ID }, meta: { requestId: 'req_test' } },
+          { status: 201 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    openProfile();
+    await user.click(await screen.findByRole('button', { name: 'সংশোধনের অনুরোধ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'সংশোধনের অনুরোধ' });
+    const send = within(dialog).getByRole('button', { name: 'অনুরোধ পাঠান' });
+    expect(send).toBeDisabled();
+    await user.click(within(dialog).getByRole('combobox', { name: /কোন তথ্য ঠিক করতে হবে/ }));
+    await user.click(await screen.findByRole('option', { name: 'NID' }));
+    const value = within(dialog).getByRole('textbox', { name: /সঠিক মান/ });
+    expect(value).toHaveAccessibleDescription('এখন আছে: 1234567890');
+    await user.type(value, '১২৩৪');
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'এনআইডি দেখে');
+    await user.click(send);
+    // a number of the wrong length is refused here, before any request
+    expect(value).toHaveAccessibleDescription('এনআইডি 10, 13 বা 17 অঙ্কের হতে হবে।');
+    expect(sent).toEqual([]);
+    await user.clear(value);
+    await user.type(value, '১২৩৪-৫৬৭ ৮৯০');
+    await user.click(send);
+    expect(await within(dialog).findByText('অনেক লম্বা।')).toBeInTheDocument();
+    await user.click(send);
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[1]).toEqual({ field: 'nid', newValue: '1234567890', reason: 'এনআইডি দেখে' });
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'সংশোধনের অনুরোধ' })).not.toBeInTheDocument(),
+    );
+  }, 15_000);
+
   it('shows why an approval of a correction was refused and keeps the dialog open', async () => {
     refreshAs(ME);
     const request = {

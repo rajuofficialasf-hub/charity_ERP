@@ -8,12 +8,13 @@ import {
 } from '@css/shared/i18n';
 
 /**
- * The interface language of this device (I18N 2): the cookie
+ * The interface language of this device (docs/ui/I18N.md, "Languages and locale resolution"): the
+ * cookie
  * `css_locale` first (E2E and the language switch set it), then `localStorage`, then the system
  * default language the server last named (kept under its own key; docs/DECISION_LOG.md, the admin
- * and settings decision), then bn. The
- * pseudo-locale `qps` (I18N 4) is honoured only in `vite dev`. After login the account's language
- * is written here, so the choice follows the user.
+ * and settings decision), then bn. The pseudo-locale `qps` (docs/ui/I18N.md, "No hard-coded
+ * strings: rule and enforcement") is honoured only in `vite dev`. After login the account's
+ * language is written here, so the choice follows the user.
  */
 export const PSEUDO = PSEUDO_LOCALE;
 const ONE_YEAR = 60 * 60 * 24 * 365;

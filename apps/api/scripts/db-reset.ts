@@ -3,7 +3,7 @@
 // production (src/config/db-guard.ts).
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
-import { checkDestructiveDbAccess } from '../src/config/db-guard';
+import { checkDestructiveDbAccess } from '../src/config/db-guard.js';
 
 const guard = checkDestructiveDbAccess(process.env);
 if (!guard.allowed) {

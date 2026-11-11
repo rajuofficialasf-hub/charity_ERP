@@ -1,13 +1,13 @@
 import { NOTIFICATION_TEMPLATES, TEMPLATE_SAMPLES } from '@css/shared';
 import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { AccountEvents } from '../../src/notifications/account-events';
-import { NOTIFICATION_CATALOGUE } from '../../src/notifications/catalogue';
-import { MONITORING } from '../../src/notifications/recipients';
-import type { NotificationInput } from '../../src/notifications/service';
-import { accessWorld } from './support/access-fixtures';
-import { account, type AuthHarness, authHarness } from './support/auth-app';
-import * as f from './support/fixtures';
+import { AccountEvents } from '../../src/notifications/account-events.js';
+import { NOTIFICATION_CATALOGUE } from '../../src/notifications/catalogue.js';
+import { MONITORING } from '../../src/notifications/recipients.js';
+import type { NotificationInput } from '../../src/notifications/service.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { account, type AuthHarness, authHarness } from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // Publishing an event: in-app rows and the email outbox are written in the event's transaction, for
 // the people the rules reach and nobody else.

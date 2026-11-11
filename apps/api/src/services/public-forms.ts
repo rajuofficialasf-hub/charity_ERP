@@ -1,20 +1,20 @@
 import { uuidv7 } from '@css/shared';
 import { type PublicApplicationCreate, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
-import { addressOf, nisabOption, photoAnswers, typedName } from '../applications/answers';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Clock } from '../core/clock';
-import { isUniqueViolation } from '../core/db-errors';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { BeneficiaryIdentityService } from './beneficiary-identity';
-import { type FormVersionView, readDefinition, versionView } from './forms';
-import { isAddressChain } from './locations';
-import type { NisabService } from './nisab';
-import { resolveOpenLink } from './public-link-rules';
-import type { PublicPhotosService } from './public-photos';
-import type { Replayable } from './uploads';
+import { addressOf, nisabOption, photoAnswers, typedName } from '../applications/answers.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Clock } from '../core/clock.js';
+import { isUniqueViolation } from '../core/db-errors.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
+import { type FormVersionView, readDefinition, versionView } from './forms.js';
+import { isAddressChain } from './locations.js';
+import type { NisabService } from './nisab.js';
+import { resolveOpenLink } from './public-link-rules.js';
+import type { PublicPhotosService } from './public-photos.js';
+import type { Replayable } from './uploads.js';
 
 /** What the public page shows: the project's name and closing date, and the form. */
 export interface PublicFormView {
@@ -30,7 +30,8 @@ export interface PublicSubmission {
 
 /**
  * The flags a public entry carries for the official who verifies it, from the list the
- * `applications_flags_check` constraint allows (DATABASE_SCHEMA: the needs-verification reasons).
+ * `applications_flags_check` constraint allows (the needs-verification reasons of
+ * docs/database/DATABASE_SCHEMA.md, "applications").
  */
 export const PUBLIC_FLAGS = {
   publicEntry: 'public_entry',

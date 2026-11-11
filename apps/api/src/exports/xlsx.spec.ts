@@ -2,8 +2,8 @@ import { PassThrough } from 'node:stream';
 import { bn } from '@css/shared/i18n';
 import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
-import type { FileColumn } from './file';
-import { XlsxFile } from './xlsx';
+import type { FileColumn } from './file.js';
+import { XlsxFile } from './xlsx.js';
 
 /** The workbook an Excel file writes, read back from its bytes. */
 async function written(

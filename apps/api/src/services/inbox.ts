@@ -6,13 +6,19 @@ import {
   translate,
 } from '@css/shared/i18n';
 import type { Logger } from 'pino';
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import { buildPage, decodeCursor, keysetWhere, orderBy, type SortField } from '../core/pagination';
-import type { PrismaService } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import { NOTIFICATION_CATALOGUE } from '../notifications/catalogue';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import {
+  buildPage,
+  decodeCursor,
+  keysetWhere,
+  orderBy,
+  type SortField,
+} from '../core/pagination.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import { NOTIFICATION_CATALOGUE } from '../notifications/catalogue.js';
 
 export interface InboxQuery {
   limit: number;

@@ -1,9 +1,9 @@
 import { type SmsProviderSetting, smsProviderSettingSchema } from '@css/shared/settings';
 import { Router } from 'express';
-import { principalOf } from '../auth/principal';
-import type { Container } from '../container';
-import { ok } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { principalOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { ok } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 const op = {
   tag: 'admin',

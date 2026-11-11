@@ -1,12 +1,12 @@
 import type { ProgramCreate, ProgramUpdate } from '@css/shared/projects';
 import { uuidv7 } from '@css/shared';
-import { type Scope, programWhere } from '../access/scope';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import { assertIfMatch } from '../core/etag';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
+import { type Scope, programWhere } from '../access/scope.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import { assertIfMatch } from '../core/etag.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
 
 const SELECT = {
   id: true,
@@ -46,9 +46,10 @@ const isUniqueViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 
 /**
- * Programs (docs/MASTER_SPEC.md, A6): the Department Head creates, renames,
- * deactivates and activates them and assigns their PM; officials read the programs in their scope.
- * A program is never deleted. Every change is audited in its transaction.
+ * Programs (docs/MASTER_SPEC.md, "Program and project setup (project configuration)"): the
+ * Department Head creates, renames, deactivates and activates them and assigns their PM; officials
+ * read the programs in their scope. A program is never deleted. Every change is audited in its
+ * transaction.
  */
 export class ProgramsService {
   constructor(

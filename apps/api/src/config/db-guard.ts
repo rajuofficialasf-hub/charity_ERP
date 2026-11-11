@@ -1,9 +1,9 @@
 /**
- * Destructive database scripts (reset, seed) may only touch development or test databases
- * (seed rules in docs/testing/TEST_STRATEGY.md section 4). The database name must
- * be css_erp_dev, css_erp_test or css_erp_perf (the measurement data set of
- * docs/testing/PERFORMANCE.md),
- * optionally with a suffix such as css_erp_test_worker_3, and NODE_ENV must not be production.
+ * Destructive database scripts (reset, seed) may only touch development or test databases (seed
+ * rules in docs/testing/TEST_STRATEGY.md, "Test data strategy"). The database name must be
+ * css_erp_dev, css_erp_test or css_erp_perf (the measurement data set of
+ * docs/testing/PERFORMANCE.md), optionally with a suffix such as css_erp_test_worker_3, and
+ * NODE_ENV must not be production.
  */
 const ALLOWED_PREFIXES = ['css_erp_dev', 'css_erp_test', 'css_erp_perf'];
 const DATABASE_NAME = /^[a-z0-9_]+$/;

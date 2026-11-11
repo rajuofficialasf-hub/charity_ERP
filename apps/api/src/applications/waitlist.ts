@@ -1,13 +1,13 @@
 import { z } from 'zod';
-import { applicationWhere, holdsPermission, projectWhere } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { Principal } from '../auth/principal';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { IdempotencyService } from '../idempotency/idempotency.service';
-import type { WorkflowEngine } from '../workflow/engine';
-import { WAITLIST_ORDER } from './decision-rules';
+import { applicationWhere, holdsPermission, projectWhere } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { Principal } from '../auth/principal.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { IdempotencyService } from '../idempotency/idempotency.service.js';
+import type { WorkflowEngine } from '../workflow/engine.js';
+import { WAITLIST_ORDER } from './decision-rules.js';
 
 /** The pull's request: the quota area to pull from, and the comment a full quota may ask for. */
 export const pullNextSchema = z.strictObject({

@@ -1,4 +1,4 @@
-import { installJobs } from '../src/jobs/install';
+import { installJobs } from '../src/jobs/install.js';
 
 // Installs or upgrades the pg-boss schema and its queues as the migrating role.
 // Part of `pnpm db:migrate`; the api and worker processes never run DDL.

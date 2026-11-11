@@ -145,6 +145,48 @@ describe('the nisab page', () => {
     expect(added[0]).toEqual({ value: '105000', effectiveFrom: day(31) });
   });
 
+  it('keeps the amount in English digits and sends the basis note trimmed', async () => {
+    refreshAs(PM);
+    serve();
+    open();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'নতুন নিসাব' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন নিসাব' });
+    const amount = within(dialog).getByRole('textbox', { name: /^পরিমাণ/ });
+    await user.type(amount, '১০৫০০০.৫০ টাকা');
+    expect(amount).toHaveValue('105000.50');
+    const [y, m, d] = day(32).split('-');
+    const date = within(dialog).getByRole('group', { name: /^কার্যকর তারিখ/ });
+    await user.click(within(date).getAllByRole('spinbutton')[0]!);
+    await user.keyboard(`${d}${m}${y}`);
+    await user.type(within(dialog).getByRole('textbox', { name: /^ভিত্তি/ }), '  রুপার দাম  ');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() =>
+      expect(added).toEqual([
+        { value: '105000.50', effectiveFrom: day(32), basisNote: 'রুপার দাম' },
+      ]),
+    );
+  });
+
+  it('refuses an amount with three decimals in the server’s words before sending', async () => {
+    refreshAs(PM);
+    serve();
+    open();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'নতুন নিসাব' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন নিসাব' });
+    await user.type(within(dialog).getByRole('textbox', { name: /^পরিমাণ/ }), '1.234');
+    const [y, m, d] = day(32).split('-');
+    const date = within(dialog).getByRole('group', { name: /^কার্যকর তারিখ/ });
+    await user.click(within(date).getAllByRole('spinbutton')[0]!);
+    await user.keyboard(`${d}${m}${y}`);
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    expect(
+      await within(dialog).findByText('টাকার অংক দিন, দশমিকের পরে সর্বোচ্চ দুই ঘর।'),
+    ).toBeInTheDocument();
+    expect(added).toEqual([]);
+  });
+
   it('withdraws a version not yet in effect with a reason', async () => {
     refreshAs(PM);
     serve();

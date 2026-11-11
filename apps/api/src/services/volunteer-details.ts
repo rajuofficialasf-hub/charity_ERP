@@ -5,8 +5,8 @@ import {
   type SkillsValue,
 } from '@css/shared/registration';
 import { z } from 'zod';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /**
  * The personal, profession and skills data of a volunteer in one place: the columns to select, the

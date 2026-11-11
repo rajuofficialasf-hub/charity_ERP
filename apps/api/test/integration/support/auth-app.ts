@@ -1,5 +1,5 @@
-import type { RouteRegistry } from '../../../src/openapi/registry';
-import type { AccessRegistry } from '../../../src/access/registry';
+import type { RouteRegistry } from '../../../src/openapi/registry.js';
+import type { AccessRegistry } from '../../../src/access/registry.js';
 import { randomUUID } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
 import { createServer, type Server } from 'node:http';
@@ -8,14 +8,14 @@ import type { Client } from 'pg';
 import type { DestinationStream } from 'pino';
 import request from 'supertest';
 import { inject } from 'vitest';
-import { createApp, type AppOptions } from '../../../src/app';
-import { ARGON2_OPTIONS } from '../../../src/auth/password-hasher';
-import { closeContainer, type Container, createContainer } from '../../../src/container';
-import { testEnv } from '../../support/env';
-import { contractRecorder } from '../../support/contract';
-import { withAppOrigin } from '../../support/origin';
-import { cloneTemplate } from './db';
-import { fakeMobile } from './fixtures';
+import { createApp, type AppOptions } from '../../../src/app.js';
+import { ARGON2_OPTIONS } from '../../../src/auth/password-hasher.js';
+import { closeContainer, type Container, createContainer } from '../../../src/container.js';
+import { testEnv } from '../../support/env.js';
+import { contractRecorder } from '../../support/contract.js';
+import { withAppOrigin } from '../../support/origin.js';
+import { cloneTemplate } from './db.js';
+import { fakeMobile } from './fixtures.js';
 
 /** A clock the tests move forward (lockout, token, session and OTP lifetimes). */
 export class TestClock {

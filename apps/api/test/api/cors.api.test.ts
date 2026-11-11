@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { buildTestApp } from '../support/app';
+import { buildTestApp } from '../support/app.js';
 
 // The CORS allowlist: only the configured origins get the allow headers, with credentials.
 describe('CORS allowlist', () => {

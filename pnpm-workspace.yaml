@@ -11,7 +11,7 @@ allowBuilds:
   prisma: true
   core-js: false
   msw: false
-  # next-intl's message extractor watcher (not used; T1.5): no install script.
+  # next-intl's message extractor watcher (not used): no install script.
   '@parcel/watcher': false
 
 overrides:

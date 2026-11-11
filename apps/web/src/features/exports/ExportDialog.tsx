@@ -1,9 +1,12 @@
-import type { ExportFormat, ExportList } from '@css/shared/exports';
-import { Alert, Button, Dialog, RadioGroup, Skeleton, Stack, Text } from '@/ui';
+import { EXPORT_FORMATS, type ExportFormat, type ExportList } from '@css/shared/exports';
+import { Alert, Button, Dialog, Form, RadioGroup, Skeleton, Stack, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { ApiFailure } from '../../api/client';
+import { useSchemaResolver } from '../../lib/form-schema';
 import { ColumnPicker } from './ColumnPicker';
 import { ExportProgress } from './ExportProgress';
 import { EXPORTS_KEY, exportColumns, startExport } from './exports-api';
@@ -18,12 +21,18 @@ export interface ExportDialogProps {
   onClose: () => void;
 }
 
-const FORMATS: ExportFormat[] = ['xlsx', 'csv', 'pdf'];
 const FORMAT_LABELS = new Map<ExportFormat, string>([
   ['xlsx', 'Excel'],
   ['csv', 'CSV'],
   ['pdf', 'PDF'],
 ]);
+
+/** The file type, and the columns once the person changes them (none yet: the remembered ones). */
+const EXPORT_SCHEMA = z.object({
+  format: z.enum(EXPORT_FORMATS),
+  columns: z.array(z.string()).nullable(),
+});
+type ExportFields = z.infer<typeof EXPORT_SCHEMA>;
 
 /**
  * The export dialog of a list: the file type and the columns, the on-screen ones
@@ -33,8 +42,12 @@ const FORMAT_LABELS = new Map<ExportFormat, string>([
 export default function ExportDialog({ list, projectId, filters, onClose }: ExportDialogProps) {
   const t = useTranslations('exports.dialog');
   const queryClient = useQueryClient();
-  const [format, setFormat] = useState<ExportFormat>('xlsx');
-  const [chosen, setChosen] = useState<string[] | null>(null);
+  const form = useForm<ExportFields>({
+    resolver: useSchemaResolver(EXPORT_SCHEMA),
+    defaultValues: { format: 'xlsx', columns: null },
+    reValidateMode: 'onSubmit',
+  });
+  const chosen = useWatch({ control: form.control, name: 'columns' });
   const [jobId, setJobId] = useState<string | null>(null);
   const columns = useQuery({
     queryKey: [...EXPORTS_KEY, 'columns', list, projectId ?? null],
@@ -44,15 +57,14 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
   const picked = chosen ?? (columns.data ? rememberedColumns(list, columns.data) : []);
 
   const start = useMutation({
-    mutationFn: () => {
-      const ids = picked;
+    mutationFn: ({ format: as, ids }: { format: ExportFormat; ids: string[] }) => {
       rememberColumns(list, ids);
       const set = Object.fromEntries(
         Object.entries(filters).filter((entry): entry is [string, string] => Boolean(entry[1])),
       );
       return startExport({
         kind: list,
-        format,
+        format: as,
         columns: ids,
         filters: set,
         ...(projectId ? { projectId } : {}),
@@ -66,6 +78,11 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
   const failure = start.error instanceof ApiFailure ? start.error : null;
   const none = picked.length === 0;
   const title = t('title', { list: t(`list.${list}`) });
+  // the button's own path: columns chosen, and nothing twice while the start is on its way
+  const send = (fields: ExportFields) => {
+    if (none || !columns.data || start.isPending) return;
+    start.mutate({ format: fields.format, ids: picked });
+  };
 
   if (jobId)
     return (
@@ -105,7 +122,7 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
           <Button
             disabled={none || !columns.data}
             loading={start.isPending}
-            onClick={() => start.mutate()}
+            onClick={() => void form.handleSubmit(send)()}
           >
             {t('start')}
           </Button>
@@ -114,23 +131,40 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
     >
       <Stack gap={4}>
         <Text tone="muted">{t('filters_note')}</Text>
-        <RadioGroup
-          label={t('format')}
-          orientation="horizontal"
-          options={FORMATS.map((f) => ({ value: f, label: FORMAT_LABELS.get(f) ?? f }))}
-          value={format}
-          onChange={(id) => setFormat(id as ExportFormat)}
-          {...(format === 'pdf' ? { hint: t('format_pdf_hint') } : {})}
-        />
+        {/* the column picker's question search sits outside the form, so Enter in it starts nothing */}
+        <Form form={form} onSubmit={send} label={title} error={failure?.message}>
+          <Controller
+            control={form.control}
+            name="format"
+            render={({ field }) => (
+              <RadioGroup
+                label={t('format')}
+                orientation="horizontal"
+                options={EXPORT_FORMATS.map((f) => ({
+                  value: f,
+                  label: FORMAT_LABELS.get(f) ?? f,
+                }))}
+                value={field.value}
+                onChange={(id) => field.onChange(id as ExportFormat)}
+                {...(field.value === 'pdf' ? { hint: t('format_pdf_hint') } : {})}
+              />
+            )}
+          />
+        </Form>
         {columns.isPending ? (
           <Skeleton shape="row" count={4} />
         ) : columns.error ? (
           <Alert tone="error">{t('load_failed')}</Alert>
         ) : (
-          <ColumnPicker columns={columns.data} value={picked} onChange={(ids) => setChosen(ids)} />
+          <Controller
+            control={form.control}
+            name="columns"
+            render={({ field }) => (
+              <ColumnPicker columns={columns.data} value={picked} onChange={field.onChange} />
+            )}
+          />
         )}
         {none && columns.data && <Text tone="muted">{t('none_chosen')}</Text>}
-        {failure && <Alert tone="error">{failure.message}</Alert>}
       </Stack>
     </Dialog>
   );

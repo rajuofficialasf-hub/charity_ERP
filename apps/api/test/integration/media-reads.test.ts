@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { account } from './support/auth-app';
+import { account } from './support/auth-app.js';
 import {
   mediaApplication,
   mediaReferral,
@@ -9,7 +9,7 @@ import {
   mediaWorld,
   publishedWork,
   workVersion,
-} from './support/media';
+} from './support/media.js';
 
 // The reads of the Media Team's screens: the home's counts by program, the works list with its
 // filters, a member's profile with the portfolio of published works, the published works on the

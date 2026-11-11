@@ -344,9 +344,106 @@ describe('the officials page', () => {
     await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'p@example.org');
     await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
     expect(within(dialog).queryByRole('textbox', { name: /প্রতিষ্ঠানের নাম/ })).toBeNull();
+    await user.click(within(dialog).getByRole('combobox', { name: /ভূমিকা/ }));
+    await user.click(screen.getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
+    const create = within(dialog).getByRole('button', { name: 'অ্যাকাউন্ট তৈরি করুন' });
+    expect(create).toBeEnabled();
     await user.click(within(dialog).getByRole('radio', { name: 'বাইরের সহযোগী' }));
-    expect(within(dialog).getByRole('textbox', { name: /প্রতিষ্ঠানের নাম/ })).toBeInTheDocument();
-  });
+    // a partner's organisation must be named before the account is made
+    expect(create).toBeDisabled();
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /প্রতিষ্ঠানের নাম/ }),
+      ' সহযোগী সংস্থা ',
+    );
+    expect(create).toBeEnabled();
+    await user.click(create);
+    await waitFor(() => expect(created).toHaveLength(1));
+    expect(created[0]).toEqual({
+      jobId: 'PRT-1',
+      displayName: 'নাম',
+      designation: 'পদ',
+      affiliation: 'external',
+      affiliationUnit: 'সহযোগী সংস্থা',
+      homeProgramId: null,
+      homeDivisionId: null,
+      supervisorUserId: null,
+      email: 'p@example.org',
+      mobile: null,
+      roleKey: 'project_executive',
+      language: 'bn',
+    });
+  }, 15_000);
+
+  it('checks the first step before the second opens', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole('button', { name: 'নতুন অফিসিয়াল' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
+    for (const name of [/^Job ID/, /^নাম/, /^পদবি/, /^ইমেইল/])
+      expect(within(dialog).getByRole('textbox', { name })).toHaveAccessibleDescription(
+        'এই ঘরটি পূরণ করুন।',
+      );
+    await user.type(within(dialog).getByRole('textbox', { name: /^Job ID/ }), '01711000201');
+    await user.type(within(dialog).getByRole('textbox', { name: /^নাম/ }), 'নাম');
+    await user.type(within(dialog).getByRole('textbox', { name: /^পদবি/ }), 'পদ');
+    await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'not-an-email');
+    await user.type(within(dialog).getByRole('textbox', { name: /^মোবাইল/ }), '0123');
+    await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
+    expect(within(dialog).getByRole('textbox', { name: /^Job ID/ })).toHaveAccessibleDescription(
+      'Job ID মোবাইল নম্বর হতে পারবে না।',
+    );
+    expect(within(dialog).getByRole('textbox', { name: /^নাম/ })).not.toHaveAccessibleDescription(
+      'এই ঘরটি পূরণ করুন।',
+    );
+    expect(within(dialog).getByRole('textbox', { name: /^ইমেইল/ })).toHaveAccessibleDescription(
+      'এই ঘরটি পূরণ করুন।',
+    );
+    expect(within(dialog).getByRole('textbox', { name: /^মোবাইল/ })).toHaveAccessibleDescription(
+      'মোবাইল নম্বর 01 দিয়ে শুরু হওয়া 11 অঙ্কের হতে হবে।',
+    );
+    expect(within(dialog).getByRole('button', { name: 'পরের ধাপ' })).toBeInTheDocument();
+    expect(created).toHaveLength(0);
+  }, 15_000);
+
+  it('opens the first step again with the message under a field it refused', async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.post('*/api/v1/users', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              message: 'কিছু তথ্য সঠিক নয়।',
+              requestId: 'req_x',
+              details: [
+                { path: 'email', code: 'user.email_taken', message: 'এই ইমেইল আগে থেকেই আছে।' },
+              ],
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole('button', { name: 'নতুন অফিসিয়াল' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /^Job ID/ }), 'CSS-311');
+    await user.type(within(dialog).getByRole('textbox', { name: /^নাম/ }), 'নাম');
+    await user.type(within(dialog).getByRole('textbox', { name: /^পদবি/ }), 'পদ');
+    await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'x@example.org');
+    await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
+    await user.click(within(dialog).getByRole('combobox', { name: /ভূমিকা/ }));
+    await user.click(screen.getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
+    await user.click(within(dialog).getByRole('button', { name: 'অ্যাকাউন্ট তৈরি করুন' }));
+    const email = await within(dialog).findByRole('textbox', { name: /^ইমেইল/ });
+    await waitFor(() => expect(email).toHaveAccessibleDescription('এই ইমেইল আগে থেকেই আছে।'));
+    expect(within(dialog).getByRole('button', { name: 'পরের ধাপ' })).toBeInTheDocument();
+  }, 15_000);
 
   it('sends a new link to a corrected email', async () => {
     refreshAs(HEAD);
@@ -365,6 +462,45 @@ describe('the officials page', () => {
     await user.click(within(dialog).getByRole('button', { name: 'নতুন লিঙ্ক পাঠান' }));
     await waitFor(() => expect(renewed).toEqual([{ email: 'right@example.org' }]));
     expect(await screen.findByText(/লিঙ্কটি ইমেইলে পাঠানো হয়েছে/)).toBeInTheDocument();
+  });
+
+  it('sends a new link to the email already given when none is written, and shows a refusal', async () => {
+    refreshAs(HEAD);
+    serve();
+    let refuse = true;
+    server.use(
+      http.post('*/api/v1/users/:id/invitation', async ({ request }) => {
+        renewed.push(await request.json());
+        if (refuse)
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'user.password_already_set',
+                message: 'এই অফিসিয়াল আগেই পাসওয়ার্ড দিয়েছেন।',
+                requestId: 'req_x',
+              },
+            },
+            { status: 409 },
+          );
+        return HttpResponse.json({ data: ISSUED, meta: {} }, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    open();
+    const [renew] = await screen.findAllByRole('button', {
+      name: 'নতুন কর্মকর্তা-এর জন্য নতুন পাসওয়ার্ড লিঙ্ক',
+    });
+    await user.click(renew!);
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /সংশোধিত ইমেইল/ }), '   ');
+    await user.click(within(dialog).getByRole('button', { name: 'নতুন লিঙ্ক পাঠান' }));
+    expect(
+      await within(dialog).findByText('এই অফিসিয়াল আগেই পাসওয়ার্ড দিয়েছেন।'),
+    ).toBeInTheDocument();
+    refuse = false;
+    await user.click(within(dialog).getByRole('button', { name: 'নতুন লিঙ্ক পাঠান' }));
+    expect(await screen.findByRole('dialog', { name: /পাসওয়ার্ড লিঙ্ক/ })).toBeInTheDocument();
+    expect(renewed).toEqual([{}, {}]);
   });
 
   it('saves a profile with the version read when it opened', async () => {

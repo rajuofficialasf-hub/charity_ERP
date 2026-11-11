@@ -16,18 +16,18 @@ import {
   type VolunteerRegistrationSubmit,
   type RegistrationVerifyResult,
 } from '@css/shared/registration';
-import { type AuditEntry, type AuditWriter } from '../audit/audit-writer';
-import type { OtpService } from '../auth/otp.service';
-import type { PasswordHasher } from '../auth/password-hasher';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { currentContext } from '../core/request-context';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { linkStaffPhoto } from './staff-photos';
-import { registrationDetailsColumns } from './volunteer-details';
-import type { AccountEvents } from '../notifications/account-events';
+import { type AuditEntry, type AuditWriter } from '../audit/audit-writer.js';
+import type { OtpService } from '../auth/otp.service.js';
+import type { PasswordHasher } from '../auth/password-hasher.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { currentContext } from '../core/request-context.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { linkStaffPhoto } from './staff-photos.js';
+import { registrationDetailsColumns } from './volunteer-details.js';
+import type { AccountEvents } from '../notifications/account-events.js';
 
 type Draft = NonNullable<Awaited<ReturnType<PrismaService['registrationDraft']['findUnique']>>>;
 /** A draft with its token: both contacts are set and verified (the table's CHECKs). */
@@ -55,8 +55,8 @@ function onField(error: unknown, path: string): unknown {
 }
 
 /**
- * Registration before login (AUTH.md 2): a draft between start
- * and submit, the two codes, the draft token and the team member's reference lookup.
+ * Registration before login (docs/architecture/AUTH.md, "Registration with two OTPs"): a draft
+ * between start and submit, the two codes, the draft token and the team member's reference lookup.
  */
 export class RegistrationService {
   constructor(
@@ -346,7 +346,8 @@ export class RegistrationService {
           where: { id: draft.id },
           data: { submittedUserId: id, submittedAt: now, tokenHash: null },
         });
-        // Personal identifiers stay out of the entry (RBAC.md 6): kinds and names only.
+        // Personal identifiers stay out of the entry (docs/security/RBAC.md, "Field-level
+        // protection"): kinds and names only.
         await this.audit.record(tx, {
           action: 'auth.registered',
           entityType: 'user',

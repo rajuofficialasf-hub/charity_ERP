@@ -1,7 +1,7 @@
 import { isoDateInDhaka } from '@css/shared/format';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { accessWorld } from './support/access-fixtures';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -10,7 +10,7 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // The nisab: a PM or above adds versions that take effect today or later and after the latest;
 // versions are never edited; one not yet in effect may be withdrawn with a reason.

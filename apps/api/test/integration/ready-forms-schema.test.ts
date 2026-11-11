@@ -3,11 +3,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedFormTemplates } from '../../seed/sets/base/forms';
-import { cloneTemplate, MIGRATIONS_DIR } from './support/db';
-import { expectSqlError, SQLSTATE } from './support/expect-sql';
-import * as f from './support/fixtures';
+import { SeedContext } from '../../seed/context.js';
+import { prismaClientFor } from '../../src/core/prisma.service.js';
+import { seedFormTemplates } from '../../seed/sets/base/forms.js';
+import { cloneTemplate, MIGRATIONS_DIR } from './support/db.js';
+import { expectSqlError, SQLSTATE } from './support/expect-sql.js';
+import * as f from './support/fixtures.js';
 
 // Forms outside projects: the ready forms PMs place, the one question library, and the source a
 // placed copy names.
@@ -196,7 +197,12 @@ describe('the retirement of the seeded form templates', () => {
   it('makes the active templates inactive, and the reverse turns on only those it retired', async () => {
     const clone = await cloneTemplate(inject('templateDb'));
     try {
-      await seedFormTemplates(new SeedContext(clone.client));
+      const prisma = prismaClientFor(clone.url);
+      try {
+        await seedFormTemplates(new SeedContext(prisma));
+      } finally {
+        await prisma.$disconnect();
+      }
       // one template was switched off before the migration: the reverse must leave it off
       await clone.client.query(
         `UPDATE project_templates SET active = false WHERE key = 'form_self_reliance_construction'`,

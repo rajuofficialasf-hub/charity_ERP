@@ -1,6 +1,6 @@
 import type { MessageKey } from '@css/shared/i18n';
-import type { Tx } from '../core/prisma.service';
-import { bilingualText } from './account-events';
+import type { Tx } from '../core/prisma.service.js';
+import { bilingualText } from './account-events.js';
 
 /** An export job as its notice needs it: whom to tell and about which list. */
 export interface EndedJob {
@@ -8,7 +8,7 @@ export interface EndedJob {
   kind: string;
   requestedBy: string;
 }
-import type { NotificationService } from './service';
+import type { NotificationService } from './service.js';
 
 /** The name of each export kind in the notice. */
 const LIST_NAMES = new Map<string, MessageKey>([

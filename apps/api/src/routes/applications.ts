@@ -12,32 +12,32 @@ import {
   type ApplicationUpdate,
   applicationUpdateSchema,
   applicationView,
-} from '../applications/view';
-import { activityView } from '../applications/activities';
-import { type BulkReview, bulkResponse, bulkReviewSchema } from '../applications/bulk';
-import { fieldChangeView, timelineEntry } from '../applications/history';
-import type { ApplicationRead } from '../applications/service';
-import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { etagOf } from '../core/etag';
+} from '../applications/view.js';
+import { activityView } from '../applications/activities.js';
+import { type BulkReview, bulkResponse, bulkReviewSchema } from '../applications/bulk.js';
+import { fieldChangeView, timelineEntry } from '../applications/history.js';
+import type { ApplicationRead } from '../applications/service.js';
+import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { etagOf } from '../core/etag.js';
 import {
   type PageNumberQuery,
   type PageQuery,
   pageNumberQuery,
   pageQuery,
-} from '../core/pagination';
-import { ok, page } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
-import type { Replayable } from '../services/uploads';
-import { versionView } from './forms';
-import { type PullNext, pullNextSchema } from '../applications/waitlist';
+} from '../core/pagination.js';
+import { ok, page } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import type { Replayable } from '../services/uploads.js';
+import { versionView } from './forms.js';
+import { type PullNext, pullNextSchema } from '../applications/waitlist.js';
 import {
   type TransferRequest,
   transferCandidate,
   transferResult,
   transferSchema,
-} from '../applications/transfers';
-import { unlockView } from '../applications/unlocks';
+} from '../applications/transfers.js';
+import { unlockView } from '../applications/unlocks.js';
 import {
   type UnlockCancel,
   unlockCancelSchema,

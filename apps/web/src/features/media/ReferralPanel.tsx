@@ -1,24 +1,13 @@
 import { formatDate } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import {
-  Alert,
-  Button,
-  Card,
-  Chip,
-  ConfirmDialog,
-  DescriptionList,
-  Dialog,
-  Stack,
-  Text,
-  TextField,
-} from '@/ui';
+import { Alert, Button, Card, Chip, ConfirmDialog, DescriptionList, Stack, Text } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
+import { CommentDialog } from './CommentDialog';
 import { decideReferral, type MediaReferral } from './media-api';
 import { failureOf } from './work-errors';
-import { DialogButtons } from '../../components/DialogButtons';
 
 type Decision = 'accept' | 'send_back' | 'reject';
 
@@ -43,16 +32,11 @@ export function ReferralPanel({
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const [asking, setAsking] = useState<Decision | null>(null);
-  const [comment, setComment] = useState('');
   const decide = useMutation({
-    mutationFn: (decision: Decision) =>
-      decideReferral(referral.id, {
-        decision,
-        ...(decision === 'accept' ? {} : { comment: comment.trim() }),
-      }),
-    onSuccess: (next, decision) => {
+    mutationFn: (body: { decision: Decision; comment?: string }) =>
+      decideReferral(referral.id, body),
+    onSuccess: (next, { decision }) => {
       setAsking(null);
-      setComment('');
       // eslint-disable-next-line security/detect-object-injection -- a typed decision
       onSaved(next, t(DONE[decision]));
     },
@@ -162,37 +146,20 @@ export function ReferralPanel({
         title={t('decision.accept')}
         confirmLabel={t('decision.accept')}
         pending={decide.isPending}
-        onConfirm={() => decide.mutate('accept')}
+        onConfirm={() => decide.mutate({ decision: 'accept' })}
         onCancel={close}
       />
       {asking === 'send_back' || asking === 'reject' ? (
-        <Dialog
+        <CommentDialog
           title={t(asking === 'send_back' ? 'decision.send_back_title' : 'decision.reject_title')}
-          size="small"
-          open
+          label={t(asking === 'send_back' ? 'decision.comment' : 'decision.reason')}
+          confirmLabel={t(asking === 'send_back' ? 'decision.send_back' : 'decision.reject')}
+          danger={asking === 'reject'}
+          pending={decide.isPending}
+          error={failure ?? undefined}
+          onConfirm={(comment) => decide.mutate({ decision: asking, comment })}
           onClose={close}
-          dismissible={!decide.isPending}
-          actions={
-            <DialogButtons
-              onCancel={close}
-              onConfirm={() => decide.mutate(asking)}
-              confirmLabel={t(asking === 'send_back' ? 'decision.send_back' : 'decision.reject')}
-              disabled={!comment.trim()}
-              pending={decide.isPending}
-              danger={asking === 'reject'}
-            />
-          }
-        >
-          {failure ? <Alert tone="error">{failure}</Alert> : null}
-          <TextField
-            rows={4}
-            label={t(asking === 'send_back' ? 'decision.comment' : 'decision.reason')}
-            required
-            maxLength={2000}
-            value={comment}
-            onChange={setComment}
-          />
-        </Dialog>
+        />
       ) : null}
     </>
   );

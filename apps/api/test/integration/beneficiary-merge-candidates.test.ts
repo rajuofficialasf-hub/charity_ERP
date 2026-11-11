@@ -1,8 +1,8 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { beneficiaryScopeSql, beneficiaryWhere } from '../../src/access/scope';
-import { Prisma } from '../../src/generated/prisma/client';
-import { accessWorld } from './support/access-fixtures';
+import { beneficiaryScopeSql, beneficiaryWhere } from '../../src/access/scope.js';
+import { Prisma } from '../../src/generated/prisma/client.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -11,11 +11,11 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
-import { encodeCursor } from '../../src/core/pagination';
-import { testEnv } from '../support/env';
-import { MOBILE_GROUP_LIMIT } from '../../src/services/beneficiary-merge-candidates';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
+import { encodeCursor } from '../../src/core/pagination.js';
+import { testEnv } from '../support/env.js';
+import { MOBILE_GROUP_LIMIT } from '../../src/services/beneficiary-merge-candidates.js';
 
 // The suggested duplicate profiles: pairs by name, father's or husband's name and mobile; by name,
 // date of birth and union; or by one mobile; in the caller's scope, and a pair marked as two

@@ -1,14 +1,14 @@
 import { z, type ZodObject, type ZodType } from 'zod';
-import { PERMISSION_MARKERS } from './drift';
-import type { RateLimitClass } from '../rate-limit/rate-limit';
+import { PERMISSION_MARKERS } from './drift.js';
+import type { RateLimitClass } from '../rate-limit/rate-limit.js';
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 /**
- * The OpenAPI contract of one operation (API_STANDARDS 16), declared once with the route. The
- * registry produces the generated document that the drift test compares with
- * docs/api/openapi.yaml, and the route uses the same values for its audit action, rate-limit
- * class, idempotency mode and access rule.
+ * The OpenAPI contract of one operation (docs/api/API_STANDARDS.md, "OpenAPI annotations required
+ * on every operation"), declared once with the route. The registry produces the generated document
+ * that the drift test compares with docs/api/openapi.yaml, and the route uses the same values for
+ * its audit action, rate-limit class, idempotency mode and access rule.
  */
 export interface OperationSpec {
   operationId: string;
@@ -25,7 +25,7 @@ export interface OperationSpec {
   sensitiveFields?: string[];
   /** The transition an action endpoint performs (`x-workflow`). */
   workflow?: { scope: string; action: string };
-  /** A pending account may call this operation (AUTH.md 7). */
+  /** A pending account may call this operation (docs/architecture/AUTH.md, "Account states"). */
   allowPending?: boolean;
   /**
    * An account that must set a new password may call this operation. Exactly the own

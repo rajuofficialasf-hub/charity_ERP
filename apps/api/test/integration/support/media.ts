@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { expect } from 'vitest';
-import { SeedContext } from '../../../seed/context';
-import { seedReferenceLists } from '../../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../../seed/sets/base/workflows';
-import { accessWorld } from './access-fixtures';
-import { applicationProject, IDENTITY_ANSWERS } from './applications';
+import { SeedContext } from '../../../seed/context.js';
+import { seedReferenceLists } from '../../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../../seed/sets/base/workflows.js';
+import { accessWorld } from './access-fixtures.js';
+import { applicationProject, IDENTITY_ANSWERS } from './applications.js';
 import {
   type Account,
   account,
@@ -14,9 +14,9 @@ import {
   bearer,
   login,
   type Session,
-} from './auth-app';
-import { question } from './forms';
-import { fakeMobile, fakeNid } from './fixtures';
+} from './auth-app.js';
+import { question } from './forms.js';
+import { fakeMobile, fakeNid } from './fixtures.js';
 
 /**
  * The world of the Media Team tests: the access fixtures' people with a PM of another program, the
@@ -43,7 +43,7 @@ export async function mediaWorld() {
     return a.id;
   };
   const world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   media.director = await make('staff')('media_director');

@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import type { QuestionColumn } from '../../src/exports/questions';
-import { accessWorld } from './support/access-fixtures';
-import { applicationRow, IDENTITY_ANSWERS } from './support/applications';
+import { SeedContext } from '../../seed/context.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import type { QuestionColumn } from '../../src/exports/questions.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { applicationRow, IDENTITY_ANSWERS } from './support/applications.js';
 import {
   type Account,
   account,
@@ -15,9 +15,9 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
-import { publishedReadyForm, question } from './support/forms';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
+import { publishedReadyForm, question } from './support/forms.js';
 
 // The form questions of a project's application list as export columns: one per question key
 // across every version, under the newest version's words, filled from each application's own
@@ -105,7 +105,7 @@ beforeAll(async () => {
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
   const builder: Session = await login(h, accounts.get(world.users.monitoring)!);
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   const made = await api()

@@ -7,15 +7,15 @@ import {
   missingRuleParts,
   requiredRuleParts,
 } from '@css/shared/projects';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { liveApplicationCounts } from '../applications/limit';
-import { storedRules } from './project-rules';
-import type { ProjectEvents } from '../notifications/project-events';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { liveApplicationCounts } from '../applications/limit.js';
+import { storedRules } from './project-rules.js';
+import type { ProjectEvents } from '../notifications/project-events.js';
 
 /** A volunteer sees the projects that are running: never a draft, a closed or a cancelled one. */
 const SHOWN = ['active', 'closing'];

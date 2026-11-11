@@ -2,8 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { account, authHarness, type AuthHarness, bearer, login } from './support/auth-app';
-import * as f from './support/fixtures';
+import { account, authHarness, type AuthHarness, bearer, login } from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // An official's own profile and the photos of officials wherever a person is shown
 // (docs/DECISION_LOG.md, the official's own profile of 2026-11-02; docs/BUSINESS_RULES.md).

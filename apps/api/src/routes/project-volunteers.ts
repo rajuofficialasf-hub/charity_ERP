@@ -9,11 +9,11 @@ import {
 } from '@css/shared/projects';
 import { Router } from 'express';
 import { z } from 'zod';
-import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { pageQuery, type PageQuery } from '../core/pagination';
-import { ok, page } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { pageQuery, type PageQuery } from '../core/pagination.js';
+import { ok, page } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 const uuid = z.uuid();
 const assignmentView = z.object({

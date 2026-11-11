@@ -1,24 +1,37 @@
 import { PERMISSION_SETS, type PermissionSet } from '@css/shared/projects';
 import {
-  Alert,
   Button,
   DataTable,
   Dialog,
-  SelectField,
+  Form,
+  FormSelectField,
   Switch,
   TextField,
   type DataTableExtendedColumn,
 } from '@/ui';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { type Address, AddressFields } from '../../../features/registration/AddressFields';
 import { ApiFailure } from '../../../api/client';
+import { showFailure, useSchemaResolver } from '../../../lib/form-schema';
 import { assign, type Assignment, type Candidate, candidates } from './project-volunteers-api';
 import { LoadError } from '../../../components/LoadError';
 
 const BY_TYPE = 'by_type';
 const NO_AREA: Address = { divisionId: null, districtId: null, upazilaId: null, unionId: null };
+
+/** The filter of the candidates, the volunteers chosen among them, one set for all, the paid flag. */
+const ASSIGN_SCHEMA = z.object({
+  area: z.custom<Address>(),
+  q: z.string(),
+  volunteerIds: z.array(z.string()).min(1),
+  permissionSet: z.enum([BY_TYPE, ...PERMISSION_SETS]),
+  isPaid: z.boolean(),
+});
+type AssignFields = z.infer<typeof ASSIGN_SCHEMA>;
 
 /**
  * Assigns several volunteers of the caller's areas at once: the approved, not
@@ -41,11 +54,19 @@ export function AssignDialog({
   const t = useTranslations('admin.projects.volunteers');
   const td = useTranslations('admin.projects.volunteers.dialog');
   const tc = useTranslations('common');
-  const [area, setArea] = useState<Address>(NO_AREA);
-  const [q, setQ] = useState('');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [set, setSet] = useState<string>(BY_TYPE);
-  const [paid, setPaid] = useState(false);
+  const form = useForm<AssignFields>({
+    resolver: useSchemaResolver(ASSIGN_SCHEMA),
+    defaultValues: {
+      area: NO_AREA,
+      q: '',
+      volunteerIds: [],
+      permissionSet: BY_TYPE,
+      isPaid: false,
+    },
+    reValidateMode: 'onSubmit',
+  });
+  const { area, q, volunteerIds } = useWatch({ control: form.control }) as AssignFields;
+  const pending = form.formState.isSubmitting;
   const [pages, setPages] = useState<(string | null)[]>([null]);
   const filter = {
     ...(area.districtId ? { districtId: area.districtId } : {}),
@@ -66,21 +87,34 @@ export function AssignDialog({
       return { rows, next };
     },
   });
-  const save = useMutation({
-    mutationFn: () =>
-      assign(projectId, {
-        volunteers: [...selected].map((volunteerId) => ({
+  const save = async (v: AssignFields) => {
+    let assigned: Assignment[];
+    try {
+      assigned = await assign(projectId, {
+        volunteers: v.volunteerIds.map((volunteerId) => ({
           volunteerId,
-          ...(set !== BY_TYPE ? { permissionSet: set as PermissionSet } : {}),
-          isPaid: markPaid && paid,
+          ...(v.permissionSet !== BY_TYPE
+            ? { permissionSet: v.permissionSet as PermissionSet }
+            : {}),
+          isPaid: markPaid && v.isPaid,
         })),
-      }),
-    onSuccess: onDone,
-  });
+      });
+    } catch (failure) {
+      // the one set chosen goes to every volunteer: a set refused for any of them is the set's
+      const set =
+        failure instanceof ApiFailure
+          ? failure.details.find((d) => d.path?.endsWith('.permissionSet'))
+          : undefined;
+      if (set) form.setError('permissionSet', { type: 'server', message: set.message });
+      else showFailure(form, failure, tc('state.error.text'));
+      return;
+    }
+    onDone(assigned);
+  };
+  /** A choice is made among the volunteers on screen: a new filter starts a new choice. */
   const changeFilter = (apply: () => void) => {
     apply();
-    // a choice is made among the volunteers on screen: a new filter starts a new choice
-    setSelected(new Set());
+    form.setValue('volunteerIds', []);
     setPages([null]);
   };
   const columns: DataTableExtendedColumn<Candidate>[] = [
@@ -99,31 +133,44 @@ export function AssignDialog({
       size="large"
       open
       onClose={onClose}
-      dismissible={!save.isPending}
+      dismissible={!pending}
       actions={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
             {tc('action.cancel')}
           </Button>
           <Button
-            onClick={() => save.mutate()}
-            disabled={selected.size === 0}
-            loading={save.isPending}
+            onClick={() => void form.handleSubmit(save)()}
+            disabled={volunteerIds.length === 0}
+            loading={pending}
           >
             {td('submit')}
           </Button>
         </>
       }
     >
-      {save.error instanceof ApiFailure && (
-        <Alert tone="error">{save.error.details[0]?.message ?? save.error.message}</Alert>
-      )}
-      <AddressFields optional value={area} onChange={(a) => changeFilter(() => setArea(a))} />
-      <TextField
-        label={td('search')}
-        maxLength={100}
-        value={q}
-        onChange={(value) => changeFilter(() => setQ(value))}
+      <Controller
+        control={form.control}
+        name="area"
+        render={({ field }) => (
+          <AddressFields
+            optional
+            value={field.value}
+            onChange={(a) => changeFilter(() => field.onChange(a))}
+          />
+        )}
+      />
+      <Controller
+        control={form.control}
+        name="q"
+        render={({ field }) => (
+          <TextField
+            label={td('search')}
+            maxLength={100}
+            value={field.value}
+            onChange={(value) => changeFilter(() => field.onChange(value))}
+          />
+        )}
       />
       <DataTable
         label={td('candidates')}
@@ -133,8 +180,8 @@ export function AssignDialog({
         rowLabel={(c) => c.displayName}
         loading={list.isPending}
         selectionMode="multiple"
-        selectedIds={selected}
-        onSelectionChange={setSelected}
+        selectedIds={new Set(volunteerIds)}
+        onSelectionChange={(ids) => form.setValue('volunteerIds', [...ids])}
         error={
           list.error ? (
             <LoadError error={list.error} onRetry={() => void list.refetch()} />
@@ -153,18 +200,33 @@ export function AssignDialog({
           {td('more')}
         </Button>
       )}
-      <p className="admin-muted">{td('selected', { count: String(selected.size) })}</p>
-      <SelectField
-        label={td('set')}
-        value={set}
-        onChange={(value) => setSet(value ?? BY_TYPE)}
-        searchable={false}
-        options={[
-          { value: BY_TYPE, label: td('set_by_type') },
-          ...PERMISSION_SETS.map((s) => ({ value: s, label: t(`set.${s}`) })),
-        ]}
-      />
-      {markPaid && <Switch label={td('paid')} checked={paid} onChange={setPaid} />}
+      {/* the filters and the list stay outside the form element: Enter in the search sends nothing */}
+      <Form
+        form={form}
+        onSubmit={save}
+        label={td('title')}
+        error={form.formState.errors.root?.server?.message}
+      >
+        <p className="admin-muted">{td('selected', { count: String(volunteerIds.length) })}</p>
+        <FormSelectField
+          name="permissionSet"
+          label={td('set')}
+          searchable={false}
+          options={[
+            { value: BY_TYPE, label: td('set_by_type') },
+            ...PERMISSION_SETS.map((s) => ({ value: s, label: t(`set.${s}`) })),
+          ]}
+        />
+        {markPaid && (
+          <Controller
+            control={form.control}
+            name="isPaid"
+            render={({ field }) => (
+              <Switch label={td('paid')} checked={field.value} onChange={field.onChange} />
+            )}
+          />
+        )}
+      </Form>
     </Dialog>
   );
 }

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { assertKey } from '../storage';
-import { bucketOf, detectType, objectKeyOf } from './policy';
+import { assertKey } from '../storage/index.js';
+import { bucketOf, detectType, objectKeyOf } from './policy.js';
 
 // The type of an upload by its first bytes, and the bucket and key of each kind.
 const bytes = (...parts: (string | number[])[]) =>

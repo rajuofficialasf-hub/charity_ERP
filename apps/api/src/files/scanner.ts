@@ -1,4 +1,4 @@
-import type { Env } from '../config/env';
+import type { Env } from '../config/env.js';
 
 /** What a scan says about a file: no threat, a threat, or no scan at all (development and test). */
 export type ScanResult = 'clean' | 'infected' | 'skipped';

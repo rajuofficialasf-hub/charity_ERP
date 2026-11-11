@@ -3,10 +3,12 @@ import { fromBase64Url } from '../offline/crypto';
 import { wipeLocalData } from '../lib/wipe';
 
 /**
- * The PWA's API client (API_STANDARDS 3, 11; AUTH.md 5, 8). The access token lives only in
- * memory; the refresh token is an HttpOnly cookie the browser sends to the refresh path, and the
- * readable css_csrf cookie is copied into X-CSRF-Token. One refresh runs at a time, across tabs
- * through the Web Locks API where the browser has it.
+ * The PWA's API client (docs/api/API_STANDARDS.md, "Request and response envelope" and
+ * "Authentication headers and token refresh"; docs/architecture/AUTH.md, "Tokens and device
+ * sessions" and "Devices: listing, remote revocation and local-data wipe"). The access token lives
+ * only in memory; the refresh token is an HttpOnly cookie the browser sends to the refresh path,
+ * and the readable css_csrf cookie is copied into X-CSRF-Token. One refresh runs at a time, across
+ * tabs through the Web Locks API where the browser has it.
  */
 export const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '0.0.0';
 /**
@@ -31,7 +33,10 @@ export interface ApiErrorDetail {
   path?: string;
   code: string;
   message: string;
-  /** The values a few codes name, such as the project of a merge conflict (API_STANDARDS 8). */
+  /**
+   * The values a few codes name, such as the project of a merge conflict
+   * (docs/api/API_STANDARDS.md, "Error-code catalogue").
+   */
   params?: Record<string, string>;
 }
 
@@ -175,7 +180,10 @@ export function storeSettled(): Promise<void> {
   return storeWork;
 }
 
-/** Ends the session on this device; a revoked session also wipes the local data (AUTH.md 8). */
+/**
+ * Ends the session on this device; a revoked session also wipes the local data
+ * (docs/architecture/AUTH.md, "Devices: listing, remote revocation and local-data wipe").
+ */
 async function endSession(end: SessionEnd): Promise<void> {
   state.accessToken = null;
   state.deviceKey = null;
@@ -273,9 +281,9 @@ function clearLogoutPending(): void {
 }
 
 /**
- * Finishes a logout the network cut short (AUTH.md 8): the device was wiped, but the server
- * session and the refresh cookie lived on, and a refresh would have signed the next person in.
- * The cookie buys one token, which revokes the session; the person stays signed out either way.
+ * Finishes a logout the network cut short: the device was wiped, but the server session and the
+ * refresh cookie lived on, and a refresh would have signed the next person in. The cookie buys one
+ * token, which revokes the session; the person stays signed out either way.
  */
 async function finishLogout(
   attempt: () => Promise<Response>,
@@ -471,9 +479,9 @@ export async function login(loginId: string, password: string): Promise<Me> {
 }
 
 /**
- * Logs out: the server revokes the session, the device wipes its data (AUTH.md 8). A stale or
- * expired access token is refreshed once first: without it the server session, and with it the
- * refresh cookie, would survive and the next page load would sign the user in again.
+ * Logs out: the server revokes the session, the device wipes its data. A stale or expired access
+ * token is refreshed once first: without it the server session, and with it the refresh cookie,
+ * would survive and the next page load would sign the user in again.
  */
 export async function logout(pendingCount?: number): Promise<void> {
   try {

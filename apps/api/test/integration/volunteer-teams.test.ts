@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { accessWorld } from './support/access-fixtures';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -10,9 +10,9 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { notificationsOf } from './support/notifications';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import { notificationsOf } from './support/notifications.js';
+import * as f from './support/fixtures.js';
 
 // A main volunteer's team on a project: the volunteers registered with the main volunteer as their
 // reference, added and removed by the main volunteer, each consenting on their own.

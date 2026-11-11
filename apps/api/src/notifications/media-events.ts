@@ -1,8 +1,8 @@
 import type { Bilingual, MessageKey } from '@css/shared/i18n';
 import type { ReferralDecision } from '@css/shared/media';
-import type { Tx } from '../core/prisma.service';
-import { bilingualText } from './account-events';
-import type { NotificationService } from './service';
+import type { Tx } from '../core/prisma.service.js';
+import { bilingualText } from './account-events.js';
+import type { NotificationService } from './service.js';
 
 /** The two roles that decide on referrals and run the works. */
 const MEDIA_DIRECTORS = ['media_director', 'media_assistant_director'] as const;

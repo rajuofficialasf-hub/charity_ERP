@@ -1,11 +1,11 @@
 import { type PublicApplicationCreate, publicApplicationCreateSchema } from '@css/shared/forms';
 import { Router } from 'express';
 import { z } from 'zod';
-import type { Container } from '../container';
-import { formPhotoBody } from '../files/photo-body';
-import { ok } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
-import { versionView } from './forms';
+import type { Container } from '../container.js';
+import { formPhotoBody } from '../files/photo-body.js';
+import { ok } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import { versionView } from './forms.js';
 
 const bilingual = z.object({ bn: z.string(), en: z.string() });
 const publicFormView = z.object({

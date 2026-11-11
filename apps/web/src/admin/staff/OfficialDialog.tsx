@@ -6,12 +6,26 @@ import {
   jobIdSchema,
 } from '@css/shared/auth';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Dialog, RadioGroup, SelectField, Skeleton, Stepper, TextField } from '@/ui';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import {
+  Alert,
+  Button,
+  Dialog,
+  Form,
+  FormSelectField,
+  FormTextField,
+  RadioGroup,
+  SelectField,
+  Skeleton,
+  Stepper,
+} from '@/ui';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { Controller, type Path, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { locations } from '../../features/registration/registration-api';
 import { ApiFailure } from '../../api/client';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { PROGRAMS_KEY, programs } from '../programs/programs-api';
 import { roles } from '../registrations/registrations-api';
 import { type PanelUser, UserSearch } from '../UserSearch';
@@ -25,7 +39,10 @@ import {
 import './staff.css';
 import { LoadError } from '../../components/LoadError';
 
-/** The Main Admin's role is never given to a new account (AUTH.md 11). */
+/**
+ * The Main Admin's role is never given to a new account (docs/architecture/AUTH.md, "Main Admin
+ * protection").
+ */
 const NOT_GIVEN = 'department_head';
 const NONE = 'none';
 /** The fields of the first step (identity and contacts). */
@@ -95,6 +112,51 @@ export function OfficialDialog({
   );
 }
 
+const REQUIRED = 'validation.required';
+
+/**
+ * The fields of both steps. The first step's are checked before the second opens: an email only
+ * needs its shape and a mobile, when written, its format (the server checks every field again).
+ * `supervisor` is the official picked in the search, undefined while the stored one stays.
+ */
+function officialSchema(create: boolean) {
+  return z
+    .object({
+      jobId: z.string(),
+      displayName: z.string(),
+      designation: z.string(),
+      email: z.string(),
+      mobile: z.string(),
+      roleKey: z.string(),
+      affiliation: z.enum(AFFILIATIONS),
+      affiliationUnit: z.string(),
+      homeProgramId: z.string(),
+      homeDivisionId: z.string(),
+      supervisor: z.custom<PanelUser | null | undefined>(),
+      supervisorUserId: z.string().nullable(),
+    })
+    .superRefine((v, ctx) => {
+      const say = (path: string, message: string) =>
+        ctx.addIssue({ code: 'custom', path: [path], message });
+      if (!v.jobId.trim()) say('jobId', REQUIRED);
+      else {
+        const job = jobIdSchema.safeParse(v.jobId);
+        if (!job.success) say('jobId', job.error.issues[0]!.message);
+      }
+      if (!v.displayName.trim()) say('displayName', REQUIRED);
+      if (!v.designation.trim()) say('designation', REQUIRED);
+      if (create) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email.trim())) say('email', REQUIRED);
+        if (v.mobile.trim() && !/^01[3-9][0-9]{8}$/.test(v.mobile.trim()))
+          say('mobile', 'validation.mobile_format');
+        if (!v.roleKey) say('roleKey', REQUIRED);
+      }
+      if (v.affiliation !== 'department' && !v.affiliationUnit.trim())
+        say('affiliationUnit', REQUIRED);
+    });
+}
+type OfficialFields = z.infer<ReturnType<typeof officialSchema>>;
+
 function OfficialForm({
   official,
   etag,
@@ -117,20 +179,31 @@ function OfficialForm({
   const ta = useTranslations('admin.staff.affiliation');
   const tc = useTranslations('common.action');
   const locale = useLocale() as Locale;
-  const [jobId, setJobId] = useState(official?.jobId ?? '');
-  const [name, setName] = useState(official?.displayName ?? '');
-  const [designation, setDesignation] = useState(official?.designation ?? '');
-  const [email, setEmail] = useState('');
-  const [mobile, setMobile] = useState('');
-  const [roleKey, setRoleKey] = useState<string | null>(null);
-  const [affiliation, setAffiliation] = useState<Affiliation>(
-    official?.affiliation ?? 'department',
-  );
-  const [unit, setUnit] = useState(official?.affiliationUnit ?? '');
-  const [programId, setProgramId] = useState<string>(official?.homeProgramId ?? NONE);
-  const [divisionId, setDivisionId] = useState<string>(official?.homeDivisionId ?? NONE);
-  const [supervisor, setSupervisor] = useState<PanelUser | null>(null);
-  const [supervisorTouched, setSupervisorTouched] = useState(false);
+  const schema = useMemo(() => officialSchema(!official), [official]);
+  const form = useForm<OfficialFields>({
+    resolver: useSchemaResolver(schema),
+    defaultValues: {
+      jobId: official?.jobId ?? '',
+      displayName: official?.displayName ?? '',
+      designation: official?.designation ?? '',
+      email: '',
+      mobile: '',
+      roleKey: '',
+      affiliation: official?.affiliation ?? 'department',
+      affiliationUnit: official?.affiliationUnit ?? '',
+      homeProgramId: official?.homeProgramId ?? NONE,
+      homeDivisionId: official?.homeDivisionId ?? NONE,
+      supervisor: undefined,
+      supervisorUserId: official?.supervisorUserId ?? null,
+    },
+    reValidateMode: 'onSubmit',
+  });
+  const [affiliation, unit, roleKey, supervisor] = useWatch({
+    control: form.control,
+    name: ['affiliation', 'affiliationUnit', 'roleKey', 'supervisor'],
+  });
+  const pending = form.formState.isSubmitting;
+  const error = form.formState.errors.root?.server?.message;
   const [step, setStep] = useState(0);
 
   const programList = useQuery({ queryKey: PROGRAMS_KEY, queryFn: programs });
@@ -146,85 +219,60 @@ function OfficialForm({
     queryFn: () => staffWithEtag(official!.supervisorUserId!),
     enabled: Boolean(official?.supervisorUserId),
   });
-  const shownSupervisor = supervisorTouched
-    ? supervisor
-    : currentSupervisor.data
-      ? asPanelUser(currentSupervisor.data.data)
-      : null;
+  const shownSupervisor =
+    supervisor !== undefined
+      ? supervisor
+      : currentSupervisor.data
+        ? asPanelUser(currentSupervisor.data.data)
+        : null;
 
-  const profile = () => ({
-    jobId: jobId.trim(),
-    displayName: name.trim(),
-    designation: designation.trim(),
-    affiliation,
-    affiliationUnit: affiliation === 'department' ? null : unit.trim() || null,
-    homeProgramId: programId === NONE ? null : programId,
-    homeDivisionId: divisionId === NONE ? null : divisionId,
+  const profile = (v: OfficialFields) => ({
+    jobId: v.jobId.trim(),
+    displayName: v.displayName.trim(),
+    designation: v.designation.trim(),
+    affiliation: v.affiliation,
+    affiliationUnit: v.affiliation === 'department' ? null : v.affiliationUnit.trim() || null,
+    homeProgramId: v.homeProgramId === NONE ? null : v.homeProgramId,
+    homeDivisionId: v.homeDivisionId === NONE ? null : v.homeDivisionId,
     // untouched, the stored supervisor stays, whether or not the name has loaded
-    supervisorUserId: supervisorTouched
-      ? (supervisor?.id ?? null)
-      : (official?.supervisorUserId ?? null),
+    supervisorUserId: v.supervisorUserId,
   });
-  const save = useMutation({
-    mutationFn: async () => {
-      if (official) return { saved: await updateProfile(official.id, etag!, profile()) };
-      return {
-        issued: await createOfficial({
-          ...profile(),
-          email: email.trim().toLowerCase(),
-          mobile: mobile.trim() || null,
-          roleKey: roleKey!,
+  const save = async (v: OfficialFields) => {
+    try {
+      if (official) onSaved?.(await updateProfile(official.id, etag!, profile(v)));
+      else {
+        const issued = await createOfficial({
+          ...profile(v),
+          email: v.email.trim().toLowerCase(),
+          mobile: v.mobile.trim() || null,
+          roleKey: v.roleKey,
           language: locale,
-        }),
-      };
-    },
-    onSuccess: (result) => {
-      if ('saved' in result && result.saved) onSaved?.(result.saved);
-      if ('issued' in result && result.issued) onCreated?.(name.trim(), result.issued);
-    },
-    // someone else saved the profile meanwhile: the stored one comes back to check first
-    onError: (error) => {
-      if (error instanceof ApiFailure && error.status === 412) onStale?.();
+        });
+        onCreated?.(v.displayName.trim(), issued);
+      }
+    } catch (failure) {
+      showFailure(form, failure, t('offline'));
+      if (!(failure instanceof ApiFailure)) return;
+      // someone else saved the profile meanwhile: the stored one comes back to check first
+      if (failure.status === 412) onStale?.();
       // a refusal for a field of the first step opens that step again
-      if (
-        error instanceof ApiFailure &&
-        error.details.some((d) => FIRST_STEP.includes(d.path ?? ''))
-      )
-        setStep(0);
-    },
-  });
-  const failure = save.error instanceof ApiFailure ? save.error : undefined;
-
-  const te = useTranslations('errors');
-  const [checks, setChecks] = useState<Map<string, string>>(new Map());
-  /** The first step's fields, checked before the second step opens (the server checks again). */
-  const firstStepProblems = () => {
-    const found = new Map<string, string>();
-    const job = jobIdSchema.safeParse(jobId);
-    if (!jobId.trim()) found.set('jobId', te('validation.required'));
-    else if (!job.success)
-      found.set('jobId', te(job.error.issues[0]!.message as 'validation.required'));
-    if (!name.trim()) found.set('displayName', te('validation.required'));
-    if (!designation.trim()) found.set('designation', te('validation.required'));
-    if (!official) {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
-        found.set('email', te('validation.required'));
-      if (mobile.trim() && !/^01[3-9][0-9]{8}$/.test(mobile.trim()))
-        found.set('mobile', te('validation.mobile_format'));
+      if (failure.details.some((d) => FIRST_STEP.includes(d.path ?? ''))) setStep(0);
     }
-    return found;
   };
-  const next = () => {
-    const found = firstStepProblems();
-    setChecks(found);
-    if (!found.size) setStep(1);
+  // the second step's button sends; a first-step field the check refuses opens that step again
+  const submit = () =>
+    void form.handleSubmit(save, (errors) => {
+      if (FIRST_STEP.some((path) => path in errors)) setStep(0);
+    })();
+
+  /** The first step's fields, checked before the second step opens (the server checks again). */
+  const next = async () => {
+    if (await form.trigger(FIRST_STEP as Path<OfficialFields>[])) setStep(1);
   };
-  const fieldError = (path: string) =>
-    checks.get(path) ?? failure?.details.find((d) => d.path === path)?.message;
 
   const ready =
     (affiliation === 'department' || unit.trim() !== '') &&
-    (official ? etag !== undefined : roleKey !== null);
+    (official ? etag !== undefined : roleKey !== '');
   const roleOptions = (roleList.data ?? [])
     .filter((r) => r.kind === 'official' && r.key !== NOT_GIVEN)
     .map((r) => ({ value: r.key, label: localized(r.name, locale) }));
@@ -241,164 +289,154 @@ function OfficialForm({
   ];
   const steps = [t('step_identity'), t('step_place')];
 
+  const title = official ? t('edit_title', { name: official.displayName }) : t('create_title');
+
   return (
     <Dialog
-      title={official ? t('edit_title', { name: official.displayName }) : t('create_title')}
+      title={title}
       size="large"
       open
       onClose={onClose}
-      dismissible={!save.isPending}
+      dismissible={!pending}
       actions={
         step === 0 ? (
           <>
             <Button variant="secondary" onClick={onClose}>
               {tc('cancel')}
             </Button>
-            <Button onClick={next}>{t('next')}</Button>
+            <Button onClick={() => void next()}>{t('next')}</Button>
           </>
         ) : (
           <>
-            <Button variant="secondary" onClick={() => setStep(0)} disabled={save.isPending}>
+            <Button variant="secondary" onClick={() => setStep(0)} disabled={pending}>
               {t('back')}
             </Button>
-            <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
+            <Button onClick={submit} disabled={!ready} loading={pending}>
               {official ? tc('save') : t('create')}
             </Button>
           </>
         )
       }
     >
-      <div className="official-steps">
-        <Stepper
-          label={t('steps')}
-          steps={steps}
-          current={step}
-          onSelect={(i) => (i === 0 ? setStep(0) : next())}
-        />
-      </div>
-      {stale && !save.error && <Alert tone="warning">{t('stale')}</Alert>}
-      {save.error && (
-        <Alert tone="error">
-          {failure ? (failure.details[0]?.message ?? failure.message) : t('offline')}
-        </Alert>
-      )}
-      {step === 0 ? (
-        <div className="official-form">
-          <TextField
-            label={t('job_id')}
-            hint={t('job_id_hint')}
-            required
-            maxLength={JOB_ID_MAX_LENGTH}
-            lang="en"
-            value={jobId}
-            onChange={setJobId}
-            error={fieldError('jobId')}
+      <Form form={form} onSubmit={save} label={title}>
+        <div className="official-steps">
+          <Stepper
+            label={t('steps')}
+            steps={steps}
+            current={step}
+            onSelect={(i) => (i === 0 ? setStep(0) : void next())}
           />
-          <TextField
-            label={t('name')}
-            required
-            maxLength={200}
-            value={name}
-            onChange={setName}
-            error={fieldError('displayName')}
-          />
-          <TextField
-            label={t('designation')}
-            required
-            maxLength={200}
-            value={designation}
-            onChange={setDesignation}
-            error={fieldError('designation')}
-          />
-          {!official && (
-            <>
-              <TextField
-                label={t('email')}
-                hint={t('email_hint')}
-                type="email"
+        </div>
+        {stale && !error && <Alert tone="warning">{t('stale')}</Alert>}
+        {error && <Alert tone="error">{error}</Alert>}
+        {step === 0 ? (
+          <div className="official-form">
+            <FormTextField
+              name="jobId"
+              label={t('job_id')}
+              hint={t('job_id_hint')}
+              required
+              maxLength={JOB_ID_MAX_LENGTH}
+              lang="en"
+            />
+            <FormTextField name="displayName" label={t('name')} required maxLength={200} />
+            <FormTextField name="designation" label={t('designation')} required maxLength={200} />
+            {!official && (
+              <>
+                <FormTextField
+                  name="email"
+                  label={t('email')}
+                  hint={t('email_hint')}
+                  type="email"
+                  required
+                  maxLength={254}
+                  lang="en"
+                />
+                <FormTextField name="mobile" label={t('mobile')} inputMode="tel" maxLength={11} />
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="official-form">
+            {!official && (
+              <FormSelectField
+                name="roleKey"
+                label={t('role')}
                 required
-                maxLength={254}
-                lang="en"
-                value={email}
-                onChange={setEmail}
-                error={fieldError('email')}
+                options={roleOptions}
+                searchable={false}
               />
-              <TextField
-                label={t('mobile')}
-                inputMode="tel"
-                maxLength={11}
-                value={mobile}
-                onChange={setMobile}
-                error={fieldError('mobile')}
+            )}
+            <div className="official-form-wide">
+              <Controller
+                control={form.control}
+                name="affiliation"
+                render={({ field, fieldState }) => (
+                  <RadioGroup
+                    label={t('affiliation')}
+                    value={field.value}
+                    onChange={(id) => field.onChange(id as Affiliation)}
+                    error={fieldState.error?.message}
+                    options={AFFILIATIONS.map((a) => ({ value: a, label: ta(a) }))}
+                  />
+                )}
               />
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="official-form">
-          {!official && (
-            <SelectField
-              label={t('role')}
-              required
-              value={roleKey ?? ''}
-              onChange={(v) => setRoleKey(v || null)}
-              options={roleOptions}
-              searchable={false}
-              error={fieldError('roleKey')}
+            </div>
+            {affiliation !== 'department' && (
+              <FormTextField
+                name="affiliationUnit"
+                label={affiliation === 'foundation' ? t('unit_foundation') : t('unit_external')}
+                required
+                maxLength={200}
+              />
+            )}
+            <Controller
+              control={form.control}
+              name="homeProgramId"
+              render={({ field, fieldState }) => (
+                <SelectField
+                  label={t('program')}
+                  value={field.value}
+                  onChange={(id) => field.onChange(id || NONE)}
+                  options={programOptions}
+                  error={fieldState.error?.message}
+                />
+              )}
             />
-          )}
-          <div className="official-form-wide">
-            <RadioGroup
-              label={t('affiliation')}
-              value={affiliation}
-              onChange={(id) => setAffiliation(id as Affiliation)}
-              options={AFFILIATIONS.map((a) => ({ value: a, label: ta(a) }))}
+            <Controller
+              control={form.control}
+              name="homeDivisionId"
+              render={({ field, fieldState }) => (
+                <SelectField
+                  label={t('division')}
+                  value={field.value}
+                  onChange={(id) => field.onChange(id || NONE)}
+                  options={divisionOptions}
+                  error={fieldState.error?.message}
+                />
+              )}
             />
+            <div className="official-form-wide">
+              <UserSearch
+                label={t('supervisor')}
+                helper={form.formState.errors.supervisorUserId?.message ?? t('supervisor_hint')}
+                selected={shownSupervisor}
+                onSelect={(u) => {
+                  form.setValue('supervisor', u);
+                  form.setValue('supervisorUserId', u?.id ?? null);
+                }}
+                search={{
+                  key: 'supervisors',
+                  find: async (text) =>
+                    (await findSupervisors(text))
+                      .filter((u) => u.id !== official?.id)
+                      .map(asPanelUser),
+                }}
+              />
+            </div>
           </div>
-          {affiliation !== 'department' && (
-            <TextField
-              label={affiliation === 'foundation' ? t('unit_foundation') : t('unit_external')}
-              required
-              maxLength={200}
-              value={unit}
-              onChange={setUnit}
-              error={fieldError('affiliationUnit')}
-            />
-          )}
-          <SelectField
-            label={t('program')}
-            value={programId}
-            onChange={(id) => setProgramId(id || NONE)}
-            options={programOptions}
-            error={fieldError('homeProgramId')}
-          />
-          <SelectField
-            label={t('division')}
-            value={divisionId}
-            onChange={(id) => setDivisionId(id || NONE)}
-            options={divisionOptions}
-            error={fieldError('homeDivisionId')}
-          />
-          <div className="official-form-wide">
-            <UserSearch
-              label={t('supervisor')}
-              helper={fieldError('supervisorUserId') ?? t('supervisor_hint')}
-              selected={shownSupervisor}
-              onSelect={(u) => {
-                setSupervisorTouched(true);
-                setSupervisor(u);
-              }}
-              search={{
-                key: 'supervisors',
-                find: async (text) =>
-                  (await findSupervisors(text))
-                    .filter((u) => u.id !== official?.id)
-                    .map(asPanelUser),
-              }}
-            />
-          </div>
-        </div>
-      )}
+        )}
+      </Form>
     </Dialog>
   );
 }

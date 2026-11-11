@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Client } from 'pg';
-import { loadAccessRegistry } from '../../../src/access/registry';
-import { locationTree, project, user, volunteer, volunteerUser } from './fixtures';
+import { loadAccessRegistry } from '../../../src/access/registry.js';
+import { locationTree, project, user, volunteer, volunteerUser } from './fixtures.js';
 
 /** Roles and permissions of permissions.yaml, as the base seed writes them (`seed/sets/base/access.ts`). */
 export async function seedAccessCatalogue(db: Client): Promise<void> {

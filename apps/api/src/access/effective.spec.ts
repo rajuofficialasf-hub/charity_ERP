@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { PERMISSION_SET_TYPES, PERMISSION_SETS } from '@css/shared/projects';
-import { assertConditionsCovered, checkCondition } from './conditions';
+import { assertConditionsCovered, checkCondition } from './conditions.js';
 import {
   type AccessFacts,
   effectiveAccess,
   effectivePermissions,
   type EffectiveGrant,
-} from './effective';
-import { loadAccessRegistry, parsePermissionsFile, readPermissionsFile } from './registry';
+} from './effective.js';
+import { loadAccessRegistry, parsePermissionsFile, readPermissionsFile } from './registry.js';
 
 const registry = loadAccessRegistry();
 const NOW = new Date('2026-10-12T06:00:00Z');
@@ -27,7 +27,7 @@ const names = (grants: EffectiveGrant[]) => new Set(grants.map((g) => g.permissi
 const on = (grants: EffectiveGrant[], projectId: string) =>
   new Set(grants.filter((g) => g.projectId === projectId).map((g) => g.permission));
 
-// Effective permissions from the four sources of RBAC.md 1.
+// Effective permissions from their four sources (docs/security/RBAC.md, "Model").
 describe('effective permissions', () => {
   it('gives GLOBAL roles every permission at GLOBAL, except system.owner.transfer for the Monitoring Team', () => {
     const head = effectivePermissions(registry, facts({ roles: ['department_head'] }), NOW);

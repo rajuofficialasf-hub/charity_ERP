@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import yaml from 'js-yaml';
-import { PERMISSION_MARKERS } from '../openapi/drift';
-import { type PermissionsFile, permissionsFileSchema, type ScopeType } from './schema';
+import { PERMISSION_MARKERS } from '../openapi/drift.js';
+import { type PermissionsFile, permissionsFileSchema, type ScopeType } from './schema.js';
 
 /** docs/security/permissions.yaml from `src/access` and from `dist/access` alike. */
 export const DEFAULT_PERMISSIONS_FILE = join(
-  __dirname,
+  import.meta.dirname,
   '../../../../docs/security/permissions.yaml',
 );
 
@@ -64,7 +64,10 @@ export interface SensitiveFieldClass {
   visibleTo: string[];
 }
 
-/** The permission model of permissions.yaml, validated and indexed once per process (RBAC.md 2). */
+/**
+ * The permission model of permissions.yaml, validated and indexed once per process
+ * (docs/security/RBAC.md, "permissions.yaml schema and loading").
+ */
 export interface AccessRegistry {
   roles: ReadonlyMap<string, RoleDef>;
   permissions: ReadonlyMap<string, PermissionDef>;

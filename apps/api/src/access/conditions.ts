@@ -1,4 +1,4 @@
-import type { AccessRegistry } from './registry';
+import type { AccessRegistry } from './registry.js';
 
 /** The facts a condition may need; a missing fact means the condition fails (default deny). */
 export interface ConditionContext {
@@ -30,9 +30,10 @@ const onTemplate =
     ctx.project?.workflowKey === key;
 
 /**
- * One check per `conditions` key of permissions.yaml (RBAC.md 2). `if_rpm_grants` is never checked
- * at run time: a default with it is not a grant at all, and the grant arrives through the project
- * extras without the condition (RBAC.md 6).
+ * One check per `conditions` key of permissions.yaml (docs/security/RBAC.md, "permissions.yaml
+ * schema and loading"). `if_rpm_grants` is never checked at run time: a default with it is not a
+ * grant at all, and the grant arrives through the project extras without the condition
+ * (docs/security/RBAC.md, "Volunteer permission sets and RPM-granted extras").
  */
 const CONDITIONS: Record<string, ConditionCheck> = {
   if_rpm_grants: () => false,

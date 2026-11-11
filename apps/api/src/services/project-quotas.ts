@@ -1,10 +1,10 @@
 import { uuidv7 } from '@css/shared';
 import { editableIn, projectStatusOf, type QuotaTargets } from '@css/shared/projects';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { ProjectViewer, ProjectsService } from './projects';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { ProjectViewer, ProjectsService } from './projects.js';
 
 /** The states in which an application has reached the office: neither a draft, deleted, nor waiting for verification. */
 const NOT_RECEIVED = ['draft', 'deleted', 'needs_verification'];

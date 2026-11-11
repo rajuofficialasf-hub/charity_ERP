@@ -1,6 +1,6 @@
 import type { Logger } from 'pino';
-import { currentContext } from '../core/request-context';
-import { ApiError } from '../i18n/api-error';
+import { currentContext } from '../core/request-context.js';
+import { ApiError } from '../i18n/api-error.js';
 
 export const WRITE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 

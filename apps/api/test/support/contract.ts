@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import Ajv2020, { type ValidateFunction } from 'ajv/dist/2020.js';
-import addFormats from 'ajv-formats';
+import { Ajv2020, type ValidateFunction } from 'ajv/dist/2020.js';
+import ajvFormats from 'ajv-formats';
 import express, { type Express } from 'express';
 import yaml from 'js-yaml';
 
@@ -14,11 +14,11 @@ import yaml from 'js-yaml';
  * reached.
  */
 
-const REPO = join(__dirname, '../../../..');
+const REPO = join(import.meta.dirname, '../../../..');
 const API_PREFIX = '/api/v1';
 /** Where the coverage lines go: one folder per Vitest project, emptied by the global setup. */
 export const COVERAGE_ROOT =
-  process.env.CONTRACT_COVERAGE_DIR ?? join(__dirname, '../../test-results/contract');
+  process.env.CONTRACT_COVERAGE_DIR ?? join(import.meta.dirname, '../../test-results/contract');
 
 interface Operation {
   operationId: string;
@@ -64,7 +64,8 @@ const pointerSegment = (s: string) =>
 function loadContract() {
   const document = yaml.load(readFileSync(join(REPO, 'docs/api/openapi.yaml'), 'utf8')) as OpenApi;
   const ajv = new Ajv2020({ allErrors: true, strict: false });
-  addFormats(ajv);
+  // a CommonJS package: its plugin is the module itself, and its `default` as typed
+  ajvFormats.default(ajv);
   ajv.addSchema({ ...document, $id: DOCUMENT_ID });
   for (const file of readdirSync(join(REPO, JSON_SCHEMAS)).filter((f) => f.endsWith('.json'))) {
     const schema = JSON.parse(readFileSync(join(REPO, JSON_SCHEMAS, file), 'utf8')) as object;

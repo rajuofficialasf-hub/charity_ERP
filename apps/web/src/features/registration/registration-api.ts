@@ -13,8 +13,9 @@ import type { Location, StoredFile } from '../../api/schemas';
 import { orCached } from '../../lib/or-cached';
 
 /**
- * The calls of the registration before login (AUTH.md 2). The draft token
- * lives only in memory and travels in the X-Registration-Token header, never in a URL.
+ * The calls of the registration before login (docs/architecture/AUTH.md, "Registration with two
+ * OTPs"). The draft token lives only in memory and travels in the X-Registration-Token header,
+ * never in a URL.
  */
 export interface Draft {
   registrationId: string;

@@ -1,7 +1,7 @@
-import type { Principal } from '../auth/principal';
-import type { PrismaService } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import { DETAILS_SELECT, detailsView } from './volunteer-details';
+import type { Principal } from '../auth/principal.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import { DETAILS_SELECT, detailsView } from './volunteer-details.js';
 
 /**
  * Volunteer profiles. So far the own profile: the volunteer sees their own NID,

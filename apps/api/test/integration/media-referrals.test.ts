@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { account, type AuthHarness, type Session } from './support/auth-app';
+import { account, type AuthHarness, type Session } from './support/auth-app.js';
 import {
   mediaApplication,
   mediaReferral,
   type MediaWorld,
   mediaWorld,
   REFERRAL,
-} from './support/media';
-import { notificationsOf } from './support/notifications';
+} from './support/media.js';
+import { notificationsOf } from './support/notifications.js';
 
 // The referral of an approved application to the Media Team: a PM of the program or an RPM of the
 // region refers it with a priority, a note and an optional story; the Media Director or the

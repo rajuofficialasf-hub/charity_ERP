@@ -1,4 +1,7 @@
-/** Supported interface languages (L-locale, I18N.md 2). A third language is added here first (I18N 11). */
+/**
+ * Supported interface languages (docs/ui/I18N.md, "Languages and locale resolution"). A
+ * third language is added here first (docs/ui/I18N.md, "Adding a third language").
+ */
 export const SUPPORTED_LOCALES = ['bn', 'en'] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = 'bn';
@@ -30,8 +33,9 @@ export function localeFromAcceptLanguage(header: string | null | undefined): Loc
 }
 
 /**
- * Language of an API response (I18N 2, API_STANDARDS 7): Accept-Language if it names a supported
- * language, else the authenticated user's stored language, else bn.
+ * Language of an API response (docs/api/API_STANDARDS.md, "Validation and localization"):
+ * Accept-Language if it names a supported language, else the authenticated user's stored language,
+ * else bn.
  */
 export function resolveLocale(
   acceptLanguage: string | null | undefined,

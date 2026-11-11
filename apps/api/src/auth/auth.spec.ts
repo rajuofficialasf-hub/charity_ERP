@@ -1,14 +1,14 @@
 import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
-import { loadEnv } from '../config/env';
-import { ApiError } from '../i18n/api-error';
-import { type EmailAdapter, type SmsAdapter, StubSmsAdapter } from '../notifications/adapters';
-import { RATE_LIMITS } from '../rate-limit/rate-limit';
-import { afterFailure, LOCKOUT_RULES, minutesLeft, UnknownIdLockout } from './lockout';
-import { normalizeLoginId } from './login-id';
-import { identifierHash, OtpDeliveryService } from './otp.service';
-import { PasswordHasher } from './password-hasher';
-import { ACCESS_TOKEN_SECONDS, hashRefreshToken, TokenService } from './token.service';
+import { loadEnv } from '../config/env.js';
+import { ApiError } from '../i18n/api-error.js';
+import { type EmailAdapter, type SmsAdapter, StubSmsAdapter } from '../notifications/adapters.js';
+import { RATE_LIMITS } from '../rate-limit/rate-limit.js';
+import { afterFailure, LOCKOUT_RULES, minutesLeft, UnknownIdLockout } from './lockout.js';
+import { normalizeLoginId } from './login-id.js';
+import { identifierHash, OtpDeliveryService } from './otp.service.js';
+import { PasswordHasher } from './password-hasher.js';
+import { ACCESS_TOKEN_SECONDS, hashRefreshToken, TokenService } from './token.service.js';
 
 const base = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/css_erp_dev',
@@ -23,7 +23,7 @@ const base = {
 const env = (over: Record<string, string> = {}) => loadEnv({ ...base, ...over });
 const clockAt = (t: number) => ({ now: () => new Date(t) });
 
-describe('TokenService (AUTH.md 5)', () => {
+describe('TokenService', () => {
   const claims = { sub: 'user-1', sid: 'session-1', roles: ['program_manager'], pv: 3 };
 
   it('signs a 15-minute token with a key id and only the allowed claims', async () => {
@@ -82,7 +82,7 @@ describe('TokenService (AUTH.md 5)', () => {
   });
 });
 
-describe('lockout (AUTH.md 6)', () => {
+describe('lockout', () => {
   const now = new Date(Date.UTC(2026, 9, 11, 6));
 
   it('locks at the fifth consecutive failure for 15 minutes and resets the counter', () => {
@@ -109,7 +109,7 @@ describe('lockout (AUTH.md 6)', () => {
   });
 });
 
-describe('login id normalization (AUTH.md 1)', () => {
+describe('login id normalization', () => {
   it('lower-cases emails and cleans mobile numbers', () => {
     expect(normalizeLoginId('  Head@Example.ORG ')).toEqual({
       kind: 'email',
@@ -136,7 +136,7 @@ describe('login id normalization (AUTH.md 1)', () => {
   });
 });
 
-describe('OTP delivery (AUTH.md 2.1)', () => {
+describe('OTP delivery', () => {
   const adapters = () => {
     const sms: SmsAdapter = { send: vi.fn(async () => ({ providerMessageId: 's' })) };
     const email: EmailAdapter = { send: vi.fn(async () => ({ providerMessageId: 'e' })) };
@@ -188,7 +188,7 @@ describe('OTP delivery (AUTH.md 2.1)', () => {
   });
 });
 
-describe('PasswordHasher (SECURITY_POLICY 4)', () => {
+describe('PasswordHasher', () => {
   it('verifies Argon2id hashes, fails without a stored hash and asks for rehash of old parameters', async () => {
     const hasher = new PasswordHasher();
     const stored = await hasher.hash('Nadi kul 2026');
@@ -202,7 +202,7 @@ describe('PasswordHasher (SECURITY_POLICY 4)', () => {
   });
 });
 
-describe('auth rate-limit keys (AUTH.md 12)', () => {
+describe('auth rate-limit keys', () => {
   const req = (body: unknown, cookie?: string) =>
     ({ body, ip: '10.0.0.1', headers: cookie ? { cookie } : {} }) as never;
 
@@ -214,7 +214,8 @@ describe('auth rate-limit keys (AUTH.md 12)', () => {
       'ip:10.0.0.1',
       'ip:10.0.0.1',
     ]);
-    // spellings of one mobile number share the window (AUTH.md 1)
+    // spellings of one mobile number share the window (docs/architecture/AUTH.md, "Identities and
+    // accounts")
     for (const spelling of ['01700000001', ' 0170-0000001 ', '+8801700000001', '০১৭০০০০০০০১'])
       expect(RATE_LIMITS.login[0]!.key(req({ loginId: spelling }))).toBe('id:mobile:01700000001');
   });

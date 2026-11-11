@@ -1,8 +1,8 @@
 import { PassThrough, Writable } from 'node:stream';
 import { bn } from '@css/shared/i18n';
 import { describe, expect, it } from 'vitest';
-import { CsvFile } from './csv';
-import type { FileColumn } from './file';
+import { CsvFile } from './csv.js';
+import type { FileColumn } from './file.js';
 
 /** The whole text a CSV file writes, read back from its stream. */
 async function written(

@@ -7,10 +7,11 @@ export type LoginId =
   | { kind: 'job_id'; value: string };
 
 /**
- * Normalizes what a user typed as login id (AUTH.md 1 and 4): an email is trimmed and lower-cased
- * (emails are stored lower-case, DATABASE_SCHEMA users); a mobile number gets English digits,
- * loses spaces and dashes and the +88 / 88 country prefix; anything else is an official's job ID,
- * stored in capitals, so a job ID never reads as a mobile number.
+ * Normalizes what a user typed as login id (docs/architecture/AUTH.md, "Identities and accounts"
+ * and "Login"): an email is trimmed and lower-cased (emails are stored lower-case,
+ * docs/database/DATABASE_SCHEMA.md, "users"); a mobile number gets English digits, loses spaces and dashes and the +88 / 88 country
+ * prefix; anything else is an official's job ID, stored in capitals, so a job ID never reads as a
+ * mobile number.
  */
 export function normalizeLoginId(raw: string): LoginId {
   const trimmed = raw.trim();

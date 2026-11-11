@@ -10,12 +10,17 @@ export type KeyPaths<T, P extends string = ''> = {
 
 export type MessageKey = KeyPaths<Messages>;
 
-/** Parameter values: numbers and dates arrive already formatted as strings (I18N 3.3). */
+/**
+ * Parameter values: numbers and dates arrive already formatted as strings (docs/ui/I18N.md,
+ * "Message syntax (ICU MessageFormat)").
+ */
 export type MessageParams = Record<string, string | number>;
 
 export type Catalogues = Record<Locale, object>;
 
-/** The generic message shown when a key is missing everywhere (I18N 8). */
+/**
+ * The generic message shown when a key is missing everywhere (docs/ui/I18N.md, "Fallback rules").
+ */
 const LAST_RESORT_KEY = 'common.state.error.text';
 
 function lookup(tree: object, key: string): string | undefined {
@@ -29,14 +34,14 @@ function lookup(tree: object, key: string): string | undefined {
 
 export interface Translator {
   (locale: Locale, key: string, params?: MessageParams): string;
-  /** Keys already reported as missing (logged once per process, I18N 8). */
+  /** Keys already reported as missing (logged once per process). */
   readonly missing: ReadonlySet<string>;
 }
 
 /**
- * Builds a translator over a set of catalogues. Fallback (I18N 8): a key missing in the requested
- * language uses bn and is reported once; a key missing in bn too shows the generic error text.
- * Plural rules use the language; numbers are never formatted here.
+ * Builds a translator over a set of catalogues. Fallback: a key missing in the requested language
+ * uses bn and is reported once; a key missing in bn too shows the generic error text. Plural rules
+ * use the language; numbers are never formatted here.
  */
 export function createTranslator(
   catalogues: Catalogues,

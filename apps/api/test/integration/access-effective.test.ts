@@ -5,14 +5,15 @@ import {
   effectivePermissions,
   type EffectiveGrant,
   loadAccessFacts,
-} from '../../src/access/effective';
-import { loadAccessRegistry } from '../../src/access/registry';
-import { PrismaService } from '../../src/core/prisma.service';
-import { testEnv } from '../support/env';
-import { accessWorld } from './support/access-fixtures';
-import { cloneTemplate } from './support/db';
+} from '../../src/access/effective.js';
+import { loadAccessRegistry } from '../../src/access/registry.js';
+import { PrismaService } from '../../src/core/prisma.service.js';
+import { testEnv } from '../support/env.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { cloneTemplate } from './support/db.js';
 
-// Effective permissions read from real rows (RBAC.md 1 and 6).
+// Effective permissions read from real rows (docs/security/RBAC.md, "Model" and "Volunteer
+// permission sets and RPM-granted extras").
 let db: Client;
 let drop: () => Promise<void>;
 let prisma: PrismaService;

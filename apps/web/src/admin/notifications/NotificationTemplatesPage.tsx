@@ -1,5 +1,5 @@
 /* eslint-disable security/detect-object-injection -- keys are typed languages, channels and statuses */
-import type { EditableChannel, TemplateEdit } from '@css/shared';
+import { type EditableChannel, type TemplateEdit, templateEditSchema } from '@css/shared';
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
@@ -10,18 +10,20 @@ import {
   DataTable,
   type DataTableExtendedColumn,
   Dialog,
+  Form,
+  FormTextField,
   IconButton,
   Page,
   RadioGroup,
   Stack,
-  TextField,
 } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { ForbiddenContent } from '../AdminLayout';
 import { canAdministerSystem } from '../roles';
 import {
@@ -140,9 +142,7 @@ export function NotificationTemplatesPage() {
   );
 }
 
-type Draft = TemplateEdit;
-
-function draftOf(template: NotificationTemplate, channel: EditableChannel): Draft {
+function draftOf(template: NotificationTemplate, channel: EditableChannel): TemplateEdit {
   const stored = template.channels[channel]!;
   const text = (l: 'bn' | 'en') => ({
     ...(channel === 'email'
@@ -167,35 +167,49 @@ function TemplateEditor({
   const queryClient = useQueryClient();
   const available = Object.keys(template.channels) as EditableChannel[];
   const [channel, setChannel] = useState<EditableChannel>(available[0]!);
-  const [draft, setDraft] = useState<Draft>(() => draftOf(template, available[0]!));
-  const preview = useMutation({ mutationFn: () => previewTemplate(template.key, channel, draft) });
+  // both languages of one channel as typed; the server's rules of a template text check them
+  const form = useForm<TemplateEdit>({
+    resolver: useSchemaResolver(templateEditSchema),
+    defaultValues: draftOf(template, available[0]!),
+    reValidateMode: 'onSubmit',
+  });
+  const refused = (failure: unknown) => showFailure(form, failure, tc('state.error.text'));
+  const preview = useMutation({
+    mutationFn: (draft: TemplateEdit) => previewTemplate(template.key, channel, draft),
+    onError: refused,
+  });
   const save = useMutation({
-    mutationFn: () => saveTemplate(template.key, channel, draft),
+    mutationFn: (draft: TemplateEdit) => saveTemplate(template.key, channel, draft),
     onSuccess: async (saved) => {
       await queryClient.invalidateQueries({ queryKey: TEMPLATES_KEY });
       onSaved(saved, channel);
     },
+    onError: refused,
   });
-  const failure =
-    save.error instanceof ApiFailure
-      ? save.error
-      : preview.error instanceof ApiFailure
-        ? preview.error
-        : null;
-  const errorAt = (path: string) => failure?.details.find((d) => d.path === path)?.message;
+  const { reset: resetPreview } = preview;
+  const { reset: resetSave } = save;
+  const draft = useWatch({ control: form.control });
+  // a change to the text makes the preview and the refusal out of date
+  useEffect(() => {
+    resetPreview();
+    resetSave();
+    form.clearErrors();
+  }, [draft, form, resetPreview, resetSave]);
   const heading = channel === 'email' ? 'subject' : 'title';
-  const change = (l: 'bn' | 'en', field: 'subject' | 'title' | 'body', value: string) => {
-    preview.reset();
-    save.reset();
-    setDraft((d) => ({ ...d, [l]: { ...d[l], [field]: value } }));
-  };
   const switchTo = (next: string) => {
     const found = available.find((c) => c === next);
     if (!found) return;
     preview.reset();
     save.reset();
     setChannel(found);
-    setDraft(draftOf(template, found));
+    form.reset(draftOf(template, found));
+  };
+  // each button sends what it names, and nothing twice while it is on its way
+  const showPreview = form.handleSubmit((draft) => {
+    if (!preview.isPending) preview.mutate(draft);
+  });
+  const send = (draft: TemplateEdit) => {
+    if (!save.isPending) save.mutate(draft);
   };
 
   return (
@@ -208,10 +222,14 @@ function TemplateEditor({
       dismissible={!save.isPending}
       actions={
         <>
-          <Button variant="secondary" loading={preview.isPending} onClick={() => preview.mutate()}>
+          <Button
+            variant="secondary"
+            loading={preview.isPending}
+            onClick={() => void showPreview()}
+          >
             {t('preview')}
           </Button>
-          <Button loading={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} onClick={() => void form.handleSubmit(send)()}>
             {t('save')}
           </Button>
         </>
@@ -231,29 +249,31 @@ function TemplateEditor({
           ? t('variables', { list: template.variables.map((v) => `{{${v}}}`).join(', ') })
           : t('variables_none')}
       </p>
-      {failure && !failure.details.length && <Alert tone="error">{failure.message}</Alert>}
-      {LOCALES.map((l) => (
-        <fieldset key={l} className="admin-template-language">
-          <legend className="admin-legend">{t(`language.${l}`)}</legend>
-          <TextField
-            label={t(heading === 'subject' ? 'subject' : 'heading')}
-            lang={l}
-            maxLength={200}
-            value={draft[l][heading] ?? ''}
-            onChange={(v) => change(l, heading, v)}
-            error={errorAt(`${l}.${heading}`)}
-          />
-          <TextField
-            label={t('body')}
-            lang={l}
-            maxLength={2000}
-            rows={3}
-            value={draft[l].body}
-            onChange={(v) => change(l, 'body', v)}
-            error={errorAt(`${l}.body`)}
-          />
-        </fieldset>
-      ))}
+      <Form
+        form={form}
+        onSubmit={send}
+        label={t('editor_title', { key: template.key })}
+        error={form.formState.errors.root?.server?.message}
+      >
+        {LOCALES.map((l) => (
+          <fieldset key={`${channel}-${l}`} className="admin-template-language">
+            <legend className="admin-legend">{t(`language.${l}`)}</legend>
+            <FormTextField
+              name={`${l}.${heading}`}
+              label={t(heading === 'subject' ? 'subject' : 'heading')}
+              lang={l}
+              maxLength={200}
+            />
+            <FormTextField
+              name={`${l}.body`}
+              label={t('body')}
+              lang={l}
+              maxLength={2000}
+              rows={3}
+            />
+          </fieldset>
+        ))}
+      </Form>
       {preview.data && (
         <section aria-label={t('preview_title')} className="admin-template-preview">
           <h3>{t('preview_title')}</h3>
@@ -268,9 +288,6 @@ function TemplateEditor({
             );
           })}
         </section>
-      )}
-      {save.isError && !(save.error instanceof ApiFailure) && (
-        <Alert tone="error">{tc('state.error.text')}</Alert>
       )}
     </Dialog>
   );

@@ -1,8 +1,8 @@
 import { http, HttpResponse } from 'msw';
 
 /**
- * Default request handlers for component tests. Real handlers are typed from
- * docs/api/openapi.yaml as screens are built (TEST_STRATEGY section 2); this sample proves the
+ * Default request handlers for component tests. Real handlers are typed from docs/api/openapi.yaml
+ * as screens are built (docs/testing/TEST_STRATEGY.md, "Pyramid and tools"); this sample proves the
  * wiring.
  */
 export const PUBLIC_SETTINGS = {

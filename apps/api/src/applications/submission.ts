@@ -1,17 +1,17 @@
 import type { ContactUpdate } from '@css/shared/beneficiaries';
 import { type FormDefinition, identityColumn, indexFields, split } from '@css/shared/forms';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import { isForeignKeyViolation } from '../core/db-errors';
-import type { Tx } from '../core/prisma.service';
-import { currentContext } from '../core/request-context';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { BeneficiaryContactService } from '../services/beneficiary-contact';
-import type { BeneficiaryIdentityService, NewProfile } from '../services/beneficiary-identity';
-import { readDefinition } from '../services/forms';
-import { readAnswers } from './answers';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import { isForeignKeyViolation } from '../core/db-errors.js';
+import type { Tx } from '../core/prisma.service.js';
+import { currentContext } from '../core/request-context.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { BeneficiaryContactService } from '../services/beneficiary-contact.js';
+import type { BeneficiaryIdentityService, NewProfile } from '../services/beneficiary-identity.js';
+import { readDefinition } from '../services/forms.js';
+import { readAnswers } from './answers.js';
 
 /** The contact columns an application's answers may change on a known person's profile. */
 const CONTACT_COLUMNS = {

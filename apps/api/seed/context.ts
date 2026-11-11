@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import type { Client } from 'pg';
+import type { Tx } from '../src/core/prisma.service.js';
+import { Prisma, type PrismaClient } from '../src/generated/prisma/client.js';
 
 /**
  * Seed helpers. Seeds are deterministic: every row gets an id from seedId(key), every write
@@ -37,12 +38,44 @@ export interface TableCounts {
   unchanged: number;
 }
 
+/** A seed set's transaction: the demo set hashes passwords and writes a few hundred rows in it. */
+const SEED_TRANSACTION = { maxWait: 10_000, timeout: 120_000 };
+
+/** A table or column name of the seed's own code, checked before it becomes part of a statement. */
+const IDENTIFIER = /^[a-z_][a-z0-9_]*$/;
+function identifier(name: string): Prisma.Sql {
+  if (!IDENTIFIER.test(name)) throw new Error(`seed: "${name}" is not a table or column name`);
+  return Prisma.raw(`"${name}"`);
+}
+
 export class SeedContext {
   readonly counts = new Map<string, TableCounts>();
   actorId: string | null = null;
-  constructor(readonly db: Client) {}
+  private tx: Tx | null = null;
+  constructor(readonly prisma: PrismaClient) {}
 
-  /** Audit columns of business tables, written by the system actor (DATABASE_SCHEMA section 3). */
+  /** The open transaction of transaction(), or the client itself between transactions. */
+  get db(): Tx {
+    return this.tx ?? this.prisma;
+  }
+
+  /** Runs the work in one transaction; every write of the context inside it joins that transaction. */
+  async transaction(work: () => Promise<void>): Promise<void> {
+    if (this.tx) throw new Error('seed: a transaction is already open');
+    await this.prisma.$transaction(async (tx) => {
+      this.tx = tx;
+      try {
+        await work();
+      } finally {
+        this.tx = null;
+      }
+    }, SEED_TRANSACTION);
+  }
+
+  /**
+   * Audit columns of business tables, written by the system actor
+   * (docs/database/DATABASE_SCHEMA.md, "Audit columns and the system actor").
+   */
   audit(): { created_by: string | null; updated_by: string | null } {
     return { created_by: this.actorId, updated_by: this.actorId };
   }
@@ -61,23 +94,25 @@ export class SeedContext {
     const cols = Object.keys(row);
     const values = cols.map((c) => {
       const v = row[c];
-      return v instanceof Json ? JSON.stringify(v.value) : v;
+      return v instanceof Json ? Prisma.sql`${JSON.stringify(v.value)}::jsonb` : v;
     });
-    const placeholders = cols.map((c, i) =>
-      row[c] instanceof Json ? `$${i + 1}::jsonb` : `$${i + 1}`,
-    );
     const updatable = cols.filter((c) => !key.includes(c) && !insertOnly.has(c));
-    const q = (c: string) => `"${c}"`;
+    const target = identifier(table);
+    const names = (list: string[], of?: Prisma.Sql) =>
+      Prisma.join(list.map((c) => (of ? Prisma.sql`${of}.${identifier(c)}` : identifier(c))));
+    const excluded = Prisma.sql`EXCLUDED`;
     const conflict = updatable.length
-      ? `DO UPDATE SET ${updatable.map((c) => `${q(c)} = EXCLUDED.${q(c)}`).join(', ')}
-         WHERE (${updatable.map((c) => `"${table}".${q(c)}`).join(', ')}) IS DISTINCT FROM (${updatable.map((c) => `EXCLUDED.${q(c)}`).join(', ')})`
-      : 'DO NOTHING';
-    const sql = `INSERT INTO "${table}" (${cols.map(q).join(', ')}) VALUES (${placeholders.join(', ')})
-      ON CONFLICT (${key.map(q).join(', ')}) ${conflict}
+      ? Prisma.sql`DO UPDATE SET ${Prisma.join(
+          updatable.map((c) => Prisma.sql`${identifier(c)} = EXCLUDED.${identifier(c)}`),
+        )}
+         WHERE (${names(updatable, target)}) IS DISTINCT FROM (${names(updatable, excluded)})`
+      : Prisma.sql`DO NOTHING`;
+    const written = await this.db.$queryRaw<{ inserted: boolean }[]>`
+      INSERT INTO ${target} (${names(cols)}) VALUES (${Prisma.join(values)})
+      ON CONFLICT (${names(key)}) ${conflict}
       RETURNING (xmax = 0) AS inserted`;
-    const res = await this.db.query<{ inserted: boolean }>(sql, values);
     const outcome: Outcome =
-      res.rowCount === 0 ? 'unchanged' : res.rows[0]!.inserted ? 'inserted' : 'updated';
+      written.length === 0 ? 'unchanged' : written[0]!.inserted ? 'inserted' : 'updated';
     const c = this.counts.get(table) ?? { inserted: 0, updated: 0, unchanged: 0 };
     c[outcome]++;
     this.counts.set(table, c);

@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedNotificationTemplates } from '../../seed/sets/base/notifications';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { accessWorld } from './support/access-fixtures';
-import { applicationProject, IDENTITY_ANSWERS } from './support/applications';
+import { SeedContext } from '../../seed/context.js';
+import { seedNotificationTemplates } from '../../seed/sets/base/notifications.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { applicationProject, IDENTITY_ANSWERS } from './support/applications.js';
 import {
   type Account,
   account,
@@ -15,13 +15,13 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { beneficiary, fakeMobile, fakeNid, volunteer } from './support/fixtures';
+} from './support/auth-app.js';
+import { beneficiary, fakeMobile, fakeNid, volunteer } from './support/fixtures.js';
 
-// The application events of the notification matrix (docs/architecture/NOTIFICATIONS.md, 4.3):
-// the region's reviewers hear of a submission, the approvers of a review, the owner volunteer and
-// the creating team member of a decision, with the message written for them and never the
-// office's reason.
+// The application events of the notification matrix (docs/architecture/NOTIFICATIONS.md,
+// "Applications and workflow (Phase 2)"): the region's reviewers hear of a submission, the
+// approvers of a review, the owner volunteer and the creating team member of a decision, with the
+// message written for them and never the office's reason.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -71,7 +71,7 @@ beforeAll(async () => {
     return a.id;
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   await seedNotificationTemplates(ctx);

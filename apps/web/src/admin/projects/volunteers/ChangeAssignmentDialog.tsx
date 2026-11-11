@@ -1,10 +1,14 @@
-import { PERMISSION_SETS, type PermissionSet, permissionSetAllowed } from '@css/shared/projects';
-import { Alert, Button, Dialog, SelectField, Switch } from '@/ui';
-import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { PERMISSION_SETS, permissionSetAllowed } from '@css/shared/projects';
+import { Button, Dialog, Form, FormSelectField, Switch } from '@/ui';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../../api/client';
+import { z } from 'zod';
+import { showFailure, useSchemaResolver } from '../../../lib/form-schema';
 import { type Assignment, changeAssignment } from './project-volunteers-api';
+
+/** One of the sets and the paid flag; the server checks the set against the volunteer's type. */
+const CHANGE_SCHEMA = z.object({ permissionSet: z.enum(PERMISSION_SETS), isPaid: z.boolean() });
+type ChangeFields = z.infer<typeof CHANGE_SCHEMA>;
 
 /**
  * Changes one assignment's permission set (only the sets meant for the volunteer's type are
@@ -24,52 +28,78 @@ export function ChangeAssignmentDialog({
   const t = useTranslations('admin.projects.volunteers');
   const td = useTranslations('admin.projects.volunteers.change_dialog');
   const tc = useTranslations('common.action');
-  const [set, setSet] = useState<PermissionSet>(assignment.permissionSet);
-  const [paid, setPaid] = useState(assignment.isPaid);
-  const save = useMutation({
-    mutationFn: () =>
-      changeAssignment(assignment.id, {
-        ...(set !== assignment.permissionSet ? { permissionSet: set } : {}),
-        ...(paid !== assignment.isPaid ? { isPaid: paid } : {}),
-      }),
-    onSuccess: onDone,
+  const ts = useTranslations('common.state.error');
+  const form = useForm<ChangeFields>({
+    resolver: useSchemaResolver(CHANGE_SCHEMA),
+    defaultValues: { permissionSet: assignment.permissionSet, isPaid: assignment.isPaid },
+    reValidateMode: 'onSubmit',
   });
-  const changed = set !== assignment.permissionSet || paid !== assignment.isPaid;
+  const values = useWatch({ control: form.control });
+  const pending = form.formState.isSubmitting;
+  const changed =
+    values.permissionSet !== assignment.permissionSet || values.isPaid !== assignment.isPaid;
+
+  const save = async ({ permissionSet, isPaid }: ChangeFields) => {
+    let saved: Assignment;
+    try {
+      saved = await changeAssignment(assignment.id, {
+        ...(permissionSet !== assignment.permissionSet ? { permissionSet } : {}),
+        ...(isPaid !== assignment.isPaid ? { isPaid } : {}),
+      });
+    } catch (failure) {
+      showFailure(form, failure, ts('text'));
+      return;
+    }
+    onDone(saved);
+  };
+
   return (
     <Dialog
       title={td('title')}
       size="small"
       open
       onClose={onClose}
-      dismissible={!save.isPending}
+      dismissible={!pending}
       actions={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
             {tc('cancel')}
           </Button>
-          <Button onClick={() => save.mutate()} disabled={!changed} loading={save.isPending}>
+          <Button
+            onClick={() => void form.handleSubmit(save)()}
+            disabled={!changed}
+            loading={pending}
+          >
             {tc('save')}
           </Button>
         </>
       }
     >
-      {save.error instanceof ApiFailure && (
-        <Alert tone="error">{save.error.details[0]?.message ?? save.error.message}</Alert>
-      )}
-      <p>{assignment.displayName}</p>
-      <SelectField
-        label={t('column.set')}
-        value={set}
-        onChange={(value) => {
-          const next = PERMISSION_SETS.find((s) => s === value);
-          if (next) setSet(next);
-        }}
-        searchable={false}
-        options={PERMISSION_SETS.filter((s) => permissionSetAllowed(s, assignment.type)).map(
-          (s) => ({ value: s, label: t(`set.${s}`) }),
+      <Form
+        form={form}
+        onSubmit={save}
+        label={td('title')}
+        error={form.formState.errors.root?.server?.message}
+      >
+        <p>{assignment.displayName}</p>
+        <FormSelectField
+          name="permissionSet"
+          label={t('column.set')}
+          searchable={false}
+          options={PERMISSION_SETS.filter((s) => permissionSetAllowed(s, assignment.type)).map(
+            (s) => ({ value: s, label: t(`set.${s}`) }),
+          )}
+        />
+        {markPaid && (
+          <Controller
+            control={form.control}
+            name="isPaid"
+            render={({ field }) => (
+              <Switch label={td('paid')} checked={field.value} onChange={field.onChange} />
+            )}
+          />
         )}
-      />
-      {markPaid && <Switch label={td('paid')} checked={paid} onChange={setPaid} />}
+      </Form>
     </Dialog>
   );
 }

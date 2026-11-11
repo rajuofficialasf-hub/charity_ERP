@@ -41,7 +41,7 @@ describe('one catalogue per language entry', () => {
   });
 });
 
-describe('locale resolution (I18N 2, API_STANDARDS 7)', () => {
+describe('locale resolution', () => {
   it('uses Accept-Language, then the stored language, then bn', () => {
     expect(resolveLocale('en')).toBe('en');
     expect(resolveLocale('en-US,en;q=0.9,bn;q=0.8')).toBe('en');
@@ -54,7 +54,7 @@ describe('locale resolution (I18N 2, API_STANDARDS 7)', () => {
   });
 });
 
-describe('translate and fallback (I18N 8)', () => {
+describe('translate and fallback', () => {
   it('renders catalogue messages with parameters and plurals in both languages', () => {
     expect(translate('bn', 'errors.permission.not_found')).toBe('খুঁজে পাওয়া যায়নি।');
     expect(translate('en', 'errors.validation.nid_format')).toBe(
@@ -84,7 +84,7 @@ describe('translate and fallback (I18N 8)', () => {
   });
 });
 
-describe('bilingual data (I18N 7)', () => {
+describe('bilingual data', () => {
   it('picks the language and falls back when a draft value is blank', () => {
     expect(localized({ bn: 'অনুমোদিত', en: 'Approved' }, 'en')).toBe('Approved');
     expect(localized({ bn: 'অনুমোদিত', en: ' ' }, 'en')).toBe('অনুমোদিত');
@@ -99,7 +99,7 @@ describe('bilingual data (I18N 7)', () => {
     expect(stateLabel(definition, 'unknown', 'bn')).toBe('unknown');
   });
 
-  it('normalizes to NFC so two encodings of the same Bengali name compare equal (I18N 6.4)', () => {
+  it('normalizes to NFC so two encodings of the same Bengali name compare equal', () => {
     const composed = 'রায়হান'; // য় as one code point (U+09DF)
     const decomposed = 'রায়হান'; // য + nukta (U+09AF U+09BC)
     expect(composed).not.toBe(decomposed);
@@ -121,7 +121,7 @@ describe('bilingual data (I18N 7)', () => {
   });
 });
 
-describe('catalogue check (I18N 4)', () => {
+describe('catalogue check', () => {
   const codes = [
     ...readFileSync(join(repo, 'docs/api/API_STANDARDS.md'), 'utf8').matchAll(
       /^\| \w+ \| ([a-z_.,` ]+) \| /gm,
@@ -180,7 +180,7 @@ describe('catalogue check (I18N 4)', () => {
   });
 });
 
-describe('notification rendering (NOTIFICATIONS 6, I18N 5)', () => {
+describe('notification rendering', () => {
   const otp = NOTIFICATION_TEMPLATES.find((t) => t.key === 'otp_registration_sms')!;
 
   it('renders the recipient language with formatted variables', () => {

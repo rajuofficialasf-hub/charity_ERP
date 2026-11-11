@@ -1,12 +1,19 @@
 import { toEnglishDigits } from '@css/shared';
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import type { GeneralSettingKey } from '@css/shared/settings';
-import { Alert, Button, Card, Grid, SelectField, TextField } from '@/ui';
+import {
+  type GeneralSettingKey,
+  localizationSettingSchema,
+  monitoringThresholdsSchema,
+  organisationSettingSchema,
+} from '@css/shared/settings';
+import { Button, Card, Form, FormSelectField, FormTextField, Grid } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { type FormEvent, useState } from 'react';
+import type { ReactNode } from 'react';
+import { type FieldValues, useForm, type UseFormReturn } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../api/client';
+import { z } from 'zod';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { PUBLIC_SETTINGS_KEY } from '../../lib/public-settings';
 import {
   type GeneralSettings,
@@ -15,9 +22,18 @@ import {
   updateSetting,
 } from './settings-api';
 
-/** Saves one setting key and reports the field errors the server names under `value.<field>`. */
-function useSave<K extends GeneralSettingKey>(key: K, onSaved: () => void) {
+/**
+ * Saves one setting key from its form: the server's field messages, named under `value.<field>`,
+ * go under their fields, and a refusal of nothing in particular shows above the form. Enter in a
+ * field submits too; a save already on its way is not sent again.
+ */
+function useSave<T extends FieldValues>(
+  key: GeneralSettingKey,
+  form: UseFormReturn<T>,
+  onSaved: () => void,
+) {
   const queryClient = useQueryClient();
+  const ts = useTranslations('common.state.error');
   const save = useMutation({
     mutationFn: (value: unknown) => updateSetting(key, value as never),
     onSuccess: () => {
@@ -26,12 +42,12 @@ function useSave<K extends GeneralSettingKey>(key: K, onSaved: () => void) {
       void queryClient.invalidateQueries({ queryKey: PUBLIC_SETTINGS_KEY });
       onSaved();
     },
+    onError: (failure) => showFailure(form, failure, ts('text'), { under: 'value' }),
   });
-  const failure = save.error instanceof ApiFailure ? save.error : undefined;
-  const fieldError = (field: string) =>
-    failure?.details.find((d) => d.path === `value.${field}`)?.message;
-  const general = failure && !failure.details.some((d) => d.path?.startsWith('value.'));
-  return { save, fieldError, generalError: general ? failure.message : undefined };
+  const send = (value: unknown) => {
+    if (!save.isPending) save.mutate(value);
+  };
+  return { send, pending: save.isPending };
 }
 
 /** When the value last changed, or that the default is still in force. */
@@ -47,24 +63,39 @@ function Changed({ entry }: { entry: SettingEntry }) {
   );
 }
 
-function SaveRow({ pending, error }: { pending: boolean; error?: string }) {
+/** A setting's form: a refusal above, the fields, and the save button. */
+function SettingForm<T extends FieldValues>({
+  form,
+  label,
+  onSubmit,
+  pending,
+  children,
+}: {
+  form: UseFormReturn<T>;
+  label: string;
+  onSubmit: (values: T) => void;
+  pending: boolean;
+  children: ReactNode;
+}) {
   const t = useTranslations('admin.settings');
   return (
-    <>
-      {error && <Alert tone="error">{error}</Alert>}
+    <Form
+      form={form}
+      onSubmit={onSubmit}
+      label={label}
+      error={form.formState.errors.root?.server?.message}
+    >
+      {children}
       <div className="admin-form-actions">
         <Button type="submit" loading={pending}>
           {t('save')}
         </Button>
       </div>
-    </>
+    </Form>
   );
 }
 
-const submitWith = (fn: () => void) => (event: FormEvent<HTMLFormElement>) => {
-  event.preventDefault();
-  fn();
-};
+type OrganisationFields = GeneralSettings['organisation']['value'];
 
 /** The Foundation's and the department's names, the address and the contact. */
 export function OrganisationForm({
@@ -75,77 +106,61 @@ export function OrganisationForm({
   onSaved: () => void;
 }) {
   const t = useTranslations('admin.settings.organisation');
-  const [v, setV] = useState(entry.value);
-  const { save, fieldError, generalError } = useSave('organisation', onSaved);
-  const text = (group: 'foundationName' | 'departmentName' | 'address', lang: 'bn' | 'en') => ({
-    // eslint-disable-next-line security/detect-object-injection -- typed keys
-    value: v[group][lang],
-    // eslint-disable-next-line security/detect-object-injection -- typed keys
-    onChange: (value: string) => setV({ ...v, [group]: { ...v[group], [lang]: value } }),
-    error: fieldError(group),
-    ...(lang === 'en' ? { lang: 'en' } : {}),
+  const form = useForm<OrganisationFields>({
+    resolver: useSchemaResolver(organisationSettingSchema),
+    defaultValues: entry.value,
+    reValidateMode: 'onSubmit',
   });
+  const { send, pending } = useSave('organisation', form, onSaved);
   return (
     <Card>
       <p className="admin-muted">{t('hint')}</p>
       <Changed entry={entry} />
-      <form
-        method="post"
-        noValidate
-        onSubmit={submitWith(() => save.mutate(v))}
-        aria-label={t('form')}
-      >
+      <SettingForm form={form} label={t('form')} onSubmit={send} pending={pending}>
         <Grid columns={{ base: 1, md: 2 }} gap={3}>
-          <TextField
+          <FormTextField
+            name="foundationName.bn"
             label={t('foundation_bn')}
             required
             maxLength={200}
-            {...text('foundationName', 'bn')}
           />
-          <TextField
+          <FormTextField
+            name="foundationName.en"
             label={t('foundation_en')}
             required
             maxLength={200}
-            {...text('foundationName', 'en')}
+            lang="en"
           />
-          <TextField
+          <FormTextField
+            name="departmentName.bn"
             label={t('department_bn')}
             required
             maxLength={200}
-            {...text('departmentName', 'bn')}
           />
-          <TextField
+          <FormTextField
+            name="departmentName.en"
             label={t('department_en')}
             required
             maxLength={200}
-            {...text('departmentName', 'en')}
+            lang="en"
           />
-          <TextField label={t('address_bn')} required maxLength={500} {...text('address', 'bn')} />
-          <TextField label={t('address_en')} required maxLength={500} {...text('address', 'en')} />
-          <TextField
-            label={t('phone')}
+          <FormTextField name="address.bn" label={t('address_bn')} required maxLength={500} />
+          <FormTextField
+            name="address.en"
+            label={t('address_en')}
             required
-            inputMode="tel"
-            maxLength={11}
-            value={v.phone}
-            onChange={(phone) => setV({ ...v, phone })}
-            error={fieldError('phone')}
+            maxLength={500}
+            lang="en"
           />
-          <TextField
-            label={t('email')}
-            type="email"
-            required
-            maxLength={254}
-            value={v.email}
-            onChange={(email) => setV({ ...v, email })}
-            error={fieldError('email')}
-          />
+          <FormTextField name="phone" label={t('phone')} required inputMode="tel" maxLength={11} />
+          <FormTextField name="email" label={t('email')} type="email" required maxLength={254} />
         </Grid>
-        <SaveRow pending={save.isPending} error={generalError} />
-      </form>
+      </SettingForm>
     </Card>
   );
 }
+
+type LanguageFields = GeneralSettings['localization']['value'];
 
 /** The language of a device without a choice and of a new official created without one. */
 export function LanguageForm({
@@ -157,18 +172,18 @@ export function LanguageForm({
 }) {
   const t = useTranslations('admin.settings.language');
   const tl = useTranslations('common.language');
-  const [language, setLanguage] = useState(entry.value.defaultLanguage);
-  const { save, generalError } = useSave('localization', onSaved);
+  const form = useForm<LanguageFields>({
+    resolver: useSchemaResolver(localizationSettingSchema),
+    defaultValues: entry.value,
+    reValidateMode: 'onSubmit',
+  });
+  const { send, pending } = useSave('localization', form, onSaved);
   return (
     <Card>
       <Changed entry={entry} />
-      <form
-        method="post"
-        noValidate
-        onSubmit={submitWith(() => save.mutate({ defaultLanguage: language }))}
-        aria-label={t('form')}
-      >
-        <SelectField
+      <SettingForm form={form} label={t('form')} onSubmit={send} pending={pending}>
+        <FormSelectField
+          name="defaultLanguage"
           label={t('default')}
           hint={t('hint')}
           required
@@ -176,11 +191,8 @@ export function LanguageForm({
             { value: 'bn', label: tl('bn') },
             { value: 'en', label: tl('en') },
           ]}
-          value={language}
-          onChange={(id) => setLanguage(id === 'en' ? 'en' : 'bn')}
         />
-        <SaveRow pending={save.isPending} error={generalError} />
-      </form>
+      </SettingForm>
     </Card>
   );
 }
@@ -192,6 +204,7 @@ const THRESHOLD_FIELDS = [
   'inactiveVolunteerDays',
   'budgetAlertPercent',
 ] as const;
+type ThresholdFields = Record<(typeof THRESHOLD_FIELDS)[number], string>;
 const LABEL = {
   reviewPendingDays: 'review_pending_days',
   approvalPendingDays: 'approval_pending_days',
@@ -199,6 +212,28 @@ const LABEL = {
   inactiveVolunteerDays: 'inactive_volunteer_days',
   budgetAlertPercent: 'budget_alert_percent',
 } as const;
+
+/** The thresholds as typed, each held to the setting's own rule for its number. */
+const THRESHOLDS_SCHEMA = z.object({
+  reviewPendingDays: z
+    .string()
+    .transform(Number)
+    .pipe(monitoringThresholdsSchema.shape.reviewPendingDays),
+  approvalPendingDays: z
+    .string()
+    .transform(Number)
+    .pipe(monitoringThresholdsSchema.shape.approvalPendingDays),
+  noUpdateDays: z.string().transform(Number).pipe(monitoringThresholdsSchema.shape.noUpdateDays),
+  inactiveVolunteerDays: z
+    .string()
+    .transform(Number)
+    .pipe(monitoringThresholdsSchema.shape.inactiveVolunteerDays),
+  budgetAlertPercent: z
+    .string()
+    .transform(Number)
+    .pipe(monitoringThresholdsSchema.shape.budgetAlertPercent),
+});
+const digitsOnly = (value: string) => toEnglishDigits(value).replace(/[^0-9]/g, '');
 
 /** When the monitoring work raises an alert; the alerts themselves come with the monitoring work. */
 export function ThresholdsForm({
@@ -209,40 +244,39 @@ export function ThresholdsForm({
   onSaved: () => void;
 }) {
   const t = useTranslations('admin.settings.thresholds');
-  const [v, setV] = useState<Record<string, string>>(
+  const form = useForm<ThresholdFields>({
+    resolver: useSchemaResolver(THRESHOLDS_SCHEMA),
+    defaultValues: Object.fromEntries(
+      // eslint-disable-next-line security/detect-object-injection -- f is one of THRESHOLD_FIELDS
+      THRESHOLD_FIELDS.map((f) => [f, String(entry.value[f])]),
+    ) as ThresholdFields,
+    reValidateMode: 'onSubmit',
+  });
+  const { send, pending } = useSave('monitoring.thresholds', form, onSaved);
+  const submit = (v: ThresholdFields) =>
     // eslint-disable-next-line security/detect-object-injection -- f is one of THRESHOLD_FIELDS
-    Object.fromEntries(THRESHOLD_FIELDS.map((f) => [f, String(entry.value[f])])),
-  );
-  const { save, fieldError, generalError } = useSave('monitoring.thresholds', onSaved);
-  const submit = () =>
-    // eslint-disable-next-line security/detect-object-injection -- f is one of THRESHOLD_FIELDS
-    save.mutate(Object.fromEntries(THRESHOLD_FIELDS.map((f) => [f, Number(v[f])])));
+    send(Object.fromEntries(THRESHOLD_FIELDS.map((f) => [f, Number(v[f])])));
   return (
     <Card>
       <p className="admin-muted">{t('intro')}</p>
       <Changed entry={entry} />
-      <form method="post" noValidate onSubmit={submitWith(submit)} aria-label={t('form')}>
+      <SettingForm form={form} label={t('form')} onSubmit={submit} pending={pending}>
         <Grid columns={{ base: 1, md: 2 }} gap={3}>
           {THRESHOLD_FIELDS.map((field) => (
-            <TextField
+            <FormTextField
               key={field}
+              name={field}
               // eslint-disable-next-line security/detect-object-injection -- typed keys
               label={t(LABEL[field])}
               hint={field === 'budgetAlertPercent' ? t('percent_hint') : t('days_hint')}
               required
               inputMode="numeric"
               maxLength={3}
-              // eslint-disable-next-line security/detect-object-injection -- typed keys
-              value={v[field] ?? ''}
-              onChange={(value) =>
-                setV({ ...v, [field]: toEnglishDigits(value).replace(/[^0-9]/g, '') })
-              }
-              error={fieldError(field)}
+              normalize={digitsOnly}
             />
           ))}
         </Grid>
-        <SaveRow pending={save.isPending} error={generalError} />
-      </form>
+      </SettingForm>
     </Card>
   );
 }

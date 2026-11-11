@@ -1,11 +1,12 @@
 import { type WorkflowDefinition, workflowDefinitionSchema } from '../jsonb/workflow-definition.js';
 
 /**
- * Resolves a workflow template's `extends` chain into one definition (WORKFLOW_ENGINE §5, §12).
- * Rule: the arrays states, transitions, activities and project_close_guards are concatenated,
- * parent first; plain objects (defaults, overrides, sub_workflows) are merged key by key with the
- * child winning; every other field (title, version, stages, project_lifecycle, donor_flow, ...)
- * comes from the child when present, otherwise from the parent. The result keeps the child's
+ * Resolves a workflow template's `extends` chain into one definition
+ * (docs/architecture/WORKFLOW_ENGINE.md, "Definition format" and "Versioning and snapshots"). Rule:
+ * the arrays states, transitions, activities and project_close_guards are concatenated, parent
+ * first; plain objects (defaults, overrides, sub_workflows) are merged key by key with the child
+ * winning; every other field (title, version, stages, project_lifecycle, donor_flow, ...) comes
+ * from the child when present, otherwise from the parent. The result keeps the child's
  * `template`, `version` and `extends`, and is validated with the zod schema.
  * Used by the seed and by the workflow engine (Phase 2), so both read the same definition.
  */

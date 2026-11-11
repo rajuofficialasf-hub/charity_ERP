@@ -1,20 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { ApiError } from '../../src/i18n/api-error';
-import { assertWorkflowNamesKnown } from '../../src/workflow/registry';
-import { mergedWorkflowDefinitions } from '../../src/workflow/templates';
-import type { Principal } from '../../src/auth/principal';
-import { accessWorld } from './support/access-fixtures';
+import { SeedContext } from '../../seed/context.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { ApiError } from '../../src/i18n/api-error.js';
+import { assertWorkflowNamesKnown } from '../../src/workflow/registry.js';
+import { mergedWorkflowDefinitions } from '../../src/workflow/templates.js';
+import type { Principal } from '../../src/auth/principal.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   applicationProject,
   applicationRow,
   IDENTITY_ANSWERS,
   principalOf,
   statusOf,
-} from './support/applications';
+} from './support/applications.js';
 import {
   type Account,
   account,
@@ -22,8 +22,8 @@ import {
   authHarness,
   bearer,
   login,
-} from './support/auth-app';
-import { beneficiary, fakeMobile, fakeNid } from './support/fixtures';
+} from './support/auth-app.js';
+import { beneficiary, fakeMobile, fakeNid } from './support/fixtures.js';
 
 // The workflow engine on the common cycle: a move happens only through a transition of the
 // project's snapshot, for a caller whose permission reaches the application, past every guard,
@@ -47,7 +47,7 @@ beforeAll(async () => {
     return a.id;
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  await seedWorkflows(new SeedContext(h.db));
+  await seedWorkflows(new SeedContext(h.container.prisma));
   // a project of this file's own, in the PM's program, with the form placed and the snapshot
   const made = await api()
     .post('/api/v1/projects')

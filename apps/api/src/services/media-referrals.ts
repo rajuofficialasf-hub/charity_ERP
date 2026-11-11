@@ -12,16 +12,16 @@ import {
   type ReferralState,
 } from '@css/shared/media';
 import { z } from 'zod';
-import type { EffectiveAccess } from '../access/effective';
-import { mediaReferralWhere, type Scope } from '../access/scope';
-import type { AccessService } from '../access/service';
-import { assertReachesApplication, reachesApplication } from '../applications/callers';
-import { readAnswers } from '../applications/answers';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import { isUniqueViolation } from '../core/db-errors';
+import type { EffectiveAccess } from '../access/effective.js';
+import { mediaReferralWhere, type Scope } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import { assertReachesApplication, reachesApplication } from '../applications/callers.js';
+import { readAnswers } from '../applications/answers.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import { isUniqueViolation } from '../core/db-errors.js';
 import {
   buildPage,
   decodeCursor,
@@ -30,19 +30,19 @@ import {
   type PageQuery,
   parseList,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { MediaEvents } from '../notifications/media-events';
-import { readDefinition } from './forms';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { MediaEvents } from '../notifications/media-events.js';
+import { readDefinition } from './forms.js';
 import {
   mediaWorkView,
   reachesReferral,
   readWork,
   VIEW_PERMISSION,
   workRights,
-} from './media-work-view';
+} from './media-work-view.js';
 
 /** Refers an application of the caller's program or region (a PM, an RPM). */
 const REFER_PERMISSION = 'media.referral.create';

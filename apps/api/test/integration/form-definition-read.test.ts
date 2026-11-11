@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { readDefinition } from '../../src/services/forms';
-import { authHarness, type AuthHarness } from './support/auth-app';
-import * as f from './support/fixtures';
+import { readDefinition } from '../../src/services/forms.js';
+import { authHarness, type AuthHarness } from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // The definition as each audience reads it: the points of the priority score are the office's,
 // so a volunteer or a public-link visitor never learns which answer raises the score.

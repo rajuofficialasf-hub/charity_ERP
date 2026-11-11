@@ -1,9 +1,9 @@
 import type { RequestHandler } from 'express';
-import { ApiError } from '../i18n/api-error';
+import { ApiError } from '../i18n/api-error.js';
 
 /**
- * The version gate of the offline routes (docs/api/API_STANDARDS.md "Versioning and client
- * compatibility"): a phone may run an old build for days, so the server keeps accepting it until
+ * The version gate of the offline routes (docs/api/API_STANDARDS.md, "Breaking changes"): a
+ * phone may run an old build for days, so the server keeps accepting it until
  * the minimum supported version is raised; a request from a build below that minimum is answered
  * 426 so the app syncs what it can and updates. A missing or unreadable version passes: the gate
  * refuses only what it knows to be too old.

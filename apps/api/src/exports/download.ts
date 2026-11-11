@@ -1,11 +1,11 @@
 import { EXPORT_PERMISSION_OF_CLASS, isExportRecord } from '@css/shared/exports';
-import { holdsPermission } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { Principal } from '../auth/principal';
-import type { PrismaService } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import { readFrozenRecord, RECORD_PERMISSION } from './records';
-import { readFrozenExport, sensitiveClasses } from './service';
+import { holdsPermission } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { Principal } from '../auth/principal.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import { readFrozenRecord, RECORD_PERMISSION } from './records.js';
+import { readFrozenExport, sensitiveClasses } from './service.js';
 
 export interface ExportDownload {
   file: {

@@ -1,8 +1,8 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Principal } from '../../src/auth/principal';
-import { type ApiError } from '../../src/i18n/api-error';
-import { accessWorld } from './support/access-fixtures';
+import type { Principal } from '../../src/auth/principal.js';
+import { type ApiError } from '../../src/i18n/api-error.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -11,8 +11,8 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // The identity of a beneficiary: the lookup of the application form with its auto-fill and locked
 // fields, the search by BEN number and by a retired profile's numbers, and the creation of a

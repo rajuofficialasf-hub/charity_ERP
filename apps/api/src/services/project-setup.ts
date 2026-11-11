@@ -13,16 +13,16 @@ import {
   type StaffCreate,
   type Syllabus,
 } from '@css/shared/projects';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PermissionVersionService } from '../auth/permission-version.service';
-import { assertIfMatch, etagOf } from '../core/etag';
-import { literalContains } from '../core/search';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { refuseIncompleteRules, storedRules, writeRulesVersion } from './project-rules';
-import type { ProjectViewer, ProjectsService } from './projects';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PermissionVersionService } from '../auth/permission-version.service.js';
+import { assertIfMatch, etagOf } from '../core/etag.js';
+import { literalContains } from '../core/search.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { refuseIncompleteRules, storedRules, writeRulesVersion } from './project-rules.js';
+import type { ProjectViewer, ProjectsService } from './projects.js';
 
 const isUniqueViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
@@ -41,11 +41,12 @@ function withoutToken(settings: unknown): Prisma.InputJsonValue {
 }
 
 /**
- * The parts of a project's setup that are saved on their own (docs/MASTER_SPEC.md, A6): components
- * and their settings, the budget with its fund sources, areas with their RPMs, staff access and the
- * dawah syllabus. Every write loads the project inside the caller's scope, locks its row, applies
- * the state rule and audits, in one transaction. An active project keeps what its activation
- * needed. A volunteer reads only the enabled components, the photo rule and the syllabus.
+ * The parts of a project's setup that are saved on their own (docs/MASTER_SPEC.md, "Program and
+ * project setup (project configuration)"): components and their settings, the budget with its fund
+ * sources, areas with their RPMs, staff access and the dawah syllabus. Every write loads the
+ * project inside the caller's scope, locks its row, applies the state rule and audits, in one
+ * transaction. An active project keeps what its activation needed. A volunteer reads only the
+ * enabled components, the photo rule and the syllabus.
  */
 export class ProjectSetupService {
   constructor(

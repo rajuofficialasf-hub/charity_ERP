@@ -9,7 +9,8 @@ import { resetClientForTests } from '../../api/client';
 import { ChangePasswordView } from './ChangePasswordView';
 import { MyWorkPage } from '../home/MyWorkPage';
 
-// The screen "My profile, edit request, device sessions, language" of docs/ui/SCREENS.md (AUTH.md 3).
+// The screen "My profile, edit request, device sessions, language" of docs/ui/SCREENS.md
+// (docs/architecture/AUTH.md, "Password rules").
 beforeEach(() => {
   resetClientForTests();
   refreshAs(ME);
@@ -64,6 +65,41 @@ describe('ChangePasswordView', () => {
     await user.type(fresh, '7');
     expect(length).toHaveAttribute('data-met', 'true');
   }, 15_000);
+
+  it('keeps the autocomplete hints, asks for a match before sending, and stores nothing typed', async () => {
+    const user = userEvent.setup();
+    const bodies: unknown[] = [];
+    server.use(
+      http.post('*/api/v1/auth/password/change', async ({ request }) => {
+        bodies.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderApp(<ChangePasswordView />, 'en');
+    const current = await screen.findByLabelText(/^Current password/, { selector: 'input' });
+    const fresh = screen.getByLabelText(/^New password/, { selector: 'input' });
+    const again = screen.getByLabelText(/^Confirm the new password/, { selector: 'input' });
+    expect(current).toHaveAttribute('autocomplete', 'current-password');
+    expect(fresh).toHaveAttribute('autocomplete', 'new-password');
+    expect(again).toHaveAttribute('autocomplete', 'new-password');
+    await user.type(current, 'Nadi kul 2026');
+    await user.type(fresh, 'Shapla phul 77');
+    await user.type(again, 'Shapla phul 78');
+    await user.click(screen.getByRole('button', { name: 'Change password' }));
+    expect(await screen.findByText('The two new passwords do not match.')).toBeInTheDocument();
+    expect(bodies).toEqual([]);
+    await user.clear(again);
+    await user.type(again, 'Shapla phul 77');
+    await user.click(screen.getByRole('button', { name: 'Change password' }));
+    expect(await screen.findByText(/password has been changed/i)).toBeInTheDocument();
+    expect(bodies).toEqual([{ currentPassword: 'Nadi kul 2026', newPassword: 'Shapla phul 77' }]);
+    // the fields are emptied and nothing typed is kept in the browser's storage
+    expect(fresh).toHaveValue('');
+    for (const storage of [window.localStorage, window.sessionStorage])
+      for (let i = 0; i < storage.length; i++)
+        for (const secret of ['Nadi kul 2026', 'Shapla phul 77'])
+          expect(storage.getItem(storage.key(i) ?? '')).not.toContain(secret);
+  });
 
   it('shows server rule failures on their field', async () => {
     const user = userEvent.setup();

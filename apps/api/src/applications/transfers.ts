@@ -1,19 +1,19 @@
 import { uuidv7 } from '@css/shared';
 import { reasonRequestSchema } from '@css/shared/auth';
 import { z } from 'zod';
-import type { EffectiveAccess } from '../access/effective';
-import { applicationWhere, holdsPermission, projectWhere } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { IdempotencyService } from '../idempotency/idempotency.service';
-import type { ApplicationEvents } from '../notifications/application-events';
-import type { ProjectVolunteersService } from '../services/project-volunteers';
-import { liveApplicationCounts } from './limit';
+import type { EffectiveAccess } from '../access/effective.js';
+import { applicationWhere, holdsPermission, projectWhere } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { IdempotencyService } from '../idempotency/idempotency.service.js';
+import type { ApplicationEvents } from '../notifications/application-events.js';
+import type { ProjectVolunteersService } from '../services/project-volunteers.js';
+import { liveApplicationCounts } from './limit.js';
 
 /** Moves applications from one volunteer to another; the RPM, or an Executive the RPM grants. */
 const TRANSFER = 'application.transfer';

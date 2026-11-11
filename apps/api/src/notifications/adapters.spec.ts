@@ -7,7 +7,7 @@ import {
   maskMobile,
   SmtpEmailAdapter,
   StubSmsAdapter,
-} from './adapters';
+} from './adapters.js';
 
 const smtp = { host: 'unused', port: 25, secure: false, from: 'CSS ERP <no-reply@example.org>' };
 

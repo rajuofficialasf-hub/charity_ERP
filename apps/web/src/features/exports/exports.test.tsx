@@ -82,6 +82,14 @@ describe('the export dialog', () => {
       columns: ['name', 'ben_no', 'father', 'area', 'status'],
       filters: { divisionId: DIVISION },
     });
+    // the choice is kept on the device for the next export of this list
+    expect(JSON.parse(localStorage.getItem('css_export_columns:beneficiaries') ?? 'null')).toEqual([
+      'name',
+      'ben_no',
+      'father',
+      'area',
+      'status',
+    ]);
     expect(await screen.findByRole('button', { name: 'ডাউনলোড করুন' })).toBeInTheDocument();
   });
 
@@ -205,7 +213,7 @@ describe('the export dialog', () => {
     });
     const home = section('home', 'বাড়ি');
     const family = section('family', 'পরিবার');
-    serveExports('applications', {
+    const { bodies } = serveExports('applications', {
       columns: [
         ...catalogueColumns('applications'),
         question('q:roof', 'ঘরের চাল', home),
@@ -222,7 +230,9 @@ describe('the export dialog', () => {
     );
     expect(tickedColumns(dialog)).toEqual(expect.arrayContaining(['q:roof', 'q:rooms']));
     expect(tickedColumns(dialog)).not.toContain('q:members');
-    await user.type(within(dialog).getByRole('textbox', { name: 'প্রশ্ন খুঁজুন' }), 'সদস্য');
+    await user.type(within(dialog).getByRole('textbox', { name: 'প্রশ্ন খুঁজুন' }), 'সদস্য{Enter}');
+    // Enter in the search starts nothing
+    expect(bodies).toHaveLength(0);
     expect(within(dialog).queryByRole('checkbox', { name: 'ঘরের চাল' })).toBeNull();
     expect(within(dialog).getByRole('checkbox', { name: 'সদস্য সংখ্যা' })).toBeInTheDocument();
     await user.clear(within(dialog).getByRole('textbox', { name: 'প্রশ্ন খুঁজুন' }));

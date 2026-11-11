@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { Client } from 'pg';
 import { expect } from 'vitest';
-import type { Principal } from '../../../src/auth/principal';
-import { mergedWorkflowDefinitions } from '../../../src/workflow/templates';
-import type { AuthHarness, Session } from './auth-app';
-import { beneficiary, insert, type locationTree } from './fixtures';
+import type { Principal } from '../../../src/auth/principal.js';
+import { mergedWorkflowDefinitions } from '../../../src/workflow/templates.js';
+import type { AuthHarness, Session } from './auth-app.js';
+import { beneficiary, insert, type locationTree } from './fixtures.js';
 
 type Loc = Awaited<ReturnType<typeof locationTree>>;
-import { type FormExtras, publishedForm } from './forms';
+import { type FormExtras, publishedForm } from './forms.js';
 
 /** The principal of a user as the access middleware would build it, for calls into a service. */
 export async function principalOf(db: Client, userId: string): Promise<Principal> {

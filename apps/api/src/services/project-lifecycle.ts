@@ -7,14 +7,14 @@ import {
   setupCheck,
   transitionFor,
 } from '@css/shared/projects';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Clock } from '../core/clock';
-import { assertIfMatch } from '../core/etag';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { ProjectViewer, ProjectsService } from './projects';
-import type { ProjectEvents } from '../notifications/project-events';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Clock } from '../core/clock.js';
+import { assertIfMatch } from '../core/etag.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { ProjectViewer, ProjectsService } from './projects.js';
+import type { ProjectEvents } from '../notifications/project-events.js';
 
 /**
  * The close guards a workflow may list. A guard whose module exists checks it here; the guards of
@@ -27,12 +27,12 @@ const CLOSE_GUARDS_NOT_BUILT_YET: readonly string[] = ['stock.balanced', 'animal
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
 /**
- * The life of a project (docs/MASTER_SPEC.md, A6): a complete draft is
- * activated and its workflow snapshotted; the application window of an active project is extended
- * with a reason; closing is two steps, each with a reason, and the second runs the workflow's close
- * guards; a closing or closed project is reopened with a reason. Each action locks the project,
- * checks the move before the If-Match (so of two actions at once the second finds the new state),
- * writes and audits in one transaction.
+ * The life of a project (docs/MASTER_SPEC.md, "Program and project setup (project configuration)"):
+ * a complete draft is activated and its workflow snapshotted; the application window of an active
+ * project is extended with a reason; closing is two steps, each with a reason, and the second runs
+ * the workflow's close guards; a closing or closed project is reopened with a reason. Each action
+ * locks the project, checks the move before the If-Match (so of two actions at once the second
+ * finds the new state), writes and audits in one transaction.
  */
 export class ProjectLifecycleService {
   constructor(

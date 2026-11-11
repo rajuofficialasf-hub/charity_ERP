@@ -1,4 +1,4 @@
-import type { Tx } from '../core/prisma.service';
+import type { Tx } from '../core/prisma.service.js';
 
 /** The states an application leaves the volunteer's limit in; every other state counts, drafts included. */
 export const NOT_COUNTED_STATES = ['rejected', 'deleted'];

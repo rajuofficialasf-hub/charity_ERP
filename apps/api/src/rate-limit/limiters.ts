@@ -1,10 +1,13 @@
 import type { RequestHandler } from 'express';
 import { rateLimit } from 'express-rate-limit';
-import type { Env } from '../config/env';
-import { ApiError } from '../i18n/api-error';
-import { RATE_LIMITS, type RateLimitClass, type RateWindow } from './rate-limit';
+import type { Env } from '../config/env.js';
+import { ApiError } from '../i18n/api-error.js';
+import { RATE_LIMITS, type RateLimitClass, type RateWindow } from './rate-limit.js';
 
-/** Limiter chains of the API_STANDARDS 10 classes, one chain per route. */
+/**
+ * Limiter chains of the rate-limit classes, one chain per route (docs/api/API_STANDARDS.md, "Rate
+ * limiting").
+ */
 export interface RateLimiters {
   for(cls: RateLimitClass | 'none', route: string): RequestHandler[];
 }

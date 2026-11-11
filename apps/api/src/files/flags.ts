@@ -1,7 +1,7 @@
 import { UPLOAD_RULES } from '@css/shared/files';
 import { photoSource } from '@css/shared';
 import { z } from 'zod';
-import type { Tx } from '../core/prisma.service';
+import type { Tx } from '../core/prisma.service.js';
 
 /** The data-quality flags of a photo; they are shown to officials and never block anything. */
 export type PhotoFlag =

@@ -16,7 +16,8 @@ const clear = () => {
   window.localStorage.clear();
 };
 
-// The device language (I18N 2): cookie, then localStorage, then bn.
+// The device language (docs/ui/I18N.md, "Languages and locale resolution"): cookie, then
+// localStorage, then bn.
 describe('device locale', () => {
   afterEach(clear);
 
@@ -48,7 +49,7 @@ describe('device locale', () => {
     expect(storedLocaleValue()).toBe('en');
   });
 
-  it('pseudo-localizes only in development (I18N 4)', () => {
+  it('pseudo-localizes only in development', () => {
     expect(messagesFor('qps', true)?.common.app.name).not.toBe(messagesFor('bn')?.common.app.name);
     expect(messagesFor('qps', false)).toBe(messagesFor('bn'));
     expect(messagesFor('en')?.common.language.label).toBe('Language');

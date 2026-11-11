@@ -9,10 +9,10 @@ import {
 } from '@css/shared/media';
 import { mediaScriptSchema } from '@css/shared';
 import { z } from 'zod';
-import { holdsPermission, mediaReferralWhere, type Scope } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
+import { holdsPermission, mediaReferralWhere, type Scope } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
 import {
   buildPage,
   decodeCursor,
@@ -21,11 +21,11 @@ import {
   type PageQuery,
   parseList,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { MANAGE_PERMISSION } from './media-work-view';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { MANAGE_PERMISSION } from './media-work-view.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /** The roles whose holders have a media member's profile. */
 const MEDIA_ROLES = ['media_team', 'media_director', 'media_assistant_director'];

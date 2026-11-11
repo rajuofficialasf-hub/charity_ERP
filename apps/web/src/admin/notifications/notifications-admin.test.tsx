@@ -122,11 +122,19 @@ describe('NotificationTemplatesPage', () => {
     const bodies = within(dialog).getAllByRole('textbox', { name: /Text/ });
     await user.clear(bodies[1]!);
     await user.type(bodies[1]!, 'Hello {{{{nid}}');
+    // a changed text makes the preview out of date
+    expect(within(dialog).queryByRole('region', { name: 'Preview with sample values' })).toBeNull();
     await user.click(within(dialog).getByRole('button', { name: 'Save as new version' }));
     expect(
       await within(dialog).findByText('This placeholder is not available for this notification.'),
     ).toBeVisible();
-  });
+    // the next change makes the refusal out of date too
+    await user.type(bodies[1]!, '!');
+    expect(
+      within(dialog).queryByText('This placeholder is not available for this notification.'),
+    ).toBeNull();
+    // a preview and two saves typed through: slow when the whole suite shares the machine
+  }, 20_000);
 
   it('saves a new version, closes the editor and says which version was saved', async () => {
     refreshAs(HEAD);
@@ -162,6 +170,53 @@ describe('NotificationTemplatesPage', () => {
       {
         bn: { title: 'হস্তান্তরের কাজ', body: '{{count}}টি কাজ আপনাকে দেওয়া হয়েছে।' },
         en: { title: 'Handed-over work', body: '{{count}} items have been handed over to you.' },
+      },
+    ]);
+  });
+
+  it('edits the email channel with its subject, and shows a refusal that names no field', async () => {
+    refreshAs(HEAD);
+    const user = userEvent.setup();
+    const saved: { channel: unknown; body: unknown }[] = [];
+    server.use(
+      http.get('*/api/v1/admin/notification-templates', () =>
+        HttpResponse.json({ data: [HANDOVER], meta: {} }),
+      ),
+      http.put(
+        '*/api/v1/admin/notification-templates/:key/:channel',
+        async ({ request, params }) => {
+          saved.push({ channel: params.channel, body: await request.json() });
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'conflict.busy',
+                message: 'Someone is saving this text right now.',
+                requestId: 'req_test',
+              },
+            },
+            { status: 409 },
+          );
+        },
+      ),
+    );
+    renderApp(<NotificationTemplatesPage />, 'en');
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Edit handover_items_assigned' }))[0]!,
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Edit handover_items_assigned' });
+    await user.click(within(dialog).getByRole('radio', { name: 'Email' }));
+    const subjects = within(dialog).getAllByRole('textbox', { name: /Subject/ });
+    expect(subjects[1]).toHaveValue('Work handed over');
+    await user.type(subjects[1]!, ' today');
+    await user.click(within(dialog).getByRole('button', { name: 'Save as new version' }));
+    expect(await within(dialog).findByText('Someone is saving this text right now.')).toBeVisible();
+    expect(saved).toEqual([
+      {
+        channel: 'email',
+        body: {
+          bn: { subject: 'কাজ হস্তান্তর', body: '{{from_name}}-এর {{count}}টি কাজ।' },
+          en: { subject: 'Work handed over today', body: '{{count}} items of {{from_name}}.' },
+        },
       },
     ]);
   });

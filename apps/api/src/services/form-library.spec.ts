@@ -1,6 +1,6 @@
 import type { FormDefinition, FormFieldDefinition } from '@css/shared/forms';
 import { describe, expect, it } from 'vitest';
-import { libraryOf } from './form-library';
+import { libraryOf } from './form-library.js';
 
 // The question library read from the library form: its sections, and each top question ready to
 // place, a repeat group with its members after it.

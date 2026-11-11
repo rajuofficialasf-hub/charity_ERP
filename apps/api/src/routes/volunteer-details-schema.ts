@@ -8,7 +8,7 @@ import {
   VOLUNTEERING_AREAS,
 } from '@css/shared/registration';
 import { z, type ZodType } from 'zod';
-import { sensitive } from '../access/field-mask';
+import { sensitive } from '../access/field-mask.js';
 
 /**
  * The response fields of the personal, profession and skills data. The blood group and the date of

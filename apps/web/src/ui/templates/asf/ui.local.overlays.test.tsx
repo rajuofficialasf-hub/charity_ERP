@@ -107,6 +107,47 @@ describe('the confirm dialog', () => {
     expect(onConfirm).toHaveBeenCalledWith('Income above the limit');
   });
 
+  it('sends the reason trimmed, keeps a line break typed in it, and starts empty when it opens again', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    const { rerender } = render(<Confirm onConfirm={onConfirm} />);
+    const reason = screen.getByRole('textbox', { name: 'Reason' });
+    await user.type(reason, '  Income above{Enter}the limit  ');
+    // Enter writes a new line in the reason; only the button confirms
+    expect(onConfirm).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Reject application' }));
+    expect(onConfirm).toHaveBeenCalledWith('Income above\nthe limit');
+    rerender(<Confirm onConfirm={onConfirm} open={false} />);
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    rerender(<Confirm onConfirm={onConfirm} />);
+    expect(screen.getByRole('textbox', { name: 'Reason' })).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Reject application' })).toBeDisabled();
+  });
+
+  it('names the reason by the caller and keeps it while the action runs', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    const { rerender } = render(<Confirm onConfirm={onConfirm} reasonLabel="Why block" />);
+    await user.type(screen.getByRole('textbox', { name: 'Why block' }), 'Repeated duplicates');
+    rerender(<Confirm onConfirm={onConfirm} reasonLabel="Why block" pending />);
+    expect(screen.getByRole('textbox', { name: 'Why block' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Why block' })).toHaveValue('Repeated duplicates');
+    expect(screen.getByRole('button', { name: /Reject application/ })).toBeDisabled();
+    rerender(<Confirm onConfirm={onConfirm} reasonLabel="Why block" />);
+    await user.click(screen.getByRole('button', { name: 'Reject application' }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledWith('Repeated duplicates');
+  });
+
+  it('confirms without a reason box when none is asked', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(<Confirm onConfirm={onConfirm} reasonRequired={false} />);
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Reject application' }));
+    expect(onConfirm).toHaveBeenCalledWith('');
+  });
+
   it('cancels by its button and by Escape', async () => {
     const user = userEvent.setup();
     const onCancel = vi.fn();

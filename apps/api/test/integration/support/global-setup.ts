@@ -2,8 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import type { TestProject } from 'vitest/node';
-import { installJobs } from '../../../src/jobs/install';
-import { createDatabase, dropDatabase, runMigrations, uniqueName, urlFor } from './db';
+import { installJobs } from '../../../src/jobs/install.js';
+import { createDatabase, dropDatabase, runMigrations, uniqueName, urlFor } from './db.js';
 
 declare module 'vitest' {
   export interface ProvidedContext {
@@ -28,8 +28,8 @@ export async function setup(project: TestProject): Promise<() => Promise<void>> 
 }
 
 function syncTemplates(url: string): void {
-  const tsx = createRequire(__filename).resolve('tsx/cli');
-  const api = join(__dirname, '..', '..', '..');
+  const tsx = createRequire(import.meta.url).resolve('tsx/cli');
+  const api = join(import.meta.dirname, '..', '..', '..');
   const result = spawnSync(
     process.execPath,
     [tsx, '--conditions=@css/source', 'scripts/notifications-sync.ts'],

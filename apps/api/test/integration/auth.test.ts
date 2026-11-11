@@ -11,10 +11,11 @@ import {
   PASSWORD,
   type Session,
   sessionFrom,
-} from './support/auth-app';
-import { notificationsOf } from './support/notifications';
+} from './support/auth-app.js';
+import { notificationsOf } from './support/notifications.js';
 
-// Login, lockout, account states, refresh and logout (AUTH.md 4 to 9).
+// Login, lockout, account states, refresh and logout (docs/architecture/AUTH.md, "Login" to "Role
+// or permission change forces a session refresh").
 let h: AuthHarness;
 
 beforeAll(async () => {
@@ -82,7 +83,7 @@ describe('POST /auth/login', () => {
     await post('/auth/login').send({ loginId: 'a', password: 'b', role: 'x' }).expect(422);
   });
 
-  it('locks after 5 failures for 15 minutes, also for unknown ids, and the lock passes (AUTH.md 6)', async () => {
+  it('locks after 5 failures for 15 minutes, also for unknown ids, and the lock passes', async () => {
     const staff = await account(h.db);
     for (let i = 1; i <= 4; i++)
       await post('/auth/login').send({ loginId: staff.email, password: 'bad pass 1' }).expect(401);
@@ -169,7 +170,7 @@ describe('POST /auth/login', () => {
       await post('/auth/login').send({ loginId: staff.email, password: 'bad pass 1' }).expect(401);
   });
 
-  it('gives a pending account tokens limited to its own profile and sessions (AUTH.md 7)', async () => {
+  it('gives a pending account tokens limited to its own profile and sessions', async () => {
     const pending = await account(h.db, { kind: 'volunteer', state: 'pending' });
     const s = await login(h, pending);
     expect(s.body.me).toMatchObject({ state: 'pending' });
@@ -271,7 +272,7 @@ describe('access tokens on every request', () => {
     );
   });
 
-  it('answers token_stale after a permission-version bump (AUTH.md 9)', async () => {
+  it('answers token_stale after a permission-version bump', async () => {
     const staff = await account(h.db);
     const s = await login(h, staff);
     await h.db.query('UPDATE users SET permission_version = permission_version + 1 WHERE id = $1', [

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkDestructiveDbAccess, checkPerfDbAccess } from './db-guard';
+import { checkDestructiveDbAccess, checkPerfDbAccess } from './db-guard.js';
 
 const url = (db: string) => `postgresql://css:pw@127.0.0.1:5432/${db}`;
 

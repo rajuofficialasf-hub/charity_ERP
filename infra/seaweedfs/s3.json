@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "css_dev_only",
+      "credentials": [
+        {
+          "accessKey": "css_dev_only",
+          "secretKey": "css_dev_only_secret"
+        }
+      ],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}

@@ -1,14 +1,21 @@
 import { toEnglishDigits } from '@css/shared';
 import { isoDateInDhaka } from '@css/shared/format';
-import { NISAB_MAX_DAYS_AHEAD, type NisabVersionView } from '@css/shared/settings';
-import { Alert, Button, DateField, Dialog, TextField } from '@/ui';
-import { useMutation } from '@tanstack/react-query';
+import { NISAB_MAX_DAYS_AHEAD, nisabAddSchema, type NisabVersionView } from '@css/shared/settings';
+import { Button, Dialog, Form, FormDateField, FormTextField } from '@/ui';
 import { useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../api/client';
+import type { z } from 'zod';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { addNisab } from './nisab-api';
 
 const DAY = 86_400_000;
+/** The request's rules, the basis note held as typed (empty when none is written). */
+const NISAB_SCHEMA = nisabAddSchema.required();
+type NisabFields = z.infer<typeof NISAB_SCHEMA>;
+
+/** Only the digits and the point of an amount, Bengali digits written in English ones. */
+const amountOf = (typed: string) => toEnglishDigits(typed).replace(/[^0-9.]/g, '');
 
 /**
  * Adds a nisab version: an amount in Taka and an effective date from today (Dhaka) to a year
@@ -26,6 +33,7 @@ export function NisabDialog({
 }) {
   const t = useTranslations('admin.nisab.dialog');
   const tc = useTranslations('common.action');
+  const ts = useTranslations('common.state.error');
   // the day the dialog opened fixes today and the latest allowed date
   const [{ today, latestAllowed }] = useState(() => {
     const now = Date.now();
@@ -34,71 +42,80 @@ export function NisabDialog({
       latestAllowed: isoDateInDhaka(new Date(now + NISAB_MAX_DAYS_AHEAD * DAY)),
     };
   });
-  const [value, setValue] = useState('');
-  const [date, setDate] = useState<string | null>(null);
-  const [note, setNote] = useState('');
-  const save = useMutation({
-    mutationFn: () =>
-      addNisab({
-        value: value.trim(),
-        effectiveFrom: date!,
-        ...(note.trim() ? { basisNote: note.trim() } : {}),
-      }),
-    onSuccess: onDone,
+  const form = useForm<NisabFields>({
+    resolver: useSchemaResolver(NISAB_SCHEMA),
+    defaultValues: { value: '', effectiveFrom: '', basisNote: '' },
+    reValidateMode: 'onSubmit',
   });
-  const failure = save.error instanceof ApiFailure ? save.error : undefined;
-  const detail = (path: string) => failure?.details.find((d) => d.path === path)?.message;
+  const values = useWatch({ control: form.control });
+  const pending = form.formState.isSubmitting;
   const earliest =
     latest && latest.effectiveFrom >= today
       ? isoDateInDhaka(new Date(Date.parse(`${latest.effectiveFrom}T12:00:00Z`) + DAY))
       : today;
+
+  const save = async ({ value, effectiveFrom, basisNote }: NisabFields) => {
+    let version: NisabVersionView;
+    try {
+      version = await addNisab({
+        value: value.trim(),
+        effectiveFrom,
+        ...(basisNote.trim() ? { basisNote: basisNote.trim() } : {}),
+      });
+    } catch (failure) {
+      showFailure(form, failure, ts('text'));
+      return;
+    }
+    onDone(version);
+  };
+
   return (
     <Dialog
       title={t('title')}
       open
       onClose={onClose}
-      dismissible={!save.isPending}
+      dismissible={!pending}
       actions={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
             {tc('cancel')}
           </Button>
-          <Button onClick={() => save.mutate()} disabled={!value || !date} loading={save.isPending}>
+          <Button
+            onClick={() => void form.handleSubmit(save)()}
+            disabled={!values.value || !values.effectiveFrom}
+            loading={pending}
+          >
             {tc('save')}
           </Button>
         </>
       }
     >
       <p className="admin-muted">{t('hint')}</p>
-      {failure && !failure.details.length && <Alert tone="error">{failure.message}</Alert>}
-      <TextField
-        label={t('value')}
-        hint={t('value_hint')}
-        required
-        inputMode="numeric"
-        maxLength={15}
-        value={value}
-        onChange={(v) => setValue(toEnglishDigits(v).replace(/[^0-9.]/g, ''))}
-        error={detail('value')}
-      />
-      <DateField
-        label={t('effective_from')}
-        hint={t('effective_hint')}
-        required
-        min={earliest}
-        max={latestAllowed}
-        value={date ?? ''}
-        onChange={(iso) => setDate(iso || null)}
-        error={detail('effectiveFrom')}
-      />
-      <TextField
-        label={t('basis')}
-        hint={t('basis_hint')}
-        maxLength={500}
-        value={note}
-        onChange={setNote}
-        error={detail('basisNote')}
-      />
+      <Form
+        form={form}
+        onSubmit={save}
+        label={t('title')}
+        error={form.formState.errors.root?.server?.message}
+      >
+        <FormTextField
+          name="value"
+          label={t('value')}
+          hint={t('value_hint')}
+          required
+          inputMode="numeric"
+          maxLength={15}
+          normalize={amountOf}
+        />
+        <FormDateField
+          name="effectiveFrom"
+          label={t('effective_from')}
+          hint={t('effective_hint')}
+          required
+          min={earliest}
+          max={latestAllowed}
+        />
+        <FormTextField name="basisNote" label={t('basis')} hint={t('basis_hint')} maxLength={500} />
+      </Form>
     </Dialog>
   );
 }

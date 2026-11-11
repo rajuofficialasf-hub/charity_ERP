@@ -68,7 +68,10 @@ export const libraryValidationSchema = validationSchema.extend({
 });
 export type LibraryValidation = z.infer<typeof libraryValidationSchema>;
 
-/** One field inside a repeat group of the library (the earners of appendix খ.২). */
+/**
+ * One field inside a repeat group of the library (the earners of the current self-reliance form,
+ * docs/MASTER_SPEC.md, "Self-reliance and house construction form").
+ */
 export const repeatFieldSchema = z.strictObject({
   key: snakeKey,
   type: z.enum(FIELD_TYPES),

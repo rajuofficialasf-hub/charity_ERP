@@ -1,14 +1,28 @@
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, Dialog, RadioGroup, SelectField, TextField } from '@/ui';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Alert, Button, Dialog, Form, FormSelectField, FormTextField, RadioGroup } from '@/ui';
+import { useQuery } from '@tanstack/react-query';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { ApiFailure } from '../../api/client';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { decideStaff, roles } from './registrations-api';
 
 type Decision = 'approve' | 'reject';
 /** The Main Admin's role is never given through a registration. */
 const NOT_GIVEN = 'department_head';
+
+/** An approval names the role; a rejection gives a reason of three letters at least. */
+const DECISION_SCHEMA = z
+  .object({ decision: z.enum(['approve', 'reject']), roleKey: z.string(), reason: z.string() })
+  .superRefine((v, ctx) => {
+    if (v.decision === 'approve' && !v.roleKey)
+      ctx.addIssue({ code: 'custom', path: ['roleKey'], message: 'validation.required' });
+    if (v.decision === 'reject' && v.reason.trim().length < 3)
+      ctx.addIssue({ code: 'custom', path: ['reason'], message: 'validation.too_short' });
+  });
+type DecisionFields = z.infer<typeof DECISION_SCHEMA>;
+const EMPTY: DecisionFields = { decision: 'approve', roleKey: '', reason: '' };
 
 /**
  * The Department Head or the Monitoring Team approves an official's registration with the role
@@ -29,90 +43,105 @@ export function StaffDecisionDialog({
 }) {
   const t = useTranslations('admin.registrations');
   const tc = useTranslations('common.action');
+  const ts = useTranslations('common.state.error');
   const locale = useLocale() as Locale;
-  const [decision, setDecision] = useState<Decision>('approve');
-  const [roleKey, setRoleKey] = useState<string | null>(null);
-  const [reason, setReason] = useState('');
   const catalogue = useQuery({ queryKey: ['admin', 'roles'], queryFn: roles, enabled: open });
-  const save = useMutation({
-    mutationFn: () =>
-      decideStaff(
-        userId,
-        decision === 'approve'
-          ? { decision, roleKey: roleKey! }
-          : { decision, reason: reason.trim() },
-      ),
-    onSuccess: () => {
-      const done = decision;
-      reset();
-      onDone(done);
-    },
+  const form = useForm<DecisionFields>({
+    resolver: useSchemaResolver(DECISION_SCHEMA),
+    defaultValues: EMPTY,
+    reValidateMode: 'onSubmit',
   });
-  const reset = () => {
-    setDecision('approve');
-    setRoleKey(null);
-    setReason('');
-    save.reset();
+  const decision = useWatch({ control: form.control, name: 'decision' });
+  const ready = DECISION_SCHEMA.safeParse(useWatch({ control: form.control })).success;
+  const pending = form.formState.isSubmitting;
+  const error =
+    form.formState.errors.root?.server?.message ??
+    (catalogue.error instanceof ApiFailure
+      ? (catalogue.error.details[0]?.message ?? catalogue.error.message)
+      : undefined);
+
+  const save = async (values: DecisionFields) => {
+    try {
+      await decideStaff(
+        userId,
+        values.decision === 'approve'
+          ? { decision: values.decision, roleKey: values.roleKey }
+          : { decision: values.decision, reason: values.reason.trim() },
+      );
+    } catch (failure) {
+      showFailure(form, failure, ts('text'));
+      return;
+    }
+    form.reset(EMPTY);
+    onDone(values.decision);
   };
   const close = () => {
-    reset();
+    form.reset(EMPTY);
     onClose();
   };
-  const failure = save.error ?? catalogue.error;
-  const ready = decision === 'approve' ? roleKey !== null : reason.trim().length >= 3;
   const options = (catalogue.data ?? [])
     .filter((r) => r.kind === 'official' && r.key !== NOT_GIVEN)
     .map((r) => ({ value: r.key, label: r.name[locale] }));
+
   return (
     <Dialog
       title={t('staff.title', { name })}
       open={open}
       onClose={close}
-      dismissible={!save.isPending}
+      dismissible={!pending}
       actions={
         <>
-          <Button variant="secondary" onClick={close} disabled={save.isPending}>
+          <Button variant="secondary" onClick={close} disabled={pending}>
             {tc('cancel')}
           </Button>
-          <Button onClick={() => save.mutate()} disabled={!ready} loading={save.isPending}>
+          <Button
+            onClick={() => void form.handleSubmit(save)()}
+            disabled={!ready}
+            loading={pending}
+          >
             {t('staff.submit')}
           </Button>
         </>
       }
     >
-      {failure instanceof ApiFailure && (
-        <Alert tone="error">{failure.details[0]?.message ?? failure.message}</Alert>
-      )}
-      <RadioGroup
-        label={t('staff.decision')}
-        orientation="horizontal"
-        value={decision}
-        onChange={(id) => setDecision(id as Decision)}
-        options={[
-          { value: 'approve', label: t('staff.approve') },
-          { value: 'reject', label: t('staff.reject') },
-        ]}
-      />
-      {decision === 'approve' ? (
-        <SelectField
-          label={t('staff.role')}
-          required
-          value={roleKey ?? ''}
-          onChange={(v) => setRoleKey(v || null)}
-          options={options}
-          searchable={false}
+      <Form form={form} onSubmit={save} label={t('staff.title', { name })}>
+        {error && <Alert tone="error">{error}</Alert>}
+        <Controller
+          control={form.control}
+          name="decision"
+          render={({ field, fieldState }) => (
+            <RadioGroup
+              label={t('staff.decision')}
+              orientation="horizontal"
+              value={field.value}
+              onChange={(id) => field.onChange(id as Decision)}
+              error={fieldState.error?.message}
+              options={[
+                { value: 'approve', label: t('staff.approve') },
+                { value: 'reject', label: t('staff.reject') },
+              ]}
+            />
+          )}
         />
-      ) : (
-        <TextField
-          rows={4}
-          label={t('reason')}
-          hint={t('staff.reason_hint')}
-          required
-          maxLength={1000}
-          value={reason}
-          onChange={setReason}
-        />
-      )}
+        {decision === 'approve' ? (
+          <FormSelectField
+            name="roleKey"
+            label={t('staff.role')}
+            required
+            options={options}
+            searchable={false}
+          />
+        ) : (
+          <FormTextField
+            name="reason"
+            rows={4}
+            label={t('reason')}
+            hint={t('staff.reason_hint')}
+            required
+            maxLength={1000}
+          />
+        )}
+      </Form>
     </Dialog>
   );
 }

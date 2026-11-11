@@ -1,5 +1,5 @@
 import type { Logger } from 'pino';
-import { attachPendingPhoto } from '../applications/pending-photos';
+import { attachPendingPhoto } from '../applications/pending-photos.js';
 import { z } from 'zod';
 import { uuidv7 } from '@css/shared';
 import {
@@ -14,21 +14,21 @@ import {
   type UploadSessionCreate,
   uploadSessionCreateSchema,
 } from '@css/shared/files';
-import type { AccessService } from '../access/service';
-import type { Scope } from '../access/scope';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { dropParts, joinParts, partCount, storePart } from '../files/parts';
-import { bucketOf, detectType, MAGIC_LENGTH, objectKeyOf } from '../files/policy';
-import { photoFlags, projectPhotoSource } from '../files/flags';
-import { loadUploadRecord, scopeReachesRecord, type UploadRecord } from '../files/records';
-import { enqueueFileProcess } from '../jobs/file-process';
-import type { JobRunner } from '../jobs/job-runner';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { Bucket, StorageDriver } from '../storage';
+import type { AccessService } from '../access/service.js';
+import type { Scope } from '../access/scope.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { dropParts, joinParts, partCount, storePart } from '../files/parts.js';
+import { bucketOf, detectType, MAGIC_LENGTH, objectKeyOf } from '../files/policy.js';
+import { photoFlags, projectPhotoSource } from '../files/flags.js';
+import { loadUploadRecord, scopeReachesRecord, type UploadRecord } from '../files/records.js';
+import { enqueueFileProcess } from '../jobs/file-process.js';
+import type { JobRunner } from '../jobs/job-runner.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { Bucket, StorageDriver } from '../storage/index.js';
 
 /** An upload in progress, as the client resumes it. */
 export interface UploadSessionView {

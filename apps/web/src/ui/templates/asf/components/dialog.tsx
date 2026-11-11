@@ -1,7 +1,8 @@
 import type { Theme } from '@mui/material/styles';
 import type { ConfirmDialogProps, DialogExtendedProps } from '@/ui/contract';
 
-import { useId, useState } from 'react';
+import { useId } from 'react';
+import { useForm, useController } from 'react-hook-form';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -61,8 +62,14 @@ function ConfirmBody({
   pending,
 }: Omit<ConfirmDialogProps, 'open'> & { titleId: string }) {
   const labels = useLabels();
-  const [reason, setReason] = useState('');
-  const ready = !reasonRequired || reason.trim() !== '';
+  const { control, handleSubmit } = useForm({ defaultValues: { reason: '' } });
+  const reasonOk = (value: string) => !reasonRequired || value.trim() !== '';
+  const { field } = useController({ control, name: 'reason', rules: { validate: reasonOk } });
+  const ready = reasonOk(field.value);
+  // the button confirms, never twice while the action runs; Enter in the reason writes a new line
+  const confirm = handleSubmit(({ reason }) => {
+    if (!pending) onConfirm(reason.trim());
+  });
   return (
     <>
       <DialogTitle id={titleId}>{title}</DialogTitle>
@@ -78,8 +85,11 @@ function ConfirmBody({
         {reasonRequired && (
           <TextField
             label={reasonLabel ?? labels.reason}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
+            name={field.name}
+            value={field.value}
+            onChange={(event) => field.onChange(event.target.value)}
+            onBlur={field.onBlur}
+            inputRef={field.ref}
             required
             multiline
             minRows={2}
@@ -93,14 +103,7 @@ function ConfirmBody({
         <Button variant="outlined" color="inherit" onClick={onCancel} disabled={pending}>
           {labels.cancel}
         </Button>
-        <Button
-          variant="contained"
-          color="inherit"
-          sx={tone === 'danger' ? dangerButton : darkButton}
-          onClick={() => onConfirm(reason.trim())}
-          disabled={!ready}
-          loading={pending}
-        >
+        <Button variant="contained" color="inherit" sx={tone === 'danger' ? dangerButton : darkButton} onClick={() => void confirm()} disabled={!ready} loading={pending}>
           {confirmLabel}
         </Button>
       </DialogActions>

@@ -3,11 +3,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedFormTemplates } from '../../seed/sets/base/forms';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { accessWorld } from './support/access-fixtures';
+import { SeedContext } from '../../seed/context.js';
+import { seedFormTemplates } from '../../seed/sets/base/forms.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -16,9 +16,9 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { MIGRATIONS_DIR } from './support/db';
-import { beneficiary, fakeMobile, fakeNid, locationTree } from './support/fixtures';
+} from './support/auth-app.js';
+import { MIGRATIONS_DIR } from './support/db.js';
+import { beneficiary, fakeMobile, fakeNid, locationTree } from './support/fixtures.js';
 
 // The public application link: a PM switches it on with one form, anyone with the link reads the
 // form and submits an entry that waits for verification, and nothing about anyone is revealed on
@@ -42,7 +42,7 @@ beforeAll(async () => {
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
   loc = await locationTree(h.db);
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   await seedFormTemplates(ctx);

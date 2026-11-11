@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { seedAccessCatalogue } from './support/access-fixtures';
+import { seedAccessCatalogue } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -11,7 +11,7 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // The official's profile, the staff directory and the organogram.
 let h: AuthHarness;

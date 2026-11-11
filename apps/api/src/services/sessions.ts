@@ -1,12 +1,12 @@
 import { type DeviceSession } from '@css/shared/auth';
-import type { Scope } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { SessionService } from '../auth/session.service';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { AccountEvents } from '../notifications/account-events';
+import type { Scope } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { SessionService } from '../auth/session.service.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { AccountEvents } from '../notifications/account-events.js';
 
 type SessionRow = Awaited<ReturnType<SessionService['list']>>[number];
 
@@ -26,7 +26,10 @@ function view(row: SessionRow, currentId: string | null): DeviceSession {
   };
 }
 
-/** Device lists and remote revocation (AUTH.md 8, openapi tag sessions). */
+/**
+ * Device lists and remote revocation (docs/architecture/AUTH.md, "Devices: listing, remote
+ * revocation and local-data wipe"; openapi tag sessions).
+ */
 export class SessionsService {
   constructor(
     private readonly sessions: SessionService,
@@ -70,7 +73,7 @@ export class SessionsService {
 
   /**
    * The target account inside the caller's scope, or 404 (unknown, out of scope, system actor). An
-   * official below the global roles reaches only volunteers' devices (RBAC.md: an RPM sees the
+   * official below the global roles reaches only volunteers' devices (docs/security/RBAC.md: an RPM sees the
    * sessions of volunteers), never another official's, even one working in the same area.
    */
   private async target(actor: Principal, scope: Scope, userId: string) {
@@ -98,7 +101,8 @@ export class SessionsService {
     reason: string,
   ): Promise<void> {
     const user = await this.target(actor, scope, userId);
-    // The Main Admin's sessions are revoked only by the Main Admin (AUTH.md 11).
+    // The Main Admin's sessions are revoked only by the Main Admin (docs/architecture/AUTH.md,
+    // "Main Admin protection").
     if (user.isSystemOwner && user.id !== actor.userId)
       throw new ApiError('user.system_owner_protected', 409);
     await this.prisma.$transaction(async (tx) => {

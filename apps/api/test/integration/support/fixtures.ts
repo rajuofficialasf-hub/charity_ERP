@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { fakeMobile as sharedFakeMobile, fakeNid as sharedFakeNid } from '@css/shared';
 import type { Client } from 'pg';
-import { mergedWorkflowDefinitions } from '../../../src/workflow/templates';
+import { mergedWorkflowDefinitions } from '../../../src/workflow/templates.js';
 
 /**
- * Minimal row builders for database tests. Identities are obviously fake (TEST_STRATEGY section 4):
- * NIDs from 1000000000, mobiles 0170000xxxx, emails @example.org. Each builder inserts one row
- * with only the required columns and returns its id.
+ * Minimal row builders for database tests. Identities are obviously fake
+ * (docs/testing/TEST_STRATEGY.md, "Test data strategy"): NIDs from 1000000000, mobiles 0170000xxxx,
+ * emails @example.org. Each builder inserts one row with only the required columns and returns its
+ * id.
  */
 let counter = 0;
 const next = () => ++counter;

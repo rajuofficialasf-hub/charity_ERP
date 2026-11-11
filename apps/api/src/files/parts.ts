@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { UPLOAD_RULES } from '@css/shared/files';
-import { ApiError } from '../i18n/api-error';
-import { type Bucket, NotFoundError, type StorageDriver } from '../storage';
+import { ApiError } from '../i18n/api-error.js';
+import { type Bucket, NotFoundError, type StorageDriver } from '../storage/index.js';
 
 export const PART_SIZE = UPLOAD_RULES.partSize;
 export const MAX_PARTS = UPLOAD_RULES.maxParts;

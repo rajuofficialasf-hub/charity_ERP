@@ -1,8 +1,8 @@
 import { componentSettingsSchemas } from '@css/shared';
 import type { FormDefinition } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
-import type { Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
+import type { Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /** The field types the public cannot answer: an upload without a login exists for photos only. */
 const NOT_ON_THE_LINK = new Set(['file', 'signature']);

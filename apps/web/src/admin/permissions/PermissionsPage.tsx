@@ -9,10 +9,11 @@ import { type PanelUser, UserSearch } from '../UserSearch';
 import { EffectivePermissions } from './EffectivePermissions';
 
 /**
- * The permission panel (docs/ui/SCREENS.md "Permission panel", RBAC.md 7): the Department Head and the Monitoring Team find a
- * user, see the roles (read only) and the effective permissions, grant or remove a
- * permission and end a panel grant. The API checks `permission.panel.manage` on every change;
- * this page only decides what to show. The rule of the least access stands beside the search.
+ * The permission panel (docs/ui/SCREENS.md "Permission panel"; docs/security/RBAC.md, "Permission
+ * panel"): the Department Head and the Monitoring Team find a user, see the roles (read only) and
+ * the effective permissions, grant or remove a permission and end a panel grant. The API checks
+ * `permission.panel.manage` on every change; this page only decides what to show. The rule of the
+ * least access stands beside the search.
  */
 export function PermissionsPage() {
   const { me } = useAuth();

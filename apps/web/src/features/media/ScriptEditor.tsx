@@ -1,9 +1,11 @@
 import type { MediaScript } from '@css/shared';
-import { SCRIPT_STATES, type ScriptState } from '@css/shared/media';
-import { Alert, Button, Card, Disclosure, SelectField, Stack, Text, TextField } from '@/ui';
+import { SCRIPT_STATES } from '@css/shared/media';
+import { Button, Card, Disclosure, Form, FormSelectField, FormTextField, Stack, Text } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
+import { z } from 'zod';
+import { useSchemaResolver } from '../../lib/form-schema';
 import { type MediaReferral, type MediaWork, updateWork } from './media-api';
 import { failureOf } from './work-errors';
 
@@ -17,6 +19,19 @@ const LABEL: Record<Part, 'summary' | 'questions' | 'scenes' | 'voice_over' | 'n
   voiceOver: 'voice_over',
   notes: 'notes',
 };
+
+/** The five parts as typed, each free and left out when empty, and the script's state. */
+const SCRIPT_SCHEMA = z.object({
+  script: z.object({
+    summary: z.string(),
+    questions: z.string(),
+    scenes: z.string(),
+    voiceOver: z.string(),
+    notes: z.string(),
+  }),
+  scriptState: z.enum(SCRIPT_STATES),
+});
+type ScriptFields = z.infer<typeof SCRIPT_SCHEMA>;
 
 /**
  * The work's script in its five parts and its state; saved with the version the caller read, so a
@@ -33,25 +48,42 @@ export function ScriptEditor({
 }) {
   const t = useTranslations('media');
   const tc = useTranslations('common');
-  const [script, setScript] = useState<MediaScript>(work.script ?? {});
-  const [state, setState] = useState<ScriptState>(work.scriptState);
+  const stored: MediaScript = work.script ?? {};
+  const form = useForm<ScriptFields>({
+    resolver: useSchemaResolver(SCRIPT_SCHEMA),
+    defaultValues: {
+      script: {
+        summary: stored.summary ?? '',
+        questions: stored.questions ?? '',
+        scenes: stored.scenes ?? '',
+        voiceOver: stored.voiceOver ?? '',
+        notes: stored.notes ?? '',
+      },
+      scriptState: work.scriptState,
+    },
+    reValidateMode: 'onSubmit',
+  });
   const texts = { stale: t('work.stale'), fallback: tc('state.error.text') };
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: ({ script, scriptState }: ScriptFields) => {
       const parts = Object.fromEntries(
         PARTS.flatMap((p) => {
           // eslint-disable-next-line security/detect-object-injection -- a fixed part name
-          const text = script[p]?.trim();
+          const text = script[p].trim();
           return text ? [[p, text]] : [];
         }),
       ) as MediaScript;
-      return updateWork(work.id, work.version, { script: parts, scriptState: state });
+      return updateWork(work.id, work.version, { script: parts, scriptState });
     },
     onSuccess: (next) => onSaved(next, t('work.script_saved')),
     onError: (error) => {
       if (failureOf(error, texts).stale) onStale();
     },
   });
+  // nothing twice while a save is on its way
+  const send = (fields: ScriptFields) => {
+    if (!save.isPending) save.mutate(fields);
+  };
   if (!work.script)
     return (
       <Card title={t('work.script')} headingLevel={2}>
@@ -68,21 +100,37 @@ export function ScriptEditor({
         </Text>
       }
     >
-      <Stack gap={3}>
-        {save.error ? <Alert tone="error">{failureOf(save.error, texts).text}</Alert> : null}
-        {PARTS.map((part, i) =>
-          work.mayEditScript ? (
-            <TextField
+      {work.mayEditScript ? (
+        <Form
+          form={form}
+          onSubmit={send}
+          label={t('work.script')}
+          error={save.error ? failureOf(save.error, texts).text : undefined}
+        >
+          {PARTS.map((part) => (
+            <FormTextField
               rows={4}
               key={part}
+              name={`script.${part}`}
               // eslint-disable-next-line security/detect-object-injection -- a fixed part name
               label={t(`script_part.${LABEL[part]}`)}
               maxLength={20000}
-              // eslint-disable-next-line security/detect-object-injection -- a fixed part name
-              value={script[part] ?? ''}
-              onChange={(v) => setScript((all) => ({ ...all, [part]: v }))}
             />
-          ) : (
+          ))}
+          <Stack direction="row" gap={2} wrap align="end">
+            <FormSelectField
+              name="scriptState"
+              label={t('work.script_state')}
+              options={SCRIPT_STATES.map((s) => ({ value: s, label: t(`script_state.${s}`) }))}
+            />
+            <Button type="submit" loading={save.isPending}>
+              {t('work.save_script')}
+            </Button>
+          </Stack>
+        </Form>
+      ) : (
+        <Stack gap={3}>
+          {PARTS.map((part, i) => (
             <Disclosure
               key={part}
               // eslint-disable-next-line security/detect-object-injection -- a fixed part name
@@ -92,22 +140,9 @@ export function ScriptEditor({
               {/* eslint-disable-next-line security/detect-object-injection -- a fixed part name */}
               <Text>{work.script?.[part] || '—'}</Text>
             </Disclosure>
-          ),
-        )}
-        {work.mayEditScript ? (
-          <Stack direction="row" gap={2} wrap align="end">
-            <SelectField
-              label={t('work.script_state')}
-              value={state}
-              options={SCRIPT_STATES.map((s) => ({ value: s, label: t(`script_state.${s}`) }))}
-              onChange={(id) => id && setState(id as ScriptState)}
-            />
-            <Button onClick={() => save.mutate()} loading={save.isPending}>
-              {t('work.save_script')}
-            </Button>
-          </Stack>
-        ) : null}
-      </Stack>
+          ))}
+        </Stack>
+      )}
     </Card>
   );
 }

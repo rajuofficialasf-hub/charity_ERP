@@ -1,16 +1,16 @@
 import { uuidv7 } from '@css/shared';
 import type { CorrectionRequestCreate, LockedField } from '@css/shared/beneficiaries';
 import type { DecisionRequest } from '@css/shared/registration';
-import type { AccessService } from '../access/service';
-import { beneficiaryWhere, type Scope } from '../access/scope';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import { isUniqueViolation } from '../core/db-errors';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { BeneficiaryIdentityService } from './beneficiary-identity';
-import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
+import type { AccessService } from '../access/service.js';
+import { beneficiaryWhere, type Scope } from '../access/scope.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import { isUniqueViolation } from '../core/db-errors.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
+import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
 
 /** The column of each locked field. */
 const COLUMN = {

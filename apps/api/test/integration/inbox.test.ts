@@ -1,7 +1,7 @@
 import { uuidv7 } from '@css/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { NotificationInput } from '../../src/notifications/service';
+import type { NotificationInput } from '../../src/notifications/service.js';
 import {
   type Account,
   account,
@@ -10,7 +10,7 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // The own inbox and preferences (docs/architecture/NOTIFICATIONS.md, inbox and preferences): only
 // the caller's entries, rendered in the caller's language from the stored template version.

@@ -5,19 +5,19 @@ import type {
   ScopeTypeName,
 } from '@css/shared/access';
 import { uuidv7 } from '@css/shared';
-import { type EffectiveGrant, effectiveAccess, loadAccessFacts } from '../access/effective';
-import type { Scope } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PermissionVersionService } from '../auth/permission-version.service';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
-import type { AccountEvents } from '../notifications/account-events';
-import type { ProjectEvents } from '../notifications/project-events';
+import { type EffectiveGrant, effectiveAccess, loadAccessFacts } from '../access/effective.js';
+import type { Scope } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PermissionVersionService } from '../auth/permission-version.service.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError, type ApiErrorDetail } from '../i18n/api-error.js';
+import type { AccountEvents } from '../notifications/account-events.js';
+import type { ProjectEvents } from '../notifications/project-events.js';
 
-/** Rules of `permission.grant_refused` (RBAC.md 7). */
+/** Rules of `permission.grant_refused` (docs/security/RBAC.md, "Permission panel"). */
 export type RefusalRule =
   | 'owner_transfer_only_head'
   | 'global_scope_protected'
@@ -27,7 +27,10 @@ export type RefusalRule =
 
 const OWNER_TRANSFER = 'system.owner.transfer';
 const IF_RPM_GRANTS = 'if_rpm_grants';
-/** The location level a scope reference must have (DATABASE_SCHEMA L-location-level). */
+/**
+ * The location level a scope reference must have (the location levels of
+ * docs/database/DATABASE_SCHEMA.md, "Fixed system codes").
+ */
 const AREA_LEVEL: Partial<Record<ScopeTypeName, string>> = {
   REGION: 'division',
   DISTRICT: 'district',
@@ -56,11 +59,12 @@ const byName = (a: EffectivePermission, b: EffectivePermission) =>
   a.permission.localeCompare(b.permission) || a.scopeType.localeCompare(b.scopeType);
 
 /**
- * The permission panel and project grants (RBAC.md 7, docs/ui/SCREENS.md "Permission panel"): reads of the catalogue and of a
- * user's effective permissions, panel overrides by the Department Head and the Monitoring Team,
- * and the RPM's "if RPM grants" extras on a project. Every change runs in one transaction, writes
- * a `permission_change` audit entry with the old and new effective grants and bumps the target's
- * permission version (AUTH.md 9). Refusals are audited as `permission_change_refused`.
+ * The permission panel and project grants (docs/ui/SCREENS.md "Permission panel"): reads of the
+ * catalogue and of a user's effective permissions, panel overrides by the Department Head and the
+ * Monitoring Team, and the RPM's "if RPM grants" extras on a project. Every change runs in one
+ * transaction, writes a `permission_change` audit entry with the old and new effective grants and
+ * bumps the target's permission version (docs/architecture/AUTH.md, "Role or permission change
+ * forces a session refresh"). Refusals are audited as `permission_change_refused`.
  */
 export class AccessPanelService {
   constructor(
@@ -135,9 +139,9 @@ export class AccessPanelService {
   }
 
   /**
-   * The hard rules shared by the panel and project grants (RBAC.md 7): the owner transfer only
-   * for the Department Head, no removal of the GLOBAL scope of a global role, and no sensitive
-   * permission for a volunteer, whatever the catalogue says.
+   * The hard rules shared by the panel and project grants: the owner transfer only for the
+   * Department Head, no removal of the GLOBAL scope of a global role, and no sensitive permission
+   * for a volunteer, whatever the catalogue says.
    */
   private refusal(
     target: Target,
@@ -187,7 +191,7 @@ export class AccessPanelService {
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
   }
 
-  /** 422 details for a scope reference, a condition or an expiry that does not fit (RBAC.md 7). */
+  /** 422 details for a scope reference, a condition or an expiry that does not fit. */
   private async invalid(db: Tx, body: PermissionGrantRequest): Promise<ApiErrorDetail[]> {
     const details: ApiErrorDetail[] = [];
     if (!this.registry.permissions.has(body.permission))

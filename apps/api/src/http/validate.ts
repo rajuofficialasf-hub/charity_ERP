@@ -1,6 +1,6 @@
 import type { Request, RequestHandler, Response } from 'express';
 import type { z, ZodType } from 'zod';
-import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
+import { ApiError, type ApiErrorDetail } from '../i18n/api-error.js';
 
 export type Source = 'body' | 'query' | 'params';
 
@@ -8,8 +8,9 @@ export type Source = 'body' | 'query' | 'params';
 const CATALOGUE_CODE = /^[a-z_]+\.[a-z_.]+$/;
 
 /**
- * Catalogue code of one zod issue (API_STANDARDS 7 and 8). Shared schemas name a specific code
- * with `{ message: '<code>' }` or a refinement's `params.code`; otherwise the issue kind decides.
+ * Catalogue code of one zod issue (docs/api/API_STANDARDS.md, "Validation and localization" and
+ * "Error-code catalogue"). Shared schemas name a specific code with `{ message: '<code>' }` or a
+ * refinement's `params.code`; otherwise the issue kind decides.
  */
 export function issueCode(issue: z.core.$ZodIssue): string {
   const custom = (issue as { params?: { code?: unknown } }).params?.code;

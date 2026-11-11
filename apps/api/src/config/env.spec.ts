@@ -1,14 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadEnv } from './env';
+import { loadEnv } from './env.js';
 
 const base = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/css_erp_dev',
   CURSOR_SECRET: 'x'.repeat(32),
   STORAGE_DRIVER: 's3',
-  MINIO_ACCESS_KEY: 'placeholder',
-  MINIO_SECRET_KEY: 'placeholder',
+  S3_ENDPOINT: 'https://s3.example.org',
+  S3_ACCESS_KEY_ID: 'placeholder',
+  S3_SECRET_ACCESS_KEY: 'placeholder',
   JWT_SECRET: 'j'.repeat(32),
   AUTH_CSRF_SECRET: 'c'.repeat(32),
   OTP_SECRET: 'o'.repeat(32),
@@ -106,11 +107,62 @@ describe('loadEnv', () => {
     );
   });
 
-  it('needs MinIO keys for MinIO storage and a short cursor secret is refused', () => {
-    expect(() =>
-      loadEnv({ ...base, MINIO_ACCESS_KEY: undefined, MINIO_SECRET_KEY: undefined }),
-    ).toThrow(/MINIO_ACCESS_KEY/);
+  it('needs the endpoint and the key pair for the S3 driver, and none of them for the NAS', () => {
+    for (const key of ['S3_ENDPOINT', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'])
+      expect(() => loadEnv({ ...base, [key]: undefined }), key).toThrow(
+        new RegExp(`${key}: required when STORAGE_DRIVER=s3`),
+      );
+    const root = process.platform === 'win32' ? 'D:\\nas\\css-erp' : '/mnt/nas/css-erp';
+    expect(
+      loadEnv({
+        ...base,
+        STORAGE_DRIVER: 'nas',
+        STORAGE_ROOT: root,
+        S3_ENDPOINT: undefined,
+        S3_ACCESS_KEY_ID: undefined,
+        S3_SECRET_ACCESS_KEY: undefined,
+      }).STORAGE_DRIVER,
+    ).toBe('nas');
     expect(() => loadEnv({ ...base, CURSOR_SECRET: 'short' })).toThrow(/CURSOR_SECRET/);
+  });
+
+  it('reads the S3 endpoint as a whole http(s) URL and the region with its default', () => {
+    expect(loadEnv(base)).toMatchObject({
+      S3_ENDPOINT: 'https://s3.example.org',
+      S3_REGION: 'us-east-1',
+    });
+    expect(
+      loadEnv({ ...base, S3_ENDPOINT: 'http://seaweedfs:8333', S3_REGION: 'eu-central-1' }),
+    ).toMatchObject({ S3_ENDPOINT: 'http://seaweedfs:8333', S3_REGION: 'eu-central-1' });
+    for (const bad of [
+      'seaweedfs:8333',
+      '127.0.0.1',
+      'ftp://s3.example.org:21',
+      'http://s3.example.org:8333/documents',
+      'http://s3.example.org:8333?bucket=documents',
+    ])
+      expect(() => loadEnv({ ...base, S3_ENDPOINT: bad }), bad).toThrow(/S3_ENDPOINT/);
+  });
+
+  it('refuses each earlier MinIO setting, naming the setting that replaces it', () => {
+    const renamed = {
+      MINIO_ENDPOINT: 'S3_ENDPOINT',
+      MINIO_PORT: 'S3_ENDPOINT',
+      MINIO_USE_SSL: 'S3_ENDPOINT',
+      MINIO_ACCESS_KEY: 'S3_ACCESS_KEY_ID',
+      MINIO_SECRET_KEY: 'S3_SECRET_ACCESS_KEY',
+    };
+    for (const [old, next] of Object.entries(renamed))
+      expect(() => loadEnv({ ...base, [old]: 'x' }), old).toThrow(
+        new RegExp(`${old}: renamed, set ${next} instead`),
+      );
+    // the refusal holds with the NAS driver too: a leftover name means a stale configuration
+    const root = process.platform === 'win32' ? 'D:\\nas\\css-erp' : '/mnt/nas/css-erp';
+    expect(() =>
+      loadEnv({ ...base, STORAGE_DRIVER: 'nas', STORAGE_ROOT: root, MINIO_PORT: '9000' }),
+    ).toThrow(/MINIO_PORT: renamed, set S3_ENDPOINT instead/);
+    // an empty value is unset, as everywhere else
+    expect(() => loadEnv({ ...base, MINIO_ENDPOINT: '' })).not.toThrow();
   });
 
   it('refuses the dummy OTP and insecure auth cookies in production', () => {
@@ -204,21 +256,24 @@ describe('loadEnv', () => {
   describe('the local example secrets in production', () => {
     // every secret value the two example files hand to a developer, read from the files themselves
     // so a new example value is checked as soon as it is written there
-    const root = resolve(__dirname, '../../../..');
+    const root = resolve(import.meta.dirname, '../../../..');
     const fromEnvExample = Object.fromEntries(
       readFileSync(resolve(root, 'apps/api/.env.example'), 'utf8')
         .split('\n')
-        .map((line) => /^([A-Z_]+)=(.+)$/.exec(line.trim()))
+        .map((line) => /^([A-Z][A-Z0-9_]*)=(.+)$/.exec(line.trim()))
         .filter((m): m is RegExpExecArray => m !== null)
         .map((m) => [m[1]!, m[2]!]),
     );
     const fromCompose = Object.fromEntries(
       readFileSync(resolve(root, 'infra/docker-compose.app.yml'), 'utf8')
         .split('\n')
-        .map((line) => /^\s+([A-Z_]+): (.+)$/.exec(line))
+        .map((line) => /^\s+([A-Z][A-Z0-9_]*): (.+)$/.exec(line))
         .filter((m): m is RegExpExecArray => m !== null)
         // a compose default `${NAME:-value}` is the value a developer gets
-        .map((m) => [m[1]!, m[2]!.replace(/\$\{[A-Z_]+:-([^}]*)\}/g, '$1').replace(/^'|'$/g, '')]),
+        .map((m) => [
+          m[1]!,
+          m[2]!.replace(/\$\{[A-Z][A-Z0-9_]*:-([^}]*)\}/g, '$1').replace(/^'|'$/g, ''),
+        ]),
     );
     const secrets = [
       'JWT_SECRET',
@@ -229,8 +284,8 @@ describe('loadEnv', () => {
       'LOCAL_KEY_SECRET',
       'LOCAL_KEY_PREVIOUS_SECRET',
       'SMTP_PASSWORD',
-      'MINIO_ACCESS_KEY',
-      'MINIO_SECRET_KEY',
+      'S3_ACCESS_KEY_ID',
+      'S3_SECRET_ACCESS_KEY',
       'DATABASE_URL',
     ];
     const cases = [
@@ -255,13 +310,36 @@ describe('loadEnv', () => {
         expect.arrayContaining([
           '.env.example JWT_SECRET',
           '.env.example DATABASE_URL',
-          '.env.example MINIO_SECRET_KEY',
+          '.env.example S3_ACCESS_KEY_ID',
+          '.env.example S3_SECRET_ACCESS_KEY',
           'the dev compose file JWT_SECRET',
           'the dev compose file LOCAL_KEY_SECRET',
-          'the dev compose file MINIO_ACCESS_KEY',
+          'the dev compose file S3_ACCESS_KEY_ID',
+          'the dev compose file S3_SECRET_ACCESS_KEY',
           'the dev compose file DATABASE_URL',
         ]),
       );
+    });
+
+    it('hands out one local S3 key pair: the example file, both compose files and the SeaweedFS identity', () => {
+      const devCompose = readFileSync(resolve(root, 'infra/docker-compose.dev.yml'), 'utf8');
+      const composeValue = (name: string) =>
+        new RegExp(`^\\s+${name}: (\\S+)$`, 'm').exec(devCompose)?.[1];
+      const identities = (
+        JSON.parse(readFileSync(resolve(root, 'infra/seaweedfs/s3.json'), 'utf8')) as {
+          identities: { credentials: { accessKey: string; secretKey: string }[] }[];
+        }
+      ).identities;
+      const pair = [fromEnvExample['S3_ACCESS_KEY_ID'], fromEnvExample['S3_SECRET_ACCESS_KEY']];
+      expect(pair.every((value) => value?.includes('css_dev_only'))).toBe(true);
+      expect([fromCompose['S3_ACCESS_KEY_ID'], fromCompose['S3_SECRET_ACCESS_KEY']]).toEqual(pair);
+      // the bucket bootstrap signs in with the same pair
+      expect([composeValue('AWS_ACCESS_KEY_ID'), composeValue('AWS_SECRET_ACCESS_KEY')]).toEqual(
+        pair,
+      );
+      // one identity only: no anonymous one, which would open the buckets to unsigned requests
+      expect(identities).toHaveLength(1);
+      expect(identities[0]!.credentials.map((c) => [c.accessKey, c.secretKey])).toEqual([pair]);
     });
 
     it.each(cases)(
@@ -280,8 +358,8 @@ describe('loadEnv', () => {
         'openapi-generation-only-jwt-secret-01234',
       ])
         expect(refusalOf({ ...production, JWT_SECRET: value })).toContain('JWT_SECRET');
-      expect(refusalOf({ ...production, MINIO_SECRET_KEY: 'css_ci_only_secret' })).toContain(
-        'MINIO_SECRET_KEY',
+      expect(refusalOf({ ...production, S3_SECRET_ACCESS_KEY: 'css_ci_only_secret' })).toContain(
+        'S3_SECRET_ACCESS_KEY',
       );
       expect(
         refusalOf({ ...production, DATABASE_URL: 'postgresql://css@db.example.org:5432/css_erp' }),

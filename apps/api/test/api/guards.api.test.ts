@@ -2,11 +2,11 @@ import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { AuditWriter } from '../../src/audit/audit-writer';
-import type { Tx } from '../../src/core/prisma.service';
-import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
-import { RATE_LIMITS } from '../../src/rate-limit/rate-limit';
-import { buildTestApp, type TestApp } from '../support/app';
+import { AuditWriter } from '../../src/audit/audit-writer.js';
+import type { Tx } from '../../src/core/prisma.service.js';
+import { defineRoute, type RouteDeps } from '../../src/openapi/define-route.js';
+import { RATE_LIMITS } from '../../src/rate-limit/rate-limit.js';
+import { buildTestApp, type TestApp } from '../support/app.js';
 
 // A transaction stand-in: the audit insert succeeds without a database.
 const fakeTx = { auditLog: { create: async () => ({}) } } as unknown as Tx;
@@ -115,7 +115,7 @@ function probes(deps: RouteDeps): Router {
   return router;
 }
 
-describe('rate limits and audit enforcement (API_STANDARDS 10, 15)', () => {
+describe('rate limits and audit enforcement', () => {
   let t: TestApp;
 
   beforeAll(() => {
@@ -141,7 +141,8 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15)', () => {
       .expect(429);
     expect(blocked.body.error.code).toBe('rate_limit.exceeded');
     expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
-    // login id and IP are counted separately (AUTH.md 12): the IP window is spent as well
+    // login id and IP are counted separately (docs/architecture/AUTH.md, "Rate limiting"): the IP
+    // window is spent as well
     await request(t.app)
       .post('/api/v1/guard-probe/login')
       .send({ loginId: 'b@example.org' })
@@ -166,7 +167,7 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15)', () => {
     ]);
   });
 
-  it('counts every spelling of one login id in the same window (AUTH.md 1)', async () => {
+  it('counts every spelling of one login id in the same window', async () => {
     const spellings = ['01700000009', ' 0170-0000009 ', '+8801700000009', '8801700000009'];
     for (let i = 0; i < 10; i++)
       await request(t.app)

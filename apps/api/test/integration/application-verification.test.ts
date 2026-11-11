@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { accessWorld } from './support/access-fixtures';
-import { applicationProject, applicationRow, IDENTITY_ANSWERS } from './support/applications';
+import { SeedContext } from '../../seed/context.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { applicationProject, applicationRow, IDENTITY_ANSWERS } from './support/applications.js';
 import {
   type Account,
   account,
@@ -14,8 +14,8 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { beneficiary, fakeMobile, fakeNid } from './support/fixtures';
+} from './support/auth-app.js';
+import { beneficiary, fakeMobile, fakeNid } from './support/fixtures.js';
 
 // The verification queue: the entries of the public link wait as needs verification; an official
 // of the region links an entry to the profile its number already has, or creates the profile when
@@ -66,7 +66,7 @@ beforeAll(async () => {
     return a.id;
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   const made = await at(await as(world.users.pm), 'post', '/projects').send({

@@ -11,14 +11,19 @@ import {
 import { SETTING_DEFAULTS } from '@css/shared/settings';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { readPermissionsFile } from '../../seed/sets/base/access';
-import { deriveTransitions, readWorkflowTemplates } from '../../seed/sets/base/workflows';
-import { DEMO_DUPLICATE_PAIRS, DEMO_STAFF } from '../../seed/sets/demo';
-import { runSeed, type SeedReport } from '../../seed/run';
-import { cloneTemplate } from './support/db';
+import { json, SeedContext } from '../../seed/context.js';
+import { readPermissionsFile } from '../../seed/sets/base/access.js';
+import { deriveTransitions, readWorkflowTemplates } from '../../seed/sets/base/workflows.js';
+import { DEMO_DUPLICATE_PAIRS, DEMO_STAFF } from '../../seed/sets/demo/index.js';
+import { runSeed, type SeedReport } from '../../seed/run.js';
+import { prismaClientFor } from '../../src/core/prisma.service.js';
+import type { PrismaClient } from '../../src/generated/prisma/client.js';
+import { cloneTemplate } from './support/db.js';
 
-// Seed framework: deterministic, idempotent, fake data only, never outside dev/test.
+// Seed framework: deterministic, idempotent, fake data only, never outside dev/test. The seed
+// writes through Prisma; the checks read through the test's own client.
 let db: Client;
+let prisma: PrismaClient;
 let url: string;
 let drop: () => Promise<void>;
 let first: SeedReport;
@@ -64,15 +69,19 @@ async function contentHash(): Promise<Record<string, string>> {
 
 beforeAll(async () => {
   ({ client: db, url, drop } = await cloneTemplate(inject('templateDb')));
-  first = await runSeed(db, ['base', 'demo'], { NODE_ENV: 'test', DATABASE_URL: url });
+  prisma = prismaClientFor(url);
+  first = await runSeed(prisma, ['base', 'demo'], { NODE_ENV: 'test', DATABASE_URL: url });
 }, 180_000);
-afterAll(async () => drop());
+afterAll(async () => {
+  await prisma.$disconnect();
+  await drop();
+});
 
 describe('seed runner', () => {
   it('is idempotent: a second run changes nothing, not even updated_at', async () => {
     expect(first.totals.inserted).toBeGreaterThan(700);
     const before = await contentHash();
-    const second = await runSeed(db, ['base', 'demo'], { NODE_ENV: 'test', DATABASE_URL: url });
+    const second = await runSeed(prisma, ['base', 'demo'], { NODE_ENV: 'test', DATABASE_URL: url });
     expect({ inserted: second.totals.inserted, updated: second.totals.updated }).toEqual({
       inserted: 0,
       updated: 0,
@@ -82,14 +91,38 @@ describe('seed runner', () => {
 
   it('refuses production and databases outside the dev/test pattern', async () => {
     await expect(
-      runSeed(db, ['base'], { NODE_ENV: 'production', DATABASE_URL: url }),
+      runSeed(prisma, ['base'], { NODE_ENV: 'production', DATABASE_URL: url }),
     ).rejects.toThrow(/NODE_ENV is production/);
     await expect(
-      runSeed(db, ['base'], {
+      runSeed(prisma, ['base'], {
         NODE_ENV: 'test',
         DATABASE_URL: url.replace(/\/[^/]+$/, '/postgres'),
       }),
     ).rejects.toThrow(/not a css_erp_dev, css_erp_test or css_erp_perf database/);
+  });
+
+  it('writes inside a transaction that a failure rolls back whole', async () => {
+    const ctx = new SeedContext(prisma);
+    await expect(
+      ctx.transaction(async () => {
+        await ctx.upsert('settings', { key: 'seed.probe', value: json({}) }, { key: ['key'] });
+        throw new Error('stopped after the first row');
+      }),
+    ).rejects.toThrow('stopped after the first row');
+    const { rows } = await db.query(
+      `SELECT count(*)::int AS n FROM settings WHERE key = 'seed.probe'`,
+    );
+    expect(rows[0].n).toBe(0);
+  });
+
+  it('refuses a table or column name that is not a plain lower-case name', async () => {
+    const ctx = new SeedContext(prisma);
+    await expect(ctx.upsert('settings"; DROP TABLE users; --', { key: 'x' })).rejects.toThrow(
+      /is not a table or column name/,
+    );
+    await expect(ctx.upsert('settings', { 'key" = 1; --': 'x' }, { key: ['key'] })).rejects.toThrow(
+      /is not a table or column name/,
+    );
   });
 
   it('leaves the seed markers the production guard looks for', async () => {
@@ -241,7 +274,7 @@ describe('base set', () => {
       );
     await setReview(9);
     try {
-      await runSeed(db, ['base'], { NODE_ENV: 'test', DATABASE_URL: url });
+      await runSeed(prisma, ['base'], { NODE_ENV: 'test', DATABASE_URL: url });
       const kept = (
         await db.query(`SELECT value FROM settings WHERE key = 'monitoring.thresholds'`)
       ).rows[0].value;

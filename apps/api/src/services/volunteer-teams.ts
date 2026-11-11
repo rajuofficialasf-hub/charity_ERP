@@ -1,13 +1,13 @@
 import { uuidv7 } from '@css/shared';
 import { TEAM_LEAD_TYPES } from '@css/shared/projects';
 import { VOLUNTEER_TYPES } from '@css/shared/registration';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { ProjectEvents } from '../notifications/project-events';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { ProjectEvents } from '../notifications/project-events.js';
 
 /** A team is built while the project runs. */
 const RUNNING = ['active', 'closing'];

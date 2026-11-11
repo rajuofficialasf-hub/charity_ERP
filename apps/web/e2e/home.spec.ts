@@ -119,7 +119,8 @@ const HOMES: { role: string; loginId: string; widgets: string[]; volunteer?: boo
     loginId: 'head@example.org',
     widgets: ['শর্টকাট', 'কাজের অগ্রগতি', 'মনিটরিং সতর্কতা'],
   },
-  // one reader of the other officials' homes; which accounts each spec signs in with is in DEMO_ACCOUNTS.md
+  // one reader of the other officials' homes; which accounts each spec signs in with is in
+  // docs/testing/DEMO_ACCOUNTS.md
   { role: 'the Media Team', loginId: 'media@example.org', widgets: ['মিডিয়ার কাজ'] },
 ];
 

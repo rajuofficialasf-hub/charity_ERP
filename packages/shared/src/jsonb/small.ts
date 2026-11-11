@@ -67,7 +67,10 @@ export const ratingScoresSchema = z
   .record(code64, z.int().min(1).max(5))
   .refine((scores) => Object.keys(scores).length <= 5, 'at most 5 criteria');
 
-/** users.preferences (NOTIFICATIONS.md section 5). */
+/**
+ * users.preferences (docs/architecture/NOTIFICATIONS.md, "Mandatory and optional notifications,
+ * user preferences").
+ */
 export const userPreferencesSchema = z.strictObject({
   email_mode: z.enum(['digest', 'immediate']).optional(),
   digest_time: z

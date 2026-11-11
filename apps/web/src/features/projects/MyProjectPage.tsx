@@ -1,14 +1,17 @@
 import { formatCount, formatDate } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, Checkbox, Icon, LinkButton, Skeleton, Stepper } from '@/ui';
+import { Alert, Button, Card, Checkbox, Form, Icon, LinkButton, Skeleton, Stepper } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
 import { ApiFailure } from '../../api/client';
+import { useSchemaResolver } from '../../lib/form-schema';
 import { orCached } from '../../lib/or-cached';
 import { loadStore } from '../applications/use-local-records';
 import { consent, MY_PROJECTS_KEY, myProject, type MyProjectDetail } from './my-projects-api';
@@ -174,6 +177,12 @@ function ProjectFacts({ project: p }: { project: MyProjectDetail }) {
   );
 }
 
+/** Each part read, then the final agreement: the acceptance waits for all of them. */
+const CONSENT_SCHEMA = z
+  .object({ read: z.array(z.boolean()), agree: z.boolean() })
+  .refine((v) => v.agree && v.read.every(Boolean), { message: 'validation.required' });
+type ConsentFields = z.infer<typeof CONSENT_SCHEMA>;
+
 function ConsentFlow({ project: p }: { project: MyProjectDetail }) {
   const t = useTranslations('projects.consent');
   const tp = useTranslations('admin.projects.rules_part');
@@ -181,9 +190,13 @@ function ConsentFlow({ project: p }: { project: MyProjectDetail }) {
   const queryClient = useQueryClient();
   const parts = p.rules.parts;
   const [step, setStep] = useState(0);
-  const [read, setRead] = useState<boolean[]>(parts.map(() => false));
-  const [agree, setAgree] = useState(false);
   const [refused, setRefused] = useState(false);
+  const form = useForm<ConsentFields>({
+    resolver: useSchemaResolver(CONSENT_SCHEMA),
+    defaultValues: { read: parts.map(() => false), agree: false },
+    reValidateMode: 'onSubmit',
+  });
+  const { read = [], agree = false } = useWatch({ control: form.control });
   const last = step === parts.length;
   const answer = useMutation({
     mutationFn: (decision: 'accepted' | 'refused') =>
@@ -204,6 +217,11 @@ function ConsentFlow({ project: p }: { project: MyProjectDetail }) {
   });
   const changed =
     answer.error instanceof ApiFailure && answer.error.code === 'project.rules_changed';
+  const ready = agree && read.every(Boolean);
+  // the acceptance button's own path: on the last step, everything confirmed, one answer at a time
+  const accept = () => {
+    if (last && ready && !answer.isPending) answer.mutate('accepted');
+  };
   const labels = [...parts.map((x) => tp(x.part)), t('final')];
   return (
     <section className="my-consent" aria-labelledby="consent-title">
@@ -211,23 +229,37 @@ function ConsentFlow({ project: p }: { project: MyProjectDetail }) {
       <Stepper label={t('steps')} steps={labels} current={step} />
       {refused && <Alert tone="info">{t('refused')}</Alert>}
       {changed && <Alert tone="warning">{t('changed')}</Alert>}
-      {answer.error instanceof ApiFailure && !changed && (
-        <Alert tone="error">{answer.error.message}</Alert>
-      )}
-      {!last ? (
-        <Card title={labels[step]!} headingLevel={2}>
-          <p className="my-consent-text">{localized(parts[step]!.text, locale)}</p>
-          <Checkbox
-            label={t('read')}
-            checked={read[step] ?? false}
-            onChange={(on) => setRead(read.map((r, i) => (i === step ? on : r)))}
-          />
-        </Card>
-      ) : (
-        <Card title={t('final')} headingLevel={2}>
-          <Checkbox label={t('agree')} checked={agree} onChange={setAgree} />
-        </Card>
-      )}
+      <Form
+        form={form}
+        onSubmit={accept}
+        label={t('title', { name: localized(p.name, locale) })}
+        error={answer.error instanceof ApiFailure && !changed ? answer.error.message : undefined}
+      >
+        {!last ? (
+          <Card title={labels[step]!} headingLevel={2}>
+            <p className="my-consent-text">{localized(parts[step]!.text, locale)}</p>
+            <Controller
+              // one box per step, each keeping its own tick
+              key={step}
+              control={form.control}
+              name={`read.${step}`}
+              render={({ field }) => (
+                <Checkbox label={t('read')} checked={field.value} onChange={field.onChange} />
+              )}
+            />
+          </Card>
+        ) : (
+          <Card title={t('final')} headingLevel={2}>
+            <Controller
+              control={form.control}
+              name="agree"
+              render={({ field }) => (
+                <Checkbox label={t('agree')} checked={field.value} onChange={field.onChange} />
+              )}
+            />
+          </Card>
+        )}
+      </Form>
       <div className="my-consent-actions">
         {step > 0 && (
           <Button variant="secondary" onClick={() => setStep(step - 1)}>
@@ -249,8 +281,8 @@ function ConsentFlow({ project: p }: { project: MyProjectDetail }) {
           </Button>
         ) : (
           <Button
-            onClick={() => answer.mutate('accepted')}
-            disabled={answer.isPending || !agree || read.some((r) => !r)}
+            onClick={() => void form.handleSubmit(accept)()}
+            disabled={answer.isPending || !ready}
             loading={answer.isPending && answer.variables === 'accepted'}
           >
             {t('accept')}

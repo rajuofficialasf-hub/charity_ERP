@@ -7,7 +7,7 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // Templates for the global roles (docs/architecture/NOTIFICATIONS.md, templates): the list, the
 // preview in both languages and the edit that makes a new version, audited.

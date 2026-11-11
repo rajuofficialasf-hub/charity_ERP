@@ -4,9 +4,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buffer } from 'node:stream/consumers';
 import { describe, expect, it } from 'vitest';
-import { ApiError } from '../i18n/api-error';
-import { createNasDriver } from '../storage/drivers/nas';
-import { dropParts, joinParts, MAX_PARTS, PART_SIZE, partCount, partKey, storePart } from './parts';
+import { ApiError } from '../i18n/api-error.js';
+import { createNasDriver } from '../storage/drivers/nas.js';
+import {
+  dropParts,
+  joinParts,
+  MAX_PARTS,
+  PART_SIZE,
+  partCount,
+  partKey,
+  storePart,
+} from './parts.js';
 
 // The parts of a chunked upload, on the NAS driver over a temporary folder.
 const fresh = () => createNasDriver(mkdtempSync(join(tmpdir(), 'css-parts-')));

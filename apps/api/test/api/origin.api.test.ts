@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildTestApp, type TestApp } from '../support/app';
+import { buildTestApp, type TestApp } from '../support/app.js';
 
 // A write from another site, or from no site at all, is refused before any route runs; the PWA's
 // own origin and the configured ones pass, and reads need no origin.

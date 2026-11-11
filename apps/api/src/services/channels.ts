@@ -1,7 +1,7 @@
 import { type SmsProviderSetting, smsProviderSettingSchema } from '@css/shared/settings';
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
-import type { SettingsService } from './settings';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
+import type { SettingsService } from './settings.js';
 
 export interface ChannelsView {
   /** Read from the server's environment; the password never leaves the server. */

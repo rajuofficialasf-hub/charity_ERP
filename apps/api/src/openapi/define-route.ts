@@ -1,15 +1,15 @@
 import type { Request, RequestHandler, Response, Router } from 'express';
 import type { Logger } from 'pino';
 import type { ZodType } from 'zod';
-import { maskData, sensitiveClassesOf } from '../access/field-mask';
-import { type AccessRegistry, SCOPE_ENTITIES } from '../access/registry';
-import type { AuthedRequest } from '../auth/principal';
-import { assertAudited, WRITE_METHODS } from '../audit/write-route';
-import { mapData, send } from '../http/send';
-import { ApiError } from '../i18n/api-error';
-import { validate, validatedOf } from '../http/validate';
-import type { RateLimiters } from '../rate-limit/limiters';
-import { type HttpMethod, type OperationSpec, type RouteRegistry } from './registry';
+import { maskData, sensitiveClassesOf } from '../access/field-mask.js';
+import { type AccessRegistry, SCOPE_ENTITIES } from '../access/registry.js';
+import type { AuthedRequest } from '../auth/principal.js';
+import { assertAudited, WRITE_METHODS } from '../audit/write-route.js';
+import { mapData, send } from '../http/send.js';
+import { ApiError } from '../i18n/api-error.js';
+import { validate, validatedOf } from '../http/validate.js';
+import type { RateLimiters } from '../rate-limit/limiters.js';
+import { type HttpMethod, type OperationSpec, type RouteRegistry } from './registry.js';
 
 /** What every route gets from the app: the registry, the limiters and the logger. */
 export interface RouteDeps {
@@ -48,7 +48,7 @@ export interface RouteDefinition<
 }
 
 /**
- * Registers one operation (CONTRIBUTING "How to add an endpoint"): the OpenAPI
+ * Registers one operation (CONTRIBUTING.md, "How to add an endpoint"): the OpenAPI
  * operation in the registry, the access rule, the rate-limit chain of its class, validation of
  * body, query and params, the handler, the envelope, and for writes the audit enforcement. A
  * write route must declare its audit action or it cannot be registered.
@@ -101,11 +101,13 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
         req,
         res,
       });
-      // a replay of an earlier create wrote nothing, so it has nothing to audit (API_STANDARDS 9)
+      // a replay of an earlier create wrote nothing, so it has nothing to audit
+      // (docs/api/API_STANDARDS.md, "Idempotency")
       const replay = res.getHeader('Idempotent-Replay') === 'true';
       if (WRITE_METHODS.has(method) && !replay) assertAudited(spec.audit, where, deps.logger);
       if (streams) return;
-      // Only the declared fields leave, minus the classes the caller may not see (RBAC.md 6).
+      // Only the declared fields leave, minus the classes the caller may not see
+      // (docs/security/RBAC.md, "Field-level protection").
       const visible = (req as AuthedRequest).fieldClasses ?? new Set<string>();
       const body = dataSchema
         ? mapData(value, (data) => maskData(dataSchema, parseResponse(dataSchema, data), visible))
@@ -147,9 +149,9 @@ const MASKED_ENTITIES = new Set([
 ]);
 
 /**
- * The schema of the success response's `data`, which the field mask runs on (RBAC.md 6). A
- * route of a masked entity or with declared sensitive fields needs one; a schema may mark only the
- * classes the route declares in `sensitiveFields` (the contract's `x-sensitive-fields`).
+ * The schema of the success response's `data`, which the field mask runs on. A route of a masked
+ * entity or with declared sensitive fields needs one; a schema may mark only the classes the route
+ * declares in `sensitiveFields` (the contract's `x-sensitive-fields`).
  */
 function maskedDataSchema(
   where: string,

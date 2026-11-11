@@ -8,12 +8,12 @@ import {
   type SettingValue,
 } from '@css/shared/settings';
 import { z } from 'zod';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { parseWith } from '../http/validate';
-import { ApiError } from '../i18n/api-error';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { parseWith } from '../http/validate.js';
+import { ApiError } from '../i18n/api-error.js';
 
 export interface SettingView {
   key: string;

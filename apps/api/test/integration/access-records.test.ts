@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { beneficiaryWhere } from '../../src/access/scope';
-import type { RecordEntity } from '../../src/access/service';
-import type { Principal } from '../../src/auth/principal';
-import { boundedRead } from '../../src/core/bounded-read';
-import { accessWorld } from './support/access-fixtures';
-import { account, type AuthHarness, authHarness } from './support/auth-app';
-import * as f from './support/fixtures';
+import { beneficiaryWhere } from '../../src/access/scope.js';
+import type { RecordEntity } from '../../src/access/service.js';
+import type { Principal } from '../../src/auth/principal.js';
+import { boundedRead } from '../../src/core/bounded-read.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { account, type AuthHarness, authHarness } from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // Per-record access for the nationwide lists: the sensitive scope, the action flags, the
 // beneficiary scope with the Procurement Team's house-construction projects, and the time limit of

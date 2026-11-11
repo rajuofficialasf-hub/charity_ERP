@@ -1,9 +1,11 @@
 import type { Readable } from 'node:stream';
-import { ApiError } from '../i18n/api-error';
+import { ApiError } from '../i18n/api-error.js';
 
 /**
- * Buckets of FILES_AND_DOCUMENTS 8 (created by infra/minio/bootstrap.sh, never by the app); `uploads`
- * holds the 256 KB parts of an upload in progress, unversioned and emptied after two days.
+ * The buckets (docs/architecture/FILES_AND_DOCUMENTS.md, "Storage layout (buckets and keys)"),
+ * created by infra/seaweedfs/bootstrap.sh in development and CI, never by the app; `uploads`
+ * holds the 256 KB parts of an upload in progress, unversioned, and the nightly upload sweep
+ * removes the parts of the sessions that expired (jobs/upload-sweep.ts).
  */
 export const BUCKETS = [
   'documents',
@@ -35,7 +37,7 @@ export interface ObjectInfo {
  * carry entity ids, never personal data.
  */
 export interface StorageDriver {
-  /** TEMP: `s3` (MinIO) goes once the app runs on the NAS only. */
+  /** TEMP: `s3` (an S3 store, SeaweedFS in development) goes once the app runs on the NAS only. */
   readonly name: 'nas' | 's3';
   put(
     bucket: Bucket,

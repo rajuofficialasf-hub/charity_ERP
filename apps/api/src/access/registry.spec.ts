@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PERMISSIONS_FILE, loadAccessRegistry, parsePermissionsFile } from './registry';
+import { DEFAULT_PERMISSIONS_FILE, loadAccessRegistry, parsePermissionsFile } from './registry.js';
 
 const realText = readFileSync(DEFAULT_PERMISSIONS_FILE, 'utf8');
 
@@ -15,8 +15,9 @@ function variant(change: (file: Record<string, unknown>) => void): unknown {
 type Perm = { name: string; default: { role: string; scope: string; condition?: string }[] };
 const perms = (file: Record<string, unknown>) => file.permissions as Perm[];
 
-// permissions.yaml is the single source of truth of RBAC.md section 2; the API refuses to start
-// on a broken file (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md).
+// permissions.yaml is the single source of truth of docs/security/RBAC.md, "permissions.yaml schema
+// and loading"; the API refuses to start on a broken file
+// (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md).
 describe('access registry', () => {
   it('loads the real permissions.yaml with its roles, permissions, sets and field classes', () => {
     const registry = loadAccessRegistry(DEFAULT_PERMISSIONS_FILE);

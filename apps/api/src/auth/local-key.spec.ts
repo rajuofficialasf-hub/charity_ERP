@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encodeLocalKey, newLocalKey, openLocalKey, sealLocalKey } from './local-key';
+import { encodeLocalKey, newLocalKey, openLocalKey, sealLocalKey } from './local-key.js';
 
 const SECRET = 's'.repeat(40);
 const OTHER = 'o'.repeat(40);

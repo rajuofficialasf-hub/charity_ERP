@@ -9,10 +9,10 @@ import {
 } from '@css/shared/exports';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf } from '../auth/principal';
-import type { Container } from '../container';
-import { currentContext } from '../core/request-context';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { principalOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { currentContext } from '../core/request-context.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 const bilingual = z.object({ bn: z.string(), en: z.string() });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { gif, jpeg, METADATA_MARKER, png } from '../../test/support/images';
-import { cleanImage } from './images';
+import { gif, jpeg, METADATA_MARKER, png } from '../../test/support/images.js';
+import { cleanImage } from './images.js';
 
 describe('cleanImage: type by magic bytes and metadata stripped', () => {
   it('removes the JPEG APP1 (Exif) and comment segments and keeps the image bytes', () => {

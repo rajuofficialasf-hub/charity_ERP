@@ -19,7 +19,8 @@ import {
 export * from './details.js';
 
 /**
- * Registration before login (AUTH.md 2): request schemas of the
+ * Registration before login (docs/architecture/AUTH.md, "Registration with two OTPs"): request
+ * schemas of the
  * `/auth/register/*` operations and the rules of a registration draft. The API validates with
  * them and the PWA builds the registration screens on them.
  */
@@ -194,8 +195,9 @@ export const volunteerRegistrationSubmitSchema = z
 export type VolunteerRegistrationSubmit = z.infer<typeof volunteerRegistrationSubmitSchema>;
 
 /**
- * The staff form (MASTER_SPEC A5): the name and the designation; no NID, parents,
- * bank details, program or workplace (those are set after registration).
+ * The staff form (docs/MASTER_SPEC.md, "Registration, profiles and volunteer management"): the name
+ * and the designation; no NID, parents, bank details, program or workplace (those are set after
+ * registration).
  */
 export const staffRegistrationSubmitSchema = z.strictObject({
   kind: z.literal('staff'),

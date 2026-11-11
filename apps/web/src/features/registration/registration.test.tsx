@@ -8,7 +8,8 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { RegisterPage } from './RegisterPage';
 
-// The screen "Registration with two OTP steps" of docs/ui/SCREENS.md (AUTH.md 2). Test data only.
+// The screen "Registration with two OTP steps" of docs/ui/SCREENS.md (docs/architecture/AUTH.md,
+// "Registration with two OTPs"). Test data only.
 const DRAFT = '01900000-0000-7000-8000-0000000000aa';
 const TOKEN = 'draft-token-0123456789abcdef0123456789abcdef';
 const DHAKA = '01900000-0000-7000-8000-0000000000d1';
@@ -326,6 +327,26 @@ describe('the contact step', () => {
     expect(screen.queryByText('Verified')).not.toBeInTheDocument();
   }, 15_000);
 
+  it('in Bangla: the code field takes six digits only, as a one-time code', async () => {
+    const user = userEvent.setup();
+    api();
+    renderApp(<RegisterPage />, 'bn', { path: '/register' });
+    expect(screen.getByRole('textbox', { name: /^নাম/ })).toHaveAttribute('autocomplete', 'name');
+    await user.type(screen.getByRole('textbox', { name: /মোবাইল নম্বর/ }), '01712345678');
+    await user.click(
+      within(contactField(/মোবাইল নম্বর/)).getByRole('button', { name: 'যাচাই করুন' }),
+    );
+    const code = await screen.findByRole('textbox', { name: /মোবাইলে পাওয়া কোড/ });
+    expect(code).toHaveAttribute('inputmode', 'numeric');
+    expect(code).toHaveAttribute('autocomplete', 'one-time-code');
+    expect(code).toHaveAttribute('maxlength', '6');
+    await user.type(code, '12a3');
+    expect(code).toHaveValue('123');
+    expect(bodiesOf('/auth/register/otp/send')).toEqual([
+      { registrationId: DRAFT, channel: 'sms', address: '01712345678' },
+    ]);
+  });
+
   it('has no accessibility violations in Bangla', async () => {
     api();
     const { container } = renderApp(<RegisterPage />, 'bn', { path: '/register' });
@@ -491,6 +512,11 @@ describe('the steps after the contacts', () => {
       seen.filter((s) => s.path.startsWith('/auth/register/photos/')).map((s) => s.body),
     ).toEqual(['photo', 'nid_photo', 'nid_photo_back']);
     for (const request of seen) expect(request.url).not.toContain(TOKEN);
+    // the password, the codes and the token stay in the page's memory only
+    for (const storage of [window.localStorage, window.sessionStorage])
+      for (let i = 0; i < storage.length; i++)
+        for (const secret of ['Nadi kul 2026', '123456', '654321', TOKEN])
+          expect(storage.getItem(storage.key(i) ?? '')).not.toContain(secret);
   }, 60_000);
 
   it('the profession shows its own fields; a new choice drops the old ones and sends only the new ones', async () => {
@@ -685,6 +711,20 @@ describe('the password checklist', () => {
       'One digit (0-9)': 'true',
     });
     await expectNoAxeViolations(container);
+  }, 30_000);
+
+  it('keeps the autocomplete hints and asks for the same password twice', async () => {
+    const user = userEvent.setup();
+    await toAccount(user);
+    const field = screen.getByLabelText(/^Password/);
+    const again = screen.getByLabelText(/^Repeat the password/);
+    expect(field).toHaveAttribute('autocomplete', 'new-password');
+    expect(again).toHaveAttribute('autocomplete', 'new-password');
+    await user.type(field, 'Nadi kul 2026');
+    await user.type(again, 'Nadi kul 2027');
+    await next(user);
+    expect(stepName()).toBe('7Account');
+    expect(again).toHaveAccessibleDescription('The two new passwords do not match.');
   }, 30_000);
 
   it('accepts a password with the mobile number in it', async () => {

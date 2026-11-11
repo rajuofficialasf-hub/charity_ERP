@@ -1,21 +1,21 @@
 import { handoverScopeSchema, uuidv7 } from '@css/shared';
 import type { z } from 'zod';
-import type { Scope } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PermissionVersionService } from '../auth/permission-version.service';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
+import type { Scope } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PermissionVersionService } from '../auth/permission-version.service.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
 import {
   type HandoverItem,
   type HandoverItemType,
   pendingHandoverItems,
   pickItems,
   providerOf,
-} from '../handover/providers';
-import { ApiError } from '../i18n/api-error';
-import type { AccountEvents } from '../notifications/account-events';
+} from '../handover/providers.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { AccountEvents } from '../notifications/account-events.js';
 
 type HandoverScope = z.infer<typeof handoverScopeSchema>;
 type HandoverRow = { id: string; scope: unknown; completedAt: Date | null };

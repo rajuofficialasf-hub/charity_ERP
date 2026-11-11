@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { ApiError } from '../../i18n/api-error';
+import { ApiError } from '../../i18n/api-error.js';
+
+// a file of a package, as Node finds it; Vitest's module runner has no `import.meta.resolve`
+const { resolve } = createRequire(import.meta.url);
 
 /**
  * The fonts of the asf UI system (docs/architecture/ADR/ADR-016-asf-ui-system.md): Public Sans for
@@ -8,7 +11,6 @@ import { ApiError } from '../../i18n/api-error';
  * fontsource packages the web app serves. Read once and kept as base64 for the pages the printer
  * loads without any network.
  */
-const resolve = createRequire(__filename).resolve;
 const FILES = {
   publicSans: '@fontsource-variable/public-sans/files/public-sans-latin-wght-normal.woff2',
   notoBengali:

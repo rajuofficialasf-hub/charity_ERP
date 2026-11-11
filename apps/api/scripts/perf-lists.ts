@@ -5,15 +5,14 @@
 // times, and prints p50, p95 and the slowest SQL statement. For every case whose p95 is over
 // --explain-over ms, the slowest statement is run again under EXPLAIN (ANALYZE, BUFFERS).
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Client } from 'pg';
-import type { Principal } from '../src/auth/principal';
-import { loadEnv } from '../src/config/env';
-import { createContainer } from '../src/container';
-import type { PrismaService } from '../src/core/prisma.service';
-import { PrismaClient } from '../src/generated/prisma/client';
-import type { BeneficiaryViewer } from '../src/services/beneficiaries';
-import { SEARCH_TERMS } from '../seed/perf-data';
-import { perfDatabase } from './perf-db';
+import type { Principal } from '../src/auth/principal.js';
+import { loadEnv } from '../src/config/env.js';
+import { createContainer } from '../src/container.js';
+import type { PrismaService } from '../src/core/prisma.service.js';
+import { Prisma, PrismaClient } from '../src/generated/prisma/client.js';
+import type { BeneficiaryViewer } from '../src/services/beneficiaries.js';
+import { SEARCH_TERMS } from '../seed/perf-data.js';
+import { perfDatabase } from './perf-db.js';
 
 const arg = (name: string, fallback: number) => {
   const i = process.argv.indexOf(name);
@@ -124,33 +123,43 @@ async function measure(name: string, call: () => Promise<unknown>): Promise<Resu
   return result;
 }
 
+/**
+ * A statement Prisma logged, with its parameters, as a query to run again: the text is the one
+ * Prisma generated for a service call, and each $n placeholder becomes its parameter again.
+ */
+function loggedStatement(query: string, params: unknown[]): Prisma.Sql {
+  const parts = query.split(/\$(\d+)/);
+  const strings = parts.filter((_, i) => i % 2 === 0);
+  const values = parts.filter((_, i) => i % 2 === 1).map((n) => params[Number(n) - 1]);
+  return new Prisma.Sql(strings, values);
+}
+
 async function main(): Promise<void> {
-  const pg = new Client({ connectionString: url });
-  await pg.connect();
-  const one = async (sql: string) => (await pg.query(sql)).rows[0] as Record<string, unknown>;
-  const counts = await one(`SELECT (SELECT count(*) FROM volunteers) AS volunteers,
-    (SELECT count(*) FROM beneficiaries) AS beneficiaries,
-    (SELECT count(*) FROM applications) AS applications,
-    (SELECT count(*) FROM projects) AS projects`);
+  const one = async <T>(sql: Prisma.Sql) => (await prisma.$queryRaw<T[]>(sql))[0]!;
+  const counts = await one<Record<string, number>>(Prisma.sql`SELECT
+    (SELECT count(*)::int FROM volunteers) AS volunteers,
+    (SELECT count(*)::int FROM beneficiaries) AS beneficiaries,
+    (SELECT count(*)::int FROM applications) AS applications,
+    (SELECT count(*)::int FROM projects) AS projects`);
   out(`data set: ${JSON.stringify(counts)}; ${RUNS} runs per case\n`);
-  const dhaka = (await one(
-    `SELECT id FROM locations WHERE level = 'district' AND name_en = 'Dhaka'`,
-  )) as { id: string };
-  const upazila = (await one(
-    `SELECT upazila_id AS id FROM beneficiaries WHERE district_id = '${dhaka.id}' LIMIT 1`,
-  )) as { id: string };
-  const union = (await one(
-    `SELECT union_id AS id FROM beneficiaries WHERE upazila_id = '${upazila.id}' LIMIT 1`,
-  )) as { id: string };
-  const project = (await one(`SELECT id FROM projects WHERE code = 'QAK'`)) as { id: string };
-  const ben = (await one(
-    `SELECT b.id, b.mobile, b.nid FROM beneficiaries b JOIN applications a ON a.beneficiary_id = b.id
+  const dhaka = await one<{ id: string }>(
+    Prisma.sql`SELECT id FROM locations WHERE level = 'district' AND name_en = 'Dhaka'`,
+  );
+  const upazila = await one<{ id: string }>(
+    Prisma.sql`SELECT upazila_id AS id FROM beneficiaries WHERE district_id = ${dhaka.id}::uuid LIMIT 1`,
+  );
+  const union = await one<{ id: string }>(
+    Prisma.sql`SELECT union_id AS id FROM beneficiaries WHERE upazila_id = ${upazila.id}::uuid LIMIT 1`,
+  );
+  const project = await one<{ id: string }>(Prisma.sql`SELECT id FROM projects WHERE code = 'QAK'`);
+  const ben = await one<{ id: string; mobile: string; nid: string }>(
+    Prisma.sql`SELECT b.id, b.mobile, b.nid FROM beneficiaries b JOIN applications a ON a.beneficiary_id = b.id
      WHERE b.nid IS NOT NULL ORDER BY b.id LIMIT 1 OFFSET 1000`,
-  )) as { id: string; mobile: string; nid: string };
-  const vol = (await one(
-    `SELECT u.mobile, v.nid FROM volunteers v JOIN users u ON u.id = v.user_id WHERE v.nid LIKE '77%'
+  );
+  const vol = await one<{ mobile: string; nid: string }>(
+    Prisma.sql`SELECT u.mobile, v.nid FROM volunteers v JOIN users u ON u.id = v.user_id WHERE v.nid LIKE '77%'
      ORDER BY v.id LIMIT 1 OFFSET 777`,
-  )) as { mobile: string; nid: string };
+  );
 
   // the suggested duplicate pairs are kept by a nightly job; its run is timed once here
   if (process.argv.includes('--duplicates-job')) {
@@ -237,14 +246,15 @@ async function main(): Promise<void> {
   for (const r of over) {
     out(`=== ${r.name} (p95 ${r.p95} ms; slowest statement ${r.slowest.duration} ms)`);
     out(r.slowest.query.replace(/\s+/g, ' ').slice(0, 1500));
-    const plan = await pg.query(
-      `EXPLAIN (ANALYZE, BUFFERS) ${r.slowest.query}`,
+    const plan = await prisma.$queryRaw<
+      Record<string, string>[]
+    >`EXPLAIN (ANALYZE, BUFFERS) ${loggedStatement(
+      r.slowest.query,
       JSON.parse(r.slowest.params) as unknown[],
-    );
-    out(plan.rows.map((row: Record<string, string>) => row['QUERY PLAN']).join('\n'));
+    )}`;
+    out(plan.map((row) => row['QUERY PLAN']).join('\n'));
     out();
   }
-  await pg.end();
   await prisma.$disconnect();
 }
 

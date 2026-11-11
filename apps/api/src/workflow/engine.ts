@@ -4,20 +4,20 @@ import {
   type WorkflowDefinition,
   workflowDefinitionSchema,
 } from '@css/shared';
-import type { AccessService } from '../access/service';
-import { applicationWhere, holdsPermission } from '../access/scope';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import { assertIfMatch } from '../core/etag';
-import type { Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { ApplicationEvents } from '../notifications/application-events';
+import type { AccessService } from '../access/service.js';
+import { applicationWhere, holdsPermission } from '../access/scope.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import { assertIfMatch } from '../core/etag.js';
+import type { Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { ApplicationEvents } from '../notifications/application-events.js';
 import { z } from 'zod';
-import { readEffects, type SideEffect, type SideEffectRunner } from './effects';
-import { type EngineApplication, GuardContext, type GuardInput, GUARDS } from './guards';
-import { isBuiltEffect, isBuiltGuard } from './registry';
+import { readEffects, type SideEffect, type SideEffectRunner } from './effects.js';
+import { type EngineApplication, GuardContext, type GuardInput, GUARDS } from './guards.js';
+import { isBuiltEffect, isBuiltGuard } from './registry.js';
 
 type Transition = NonNullable<WorkflowDefinition['transitions']>[number];
 

@@ -1,9 +1,12 @@
-import { Alert, Button, Checkbox, Text, TextField } from '@/ui';
+import { Alert, Button, Checkbox, Form, FormTextField, Text } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { Controller } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../api/client';
+import { flatErrors } from '../../lib/form-schema';
 import { isContact, isPhoto } from './ChangeRequests';
+import { type EditFields, showSendResult, toggleDetail, useEditForm, usePicked } from './edit-form';
 import { labelKey, type ProfileField, RequestBadge, Value } from './ProfileDetails';
 import {
   askEdit,
@@ -53,21 +56,20 @@ export function EditSection({
   const offline = useTranslations('auth.login')('offline');
   const tv = useTranslations('errors.validation');
   const queryClient = useQueryClient();
-  const [picked, setPicked] = useState<ReadonlySet<RequestField>>(new Set());
-  const [values, setValues] = useState<Partial<Record<RequestField, unknown>>>({});
-  const [note, setNote] = useState('');
-  const [errors, setErrors] = useState<Partial<Record<RequestField, string>>>({});
-  const [alert, setAlert] = useState<string | null>(null);
+  const form = useEditForm<RequestField>();
+  const picked = usePicked(form);
+  const errors = flatErrors(form.formState.errors);
+  const alert = form.formState.errors.root?.server?.message;
 
   const waitingFor = (field: ProfileField) => edits.find((r) => r.field === field);
 
   const send = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ picked: ticked, values, note }: EditFields<RequestField>) => {
       const sent: RequestField[] = [];
       const failed: [RequestField, unknown][] = [];
       for (const field of fields) {
         // a detail whose request appeared meanwhile is not asked for twice
-        if (field === 'type' || !picked.has(field) || waitingFor(field)) continue;
+        if (field === 'type' || !ticked[field] || waitingFor(field)) continue;
         const value = isPhoto(field) ? undefined : cleanValue(field, values[field]);
         // a value the form cannot make (a permanent address without its four levels) is not sent
         if (!isPhoto(field) && value === undefined) {
@@ -100,13 +102,16 @@ export function EditSection({
           : error instanceof ApiFailure
             ? (error.details[0]?.message ?? error.message)
             : offline;
-      setPicked((now) => new Set([...now].filter((f) => !sent.includes(f))));
-      setErrors(Object.fromEntries(failed.map(([field, error]) => [field, message(error)])));
       // a call that reached no server, or no field to blame, gets an alert of its own
       const unplaced = failed.find(
         ([, error]) => !(error instanceof ApiFailure) && error !== MISSING,
       );
-      setAlert(sent.length ? t('profile.edit.partial') : unplaced ? message(unplaced[1]) : null);
+      showSendResult(
+        form,
+        sent,
+        failed.map(([field, error]) => [field, message(error)]),
+        sent.length ? t('profile.edit.partial') : unplaced ? message(unplaced[1]) : null,
+      );
     },
   });
 
@@ -116,36 +121,18 @@ export function EditSection({
     return () => onBusy(false);
   }, [sending, onBusy]);
 
-  const dirty = picked.size > 0;
+  const dirty = picked.length > 0;
   useEffect(() => {
     onDirty(dirty);
     return () => onDirty(false);
   }, [dirty, onDirty]);
 
-  const toggle = (field: RequestField, on: boolean) => {
-    setPicked((now) => {
-      const next = new Set(now);
-      if (on) next.add(field);
-      else next.delete(field);
-      return next;
-    });
-    setErrors((now) => ({ ...now, [field]: undefined }));
-    // a group starts with what the volunteer has now, so a change is an edit, not a new entry
-    if (on) setValues((now) => (field in now ? now : { ...now, [field]: initialValue(field, me) }));
-  };
-
   return (
-    <form
-      method="post"
-      noValidate
-      aria-label={t('profile.edit.form_label', { section: title })}
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (picked.size && !send.isPending) {
-          setErrors({});
-          setAlert(null);
-          send.mutate();
-        }
+    <Form
+      form={form}
+      label={t('profile.edit.form_label', { section: title })}
+      onSubmit={(values) => {
+        if (picked.length && !send.isPending) send.mutate(values);
       }}
     >
       <div className="profile-edit">
@@ -154,7 +141,8 @@ export function EditSection({
           {fields.map((field) => {
             const label = t(labelKey(field));
             const request = waitingFor(field);
-            const on = field !== 'type' && picked.has(field);
+            const on = field !== 'type' && picked.includes(field);
+            const error = errors[`values.${field}`];
             return (
               <li key={field} className="profile-edit-row" data-picked={on}>
                 {field === 'type' || request ? (
@@ -172,23 +160,31 @@ export function EditSection({
                     <Checkbox
                       label={t('profile.edit.change_field', { field: label })}
                       checked={on}
-                      onChange={(selected) => toggle(field, selected)}
+                      onChange={(selected) =>
+                        toggleDetail(form, field, selected, () => initialValue(field, me))
+                      }
                     />
                     {on ? (
                       <div className="profile-editor">
                         {isPhoto(field) ? (
                           <>
                             <Text>{t('profile.edit.photo_intro')}</Text>
-                            {errors[field] && <p className="profile-error">{errors[field]}</p>}
+                            {error && <p className="profile-error">{error}</p>}
                           </>
                         ) : (
                           <>
-                            <ValueEditor
-                              field={field}
-                              label={label}
-                              value={values[field]}
-                              onChange={(value) => setValues((now) => ({ ...now, [field]: value }))}
-                              error={errors[field]}
+                            <Controller
+                              control={form.control}
+                              name={`values.${field}`}
+                              render={({ field: input }) => (
+                                <ValueEditor
+                                  field={field}
+                                  label={label}
+                                  value={input.value}
+                                  onChange={input.onChange}
+                                  error={error}
+                                />
+                              )}
                             />
                             {isContact(field) && <Text>{t('profile.edit.code_intro')}</Text>}
                           </>
@@ -205,19 +201,17 @@ export function EditSection({
             );
           })}
         </ul>
-        {picked.size > 0 && (
-          <TextField label={t('profile.edit.note')} name="note" value={note} onChange={setNote} />
-        )}
+        {picked.length > 0 && <FormTextField label={t('profile.edit.note')} name="note" />}
         {alert && <Alert tone="error">{alert}</Alert>}
         <div className="profile-edit-actions">
           <Button variant="secondary" onClick={onCancel} disabled={send.isPending}>
             {tc('cancel')}
           </Button>
-          <Button type="submit" loading={send.isPending} disabled={picked.size === 0}>
+          <Button type="submit" loading={send.isPending} disabled={picked.length === 0}>
             {t('profile.edit.send')}
           </Button>
         </div>
       </div>
-    </form>
+    </Form>
   );
 }

@@ -7,13 +7,13 @@ import {
   keysetWhere,
   orderBy,
   parseSort,
-} from '../../src/core/pagination';
-import { PrismaClient } from '../../src/generated/prisma/client';
-import { cloneTemplate } from './support/db';
-import { user } from './support/fixtures';
+} from '../../src/core/pagination.js';
+import { PrismaClient } from '../../src/generated/prisma/client.js';
+import { cloneTemplate } from './support/db.js';
+import { user } from './support/fixtures.js';
 
-// Keyset pagination on a real table (API_STANDARDS 4): every row exactly once, forwards and back,
-// even with equal sort values (the id breaks ties).
+// Keyset pagination on a real table (docs/api/API_STANDARDS.md, "Pagination: keyset cursors"):
+// every row exactly once, forwards and back, even with equal sort values (the id breaks ties).
 const SECRET = 'integration-secret-0123456789abcdef';
 let db: Client;
 let drop: () => Promise<void>;
