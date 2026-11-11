@@ -38,7 +38,9 @@ services:
     # process. s3.json holds the one local identity, whose key pair carries the css_dev_only mark,
     # so a production start refuses it; with an identity configured an unsigned request is refused.
     # The S3 port is 8333 inside and 8334 on this machine, beside another local SeaweedFS on its
-    # default port.
+    # default port. The volume count is fixed and the volumes small: left to itself SeaweedFS takes
+    # its count from the free disk divided by the volume size, gives each new bucket several
+    # volumes, and refuses a write to the next bucket once the count is spent ("no free volumes").
     image: chrislusf/seaweedfs@sha256:ccad23e18639c8b98cee17e7100b95830a06077b56d8e5b006d6dcf8ec5e94a0
     command:
       - server
@@ -46,7 +48,8 @@ services:
       - -s3
       - -s3.port=8333
       - -s3.config=/etc/seaweedfs/s3.json
-      - -master.volumeSizeLimitMB=1024
+      - -master.volumeSizeLimitMB=256
+      - -volume.max=100
     ports:
       - '127.0.0.1:${S3_PORT:-8334}:8333'
     volumes:
