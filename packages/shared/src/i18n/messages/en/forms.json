@@ -60,6 +60,7 @@
     "move_up": "Move {label} up",
     "move_down": "Move {label} down",
     "remove": "Remove {label}",
+    "remove_only_section": "The only section cannot be removed",
     "edit": "Change {label}",
     "core": "Required in every project; cannot be removed or hidden",
     "official_only": "Officials only",

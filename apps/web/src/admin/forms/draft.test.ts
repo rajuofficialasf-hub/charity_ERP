@@ -1,4 +1,4 @@
-import { formDefinitionSchema } from '@css/shared/forms';
+import { type FormDefinition, formDefinitionSchema } from '@css/shared/forms';
 import { describe, expect, it } from 'vitest';
 import { definition, field, keysOf, option, section, T } from '../../../test/forms';
 import {
@@ -16,13 +16,16 @@ import {
   removeFieldWithUses,
   removeSection,
   removeSectionWithUses,
+  setFormScoring,
   setSectionCondition,
   setIdentityRole,
+  setSectionTitle,
   setSectionVisibility,
   updateField,
   usesOf,
   usesOfSection,
 } from './draft';
+import * as draftEdits from './draft';
 
 const valid = (def: Parameters<typeof formDefinitionSchema.parse>[0]) =>
   expect(formDefinitionSchema.safeParse(def).success).toBe(true);
@@ -843,5 +846,129 @@ describe('the uses of a question', () => {
     valid(next);
     expect(removeSectionWithUses(def, 'three')).toEqual(removeSection(def, 'three'));
     expect(removeSectionWithUses(def, 'no_such_part')).toBe(def);
+  });
+});
+
+describe('the rest of the definition', () => {
+  const POINTS = { not_previously_assisted: 20 };
+  const yes = { field: 'has_cow', op: 'eq' as const, value: 'yes' };
+  /** A form with points of its own, and questions for every edit to work on. */
+  const scored = (): FormDefinition => ({
+    ...definition(
+      section('extra', [
+        field('has_cow', 'radio', { options: [option('yes'), option('no')] }),
+        field('cows', 'number', { logic: { show_if: yes } }),
+        field('breed', 'single_select', {
+          options: [option('local', { dependsOnOptionCode: 'yes' })],
+          logic: { options_depend_on: 'has_cow' },
+        }),
+        field('q_note', 'short_text'),
+      ]),
+      section('more', [field('last', 'short_text')]),
+    ),
+    scoring: POINTS,
+  });
+  const mark = { bn: '(কপি)', en: '(copy)' };
+  /**
+   * Every edit of the module, each called so that it changes the form: the name of the exported
+   * function, what the call does, and the call.
+   */
+  const EDITS: [keyof typeof draftEdits, string, (def: FormDefinition) => FormDefinition][] = [
+    [
+      'addLibrarySection',
+      'a library part',
+      (d) => addLibrarySection(d, library.sections[0]!, library.fields),
+    ],
+    [
+      'addLibraryField',
+      'a library question',
+      (d) => addLibraryField(d, 'extra', library.fields.get('members_14_plus')!),
+    ],
+    [
+      'addOwnQuestion',
+      'at the end of a part',
+      (d) => addOwnQuestion(d, 'extra', { type: 'short_text', label: T('নতুন', 'New') }).definition,
+    ],
+    [
+      'addOwnQuestion',
+      'at a place',
+      (d) =>
+        addOwnQuestion(d, 'extra', { type: 'short_text', label: T('নতুন', 'New') }, 0).definition,
+    ],
+    ['updateField', 'a setting', (d) => updateField(d, 'q_note', { required: true })],
+    [
+      'setOptions',
+      'one option more',
+      (d) => setOptions(d, 'has_cow', [option('yes'), option('no'), option('maybe')]),
+    ],
+    ['setOptions', 'an option others follow gone', (d) => setOptions(d, 'has_cow', [option('no')])],
+    ['removeField', 'a question', (d) => removeField(d, 'q_note')],
+    ['removeSection', 'a part', (d) => removeSection(d, 'more')],
+    ['removeFieldWithUses', 'a question others read', (d) => removeFieldWithUses(d, 'has_cow')],
+    ['removeFieldWithUses', 'a question nothing reads', (d) => removeFieldWithUses(d, 'q_note')],
+    ['removeSectionWithUses', 'a part', (d) => removeSectionWithUses(d, 'more')],
+    ['setSectionTitle', 'a name', (d) => setSectionTitle(d, 'extra', T('নতুন নাম', 'New name'))],
+    [
+      'setSectionVisibility',
+      'officials only',
+      (d) => setSectionVisibility(d, 'extra', 'official_only'),
+    ],
+    ['setSectionCondition', 'a condition', (d) => setSectionCondition(d, 'more', yes)],
+    ['moveSection', 'up', (d) => moveSection(d, 'more', -1)],
+    ['moveField', 'down', (d) => moveField(d, 'extra', 'has_cow', 1)],
+    ['moveFieldTo', 'inside its part', (d) => moveFieldTo(d, 'q_note', 'extra', 0)],
+    ['moveFieldTo', 'to another part', (d) => moveFieldTo(d, 'q_note', 'more', 0)],
+    ['duplicateField', 'a copy', (d) => duplicateField(d, 'q_note', mark).definition],
+    ['setIdentityRole', 'a mark taken from another', (d) => setIdentityRole(d, 'q_note', 'name')],
+    ['setIdentityRole', 'a mark cleared', (d) => setIdentityRole(d, 'name', null)],
+    [
+      'addEmptySection',
+      'an empty part',
+      (d) => addEmptySection(d, (n) => T(`অংশ ${n}`, `Section ${n}`)).definition,
+    ],
+  ];
+  /** The exported functions that read a draft and return no draft. */
+  const READERS: (keyof typeof draftEdits)[] = [
+    'canMarkIdentity',
+    'coreLocks',
+    'hasIdentity',
+    'usesOf',
+    'usesOfSection',
+  ];
+
+  it.each(EDITS)('%s (%s) keeps the points of the form', (_name, _what, edit) => {
+    const start = scored();
+    const next = edit(start);
+    // the call is one that changes the form, so the points are kept by the edit itself
+    expect(next).not.toBe(start);
+    expect(next.sections).not.toEqual(start.sections);
+    expect(next.scoring).toEqual(POINTS);
+    valid(next);
+  });
+
+  it('is checked for every edit the module has', () => {
+    const exported = Object.entries(draftEdits)
+      .filter(([, value]) => typeof value === 'function')
+      .map(([name]) => name);
+    const covered = new Set<string>([...EDITS.map(([name]) => name), ...READERS, 'setFormScoring']);
+    expect(exported.filter((name) => !covered.has(name))).toEqual([]);
+  });
+
+  it('keeps the only part of a form: a draft without a part cannot be saved', () => {
+    const one: FormDefinition = { sections: [section('only', [field('q', 'short_text')])] };
+    expect(removeSection(one, 'only')).toBe(one);
+    expect(removeSectionWithUses(one, 'only')).toBe(one);
+    const two: FormDefinition = { sections: [...one.sections, section('second', [])] };
+    expect(removeSection(two, 'only').sections.map((s) => s.key)).toEqual(['second']);
+  });
+
+  it('sets and takes away the points alone, leaving the questions as they are', () => {
+    const start = scored();
+    const changed = setFormScoring(start, 35);
+    expect(changed.scoring).toEqual({ not_previously_assisted: 35 });
+    expect(changed.sections).toBe(start.sections);
+    const none = setFormScoring(start, undefined);
+    expect('scoring' in none).toBe(false);
+    expect(none.sections).toBe(start.sections);
   });
 });

@@ -875,6 +875,30 @@ describe('deleting', () => {
     await waitFor(() => expect(saves.at(-1)?.body.sections).toEqual(start), { timeout: 4000 });
   }, 30_000);
 
+  it('does not offer to remove the only part of a form, and says why', async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })], {
+          title: T('অতিরিক্ত', 'Extra'),
+        }),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    const only = await screen.findByRole('menuitem', { name: 'একমাত্র অংশ সরানো যায় না' });
+    expect(only).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('menuitem', { name: 'অতিরিক্ত সরান' })).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    // with a second part either may go
+    await user.click(screen.getByRole('button', { name: 'নতুন অংশ' }));
+    await user.click(await screen.findByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    expect(await screen.findByRole('menuitem', { name: 'অতিরিক্ত সরান' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: 'একমাত্র অংশ সরানো যায় না' }),
+    ).not.toBeInTheDocument();
+  }, 20_000);
+
   it('removes a question nothing uses at once, without asking', async () => {
     const user = userEvent.setup();
     api({ sections: withUses() });
@@ -940,6 +964,39 @@ describe('the points of the score', () => {
     await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
     expect(saves[0]!.body.scoring).toEqual({ not_previously_assisted: 20 });
   }, 15_000);
+
+  it('keeps the points of the form through the changes made after them', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'স্কোর' }));
+    const dialog = await screen.findByRole('dialog', { name: 'অগ্রাধিকার স্কোর' });
+    await user.type(within(dialog).getByRole('textbox', { name: /আগে সহায়তা পাননি/ }), '20');
+    await user.click(within(dialog).getByRole('button', { name: 'ঠিক আছে' }));
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    const points = { not_previously_assisted: 20 };
+    expect(saves[0]!.body.scoring).toEqual(points);
+    // a question renamed
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' দিন');
+    await waitFor(() => expect(saves).toHaveLength(2), { timeout: 4000 });
+    expect(savedField('q_note')!.label.bn).toBe('মন্তব্য দিন');
+    expect(saves[1]!.body.scoring).toEqual(points);
+    // a part renamed
+    await user.click(screen.getByRole('button', { name: 'অতিরিক্ত' }));
+    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' তথ্য');
+    await waitFor(() => expect(saves).toHaveLength(3), { timeout: 4000 });
+    expect(saves[2]!.body.sections.at(-1)!.title.bn).toBe('অতিরিক্ত তথ্য');
+    expect(saves[2]!.body.scoring).toEqual(points);
+    // a part added, and the question removed
+    await user.click(screen.getByRole('button', { name: 'নতুন অংশ' }));
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য দিন বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য দিন সরান' }));
+    await waitFor(() => expect(saves).toHaveLength(4), { timeout: 4000 });
+    expect(saves[3]!.body.sections).toHaveLength(4);
+    expect(savedField('q_note')).toBeUndefined();
+    expect(saves[3]!.body.scoring).toEqual(points);
+  }, 40_000);
 });
 
 describe('the own question', () => {

@@ -60,6 +60,7 @@
     "move_up": "{label} উপরে নিন",
     "move_down": "{label} নিচে নিন",
     "remove": "{label} সরান",
+    "remove_only_section": "একমাত্র অংশ সরানো যায় না",
     "edit": "{label} বদলান",
     "core": "সব প্রকল্পে আবশ্যক প্রশ্ন; সরানো বা লুকানো যায় না",
     "official_only": "শুধু অফিসিয়াল",

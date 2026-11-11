@@ -23,6 +23,7 @@ import {
   hasIdentity,
   setIdentityRole,
   setSectionCondition,
+  setSectionTitle,
   setSectionVisibility,
   updateField,
 } from './draft';
@@ -106,12 +107,7 @@ function SectionSettings({
   const t = useTranslations('forms.builder');
   const core = hasIdentity(section);
   const setTitle = (title: FormSection['title']) =>
-    onChange(
-      {
-        sections: definition.sections.map((s) => (s.key === section.key ? { ...s, title } : s)),
-      },
-      TYPED,
-    );
+    onChange(setSectionTitle(definition, section.key, title), TYPED);
   return (
     <Stack gap={2}>
       <Disclosure title={t('group_basics')} headingLevel={2} defaultOpen>

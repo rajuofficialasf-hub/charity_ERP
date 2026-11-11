@@ -296,12 +296,20 @@ function SectionCard({
                     },
                   ]
                 : []),
-              {
-                id: 'remove',
-                label: t('remove', { label: title }),
-                icon: 'delete' as const,
-                onSelect: onRemoveSection,
-              },
+              // a form keeps at least one part, so the only one stays, and the menu says why
+              count > 1
+                ? {
+                    id: 'remove',
+                    label: t('remove', { label: title }),
+                    icon: 'delete' as const,
+                    onSelect: onRemoveSection,
+                  }
+                : {
+                    id: 'remove',
+                    label: t('remove_only_section'),
+                    icon: 'delete' as const,
+                    disabled: true,
+                  },
             ]}
           />
         ) : null}

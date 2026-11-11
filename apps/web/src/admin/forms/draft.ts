@@ -26,6 +26,9 @@ import type { LibrarySectionView } from '../../api/schemas';
  * neither official-only nor conditional; it is moved, renamed or removed like any other question.
  * The builder never offers the refused actions, and an edit that tries them changes nothing. The
  * server checks the identity marks again when the form is published.
+ *
+ * An edit changes the questions and keeps the rest of the definition (the form's own points): a
+ * save sends the whole draft, so what an edit dropped would be taken away on the server.
  */
 
 /** A library section as the library read gives it. */
@@ -65,7 +68,7 @@ function withSection(
   if (next === current) return def;
   const sections = [...def.sections];
   sections[index] = next;
-  return { sections };
+  return { ...def, sections };
 }
 
 /** Adds a library section with its fields in library order, once; fields the form has are skipped. */
@@ -80,6 +83,7 @@ export function addLibrarySection(
     .flatMap((key) => fields.get(key) ?? [])
     .filter((f) => !taken.has(f.fieldKey));
   return {
+    ...def,
     sections: [
       ...def.sections,
       {
@@ -241,6 +245,7 @@ export function setOptions(
   const next = updateField(def, fieldKey, { options });
   if (!gone.size) return next;
   return {
+    ...next,
     sections: next.sections.map((s) => ({
       ...s,
       fields: s.fields.map((f) =>
@@ -271,10 +276,10 @@ export function removeField(def: FormDefinition, fieldKey: string): FormDefiniti
   }));
 }
 
-/** Removes a section with its questions. */
+/** Removes a section with its questions; a form keeps at least one, so its only section stays. */
 export function removeSection(def: FormDefinition, key: string): FormDefinition {
-  if (!def.sections.some((s) => s.key === key)) return def;
-  return { sections: def.sections.filter((s) => s.key !== key) };
+  if (def.sections.length < 2 || !def.sections.some((s) => s.key === key)) return def;
+  return { ...def, sections: def.sections.filter((s) => s.key !== key) };
 }
 
 /** How another place of the form reads a question's answer. */
@@ -504,6 +509,17 @@ export function removeSectionWithUses(def: FormDefinition, key: string): FormDef
   return next === def ? def : cleaned(next, sectionKeys(def, key));
 }
 
+/** Renames a part; a text may wait for its other language until the form is published. */
+export function setSectionTitle(
+  def: FormDefinition,
+  key: string,
+  title: FormSection['title'],
+): FormDefinition {
+  return withSection(def, key, (s) =>
+    s.title.bn === title.bn && s.title.en === title.en ? s : { ...s, title },
+  );
+}
+
 /** A section that holds an identity question stays visible to everyone. */
 export function setSectionVisibility(
   def: FormDefinition,
@@ -532,7 +548,7 @@ export function moveSection(def: FormDefinition, key: string, direction: -1 | 1)
   if (index < 0 || target < 0 || target >= def.sections.length) return def;
   const sections = [...def.sections];
   [sections[index], sections[target]] = [sections[target]!, sections[index]!];
-  return { sections };
+  return { ...def, sections };
 }
 
 /**
@@ -614,6 +630,7 @@ export function moveFieldTo(
     return withSection(def, from.key, (s) => ({ ...s, fields: next }));
   }
   return {
+    ...def,
     sections: def.sections.map((s) =>
       s.key === from.key
         ? { ...s, fields: without(s.fields) }
@@ -681,6 +698,7 @@ export function setIdentityRole(
   const core = CORE_FIELDS.find((c) => c.key === role);
   if (!core) return def;
   const cleared: FormDefinition = {
+    ...def,
     sections: def.sections.map((s) => ({
       ...s,
       fields: s.fields.map((f) =>
@@ -732,6 +750,7 @@ export function addEmptySection(
   const key = `section_${n}`;
   return {
     definition: {
+      ...def,
       sections: [...def.sections, { ...emptySection(key, title(n)), librarySectionKey: null }],
     },
     key,
