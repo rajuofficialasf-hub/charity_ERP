@@ -1,8 +1,8 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApiAccess } from '../../src/routes/openapi';
-import { buildTestApp, type TestApp } from '../support/app';
-import { testEnv } from '../support/env';
+import { openApiAccess } from '../../src/routes/openapi.js';
+import { buildTestApp, type TestApp } from '../support/app.js';
+import { testEnv } from '../support/env.js';
 
 // The API's own description of its routes, for the web app's contract test: shapes only, never data.
 describe('GET /api/v1/openapi.json', () => {

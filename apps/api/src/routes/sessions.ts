@@ -1,15 +1,18 @@
 import { reasonRequestSchema, type ReasonRequest } from '@css/shared/auth';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { page } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { page } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 const uuid = z.uuid();
 const sessionOp = { tag: 'sessions', idempotency: 'none' as const, rateLimit: 'default' as const };
 
-/** Device lists and remote revocation (AUTH.md 8, openapi tag sessions). */
+/**
+ * Device lists and remote revocation (docs/architecture/AUTH.md, "Devices: listing, remote
+ * revocation and local-data wipe"; openapi tag sessions).
+ */
 export function sessionsRouter(deps: RouteDeps, c: Pick<Container, 'deviceSessions'>): Router {
   const router = Router();
   const list = (rows: unknown[]) =>

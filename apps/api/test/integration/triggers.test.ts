@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { cloneTemplate } from './support/db';
-import { expectSqlError, inTransaction, SQLSTATE } from './support/expect-sql';
-import * as f from './support/fixtures';
+import { cloneTemplate } from './support/db.js';
+import { expectSqlError, inTransaction, SQLSTATE } from './support/expect-sql.js';
+import * as f from './support/fixtures.js';
 
-// Database triggers of DATABASE_SCHEMA.md (the data-integrity tests).
+// Database triggers of docs/database/DATABASE_SCHEMA.md (the data-integrity tests).
 let db: Client;
 let drop: () => Promise<void>;
 let loc: Awaited<ReturnType<typeof f.locationTree>>;
@@ -154,7 +154,7 @@ describe('log tables', () => {
     );
   });
 
-  it('expired OTP rows are deleted only by the cleanup job setting (section 21)', async () => {
+  it('expired OTP rows are deleted only by the cleanup job setting', async () => {
     const id = await f.insert(db, 'otp_codes', {
       id: randomUUID(),
       purpose: 'registration',
@@ -426,7 +426,7 @@ describe('other triggers', () => {
     );
   });
 
-  it('the system owner flag cannot be removed while no other owner exists (AUTH.md section 11)', async () => {
+  it('the system owner flag cannot be removed while no other owner exists', async () => {
     const existing = (await db.query('SELECT id FROM users WHERE is_system_owner')).rows[0]?.id as
       string | undefined;
     const owner = existing ?? (await f.user(db, { is_system_owner: true }));
@@ -439,7 +439,7 @@ describe('other triggers', () => {
     );
   });
 
-  it('updated_at is set on every update (section 3)', async () => {
+  it('updated_at is set on every update', async () => {
     const id = await f.user(db);
     await db.query(`UPDATE users SET updated_at = '2000-01-01' WHERE id = $1`, [id]);
     const { rows } = await db.query(

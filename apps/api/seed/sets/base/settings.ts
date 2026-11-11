@@ -1,5 +1,5 @@
 import { SETTING_DEFAULTS, SETTING_KEYS } from '@css/shared/settings';
-import { json, type SeedContext } from '../../context';
+import { json, type SeedContext } from '../../context.js';
 
 /**
  * The system settings with their decided defaults (the decided alert thresholds; docs/DECISION_LOG.md, the admin and settings decision). Written

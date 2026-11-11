@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { Tx } from '../core/prisma.service';
+import type { Tx } from '../core/prisma.service.js';
 import {
   HANDOVER_PROVIDERS,
   type HandoverItem,
   type HandoverItemType,
   pickItems,
-} from './providers';
+} from './providers.js';
 
 const item = (itemId: string, itemType: HandoverItemType = 'project_area'): HandoverItem => ({
   category: 'projects',

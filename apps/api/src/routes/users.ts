@@ -14,15 +14,15 @@ import {
 } from '@css/shared/auth';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { etagOf } from '../core/etag';
-import { pageQuery } from '../core/pagination';
-import { ok, page } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
-import { HANDOVER_ITEM_TYPES } from '../handover/providers';
-import type { HandoverAssign } from '../services/handover';
-import type { UserListQuery } from '../services/users';
+import { principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { etagOf } from '../core/etag.js';
+import { pageQuery } from '../core/pagination.js';
+import { ok, page } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import { HANDOVER_ITEM_TYPES } from '../handover/providers.js';
+import type { HandoverAssign } from '../services/handover.js';
+import type { UserListQuery } from '../services/users.js';
 
 const uuid = z.uuid();
 
@@ -86,7 +86,10 @@ const userOp = {
   rateLimit: 'default' as const,
 };
 
-/** User administration (AUTH.md 6, 7, 11; openapi tag users). */
+/**
+ * User administration (docs/architecture/AUTH.md, "Lockout after failed attempts", "Account states"
+ * and "Main Admin protection"; openapi tag users).
+ */
 export function usersRouter(
   deps: RouteDeps,
   c: Pick<Container, 'users' | 'handover' | 'staffAccounts' | 'organogram' | 'projectsWork'>,

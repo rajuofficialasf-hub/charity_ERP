@@ -58,7 +58,7 @@ describe('mergeWorkflowTemplates', () => {
   });
 });
 
-describe('fake identities (TEST_STRATEGY section 4)', () => {
+describe('fake identities', () => {
   it('pass the production formats and are recognisable as fake', () => {
     expect(fakeNid(0)).toBe('1000000000');
     expect(fakeNid(99999)).toBe('1000099999');
@@ -77,7 +77,7 @@ describe('fake identities (TEST_STRATEGY section 4)', () => {
   });
 });
 
-describe('notification template seed (NOTIFICATIONS.md §6)', () => {
+describe('notification template seed', () => {
   it('has unique keys', () => {
     const keys = NOTIFICATION_TEMPLATES.map((t) => t.key);
     expect(new Set(keys).size).toBe(keys.length);

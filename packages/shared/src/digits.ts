@@ -11,8 +11,9 @@ export function hasOnlyEnglishDigits(text: string): boolean {
 }
 
 /**
- * Converts Bengali digits typed by a user (০-৯) into English digits 0-9 (I18N.md 6.4).
- * Used on input by phone, NID and number fields; other characters are left unchanged.
+ * Converts Bengali digits typed by a user (০-৯) into English digits 0-9 (docs/ui/I18N.md, "Input
+ * parsing and normalization"). Used on input by phone, NID and number fields; other characters are
+ * left unchanged.
  */
 export function toEnglishDigits(text: string): string {
   return text.replace(/[\u09E6-\u09EF]/gu, (d) => String(d.charCodeAt(0) - 0x09e6));

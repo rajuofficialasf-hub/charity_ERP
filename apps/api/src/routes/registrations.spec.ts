@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { maskData, sensitiveClassesOf } from '../access/field-mask';
-import { registrationDetail } from './registrations';
+import { maskData, sensitiveClassesOf } from '../access/field-mask.js';
+import { registrationDetail } from './registrations.js';
 
-// The field class of the new personal data in the registration an approver opens (RBAC.md 6).
+// The field class of the new personal data in the registration an approver opens
+// (docs/security/RBAC.md, "Field-level protection").
 describe('the registration detail and the field mask', () => {
   const volunteer = {
     nid: '1000000000123',

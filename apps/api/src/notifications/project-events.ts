@@ -1,8 +1,8 @@
 import { formatDate } from '@css/shared/format';
 import type { Bilingual } from '@css/shared/i18n';
-import type { Tx } from '../core/prisma.service';
-import { bilingualText } from './account-events';
-import type { NotificationService } from './service';
+import type { Tx } from '../core/prisma.service.js';
+import { bilingualText } from './account-events.js';
+import type { NotificationService } from './service.js';
 
 type LifecycleKey = 'project_activated' | 'project_closing' | 'project_closed' | 'project_reopened';
 

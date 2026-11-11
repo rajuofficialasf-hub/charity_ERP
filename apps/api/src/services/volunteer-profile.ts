@@ -1,12 +1,12 @@
-import type { AccessService } from '../access/service';
-import { type Scope, volunteerWhere } from '../access/scope';
-import type { Principal } from '../auth/principal';
-import { boundedRead } from '../core/bounded-read';
-import type { PrismaService } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import { CORRECTION, UNFINISHED } from './registrations';
-import { DETAILS_SELECT, detailsView } from './volunteer-details';
-import { compact } from './volunteers';
+import type { AccessService } from '../access/service.js';
+import { type Scope, volunteerWhere } from '../access/scope.js';
+import type { Principal } from '../auth/principal.js';
+import { boundedRead } from '../core/bounded-read.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import { CORRECTION, UNFINISHED } from './registrations.js';
+import { DETAILS_SELECT, detailsView } from './volunteer-details.js';
+import { compact } from './volunteers.js';
 
 /**
  * What an official may do to the volunteer, as the action routes decide it: each permission with

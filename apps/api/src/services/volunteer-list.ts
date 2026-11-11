@@ -4,12 +4,12 @@ import {
   UNDER_REVIEW_STATES,
   type VolunteerFilter,
 } from '@css/shared/volunteers';
-import type { AccessService } from '../access/service';
-import { type Scope, volunteerWhere } from '../access/scope';
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
-import { boundedRead } from '../core/bounded-read';
-import { isNumberTerm, literalContains, mobileOf } from '../core/search';
+import type { AccessService } from '../access/service.js';
+import { type Scope, volunteerWhere } from '../access/scope.js';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
+import { boundedRead } from '../core/bounded-read.js';
+import { isNumberTerm, literalContains, mobileOf } from '../core/search.js';
 import {
   buildPage,
   decodeCursor,
@@ -19,10 +19,10 @@ import {
   type PageNumberQuery,
   pageOffset,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /**
  * The newest volunteers first, by id: the ids are UUID v7, so they follow the time of creation, and

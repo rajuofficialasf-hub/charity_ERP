@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { parsePermissionsFile, readPermissionsFile } from '../../src/access/registry';
-import { accessWorld } from './support/access-fixtures';
+import { parsePermissionsFile, readPermissionsFile } from '../../src/access/registry.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -10,12 +10,12 @@ import {
   authHarness,
   bearer,
   login,
-} from './support/auth-app';
-import { notificationsOf } from './support/notifications';
+} from './support/auth-app.js';
+import { notificationsOf } from './support/notifications.js';
 
-// Project grants of "if RPM grants" extras (docs/security/RBAC.md 3 and 7). The fixture catalogue
-// marks a sensitive permission as "if RPM grants" for volunteers, so the refusal shared with the
-// panel is reachable here too; the real permissions.yaml has no such case.
+// Project grants of "if RPM grants" extras (docs/security/RBAC.md, "Roles" and "Permission panel").
+// The fixture catalogue marks a sensitive permission as "if RPM grants" for volunteers, so the
+// refusal shared with the panel is reachable here too; the real permissions.yaml has no such case.
 function fixtureRegistry() {
   const file = readPermissionsFile();
   const sensitive = file.permissions.find((p) => p.name === 'volunteer.view_sensitive')!;

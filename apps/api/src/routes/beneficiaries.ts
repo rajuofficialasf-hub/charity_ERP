@@ -18,17 +18,17 @@ import {
 import { type ReasonRequest, reasonRequestSchema } from '@css/shared/auth';
 import { type DecisionRequest, decisionRequestSchema } from '@css/shared/registration';
 import { Router } from 'express';
-import { publishedWorkView } from '../services/media-home';
+import { publishedWorkView } from '../services/media-home.js';
 import { z, type ZodType } from 'zod';
-import { sensitive } from '../access/field-mask';
-import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { type PageQuery, pageNumberQuery, pageQuery } from '../core/pagination';
-import { etagOf } from '../core/etag';
-import { ok, page } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
-import { DUPLICATE_RULES } from '../services/beneficiary-merge-candidates';
-import { blocklistEntry } from './volunteers';
+import { sensitive } from '../access/field-mask.js';
+import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { type PageQuery, pageNumberQuery, pageQuery } from '../core/pagination.js';
+import { etagOf } from '../core/etag.js';
+import { ok, page } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import { DUPLICATE_RULES } from '../services/beneficiary-merge-candidates.js';
+import { blocklistEntry } from './volunteers.js';
 
 // Each marked field gets a schema of its own: `sensitive` marks the instance it is given.
 const contact = <T extends ZodType>(schema: T) => sensitive(schema, 'beneficiary.contact');

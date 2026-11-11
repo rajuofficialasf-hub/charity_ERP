@@ -5,10 +5,10 @@ import {
   type TemplateDefinition,
   WORKFLOW_KEYS,
 } from '@css/shared/projects';
-import type { Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { createFormFromDefinition, projectFormKindOf, readDefinition } from './forms';
-import { storedRules, writeRulesVersion } from './project-rules';
+import type { Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { createFormFromDefinition, projectFormKindOf, readDefinition } from './forms.js';
+import { storedRules, writeRulesVersion } from './project-rules.js';
 
 /**
  * The copied parts of a project: its workflow, components with

@@ -1,22 +1,24 @@
 import type { RegistrationChannel, RegistrationKind } from '@css/shared/registration';
-import { Alert, Button, Chip, Icon, Spinner, Text, TextField } from '@/ui';
+import { Alert, Button, Chip, FormTextField, Icon, Spinner, Text, TextField } from '@/ui';
+import { useController } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
-import { EMAIL, MOBILE, type RegistrationValues } from './form-state';
+import { EMAIL, MOBILE, type RegistrationForm } from './form-state';
 
-/** Where one contact stands: nothing sent, a code sent, or verified. */
+/** Where one contact stands: nothing sent, a code sent, or verified. The code itself is in the form. */
 export interface ChannelState {
   sent: boolean;
   /** The address the last code went to (the one a verification belongs to). */
   address?: string;
   verified: boolean;
-  code: string;
   busy: boolean;
   error?: string;
   codeError?: string;
 }
-export const NEW_CHANNEL: ChannelState = { sent: false, verified: false, code: '', busy: false };
+export const NEW_CHANNEL: ChannelState = { sent: false, verified: false, busy: false };
 
 const DUMMY_OTP_NOTE = import.meta.env.VITE_OTP_DUMMY === '1';
+
+const sixDigits = (value: string) => value.replace(/\D/g, '').slice(0, 6);
 
 /**
  * Step 1 (docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md; the owner's reference
@@ -27,86 +29,38 @@ const DUMMY_OTP_NOTE = import.meta.env.VITE_OTP_DUMMY === '1';
  */
 export function ContactStep({
   kind,
-  values,
-  set,
-  errors,
   channels,
   exists,
   onSend,
   onCode,
   onChange,
-  onContact,
+  onContactEdited,
   canChange,
 }: {
   kind: RegistrationKind;
-  values: RegistrationValues;
-  set: (patch: Partial<RegistrationValues>) => void;
-  errors: Record<string, string>;
   channels: Record<RegistrationChannel, ChannelState>;
   exists: boolean;
   onSend: (channel: RegistrationChannel) => void;
   onCode: (channel: RegistrationChannel, code: string) => void;
   onChange: (channel: RegistrationChannel) => void;
-  onContact: (channel: RegistrationChannel, value: string) => void;
+  /** The contact was typed again (its value is already in the form). */
+  onContactEdited: (channel: RegistrationChannel) => void;
   canChange: boolean;
 }) {
   const t = useTranslations('registration');
   const both = channels.sms.verified && channels.email.verified;
+  const field = { onSend, onCode, onChange, onEdited: onContactEdited, canChange };
   return (
     <>
       <div className="register-grid">
-        <TextField
-          label={t('form.name')}
-          name="name"
-          value={values.name}
-          onChange={(name) => set({ name })}
-          required
-          autoComplete="name"
-          error={errors.name}
-        />
+        <FormTextField label={t('form.name')} name="name" required autoComplete="name" />
         {kind === 'volunteer' ? (
-          <TextField
-            label={t('form.father_name')}
-            name="fatherName"
-            value={values.fatherName}
-            onChange={(fatherName) => set({ fatherName })}
-            required
-            error={errors.fatherName}
-          />
+          <FormTextField label={t('form.father_name')} name="fatherName" required />
         ) : (
-          <TextField
-            label={t('form.designation')}
-            name="designation"
-            value={values.designation}
-            onChange={(designation) => set({ designation })}
-            required
-            error={errors.designation}
-          />
+          <FormTextField label={t('form.designation')} name="designation" required />
         )}
-        <ContactField
-          channel="sms"
-          value={values.mobile}
-          valid={MOBILE.test(values.mobile)}
-          onValue={(mobile) => onContact('sms', mobile)}
-          state={channels.sms}
-          error={errors.mobile}
-          onSend={onSend}
-          onCode={onCode}
-          onChange={onChange}
-          canChange={canChange}
-        />
-        <ContactField
-          channel="email"
-          value={values.email}
-          valid={EMAIL.test(values.email)}
-          onValue={(email) => onContact('email', email.trim())}
-          state={channels.email}
-          error={errors.email}
-          onSend={onSend}
-          onCode={onCode}
-          onChange={onChange}
-          canChange={canChange}
-        />
+        <ContactField {...field} channel="sms" state={channels.sms} />
+        <ContactField {...field} channel="email" state={channels.email} />
       </div>
       {exists && (
         <Alert tone="warning">
@@ -132,31 +86,34 @@ export function ContactStep({
   );
 }
 
+/** A contact bound to the form, its verify button inside it and, once a code is sent, the code. */
 function ContactField({
   channel,
-  value,
-  valid,
-  onValue,
   state,
-  error,
   onSend,
   onCode,
   onChange,
+  onEdited,
   canChange,
 }: {
   channel: RegistrationChannel;
-  value: string;
-  valid: boolean;
-  onValue: (value: string) => void;
   state: ChannelState;
-  error?: string;
   onSend: (channel: RegistrationChannel) => void;
   onCode: (channel: RegistrationChannel, code: string) => void;
   onChange: (channel: RegistrationChannel) => void;
+  onEdited: (channel: RegistrationChannel) => void;
   canChange: boolean;
 }) {
   const t = useTranslations('registration');
   const sms = channel === 'sms';
+  const contact = useController<RegistrationForm, 'mobile' | 'email'>({
+    name: sms ? 'mobile' : 'email',
+  });
+  const code = useController<RegistrationForm, `codes.${RegistrationChannel}`>({
+    name: `codes.${channel}`,
+  });
+  const value = contact.field.value;
+  const valid = sms ? MOBILE.test(value) : EMAIL.test(value);
   const action = state.verified ? (
     <Chip tone="success">
       <Icon name="verified" size={16} />
@@ -174,12 +131,16 @@ function ContactField({
   );
   const field = {
     label: sms ? t('form.mobile') : t('form.email'),
-    name: sms ? 'mobile' : 'email',
+    name: contact.field.name,
     value,
-    onChange: onValue,
+    onChange: (typed: string) => {
+      contact.field.onChange(sms ? typed : typed.trim());
+      onEdited(channel);
+    },
+    onBlur: contact.field.onBlur,
     required: true,
     locked: state.verified,
-    error: error ?? state.error,
+    error: contact.fieldState.error?.message ?? state.error,
     endAction: action,
   };
   return (
@@ -198,12 +159,17 @@ function ContactField({
         <TextField
           label={sms ? t('verify.code_mobile') : t('verify.code_email')}
           name={sms ? 'mobileCode' : 'emailCode'}
-          value={state.code}
+          value={code.field.value}
           inputMode="numeric"
           autoComplete="one-time-code"
           maxLength={6}
           hint={t('verify.sent')}
-          onChange={(code) => onCode(channel, code.replace(/\D/g, '').slice(0, 6))}
+          onChange={(typed) => {
+            const digits = sixDigits(typed);
+            code.field.onChange(digits);
+            onCode(channel, digits);
+          }}
+          onBlur={code.field.onBlur}
           error={state.codeError}
           endAction={state.busy ? <Spinner label={t('verify.checking')} /> : undefined}
         />

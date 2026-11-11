@@ -17,12 +17,12 @@ import {
   transitionFor,
   type WorkflowKey,
 } from '@css/shared/projects';
-import type { AccessService } from '../access/service';
-import { holdsPermission, programWhere, projectWhere, type Scope } from '../access/scope';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import { assertIfMatch } from '../core/etag';
+import type { AccessService } from '../access/service.js';
+import { holdsPermission, programWhere, projectWhere, type Scope } from '../access/scope.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import { assertIfMatch } from '../core/etag.js';
 import {
   buildPage,
   decodeCursor,
@@ -30,12 +30,12 @@ import {
   orderBy,
   type PageQuery,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Env } from '../config/env';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { applyDefinition, projectDefinition } from './project-definition';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Env } from '../config/env.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { applyDefinition, projectDefinition } from './project-definition.js';
 
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
 const DAY = 86_400_000;
@@ -81,7 +81,7 @@ const toDate = (s: string | null | undefined) =>
 /** What a reader of a project sees: a volunteer the work facts only, an official the rest. */
 interface ViewOf {
   forVolunteer: boolean;
-  /** The budget amounts, only inside the caller's `budget.view` scope (RBAC.md, the budget rows). */
+  /** The budget amounts, only inside the caller's `budget.view` scope (docs/security/RBAC.md, the budget rows). */
   budget: boolean;
 }
 
@@ -158,10 +158,10 @@ function sameValue(key: keyof ProjectUpdate, value: unknown, current: unknown): 
 }
 
 /**
- * Projects (docs/MASTER_SPEC.md, A6): a PM creates a draft from a workflow in
- * its program; the setup changes as the project's state allows; a draft that was never activated
- * can be cancelled. Every write locks the project (or, on creation, the program) and is audited in
- * its transaction.
+ * Projects (docs/MASTER_SPEC.md, "Program and project setup (project configuration)"): a PM creates
+ * a draft from a workflow in its program; the setup changes as the project's state allows; a draft
+ * that was never activated can be cancelled. Every write locks the project (or, on creation, the
+ * program) and is audited in its transaction.
  */
 export class ProjectsService {
   constructor(

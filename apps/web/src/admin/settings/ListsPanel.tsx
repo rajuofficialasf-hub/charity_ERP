@@ -13,19 +13,31 @@ import {
   Chip,
   DataTable,
   Dialog,
+  Form,
+  FormSelectField,
+  FormTextField,
   IconButton,
-  SelectField,
   Stack,
   Switch,
-  TextField,
   type DataTableExtendedColumn,
 } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../api/client';
+import { z } from 'zod';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { addItem, listKey, type ReferenceItem, referenceItems, updateItem } from './settings-api';
 import { LoadError } from '../../components/LoadError';
+
+type ItemFields = {
+  code: string;
+  label: { bn: string; en: string };
+  /** The place in the list as typed, digits only; empty puts the item at the end. */
+  sortOrder: string;
+  active: boolean;
+  kind: PlatformKind | '';
+};
 
 /**
  * Adds an item (code and labels, and a platform's kind) or edits one (labels, order, on or off,
@@ -44,19 +56,50 @@ function ItemDialog({
 }) {
   const t = useTranslations('admin.settings.lists');
   const tc = useTranslations('common.action');
+  const ts = useTranslations('common.state.error');
   const locale = useLocale() as Locale;
-  const [code, setCode] = useState('');
-  const [codeError, setCodeError] = useState<string>();
-  const [bn, setBn] = useState(item?.label.bn ?? '');
-  const [en, setEn] = useState(item?.label.en ?? '');
-  const [order, setOrder] = useState(item ? String(item.sortOrder) : '');
-  const [active, setActive] = useState(item?.active ?? true);
   const withKind = LISTS_WITH_KIND.includes(list);
-  const [kind, setKind] = useState<PlatformKind | null>(item?.kind ?? null);
+  const creating = !item;
+  const codeInvalid = t('dialog.code_invalid');
+  // both names, a new item's code in its shape, and a platform's kind
+  const schema = useMemo(
+    () =>
+      z
+        .object({
+          code: z.string(),
+          label: z.object({ bn: z.string(), en: z.string() }),
+          sortOrder: z.string(),
+          active: z.boolean(),
+          kind: z.enum(PLATFORM_KINDS).or(z.literal('')),
+        })
+        .superRefine((v, ctx) => {
+          const required = (path: string[]) =>
+            ctx.addIssue({ code: 'custom', path, message: 'validation.required' });
+          if (!v.label.bn.trim()) required(['label', 'bn']);
+          if (!v.label.en.trim()) required(['label', 'en']);
+          if (creating && !v.code) required(['code']);
+          else if (creating && !listCodeSchema.safeParse(v.code).success)
+            ctx.addIssue({ code: 'custom', path: ['code'], message: codeInvalid });
+          if (withKind && !v.kind) required(['kind']);
+        }),
+    [creating, withKind, codeInvalid],
+  );
+  const form = useForm<ItemFields>({
+    resolver: useSchemaResolver(schema),
+    defaultValues: {
+      code: '',
+      label: { bn: item?.label.bn ?? '', en: item?.label.en ?? '' },
+      sortOrder: item ? String(item.sortOrder) : '',
+      active: item?.active ?? true,
+      kind: item?.kind ?? '',
+    },
+    reValidateMode: 'onSubmit',
+  });
+  const values = useWatch({ control: form.control });
   const queryClient = useQueryClient();
   const save = useMutation({
-    mutationFn: () => {
-      const label = { bn: bn.trim(), en: en.trim() };
+    mutationFn: ({ code, label: typed, sortOrder: order, active, kind }: ItemFields) => {
+      const label = { bn: typed.bn.trim(), en: typed.en.trim() };
       const sortOrder = order.trim() === '' ? undefined : Number(order);
       const extra = {
         ...(sortOrder === undefined ? {} : { sortOrder }),
@@ -67,25 +110,27 @@ function ItemDialog({
         : addItem(list, { code, label, ...extra });
     },
     onSuccess: onDone,
+    // the names' message stands under the first of them
+    onError: (failure) => showFailure(form, failure, ts('text'), { groups: { label: 'label.bn' } }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: listKey(list) }),
   });
-  const failure = save.error instanceof ApiFailure ? save.error : undefined;
-  const detail = (path: string) => failure?.details.find((d) => d.path === path)?.message;
-  const submit = () => {
-    if (!item && !listCodeSchema.safeParse(code).success) {
-      setCodeError(t('dialog.code_invalid'));
-      return;
-    }
-    setCodeError(undefined);
-    save.mutate();
+  // the button waits for both names, a new item's code and a platform's kind; its format is
+  // checked on sending
+  const ready =
+    !!values.label?.bn?.trim() &&
+    !!values.label?.en?.trim() &&
+    (!creating || !!values.code) &&
+    (!withKind || !!values.kind);
+  // the button's own path, and nothing twice while a save is on its way
+  const send = (fields: ItemFields) => {
+    if (ready && !save.isPending) save.mutate(fields);
   };
+  const title = item
+    ? t('dialog.edit_title', { name: localized(item.label, locale) })
+    : t('dialog.create_title', { list: t(list) });
   return (
     <Dialog
-      title={
-        item
-          ? t('dialog.edit_title', { name: localized(item.label, locale) })
-          : t('dialog.create_title', { list: t(list) })
-      }
+      title={title}
       open
       onClose={onClose}
       dismissible={!save.isPending}
@@ -95,8 +140,8 @@ function ItemDialog({
             {tc('cancel')}
           </Button>
           <Button
-            onClick={submit}
-            disabled={!bn.trim() || !en.trim() || (!item && !code) || (withKind && !kind)}
+            onClick={() => void form.handleSubmit(send)()}
+            disabled={!ready}
             loading={save.isPending}
           >
             {tc('save')}
@@ -104,63 +149,62 @@ function ItemDialog({
         </>
       }
     >
-      {failure && !failure.details.length && <Alert tone="error">{failure.message}</Alert>}
-      {!item && (
-        <TextField
-          label={t('dialog.code')}
-          hint={t('dialog.code_hint')}
+      <Form
+        form={form}
+        onSubmit={send}
+        label={title}
+        error={form.formState.errors.root?.server?.message}
+      >
+        {!item && (
+          <FormTextField
+            name="code"
+            label={t('dialog.code')}
+            hint={t('dialog.code_hint')}
+            required
+            lang="en"
+            maxLength={64}
+          />
+        )}
+        <FormTextField name="label.bn" label={t('dialog.label_bn')} required maxLength={200} />
+        <FormTextField
+          name="label.en"
+          label={t('dialog.label_en')}
           required
+          maxLength={200}
           lang="en"
-          maxLength={64}
-          value={code}
-          onChange={setCode}
-          error={codeError ?? detail('code')}
         />
-      )}
-      <TextField
-        label={t('dialog.label_bn')}
-        required
-        maxLength={200}
-        value={bn}
-        onChange={setBn}
-        error={detail('label')}
-      />
-      <TextField
-        label={t('dialog.label_en')}
-        required
-        maxLength={200}
-        lang="en"
-        value={en}
-        onChange={setEn}
-      />
-      <TextField
-        label={t('dialog.order')}
-        hint={t('dialog.order_hint')}
-        inputMode="numeric"
-        maxLength={5}
-        value={order}
-        onChange={(v) => setOrder(v.replace(/[^0-9]/g, ''))}
-        error={detail('sortOrder')}
-      />
-      {withKind && (
-        <SelectField
-          label={t('dialog.kind')}
-          hint={t('dialog.kind_hint')}
-          required
-          value={kind ?? ''}
-          options={PLATFORM_KINDS.map((k) => ({ value: k, label: t(`kind.${k}`) }))}
-          onChange={(id) => setKind((id as PlatformKind) || null)}
-          error={detail('kind')}
+        <FormTextField
+          name="sortOrder"
+          label={t('dialog.order')}
+          hint={t('dialog.order_hint')}
+          inputMode="numeric"
+          maxLength={5}
+          normalize={(v) => v.replace(/[^0-9]/g, '')}
         />
-      )}
-      {item && !item.system && (
-        <Switch label={t('dialog.active')} checked={active} onChange={setActive} />
-      )}
-      {item?.system && (
-        <Alert tone="info" title={t('dialog.system')}>
-          {t('dialog.system_hint')}
-        </Alert>
-      )}
+        {withKind && (
+          <FormSelectField
+            name="kind"
+            label={t('dialog.kind')}
+            hint={t('dialog.kind_hint')}
+            required
+            options={PLATFORM_KINDS.map((k) => ({ value: k, label: t(`kind.${k}`) }))}
+          />
+        )}
+        {item && !item.system && (
+          <Controller
+            control={form.control}
+            name="active"
+            render={({ field }) => (
+              <Switch label={t('dialog.active')} checked={field.value} onChange={field.onChange} />
+            )}
+          />
+        )}
+        {item?.system && (
+          <Alert tone="info" title={t('dialog.system')}>
+            {t('dialog.system_hint')}
+          </Alert>
+        )}
+      </Form>
     </Dialog>
   );
 }

@@ -11,17 +11,17 @@ import {
   type ReviewBody,
   type WorkUpdate,
 } from '@css/shared/media';
-import type { EffectiveAccess } from '../access/effective';
-import { holdsPermission } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import { assertIfMatch } from '../core/etag';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { MediaEvents } from '../notifications/media-events';
-import type { MediaReferralsService, MediaReferralView } from './media-referrals';
+import type { EffectiveAccess } from '../access/effective.js';
+import { holdsPermission } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import { assertIfMatch } from '../core/etag.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { MediaEvents } from '../notifications/media-events.js';
+import type { MediaReferralsService, MediaReferralView } from './media-referrals.js';
 import {
   isClosedStage,
   MANAGE_PERMISSION,
@@ -32,7 +32,7 @@ import {
   VIEW_PERMISSION,
   type WorkRights,
   workRights,
-} from './media-work-view';
+} from './media-work-view.js';
 
 /** The roles whose holders may be members of a work. */
 const MEDIA_ROLES = ['media_team', 'media_director', 'media_assistant_director'];

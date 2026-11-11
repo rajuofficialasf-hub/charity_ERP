@@ -7,9 +7,10 @@ import { isAmount, toPaisa } from '../projects/budget.js';
 import { PLATFORM_KINDS } from '../jsonb/media.js';
 
 /**
- * The system settings kept in the `settings` table (DATABASE_SCHEMA 7, MASTER_SPEC A21): one
- * schema and one default per key. The API validates every write against the key's schema and
- * answers the default while no row exists; the PWA builds its forms on the same schemas.
+ * The system settings kept in the `settings` table (docs/database/DATABASE_SCHEMA.md, "Locations,
+ * reference data and settings"): one schema and one default per key. The API
+ * validates every write against the key's schema and answers the default while no row exists; the
+ * PWA builds its forms on the same schemas.
  */
 
 const text = (max: number) =>

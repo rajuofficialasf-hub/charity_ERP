@@ -1,8 +1,8 @@
 import { formatDate } from '@css/shared/format';
 import { type MessageKey, translate } from '@css/shared/i18n';
-import { fileWords, labelOf } from '../file';
-import type { Cell, CodedSource } from '../rows';
-import { html, type SafeHtml } from './html';
+import { fileWords, labelOf } from '../file.js';
+import type { Cell, CodedSource } from '../rows.js';
+import { html, type SafeHtml } from './html.js';
 
 /** One fact of a record: its words and its value; a fact the person may not see is left out. */
 export interface Fact {

@@ -1,6 +1,6 @@
 import type { Logger } from 'pino';
-import type { Clock } from '../core/clock';
-import type { PrismaService } from '../core/prisma.service';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService } from '../core/prisma.service.js';
 
 /** Nightly at 02:15 Dhaka time on its own queue (jobs/queues.ts). */
 export const STORAGE_STATS_CRON = '15 2 * * *';

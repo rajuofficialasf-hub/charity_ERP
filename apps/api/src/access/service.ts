@@ -1,13 +1,13 @@
 import type { Logger } from 'pino';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { currentContext } from '../core/request-context';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { type EffectiveAccess, effectiveAccess, loadAccessFacts } from './effective';
-import { visibleFieldClasses } from './field-mask';
-import type { AccessRegistry } from './registry';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { currentContext } from '../core/request-context.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { type EffectiveAccess, effectiveAccess, loadAccessFacts } from './effective.js';
+import { visibleFieldClasses } from './field-mask.js';
+import type { AccessRegistry } from './registry.js';
 import {
   applicationWhere,
   beneficiaryWhere,
@@ -19,7 +19,7 @@ import {
   type Scope,
   userWhere,
   volunteerWhere,
-} from './scope';
+} from './scope.js';
 
 const ACCOUNT_KINDS = { in: ['staff', 'volunteer'] };
 
@@ -39,9 +39,10 @@ export interface RequestAccess extends EffectiveAccess {
 }
 
 /**
- * The access decisions of a request (RBAC.md 8): the caller's effective access, the
- * scope of the route's permission for its entity, and the scoped data access of the entities that
- * exist so far. Every refusal is logged as a `permission_denied` event.
+ * The access decisions of a request (docs/security/RBAC.md, "Server-side enforcement"): the
+ * caller's effective access, the scope of the route's permission for its entity, and the scoped
+ * data access of the entities that exist so far. Every refusal is logged as a `permission_denied`
+ * event.
  */
 export class AccessService {
   constructor(
@@ -199,8 +200,9 @@ export class AccessService {
   }
 
   /**
-   * One user inside the scope, or 404 `permission.not_found` (no existence leak, RBAC.md 8.4).
-   * Every update, delete or state change of a user loads it here first.
+   * One user inside the scope, or 404 `permission.not_found` (no existence leak;
+   * docs/security/RBAC.md, "Object-level checks for ASSIGNED and SELF"). Every update, delete or
+   * state change of a user loads it here first.
    */
   async findUser<S extends Prisma.UserSelect>(
     scope: Scope,
@@ -219,7 +221,7 @@ export class AccessService {
     return user as Prisma.UserGetPayload<{ select: S }>;
   }
 
-  /** One project inside the scope, or 404 `permission.not_found` (RBAC.md 8.4). */
+  /** One project inside the scope, or 404 `permission.not_found`. */
   async findProject<S extends Prisma.ProjectSelect>(
     scope: Scope,
     projectId: string,
@@ -237,7 +239,10 @@ export class AccessService {
     return project as Prisma.ProjectGetPayload<{ select: S }>;
   }
 
-  /** Whether a user holds a permission on one project (granter check of project grants, RBAC.md 7). */
+  /**
+   * Whether a user holds a permission on one project (granter check of project grants;
+   * docs/security/RBAC.md, "Permission panel").
+   */
   async holdsOnProject(
     userId: string,
     permission: string,

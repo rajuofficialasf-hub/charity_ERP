@@ -1,6 +1,6 @@
 import type { Logger } from 'pino';
-import type { PrismaService } from '../core/prisma.service';
-import type { Bucket, StorageDriver } from '../storage';
+import type { PrismaService } from '../core/prisma.service.js';
+import type { Bucket, StorageDriver } from '../storage/index.js';
 
 /** Daily at 03:30 Dhaka time on the maintenance queue. */
 export const REGISTRATION_CLEANUP_CRON = '30 3 * * *';

@@ -1,4 +1,7 @@
-/** The states of a project (docs/MASTER_SPEC.md, A6 "Project lifecycle"). */
+/**
+ * The states of a project (docs/MASTER_SPEC.md, "Project lifecycle: Draft → Active → Closing →
+ * Closed").
+ */
 export const PROJECT_STATUSES = ['draft', 'active', 'closing', 'closed', 'cancelled'] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 

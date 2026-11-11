@@ -1,7 +1,7 @@
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import { boundedRead } from '../core/bounded-read';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import { boundedRead } from '../core/bounded-read.js';
 import {
   buildPage,
   decodeCursor,
@@ -9,9 +9,9 @@ import {
   orderBy,
   parseSort,
   searchWhere,
-} from '../core/pagination';
-import type { PrismaService } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
+} from '../core/pagination.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
 
 export interface ActiveSessionQuery {
   limit: number;

@@ -1,10 +1,10 @@
 import { type Consent, consentSchema, type TeamAdd, teamAddSchema } from '@css/shared/projects';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf } from '../auth/principal';
-import type { Container } from '../container';
-import { ok } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { principalOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { ok } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 const uuid = z.uuid();
 const bilingual = z.object({ bn: z.string(), en: z.string() });

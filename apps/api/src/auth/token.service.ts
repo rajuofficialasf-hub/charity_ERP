@@ -1,13 +1,16 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { errors, jwtVerify, SignJWT } from 'jose';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import { ApiError } from '../i18n/api-error';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /** Access-token lifetime. */
 export const ACCESS_TOKEN_SECONDS = 15 * 60;
 
-/** Claims of an access token (AUTH.md 5): no permissions, scopes or personal data. */
+/**
+ * Claims of an access token (docs/architecture/AUTH.md, "Tokens and device sessions"): no
+ * permissions, scopes or personal data.
+ */
 export interface AccessClaims {
   sub: string;
   sid: string;
@@ -27,7 +30,7 @@ function signingKey(secret: string): SigningKey {
   };
 }
 
-/** SHA-256 of a refresh token; only the hash is stored (AUTH.md 5). */
+/** SHA-256 of a refresh token; only the hash is stored. */
 export function hashRefreshToken(token: string): string {
   return createHash('sha256').update(token).digest('base64url');
 }

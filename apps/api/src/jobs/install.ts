@@ -1,5 +1,5 @@
 import { PgBoss } from 'pg-boss';
-import { JOBS_SCHEMA, QUEUE_NAMES, QUEUES } from './queues';
+import { JOBS_SCHEMA, QUEUE_NAMES, QUEUES } from './queues.js';
 
 /**
  * Installs or upgrades the pg-boss schema and creates every registered queue. Runs as the

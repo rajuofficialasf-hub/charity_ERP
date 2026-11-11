@@ -1,10 +1,10 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedFormTemplates } from '../../seed/sets/base/forms';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { accessWorld } from './support/access-fixtures';
+import { SeedContext } from '../../seed/context.js';
+import { seedFormTemplates } from '../../seed/sets/base/forms.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -13,10 +13,10 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { volunteer } from './support/fixtures';
-import { publishedForm, publishedReadyForm } from './support/forms';
-import { notificationsOf } from './support/notifications';
+} from './support/auth-app.js';
+import { volunteer } from './support/fixtures.js';
+import { publishedForm, publishedReadyForm } from './support/forms.js';
+import { notificationsOf } from './support/notifications.js';
 
 // The life of a project: activation of a complete draft, the deadline extension, the two-step
 // close with the workflow's close guards, and the reopen.
@@ -34,7 +34,7 @@ beforeAll(async () => {
     return a.id;
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   await seedFormTemplates(ctx);

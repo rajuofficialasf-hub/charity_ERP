@@ -16,12 +16,12 @@ import {
   formatWeekday,
 } from './index.js';
 
-// 10 October 2026, 16:40 in Dhaka (UTC+6) = 10:40 UTC (I18N 6.2 examples)
+// 10 October 2026, 16:40 in Dhaka (UTC+6) = 10:40 UTC (the examples of docs/ui/I18N.md, "Formats")
 const at = (h: number, m = 0) => new Date(Date.UTC(2026, 9, 10, h - 6, m));
 const sample = at(16, 40);
 const BENGALI_DIGIT = /[০-৯]/u;
 
-describe('formatter (I18N 6.2)', () => {
+describe('formatter', () => {
   it('formats counts, decimals and percentages with lakh grouping in both languages', () => {
     for (const locale of ['bn', 'en'] as const) {
       expect(formatCount(1234567, locale)).toBe('12,34,567');

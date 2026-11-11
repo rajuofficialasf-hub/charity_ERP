@@ -1,11 +1,12 @@
 /**
- * The one local-data wipe of the PWA (AUTH.md 8, OFFLINE_SYNC 8): runs on logout, on a revoked
- * session and on refresh-token reuse. It removes what this device keeps for the signed-in user:
- * the offline store (`css-offline`, with its outbox, photo queue and keys), any other IndexedDB
- * database of the app (`css-*`), the API caches of the service worker and session storage. No
- * step may skip the next: each is guarded on its own. The language choice (`css_locale`) is a
- * device preference and stays, as does the note of records lost before a login, which the next
- * login reports.
+ * The one local-data wipe of the PWA (docs/architecture/AUTH.md, "Devices: listing, remote
+ * revocation and local-data wipe"; docs/architecture/OFFLINE_SYNC.md, "Local storage security"):
+ * runs on logout, on a revoked session and on refresh-token reuse. It removes what this device
+ * keeps for the signed-in user: the offline store (`css-offline`, with its outbox, photo queue and
+ * keys), any other IndexedDB database of the app (`css-*`), the API caches of the service worker
+ * and session storage. No step may skip the next: each is guarded on its own. The language choice
+ * (`css_locale`) is a device preference and stays, as does the note of records lost before a login,
+ * which the next login reports.
  */
 export async function wipeLocalData(): Promise<void> {
   try {

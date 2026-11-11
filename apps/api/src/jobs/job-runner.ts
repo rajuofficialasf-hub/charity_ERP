@@ -1,8 +1,8 @@
 import { fromPrisma, type Job, PgBoss } from 'pg-boss';
 import type { Logger } from 'pino';
-import type { Env } from '../config/env';
-import type { Tx } from '../core/prisma.service';
-import { JOBS_SCHEMA, type QueueName } from './queues';
+import type { Env } from '../config/env.js';
+import type { Tx } from '../core/prisma.service.js';
+import { JOBS_SCHEMA, type QueueName } from './queues.js';
 
 export type JobHandler<T> = (job: Job<T>) => Promise<unknown>;
 
@@ -86,7 +86,10 @@ export class JobRunner {
     await boss.schedule(queue, cron, data, { tz: 'Asia/Dhaka', ...(key ? { key } : {}) });
   }
 
-  /** Readiness check: the queue schema is reachable (SYSTEM_ARCHITECTURE 10). */
+  /**
+   * Readiness check: the queue schema is reachable (docs/architecture/SYSTEM_ARCHITECTURE.md,
+   * "Logging and monitoring").
+   */
   async ping(): Promise<boolean> {
     const boss = await this.start();
     return boss.isInstalled();

@@ -1,5 +1,5 @@
 import type { LocationView } from '@css/shared';
-import type { PrismaService, Tx } from '../core/prisma.service';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
 
 export type { LocationView };
 

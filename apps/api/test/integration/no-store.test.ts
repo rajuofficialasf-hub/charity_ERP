@@ -1,8 +1,8 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { accessWorld } from './support/access-fixtures';
-import { type Account, account, type AuthHarness, authHarness, login } from './support/auth-app';
-import * as f from './support/fixtures';
+import { accessWorld } from './support/access-fixtures.js';
+import { type Account, account, type AuthHarness, authHarness, login } from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // No browser or proxy keeps a signed-in answer.
 let h: AuthHarness;

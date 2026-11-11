@@ -12,9 +12,9 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { text } from 'node:stream/consumers';
 import { describe, expect, it } from 'vitest';
-import { ApiError } from '../../i18n/api-error';
-import { NotFoundError } from '../types';
-import { createNasDriver } from './nas';
+import { ApiError } from '../../i18n/api-error.js';
+import { NotFoundError } from '../types.js';
+import { createNasDriver } from './nas.js';
 
 const tempRoot = () => mkdtempSync(join(tmpdir(), 'css-nas-'));
 const fresh = () => createNasDriver(tempRoot());

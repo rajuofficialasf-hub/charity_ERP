@@ -1,9 +1,10 @@
-import { type AuditWriter, type AuditEntry } from '../audit/audit-writer';
-import type { Tx } from '../core/prisma.service';
-import { type SessionService } from './session.service';
+import { type AuditWriter, type AuditEntry } from '../audit/audit-writer.js';
+import type { Tx } from '../core/prisma.service.js';
+import { type SessionService } from './session.service.js';
 
 /**
- * Forces a session refresh after a change to what a user may do (AUTH.md 9): increments
+ * Forces a session refresh after a change to what a user may do (docs/architecture/AUTH.md, "Role
+ * or permission change forces a session refresh"): increments
  * `users.permission_version`, so the next request with an older token gets 401
  * `auth.token_stale` and the PWA refreshes silently, and writes the audit entry of the change.
  * Role assignment, permission-panel changes, blocklist and account-state

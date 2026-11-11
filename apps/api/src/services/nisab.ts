@@ -1,12 +1,12 @@
 import { uuidv7 } from '@css/shared';
 import { isoDateInDhaka } from '@css/shared/format';
 import { NISAB_MAX_DAYS_AHEAD, type NisabAdd, type NisabVersionView } from '@css/shared/settings';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
 
 const SELECT = {
   id: true,

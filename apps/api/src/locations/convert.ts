@@ -1,4 +1,4 @@
-import { parseCsvRecords, toCsv } from './csv';
+import { parseCsvRecords, toCsv } from './csv.js';
 
 /**
  * Converts the owner's locations file (bangladesh-admin.json, 2026-11-07) into the committed CSV

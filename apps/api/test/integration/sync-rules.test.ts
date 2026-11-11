@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { etagOf } from '../../src/core/etag';
-import { auditRows, type AuthHarness, authHarness, bearer } from './support/auth-app';
-import * as f from './support/fixtures';
-import { syncWorld } from './support/sync';
+import { etagOf } from '../../src/core/etag.js';
+import { auditRows, type AuthHarness, authHarness, bearer } from './support/auth-app.js';
+import * as f from './support/fixtures.js';
+import { syncWorld } from './support/sync.js';
 
 // What the server does with a record that arrived late, on a stale form, with a known number under
 // another name, or against a change made meanwhile (docs/architecture/OFFLINE_SYNC.md "Conflict

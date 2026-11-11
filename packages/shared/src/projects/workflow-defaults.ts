@@ -2,7 +2,10 @@ import { COMPONENT_KEYS, type ComponentKey } from '../components.js';
 import { photoRule, photoSource } from '../jsonb/component-settings.js';
 import type { WorkflowDefinition } from '../jsonb/workflow-definition.js';
 
-/** The six seeded workflow definitions a project is created from (the yaml files of WORKFLOW_ENGINE). */
+/**
+ * The six seeded workflow definitions a project is created from (the yaml files of
+ * docs/architecture/workflow-templates/).
+ */
 export const WORKFLOW_KEYS = [
   'distribution',
   'construction',
@@ -14,9 +17,10 @@ export const WORKFLOW_KEYS = [
 export type WorkflowKey = (typeof WORKFLOW_KEYS)[number];
 
 /**
- * The components a new project of each workflow starts with, from the "used today in" column of
- * the component table (docs/MASTER_SPEC.md, A6). The PM switches any of them
- * on or off afterwards; nothing here is a rule about what a project may use.
+ * The components a new project of each workflow starts with, from the "used today in" column of the
+ * component table (docs/MASTER_SPEC.md, "Program and project setup (project configuration)"). The
+ * PM switches any of them on or off afterwards; nothing here is a rule about what a project may
+ * use.
  */
 export const WORKFLOW_COMPONENTS: Record<WorkflowKey, readonly ComponentKey[]> = {
   distribution: [

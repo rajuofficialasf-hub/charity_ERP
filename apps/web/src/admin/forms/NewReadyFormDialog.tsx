@@ -1,11 +1,29 @@
 import type { ReadyFormCreate } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, Button, Dialog, RadioGroup, SelectField, TextField } from '@/ui';
+import { Button, Dialog, Form, FormSelectField, FormTextField, RadioGroup } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../api/client';
-import { createReadyForm, type FormKind, READY_KEY, type ReadyFormView } from './forms-api';
+import { z } from 'zod';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
+import { createReadyForm, READY_KEY, type ReadyFormView } from './forms-api';
+
+/** Both names, and the ready form a copy starts from. */
+const READY_FORM_SCHEMA = z
+  .object({
+    title: z.object({ bn: z.string(), en: z.string() }),
+    kind: z.enum(['beneficiary_application', 'other']),
+    start: z.enum(['blank', 'copy']),
+    copyFrom: z.string(),
+  })
+  .superRefine((v, ctx) => {
+    const required = (path: string[]) =>
+      ctx.addIssue({ code: 'custom', path, message: 'validation.required' });
+    if (!v.title.bn.trim()) required(['title', 'bn']);
+    if (!v.title.en.trim()) required(['title', 'en']);
+    if (v.start === 'copy' && !v.copyFrom) required(['copyFrom']);
+  });
+type ReadyFormFields = z.infer<typeof READY_FORM_SCHEMA>;
 
 /** A key for a new ready form from its English name: small letters, digits and underscores. */
 export function readyKeyOf(nameEn: string, stamp: string): string {
@@ -35,30 +53,43 @@ export function NewReadyFormDialog({
 }) {
   const t = useTranslations('forms.builder');
   const tr = useTranslations('forms.ready');
+  const ts = useTranslations('common.state.error');
   const locale = useLocale() as Locale;
   const queries = useQueryClient();
-  const [nameBn, setNameBn] = useState('');
-  const [nameEn, setNameEn] = useState('');
-  const [kind, setKind] = useState<FormKind>('beneficiary_application');
-  const [start, setStart] = useState<'blank' | 'copy'>('blank');
-  const [copyFrom, setCopyFrom] = useState<string | null>(null);
+  const form = useForm<ReadyFormFields>({
+    resolver: useSchemaResolver(READY_FORM_SCHEMA),
+    defaultValues: {
+      title: { bn: '', en: '' },
+      kind: 'beneficiary_application',
+      start: 'blank',
+      copyFrom: '',
+    },
+    reValidateMode: 'onSubmit',
+  });
+  const values = useWatch({ control: form.control });
+  const ready = READY_FORM_SCHEMA.safeParse(values).success;
   const published = forms.filter((f) => f.publishedVersionId !== null);
-  const source: ReadyFormCreate['source'] | null =
-    start === 'blank' ? { kind: 'blank' } : copyFrom ? { kind: 'copy', formId: copyFrom } : null;
   const create = useMutation({
-    mutationFn: () =>
-      createReadyForm({
-        key: readyKeyOf(nameEn, Date.now().toString(36)),
-        title: { bn: nameBn.trim(), en: nameEn.trim() },
-        kind,
-        source: source!,
-      }),
+    mutationFn: (v: ReadyFormFields) => {
+      const source: ReadyFormCreate['source'] =
+        v.start === 'copy' ? { kind: 'copy', formId: v.copyFrom } : { kind: 'blank' };
+      return createReadyForm({
+        key: readyKeyOf(v.title.en, Date.now().toString(36)),
+        title: { bn: v.title.bn.trim(), en: v.title.en.trim() },
+        kind: v.kind,
+        source,
+      });
+    },
     onSuccess: async (made) => {
       await queries.invalidateQueries({ queryKey: READY_KEY });
       onCreated(made.id);
     },
+    onError: (failure) => showFailure(form, failure, ts('text'), { firstDetail: true }),
   });
-  const ready = nameBn.trim() !== '' && nameEn.trim() !== '' && source !== null;
+  // the send button's own path: nothing it would refuse, and nothing twice while one is on its way
+  const send = (v: ReadyFormFields) => {
+    if (ready && !create.isPending) create.mutate(v);
+  };
   return (
     <Dialog
       title={tr('new')}
@@ -70,59 +101,67 @@ export function NewReadyFormDialog({
           <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
             {t('cancel')}
           </Button>
-          <Button onClick={() => create.mutate()} disabled={!ready} loading={create.isPending}>
+          <Button
+            onClick={() => void form.handleSubmit(send)()}
+            disabled={!ready}
+            loading={create.isPending}
+          >
             {t('create')}
           </Button>
         </>
       }
     >
-      {create.error instanceof ApiFailure ? (
-        <Alert tone="error">{create.error.details[0]?.message ?? create.error.message}</Alert>
-      ) : null}
-      <TextField
-        label={t('name_bn')}
-        required
-        maxLength={200}
-        value={nameBn}
-        onChange={setNameBn}
-      />
-      <TextField
-        label={t('name_en')}
-        required
-        maxLength={200}
-        lang="en"
-        value={nameEn}
-        onChange={setNameEn}
-      />
-      <RadioGroup
-        label={tr('kind')}
-        hint={tr('kind_hint')}
-        value={kind}
-        onChange={(id) => setKind(id === 'other' ? 'other' : 'beneficiary_application')}
-        options={[
-          { value: 'beneficiary_application', label: t('kind.beneficiary_application') },
-          { value: 'other', label: t('kind.other') },
-        ]}
-      />
-      <RadioGroup
-        label={tr('start')}
-        value={start}
-        onChange={(id) => setStart(id === 'copy' ? 'copy' : 'blank')}
-        options={[
-          { value: 'blank', label: tr('start_blank') },
-          { value: 'copy', label: tr('start_copy') },
-        ]}
-      />
-      {start === 'copy' ? (
-        <SelectField
-          label={tr('copy_from')}
-          required
-          value={copyFrom ?? ''}
-          onChange={(v) => setCopyFrom(v || null)}
-          hint={published.length === 0 ? tr('copy_none') : undefined}
-          options={published.map((f) => ({ value: f.id, label: localized(f.title, locale) }))}
+      <Form
+        form={form}
+        onSubmit={send}
+        label={tr('new')}
+        error={form.formState.errors.root?.server?.message}
+      >
+        <FormTextField name="title.bn" label={t('name_bn')} required maxLength={200} />
+        <FormTextField name="title.en" label={t('name_en')} required maxLength={200} lang="en" />
+        <Controller
+          control={form.control}
+          name="kind"
+          render={({ field }) => (
+            <RadioGroup
+              label={tr('kind')}
+              hint={tr('kind_hint')}
+              value={field.value}
+              onChange={(id) =>
+                field.onChange(id === 'other' ? 'other' : 'beneficiary_application')
+              }
+              options={[
+                { value: 'beneficiary_application', label: t('kind.beneficiary_application') },
+                { value: 'other', label: t('kind.other') },
+              ]}
+            />
+          )}
         />
-      ) : null}
+        <Controller
+          control={form.control}
+          name="start"
+          render={({ field }) => (
+            <RadioGroup
+              label={tr('start')}
+              value={field.value}
+              onChange={(id) => field.onChange(id === 'copy' ? 'copy' : 'blank')}
+              options={[
+                { value: 'blank', label: tr('start_blank') },
+                { value: 'copy', label: tr('start_copy') },
+              ]}
+            />
+          )}
+        />
+        {values.start === 'copy' ? (
+          <FormSelectField
+            name="copyFrom"
+            label={tr('copy_from')}
+            required
+            hint={published.length === 0 ? tr('copy_none') : undefined}
+            options={published.map((f) => ({ value: f.id, label: localized(f.title, locale) }))}
+          />
+        ) : null}
+      </Form>
     </Dialog>
   );
 }

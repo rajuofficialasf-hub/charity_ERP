@@ -1,12 +1,12 @@
-import { COMMENT_REASONS } from './decision-rules';
-import { unlockView } from './unlocks';
+import { COMMENT_REASONS } from './decision-rules.js';
+import { unlockView } from './unlocks.js';
 import { answerValueSchema } from '@css/shared';
 import { APPLICATION_STATES } from '@css/shared';
 import { z } from 'zod';
-import { sensitive } from '../access/field-mask';
-import { versionView } from '../routes/forms';
-import type { FormVersionView } from '../services/forms';
-import { applicationMediaView } from '../services/media-referrals';
+import { sensitive } from '../access/field-mask.js';
+import { versionView } from '../routes/forms.js';
+import type { FormVersionView } from '../services/forms.js';
+import { applicationMediaView } from '../services/media-referrals.js';
 
 /** The class of the official section and of the office's own texts (permissions.yaml). */
 export const OFFICIAL_SECTION = 'application.official_section';

@@ -1,10 +1,10 @@
 import { createServer } from 'node:http';
-import { createApp } from './app';
-import { otpStartupMessage } from './auth/otp.service';
-import { loadEnv } from './config/env';
-import { closeContainer, createContainer } from './container';
-import { startInlineConsumers } from './jobs/consumers';
-import { createShutdown } from './shutdown';
+import { createApp } from './app.js';
+import { otpStartupMessage } from './auth/otp.service.js';
+import { loadEnv } from './config/env.js';
+import { closeContainer, createContainer } from './container.js';
+import { startInlineConsumers } from './jobs/consumers.js';
+import { createShutdown } from './shutdown.js';
 
 /**
  * In-flight requests and, in development, the inline job consumers (pg-boss drains for up to 30 s,

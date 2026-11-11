@@ -1,8 +1,8 @@
 import type { OwnStaffProfile } from '@css/shared/auth';
-import type { Principal } from '../auth/principal';
-import type { PrismaService } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import { staffPhotos } from './staff-photos';
+import type { Principal } from '../auth/principal.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import { staffPhotos } from './staff-photos.js';
 
 /**
  * An official's own profile: who they are, where they work and how they are reached. It reads the

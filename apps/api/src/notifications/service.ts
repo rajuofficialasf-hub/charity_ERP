@@ -1,11 +1,11 @@
 import { inAppParams, uuidv7 } from '@css/shared';
 import type { NotificationParam } from '@css/shared/i18n';
-import type { Clock } from '../core/clock';
-import type { Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import type { JobRunner } from '../jobs/job-runner';
-import { EMAIL_PRIORITY, NOTIFICATION_CATALOGUE } from './catalogue';
-import type { RecipientResolver, RecipientRule } from './recipients';
+import type { Clock } from '../core/clock.js';
+import type { Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import type { JobRunner } from '../jobs/job-runner.js';
+import { EMAIL_PRIORITY, NOTIFICATION_CATALOGUE } from './catalogue.js';
+import type { RecipientResolver, RecipientRule } from './recipients.js';
 
 /** One event to tell people about. */
 export interface NotificationInput {

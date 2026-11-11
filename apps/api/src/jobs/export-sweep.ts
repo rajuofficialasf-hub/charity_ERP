@@ -1,12 +1,12 @@
 import { EXPORT_LIMITS } from '@css/shared/exports';
 import type { Logger } from 'pino';
-import type { Clock } from '../core/clock';
-import type { PrismaService } from '../core/prisma.service';
-import type { ExportEvents } from '../notifications/export-events';
-import { knownBucket, type StorageDriver } from '../storage/types';
-import { readFrozenRecord } from '../exports/records';
-import { clearedOf, exportObjectKey } from './export-run';
-import { QUEUES } from './queues';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import type { ExportEvents } from '../notifications/export-events.js';
+import { knownBucket, type StorageDriver } from '../storage/types.js';
+import { readFrozenRecord } from '../exports/records.js';
+import { clearedOf, exportObjectKey } from './export-run.js';
+import { QUEUES } from './queues.js';
 
 /** Daily at 03:30 Dhaka time, after the night's other housekeeping. */
 export const EXPORT_SWEEP_CRON = '30 3 * * *';

@@ -1,16 +1,30 @@
 // @vitest-environment jsdom
 // The text field kinds and states this app added to the asf template (listed in local.json), the
-// error summary and the form section.
+// error summary, the form section, and the text and select fields of the extended set bound to a
+// form.
 import '@testing-library/jest-dom/vitest';
 
 import type { TextFieldExtendedProps } from '@/ui/contract';
 
+import { z } from 'zod';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import userEvent from '@testing-library/user-event';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
-import { render, screen, within, cleanup } from '@testing-library/react';
+import { render, screen, within, cleanup, waitFor } from '@testing-library/react';
 
-import { DateField, TextField, UiProvider, FormSection, ErrorSummary } from './index';
+import {
+  Form,
+  DateField,
+  TextField,
+  UiProvider,
+  FormSection,
+  ErrorSummary,
+  FormTextField,
+  FormSelectField,
+  FormSubmitButton,
+} from './index';
 import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
 
 beforeEach(() => stubWidth(false));
@@ -221,5 +235,67 @@ describe('the date field', () => {
     expect(within(field).getByRole('spinbutton', { name: 'বছর' })).toHaveTextContent('2026');
     await user.click(screen.getByRole('button', { name: /ক্যালেন্ডার খুলুন/ }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+});
+
+const codeSchema = z.object({
+  code: z.string().regex(/^[0-9]{6}$/, 'Enter the six digits'),
+  size: z.string().min(1, 'Choose a size'),
+});
+type CodeForm = z.infer<typeof codeSchema>;
+
+function CodeForm({ onSubmit }: { onSubmit: (values: CodeForm) => void }) {
+  const form = useForm<CodeForm>({ resolver: zodResolver(codeSchema), defaultValues: { code: '', size: '' } });
+  return (
+    <UiProvider>
+      <Form form={form} onSubmit={onSubmit} label="Verify">
+        <FormTextField
+          name="code"
+          label="Code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          normalize={(value) => value.replace(/\D/g, '').slice(0, 6)}
+          endAction={<span>sent</span>}
+        />
+        <FormSelectField
+          name="size"
+          label="Size"
+          placeholder="Choose"
+          options={[
+            { value: 's', label: 'Small' },
+            { value: 'm', label: 'Medium' },
+          ]}
+        />
+        <FormSubmitButton>Verify</FormSubmitButton>
+      </Form>
+    </UiProvider>
+  );
+}
+
+describe('the extended fields bound to a form', () => {
+  it('keeps the normalized text, passes the extended props, and shows the schema messages', async () => {
+    const user = userEvent.setup();
+    const submitted: CodeForm[] = [];
+    render(<CodeForm onSubmit={(values) => submitted.push(values)} />);
+    const code = screen.getByRole('textbox', { name: 'Code' });
+    expect(code).toHaveAttribute('inputmode', 'numeric');
+    expect(code).toHaveAttribute('autocomplete', 'one-time-code');
+    expect(code).toHaveAttribute('maxlength', '6');
+    expect(screen.getByText('sent')).toBeInTheDocument();
+
+    await user.type(code, '12a3');
+    expect(code).toHaveValue('123');
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+    expect(await screen.findByText('Enter the six digits')).toBeInTheDocument();
+    expect(screen.getByText('Choose a size')).toBeInTheDocument();
+    expect(submitted).toEqual([]);
+
+    await user.type(code, '4567');
+    expect(code).toHaveValue('123456');
+    await user.click(screen.getByRole('combobox', { name: 'Size' }));
+    await user.click(await screen.findByRole('option', { name: 'Medium' }));
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+    await waitFor(() => expect(submitted).toEqual([{ code: '123456', size: 'm' }]));
   });
 });

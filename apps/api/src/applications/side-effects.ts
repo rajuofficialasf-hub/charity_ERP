@@ -1,7 +1,7 @@
-import type { Clock } from '../core/clock';
-import type { Tx } from '../core/prisma.service';
-import type { SideEffect, SideEffectRunner } from '../workflow/effects';
-import type { ScoringService } from './scoring';
+import type { Clock } from '../core/clock.js';
+import type { Tx } from '../core/prisma.service.js';
+import type { SideEffect, SideEffectRunner } from '../workflow/effects.js';
+import type { ScoringService } from './scoring.js';
 
 /**
  * The effects of a move that write rows of their own, run inside the move's transaction: the

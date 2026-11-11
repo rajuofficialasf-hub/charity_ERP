@@ -8,10 +8,10 @@ import {
   bearer,
   login,
   PASSWORD,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
-// Password change and reset with the dummy OTP (AUTH.md 2, 3).
-// The test configuration sets OTP_DUMMY_CODE=246810.
+// Password change and reset with the dummy OTP (docs/architecture/AUTH.md, "Registration with two
+// OTPs" and "Password rules"). The test configuration sets OTP_DUMMY_CODE=246810.
 const CODE = '246810';
 let h: AuthHarness;
 

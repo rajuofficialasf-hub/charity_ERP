@@ -1,12 +1,40 @@
-import { type InvitationView, PASSWORD_MIN_LENGTH } from '@css/shared/auth';
-import { Alert, Button, LinkButton, Skeleton, Text, TextField } from '@/ui';
+import {
+  invitationAcceptRequestSchema,
+  type InvitationView,
+  PASSWORD_MIN_LENGTH,
+} from '@css/shared/auth';
+import { Alert, Button, Form, FormTextField, LinkButton, Skeleton, Text } from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { type FormEvent, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { AuthShell } from '../../components/AuthShell';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { PasswordRules } from '../../components/PasswordRules';
 import { api, ApiFailure } from '../../api/client';
+import { useSchemaResolver } from '../../lib/form-schema';
+
+type PasswordFields = { password: string; confirm: string };
+
+/** The password of the accept request, filled, and the same password typed again. */
+function usePasswordSchema() {
+  const tp = useTranslations('auth.password');
+  return useMemo(
+    () =>
+      invitationAcceptRequestSchema
+        .pick({ password: true })
+        .extend({ confirm: z.string() })
+        .refine((v) => v.password === v.confirm, { path: ['confirm'], message: tp('mismatch') }),
+    [tp],
+  );
+}
+
+/** The message a refused accept gives for the password itself, if it names it. */
+const passwordErrorOf = (error: unknown) =>
+  error instanceof ApiFailure
+    ? error.details.find((d) => d.path === 'password')?.message
+    : undefined;
 
 /**
  * The token of the link `/invite#<token>`: read from the fragment, which the browser never sends
@@ -23,18 +51,22 @@ function useLinkToken(): string {
 
 /**
  * An official created by the admin chooses the first password through the single-use link
- * (AUTH.md 2.2, docs/ui/SCREENS.md "Set-password link of a new official"): the page shows the name and the job ID of the open
- * link, the password rules of the account, then sends the person to log in with the job ID. A
- * used, replaced or expired link says to ask the admin for a new one.
+ * (docs/architecture/AUTH.md, "Officials created by the admin"; docs/ui/SCREENS.md "Set-password
+ * link of a new official"): the page shows the name and the job ID of the open link, the password
+ * rules of the account, then sends the person to log in with the job ID. A used, replaced or
+ * expired link says to ask the admin for a new one.
  */
 export function InvitePage() {
   const t = useTranslations('auth.invite');
   const tp = useTranslations('auth.password');
   const tl = useTranslations('auth.login');
   const token = useLinkToken();
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [mismatch, setMismatch] = useState(false);
+  const form = useForm<PasswordFields>({
+    resolver: useSchemaResolver(usePasswordSchema()),
+    defaultValues: { password: '', confirm: '' },
+    reValidateMode: 'onSubmit',
+  });
+  const password = useWatch({ control: form.control, name: 'password' });
   const view = useQuery({
     queryKey: ['invitation', token],
     queryFn: () =>
@@ -44,22 +76,20 @@ export function InvitePage() {
     staleTime: Infinity,
   });
   const accept = useMutation({
-    mutationFn: () =>
-      api<void>('/auth/invitations/accept', { method: 'POST', body: { token, password } }, false),
+    mutationFn: (chosen: string) =>
+      api<void>(
+        '/auth/invitations/accept',
+        { method: 'POST', body: { token, password: chosen } },
+        false,
+      ),
+    onError: (error) => {
+      const message = passwordErrorOf(error);
+      if (message) form.setError('password', { type: 'server', message });
+    },
   });
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    // two values the person just typed on this device, not a secret check
-    // eslint-disable-next-line security/detect-possible-timing-attacks
-    if (password !== confirm) {
-      setMismatch(true);
-      return;
-    }
-    setMismatch(false);
-    accept.mutate();
-  };
+  const submit = ({ password: chosen }: PasswordFields) => accept.mutate(chosen);
   const failure = accept.error instanceof ApiFailure ? accept.error : undefined;
-  const passwordError = failure?.details.find((d) => d.path === 'password')?.message;
+  const passwordError = passwordErrorOf(accept.error);
 
   const body = () => {
     if (!token) return <Alert tone="error">{t('missing')}</Alert>;
@@ -103,30 +133,24 @@ export function InvitePage() {
       );
     const minLength = data.minPasswordLength ?? PASSWORD_MIN_LENGTH;
     return (
-      <form method="post" noValidate onSubmit={submit} aria-label={t('title')}>
+      <Form form={form} onSubmit={submit} label={t('title')}>
         <div className="auth-shell-stack">
           <Text>{t('greeting', { name: data.displayName })}</Text>
           <Text>{t('job_id', { jobId: data.jobId })}</Text>
-          <TextField
+          <FormTextField
             type="password"
             label={tp('new')}
             name="password"
-            value={password}
-            onChange={setPassword}
             autoComplete="new-password"
             required
-            error={passwordError}
           />
           <PasswordRules password={password} id="invite-rules" minLength={minLength} />
-          <TextField
+          <FormTextField
             type="password"
             label={tp('confirm')}
             name="confirm"
-            value={confirm}
-            onChange={setConfirm}
             autoComplete="new-password"
             required
-            error={mismatch ? tp('mismatch') : undefined}
           />
           {accept.error && !passwordError && (
             <Alert tone="error">{failure ? failure.message : tl('offline')}</Alert>
@@ -135,7 +159,7 @@ export function InvitePage() {
             {t('submit')}
           </Button>
         </div>
-      </form>
+      </Form>
     );
   };
 

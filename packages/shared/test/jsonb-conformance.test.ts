@@ -25,8 +25,9 @@ import {
   workflowDefinitionSchema,
 } from '../src/jsonb/index.js';
 
-// The zod schemas mirror the JSON Schemas in docs/database/json-schemas/ (DATABASE_SCHEMA
-// section 20). Every sample must get the same verdict from both, and the expected one.
+// The zod schemas mirror the JSON Schemas in docs/database/json-schemas/
+// (docs/database/DATABASE_SCHEMA.md, "JSONB columns and their JSON Schemas"). Every sample must get
+// the same verdict from both, and the expected one.
 const docs = join(__dirname, '../../../docs');
 const schemaDir = join(docs, 'database/json-schemas');
 const templatesDir = join(docs, 'architecture/workflow-templates');
@@ -440,7 +441,7 @@ describe('workflow definitions', () => {
   });
 });
 
-it('jsonbSchemas covers every JSONB column of DATABASE_SCHEMA section 20 that has a schema file', () => {
+it('jsonbSchemas covers every JSONB column that has a schema file', () => {
   expect(Object.keys(jsonbSchemas)).toEqual(
     expect.arrayContaining([
       'application_answers.value',

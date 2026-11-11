@@ -608,6 +608,48 @@ describe('volunteer registration detail', () => {
     expect(await screen.findByText('সংশোধন চলছে')).toBeInTheDocument();
   }, 15_000);
 
+  it('a correction request waits for a note of three letters and keeps the dialog on a refusal', async () => {
+    server.use(
+      http.post('*/api/v1/registrations/:userId/correction-requests', async ({ request }) => {
+        await record(request);
+        return HttpResponse.json(
+          {
+            error: {
+              code: 'registration.not_pending',
+              message: 'নিবন্ধনটি আর অপেক্ষায় নেই।',
+              requestId: 'req_test',
+            },
+          },
+          { status: 409 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage(RPM, 'bn', REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
+    await user.click(screen.getByRole('button', { name: 'সংশোধনের অনুরোধ' }));
+    const dialog = await screen.findByRole('dialog', { name: 'সংশোধনের অনুরোধ' });
+    const send = within(dialog).getByRole('button', { name: 'পাঠান' });
+    const note = within(dialog).getByRole('textbox', { name: /কী ঠিক করতে হবে/ });
+    await user.type(note, ' ab ');
+    expect(send).toBeDisabled();
+    await user.click(within(dialog).getByRole('checkbox', { name: 'পিতার নাম' }));
+    expect(send).toBeDisabled();
+    await user.type(note, 'c');
+    expect(send).toBeEnabled();
+    await user.click(send);
+    expect(await within(dialog).findByText('নিবন্ধনটি আর অপেক্ষায় নেই।')).toBeInTheDocument();
+    expect(calls[0]!.body).toEqual({ fields: ['fatherName'], note: 'ab c' });
+    // closed and opened again, the dialog starts empty
+    await user.click(within(dialog).getByRole('button', { name: 'বাতিল' }));
+    // the page is hidden from assistive technology until the dialog has faded out
+    await user.click(await screen.findByRole('button', { name: 'সংশোধনের অনুরোধ' }));
+    const again = await screen.findByRole('dialog', { name: 'সংশোধনের অনুরোধ' });
+    expect(within(again).getByRole('textbox', { name: /কী ঠিক করতে হবে/ })).toHaveValue('');
+    expect(within(again).getByRole('checkbox', { name: 'পিতার নাম' })).not.toBeChecked();
+    expect(within(again).queryByText('নিবন্ধনটি আর অপেক্ষায় নেই।')).not.toBeInTheDocument();
+  }, 15_000);
+
   it('a rejection needs a reason', async () => {
     const user = userEvent.setup();
     renderPage(RPM, 'bn', REVIEW);
@@ -734,6 +776,51 @@ describe('staff registration decision', () => {
       },
     ]);
   });
+
+  it('rejects with a reason of three letters at least, and shows a refusal under it', async () => {
+    let refuse = true;
+    server.use(
+      http.post('*/api/v1/staff-registrations/:userId/decision', async ({ request }) => {
+        await record(request);
+        if (refuse) {
+          refuse = false;
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'validation.failed',
+                message: 'কিছু তথ্য সঠিক নয়।',
+                requestId: 'req_test',
+                details: [{ path: 'reason', code: 'validation.too_long', message: 'অনেক লম্বা।' }],
+              },
+            },
+            { status: 422 },
+          );
+        }
+        return HttpResponse.json({ data: { id: STAFF_USER } });
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage(HEAD);
+    await openRow(user, 'নতুন কর্মকর্তা (নমুনা)');
+    await user.click(screen.getByRole('button', { name: 'সিদ্ধান্ত দিন' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('radio', { name: 'প্রত্যাখ্যান' }));
+    const save = within(dialog).getByRole('button', { name: 'সিদ্ধান্ত সংরক্ষণ করুন' });
+    const reason = within(dialog).getByRole('textbox', { name: /কারণ/ });
+    await user.type(reason, ' ab ');
+    expect(save).toBeDisabled();
+    await user.type(reason, 'c');
+    expect(save).toBeEnabled();
+    await user.click(save);
+    expect(await within(dialog).findByText('অনেক লম্বা।')).toBeInTheDocument();
+    await user.click(save);
+    await waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls[1]).toEqual({
+      method: 'POST',
+      url: `/api/v1/staff-registrations/${STAFF_USER}/decision`,
+      body: { decision: 'reject', reason: 'ab c' },
+    });
+  }, 15_000);
 });
 
 describe('edit requests', () => {

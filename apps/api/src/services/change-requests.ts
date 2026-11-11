@@ -10,15 +10,15 @@ import {
   type EditRequestCreate,
   PHOTO_FIELDS,
 } from '@css/shared/registration';
-import { type Scope, volunteerWhere } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { OtpService } from '../auth/otp.service';
-import type { PermissionVersionService } from '../auth/permission-version.service';
-import type { Principal } from '../auth/principal';
-import type { SessionService } from '../auth/session.service';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
+import { type Scope, volunteerWhere } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { OtpService } from '../auth/otp.service.js';
+import type { PermissionVersionService } from '../auth/permission-version.service.js';
+import type { Principal } from '../auth/principal.js';
+import type { SessionService } from '../auth/session.service.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
 import {
   buildPage,
   decodeCursor,
@@ -26,12 +26,12 @@ import {
   orderBy,
   type PageQuery,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { AccountEvents } from '../notifications/account-events';
-import { addressProblem } from './registration';
-import { applyField, changeView, OBJECT_FIELDS } from './registrations';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { AccountEvents } from '../notifications/account-events.js';
+import { addressProblem } from './registration.js';
+import { applyField, changeView, OBJECT_FIELDS } from './registrations.js';
 
 const EDIT = 'profile_edit';
 
@@ -61,7 +61,10 @@ const CODES_PER_ACCOUNT_HOUR = 5;
 const isContact = (field: string): field is (typeof CONTACT_FIELDS)[number] =>
   (CONTACT_FIELDS as readonly string[]).includes(field);
 const isPhoto = (field: string) => (PHOTO_FIELDS as readonly string[]).includes(field);
-/** Values an approver sees only with the field class (RBAC.md 6). */
+/**
+ * Values an approver sees only with the field class (docs/security/RBAC.md, "Field-level
+ * protection").
+ */
 /** Exported for the unit test that every key is an editable field. */
 export const CLASS_OF: Record<string, string> = {
   nid: 'volunteer.identity',
@@ -76,7 +79,7 @@ type Row = Parameters<typeof changeView>[0];
 
 const editField = z.enum(EDIT_FIELDS as [EditField, ...EditField[]]);
 
-/** Whether an approver with these field classes may read the value of a field (RBAC.md 6). */
+/** Whether an approver with these field classes may read the value of a field. */
 function visible(field: string, classes: ReadonlySet<string>): boolean {
   const cls = CLASS_OF[field];
   return cls === undefined || classes.has(cls);

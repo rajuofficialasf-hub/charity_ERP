@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { projectWhere } from '../../src/access/scope';
-import type { Principal } from '../../src/auth/principal';
-import { accessWorld } from './support/access-fixtures';
-import { project, volunteer } from './support/fixtures';
+import { projectWhere } from '../../src/access/scope.js';
+import type { Principal } from '../../src/auth/principal.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { project, volunteer } from './support/fixtures.js';
 import {
   type Account,
   account,
@@ -13,12 +13,13 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
-// Cross-region and cross-project access (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md;
-// RBAC.md 8.4: 404, never 403,
-// for a record outside the caller's scope). Entities whose endpoints come in later tasks
-// (applications, beneficiaries, volunteers) get their scope filters and IDOR tests with them.
+// Cross-region and cross-project access
+// (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md; docs/security/RBAC.md,
+// "Object-level checks for ASSIGNED and SELF": 404, never 403, for a record outside the caller's
+// scope). Entities whose endpoints come in later tasks (applications, beneficiaries, volunteers)
+// get their scope filters and IDOR tests with them.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 let c1: string; // a project with an area only in the other division (Rangpur)

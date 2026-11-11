@@ -1,5 +1,5 @@
 import { formatBenNo } from '@css/shared/beneficiaries';
-import type { Tx } from '../core/prisma.service';
+import type { Tx } from '../core/prisma.service.js';
 
 /** Why two beneficiaries of one project look like one family. */
 export type FamilyRule = 'mobile' | 'union_village_father';

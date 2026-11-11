@@ -1,13 +1,30 @@
-import { minPasswordLength } from '@css/shared/auth';
-import { Alert, Button, Card, LinkButton, Text, TextField } from '@/ui';
+import { minPasswordLength, passwordChangeRequestSchema } from '@css/shared/auth';
+import { Alert, Card, Form, FormSubmitButton, FormTextField, LinkButton, Text } from '@/ui';
 import { useTranslations } from 'use-intl';
-import { type FormEvent, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useNavigate } from 'react-router';
+import { z } from 'zod';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { PasswordRules } from '../../components/PasswordRules';
 import { PERMISSION_PANEL_ROLES } from '../../admin/roles';
-import { api, ApiFailure, refreshSession } from '../../api/client';
+import { api, refreshSession } from '../../api/client';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
+
+type ChangeFields = { currentPassword: string; newPassword: string; confirm: string };
+
+/** The password change request and the new password typed again. */
+function useChangeSchema() {
+  const t = useTranslations('auth.password');
+  return useMemo(
+    () =>
+      passwordChangeRequestSchema
+        .extend({ confirm: z.string() })
+        .refine((v) => v.newPassword === v.confirm, { path: ['confirm'], message: t('mismatch') }),
+    [t],
+  );
+}
 
 /**
  * Change own password (docs/architecture/AUTH.md, the password change): the other devices are
@@ -16,12 +33,13 @@ import { api, ApiFailure, refreshSession } from '../../api/client';
 export function ChangePasswordView() {
   const t = useTranslations('auth.password');
   const tl = useTranslations('auth.login');
-  const [current, setCurrent] = useState('');
-  const [next, setNext] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const form = useForm<ChangeFields>({
+    resolver: useSchemaResolver(useChangeSchema()),
+    defaultValues: { currentPassword: '', newPassword: '', confirm: '' },
+    reValidateMode: 'onSubmit',
+  });
+  const next = useWatch({ control: form.control, name: 'newPassword' });
+  const error = form.formState.errors.root?.server?.message;
   const [done, setDone] = useState(false);
   const navigate = useNavigate();
 
@@ -35,32 +53,18 @@ export function ChangePasswordView() {
     }
   };
 
-  const submit = async (event: FormEvent<HTMLFormElement>, due: boolean) => {
-    event.preventDefault();
-    setErrors({});
-    setError(null);
+  const submit = async ({ currentPassword, newPassword }: ChangeFields, due: boolean) => {
     setDone(false);
-    if (next !== confirm) {
-      setErrors({ confirm: t('mismatch') });
-      return;
-    }
-    setPending(true);
     try {
       await api<void>('/auth/password/change', {
         method: 'POST',
-        body: { currentPassword: current, newPassword: next },
+        body: { currentPassword, newPassword },
       });
-      setCurrent('');
-      setNext('');
-      setConfirm('');
+      form.reset();
       setDone(true);
       if (due) void startWorking();
     } catch (failure) {
-      if (failure instanceof ApiFailure && failure.details.length)
-        setErrors(Object.fromEntries(failure.details.map((d) => [d.path ?? '', d.message])));
-      else setError(failure instanceof ApiFailure ? failure.message : tl('offline'));
-    } finally {
-      setPending(false);
+      showFailure(form, failure, tl('offline'));
     }
   };
 
@@ -74,11 +78,10 @@ export function ChangePasswordView() {
       {(me) => (
         <div className="page-split">
           <Card>
-            <form
-              method="post"
-              noValidate
-              onSubmit={(event) => void submit(event, me.passwordChangeRequired === true)}
-              aria-label={t('title')}
+            <Form
+              form={form}
+              onSubmit={(values) => submit(values, me.passwordChangeRequired === true)}
+              label={t('title')}
             >
               <DocumentTitle title={t('title')} />
               <div className="auth-shell-stack">
@@ -86,25 +89,19 @@ export function ChangePasswordView() {
                   <Alert tone="info">{t('required_notice')}</Alert>
                 )}
                 {done && <Alert tone="success">{t('done')}</Alert>}
-                <TextField
+                <FormTextField
                   type="password"
                   label={t('current')}
                   name="currentPassword"
-                  value={current}
-                  onChange={setCurrent}
                   autoComplete="current-password"
                   required
-                  error={errors.currentPassword}
                 />
-                <TextField
+                <FormTextField
                   type="password"
                   label={t('new')}
                   name="newPassword"
-                  value={next}
-                  onChange={setNext}
                   autoComplete="new-password"
                   required
-                  error={errors.newPassword}
                 />
                 <PasswordRules
                   password={next}
@@ -114,22 +111,17 @@ export function ChangePasswordView() {
                       me.roles.some((r) => PERMISSION_PANEL_ROLES.includes(r)),
                   )}
                 />
-                <TextField
+                <FormTextField
                   type="password"
                   label={t('confirm')}
                   name="confirm"
-                  value={confirm}
-                  onChange={setConfirm}
                   autoComplete="new-password"
                   required
-                  error={errors.confirm}
                 />
                 {error && <Alert tone="error">{error}</Alert>}
-                <Button type="submit" loading={pending}>
-                  {t('submit')}
-                </Button>
+                <FormSubmitButton>{t('submit')}</FormSubmitButton>
               </div>
-            </form>
+            </Form>
           </Card>
           <aside className="page-split-side" aria-label={t('tip.title')}>
             <Card title={t('tip.title')} headingLevel={2}>

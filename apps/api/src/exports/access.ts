@@ -1,6 +1,6 @@
 import { EXPORT_PERMISSION_OF_CLASS } from '@css/shared/exports';
-import { holdsPermission } from '../access/scope';
-import type { RequestAccess } from '../access/service';
+import { holdsPermission } from '../access/scope.js';
+import type { RequestAccess } from '../access/service.js';
 
 /** The export permission each protected class needs beyond being seen. */
 const NEEDS = new Map(Object.entries(EXPORT_PERMISSION_OF_CLASS));

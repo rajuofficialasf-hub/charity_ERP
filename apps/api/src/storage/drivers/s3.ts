@@ -1,6 +1,6 @@
-// TEMP: the S3 driver, pointed at MinIO until the NAS driver exists (storage.md).
-// The only file that imports the AWS SDK. The buckets are private (bootstrap.sh)
-// and no signed or bucket URL reaches the browser.
+// TEMP: the S3 driver, pointed at an S3 store (SeaweedFS in development and CI) until the app runs
+// on the NAS only (storage.md). The only file that imports the AWS SDK. The buckets are private
+// (infra/seaweedfs/bootstrap.sh) and no signed or bucket URL reaches the browser.
 import type { Readable } from 'node:stream';
 import {
   DeleteObjectCommand,
@@ -12,22 +12,20 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import { assertKey, BUCKETS, NotFoundError, type StorageDriver } from '../types';
+import { assertKey, BUCKETS, NotFoundError, type StorageDriver } from '../types.js';
 
 export interface S3Options {
-  endPoint: string;
-  port: number;
-  useSSL: boolean;
-  accessKey: string;
-  secretKey: string;
+  /** The whole URL of the store, `scheme://host[:port]`. */
+  endpoint: string;
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
 }
 
 // Outbound timeouts: a connection that isn't up in this long fails, and so does
 // a request whose socket stays idle this long. Idle, not total, so a large file can still stream.
 const CONNECTION_TIMEOUT_MS = 5_000;
 const SOCKET_IDLE_TIMEOUT_MS = 30_000;
-/** MinIO ignores the region but the SDK requires one. */
-const REGION = 'us-east-1';
 
 /**
  * A missing key: `NoSuchKey` from GET, `NotFound` from HEAD. A missing bucket is an infrastructure
@@ -40,13 +38,14 @@ function isMissing(error: unknown): boolean {
 
 export function createS3Driver(options: S3Options): StorageDriver {
   const client = new S3Client({
-    region: REGION,
-    endpoint: `${options.useSSL ? 'https' : 'http'}://${options.endPoint}:${options.port}`,
-    // MinIO takes the bucket in the path and needs checksums only where S3 requires them.
+    region: options.region,
+    endpoint: options.endpoint,
+    // A self-hosted store takes the bucket in the path and does not know every checksum the SDK
+    // sends by default, so checksums go only where S3 requires them.
     forcePathStyle: true,
     requestChecksumCalculation: 'WHEN_REQUIRED',
     responseChecksumValidation: 'WHEN_REQUIRED',
-    credentials: { accessKeyId: options.accessKey, secretAccessKey: options.secretKey },
+    credentials: { accessKeyId: options.accessKeyId, secretAccessKey: options.secretAccessKey },
     requestHandler: {
       connectionTimeout: CONNECTION_TIMEOUT_MS,
       requestTimeout: SOCKET_IDLE_TIMEOUT_MS,

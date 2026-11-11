@@ -2,9 +2,9 @@ import type { AnswerValue } from '@css/shared';
 import type { FormDefinition } from '@css/shared/forms';
 import type { Bilingual } from '@css/shared/i18n';
 import { translate } from '@css/shared/i18n';
-import { cellOf } from '../questions';
-import { documentHtml, html, type SafeHtml } from './html';
-import { cellText, codeText, dateText, factsHtml } from './record';
+import { cellOf } from '../questions.js';
+import { documentHtml, html, type SafeHtml } from './html.js';
+import { cellText, codeText, dateText, factsHtml } from './record.js';
 
 /** Questions that hold no value of their own, or only files, which a PDF never prints. */
 const NO_VALUE = new Set(['repeat_group', 'note', 'photo', 'file', 'signature']);

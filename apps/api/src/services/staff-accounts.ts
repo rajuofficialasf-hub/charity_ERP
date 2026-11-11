@@ -12,21 +12,21 @@ import {
 } from '@css/shared/auth';
 import { type Locale, renderNotification } from '@css/shared/i18n';
 import type { Logger } from 'pino';
-import type { AccessRegistry } from '../access/registry';
-import type { Scope } from '../access/scope';
-import type { AccessService } from '../access/service';
-import { type AuditWriter } from '../audit/audit-writer';
-import { type PasswordHasher } from '../auth/password-hasher';
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
-import { assertIfMatch } from '../core/etag';
-import { type PrismaService, type Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import { DeliveryError, type EmailAdapter } from '../notifications/adapters';
-import type { SettingsService } from './settings';
-import { isGivableOfficialRole } from './registrations';
+import type { AccessRegistry } from '../access/registry.js';
+import type { Scope } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import { type AuditWriter } from '../audit/audit-writer.js';
+import { type PasswordHasher } from '../auth/password-hasher.js';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
+import { assertIfMatch } from '../core/etag.js';
+import { type PrismaService, type Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import { DeliveryError, type EmailAdapter } from '../notifications/adapters.js';
+import type { SettingsService } from './settings.js';
+import { isGivableOfficialRole } from './registrations.js';
 
 /** The set-password link: 72 hours, once. */
 export const INVITATION_RULES = { validMs: 72 * 3_600_000 } as const;
@@ -45,10 +45,10 @@ type ProfileRefs = Pick<
 >;
 
 /**
- * Officials created by the admin (AUTH.md 2): the account with its role and
- * place, the set-password link (a random token stored only as a SHA-256 hash, emailed and returned
- * once so the admin can copy it), its renewal, and its use. The account stays pending without a
- * password until the link is used.
+ * Officials created by the admin (docs/architecture/AUTH.md, "Officials created by the admin"): the
+ * account with its role and place, the set-password link (a random token stored only as a SHA-256
+ * hash, emailed and returned once so the admin can copy it), its renewal, and its use. The account
+ * stays pending without a password until the link is used.
  */
 export class StaffAccountsService {
   constructor(

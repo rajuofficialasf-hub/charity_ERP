@@ -1,6 +1,6 @@
-import type { Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { BeneficiaryFamilyService } from '../services/beneficiary-family';
+import type { Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { BeneficiaryFamilyService } from '../services/beneficiary-family.js';
 
 /**
  * Why a decision asks for a comment: it goes against the score order, the quota area is full, or

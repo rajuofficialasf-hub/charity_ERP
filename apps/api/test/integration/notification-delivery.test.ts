@@ -7,10 +7,10 @@ import {
   type EmailAdapter,
   type EmailMessage,
   StubSmsAdapter,
-} from '../../src/notifications/adapters';
-import { NotificationDelivery, Throttle } from '../../src/notifications/delivery';
-import { syncNotificationTemplates } from '../../src/notifications/template-sync';
-import { account, type AuthHarness, authHarness } from './support/auth-app';
+} from '../../src/notifications/adapters.js';
+import { NotificationDelivery, Throttle } from '../../src/notifications/delivery.js';
+import { syncNotificationTemplates } from '../../src/notifications/template-sync.js';
+import { account, type AuthHarness, authHarness } from './support/auth-app.js';
 
 // The `notify` consumer: sends each queued message once, retries transient failures on its
 // schedule, stops on permanent ones and alerts the Monitoring Team when a message fails for good

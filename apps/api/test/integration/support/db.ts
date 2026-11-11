@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
-import { checkDestructiveDbAccess } from '../../../src/config/db-guard';
+import { checkDestructiveDbAccess } from '../../../src/config/db-guard.js';
 
 /**
  * Real PostgreSQL for integration tests: every test file works in its own database,
@@ -10,7 +10,7 @@ import { checkDestructiveDbAccess } from '../../../src/config/db-guard';
  * and the dev/test guard is checked before each of those operations.
  */
 const DEFAULT_URL = 'postgresql://css:css_dev_only@127.0.0.1:5433/css_erp_test';
-export const MIGRATIONS_DIR = join(__dirname, '../../../prisma/migrations');
+export const MIGRATIONS_DIR = join(import.meta.dirname, '../../../prisma/migrations');
 
 export function baseUrl(): string {
   return process.env.TEST_DATABASE_URL ?? DEFAULT_URL;

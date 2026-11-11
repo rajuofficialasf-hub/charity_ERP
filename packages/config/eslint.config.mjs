@@ -61,7 +61,8 @@ export const react = {
 
 /**
  * packages/shared runs in the browser offline and on the server, so it must stay pure TypeScript
- * (ADR-001, SYSTEM_ARCHITECTURE section 3): no Node built-ins, Express, Prisma or the web app's framework.
+ * (docs/architecture/SYSTEM_ARCHITECTURE.md, "Layering"): no Node built-ins, Express,
+ * Prisma or the web app's framework.
  */
 export const sharedPurity = {
   files: ['packages/shared/src/**/*.ts'],
@@ -123,7 +124,75 @@ export const templateBoundary = {
   },
 };
 
-/** No hard-coded user-facing text in the PWA (I18N 4, D-067). */
+/** The API's own code, the seed and the scripts: the folders where database access goes through Prisma. */
+const apiDatabaseCode = [
+  'apps/api/src/**/*.ts',
+  'apps/api/seed/**/*.ts',
+  'apps/api/scripts/**/*.ts',
+];
+
+/**
+ * The API's own code, the seed and the scripts reach the database through Prisma only (CLAUDE.md,
+ * "Stack profile", the Database line); pg-boss in src/jobs keeps its own driver and the tests keep
+ * `pg` for their raw checks.
+ */
+export const apiDatabaseDriver = {
+  files: apiDatabaseCode,
+  ignores: ['apps/api/src/jobs/**', '**/*.spec.ts'],
+  rules: {
+    'no-restricted-imports': [
+      'error',
+      {
+        paths: [
+          {
+            name: 'pg',
+            message:
+              'Reach the database through Prisma ($queryRaw or $executeRaw where SQL stays).',
+          },
+        ],
+        patterns: [
+          {
+            group: ['pg/*'],
+            message:
+              'Reach the database through Prisma ($queryRaw or $executeRaw where SQL stays).',
+          },
+        ],
+      },
+    ],
+  },
+};
+
+/**
+ * Raw SQL stays parameterized: only the tagged $queryRaw and $executeRaw, never the variants that
+ * take a built string (an identifier goes in through Prisma.raw from a checked constant).
+ */
+export const apiRawSql = {
+  files: apiDatabaseCode,
+  rules: {
+    'no-restricted-syntax': [
+      'error',
+      ...['$queryRawUnsafe', '$executeRawUnsafe'].flatMap((name) => [
+        {
+          selector: `MemberExpression[property.name='${name}']`,
+          message: `${name} takes a built string; use the tagged $queryRaw or $executeRaw.`,
+        },
+        {
+          selector: `MemberExpression[property.value='${name}']`,
+          message: `${name} takes a built string; use the tagged $queryRaw or $executeRaw.`,
+        },
+        {
+          selector: `ObjectPattern > Property[key.name='${name}']`,
+          message: `${name} takes a built string; use the tagged $queryRaw or $executeRaw.`,
+        },
+      ]),
+    ],
+  },
+};
+
+/**
+ * No hard-coded user-facing text in the PWA (docs/ui/I18N.md, "No hard-coded strings: rule and
+ * enforcement").
+ */
 export const i18n = {
   files: ['apps/web/src/**/*.tsx'],
   plugins: { css: { rules: { 'no-literal-ui-text': noLiteralUiText } } },
@@ -162,6 +231,8 @@ export default [
   react,
   sharedPurity,
   templateBoundary,
+  apiDatabaseDriver,
+  apiRawSql,
   i18n,
   tests,
   scripts,

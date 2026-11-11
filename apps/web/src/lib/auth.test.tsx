@@ -8,7 +8,8 @@ import { login, logout, refreshSession, resetClientForTests } from '../api/clien
 import { AuthProvider } from './auth';
 import { createQueryClient } from './query-client';
 
-// The session holder empties the server-data cache between sessions (AUTH.md 8).
+// The session holder empties the server-data cache between sessions (docs/architecture/AUTH.md,
+// "Devices: listing, remote revocation and local-data wipe").
 beforeEach(() => {
   resetClientForTests();
   document.cookie = 'css_csrf=nonce.mac; path=/';

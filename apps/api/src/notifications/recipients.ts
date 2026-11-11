@@ -1,7 +1,7 @@
-import type { AccessRegistry } from '../access/registry';
-import type { AccessService, RecordTarget } from '../access/service';
-import type { Clock } from '../core/clock';
-import type { Tx } from '../core/prisma.service';
+import type { AccessRegistry } from '../access/registry.js';
+import type { AccessService, RecordTarget } from '../access/service.js';
+import type { Clock } from '../core/clock.js';
+import type { Tx } from '../core/prisma.service.js';
 
 /**
  * Who receives an event (docs/architecture/NOTIFICATIONS.md, recipient resolution), resolved at

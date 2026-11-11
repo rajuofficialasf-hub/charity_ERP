@@ -17,11 +17,11 @@ import {
 } from '@css/shared/media';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { type PageQuery, pageQuery } from '../core/pagination';
-import { ok, page } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { type PageQuery, pageQuery } from '../core/pagination.js';
+import { ok, page } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 import {
   mediaMemberRow,
   mediaMemberView,
@@ -29,13 +29,13 @@ import {
   type MediaWorkQuery,
   mediaWorkQuerySchema,
   mediaWorkRow,
-} from '../services/media-home';
+} from '../services/media-home.js';
 import {
   mediaReferralSummary,
   mediaReferralView,
   type ReferralQuery,
   referralQuerySchema,
-} from '../services/media-referrals';
+} from '../services/media-referrals.js';
 
 const uuid = z.uuid();
 

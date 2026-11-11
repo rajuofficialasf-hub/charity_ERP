@@ -1,7 +1,7 @@
 import { SETTING_DEFAULTS } from '@css/shared/settings';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { accessWorld } from './support/access-fixtures';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -10,7 +10,7 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // The settings page and its lists: the Department Head and the Monitoring Team change them, every
 // signed-in user reads the lists, every visitor reads the public details, each change audited.

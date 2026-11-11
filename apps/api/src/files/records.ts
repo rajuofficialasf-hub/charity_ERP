@@ -1,8 +1,8 @@
 import type { UploadRecordType } from '@css/shared/files';
-import { Prisma } from '../generated/prisma/client';
-import { WORKING_ASSIGNMENT } from '../access/effective';
-import { projectWhere, type Scope } from '../access/scope';
-import type { Tx } from '../core/prisma.service';
+import { Prisma } from '../generated/prisma/client.js';
+import { WORKING_ASSIGNMENT } from '../access/effective.js';
+import { projectWhere, type Scope } from '../access/scope.js';
+import type { Tx } from '../core/prisma.service.js';
 
 /** What an upload needs of the record a file links to. */
 export interface UploadRecord {

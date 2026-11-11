@@ -1,16 +1,16 @@
 import { uuidv7 } from '@css/shared';
 import { formatBenNo, type MergeRequest } from '@css/shared/beneficiaries';
-import type { AccessService } from '../access/service';
-import { beneficiaryWhere, projectWhere, type Scope } from '../access/scope';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import { isUniqueViolation, isVolunteerMobileRefusal } from '../core/db-errors';
-import type { PrismaService, Tx } from '../core/prisma.service';
+import type { AccessService } from '../access/service.js';
+import { beneficiaryWhere, projectWhere, type Scope } from '../access/scope.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import { isUniqueViolation, isVolunteerMobileRefusal } from '../core/db-errors.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { z } from 'zod';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
 
 /** A UUID may arrive in capitals; the pair map and the stored rows use lower case. */
 const lowerIds = (body: MergeRequest): MergeRequest => ({

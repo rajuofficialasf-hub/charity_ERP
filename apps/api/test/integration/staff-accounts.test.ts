@@ -1,8 +1,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { EmailMessage } from '../../src/notifications/adapters';
-import { DeliveryError } from '../../src/notifications/adapters';
+import type { EmailMessage } from '../../src/notifications/adapters.js';
+import { DeliveryError } from '../../src/notifications/adapters.js';
 import {
   type Account,
   account,
@@ -13,11 +13,12 @@ import {
   login,
   PASSWORD,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // Officials created by the admin with a set-password link, login by job ID, staff self-registration
-// closed. test-only passwords for the rules of AUTH.md 3 (8 characters, 12 for a global role)
+// closed. test-only passwords for the rules of docs/architecture/AUTH.md, "Password rules" (8
+// characters, 12 for a global role)
 const TOO_SHORT = 'Ab1';
 const UNDER_TWELVE = `${PASSWORD.slice(0, 4)} 20261`;
 const TWELVE_OR_MORE = `${PASSWORD} 1`.slice(0, 14);

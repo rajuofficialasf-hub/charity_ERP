@@ -6,19 +6,19 @@ import {
   type TemplateText,
 } from '@css/shared/i18n';
 import type { Logger } from 'pino';
-import type { Clock } from '../core/clock';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { JobRunner } from '../jobs/job-runner';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { JobRunner } from '../jobs/job-runner.js';
 import {
   type Delivered,
   DeliveryError,
   type EmailAdapter,
   type EmailMessage,
   type SmsAdapter,
-} from './adapters';
-import { EMAIL_PRIORITY, NOTIFICATION_CATALOGUE } from './catalogue';
-import { MONITORING } from './recipients';
-import type { DeliveryJob, NotificationService } from './service';
+} from './adapters.js';
+import { EMAIL_PRIORITY, NOTIFICATION_CATALOGUE } from './catalogue.js';
+import { MONITORING } from './recipients.js';
+import type { DeliveryJob, NotificationService } from './service.js';
 
 /** The waits after the first, second, third and fourth failed attempt; hourly after that. */
 const RETRY_DELAYS_MS: readonly number[] = [30_000, 2 * 60_000, 10 * 60_000, 60 * 60_000];

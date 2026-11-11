@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { accessWorld } from './support/access-fixtures';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -12,8 +12,8 @@ import {
   login,
   PASSWORD,
   type Session,
-} from './support/auth-app';
-import { DUMMY_CODE, pendingStaffRegistration } from './support/registration';
+} from './support/auth-app.js';
+import { DUMMY_CODE, pendingStaffRegistration } from './support/registration.js';
 
 // A staff registration approved with a global role asks for a new password at the next sign-in.
 let h: AuthHarness;

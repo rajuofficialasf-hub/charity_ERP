@@ -59,7 +59,10 @@ function shapeOf(elements: MessageFormatElement[], shape: MessageShape): Message
 export interface CatalogueInput {
   bn: object;
   en: object;
-  /** Error codes that need `errors.<code>` in both languages (API_STANDARDS 8). */
+  /**
+   * Error codes that need `errors.<code>` in both languages (docs/api/API_STANDARDS.md, "Error-code
+   * catalogue").
+   */
   errorCodes?: string[];
   /** Keys found in code; keys never used are reported as warnings. */
   usedKeys?: Iterable<string>;
@@ -75,10 +78,11 @@ export interface CatalogueReport {
 const BENGALI_DIGIT = /[\u09E6-\u09EF]/u;
 
 /**
- * The catalogue check of I18N.md 4 (pure; scripts/check-i18n.mjs feeds it the files): same keys
- * in bn and en, every message parses, both messages of a key declare the same parameters, no
- * Bengali digits, no `#` or number/date arguments, plural selectors are not displayed, every
- * error code has a message, and unused keys are warnings.
+ * The catalogue check of docs/ui/I18N.md, "No hard-coded strings: rule and enforcement" (pure;
+ * scripts/check-i18n.mjs feeds it the files): same keys in bn and en, every message parses, both
+ * messages of a key declare the same parameters, no Bengali digits, no `#` or number/date
+ * arguments, plural selectors are not displayed, every error code has a message, and unused keys
+ * are warnings.
  */
 export function checkCatalogue(input: CatalogueInput): CatalogueReport {
   const errors: string[] = [];

@@ -1,9 +1,9 @@
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { createContainer, closeContainer, type Container } from '../../src/container';
-import { testEnv } from '../support/env';
-import { cloneTemplate } from './support/db';
-import * as f from './support/fixtures';
+import { createContainer, closeContainer, type Container } from '../../src/container.js';
+import { testEnv } from '../support/env.js';
+import { cloneTemplate } from './support/db.js';
+import * as f from './support/fixtures.js';
 
 // The family-duplicate warning: other beneficiaries of the same project with the same mobile, or
 // the same union, village and father's or husband's name. It only warns, never refuses.

@@ -8,11 +8,11 @@ import {
   permissionSetAllowed,
 } from '@css/shared/projects';
 import { VOLUNTEER_TYPES, type VolunteerType } from '@css/shared/registration';
-import type { AccessService } from '../access/service';
-import { liveApplicationCounts } from '../applications/limit';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
+import type { AccessService } from '../access/service.js';
+import { liveApplicationCounts } from '../applications/limit.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
 import {
   buildPage,
   decodeCursor,
@@ -20,13 +20,13 @@ import {
   orderBy,
   type PageQuery,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { isNumberTerm, literalContains, mobileOf } from '../core/search';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { ProjectViewer, ProjectsService } from './projects';
-import type { ProjectEvents } from '../notifications/project-events';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { isNumberTerm, literalContains, mobileOf } from '../core/search.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { ProjectViewer, ProjectsService } from './projects.js';
+import type { ProjectEvents } from '../notifications/project-events.js';
 
 /** Newest first, by id (UUID v7 follows the time of creation and pages without gaps). */
 const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);

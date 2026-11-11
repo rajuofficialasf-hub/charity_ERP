@@ -44,7 +44,7 @@ Phase 1 has started: the repository holds the scaffold of task T1.1 (no business
 docker compose up
 ```
 
-On a fresh clone this builds the small development image (`docker/app/Dockerfile.dev`), starts PostgreSQL 17, MinIO and Mailpit, installs the workspace into Docker volumes (`setup`), migrates and seeds the development database with the demo accounts (`migrate`; `docs/testing/DEMO_ACCOUNTS.md`, dummy OTP `123456`), then starts the API on http://127.0.0.1:4000 and the web app on http://127.0.0.1:3000 (`infra/docker-compose.app.yml`). Every port binds to 127.0.0.1 only. The `setup` and `migrate` steps are idempotent, so a repeated `docker compose up` changes nothing; when `migrate` fails, `api` and `web` stay down: read `docker compose logs migrate` first. Source changes on the host reach the containers (bind mount, polling), so editing works as usual; `docker compose down` stops everything and keeps the data volumes.
+On a fresh clone this builds the small development image (`docker/app/Dockerfile.dev`), starts PostgreSQL 17, SeaweedFS (the local S3 stand-in) and Mailpit, installs the workspace into Docker volumes (`setup`), migrates and seeds the development database with the demo accounts (`migrate`; `docs/testing/DEMO_ACCOUNTS.md`, dummy OTP `123456`), then starts the API on http://127.0.0.1:4000 and the web app on http://127.0.0.1:3000 (`infra/docker-compose.app.yml`). Every port binds to 127.0.0.1 only. The `setup` and `migrate` steps are idempotent, so a repeated `docker compose up` changes nothing; when `migrate` fails, `api` and `web` stay down: read `docker compose logs migrate` first. Source changes on the host reach the containers (bind mount, polling), so editing works as usual; `docker compose down` stops everything and keeps the data volumes.
 
 Checklist run on 2026-10-12 (Windows 11, Docker Desktop): `docker compose up` → `setup` and `migrate` completed → http://127.0.0.1:3000/login signs in with a demo account → `docker compose down`.
 
@@ -52,7 +52,7 @@ Checklist run on 2026-10-12 (Windows 11, Docker Desktop): `docker compose up` �
 
 ```bash
 pnpm install
-docker compose up -d postgres minio mailpit
+docker compose up -d postgres seaweedfs seaweedfs-init mailpit
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 pnpm db:migrate && pnpm db:load-locations && pnpm db:seed --set all
@@ -98,7 +98,7 @@ The web app runs at http://127.0.0.1:3000 (Vite, proxying `/api/v1` to the API) 
 | Service | Address | Notes |
 |---|---|---|
 | PostgreSQL 17 | `127.0.0.1:5433` | Databases `css_erp_dev` and `css_erp_test`; user `css`, dev-only password in `infra/docker-compose.dev.yml` |
-| MinIO (S3 API) | http://127.0.0.1:9000 | Buckets created by the `minio-init` container; console at http://127.0.0.1:9001 |
+| SeaweedFS (S3 API) | http://127.0.0.1:8334 | Development and CI only; the seven buckets are created by the `seaweedfs-init` container; signed requests only, with the local key pair of `infra/seaweedfs/s3.json` (no console) |
 | Mailpit | SMTP `127.0.0.1:1025`, inbox http://127.0.0.1:8025 | Catches every email sent in development |
 
 All ports listen on 127.0.0.1 only. Overrides (ports, dev passwords) go in `infra/.env`, see `infra/.env.example`.
@@ -110,7 +110,8 @@ All ports listen on 127.0.0.1 only. Overrides (ports, dev passwords) go in `infr
 - **`pnpm install` reports ignored build scripts**: only the packages listed under `allowBuilds` in `pnpm-workspace.yaml` may run install scripts; add a package there only after reviewing it.
 - **Prisma client missing**: run `pnpm --filter @css/api db:generate`.
 - **Bad Gateway on the login page, and the API log in Docker says `Cannot find module ...`**: a pull added a package; the containers keep their own Linux dependencies in a volume, so install them there and restart: `docker compose run --rm setup`, `docker compose run --rm migrate`, then `docker compose restart api web`.
-- **`/api/v1/readyz` answers `warn` (the file store is down) after an update**: a new bucket was added to `infra/minio/bootstrap.sh`; run `docker compose run --rm minio-init` once (it only adds what is missing).
+- **`/api/v1/readyz` answers `warn` (the file store is down) after an update**: a new bucket was added to `infra/seaweedfs/bootstrap.sh`; run `docker compose run --rm seaweedfs-init` once (it only adds what is missing).
+- **The API stops at start with `MINIO_ENDPOINT: renamed, set S3_ENDPOINT instead`** (or another `MINIO_*` name): the local S3 store is now SeaweedFS and its settings carry the S3 names. In `apps/api/.env` replace the five `MINIO_*` lines with the `S3_*` lines of `apps/api/.env.example` (`S3_ENDPOINT=http://127.0.0.1:8334`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`); the Docker setup reads the same file, so its api stops too until then. The files stored in the earlier MinIO volume are not carried over (development data; `pnpm db:seed` makes new ones), and `docker compose down --remove-orphans` once removes the old `minio` containers.
 - **Playwright cannot find a browser**: run `pnpm --filter @css/web exec playwright install chromium`.
 - **Export PDFs say they are unavailable**: the API prints PDFs through Chromium inside its sandbox and never without it. Install the browser once with `pnpm --filter @css/api exec playwright-core install chromium` (the same build the web tests use). Chromium refuses its sandbox to the root user, so in the Docker dev setup (which runs as root) PDFs stay unavailable while Excel and CSV work; run the API on the host, or run the API and the worker as a non-root user, to print them. On Linux hosts that close unprivileged user namespaces (Ubuntu 23.10 and later), allow them for the sandbox (`kernel.apparmor_restrict_unprivileged_userns=0`).
 - **The web app cannot reach the API** (`ECONNREFUSED 127.0.0.1:4000` in the Vite log): start the API (`pnpm dev` starts both) or set `CSS_API_ORIGIN` in `apps/web/.env` to where it runs.

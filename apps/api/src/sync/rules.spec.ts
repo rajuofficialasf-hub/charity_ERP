@@ -6,7 +6,7 @@ import {
   lateSync,
   staleVersion,
   verificationReason,
-} from './rules';
+} from './rules.js';
 
 // Dhaka is UTC+6: 2026-03-10 18:00 UTC is already midnight of 11 March there
 const dhakaMidnight = new Date('2026-03-10T18:00:00Z');

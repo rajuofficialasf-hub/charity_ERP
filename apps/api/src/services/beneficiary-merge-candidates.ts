@@ -1,17 +1,17 @@
 import { uuidv7 } from '@css/shared';
 import { type DismissalRequest, formatBenNo } from '@css/shared/beneficiaries';
-import type { AccessService } from '../access/service';
-import { beneficiaryScopeSql, beneficiaryWhere, type Scope } from '../access/scope';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
-import { boundedRead } from '../core/bounded-read';
-import { decodeCursor, encodeCursor, type PageQuery } from '../core/pagination';
-import { isUniqueViolation } from '../core/db-errors';
-import type { PrismaService, Tx } from '../core/prisma.service';
+import type { AccessService } from '../access/service.js';
+import { beneficiaryScopeSql, beneficiaryWhere, type Scope } from '../access/scope.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
+import { boundedRead } from '../core/bounded-read.js';
+import { decodeCursor, encodeCursor, type PageQuery } from '../core/pagination.js';
+import { isUniqueViolation } from '../core/db-errors.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { z } from 'zod';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
 
 /** Why two profiles look like one person, in the order the suggestions name the rules. */
 export const DUPLICATE_RULES = ['name_dob_union', 'name_father_mobile', 'same_mobile'] as const;

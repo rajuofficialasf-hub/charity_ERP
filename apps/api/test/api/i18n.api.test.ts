@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ApiError } from '../../src/i18n/api-error';
-import { buildTestApp, type TestApp } from '../support/app';
+import { ApiError } from '../../src/i18n/api-error.js';
+import { buildTestApp, type TestApp } from '../support/app.js';
 
 // A probe router that raises catalogue errors, mounted only in this test.
 const probe = Router();
@@ -13,7 +13,7 @@ probe.get('/i18n-probe/crash', () => {
   throw new Error('select * from secret_table failed');
 });
 
-describe('API errors in the request language (I18N 2 and 5, API_STANDARDS 3 and 7)', () => {
+describe('API errors in the request language', () => {
   let t: TestApp;
 
   beforeAll(() => {

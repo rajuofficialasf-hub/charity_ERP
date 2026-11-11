@@ -2,11 +2,11 @@ import { type AnswerValue, answerValueSchema } from '@css/shared';
 import { questionColumnId } from '@css/shared/exports';
 import type { FieldType, FormDefinition } from '@css/shared/forms';
 import type { Bilingual } from '@css/shared/i18n';
-import { IDENTITY_COLUMN } from '../applications/answers';
-import type { PrismaService } from '../core/prisma.service';
-import { readDefinition } from '../services/forms';
-import { placeNames } from './places';
-import type { Cell } from './rows';
+import { IDENTITY_COLUMN } from '../applications/answers.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import { readDefinition } from '../services/forms.js';
+import { placeNames } from './places.js';
+import type { Cell } from './rows.js';
 
 /** The protected class of an official-only section's answers. */
 export const OFFICIAL_SECTION = 'application.official_section';

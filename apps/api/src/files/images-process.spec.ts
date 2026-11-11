@@ -1,8 +1,8 @@
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { oversizedPng, photoWithExif, picture } from '../../test/support/photos';
-import { readPhotoMetadata } from './exif';
-import { photoFlags } from './flags';
+import { oversizedPng, photoWithExif, picture } from '../../test/support/photos.js';
+import { readPhotoMetadata } from './exif.js';
+import { photoFlags } from './flags.js';
 import {
   checkImage,
   differenceHash,
@@ -10,7 +10,7 @@ import {
   ImageRefused,
   NEAR_DUPLICATE_BITS,
   thumbnail,
-} from './images-process';
+} from './images-process.js';
 
 // The photo processing: metadata, thumbnails, the difference hash and the data-quality flags.
 describe('the metadata of a photo', () => {

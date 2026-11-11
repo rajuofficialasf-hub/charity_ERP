@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { jpeg } from '../support/images';
-import { makeScope, NO_INSTANCES } from '../../src/access/scope';
-import type { Principal } from '../../src/auth/principal';
-import { accessWorld } from './support/access-fixtures';
+import { jpeg } from '../support/images.js';
+import { makeScope, NO_INSTANCES } from '../../src/access/scope.js';
+import type { Principal } from '../../src/auth/principal.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -13,10 +13,10 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { notificationsOf } from './support/notifications';
-import * as f from './support/fixtures';
-import { DUMMY_CODE } from './support/registration';
+} from './support/auth-app.js';
+import { notificationsOf } from './support/notifications.js';
+import * as f from './support/fixtures.js';
+import { DUMMY_CODE } from './support/registration.js';
 
 // Edit requests after approval and contact changes.
 let h: AuthHarness;

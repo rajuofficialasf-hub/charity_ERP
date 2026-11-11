@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { SETTING_DEFAULTS } from '@css/shared/settings';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { account, type AuthHarness, authHarness, bearer, login } from './support/auth-app';
+import { account, type AuthHarness, authHarness, bearer, login } from './support/auth-app.js';
 
 // The notification channels and the system health for the global roles; no secret leaves the
 // server.

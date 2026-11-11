@@ -1,7 +1,8 @@
-import { ApiError } from '../i18n/api-error';
+import { ApiError } from '../i18n/api-error.js';
 
 /**
- * Optimistic concurrency (API_STANDARDS 6): the ETag of a record is derived from its
+ * Optimistic concurrency (docs/api/API_STANDARDS.md, "Concurrency control"): the ETag of a record
+ * is derived from its
  * `updated_at`, which a trigger sets on every update; a write carries it back in `If-Match`.
  */
 export function etagOf(updatedAt: Date): string {

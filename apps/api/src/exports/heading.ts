@@ -1,10 +1,10 @@
 import type { ExportList } from '@css/shared/exports';
 import { formatDate } from '@css/shared/format';
 import { type MessageKey, translate } from '@css/shared/i18n';
-import type { PrismaService } from '../core/prisma.service';
-import { fileWords, labelOf } from './file';
-import { placeNames } from './places';
-import type { CodedSource } from './rows';
+import type { PrismaService } from '../core/prisma.service.js';
+import { fileWords, labelOf } from './file.js';
+import { placeNames } from './places.js';
+import type { CodedSource } from './rows.js';
 
 /** The words before a filter's value in a PDF heading. */
 const LABELS = {

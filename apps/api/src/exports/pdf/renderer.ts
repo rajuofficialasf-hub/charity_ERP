@@ -1,6 +1,6 @@
 import type { Logger } from 'pino';
 import { type Browser, chromium, type LaunchOptions } from 'playwright-core';
-import { ApiError } from '../../i18n/api-error';
+import { ApiError } from '../../i18n/api-error.js';
 
 /** The longest a page may take to load and print. */
 const PRINT_TIMEOUT_MS = 60_000;

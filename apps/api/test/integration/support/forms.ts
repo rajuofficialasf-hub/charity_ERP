@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { expect } from 'vitest';
-import type { AuthHarness, Session } from './auth-app';
-import { bearer } from './auth-app';
+import type { AuthHarness, Session } from './auth-app.js';
+import { bearer } from './auth-app.js';
 
 export const option = (code: string) => ({
   code,

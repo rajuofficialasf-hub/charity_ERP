@@ -1,16 +1,17 @@
 import { mergeWorkflowTemplates, type WorkflowDefinition } from '@css/shared';
-import { loadAccessRegistry } from '../../../src/access/registry';
-import { assertWorkflowNamesKnown } from '../../../src/workflow/registry';
-import { readWorkflowTemplates } from '../../../src/workflow/templates';
-import { json, type SeedContext, seedId } from '../../context';
+import { loadAccessRegistry } from '../../../src/access/registry.js';
+import { assertWorkflowNamesKnown } from '../../../src/workflow/registry.js';
+import { readWorkflowTemplates } from '../../../src/workflow/templates.js';
+import { json, type SeedContext, seedId } from '../../context.js';
 
 export { readWorkflowTemplates };
 
 /**
- * Workflow definitions from docs/architecture/workflow-templates/ (WORKFLOW_ENGINE §12): each
- * template merged with its extends chain and validated, stored in workflow_definitions, and its
- * transitions derived into workflow_transitions for querying. A template change needs a new
- * version: workflow_transitions is append-only, so a changed row of the same version fails.
+ * Workflow definitions from docs/architecture/workflow-templates/
+ * (docs/architecture/WORKFLOW_ENGINE.md, "Versioning and snapshots"): each template merged with its
+ * extends chain and validated, stored in workflow_definitions, and its transitions derived into
+ * workflow_transitions for querying. A template change needs a new version: workflow_transitions is
+ * append-only, so a changed row of the same version fails.
  */
 interface TransitionRow {
   scope: 'application' | 'stage' | 'project' | 'donor_flow' | 'field_unlock';

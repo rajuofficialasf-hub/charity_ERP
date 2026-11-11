@@ -1,7 +1,7 @@
 import { PHOTO_MAX_BYTES } from '@css/shared/registration';
 import { maxSizeOf, UPLOAD_RULES } from '@css/shared/files';
 import express, { type RequestHandler } from 'express';
-import { ApiError } from '../i18n/api-error';
+import { ApiError } from '../i18n/api-error.js';
 
 const raw = express.raw({ type: ['image/jpeg', 'image/png'], limit: PHOTO_MAX_BYTES });
 

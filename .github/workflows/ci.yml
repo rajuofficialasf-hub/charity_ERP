@@ -1,4 +1,4 @@
-# CI for the CSS ERP on GitHub Actions (stages from docs/testing/TEST_STRATEGY.md section 6).
+# CI for the CSS ERP on GitHub Actions (stages from docs/testing/TEST_STRATEGY.md, "CI gate").
 # Every pull request and every push to main or develop: install, lint, typecheck, document checks,
 # unit and API tests against PostgreSQL 17, build, dependency audit and secret scan. Pushes to main
 # and develop also run E2E: develop gets every merged change, main every release. A push to any
@@ -55,9 +55,11 @@ jobs:
       DATABASE_URL: postgresql://css:css_ci_only@127.0.0.1:5432/css_erp_test
       # Integration tests clone per-file databases from a migrated template.
       TEST_DATABASE_URL: postgresql://css:css_ci_only@127.0.0.1:5432/css_erp_test
-      # Storage integration tests against MinIO; CI-only placeholder credentials.
-      MINIO_TEST_ACCESS_KEY: css_ci_only
-      MINIO_TEST_SECRET_KEY: css_ci_only_secret
+      # Storage integration tests against the SeaweedFS started below, with the one local identity
+      # of infra/seaweedfs/s3.json (a css_dev_only pair, which a production start refuses).
+      S3_TEST_ENDPOINT: http://127.0.0.1:8333
+      S3_TEST_ACCESS_KEY_ID: css_dev_only
+      S3_TEST_SECRET_ACCESS_KEY: css_dev_only_secret
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -71,13 +73,29 @@ jobs:
       # The Prisma client lives in apps/api/src/generated (not committed); typecheck, tests and the
       # API build need it. Generation needs no database.
       - run: pnpm --filter @css/api db:generate
-      # MinIO needs a server command, which service containers cannot pass; same pinned image as
-      # infra/docker-compose.dev.yml (the decision on these images covers dev and test, not production).
-      - name: Start MinIO
+      # SeaweedFS needs a server command, which service containers cannot pass; same pinned images,
+      # identity file, bucket bootstrap and volume settings as infra/docker-compose.dev.yml
+      # (development and CI only; the runner's small disk would otherwise allow too few volumes).
+      - name: Start SeaweedFS and create the buckets
         run: |
-          docker run -d --name minio -p 9000:9000             -e MINIO_ROOT_USER=css_ci_only -e MINIO_ROOT_PASSWORD=css_ci_only_secret             chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf             server /data --address :9000
-          for i in $(seq 1 30); do curl -sf http://127.0.0.1:9000/minio/health/live && exit 0; sleep 2; done
-          docker logs minio; exit 1
+          docker run -d --name seaweedfs -p 127.0.0.1:8333:8333 \
+            -v "$PWD/infra/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro" \
+            chrislusf/seaweedfs@sha256:ccad23e18639c8b98cee17e7100b95830a06077b56d8e5b006d6dcf8ec5e94a0 \
+            server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json \
+            -master.volumeSizeLimitMB=256 -volume.max=100
+          ready=0
+          for _ in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8333/healthz >/dev/null; then ready=1; break; fi
+            sleep 2
+          done
+          if [ "$ready" != 1 ]; then docker logs seaweedfs; exit 1; fi
+          docker run --rm --network container:seaweedfs \
+            -e S3_ENDPOINT=http://127.0.0.1:8333 \
+            -e AWS_ACCESS_KEY_ID="$S3_TEST_ACCESS_KEY_ID" \
+            -e AWS_SECRET_ACCESS_KEY="$S3_TEST_SECRET_ACCESS_KEY" \
+            -v "$PWD/infra/seaweedfs/bootstrap.sh:/bootstrap.sh:ro" --entrypoint sh \
+            amazon/aws-cli@sha256:bba262340b0bc7cbf3a8a48612531263b56f4b280c4f036a07816af1b271bda0 \
+            /bootstrap.sh
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm docs:check

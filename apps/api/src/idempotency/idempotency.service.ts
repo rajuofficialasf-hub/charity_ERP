@@ -1,15 +1,15 @@
 import { uuidv7 } from '@css/shared';
 import type { Response } from 'express';
-import { type PrismaService, type Tx } from '../core/prisma.service';
+import { type PrismaService, type Tx } from '../core/prisma.service.js';
 import { BATCH_IN_PROGRESS } from '@css/shared/sync';
-import { ApiError } from '../i18n/api-error';
-import { Prisma } from '../generated/prisma/client';
-import { isUniqueViolation } from '../core/db-errors';
+import { ApiError } from '../i18n/api-error.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { isUniqueViolation } from '../core/db-errors.js';
 
 const KEY = /^[A-Za-z0-9_-]{8,128}$/;
 
 /**
- * Idempotency per API_STANDARDS 9, without a generic key table:
+ * Idempotency without a generic key table (docs/api/API_STANDARDS.md, "Idempotency"):
  * - clientUuid: the record's own unique column; a repeat returns the existing record with 200 and
  *   `Idempotent-Replay: true`;
  * - header: the `Idempotency-Key` of sync and bulk endpoints is stored with the per-record results

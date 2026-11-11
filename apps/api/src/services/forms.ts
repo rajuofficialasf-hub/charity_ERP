@@ -23,16 +23,16 @@ import {
 import type { MessageParams } from '@css/shared/i18n';
 import { editableIn, projectStatusOf } from '@css/shared/projects';
 import { z } from 'zod';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import { assertIfMatch } from '../core/etag';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { isUniqueViolation } from '../core/db-errors';
-import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
-import { fieldTypeOf, type FormLibraryService, visibilityOf } from './form-library';
-import type { ProjectViewer, ProjectsService } from './projects';
-import { asksForFiles, linkOf } from './public-link-rules';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import { assertIfMatch } from '../core/etag.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { isUniqueViolation } from '../core/db-errors.js';
+import { ApiError, type ApiErrorDetail } from '../i18n/api-error.js';
+import { fieldTypeOf, type FormLibraryService, visibilityOf } from './form-library.js';
+import type { ProjectViewer, ProjectsService } from './projects.js';
+import { asksForFiles, linkOf } from './public-link-rules.js';
 
 /** Who reads a version: an official sees every section, the others the volunteer-visible ones. */
 export type FormAudience = 'official' | 'volunteer';

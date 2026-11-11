@@ -2,10 +2,10 @@ import type { FieldValues } from 'react-hook-form';
 import type {
   FormProps,
   FormDateFieldProps,
-  FormTextFieldProps,
   FormTimeFieldProps,
-  FormSelectFieldProps,
   FormSubmitButtonProps,
+  FormTextFieldExtendedProps,
+  FormSelectFieldExtendedProps,
 } from '@/ui/contract';
 
 import { FormProvider, useController, useFormContext } from 'react-hook-form';
@@ -39,21 +39,22 @@ export function Form<T extends FieldValues>({ form, onSubmit, children, error, l
 
 const asText = (value: unknown) => (typeof value === 'string' ? value : value === null || value === undefined ? '' : String(value));
 
-export function FormTextField({ name, ...other }: FormTextFieldProps) {
+/** A text field bound by name; `normalize` turns what is typed into the value kept. */
+export function FormTextField({ name, normalize, ...other }: FormTextFieldExtendedProps) {
   const { field, fieldState } = useController({ name });
   return (
     <TextField
       {...other}
       name={field.name}
       value={asText(field.value)}
-      onChange={field.onChange}
+      onChange={(value) => field.onChange(normalize ? normalize(value) : value)}
       onBlur={field.onBlur}
       error={fieldState.error?.message}
     />
   );
 }
 
-export function FormSelectField({ name, ...other }: FormSelectFieldProps) {
+export function FormSelectField({ name, ...other }: FormSelectFieldExtendedProps) {
   const { field, fieldState } = useController({ name });
   return (
     <SelectField

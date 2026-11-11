@@ -3,16 +3,16 @@ import { Readable } from 'node:stream';
 import type { Logger } from 'pino';
 import { uuidv7 } from '@css/shared';
 import type { PhotoSlot, PhotoSource } from '@css/shared/registration';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { cleanImage, type CleanImage } from '../files/images';
-import { ApiError } from '../i18n/api-error';
-import { enqueueFileProcess } from '../jobs/file-process';
-import type { JobRunner } from '../jobs/job-runner';
-import type { AccountEvents } from '../notifications/account-events';
-import type { StorageDriver } from '../storage';
-import type { RegistrationService } from './registration';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { cleanImage, type CleanImage } from '../files/images.js';
+import { ApiError } from '../i18n/api-error.js';
+import { enqueueFileProcess } from '../jobs/file-process.js';
+import type { JobRunner } from '../jobs/job-runner.js';
+import type { AccountEvents } from '../notifications/account-events.js';
+import type { StorageDriver } from '../storage/index.js';
+import type { RegistrationService } from './registration.js';
 
 const BUCKET = 'profiles' as const;
 const KIND: Record<PhotoSlot, 'profile_photo' | 'nid_photo'> = {

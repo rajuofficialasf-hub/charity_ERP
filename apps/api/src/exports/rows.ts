@@ -2,26 +2,26 @@ import { beneficiaryFilterSchema } from '@css/shared/beneficiaries';
 import { columnsOf, type ExportList } from '@css/shared/exports';
 import { volunteerFilterSchema } from '@css/shared/volunteers';
 import { z, type ZodType } from 'zod';
-import { maskData, sensitive } from '../access/field-mask';
+import { maskData, sensitive } from '../access/field-mask.js';
 import {
   applicationWhere,
   beneficiaryWhere,
   holdsPermission,
   type Scope,
   volunteerWhere,
-} from '../access/scope';
-import type { AccessService, RequestAccess } from '../access/service';
-import type { ApplicationsService } from '../applications/service';
-import { applicationFilterSchema } from '../applications/view';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import type { PrismaService } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { BeneficiariesService } from '../services/beneficiaries';
-import type { VolunteerListService } from '../services/volunteer-list';
-import { exportClasses } from './access';
-import { placeNames } from './places';
+} from '../access/scope.js';
+import type { AccessService, RequestAccess } from '../access/service.js';
+import type { ApplicationsService } from '../applications/service.js';
+import { applicationFilterSchema } from '../applications/view.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { BeneficiariesService } from '../services/beneficiaries.js';
+import type { VolunteerListService } from '../services/volunteer-list.js';
+import { exportClasses } from './access.js';
+import { placeNames } from './places.js';
 
 /** Where the label of a coded value comes from: a message family or a reference list. */
 export type CodedSource =

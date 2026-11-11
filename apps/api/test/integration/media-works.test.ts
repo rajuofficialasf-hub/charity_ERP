@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { account, type Session } from './support/auth-app';
-import { mediaWork, type MediaWorld, mediaWorld } from './support/media';
-import { notificationsOf } from './support/notifications';
+import { account, type Session } from './support/auth-app.js';
+import { mediaWork, type MediaWorld, mediaWorld } from './support/media.js';
+import { notificationsOf } from './support/notifications.js';
 
 // A media work from its acceptance to publication: the team moves it among the ordinary stages and
 // to "ready to publish", the directors also choose its members, rename, hold, resume, cancel and

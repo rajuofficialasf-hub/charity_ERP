@@ -6,13 +6,13 @@ import { Readable } from 'node:stream';
 import { text } from 'node:stream/consumers';
 import { uuidv7 } from '@css/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from 'vitest';
-import { AuditWriter } from '../../src/audit/audit-writer';
-import { PrismaService } from '../../src/core/prisma.service';
-import { type CopyOptions, copyFiles } from '../../src/storage/copy';
-import { createNasDriver } from '../../src/storage/drivers/nas';
-import type { StorageDriver } from '../../src/storage';
-import { testEnv } from '../support/env';
-import { cloneTemplate, dropDatabase } from './support/db';
+import { AuditWriter } from '../../src/audit/audit-writer.js';
+import { PrismaService } from '../../src/core/prisma.service.js';
+import { type CopyOptions, copyFiles } from '../../src/storage/copy.js';
+import { createNasDriver } from '../../src/storage/drivers/nas.js';
+import type { StorageDriver } from '../../src/storage/index.js';
+import { testEnv } from '../support/env.js';
+import { cloneTemplate, dropDatabase } from './support/db.js';
 
 // The copy of stored files from one driver to another before the app switches to the NAS: two
 // folder drivers stand in for MinIO and the NAS, so the copy goes through the driver interface only.

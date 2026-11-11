@@ -3,8 +3,8 @@ import { Writable } from 'node:stream';
 import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
-import { accessWorld, seedAccessCatalogue } from './support/access-fixtures';
+import { defineRoute, type RouteDeps } from '../../src/openapi/define-route.js';
+import { accessWorld, seedAccessCatalogue } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -13,9 +13,10 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
-// Scope resolution and enforcement through the real endpoints (RBAC.md 4 and 8).
+// Scope resolution and enforcement through the real endpoints (docs/security/RBAC.md, "Data scopes
+// and their resolution" and "Server-side enforcement").
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -28,7 +29,8 @@ const logStream = new Writable({
   },
 });
 
-// A route of entity `global` (filters no data): only a GLOBAL grant may pass (RBAC.md 8).
+// A route of entity `global` (filters no data): only a GLOBAL grant may pass
+// (docs/security/RBAC.md, "Server-side enforcement").
 function globalProbe(deps: RouteDeps): Router {
   const router = Router();
   defineRoute(router, deps, {

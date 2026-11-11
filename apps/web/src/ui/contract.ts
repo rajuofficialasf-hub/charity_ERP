@@ -997,6 +997,18 @@ export type TextFieldExtendedProps = Omit<TextFieldProps, "type"> &
     endAction?: ReactNode;
   };
 
+/**
+ * A text field of the extended set bound to the enclosing Form by `name`. `normalize` turns what
+ * is typed into the value the form keeps, for example only the digits of a code.
+ */
+export type FormTextFieldExtendedProps = Omit<TextFieldExtendedProps, "value" | "onChange" | "onBlur" | "error" | "name"> & {
+  name: string;
+  normalize?: (value: string) => string;
+};
+
+/** A select field of the extended set (placeholder, an "other" choice) bound to the enclosing Form by `name`. */
+export type FormSelectFieldExtendedProps = Omit<SelectFieldExtendedProps, "value" | "onChange" | "onBlur" | "error" | "name"> & { name: string };
+
 export type ErrorSummaryItem = { fieldId: string; message: string };
 
 /** The errors of a submitted form, each a link to its field; it takes focus when they appear. */
@@ -1501,11 +1513,16 @@ export type ColorModeButtonProps = Record<string, never>;
 
 // ---------------------------------------------------------------------------------------------
 
-export type UiTemplateExtended = Omit<UiTemplate, "UiProvider" | "AppShell" | "Page" | "Icon" | "DataTable" | "SelectField" | "TextField" | "Dialog" | "Button"> & {
+export type UiTemplateExtended = Omit<
+  UiTemplate,
+  "UiProvider" | "AppShell" | "Page" | "Icon" | "DataTable" | "SelectField" | "TextField" | "Dialog" | "Button" | "FormTextField" | "FormSelectField"
+> & {
   Button: ComponentType<ButtonExtendedProps>;
   Dialog: ComponentType<DialogExtendedProps>;
   TextField: ComponentType<TextFieldExtendedProps>;
   SelectField: ComponentType<SelectFieldExtendedProps>;
+  FormTextField: ComponentType<FormTextFieldExtendedProps>;
+  FormSelectField: ComponentType<FormSelectFieldExtendedProps>;
   UiProvider: ComponentType<UiProviderExtendedProps>;
   AppShell: ComponentType<AppShellExtendedProps>;
   Page: ComponentType<PageExtendedProps>;

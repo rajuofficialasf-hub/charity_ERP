@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { mapData, ok, page } from './send';
+import { mapData, ok, page } from './send.js';
 
-// The field mask changes only the data of a handler result (RBAC.md 6).
+// The field mask changes only the data of a handler result (docs/security/RBAC.md, "Field-level
+// protection").
 describe('mapData', () => {
   const upper = (data: unknown) => String(data).toUpperCase();
 

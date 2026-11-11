@@ -1,7 +1,10 @@
 import { SCOPE_TYPES } from '@css/shared/access';
 import { z } from 'zod';
 
-/** Data scopes from broad to narrow (RBAC.md 4, blueprint B4), shared with the API contract. */
+/**
+ * Data scopes from broad to narrow (docs/security/RBAC.md, "Data scopes and their resolution"),
+ * shared with the API contract.
+ */
 export const SCOPES = SCOPE_TYPES;
 export type ScopeType = (typeof SCOPES)[number];
 
@@ -12,8 +15,9 @@ const grant = z.strictObject({
 });
 
 /**
- * The structure of docs/security/permissions.yaml (RBAC.md 2). Cross-references (roles, scopes,
- * conditions and permissions named elsewhere in the file) are checked by `parsePermissionsFile`.
+ * The structure of docs/security/permissions.yaml (docs/security/RBAC.md, "permissions.yaml schema
+ * and loading"). Cross-references (roles, scopes, conditions and permissions named elsewhere in the
+ * file) are checked by `parsePermissionsFile`.
  */
 export const permissionsFileSchema = z.object({
   version: z.number().int(),

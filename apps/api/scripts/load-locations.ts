@@ -3,11 +3,11 @@
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Client } from 'pg';
-import { checkDestructiveDbAccess } from '../src/config/db-guard';
-import { type LocationRow } from '../src/locations/convert';
-import { parseCsvRecords } from '../src/locations/csv';
-import { loadLocations } from '../src/locations/load';
+import { checkDestructiveDbAccess } from '../src/config/db-guard.js';
+import { prismaClientFor } from '../src/core/prisma.service.js';
+import { type LocationRow } from '../src/locations/convert.js';
+import { parseCsvRecords } from '../src/locations/csv.js';
+import { loadLocations } from '../src/locations/load.js';
 
 async function main(): Promise<void> {
   const guard = checkDestructiveDbAccess(process.env);
@@ -15,15 +15,17 @@ async function main(): Promise<void> {
     console.error(`db:load-locations refused: ${guard.reason}.`);
     process.exit(1);
   }
-  const csv = readFileSync(join(__dirname, '../../../docs/source/data/bd-locations.csv'), 'utf8');
+  const csv = readFileSync(
+    join(import.meta.dirname, '../../../docs/source/data/bd-locations.csv'),
+    'utf8',
+  );
   const rows = parseCsvRecords(csv) as LocationRow[];
-  const db = new Client({ connectionString: process.env.DATABASE_URL });
-  await db.connect();
+  const prisma = prismaClientFor(process.env.DATABASE_URL ?? '');
   try {
-    const result = await loadLocations(db, rows);
+    const result = await loadLocations(prisma, rows);
     console.warn(`db:load-locations (${guard.database}): ${JSON.stringify(result)}`);
   } finally {
-    await db.end();
+    await prisma.$disconnect();
   }
 }
 

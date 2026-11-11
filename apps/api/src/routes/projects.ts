@@ -12,12 +12,12 @@ import {
 } from '@css/shared/projects';
 import { Router } from 'express';
 import { z } from 'zod';
-import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { etagOf } from '../core/etag';
-import { type PageQuery, pageQuery } from '../core/pagination';
-import { ok, page } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { etagOf } from '../core/etag.js';
+import { type PageQuery, pageQuery } from '../core/pagination.js';
+import { ok, page } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 const uuid = z.uuid();
 const date = z.string().nullable();

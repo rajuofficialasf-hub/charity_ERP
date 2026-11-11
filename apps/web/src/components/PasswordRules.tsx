@@ -5,10 +5,10 @@ import type { Locale } from '@css/shared/i18n';
 import { useLocale, useTranslations } from 'use-intl';
 
 /**
- * The password rule as a checklist that ticks while the person types (AUTH.md 3): the
- * length, an upper-case letter and a digit. A met rule shows a check and an unmet one an empty
- * circle, so the state is never colour alone. The API enforces the rule, including the longer
- * minimum for GLOBAL-scope officials; this list is a hint.
+ * The password rule as a checklist that ticks while the person types (docs/architecture/AUTH.md,
+ * "Password rules"): the length, an upper-case letter and a digit. A met rule shows a check and an
+ * unmet one an empty circle, so the state is never colour alone. The API enforces the rule,
+ * including the longer minimum for GLOBAL-scope officials; this list is a hint.
  */
 export function PasswordRules({
   password,

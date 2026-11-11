@@ -14,23 +14,23 @@ import {
   validate,
 } from '@css/shared/forms';
 import { z } from 'zod';
-import { applicationWhere, holdsPermission } from '../access/scope';
-import type { EffectiveAccess } from '../access/effective';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { Clock } from '../core/clock';
-import { isUniqueViolation, isVolunteerMobileRefusal } from '../core/db-errors';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { ApplicationEvents } from '../notifications/application-events';
-import type { BeneficiaryContactService } from '../services/beneficiary-contact';
-import { readDefinition } from '../services/forms';
-import { isAddressChain } from '../services/locations';
-import type { NisabService } from '../services/nisab';
-import { addressOf, fieldsOf, nisabOption, readAnswers, writeAnswers } from './answers';
-import { assertReachesApplication, isBlockedVolunteer, reachesApplication } from './callers';
+import { applicationWhere, holdsPermission } from '../access/scope.js';
+import type { EffectiveAccess } from '../access/effective.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { Clock } from '../core/clock.js';
+import { isUniqueViolation, isVolunteerMobileRefusal } from '../core/db-errors.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { ApplicationEvents } from '../notifications/application-events.js';
+import type { BeneficiaryContactService } from '../services/beneficiary-contact.js';
+import { readDefinition } from '../services/forms.js';
+import { isAddressChain } from '../services/locations.js';
+import type { NisabService } from '../services/nisab.js';
+import { addressOf, fieldsOf, nisabOption, readAnswers, writeAnswers } from './answers.js';
+import { assertReachesApplication, isBlockedVolunteer, reachesApplication } from './callers.js';
 
 /** Opens, decides and cancels an unlock; held by the region's RPM and Project Executive. */
 export const UNLOCK_PERMISSION = 'application.unlock_field';

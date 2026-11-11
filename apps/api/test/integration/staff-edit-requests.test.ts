@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { jpeg } from '../support/images';
+import { jpeg } from '../support/images.js';
 import {
   account,
   authHarness,
@@ -8,10 +8,10 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { notificationsOf } from './support/notifications';
-import * as f from './support/fixtures';
-import { DUMMY_CODE } from './support/registration';
+} from './support/auth-app.js';
+import { notificationsOf } from './support/notifications.js';
+import * as f from './support/fixtures.js';
+import { DUMMY_CODE } from './support/registration.js';
 
 // An official's requests to change their own details, decided by the Department Head or the
 // Monitoring Team (docs/DECISION_LOG.md, the official's own profile of 2026-11-02;

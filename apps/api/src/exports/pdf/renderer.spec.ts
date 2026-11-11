@@ -2,9 +2,9 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { type Browser, chromium } from 'playwright-core';
 import { afterAll, describe, expect, it } from 'vitest';
-import { documentHtml, html, raw } from './html';
-import { listTableHtml } from './list-table';
-import { launchOptions, PdfRenderer } from './renderer';
+import { documentHtml, html, raw } from './html.js';
+import { listTableHtml } from './list-table.js';
+import { launchOptions, PdfRenderer } from './renderer.js';
 
 // The PDFs of the exports: HTML built on the server with every value escaped, printed by a
 // sandboxed Chromium with the two fonts embedded, no script and no network.

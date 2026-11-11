@@ -9,8 +9,8 @@ import {
   headersOf,
   OutputGuard,
   textsOf,
-} from './file';
-import type { Cell } from './rows';
+} from './file.js';
+import type { Cell } from './rows.js';
 
 /** The byte-order mark, written by its code so no invisible character sits in the source. */
 const BOM = String.fromCharCode(0xfeff);

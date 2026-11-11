@@ -1,5 +1,5 @@
 import { afterAll, afterEach, expect, inject } from 'vitest';
-import { contractRecorder } from './contract';
+import { contractRecorder } from './contract.js';
 
 contractRecorder.coverageDir = inject('contractCoverageDir');
 

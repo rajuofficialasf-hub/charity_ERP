@@ -8,10 +8,10 @@ import {
   type ValidationError,
 } from '@css/shared/forms';
 import { z } from 'zod';
-import type { Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { NisabService } from '../services/nisab';
+import type { Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { NisabService } from '../services/nisab.js';
 
 /** The standard column of the question that holds the NID or birth-registration number. */
 export const IDENTITY_COLUMN = 'nid_or_birth_reg';

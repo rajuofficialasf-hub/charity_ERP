@@ -13,7 +13,7 @@ const clearLocale = () => {
   window.localStorage.clear();
 };
 
-describe('LanguageSwitch (I18N 2)', () => {
+describe('LanguageSwitch', () => {
   beforeEach(() => {
     resetClientForTests();
     clearLocale();

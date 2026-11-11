@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import type { Readable } from 'node:stream';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PrismaService } from '../core/prisma.service';
-import { type Bucket, knownBucket, type StorageDriver } from './types';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import { type Bucket, knownBucket, type StorageDriver } from './types.js';
 
 type DriverName = StorageDriver['name'];
 

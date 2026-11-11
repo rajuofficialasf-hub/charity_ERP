@@ -1,11 +1,11 @@
 import { join } from 'node:path';
-import { readPermissionsFile as readValidated } from '../../../src/access/registry';
-import type { PermissionsFile } from '../../../src/access/schema';
-import type { SeedContext } from '../../context';
-import { REPO_ROOT } from '../util';
+import { readPermissionsFile as readValidated } from '../../../src/access/registry.js';
+import type { PermissionsFile } from '../../../src/access/schema.js';
+import type { SeedContext } from '../../context.js';
+import { REPO_ROOT } from '../util.js';
 
 /**
- * Roles and permissions from docs/security/permissions.yaml, the single source of truth (RBAC.md),
+ * Roles and permissions from docs/security/permissions.yaml, the single source of truth (docs/security/RBAC.md),
  * validated by the access module's parser. Default grants, scopes and conditions stay in the YAML;
  * the access module reads them at run time. Rows that are no longer in the YAML are
  * reported, never deleted.
@@ -38,16 +38,12 @@ export async function seedAccess(ctx: SeedContext): Promise<void> {
       { key: ['name'] },
     );
   }
-  const extraRoles = await ctx.db.query<{ key: string }>(
-    'SELECT key FROM roles WHERE NOT (key = ANY($1::text[]))',
-    [Object.keys(file.roles)],
-  );
-  const extraPermissions = await ctx.db.query<{ name: string }>(
-    'SELECT name FROM permissions WHERE NOT (name = ANY($1::text[]))',
-    [file.permissions.map((p) => p.name)],
-  );
-  for (const r of extraRoles.rows)
+  const extraRoles = await ctx.db.$queryRaw<{ key: string }[]>`
+    SELECT key FROM roles WHERE NOT (key = ANY(${Object.keys(file.roles)}::text[]))`;
+  const extraPermissions = await ctx.db.$queryRaw<{ name: string }[]>`
+    SELECT name FROM permissions WHERE NOT (name = ANY(${file.permissions.map((p) => p.name)}::text[]))`;
+  for (const r of extraRoles)
     console.warn(`seed: role ${r.key} is not in permissions.yaml (kept, needs a decision)`);
-  for (const p of extraPermissions.rows)
+  for (const p of extraPermissions)
     console.warn(`seed: permission ${p.name} is not in permissions.yaml (kept, needs a decision)`);
 }

@@ -6,16 +6,20 @@ import {
   Button,
   Card,
   Chip,
-  DateField,
   Dialog,
-  SelectField,
+  Form,
+  FormDateField,
+  FormSelectField,
+  FormTextField,
   Stack,
   Text,
-  TextField,
 } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
+import { z } from 'zod';
+import { useSchemaResolver } from '../../lib/form-schema';
 import {
   addPublication,
   type MediaPublication,
@@ -33,6 +37,24 @@ const STATE_TONE: Record<PublicationState, 'neutral' | 'success' | 'warning'> = 
   published: 'success',
   taken_down: 'warning',
 };
+
+/** A publication as typed: a platform, and for a published post its link and its date. */
+const PUBLICATION_SCHEMA = z
+  .object({
+    platform: z.string(),
+    state: z.enum(PUBLICATION_STATES),
+    date: z.string(),
+    link: z.string(),
+    note: z.string(),
+  })
+  .superRefine((v, ctx) => {
+    const required = (path: string) =>
+      ctx.addIssue({ code: 'custom', path: [path], message: 'validation.required' });
+    if (!v.platform) required('platform');
+    if (v.state === 'published' && !v.link.trim()) required('link');
+    if (v.state === 'published' && !v.date) required('date');
+  });
+type PublicationFields = z.infer<typeof PUBLICATION_SCHEMA>;
 
 /**
  * Where a work was published: a card per platform with its state, and for whoever runs the work a
@@ -127,15 +149,20 @@ function PublicationDialog({
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const labels = useMediaLabels();
-  const [platform, setPlatform] = useState<string | null>(publication?.platformCode ?? null);
-  const [state, setState] = useState<PublicationState>(publication?.state ?? 'waiting');
-  const [date, setDate] = useState<string | null>(
-    publication?.publishedOn ?? isoDateInDhaka(new Date()),
-  );
-  const [link, setLink] = useState(publication?.link ?? '');
-  const [note, setNote] = useState(publication?.note ?? '');
+  const form = useForm<PublicationFields>({
+    resolver: useSchemaResolver(PUBLICATION_SCHEMA),
+    defaultValues: {
+      platform: publication?.platformCode ?? '',
+      state: publication?.state ?? 'waiting',
+      date: publication?.publishedOn ?? isoDateInDhaka(new Date()),
+      link: publication?.link ?? '',
+      note: publication?.note ?? '',
+    },
+    reValidateMode: 'onSubmit',
+  });
+  const values = useWatch({ control: form.control });
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: ({ platform, state, date, link, note }: PublicationFields) => {
       const given = {
         state,
         ...(date && (state !== 'waiting' || link.trim()) ? { publishedOn: date } : {}),
@@ -149,77 +176,70 @@ function PublicationDialog({
             ...(!link.trim() && publication.link ? { link: null } : {}),
             ...(!note.trim() && publication.note ? { note: null } : {}),
           })
-        : addPublication(work.id, { platformCode: platform ?? '', ...given });
+        : addPublication(work.id, { platformCode: platform, ...given });
     },
     onSuccess: onSaved,
   });
   const failure = save.error
     ? failureOf(save.error, { stale: t('work.stale'), fallback: tc('state.error.text') }).text
-    : null;
-  const needsLink = state === 'published';
-  const ready = !!platform && (!needsLink || (!!link.trim() && !!date));
-  const platforms = labels.platforms.filter((p) => p.active || p.code === platform);
+    : undefined;
+  const needsLink = values.state === 'published';
+  const ready = PUBLICATION_SCHEMA.safeParse(values).success;
+  const platforms = labels.platforms.filter((p) => p.active || p.code === values.platform);
+  // the button's own path: nothing it would refuse, and nothing twice while a save is on its way
+  const send = (fields: PublicationFields) => {
+    if (ready && !save.isPending) save.mutate(fields);
+  };
+  const title = publication
+    ? t('work.edit_publication', { platform: labels.platform(publication.platformCode) })
+    : t('work.add_publication');
   return (
     <Dialog
-      title={
-        publication
-          ? t('work.edit_publication', { platform: labels.platform(publication.platformCode) })
-          : t('work.add_publication')
-      }
+      title={title}
       open
       onClose={onClose}
       dismissible={!save.isPending}
       actions={
         <DialogButtons
           onCancel={onClose}
-          onConfirm={() => save.mutate()}
+          onConfirm={() => void form.handleSubmit(send)()}
           confirmLabel={tc('action.save')}
           disabled={!ready}
           pending={save.isPending}
         />
       }
     >
-      {failure ? <Alert tone="error">{failure}</Alert> : null}
-      {needsLink && !work.reviewApprovedBy ? (
-        <Alert tone="warning">{t('work.review_hint')}</Alert>
-      ) : null}
-      <SelectField
-        label={t('work.platform')}
-        required
-        disabled={!!publication}
-        value={platform ?? ''}
-        options={platforms.map((p) => ({ value: p.code, label: localized(p.label, locale) }))}
-        onChange={(v) => setPlatform(v || null)}
-      />
-      <SelectField
-        label={t('work.publication_state')}
-        required
-        value={state}
-        options={PUBLICATION_STATES.map((s) => ({ value: s, label: t(`publication_state.${s}`) }))}
-        onChange={(id) => id && setState(id as PublicationState)}
-      />
-      <TextField
-        label={t('work.link')}
-        hint={t('work.link_hint')}
-        required={needsLink}
-        lang="en"
-        maxLength={500}
-        value={link}
-        onChange={setLink}
-      />
-      <DateField
-        label={t('work.published_on')}
-        required={needsLink}
-        value={date ?? ''}
-        onChange={(v) => setDate(v || null)}
-      />
-      <TextField
-        rows={4}
-        label={t('work.publication_note')}
-        maxLength={2000}
-        value={note}
-        onChange={setNote}
-      />
+      <Form form={form} onSubmit={send} label={title} error={failure}>
+        {needsLink && !work.reviewApprovedBy ? (
+          <Alert tone="warning">{t('work.review_hint')}</Alert>
+        ) : null}
+        <FormSelectField
+          name="platform"
+          label={t('work.platform')}
+          required
+          disabled={!!publication}
+          options={platforms.map((p) => ({ value: p.code, label: localized(p.label, locale) }))}
+        />
+        <FormSelectField
+          name="state"
+          label={t('work.publication_state')}
+          required
+          options={PUBLICATION_STATES.map((s) => ({
+            value: s,
+            label: t(`publication_state.${s}`),
+          }))}
+        />
+        <FormTextField
+          name="link"
+          label={t('work.link')}
+          hint={t('work.link_hint')}
+          required={needsLink}
+          lang="en"
+          maxLength={500}
+        />
+        <FormDateField name="date" label={t('work.published_on')} required={needsLink} />
+        <FormTextField name="note" rows={4} label={t('work.publication_note')} maxLength={2000} />
+      </Form>
     </Dialog>
   );
 }

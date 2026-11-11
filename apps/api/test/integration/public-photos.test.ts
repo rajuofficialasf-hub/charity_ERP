@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedFormTemplates } from '../../seed/sets/base/forms';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { gif, jpeg, METADATA_MARKER } from '../support/images';
-import { picture } from '../support/photos';
-import { accessWorld } from './support/access-fixtures';
+import { SeedContext } from '../../seed/context.js';
+import { seedFormTemplates } from '../../seed/sets/base/forms.js';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
+import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { gif, jpeg, METADATA_MARKER } from '../support/images.js';
+import { picture } from '../support/photos.js';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -16,8 +16,8 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import { fakeMobile, fakeNid, locationTree } from './support/fixtures';
+} from './support/auth-app.js';
+import { fakeMobile, fakeNid, locationTree } from './support/fixtures.js';
 
 // The photos of a public application: uploaded one by one against the link before the submission,
 // bound to the applicant's client id, claimed by the submission, swept when nothing claims them
@@ -40,7 +40,7 @@ beforeAll(async () => {
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
   loc = await locationTree(h.db);
-  const ctx = new SeedContext(h.db);
+  const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   await seedFormTemplates(ctx);

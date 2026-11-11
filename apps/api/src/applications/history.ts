@@ -1,9 +1,9 @@
 import { UNLOCK_DECISIONS, UNLOCK_STATES } from '@css/shared/forms';
 import { z } from 'zod';
-import { sensitive } from '../access/field-mask';
-import type { Tx } from '../core/prisma.service';
-import type { FormAudience } from '../services/forms';
-import { OFFICIAL_SECTION } from './view';
+import { sensitive } from '../access/field-mask.js';
+import type { Tx } from '../core/prisma.service.js';
+import type { FormAudience } from '../services/forms.js';
+import { OFFICIAL_SECTION } from './view.js';
 
 const uuid = z.uuid();
 

@@ -1,15 +1,15 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import type { AccessService } from '../access/service';
-import type { ApplicationsService, ApplicationViewer } from '../applications/service';
-import { type ApplicationSummary, applicationSummary } from '../applications/view';
-import type { Principal } from '../auth/principal';
-import type { PrismaService } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import { versionView } from '../routes/forms';
-import type { FormVersionView } from '../services/forms';
-import type { LocationsService } from '../services/locations';
-import type { MyProjectsService } from '../services/my-projects';
+import type { AccessService } from '../access/service.js';
+import type { ApplicationsService, ApplicationViewer } from '../applications/service.js';
+import { type ApplicationSummary, applicationSummary } from '../applications/view.js';
+import type { Principal } from '../auth/principal.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import { versionView } from '../routes/forms.js';
+import type { FormVersionView } from '../services/forms.js';
+import type { LocationsService } from '../services/locations.js';
+import type { MyProjectsService } from '../services/my-projects.js';
 
 const uuid = z.uuid();
 const bilingual = z.object({ bn: z.string(), en: z.string() });

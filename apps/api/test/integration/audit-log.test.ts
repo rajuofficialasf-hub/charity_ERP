@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { isoDateInDhaka } from '@css/shared/format';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { accessWorld } from './support/access-fixtures';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -11,7 +11,7 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
+} from './support/auth-app.js';
 
 // The audit viewer: the Department Head and the Monitoring Team read the log by actor, entity,
 // action and dates, page by page; no secret leaves the server.

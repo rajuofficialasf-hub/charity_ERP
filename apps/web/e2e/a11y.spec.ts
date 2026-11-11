@@ -13,17 +13,17 @@ import { activeProject, code, ERR } from './support/projects';
 
 // axe on every built Phase 1 and Phase 2 screen in Bengali and in English, on the phone and the
 // desktop project (docs/MASTER_PROMPT.md, the accessibility line of the non-functional
-// requirements; the gate's accessibility check of docs/testing/TEST_STRATEGY.md section 3.6). The
-// screens are those of docs/ui/SCREENS.md with a Phase 1 or Phase 2 task; the application review,
-// the own application and the media work pages are checked by their journeys
-// (applications.spec.ts, application-rules.spec.ts, media.spec.ts). A role sweeps only the pages it may open: the sweep
-// never asserts on a forbidden page. The project pages use a project of this run's own, made
-// through the setup wizard by the ERR Program Manager, with volunteer 3 assigned and consenting
-// through the API, so no other spec decides whether a record page exists; the volunteer and the
-// beneficiary come from the demo seed. The sign-in goes through the API with the language already
-// chosen on the device, because the login form would otherwise write the language onto the shared
-// account and change what the other specs see (docs/testing/DEMO_ACCOUNTS.md). The sign-in,
-// registration and home pages, the account pages, the inbox, the volunteer's projects and
+// requirements; the gate's accessibility check of docs/testing/TEST_STRATEGY.md, "Accessibility").
+// The screens are those of docs/ui/SCREENS.md with a Phase 1 or Phase 2 task; the application
+// review, the own application and the media work pages are checked by their journeys
+// (applications.spec.ts, application-rules.spec.ts, media.spec.ts). A role sweeps only the pages it
+// may open: the sweep never asserts on a forbidden page. The project pages use a project of this
+// run's own, made through the setup wizard by the ERR Program Manager, with volunteer 3 assigned
+// and consenting through the API, so no other spec decides whether a record page exists; the
+// volunteer and the beneficiary come from the demo seed. The sign-in goes through the API with the
+// language already chosen on the device, because the login form would otherwise write the language
+// onto the shared account and change what the other specs see (docs/testing/DEMO_ACCOUNTS.md). The
+// sign-in, registration and home pages, the account pages, the inbox, the volunteer's projects and
 // applications, the public application page, the sync centre, My exports and the Media Team's home
 // are swept in dark mode too.
 const LANGUAGES = ['bn', 'en'] as const;

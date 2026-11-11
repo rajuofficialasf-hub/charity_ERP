@@ -1,12 +1,15 @@
-import { loadEnv } from './config/env';
-import { closeContainer, createContainer } from './container';
-import { JobConsumers } from './jobs/consumers';
-import { createShutdown } from './shutdown';
+import { loadEnv } from './config/env.js';
+import { closeContainer, createContainer } from './container.js';
+import { JobConsumers } from './jobs/consumers.js';
+import { createShutdown } from './shutdown.js';
 
 /** Running jobs get this long to finish after SIGTERM (pg-boss drains for up to 30 s). */
 const SHUTDOWN_GRACE_MS = 35_000;
 
-/** The worker process (SYSTEM_ARCHITECTURE 2.1): job consumers, maintenance, schedules. */
+/**
+ * The worker process (docs/architecture/SYSTEM_ARCHITECTURE.md, "Workers: a separate process
+ * (decision)"): job consumers, maintenance, schedules.
+ */
 async function main(): Promise<void> {
   const env = loadEnv(process.env);
   const container = createContainer(env);

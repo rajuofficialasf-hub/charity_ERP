@@ -11,9 +11,9 @@ import {
   type SectionVisibility,
   type TemplateSources,
 } from '@css/shared/forms';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { ReferenceListsService } from './reference-lists';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { ReferenceListsService } from './reference-lists.js';
 
 /**
  * The question library as the builder reads it: the sections of the library form's published
@@ -69,7 +69,8 @@ export const visibilityOf = (value: string): SectionVisibility => {
 };
 
 /**
- * The organisation-wide question library and the retired form templates of appendix খ. The library
+ * The organisation-wide question library and the retired form templates of the two current forms
+ * (docs/MASTER_SPEC.md, "Appendix B — Current form fields and mapping to the new system"). The library
  * is one form outside the projects that the Monitoring Team and the Department Head build and
  * publish like any form (docs/DECISION_LOG.md, the decisions on who builds forms and on the
  * library); its published version is what every builder picks from. The seeded library tables and

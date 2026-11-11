@@ -3,15 +3,15 @@
 // writes the list of automatic fixes to docs/source/data/corrections.md. No database access.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { convertOwnerLocations, locationsToCsv } from '../src/locations/convert';
-import { stripBom } from '../src/locations/csv';
+import { convertOwnerLocations, locationsToCsv } from '../src/locations/convert.js';
+import { stripBom } from '../src/locations/csv.js';
 
 const source = process.argv[2];
 if (!source) {
   console.error('usage: locations:convert <path to the owner JSON file>');
   process.exit(1);
 }
-const dataDir = join(__dirname, '../../../docs/source/data');
+const dataDir = join(import.meta.dirname, '../../../docs/source/data');
 const csvPath = join(dataDir, 'bd-locations.csv');
 const previous = existsSync(csvPath) ? readFileSync(csvPath, 'utf8') : undefined;
 const { rows, fixes } = convertOwnerLocations(

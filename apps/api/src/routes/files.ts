@@ -6,14 +6,14 @@ import {
 } from '@css/shared/registration';
 import { Router } from 'express';
 import { z } from 'zod';
-import { type AuthedRequest, principalOf } from '../auth/principal';
-import { sensitive } from '../access/field-mask';
-import type { Container } from '../container';
-import { photoBody } from '../files/photo-body';
-import { pageQuery } from '../core/pagination';
-import { page, send } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
-import type { FileVariant } from '../services/files';
+import { type AuthedRequest, principalOf } from '../auth/principal.js';
+import { sensitive } from '../access/field-mask.js';
+import type { Container } from '../container.js';
+import { photoBody } from '../files/photo-body.js';
+import { pageQuery } from '../core/pagination.js';
+import { page, send } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import type { FileVariant } from '../services/files.js';
 
 const fileInfoSchema = z.object({
   data: z.object({

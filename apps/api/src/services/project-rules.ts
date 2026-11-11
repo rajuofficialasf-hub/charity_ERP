@@ -7,11 +7,11 @@ import {
   projectRulesSchema,
   RULES_PARTS,
 } from '@css/shared/projects';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
-import type { ProjectViewer, ProjectsService } from './projects';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { ProjectViewer, ProjectsService } from './projects.js';
 
 /** The rules texts in the fixed part order, so equal texts compare equal. */
 function ordered(rules: ProjectRules): ProjectRules {

@@ -3,9 +3,9 @@ import type { Bilingual, MessageKey, MessageParams } from '@css/shared/i18n';
 import { translate } from '@css/shared/i18n';
 import { REQUEST_FIELD_LABEL } from '@css/shared/registration';
 import type { Logger } from 'pino';
-import type { Tx } from '../core/prisma.service';
-import { MONITORING } from './recipients';
-import type { NotificationService } from './service';
+import type { Tx } from '../core/prisma.service.js';
+import { MONITORING } from './recipients.js';
+import type { NotificationService } from './service.js';
 
 /** A request field in both languages, as the screens name it; an unknown key as it is. */
 export function fieldName(fields: readonly string[]): Bilingual {

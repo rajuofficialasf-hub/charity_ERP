@@ -1,5 +1,5 @@
 import type { CookieOptions, Request, Response } from 'express';
-import type { Env } from '../config/env';
+import type { Env } from '../config/env.js';
 
 /** Cookie names and paths of the session (openapi `refreshCookie`). */
 export const REFRESH_COOKIE = 'css_refresh';
@@ -38,7 +38,8 @@ function options(env: Env, path: string, httpOnly: boolean, expires?: Date): Coo
 
 /**
  * Sets the refresh cookie (HttpOnly, scoped to the refresh path) and the readable CSRF cookie the
- * PWA copies into `X-CSRF-Token`; both live as long as the refresh token can (AUTH.md 5).
+ * PWA copies into `X-CSRF-Token`; both live as long as the refresh token can
+ * (docs/architecture/AUTH.md, "Tokens and device sessions").
  */
 export function setSessionCookies(
   res: Response,

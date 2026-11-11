@@ -1,9 +1,12 @@
 import { PHOTO_SLOTS, type PhotoSlot } from '@css/shared/registration';
-import { Alert, Button, Card, Chip, Icon, Stack, Text, TextField } from '@/ui';
+import { Alert, Button, Card, Chip, Form, Icon, Stack, Text, TextField } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { type FormEvent, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
+import { z } from 'zod';
 import { ApiFailure } from '../../api/client';
+import { useSchemaResolver } from '../../lib/form-schema';
 import { PhotoField } from '../registration/PhotoField';
 import {
   answerRequest,
@@ -89,19 +92,23 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
   const messageOf = useMessageOf();
   const field = row.field as RequestField;
   const label = t(FIELD_LABEL[field] ?? 'form.name');
-  const [value, setValue] = useState<unknown>(undefined);
+  // the new value as the editor holds it; the server checks it
+  const schema = useMemo(() => z.object({ value: z.unknown() }), []);
+  const form = useForm<{ value: unknown }>({
+    resolver: useSchemaResolver(schema),
+    defaultValues: { value: undefined },
+  });
   const answer = useMutation({
     mutationFn: (newValue: unknown) => answerRequest(row.id, newValue),
     onSuccess: onAnswered,
   });
   const answered = row.status === 'submitted';
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submit = ({ value }: { value: unknown }) => {
     if (!answer.isPending) answer.mutate(cleanValue(field, value));
   };
   return (
     <Card>
-      <form method="post" noValidate onSubmit={submit} aria-label={label}>
+      <Form form={form} onSubmit={submit} label={label}>
         <Stack gap={3}>
           <Stack direction="row" align="center" gap={2}>
             <strong>{label}</strong>
@@ -122,12 +129,18 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
             />
           ) : (
             <>
-              <ValueEditor
-                field={field}
-                label={label}
-                value={value}
-                onChange={setValue}
-                error={messageOf(answer.error) ?? undefined}
+              <Controller
+                control={form.control}
+                name="value"
+                render={({ field: input }) => (
+                  <ValueEditor
+                    field={field}
+                    label={label}
+                    value={input.value}
+                    onChange={input.onChange}
+                    error={messageOf(answer.error) ?? undefined}
+                  />
+                )}
               />
               <Button type="submit" variant="secondary" loading={answer.isPending}>
                 {t('profile.corrections.answer')}
@@ -135,7 +148,7 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
             </>
           )}
         </Stack>
-      </form>
+      </Form>
     </Card>
   );
 }

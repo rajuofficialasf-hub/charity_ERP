@@ -2,14 +2,28 @@ import { AFFILIATIONS, type Affiliation, type OwnStaffProfile } from '@css/share
 import { formatDateTime } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import { REQUEST_FIELD_LABEL, type StaffEditField } from '@css/shared/registration';
-import { Alert, Avatar, Button, Checkbox, RadioGroup, SelectField, Text, TextField } from '@/ui';
+import {
+  Alert,
+  Avatar,
+  Button,
+  Checkbox,
+  Form,
+  FormTextField,
+  RadioGroup,
+  SelectField,
+  Text,
+  TextField,
+} from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect } from 'react';
+import { Controller } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { useFileDataUrl } from '../../components/FileImage';
 import { ApiFailure } from '../../api/client';
+import { flatErrors } from '../../lib/form-schema';
 import { locations } from '../registration/registration-api';
 import { isContact, RequestState } from './ChangeRequests';
+import { type EditFields, showSendResult, toggleDetail, useEditForm, usePicked } from './edit-form';
 import { RequestBadge } from './ProfileDetails';
 import {
   askStaffEdit,
@@ -315,19 +329,19 @@ export function OfficialEditSection({
   const offline = useTranslations('auth.login')('offline');
   const tv = useTranslations('errors.validation');
   const queryClient = useQueryClient();
-  const [picked, setPicked] = useState<ReadonlySet<StaffEditField>>(new Set());
-  const [values, setValues] = useState<Partial<Record<StaffEditField, unknown>>>({});
-  const [note, setNote] = useState('');
-  const [errors, setErrors] = useState<Partial<Record<StaffEditField, string>>>({});
-  const [alert, setAlert] = useState<string | null>(null);
+  const form = useEditForm<StaffEditField>();
+  const picked = usePicked(form);
+  const errors = flatErrors(form.formState.errors);
+  const alert = form.formState.errors.root?.server?.message;
   const waitingFor = (field: StaffEditField) => edits.find((r) => r.field === field);
 
   const send = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ picked: ticked, values, note }: EditFields<StaffEditField>) => {
       const sent: StaffEditField[] = [];
       const failed: [StaffEditField, unknown][] = [];
       for (const field of fields) {
-        if (!picked.has(field) || waitingFor(field)) continue;
+        // eslint-disable-next-line security/detect-object-injection -- a fixed list of field names
+        if (!ticked[field] || waitingFor(field)) continue;
         const photo = field === 'photo';
         // eslint-disable-next-line security/detect-object-injection -- a fixed list of field names
         const value = photo ? undefined : cleanValue(field, values[field]);
@@ -361,12 +375,15 @@ export function OfficialEditSection({
           : error instanceof ApiFailure
             ? (error.details[0]?.message ?? error.message)
             : offline;
-      setPicked((now) => new Set([...now].filter((f) => !sent.includes(f))));
-      setErrors(Object.fromEntries(failed.map(([field, error]) => [field, message(error)])));
       const unplaced = failed.find(
         ([, error]) => !(error instanceof ApiFailure) && error !== MISSING,
       );
-      setAlert(sent.length ? t('profile.edit.partial') : unplaced ? message(unplaced[1]) : null);
+      showSendResult(
+        form,
+        sent,
+        failed.map(([field, error]) => [field, message(error)]),
+        sent.length ? t('profile.edit.partial') : unplaced ? message(unplaced[1]) : null,
+      );
     },
   });
 
@@ -375,35 +392,18 @@ export function OfficialEditSection({
     onBusy(sending);
     return () => onBusy(false);
   }, [sending, onBusy]);
-  const dirty = picked.size > 0;
+  const dirty = picked.length > 0;
   useEffect(() => {
     onDirty(dirty);
     return () => onDirty(false);
   }, [dirty, onDirty]);
 
-  const toggle = (field: StaffEditField, on: boolean) => {
-    setPicked((now) => {
-      const next = new Set(now);
-      if (on) next.add(field);
-      else next.delete(field);
-      return next;
-    });
-    setErrors((now) => ({ ...now, [field]: undefined }));
-    if (on) setValues((now) => (field in now ? now : { ...now, [field]: initialValue(me, field) }));
-  };
-
   return (
-    <form
-      method="post"
-      noValidate
-      aria-label={t('profile.edit.form_label', { section: title })}
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (picked.size && !send.isPending) {
-          setErrors({});
-          setAlert(null);
-          send.mutate();
-        }
+    <Form
+      form={form}
+      label={t('profile.edit.form_label', { section: title })}
+      onSubmit={(values) => {
+        if (picked.length && !send.isPending) send.mutate(values);
       }}
     >
       <div className="profile-edit">
@@ -412,9 +412,8 @@ export function OfficialEditSection({
           {fields.map((field) => {
             const label = t(fieldLabelKey(field));
             const request = waitingFor(field);
-            const on = picked.has(field);
-            // eslint-disable-next-line security/detect-object-injection -- a fixed list of field names
-            const error = errors[field];
+            const on = picked.includes(field);
+            const error = errors[`values.${field}`];
             return (
               <li key={field} className="profile-edit-row" data-picked={on}>
                 {request ? (
@@ -432,7 +431,9 @@ export function OfficialEditSection({
                     <Checkbox
                       label={t('profile.edit.change_field', { field: label })}
                       checked={on}
-                      onChange={(selected) => toggle(field, selected)}
+                      onChange={(selected) =>
+                        toggleDetail(form, field, selected, () => initialValue(me, field))
+                      }
                     />
                     {on ? (
                       <div className="profile-editor">
@@ -443,13 +444,18 @@ export function OfficialEditSection({
                           </>
                         ) : (
                           <>
-                            <ValueInput
-                              field={field}
-                              label={label}
-                              // eslint-disable-next-line security/detect-object-injection -- a fixed list of field names
-                              value={values[field]}
-                              onChange={(value) => setValues((now) => ({ ...now, [field]: value }))}
-                              error={error}
+                            <Controller
+                              control={form.control}
+                              name={`values.${field}`}
+                              render={({ field: input }) => (
+                                <ValueInput
+                                  field={field}
+                                  label={label}
+                                  value={input.value}
+                                  onChange={input.onChange}
+                                  error={error}
+                                />
+                              )}
                             />
                             {isContact(field) && <Text>{t('profile.edit.code_intro')}</Text>}
                           </>
@@ -466,19 +472,17 @@ export function OfficialEditSection({
             );
           })}
         </ul>
-        {picked.size > 0 && (
-          <TextField label={t('profile.edit.note')} name="note" value={note} onChange={setNote} />
-        )}
+        {picked.length > 0 && <FormTextField label={t('profile.edit.note')} name="note" />}
         {alert && <Alert tone="error">{alert}</Alert>}
         <div className="profile-edit-actions">
           <Button variant="secondary" onClick={onCancel} disabled={send.isPending}>
             {tc('cancel')}
           </Button>
-          <Button type="submit" loading={send.isPending} disabled={picked.size === 0}>
+          <Button type="submit" loading={send.isPending} disabled={picked.length === 0}>
             {t('profile.edit.send')}
           </Button>
         </div>
       </div>
-    </form>
+    </Form>
   );
 }

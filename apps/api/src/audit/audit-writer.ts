@@ -1,9 +1,12 @@
 import { uuidv7 } from '@css/shared';
-import type { Tx } from '../core/prisma.service';
-import { currentContext } from '../core/request-context';
-import type { Prisma } from '../generated/prisma/client';
+import type { Tx } from '../core/prisma.service.js';
+import { currentContext } from '../core/request-context.js';
+import type { Prisma } from '../generated/prisma/client.js';
 
-/** One business event for the audit trail (constitution 13, DATABASE_SCHEMA audit_log). */
+/**
+ * One business event for the audit trail (docs/MASTER_PROMPT.md, "STANDARDS";
+ * docs/database/DATABASE_SCHEMA.md, "audit_log").
+ */
 export interface AuditEntry {
   /** Action name, the same as the endpoint's `x-audit`, e.g. `application.approve`. */
   action: string;
@@ -14,7 +17,10 @@ export interface AuditEntry {
   reason?: string | null;
   /** Offline record id when the write came from a device. */
   clientUuid?: string | null;
-  /** Originating user when a job or sync acts for someone (SYSTEM_ARCHITECTURE 6). */
+  /**
+   * Originating user when a job or sync acts for someone (docs/architecture/SYSTEM_ARCHITECTURE.md,
+   * "Request lifecycle (exact order of checks)").
+   */
   onBehalfOfUserId?: string | null;
   /** Jobs pass the system actor; requests take the user from the request context. */
   actorUserId?: string | null;

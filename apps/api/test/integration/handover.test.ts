@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { accessWorld, grantRole } from './support/access-fixtures';
+import { accessWorld, grantRole } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -11,9 +11,9 @@ import {
   login,
   PASSWORD,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
-import { notificationsOf } from './support/notifications';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
+import { notificationsOf } from './support/notifications.js';
 
 // Staff handover before deactivation.
 let h: AuthHarness;

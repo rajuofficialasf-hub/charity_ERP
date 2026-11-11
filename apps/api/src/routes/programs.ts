@@ -8,11 +8,11 @@ import {
 } from '@css/shared/projects';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { etagOf } from '../core/etag';
-import { ok } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { etagOf } from '../core/etag.js';
+import { ok } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 const uuid = z.uuid();
 const programView = z.object({

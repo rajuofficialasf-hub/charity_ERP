@@ -8,9 +8,9 @@ import {
   type ReadyFormCreate,
 } from '@css/shared/forms';
 import { editableIn, projectStatusOf } from '@css/shared/projects';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import { ApiError } from '../i18n/api-error';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { ApiError } from '../i18n/api-error.js';
 import {
   createUnlessKeyTaken,
   FORM_SELECT,
@@ -23,8 +23,8 @@ import {
   readDefinition,
   versionView,
   writeDefinitionRows,
-} from './forms';
-import type { ProjectViewer, ProjectsService } from './projects';
+} from './forms.js';
+import type { ProjectViewer, ProjectsService } from './projects.js';
 
 /** A ready form as the catalogue lists it. */
 export interface ReadyFormView {

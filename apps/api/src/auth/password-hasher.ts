@@ -1,8 +1,9 @@
 import { hash, verify } from '@node-rs/argon2';
 
 /**
- * Argon2id parameters (SECURITY_POLICY 4): 19 MiB memory, 2 passes, 1 lane, the OWASP
- * minimum. `algorithm: 2` is Argon2id (the library's enum is a const enum).
+ * Argon2id parameters (docs/security/SECURITY_POLICY.md, "Authentication and sessions"): 19 MiB
+ * memory, 2 passes, 1 lane, the OWASP minimum. `algorithm: 2` is Argon2id (the library's enum is a
+ * const enum).
  */
 export const ARGON2_OPTIONS = {
   memoryCost: 19456,
@@ -13,7 +14,10 @@ export const ARGON2_OPTIONS = {
 
 const CURRENT_PREFIX = `$argon2id$v=19$m=${ARGON2_OPTIONS.memoryCost},t=${ARGON2_OPTIONS.timeCost},p=${ARGON2_OPTIONS.parallelism}$`;
 
-/** Password hashing and verification; plaintext never leaves this class (AUTH.md 1). */
+/**
+ * Password hashing and verification; plaintext never leaves this class (docs/architecture/AUTH.md,
+ * "Identities and accounts").
+ */
 export class PasswordHasher {
   private dummy?: Promise<string>;
 
@@ -22,8 +26,9 @@ export class PasswordHasher {
   }
 
   /**
-   * True when the password matches. Without a stored hash (unknown login id, system actor) a
-   * dummy hash is verified anyway, so both cases take the same time (AUTH.md 4, no enumeration).
+   * True when the password matches. Without a stored hash (unknown login id, system actor) a dummy
+   * hash is verified anyway, so both cases take the same time (docs/architecture/AUTH.md, "Login";
+   * no enumeration).
    */
   async verify(stored: string | null | undefined, password: string): Promise<boolean> {
     const target = stored ?? (await this.dummyHash());

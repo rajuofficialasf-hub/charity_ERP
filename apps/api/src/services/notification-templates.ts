@@ -10,11 +10,11 @@ import {
   uuidv7,
 } from '@css/shared';
 import { type Locale, renderTemplateText } from '@css/shared/i18n';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { PrismaService } from '../core/prisma.service';
-import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
-import { NOTIFICATION_CATALOGUE, type NotificationCategory } from '../notifications/catalogue';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import { ApiError, type ApiErrorDetail } from '../i18n/api-error.js';
+import { NOTIFICATION_CATALOGUE, type NotificationCategory } from '../notifications/catalogue.js';
 
 const LOCALES: readonly Locale[] = ['bn', 'en'];
 

@@ -1,7 +1,7 @@
 import { formatDate } from '@css/shared/format';
 import { translate } from '@css/shared/i18n';
-import { documentHtml, html } from './html';
-import { codeText, dateText, factsHtml, tableHtml } from './record';
+import { documentHtml, html } from './html.js';
+import { codeText, dateText, factsHtml, tableHtml } from './record.js';
 
 /**
  * A beneficiary's 360° profile as the export stored it: the profile route's response, masked with

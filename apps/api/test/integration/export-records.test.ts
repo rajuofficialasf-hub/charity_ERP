@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ExportRunner } from '../../src/jobs/export-run';
-import { accessWorld } from './support/access-fixtures';
-import { applicationRow } from './support/applications';
+import { ExportRunner } from '../../src/jobs/export-run.js';
+import { accessWorld } from './support/access-fixtures.js';
+import { applicationRow } from './support/applications.js';
 import {
   type Account,
   account,
@@ -12,8 +12,8 @@ import {
   bearer,
   login,
   type Session,
-} from './support/auth-app';
-import * as f from './support/fixtures';
+} from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // A record printed whole: the beneficiary's 360° profile and one application, each as the person
 // may read and export it at the moment they ask; the PDF never holds what their export may not.

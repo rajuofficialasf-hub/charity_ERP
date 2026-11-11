@@ -7,15 +7,15 @@ import {
   type RegistrationCorrectionCreate,
   type StaffDecision,
 } from '@css/shared/registration';
-import type { AccessRegistry } from '../access/registry';
-import { type Scope, volunteerWhere } from '../access/scope';
-import type { AccessService } from '../access/service';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { PermissionVersionService } from '../auth/permission-version.service';
-import type { Principal } from '../auth/principal';
-import type { SessionService } from '../auth/session.service';
-import type { Env } from '../config/env';
-import type { Clock } from '../core/clock';
+import type { AccessRegistry } from '../access/registry.js';
+import { type Scope, volunteerWhere } from '../access/scope.js';
+import type { AccessService } from '../access/service.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { PermissionVersionService } from '../auth/permission-version.service.js';
+import type { Principal } from '../auth/principal.js';
+import type { SessionService } from '../auth/session.service.js';
+import type { Env } from '../config/env.js';
+import type { Clock } from '../core/clock.js';
 import {
   buildPage,
   decodeCursor,
@@ -23,13 +23,13 @@ import {
   orderBy,
   type PageQuery,
   parseSort,
-} from '../core/pagination';
-import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { ApiError } from '../i18n/api-error';
-import type { AccountEvents } from '../notifications/account-events';
-import { addressProblem } from './registration';
-import { DETAILS_SELECT, detailsUpdate, detailsView } from './volunteer-details';
+} from '../core/pagination.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { ApiError } from '../i18n/api-error.js';
+import type { AccountEvents } from '../notifications/account-events.js';
+import { addressProblem } from './registration.js';
+import { DETAILS_SELECT, detailsUpdate, detailsView } from './volunteer-details.js';
 
 export type RegistrationStatus = 'awaiting_review' | 'in_correction';
 
@@ -45,7 +45,10 @@ export const UNFINISHED = ['open', 'submitted'];
 /** Refused correction answers (invalid value, NID of another volunteer) an account allows per hour. */
 const MAX_REFUSED_ANSWERS = 10;
 const REFUSAL_WINDOW_MS = 3_600_000;
-/** Roles a staff decision or a new account may not give: the Main Admin's role (AUTH.md 11). */
+/**
+ * Roles a staff decision or a new account may not give: the Main Admin's role
+ * (docs/architecture/AUTH.md, "Main Admin protection").
+ */
 const NOT_BY_DECISION = new Set(['department_head']);
 
 /** An official role that a staff decision or the admin's new account may give. */
@@ -273,7 +276,10 @@ export class RegistrationsService {
     return this.prisma.user.count({ where: filter });
   }
 
-  /** One pending registration in scope, or 404 (RBAC.md 8.4). */
+  /**
+   * One pending registration in scope, or 404 (docs/security/RBAC.md, "Object-level checks for
+   * ASSIGNED and SELF").
+   */
   async detail(actor: Principal, scope: Scope, userId: string) {
     const staff = await this.decidesStaff(actor.userId);
     const user = await this.prisma.user.findFirst({
@@ -690,7 +696,8 @@ export class RegistrationsService {
           status: 'submitted',
         },
       });
-      // the field name only: identity and bank values stay out of the log (RBAC.md 6)
+      // the field name only: identity and bank values stay out of the log (docs/security/RBAC.md,
+      // "Field-level protection")
       await this.audit.record(tx, {
         action: 'auth.correction_answered',
         entityType: 'user',

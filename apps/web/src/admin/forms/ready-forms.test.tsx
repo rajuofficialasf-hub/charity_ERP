@@ -166,6 +166,32 @@ describe('the ready forms page', () => {
     expect((created[0] as { key: string }).key).toMatch(/^self_reliance_application_/);
   });
 
+  it('starts another kind of form as a copy of a published ready form', async () => {
+    const user = userEvent.setup();
+    const { created } = api();
+    renderApp(<ReadyFormsPage />, 'bn', { path: '/admin/ready-forms' });
+    await user.click(await screen.findByRole('button', { name: 'নতুন তৈরি ফর্ম' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'নতুন তৈরি ফর্ম' }));
+    await user.type(dialog.getByRole('textbox', { name: /ফর্মের নাম \(বাংলা\)/ }), 'জরিপ ২');
+    await user.type(dialog.getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ }), 'Survey 2');
+    await user.click(dialog.getByRole('radio', { name: 'অন্যান্য' }));
+    await user.click(dialog.getByRole('radio', { name: 'অন্য তৈরি ফর্মের কপি' }));
+    const create = dialog.getByRole('button', { name: 'তৈরি করুন' });
+    // a copy waits for the form it copies
+    expect(create).toBeDisabled();
+    await user.click(dialog.getByRole('combobox', { name: /কোন ফর্মের কপি/ }));
+    // only a published ready form can be copied
+    expect(screen.queryByRole('option', { name: 'স্বাবলম্বী আবেদন' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('option', { name: 'এলাকা জরিপ' }));
+    await user.click(create);
+    await waitFor(() => expect(created).toHaveLength(1));
+    expect(created[0]).toMatchObject({
+      title: { bn: 'জরিপ ২', en: 'Survey 2' },
+      kind: 'other',
+      source: { kind: 'copy', formId: OTHER },
+    });
+  });
+
   it('opens the question library from its button', async () => {
     const user = userEvent.setup();
     api();

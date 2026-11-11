@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { accessWorld } from './support/access-fixtures';
+import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
   account,
@@ -10,10 +10,10 @@ import {
   login,
   PASSWORD,
   type Session,
-} from './support/auth-app';
-import { notificationsOf } from './support/notifications';
-import * as f from './support/fixtures';
-import type { Tx } from '../../src/core/prisma.service';
+} from './support/auth-app.js';
+import { notificationsOf } from './support/notifications.js';
+import * as f from './support/fixtures.js';
+import type { Tx } from '../../src/core/prisma.service.js';
 
 // The volunteer blocklist.
 let h: AuthHarness;

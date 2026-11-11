@@ -1,9 +1,10 @@
-import { effectiveAccess } from '../../../src/access/effective';
-import type { AccessRegistry } from '../../../src/access/registry';
-import type { RegisteredOperation } from '../../../src/openapi/registry';
+import { effectiveAccess } from '../../../src/access/effective.js';
+import type { AccessRegistry } from '../../../src/access/registry.js';
+import type { RegisteredOperation } from '../../../src/openapi/registry.js';
 
 /**
- * The expected decision of the authorization matrix (RBAC.md 2 and 8): `public` passes everyone,
+ * The expected decision of the authorization matrix (docs/security/RBAC.md, "permissions.yaml
+ * schema and loading" and "Server-side enforcement"): `public` passes everyone,
  * `authenticated` every signed-in user, `entity` too (the file service decides per file from the
  * linked record; covered by registration-photos.test.ts), `workflow` too (the
  * application service decides per application and action from the workflow definition; covered by

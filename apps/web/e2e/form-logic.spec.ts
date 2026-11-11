@@ -208,6 +208,8 @@ test('the demo form: a price by condition, a typed formula, a number table and c
       .click();
     await form.getByRole('textbox', { name: /কতটি গরু পালন করতে চান\?/ }).fill('2');
     await form.getByRole('textbox', { name: 'গরু: নিজের' }).fill('1');
+    // the phone ends on a review of every part before the send
+    await nextPart.click();
     await form.getByRole('button', { name: 'আবেদন জমা দিন' }).click();
     await expect(applicant.getByRole('heading', { name: 'আবেদন জমা হয়েছে' })).toBeVisible();
     // no horizontal scrolling at 360 px

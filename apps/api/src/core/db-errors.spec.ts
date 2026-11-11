@@ -4,7 +4,7 @@ import {
   isUniqueViolation,
   isUniqueViolationOf,
   isVolunteerMobileRefusal,
-} from './db-errors';
+} from './db-errors.js';
 
 describe('the database refusals recognised in a Prisma error', () => {
   it('sees a foreign-key refusal by the client code, the SQLSTATE, or a nested cause', () => {

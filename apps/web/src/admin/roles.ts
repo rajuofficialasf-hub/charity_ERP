@@ -1,10 +1,11 @@
 import type { Me } from '@css/shared/auth';
 
 /**
- * The audience of the admin area (SYSTEM_ARCHITECTURE 4.2): Department Head, Monitoring Team and
- * Program Managers, and the RPM and the Project Executive for the registrations page. These lists
- * follow the role defaults of docs/security/permissions.yaml and only decide what the PWA shows;
- * every admin endpoint checks its own permission and scope on the server (default deny).
+ * The audience of the admin area (docs/architecture/SYSTEM_ARCHITECTURE.md, "Route groups of the
+ * PWA (apps/web/src, React Router)"): Department Head, Monitoring Team and Program Managers, and
+ * the RPM and the Project Executive for the registrations page. These lists follow the role
+ * defaults of docs/security/permissions.yaml and only decide what the PWA shows; every admin
+ * endpoint checks its own permission and scope on the server (default deny).
  */
 export const ADMIN_ROLES: readonly string[] = [
   'department_head',
@@ -65,7 +66,10 @@ export const DUPLICATE_ROLES: readonly string[] = [
 /** Who sees volunteer categories and ratings (the class `volunteer.rating`). */
 export const CATEGORY_ROLES: readonly string[] = ADMIN_ROLES;
 
-/** The permission panel is for the Department Head and the Monitoring Team only (RBAC.md 7). */
+/**
+ * The permission panel is for the Department Head and the Monitoring Team only
+ * (docs/security/RBAC.md, "Permission panel").
+ */
 export const PERMISSION_PANEL_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 
 /** Who sees the programs (`program.view`; the global roles and the PMs, each its own program). */

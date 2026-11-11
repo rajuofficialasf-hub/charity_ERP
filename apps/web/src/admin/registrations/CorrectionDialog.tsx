@@ -1,11 +1,18 @@
-import { CORRECTION_FIELDS, type CorrectionField } from '@css/shared/registration';
-import { Alert, Button, CheckboxGroup, Dialog, TextField } from '@/ui';
-import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import {
+  CORRECTION_FIELDS,
+  type CorrectionField,
+  registrationCorrectionCreateSchema,
+} from '@css/shared/registration';
+import { Alert, Button, CheckboxGroup, Dialog, Form, FormTextField } from '@/ui';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
+import type { z } from 'zod';
 import { FIELD_LABEL } from '../../features/account/profile-api';
-import { ApiFailure } from '../../api/client';
+import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { requestCorrections } from './registrations-api';
+
+type CorrectionFields = z.input<typeof registrationCorrectionCreateSchema>;
+const EMPTY: CorrectionFields = { fields: [], note: '' };
 
 /**
  * Asks the registrant to correct the checked fields, with one note (POST
@@ -25,60 +32,73 @@ export function CorrectionDialog({
   const t = useTranslations('admin.registrations');
   const tf = useTranslations('registration');
   const tc = useTranslations('common.action');
-  const [fields, setFields] = useState<CorrectionField[]>([]);
-  const [note, setNote] = useState('');
-  const send = useMutation({
-    mutationFn: () => requestCorrections(userId, fields, note.trim()),
-    onSuccess: () => {
-      reset();
-      onDone();
-    },
+  const ts = useTranslations('common.state.error');
+  const form = useForm<CorrectionFields>({
+    resolver: useSchemaResolver(registrationCorrectionCreateSchema),
+    defaultValues: EMPTY,
+    reValidateMode: 'onSubmit',
   });
-  const reset = () => {
-    setFields([]);
-    setNote('');
-    send.reset();
+  const values = useWatch({ control: form.control });
+  const pending = form.formState.isSubmitting;
+  const error = form.formState.errors.root?.server?.message;
+  // the request's own rules: a field ticked and a note of three letters at least
+  const ready = registrationCorrectionCreateSchema.safeParse(values).success;
+
+  const send = async ({ fields, note }: CorrectionFields) => {
+    try {
+      await requestCorrections(userId, fields, note.trim());
+    } catch (failure) {
+      showFailure(form, failure, ts('text'));
+      return;
+    }
+    form.reset(EMPTY);
+    onDone();
   };
   const close = () => {
-    reset();
+    form.reset(EMPTY);
     onClose();
   };
-  const failure = send.error instanceof ApiFailure ? send.error : null;
-  const ready = fields.length > 0 && note.trim().length >= 3;
+
   return (
     <Dialog
       title={t('correct')}
       open={open}
       onClose={close}
-      dismissible={!send.isPending}
+      dismissible={!pending}
       actions={
         <>
-          <Button variant="secondary" onClick={close} disabled={send.isPending}>
+          <Button variant="secondary" onClick={close} disabled={pending}>
             {tc('cancel')}
           </Button>
-          <Button onClick={() => send.mutate()} disabled={!ready} loading={send.isPending}>
+          <Button
+            onClick={() => void form.handleSubmit(send)()}
+            disabled={!ready}
+            loading={pending}
+          >
             {t('correct_send')}
           </Button>
         </>
       }
     >
-      {failure && <Alert tone="error">{failure.details[0]?.message ?? failure.message}</Alert>}
-      <CheckboxGroup
-        label={t('correct_fields')}
-        required
-        columns={2}
-        value={fields}
-        onChange={(ids) => setFields(ids as CorrectionField[])}
-        options={CORRECTION_FIELDS.map((f) => ({ value: f, label: tf(FIELD_LABEL[f]) }))}
-      />
-      <TextField
-        rows={4}
-        label={t('correct_note')}
-        required
-        maxLength={1000}
-        value={note}
-        onChange={setNote}
-      />
+      <Form form={form} onSubmit={send} label={t('correct')}>
+        {error && <Alert tone="error">{error}</Alert>}
+        <Controller
+          control={form.control}
+          name="fields"
+          render={({ field, fieldState }) => (
+            <CheckboxGroup
+              label={t('correct_fields')}
+              required
+              columns={2}
+              value={field.value}
+              onChange={(ids) => field.onChange(ids as CorrectionField[])}
+              error={fieldState.error?.message}
+              options={CORRECTION_FIELDS.map((f) => ({ value: f, label: tf(FIELD_LABEL[f]) }))}
+            />
+          )}
+        />
+        <FormTextField name="note" rows={4} label={t('correct_note')} required maxLength={1000} />
+      </Form>
     </Dialog>
   );
 }

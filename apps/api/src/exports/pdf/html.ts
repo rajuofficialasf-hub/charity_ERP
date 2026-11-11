@@ -1,4 +1,4 @@
-import { readFonts } from './fonts';
+import { readFonts } from './fonts.js';
 
 /** Markup the server wrote itself; every other value put into a page is escaped first. */
 export class SafeHtml {

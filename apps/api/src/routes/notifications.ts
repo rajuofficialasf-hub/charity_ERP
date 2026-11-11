@@ -10,13 +10,13 @@ import {
 import { isoDateSchema } from '@css/shared/settings';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf } from '../auth/principal';
-import type { Container } from '../container';
-import { currentContext } from '../core/request-context';
-import { pageQuery } from '../core/pagination';
-import { ok, page } from '../http/send';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
-import { DELIVERY_CHANNELS, DELIVERY_STATUSES } from '../services/deliveries';
+import { principalOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { currentContext } from '../core/request-context.js';
+import { pageQuery } from '../core/pagination.js';
+import { ok, page } from '../http/send.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import { DELIVERY_CHANNELS, DELIVERY_STATUSES } from '../services/deliveries.js';
 
 const inboxQuery = pageQuery
   .omit({ sort: true, include: true })

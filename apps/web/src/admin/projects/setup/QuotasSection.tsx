@@ -1,15 +1,18 @@
 import { formatCount } from '@css/shared/format';
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, Button, IconButton, Text } from '@/ui';
+import { Alert, Button, Form, IconButton, Text } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
+import { z } from 'zod';
 import {
   type Address,
   AddressFields,
   EMPTY_ADDRESS,
 } from '../../../features/registration/AddressFields';
 import { useLocationName } from '../../../components/AddressNames';
+import { useSchemaResolver } from '../../../lib/form-schema';
 import { NumberText } from '../../forms/NumberText';
 import { type Quota, saveQuotas } from './setup-api';
 import { SaveRow, SetupSection, useSetup, useStepSave } from './setup-context';
@@ -21,6 +24,17 @@ type Draft = {
   /** The place above a place added in this visit, to read its name from the locations. */
   parentId?: string;
 };
+
+/**
+ * The list saved as a whole, each quota with a target of one at least, and the place and target
+ * of the quota being added.
+ */
+const QUOTAS_SCHEMA = z.object({
+  quotas: z.array(z.custom<Draft>((q) => ((q as Draft).target ?? 0) >= 1)),
+  place: z.custom<Address>(),
+  target: z.number().optional(),
+});
+type QuotaFields = z.infer<typeof QUOTAS_SCHEMA>;
 
 const sameList = (a: readonly Draft[], b: readonly Quota[]) =>
   a.length === b.length &&
@@ -35,7 +49,13 @@ export function QuotasSection({ quotas, manage }: { quotas: Quota[]; manage: boo
   const { project, editable, refresh } = useSetup();
   const t = useTranslations('admin.projects.setup');
   const can = manage && editable('quotas');
-  const [list, setList] = useState<Draft[]>(() => quotas.map(draftOf));
+  const form = useForm<QuotaFields>({
+    resolver: useSchemaResolver(QUOTAS_SCHEMA),
+    defaultValues: { quotas: quotas.map(draftOf), place: EMPTY_ADDRESS, target: undefined },
+    reValidateMode: 'onSubmit',
+  });
+  const { quotas: list, place, target } = useWatch({ control: form.control }) as QuotaFields;
+  const setList = (next: Draft[]) => form.setValue('quotas', next);
   // a read that only brings new counts keeps the targets being typed; new targets replace them
   const targetsOf = (list: readonly Quota[]) =>
     JSON.stringify(list.map((q) => [q.locationId, q.target]));
@@ -44,12 +64,10 @@ export function QuotasSection({ quotas, manage }: { quotas: Quota[]; manage: boo
     setSeen(targetsOf(quotas));
     setList(quotas.map(draftOf));
   }
-  const [place, setPlace] = useState<Address>(EMPTY_ADDRESS);
-  const [target, setTarget] = useState<number | undefined>(undefined);
   const save = useMutation({
-    mutationFn: () =>
+    mutationFn: (drafts: Draft[]) =>
       saveQuotas(project.id, {
-        quotas: list.flatMap((q) =>
+        quotas: drafts.flatMap((q) =>
           q.target === undefined
             ? []
             : [{ level: q.level, locationId: q.locationId, target: q.target }],
@@ -62,7 +80,7 @@ export function QuotasSection({ quotas, manage }: { quotas: Quota[]; manage: boo
   const problem = useStepSave({
     changed,
     invalid: incomplete ? t('quota_incomplete') : undefined,
-    save: () => save.mutateAsync(),
+    save: () => save.mutateAsync(form.getValues('quotas')),
   });
   const chosen = place.unionId ?? place.districtId;
   const add = () => {
@@ -78,9 +96,10 @@ export function QuotasSection({ quotas, manage }: { quotas: Quota[]; manage: boo
         parentId: (union ? place.upazilaId : place.divisionId) ?? undefined,
       },
     ]);
-    setPlace(EMPTY_ADDRESS);
-    setTarget(undefined);
+    form.setValue('place', EMPTY_ADDRESS);
+    form.setValue('target', undefined);
   };
+  const submit = (v: QuotaFields) => save.mutate(v.quotas);
   const progress = new Map(quotas.map((q) => [q.locationId, q]));
 
   return (
@@ -110,8 +129,25 @@ export function QuotasSection({ quotas, manage }: { quotas: Quota[]; manage: boo
         <>
           <h3 className="admin-setup-subtitle">{t('add_quota')}</h3>
           <div className="admin-setup-grid">
-            <AddressFields optional levels={4} value={place} onChange={setPlace} />
-            <NumberText label={t('quota_target')} integer value={target} onChange={setTarget} />
+            <Controller
+              control={form.control}
+              name="place"
+              render={({ field }) => (
+                <AddressFields optional levels={4} value={field.value} onChange={field.onChange} />
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="target"
+              render={({ field }) => (
+                <NumberText
+                  label={t('quota_target')}
+                  integer
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
           </div>
           <div>
             <Button
@@ -124,13 +160,16 @@ export function QuotasSection({ quotas, manage }: { quotas: Quota[]; manage: boo
               {t('add_quota')}
             </Button>
           </div>
-          {problem && <Alert tone="warning">{problem}</Alert>}
-          <SaveRow
-            mutation={save}
-            onSave={() => save.mutate()}
-            disabled={!changed || incomplete}
-            label={t('save_quotas')}
-          />
+          {/* the quota being added stays outside the form element: Enter there saves nothing */}
+          <Form form={form} onSubmit={submit} label={t('save_quotas')}>
+            {problem && <Alert tone="warning">{problem}</Alert>}
+            <SaveRow
+              mutation={save}
+              onSave={() => void form.handleSubmit(submit)()}
+              disabled={!changed || incomplete}
+              label={t('save_quotas')}
+            />
+          </Form>
         </>
       )}
     </SetupSection>

@@ -26,10 +26,11 @@ interface AuthValue {
 const AuthContext = createContext<AuthValue>({ status: 'loading', me: null });
 
 /**
- * Holds who is signed in (AUTH.md 5). At start it restores the session from the refresh cookie
- * with one silent refresh; afterwards it follows the API client's sign-in and sign-out events.
- * When the session ends or another user signs in, the server-data cache is emptied, so no
- * record or photo of one session is shown in the next (AUTH.md 8).
+ * Holds who is signed in (docs/architecture/AUTH.md, "Tokens and device sessions"). At start it
+ * restores the session from the refresh cookie with one silent refresh; afterwards it follows the
+ * API client's sign-in and sign-out events. When the session ends or another user signs in, the
+ * server-data cache is emptied, so no record or photo of one session is shown in the next
+ * (docs/architecture/AUTH.md, "Devices: listing, remote revocation and local-data wipe").
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();

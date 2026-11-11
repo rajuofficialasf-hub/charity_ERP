@@ -164,6 +164,56 @@ describe('the volunteers of a project', () => {
     expect(await screen.findByText(/2 জন স্বেচ্ছাসেবক অ্যাসাইন হয়েছেন/)).toBeInTheDocument();
   });
 
+  it('starts a new choice on a new search, and shows the set a type cannot hold as refused', async () => {
+    refreshAs(RPM);
+    serve();
+    server.use(
+      http.post(`*/api/v1/projects/${ID}/volunteers`, async ({ request }) => {
+        writes.push({ path: 'assign', body: await request.json() });
+        return HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              message: 'কিছু তথ্য সঠিক নয়।',
+              requestId: 'req_x',
+              details: [
+                {
+                  path: 'volunteers.0.permissionSet',
+                  code: 'validation.option_unknown',
+                  message: 'এই বিকল্পটি তালিকায় নেই।',
+                },
+              ],
+            },
+          },
+          { status: 422 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole('button', { name: 'স্বেচ্ছাসেবক অ্যাসাইন করুন' }));
+    const dialog = await screen.findByRole('dialog');
+    const list = within(dialog).getByRole('table', { name: 'অ্যাসাইন করা যায় এমন স্বেচ্ছাসেবক' });
+    await user.click(await within(list).findByRole('checkbox', { name: /রহিম মিয়া/ }));
+    expect(within(dialog).getByText('1 জন বাছাই করা হয়েছে')).toBeInTheDocument();
+    await user.type(within(dialog).getByRole('textbox', { name: /নাম বা মোবাইল/ }), 'রহিম');
+    expect(within(dialog).getByText('0 জন বাছাই করা হয়েছে')).toBeInTheDocument();
+    await user.click(await within(list).findByRole('checkbox', { name: /ফাতেমা বেগম/ }));
+    await user.click(within(dialog).getByRole('combobox', { name: /অনুমতির সেট/ }));
+    await user.click(await screen.findByRole('option', { name: 'কাজের অগ্রগতি' }));
+    await user.click(within(dialog).getByRole('button', { name: 'অ্যাসাইন করুন' }));
+    expect(await within(dialog).findByText('এই বিকল্পটি তালিকায় নেই।')).toBeInTheDocument();
+    expect(writes).toEqual([
+      {
+        path: 'assign',
+        body: {
+          volunteers: [{ volunteerId: id(12), permissionSet: 'work_progress', isPaid: false }],
+        },
+      },
+    ]);
+    expect(screen.getByRole('dialog')).toBeVisible();
+  });
+
   it('offers an executive no paid flag and a PM no assignment', async () => {
     refreshAs(EXECUTIVE);
     serve();

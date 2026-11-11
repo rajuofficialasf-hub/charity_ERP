@@ -8,28 +8,28 @@ import {
 import { createHash } from 'node:crypto';
 import type { Logger } from 'pino';
 import { z } from 'zod';
-import type { AccessService } from '../access/service';
-import { splitPendingPhotos, wrongSlot } from '../applications/pending-photos';
+import type { AccessService } from '../access/service.js';
+import { splitPendingPhotos, wrongSlot } from '../applications/pending-photos.js';
 import type {
   ApplicationRead,
   ApplicationsService,
   ApplicationViewer,
   WriteOptions,
-} from '../applications/service';
-import type { UnlocksService } from '../applications/unlocks';
-import type { AuditWriter } from '../audit/audit-writer';
-import type { Principal } from '../auth/principal';
-import type { SessionService } from '../auth/session.service';
-import type { Clock } from '../core/clock';
-import { etagOf } from '../core/etag';
-import type { PrismaService } from '../core/prisma.service';
-import type { IdempotencyService } from '../idempotency/idempotency.service';
-import { PUBLIC_PARAMS } from '../http/errors';
-import { ApiError } from '../i18n/api-error';
-import { readDefinition } from '../services/forms';
-import { clampedOffset, correctedDeviceTime, lateSync, verificationReason } from './rules';
+} from '../applications/service.js';
+import type { UnlocksService } from '../applications/unlocks.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { Principal } from '../auth/principal.js';
+import type { SessionService } from '../auth/session.service.js';
+import type { Clock } from '../core/clock.js';
+import { etagOf } from '../core/etag.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import type { IdempotencyService } from '../idempotency/idempotency.service.js';
+import { PUBLIC_PARAMS } from '../http/errors.js';
+import { ApiError } from '../i18n/api-error.js';
+import { readDefinition } from '../services/forms.js';
+import { clampedOffset, correctedDeviceTime, lateSync, verificationReason } from './rules.js';
 import { answerValueSchema } from '@css/shared';
-import type { Prisma } from '../generated/prisma/client';
+import type { Prisma } from '../generated/prisma/client.js';
 
 /** The phone's answers as the audit keeps them: read through the answer schema, or marked unreadable. */
 const clientAnswersSchema = z.array(

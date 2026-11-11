@@ -6,11 +6,11 @@ import {
 } from '@css/shared/files';
 import { type Response, Router } from 'express';
 import { z } from 'zod';
-import { principalOf, scopeOf } from '../auth/principal';
-import type { Container } from '../container';
-import { partBody } from '../files/photo-body';
-import { defineRoute, type RouteDeps } from '../openapi/define-route';
-import type { Replayable } from '../services/uploads';
+import { principalOf, scopeOf } from '../auth/principal.js';
+import type { Container } from '../container.js';
+import { partBody } from '../files/photo-body.js';
+import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import type { Replayable } from '../services/uploads.js';
 
 const sessionSchema = z.object({
   data: z.object({

@@ -1,16 +1,17 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, CheckboxGroup, Dialog, SelectField, Stack, Text } from '@/ui';
+import { Button, Card, CheckboxGroup, Dialog, Form, SelectField, Stack, Text } from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
+import { z } from 'zod';
+import { useSchemaResolver } from '../../lib/form-schema';
 import { MEDIA_KEY, type MediaReferral, type MediaWork, mediaTeam, setMembers } from './media-api';
 import { useMediaLabels } from './use-media-lists';
 import { failureOf } from './work-errors';
 import { LoadError } from '../../components/LoadError';
 import { DialogButtons } from '../../components/DialogButtons';
-
-type Member = { userId: string; name: string; roles: string[] };
 
 /**
  * The team of a work: each member with their production roles, a link to their profile; a director
@@ -73,6 +74,14 @@ export function MembersEditor({
   );
 }
 
+/** The team as edited: each member with one role at least. */
+const TEAM_SCHEMA = z.object({
+  members: z.array(
+    z.object({ userId: z.string(), name: z.string(), roles: z.array(z.string()).min(1) }),
+  ),
+});
+type TeamFields = z.infer<typeof TEAM_SCHEMA>;
+
 function TeamDialog({
   work,
   onClose,
@@ -89,14 +98,18 @@ function TeamDialog({
   const locale = useLocale() as Locale;
   const labels = useMediaLabels();
   const people = useQuery({ queryKey: [...MEDIA_KEY, 'team'], queryFn: mediaTeam });
-  const [members, setTeam] = useState<Member[]>(work.members);
-  const [adding, setAdding] = useState<string | null>(null);
+  const form = useForm<TeamFields>({
+    resolver: useSchemaResolver(TEAM_SCHEMA),
+    defaultValues: { members: work.members },
+    reValidateMode: 'onSubmit',
+  });
+  const members = useWatch({ control: form.control, name: 'members' });
   const save = useMutation({
-    mutationFn: () =>
+    mutationFn: ({ members: chosen }: TeamFields) =>
       setMembers(
         work.id,
         work.version,
-        members.map((m) => ({ userId: m.userId, roles: m.roles })),
+        chosen.map((m) => ({ userId: m.userId, roles: m.roles })),
       ),
     onSuccess: onSaved,
     // a team another director saved meanwhile: the page reads it again
@@ -107,14 +120,11 @@ function TeamDialog({
   const roleOptions = labels.roles
     .filter((r) => r.active)
     .map((r) => ({ value: r.code, label: localized(r.label, locale) }));
-  const candidates = (people.data ?? []).filter((p) => !members.some((m) => m.userId === p.id));
-  const add = (id: string | null) => {
-    const person = people.data?.find((p) => p.id === id);
-    if (!person) return;
-    setTeam((all) => [...all, { userId: person.id, name: person.name, roles: [] }]);
-    setAdding(null);
+  const ready = TEAM_SCHEMA.safeParse({ members }).success;
+  // the button's own path: every member with a role, and nothing twice while a save is on its way
+  const send = (fields: TeamFields) => {
+    if (ready && !save.isPending) save.mutate(fields);
   };
-  const ready = members.every((m) => m.roles.length > 0);
   return (
     <Dialog
       title={t('team')}
@@ -124,54 +134,80 @@ function TeamDialog({
       actions={
         <DialogButtons
           onCancel={onClose}
-          onConfirm={() => save.mutate()}
+          onConfirm={() => void form.handleSubmit(send)()}
           confirmLabel={tc('action.save')}
           disabled={!ready}
           pending={save.isPending}
         />
       }
     >
-      {save.error ? (
-        <Alert tone="error">
-          {failureOf(save.error, { stale: t('stale'), fallback: tc('state.error.text') }).text}
-        </Alert>
-      ) : null}
-      {people.error ? (
-        <LoadError error={people.error} onRetry={() => void people.refetch()} />
-      ) : (
-        <SelectField
-          label={t('member_search')}
-          value={adding ?? ''}
-          disabled={people.isPending}
-          options={candidates.map((p) => ({ value: p.id, label: p.name }))}
-          onChange={add}
+      <Form
+        form={form}
+        onSubmit={send}
+        label={t('team')}
+        error={
+          save.error
+            ? failureOf(save.error, { stale: t('stale'), fallback: tc('state.error.text') }).text
+            : undefined
+        }
+      >
+        <Controller
+          control={form.control}
+          name="members"
+          render={({ field }) => {
+            const team = field.value;
+            const set = (next: TeamFields['members']) => field.onChange(next);
+            const candidates = (people.data ?? []).filter(
+              (p) => !team.some((m) => m.userId === p.id),
+            );
+            const add = (id: string) => {
+              const person = people.data?.find((p) => p.id === id);
+              if (person) set([...team, { userId: person.id, name: person.name, roles: [] }]);
+            };
+            return (
+              <>
+                {people.error ? (
+                  <LoadError error={people.error} onRetry={() => void people.refetch()} />
+                ) : (
+                  // a picker of the next member, empty again once one is added
+                  <SelectField
+                    label={t('member_search')}
+                    value=""
+                    disabled={people.isPending}
+                    options={candidates.map((p) => ({ value: p.id, label: p.name }))}
+                    onChange={add}
+                  />
+                )}
+                {team.length === 0 ? <Text tone="muted">{t('no_members')}</Text> : null}
+                {team.map((m) => (
+                  <Stack key={m.userId} gap={1}>
+                    <Stack direction="row" gap={2} align="center">
+                      <strong>{m.name}</strong>
+                      <Button
+                        variant="text"
+                        size="small"
+                        startIcon="close"
+                        onClick={() => set(team.filter((x) => x.userId !== m.userId))}
+                      >
+                        {t('remove_member', { name: m.name })}
+                      </Button>
+                    </Stack>
+                    <CheckboxGroup
+                      label={t('roles')}
+                      columns={2}
+                      options={roleOptions}
+                      value={m.roles}
+                      onChange={(ids) =>
+                        set(team.map((x) => (x.userId === m.userId ? { ...x, roles: ids } : x)))
+                      }
+                    />
+                  </Stack>
+                ))}
+              </>
+            );
+          }}
         />
-      )}
-      {members.length === 0 ? <Text tone="muted">{t('no_members')}</Text> : null}
-      {members.map((m) => (
-        <Stack key={m.userId} gap={1}>
-          <Stack direction="row" gap={2} align="center">
-            <strong>{m.name}</strong>
-            <Button
-              variant="text"
-              size="small"
-              startIcon="close"
-              onClick={() => setTeam((all) => all.filter((x) => x.userId !== m.userId))}
-            >
-              {t('remove_member', { name: m.name })}
-            </Button>
-          </Stack>
-          <CheckboxGroup
-            label={t('roles')}
-            columns={2}
-            options={roleOptions}
-            value={m.roles}
-            onChange={(ids) =>
-              setTeam((all) => all.map((x) => (x.userId === m.userId ? { ...x, roles: ids } : x)))
-            }
-          />
-        </Stack>
-      ))}
+      </Form>
     </Dialog>
   );
 }

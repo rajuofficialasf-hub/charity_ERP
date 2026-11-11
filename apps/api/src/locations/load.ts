@@ -1,6 +1,6 @@
 import { uuidv7 } from '@css/shared';
-import type { Client } from 'pg';
-import type { LocationRow } from './convert';
+import type { PrismaClient } from '../generated/prisma/client.js';
+import type { LocationRow } from './convert.js';
 
 /**
  * Loads the locations master from docs/source/data/bd-locations.csv into `locations`.
@@ -90,13 +90,18 @@ export function nodesFromRows(rows: LocationRow[]): Map<string, LocationNode> {
   return nodes;
 }
 
-export async function loadLocations(db: Client, rows: LocationRow[]): Promise<LoadResult> {
+/** A long load (the whole CSV at once on a slow disk) still finishes in its one transaction. */
+const LOAD_TRANSACTION = { maxWait: 10_000, timeout: 300_000 };
+
+export async function loadLocations(
+  prisma: PrismaClient,
+  rows: LocationRow[],
+): Promise<LoadResult> {
   const nodes = nodesFromRows(rows);
   const result: LoadResult = { inserted: 0, updated: 0, unchanged: 0, deactivated: 0 };
-  await db.query('BEGIN');
-  try {
+  await prisma.$transaction(async (tx) => {
     const idByCode = new Map<string, string>(
-      (await db.query<{ id: string; code: string }>('SELECT id, code FROM locations')).rows.map(
+      (await tx.$queryRaw<{ id: string; code: string }[]>`SELECT id, code FROM locations`).map(
         (r) => [r.code, r.id],
       ),
     );
@@ -109,44 +114,30 @@ export async function loadLocations(db: Client, rows: LocationRow[]): Promise<Lo
         if (!id) throw new Error(`parent ${n.parentCode} of ${n.code} is missing`);
         return id;
       });
-      const res = await db.query<{ id: string; code: string; inserted: boolean }>(
-        `INSERT INTO locations (id, parent_id, level, kind, code, name_bn, name_en, post_code)
-         SELECT * FROM unnest($1::uuid[], $2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
-         ON CONFLICT (code) DO UPDATE SET
-           parent_id = EXCLUDED.parent_id, level = EXCLUDED.level, kind = EXCLUDED.kind,
-           name_bn = EXCLUDED.name_bn, name_en = EXCLUDED.name_en, post_code = EXCLUDED.post_code,
-           active = true, version = locations.version + 1
-         WHERE (locations.parent_id, locations.level, locations.kind, locations.name_bn, locations.name_en, locations.post_code, locations.active)
-           IS DISTINCT FROM (EXCLUDED.parent_id, EXCLUDED.level, EXCLUDED.kind, EXCLUDED.name_bn, EXCLUDED.name_en, EXCLUDED.post_code, true)
-         RETURNING id, code, (xmax = 0) AS inserted`,
-        [
-          batch.map((n) => idByCode.get(n.code) ?? uuidv7()),
-          parentIds,
-          batch.map((n) => n.level),
-          batch.map((n) => n.kind),
-          batch.map((n) => n.code),
-          batch.map((n) => n.nameBn),
-          batch.map((n) => n.nameEn),
-          batch.map((n) => n.postCode),
-        ],
-      );
-      for (const row of res.rows) {
+      const written = await tx.$queryRaw<{ id: string; code: string; inserted: boolean }[]>`
+        INSERT INTO locations (id, parent_id, level, kind, code, name_bn, name_en, post_code)
+        SELECT * FROM unnest(
+          ${batch.map((n) => idByCode.get(n.code) ?? uuidv7())}::uuid[], ${parentIds}::uuid[],
+          ${batch.map((n) => n.level)}::text[], ${batch.map((n) => n.kind)}::text[],
+          ${batch.map((n) => n.code)}::text[], ${batch.map((n) => n.nameBn)}::text[],
+          ${batch.map((n) => n.nameEn)}::text[], ${batch.map((n) => n.postCode)}::text[])
+        ON CONFLICT (code) DO UPDATE SET
+          parent_id = EXCLUDED.parent_id, level = EXCLUDED.level, kind = EXCLUDED.kind,
+          name_bn = EXCLUDED.name_bn, name_en = EXCLUDED.name_en, post_code = EXCLUDED.post_code,
+          active = true, version = locations.version + 1
+        WHERE (locations.parent_id, locations.level, locations.kind, locations.name_bn, locations.name_en, locations.post_code, locations.active)
+          IS DISTINCT FROM (EXCLUDED.parent_id, EXCLUDED.level, EXCLUDED.kind, EXCLUDED.name_bn, EXCLUDED.name_en, EXCLUDED.post_code, true)
+        RETURNING id, code, (xmax = 0) AS inserted`;
+      for (const row of written) {
         idByCode.set(row.code, row.id);
         if (row.inserted) result.inserted++;
         else result.updated++;
       }
-      result.unchanged += batch.length - res.rowCount!;
+      result.unchanged += batch.length - written.length;
     }
-    const deactivated = await db.query(
-      `UPDATE locations SET active = false, version = version + 1
-       WHERE active AND code LIKE 'L-%' AND code <> ALL($1::text[])`,
-      [[...nodes.keys()]],
-    );
-    result.deactivated = deactivated.rowCount ?? 0;
-    await db.query('COMMIT');
-    return result;
-  } catch (error) {
-    await db.query('ROLLBACK');
-    throw error;
-  }
+    result.deactivated = await tx.$executeRaw`
+      UPDATE locations SET active = false, version = version + 1
+      WHERE active AND code LIKE 'L-%' AND code <> ALL(${[...nodes.keys()]}::text[])`;
+  }, LOAD_TRANSACTION);
+  return result;
 }

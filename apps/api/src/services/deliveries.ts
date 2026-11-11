@@ -1,5 +1,5 @@
-import type { Principal } from '../auth/principal';
-import type { Env } from '../config/env';
+import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
 import {
   buildPage,
   decodeCursor,
@@ -7,10 +7,10 @@ import {
   orderBy,
   parseRange,
   type SortField,
-} from '../core/pagination';
-import type { PrismaService } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
-import { maskMobile } from '../notifications/adapters';
+} from '../core/pagination.js';
+import type { PrismaService } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { maskMobile } from '../notifications/adapters.js';
 
 export const DELIVERY_STATUSES = [
   'queued',
