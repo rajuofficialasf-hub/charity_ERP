@@ -152,6 +152,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | marital_status | never_married, married, widowed, divorced, separated, other — O-38 | beneficiaries.marital_status_code |
 | education_level | illiterate, primary, secondary, higher_secondary, graduate, postgraduate — O-38 | beneficiaries.education_code |
 | relationship | self, spouse, son, daughter, father, mother, brother, sister, grandfather, grandmother, grandson, granddaughter, son_in_law, daughter_in_law, other_relative, guardian, non_relative — O-38 | beneficiary_family_members.relationship_code |
+| mobile_owner | own (নিজের), family (পরিবারের সদস্যের), neighbour (প্রতিবেশীর), other (অন্য কারও) — D-172 | beneficiaries.mobile_owner_code |
 
 Bengali and English labels of these four lists are recorded in DECISION_LOG O-38 and seeded in T1.3.
 
@@ -665,7 +666,9 @@ Constraints: UNIQUE (form_field_id, code).
 | name | text | no | — | locked after creation (BR-006) |
 | father_or_husband_name | text | no | — | locked |
 | mother_name | text | yes | — | — |
-| mobile | text | no | — | not unique (O-02); CHECK mobile format |
+| mobile | text | yes | — | not unique (O-02); CHECK mobile format; null for a person who has no number and is reached through the volunteer of the application (D-172, BR-299): no number is stored in its place |
+| mobile_owner_code | text | yes | — | whose number the mobile is: reference list `mobile_owner` (composite FK through the generated `mobile_owner_list`; D-172, BR-300) |
+| mobile_owner_name | text | yes | — | that person's name; CHECK 1 to 200 characters after trimming |
 | gender_code | text | no | — | reference list `gender` (composite FK) |
 | dob | date | yes | — | — |
 | age_years | smallint | yes | — | when dob unknown |
@@ -692,7 +695,7 @@ Constraints: UNIQUE (form_field_id, code).
 | merged_into_id | uuid | yes | — | FK beneficiaries; retired profiles point to the kept one |
 | [A] | | | | |
 
-Constraints: CHECK nid IS NOT NULL OR birth_reg IS NOT NULL (BR-001); UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. Indexes: (mobile); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL; (id) WHERE merged_into_id IS NULL and (id) WHERE is_blocked AND merged_into_id IS NULL (the counts and the blocklist filter of the beneficiary tab, T1.10; docs/testing/PERFORMANCE.md). The duplicate suggestions (T2.2, D-113) read `beneficiaries_dup_name_father_mobile_idx` on (person_name_key(name), person_name_key(father_or_husband_name), mobile) and `beneficiaries_dup_name_dob_union_idx` on (person_name_key(name), dob, union_id), both WHERE merged_into_id IS NULL (the second also needs a dob); `person_name_key(text)` is an immutable SQL function (trimmed, inner spaces collapsed, lower case) that the queries use too, so a query and its index agree.
+Constraints: UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. The database asks for no document and no mobile (D-172, BR-298, BR-299; migration `20261112160000_beneficiary_optional_identity` dropped the CHECK `beneficiaries_identity_check` and the NOT NULL of `mobile`): a profile without a document has neither number, and whether an application must carry a document or a mobile is its project's rule, held by the service (BR-001, BR-297). A number that is given keeps its format CHECK and its uniqueness; every comparison of a mobile (the format CHECK, the own-mobile triggers of section 18, the duplicate and family queries) uses `=` or `~`, which is never true for NULL, so a missing number is refused by none of them and pairs with nobody. Rollback of that migration (its `down.sql`): on a database where no profile lacks a document or a mobile and no application has the kind `none`, the earlier schema returns exactly; where such rows exist they stay, `mobile` stays nullable in its type (PostgreSQL cannot set NOT NULL on a column that holds a NULL) and the three rules return as CHECK constraints NOT VALID (`beneficiaries_mobile_required`, `beneficiaries_identity_check`, `applications_identity_kind_check`), which hold every new and every changed row and leave the existing ones; applying the migration again removes them. Indexes: (mobile); (mobile_owner_code); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL; (id) WHERE merged_into_id IS NULL and (id) WHERE is_blocked AND merged_into_id IS NULL (the counts and the blocklist filter of the beneficiary tab, T1.10; docs/testing/PERFORMANCE.md). The duplicate suggestions (T2.2, D-113) read `beneficiaries_dup_name_father_mobile_idx` on (person_name_key(name), person_name_key(father_or_husband_name), mobile) and `beneficiaries_dup_name_dob_union_idx` on (person_name_key(name), dob, union_id), both WHERE merged_into_id IS NULL (the second also needs a dob); `person_name_key(text)` is an immutable SQL function (trimmed, inner spaces collapsed, lower case) that the queries use too, so a query and its index agree.
 
 ### beneficiary_family_members
 | Column | Type | Null | Default | Comment |
@@ -970,7 +973,7 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | deleted_at | timestamptz | yes | — | soft delete of drafts and pending (status deleted) |
 | [A] | | | | |
 
-Constraints: partial UNIQUE (project_id, beneficiary_id) WHERE status <> 'deleted' AND beneficiary_id IS NOT NULL (BR-016); CHECK beneficiary_id IS NOT NULL OR status IN ('draft', 'needs_verification', 'rejected', 'deleted') (a draft for a new person holds the number in its identity answer until the submission creates the profile; T2.5); CHECK (status = 'deleted') = (deleted_at IS NOT NULL); CHECK zakat_decision IN ('eligible','not_eligible'). The BD-03 trigger of section 18 fires on insert and on update of beneficiary_id or owner_volunteer_id. Indexes: see section 19 (project/status, project/region/status, owner/status, review queue, district quotas, status/project/beneficiary for the beneficiary tab count).
+Constraints: partial UNIQUE (project_id, beneficiary_id) WHERE status <> 'deleted' AND beneficiary_id IS NOT NULL (BR-016); CHECK beneficiary_id IS NOT NULL OR status IN ('draft', 'needs_verification', 'rejected', 'deleted') (a draft for a new person holds the number in its identity answer until the submission creates the profile; T2.5); CHECK (status = 'deleted') = (deleted_at IS NOT NULL); CHECK zakat_decision IN ('eligible','not_eligible'); CHECK identity_kind IS NULL OR identity_kind IN ('nid', 'birth_reg', 'none') (the kind of number the lookup asked; `none` for a person entered without a document, D-172). The BD-03 trigger of section 18 fires on insert and on update of beneficiary_id or owner_volunteer_id. Indexes: see section 19 (project/status, project/region/status, owner/status, review queue, district quotas, status/project/beneficiary for the beneficiary tab count).
 
 ### application_answers
 | Column | Type | Null | Default | Comment |
@@ -1790,7 +1793,7 @@ Enforcement in two layers (BR-008):
    - `beneficiaries` AFTER UPDATE OF mobile — for every non-deleted application of that beneficiary;
    - `users` AFTER UPDATE OF mobile — for every non-deleted application owned or created by that user.
 
-   The check: `beneficiaries.mobile` equals `users.mobile` of the owner volunteer's user, or of `created_by_user_id`. Public-link applications (no owner, no creator) are not checked.
+   The check: `beneficiaries.mobile` equals `users.mobile` of the owner volunteer's user, or of `created_by_user_id`. Public-link applications (no owner, no creator) are not checked. A beneficiary without a mobile (NULL, D-172) and a user without one never match: `=` is not true for NULL, so the function needed no change when the column became nullable, and a number given later to such a beneficiary is checked like any other.
 
 Rationale for triggers rather than a CHECK: the two values live in different tables; PostgreSQL CHECK constraints cannot reference other rows. Tests (T2.2): direct SQL insert violating the rule fails; service path returns the friendly error; mobile change on either side is caught.
 

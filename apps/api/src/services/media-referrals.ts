@@ -521,7 +521,8 @@ export class MediaReferralsService {
         name: b.name,
         fatherOrHusbandName: b.fatherOrHusbandName,
         ageYears: ageOn(this.clock.now(), b.dob, b.ageYears),
-        mobile: b.mobile,
+        // the answer promises a string: a person without a number reads as an empty one
+        mobile: b.mobile ?? '',
         address: {
           divisionId: b.divisionId,
           districtId: b.districtId,

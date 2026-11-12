@@ -5,7 +5,15 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { runSeed } from '../../seed/run.js';
 import { prismaClientFor } from '../../src/core/prisma.service.js';
-import { beneficiary, locationTree, project, user, volunteer } from './support/fixtures.js';
+import { expectSqlError, SQLSTATE } from './support/expect-sql.js';
+import {
+  application,
+  beneficiary,
+  locationTree,
+  project,
+  user,
+  volunteer,
+} from './support/fixtures.js';
 import {
   createDatabase,
   dropDatabase,
@@ -365,6 +373,144 @@ describe('migrations', () => {
         `SELECT entity_id FROM audit_log WHERE reason LIKE 'Reverted D-162:%'`,
       );
       expect(reverted.rows).toEqual([{ entity_id: active }]);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('the optional identity down.sql keeps a profile without a document and a mobile, refuses a new one, and the migration applies again', async () => {
+    const dirs = migrationDirs();
+    const at = dirs.indexOf('20261112160000_beneficiary_optional_identity');
+    expect(at).toBeGreaterThan(0);
+    const db = await freshDatabase('light');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const apply = (file: 'migration.sql' | 'down.sql') =>
+        client.query(readFileSync(join(MIGRATIONS_DIR, dirs[at]!, file), 'utf8'));
+      for (const dir of dirs.slice(0, at))
+        await client.query(readFileSync(join(MIGRATIONS_DIR, dir, 'migration.sql'), 'utf8'));
+      const rules = async () => ({
+        mobileNullable: (
+          await client.query(
+            `SELECT is_nullable FROM information_schema.columns
+              WHERE table_name = 'beneficiaries' AND column_name = 'mobile'`,
+          )
+        ).rows[0].is_nullable as string,
+        // each rule's constraint, and whether it holds for the rows already there
+        checks: Object.fromEntries(
+          (
+            await client.query(
+              `SELECT conname, convalidated FROM pg_constraint
+                WHERE conname IN ('beneficiaries_identity_check', 'beneficiaries_mobile_required',
+                                  'applications_identity_kind_check')`,
+            )
+          ).rows.map((r) => [r.conname as string, r.convalidated as boolean]),
+        ),
+        ownerColumns: (
+          await client.query(
+            `SELECT column_name FROM information_schema.columns
+              WHERE table_name = 'beneficiaries' AND column_name LIKE 'mobile_owner%'`,
+          )
+        ).rows.length,
+      });
+      const BEFORE = {
+        mobileNullable: 'NO',
+        checks: { beneficiaries_identity_check: true, applications_identity_kind_check: true },
+        ownerColumns: 0,
+      };
+      const AFTER = {
+        mobileNullable: 'YES',
+        checks: { applications_identity_kind_check: true },
+        ownerColumns: 3,
+      };
+      const BARE = { nid: null, birth_reg: null, mobile: null };
+      expect(await rules()).toEqual(BEFORE);
+      await apply('migration.sql');
+      expect(await rules()).toEqual(AFTER);
+
+      // while every profile has a document and a mobile, the reverse is exact
+      const loc = await locationTree(client);
+      const full = await beneficiary(client, loc);
+      await apply('down.sql');
+      expect(await rules()).toEqual(BEFORE);
+      await expectSqlError(beneficiary(client, loc, BARE), SQLSTATE.notNullViolation);
+      await apply('migration.sql');
+      expect(await rules()).toEqual(AFTER);
+
+      // with a profile that has neither, and its application, the reverse keeps both rows
+      const light = await beneficiary(client, loc, BARE);
+      const p = await project(client);
+      const entry = await application(
+        client,
+        { project: p, loc },
+        { beneficiary_id: light, identity_kind: 'none' },
+      );
+      const other = await application(
+        client,
+        { project: p, loc },
+        { beneficiary_id: full, identity_kind: 'nid' },
+      );
+      await apply('down.sql');
+      expect(await rules()).toEqual({
+        mobileNullable: 'YES',
+        checks: {
+          beneficiaries_identity_check: false,
+          beneficiaries_mobile_required: false,
+          applications_identity_kind_check: false,
+        },
+        ownerColumns: 0,
+      });
+      const kept = async () => ({
+        people: (
+          await client.query(
+            'SELECT id, nid IS NULL AND birth_reg IS NULL AND mobile IS NULL AS bare FROM beneficiaries ORDER BY ben_no',
+          )
+        ).rows,
+        withoutDocument: (
+          await client.query(`SELECT id FROM applications WHERE identity_kind = 'none'`)
+        ).rows,
+      });
+      const rows = {
+        people: [
+          { id: full, bare: false },
+          { id: light, bare: true },
+        ],
+        withoutDocument: [{ id: entry }],
+      };
+      expect(await kept()).toEqual(rows);
+      // a new row must have its document, its mobile and a kind of the earlier two again
+      await expectSqlError(
+        beneficiary(client, loc, { mobile: null }),
+        SQLSTATE.checkViolation,
+        /beneficiaries_mobile_required/,
+      );
+      await expectSqlError(
+        beneficiary(client, loc, { nid: null, birth_reg: null }),
+        SQLSTATE.checkViolation,
+        /beneficiaries_identity_check/,
+      );
+      await expectSqlError(
+        client.query(`UPDATE applications SET identity_kind = 'none' WHERE id = $1`, [other]),
+        SQLSTATE.checkViolation,
+        /applications_identity_kind_check/,
+      );
+      // the kept row is held to the rules as soon as it changes
+      await expectSqlError(
+        client.query(`UPDATE beneficiaries SET village = 'অন্য গ্রাম' WHERE id = $1`, [light]),
+        SQLSTATE.checkViolation,
+      );
+      expect(await kept()).toEqual(rows);
+      const later = await beneficiary(client, loc);
+
+      // the migration applies again on what the reverse left
+      await apply('migration.sql');
+      expect(await rules()).toEqual(AFTER);
+      expect(await kept()).toEqual({
+        ...rows,
+        people: [...rows.people, { id: later, bare: false }],
+      });
+      await expect(beneficiary(client, loc, BARE)).resolves.toBeTruthy();
     } finally {
       await client.end();
     }

@@ -68,6 +68,13 @@ export const REFERENCE_LISTS: Record<string, Entry[]> = {
     ['guardian', 'অভিভাবক', 'Guardian'],
     ['non_relative', 'অনাত্মীয়', 'Not a relative'],
   ],
+  // whose number the mobile on a beneficiary's profile is
+  mobile_owner: [
+    ['own', 'নিজের', 'Own'],
+    ['family', 'পরিবারের সদস্যের', "A family member's"],
+    ['neighbour', 'প্রতিবেশীর', "A neighbour's"],
+    ['other', 'অন্য কারও', "Someone else's"],
+  ],
   beneficiary_class_default: [
     ['elderly', 'বৃদ্ধ', 'Elderly'],
     ['widow', 'বিধবা', 'Widow'],

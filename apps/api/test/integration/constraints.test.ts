@@ -57,11 +57,43 @@ describe('beneficiary identity', () => {
     );
   });
 
-  it('NID or birth registration is mandatory', async () => {
+  it('a profile may have neither an NID nor a birth registration number, and no mobile', async () => {
+    const bare = { nid: null, birth_reg: null, mobile: null };
+    const first = await f.beneficiary(db, loc, bare);
+    // nothing is unique about a missing number: a second such person is another profile
+    const second = await f.beneficiary(db, loc, bare);
+    const { rows } = await db.query(
+      'SELECT nid, birth_reg, mobile, ben_no FROM beneficiaries WHERE id = ANY($1) ORDER BY ben_no',
+      [[first, second]],
+    );
+    expect(rows).toMatchObject([bare, bare]);
+    expect(rows[0].ben_no).not.toBe(rows[1].ben_no);
+  });
+
+  it('a number that is given is still checked, on a profile that lacks the others', async () => {
     await expectSqlError(
-      f.beneficiary(db, loc, { nid: null, birth_reg: null }),
+      f.beneficiary(db, loc, { nid: '12345', mobile: null }),
       SQLSTATE.checkViolation,
-      /beneficiaries_identity_check/,
+      /beneficiaries_nid_format/,
+    );
+    await expectSqlError(
+      f.beneficiary(db, loc, { nid: null, birth_reg: '2026', mobile: null }),
+      SQLSTATE.checkViolation,
+      /beneficiaries_birth_reg_format/,
+    );
+    await expectSqlError(
+      f.beneficiary(db, loc, { nid: null, birth_reg: null, mobile: '12345' }),
+      SQLSTATE.checkViolation,
+      /beneficiaries_mobile_format/,
+    );
+    // a document added to a profile that had none is unique like any other
+    const nid = f.fakeNid();
+    await f.beneficiary(db, loc, { nid });
+    const light = await f.beneficiary(db, loc, { nid: null, mobile: null });
+    await expectSqlError(
+      db.query('UPDATE beneficiaries SET nid = $1 WHERE id = $2', [nid, light]),
+      SQLSTATE.uniqueViolation,
+      /beneficiaries_nid_key/,
     );
   });
 
@@ -89,6 +121,69 @@ describe('beneficiary identity', () => {
     await expectSqlError(
       f.beneficiary(db, loc, { gender_code: 'unknown' }),
       SQLSTATE.foreignKeyViolation,
+    );
+  });
+
+  it('whose number the mobile is must be a code of its own list, with a name of 1 to 200 characters', async () => {
+    await f.referenceCode(db, 'mobile_owner', 'neighbour');
+    const id = await f.beneficiary(db, loc, {
+      mobile_owner_code: 'neighbour',
+      mobile_owner_name: 'করিম মিয়া',
+    });
+    const { rows } = await db.query(
+      'SELECT mobile_owner_code, mobile_owner_name, mobile_owner_list FROM beneficiaries WHERE id = $1',
+      [id],
+    );
+    expect(rows).toEqual([
+      {
+        mobile_owner_code: 'neighbour',
+        mobile_owner_name: 'করিম মিয়া',
+        mobile_owner_list: 'mobile_owner',
+      },
+    ]);
+    // both are optional, each on its own
+    await expect(f.beneficiary(db, loc, { mobile_owner_code: 'neighbour' })).resolves.toBeTruthy();
+    await expect(f.beneficiary(db, loc, { mobile_owner_name: 'ক' })).resolves.toBeTruthy();
+    await expectSqlError(
+      f.beneficiary(db, loc, { mobile_owner_code: 'stranger' }),
+      SQLSTATE.foreignKeyViolation,
+      /beneficiaries_mobile_owner_list_mobile_owner_code_fkey/,
+    );
+    // a code of another list is no code of this one, and the list itself cannot be named
+    await expectSqlError(
+      f.beneficiary(db, loc, { mobile_owner_code: 'female' }),
+      SQLSTATE.foreignKeyViolation,
+    );
+    await expect(
+      f.beneficiary(db, loc, { mobile_owner_code: 'female', mobile_owner_list: 'gender' }),
+    ).rejects.toThrow(/mobile_owner_list/);
+    for (const name of ['', '   ', 'ক'.repeat(201)])
+      await expectSqlError(
+        f.beneficiary(db, loc, { mobile_owner_name: name }),
+        SQLSTATE.checkViolation,
+        /beneficiaries_mobile_owner_name_check/,
+      );
+    await expect(
+      f.beneficiary(db, loc, { mobile_owner_name: 'ক'.repeat(200) }),
+    ).resolves.toBeTruthy();
+  });
+
+  it('an application names the kind of its identity: an NID, a birth registration or none', async () => {
+    const p = await f.project(db);
+    const kindOf = async (kind: string | null) => {
+      const id = await f.application(
+        db,
+        { project: p, loc },
+        { beneficiary_id: await f.beneficiary(db, loc), identity_kind: kind },
+      );
+      return (await db.query('SELECT identity_kind FROM applications WHERE id = $1', [id])).rows[0]
+        .identity_kind as string | null;
+    };
+    for (const kind of ['nid', 'birth_reg', 'none', null]) expect(await kindOf(kind)).toBe(kind);
+    await expectSqlError(
+      kindOf('passport'),
+      SQLSTATE.checkViolation,
+      /applications_identity_kind_check/,
     );
   });
 });
