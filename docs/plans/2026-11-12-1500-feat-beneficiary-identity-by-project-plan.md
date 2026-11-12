@@ -1,0 +1,344 @@
+---
+title: The project decides the identity and contact an application asks, and a person's help shows on one profile
+type: feat
+status: ready
+source: plan
+date: 2026-11-12
+---
+
+# The project decides the identity and contact an application asks, and a person's help shows on one profile
+
+## Goal
+
+A volunteer can take an application from a person who has no identity document at hand or no phone of their own, where the project allows it, and an official sees on one profile how often that person and that family were helped, in which years and projects.
+
+## Problem
+
+Every beneficiary application needs an NID or a birth registration number and a mobile number today (BR-001, BR-078, the database check `beneficiaries_identity_check` and `beneficiaries.mobile NOT NULL`). The department's distributions (winter clothing, iftar, Qurbani, flood relief) never asked for a document, many people have no phone, and volunteers wrote their own number, which the system refuses (BR-008). So the field cannot enter these people at all. The owner decided the new rules on 2026-11-12 (D-172).
+
+## Requirements
+
+- **R1** A project says whether the identity document is required or asked "if you have it"; a project that says nothing behaves as today (required).
+- **R2** A project says whether a mobile number is required or may be left out; a number left out reads "contact through the volunteer" everywhere the number shows.
+- **R3** A volunteer's own number is still never stored as a beneficiary's.
+- **R4** A given number can say whose it is (own, a family member's, a neighbour's) and that person's name.
+- **R5** A person without a document gets a profile from the name, the father's or husband's name, the gender, the address and the village, marked as without a document; a document added later completes the same profile and its history stays.
+- **R6** A project that requires the document refuses an application without a valid one, exactly as today.
+- **R7** Names compare without honorifics and with near spellings folded, the same way in the database and on the phone.
+- **R8** Profiles that look like one person are paired by name with father's or husband's name and village, next to the three rules of today.
+- **R9** At entry, a volunteer who starts without a document is shown the people already there under that name, father's or husband's name and place, and picks one or says it is a new person.
+- **R10** A volunteer sees of such a person only the name, the father's or husband's name, the village, whether a document is on file and the years and projects of earlier help; never a number, and never more than a few exact matches.
+- **R11** The family members a submitted application carries are kept on the profile.
+- **R12** An applicant who matches a member of an earlier beneficiary's family is shown at review as probably that member.
+- **R13** A project says, for the same person and for the same family, whether a second appearance is only told or needs the official's written reason before approval; the system never rejects by itself.
+- **R14** An official's "not the same person" is remembered and the pair is not raised again.
+- **R15** The profile shows how often the person was helped: the total, since which year, this year, the list by year, a mark for more than once in a year and for twice in one project.
+- **R16** The beneficiary list shows the times helped and filters on "more than once in a year"; the review page shows the earlier help; the exports carry both.
+- **R17** The profile shows the family members, links a member who has a profile of their own, and shows what the family received; a profile the viewer cannot reach is counted, not named.
+
+## Scope
+
+- In: the project switches and their setup screen; the database and engine changes for a missing document and a missing number; the entry screen without a document, online and offline; the name key; the new pair and family rules; the decision reason; the family members on the profile; the help history on the profile, the list, the review page and the exports; the documents and rules that state all of this.
+- Out (not now): a household record (BD-04 stays); the monitoring alerts on a volunteer's unusual share of such entries (the monitoring centre, Phase 5); "received" as the count (the distribution module, Phase 3; approved applications count until then); a recommendation as anything but form questions (the builder already makes them; a ready library part can follow); face matching; a guardian's document as an identity; changing who may merge profiles.
+
+## Key decisions
+
+- **The project decides, with today's behaviour as the default** (D-172): an existing project changes nothing until its PM changes the switch. Governs R1, R2, R6, R13.
+- **No number is stored for "contact through the volunteer"** (D-172): the application already names its volunteer, so the contact follows a transfer and one number never sits on hundreds of profiles. Governs R2, R3.
+- **A light profile is a real profile** (D-172): the same table, the same BEN number, the same history, with no document. Governs R5.
+- **Showing always, holding by the project's choice** (D-172, the owner: "লক্ষ আটকানো এটাও ঠিক আছে কিন্তু সেটা আমাদের ইচ্ছা"): the hold is the written reason the approval already asks for a family match. Governs R13.
+- **The family is recognised from the members list, not from a household record** (D-172, BD-04). Governs R11, R12, R17.
+- **Claude's reading, stated to the owner**: the history across years is wanted for people without a document too; a public entry (no volunteer) always needs a mobile number, because nobody stands between the office and the person; safe water and tree planting keep "required" until their PM changes it.
+
+## Open questions
+
+- The list of honorifics and near spellings the name key folds (U8 proposes one from the department's own forms; the owner confirms it before U8 is merged).
+
+<!-- ae-plan adds everything below -->
+
+## Technical decisions
+
+- **Stack profile**: unchanged (`CLAUDE.md`, "Stack profile"): Express 5 with `defineRoute`, Prisma 7 on PostgreSQL 17 with hand-written `down.sql`, React 19 with the asf contract, the shared form engine. Nothing is added to the stack (ST-40 to ST-44).
+- **The switches live in the `application_form` component's settings** (`packages/shared/src/jsonb/component-settings.ts`), the strict JSONB the photo rule already uses, so they are saved by the existing component route, copied by the templates and carried by a project copy with no new table. One reader, `identityRules(settings)` in `@css/shared/projects`, gives the defaults, so the API, the phone and the tests never read the raw keys.
+- **The starting value comes from the workflow template** (`docs/architecture/workflow-templates/*.yaml`, `defaults`), as the photo rule does (`workflow-defaults.ts`): distribution and Qurbani start with the document and the number optional and repeats only told; every other workflow starts as today.
+- **The form keeps its seven identity questions** (BR-078 unchanged): whether the number questions must be answered is decided when the answers are checked, from the project, because one ready form is placed on many projects. `validate` of `packages/shared/src/forms/validate.ts` takes the two flags; the publish check does not change.
+- **Whose number it is are two ordinary standard-column questions** (`mobile_owner` from a reference list, `mobile_owner_name`), with ordinary conditions, so the engine's answer shapes do not change and the phone's stored drafts stay valid. Dropped: a composite phone answer (it changes the answer schema of every stored draft and export).
+- **Expand without contract** (DB-MIG-03, DB-MIG-04): `mobile` becomes nullable and the identity check is dropped; nothing is backfilled and no column is removed, so the migration is safe to run under the old code, and its `down.sql` restores the constraints as `NOT VALID` (rows without a document may exist by then; DB-MIG-05, and this repository's rule of a hand-written `down.sql`).
+- **One name key in two languages**: `person_match_key(text)` in SQL (immutable, with expression indexes, as `person_name_key` of `20261020160000_beneficiary_master` has) and the same function in `packages/shared/src/beneficiaries/`, held together by one table of pairs that a unit test and an integration test both read. The existing `person_name_key` stays for the search; the pair rules move to the new key.
+- **The name search for a volunteer is an exact-key lookup, not a search** (RBAC "field-level protection", NFR privacy): both keys must match inside one union, at most five rows, no number in the answer, the same permission, audit and daily limit as the number lookup (`beneficiary-identity.ts`), and a picked person is accepted only when the server's own match for the application's answers contains it.
+- **The hold reuses the decision comment** (`COMMENT_REASONS` of `apps/api/src/applications/decision-rules.ts`): `same_person` joins `family_match`, and both are asked only where the project says "hold". No new state and no new guard.
+- **Times helped are kept on the profile row** (`help_count`, `max_helps_in_year`), written in the transaction of the move that approves or takes an approval back, with a nightly recount, because the list filters two million rows on it (NFR lists, `docs/testing/PERFORMANCE.md`); the profile's own summary is read live.
+- **Diagram:** none; no diagram in `docs/diagrams/` shows these flows.
+
+## Implementation units
+
+### U1. The rules in the register
+
+- **Goal:** the business rules and the specification say what D-172 decided before any code changes.
+- **Requirements:** R1 to R17
+- **Files:** `docs/BUSINESS_RULES.md` (BR-001, BR-008, BR-009, BR-011, BR-012, BR-078 reworded where they change; new rules from BR-287 for the project switches, the light profile, the name key, the new pair rule, the family from the members list, the hold, the times helped), `docs/MASTER_SPEC.md`, `docs/MODULE_CATALOG.md` where it names the mandatory identity
+- **Approach:** the rows of D-171 and BR-245 in the register are the example; each new rule names D-172 and its test layer, with status "approved" and the test still "planned".
+- **Tests:** none (documents); `pnpm docs:check` and `pnpm rules:status --phase 2 --report-only` run.
+- **Done when:** `pnpm docs:check` passes and no rule in the register contradicts D-172.
+- **Depends on:** none
+- **Size:** S
+- **Risk area:** none
+- **Status:** todo
+
+### U2. The project's switches
+
+- **Goal:** a PM sets, per project, what the application asks and what a repeat does, and every reader gets one answer.
+- **Requirements:** R1, R2, R13
+- **Files:** `packages/shared/src/jsonb/component-settings.ts` (the `application_form` settings gain `identity_document`, `mobile`, `repeat_person`, `repeat_family`), `packages/shared/src/projects/identity-rules.ts` (new: `identityRules(settings)` with the defaults) and its test, `packages/shared/src/projects/workflow-defaults.ts`, `docs/architecture/workflow-templates/{distribution,qurbani}.yaml` and `schema.json`, `apps/api/src/services/project-setup.ts`, `apps/api/src/services/my-projects.ts` (the volunteer's project read carries the rules), `apps/web/src/admin/projects/setup/ComponentDrawer.tsx`, `setup.test.tsx`, `apps/web/src/features/projects/` (the read's schema), `packages/shared/src/i18n/messages/{bn,en}/`, `docs/api/openapi.yaml`, `apps/api/seed/sets/` (the seeded workflows)
+- **Approach:** the photo rule end to end: `photoRuleSettings` of `workflow-defaults.ts`, the `photo_rule` schema of `component-settings.ts`, its part of `ComponentDrawer.tsx`.
+- **Tests:**
+  - unit: `identityRules` gives required, required, hold, hold for empty settings, and the stored values otherwise; an unknown value is refused by the schema.
+  - integration: the PM saves the four switches on the component; a PM of another program is refused (403); a project made from the distribution workflow starts optional, one made from construction starts required; a copy of a project carries the switches.
+  - e2e: covered by U7's journey (the setup step).
+  - existing: covered by `apps/api/test/integration/project-setup.test.ts` and `apps/web/src/admin/projects/setup/setup.test.tsx`; updated, not duplicated.
+- **Done when:** the drawer of "আবেদন ফর্ম" shows the four choices, saves them, and a volunteer's project read returns them.
+- **Depends on:** U1
+- **Size:** M
+- **Risk area:** none
+- **Status:** todo
+
+### U3. A profile may lack a document and a number
+
+- **Goal:** the database takes a beneficiary with no document and no mobile, and still refuses what it refused before.
+- **Requirements:** R3, R4, R5
+- **Files:** `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/<new>/{migration.sql,down.sql}` (drop `beneficiaries_identity_check`; `mobile` nullable; `mobile_owner`, `mobile_owner_name`; `applications.identity_kind` takes `none`; the own-mobile trigger read for a null), `apps/api/prisma/sql/roles.sql` if grants change, `apps/api/test/integration/triggers.test.ts`, `apps/api/seed/sets/base/reference-lists.ts` (the list `mobile_owner`), `docs/database/DATABASE_SCHEMA.md`, `docs/database/ERD.md`
+- **Approach:** `20261013000000_registration_draft_channels` relaxes a NOT NULL with its `down.sql`; the trigger tests of `triggers.test.ts` are the shape of the new cases.
+- **Tests:**
+  - integration: a profile with neither number saves; a null mobile passes the own-mobile trigger; a volunteer's number is still refused; a document number is still unique and still checked for its format; `down.sql` applies on a database that holds a light profile.
+  - existing: covered by `apps/api/test/integration/triggers.test.ts` (the four own-mobile cases); kept.
+- **Done when:** the migration and its `down.sql` run on the test template, and `pnpm --filter @css/api test` is green.
+- **Depends on:** U1
+- **Size:** M
+- **Risk area:** migration
+- **Status:** todo
+
+### U4. The answers follow the project
+
+- **Goal:** the document question and the mobile question must be answered only where the project requires them.
+- **Requirements:** R1, R2, R6
+- **Files:** `packages/shared/src/forms/validate.ts` and its test, `apps/api/src/workflow/guards.ts` (`identity.present` reads the project's rule; a number given is still checked), `apps/api/src/applications/service.ts`, `apps/api/src/services/public-forms.ts` (a public entry always needs the mobile), `apps/web/src/features/forms/FormRenderer.tsx` and `FieldInput.tsx` (the required mark of the two questions follows the project), `apps/web/src/features/forms/renderer.test.tsx`, `docs/architecture/WORKFLOW_ENGINE.md` (the guard catalogue)
+- **Approach:** the `draft` option of `validate.ts` already relaxes "required"; the two flags sit beside it and touch only the fields whose standard column is the identity number or the mobile.
+- **Tests:**
+  - unit: with the flags, an empty document answer and an empty mobile answer pass; a malformed number still fails; without the flags both are required as today.
+  - integration: in a project that asks the document "if you have it" a submit without a number moves on; in a project that requires it the submit is refused with the same error as today; a public entry without a mobile is refused in both.
+  - existing: covered by `packages/shared/src/forms/validate.test.ts`, `apps/api/test/integration/applications.test.ts`; kept.
+- **Done when:** the two integration cases pass and no existing application test changes its expectation.
+- **Depends on:** U2
+- **Size:** M
+- **Risk area:** none
+- **Status:** todo
+
+### U5. A light profile at submission
+
+- **Goal:** an application without a document gets its person: a profile without a document, with the mobile empty when none was given.
+- **Requirements:** R2, R3, R5
+- **Files:** `apps/api/src/applications/submission.ts` (`bindPerson`), `apps/api/src/services/beneficiary-identity.ts` (`createProfile`, `NewProfile`), `apps/api/src/applications/` verification code (an entry without a number creates the light profile), `apps/api/src/services/beneficiaries.ts` and `volunteer`-side views (the profile and list answer `hasDocument`, a null mobile), `apps/api/src/exports/rows.ts`, `apps/web/src/admin/beneficiaries/` (the chips "পরিচয়পত্র নেই" and "স্বেচ্ছাসেবকের মাধ্যমে যোগাযোগ"), `apps/web/src/admin/applications/`, `apps/web/src/api/schemas/`, `docs/api/openapi.yaml`, tests beside each
+- **Approach:** `bindPerson` creates a profile from the answers today; the new branch is the same call with no number, `identityKind: 'none'`, and the audit `beneficiary.create`.
+- **Tests:**
+  - integration: a submit without a number creates one light profile with a BEN number and binds it; the volunteer's own number is refused; a blocked person is still refused; a second submit of the same draft creates no second profile; another volunteer cannot read the profile (403/404 as today); the export of the list prints the chip's text and no number.
+  - existing: covered by `apps/api/test/integration/applications.test.ts` ("refuses a blocked person, the volunteer's own mobile and a second draft for the same new number"), `application-verification.test.ts`, `beneficiary-tab.test.ts`, `export-rows.test.ts`; updated.
+- **Done when:** the office's list shows the application with its person and the two chips.
+- **Depends on:** U3, U4
+- **Size:** L
+- **Risk area:** personal data
+- **Status:** todo
+
+### U6. Whose number it is
+
+- **Goal:** a given number can say whose it is, and the profile keeps it.
+- **Requirements:** R4
+- **Files:** `packages/shared/src/forms/core.ts` (the two standard columns; `mobile_owner` takes its options from its list), `packages/shared/src/forms/split.ts` and its test, `apps/api/src/services/beneficiary-contact.ts` (the change log names them), `apps/api/seed/sets/base/forms.ts` (the two library questions with their conditions), `apps/web/src/admin/forms/draft.ts` (`addIdentityQuestions` adds the two after the mobile question) and its tests, `apps/web/src/admin/beneficiaries/` (the profile line "কার নম্বর"), catalogues
+- **Approach:** the gender question: a standard column backed by a reference list (`PROFILE_COLUMN_LISTS` of `core.ts`), filled by the server at every save.
+- **Tests:**
+  - unit: `split` maps the two answers to their columns; the owner's name shows only when the number is not the person's own (the seeded condition).
+  - integration: a submit writes both to the profile; a later application changes them with a change-log row.
+  - component: the identity press adds nine questions, the two new ones after the mobile.
+  - existing: covered by `packages/shared/src/forms/split.test.ts`, `apps/web/src/admin/forms/draft.test.ts`; updated.
+- **Done when:** the profile of a person whose number is a neighbour's says so with the neighbour's name.
+- **Depends on:** U3
+- **Size:** M
+- **Risk area:** none
+- **Status:** todo
+
+### U7. Starting without a document
+
+- **Goal:** on the phone, a volunteer starts an application without a number where the project allows it, online and offline.
+- **Requirements:** R1, R2, R5, R6
+- **Files:** `apps/web/src/features/applications/ApplicationFormPage.tsx`, `applications-api.ts`, `apps/web/src/offline/applications-store.ts`, `apps/web/src/features/applications/*.test.tsx`, `apps/web/e2e/identity-rules.spec.ts` (new), `apps/web/e2e/support/projects.ts`, `docs/ui/SCREENS.md`, `docs/architecture/OFFLINE_SYNC.md`, `docs/testing/uat/PHASE_2_UAT_BN.md`
+- **Approach:** the identity card of `ApplicationFormPage.tsx` with its `known` and `new` starts gains a third; the offline store already holds a draft whose number is unknown until the sync.
+- **Tests:**
+  - component: the button shows only when the project's rule is "if you have it"; the form then draws the document question without its required mark.
+  - e2e: `identity-rules.spec.ts` at 360 px. The PM opens `/admin/projects/:projectId/setup`, the component "আবেদন ফর্ম", sets "পরিচয়পত্র" to "থাকলে দিন" and "মোবাইল" to "না থাকলে স্বেচ্ছাসেবকের মাধ্যমে", saves. The volunteer opens `/my-projects/:projectId/apply`, presses "পরিচয়পত্র নেই, নাম দিয়ে শুরু করুন", fills the name, the father's name, the gender, the address and the village, leaves the mobile empty, and sends: "আবেদন জমা হয়েছে". The office's list shows the row with "পরিচয়পত্র নেই" and "স্বেচ্ছাসেবকের মাধ্যমে যোগাযোগ". In a project that requires the document the button is not there. Taken offline, the same entry syncs to the same result.
+- **Done when:** the journey passes on the mobile project.
+- **Depends on:** U5
+- **Size:** M
+- **Risk area:** none
+- **Status:** todo
+
+### U8. One name key
+
+- **Goal:** two spellings of one name compare equal in the database and on the phone.
+- **Requirements:** R7
+- **Files:** `apps/api/prisma/migrations/<new>/{migration.sql,down.sql}` (`person_match_key(text)`, expression indexes on the profile's name and father's or husband's name with the union, and on the family member's name), `packages/shared/src/beneficiaries/match-key.ts` (new) with `match-key.pairs.ts` (the table of pairs) and its test, `apps/api/test/integration/match-key.test.ts` (new, the same table through SQL), `docs/BUSINESS_RULES.md` (the list of what is dropped and folded), `docs/database/DATABASE_SCHEMA.md`
+- **Approach:** `person_name_key` and its indexes in `20261020160000_beneficiary_master/migration.sql` lines 36 to 40; no existing example for one rule kept equal in SQL and TypeScript, so the shared table of pairs is the contract.
+- **Tests:**
+  - unit: every pair of the table (মোঃ করিম / মোহাম্মদ করিম / করিম; মোছাঃ রহিমা বেগম / রহিমা খাতুন / রহিমা; আক্তার / আকতার; near letters; spaces and marks) gives one key, and every "must differ" pair gives two.
+  - integration: the SQL function gives the same key as the TypeScript one for every row of the table; the indexes are used by the pair query (`EXPLAIN` names them).
+- **Done when:** both tests read the one table and pass.
+- **Depends on:** U1
+- **Size:** M
+- **Risk area:** migration
+- **Status:** todo
+
+### U9. The family members on the profile
+
+- **Goal:** the family members an application carries are kept on the person's profile.
+- **Requirements:** R11
+- **Files:** `apps/api/src/applications/submission.ts` (the rows `split` gives are written), `apps/api/src/services/beneficiaries.ts` (the profile's family read), `apps/api/test/integration/applications.test.ts`, `beneficiary-merges.test.ts`, `docs/database/DATABASE_SCHEMA.md`
+- **Approach:** `split()` of `packages/shared/src/forms/split.ts` already returns `familyMembers`; no service writes them today (the table is only read and moved by a merge). The list of the latest submitted application that carries the group replaces the active rows; earlier rows stay with `active = false`.
+- **Tests:**
+  - integration: a submit with three members writes three active rows; a later application with two replaces them and keeps the three inactive; an application without the group changes nothing; a merge still moves the rows; a volunteer never reads another volunteer's person's family.
+  - existing: none for the write (nothing writes the table), characterize first: one test that pins today's read of the table through the profile.
+- **Done when:** the profile of a self-reliance applicant lists the family from the application.
+- **Depends on:** U5
+- **Size:** M
+- **Risk area:** personal data
+- **Status:** todo
+
+### U10. The same person and the same family, recognised
+
+- **Goal:** profiles of one person are paired by name, father's or husband's name and village, and an applicant is recognised as a member of an earlier beneficiary's family.
+- **Requirements:** R8, R12, R14
+- **Files:** `apps/api/src/services/beneficiary-merge-candidates.ts` (`DUPLICATE_RULES` gains `name_father_village`; the rules compare through the match key), `apps/api/src/jobs/duplicates.ts`, `apps/api/src/services/beneficiary-family.ts` (`FamilyRule` gains `family_member`; `person` signals for a light profile in the same project), `apps/api/src/applications/view.ts` and `decision-rules.ts` (the record's signals), `apps/web/src/admin/applications/Signals.tsx`, `apps/web/src/admin/beneficiaries/duplicates/`, catalogues, tests beside each, `docs/api/openapi.yaml`
+- **Approach:** the three pair queries of `beneficiary-merge-candidates.ts` lines 49 to 65 and `matches` of `beneficiary-family.ts`; the dismissal of a pair (`MergeDismissal`) already keeps "not the same person".
+- **Tests:**
+  - integration: two profiles with one name key, father key, union and village key are paired with the new rule, and not when the village differs; a dismissed pair does not return; an applicant whose name and father match a member and the head of an earlier family in the same village gets `family_member` with the relationship; a shared phone above the group limit still pairs nobody by itself; the nightly job and the on-change refresh give the same pairs.
+  - component: `Signals` names the new reasons.
+  - existing: covered by `apps/api/test/integration/beneficiary-merge-candidates.test.ts`, `beneficiary-family.test.ts`; updated for the key.
+- **Done when:** the review page of a second application by a light profile's person shows the pair with its reason.
+- **Depends on:** U8, U9
+- **Size:** L
+- **Risk area:** personal data
+- **Status:** todo
+
+### U11. The people already here, at entry
+
+- **Goal:** a volunteer who starts without a document sees the people already there under that name and place, and picks one or says it is a new person.
+- **Requirements:** R5, R9, R10
+- **Files:** `apps/api/src/services/beneficiary-identity.ts` (`matchByName`), `apps/api/src/routes/beneficiaries.ts` (`POST /beneficiaries/match`, the lookup's permission, rate-limit class and audit), `apps/api/src/applications/service.ts` and `submission.ts` (a picked person is accepted only when the server's own match contains it; a document in the answers completes a picked light profile when the number is free), `docs/security/permissions.yaml`, `docs/security/AUTHORIZATION_MATRIX.md`, `docs/api/openapi.yaml`, `apps/web/src/features/applications/ApplicationFormPage.tsx` (the step "এই নামে আগে আছেন"), `applications-api.ts`, `apps/web/src/offline/applications-store.ts` (an offline entry is marked unchecked), tests beside each, `apps/web/e2e/identity-rules.spec.ts`
+- **Approach:** the number lookup of `beneficiary-identity.ts` (`lookup`, lines 156 to 233): one permission, the audit row, the daily limit outside the region, the block gate; `LookupField` on the web. No existing example for a lookup by name, so the answer's fields and limits are the ones R10 names.
+- **Tests:**
+  - integration: an exact key match in the union returns the person with name, father's or husband's name, village, `hasDocument` and the years of help, and no number; a near name in another union returns nothing; more than five matches return five; a blocked person is marked and cannot be picked; the call is audited and counted against the daily limit; a caller without the lookup permission is refused (403); an application that names a person the server's match does not contain is refused (422); a picked light profile takes the document of the answers, and a number another profile holds is refused with the existing error.
+  - e2e: in `identity-rules.spec.ts`, the second application for the same person: the volunteer types the same name, father's name, union and village, the list "এই নামে আগে আছেন" shows the person with the earlier project, "ইনিই" starts the form with the name locked, and the office's profile then shows two applications.
+- **Done when:** the journey's second application lands on the first one's profile.
+- **Depends on:** U5, U7, U8
+- **Size:** L
+- **Risk area:** personal data
+- **Status:** todo
+
+### U12. Tell or hold
+
+- **Goal:** where the project says "hold", an approval of a repeated person or family asks the official's reason; where it says "tell", it does not.
+- **Requirements:** R13, R14
+- **Files:** `apps/api/src/applications/decision-rules.ts` (`COMMENT_REASONS` gains `same_person`; both reasons read the project's rule), `apps/api/src/applications/view.ts` (`decisionHints`), `apps/web/src/admin/applications/DecisionDialog.tsx`, `Signals.tsx`, catalogues, `apps/api/test/integration/application-decisions.test.ts`, `apps/web/src/admin/applications/applications.test.tsx`, `docs/architecture/WORKFLOW_ENGINE.md`
+- **Approach:** `family_match` of `decision-rules.ts`: the reason is computed in the move and the dialog asks the comment.
+- **Tests:**
+  - integration: with "hold", approving a person with an open same-person pair in the project is refused without a comment and accepted with one, and the comment is on the transition; with "tell" it is accepted without; a dismissed pair asks nothing; the family rule follows `repeat_family` the same way; a project with no setting behaves as today (the family match asks).
+  - component: the dialog asks the reason and names why.
+  - existing: covered by `apps/api/test/integration/application-decisions.test.ts`; updated.
+- **Done when:** the same application is approved in one click in a "tell" project and asks its reason in a "hold" project.
+- **Depends on:** U2, U10
+- **Size:** M
+- **Risk area:** none
+- **Status:** todo
+
+### U13. How often a person was helped
+
+- **Goal:** the profile says how often the person was helped, by year, with the repeats marked.
+- **Requirements:** R15
+- **Files:** `apps/api/src/services/help-history.ts` (new: the approved and later applications of a person by year and project), `apps/api/src/services/beneficiaries.ts` (the profile answers `help`; the year list no longer stops at the first 20 applications), `apps/web/src/admin/beneficiaries/` (the summary card and the marks), `apps/web/src/api/schemas/`, `docs/api/openapi.yaml`, catalogues, tests beside each
+- **Approach:** `projectsByYear` of `beneficiaries.ts` (around line 255) is the list to extend; the states that count are the approved state and the ones after it, as `limit_counts` of the workflow templates names states.
+- **Tests:**
+  - unit: the summary of a list of applications: total, first year, this year, the years with more than one, the projects with more than one; a rejected or a draft application counts nothing.
+  - integration: a person with 25 approved applications over three years gets all of them; a viewer outside the person's reach is refused as today; a project the viewer cannot see is counted but not named.
+  - component: the card reads "মোট 5 বার সাহায্য পেয়েছেন", the year with two shows "2 বার".
+  - existing: covered by `apps/api/test/integration/beneficiary-tab.test.ts` (the profile), `apps/web/src/admin/beneficiaries/beneficiaries.test.tsx`; updated.
+- **Done when:** a demo person helped twice in one year shows the mark on the profile.
+- **Depends on:** U5
+- **Size:** M
+- **Risk area:** none
+- **Status:** todo
+
+### U14. The times helped in the list, at review and in the exports
+
+- **Goal:** the beneficiary list shows and filters the times helped, the review page shows the earlier help, and the exports carry both.
+- **Requirements:** R16
+- **Files:** `apps/api/prisma/migrations/<new>/{migration.sql,down.sql}` (`help_count`, `max_helps_in_year` with their backfill and index), `apps/api/src/workflow/effects.ts` or `applications/side-effects.ts` (the counters move with an approval and its taking back), `apps/api/src/jobs/` (the nightly recount on the `duplicates` queue's pattern), `apps/api/src/services/beneficiaries.ts` (the column, the filter), `apps/api/src/applications/view.ts` (the record's `helpedBefore`), `apps/api/src/exports/rows.ts` and `service.ts` (the columns), `apps/web/src/admin/beneficiaries/` (the column and the filter in the address), `apps/web/src/admin/applications/ApplicationReviewPage.tsx`, `docs/database/DATABASE_SCHEMA.md`, `docs/testing/PERFORMANCE.md`, tests beside each
+- **Approach:** the score written inside the move (`applications/scoring.ts`, `side-effects.ts`) is the example of a value kept by the engine's effect; the storage figures job (`jobs/storage-stats.ts`) is the example of a nightly recount.
+- **Tests:**
+  - integration: an approval raises the counters and a withdrawal lowers them, in the move's transaction; the recount repairs a wrong counter; the list filters "more than once in a year" and orders by the count inside the caller's scope only; the record of a second application names the earlier project and year; the export prints the two columns.
+  - e2e: none new; `beneficiaries.spec.ts` keeps passing, and the list measurement (`pnpm --filter @css/api perf:lists --only beneficiaries`) is recorded.
+  - existing: covered by `apps/api/test/integration/beneficiary-tab.test.ts`, `export-rows.test.ts`, `application-decisions.test.ts`; updated.
+- **Done when:** the filter returns the demo person helped twice, and the p95 of the list stays inside its budget.
+- **Depends on:** U13
+- **Size:** L
+- **Risk area:** migration
+- **Status:** todo
+
+### U15. The family on the profile
+
+- **Goal:** the profile shows the family members, links the ones who have a profile, and shows what the family received.
+- **Requirements:** R17
+- **Files:** `apps/api/src/services/beneficiary-family.ts` (the members with the profile each one matches, both ways), `apps/api/src/services/beneficiaries.ts`, `apps/web/src/admin/beneficiaries/` (the section "পরিবার"), `apps/api/src/exports/pdf/profile.ts`, catalogues, `docs/ui/SCREENS.md`, `docs/testing/uat/PHASE_2_UAT_BN.md`, `docs/STATUS.md`, tests beside each
+- **Approach:** the profile's sections of `beneficiaries.ts` with their bounded reads; the media works on the profile (`publishedWorksOf`) is the example of a section that names only what the viewer may see.
+- **Tests:**
+  - integration: a member whose name key, with the head's name as father or husband and the same village, matches a profile is linked to it; that profile shows "listed as a member of X's family"; the family's help sums the linked profiles; a linked profile outside the viewer's reach is counted and not named; a member with no match is listed without a link.
+  - component: the section lists name, relationship, age and monthly income, and the family's help by year.
+  - e2e: `identity-rules.spec.ts`, last leg: the head's profile lists the son, the link opens the son's profile, and "এই পরিবার যা পেয়েছে" shows both projects.
+  - existing: covered by `apps/web/src/admin/beneficiaries/beneficiaries.test.tsx`; updated.
+- **Done when:** the journey's last leg passes and the UAT script has the new cases.
+- **Depends on:** U9, U10, U13
+- **Size:** M
+- **Risk area:** personal data
+- **Status:** todo
+
+## Checkpoints
+
+- **Mode:** grouped (one by one 10, grouped 7, all at once 0; N is over 4, so one by one's 10 goes to grouped: 17)
+- **Signals:** N 15, L 3150, R 7, Fd 7, C 5, P 2
+- **C1** after U2: the switches every later unit reads
+- **C2** after U3: a migration that relaxes two constraints
+- **C3** after U5: personal data, and the foundation of U7, U9, U11 and U13
+- **C4** after U7: end of the first part (the first pull request), and the size limit
+- **C5** after U8: a migration and a new pattern (one rule in SQL and TypeScript)
+- **C6** after U9: personal data, and the foundation of U10 and U15
+- **C7** after U10: personal data, and the foundation of U12 and U15
+- **C8** after U11: personal data and a new lookup a volunteer can call
+- **C9** after U12: end of the second part (the second pull request)
+- **C10** after U13: the foundation of U14 and U15
+- **C11** after U14: a migration with a backfill
+- **C12** after U15: personal data, and the end (the third pull request)
+
+## Verification
+
+`pnpm lint`, `pnpm typecheck`, `pnpm docs:check`, `pnpm rules:status --phase 2 --report-only`, `pnpm test`, `pnpm --filter @css/api contract:coverage`, `pnpm --filter @css/api authz:matrix` (the committed matrix stays current), `pnpm e2e` (with `identity-rules.spec.ts`, `application-rules.spec.ts`, `offline.spec.ts`, `beneficiaries.spec.ts`, `a11y.spec.ts`), the web contract test against the E2E server, `pnpm --filter @css/web build` with `bundle:report` (400 KB), `pnpm --filter @css/api perf:lists --only beneficiaries` after U14. Each migration: `pnpm db:migrate` on a fresh database, then its `down.sql`, then `pnpm db:migrate` again.
+
+## Risks and rollback
+
+- **The relaxed constraints (U3).** After light profiles exist, the old code would crash on a null mobile; the migration ships in the same release as U4 and U5, and `down.sql` restores the constraints as `NOT VALID` so it runs with such rows present. Rolling the release back means running `down.sql` and then checking, before the old code serves requests, how it reads a profile with no document and no mobile; U3's test of `down.sql` on a database that holds such a profile pins that the constraints come back without touching the rows.
+- **A volunteer learning who was helped (U11).** The lookup is exact, bounded, audited and rate-limited, and answers no number; the security reviewer reads it at C8 before it merges.
+- **The name key (U8).** A key that folds too much pairs different people; it only ever suggests, an official decides, and a dismissal is remembered. The owner confirms the list.
+- **The counters (U14).** A missed update shows a wrong count; the nightly recount repairs it, and the profile's own summary never reads the counters.
+- **Existing projects.** Every default is today's behaviour; only a PM's change of a switch changes a project.
+
+## Definition of done
+
+- All units done and their tests pass
+- Verification commands pass
+- `ae-review` has run, with no open P0 or P1
+- Code from abandoned attempts is removed
