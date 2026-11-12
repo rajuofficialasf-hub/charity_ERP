@@ -1,5 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import type { FieldType, FormDefinition } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { Button, Disclosure, Icon, IconButton, Stack, Tabs, Text, TextField } from '@/ui';
 import { type PointerEventHandler, useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -9,11 +10,11 @@ import type { FormLibrary } from './forms-api';
 import { TYPE_GROUPS, TYPE_META, typesOfGroup } from './type-meta';
 
 /**
- * The left pane of the builder: the question types in six groups, each a button that adds a
- * question of that type to the chosen section (or a drag that places it on the canvas), and
- * the library of ready-made questions grouped by their section with a search, where a section
- * comes whole or one question at a time. What the form holds already is marked and stays so;
- * removing is done on the canvas.
+ * The left pane of the builder: the question types in six groups, each a button that adds an
+ * empty question of that type after the chosen question or at the end of the chosen section (or
+ * a drag that places it on the canvas), and the library of ready-made questions grouped by their
+ * section with a search, where a section comes whole or one question at a time. What the form
+ * holds already is marked and stays so; removing is done on the canvas.
  */
 export function AddPane({
   library,
@@ -82,7 +83,7 @@ function TypeList({ canAdd, onAdd }: { canAdd: boolean; onAdd: (type: FieldType)
   );
 }
 
-/** One type: a press adds it to the chosen section, a pointer drag places it on the canvas. */
+/** One type: a press adds it where the person works, a pointer drag places it on the canvas. */
 function TypeItem({
   type,
   disabled,
@@ -169,13 +170,16 @@ function LibraryList({
         .filter((f) => fields.has(f.key) && (match(s.title) || match(f.label))),
     }))
     .filter((g) => !needle || g.questions.length > 0);
+  // nothing to search in is said as that, not as a search without a find
+  const empty = !needle && groups.every((g) => g.questions.length === 0);
   return (
     <Stack gap={3}>
       <TextField label={t('search')} value={term} onChange={setTerm} />
       <Text tone="muted">{t('library_hint')}</Text>
-      {groups.length === 0 ? <Text tone="muted">{t('search_none')}</Text> : null}
+      {empty ? <Text tone="muted">{t('library_empty')}</Text> : null}
+      {needle && groups.length === 0 ? <Text tone="muted">{t('search_none')}</Text> : null}
       {groups.map(({ section, questions }) => {
-        const title = section.title[locale];
+        const title = localized(section.title, locale);
         const inForm = has.has(section.key);
         return (
           <Disclosure
@@ -196,7 +200,7 @@ function LibraryList({
             <Stack gap={2}>
               <ul className="fb-lib-list" aria-label={t('library_list', { title })}>
                 {questions.map((f) => {
-                  const label = f.label[locale];
+                  const label = localized(f.label, locale);
                   const meta = TYPE_META[f.type];
                   return (
                     <li key={f.key} className="fb-lib-q">

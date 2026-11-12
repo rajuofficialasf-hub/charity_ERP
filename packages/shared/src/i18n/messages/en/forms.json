@@ -47,6 +47,9 @@
     "saving": "Saving…",
     "saved": "Saved",
     "save_failed": "Not saved",
+    "save_retry": "Try again",
+    "save_offline": "No connection. It will be tried again as soon as the connection is back.",
+    "save_will_retry": "It will be tried again shortly by itself.",
     "stale": "Someone else changed this draft. The latest draft was loaded; make your last change again.",
     "no_official": "You may not see the official part, so this draft cannot be saved.",
     "read_only": "This version is published; it cannot be changed.",
@@ -60,6 +63,7 @@
     "move_up": "Move {label} up",
     "move_down": "Move {label} down",
     "remove": "Remove {label}",
+    "remove_only_section": "The only section cannot be removed",
     "edit": "Change {label}",
     "core": "Required in every project; cannot be removed or hidden",
     "official_only": "Officials only",
@@ -67,8 +71,9 @@
     "label_en": "Label (English)",
     "option_bn": "Option {n} (Bengali)",
     "option_en": "Option {n} (English)",
-    "leave_title": "Leave without saving?",
-    "leave_message": "The last changes are not saved yet.",
+    "leave_title": "Not saved. Leave anyway?",
+    "leave_message": "The last changes could not be saved. If you leave, they are lost.",
+    "leave_saving_message": "The last changes are still being saved, and it is taking long. If you leave now, they may be lost.",
     "leave_confirm": "Leave",
     "leave_stay": "Stay",
     "not_found": "The form was not found",
@@ -90,14 +95,6 @@
     "copy_none": "This project has no published form.",
     "create": "Create",
     "cancel": "Cancel",
-    "own_title": "New question",
-    "own_type": "Question type",
-    "own_group": "In which list's rows",
-    "own_group_hint": "With a list chosen, the question appears in each of its rows.",
-    "own_group_none": "In no list",
-    "own_add_confirm": "Add question",
-    "own_need_labels": "Write the label in both languages.",
-    "own_need_option": "Keep at least one option, and write each option in both languages.",
     "options": "Options",
     "option_add": "Add option",
     "option_other": "Option {n} opens a text box",
@@ -106,6 +103,14 @@
     "option_move_up": "Move option {n} up",
     "option_move_down": "Move option {n} down",
     "option_remove": "Remove option {n}",
+    "option_more_show": "Show more settings of option {n}",
+    "option_more_hide": "Hide the further settings of option {n}",
+    "option_yes_no": "Fill in Yes / No",
+    "option_yes_bn": "হ্যাঁ",
+    "option_yes_en": "Yes",
+    "option_no_bn": "না",
+    "option_no_en": "No",
+    "options_hint": "Press Enter for the next option. Paste several lines to make one option per line.",
     "depends_on": "The options follow the answer to",
     "depends_on_hint": "Only the options that match the earlier answer are shown.",
     "options_from_list": "This question's options come from the system's list, so they cannot be changed here. The list's options are set when the draft is saved.",
@@ -139,7 +144,7 @@
     "rows_order": "The fewest rows cannot be more than the most rows.",
     "members": "Questions of each row",
     "members_none": "This list has no question yet.",
-    "members_hint": "To add a question to the rows, press “Add a question to the rows” under the list on the form, then pick a type on the left.",
+    "members_hint": "To add a question to the rows, press “Add a question to the rows” under the list on the form, then pick a type from the list that opens. To copy or remove a row question, press that question on the form.",
     "show_if": "Show when",
     "required_if": "Required when",
     "section_condition": "Show the section when",
@@ -172,6 +177,58 @@
     "dob": "Date-of-birth question",
     "net": "Net-assets question",
     "publish": "Publish",
+    "publish_wait": "The draft can be published once it is saved",
+    "needs_fixing": "Needs fixing",
+    "publish_list": {
+      "button": "Fix before publishing ({n})",
+      "title": "Fix before publishing",
+      "intro": "The form cannot be published until these are fixed. Press a line to go to its place.",
+      "identity": "Identity questions still missing: {roles}",
+      "groups": {
+        "texts": "Texts still missing",
+        "other": "Other things to fix",
+        "server": "Found at the last try"
+      },
+      "server_hint": "After fixing these, press “Publish” again.",
+      "line": "{name}: {what}",
+      "many": "{what} ({n})",
+      "unnamed_question": "Unnamed question",
+      "unnamed_section": "Unnamed section",
+      "text": {
+        "title": {
+          "bn": "The section's name is missing in Bengali",
+          "en": "The section's name is missing in English"
+        },
+        "label": {
+          "bn": "The question's Bengali text is missing",
+          "en": "The question's English text is missing"
+        },
+        "help": {
+          "bn": "The help text is missing in Bengali",
+          "en": "The help text is missing in English"
+        },
+        "placeholder": {
+          "bn": "The example text shown in the empty box is missing in Bengali",
+          "en": "The example text shown in the empty box is missing in English"
+        },
+        "option": {
+          "bn": "An option's Bengali text is missing",
+          "en": "An option's English text is missing"
+        },
+        "table_row": {
+          "bn": "A table row's name is missing in Bengali",
+          "en": "A table row's name is missing in English"
+        },
+        "table_col": {
+          "bn": "A table column's name is missing in Bengali",
+          "en": "A table column's name is missing in English"
+        },
+        "result": {
+          "bn": "A calculation result's name is missing in Bengali",
+          "en": "A calculation result's name is missing in English"
+        }
+      }
+    },
     "new_version": "Make a new version",
     "back_to_current": "Back to the current version",
     "publish_title": "Publish version {n}?",
@@ -247,6 +304,7 @@
     "section_empty": "No question in this section yet. Add one from the left.",
     "add_here": "Add a question to this section",
     "copy": "Copy {label}",
+    "move_to_part": "Move {label} to another section",
     "copy_mark_bn": "(কপি)",
     "copy_mark_en": "(copy)",
     "members_of": "{label}: the questions of each row",
@@ -255,12 +313,30 @@
     "required_mark": "(required)",
     "has_condition": "Shown on a condition",
     "has_calc": "Worked out by itself",
-    "removed": "“{label}” was removed.",
-    "undo": "Bring it back",
+    "removed": "“{label}” was removed. Press “{undo}” above to bring it back.",
+    "undo": "Undo",
+    "redo": "Redo",
+    "uses": {
+      "title_question": "This question is used elsewhere",
+      "title_section": "Questions of this section are used elsewhere",
+      "intro": "Removing “{label}” also removes the uses below.",
+      "list": "Where it is used",
+      "of": "{used}: {where}",
+      "show_if": "In the “Show when” condition of “{name}”",
+      "required_if": "In the “Required when” condition of “{name}”",
+      "section_condition": "In the “Show the section when” condition of the section “{name}”",
+      "calculation": "In the calculation of “{name}”",
+      "count_from": "In the number of rows of the list “{name}”",
+      "options_depend_on": "In the answer the options of “{name}” follow",
+      "pipe": "In an answer put into the text of “{name}”",
+      "calculation_note": "A question that loses its calculation needs a new one.",
+      "confirm_question": "Remove the question and these uses",
+      "confirm_section": "Remove the section and these uses"
+    },
     "add_pane": "Where to add a question",
     "add_tab": "Add a question",
     "library_tab": "Library",
-    "types_hint": "Pick the kind of answer you want. A press adds it at the end of the chosen section; a drag places it where you want on the form.",
+    "types_hint": "Pick the kind of answer you want. A press adds it right after the chosen question, or at the end of the section when no question is chosen; a drag places it where you want on the form.",
     "types_need_section": "Add a section first: press “New section” in the middle, or take one from the library. Then add questions.",
     "add_type_suffix": "question: add",
     "type_groups": {
@@ -297,11 +373,11 @@
       "number_table": "e.g. cows and goats, own and sharecropped"
     },
     "search_none": "No question has that name.",
+    "library_empty": "The library has no question yet.",
     "add_section": "Add the whole section",
     "section_in_form": "This section is in the form.",
     "add_field": "Add {label}",
     "in_form": "in the form",
-    "own_section": "Which section",
     "section_select_hint": "Press to change the section’s name and settings",
     "library_list": "{title}: library questions",
     "group_basics": "Basics",
@@ -367,6 +443,25 @@
       "locked": "An identity question is seen by everyone, so it takes no condition.",
       "section": "This section holds identity questions, so everyone sees it.",
       "tag": "Identity: {role}",
+      "add_all": "Add the identity questions",
+      "start_title": "Start with the identity questions",
+      "start_hint": "A beneficiary application form needs seven identity questions: NID or birth registration number, name, father's or husband's name, mobile number, gender, address and village. One press adds them all; you can change their wording afterwards.",
+      "wording": {
+        "nid_or_birth_reg_bn": "জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর",
+        "nid_or_birth_reg_en": "NID or birth registration number",
+        "name_bn": "উপকারভোগীর নাম",
+        "name_en": "Beneficiary's name",
+        "father_or_husband_name_bn": "পিতা বা স্বামীর নাম",
+        "father_or_husband_name_en": "Father's or husband's name",
+        "mobile_bn": "মোবাইল নম্বর",
+        "mobile_en": "Mobile number",
+        "gender_bn": "লিঙ্গ",
+        "gender_en": "Gender",
+        "address_bn": "ঠিকানা",
+        "address_en": "Address",
+        "village_bn": "গ্রাম",
+        "village_en": "Village"
+      },
       "roles": {
         "nid_or_birth_reg": "NID or birth registration number",
         "name": "Name",
@@ -375,8 +470,34 @@
         "gender": "Gender",
         "address": "Address (division to union)",
         "village": "Village"
-      },
-      "missing": "Mark every identity question of a beneficiary application form. Still missing: {roles}."
+      }
+    },
+    "translations": {
+      "button": "Translations",
+      "button_missing": "Translations: {n} texts missing",
+      "title": "Translations",
+      "intro": "Every text of the form is here in Bengali and English, side by side. What you type goes into the draft at once.",
+      "missing_count": "Texts missing: {n}",
+      "none_missing": "Every text is written in both languages",
+      "only_missing": "Missing only",
+      "nothing_left": "No text is missing.",
+      "missing": "Missing",
+      "from_list": "These options come from the system's list; they cannot be changed here.",
+      "of_question": "Question: {name}",
+      "field_bn": "{what} (Bengali)",
+      "field_en": "{what} (English)",
+      "open": "Open the translations",
+      "done": "Done",
+      "what": {
+        "title": "Section name",
+        "label": "Question {n}",
+        "help": "Question {n}: help text",
+        "placeholder": "Question {n}: sample text",
+        "option": "Question {n}: option {i}",
+        "table_row": "Question {n}: table row {i}",
+        "table_col": "Question {n}: table column {i}",
+        "result": "Question {n}: result {i}"
+      }
     },
     "library_title": "Question library",
     "kind": {

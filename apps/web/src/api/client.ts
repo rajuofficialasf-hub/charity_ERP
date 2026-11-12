@@ -396,6 +396,8 @@ export interface RequestOptions {
   blob?: boolean;
   /** Returns the whole envelope `{ data, meta }` (for `meta.etag` before an `If-Match` write). */
   envelope?: boolean;
+  /** Gives the request up when it aborts (a caller's time limit); the call then rejects. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -420,6 +422,7 @@ export async function api<T>(path: string, options: RequestOptions = {}, retry =
     },
     body:
       options.rawBody ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
+    ...(options.signal ? { signal: options.signal } : {}),
   });
   if (res.ok) {
     if (res.status === 204) return undefined as T;

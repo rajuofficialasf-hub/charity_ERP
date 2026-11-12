@@ -1,12 +1,14 @@
+import AxeBuilder from '@axe-core/playwright';
 import { devices, expect, type Page, test } from '@playwright/test';
 import { scan, signIn, switchLanguage } from './support/admin';
 import {
   dayFromToday,
   digits,
+  openFixList,
   ownQuestion,
   pick,
   publish,
-  publishRefused,
+  questionTexts,
   saved,
   settled,
 } from './support/forms';
@@ -40,6 +42,23 @@ async function mark(page: Page, role: string) {
   await expect(page.locator('main').getByText(`পরিচয়: ${tag}`).first()).toBeVisible();
 }
 
+/**
+ * A new ready form for beneficiary applications, empty, open in the builder. Its key comes from
+ * the English name and the moment it is made, so tests that start together give different names.
+ */
+async function newReadyForm(page: Page, title: string, english: string) {
+  await page.goto('/admin/ready-forms');
+  await page.getByRole('button', { name: 'নতুন তৈরি ফর্ম' }).click();
+  const create = page.getByRole('dialog', { name: 'নতুন তৈরি ফর্ম' });
+  await create.getByRole('textbox', { name: /ফর্মের নাম \(বাংলা\)/ }).fill(title);
+  await create.getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ }).fill(english);
+  await expect(create.getByRole('radio', { name: 'উপকারভোগীর আবেদন' })).toBeChecked();
+  await create.getByRole('button', { name: 'তৈরি করুন' }).click();
+  await expect(page).toHaveURL(/\/admin\/ready-forms\/[0-9a-f-]{36}$/);
+  await expect(page.getByTestId('form-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
+  await expect(page.getByTestId('form-head').getByText('1টি অংশ · 0টি প্রশ্ন')).toBeVisible();
+}
+
 test('the Monitoring Team builds a ready form, the PM places it, an applicant sends it, and version 2 follows', async ({
   page,
   browser,
@@ -52,20 +71,9 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
 
   // the Monitoring Team: a new ready form for beneficiary applications, empty
   await signIn(page, MONITORING);
-  await page.goto('/admin/ready-forms');
-  await page.getByRole('button', { name: 'নতুন তৈরি ফর্ম' }).click();
-  const create = page.getByRole('dialog', { name: 'নতুন তৈরি ফর্ম' });
   const title = `স্বাবলম্বী আবেদন ${code()}`;
-  await create.getByRole('textbox', { name: /ফর্মের নাম \(বাংলা\)/ }).fill(title);
-  await create
-    .getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ })
-    .fill('Self-reliance application');
-  await expect(create.getByRole('radio', { name: 'উপকারভোগীর আবেদন' })).toBeChecked();
-  await create.getByRole('button', { name: 'তৈরি করুন' }).click();
-  await expect(page).toHaveURL(/\/admin\/ready-forms\/[0-9a-f-]{36}$/);
+  await newReadyForm(page, title, 'Self-reliance application');
   const readyUrl = page.url();
-  await expect(page.getByTestId('form-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
-  await expect(page.getByTestId('form-head').getByText('1টি অংশ · 0টি প্রশ্ন')).toBeVisible();
 
   // the identity questions, written by the builder and marked one by one
   const identity: [string, [string, string], string, [string, string][]?][] = [
@@ -90,9 +98,16 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     await ownQuestion(page, 'অংশ 1', type, label, options);
     await mark(page, role);
   }
-  await publishRefused(page);
+  // Publish does not ask while something is left: it opens the list, which names the role
+  await saved(page);
+  await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
+  const fixes = page.getByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' });
+  await expect(fixes.getByText('পরিচয়ের প্রশ্ন বাকি: গ্রাম', { exact: true })).toBeVisible();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(fixes).toHaveCount(0);
   await expect(
-    page.getByText('উপকারভোগীর আবেদন-ফর্মে পরিচয়ের সব প্রশ্ন চিহ্নিত করুন। এখনো বাকি: গ্রাম।'),
+    page.getByRole('button', { name: 'প্রকাশের আগে ঠিক করুন (1)', exact: true }),
   ).toBeVisible();
   const [vType, vLabel, vRole] = identity[6]!;
   await ownQuestion(page, 'অংশ 1', vType, vLabel);
@@ -125,10 +140,16 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
   // dnd-kit measures the rows after the pick-up, so each key waits for its announcement
   const announced = page.locator('[id^="DndLiveRegion"]');
   await page.getByRole('button', { name: 'নারী সদস্য টেনে সরান' }).focus();
+  // a question's key is random, never a word of its text: the one picked up is read from the
+  // announcement, and the move is over another question
   await page.keyboard.press('Space');
-  await expect(announced).toContainText(/q_female_members/);
+  await expect(announced).toContainText(/draggable item q_[a-z0-9]{6}\b/i);
+  const dragged = /draggable item (q_[a-z0-9]{6})\b/i.exec(await announced.innerText())?.[1];
+  expect(dragged).toBeDefined();
   await page.keyboard.press('ArrowUp');
-  await expect(announced).toContainText(/moved over droppable area q_male_members/);
+  await expect(announced).toContainText(
+    new RegExp(`moved over droppable area (?!${dragged})q_[a-z0-9]{6}\\b`),
+  );
   await page.keyboard.press('Space');
   await expect
     .poll(async () => (await list.getByRole('listitem').allInnerTexts()).slice(-3).join('|'))
@@ -314,4 +335,272 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     await phone.close();
     await desk.close();
   }
+});
+
+// A form built in Bengali first: what stands between it and its publishing is listed beside the
+// Publish button, each line leads to its place, the identity questions come in one press, and the
+// translations take every missing text, after which the form publishes.
+test('a new application form lists what to fix, gets its identity questions in one press, is worded in the translations and publishes', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'the builders work on a computer');
+  test.setTimeout(180_000);
+  await signIn(page, MONITORING);
+  await newReadyForm(page, `প্রকাশের তালিকা ${code()}`, `Publish list ${code()}`);
+  // nothing to list yet but the identity questions
+  await expect(
+    page.getByRole('button', { name: 'প্রকাশের আগে ঠিক করুন (1)', exact: true }),
+  ).toBeVisible();
+
+  // one question, then its English text emptied in the right pane: the draft still saves
+  await ownQuestion(page, 'অংশ 1', 'ছোট লেখা', ['পরিবারের সদস্য', 'Family members']);
+  const question = page.getByRole('button', { name: 'পরিবারের সদস্য বদলান' });
+  await page.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }).fill('');
+  await saved(page);
+  // the question carries the mark, by an icon with a name
+  await expect(
+    page
+      .getByRole('list', { name: 'অংশ 1', exact: true })
+      .getByRole('img', { name: 'ঠিক করতে হবে' }),
+  ).toBeVisible();
+
+  // another place is chosen, so the way back to the question shows
+  await page.getByRole('button', { name: 'অংশ 1', exact: true }).click();
+  await expect(question).toHaveAttribute('aria-pressed', 'false');
+  const list = await openFixList(page, 2);
+  await expect(
+    list.getByText(
+      'পরিচয়ের প্রশ্ন বাকি: এনআইডি বা জন্মনিবন্ধন নম্বর, নাম, পিতা বা স্বামীর নাম, মোবাইল নম্বর, লিঙ্গ, ঠিকানা (বিভাগ থেকে ইউনিয়ন), গ্রাম',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await settled(page);
+  expect((await scan(page)).violations, 'the list of what to fix').toEqual([]);
+  await list.getByRole('button', { name: 'পরিবারের সদস্য: প্রশ্নের ইংরেজি লেখা বাকি' }).click();
+  // the list closes, the question is chosen with the focus, and its settings are in the right pane
+  await expect(list).toHaveCount(0);
+  await expect(question).toHaveAttribute('aria-pressed', 'true');
+  await expect(question).toBeFocused();
+  await expect(question).toBeInViewport();
+  await expect(page.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue(
+    'পরিবারের সদস্য',
+  );
+  await expect(page.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ })).toHaveValue('');
+
+  // Publish says the same instead of asking
+  await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
+  await expect(list).toBeVisible();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+
+  // the identity questions come in one press, from the list, each marked; the seeded library
+  // holds no question yet, so each comes with a wording of its own in both languages
+  await list.getByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' }).click();
+  await expect(list).toHaveCount(0);
+  await expect(page.getByTestId('form-head').getByText('1টি অংশ · 8টি প্রশ্ন')).toBeVisible();
+  const part = page.getByRole('list', { name: 'অংশ 1', exact: true });
+  const identity: [string, string][] = [
+    ['এনআইডি বা জন্মনিবন্ধন নম্বর', 'জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর'],
+    ['নাম', 'উপকারভোগীর নাম'],
+    ['পিতা বা স্বামীর নাম', 'পিতা বা স্বামীর নাম'],
+    ['মোবাইল নম্বর', 'মোবাইল নম্বর'],
+    ['লিঙ্গ', 'লিঙ্গ'],
+    ['ঠিকানা (বিভাগ থেকে ইউনিয়ন)', 'ঠিকানা'],
+    ['গ্রাম', 'গ্রাম'],
+  ];
+  for (const [role, wording] of identity) {
+    await expect(part.getByText(`পরিচয়: ${role}`, { exact: true })).toBeVisible();
+    await expect(part.getByRole('button', { name: `${wording} বদলান`, exact: true })).toBeVisible();
+  }
+  await expect(part.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveCount(0);
+  // the first of them is chosen and in view
+  const first = part.getByRole('button', { name: / বদলান$/ }).nth(1);
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(first).toBeInViewport();
+  await expect(questionTexts(page).bn).toHaveValue('জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর');
+  await expect(questionTexts(page).en).toHaveValue('NID or birth registration number');
+  await saved(page);
+  // the identity line has left the list: what remains is the earlier question's English text
+  const left = await openFixList(page, 1);
+  await expect(left.getByText(/^পরিচয়ের প্রশ্ন বাকি/)).toHaveCount(0);
+  await expect(left.getByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' })).toHaveCount(0);
+  await expect(left.getByRole('button', { name: /^নাম ছাড়া প্রশ্ন/ })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(left).toHaveCount(0);
+
+  // every text of the form in one place: the header's button carries the same number
+  await page.getByRole('button', { name: 'অনুবাদ: 1টি লেখা বাকি', exact: true }).click();
+  const texts = page.getByRole('dialog', { name: 'অনুবাদ' });
+  await expect(texts.getByRole('status')).toHaveText('1টি লেখা বাকি');
+  await expect(texts.getByRole('img', { name: 'বাকি' })).toHaveCount(1);
+  // an identity question's wording is changed here like any other text, named by its role
+  const nameRow = texts.getByRole('listitem').filter({ hasText: 'পরিচয়: নাম' });
+  await nameRow.getByRole('textbox', { name: 'প্রশ্ন 3 (বাংলা)' }).fill('আবেদনকারীর নাম');
+  await nameRow.getByRole('textbox', { name: 'প্রশ্ন 3 (ইংরেজি)' }).fill("Applicant's name");
+  // the rows that lack nothing step aside (the part's name and the identity questions here)
+  await expect(texts.getByRole('textbox', { name: 'অংশের নাম (বাংলা)' })).toHaveValue('অংশ 1');
+  await texts.getByRole('switch', { name: 'শুধু বাকি' }).check();
+  await expect(texts.getByRole('textbox', { name: 'অংশের নাম (বাংলা)' })).toHaveCount(0);
+  await expect(texts.getByRole('textbox')).toHaveCount(2);
+  await settled(page);
+  expect((await scan(page)).violations, 'the translations').toEqual([]);
+  await texts.getByRole('textbox', { name: 'প্রশ্ন 1 (ইংরেজি)' }).fill('Family members');
+  // a written row stays where it is until the view is closed; nothing is left to write
+  await expect(texts.getByRole('status')).toHaveText('সব লেখা দুই ভাষাতেই আছে');
+  await expect(texts.getByRole('img', { name: 'বাকি' })).toHaveCount(0);
+  await texts.getByRole('button', { name: 'ঠিক আছে' }).click();
+  await expect(texts).toHaveCount(0);
+  // the canvas names the questions, the list has nothing left, and the form publishes
+  await expect(
+    part.getByRole('button', { name: 'আবেদনকারীর নাম বদলান', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: /^প্রকাশের আগে ঠিক করুন/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'অনুবাদ', exact: true })).toBeVisible();
+  await publish(page, 1);
+  await expect(page.getByTestId('form-head').getByText('সংস্করণ 1: প্রকাশিত')).toBeVisible();
+});
+
+// A question is added where the person works, with no dialog, and moved to another part by a
+// button of its bar.
+test('a question is added in place and typed at once, and a button moves it to another part', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'the builders work on a computer');
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, MONITORING);
+  await newReadyForm(page, `জায়গায় যোগ ${code()}`, `Add in place ${code()}`);
+  const head = page.getByTestId('form-head');
+  const firstPart = page.getByRole('list', { name: 'অংশ 1', exact: true });
+
+  // a press on a type: the question is there, chosen, and the cursor is in its Bengali text
+  await page.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const unnamed = firstPart.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' });
+  await expect(unnamed).toHaveAttribute('aria-pressed', 'true');
+  await expect(unnamed).toBeInViewport();
+  const texts = questionTexts(page);
+  await expect(texts.bn).toBeFocused();
+  await page.keyboard.type('পেশা');
+  const question = page.getByRole('button', { name: 'পেশা বদলান', exact: true });
+  await expect(firstPart.getByRole('button', { name: 'পেশা বদলান' })).toBeVisible();
+  await expect(unnamed).toHaveCount(0);
+  await expect(head.getByText('1টি অংশ · 1টি প্রশ্ন')).toBeVisible();
+  // the draft saves with the English text still to come
+  await saved(page);
+
+  // the types open at the end of the part too, by the keyboard, and the chosen one is added there
+  await page.getByRole('button', { name: 'এই অংশে প্রশ্ন যোগ করুন' }).focus();
+  await page.keyboard.press('Enter');
+  const types = page.getByRole('menu', { name: 'এই অংশে প্রশ্ন যোগ করুন' });
+  await expect(types.getByRole('menuitem')).toHaveCount(23);
+  await settled(page);
+  // the open list with the page under it; a menu of the kit opens outside the page's landmarks,
+  // as its other menus do, so that one page-level rule is left out here
+  const open = await new AxeBuilder({ page }).disableRules(['region']).analyze();
+  expect(open.violations, 'the question types at the end of a part').toEqual([]);
+  await types.getByRole('menuitem', { name: 'সংখ্যা', exact: true }).click();
+  await expect(types).toHaveCount(0);
+  await expect(texts.bn).toBeFocused();
+  await page.keyboard.type('পরিবারের সদস্য');
+  // the new question stands after the first
+  await expect
+    .poll(async () =>
+      firstPart
+        .getByRole('button', { name: / বদলান$/ })
+        .evaluateAll((buttons) => buttons.map((b) => b.getAttribute('aria-label'))),
+    )
+    .toEqual(['পেশা বদলান', 'পরিবারের সদস্য বদলান']);
+
+  // a second part, and the first question sent to it from its bar
+  await page.getByRole('button', { name: 'নতুন অংশ' }).click();
+  await expect(page.getByRole('button', { name: 'অংশ 2', exact: true })).toBeVisible();
+  await question.click();
+  await page.getByRole('button', { name: 'পেশা অন্য অংশে নিন' }).click();
+  const parts = page.getByRole('menu', { name: 'পেশা অন্য অংশে নিন' });
+  await expect(parts.getByRole('menuitem')).toHaveText(['অংশ 2']);
+  await parts.getByRole('menuitem', { name: 'অংশ 2', exact: true }).click();
+  const secondPart = page.getByRole('list', { name: 'অংশ 2', exact: true });
+  await expect(secondPart.getByRole('button', { name: 'পেশা বদলান' })).toBeVisible();
+  await expect(firstPart.getByRole('button', { name: 'পেশা বদলান' })).toHaveCount(0);
+  // still the chosen question, with the focus, in view
+  await expect(question).toHaveAttribute('aria-pressed', 'true');
+  await expect(question).toBeFocused();
+  await expect(question).toBeInViewport();
+  await saved(page);
+
+  // what was saved: the question in the second part, the other in the first
+  await page.reload();
+  await expect(head.getByText('2টি অংশ · 2টি প্রশ্ন')).toBeVisible();
+  await expect(secondPart.getByRole('button', { name: 'পেশা বদলান' })).toBeVisible();
+  await expect(firstPart.getByRole('button', { name: 'পরিবারের সদস্য বদলান' })).toBeVisible();
+});
+
+test('a removed question and a removed part come back with the undo of the form head, and the draft saves', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'the builders work on a computer');
+  test.setTimeout(120_000);
+  await signIn(page, MONITORING);
+  await newReadyForm(page, `ফিরিয়ে আনা ${code()}`, `Undo check ${code()}`);
+  const head = page.getByTestId('form-head');
+  const undo = head.getByRole('button', { name: 'ফিরিয়ে আনুন' });
+  const redo = head.getByRole('button', { name: 'আবার করুন' });
+  await expect(undo).toBeDisabled();
+  await expect(redo).toBeDisabled();
+
+  await ownQuestion(page, 'অংশ 1', 'ছোট লেখা', ['পেশা', 'Occupation']);
+  await ownQuestion(page, 'অংশ 1', 'সংখ্যা', ['পরিবারের সদস্য', 'Family members']);
+  const first = page.getByRole('button', { name: 'পেশা বদলান' });
+  const second = page.getByRole('button', { name: 'পরিবারের সদস্য বদলান' });
+  await expect(head.getByText('1টি অংশ · 2টি প্রশ্ন')).toBeVisible();
+
+  // the question added last is the chosen one, so its bar is open
+  await page.getByRole('button', { name: 'পরিবারের সদস্য সরান' }).click();
+  await expect(second).toHaveCount(0);
+  await expect(
+    page.getByText(
+      '“পরিবারের সদস্য” সরানো হয়েছে। ফিরিয়ে আনতে উপরের “ফিরিয়ে আনুন” বোতামে চাপুন।',
+    ),
+  ).toBeVisible();
+  await undo.click();
+  await expect(second).toBeVisible();
+  await expect(first).toBeVisible();
+  await expect(redo).toBeEnabled();
+  await saved(page);
+
+  // the keys do the same from the canvas: the removal again, and back
+  await second.focus();
+  await page.keyboard.press('Control+y');
+  await expect(second).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect(second).toBeVisible();
+  await saved(page);
+
+  // a whole part comes back the same way: a second part with a question, removed from its menu
+  await page.getByRole('button', { name: 'নতুন অংশ' }).click();
+  await expect(page.getByRole('button', { name: 'অংশ 2', exact: true })).toBeVisible();
+  await ownQuestion(page, 'অংশ 2', 'ছোট লেখা', ['গ্রামের নাম', 'Village name']);
+  const third = page.getByRole('button', { name: 'গ্রামের নাম বদলান' });
+  const secondPart = page.getByRole('list', { name: 'অংশ 2', exact: true });
+  await expect(head.getByText('2টি অংশ · 3টি প্রশ্ন')).toBeVisible();
+  await page.getByRole('button', { name: 'অংশ 2: আরও কাজ' }).click();
+  await page.getByRole('menuitem', { name: 'অংশ 2 সরান' }).click();
+  await expect(secondPart).toHaveCount(0);
+  await expect(third).toHaveCount(0);
+  await expect(head.getByText('1টি অংশ · 2টি প্রশ্ন')).toBeVisible();
+  await expect(
+    page.getByText('“অংশ 2” সরানো হয়েছে। ফিরিয়ে আনতে উপরের “ফিরিয়ে আনুন” বোতামে চাপুন।'),
+  ).toBeVisible();
+  await undo.click();
+  await expect(secondPart).toBeVisible();
+  await expect(secondPart.getByRole('button', { name: 'গ্রামের নাম বদলান' })).toBeVisible();
+  await expect(head.getByText('2টি অংশ · 3টি প্রশ্ন')).toBeVisible();
+  await saved(page);
+
+  // what was saved is the form with both parts and their questions
+  await page.reload();
+  await expect(head.getByText('2টি অংশ · 3টি প্রশ্ন')).toBeVisible();
+  await expect(second).toBeVisible();
+  await expect(third).toBeVisible();
+  await expect(undo).toBeDisabled();
 });

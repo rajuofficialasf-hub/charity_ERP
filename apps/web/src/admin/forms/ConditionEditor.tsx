@@ -1,5 +1,6 @@
 import { type Condition, type ConditionOp, isFieldRef } from '@css/shared';
 import type { FormDefinition, FormField } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import {
   Alert,
   Button,
@@ -15,6 +16,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { type Asker, conditionCandidates, OPS, opKindOf } from './candidates';
 import { type ConditionRow, conditionFromRows, rowsFromCondition } from './logic-rows';
 import { NumberText } from './NumberText';
+import { TYPED, type Typed } from './use-draft-history';
 import { RowButtons } from './RowButtons';
 import { useRowKeys } from '../../lib/use-row-keys';
 
@@ -37,7 +39,8 @@ export function ConditionEditor({
   definition: FormDefinition;
   asker: Asker;
   condition: Condition | null | undefined;
-  onChange: (condition: Condition | undefined) => void;
+  /** `how` says a value was typed, so the history joins it to the typing just before it. */
+  onChange: (condition: Condition | undefined, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
@@ -69,10 +72,14 @@ export function ConditionEditor({
     );
 
   const { join, rows } = view;
-  const write = (next: ConditionRow[], nextJoin = join) =>
-    onChange(conditionFromRows({ join: nextJoin, rows: next }));
-  const setRow = (index: number, row: ConditionRow) =>
-    write(rows.map((r, i) => (i === index ? row : r)));
+  const write = (next: ConditionRow[], nextJoin = join, how?: Typed) =>
+    onChange(conditionFromRows({ join: nextJoin, rows: next }), how);
+  const setRow = (index: number, row: ConditionRow, how?: Typed) =>
+    write(
+      rows.map((r, i) => (i === index ? row : r)),
+      join,
+      how,
+    );
   // the answers a row may compare with: another question whose answer is of the same kind
   const others = (key: string, field: FormField) =>
     candidates.filter((f) => f.fieldKey !== key && opKindOf(f) === opKindOf(field));
@@ -116,7 +123,10 @@ export function ConditionEditor({
                     const next = id ? byKey.get(id) : undefined;
                     if (next) setRow(i, fresh(next));
                   }}
-                  options={candidates.map((f) => ({ value: f.fieldKey, label: f.label[locale] }))}
+                  options={candidates.map((f) => ({
+                    value: f.fieldKey,
+                    label: localized(f.label, locale),
+                  }))}
                 />
                 <SelectField
                   label={t('cond_op', { n })}
@@ -168,7 +178,7 @@ export function ConditionEditor({
                     }
                     options={others(row.field, field).map((f) => ({
                       value: f.fieldKey,
-                      label: f.label[locale],
+                      label: localized(f.label, locale),
                     }))}
                   />
                 ) : field ? (
@@ -177,12 +187,12 @@ export function ConditionEditor({
                     field={field}
                     op={row.op}
                     value={row.value}
-                    onChange={(value) =>
-                      setRow(i, {
-                        field: row.field,
-                        op: row.op,
-                        ...(value === undefined ? {} : { value }),
-                      })
+                    onChange={(value, how) =>
+                      setRow(
+                        i,
+                        { field: row.field, op: row.op, ...(value === undefined ? {} : { value }) },
+                        how,
+                      )
                     }
                   />
                 ) : null}
@@ -228,13 +238,16 @@ function ValueInput({
   field: FormField;
   op: ConditionOp;
   value: unknown;
-  onChange: (value: unknown) => void;
+  onChange: (value: unknown, how?: Typed) => void;
 }) {
   const locale = useLocale();
   if (op === 'is_empty' || op === 'not_empty') return null;
   const kind = opKindOf(field);
   if (kind === 'choice') {
-    const options = (field.options ?? []).map((o) => ({ value: o.code, label: o.label[locale] }));
+    const options = (field.options ?? []).map((o) => ({
+      value: o.code,
+      label: localized(o.label, locale),
+    }));
     if (op === 'in' || op === 'not_in')
       return (
         <CheckboxGroup
@@ -258,7 +271,7 @@ function ValueInput({
       <NumberText
         label={label}
         value={typeof value === 'number' ? value : undefined}
-        onChange={onChange}
+        onChange={(n) => onChange(n, TYPED)}
       />
     );
   if (kind === 'date')
@@ -273,7 +286,7 @@ function ValueInput({
     <TextField
       label={label}
       value={typeof value === 'string' ? value : ''}
-      onChange={(text) => onChange(text === '' ? undefined : text)}
+      onChange={(text) => onChange(text === '' ? undefined : text, TYPED)}
     />
   );
 }

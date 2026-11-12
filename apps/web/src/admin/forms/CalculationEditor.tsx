@@ -1,5 +1,6 @@
 import type { Condition, Expr } from '@css/shared';
 import type { Calculation, CalculationResult, FormDefinition, FormField } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { Alert, Button, SelectField, Stack, Text, TextField, RadioGroup } from '@/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -24,6 +25,7 @@ import {
 import { ConditionEditor } from './ConditionEditor';
 import { type FormulaNames, parseFormula, printFormula } from './formula';
 import { NumberText } from './NumberText';
+import { TYPED, type Typed } from './use-draft-history';
 import { RowButtons } from './RowButtons';
 import { useRowKeys } from '../../lib/use-row-keys';
 
@@ -69,8 +71,9 @@ export function CalculationEditor({
   definition: FormDefinition;
   field: FormField;
   asker: Asker;
-  onChange: (calculation: Calculation | undefined) => void;
-  onResults: (results: CalculationResult[] | undefined) => void;
+  /** `how` says a number or a formula was typed, so the history joins it to the typing before. */
+  onChange: (calculation: Calculation | undefined, how?: Typed) => void;
+  onResults: (results: CalculationResult[] | undefined, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const [mode, setMode] = useState<'click' | 'type'>('click');
@@ -127,8 +130,8 @@ export function CalculationEditor({
     },
   };
   const expr = field.calculation?.expr;
-  const write = (next: Expr | undefined) =>
-    onChange(next === undefined ? undefined : { ...field.calculation, expr: next });
+  const write = (next: Expr | undefined, how?: Typed) =>
+    onChange(next === undefined ? undefined : { ...field.calculation, expr: next }, how);
 
   return (
     <section aria-label={t('calc')}>
@@ -193,7 +196,7 @@ function PartEditor({
   label: string;
   expr: Expr | undefined;
   depth: number;
-  onChange: (next: Expr | undefined) => void;
+  onChange: (next: Expr | undefined, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
@@ -204,7 +207,7 @@ function PartEditor({
     (k) => k === kind || ((!nests(k) || depth < MAX_DEPTH) && startPart(k, ctx.starts) !== null),
   );
   const { offers } = ctx;
-  const labelOf = (f: FormField) => f.label[locale];
+  const labelOf = (f: FormField) => localized(f.label, locale);
   return (
     <div className="form-calc-part">
       <Stack gap={2}>
@@ -223,7 +226,7 @@ function PartEditor({
           <NumberText
             label={t('calc_number', { part: label })}
             value={expr}
-            onChange={(value) => onChange(value ?? 0)}
+            onChange={(value) => onChange(value ?? 0, TYPED)}
           />
         ) : null}
         {expr !== undefined && typeof expr === 'object' && 'field' in expr ? (
@@ -241,7 +244,7 @@ function PartEditor({
             onChange={(id) => id && onChange({ result: id })}
             options={(ctx.field.settings?.results ?? []).map((r) => ({
               value: r.code,
-              label: r.label[locale],
+              label: localized(r.label, locale),
             }))}
           />
         ) : null}
@@ -317,17 +320,17 @@ function MathPart({
   label: string;
   expr: MathExpr;
   depth: number;
-  onChange: (next: Expr) => void;
+  onChange: (next: Expr, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const rows = useRowKeys(expr.args.length);
   // a part given as null is removed, and its key with it, only when the list really shrinks (the
   // last part stays as a zero)
-  const setArg = (i: number, next: Expr | null) => {
+  const setArg = (i: number, next: Expr | null, how?: Typed) => {
     const changed = withArg(expr, i, next);
     if (typeof changed === 'object' && 'args' in changed && changed.args.length < expr.args.length)
       rows.remove(i);
-    onChange(changed);
+    onChange(changed, how);
   };
   return (
     <div className="form-calc-group" role="group" aria-label={label}>
@@ -350,7 +353,7 @@ function MathPart({
                 label={name}
                 expr={arg}
                 depth={depth + 1}
-                onChange={(next) => setArg(i, next ?? null)}
+                onChange={(next, how) => setArg(i, next ?? null, how)}
               />
               {expr.args.length > 1 ? (
                 <RowButtons
@@ -413,18 +416,18 @@ function StepPart({
   label: string;
   expr: Extract<Expr, { if: unknown }>;
   depth: number;
-  onChange: (next: Expr) => void;
+  onChange: (next: Expr, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const rows = useRowKeys(expr.if.length);
-  const setBranch = (i: number, next: { when: Condition; then: Expr } | null) => {
+  const setBranch = (i: number, next: { when: Condition; then: Expr } | null, how?: Typed) => {
     if (next === null) rows.remove(i);
     const branches =
       next === null
         ? expr.if.filter((_, j) => j !== i)
         : expr.if.map((b, j) => (j === i ? next : b));
     // a step without branches is just its last value
-    onChange(branches.length ? { if: branches, else: expr.else } : expr.else);
+    onChange(branches.length ? { if: branches, else: expr.else } : expr.else, how);
   };
   return (
     <div className="form-calc-group" role="group" aria-label={label}>
@@ -438,8 +441,8 @@ function StepPart({
                 definition={ctx.definition}
                 asker={ctx.asker}
                 condition={branch.when}
-                onChange={(when) =>
-                  when ? setBranch(i, { when, then: branch.then }) : setBranch(i, null)
+                onChange={(when, how) =>
+                  when ? setBranch(i, { when, then: branch.then }, how) : setBranch(i, null)
                 }
               />
               <PartEditor
@@ -447,7 +450,7 @@ function StepPart({
                 label={t('calc_then', { n })}
                 expr={branch.then}
                 depth={depth + 1}
-                onChange={(then) => setBranch(i, { when: branch.when, then: then ?? 0 })}
+                onChange={(then, how) => setBranch(i, { when: branch.when, then: then ?? 0 }, how)}
               />
             </Stack>
           );
@@ -470,7 +473,7 @@ function StepPart({
           label={t('calc_else')}
           expr={expr.else}
           depth={depth + 1}
-          onChange={(next) => onChange({ if: expr.if, else: next ?? 0 })}
+          onChange={(next, how) => onChange({ if: expr.if, else: next ?? 0 }, how)}
         />
       </Stack>
     </div>
@@ -487,7 +490,7 @@ function CountPart({
   ctx: Context;
   label: string;
   expr: Extract<Expr, { count_rows: unknown }>;
-  onChange: (next: Expr) => void;
+  onChange: (next: Expr, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
@@ -498,14 +501,19 @@ function CountPart({
         label={t('calc_group', { part: label })}
         value={group}
         onChange={(id) => id && onChange({ count_rows: { group: id } })}
-        options={ctx.offers.groups.map((g) => ({ value: g.fieldKey, label: g.label[locale] }))}
+        options={ctx.offers.groups.map((g) => ({
+          value: g.fieldKey,
+          label: localized(g.label, locale),
+        }))}
       />
       <ConditionEditor
         title={t('calc_count_where')}
         definition={ctx.definition}
         asker={{ group, fieldKey: ctx.asker.fieldKey }}
         condition={where}
-        onChange={(next) => onChange({ count_rows: next ? { group, where: next } : { group } })}
+        onChange={(next, how) =>
+          onChange({ count_rows: next ? { group, where: next } : { group } }, how)
+        }
       />
     </Stack>
   );
@@ -539,19 +547,22 @@ function CellPart({
           const col = next?.settings?.table?.cols[0]?.key;
           if (next && row && col) onChange({ cell: { field: next.fieldKey, row, col } });
         }}
-        options={ctx.offers.tables.map((f) => ({ value: f.fieldKey, label: f.label[locale] }))}
+        options={ctx.offers.tables.map((f) => ({
+          value: f.fieldKey,
+          label: localized(f.label, locale),
+        }))}
       />
       <SelectField
         label={t('calc_table_row', { part: label })}
         value={expr.cell.row}
         onChange={(id) => id && onChange({ cell: { ...expr.cell, row: id } })}
-        options={rows.map((r) => ({ value: r.key, label: r.label[locale] }))}
+        options={rows.map((r) => ({ value: r.key, label: localized(r.label, locale) }))}
       />
       <SelectField
         label={t('calc_table_col', { part: label })}
         value={expr.cell.col}
         onChange={(id) => id && onChange({ cell: { ...expr.cell, col: id } })}
-        options={cols.map((c) => ({ value: c.key, label: c.label[locale] }))}
+        options={cols.map((c) => ({ value: c.key, label: localized(c.label, locale) }))}
       />
     </Stack>
   );
@@ -607,7 +618,7 @@ function FormulaInput({
   ctx: Context;
   text: string;
   onText: (text: string) => void;
-  onChange: (next: Expr | undefined) => void;
+  onChange: (next: Expr | undefined, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const names = formulaNames(ctx);
@@ -629,9 +640,9 @@ function FormulaInput({
         }
         onChange={(next) => {
           onText(next);
-          if (next.trim() === '') return onChange(undefined);
+          if (next.trim() === '') return onChange(undefined, TYPED);
           const read = parseFormula(next, names);
-          if (read.ok) onChange(read.expr);
+          if (read.ok) onChange(read.expr, TYPED);
         }}
       />
     </Stack>
@@ -644,15 +655,15 @@ function ResultsEditor({
   onChange,
 }: {
   results: CalculationResult[];
-  onChange: (results: CalculationResult[] | undefined) => void;
+  onChange: (results: CalculationResult[] | undefined, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
-  const set = (i: number, next: CalculationResult | null) => {
+  const set = (i: number, next: CalculationResult | null, how?: Typed) => {
     const list =
       next === null
         ? results.filter((_, j) => j !== i)
         : results.map((r, j) => (j === i ? next : r));
-    onChange(list.length ? list : undefined);
+    onChange(list.length ? list : undefined, how);
   };
   // a new result's code is the first free r1, r2, …
   const freeCode = () => {
@@ -676,12 +687,12 @@ function ResultsEditor({
                 <TextField
                   label={t('calc_result_bn', { n })}
                   value={result.label.bn}
-                  onChange={(bn) => set(i, { ...result, label: { ...result.label, bn } })}
+                  onChange={(bn) => set(i, { ...result, label: { ...result.label, bn } }, TYPED)}
                 />
                 <TextField
                   label={t('calc_result_en', { n })}
                   value={result.label.en}
-                  onChange={(en) => set(i, { ...result, label: { ...result.label, en } })}
+                  onChange={(en) => set(i, { ...result, label: { ...result.label, en } }, TYPED)}
                 />
                 <RowButtons
                   remove={{ label: t('calc_result_remove', { n }), onPress: () => set(i, null) }}

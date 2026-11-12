@@ -45,6 +45,7 @@ const SOLAR = {
   "history": "history",
   "video": "clapperboard-play",
   "undo": "undo-left",
+  "redo": "undo-right",
   "checklist": "checklist-minimalistic",
   "checkbox": "check-square",
   "hash": "hashtag",

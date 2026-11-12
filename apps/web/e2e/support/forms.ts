@@ -12,7 +12,17 @@ export function dayFromToday(days: number): string {
 export const digits = (n: number) =>
   Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
 
-/** A question of the project's own: its section chosen on the canvas, its type on the left. */
+/** The Bengali and the English text of the chosen question, in the settings pane. */
+export const questionTexts = (page: Page) => ({
+  bn: page.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }),
+  en: page.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }),
+});
+
+/**
+ * A question of the project's own: its section chosen on the canvas, its type on the left. The
+ * question is there at once, empty, with the cursor in its Bengali text; its texts and, for a
+ * choice, its options are written in the settings pane.
+ */
 export async function ownQuestion(
   page: Page,
   sectionTitle: string,
@@ -23,17 +33,22 @@ export async function ownQuestion(
   await page.getByRole('button', { name: sectionTitle, exact: true }).click();
   await page.getByRole('tab', { name: 'প্রশ্ন যোগ' }).click();
   await page.getByRole('button', { name: `${type} প্রশ্ন যোগ করুন`, exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'নতুন প্রশ্ন' });
-  await expect(dialog.getByRole('textbox', { name: /^প্রশ্নের ধরন/ })).toHaveValue(type);
-  await dialog.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }).fill(label[0]);
-  await dialog.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }).fill(label[1]);
+  // no dialog: the settings pane shows the new question, ready to be typed
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const texts = questionTexts(page);
+  await expect(texts.bn).toBeFocused();
+  await expect(texts.bn).toHaveValue('');
+  await texts.bn.fill(label[0]);
+  await texts.en.fill(label[1]);
   for (const [i, [bn, en]] of options.entries()) {
-    if (i > 0) await dialog.getByRole('button', { name: 'অপশন যোগ করুন' }).click();
-    await dialog.getByRole('textbox', { name: new RegExp(`^অপশন ${i + 1} \\(বাংলা\\)`) }).fill(bn);
-    await dialog.getByRole('textbox', { name: new RegExp(`^অপশন ${i + 1} \\(ইংরেজি\\)`) }).fill(en);
+    await page.getByRole('button', { name: 'অপশন যোগ করুন' }).click();
+    await page.getByRole('textbox', { name: new RegExp(`^অপশন ${i + 1} \\(বাংলা\\)`) }).fill(bn);
+    await page.getByRole('textbox', { name: new RegExp(`^অপশন ${i + 1} \\(ইংরেজি\\)`) }).fill(en);
   }
-  await dialog.getByRole('button', { name: 'প্রশ্ন যোগ করুন' }).click();
-  await expect(dialog).toHaveCount(0);
+  // the canvas names the question by its text, as the chosen one
+  await expect(
+    page.getByRole('button', { name: `${label[0]} বদলান`, exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
 }
 
 /** Waits until the builder has saved the draft. */
@@ -51,12 +66,12 @@ export async function publish(page: Page, versionNo: number) {
   await expect(confirm).toHaveCount(0);
 }
 
-/** Asks to publish, confirms, and expects the refusal to keep the draft open. */
-export async function publishRefused(page: Page) {
-  await saved(page);
-  await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
-  await page.getByRole('button', { name: 'সংস্করণ প্রকাশ করুন' }).click();
-  await expect(page.getByTestId('form-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
+/** The list of what to fix before publishing, opened by its button beside Publish. */
+export async function openFixList(page: Page, count: number) {
+  await page.getByRole('button', { name: `প্রকাশের আগে ঠিক করুন (${count})`, exact: true }).click();
+  const list = page.getByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' });
+  await expect(list).toBeVisible();
+  return list;
 }
 
 /**

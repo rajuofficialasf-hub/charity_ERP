@@ -17,6 +17,7 @@ export type {
   FormLibrary,
   FormVersion,
   FormVersionListItem,
+  FormVersionRecord,
   ProjectFormView,
   ReadyFormView,
 };
@@ -54,13 +55,22 @@ export const versionWithEtag = (versionId: string) =>
     envelope: true,
   });
 
-/** Saves the whole draft; `scoring: null` clears the form-level points the draft no longer holds. */
-export const saveDraft = (versionId: string, etag: string, definition: FormDefinition) =>
+/**
+ * Saves the whole draft; `scoring: null` clears the form-level points the draft no longer holds.
+ * `signal` gives the request up, so a connection that hangs does not hold the save for ever.
+ */
+export const saveDraft = (
+  versionId: string,
+  etag: string,
+  definition: FormDefinition,
+  signal?: AbortSignal,
+) =>
   api<FormVersionRecord>(`/form-versions/${versionId}`, {
     method: 'PATCH',
     body: { sections: definition.sections, scoring: definition.scoring ?? null },
     headers: { 'If-Match': etag },
     envelope: true,
+    ...(signal ? { signal } : {}),
   });
 
 export const createForm = (projectId: string, body: FormCreate) =>

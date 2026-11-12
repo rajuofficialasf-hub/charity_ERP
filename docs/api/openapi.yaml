@@ -498,7 +498,7 @@ components:
         params:
           type: object
           additionalProperties: { type: string }
-          description: Only for codes that document them in API_STANDARDS section 8 (beneficiary.identity_taken, beneficiary.merge_conflict, application.answer_not_in_list)
+          description: Only for codes that document them in API_STANDARDS section 8 (beneficiary.identity_taken, beneficiary.merge_conflict, application.answer_not_in_list, form.label_language)
     ErrorResponse:
       type: object
       required: [error]
@@ -3162,7 +3162,7 @@ components:
       properties:
         sections:
           type: array
-          description: The sections of the draft in the FormSection shape; the engine checks them inside the service and names the field of each problem in the 422 details (the body stays open here so the drift test matches the route)
+          description: The sections of the draft in the FormSection shape; the engine checks them inside the service and names the field of each problem in the 422 details (the body stays open here so the drift test matches the route). A text is a `Bilingual` pair of strings, either of which may be empty in a draft
           items: {}
         scoring:
           description: The form-level points of the priority score (D-132), checked inside the service like the sections
@@ -8606,7 +8606,8 @@ paths:
     patch:
       tags: [forms]
       operationId: forms.version.updateDraft
-      summary: Replace sections, fields and options of a draft version
+      summary: Replace sections, fields and options of a draft version; a text may wait for its second language until the publish
+      description: "A draft saves with any text (a part's title, a question's label, help text or placeholder, an option, a number table's row or column, a calculation's text result) empty in one language or in both (BR-245, D-171); references, cycles, keys and limits are checked at every save."
       x-permission: form.build
       x-scope: project
       x-audit: form.draft_changed
@@ -8635,7 +8636,8 @@ paths:
     post:
       tags: [forms]
       operationId: forms.version.publish
-      summary: Publish a draft version; the previous version is retired; mandatory fields enforced (BD-13)
+      summary: Publish a draft version; the previous version is retired; mandatory fields (BD-13) and every text in both languages (BR-245) enforced
+      description: "A text that lacks a language refuses the publish with 422 `validation.failed` and one detail `form.label_language` per text and language: `path` is the question's key (the part's key for a title) and `params` names the text (API_STANDARDS section 8). A text of only spaces is missing; a help text or placeholder empty in both languages is none."
       x-permission: form.publish
       x-scope: project
       x-audit: form.publish

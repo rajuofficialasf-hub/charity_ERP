@@ -262,7 +262,7 @@ describe('publishing', () => {
     ).toBeInTheDocument();
   });
 
-  it('puts a refusal of the publish on the question it names', async () => {
+  it('lists a refusal of the publish with the question it names, and keeps it through the next edit', async () => {
     const user = userEvent.setup();
     api({
       publish: () =>
@@ -289,18 +289,32 @@ describe('publishing', () => {
     await user.click(await screen.findByRole('button', { name: 'প্রকাশ করুন' }));
     const dialog = await screen.findByRole('alertdialog', { name: 'সংস্করণ 2 প্রকাশ করবেন?' });
     await user.click(within(dialog).getByRole('button', { name: 'সংস্করণ প্রকাশ করুন' }));
+    // the list opens with what the server said, and its line leads to the question
+    const list = within(await screen.findByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' }));
+    await user.click(
+      list.getByRole('button', {
+        name: 'অতিরিক্ত প্রশ্ন: শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।',
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'অতিরিক্ত প্রশ্ন বদলান' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     const row = within(await screen.findByRole('list', { name: 'অতিরিক্ত' }));
-    expect(await row.findByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।')).toBeInTheDocument();
+    expect(row.getByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।')).toBeInTheDocument();
     expect(screen.getAllByText('সংস্করণ 2: খসড়া').length).toBeGreaterThan(0);
-    // the next edit makes the old messages stale, so they go
+    // the next edit wipes nothing: only the server can say the problem is gone
     await user.click(screen.getByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
     await user.click(await screen.findByRole('menuitem', { name: 'অতিরিক্ত উপরে নিন' }));
-    await waitFor(() =>
-      expect(
-        screen.queryByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।'),
-      ).not.toBeInTheDocument(),
-    );
-  });
+    await screen.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
+    expect(
+      within(screen.getByRole('list', { name: 'অতিরিক্ত' })).getByText(
+        'শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'প্রকাশের আগে ঠিক করুন (1)' })).toBeInTheDocument();
+  }, 15_000);
 
   it('reads the draft again when the publish finds it changed elsewhere', async () => {
     const user = userEvent.setup();
@@ -324,6 +338,29 @@ describe('publishing', () => {
     expect(await screen.findByText('এই কাজের অনুমতি আপনার নেই।')).toBeInTheDocument();
     expect(screen.queryByText('এই সংস্করণ প্রকাশিত; বদলানো যায় না।')).not.toBeInTheDocument();
   });
+
+  it('says why Publish waits while a change is not saved', async () => {
+    const user = userEvent.setup();
+    api();
+    open();
+    const reason = 'খসড়া সংরক্ষণ হলে তবেই প্রকাশ করা যাবে';
+    const publish = () => screen.getByRole('button', { name: 'প্রকাশ করুন' });
+    await screen.findByRole('button', { name: 'প্রকাশ করুন' });
+    await waitFor(() => expect(publish()).toBeEnabled());
+    expect(screen.queryByTitle(reason)).not.toBeInTheDocument();
+    // a change the server of this file never takes
+    await user.click(screen.getByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'অতিরিক্ত উপরে নিন' }));
+    expect(publish()).toBeDisabled();
+    // the reason on the pointer's way to the button, and in words for a screen reader
+    expect(screen.getByTitle(reason)).toContainElement(publish());
+    expect(within(screen.getByTitle(reason)).getByText(reason)).toBeInTheDocument();
+    // and still so once the save has failed
+    await screen.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
+    expect(patches).toBe(1);
+    expect(publish()).toBeDisabled();
+    expect(screen.getByTitle(reason)).toContainElement(publish());
+  }, 15_000);
 
   it('offers no publish to a role that does not publish forms', async () => {
     const user = userEvent.setup();

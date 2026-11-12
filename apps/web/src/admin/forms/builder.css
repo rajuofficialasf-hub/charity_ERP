@@ -10,6 +10,67 @@
   align-items: center;
   gap: var(--space-2);
 }
+/* the save state: quiet while it saves, in the error tone with its reason when it did not */
+.fb-save {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+.fb-save.is-failed {
+  color: var(--color-status-danger);
+}
+/* the wrap that carries the reason of a Publish button that waits */
+.fb-publish {
+  position: relative;
+  display: inline-flex;
+}
+/* undo and redo beside the save state */
+.fb-history {
+  display: inline-flex;
+  align-items: center;
+}
+/* the list of what to fix before publishing: a line with a place is a button that leads there */
+.fb-fix-group {
+  display: grid;
+  gap: var(--space-2);
+}
+.fb-fix-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fb-fix-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.fb-fix-item:hover {
+  background: var(--color-bg-muted);
+}
+.fb-fix-item:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+.fb-fix-name {
+  font-weight: var(--font-weight-bold);
+}
+.fb-fix-plain {
+  margin: 0;
+  padding: var(--space-1) 0;
+}
 .fb-panes {
   display: grid;
   gap: var(--space-4);
@@ -228,6 +289,17 @@
   background: var(--color-bg-warning-soft);
   color: var(--color-text-primary);
 }
+/* a question with no text yet says so in the muted ink, never as an empty row */
+.fb-q.is-unnamed > .fb-q-main > .fb-q-preview :is(label, legend, strong) {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+/* the words of a button that opens the question types: a plus, then the text */
+.fb-menu-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
 /* above the question's overlay button, so the rows' add button takes the press */
 .fb-q-add-row {
   position: relative;
@@ -419,6 +491,75 @@
   margin: 0;
   padding-left: var(--space-4);
 }
+/* the icon buttons of a row: side by side, as small as the row */
+.fb-row-buttons {
+  display: inline-flex;
+  align-items: center;
+}
+/*
+ * the options of a choice, one row each: both languages side by side under the two column names,
+ * then the row's buttons two by two, so the row stays one line in the narrow pane; the texts
+ * stand under each other only where two of them no longer fit
+ */
+.fb-opt-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fb-opt {
+  min-width: 0;
+}
+.fb-opt-row,
+.fb-opt-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.fb-opt-head {
+  margin-bottom: calc(-1 * var(--space-1));
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+}
+.fb-opt-head > span {
+  flex: 1 1 0;
+  min-width: 0;
+}
+/* as wide as the row's buttons, so the names stand over their columns */
+.fb-opt-head > .fb-opt-head-space {
+  flex: none;
+  width: 56px;
+}
+.fb-opt-texts {
+  flex: 1 1 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: var(--space-1);
+  min-width: 0;
+}
+.fb-opt-actions {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(2, 28px);
+}
+.fb-opt-actions .fb-row-buttons {
+  display: contents;
+}
+/* an option's further settings, under its row */
+.fb-opt-more {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding: var(--space-1) 0 var(--space-1) var(--space-3);
+  border-left: 3px solid var(--color-bg-brand-soft);
+}
+.fb-opt-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
 
 /* the ranges of a number question's points: bounds, points and the remove button on one row */
 .fb-score-ranges {
@@ -444,4 +585,72 @@
   border-left: 3px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   background: var(--color-bg-muted);
+}
+
+/* the number of texts still missing, on the header's translations button */
+.fb-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: var(--space-1);
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-warning-soft);
+  color: var(--color-text-primary);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+/*
+ * the translations: every text of the form in both languages, part by part; a row holds the two
+ * languages side by side, under each other on a narrow screen, and a text of a question (its help
+ * text, an option, a table's row) stands a step in under the question's own
+ */
+.fb-tr-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.fb-tr-count {
+  margin: 0;
+  font-weight: var(--font-weight-bold);
+}
+.fb-tr-part {
+  display: grid;
+  gap: var(--space-2);
+}
+.fb-tr-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fb-tr-row {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.fb-tr-row.is-sub {
+  padding-left: var(--space-4);
+}
+.fb-tr-about {
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+}
+.fb-tr-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (max-width: 599px) {
+  .fb-tr-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fb-tr-row.is-sub {
+    padding-left: var(--space-3);
+  }
 }

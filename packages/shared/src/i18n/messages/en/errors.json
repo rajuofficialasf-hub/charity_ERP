@@ -238,7 +238,7 @@
     "not_draft": "Only a draft version can change or be published.",
     "draft_exists": "This form already has an open draft; publish or change that one.",
     "duplicate_key": "A section or question key is used twice.",
-    "label_language": "Every label needs both its Bangla and its English text.",
+    "label_language": "Write every text in both Bangla and English.",
     "pattern_unknown": "This validation pattern is not one of the named patterns.",
     "unknown_reference": "The rule names a question this form does not have.",
     "repeat_reference": "The rule reaches a list's row question from outside the list.",

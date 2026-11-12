@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { definitionWith, field, option, T, TODAY } from '../../test/forms-fixture.js';
-import { answerTexts, evaluate, pipeKeys, pipeText, type Answer } from './index.js';
+import { answerTexts, evaluate, pipeKeys, pipeText, pipeWithout, type Answer } from './index.js';
 
 // A question's text may repeat an earlier answer: in the reader's language, as plain text, with a
 // fallback while the answer is empty.
@@ -25,6 +25,22 @@ describe('an earlier answer in a question’s text', () => {
       'কতটি গরু পালন করতে চান?',
     );
     expect(pipeText('How many {{q_farm|animals}}?', textsOf([farm], 'en'))).toBe('How many Cow?');
+  });
+
+  it('reads a choice of a draft written in one language by that language', () => {
+    const definition = definitionWith([
+      field('q_farm', 'single_select', {
+        options: [option('cow', { label: { bn: 'গরু', en: '' } })],
+      }),
+      field('q_count', 'number'),
+    ]);
+    const read = answerTexts(
+      definition,
+      [farm],
+      evaluate(definition, [farm], { today: TODAY }),
+      'en',
+    );
+    expect(pipeText('How many {{q_farm|animals}}?', read)).toBe('How many গরু?');
   });
 
   it('reads the fallback, or nothing, while the answer is empty', () => {
@@ -111,5 +127,11 @@ describe('an earlier answer in a question’s text', () => {
 
   it('lists the keys a text names', () => {
     expect(pipeKeys('{{a}} and {{b|x}}, not {c} or {{Bad}}')).toEqual(['a', 'b']);
+  });
+
+  it('takes the tokens of the named keys out of a text and leaves the rest as written', () => {
+    const gone = (key: string) => key === 'a';
+    expect(pipeWithout('{{a}} and {{b|x}}, then {{a|none}}.', gone)).toBe(' and {{b|x}}, then .');
+    expect(pipeWithout('{{b}} {a} {{Bad}} {{a_b}}', gone)).toBe('{{b}} {a} {{Bad}} {{a_b}}');
   });
 });

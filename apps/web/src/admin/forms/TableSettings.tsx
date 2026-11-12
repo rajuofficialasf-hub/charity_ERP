@@ -2,6 +2,7 @@ import { type NumberTable, TABLE_CELLS_MAX } from '@css/shared/forms';
 import { Button, Stack, Text, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { RowButtons } from './RowButtons';
+import { TYPED, type Typed } from './use-draft-history';
 
 type Line = NumberTable['rows'][number];
 
@@ -15,13 +16,14 @@ export function TableSettings({
   onChange,
 }: {
   table: NumberTable;
-  onChange: (table: NumberTable) => void;
+  /** `how` says a text was typed, so the history joins it to the typing just before it. */
+  onChange: (table: NumberTable, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const list = (which: 'rows' | 'cols') => {
     const lines = table[which];
     const prefix = which === 'rows' ? 'r' : 'c';
-    const set = (next: Line[]) => onChange({ ...table, [which]: next });
+    const set = (next: Line[], how?: Typed) => onChange({ ...table, [which]: next }, how);
     // one line more must stay within the cells a table may hold
     const full =
       (table.rows.length + (which === 'rows' ? 1 : 0)) *
@@ -49,7 +51,10 @@ export function TableSettings({
                     label={t('table_label_bn', { name })}
                     value={line.label.bn}
                     onChange={(bn) =>
-                      set(lines.map((l, j) => (j === i ? { ...l, label: { ...l.label, bn } } : l)))
+                      set(
+                        lines.map((l, j) => (j === i ? { ...l, label: { ...l.label, bn } } : l)),
+                        TYPED,
+                      )
                     }
                   />
                   <TextField
@@ -57,7 +62,10 @@ export function TableSettings({
                     lang="en"
                     value={line.label.en}
                     onChange={(en) =>
-                      set(lines.map((l, j) => (j === i ? { ...l, label: { ...l.label, en } } : l)))
+                      set(
+                        lines.map((l, j) => (j === i ? { ...l, label: { ...l.label, en } } : l)),
+                        TYPED,
+                      )
                     }
                   />
                   {lines.length > 1 ? (

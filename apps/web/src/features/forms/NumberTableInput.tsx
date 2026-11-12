@@ -1,5 +1,6 @@
 import type { AnswerValue } from '@css/shared';
 import type { FormField } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { Alert, Grid, Stack, Text, TextField } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { QuestionTitle } from './QuestionTitle';
@@ -68,13 +69,16 @@ export function NumberTableInput({
         {help ? <Text tone="muted">{help}</Text> : null}
         {rows.map((row) => (
           <Stack key={row.key} gap={1}>
-            <Text>{row.label[locale]}</Text>
+            <Text>{localized(row.label, locale)}</Text>
             <Grid columns={{ base: 1, sm: columns }} gap={2}>
               {cols.map((col) => (
                 <TextField
                   key={col.key}
                   type="integer"
-                  label={t('table_cell', { row: row.label[locale], col: col.label[locale] })}
+                  label={t('table_cell', {
+                    row: localized(row.label, locale),
+                    col: localized(col.label, locale),
+                  })}
                   name={`${name}-${row.key}-${col.key}`}
                   value={read(row.key, col.key)}
                   locked={locked}

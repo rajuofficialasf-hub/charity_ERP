@@ -33,7 +33,9 @@ import { MAX_SCORE, maxScoreOf, scoreKindOf } from './score.js';
  * A form version definition in the shape the API answers and the draft update sends: sections,
  * each with fields, each with options. The engine, the builder and the phone all run on this one
  * shape. Parsing refuses what the schema cannot express; `checkDefinition` refuses what it can
- * (a missing core field, a dangling reference, a cycle), each with a stable code.
+ * (a missing core field, a dangling reference, a cycle), each with a stable code. A draft may wait
+ * for some things a published form must have: a text in its second language, a calculation's rule,
+ * the identity questions (docs/BUSINESS_RULES.md, the rule on bilingual configuration texts).
  */
 
 /** How large a definition may grow: a builder never needs more, and a request body stays bounded. */
@@ -44,12 +46,37 @@ export const DEFINITION_LIMITS = {
   membersPerGroup: 50,
 } as const;
 
-/** A user-facing text of a form: both languages, neither empty. */
+/**
+ * A user-facing text of a form in both languages, trimmed. Either may be empty while the form is
+ * a draft; `checkDefinition` asks for both when the form is published.
+ */
 const label = (max: number) =>
   z.strictObject({
-    bn: z.string({ error: 'form.label_language' }).trim().min(1, 'form.label_language').max(max),
-    en: z.string({ error: 'form.label_language' }).trim().min(1, 'form.label_language').max(max),
+    bn: z.string({ error: 'form.label_language' }).trim().max(max),
+    en: z.string({ error: 'form.label_language' }).trim().max(max),
   });
+/** A text of a form as the schema reads it. */
+type FormText = z.infer<ReturnType<typeof label>>;
+
+/** The languages every text of a form is written in. */
+const TEXT_LANGUAGES = ['bn', 'en'] as const;
+
+/**
+ * The kinds of text a form holds, as a missing-language issue names them in `params.text`: a
+ * part's title, a question's label, help text and placeholder, an option, a number table's row and
+ * column, a calculation's text result.
+ */
+export const FORM_TEXT_KINDS = [
+  'title',
+  'label',
+  'help',
+  'placeholder',
+  'option',
+  'table_row',
+  'table_col',
+  'result',
+] as const;
+export type FormTextKind = (typeof FORM_TEXT_KINDS)[number];
 
 export const fieldOptionSchema = z.strictObject({
   code: code64,
@@ -396,8 +423,8 @@ export function checkDefinition(
   definition: FormDefinition,
   options: {
     /**
-     * At publish: a calculated question must have its rule by then, and an application form its
-     * identity questions (a draft may wait for both).
+     * At publish: every text is written in both languages by then, a calculated question has its
+     * rule, and an application form its identity questions (a draft may wait for all three).
      */
     publishing?: boolean;
     /** What the form is for; the identity roles apply to a beneficiary application only. */
@@ -438,6 +465,71 @@ export function checkDefinition(
       });
     });
   });
+
+  // at publish every text is written in both languages, one issue per text and language; a text
+  // of only spaces is missing, and a help text or a placeholder empty in both languages is none
+  if (options.publishing) {
+    const textIssues = (
+      text: FormText | undefined,
+      path: (string | number)[],
+      kind: FormTextKind,
+      params: Record<string, string>,
+      optional = false,
+    ) => {
+      if (text === undefined) return;
+      const missing = TEXT_LANGUAGES.filter(
+        (language) => (language === 'bn' ? text.bn : text.en).trim() === '',
+      );
+      if (optional && missing.length === TEXT_LANGUAGES.length) return;
+      for (const language of missing)
+        issues.push({
+          code: 'form.label_language',
+          path: [...path, language],
+          params: { ...params, text: kind, language },
+        });
+    };
+    definition.sections.forEach((section, si) => {
+      textIssues(section.title, ['sections', si, 'title'], 'title', { section: section.key });
+      section.fields.forEach((field, fi) => {
+        const at = ['sections', si, 'fields', fi];
+        const who = { fieldKey: field.fieldKey };
+        const settings = field.settings;
+        textIssues(field.label, [...at, 'label'], 'label', who);
+        textIssues(settings?.help, [...at, 'settings', 'help'], 'help', who, true);
+        textIssues(
+          settings?.placeholder,
+          [...at, 'settings', 'placeholder'],
+          'placeholder',
+          who,
+          true,
+        );
+        (field.options ?? []).forEach((option, oi) =>
+          textIssues(option.label, [...at, 'options', oi, 'label'], 'option', {
+            ...who,
+            option: option.code,
+          }),
+        );
+        (settings?.table?.rows ?? []).forEach((row, ri) =>
+          textIssues(row.label, [...at, 'settings', 'table', 'rows', ri, 'label'], 'table_row', {
+            ...who,
+            row: row.key,
+          }),
+        );
+        (settings?.table?.cols ?? []).forEach((col, ci) =>
+          textIssues(col.label, [...at, 'settings', 'table', 'cols', ci, 'label'], 'table_col', {
+            ...who,
+            col: col.key,
+          }),
+        );
+        (settings?.results ?? []).forEach((result, ri) =>
+          textIssues(result.label, [...at, 'settings', 'results', ri, 'label'], 'result', {
+            ...who,
+            result: result.code,
+          }),
+        );
+      });
+    });
+  }
 
   // a reference from `from` to the field `key`: it must exist, a field inside a repeat group is
   // only reachable from inside the same group, and what a volunteer or a public visitor sees never
@@ -959,8 +1051,8 @@ const definitionSchema = (publishing: boolean, kind?: FormKind): z.ZodType<FormD
 /** The full definition schema of a draft: the shape, then every check of `checkDefinition`. */
 export const formDefinitionSchema: z.ZodType<FormDefinition> = definitionSchema(false);
 /**
- * The same at publish, where a calculated question must have its rule and an application form its
- * identity questions.
+ * The same at publish, where every text must be written in both languages, a calculated question
+ * must have its rule and an application form its identity questions.
  */
 export const publishDefinitionSchema = (kind: FormKind): z.ZodType<FormDefinition> =>
   definitionSchema(true, kind);

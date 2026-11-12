@@ -1,6 +1,6 @@
 import type { FormDefinition, FormField } from '@css/shared/forms';
 import { expectNoAxeViolations } from '@/ui/testing';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { FormBuilderPage } from './FormBuilderPage';
 import { FormsPage } from './FormsPage';
+import { LEAVE_ASK_AFTER_MS, SAVE_DELAY_MS, SAVE_RETRY_EVERY_MS } from './use-draft-save';
 import { stubMatchMedia } from '../../../test/match-media';
 
 // The form builder: the libraries on one side, the outline in the middle, the draft saved by
@@ -211,12 +212,22 @@ const open = (locale: 'bn' | 'en' = 'bn') =>
     initialPath: `/admin/projects/${PROJECT}/forms/${FORM}`,
   });
 
+/** What the page asked to bring into view (jsdom has no scrolling of its own). */
+let scrolled: Element[];
 beforeEach(() => {
   // each test signs in afresh, so a role set by one never carries into the next
   resetClientForTests();
   refreshAs({ ...ME, roles: ['monitoring_team'] });
+  scrolled = [];
+  Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
+    scrolled.push(this);
+  };
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+  Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+});
 
 /** The canvas's list of a section's questions. */
 const outlineOf = async (title: string) => within(await screen.findByRole('list', { name: title }));
@@ -232,16 +243,76 @@ const openGroup = async (user: ReturnType<typeof userEvent.setup>, title: string
   const heading = await screen.findByRole('button', { name: new RegExp(`^${title}`) });
   if (heading.getAttribute('aria-expanded') === 'false') await user.click(heading);
 };
-/** Picks an option of a select of the set, found by its label. */
-async function choose(
-  user: ReturnType<typeof userEvent.setup>,
-  label: RegExp,
-  optionName: string | RegExp,
-  scope: ReturnType<typeof within> | typeof screen = screen,
-) {
-  await user.click(scope.getByRole('combobox', { name: label }));
-  await user.click(await screen.findByRole('option', { name: optionName }));
-}
+/**
+ * The waits of the save on a clock the test moves by hand. The library's own waiting helpers
+ * lean on the same clock, so with it the screen is given its turns here, and presses are plain
+ * events.
+ */
+const byHand = {
+  start: () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }),
+  /** Lets the network and the screen settle; the clock does not move. */
+  settle: async (turns = 20) => {
+    for (let turn = 0; turn < turns; turn += 1)
+      await act(async () => {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      });
+  },
+  /** Settles until the search finds what it looks for. */
+  found: async <T,>(find: () => T): Promise<T> => {
+    for (let turn = 0; turn < 300; turn += 1) {
+      try {
+        return find();
+      } catch {
+        await byHand.settle(1);
+      }
+    }
+    return find();
+  },
+  /** Moves the clock on, then lets what it started settle. */
+  pass: async (ms: number) => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+    await byHand.settle();
+  },
+  /** Adds a library section whole, as `addSection` does. */
+  addSection: async (title: string) => {
+    fireEvent.click(screen.getByRole('tab', { name: 'লাইব্রেরি' }));
+    const group = await byHand.found(() =>
+      screen.getByRole('button', { name: new RegExp(`^${title}`) }),
+    );
+    if (group.getAttribute('aria-expanded') === 'false') fireEvent.click(group);
+    fireEvent.click(
+      await byHand.found(() =>
+        screen.getByRole('button', { name: `${title}: পুরো অংশটি যোগ করুন` }),
+      ),
+    );
+  },
+};
+/** The undo and redo buttons of the form head. */
+const undoButton = () =>
+  within(screen.getByTestId('form-head')).getByRole('button', { name: 'ফিরিয়ে আনুন' });
+const redoButton = () =>
+  within(screen.getByTestId('form-head')).getByRole('button', { name: 'আবার করুন' });
+/** A form with one question of its own, "মন্তব্য", in a part after the identity ones. */
+const withNote = (): FormDefinition['sections'] => [
+  ...titled({ sections: coreSections() }).sections,
+  section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })], {
+    title: T('অতিরিক্ত', 'Extra'),
+  }),
+];
+/** The key every new and every copied question takes: random, never a word of its text. */
+const RANDOM_KEY = /^q_[a-z0-9]{6}$/;
+/** The questions of a part in the last saved draft. */
+const savedFields = (sectionKey: string) =>
+  saves.at(-1)?.body.sections.find((s) => s.key === sectionKey)?.fields ?? [];
+/** The Bengali text of the chosen question or part, in the settings pane. */
+const bnText = () => screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
+/** The names of the questions of a part, in the order of the canvas. */
+const questionsOf = async (title: string) =>
+  (await outlineOf(title))
+    .getAllByRole('button', { name: / বদলান$/ })
+    .map((b) => b.getAttribute('aria-label'));
 /** The field of the last saved draft. */
 const savedField = (key: string) =>
   saves
@@ -268,6 +339,9 @@ describe('the outline and the libraries', () => {
       'family_income',
     ]);
     expect(await screen.findByText('সংরক্ষিত')).toBeInTheDocument();
+    // saved, the draft may be published: the button waits for nothing
+    expect(screen.getByRole('button', { name: 'প্রকাশ করুন' })).toBeEnabled();
+    expect(screen.queryByTitle('খসড়া সংরক্ষণ হলে তবেই প্রকাশ করা যাবে')).not.toBeInTheDocument();
   }, 15_000);
 
   it('moves a question down and back up with the keyboard, and saves the order', async () => {
@@ -316,16 +390,9 @@ describe('the outline and the libraries', () => {
     expect(within(name).getByRole('button', { name: 'name সরান' })).toBeInTheDocument();
   });
 
-  it('removes a chosen question and brings it back with one press', async () => {
+  it('removes a chosen question, says how it comes back, and undoes the removal from the form head', async () => {
     const user = userEvent.setup();
-    api({
-      sections: [
-        ...titled({ sections: coreSections() }).sections,
-        section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })], {
-          title: T('অতিরিক্ত', 'Extra'),
-        }),
-      ],
-    });
+    api({ sections: withNote() });
     open();
     await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
     await user.click(screen.getByRole('button', { name: 'মন্তব্য সরান' }));
@@ -335,8 +402,15 @@ describe('the outline and the libraries', () => {
     expect(
       screen.getByText('এই অংশে এখনো কোনো প্রশ্ন নেই। বাঁ দিক থেকে প্রশ্ন যোগ করুন।'),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'ফেরত আনুন' }));
-    expect(await screen.findByRole('button', { name: 'মন্তব্য বদলান' })).toBeInTheDocument();
+    const notice = '“মন্তব্য” সরানো হয়েছে। ফিরিয়ে আনতে উপরের “ফিরিয়ে আনুন” বোতামে চাপুন।';
+    expect(screen.getByText(notice)).toBeInTheDocument();
+    await user.click(undoButton());
+    // back in its place, and chosen as it was when it was removed
+    expect(await screen.findByRole('button', { name: 'মন্তব্য বদলান' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByText(notice)).not.toBeInTheDocument();
     await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
     expect(saves.at(-1)!.body.sections.find((s) => s.key === 'extra')!.fields).toHaveLength(1);
   }, 15_000);
@@ -358,11 +432,10 @@ describe('the outline and the libraries', () => {
     expect(list.getAllByRole('listitem')).toHaveLength(2);
     expect(list.getByRole('button', { name: 'মন্তব্য (কপি) বদলান' })).toBeInTheDocument();
     await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
-    const keys = saves
-      .at(-1)!
-      .body.sections.find((s) => s.key === 'extra')!
-      .fields.map((f) => f.fieldKey);
-    expect(keys).toEqual(['q_note', 'q_note_copy']);
+    const keys = savedFields('extra').map((f) => f.fieldKey);
+    // the copy's key is its own, and no word of the copied question's key or text
+    expect(keys).toEqual(['q_note', expect.stringMatching(RANDOM_KEY)]);
+    expect(keys[1]).not.toContain('note');
   }, 15_000);
 
   it('finds a library field by its label', async () => {
@@ -415,7 +488,7 @@ describe('the outline and the libraries', () => {
     expect(items[2]).toHaveTextContent('হিসাবের নিয়ম দিন');
   });
 
-  it("takes a question into a group's rows from the group's own button", async () => {
+  it("takes a question into a group's rows from the types the group's own button opens", async () => {
     const user = userEvent.setup();
     api({
       sections: [
@@ -429,42 +502,265 @@ describe('the outline and the libraries', () => {
     });
     open();
     await user.click(await screen.findByRole('button', { name: 'সারিতে প্রশ্ন যোগ করুন' }));
-    await user.click(screen.getByRole('button', { name: 'সংখ্যা প্রশ্ন যোগ করুন' }));
-    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
-    expect(within(dialog).getByRole('combobox', { name: /কোন তালিকার সারিতে/ })).toHaveTextContent(
-      'পরিবারের সদস্যরা',
+    const menu = within(await screen.findByRole('menu', { name: 'সারিতে প্রশ্ন যোগ করুন' }));
+    // a list holds no list and no number table, so the rows are offered neither
+    expect(menu.queryByRole('menuitem', { name: 'কয়েকজনের তালিকা' })).not.toBeInTheDocument();
+    expect(menu.queryByRole('menuitem', { name: 'সংখ্যার ছক' })).not.toBeInTheDocument();
+    await user.click(menu.getByRole('menuitem', { name: 'সংখ্যা' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    const rows = within(
+      await screen.findByRole('list', { name: 'পরিবারের সদস্যরা: প্রতিটি সারির প্রশ্ন' }),
     );
-    await user.type(within(dialog).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'বয়স');
-    await user.type(within(dialog).getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }), 'Age');
-    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
-    expect(
-      within(
-        await screen.findByRole('list', { name: 'পরিবারের সদস্যরা: প্রতিটি সারির প্রশ্ন' }),
-      ).getByRole('button', { name: 'বয়স বদলান' }),
-    ).toBeInTheDocument();
-    await waitFor(() => expect(savedField('q_age')).toBeDefined(), { timeout: 4000 });
-    expect(savedField('q_age')!.settings).toEqual({ repeat: { group: 'members' } });
-  }, 15_000);
+    expect(rows.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    await user.type(bnText(), 'বয়স');
+    expect(await rows.findByRole('button', { name: 'বয়স বদলান' })).toBeInTheDocument();
+    await waitFor(() => expect(savedFields('family')[1]?.label.bn).toBe('বয়স'), {
+      timeout: 4000,
+    });
+    expect(savedFields('family')[1]).toMatchObject({
+      fieldKey: expect.stringMatching(RANDOM_KEY),
+      type: 'number',
+      settings: { repeat: { group: 'members' } },
+    });
+    // with the row question chosen, a type from the left goes into the rows right after it
+    await user.click(screen.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
+    await waitFor(() =>
+      expect(
+        rows.getAllByRole('button', { name: / বদলান$/ }).map((b) => b.getAttribute('aria-label')),
+      ).toEqual(['বয়স বদলান', 'নাম ছাড়া প্রশ্ন বদলান']),
+    );
+  }, 20_000);
 
-  it('forgets the removal once another change follows, so an undo never drops that change', async () => {
+  it('undoes a removal and an added part one by one until the form is as it was, and redoes them', async () => {
+    const user = userEvent.setup();
+    const start = withNote();
+    api({ sections: start });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য সরান' }));
+    expect(await screen.findByText(/^“মন্তব্য” সরানো হয়েছে।/)).toBeInTheDocument();
+    await addSection(user, 'পরিবার ও আয়');
+    expect(await screen.findByRole('list', { name: 'পরিবার ও আয়' })).toBeInTheDocument();
+    // the notice of the removal leaves with the next change; the way back stays
+    expect(screen.queryByText(/^“মন্তব্য” সরানো হয়েছে।/)).not.toBeInTheDocument();
+    await user.click(undoButton());
+    await waitFor(() =>
+      expect(screen.queryByRole('list', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: 'মন্তব্য বদলান' })).not.toBeInTheDocument();
+    await user.click(undoButton());
+    expect(await screen.findByRole('button', { name: 'মন্তব্য বদলান' })).toBeInTheDocument();
+    expect(undoButton()).toBeDisabled();
+    await waitFor(() => expect(saves.at(-1)?.body.sections).toEqual(start), { timeout: 4000 });
+    // and forward again, the same two steps
+    await user.click(redoButton());
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'মন্তব্য বদলান' })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('list', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument();
+    await user.click(redoButton());
+    expect(await screen.findByRole('list', { name: 'পরিবার ও আয়' })).toBeInTheDocument();
+    expect(redoButton()).toBeDisabled();
+    await waitFor(
+      () =>
+        expect(saves.at(-1)?.body.sections.map((s) => [s.key, s.fields.length])).toEqual([
+          ['basic_info', start[0]!.fields.length],
+          ['address', start[1]!.fields.length],
+          ['extra', 0],
+          ['family_income', 2],
+        ]),
+      { timeout: 4000 },
+    );
+  }, 30_000);
+
+  it('has nothing to undo or redo when the form opens', async () => {
+    api();
+    open();
+    await outlineOf('মৌলিক তথ্য');
+    expect(undoButton()).toBeDisabled();
+    expect(redoButton()).toBeDisabled();
+  });
+
+  it('keeps the steps when the saved draft comes back, and saves the undone draft on its version', async () => {
+    const user = userEvent.setup();
+    api();
+    open();
+    await addSection(user, 'পরিবার ও আয়');
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    await screen.findByText('সংরক্ষিত');
+    // the save is one change, not a second step
+    await user.click(undoButton());
+    await waitFor(() =>
+      expect(screen.queryByRole('list', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument(),
+    );
+    expect(undoButton()).toBeDisabled();
+    expect(redoButton()).toBeEnabled();
+    await waitFor(() => expect(saves).toHaveLength(2), { timeout: 4000 });
+    expect(saves[1]!.ifMatch).toBe('"v2"');
+    expect(saves[1]!.body.sections.map((s) => s.key)).toEqual(['basic_info', 'address']);
+  }, 20_000);
+
+  it('undoes and redoes by the keyboard from the canvas, and leaves a text field its own undo', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য কপি করুন' }));
+    const copyButton = () => screen.queryByRole('button', { name: 'মন্তব্য (কপি) বদলান' });
+    await waitFor(() => expect(copyButton()).toBeInTheDocument());
+    // the focus on a question of the canvas
+    copyButton()!.focus();
+    await user.keyboard('{Control>}z{/Control}');
+    await waitFor(() => expect(copyButton()).not.toBeInTheDocument());
+    await user.keyboard('{Control>}y{/Control}');
+    await waitFor(() => expect(copyButton()).toBeInTheDocument());
+    await user.keyboard('{Control>}z{/Control}');
+    await waitFor(() => expect(copyButton()).not.toBeInTheDocument());
+    await user.keyboard('{Control>}{Shift>}z{/Shift}{/Control}');
+    await waitFor(() => expect(copyButton()).toBeInTheDocument());
+    // in a text field the keys are the field's own: the draft's steps stay as they are
+    const label = screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
+    await user.click(label);
+    await user.keyboard('{Control>}z{/Control}');
+    await user.keyboard('{Control>}y{/Control}');
+    expect(copyButton()).toBeInTheDocument();
+    expect(undoButton()).toBeEnabled();
+    expect(redoButton()).toBeDisabled();
+  }, 20_000);
+
+  it('keeps two quick moves of a question as two steps to undo', async () => {
     const user = userEvent.setup();
     api({
       sections: [
         ...titled({ sections: coreSections() }).sections,
-        section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })], {
-          title: T('অতিরিক্ত', 'Extra'),
-        }),
+        section(
+          'family_income',
+          [
+            field('a', 'number', { label: T('প্রথম') }),
+            field('b', 'number', { label: T('দ্বিতীয়') }),
+            field('c', 'number', { label: T('তৃতীয়') }),
+          ],
+          { title: T('পরিবার ও আয়', 'Family and income') },
+        ),
       ],
     });
     open();
+    await user.click(await screen.findByRole('button', { name: 'প্রথম বদলান' }));
+    const list = await outlineOf('পরিবার ও আয়');
+    const order = () => list.getAllByRole('listitem').map((li) => li.textContent);
+    const is = (...labels: string[]) => labels.map((label) => expect.stringContaining(label));
+    // two clicks one after the other, well within a second
+    await user.click(screen.getByRole('button', { name: 'প্রথম নিচে নিন' }));
+    await user.click(screen.getByRole('button', { name: 'প্রথম নিচে নিন' }));
+    expect(order()).toEqual(is('দ্বিতীয়', 'তৃতীয়', 'প্রথম'));
+    await user.click(undoButton());
+    expect(order()).toEqual(is('দ্বিতীয়', 'প্রথম', 'তৃতীয়'));
+    await user.click(undoButton());
+    expect(order()).toEqual(is('প্রথম', 'দ্বিতীয়', 'তৃতীয়'));
+    expect(undoButton()).toBeDisabled();
+  }, 20_000);
+
+  it('keeps a switch and the typing right after it as steps of their own, and the typing as one', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
     await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
-    await user.click(screen.getByRole('button', { name: 'মন্তব্য সরান' }));
-    expect(await screen.findByRole('button', { name: 'ফেরত আনুন' })).toBeInTheDocument();
-    await addSection(user, 'পরিবার ও আয়');
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'ফেরত আনুন' })).not.toBeInTheDocument(),
+    const required = screen.getByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' });
+    await user.click(required);
+    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' দিন');
+    expect(await screen.findByRole('button', { name: 'মন্তব্য দিন বদলান' })).toBeInTheDocument();
+    // the four letters typed are one step back
+    await user.click(undoButton());
+    expect(await screen.findByRole('button', { name: 'মন্তব্য বদলান' })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' })).toBeChecked();
+    // and the switch another
+    await user.click(undoButton());
+    expect(screen.getByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' })).not.toBeChecked();
+    expect(undoButton()).toBeDisabled();
+  }, 20_000);
+
+  it('leaves the right pane on the form tab when a change is undone', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য কপি করুন' }));
+    await screen.findByRole('button', { name: 'মন্তব্য (কপি) বদলান' });
+    await user.click(screen.getByRole('tab', { name: 'ফর্মের সেটিং' }));
+    expect(screen.getByRole('tab', { name: 'ফর্মের সেটিং' })).toHaveAttribute(
+      'aria-selected',
+      'true',
     );
-  }, 15_000);
+    await user.click(undoButton());
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'মন্তব্য (কপি) বদলান' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('tab', { name: 'ফর্মের সেটিং' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await user.click(redoButton());
+    await screen.findByRole('button', { name: 'মন্তব্য (কপি) বদলান' });
+    expect(screen.getByRole('tab', { name: 'ফর্মের সেটিং' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    // the question chosen at that step is chosen again, under the tab that was left alone
+    await user.click(screen.getByRole('tab', { name: 'প্রশ্নের সেটিং' }));
+    expect(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('মন্তব্য (কপি)');
+  }, 20_000);
+
+  it('undoes by the keyboard from a switch, and not while a dialog is open', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    const required = () => screen.getByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' });
+    await user.click(required());
+    expect(required()).toBeChecked();
+    // a switch holds no text of its own: the keys are the draft's
+    required().focus();
+    await user.keyboard('{Control>}z{/Control}');
+    expect(required()).not.toBeChecked();
+    await user.keyboard('{Control>}y{/Control}');
+    expect(required()).toBeChecked();
+    // a dialog over the page: the focus on one of its buttons
+    await user.click(screen.getByRole('button', { name: 'স্কোর' }));
+    const dialog = await screen.findByRole('dialog', { name: 'অগ্রাধিকার স্কোর' });
+    within(dialog).getByRole('button', { name: 'ঠিক আছে' }).focus();
+    await user.keyboard('{Control>}z{/Control}');
+    // and on the page's body, as after a click on the dialog's text
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+    await user.keyboard('{Control>}z{/Control}');
+    await user.click(within(dialog).getByRole('button', { name: 'ঠিক আছে' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(required()).toBeChecked();
+    expect(redoButton()).toBeDisabled();
+  }, 20_000);
+
+  it('leaves the undo keys alone while a question is being moved by its handle', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য কপি করুন' }));
+    const copyButton = () => screen.queryByRole('button', { name: 'মন্তব্য (কপি) বদলান' });
+    await waitFor(() => expect(copyButton()).toBeInTheDocument());
+    // picked up with the keyboard, the question is on its way
+    screen.getByRole('button', { name: 'মন্তব্য টেনে সরান' }).focus();
+    await user.keyboard('[Space]');
+    await user.keyboard('{Control>}z{/Control}');
+    expect(copyButton()).toBeInTheDocument();
+    // put down where it was, the keys are the draft's again
+    await user.keyboard('[Escape]');
+    await user.keyboard('{Control>}z{/Control}');
+    await waitFor(() => expect(copyButton()).not.toBeInTheDocument());
+  }, 20_000);
 
   it('adds one library question to the chosen section and marks it as in the form', async () => {
     const user = userEvent.setup();
@@ -478,6 +774,256 @@ describe('the outline and the libraries', () => {
     const basic = await outlineOf('মৌলিক তথ্য');
     expect(basic.getByRole('button', { name: 'দৈনিক আয় বদলান' })).toBeInTheDocument();
   });
+});
+
+describe('deleting', () => {
+  const removedNotice = (label: string) =>
+    `“${label}” সরানো হয়েছে। ফিরিয়ে আনতে উপরের “ফিরিয়ে আনুন” বোতামে চাপুন।`;
+  const yes = (key: string) => ({ field: key, op: 'eq' as const, value: 'yes' });
+  /**
+   * "গরু আছে?" decides whether "গরুর সংখ্যা" shows and whether the part "আরও" shows; "মোট" in
+   * that part adds "গরুর সংখ্যা" up; "মন্তব্য" is read by nothing.
+   */
+  const withUses = (): FormDefinition['sections'] => [
+    ...titled({ sections: coreSections() }).sections,
+    section(
+      'extra',
+      [
+        field('has_cow', 'radio', {
+          label: T('গরু আছে?', 'Has a cow?'),
+          options: [option('yes'), option('no')],
+        }),
+        field('cows', 'number', {
+          label: T('গরুর সংখ্যা', 'Number of cows'),
+          logic: { show_if: yes('has_cow') },
+        }),
+        field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') }),
+      ],
+      { title: T('অতিরিক্ত', 'Extra') },
+    ),
+    section(
+      'more',
+      [
+        field('total', 'calculation', {
+          label: T('মোট', 'Total'),
+          calculation: { expr: { op: 'add', args: [{ field: 'cows' }, 1] } },
+        }),
+      ],
+      { title: T('আরও', 'More'), condition: yes('has_cow') },
+    ),
+  ];
+  const savedSection = (key: string) => saves.at(-1)?.body.sections.find((s) => s.key === key);
+
+  it('brings a removed part back with its questions by the undo of the form head, as a step of its own', async () => {
+    const user = userEvent.setup();
+    const start = withNote();
+    api({ sections: start });
+    open();
+    // moved up first: the removal right after it is still a step of its own
+    await user.click(await screen.findByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'অতিরিক্ত উপরে নিন' }));
+    await user.click(await screen.findByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'অতিরিক্ত সরান' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('list', { name: 'অতিরিক্ত' })).not.toBeInTheDocument(),
+    );
+    // nothing else reads its question, so nothing is asked
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText(removedNotice('অতিরিক্ত'))).toBeInTheDocument();
+    await user.click(undoButton());
+    const back = await outlineOf('অতিরিক্ত');
+    expect(back.getByRole('button', { name: 'মন্তব্য বদলান' })).toBeInTheDocument();
+    expect(screen.queryByText(removedNotice('অতিরিক্ত'))).not.toBeInTheDocument();
+    // one step back: the part is where the move left it, with its question, and that is saved
+    await waitFor(
+      () =>
+        expect(saves.at(-1)?.body.sections.map((s) => s.key)).toEqual([
+          'basic_info',
+          'extra',
+          'address',
+        ]),
+      { timeout: 4000 },
+    );
+    expect(savedSection('extra')).toEqual(start[2]);
+    expect(undoButton()).toBeEnabled();
+  }, 20_000);
+
+  it('copies and removes a row question of a list from its own bar, and the list stays', async () => {
+    const user = userEvent.setup();
+    const inGroup = { settings: { repeat: { group: 'members' } } };
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section(
+          'family',
+          [
+            field('members', 'repeat_group', { label: T('পরিবারের সদস্যরা', 'Family members') }),
+            field('m_name', 'short_text', { label: T('সদস্যের নাম', 'Member name'), ...inGroup }),
+            field('m_age', 'number', { label: T('বয়স', 'Age'), ...inGroup }),
+          ],
+          { title: T('পরিবার', 'Family') },
+        ),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'সদস্যের নাম বদলান' }));
+    const bar = within(screen.getByRole('group', { name: 'সদস্যের নাম: কাজ' }));
+    expect(bar.getByRole('button', { name: 'সদস্যের নাম সরান' })).toBeInTheDocument();
+    await user.click(bar.getByRole('button', { name: 'সদস্যের নাম কপি করুন' }));
+    const rows = () =>
+      within(screen.getByRole('list', { name: 'পরিবারের সদস্যরা: প্রতিটি সারির প্রশ্ন' }))
+        .getAllByRole('button', { name: / বদলান$/ })
+        .map((b) => b.getAttribute('aria-label'));
+    // the copy stands right after it inside the list, and is the chosen one
+    await waitFor(() =>
+      expect(rows()).toEqual(['সদস্যের নাম বদলান', 'সদস্যের নাম (কপি) বদলান', 'বয়স বদলান']),
+    );
+    expect(screen.getByRole('button', { name: 'সদস্যের নাম (কপি) বদলান' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await user.click(screen.getByRole('button', { name: 'সদস্যের নাম বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'সদস্যের নাম সরান' }));
+    await waitFor(() => expect(rows()).toEqual(['সদস্যের নাম (কপি) বদলান', 'বয়স বদলান']));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText(removedNotice('সদস্যের নাম'))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'পরিবারের সদস্যরা বদলান' })).toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(savedSection('family')?.fields.map((f) => f.fieldKey)).toEqual([
+          'members',
+          expect.stringMatching(RANDOM_KEY),
+          'm_age',
+        ]),
+      { timeout: 4000 },
+    );
+    expect(savedSection('family')!.fields[1]!.settings).toEqual(inGroup.settings);
+    // the removal is one step back
+    await user.click(undoButton());
+    await waitFor(() =>
+      expect(rows()).toEqual(['সদস্যের নাম বদলান', 'সদস্যের নাম (কপি) বদলান', 'বয়স বদলান']),
+    );
+  }, 30_000);
+
+  it('names where a question is used before removing it, and removes the uses with it in one step', async () => {
+    const user = userEvent.setup();
+    const start = withUses();
+    api({ sections: start });
+    const view = open();
+    await user.click(await screen.findByRole('button', { name: 'গরু আছে? বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'গরু আছে? সরান' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'এই প্রশ্নটি অন্য জায়গায় ব্যবহার হচ্ছে',
+    });
+    const uses = within(within(dialog).getByRole('list', { name: 'যেখানে ব্যবহার হচ্ছে' }));
+    expect(uses.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      '“গরুর সংখ্যা” প্রশ্নের “কখন দেখাবে” শর্তে',
+      '“আরও” অংশের “অংশটি কখন দেখাবে” শর্তে',
+    ]);
+    await expectNoAxeViolations(view.container);
+    // cancelled: nothing changed
+    await user.click(within(dialog).getByRole('button', { name: 'বাতিল' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'গরু আছে? বদলান' })).toBeInTheDocument();
+    expect(undoButton()).toBeDisabled();
+    expect(saves).toHaveLength(0);
+    // confirmed: the question goes, and so do the condition of the question and of the part
+    await user.click(screen.getByRole('button', { name: 'গরু আছে? সরান' }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: 'প্রশ্ন ও এই ব্যবহারগুলো সরান',
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'গরু আছে? বদলান' })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText(removedNotice('গরু আছে?'))).toBeInTheDocument();
+    await waitFor(() => expect(savedField('cows')).toBeDefined(), { timeout: 4000 });
+    expect(savedField('has_cow')).toBeUndefined();
+    expect(savedField('cows')!.logic).toBeUndefined();
+    expect(savedSection('more')!.condition).toBeNull();
+    // what read another question keeps reading it
+    expect(savedField('total')!.calculation).toEqual(start[3]!.fields[0]!.calculation);
+    // one step back brings the question and both conditions
+    await user.click(undoButton());
+    expect(await screen.findByRole('button', { name: 'গরু আছে? বদলান' })).toBeInTheDocument();
+    expect(undoButton()).toBeDisabled();
+    await waitFor(() => expect(saves.at(-1)?.body.sections).toEqual(start), { timeout: 4000 });
+  }, 30_000);
+
+  it('does not offer to remove the only part of a form, and says why', async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })], {
+          title: T('অতিরিক্ত', 'Extra'),
+        }),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    const only = await screen.findByRole('menuitem', { name: 'একমাত্র অংশ সরানো যায় না' });
+    expect(only).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('menuitem', { name: 'অতিরিক্ত সরান' })).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    // with a second part either may go
+    await user.click(screen.getByRole('button', { name: 'নতুন অংশ' }));
+    await user.click(await screen.findByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    expect(await screen.findByRole('menuitem', { name: 'অতিরিক্ত সরান' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: 'একমাত্র অংশ সরানো যায় না' }),
+    ).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('removes a question nothing uses at once, without asking', async () => {
+    const user = userEvent.setup();
+    api({ sections: withUses() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য সরান' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'মন্তব্য বদলান' })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText(removedNotice('মন্তব্য'))).toBeInTheDocument();
+  }, 15_000);
+
+  it('names the uses from other parts before removing a part, each with the question that is used', async () => {
+    const user = userEvent.setup();
+    const start = withUses();
+    api({ sections: start });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'অতিরিক্ত সরান' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'এই অংশের প্রশ্ন অন্য জায়গায় ব্যবহার হচ্ছে',
+    });
+    // the condition inside the part itself goes with it and is not named
+    const uses = within(within(dialog).getByRole('list', { name: 'যেখানে ব্যবহার হচ্ছে' }));
+    expect(uses.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'গরু আছে?: “আরও” অংশের “অংশটি কখন দেখাবে” শর্তে',
+      'গরুর সংখ্যা: “মোট” প্রশ্নের হিসাবে',
+    ]);
+    expect(
+      within(dialog).getByText('যে প্রশ্নের হিসাব সরবে, তার হিসাব নতুন করে ঠিক করতে হবে।'),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'অংশ ও এই ব্যবহারগুলো সরান' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('list', { name: 'অতিরিক্ত' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText(removedNotice('অতিরিক্ত'))).toBeInTheDocument();
+    // the question that added its answer up stays, without its rule
+    const more = await outlineOf('আরও');
+    expect(more.getByRole('listitem')).toHaveTextContent('হিসাবের নিয়ম দিন');
+    await waitFor(() => expect(savedSection('more')).toBeDefined(), { timeout: 4000 });
+    expect(savedSection('extra')).toBeUndefined();
+    expect(savedSection('more')!.condition).toBeNull();
+    expect(savedField('total')!.calculation).toBeUndefined();
+    await user.click(undoButton());
+    expect(await screen.findByRole('list', { name: 'অতিরিক্ত' })).toBeInTheDocument();
+    await waitFor(() => expect(saves.at(-1)?.body.sections).toEqual(start), { timeout: 4000 });
+  }, 30_000);
 });
 
 describe('the points of the score', () => {
@@ -495,73 +1041,169 @@ describe('the points of the score', () => {
     await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
     expect(saves[0]!.body.scoring).toEqual({ not_previously_assisted: 20 });
   }, 15_000);
+
+  it('keeps the points of the form through the changes made after them', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'স্কোর' }));
+    const dialog = await screen.findByRole('dialog', { name: 'অগ্রাধিকার স্কোর' });
+    await user.type(within(dialog).getByRole('textbox', { name: /আগে সহায়তা পাননি/ }), '20');
+    await user.click(within(dialog).getByRole('button', { name: 'ঠিক আছে' }));
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    const points = { not_previously_assisted: 20 };
+    expect(saves[0]!.body.scoring).toEqual(points);
+    // a question renamed
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' দিন');
+    await waitFor(() => expect(saves).toHaveLength(2), { timeout: 4000 });
+    expect(savedField('q_note')!.label.bn).toBe('মন্তব্য দিন');
+    expect(saves[1]!.body.scoring).toEqual(points);
+    // a part renamed
+    await user.click(screen.getByRole('button', { name: 'অতিরিক্ত' }));
+    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' তথ্য');
+    await waitFor(() => expect(saves).toHaveLength(3), { timeout: 4000 });
+    expect(saves[2]!.body.sections.at(-1)!.title.bn).toBe('অতিরিক্ত তথ্য');
+    expect(saves[2]!.body.scoring).toEqual(points);
+    // a part added, and the question removed
+    await user.click(screen.getByRole('button', { name: 'নতুন অংশ' }));
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য দিন বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য দিন সরান' }));
+    await waitFor(() => expect(saves).toHaveLength(4), { timeout: 4000 });
+    expect(saves[3]!.body.sections).toHaveLength(4);
+    expect(savedField('q_note')).toBeUndefined();
+    expect(saves[3]!.body.scoring).toEqual(points);
+  }, 40_000);
 });
 
 describe('the own question', () => {
-  it('comes from a type on the left, needs both labels and, for a choice, an option in both languages', async () => {
+  const withProject = (...fields: FormField[]): FormDefinition['sections'] => [
+    ...titled({ sections: coreSections() }).sections,
+    section('project', fields, { title: T('প্রকল্পের প্রশ্ন', 'Project') }),
+  ];
+
+  it('is added at once from a type on the left: no dialog, chosen, in view, the Bengali text ready to type, and saved without a text', async () => {
+    const user = userEvent.setup();
+    api({ sections: withProject() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'প্রকল্পের প্রশ্ন' }));
+    await user.click(screen.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    const list = await outlineOf('প্রকল্পের প্রশ্ন');
+    const question = list.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' });
+    expect(question).toHaveAttribute('aria-pressed', 'true');
+    // never an empty row: the question says it has no name yet
+    const row = question.closest('li')!;
+    expect(row).toHaveClass('is-unnamed');
+    expect(within(row).getAllByText('নাম ছাড়া প্রশ্ন').length).toBeGreaterThan(0);
+    expect(scrolled).toEqual([row]);
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    expect(bnText()).toHaveValue('');
+    await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
+    expect(savedFields('project')).toEqual([
+      expect.objectContaining({
+        fieldKey: expect.stringMatching(RANDOM_KEY),
+        type: 'short_text',
+        label: { bn: '', en: '' },
+        libraryFieldKey: null,
+        required: false,
+        options: [],
+      }),
+    ]);
+    // the text typed shows on the canvas, and the key stays what it was
+    const key = savedFields('project')[0]!.fieldKey;
+    await user.type(bnText(), 'পেশা');
+    expect(await list.findByRole('button', { name: 'পেশা বদলান' })).toBeInTheDocument();
+    expect(row).not.toHaveClass('is-unnamed');
+    await waitFor(() => expect(savedField(key)?.label).toEqual({ bn: 'পেশা', en: '' }), {
+      timeout: 4000,
+    });
+  }, 20_000);
+
+  it('lands right after the chosen question, and one step back takes it away', async () => {
     const user = userEvent.setup();
     api({
-      sections: [
-        ...titled({ sections: coreSections() }).sections,
-        section('project', [], { title: T('প্রকল্পের প্রশ্ন', 'Project') }),
-      ],
+      sections: withProject(
+        field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') }),
+        field('q_more', 'short_text', { label: T('আরও', 'More') }),
+      ),
     });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'সংখ্যা প্রশ্ন যোগ করুন' }));
+    await waitFor(async () =>
+      expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual([
+        'মন্তব্য বদলান',
+        'নাম ছাড়া প্রশ্ন বদলান',
+        'আরও বদলান',
+      ]),
+    );
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    // the next one follows the one just added, which is the chosen question now
+    await user.click(screen.getByRole('button', { name: 'তারিখ প্রশ্ন যোগ করুন' }));
+    await waitFor(() => expect(savedFields('project')).toHaveLength(4), { timeout: 4000 });
+    expect(savedFields('project').map((f) => f.type)).toEqual([
+      'short_text',
+      'number',
+      'date',
+      'short_text',
+    ]);
+    // each addition is a step of its own
+    await user.click(undoButton());
+    await user.click(undoButton());
+    await waitFor(async () =>
+      expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual(['মন্তব্য বদলান', 'আরও বদলান']),
+    );
+    await waitFor(
+      () => expect(savedFields('project').map((f) => f.fieldKey)).toEqual(['q_note', 'q_more']),
+      { timeout: 4000 },
+    );
+  }, 30_000);
+
+  it('goes to the end of the last part when nothing is chosen', async () => {
+    const user = userEvent.setup();
+    api({ sections: withProject(field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })) });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
+    await waitFor(async () =>
+      expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual([
+        'মন্তব্য বদলান',
+        'নাম ছাড়া প্রশ্ন বদলান',
+      ]),
+    );
+  }, 15_000);
+
+  it('starts a choice without options, written in the settings afterwards', async () => {
+    const user = userEvent.setup();
+    api({ sections: withProject() });
     open();
     await user.click(await screen.findByRole('button', { name: 'প্রকল্পের প্রশ্ন' }));
     await user.click(screen.getByRole('button', { name: 'একটি বেছে নিন প্রশ্ন যোগ করুন' }));
-    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
-    expect(within(dialog).getByRole('textbox', { name: /^প্রশ্নের ধরন/ })).toHaveValue(
-      'একটি বেছে নিন',
-    );
-    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('দুই ভাষাতেই লেবেল লিখুন।');
-    await user.type(
-      within(dialog).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }),
-      'নিজের ঘর আছে?',
-    );
-    await user.type(
-      within(dialog).getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }),
-      'Own house?',
-    );
-    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('অন্তত একটি অপশন রাখুন');
-    await user.type(within(dialog).getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }), 'হ্যাঁ');
-    await user.type(within(dialog).getByRole('textbox', { name: /^অপশন 1 \(ইংরেজি\)/ }), 'Yes');
-    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'নতুন প্রশ্ন' })).not.toBeInTheDocument(),
-    );
-    // the new question opens in the settings
-    expect(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('নিজের ঘর আছে?');
-    await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
-    expect(savedField('q_own_house')).toMatchObject({
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    await user.type(bnText(), 'নিজের ঘর আছে?');
+    expect(screen.queryByRole('textbox', { name: /^অপশন 1/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অপশন যোগ করুন' }));
+    await user.type(screen.getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }), 'হ্যাঁ');
+    await waitFor(() => expect(savedFields('project')[0]?.options?.[0]?.label.bn).toBe('হ্যাঁ'), {
+      timeout: 4000,
+    });
+    expect(savedFields('project')[0]).toMatchObject({
+      fieldKey: expect.stringMatching(RANDOM_KEY),
       type: 'radio',
-      label: { bn: 'নিজের ঘর আছে?', en: 'Own house?' },
-      libraryFieldKey: null,
-      options: [{ code: expect.stringMatching(/^opt_/), label: { bn: 'হ্যাঁ', en: 'Yes' } }],
+      label: { bn: 'নিজের ঘর আছে?', en: '' },
+      // the option's code is random too, never a word of its text
+      options: [{ code: expect.stringMatching(/^o_[a-z0-9]{6}$/), label: { bn: 'হ্যাঁ', en: '' } }],
     });
   }, 20_000);
 
   it('adds a number table from its type, with one row and one column to start', async () => {
     const user = userEvent.setup();
-    api({
-      sections: [
-        ...titled({ sections: coreSections() }).sections,
-        section('project', [], { title: T('প্রকল্পের প্রশ্ন', 'Project') }),
-      ],
-    });
+    api({ sections: withProject() });
     open();
     await user.click(await screen.findByRole('button', { name: 'প্রকল্পের প্রশ্ন' }));
     await user.click(screen.getByRole('button', { name: 'সংখ্যার ছক প্রশ্ন যোগ করুন' }));
-    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
-    await user.type(within(dialog).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'গবাদি পশু');
-    await user.type(
-      within(dialog).getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }),
-      'Livestock',
-    );
-    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
     await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
-    expect(savedField('q_livestock')).toMatchObject({
+    expect(savedFields('project')[0]).toMatchObject({
       type: 'number_table',
       settings: {
         table: {
@@ -572,53 +1214,175 @@ describe('the own question', () => {
     });
   }, 20_000);
 
-  it('goes to the section picked in the dialog and names the earlier answer a branching option follows', async () => {
+  it('opens the question types at the end of a part and adds the chosen one there, by the keyboard too', async () => {
+    const user = userEvent.setup();
+    api({ sections: withProject(field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })) });
+    const view = open();
+    // a question of another part is the chosen one
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    const address = within(screen.getByRole('region', { name: 'ঠিকানা' }));
+    const before = (await questionsOf('ঠিকানা')).length;
+    await user.click(address.getByRole('button', { name: 'এই অংশে প্রশ্ন যোগ করুন' }));
+    const menu = await screen.findByRole('menu', { name: 'এই অংশে প্রশ্ন যোগ করুন' });
+    // every type, in the groups of the left pane, each with its name
+    const items = within(menu).getAllByRole('menuitem');
+    expect(items.map((i) => i.textContent)).toEqual([
+      'ছোট লেখা',
+      'বড় লেখা',
+      'ইমেইল',
+      'সংখ্যা',
+      'দশমিক সংখ্যা',
+      'টাকার অঙ্ক',
+      'মোবাইল নম্বর',
+      'সংখ্যার ছক',
+      'তালিকা থেকে একটি',
+      'তালিকা থেকে কয়েকটি',
+      'একটি বেছে নিন',
+      'কয়েকটি বেছে নিন',
+      'তারিখ',
+      'সময়',
+      'তারিখ ও সময়',
+      'ছবি',
+      'ফাইল',
+      'স্বাক্ষরের ছবি',
+      'অবস্থান (GPS)',
+      'ঠিকানা',
+      'কয়েকজনের তালিকা',
+      'নিজে থেকে হিসাব',
+      'শুধু লেখা দেখানো',
+    ]);
+    // the open list itself, and the page under it
+    await expectNoAxeViolations(menu);
+    await expectNoAxeViolations(view.container);
+    await user.click(within(menu).getByRole('menuitem', { name: 'টাকার অঙ্ক' }));
+    await waitFor(async () => expect(await questionsOf('ঠিকানা')).toHaveLength(before + 1));
+    expect((await questionsOf('ঠিকানা')).at(-1)).toBe('নাম ছাড়া প্রশ্ন বদলান');
+    expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual(['মন্তব্য বদলান']);
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    expect(savedFields('address')).toEqual([]);
+    await waitFor(() => expect(savedFields('address').at(-1)?.type).toBe('money'), {
+      timeout: 4000,
+    });
+    // the keyboard: the button opens the list, the arrow and Enter choose from it
+    const project = within(screen.getByRole('region', { name: 'প্রকল্পের প্রশ্ন' }));
+    project.getByRole('button', { name: 'এই অংশে প্রশ্ন যোগ করুন' }).focus();
+    await user.keyboard('{Enter}');
+    await screen.findByRole('menu', { name: 'এই অংশে প্রশ্ন যোগ করুন' });
+    await user.keyboard('{ArrowDown}{Enter}');
+    await waitFor(async () =>
+      expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual([
+        'মন্তব্য বদলান',
+        'নাম ছাড়া প্রশ্ন বদলান',
+      ]),
+    );
+    await waitFor(() => expect(savedFields('project').at(-1)?.type).toBe('long_text'), {
+      timeout: 4000,
+    });
+    await waitFor(() => expect(bnText()).toHaveFocus());
+  }, 40_000);
+
+  it('chooses a library question it adds, and brings it into view', async () => {
+    const user = userEvent.setup();
+    api({ sections: withProject(field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })) });
+    open();
+    await user.click(await screen.findByRole('tab', { name: 'লাইব্রেরি' }));
+    await openGroup(user, 'পরিবার ও আয়');
+    await user.click(await screen.findByRole('button', { name: 'দৈনিক আয় যোগ করুন' }));
+    const question = await screen.findByRole('button', { name: 'দৈনিক আয় বদলান' });
+    expect(question).toHaveAttribute('aria-pressed', 'true');
+    expect(scrolled).toEqual([question.closest('li')]);
+    await waitFor(() => expect(question).toHaveFocus());
+    expect(bnText()).toHaveValue('দৈনিক আয়');
+    // the library's own key, as before
+    await waitFor(
+      () =>
+        expect(savedFields('project').map((f) => f.fieldKey)).toEqual(['q_note', 'daily_income']),
+      { timeout: 4000 },
+    );
+  }, 20_000);
+
+  it('moves a question to another part from its bar, keeps it chosen, and comes back in one step', async () => {
     const user = userEvent.setup();
     api({
       sections: [
-        ...titled({ sections: coreSections() }).sections,
+        ...withProject(field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })),
+        section('office', [], { title: T('অফিসের অংশ', 'Office'), visibility: 'official_only' }),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    const bar = within(screen.getByRole('group', { name: 'মন্তব্য: কাজ' }));
+    await user.click(bar.getByRole('button', { name: 'মন্তব্য অন্য অংশে নিন' }));
+    const menu = within(await screen.findByRole('menu', { name: 'মন্তব্য অন্য অংশে নিন' }));
+    // the other parts, never its own
+    expect(menu.getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
+      'মৌলিক তথ্য',
+      'ঠিকানা',
+      'অফিসের অংশ',
+    ]);
+    await user.click(menu.getByRole('menuitem', { name: 'ঠিকানা' }));
+    await waitFor(async () => expect((await questionsOf('ঠিকানা')).at(-1)).toBe('মন্তব্য বদলান'));
+    const moved = screen.getByRole('button', { name: 'মন্তব্য বদলান' });
+    expect(moved).toHaveAttribute('aria-pressed', 'true');
+    expect(scrolled.at(-1)).toBe(moved.closest('li'));
+    await waitFor(() => expect(moved).toHaveFocus());
+    expect(
+      within(screen.getByRole('region', { name: 'প্রকল্পের প্রশ্ন' })).queryByRole('button', {
+        name: 'মন্তব্য বদলান',
+      }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(savedFields('address').at(-1)?.fieldKey).toBe('q_note'), {
+      timeout: 4000,
+    });
+    expect(savedFields('project')).toEqual([]);
+    // an identity question is not offered a part only officials see
+    await user.click(screen.getByRole('button', { name: 'name বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'name অন্য অংশে নিন' }));
+    const identity = within(await screen.findByRole('menu', { name: 'name অন্য অংশে নিন' }));
+    expect(identity.getByRole('menuitem', { name: 'অফিসের অংশ' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    // one step back: the question is in its part again
+    await user.click(undoButton());
+    await waitFor(async () =>
+      expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual(['মন্তব্য বদলান']),
+    );
+  }, 40_000);
+
+  it('offers no move to another part in a form of one part, nor to a row question of a list', async () => {
+    const user = userEvent.setup();
+    const inGroup = { settings: { repeat: { group: 'members' } } };
+    api({
+      sections: [
         section(
-          'work',
+          'only',
           [
-            field('occupation', 'radio', {
-              label: T('পেশা', 'Occupation'),
-              options: [
-                option('business', { label: T('ব্যবসা', 'Business') }),
-                option('farming', { label: T('কৃষি', 'Farming') }),
-              ],
-            }),
+            field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') }),
+            field('members', 'repeat_group', { label: T('সদস্যরা', 'Members') }),
+            field('m_name', 'short_text', { label: T('সদস্যের নাম', 'Member name'), ...inGroup }),
           ],
-          { title: T('কাজ', 'Work') },
+          { title: T('একমাত্র অংশ', 'Only part') },
         ),
       ],
     });
     open();
-    // the first section is chosen; the dialog moves the question to the work section
-    await user.click(await screen.findByRole('button', { name: 'মৌলিক তথ্য' }));
-    await user.click(screen.getByRole('button', { name: 'তালিকা থেকে একটি প্রশ্ন যোগ করুন' }));
-    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
-    const scope = within(dialog);
-    await user.type(scope.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'ব্যবসার ধরন');
-    await user.type(scope.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }), 'Kind of business');
-    await choose(user, /কোন অংশে/, 'কাজ', scope);
-    await choose(user, /কোন প্রশ্নের উত্তর অনুযায়ী/, 'পেশা', scope);
-    await user.type(scope.getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }), 'দোকান');
-    await user.type(scope.getByRole('textbox', { name: /^অপশন 1 \(ইংরেজি\)/ }), 'Shop');
-    await choose(user, /অপশন 1 দেখাবে যখন “পেশা”-এর উত্তর/, 'ব্যবসা', scope);
-    await user.click(scope.getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
-    const work = await outlineOf('কাজ');
-    expect(work.getByRole('button', { name: 'ব্যবসার ধরন বদলান' })).toBeInTheDocument();
-    await waitFor(() => expect(savedField('q_kind_of_business')).toBeDefined(), { timeout: 4000 });
-    expect(savedField('q_kind_of_business')).toMatchObject({
-      logic: { options_depend_on: 'occupation' },
-      options: [{ code: expect.stringMatching(/^opt_/), dependsOnOptionCode: 'business' }],
-    });
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    expect(screen.getByRole('button', { name: 'মন্তব্য কপি করুন' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /অন্য অংশে নিন/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'নতুন অংশ' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
+    expect(screen.getByRole('button', { name: 'মন্তব্য অন্য অংশে নিন' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'সদস্যের নাম বদলান' }));
+    expect(screen.getByRole('button', { name: 'সদস্যের নাম কপি করুন' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /অন্য অংশে নিন/ })).not.toBeInTheDocument();
   }, 20_000);
 });
 
 describe('saving', () => {
   it('puts the engine message on the question the server names', async () => {
-    const user = userEvent.setup();
     api({
       patch: () =>
         HttpResponse.json(
@@ -641,14 +1405,94 @@ describe('saving', () => {
         ),
     });
     open();
-    await addSection(user, 'পরিবার ও আয়');
+    await screen.findByRole('tab', { name: 'লাইব্রেরি' });
+    byHand.start();
+    await byHand.addSection('পরিবার ও আয়');
+    await byHand.pass(SAVE_DELAY_MS);
     expect(
-      await screen.findByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।', {}, { timeout: 4000 }),
+      await byHand.found(() => screen.getByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।')),
     ).toBeInTheDocument();
-    expect(screen.getByText('সংরক্ষণ হয়নি')).toBeInTheDocument();
+    // the head says it is not saved and why; the same draft would be refused again, so no retry
+    const head = within(screen.getByTestId('form-head'));
+    expect(head.getByText('সংরক্ষণ হয়নি')).toBeInTheDocument();
+    expect(head.getByText('কিছু তথ্য সঠিক নয়।')).toBeInTheDocument();
+    expect(head.queryByRole('button', { name: 'আবার চেষ্টা করুন' })).not.toBeInTheDocument();
+    // however long it waits, the refused draft is not sent a second time
+    await byHand.pass(10 * SAVE_RETRY_EVERY_MS);
+    expect(saves).toHaveLength(1);
   }, 15_000);
 
-  it('shows a refusal about the whole form above the outline', async () => {
+  it('says in the form head that a save failed, tries again by itself, and saves', async () => {
+    const user = userEvent.setup();
+    let failing = true;
+    api();
+    // the first save fails on the server; the ones after it reach the handler above
+    server.use(
+      http.patch('*/api/v1/form-versions/:id', () => {
+        if (!failing) return undefined;
+        failing = false;
+        return apiError(500, 'server.internal', 'কিছু একটা ভুল হয়েছে।');
+      }),
+    );
+    open();
+    await addSection(user, 'পরিবার ও আয়');
+    const head = within(screen.getByTestId('form-head'));
+    const failed = await head.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
+    // announced where the save state always is, with what happens next and a way to hurry it
+    expect(failed.closest('[aria-live="polite"]')).toHaveTextContent(
+      'সংরক্ষণ হয়নিএকটু পরে নিজে থেকেই আবার চেষ্টা করা হবে।',
+    );
+    expect(head.getByRole('button', { name: 'আবার চেষ্টা করুন' })).toBeInTheDocument();
+    // two seconds later it is sent again, and goes through
+    expect(await head.findByText('সংরক্ষিত', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(saves).toHaveLength(1);
+    expect(saves[0]!.ifMatch).toBe('"v1"');
+    expect(head.queryByRole('button', { name: 'আবার চেষ্টা করুন' })).not.toBeInTheDocument();
+    expect(head.queryByText('সংরক্ষণ হয়নি')).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('saves at once by the retry button, and says so while the connection is away', async () => {
+    const user = userEvent.setup();
+    let failing = true;
+    api();
+    server.use(
+      http.patch('*/api/v1/form-versions/:id', () => (failing ? HttpResponse.error() : undefined)),
+    );
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    try {
+      open();
+      await addSection(user, 'পরিবার ও আয়');
+      const head = within(screen.getByTestId('form-head'));
+      await head.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
+      expect(head.getByText('সংযোগ নেই। সংযোগ ফিরলেই আবার চেষ্টা করা হবে।')).toBeInTheDocument();
+      failing = false;
+      await user.click(head.getByRole('button', { name: 'আবার চেষ্টা করুন' }));
+      expect(await head.findByText('সংরক্ষিত')).toBeInTheDocument();
+      expect(saves).toHaveLength(1);
+    } finally {
+      onLine.mockRestore();
+    }
+  }, 20_000);
+
+  it('saves again as soon as the browser says the connection is back', async () => {
+    const user = userEvent.setup();
+    let failing = true;
+    api();
+    server.use(
+      http.patch('*/api/v1/form-versions/:id', () => (failing ? HttpResponse.error() : undefined)),
+    );
+    open();
+    await addSection(user, 'পরিবার ও আয়');
+    const head = within(screen.getByTestId('form-head'));
+    await head.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
+    failing = false;
+    window.dispatchEvent(new Event('online'));
+    // well before the two seconds of the first wait
+    expect(await head.findByText('সংরক্ষিত', {}, { timeout: 1000 })).toBeInTheDocument();
+    expect(saves).toHaveLength(1);
+  }, 20_000);
+
+  it('lists a refusal about the whole form beside the Publish button', async () => {
     const user = userEvent.setup();
     api({
       patch: () =>
@@ -667,7 +1511,39 @@ describe('saving', () => {
     });
     open();
     await addSection(user, 'পরিবার ও আয়');
+    await user.click(
+      await screen.findByRole('button', { name: 'প্রকাশের আগে ঠিক করুন (1)' }, { timeout: 4000 }),
+    );
+    const list = await screen.findByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' });
+    expect(within(list).getByText('ফর্মটি অনেক বড়।')).toBeInTheDocument();
+  }, 15_000);
+
+  it('shows a refusal about the whole form above the outline on a phone, where there is no list', async () => {
+    const user = userEvent.setup();
+    stubMatchMedia((q) => q.includes('max-width'));
+    api({
+      sections: withNote(),
+      patch: () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              messageKey: 'errors.validation.failed',
+              message: 'কিছু তথ্য সঠিক নয়।',
+              details: [{ path: 'sections', code: 'form.too_many', message: 'ফর্মটি অনেক বড়।' }],
+              requestId: 'r',
+            },
+          },
+          { status: 422 },
+        ),
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' খ');
     expect(await screen.findByText('ফর্মটি অনেক বড়।', {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^প্রকাশের আগে ঠিক করুন/ }),
+    ).not.toBeInTheDocument();
   }, 15_000);
 
   it('opens the saved draft again after leaving, and saves the next change on its version', async () => {
@@ -692,26 +1568,140 @@ describe('saving', () => {
 
   it('reloads the draft when someone else changed it', async () => {
     const user = userEvent.setup();
-    api({ patch: () => apiError(412, 'conflict.stale_version', 'অন্য কেউ বদলেছেন।') });
+    api({
+      patch: () => {
+        // the other person's save moved the version on
+        etagNo += 1;
+        return apiError(412, 'conflict.stale_version', 'অন্য কেউ বদলেছেন।');
+      },
+    });
     open();
     await addSection(user, 'পরিবার ও আয়');
+    expect(undoButton()).toBeEnabled();
     expect(
       await screen.findByText(/অন্য কেউ এই খসড়া বদলেছেন/, {}, { timeout: 4000 }),
     ).toBeInTheDocument();
     await waitFor(() => expect(versionReads).toBeGreaterThan(1));
+    // their draft is on screen now, and no step of this one leads back over it
+    await waitFor(() =>
+      expect(screen.queryByRole('list', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument(),
+    );
+    expect(undoButton()).toBeDisabled();
+    expect(redoButton()).toBeDisabled();
   }, 15_000);
 
-  it('asks before leaving while a change is not saved', async () => {
+  it('saves a question whose English text is emptied, and still names it by its Bengali text on the canvas and in a condition', async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section(
+          'extra',
+          [
+            field('q_kind', 'radio', {
+              label: T('ধরন', 'Kind'),
+              options: [option('a', { label: T('ক', 'A') })],
+            }),
+            field('q_why', 'long_text', {
+              label: T('কারণ', 'Reason'),
+              logic: { show_if: { field: 'q_kind', op: 'eq', value: 'a' } },
+            }),
+          ],
+          { title: T('অতিরিক্ত', 'Extra') },
+        ),
+      ],
+    });
+    open('en');
+    await user.click(await screen.findByRole('button', { name: 'Change Kind' }));
+    await user.clear(screen.getByRole('textbox', { name: /^Label \(English\)/ }));
+    // the draft saves with the text missing, and the question reads in the other language
+    await waitFor(() => expect(savedField('q_kind')?.label).toEqual({ bn: 'ধরন', en: '' }), {
+      timeout: 4000,
+    });
+    expect(await screen.findByText('Saved')).toBeInTheDocument();
+    expect(screen.queryByText('Not saved')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Change ধরন' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Change Reason' }));
+    expect(await screen.findByText(/Shown when “ধরন” = /)).toBeInTheDocument();
+  }, 20_000);
+
+  it('saves a change that still waits before the page is left, and asks nothing', async () => {
+    const user = userEvent.setup();
+    api();
+    const { router } = open();
+    await addSection(user, 'পরিবার ও আয়');
+    // at once, before the wait after a change is over
+    expect(saves).toHaveLength(0);
+    void router.navigate('/admin/projects');
+    await screen.findByTestId('location');
+    expect(saves).toHaveLength(1);
+    expect(saves[0]!.body.sections.map((s) => s.key)).toContain('family_income');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // and the builder opens again with it
+    await router.navigate(`/admin/projects/${PROJECT}/forms/${FORM}`);
+    expect(await screen.findByRole('list', { name: 'পরিবার ও আয়' })).toBeInTheDocument();
+  }, 15_000);
+
+  it('asks before leaving only when the change cannot be saved', async () => {
     const user = userEvent.setup();
     api({ patch: () => apiError(500, 'server.internal', 'কিছু একটা ভুল হয়েছে।') });
     const { router } = open();
     await addSection(user, 'পরিবার ও আয়');
-    await screen.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
     void router.navigate('/admin/projects');
-    const dialog = await screen.findByRole('dialog', { name: 'সংরক্ষণ না করেই চলে যাবেন?' });
+    const dialog = await screen.findByRole('dialog', { name: 'সংরক্ষণ হয়নি, তবুও চলে যাবেন?' });
+    expect(saves).toHaveLength(1);
+    expect(dialog).toHaveTextContent('শেষ বদলগুলো সংরক্ষণ করা যায়নি। চলে গেলে সেগুলো থাকবে না।');
     await user.click(within(dialog).getByRole('button', { name: 'থাকুন' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(await screen.findByRole('list', { name: 'পরিবার ও আয়' })).toBeInTheDocument();
-  }, 15_000);
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+    // asked again at the next try, and gone on the person's word
+    void router.navigate('/admin/projects');
+    await user.click(
+      within(
+        await screen.findByRole('dialog', { name: 'সংরক্ষণ হয়নি, তবুও চলে যাবেন?' }),
+      ).getByRole('button', { name: 'চলে যান' }),
+    );
+    expect(await screen.findByTestId('location')).toHaveTextContent('/admin/projects');
+  }, 20_000);
+
+  it('asks while the save before leaving takes long, and leaves by itself once it is through', async () => {
+    api();
+    // the server keeps the save waiting until the test lets it answer
+    let answer: () => void = () => undefined;
+    const waiting = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    server.use(
+      http.patch('*/api/v1/form-versions/:id', async () => {
+        await waiting;
+        return undefined;
+      }),
+    );
+    const { router } = open();
+    await screen.findByRole('tab', { name: 'লাইব্রেরি' });
+    byHand.start();
+    await byHand.addSection('পরিবার ও আয়');
+    void router.navigate('/admin/projects');
+    await byHand.settle();
+    // held for the save, and nothing is asked in its first moments
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+    await byHand.pass(LEAVE_ASK_AFTER_MS);
+    const dialog = await byHand.found(() =>
+      screen.getByRole('dialog', { name: 'সংরক্ষণ হয়নি, তবুও চলে যাবেন?' }),
+    );
+    expect(dialog).toHaveTextContent(
+      'শেষ বদলগুলো এখনো সংরক্ষণ হচ্ছে, সময় লাগছে। এখন চলে গেলে সেগুলো না-ও থাকতে পারে।',
+    );
+    expect(within(dialog).getByRole('button', { name: 'চলে যান' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'থাকুন' })).toBeInTheDocument();
+    answer();
+    expect(await byHand.found(() => screen.getByTestId('location'))).toHaveTextContent(
+      '/admin/projects',
+    );
+    expect(saves).toHaveLength(1);
+  }, 20_000);
 
   it('turns read-only with a notice when the server refuses the save to a builder without the official part', async () => {
     const user = userEvent.setup();
@@ -733,6 +1723,8 @@ describe('who may change what', () => {
     expect(await screen.findByText('সংস্করণ 1: প্রকাশিত')).toBeInTheDocument();
     expect(screen.getByText('এই সংস্করণ প্রকাশিত; বদলানো যায় না।')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'ফিরিয়ে আনুন' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'আবার করুন' })).not.toBeInTheDocument();
   });
 
   it('shows the outline read-only to a role that does not build forms', async () => {
@@ -768,6 +1760,7 @@ describe('who may change what', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /নিচে নিন$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'ফিরিয়ে আনুন' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'ধরন বদলান' }));
     const label = screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
     await user.clear(label);

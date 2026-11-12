@@ -15,6 +15,7 @@ import {
 } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
 import { Disclosure, Icon, SelectField, Stack, Switch, Text, TextField } from '@/ui';
+import { useEffect, useEffectEvent, useId } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import {
   setOptions,
@@ -23,10 +24,12 @@ import {
   hasIdentity,
   setIdentityRole,
   setSectionCondition,
+  setSectionTitle,
   setSectionVisibility,
   updateField,
 } from './draft';
 import type { Selection } from './selection';
+import { TYPED, type Typed } from './use-draft-history';
 import { OptionsEditor } from './OptionsEditor';
 import { ScoreSettings } from './ScoreSettings';
 import { parentCandidates } from './candidates';
@@ -48,13 +51,16 @@ function compact<T extends object>(value: T): T | undefined {
  * The settings of the chosen section or question. On a phone only the texts change (labels and
  * option texts in both languages); on a computer every setting does: the help text, required,
  * the named check of a text, the limits, the options and their branching, a repeat group's rows,
- * the conditions, the calculation, and a section's visibility, condition and own questions.
+ * the conditions, the calculation, and a section's visibility, condition and own questions. A
+ * question just added takes the focus in its Bengali text (`focusText`), so it is typed at once.
  */
 export function SettingsPane({
   definition,
   selected,
   mode,
   identityMarks = false,
+  focusText = null,
+  onTextFocused,
   onChange,
 }: {
   definition: FormDefinition;
@@ -62,7 +68,12 @@ export function SettingsPane({
   mode: 'full' | 'texts';
   /** Whether questions take identity marks: a beneficiary application form and the library. */
   identityMarks?: boolean;
-  onChange: (definition: FormDefinition) => void;
+  /** The question whose Bengali text takes the focus, once. */
+  focusText?: string | null;
+  /** The focus is there: the page forgets the request. */
+  onTextFocused?: () => void;
+  /** `how` says the change was typed, so the history joins it to the typing just before it. */
+  onChange: (definition: FormDefinition, how?: Typed) => void;
 }) {
   const section = definition.sections.find((s) => s.key === selected?.section);
   const field = section?.fields.find((f) => f.fieldKey === selected?.field);
@@ -85,6 +96,8 @@ export function SettingsPane({
       field={field}
       mode={mode}
       identityMarks={identityMarks}
+      focusText={focusText === field.fieldKey}
+      onTextFocused={onTextFocused}
       onChange={onChange}
     />
   );
@@ -99,14 +112,12 @@ function SectionSettings({
   definition: FormDefinition;
   section: FormSection;
   mode: 'full' | 'texts';
-  onChange: (definition: FormDefinition) => void;
+  onChange: (definition: FormDefinition, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const core = hasIdentity(section);
   const setTitle = (title: FormSection['title']) =>
-    onChange({
-      sections: definition.sections.map((s) => (s.key === section.key ? { ...s, title } : s)),
-    });
+    onChange(setSectionTitle(definition, section.key, title), TYPED);
   return (
     <Stack gap={2}>
       <Disclosure title={t('group_basics')} headingLevel={2} defaultOpen>
@@ -137,8 +148,8 @@ function SectionSettings({
           definition={definition}
           asker={{ group: null }}
           condition={section.condition}
-          onChange={(condition) =>
-            onChange(setSectionCondition(definition, section.key, condition ?? null))
+          onChange={(condition, how) =>
+            onChange(setSectionCondition(definition, section.key, condition ?? null), how)
           }
           defaultOpen
         />
@@ -222,6 +233,8 @@ function FieldSettingsView({
   field,
   mode,
   identityMarks,
+  focusText,
+  onTextFocused,
   onChange,
 }: {
   definition: FormDefinition;
@@ -229,7 +242,9 @@ function FieldSettingsView({
   field: FormField;
   mode: 'full' | 'texts';
   identityMarks: boolean;
-  onChange: (definition: FormDefinition) => void;
+  focusText: boolean;
+  onTextFocused?: () => void;
+  onChange: (definition: FormDefinition, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
@@ -238,13 +253,13 @@ function FieldSettingsView({
   const markable = canMarkIdentity(section, field);
   const group = field.settings?.repeat?.group ?? null;
   const asker = { fieldKey: field.fieldKey, group };
-  const patch = (next: Partial<FormField>) =>
-    onChange(updateField(definition, field.fieldKey, next));
-  const setSettings = (next: Partial<FieldSettings>) =>
-    patch({ settings: compact({ ...field.settings, ...next }) ?? {} });
+  const patch = (next: Partial<FormField>, how?: Typed) =>
+    onChange(updateField(definition, field.fieldKey, next), how);
+  const setSettings = (next: Partial<FieldSettings>, how?: Typed) =>
+    patch({ settings: compact({ ...field.settings, ...next }) ?? {} }, how);
   // a group's rows and their count source change together: the count question keeps a range
   // the rows can hold
-  const setRepeat = (next: Partial<NonNullable<FieldSettings['repeat']>>) => {
+  const setRepeat = (next: Partial<NonNullable<FieldSettings['repeat']>>, how?: Typed) => {
     const settings = compact({
       ...field.settings,
       repeat: compact({ ...field.settings?.repeat, ...next }),
@@ -255,12 +270,13 @@ function FieldSettingsView({
         updateField(definition, field.fieldKey, { settings: settings ?? {} }),
         updated,
       ),
+      how,
     );
   };
-  const setValidation = (next: Partial<FieldValidation>) =>
-    setSettings({ validation: compact({ ...field.settings?.validation, ...next }) });
-  const setLogic = (next: Partial<NonNullable<FormField['logic']>>) =>
-    patch({ logic: compact({ ...field.logic, ...next }) });
+  const setValidation = (next: Partial<FieldValidation>, how?: Typed) =>
+    setSettings({ validation: compact({ ...field.settings?.validation, ...next }) }, how);
+  const setLogic = (next: Partial<NonNullable<FormField['logic']>>, how?: Typed) =>
+    patch({ logic: compact({ ...field.logic, ...next }) }, how);
   const rules = validationOf(field);
   const choice = isChoiceType(field.type);
   // a coded column's question takes its list's options, set by the server at every save
@@ -274,14 +290,16 @@ function FieldSettingsView({
   if (mode === 'texts')
     return (
       <Stack gap={2}>
-        <Texts value={field.label} onChange={(label) => patch({ label })} />
+        <Texts value={field.label} onChange={(label) => patch({ label }, TYPED)} />
         {fromList ? (
           <ListOptions field={field} />
         ) : choice ? (
           <OptionsEditor
             options={field.options ?? []}
             mode="texts"
-            onChange={(options) => onChange(setOptions(definition, field.fieldKey, options))}
+            onChange={(options, how) =>
+              onChange(setOptions(definition, field.fieldKey, options), how)
+            }
           />
         ) : null}
       </Stack>
@@ -291,7 +309,12 @@ function FieldSettingsView({
     <Stack gap={2}>
       <Disclosure title={t('group_basics')} headingLevel={2} defaultOpen>
         <Stack gap={3}>
-          <Texts value={field.label} onChange={(label) => patch({ label })} />
+          <Texts
+            value={field.label}
+            onChange={(label) => patch({ label }, TYPED)}
+            focus={focusText}
+            onFocused={onTextFocused}
+          />
           {pipeSources.length > 0 ? (
             <SelectField
               label={t('pipe')}
@@ -302,20 +325,27 @@ function FieldSettingsView({
                 const token = ` {{${id}}}`;
                 patch({ label: { bn: field.label.bn + token, en: field.label.en + token } });
               }}
-              options={pipeSources.map((f) => ({ value: f.fieldKey, label: f.label[locale] }))}
+              options={pipeSources.map((f) => ({
+                value: f.fieldKey,
+                label: localized(f.label, locale),
+              }))}
             />
           ) : null}
           <TextField
             label={t('help_bn')}
             hint={t('help_hint')}
             value={field.settings?.help?.bn ?? ''}
-            onChange={(bn) => setSettings({ help: helpOf(bn, field.settings?.help?.en ?? '') })}
+            onChange={(bn) =>
+              setSettings({ help: helpOf(bn, field.settings?.help?.en ?? '') }, TYPED)
+            }
           />
           <TextField
             label={t('help_en')}
             lang="en"
             value={field.settings?.help?.en ?? ''}
-            onChange={(en) => setSettings({ help: helpOf(field.settings?.help?.bn ?? '', en) })}
+            onChange={(en) =>
+              setSettings({ help: helpOf(field.settings?.help?.bn ?? '', en) }, TYPED)
+            }
           />
           {answers ? (
             <Switch
@@ -373,7 +403,10 @@ function FieldSettingsView({
                   }}
                   options={[
                     { value: NONE, label: t('depends_none') },
-                    ...parents.map((p) => ({ value: p.fieldKey, label: p.label[locale] })),
+                    ...parents.map((p) => ({
+                      value: p.fieldKey,
+                      label: localized(p.label, locale),
+                    })),
                   ]}
                 />
               ) : null}
@@ -382,7 +415,9 @@ function FieldSettingsView({
                 options={field.options ?? []}
                 mode="full"
                 parent={parent}
-                onChange={(options) => onChange(setOptions(definition, field.fieldKey, options))}
+                onChange={(options, how) =>
+                  onChange(setOptions(definition, field.fieldKey, options), how)
+                }
               />
             </Stack>
           )}
@@ -409,7 +444,7 @@ function FieldSettingsView({
               min={rules.min_length}
               max={rules.max_length}
               orderMessage={t('limits_order')}
-              onApply={(min, max) => setValidation({ min_length: min, max_length: max })}
+              onApply={(min, max) => setValidation({ min_length: min, max_length: max }, TYPED)}
             />
           </Stack>
         </Disclosure>
@@ -422,20 +457,20 @@ function FieldSettingsView({
             min={rules.min}
             max={rules.max}
             orderMessage={t('limits_order')}
-            onApply={(min, max) => setValidation({ min, max })}
+            onApply={(min, max) => setValidation({ min, max }, TYPED)}
           />
         </Disclosure>
       ) : null}
       {takesDefault(field) && group === null ? (
         <Disclosure title={t('group_default')} hint={t('optional')} headingLevel={2}>
-          <DefaultSettings field={field} onChange={(next) => setSettings(next)} />
+          <DefaultSettings field={field} onChange={setSettings} />
         </Disclosure>
       ) : null}
       {field.type === 'number_table' && field.settings?.table ? (
         <Disclosure title={t('group_table')} headingLevel={2} defaultOpen>
           <TableSettings
             table={field.settings.table}
-            onChange={(table) => setSettings({ table })}
+            onChange={(table, how) => setSettings({ table }, how)}
           />
         </Disclosure>
       ) : null}
@@ -444,7 +479,7 @@ function FieldSettingsView({
           <RepeatSettings
             definition={definition}
             field={field}
-            onRows={(min, max) => setRepeat({ min_rows: min, max_rows: max })}
+            onRows={(min, max) => setRepeat({ min_rows: min, max_rows: max }, TYPED)}
             counts={countCandidates(definition, field.fieldKey)}
             onCountFrom={(key) => setRepeat({ count_from: key ?? undefined })}
           />
@@ -452,15 +487,15 @@ function FieldSettingsView({
       ) : null}
       {/* points inside a group's rows are refused at publish, so a group's question offers none */}
       {group === null ? (
-        <ScoreSettings field={field} onChange={(score) => setSettings({ score })} />
+        <ScoreSettings field={field} onChange={(score, how) => setSettings({ score }, how)} />
       ) : null}
       {field.type === 'calculation' ? (
         <CalcGroup
           definition={definition}
           field={field}
           asker={asker}
-          onChange={(calculation) => patch({ calculation })}
-          onResults={(results) => setSettings({ results })}
+          onChange={(calculation, how) => patch({ calculation }, how)}
+          onResults={(results, how) => setSettings({ results }, how)}
         />
       ) : null}
       {locks.condition ? (
@@ -472,7 +507,7 @@ function FieldSettingsView({
             definition={definition}
             asker={asker}
             condition={field.logic?.show_if}
-            onChange={(show_if) => setLogic({ show_if })}
+            onChange={(show_if, how) => setLogic({ show_if }, how)}
             defaultOpen
           />
           {answers ? (
@@ -481,7 +516,7 @@ function FieldSettingsView({
               definition={definition}
               asker={asker}
               condition={field.logic?.required_if}
-              onChange={(required_if) => setLogic({ required_if })}
+              onChange={(required_if, how) => setLogic({ required_if }, how)}
             />
           ) : null}
         </>
@@ -510,23 +545,38 @@ function StartCard() {
   );
 }
 
-/** A help text is kept in both languages or not at all; one language alone waits for the other. */
+/**
+ * A help text empty in both languages is none; one language alone is kept in the draft and waits
+ * for the other until the form is published.
+ */
 function helpOf(bn: string, en: string): FieldSettings['help'] {
   return bn === '' && en === '' ? undefined : { bn, en };
 }
 
-/** A text in both languages, each required. */
+/** A text in both languages, each required; `focus` puts the cursor in the Bengali one, once. */
 function Texts({
   value,
   onChange,
+  focus = false,
+  onFocused,
 }: {
   value: { bn: string; en: string };
   onChange: (value: { bn: string; en: string }) => void;
+  focus?: boolean;
+  onFocused?: () => void;
 }) {
   const t = useTranslations('forms.builder');
+  const bnId = useId();
+  const focused = useEffectEvent(() => onFocused?.());
+  useEffect(() => {
+    if (!focus) return;
+    focused();
+    document.getElementById(bnId)?.focus();
+  }, [focus, bnId]);
   return (
     <>
       <TextField
+        id={bnId}
         label={t('label_bn')}
         required
         value={value.bn}

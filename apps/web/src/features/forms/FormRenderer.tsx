@@ -13,6 +13,7 @@ import {
 } from '@css/shared/forms';
 import type { AnswerValue } from '@css/shared';
 import { formatCount } from '@css/shared/format';
+import { localized } from '@css/shared/i18n';
 import { Alert, Button, ConfirmDialog, DescriptionList, Stack, Text } from '@/ui';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -395,7 +396,7 @@ export function FormRenderer({
       <section key={section.key} className="form-card" aria-labelledby={`section-${section.key}`}>
         <Stack gap={3}>
           <strong id={`section-${section.key}`} className="form-card-title">
-            {section.title[locale]}
+            {localized(section.title, locale)}
           </strong>
           {section.fields.map((field) => {
             if (field.settings?.repeat?.group) return null;
@@ -447,7 +448,7 @@ export function FormRenderer({
           if (field.settings?.repeat?.group || field.type === 'note') return [];
           const value = answerOf(state, field.fieldKey);
           if (!value) return [];
-          const label = field.label[locale];
+          const label = localized(field.label, locale);
           if (
             'v' in value &&
             Array.isArray(value.v) &&
@@ -468,14 +469,14 @@ export function FormRenderer({
             <Stack gap={2}>
               <div className="form-card-head">
                 <strong id={`review-${section.key}`} className="form-card-title">
-                  {section.title[locale]}
+                  {localized(section.title, locale)}
                 </strong>
                 <Button
                   variant="text"
                   size="small"
                   startIcon="edit"
                   onClick={() => openPart(index)}
-                  ariaLabel={t('change_part', { part: section.title[locale] })}
+                  ariaLabel={t('change_part', { part: localized(section.title, locale) })}
                 >
                   {t('change')}
                 </Button>
@@ -493,8 +494,8 @@ export function FormRenderer({
   );
 
   const parts = review
-    ? [...visible.map((s) => s.title[locale]), t('review_part')]
-    : visible.map((s) => s.title[locale]);
+    ? [...visible.map((s) => localized(s.title, locale)), t('review_part')]
+    : visible.map((s) => localized(s.title, locale));
   const current = reviewing ? visible.length : step;
   const last = !phone || reviewing || (!review && step >= visible.length - 1);
   const actions = (

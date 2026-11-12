@@ -77,7 +77,7 @@ Error:
 
 Messages come from the Bengali or English catalogue; digits are always 0–9 in both languages (UX-05).
 
-- `params` appears only for the codes whose parameters section 8 documents (`permission.grant_refused` with `rule`; in a detail, `beneficiary.identity_taken` with `benNo` when the caller may see the holder, and `beneficiary.merge_conflict` with `projectId` and `applicationId`, or `ref`; `application.answer_not_in_list` with `question`, the label of the question in the request language, also in a sync row result, D-168); other codes keep their parameters inside the rendered message.
+- `params` appears only for the codes whose parameters section 8 documents (`permission.grant_refused` with `rule`; in a detail, `beneficiary.identity_taken` with `benNo` when the caller may see the holder, and `beneficiary.merge_conflict` with `projectId` and `applicationId`, or `ref`; `application.answer_not_in_list` with `question`, the label of the question in the request language, also in a sync row result, D-168; `form.label_language` with the text of a form that lacks a language, D-171); other codes keep their parameters inside the rendered message.
 - `requestId` is returned in every response and in the `X-Request-Id` header; it is the correlation key in logs (SYSTEM_ARCHITECTURE §10).
 - Timestamps are ISO 8601 UTC with `Z`; dates are `YYYY-MM-DD`; money is a decimal **string** (`"1000.00"`) in BDT; counts are integers; booleans are booleans; all digits are 0–9 (UX-05).
 - Fields the caller may not see are **absent**, not null (field-level protection by removal, RBAC.md §8).
@@ -201,6 +201,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | project | project.fund_source_in_use | 409 | removal of a fund source that budget ledger entries already use |
 | project | project.area_in_use | 409 | removal of an area whose location still carries active staff access and no other RPM covers it |
 | project | project.topic_in_use | 409 | removal of a syllabus topic that classes or progress entries already use |
+| form | form.label_language | 422 (as details of validation.failed) | a form is published while a text lacks a language (BR-245, D-171); one detail per text and language, its `path` the question's key (the part's key for a title) and its `params` naming the text: `text` (`title`, `label`, `help`, `placeholder`, `option`, `table_row`, `table_col` or `result`), `language` (`bn` or `en`), `fieldKey` or `section`, and `option`, `row`, `col` or `result` with the code or key of the option, table row, table column or text result. A draft save accepts the missing text and answers this code only for a text that is not a pair of strings or is over its length |
 | business | beneficiary.identity_missing | 422 | neither NID nor birth registration (BR-001) |
 | business | beneficiary.mobile_is_volunteer_mobile | 422 | BD-03 / BR-008 (also raised by the database trigger, DATABASE_SCHEMA §18) |
 | business | beneficiary.blocked | 422 | blocked beneficiary cannot apply (BR-010) |

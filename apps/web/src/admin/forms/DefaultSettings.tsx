@@ -2,6 +2,7 @@ import { type FieldDefault, type FormField, validationOf } from '@css/shared/for
 import { SelectField, Stack, Switch, TextField } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { NumberText } from './NumberText';
+import { TYPED, type Typed } from './use-draft-history';
 
 type DefaultKind = 'none' | 'today' | 'text' | 'number';
 
@@ -26,7 +27,8 @@ export function DefaultSettings({
   onChange,
 }: {
   field: FormField;
-  onChange: (next: { default?: FieldDefault; read_only?: boolean }) => void;
+  /** `how` says the value was typed, so the history joins it to the typing just before it. */
+  onChange: (next: { default?: FieldDefault; read_only?: boolean }, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
   const start = field.settings?.default;
@@ -36,12 +38,13 @@ export function DefaultSettings({
   // a number starts within the question's own limits
   const { min, max } = validationOf(field);
   const firstNumber = Math.min(Math.max(0, min ?? 0), max ?? Number.POSITIVE_INFINITY);
-  const set = (next: FieldDefault | undefined) =>
+  const set = (next: FieldDefault | undefined, how?: Typed) =>
     // without a default nothing can be read-only
     onChange(
       next
         ? { default: next, read_only: readOnly || undefined }
         : { default: undefined, read_only: undefined },
+      how,
     );
   return (
     <Stack gap={3}>
@@ -60,7 +63,7 @@ export function DefaultSettings({
         <TextField
           label={t('default_text')}
           value={start.text}
-          onChange={(text) => set({ text })}
+          onChange={(text) => set({ text }, TYPED)}
         />
       ) : null}
       {start !== undefined && 'number' in start ? (
@@ -69,7 +72,7 @@ export function DefaultSettings({
           integer={field.type === 'number'}
           value={start.number}
           // an emptied box keeps the number until another is typed; "নেই" removes the default
-          onChange={(n) => (n === undefined ? undefined : set({ number: n }))}
+          onChange={(n) => (n === undefined ? undefined : set({ number: n }, TYPED))}
         />
       ) : null}
       <Switch

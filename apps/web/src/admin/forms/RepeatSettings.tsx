@@ -1,4 +1,5 @@
 import type { FormDefinition, FormField } from '@css/shared/forms';
+import { localized } from '@css/shared/i18n';
 import { SelectField, Stack, Text } from '@/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -82,7 +83,7 @@ export function RepeatSettings({
         onChange={(id) => onCountFrom(id && id !== 'none' ? id : null)}
         options={[
           { value: 'none', label: t('count_from_none') },
-          ...counts.map((f) => ({ value: f.fieldKey, label: f.label[locale] })),
+          ...counts.map((f) => ({ value: f.fieldKey, label: localized(f.label, locale) })),
         ]}
       />
       <LimitPair
@@ -100,7 +101,7 @@ export function RepeatSettings({
       {members.length ? (
         <ul aria-label={t('members')} className="form-settings-list">
           {members.map((m) => (
-            <li key={m.fieldKey}>{m.label[locale]}</li>
+            <li key={m.fieldKey}>{localized(m.label, locale)}</li>
           ))}
         </ul>
       ) : (
