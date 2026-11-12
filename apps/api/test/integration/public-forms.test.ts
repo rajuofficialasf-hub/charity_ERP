@@ -382,6 +382,7 @@ describe('reading the form', () => {
     expect(res.body.data.project).toEqual({
       name: { bn: 'শীতবস্ত্র', en: 'Winter' },
       applyTo: '2099-12-31',
+      identityDocument: 'optional',
     });
     const sections = res.body.data.form.sections as { key: string; visibility: string }[];
     expect(sections.map((s) => s.key)).toEqual(['basic_info', 'family_income', 'address']);
@@ -390,6 +391,65 @@ describe('reading the form', () => {
     expect(text).not.toContain(p.id);
     expect(text).not.toContain(world.a1.program);
     expect(new Set(text.match(UUID) ?? [])).toEqual(new Set([p.formId, p.versionId]));
+  });
+
+  it('says whether the project requires the identity document, and refuses an entry without a number either way', async () => {
+    /** The stored application form settings of a project, changed as its PM's choice would. */
+    const setDocument = (projectId: string, to: 'required' | 'optional' | null) =>
+      h.db.query(
+        `UPDATE project_components
+            SET settings = CASE WHEN $2::text IS NULL THEN settings - 'identity_document'
+                                ELSE settings || jsonb_build_object('identity_document', $2::text) END
+          WHERE project_id = $1 AND component_key = 'application_form'`,
+        [projectId, to],
+      );
+    const withoutNumber = () => ({
+      clientUuid: randomUUID(),
+      answers: answers().filter((a) => a.fieldKey !== 'nid_or_birth_reg'),
+    });
+    // a new project of the distribution workflow asks the document "if they have one"
+    const p = await project();
+    const { token } = await enabled(p.id, p.formId);
+    const asked = async () => {
+      const res = await read(token);
+      expect(res.status).toBe(200);
+      return res.body.data.project as Record<string, unknown>;
+    };
+    expect(await asked()).toEqual({
+      name: { bn: 'শীতবস্ত্র', en: 'Winter' },
+      applyTo: '2099-12-31',
+      identityDocument: 'optional',
+    });
+    // the read tells the page how to mark the question; the entry itself still needs its number
+    const refused = async () => {
+      const res = await submit(token, withoutNumber());
+      expect(res.status).toBe(422);
+      expect(res.body.error.code).toBe('validation.failed');
+      expect(res.body.error.details).toEqual([detail('nid_or_birth_reg', 'validation.required')]);
+    };
+    await refused();
+
+    await setDocument(p.id, 'required');
+    expect((await asked()).identityDocument).toBe('required');
+    await refused();
+
+    // a project that never chose reads as required
+    await setDocument(p.id, null);
+    expect((await asked()).identityDocument).toBe('required');
+    await setDocument(p.id, 'optional');
+    expect((await asked()).identityDocument).toBe('optional');
+
+    // nothing else of the project's choices is told to the public
+    expect(Object.keys(await asked()).sort()).toEqual(['applyTo', 'identityDocument', 'name']);
+    // a mobile is asked of a public entry whatever the project says
+    const noMobile = await submit(token, {
+      clientUuid: randomUUID(),
+      answers: answers().filter((a) => a.fieldKey !== 'mobile'),
+    });
+    expect(noMobile.status).toBe(422);
+    expect(noMobile.body.error.details).toEqual([detail('mobile', 'validation.required')]);
+    const rows = await h.db.query(`SELECT 1 FROM applications WHERE project_id = $1`, [p.id]);
+    expect(rows.rows).toEqual([]);
   });
 });
 

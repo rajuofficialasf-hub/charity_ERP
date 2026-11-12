@@ -77,10 +77,12 @@ function open(
 /** An address level's select: its name holds the shown value and then the label. */
 const level = (l: string) => new RegExp(`(^|\\s)${l}(\\(|\\s|$)`);
 
-/** Fills the mandatory core on one page. */
-async function fillCore(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByRole('textbox', { name: /^nid_or_birth_reg/ }), '1234567890');
-  await user.type(screen.getByRole('textbox', { name: /^mobile/ }), '01712345678');
+/** Fills the mandatory core on one page; without `identity`, all of it but the number and the mobile. */
+async function fillCore(user: ReturnType<typeof userEvent.setup>, { identity = true } = {}) {
+  if (identity) {
+    await user.type(screen.getByRole('textbox', { name: /^nid_or_birth_reg/ }), '1234567890');
+    await user.type(screen.getByRole('textbox', { name: /^mobile/ }), '01712345678');
+  }
   await user.type(screen.getByRole('textbox', { name: /^name/ }), 'নমুনা');
   await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
   await user.click(screen.getByRole('combobox', { name: /gender/ }));
@@ -948,5 +950,109 @@ describe('a draft written in one language, as the builder draws it', () => {
     expect(within(choice).getByText('খাদ্য')).toBeInTheDocument();
     expect(within(choice).getByText('Clothing')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'গরু: Own' })).toBeInTheDocument();
+  });
+});
+
+describe('the identity questions a project lets stay empty', () => {
+  const number = () => screen.getByRole('textbox', { name: /^nid_or_birth_reg/ });
+  const mobile = () => screen.getByRole('textbox', { name: /^mobile/ });
+  const DOCUMENT_HINT = 'থাকলে দিন।';
+  const MOBILE_HINT = 'নম্বর না থাকলে ফাঁকা রাখুন, যোগাযোগ হবে স্বেচ্ছাসেবকের মাধ্যমে।';
+  /** The first part of a phone's form with everything but the two answered. */
+  async function fillFirstPartWithoutThem(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByRole('textbox', { name: /^name/ }), 'নমুনা');
+    await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
+    await user.click(screen.getByRole('radio', { name: 'female' }));
+  }
+
+  it('holds both as the form says when the screen passes nothing', async () => {
+    const user = userEvent.setup();
+    open([], { layout: 'steps' });
+    expect(number()).toBeRequired();
+    expect(mobile()).toBeRequired();
+    expect(screen.queryByText(DOCUMENT_HINT)).not.toBeInTheDocument();
+    expect(screen.queryByText(MOBILE_HINT)).not.toBeInTheDocument();
+    await fillFirstPartWithoutThem(user);
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    expect(
+      await screen.findByText('পরের অংশে যাওয়ার আগে 2টি সমস্যা ঠিক করুন'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('অংশ 1 / 3')).toBeInTheDocument();
+  });
+
+  it('drops the required mark, says so under each question and goes on with both empty', async () => {
+    const user = userEvent.setup();
+    open([], { layout: 'steps', optionalIdentity: { document: true, mobile: true } });
+    expect(number()).not.toBeRequired();
+    expect(mobile()).not.toBeRequired();
+    expect(number()).toHaveAccessibleDescription(DOCUMENT_HINT);
+    expect(mobile()).toHaveAccessibleDescription(MOBILE_HINT);
+    // every other question keeps its mark
+    expect(screen.getByRole('textbox', { name: /^name/ })).toBeRequired();
+    await fillFirstPartWithoutThem(user);
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    expect(await screen.findByText('অংশ 2 / 3')).toBeInTheDocument();
+    expect(screen.queryByText(/সমস্যা ঠিক করুন/)).not.toBeInTheDocument();
+  });
+
+  it('relaxes each of the two on its own', async () => {
+    const user = userEvent.setup();
+    open([], { layout: 'steps', optionalIdentity: { document: true, mobile: false } });
+    expect(number()).not.toBeRequired();
+    expect(mobile()).toBeRequired();
+    expect(screen.getByText(DOCUMENT_HINT)).toBeInTheDocument();
+    expect(screen.queryByText(MOBILE_HINT)).not.toBeInTheDocument();
+    await fillFirstPartWithoutThem(user);
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    expect(
+      await screen.findByText('পরের অংশে যাওয়ার আগে 1টি সমস্যা ঠিক করুন'),
+    ).toBeInTheDocument();
+    expect(mobile()).toHaveAccessibleDescription(/./);
+    expect(screen.getByText('অংশ 1 / 3')).toBeInTheDocument();
+  });
+
+  it('sends the form without the two answers, and still refuses a number that is malformed', async () => {
+    const user = userEvent.setup();
+    const { submitted, onSubmit } = open([], {
+      optionalIdentity: { document: true, mobile: true },
+    });
+    await fillCore(user, { identity: false });
+    await user.type(number(), '12345');
+    await user.click(screen.getByRole('button', { name: 'পাঠান' }));
+    expect(await screen.findByText('পাঠানোর আগে 1টি সমস্যা ঠিক করুন')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+    await user.clear(number());
+    await user.click(screen.getByRole('button', { name: 'পাঠান' }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    const keys = submitted[0]!.answers.map((a) => a.fieldKey);
+    expect(keys).not.toContain('nid_or_birth_reg');
+    expect(keys).not.toContain('mobile');
+    expect(keys).toEqual(expect.arrayContaining(['name', 'gender', 'address', 'village']));
+  }, 20_000);
+
+  it("adds its line after the question's own help, and says nothing under a locked answer", () => {
+    const withHelp = definition();
+    for (const f of withHelp.sections.flatMap((s) => s.fields))
+      if (f.fieldKey === 'mobile') f.settings = { help: T('১১ সংখ্যার নম্বর', '11 digits') };
+    open([], {
+      definition: withHelp,
+      optionalIdentity: { document: true, mobile: true },
+      initialAnswers: [
+        { fieldKey: 'nid_or_birth_reg', value: { t: 'short_text', v: '1234567890' } },
+      ],
+      lockedKeys: new Set(['nid_or_birth_reg']),
+    });
+    expect(mobile()).toHaveAccessibleDescription(`১১ সংখ্যার নম্বর ${MOBILE_HINT}`);
+    expect(number()).toHaveValue('1234567890');
+    expect(number()).not.toBeRequired();
+    expect(screen.queryByText(DOCUMENT_HINT)).not.toBeInTheDocument();
+  });
+
+  it('says the two lines in English on an English device', () => {
+    open([], { optionalIdentity: { document: true, mobile: true } }, 'en');
+    expect(number()).toHaveAccessibleDescription('If they have one.');
+    expect(mobile()).toHaveAccessibleDescription(
+      'Leave empty if there is none; the volunteer will be the contact.',
+    );
   });
 });

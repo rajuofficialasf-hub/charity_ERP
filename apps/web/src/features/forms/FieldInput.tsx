@@ -45,6 +45,8 @@ export interface FieldInputProps {
   locked?: boolean;
   /** Puts earlier answers into the question's text and help; plain text in, plain text out. */
   pipe?: (text: string) => string;
+  /** A line the screen adds under the question, after the question's own help text. */
+  hint?: string;
   /** An address question tells the post code of the union chosen (null when none is known). */
   onPostCode?: (postCode: string | null) => void;
   /** On a phone a short choice is drawn as large buttons or chips. */
@@ -73,6 +75,7 @@ export function FieldInput({
   nisabKnown,
   locked: lockedByScreen = false,
   pipe = (text) => text,
+  hint,
   onPostCode,
   compact = false,
 }: FieldInputProps) {
@@ -80,7 +83,9 @@ export function FieldInput({
   const locale = useLocale();
   const label = pipe(localized(field.label, locale));
   const helpText = localized(field.settings?.help, locale);
-  const help = helpText === '' ? undefined : pipe(helpText);
+  // the question's own help stays; the screen's line follows it
+  const help =
+    [helpText === '' ? undefined : pipe(helpText), hint].filter(Boolean).join(' ') || undefined;
   // a read-only answer comes from its default or calculation, never from the person
   const locked = lockedByScreen || field.settings?.read_only === true;
   const common = { label, name: id, required: state.required, error, hint: help };

@@ -1,4 +1,5 @@
 import { type PublicApplicationCreate, publicApplicationCreateSchema } from '@css/shared/forms';
+import { identityRulesSchema } from '@css/shared/projects';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { Container } from '../container.js';
@@ -9,7 +10,11 @@ import { versionView } from './forms.js';
 
 const bilingual = z.object({ bn: z.string(), en: z.string() });
 const publicFormView = z.object({
-  project: z.object({ name: bilingual, applyTo: z.string().nullable() }),
+  project: z.object({
+    name: bilingual,
+    applyTo: z.string().nullable(),
+    identityDocument: identityRulesSchema.shape.document,
+  }),
   form: versionView,
 });
 const actionResult = z.object({
@@ -42,7 +47,7 @@ export function publicRouter(
     path: '/public/forms/:token',
     operationId: 'public.form.get',
     summary:
-      "The published volunteer-visible form behind a public link, with the project's name and closing date; a disabled link, an unpublished form, an inactive project or a passed closing date answer not found",
+      "The published volunteer-visible form behind a public link, with the project's name and closing date and whether its application must carry an identity document; a disabled link, an unpublished form, an inactive project or a passed closing date answer not found",
     audit: 'none',
     idempotency: 'none',
     params: tokenParams,

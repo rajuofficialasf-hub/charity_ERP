@@ -1,6 +1,7 @@
 import { uuidv7 } from '@css/shared';
 import { type PublicApplicationCreate, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
+import type { IdentityRules } from '@css/shared/projects';
 import { addressOf, nisabOption, photoAnswers, typedName } from '../applications/answers.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Clock } from '../core/clock.js';
@@ -16,9 +17,16 @@ import { resolveOpenLink } from './public-link-rules.js';
 import type { PublicPhotosService } from './public-photos.js';
 import type { Replayable } from './uploads.js';
 
-/** What the public page shows: the project's name and closing date, and the form. */
+/**
+ * What the public page shows: the project's name and closing date, whether its application must
+ * carry an identity document, and the form.
+ */
 export interface PublicFormView {
-  project: { name: { bn: string; en: string }; applyTo: string | null };
+  project: {
+    name: { bn: string; en: string };
+    applyTo: string | null;
+    identityDocument: IdentityRules['document'];
+  };
   form: FormVersionView;
 }
 
@@ -66,7 +74,12 @@ export class PublicFormsService {
   async form(token: string): Promise<PublicFormView> {
     const link = await resolveOpenLink(this.prisma, this.clock.now(), token);
     return {
-      project: { name: link.name, applyTo: link.applyTo },
+      project: {
+        name: link.name,
+        applyTo: link.applyTo,
+        // the page marks the document question by it; the submission holds its own check
+        identityDocument: link.identityRules.document,
+      },
       form: versionView(
         link.version,
         await readDefinition(this.prisma, link.version.id, 'volunteer'),

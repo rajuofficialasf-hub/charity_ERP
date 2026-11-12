@@ -1,8 +1,10 @@
 import { componentSettingsSchemas } from '@css/shared';
 import type { FormDefinition } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
+import type { IdentityRules } from '@css/shared/projects';
 import type { Tx } from '../core/prisma.service.js';
 import { ApiError } from '../i18n/api-error.js';
+import { IDENTITY_RULES_SELECT, identityRulesOf } from './project-identity-rules.js';
 
 /** The field types the public cannot answer: an upload without a login exists for photos only. */
 const NOT_ON_THE_LINK = new Set(['file', 'signature']);
@@ -20,6 +22,8 @@ export interface OpenLink {
   projectId: string;
   name: { bn: string; en: string };
   applyTo: string | null;
+  /** What the project's application asks about identity and contact. */
+  identityRules: IdentityRules;
   version: {
     id: string;
     formId: string;
@@ -46,7 +50,14 @@ export async function resolveOpenLink(db: Tx, now: Date, token: string): Promise
       projectId: true,
       settings: true,
       project: {
-        select: { status: true, applyFrom: true, applyTo: true, nameBn: true, nameEn: true },
+        select: {
+          status: true,
+          applyFrom: true,
+          applyTo: true,
+          nameBn: true,
+          nameEn: true,
+          ...IDENTITY_RULES_SELECT,
+        },
       },
     },
   });
@@ -70,6 +81,7 @@ export async function resolveOpenLink(db: Tx, now: Date, token: string): Promise
     projectId: component.projectId,
     name: { bn: project.nameBn, en: project.nameEn },
     applyTo,
+    identityRules: identityRulesOf(project),
     version: published,
   };
 }

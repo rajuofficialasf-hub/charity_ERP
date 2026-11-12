@@ -3222,10 +3222,17 @@ components:
           properties:
             project:
               type: object
-              required: [name, applyTo]
+              required: [name, applyTo, identityDocument]
               properties:
                 name: { $ref: '#/components/schemas/Bilingual' }
                 applyTo: { type: [string, 'null'], format: date, description: The last day applications are taken }
+                identityDocument:
+                  type: string
+                  enum: [required, optional]
+                  description: >-
+                    Whether an application of the project must carry the NID or the birth registration number, or
+                    carries it only when the person has one (D-172, BR-297); the page marks the question by it. The
+                    mobile number is always asked on the public link (BR-299).
             form: { $ref: '#/components/schemas/FormVersion' }
         meta: { $ref: '#/components/schemas/Meta' }
     PublicApplicationCreate:
@@ -8821,7 +8828,7 @@ paths:
     get:
       tags: [public]
       operationId: public.form.get
-      summary: The published volunteer-visible form behind a public link, with the project's name and closing date; a disabled link, an unpublished form, an inactive project or a passed closing date answer not found
+      summary: The published volunteer-visible form behind a public link, with the project's name and closing date and whether its application must carry an identity document; a disabled link, an unpublished form, an inactive project or a passed closing date answer not found
       security: []
       x-permission: public
       x-scope: none

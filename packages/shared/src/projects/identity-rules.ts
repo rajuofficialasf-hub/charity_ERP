@@ -64,6 +64,16 @@ export function identityRules(settings: unknown): IdentityRules {
   };
 }
 
+/**
+ * The rules an answer or a stored project carries, as its reader may trust them: the rules when
+ * they are whole and well-formed, the defaults otherwise (an answer of a server, or a project
+ * kept on a phone, from before the rules existed). Never a mix of given and default values.
+ */
+export function carriedIdentityRules(value: unknown): IdentityRules {
+  const parsed = identityRulesSchema.safeParse(value);
+  return parsed.success ? parsed.data : DEFAULT_IDENTITY_RULES;
+}
+
 /** Whether two readings of the rules differ in any of the four. */
 export function identityRulesDiffer(a: IdentityRules, b: IdentityRules): boolean {
   return (

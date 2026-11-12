@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { componentSettingsSchema } from '../jsonb/component-settings.js';
 import {
+  carriedIdentityRules,
   DEFAULT_IDENTITY_RULES,
   identityRules,
   identityRulesDiffer,
@@ -56,6 +57,21 @@ describe('the identity rules of a project', () => {
   it('answers the shape the reads promise', () => {
     expect(identityRulesSchema.safeParse(identityRules({ mobile: 'optional' })).success).toBe(true);
     expect(identityRulesSchema.safeParse({ ...STRICT, document: 'sometimes' }).success).toBe(false);
+  });
+
+  it('trusts the rules an answer carries only when they are whole, and reads anything else as the defaults', () => {
+    const loose = {
+      document: 'optional',
+      mobile: 'optional',
+      repeatPerson: 'tell',
+      repeatFamily: 'tell',
+    };
+    expect(carriedIdentityRules(loose)).toEqual(loose);
+    expect(carriedIdentityRules(undefined)).toEqual(STRICT);
+    expect(carriedIdentityRules(null)).toEqual(STRICT);
+    // one malformed or missing value makes the whole reading the defaults, never a mix
+    expect(carriedIdentityRules({ ...loose, document: 'sometimes' })).toEqual(STRICT);
+    expect(carriedIdentityRules({ document: 'optional', mobile: 'optional' })).toEqual(STRICT);
   });
 
   it('says whether two readings differ', () => {

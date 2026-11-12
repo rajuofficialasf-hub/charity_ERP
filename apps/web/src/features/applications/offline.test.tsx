@@ -157,10 +157,16 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-/** The phone holds the volunteer's data set, as after a sign-in with network. */
-async function seedPhone() {
+/**
+ * The phone holds the volunteer's data set, as after a sign-in with network; `held` is the
+ * project as the phone stored it, when a test needs another than the server's.
+ */
+async function seedPhone(held: unknown = project) {
   await afterSignIn({ sessionId: TEST_SESSION_ID, userId: ME.id, deviceKey: 'k'.repeat(43) });
-  await applySnapshot(view, new Date());
+  await applySnapshot(
+    { ...view, projects: [held as SnapshotView['projects'][number]] },
+    new Date(),
+  );
   await storeDetail(detail, '"v1"');
   await replaceLocations(
     [
@@ -694,4 +700,65 @@ describe('applications without network', () => {
       },
     });
   }, 20_000);
+});
+
+describe('the identity answers a draft may lack without network', () => {
+  const { identityRules: _rules, ...storedBeforeTheRules } = project;
+  const withoutMobile = () =>
+    answers('অফলাইন উপকারভোগী', 'মন্তব্য').filter((a) => a.fieldKey !== 'mobile');
+
+  /** A finished draft without a mobile, opened offline on a phone that holds the given project. */
+  async function openDraft(held: unknown) {
+    refreshAs(VOLUNTEER);
+    await seedPhone(held);
+    const store = await import('../../offline/applications-store');
+    onLine = false;
+    await store.saveDraft({
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      clientUuid: LOCAL,
+      answers: withoutMobile(),
+    });
+    renderApp(<ApplicationFormPage />, 'bn', {
+      path: '/my-applications/:applicationId/edit',
+      initialPath: `/my-applications/${LOCAL}/edit`,
+    });
+    return screen.findByRole('textbox', { name: /^mobile/ }, { timeout: 5000 });
+  }
+  const queuedKinds = async () => (await offlineDb().outbox.toArray()).map((r) => r.kind);
+
+  it('queues the send where the cached project lets the mobile stay empty', async () => {
+    const user = userEvent.setup();
+    const mobile = await openDraft({
+      ...project,
+      identityRules: { ...DEFAULT_IDENTITY_RULES, mobile: 'optional' },
+    });
+    // the rules come from the project the phone holds
+    await waitFor(() => expect(mobile).not.toBeRequired(), { timeout: 5000 });
+    expect(mobile).toHaveValue('');
+    await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
+    expect(await screen.findByText('ফোনে জমা আছে', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await queuedKinds()).toEqual(
+      expect.arrayContaining(['application_draft', 'application_submit']),
+    );
+    const draft = (await offlineDb().outbox.toArray()).find((r) => r.kind === 'application_draft')!;
+    const { payload } = await readSecret(draft);
+    const kept = (payload.answers as Answer[]).map((a) => a.fieldKey);
+    expect(kept).toContain('name');
+    expect(kept).not.toContain('mobile');
+  });
+
+  it.each([
+    ['requires the mobile', project],
+    ['was stored before the rules existed', storedBeforeTheRules],
+  ])('keeps the draft on the screen where the cached project %s', async (_case, held) => {
+    const user = userEvent.setup();
+    const mobile = await openDraft(held);
+    expect(mobile).toBeRequired();
+    await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
+    expect(await screen.findByText('পাঠানোর আগে 1টি সমস্যা ঠিক করুন')).toBeInTheDocument();
+    expect(mobile).toBeRequired();
+    expect(screen.queryByText('ফোনে জমা আছে')).not.toBeInTheDocument();
+    expect(await queuedKinds()).not.toContain('application_submit');
+  });
 });

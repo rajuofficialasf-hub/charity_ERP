@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { answerValueSchema, type AnswerValue } from '../jsonb/answer-value.js';
 import { snakeKey } from '../jsonb/common.js';
 import { isAmount, toPaisa } from '../projects/budget.js';
+import type { IdentityRules } from '../projects/identity-rules.js';
+import { identityRoleOf } from './core.js';
 import {
   COUNTED_ROWS_MAX,
   indexFields,
@@ -34,10 +36,53 @@ import { split, type FamilyMemberRow } from './split.js';
  */
 export type Audience = 'official' | 'volunteer' | 'public';
 
+/**
+ * The two identity questions a project may let stay empty: the identity document (the NID or the
+ * birth registration number) and the mobile number. A question named here passes without an
+ * answer; an answer that is given is checked like any other, and no other question changes.
+ */
+export interface OptionalIdentity {
+  document?: boolean;
+  mobile?: boolean;
+}
+
+/**
+ * Which of the two identity questions a question is, where the option lets it stay empty: the
+ * question that fills the identity number or the mobile of the profile, outside a repeat group.
+ * Null for every other question, and for these two where they must be answered.
+ */
+export function optionalIdentityQuestion(
+  field: Parameters<typeof identityRoleOf>[0],
+  optional: OptionalIdentity | undefined,
+): keyof OptionalIdentity | null {
+  if (!optional) return null;
+  const role = identityRoleOf(field);
+  if (role === 'nid_or_birth_reg' && optional.document === true) return 'document';
+  if (role === 'mobile' && optional.mobile === true) return 'mobile';
+  return null;
+}
+
+/**
+ * The option a project's rules give an entry, built the same way by every caller. The open link
+ * always asks the mobile, whatever the project says: no volunteer stands between the office and
+ * a person who applies there. Its document follows the project like any other entry's.
+ */
+export function optionalIdentityOf(
+  rules: Pick<IdentityRules, 'document' | 'mobile'>,
+  audience: Audience,
+): Required<OptionalIdentity> {
+  return {
+    document: rules.document === 'optional',
+    mobile: audience !== 'public' && rules.mobile === 'optional',
+  };
+}
+
 export interface ValidateOptions extends EvaluationContext {
   audience: Audience;
   /** A draft may leave required questions unanswered; every answer given is still checked. */
   draft?: boolean;
+  /** The identity questions the project lets stay empty; absent, both are held as the form says. */
+  optionalIdentity?: OptionalIdentity;
   /** The answers stored before this save: a read-only answer keeps the value it was first given. */
   previous?: readonly Answer[];
 }
@@ -377,7 +422,11 @@ class Validator {
     if (this.refused.has(`${field.fieldKey}#${row}`)) return;
     const answer = this.kept.get(`${field.fieldKey}#${row}`);
     if (!answer) {
-      if (state.required && !this.options.draft) this.fail(path, 'validation.required');
+      const mustAnswer =
+        state.required &&
+        !this.options.draft &&
+        optionalIdentityQuestion(field, this.options.optionalIdentity) === null;
+      if (mustAnswer) this.fail(path, 'validation.required');
       return;
     }
     const { value } = answer;

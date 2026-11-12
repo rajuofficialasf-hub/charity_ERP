@@ -1,5 +1,5 @@
 import type { LocationView } from '@css/shared';
-import { DEFAULT_IDENTITY_RULES, identityRulesSchema } from '@css/shared/projects';
+import { carriedIdentityRules } from '@css/shared/projects';
 import type {
   Application,
   ApplicationForm,
@@ -113,8 +113,7 @@ export async function metaString(key: string): Promise<string | null> {
  */
 function storedProject(data: unknown): MyProject {
   const project = data as Omit<MyProject, 'identityRules'> & { identityRules?: unknown };
-  const rules = identityRulesSchema.safeParse(project.identityRules);
-  return { ...project, identityRules: rules.success ? rules.data : DEFAULT_IDENTITY_RULES };
+  return { ...project, identityRules: carriedIdentityRules(project.identityRules) };
 }
 
 /** The cached projects, as the screens read them offline. */

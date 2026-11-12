@@ -24,6 +24,8 @@
     "upload_inert": "Files are not taken here.",
     "signature_helper": "Sign on paper, then take or choose a photo of it.",
     "time_helper": "Hours:minutes, for example 14:30",
+    "optional_document": "If they have one.",
+    "optional_mobile": "Leave empty if there is none; the volunteer will be the contact.",
     "datetime_time": "{label}: time",
     "upload_wait": "Wait until the photos have finished going up.",
     "upload_failed": "The file could not be taken. Try again.",

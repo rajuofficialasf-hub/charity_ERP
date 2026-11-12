@@ -1,7 +1,8 @@
 import type { Me } from '@css/shared/auth';
 import { maxSizeOf } from '@css/shared/files';
 import { failureReason } from '../sync/failure-reason';
-import type { Answer } from '@css/shared/forms';
+import { type Answer, optionalIdentityOf } from '@css/shared/forms';
+import { carriedIdentityRules, type IdentityRules } from '@css/shared/projects';
 import { formatCount, formatDate, isoDateInDhaka } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import { Alert, Button, Card, Icon, LinkButton, Skeleton, Stack, Text } from '@/ui';
@@ -183,6 +184,7 @@ function NewApplication({ me }: { me: Me }) {
         me={me}
         projectId={projectId}
         form={definition}
+        rules={carriedIdentityRules(p.identityRules)}
         initialAnswers={initial}
         lockedKeys={person.kind === 'known' ? lockedKeysOf(definition) : new Set()}
       />
@@ -195,6 +197,14 @@ function EditDraft({ me, applicationId }: { me: Me; applicationId: string }) {
   const one = useQuery({
     queryKey: applicationKey(applicationId),
     queryFn: () => recordOf(applicationId),
+  });
+  // the draft's project says which identity answers may stay empty; while it is not read, and
+  // when it cannot be, the form asks both
+  const projectId = one.data?.data.projectId;
+  const project = useQuery({
+    queryKey: [...MY_PROJECTS_KEY, projectId],
+    queryFn: () => projectOf(projectId!),
+    enabled: projectId !== undefined,
   });
   const back = <Link to={`/my-applications/${applicationId}`}>{t('back')}</Link>;
   if (one.isPending) return <Skeleton shape="card" />;
@@ -213,6 +223,7 @@ function EditDraft({ me, applicationId }: { me: Me; applicationId: string }) {
         me={me}
         projectId={record.projectId}
         form={record.form}
+        rules={carriedIdentityRules(project.data?.identityRules)}
         initialAnswers={record.answers}
         fillDefaults={false}
         lockedKeys={record.beneficiaryId ? lockedKeysOf(record.form) : new Set()}
@@ -240,6 +251,7 @@ function ApplicationForm({
   me,
   projectId,
   form,
+  rules,
   initialAnswers,
   fillDefaults = true,
   lockedKeys,
@@ -248,6 +260,8 @@ function ApplicationForm({
   me: Me;
   projectId: string;
   form: Application['form'];
+  /** What the project's application asks about identity and contact. */
+  rules: IdentityRules;
   initialAnswers: Answer[];
   /** A stored draft keeps the answers it holds; a new application starts with the defaults. */
   fillDefaults?: boolean;
@@ -475,6 +489,7 @@ function ApplicationForm({
         submitLabel={teamMember ? t('saved') : t('submit')}
         onPartDone={save}
         onSubmit={send}
+        optionalIdentity={optionalIdentityOf(rules, 'volunteer')}
       />
     </Stack>
   );

@@ -651,3 +651,88 @@ describe('one application', () => {
     expect(await screen.findByText('আবেদনটি এর মধ্যে বদলেছে। আবার লোড করুন।')).toBeInTheDocument();
   });
 });
+
+describe('the identity questions of the new application follow the project', () => {
+  const DOCUMENT_HINT = 'থাকলে দিন।';
+  const MOBILE_HINT = 'নম্বর না থাকলে ফাঁকা রাখুন, যোগাযোগ হবে স্বেচ্ছাসেবকের মাধ্যমে।';
+  const { identityRules: _rules, ...withoutRules } = project;
+  const number = () => screen.getByRole('textbox', { name: /^nid_or_birth_reg/ });
+  const mobile = () => screen.getByRole('textbox', { name: /^mobile/ });
+
+  /**
+   * The first part of a new person's form on a phone, with everything answered but the mobile, in
+   * a project whose read carries the given rules; `undefined` is a read without any.
+   */
+  async function firstPart(user: ReturnType<typeof userEvent.setup>, rules: unknown) {
+    onPhone();
+    refreshAs(VOLUNTEER);
+    serve({ found: false });
+    server.use(
+      http.get(`*/api/v1/me/projects/${PROJECT}`, () =>
+        envelope(rules === undefined ? withoutRules : { ...withoutRules, identityRules: rules }),
+      ),
+    );
+    renderApp(<ApplicationFormPage />, 'bn', {
+      path: '/my-projects/:projectId/apply',
+      initialPath: `/my-projects/${PROJECT}/apply`,
+    });
+    await lookUp(user, '9876543210');
+    await user.click(
+      await screen.findByRole('button', { name: 'নতুন ব্যক্তির জন্য ফর্ম পূরণ করুন' }),
+    );
+    await user.type(await screen.findByRole('textbox', { name: /^name/ }), 'নমুনা উপকারভোগী');
+    await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
+    await user.click(screen.getByRole('radio', { name: 'female' }));
+  }
+
+  it('asks neither where the project lets both stay empty, and goes on without the mobile', async () => {
+    const user = userEvent.setup();
+    await firstPart(user, { ...DEFAULT_IDENTITY_RULES, document: 'optional', mobile: 'optional' });
+    expect(number()).not.toBeRequired();
+    expect(number()).toHaveAccessibleDescription(DOCUMENT_HINT);
+    expect(mobile()).not.toBeRequired();
+    expect(mobile()).toHaveAccessibleDescription(MOBILE_HINT);
+    expect(screen.getByRole('textbox', { name: /^name/ })).toBeRequired();
+    await user.click(await screen.findByRole('button', { name: 'পরের অংশ' }));
+    expect(
+      await screen.findByRole('combobox', { name: /^বিভাগ/ }, { timeout: 15_000 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/সমস্যা ঠিক করুন/)).not.toBeInTheDocument();
+  }, 60_000);
+
+  it('asks the mobile where the project lets only the document stay empty', async () => {
+    const user = userEvent.setup();
+    await firstPart(user, { ...DEFAULT_IDENTITY_RULES, document: 'optional' });
+    expect(number()).not.toBeRequired();
+    expect(mobile()).toBeRequired();
+    expect(screen.queryByText(MOBILE_HINT)).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'পরের অংশ' }));
+    expect(
+      await screen.findByText('পরের অংশে যাওয়ার আগে 1টি সমস্যা ঠিক করুন'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /^বিভাগ/ })).not.toBeInTheDocument();
+  }, 60_000);
+
+  it.each([
+    ['requires both', DEFAULT_IDENTITY_RULES],
+    ['carries no rules', undefined],
+    ['carries rules that are not whole', { document: 'optional', mobile: 'optional' }],
+  ])(
+    'asks both as today where the project read %s',
+    async (_case, rules) => {
+      const user = userEvent.setup();
+      await firstPart(user, rules);
+      expect(number()).toBeRequired();
+      expect(mobile()).toBeRequired();
+      expect(screen.queryByText(DOCUMENT_HINT)).not.toBeInTheDocument();
+      expect(screen.queryByText(MOBILE_HINT)).not.toBeInTheDocument();
+      await user.click(await screen.findByRole('button', { name: 'পরের অংশ' }));
+      expect(
+        await screen.findByText('পরের অংশে যাওয়ার আগে 1টি সমস্যা ঠিক করুন'),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: /^বিভাগ/ })).not.toBeInTheDocument();
+      expect(created).toEqual([]);
+    },
+    60_000,
+  );
+});
