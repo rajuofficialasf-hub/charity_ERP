@@ -774,6 +774,33 @@ describe('the options of a choice question', () => {
     ]);
   });
 
+  it('puts the first pasted line where the cursor stands, so what is written stays', () => {
+    const start = [
+      option('a', { label: T('চাল ও', 'Rice and') }),
+      option('b', { label: T('ডাল', 'old text') }),
+    ];
+    // the cursor at the end of the Bengali text: the line follows it, the rest are new options
+    const after = pasteOptions(start, 0, 'bn', [' গম', 'ভুট্টা'], keysFrom('o_new001'), {
+      start: 6,
+      end: 6,
+    });
+    expect(codes(after)).toEqual(['a', 'o_new001', 'b']);
+    expect(texts(after)).toEqual([
+      ['চাল ও গম', 'Rice and'],
+      ['ভুট্টা', ''],
+      ['ডাল', 'old text'],
+    ]);
+    // a selected word gives way to the line; the next option's English is the next line
+    const over = pasteOptions(start, 0, 'en', ['Wheat', 'Lentils'], undefined, {
+      start: 0,
+      end: 4,
+    });
+    expect(texts(over)).toEqual([
+      ['চাল ও', 'Wheat and'],
+      ['ডাল', 'Lentils'],
+    ]);
+  });
+
   it('places nothing for no line or an option that is not there, and stops at 100 options', () => {
     const start = three();
     expect(pasteOptions(start, 0, 'bn', [])).toBe(start);
@@ -1332,6 +1359,11 @@ describe('the texts of the form in both languages', () => {
     const rows = textsOf(def);
     expect(missingIn({ bn: 'ক', en: ' ' })).toEqual(['en']);
     expect(missingIn({ bn: '', en: '' })).toEqual(['bn', 'en']);
+    // a help text or a placeholder is optional: empty in both languages, it lacks nothing
+    expect(missingIn({ kind: 'help', bn: '', en: '' })).toEqual([]);
+    expect(missingIn({ kind: 'placeholder', bn: ' ', en: '' })).toEqual([]);
+    expect(missingIn({ kind: 'help', bn: 'ক', en: '' })).toEqual(['en']);
+    expect(missingIn({ kind: 'label', bn: '', en: '' })).toEqual(['bn', 'en']);
     expect(missingIn({ bn: 'ক', en: 'A' })).toEqual([]);
     // the part's English, a help text, two options, the table's label, placeholder and row, two
     // results, and both languages of the last question
@@ -1376,9 +1408,10 @@ describe('the texts of the form in both languages', () => {
       ),
     ).toBe(def);
     expect(setText(def, { place: { section: 'none' }, kind: 'title' }, 'bn', 'x')).toBe(def);
-    expect(
-      setText(def, { place: { section: 'two', field: 'note' }, kind: 'help' }, 'bn', 'x'),
-    ).toBe(def);
+    // a help text the question does not have, emptied: nothing to take away
+    expect(setText(def, { place: { section: 'two', field: 'note' }, kind: 'help' }, 'bn', '')).toBe(
+      def,
+    );
     // the gender question's options are its reference list's: read here, never written
     const core = definition();
     const male = textsOf(core).find((r) => r.id === 'option|gender|male')!;
@@ -1386,13 +1419,18 @@ describe('the texts of the form in both languages', () => {
     expect(setText(core, male, 'en', 'Man')).toBe(core);
   });
 
-  it('takes a help text away once it is emptied in both languages', () => {
+  it('takes a help text away once it is emptied in both languages, and writes it again from the first letter', () => {
     const def = worded();
     const help = textsOf(def).find((r) => r.kind === 'help')!;
     const next = setText(def, help, 'bn', '');
     expect(next.sections[0]!.fields[0]!.settings).toEqual({ placeholder: T('', '') });
     expect(textsOf(next).some((r) => r.kind === 'help')).toBe(false);
     valid(next);
+    // the same row written again: the help text is back, in the language typed
+    const again = setText(next, help, 'en', 'Pick one');
+    expect(again.sections[0]!.fields[0]!.settings!.help).toEqual(T('', 'Pick one'));
+    expect(textsOf(again).find((r) => r.kind === 'help')).toMatchObject({ bn: '', en: 'Pick one' });
+    valid(again);
   });
 });
 

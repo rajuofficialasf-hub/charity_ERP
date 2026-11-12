@@ -117,7 +117,12 @@ export function OptionsEditor({
     const lines = pastedLines(event.clipboardData.getData('text'));
     if (lines.length < 2) return;
     event.preventDefault();
-    const next = pasteOptions(options, at.index, at.language, lines, makeCode);
+    // the first line goes where the cursor stands, in place of what is selected
+    const input = event.target instanceof HTMLInputElement ? event.target : null;
+    const start = input?.selectionStart ?? null;
+    const end = input?.selectionEnd ?? null;
+    const selected = start !== null && end !== null ? { start, end } : undefined;
+    const next = pasteOptions(options, at.index, at.language, lines, makeCode, selected);
     if (next !== options) onChange([...next]);
   };
   return (

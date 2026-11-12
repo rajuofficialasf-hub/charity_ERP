@@ -344,12 +344,14 @@ export function pastedLines(text: string): string[] {
 }
 
 /**
- * The options after several lines are pasted into the text of the option at `index`. Into the
- * Bengali text: the first line is that option's text, and each further line is a new option right
- * after it, in order. Into the English text: the lines are the English texts of that option and
- * the ones after it, line by line, and a line with no option left to take it is a new option at
- * the end. A question holds 100 options at most; the lines beyond that are left out. The same
- * list comes back when there is nothing to place.
+ * The options after several lines are pasted into the text of the option at `index`. The first
+ * line goes into that text where the cursor stands, in place of what is selected (`selected`, the
+ * start and end in the text; the whole text when it is not given), so nothing already written is
+ * lost. Into the Bengali text, each further line is a new option right after it, in order. Into
+ * the English text, the further lines are the English texts of the options after it, line by line
+ * as in a sheet, and a line with no option left to take it is a new option at the end. A question
+ * holds 100 options at most; the lines beyond that are left out. The same list comes back when
+ * there is nothing to place.
  */
 export function pasteOptions(
   options: readonly FieldOption[],
@@ -357,9 +359,16 @@ export function pasteOptions(
   language: 'bn' | 'en',
   lines: readonly string[],
   makeCode?: MakeKey,
+  selected?: { start: number; end: number },
 ): readonly FieldOption[] {
   const current = options.at(index);
   if (!current || index < 0 || lines.length === 0) return options;
+  const [first = '', ...rest] = lines;
+  const before = current.label[language];
+  const text = selected
+    ? before.slice(0, selected.start) + first + before.slice(selected.end)
+    : first;
+  const here: FieldOption = { ...current, label: { ...current.label, [language]: text } };
   const room = DEFINITION_LIMITS.optionsPerField - options.length;
   const taken = codesOf(options);
   const fresh = (label: FieldOption['label']) => {
@@ -368,15 +377,15 @@ export function pasteOptions(
     return optionOf(code, label);
   };
   if (language === 'bn') {
-    const [first = '', ...rest] = lines;
     return [
       ...options.slice(0, index),
-      { ...current, label: { ...current.label, bn: first } },
+      here,
       ...rest.slice(0, Math.max(0, room)).map((bn) => fresh({ bn, en: '' })),
       ...options.slice(index + 1),
     ];
   }
   const next = options.map((option, i) => {
+    if (i === index) return here;
     const en = lines.at(i - index);
     return i < index || en === undefined ? option : { ...option, label: { ...option.label, en } };
   });
@@ -1041,11 +1050,16 @@ export function textsOf(def: FormDefinition): FormTextRow[] {
   return rows;
 }
 
-/** The languages a text is not written in yet; a text of only spaces is not written. */
-export function missingIn(text: BothTexts): ('bn' | 'en')[] {
-  return (['bn', 'en'] as const).filter(
+/**
+ * The languages a text is not written in yet; a text of only spaces is not written. A help text
+ * or a placeholder is optional, so one empty in both languages lacks nothing.
+ */
+export function missingIn(text: BothTexts & { kind?: FormTextKind }): ('bn' | 'en')[] {
+  const lacks = (['bn', 'en'] as const).filter(
     (language) => (language === 'bn' ? text.bn : text.en).trim() === '',
   );
+  const optional = text.kind === 'help' || text.kind === 'placeholder';
+  return optional && lacks.length === 2 ? [] : lacks;
 }
 
 /** How many texts still lack a language, each language of each text counted once. */
@@ -1055,8 +1069,9 @@ export function missingTextCount(rows: readonly FormTextRow[]): number {
 
 /**
  * Writes one text of the form in one language and leaves every other text as it is. A help text
- * or a placeholder emptied in both languages is taken away. An option a reference list gives is
- * not changed, nor a text the form does not have.
+ * or a placeholder is there from its first letter and taken away when emptied in both languages.
+ * An option a reference list gives is not changed, nor an option, a row, a column or a result
+ * the form does not have.
  */
 export function setText(
   def: FormDefinition,
@@ -1084,8 +1099,8 @@ export function setText(
         : updateField(def, field.fieldKey, { label: put(field.label) });
     case 'help':
     case 'placeholder': {
-      const text = settings[row.kind];
-      if (!text || same(text)) return def;
+      const text = settings[row.kind] ?? { bn: '', en: '' };
+      if (same(text)) return def;
       const next = put(text);
       const { [row.kind]: _old, ...rest } = settings;
       return updateField(def, field.fieldKey, {

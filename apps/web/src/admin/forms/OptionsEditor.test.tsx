@@ -258,6 +258,20 @@ describe('pasting', () => {
     expect(hows).toEqual([undefined, undefined]);
   });
 
+  it('keeps what an option already says when lines are pasted into it', async () => {
+    const user = userEvent.setup();
+    open([option('a', { label: T('চাল-', 'Rice') }), option('b', { label: T('ডাল', 'Lentils') })]);
+    // the cursor stands at the end of the text after the click
+    await user.click(bn(1));
+    await user.paste('গম\nভুট্টা');
+    expect(codes()).toEqual(['a', 'o_new001', 'b']);
+    expect(texts()).toEqual([
+      ['চাল-গম', 'Rice'],
+      ['ভুট্টা', ''],
+      ['ডাল', 'Lentils'],
+    ]);
+  });
+
   it('pastes a single line into the text as any text', async () => {
     const user = userEvent.setup();
     open([option('a', { label: T('', '') })]);

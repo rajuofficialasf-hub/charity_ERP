@@ -28,6 +28,31 @@ type Write = (row: FormTextRow, language: Language, value: string) => void;
 const idsOfMissing = (rows: readonly FormTextRow[]): ReadonlySet<string> =>
   new Set(rows.filter((row) => missingIn(row).length > 0).map((row) => row.id));
 
+/** A help text or a placeholder: optional, so the form holds it only while it is written. */
+const isOptional = (row: FormTextRow) => row.kind === 'help' || row.kind === 'placeholder';
+
+/**
+ * The rows with the optional texts that were there when the dialog opened and have been emptied
+ * since, each back in its place under its question with both fields empty, so a text cleared to
+ * be written again does not leave from under the cursor.
+ */
+function withEmptied(rows: readonly FormTextRow[], opened: readonly FormTextRow[]): FormTextRow[] {
+  const present = new Set(rows.map((row) => row.id));
+  const emptied = opened.filter((row) => !present.has(row.id));
+  if (emptied.length === 0) return [...rows];
+  const all: FormTextRow[] = [];
+  for (const row of rows) {
+    all.push(row);
+    if (row.kind !== 'label') continue;
+    // a question's help text and placeholder stand right under its own text, in that order
+    for (const kind of ['help', 'placeholder'] as const) {
+      const gone = emptied.find((e) => e.kind === kind && e.place.field === row.place.field);
+      if (gone) all.push({ ...gone, bn: '', en: '' });
+    }
+  }
+  return all;
+}
+
 /**
  * Every text of the form in both languages, side by side, part by part in the form's order: a
  * part's name, then each question's text with its help text, options, table rows and columns and
@@ -53,7 +78,10 @@ export function TranslationsDialog({
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale() as Locale;
-  const rows = useMemo(() => textsOf(definition), [definition]);
+  const written = useMemo(() => textsOf(definition), [definition]);
+  // the optional texts as the dialog found them: one emptied here keeps its row until it closes
+  const [opened] = useState(() => written.filter(isOptional));
+  const rows = useMemo(() => withEmptied(written, opened), [written, opened]);
   const missing = missingTextCount(rows);
   const [only, setOnly] = useState(onlyMissing);
   // the rows that were incomplete when "missing only" was switched on: they stay while written

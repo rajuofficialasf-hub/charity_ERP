@@ -219,6 +219,29 @@ describe('writing a text', () => {
     expect(hows.slice(0, 4).map((how) => how?.key)).toEqual(Array(4).fill('label|herd|en'));
   });
 
+  it('keeps the row of a help text that is emptied, to be written again', async () => {
+    const user = userEvent.setup();
+    open(worded());
+    const view = await dialog();
+    const bn = () => view.getByRole('textbox', { name: 'প্রশ্ন 1: সহায়ক লেখা (বাংলা)' });
+    const en = () => view.getByRole('textbox', { name: 'প্রশ্ন 1: সহায়ক লেখা (ইংরেজি)' });
+    await user.clear(bn());
+    // the form holds no help text any more, and nothing counts as missing for it
+    expect(latest.sections[0]!.fields[0]!.settings?.help).toBeUndefined();
+    expect(count(view)).toBe(`${MISSING - 1}টি লেখা বাকি`);
+    // the row is still there, under its question and above the options, both fields empty
+    expect(bn()).toHaveValue('');
+    expect(en()).toHaveValue('');
+    const boxes = within(view.getByRole('region', { name: 'প্রথম অংশ' })).getAllByRole('textbox');
+    expect(boxes.indexOf(bn())).toBe(4);
+    expect(within(bn().closest('li')!).queryByRole('img', { name: 'বাকি' })).toBeNull();
+    // written again from the first letter
+    await user.type(en(), 'Pick one');
+    expect(latest.sections[0]!.fields[0]!.settings!.help).toEqual(T('', 'Pick one'));
+    expect(en()).toHaveValue('Pick one');
+    expect(count(view)).toBe(`${MISSING}টি লেখা বাকি`);
+  });
+
   it('closes by its button', async () => {
     const user = userEvent.setup();
     open(worded());
