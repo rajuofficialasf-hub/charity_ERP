@@ -17,6 +17,8 @@ import {
   emptyOption,
   insertOptionAfter,
   missingIdentityRoles,
+  missingIn,
+  missingTextCount,
   moveField,
   moveFieldTo,
   moveSection,
@@ -32,12 +34,15 @@ import {
   setIdentityRole,
   setSectionTitle,
   setSectionVisibility,
+  setText,
+  textsOf,
   updateField,
   usesOf,
   usesOfSection,
   yesNoOptions,
 } from './draft';
 import * as draftEdits from './draft';
+import { missingTexts, publishEntries } from './publish-entries';
 
 const valid = (def: Parameters<typeof formDefinitionSchema.parse>[0]) =>
   expect(formDefinitionSchema.safeParse(def).success).toBe(true);
@@ -1222,6 +1227,157 @@ describe('the uses of a question', () => {
   });
 });
 
+describe('the texts of the form in both languages', () => {
+  /** A form with a text of every kind, some of them written in one language only. */
+  const worded = (): FormDefinition => ({
+    sections: [
+      section(
+        'one',
+        [
+          field('kind', 'radio', {
+            label: T('ধরন', 'Kind'),
+            settings: { help: T('একটি বেছে নিন', ''), placeholder: T('', '') },
+            options: [
+              option('a', { label: T('ক', 'A') }),
+              option('b', { label: T('খ', '') }),
+              option('c', { label: T('', 'C') }),
+            ],
+          }),
+          field('herd', 'number_table', {
+            label: T('গরু-ছাগল', ''),
+            settings: {
+              placeholder: T('', 'Count'),
+              table: {
+                rows: [
+                  { key: 'r1', label: T('গরু', 'Cows') },
+                  { key: 'r2', label: T('ছাগল', '') },
+                ],
+                cols: [{ key: 'c1', label: T('নিজের', 'Own') }],
+              },
+            },
+          }),
+          field('level', 'calculation', {
+            label: T('অবস্থা', 'Level'),
+            settings: {
+              results: [
+                { code: 'poor', label: T('দরিদ্র', '') },
+                { code: 'ok', label: T('  ', 'Fine') },
+              ],
+            },
+          }),
+        ],
+        { title: T('প্রথম অংশ', '') },
+      ),
+      section('two', [field('note', 'short_text', { label: T('', '') })], {
+        title: T('দ্বিতীয় অংশ', 'Second part'),
+      }),
+    ],
+    scoring: { not_previously_assisted: 10 },
+  });
+  const brief = (def: FormDefinition) =>
+    textsOf(def).map((r) => [r.kind, r.place.field ?? r.place.section, r.item ?? '', r.bn, r.en]);
+
+  it('lists every text with its place and kind, in the order of the form', () => {
+    const rows = textsOf(worded());
+    expect(brief(worded())).toEqual([
+      ['title', 'one', '', 'প্রথম অংশ', ''],
+      ['label', 'kind', '', 'ধরন', 'Kind'],
+      // a help text in one language is listed; a placeholder empty in both is none
+      ['help', 'kind', '', 'একটি বেছে নিন', ''],
+      ['option', 'kind', 'a', 'ক', 'A'],
+      ['option', 'kind', 'b', 'খ', ''],
+      ['option', 'kind', 'c', '', 'C'],
+      ['label', 'herd', '', 'গরু-ছাগল', ''],
+      ['placeholder', 'herd', '', '', 'Count'],
+      ['table_row', 'herd', 'r1', 'গরু', 'Cows'],
+      ['table_row', 'herd', 'r2', 'ছাগল', ''],
+      ['table_col', 'herd', 'c1', 'নিজের', 'Own'],
+      ['label', 'level', '', 'অবস্থা', 'Level'],
+      ['result', 'level', 'poor', 'দরিদ্র', ''],
+      ['result', 'level', 'ok', '  ', 'Fine'],
+      ['title', 'two', '', 'দ্বিতীয় অংশ', 'Second part'],
+      ['label', 'note', '', '', ''],
+    ]);
+    expect(rows.find((r) => r.kind === 'title')!.place).toEqual({ section: 'one' });
+    expect(rows.find((r) => r.id === 'option|kind|c')).toMatchObject({
+      place: { section: 'one', field: 'kind' },
+      item: 'c',
+      index: 2,
+      locked: false,
+    });
+    // every row has a name of its own
+    expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length);
+  });
+
+  it('counts the missing languages as the publish check does', () => {
+    const def = worded();
+    const rows = textsOf(def);
+    expect(missingIn({ bn: 'ক', en: ' ' })).toEqual(['en']);
+    expect(missingIn({ bn: '', en: '' })).toEqual(['bn', 'en']);
+    expect(missingIn({ bn: 'ক', en: 'A' })).toEqual([]);
+    // the part's English, a help text, two options, the table's label, placeholder and row, two
+    // results, and both languages of the last question
+    expect(missingTextCount(rows)).toBe(11);
+    expect(
+      checkDefinition(def, { publishing: true, kind: 'other' }).filter(
+        (i) => i.code === 'form.label_language',
+      ),
+    ).toHaveLength(11);
+    expect(missingTexts(publishEntries(def, 'other'))).toBe(11);
+    // and on a complete form alike
+    const complete = definition();
+    expect(missingTextCount(textsOf(complete))).toBe(0);
+    expect(missingTexts(publishEntries(complete, 'beneficiary_application'))).toBe(0);
+  });
+
+  it('writes exactly one text in one language, and keeps every other and the points', () => {
+    const def = worded();
+    const rows = textsOf(def);
+    for (const [at, row] of rows.entries())
+      for (const language of ['bn', 'en'] as const) {
+        const next = setText(def, row, language, 'নতুন লেখা');
+        const expected = rows.map((r, i) => (i === at ? { ...r, [language]: 'নতুন লেখা' } : r));
+        expect(textsOf(next), `${row.id} ${language}`).toEqual(expected);
+        expect(next.scoring).toEqual(def.scoring);
+        valid(next);
+        // nothing but that text changed: the rest of the question is as it was
+        expect(setText(next, row, language, row[language])).toEqual(def);
+      }
+  });
+
+  it('gives back the same form for a text as it is, a text the form lacks and a list’s option', () => {
+    const def = worded();
+    const label = textsOf(def).find((r) => r.id === 'label|kind')!;
+    expect(setText(def, label, 'bn', 'ধরন')).toBe(def);
+    expect(
+      setText(
+        def,
+        { place: { section: 'one', field: 'kind' }, kind: 'option', item: 'zz' },
+        'bn',
+        'x',
+      ),
+    ).toBe(def);
+    expect(setText(def, { place: { section: 'none' }, kind: 'title' }, 'bn', 'x')).toBe(def);
+    expect(
+      setText(def, { place: { section: 'two', field: 'note' }, kind: 'help' }, 'bn', 'x'),
+    ).toBe(def);
+    // the gender question's options are its reference list's: read here, never written
+    const core = definition();
+    const male = textsOf(core).find((r) => r.id === 'option|gender|male')!;
+    expect(male.locked).toBe(true);
+    expect(setText(core, male, 'en', 'Man')).toBe(core);
+  });
+
+  it('takes a help text away once it is emptied in both languages', () => {
+    const def = worded();
+    const help = textsOf(def).find((r) => r.kind === 'help')!;
+    const next = setText(def, help, 'bn', '');
+    expect(next.sections[0]!.fields[0]!.settings).toEqual({ placeholder: T('', '') });
+    expect(textsOf(next).some((r) => r.kind === 'help')).toBe(false);
+    valid(next);
+  });
+});
+
 describe('the rest of the definition', () => {
   const POINTS = { not_previously_assisted: 20 };
   const yes = { field: 'has_cow', op: 'eq' as const, value: 'yes' };
@@ -1318,6 +1474,28 @@ describe('the rest of the definition', () => {
       (d) => addEmptySection(d, (n) => T(`অংশ ${n}`, `Section ${n}`)).definition,
     ],
     [
+      'setText',
+      'a text in one language',
+      (d) =>
+        setText(d, { place: { section: 'extra', field: 'q_note' }, kind: 'label' }, 'en', 'Remark'),
+    ],
+    [
+      'setText',
+      'an option’s text',
+      (d) =>
+        setText(
+          d,
+          { place: { section: 'extra', field: 'has_cow' }, kind: 'option', item: 'yes' },
+          'bn',
+          'হ্যাঁ',
+        ),
+    ],
+    [
+      'setText',
+      'a part’s name',
+      (d) => setText(d, { place: { section: 'more' }, kind: 'title' }, 'bn', 'আরও'),
+    ],
+    [
       'addIdentityQuestions',
       'the question of a role no question is marked with',
       (d) =>
@@ -1338,8 +1516,11 @@ describe('the rest of the definition', () => {
     'hasIdentity',
     'insertOptionAfter',
     'missingIdentityRoles',
+    'missingIn',
+    'missingTextCount',
     'pastedLines',
     'pasteOptions',
+    'textsOf',
     'usesOf',
     'usesOfSection',
     'yesNoOptions',

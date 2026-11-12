@@ -33,9 +33,11 @@ import {
   duplicateField,
   type LibraryFields,
   missingIdentityRoles,
+  missingTextCount,
   moveFieldTo,
   removeFieldWithUses,
   removeSectionWithUses,
+  textsOf,
   usesOf,
   usesOfSection,
 } from './draft';
@@ -69,6 +71,7 @@ import {
   standing,
 } from './publish-entries';
 import { SettingsPane } from './SettingsPane';
+import { TranslationsDialog } from './TranslationsDialog';
 import { UsesDialog } from './UsesDialog';
 import { type HistoryStep, type Typed, useDraftHistory } from './use-draft-history';
 import { detailsOf, refusalOf, useDraftSave } from './use-draft-save';
@@ -116,7 +119,9 @@ function useMedia(media: string) {
  * asks first with the summary of the changes once it finds nothing; what the server refuses
  * lands in the same list, and leaves it once the question or the part it names is changed. A
  * beneficiary application form that lacks identity questions gets them in one press, from the
- * start card of the empty canvas or from the list's identity line.
+ * start card of the empty canvas or from the list's identity line. "অনুবাদ" in the header opens
+ * every text of the form in both languages, with the number still missing on the button; the
+ * list's missing texts open the same view on the incomplete ones alone.
  */
 /** The builder of a ready form outside the projects (`/admin/ready-forms/:formId`). */
 export const ReadyFormBuilderPage = () => (
@@ -154,6 +159,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const [typing, setTyping] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [scoring, setScoring] = useState(false);
+  // the translations of the whole form, open on every text or on the incomplete ones alone
+  const [translating, setTranslating] = useState<{ missing: boolean } | null>(null);
   // the question or part removed last, named until the next change so its way back is said
   const [removed, setRemoved] = useState<string | null>(null);
   // a question or a part other places of the form read, waiting for the word to remove it
@@ -264,6 +271,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       setRemoving(null);
       setRefusal(NO_REFUSAL);
       setListing(false);
+      setTranslating(null);
     }
     setSeen(read.data);
     setDraft({
@@ -306,6 +314,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     () => detailsOf([...saveRefused, ...entries.filter((e) => e.group === 'server')]),
     [saveRefused, entries],
   );
+  // how many texts of the draft still lack a language: the number the translations show
+  const textsMissing = useMemo(() => (draft ? missingTextCount(textsOf(draft)) : 0), [draft]);
   // nothing left to list: the list is closed, and stays so when a problem comes back
   if (listing && entries.length === 0) setListing(false);
 
@@ -694,6 +704,25 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
               <Button variant="secondary" startIcon="calculator" onClick={() => setScoring(true)}>
                 {t('scoring_button')}
               </Button>
+              {mode === 'read' ? null : (
+                <Button
+                  variant="secondary"
+                  startIcon="globe"
+                  ariaLabel={
+                    textsMissing > 0
+                      ? t('translations.button_missing', { n: String(textsMissing) })
+                      : undefined
+                  }
+                  onClick={() => setTranslating({ missing: false })}
+                >
+                  {t('translations.button')}
+                  {textsMissing > 0 ? (
+                    <span className="fb-count" aria-hidden="true">
+                      {textsMissing}
+                    </span>
+                  ) : null}
+                </Button>
+              )}
               {canStartNext ? (
                 <Button onClick={() => next.mutate()} loading={next.isPending}>
                   {t('new_version')}
@@ -711,6 +740,14 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
                     ...(identityMissing
                       ? { identity: { label: t('identity.add_all'), onSelect: addIdentity } }
                       : {}),
+                    // the missing texts are written in one place, opened on them alone
+                    texts: {
+                      label: t('translations.open'),
+                      onSelect: () => {
+                        setListing(false);
+                        setTranslating({ missing: true });
+                      },
+                    },
                   }}
                 />
               ) : null}
@@ -808,6 +845,14 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
           readOnly={mode !== 'full'}
           onChange={change}
           onClose={() => setScoring(false)}
+        />
+      ) : null}
+      {translating && mode !== 'read' ? (
+        <TranslationsDialog
+          definition={draft}
+          onlyMissing={translating.missing}
+          onChange={change}
+          onClose={() => setTranslating(null)}
         />
       ) : null}
       <Dialog

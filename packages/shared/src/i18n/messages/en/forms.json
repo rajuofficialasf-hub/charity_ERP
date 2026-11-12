@@ -456,6 +456,33 @@
         "village": "Village"
       }
     },
+    "translations": {
+      "button": "Translations",
+      "button_missing": "Translations: {n} texts missing",
+      "title": "Translations",
+      "intro": "Every text of the form is here in Bengali and English, side by side. What you type goes into the draft at once.",
+      "missing_count": "Texts missing: {n}",
+      "none_missing": "Every text is written in both languages",
+      "only_missing": "Missing only",
+      "nothing_left": "No text is missing.",
+      "missing": "Missing",
+      "from_list": "These options come from the system's list; they cannot be changed here.",
+      "of_question": "Question: {name}",
+      "field_bn": "{what} (Bengali)",
+      "field_en": "{what} (English)",
+      "open": "Open the translations",
+      "done": "Done",
+      "what": {
+        "title": "Section name",
+        "label": "Question {n}",
+        "help": "Question {n}: help text",
+        "placeholder": "Question {n}: sample text",
+        "option": "Question {n}: option {i}",
+        "table_row": "Question {n}: table row {i}",
+        "table_col": "Question {n}: table column {i}",
+        "result": "Question {n}: result {i}"
+      }
+    },
     "library_title": "Question library",
     "kind": {
       "beneficiary_application": "Beneficiary application",

@@ -11,14 +11,17 @@ import {
   type FormField,
   type FormKind,
   type FormSection,
+  type FormTextKind,
   type NumberTable,
   emptySection,
   identityRoleOf,
   isChoiceType,
+  listOfField,
   pipeKeys,
   pipeWithout,
 } from '@css/shared/forms';
 import type { LibrarySectionView } from '../../api/schemas';
+import type { Selection } from './selection';
 import { sitsInRows } from './type-meta';
 
 /**
@@ -960,6 +963,157 @@ function dropConditions(field: FormField): void {
   const { show_if: _show, required_if: _required, ...logic } = field.logic ?? {};
   if (Object.keys(logic).length) field.logic = logic;
   else delete field.logic;
+}
+
+/** A text of the form in both languages, as the form holds it. */
+type BothTexts = { bn: string; en: string };
+
+/** One text of the form in both languages, and where it stands. */
+export interface FormTextRow {
+  /** The same for as long as the form keeps its keys and codes: the place, the kind and the item. */
+  id: string;
+  /** The part, and the question the text belongs to; a part's name has no question. */
+  place: Selection;
+  kind: FormTextKind;
+  /** The option's or the result's code, or the table row's or column's key, for those kinds. */
+  item?: string;
+  /** The place of the item among its like (the third option is 2); 0 for the other kinds. */
+  index: number;
+  bn: string;
+  en: string;
+  /** An option that a reference list gives: read here, changed in the list. */
+  locked: boolean;
+}
+
+/** A help text or a placeholder empty in both languages is none, as the publish check reads it. */
+const written = (text: BothTexts | undefined): text is BothTexts =>
+  text !== undefined && (text.bn.trim() !== '' || text.en.trim() !== '');
+
+/**
+ * Every text of the form in both languages, in the form's order: a part's name, then each of its
+ * questions with its text, its help text and its placeholder (where it has one), its options, its
+ * table's rows and columns and its calculation's text results. These are the texts the publish
+ * check asks for in both languages.
+ */
+export function textsOf(def: FormDefinition): FormTextRow[] {
+  const rows: FormTextRow[] = [];
+  for (const section of def.sections) {
+    const add = (
+      kind: FormTextKind,
+      text: BothTexts,
+      field?: FormField,
+      item?: { key: string; index: number },
+    ) =>
+      rows.push({
+        id: [kind, field?.fieldKey ?? section.key, ...(item ? [item.key] : [])].join('|'),
+        place: field ? { section: section.key, field: field.fieldKey } : { section: section.key },
+        kind,
+        ...(item ? { item: item.key } : {}),
+        index: item?.index ?? 0,
+        bn: text.bn,
+        en: text.en,
+        locked: kind === 'option' && field !== undefined && listOfField(field) !== null,
+      });
+    add('title', section.title);
+    for (const field of section.fields) {
+      const settings = field.settings;
+      add('label', field.label, field);
+      if (written(settings?.help)) add('help', settings.help, field);
+      if (written(settings?.placeholder)) add('placeholder', settings.placeholder, field);
+      (field.options ?? []).forEach((o, index) =>
+        add('option', o.label, field, { key: o.code, index }),
+      );
+      (settings?.table?.rows ?? []).forEach((r, index) =>
+        add('table_row', r.label, field, { key: r.key, index }),
+      );
+      (settings?.table?.cols ?? []).forEach((c, index) =>
+        add('table_col', c.label, field, { key: c.key, index }),
+      );
+      (settings?.results ?? []).forEach((r, index) =>
+        add('result', r.label, field, { key: r.code, index }),
+      );
+    }
+  }
+  return rows;
+}
+
+/** The languages a text is not written in yet; a text of only spaces is not written. */
+export function missingIn(text: BothTexts): ('bn' | 'en')[] {
+  return (['bn', 'en'] as const).filter(
+    (language) => (language === 'bn' ? text.bn : text.en).trim() === '',
+  );
+}
+
+/** How many texts still lack a language, each language of each text counted once. */
+export function missingTextCount(rows: readonly FormTextRow[]): number {
+  return rows.reduce((n, row) => n + missingIn(row).length, 0);
+}
+
+/**
+ * Writes one text of the form in one language and leaves every other text as it is. A help text
+ * or a placeholder emptied in both languages is taken away. An option a reference list gives is
+ * not changed, nor a text the form does not have.
+ */
+export function setText(
+  def: FormDefinition,
+  row: Pick<FormTextRow, 'place' | 'kind' | 'item'>,
+  language: 'bn' | 'en',
+  value: string,
+): FormDefinition {
+  const section = def.sections.find((s) => s.key === row.place.section);
+  if (!section) return def;
+  const put = <T extends BothTexts>(text: T): T => ({ ...text, [language]: value });
+  if (row.kind === 'title') return setSectionTitle(def, section.key, put(section.title));
+  const field = section.fields.find((f) => f.fieldKey === row.place.field);
+  if (!field) return def;
+  const same = (text: BothTexts | undefined) => (language === 'bn' ? text?.bn : text?.en) === value;
+  /** The list with the text of the item `row` names written; the same list when it is not there. */
+  const inList = <T extends { label: BothTexts }>(list: readonly T[], keyOf: (x: T) => string) =>
+    list.some((x) => keyOf(x) === row.item && !same(x.label))
+      ? list.map((x) => (keyOf(x) === row.item ? { ...x, label: put(x.label) } : x))
+      : null;
+  const settings = field.settings ?? {};
+  switch (row.kind) {
+    case 'label':
+      return same(field.label)
+        ? def
+        : updateField(def, field.fieldKey, { label: put(field.label) });
+    case 'help':
+    case 'placeholder': {
+      const text = settings[row.kind];
+      if (!text || same(text)) return def;
+      const next = put(text);
+      const { [row.kind]: _old, ...rest } = settings;
+      return updateField(def, field.fieldKey, {
+        settings: written(next) ? { ...rest, [row.kind]: next } : rest,
+      });
+    }
+    case 'option': {
+      if (listOfField(field) !== null) return def;
+      const options = inList(field.options ?? [], (o) => o.code);
+      return options ? setOptions(def, field.fieldKey, options) : def;
+    }
+    case 'table_row':
+    case 'table_col': {
+      const table = settings.table;
+      const rows = row.kind === 'table_row';
+      const lines = table ? inList(rows ? table.rows : table.cols, (line) => line.key) : null;
+      return table && lines
+        ? updateField(def, field.fieldKey, {
+            settings: {
+              ...settings,
+              table: rows ? { ...table, rows: lines } : { ...table, cols: lines },
+            },
+          })
+        : def;
+    }
+    case 'result': {
+      const results = inList(settings.results ?? [], (r) => r.code);
+      return results
+        ? updateField(def, field.fieldKey, { settings: { ...settings, results } })
+        : def;
+    }
+  }
 }
 
 /**

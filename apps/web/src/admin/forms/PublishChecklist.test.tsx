@@ -508,6 +508,90 @@ describe('the identity questions in one press', () => {
   });
 });
 
+describe('the translations of the form', () => {
+  /** A question written in Bengali only, and a choice whose two options wait for their English. */
+  const untranslated = () =>
+    complete(
+      note,
+      field('q_kind', 'radio', {
+        label: T('ধরন', 'Kind'),
+        options: [option('a', { label: T('ক', '') }), option('b', { label: T('খ', '') })],
+      }),
+    );
+  const head = () => within(screen.getByTestId('form-head'));
+  const translations = (n: number) =>
+    screen.findByRole('button', { name: `অনুবাদ: ${n}টি লেখা বাকি` });
+  const view = async () => within(await screen.findByRole('dialog', { name: 'অনুবাদ' }));
+  const undo = () => head().getByRole('button', { name: 'ফিরিয়ে আনুন' });
+
+  it('open from the header with the number of texts still missing, the list’s own, and fill them', async () => {
+    const user = userEvent.setup();
+    api(untranslated());
+    open();
+    // two lines in the list, three texts: the question's, and the two options'
+    await listButton(2);
+    await user.click(await translations(3));
+    const dialog = await view();
+    expect(dialog.getByRole('status')).toHaveTextContent('3টি লেখা বাকি');
+    const part = within(dialog.getByRole('region', { name: 'অতিরিক্ত' }));
+    await user.type(part.getByRole('textbox', { name: 'প্রশ্ন 2 (ইংরেজি)' }), 'Note');
+    expect(dialog.getByRole('status')).toHaveTextContent('2টি লেখা বাকি');
+    await user.type(part.getByRole('textbox', { name: 'প্রশ্ন 3: অপশন 1 (ইংরেজি)' }), 'Aa');
+    expect(dialog.getByRole('status')).toHaveTextContent('1টি লেখা বাকি');
+    await user.click(dialog.getByRole('button', { name: 'ঠিক আছে' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    // both counts follow: the button's, and the list's
+    expect(await translations(1)).toBeInTheDocument();
+    expect(await listButton(1)).toBeInTheDocument();
+    // the draft is saved with the texts where they belong
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    const fields = saves.at(-1)!.find((x) => x.key === 'extra')!.fields;
+    expect(fields[1]!.label).toEqual(T('মন্তব্য', 'Note'));
+    expect(fields[2]!.options!.map((o) => o.label)).toEqual([T('ক', 'Aa'), T('খ', '')]);
+    // the typing in a field is one step: the option's text goes whole, then the question's
+    await user.click(undo());
+    expect(await translations(2)).toBeInTheDocument();
+    await user.click(undo());
+    expect(await translations(3)).toBeInTheDocument();
+    expect(undo()).toBeDisabled();
+  }, 30_000);
+
+  it('open on the missing texts alone from the list', async () => {
+    const user = userEvent.setup();
+    api(untranslated());
+    open();
+    await user.click(await listButton(2));
+    await user.click(within(await list()).getByRole('button', { name: 'অনুবাদ খুলুন' }));
+    const dialog = await view();
+    // the list has closed, and only the three rows that lack a text are drawn
+    expect(screen.queryByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' })).not.toBeInTheDocument();
+    expect(dialog.getByRole('switch', { name: 'শুধু বাকি' })).toBeChecked();
+    expect(dialog.getAllByRole('textbox')).toHaveLength(6);
+    expect(dialog.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+      'অতিরিক্ত',
+    ]);
+    // once every text is written the list has nothing left, and its button goes
+    const part = within(dialog.getByRole('region', { name: 'অতিরিক্ত' }));
+    await user.type(part.getByRole('textbox', { name: 'প্রশ্ন 2 (ইংরেজি)' }), 'Note');
+    await user.type(part.getByRole('textbox', { name: 'প্রশ্ন 3: অপশন 1 (ইংরেজি)' }), 'A');
+    await user.type(part.getByRole('textbox', { name: 'প্রশ্ন 3: অপশন 2 (ইংরেজি)' }), 'B');
+    expect(dialog.getByRole('status')).toHaveTextContent('সব লেখা দুই ভাষাতেই আছে');
+    await user.click(dialog.getByRole('button', { name: 'ঠিক আছে' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    noListButton();
+    expect(head().getByRole('button', { name: 'অনুবাদ' })).toBeInTheDocument();
+  }, 30_000);
+
+  it('have no axe violation in the builder', async () => {
+    const user = userEvent.setup();
+    api(untranslated());
+    open();
+    await user.click(await translations(3));
+    await view();
+    await expectNoAxeViolations(document.body);
+  }, 30_000);
+});
+
 describe('the marks on the form', () => {
   it('marks a question and a part that have something to fix, and says what on the chosen one', async () => {
     const user = userEvent.setup();
@@ -551,6 +635,8 @@ describe('where nothing can be published', () => {
     expect(screen.getByText('এই সংস্করণ প্রকাশিত; বদলানো যায় না।')).toBeInTheDocument();
     noListButton();
     expect(screen.queryByRole('img', { name: 'ঠিক করতে হবে' })).not.toBeInTheDocument();
+    // nor the translations, which only a draft takes
+    expect(screen.queryByRole('button', { name: /^অনুবাদ/ })).not.toBeInTheDocument();
   });
 
   it('shows none on a phone, where only the texts change', async () => {
@@ -561,6 +647,8 @@ describe('where nothing can be published', () => {
     expect(screen.getByRole('button', { name: 'মন্তব্য বদলান' })).toBeInTheDocument();
     noListButton();
     expect(screen.queryByRole('img', { name: 'ঠিক করতে হবে' })).not.toBeInTheDocument();
+    // the texts are the phone's to change, so the translations are there, with their count
+    expect(screen.getByRole('button', { name: 'অনুবাদ: 1টি লেখা বাকি' })).toBeInTheDocument();
   });
 
   it('shows none to a role that does not build forms', async () => {

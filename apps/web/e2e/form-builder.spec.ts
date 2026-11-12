@@ -338,12 +338,13 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
 });
 
 // A form built in Bengali first: what stands between it and its publishing is listed beside the
-// Publish button, each line leads to its place, and the identity questions come in one press.
-test('a new application form lists what to fix before publishing, a line leads to its question, and the identity questions come in one press', async ({
+// Publish button, each line leads to its place, the identity questions come in one press, and the
+// translations take every missing text, after which the form publishes.
+test('a new application form lists what to fix, gets its identity questions in one press, is worded in the translations and publishes', async ({
   page,
 }, info) => {
   test.skip(info.project.name !== 'desktop', 'the builders work on a computer');
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   await signIn(page, MONITORING);
   await newReadyForm(page, `প্রকাশের তালিকা ${code()}`, `Publish list ${code()}`);
   // nothing to list yet but the identity questions
@@ -424,6 +425,54 @@ test('a new application form lists what to fix before publishing, a line leads t
   ).toHaveCount(7);
   await page.keyboard.press('Escape');
   await expect(left).toHaveCount(0);
+
+  // every text of the form in one place: the header's button carries the same number
+  await page.getByRole('button', { name: 'অনুবাদ: 15টি লেখা বাকি', exact: true }).click();
+  const texts = page.getByRole('dialog', { name: 'অনুবাদ' });
+  await expect(texts.getByRole('status')).toHaveText('15টি লেখা বাকি');
+  await expect(texts.getByRole('img', { name: 'বাকি' })).toHaveCount(15);
+  // the rows that lack nothing step aside (the part's name here)
+  await expect(texts.getByRole('textbox', { name: 'অংশের নাম (বাংলা)' })).toHaveValue('অংশ 1');
+  await texts.getByRole('switch', { name: 'শুধু বাকি' }).check();
+  await expect(texts.getByRole('textbox', { name: 'অংশের নাম (বাংলা)' })).toHaveCount(0);
+  await expect(texts.getByRole('textbox')).toHaveCount(16);
+  await settled(page);
+  expect((await scan(page)).violations, 'the translations').toEqual([]);
+  // the earlier question's English, then both texts of each identity question, named by its role
+  await texts.getByRole('textbox', { name: 'প্রশ্ন 1 (ইংরেজি)' }).fill('Family members');
+  const wording: [string, string, string][] = [
+    [
+      'এনআইডি বা জন্মনিবন্ধন নম্বর',
+      'জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর',
+      'NID or birth registration number',
+    ],
+    ['নাম', 'উপকারভোগীর নাম', "Beneficiary's name"],
+    ['পিতা বা স্বামীর নাম', 'পিতা/স্বামীর নাম', "Father's or husband's name"],
+    ['মোবাইল নম্বর', 'মোবাইল নম্বর', 'Mobile number'],
+    ['লিঙ্গ', 'লিঙ্গ', 'Gender'],
+    ['ঠিকানা (বিভাগ থেকে ইউনিয়ন)', 'ঠিকানা', 'Address'],
+    ['গ্রাম', 'গ্রাম', 'Village'],
+  ];
+  for (const [i, [role, bn, en]] of wording.entries()) {
+    const n = i + 2;
+    const row = texts.getByRole('listitem').filter({ hasText: `পরিচয়: ${role}` });
+    await row.getByRole('textbox', { name: `প্রশ্ন ${n} (বাংলা)` }).fill(bn);
+    await row.getByRole('textbox', { name: `প্রশ্ন ${n} (ইংরেজি)` }).fill(en);
+  }
+  // a written row stays where it is until the view is closed; nothing is left to write
+  await expect(texts.getByRole('status')).toHaveText('সব লেখা দুই ভাষাতেই আছে');
+  await expect(texts.getByRole('img', { name: 'বাকি' })).toHaveCount(0);
+  await texts.getByRole('button', { name: 'ঠিক আছে' }).click();
+  await expect(texts).toHaveCount(0);
+  // the canvas names the questions, the list has nothing left, and the form publishes
+  await expect(
+    part.getByRole('button', { name: 'উপকারভোগীর নাম বদলান', exact: true }),
+  ).toBeVisible();
+  await expect(part.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^প্রকাশের আগে ঠিক করুন/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'অনুবাদ', exact: true })).toBeVisible();
+  await publish(page, 1);
+  await expect(page.getByTestId('form-head').getByText('সংস্করণ 1: প্রকাশিত')).toBeVisible();
 });
 
 // A question is added where the person works, with no dialog, and moved to another part by a

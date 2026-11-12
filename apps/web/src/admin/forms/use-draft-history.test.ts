@@ -29,7 +29,7 @@ function history() {
       return hook.result.current;
     },
     /** A change that leaves this draft behind, after so many milliseconds. */
-    change(leaving: HistoryStep, afterMs: number, options?: { merge?: boolean }) {
+    change(leaving: HistoryStep, afterMs: number, options?: { merge?: boolean; key?: string }) {
       clock.ms += afterMs;
       act(() => hook.result.current.record(leaving, options));
     },
@@ -121,6 +121,18 @@ describe('the history of a draft', () => {
     h.type(second, 100);
     h.type(third, 100);
     expect(h.undoAll(at(draftOf('কখগ'), null))).toEqual([third, second, first]);
+  });
+
+  it('starts a new step when another text is typed in, with the same part chosen', () => {
+    const h = history();
+    const first = at(draftOf(''));
+    const second = at(draftOf('ক'));
+    const third = at(draftOf('কখ'));
+    // two letters in one text of the translations, then one in another
+    h.change(first, 0, { merge: true, key: 'label|q_note|bn' });
+    h.change(second, 100, { merge: true, key: 'label|q_note|bn' });
+    h.change(third, 100, { merge: true, key: 'label|q_note|en' });
+    expect(h.undoAll(at(draftOf('কখগ')))).toEqual([third, first]);
   });
 
   it('keeps a change that was not typed apart from the typing around it', () => {
