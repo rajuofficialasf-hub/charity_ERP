@@ -64,38 +64,44 @@ export function dataSetArrives(page: Page): Promise<void> {
 
 /**
  * Waits until the locations master is written to the phone's store: the rows arrive in one
- * response but are stored a moment later, and a navigation in between would cut the write.
+ * response but are stored a moment later, and a navigation in between would cut the write. The
+ * store is asked through a poll of the test: page.waitForFunction reads the promise an
+ * IndexedDB read answers with as a yes and returns at once.
  */
 export async function locationsStored(page: Page): Promise<void> {
-  await page.waitForFunction(
-    () =>
-      new Promise<boolean>((resolve) => {
-        const open = indexedDB.open('css-offline');
-        open.onerror = () => resolve(false);
-        open.onsuccess = () => {
-          const db = open.result;
-          try {
-            const read = db
-              .transaction('meta', 'readonly')
-              .objectStore('meta')
-              .get('locations.version');
-            read.onsuccess = () => {
-              db.close();
-              resolve(read.result !== undefined);
-            };
-            read.onerror = () => {
-              db.close();
-              resolve(false);
-            };
-          } catch {
-            db.close();
-            resolve(false);
-          }
-        };
-      }),
-    undefined,
-    { timeout: 60_000, polling: 500 },
-  );
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            new Promise<boolean>((resolve) => {
+              const open = indexedDB.open('css-offline');
+              open.onerror = () => resolve(false);
+              open.onsuccess = () => {
+                const db = open.result;
+                try {
+                  const read = db
+                    .transaction('meta', 'readonly')
+                    .objectStore('meta')
+                    .get('locations.version');
+                  read.onsuccess = () => {
+                    db.close();
+                    resolve(read.result !== undefined);
+                  };
+                  read.onerror = () => {
+                    db.close();
+                    resolve(false);
+                  };
+                } catch {
+                  db.close();
+                  resolve(false);
+                }
+              };
+            }),
+        ),
+      { message: 'the locations master on the phone', timeout: 60_000, intervals: [250, 500] },
+    )
+    .toBe(true);
 }
 
 /** The application number inside the page or the row, as the list and the detail print it. */

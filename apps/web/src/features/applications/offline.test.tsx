@@ -7,6 +7,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME, refreshAs, renderApp, TEST_SESSION_ID } from '../../../test/auth';
 import { definition, field, section } from '../../../test/forms';
+import { stubMatchMedia } from '../../../test/match-media';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { afterSignIn } from '../../offline/keys';
@@ -484,9 +485,13 @@ describe('applications without network', () => {
     await user.clear(note);
     await user.type(note, 'আবার');
     await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
-    expect(
-      await screen.findByText('এই প্রকল্পে এই উপকারভোগীর আবেদন আগেই আছে।', {}, { timeout: 5000 }),
-    ).toBeInTheDocument();
+    // the reason stands above the form and under the identity question it is about
+    const reason = 'এই প্রকল্পে এই উপকারভোগীর আবেদন আগেই আছে।';
+    expect(await screen.findAllByText(reason, {}, { timeout: 5000 })).toHaveLength(2);
+    expect(screen.getByRole('alert')).toHaveTextContent(reason);
+    expect(screen.getByRole('textbox', { name: /^nid_or_birth_reg/ })).toHaveAccessibleDescription(
+      reason,
+    );
     expect(await offlineDb().outbox.get(LOCAL)).toMatchObject({
       state: 'failed',
       failureCode: 'beneficiary.already_applied',
@@ -760,5 +765,106 @@ describe('the identity answers a draft may lack without network', () => {
     expect(mobile).toBeRequired();
     expect(screen.queryByText('ফোনে জমা আছে')).not.toBeInTheDocument();
     expect(await queuedKinds()).not.toContain('application_submit');
+  });
+});
+
+describe('the start without an identity document, without network', () => {
+  const START = 'পরিচয়পত্র নেই, নাম দিয়ে শুরু করুন';
+  const NAME = 'নথিহীন উপকারভোগী';
+  const optional = {
+    ...project,
+    identityRules: { ...DEFAULT_IDENTITY_RULES, document: 'optional', mobile: 'optional' },
+  };
+
+  /** The new application's first screen on a phone without network, from what the phone holds. */
+  async function openOffline(held: unknown) {
+    // a phone: the form comes one part per screen
+    stubMatchMedia(() => true);
+    refreshAs(VOLUNTEER);
+    await seedPhone(held);
+    onLine = false;
+    renderApp(<ApplicationFormPage />, 'bn', {
+      path: '/my-projects/:projectId/apply',
+      initialPath: `/my-projects/${PROJECT}/apply`,
+    });
+    return screen.findByRole('textbox', { name: /NID নম্বর/ }, { timeout: 5000 });
+  }
+
+  it('is offered from the cached project, keeps the entry sealed on the phone and sends it when the network returns', async () => {
+    const user = userEvent.setup();
+    await openOffline(optional);
+    await user.click(await screen.findByRole('button', { name: START }));
+    const number = await screen.findByRole('textbox', { name: /^nid_or_birth_reg/ });
+    expect(number).toHaveValue('');
+    expect(number).not.toBeRequired();
+    await user.type(screen.getByRole('textbox', { name: /^name/ }), NAME);
+    await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
+    await user.click(screen.getByRole('radio', { name: 'female' }));
+    // the address comes from the places the phone holds
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    const division = await screen.findByRole('combobox', { name: /^বিভাগ/ }, { timeout: 15_000 });
+    await waitFor(() => expect(division).toBeEnabled(), { timeout: 15_000 });
+    await user.click(division);
+    for (const name of ['ঢাকা বিভাগ', 'ঢাকা জেলা', 'সাভার', 'আশুলিয়া'])
+      await user.click(await screen.findByRole('option', { name }, { timeout: 15_000 }));
+    await user.type(await screen.findByRole('textbox', { name: /^village/ }), 'নমুনা গ্রাম');
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: /মন্তব্য/ }, { timeout: 15_000 }),
+      'অফলাইনে নেওয়া',
+    );
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    expect(await screen.findByText('পাঠানোর আগে দেখে নিন')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
+    expect(await screen.findByText('ফোনে জমা আছে', {}, { timeout: 15_000 })).toBeInTheDocument();
+
+    // the draft and its send wait in the outbox; the answers are sealed and hold no number
+    const rows = await offlineDb().outbox.toArray();
+    expect(rows.map((r) => [r.kind, r.state])).toEqual(
+      expect.arrayContaining([
+        ['application_draft', 'pending'],
+        ['application_submit', 'pending'],
+      ]),
+    );
+    const draft = rows.find((r) => r.kind === 'application_draft')!;
+    expect(JSON.stringify({ ...draft, data: undefined })).not.toContain(NAME);
+    const kept = ((await readSecret(draft)).payload.answers as Answer[]).map((a) => a.fieldKey);
+    expect(kept).toEqual(
+      expect.arrayContaining(['name', 'father_or_husband_name', 'gender', 'address', 'village']),
+    );
+    expect(kept).not.toContain('nid_or_birth_reg');
+    expect(kept).not.toContain('mobile');
+    // the sync centre lists it by the typed name as a record on its way, not as one the office verifies
+    const store = await import('../../offline/applications-store');
+    const waiting = (await store.overview()).records.find((r) => r.clientUuid === draft.clientUuid);
+    expect(waiting).toMatchObject({
+      ownDraft: true,
+      beneficiaryName: NAME,
+      sync: { state: 'pending', verificationReason: null },
+    });
+
+    // the network returns: the draft and its send go in order, as any offline application
+    onLine = true;
+    const posted: string[] = [];
+    serveBatch(posted);
+    const { syncEngine } = await import('../../offline/sync-engine');
+    await syncEngine.flush('manual');
+    expect(posted).toEqual(['application_draft', 'application_submit']);
+    expect(await offlineDb().outbox.get(draft.clientUuid)).toMatchObject({
+      state: 'synced',
+      serverId: APP,
+    });
+    expect((await store.overview()).records).toEqual([]);
+  }, 60_000);
+
+  it.each([
+    ['requires the document', project],
+    [
+      'was stored before the rules existed',
+      (({ identityRules: _rules, ...rest }) => rest)(project),
+    ],
+  ])('is not offered where the cached project %s', async (_case, held) => {
+    await openOffline(held);
+    expect(screen.queryByRole('button', { name: START })).not.toBeInTheDocument();
   });
 });

@@ -7,6 +7,8 @@
     "identity_help": "First look the person up by NID or birth registration number. A known person's name and identity fill in by themselves.",
     "start_known": "Fill in the form for this person",
     "start_new": "Fill in the form for a new person",
+    "no_document_help": "This project takes an application without an identity document. If there is a number, enter it above and search.",
+    "start_without_document": "No identity document: start with the name",
     "blocked": "This person is blocklisted, so no new application can be made.",
     "already_applied": "This person already has an application in this project.",
     "own_mobile": "Your own mobile number cannot be the beneficiary's.",

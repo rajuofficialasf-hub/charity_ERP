@@ -1,4 +1,10 @@
-import { expect, type Locator, type Page, request as apiRequest } from '@playwright/test';
+import {
+  type APIRequestContext,
+  expect,
+  type Locator,
+  type Page,
+  request as apiRequest,
+} from '@playwright/test';
 import { apiAs } from './admin';
 import { pickFrom } from './select';
 
@@ -252,4 +258,32 @@ export async function finishSetup(page: Page, setup: SetupOptions = {}): Promise
   const id = /\/admin\/projects\/([0-9a-f-]{36})/.exec(page.url())?.[1];
   if (!id) throw new Error(`no project id in ${page.url()}`);
   return id;
+}
+
+/**
+ * Sets what a project's application asks about identity and contact, through the API as
+ * `loginId` (a PM of the project's program): the choices given are laid over the stored settings
+ * of the application form component. A project of the distribution workflow starts with the
+ * identity document and the mobile left free, so a journey that needs either asked says so here.
+ */
+export async function identityRulesOn(
+  request: APIRequestContext,
+  loginId: string,
+  projectId: string,
+  rules: Partial<Record<'identity_document' | 'mobile', 'required' | 'optional'>>,
+): Promise<void> {
+  const pm = await apiAs(request, loginId);
+  const list = await pm.get(`/projects/${projectId}/components`);
+  expect(list.ok(), await list.text()).toBe(true);
+  const { data } = (await list.json()) as {
+    data: { componentKey: string; settings?: Record<string, unknown>; etag?: string }[];
+  };
+  const component = data.find((c) => c.componentKey === 'application_form');
+  expect(component, 'the application form component').toBeDefined();
+  const saved = await pm.patch(
+    `/projects/${projectId}/components/application_form`,
+    { settings: { ...(component!.settings ?? {}), ...rules } },
+    { 'If-Match': component!.etag ?? '' },
+  );
+  expect(saved.ok(), await saved.text()).toBe(true);
 }

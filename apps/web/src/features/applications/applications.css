@@ -55,6 +55,14 @@
   align-items: center;
 }
 
+/* The start for a person without an identity document: its own part of the card, under the lookup. */
+.apply-without-document {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-default);
+}
+
 /* The draft's "saved" mark beside the parts. */
 .apply-saved {
   display: inline-flex;

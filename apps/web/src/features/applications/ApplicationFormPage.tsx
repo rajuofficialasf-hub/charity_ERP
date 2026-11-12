@@ -31,7 +31,14 @@ import {
   applicationKey,
   MY_APPLICATIONS_KEY,
 } from './applications-api';
-import { answersOfNumber, answersOfProfile, hasAddress, lockedKeysOf } from './identity-answers';
+import {
+  answersOfNumber,
+  answersOfProfile,
+  fieldByColumn,
+  hasAddress,
+  IDENTITY_COLUMN,
+  lockedKeysOf,
+} from './identity-answers';
 import { loadStore, photoMessage, recordOf, storeMessage } from './use-local-records';
 import './applications.css';
 
@@ -39,15 +46,29 @@ const PHOTO_TYPES = ['image/jpeg', 'image/png'];
 const PHOTO_MAX_BYTES = maxSizeOf('form_photo', 'image/jpeg') ?? 0;
 const TEAM_MEMBER = 'volunteer_team_member';
 
-/** The person the identity step settled on. */
+/** The person the identity step settled on: found by the number, new under it, or without one. */
 type Person =
-  { kind: 'known'; number: string; result: LookupResult } | { kind: 'new'; number: string };
+  | { kind: 'known'; number: string; result: LookupResult }
+  | { kind: 'new'; number: string }
+  | { kind: 'without_document' };
+
+/** The refusals of the server that are about the person's identity number. */
+const IDENTITY_REFUSALS: ReadonlySet<string> = new Set([
+  'beneficiary.blocked',
+  'beneficiary.already_applied',
+  'beneficiary.lookup_outside_limit',
+  'workflow.guard.identity_present',
+]);
+/** One empty set of refusals, so the form keeps the same object while nothing is refused. */
+const NOT_REFUSED: Record<string, string> = {};
 
 /**
  * A new application on a phone (docs/ui/SCREENS.md, "New application with NID lookup"): the person first, by NID or birth
- * registration; a known person's identity fills in and locks; then the project's form part by
- * part, the draft saved as each part is done (so photos can join it), and "অফিসে পাঠান" at the
- * end, which answers with the number. A team member keeps the draft for the main volunteer.
+ * registration; a known person's identity fills in and locks; where the project takes an
+ * application without an identity document, the form also starts without a number, from the name;
+ * then the project's form part by part, the draft saved as each part is done (so photos can join
+ * it), and "অফিসে পাঠান" at the end, which answers with the number. A team member keeps the
+ * draft for the main volunteer.
  * Every save goes through the phone's outbox, with or without network (docs/architecture/OFFLINE_SYNC.md,
  * outbox pattern and record lifecycle): online the screen waits for the server's answer, offline it
  * says the work is on the phone.
@@ -120,6 +141,8 @@ function NewApplication({ me }: { me: Me }) {
     );
   const p = project.data;
   const definition = form.data;
+  // a project read without its rules asks the document, as every project did before
+  const rules = carriedIdentityRules(p.identityRules);
   if (!person)
     return (
       <Stack gap={3}>
@@ -168,14 +191,28 @@ function NewApplication({ me }: { me: Me }) {
                 {lookup.result.found ? t('start_known') : t('start_new')}
               </Button>
             ) : null}
+            {rules.document === 'optional' ? (
+              <div className="apply-without-document">
+                <Text tone="muted">{t('no_document_help')}</Text>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => setPerson({ kind: 'without_document' })}
+                >
+                  {t('start_without_document')}
+                </Button>
+              </div>
+            ) : null}
           </Stack>
         </Card>
       </Stack>
     );
   const initial =
-    person.kind === 'known' && person.result.autofill
-      ? answersOfProfile(definition, person.number, person.result.autofill)
-      : answersOfNumber(definition, person.number);
+    person.kind === 'without_document'
+      ? []
+      : person.kind === 'known' && person.result.autofill
+        ? answersOfProfile(definition, person.number, person.result.autofill)
+        : answersOfNumber(definition, person.number);
   return (
     <Stack gap={3}>
       <DocumentTitle title={t('title')} />
@@ -184,7 +221,7 @@ function NewApplication({ me }: { me: Me }) {
         me={me}
         projectId={projectId}
         form={definition}
-        rules={carriedIdentityRules(p.identityRules)}
+        rules={rules}
         initialAnswers={initial}
         lockedKeys={person.kind === 'known' ? lockedKeysOf(definition) : new Set()}
       />
@@ -275,6 +312,8 @@ function ApplicationForm({
   const queryClient = useQueryClient();
   const [sent, setSent] = useState<Sent | null>(null);
   const [saved, setSaved] = useState(false);
+  // what the server refused about the identity number, under that question until it is changed
+  const [refused, setRefused] = useState(NOT_REFUSED);
   const draft = useRef<Draft>(
     existing
       ? existing.local
@@ -286,9 +325,17 @@ function ApplicationForm({
   const uploadIds = useRef(new Map<string, string>());
   const teamMember = me.roles.includes(TEAM_MEMBER);
 
-  /** The server's refusal of a record, in the reader's words. */
-  const reasonOf = (code: string | null, params?: Record<string, string> | null) =>
-    failureReason(te, code, params, t('save_failed'));
+  /**
+   * The server's refusal of a record, in the reader's words: above the form, and under the
+   * identity question too when the refusal is about the person's number.
+   */
+  const refusal = (code: string | null, params?: Record<string, string> | null): Error => {
+    const reason = failureReason(te, code, params, t('save_failed'));
+    const question =
+      code && IDENTITY_REFUSALS.has(code) ? fieldByColumn(form, IDENTITY_COLUMN) : null;
+    setRefused(question ? { [question.fieldKey]: reason } : NOT_REFUSED);
+    return new Error(reason);
+  };
   /** A failure of the store itself (no store and no network) in the reader's words, else the error as it came. */
   const worded = (error: unknown): Error =>
     new Error(
@@ -323,8 +370,8 @@ function ApplicationForm({
     if (!current.serverId) current.clientUuid = saved.clientUuid;
     if (navigator.onLine) {
       const state = await store.settle(saved.clientUuid);
-      if (state?.state === 'failed')
-        throw new Error(reasonOf(state.failureCode, state.failureParams));
+      if (state?.state === 'failed') throw refusal(state.failureCode, state.failureParams);
+      setRefused(NOT_REFUSED);
       const serverId = state?.serverId ?? current.serverId;
       if (serverId) {
         current.serverId = serverId;
@@ -362,8 +409,7 @@ function ApplicationForm({
         return;
       }
       const state = await store.settle(id);
-      if (state?.state === 'failed')
-        throw new Error(reasonOf(state.failureCode, state.failureParams));
+      if (state?.state === 'failed') throw refusal(state.failureCode, state.failureParams);
       if (!state || state.state !== 'synced') {
         setSent({ kind: 'queued' });
         return;
@@ -489,6 +535,7 @@ function ApplicationForm({
         submitLabel={teamMember ? t('saved') : t('submit')}
         onPartDone={save}
         onSubmit={send}
+        serverErrors={refused}
         optionalIdentity={optionalIdentityOf(rules, 'volunteer')}
       />
     </Stack>
