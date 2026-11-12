@@ -21,6 +21,7 @@ import { literalContains } from '../core/search.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
+import { auditIdentityRulesChange, IDENTITY_RULES_COMPONENT } from './project-identity-rules.js';
 import { refuseIncompleteRules, storedRules, writeRulesVersion } from './project-rules.js';
 import type { ProjectViewer, ProjectsService } from './projects.js';
 
@@ -139,8 +140,11 @@ export class ProjectSetupService {
         where: { projectId_componentKey: { projectId, componentKey } },
         select: { enabled: true, settings: true, updatedAt: true },
       });
-      if (!before) throw new ApiError('permission.not_found', 404);
-      assertIfMatch(ifMatch, before.updatedAt);
+      // the application form's row is the one a project may lack: its first save creates it, as
+      // naming a form does, and with no stored version there is none to compare
+      if (!before && componentKey !== IDENTITY_RULES_COMPONENT)
+        throw new ApiError('permission.not_found', 404);
+      if (before) assertIfMatch(ifMatch, before.updatedAt);
       let settings: Prisma.InputJsonValue | undefined;
       if (body.settings !== undefined) {
         const parsed = componentSettingsSchema(componentKey).safeParse(body.settings);
@@ -169,15 +173,14 @@ export class ProjectSetupService {
           where: { projectId },
           select: { componentKey: true, enabled: true, settings: true },
         });
-        const next = all.map((c) =>
-          c.componentKey === componentKey
-            ? {
-                componentKey,
-                enabled: body.enabled ?? c.enabled,
-                settings: settings ?? c.settings,
-              }
-            : c,
-        );
+        const changed = {
+          componentKey,
+          enabled: body.enabled ?? before?.enabled ?? false,
+          settings: settings ?? before?.settings ?? {},
+        };
+        const next = before
+          ? all.map((c) => (c.componentKey === componentKey ? changed : c))
+          : [...all, changed];
         const missing = componentsCheck(next);
         if (missing.length)
           throw new ApiError(
@@ -187,17 +190,32 @@ export class ProjectSetupService {
             missing.map((m) => ({ path: m, code: 'validation.required' })),
           );
       }
-      const row = await tx.projectComponent.update({
-        where: { projectId_componentKey: { projectId, componentKey } },
-        data: { enabled: body.enabled, settings, updatedBy: actor },
-        select: { componentKey: true, enabled: true, settings: true, updatedAt: true },
-      });
+      const select = { componentKey: true, enabled: true, settings: true, updatedAt: true };
+      const row = before
+        ? await tx.projectComponent.update({
+            where: { projectId_componentKey: { projectId, componentKey } },
+            data: { enabled: body.enabled, settings, updatedBy: actor },
+            select,
+          })
+        : await tx.projectComponent.create({
+            // a row that was missing was a component switched off with no settings
+            data: {
+              id: uuidv7(),
+              projectId,
+              componentKey,
+              enabled: body.enabled ?? false,
+              settings: settings ?? {},
+              createdBy: actor,
+              updatedBy: actor,
+            },
+            select,
+          });
       // the project's dawah flag follows its dawah component
       let rulesChange: Awaited<ReturnType<typeof writeRulesVersion>> | undefined;
       if (componentKey === 'dawah' && body.enabled !== undefined) {
         // dawah switched on in a running project adds the Local দায়ী duties to what volunteers
         // accept: the text must exist, and everyone accepts the rules again
-        if (body.enabled && !before.enabled && project.status !== 'draft') {
+        if (body.enabled && !before?.enabled && project.status !== 'draft') {
           const current = await tx.project.findUniqueOrThrow({
             where: { id: projectId },
             select: { rules: true, rulesVersion: true },
@@ -215,7 +233,11 @@ export class ProjectSetupService {
         action: 'project.component_change',
         entityType: 'project',
         entityId: projectId,
-        old: { componentKey, enabled: before.enabled, settings: withoutToken(before.settings) },
+        old: {
+          componentKey,
+          enabled: before?.enabled ?? false,
+          settings: withoutToken(before?.settings ?? {}),
+        },
         new: {
           componentKey,
           enabled: row.enabled,
@@ -226,6 +248,8 @@ export class ProjectSetupService {
           }),
         },
       });
+      if (componentKey === IDENTITY_RULES_COMPONENT)
+        await auditIdentityRulesChange(this.audit, tx, projectId, before?.settings, row.settings);
       const { updatedAt, ...rest } = row;
       return { ...rest, etag: etagOf(updatedAt) };
     });

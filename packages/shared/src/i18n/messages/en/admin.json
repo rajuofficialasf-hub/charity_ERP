@@ -930,6 +930,30 @@
           "family_attendance": "Classes for the whole family",
           "gender_split": "Split by gender",
           "dedup_identical": "Warn on identical photos"
+        },
+        "asks": {
+          "title": "What the application asks",
+          "hint": "What you change here changes this project only.",
+          "identity_document": {
+            "label": "Identity document (NID or birth registration)",
+            "required": "Required",
+            "optional": "If they have one"
+          },
+          "mobile": {
+            "label": "Mobile number",
+            "required": "Required",
+            "optional": "If none, contact through the volunteer"
+          },
+          "repeat_person": {
+            "label": "When the same person appears again",
+            "tell": "Only tell",
+            "hold": "A written reason before approval"
+          },
+          "repeat_family": {
+            "label": "When someone of the same family appears again",
+            "tell": "Only tell",
+            "hold": "A written reason before approval"
+          }
         }
       },
       "open_forms": "Open the form builder",

@@ -300,6 +300,21 @@ const componentCases: Record<string, Case[]> = {
       },
       false,
     ],
+    [
+      'what the application asks and what a repeat does',
+      {
+        identity_document: 'optional',
+        mobile: 'optional',
+        repeat_person: 'tell',
+        repeat_family: 'hold',
+      },
+      true,
+    ],
+    ['one of the four alone', { mobile: 'required' }, true],
+    ['an unknown identity requirement', { identity_document: 'sometimes' }, false],
+    ['an unknown mobile requirement', { mobile: 'volunteer' }, false],
+    ['an unknown repeat rule', { repeat_person: 'reject' }, false],
+    ['a repeat rule that is not a text', { repeat_family: true }, false],
   ],
   public_link: [
     ['enabled with token', { enabled: true, token: 'abcdefghijklmnop' }, true],
@@ -438,6 +453,24 @@ describe('workflow definitions', () => {
     };
     expect(docSchema('workflow-definition')(bad)).toBe(false);
     expect(workflowDefinitionSchema.safeParse(bad).success).toBe(false);
+  });
+  it('takes the starting identity settings among the defaults, and no value outside their lists', () => {
+    const base = { template: 'x', version: 1, title_en: 'X', title_bn: 'X' };
+    const good = {
+      ...base,
+      defaults: { photo_rule: 'group', identity_document: 'optional', repeat_family: 'tell' },
+    };
+    expect(docSchema('workflow-definition')(good)).toBe(true);
+    expect(workflowDefinitionSchema.safeParse(good).success).toBe(true);
+    for (const defaults of [
+      { identity_document: 'never' },
+      { mobile: 1 },
+      { repeat_person: 'ask' },
+    ]) {
+      const bad = { ...base, defaults };
+      expect(docSchema('workflow-definition')(bad), JSON.stringify(defaults)).toBe(false);
+      expect(workflowDefinitionSchema.safeParse(bad).success, JSON.stringify(defaults)).toBe(false);
+    }
   });
 });
 

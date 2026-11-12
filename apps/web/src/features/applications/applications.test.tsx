@@ -1,3 +1,4 @@
+import { DEFAULT_IDENTITY_RULES } from '@css/shared/projects';
 import type { Me } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -84,6 +85,7 @@ const project = {
   applicationsCounted: 7,
   applicationsLeft: 43,
   leadsTeam: true,
+  identityRules: DEFAULT_IDENTITY_RULES,
   rules: { version: 2, parts: [] },
 };
 const form = {

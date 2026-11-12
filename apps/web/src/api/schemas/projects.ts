@@ -1,4 +1,4 @@
-import { PERMISSION_SETS, RULES_PARTS } from '@css/shared/projects';
+import { identityRulesSchema, PERMISSION_SETS, RULES_PARTS } from '@css/shared/projects';
 import { VOLUNTEER_TYPES } from '@css/shared/registration';
 import { z } from 'zod';
 import { bilingual, date, dateTime } from './common';
@@ -23,6 +23,8 @@ export const myProjectSchema = z.object({
   applicationsLeft: z.number().int().nullable(),
   /** The caller may build a team here (an assigned General or দাঈ-স্বেচ্ছাসেবক volunteer). */
   leadsTeam: z.boolean(),
+  /** What an application here must carry, and what a repeated person or family does at review. */
+  identityRules: identityRulesSchema,
 });
 export type MyProject = z.infer<typeof myProjectSchema>;
 

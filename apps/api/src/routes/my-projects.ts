@@ -1,4 +1,10 @@
-import { type Consent, consentSchema, type TeamAdd, teamAddSchema } from '@css/shared/projects';
+import {
+  type Consent,
+  consentSchema,
+  identityRulesSchema,
+  type TeamAdd,
+  teamAddSchema,
+} from '@css/shared/projects';
 import { Router } from 'express';
 import { z } from 'zod';
 import { principalOf } from '../auth/principal.js';
@@ -26,6 +32,7 @@ const myProject = z.object({
   applicationsCounted: z.number().int(),
   applicationsLeft: z.number().int().nullable(),
   leadsTeam: z.boolean(),
+  identityRules: identityRulesSchema,
 });
 const teamView = z.object({
   members: z.array(

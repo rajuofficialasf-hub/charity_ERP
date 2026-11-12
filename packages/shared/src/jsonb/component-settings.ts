@@ -14,12 +14,29 @@ const codeLabel = z.strictObject({
 const codeLabels = (max: number) => z.array(codeLabel).max(max);
 export const photoSource = z.enum(['camera_only', 'camera_or_gallery']);
 export const photoRule = z.enum(['group', 'individual', 'both', 'per_application_type']);
+/** Whether an application must answer a question, or answers it only when there is an answer. */
+export const identityRequirement = z.enum(['required', 'optional']);
+/** What a second appearance does at review: it is only told, or it holds the approval for a reason. */
+export const repeatRule = z.enum(['tell', 'hold']);
+
+/**
+ * What a project's application asks about identity and contact, and what a repeated person or
+ * family does. Each is optional: a project that says nothing behaves as `identityRules` of
+ * `projects/identity-rules.ts` reads it, which is the one reader of these keys.
+ */
+export const identitySettingsShape = {
+  identity_document: identityRequirement.optional(),
+  mobile: identityRequirement.optional(),
+  repeat_person: repeatRule.optional(),
+  repeat_family: repeatRule.optional(),
+};
 
 export const componentSettingsSchemas = {
   application_form: z.strictObject({
     form_ids: z.array(z.uuid()).max(20).optional(),
     beneficiary_class_options: codeLabels(30).optional(),
     application_kinds: codeLabels(20).optional(),
+    ...identitySettingsShape,
   }),
   public_link: z.strictObject({
     enabled: z.boolean(),

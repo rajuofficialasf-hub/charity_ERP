@@ -1,3 +1,4 @@
+import { DEFAULT_IDENTITY_RULES } from '@css/shared/projects';
 import type { Me } from '@css/shared/auth';
 import type { Answer } from '@css/shared/forms';
 import { expectNoAxeViolations } from '@/ui/testing';
@@ -47,6 +48,7 @@ const project = {
   applicationsCounted: 7,
   applicationsLeft: 43,
   leadsTeam: true,
+  identityRules: DEFAULT_IDENTITY_RULES,
 };
 const form = {
   id: VERSION,

@@ -408,6 +408,92 @@ describe('a team member', () => {
   });
 });
 
+describe('what an application of the project asks', () => {
+  const STRICT = {
+    document: 'required',
+    mobile: 'required',
+    repeatPerson: 'hold',
+    repeatFamily: 'hold',
+  };
+  const mineOf = async (s: Session, projectId: string) =>
+    ((await at(s, 'get', '/me/projects')).body.data as { projectId: string }[]).find(
+      (p) => p.projectId === projectId,
+    );
+
+  it('asks both and holds both on a project that never said anything, in the list, the project and the consent answer', async () => {
+    // a project from before the choice existed: it has no application form row at all
+    const project = await activeProject();
+    const { rows } = await h.db.query(
+      `SELECT 1 FROM project_components WHERE project_id = $1 AND component_key = 'application_form'`,
+      [project],
+    );
+    expect(rows).toHaveLength(0);
+    const v = await newVolunteer();
+    await assign(project, v.volunteerId);
+    const s = await as(v.userId);
+    expect(await mineOf(s, project)).toMatchObject({ identityRules: STRICT });
+    expect((await at(s, 'get', `/me/projects/${project}`)).body.data.identityRules).toEqual(STRICT);
+    const accepted = await accept(s, project);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.data.identityRules).toEqual(STRICT);
+  });
+
+  it('gives the choices of the project as its PM saved them, and each project its own', async () => {
+    const pm = await as(world.users.pm);
+    const made = await at(pm, 'post', '/projects').send({
+      programId: world.a1.program,
+      code: 'ASKS',
+      year: 2026,
+      name: text('বিতরণ'),
+      source: { kind: 'workflow', workflowKey: 'distribution' },
+    });
+    expect(made.status).toBe(201);
+    const project = made.body.data.id as string;
+    const components = (await at(pm, 'get', `/projects/${project}/components`)).body.data as {
+      componentKey: string;
+      settings: Record<string, unknown>;
+      etag: string;
+    }[];
+    const form = components.find((c) => c.componentKey === 'application_form')!;
+    const saved = await api()
+      .patch(`/api/v1/projects/${project}/components/application_form`)
+      .set(bearer(pm))
+      .set('If-Match', form.etag)
+      .send({ settings: { ...form.settings, mobile: 'required', repeat_family: 'hold' } });
+    expect(saved.status).toBe(200);
+    expect((await at(pm, 'put', `/projects/${project}/rules`).send(three)).status).toBe(200);
+    await h.db.query(`UPDATE projects SET status = 'active' WHERE id = $1`, [project]);
+    const silent = await activeProject();
+    const v = await newVolunteer();
+    await assign(project, v.volunteerId);
+    await assign(silent, v.volunteerId);
+    const s = await as(v.userId);
+    const asked = {
+      document: 'optional',
+      mobile: 'required',
+      repeatPerson: 'tell',
+      repeatFamily: 'hold',
+    };
+    expect(await mineOf(s, project)).toMatchObject({ identityRules: asked });
+    expect((await at(s, 'get', `/me/projects/${project}`)).body.data.identityRules).toEqual(asked);
+    expect(await mineOf(s, silent)).toMatchObject({ identityRules: STRICT });
+  });
+
+  it('reads a stored value outside the lists as the default', async () => {
+    const project = await activeProject();
+    await h.db.query(
+      `INSERT INTO project_components (id, project_id, component_key, enabled, settings)
+       VALUES ($1, $2, 'application_form', true, $3)`,
+      [randomUUID(), project, JSON.stringify({ identity_document: 'never', mobile: 'optional' })],
+    );
+    const v = await newVolunteer();
+    await assign(project, v.volunteerId);
+    expect(await mineOf(await as(v.userId), project)).toMatchObject({
+      identityRules: { ...STRICT, mobile: 'optional' },
+    });
+  });
+});
+
 describe('who may use the own routes', () => {
   it('refuses an official and an anonymous caller', async () => {
     const project = await activeProject();

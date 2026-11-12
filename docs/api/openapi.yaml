@@ -1849,7 +1849,7 @@ components:
           items: { type: string, enum: [volunteer_duties, implementation_process, daee_duties, misconduct] }
     MyProject:
       type: object
-      required: [projectId, code, year, name, status, applyFrom, applyTo, perVolunteerLimit, dawahEnabled, via, permissionSet, isPaid, consentStatus, rulesVersion, applicationsCounted, applicationsLeft, leadsTeam]
+      required: [projectId, code, year, name, status, applyFrom, applyTo, perVolunteerLimit, dawahEnabled, via, permissionSet, isPaid, consentStatus, rulesVersion, applicationsCounted, applicationsLeft, leadsTeam, identityRules]
       properties:
         projectId: { $ref: '#/components/schemas/Uuid' }
         code: { type: string }
@@ -1868,6 +1868,19 @@ components:
         applicationsCounted: { type: integer, minimum: 0, description: The main volunteer's count for a team member (BR-059) }
         applicationsLeft: { type: [integer, 'null'], minimum: 0 }
         leadsTeam: { type: boolean, description: An assigned General or দাঈ-স্বেচ্ছাসেবক volunteer may build a team }
+        identityRules: { $ref: '#/components/schemas/IdentityRules' }
+    IdentityRules:
+      type: object
+      description: >-
+        What an application of the project asks about identity and contact, and what a second appearance of the same
+        person or family does at review (D-172, BR-297). Read from the settings of the project's application form
+        component; a project that says nothing answers required, required, hold, hold.
+      required: [document, mobile, repeatPerson, repeatFamily]
+      properties:
+        document: { type: string, enum: [required, optional], description: The NID or the birth registration number }
+        mobile: { type: string, enum: [required, optional], description: The mobile number }
+        repeatPerson: { type: string, enum: [tell, hold], description: "The same person again: only told, or the approval held for a written reason" }
+        repeatFamily: { type: string, enum: [tell, hold], description: "Someone of the same family again: only told, or held the same way" }
     MyProjectList:
       type: object
       required: [data]
@@ -7938,6 +7951,9 @@ paths:
       summary: Switch a component on or off and replace its settings (checked against its JSON Schema; BD-09)
       description: >-
         If-Match carries the component's own etag from the list. Settings that fail the component's schema answer 422 with the field paths; a closing, closed or cancelled project answers 409 project.read_only.
+        A project without a stored application_form row gets it with the first save, switched off unless the save says otherwise.
+        A save that changes what the application asks (identity_document, mobile, repeat_person, repeat_family of application_form)
+        also writes the audit entry project.identity_rules_changed with the four values before and after (D-172, BR-309).
       x-permission: project.configure
       x-scope: project
       x-audit: project.component_change

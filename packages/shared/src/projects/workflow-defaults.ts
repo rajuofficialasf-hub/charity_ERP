@@ -1,5 +1,6 @@
+import { z } from 'zod';
 import { COMPONENT_KEYS, type ComponentKey } from '../components.js';
-import { photoRule, photoSource } from '../jsonb/component-settings.js';
+import { identitySettingsShape, photoRule, photoSource } from '../jsonb/component-settings.js';
 import type { WorkflowDefinition } from '../jsonb/workflow-definition.js';
 
 /**
@@ -132,6 +133,18 @@ function photoRuleSettings(defaults: Record<string, unknown>): Record<string, un
   };
 }
 
+/**
+ * What the application of a new project asks about identity and contact, and what a repeat does:
+ * only what the workflow's defaults name. A workflow that says nothing leaves the keys out, and
+ * the project then reads as the defaults of `identityRules`. These are starting values of a new
+ * project only; nothing writes them into a project that exists.
+ */
+function identitySettings(defaults: Record<string, unknown>): Record<string, unknown> {
+  const named = z.object(identitySettingsShape).safeParse(defaults);
+  if (!named.success) return {};
+  return Object.fromEntries(Object.entries(named.data).filter(([, value]) => value !== undefined));
+}
+
 /** The workflow's stages as stage settings; the activity stays in the workflow snapshot only. */
 function stageSettings(definition: WorkflowDefinition): Record<string, unknown> {
   const list = definition.stages?.list ?? [];
@@ -166,6 +179,7 @@ export function startingComponents(
     application_form: {
       beneficiary_class_options: lists.beneficiaryClasses,
       ...(kinds.length ? { application_kinds: kinds } : {}),
+      ...identitySettings(defaults),
     },
     distribution: photoRuleSettings(defaults),
     stages: stageSettings(definition),

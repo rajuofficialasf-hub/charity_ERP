@@ -77,3 +77,10 @@ defaults:
   photo_source: camera_only        # UX-11
   vouchers: not_used
   limit_counts: [draft, submitted, under_review, reviewed, waitlisted, approved, implementation, completed]   # O-13
+  # What the application of a new project asks and what a repeat does (D-172, BR-297): starting
+  # values only, the PM changes them in the setup; a workflow that names none starts as
+  # required, required, hold, hold.
+  identity_document: optional      # required | optional
+  mobile: optional                 # required | optional
+  repeat_person: tell              # tell | hold
+  repeat_family: tell              # tell | hold

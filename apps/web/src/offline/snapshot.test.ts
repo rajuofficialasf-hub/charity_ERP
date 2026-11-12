@@ -1,3 +1,4 @@
+import { DEFAULT_IDENTITY_RULES } from '@css/shared/projects';
 import Dexie from 'dexie';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ApplicationSummary } from '../features/applications/applications-api';
@@ -43,6 +44,7 @@ const project = (id: string, code: string): MyProject => ({
   applicationsCounted: 0,
   applicationsLeft: null,
   leadsTeam: false,
+  identityRules: DEFAULT_IDENTITY_RULES,
 });
 const form = (id: string, projectId: string) =>
   ({

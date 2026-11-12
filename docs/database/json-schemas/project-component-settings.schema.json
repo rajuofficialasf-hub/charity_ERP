@@ -19,7 +19,11 @@
       "properties": {
         "form_ids": { "type": "array", "maxItems": 20, "items": { "type": "string", "format": "uuid" } },
         "beneficiary_class_options": { "type": "array", "maxItems": 30, "items": { "$ref": "#/$defs/codeLabel" } },
-        "application_kinds": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/codeLabel" }, "description": "application kinds of an open-application project, e.g. tree planting (BR-068)" }
+        "application_kinds": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/codeLabel" }, "description": "application kinds of an open-application project, e.g. tree planting (BR-068)" },
+        "identity_document": { "enum": ["required", "optional"], "description": "whether an application must carry the NID or the birth registration number; a project that says nothing requires it (BR-297)" },
+        "mobile": { "enum": ["required", "optional"], "description": "whether an application must carry a mobile number; a project that says nothing requires it (BR-297)" },
+        "repeat_person": { "enum": ["tell", "hold"], "description": "a second appearance of the same person is only told at review, or holds the approval for a written reason; a project that says nothing holds (BR-297)" },
+        "repeat_family": { "enum": ["tell", "hold"], "description": "the same for someone of the same family (BR-297)" }
       }
     },
     "public_link": {

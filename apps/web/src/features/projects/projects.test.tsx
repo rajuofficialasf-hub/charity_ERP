@@ -1,3 +1,4 @@
+import { DEFAULT_IDENTITY_RULES } from '@css/shared/projects';
 import type { Me } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -39,6 +40,7 @@ const base = {
   applicationsCounted: 7,
   applicationsLeft: 43,
   leadsTeam: true,
+  identityRules: DEFAULT_IDENTITY_RULES,
 };
 const text = (bn: string) => ({ bn, en: `${bn} (en)` });
 const PARTS = [

@@ -1,4 +1,11 @@
-import { type ComponentKey, photoRule, photoSource } from '@css/shared';
+import {
+  type ComponentKey,
+  identityRequirement,
+  photoRule,
+  photoSource,
+  repeatRule,
+} from '@css/shared';
+import { IDENTITY_RULE_SETTINGS, identityRules } from '@css/shared/projects';
 import {
   Button,
   Checkbox,
@@ -7,7 +14,9 @@ import {
   IconButton,
   RadioGroup,
   SelectField,
+  Stack,
   Switch,
+  Text,
   TextField,
 } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
@@ -83,7 +92,7 @@ type DrawerFields = z.infer<typeof DRAWER_SCHEMA>;
 
 /**
  * The settings of one component in a dialog, with fields per its settings schema: the photo rule
- * and photo sources, lists of codes with labels (rating criteria up to five, beneficiary types,
+ * and photo sources, what the application asks about identity and contact, lists of codes with labels (rating criteria up to five, beneficiary types,
  * application kinds, issue types, expense categories, follow-up questions), the stages in their
  * order, and on-off settings. The server checks the settings against the schema; its field errors
  * show here.
@@ -160,6 +169,9 @@ export function ComponentDrawer({
         {key === 'distribution' && (
           <PhotoRule settings={settings} onChange={setSettings} readOnly={readOnly} />
         )}
+        {key === 'application_form' && (
+          <ApplicationAsks settings={settings} onChange={set} readOnly={readOnly} />
+        )}
         {key === 'stages' && (
           <Stages
             items={Array.isArray(get(settings, 'list')) ? (get(settings, 'list') as Stage[]) : []}
@@ -231,6 +243,65 @@ function PhotoRule({
         ))}
       </div>
     </>
+  );
+}
+
+/**
+ * What the application of this project asks about identity and contact, and what a second
+ * appearance of the same person or family does at review. Each choice shows what the project
+ * reads as today, the default where it never said anything; only a choice the PM makes is
+ * written into the settings.
+ */
+function ApplicationAsks({
+  settings,
+  onChange,
+  readOnly,
+}: {
+  settings: Settings;
+  onChange: (name: string, value: string) => void;
+  readOnly: boolean;
+}) {
+  const t = useTranslations('admin.projects.setup.drawer.asks');
+  const rules = identityRules(settings);
+  /* eslint-disable security/detect-object-injection -- rule is a key of the two constant tables */
+  const choices = [
+    ...(['document', 'mobile'] as const).map((rule) => {
+      const name = IDENTITY_RULE_SETTINGS[rule];
+      return {
+        name,
+        label: t(`${name}.label`),
+        value: rules[rule],
+        options: identityRequirement.options.map((o) => ({ value: o, label: t(`${name}.${o}`) })),
+      };
+    }),
+    ...(['repeatPerson', 'repeatFamily'] as const).map((rule) => {
+      const name = IDENTITY_RULE_SETTINGS[rule];
+      return {
+        name,
+        label: t(`${name}.label`),
+        value: rules[rule],
+        options: repeatRule.options.map((o) => ({ value: o, label: t(`${name}.${o}`) })),
+      };
+    }),
+  ];
+  /* eslint-enable security/detect-object-injection */
+  return (
+    <fieldset className="admin-setup-fieldset">
+      <legend>{t('title')}</legend>
+      <Stack gap={2}>
+        <Text tone="muted">{t('hint')}</Text>
+        {choices.map((choice) => (
+          <RadioGroup
+            key={choice.name}
+            label={choice.label}
+            value={choice.value}
+            onChange={(value) => onChange(choice.name, value)}
+            options={choice.options}
+            disabled={readOnly}
+          />
+        ))}
+      </Stack>
+    </fieldset>
   );
 }
 

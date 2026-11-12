@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { identitySettingsShape } from './component-settings.js';
 
 // workflow_definitions.definition and projects.workflow_snapshot: a merged workflow template
 // (docs/architecture/workflow-templates/schema.json, referenced by workflow-definition.schema.json).
@@ -116,7 +117,8 @@ export const workflowDefinitionSchema = z.strictObject({
     .optional(),
   overrides: z.record(z.string(), z.unknown()).optional(),
   project_close_guards: z.array(guardName).optional(),
-  defaults: z.record(z.string(), z.unknown()).optional(),
+  // open, except the identity settings a new project starts with, which are checked here
+  defaults: z.looseObject(identitySettingsShape).optional(),
   project_lifecycle: flowSchema.optional(),
 });
 export type WorkflowDefinition = z.infer<typeof workflowDefinitionSchema>;
