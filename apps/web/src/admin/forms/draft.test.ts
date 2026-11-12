@@ -564,10 +564,13 @@ describe('the identity questions added all at once', () => {
     ['members_14_plus', [field('members_14_plus', 'number')]],
   ]);
   const empty = (): FormDefinition => ({ sections: [section('section_1', [])] });
+  /** The wording a role's new question starts with. */
+  const wording = (role: string) => T(`${role} (বাংলা)`, `${role} (English)`);
   const add = (def: FormDefinition, kind: 'beneficiary_application' | 'other' | 'library') =>
     addIdentityQuestions(def, identityLibrary, {
       kind,
       title,
+      wording,
       makeKey: keysFrom('q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd', 'q_eeeeee'),
     });
   const ROLES = [
@@ -616,10 +619,25 @@ describe('the identity questions added all at once', () => {
     });
     expect(fields[3]!.logic).toBeUndefined();
     expect(fields[4]!.options?.map((o) => o.code)).toEqual(['male', 'female']);
-    // a role the library lacks is an empty question to word
-    expect(fields[0]).toMatchObject({ label: T('', ''), libraryFieldKey: null, options: [] });
+    // a role the library lacks is a new question, worded for its role in both languages
+    expect(fields[0]).toMatchObject({
+      label: T('nid_or_birth_reg (বাংলা)', 'nid_or_birth_reg (English)'),
+      libraryFieldKey: null,
+      options: [],
+    });
+    expect(fields.map((f) => f.label.bn)).toEqual([
+      'nid_or_birth_reg (বাংলা)',
+      'উপকারভোগীর নাম',
+      'father_or_husband_name (বাংলা)',
+      'মোবাইল নম্বর',
+      'লিঙ্গ',
+      'address (বাংলা)',
+      'village (বাংলা)',
+    ]);
     expect(missingIdentityRoles(next)).toEqual([]);
     valid(next);
+    // nothing of the added questions waits for a text
+    expect(missingTextCount(textsOf(next))).toBe(0);
     expect(
       checkDefinition(next, { publishing: true, kind: 'beneficiary_application' }).filter((i) =>
         i.code.startsWith('form.core_field'),
@@ -650,7 +668,7 @@ describe('the identity questions added all at once', () => {
     for (const kind of ['other', 'library'] as const)
       expect(add(start, kind)).toEqual({ definition: start, section: null, fieldKeys: [] });
     expect(
-      addIdentityQuestions(start, identityLibrary, { kind: undefined, title }).definition,
+      addIdentityQuestions(start, identityLibrary, { kind: undefined, title, wording }).definition,
     ).toBe(start);
   });
 
@@ -1502,6 +1520,7 @@ describe('the rest of the definition', () => {
         addIdentityQuestions(setIdentityRole(d, 'name', null), library.fields, {
           kind: 'beneficiary_application',
           title: (n) => T(`অংশ ${n}`, `Section ${n}`),
+          wording: (role) => T(role, role),
         }).definition,
     ],
   ];

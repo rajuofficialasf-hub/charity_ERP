@@ -887,10 +887,11 @@ const takesIdentity = (section: FormSection) =>
  * in the order of the roles, at the end of the first part everyone always sees (a new part at the
  * end of the form, titled by `title`, when the form has no such part). A role takes the library's
  * question of it, with the library's own texts and settings, where the library has one of the
- * role's type that the form does not hold yet; otherwise an empty question of the role's type,
- * marked, to be worded afterwards. Each added question is required and has no condition. A role
- * already marked is left alone, and a form of another kind gets nothing. The keys of the added
- * questions come back in order, with the part they went to.
+ * role's type that the form does not hold yet; otherwise a new question of the role's type,
+ * marked and worded in both languages by `wording`, so the form asks something from the start and
+ * the wording can be changed afterwards. Each added question is required and has no condition. A
+ * role already marked is left alone, and a form of another kind gets nothing. The keys of the
+ * added questions come back in order, with the part they went to.
  */
 export function addIdentityQuestions(
   def: FormDefinition,
@@ -898,6 +899,7 @@ export function addIdentityQuestions(
   options: {
     kind: FormKind | undefined;
     title: (n: number) => { bn: string; en: string };
+    wording: (role: CoreFieldKey) => { bn: string; en: string };
     makeKey?: MakeKey;
   },
 ): { definition: FormDefinition; section: string | null; fieldKeys: string[] } {
@@ -931,7 +933,9 @@ export function addIdentityQuestions(
     }
     const added = addOwnQuestion(next, section, { type: core.type }, undefined, options.makeKey);
     if (!added.fieldKey) continue;
-    next = setIdentityRole(added.definition, added.fieldKey, role);
+    next = updateField(setIdentityRole(added.definition, added.fieldKey, role), added.fieldKey, {
+      label: options.wording(role),
+    });
     fieldKeys.push(added.fieldKey);
   }
   return { definition: next, section, fieldKeys };

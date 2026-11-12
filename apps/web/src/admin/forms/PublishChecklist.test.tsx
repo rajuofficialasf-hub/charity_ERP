@@ -408,7 +408,7 @@ describe('a refusal of the server', () => {
 
 describe('the identity questions in one press', () => {
   const ADD = 'পরিচয়ের প্রশ্নগুলো যোগ করুন';
-  const UNNAMED = 'নাম ছাড়া প্রশ্ন বদলান';
+  const NID = 'জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর বদলান';
   const questions = () =>
     screen.getAllByRole('button', { name: / বদলান$/ }).map((b) => b.getAttribute('aria-label'));
   const undo = () =>
@@ -426,29 +426,29 @@ describe('the identity questions in one press', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(questions()).toEqual([
       'মন্তব্য বদলান',
-      UNNAMED,
+      NID,
       'উপকারভোগীর নাম বদলান',
-      UNNAMED,
+      'পিতা বা স্বামীর নাম বদলান',
       'মোবাইল নম্বর বদলান',
-      UNNAMED,
-      UNNAMED,
-      UNNAMED,
+      'লিঙ্গ বদলান',
+      'ঠিকানা বদলান',
+      'গ্রাম বদলান',
     ]);
     // the first of them is chosen and brought into view
-    const first = screen.getAllByRole('button', { name: UNNAMED })[0]!;
+    const first = screen.getByRole('button', { name: NID });
     expect(first).toHaveAttribute('aria-pressed', 'true');
     expect(scrolled).toEqual([first.closest('li')]);
     expect(
       within(first.closest('li')!).getByText(/^পরিচয়: এনআইডি বা জন্মনিবন্ধন নম্বর/),
     ).toBeInTheDocument();
-    // the identity line is gone; what the empty questions still need is listed in its place
+    // the identity line is gone, and the new questions, worded in both languages, add no line
     await user.click(await screen.findByRole('button', { name: /^প্রকাশের আগে ঠিক করুন/ }));
     const dialog = within(await list());
     expect(dialog.queryByText(/^পরিচয়ের প্রশ্ন বাকি/)).not.toBeInTheDocument();
     expect(dialog.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
-    expect(
-      dialog.getAllByRole('button', { name: 'নাম ছাড়া প্রশ্ন: প্রশ্নের বাংলা লেখা বাকি' }),
-    ).toHaveLength(5);
+    expect(dialog.queryByRole('button', { name: /^নাম ছাড়া প্রশ্ন/ })).not.toBeInTheDocument();
+    // the one text still missing is the earlier question's English
+    expect(dialog.getAllByRole('button', { name: /লেখা বাকি/ })).toHaveLength(1);
     await user.click(dialog.getByRole('button', { name: 'বন্ধ করুন' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });

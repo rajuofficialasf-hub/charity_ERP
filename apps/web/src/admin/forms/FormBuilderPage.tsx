@@ -456,12 +456,19 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     lib.isSuccess &&
     missingIdentityRoles(draft).length > 0;
   /**
-   * Adds the identity questions the form lacks, the library's where it has them, and leaves the
-   * first of them chosen and in view. One step to undo.
+   * Adds the identity questions the form lacks, the library's where it has them and a worded one
+   * otherwise, and leaves the first of them chosen and in view. One step to undo.
    */
   const addIdentity = () => {
     if (!identityMissing) return;
-    const added = addIdentityQuestions(draft, fields, { kind, title: newSectionTitle });
+    const added = addIdentityQuestions(draft, fields, {
+      kind,
+      title: newSectionTitle,
+      wording: (role) => ({
+        bn: t(`identity.wording.${role}_bn`),
+        en: t(`identity.wording.${role}_en`),
+      }),
+    });
     const first = added.fieldKeys[0];
     if (added.section === null || first === undefined) return;
     change(added.definition);

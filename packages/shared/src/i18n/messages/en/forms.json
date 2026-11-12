@@ -446,6 +446,22 @@
       "add_all": "Add the identity questions",
       "start_title": "Start with the identity questions",
       "start_hint": "A beneficiary application form needs seven identity questions: NID or birth registration number, name, father's or husband's name, mobile number, gender, address and village. One press adds them all; you can change their wording afterwards.",
+      "wording": {
+        "nid_or_birth_reg_bn": "জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর",
+        "nid_or_birth_reg_en": "NID or birth registration number",
+        "name_bn": "উপকারভোগীর নাম",
+        "name_en": "Beneficiary's name",
+        "father_or_husband_name_bn": "পিতা বা স্বামীর নাম",
+        "father_or_husband_name_en": "Father's or husband's name",
+        "mobile_bn": "মোবাইল নম্বর",
+        "mobile_en": "Mobile number",
+        "gender_bn": "লিঙ্গ",
+        "gender_en": "Gender",
+        "address_bn": "ঠিকানা",
+        "address_en": "Address",
+        "village_bn": "গ্রাম",
+        "village_en": "Village"
+      },
       "roles": {
         "nid_or_birth_reg": "NID or birth registration number",
         "name": "Name",

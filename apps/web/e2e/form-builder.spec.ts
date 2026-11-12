@@ -393,72 +393,57 @@ test('a new application form lists what to fix, gets its identity questions in o
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
 
   // the identity questions come in one press, from the list, each marked; the seeded library
-  // holds no question yet, so each comes empty, to be worded
+  // holds no question yet, so each comes with a wording of its own in both languages
   await list.getByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' }).click();
   await expect(list).toHaveCount(0);
   await expect(page.getByTestId('form-head').getByText('1টি অংশ · 8টি প্রশ্ন')).toBeVisible();
   const part = page.getByRole('list', { name: 'অংশ 1', exact: true });
-  for (const role of [
-    'এনআইডি বা জন্মনিবন্ধন নম্বর',
-    'নাম',
-    'পিতা বা স্বামীর নাম',
-    'মোবাইল নম্বর',
-    'লিঙ্গ',
-    'ঠিকানা (বিভাগ থেকে ইউনিয়ন)',
-    'গ্রাম',
-  ])
+  const identity: [string, string][] = [
+    ['এনআইডি বা জন্মনিবন্ধন নম্বর', 'জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর'],
+    ['নাম', 'উপকারভোগীর নাম'],
+    ['পিতা বা স্বামীর নাম', 'পিতা বা স্বামীর নাম'],
+    ['মোবাইল নম্বর', 'মোবাইল নম্বর'],
+    ['লিঙ্গ', 'লিঙ্গ'],
+    ['ঠিকানা (বিভাগ থেকে ইউনিয়ন)', 'ঠিকানা'],
+    ['গ্রাম', 'গ্রাম'],
+  ];
+  for (const [role, wording] of identity) {
     await expect(part.getByText(`পরিচয়: ${role}`, { exact: true })).toBeVisible();
-  await expect(part.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveCount(7);
+    await expect(part.getByRole('button', { name: `${wording} বদলান`, exact: true })).toBeVisible();
+  }
+  await expect(part.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveCount(0);
   // the first of them is chosen and in view
   const first = part.getByRole('button', { name: / বদলান$/ }).nth(1);
   await expect(first).toHaveAttribute('aria-pressed', 'true');
   await expect(first).toBeInViewport();
-  await expect(questionTexts(page).bn).toHaveValue('');
+  await expect(questionTexts(page).bn).toHaveValue('জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর');
+  await expect(questionTexts(page).en).toHaveValue('NID or birth registration number');
   await saved(page);
-  // the identity line has left the list: what remains is the texts, the earlier question's
-  // English one and both of each new question
-  const left = await openFixList(page, 15);
+  // the identity line has left the list: what remains is the earlier question's English text
+  const left = await openFixList(page, 1);
   await expect(left.getByText(/^পরিচয়ের প্রশ্ন বাকি/)).toHaveCount(0);
   await expect(left.getByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' })).toHaveCount(0);
-  await expect(
-    left.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন: প্রশ্নের বাংলা লেখা বাকি' }),
-  ).toHaveCount(7);
+  await expect(left.getByRole('button', { name: /^নাম ছাড়া প্রশ্ন/ })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(left).toHaveCount(0);
 
   // every text of the form in one place: the header's button carries the same number
-  await page.getByRole('button', { name: 'অনুবাদ: 15টি লেখা বাকি', exact: true }).click();
+  await page.getByRole('button', { name: 'অনুবাদ: 1টি লেখা বাকি', exact: true }).click();
   const texts = page.getByRole('dialog', { name: 'অনুবাদ' });
-  await expect(texts.getByRole('status')).toHaveText('15টি লেখা বাকি');
-  await expect(texts.getByRole('img', { name: 'বাকি' })).toHaveCount(15);
-  // the rows that lack nothing step aside (the part's name here)
+  await expect(texts.getByRole('status')).toHaveText('1টি লেখা বাকি');
+  await expect(texts.getByRole('img', { name: 'বাকি' })).toHaveCount(1);
+  // an identity question's wording is changed here like any other text, named by its role
+  const nameRow = texts.getByRole('listitem').filter({ hasText: 'পরিচয়: নাম' });
+  await nameRow.getByRole('textbox', { name: 'প্রশ্ন 3 (বাংলা)' }).fill('আবেদনকারীর নাম');
+  await nameRow.getByRole('textbox', { name: 'প্রশ্ন 3 (ইংরেজি)' }).fill("Applicant's name");
+  // the rows that lack nothing step aside (the part's name and the identity questions here)
   await expect(texts.getByRole('textbox', { name: 'অংশের নাম (বাংলা)' })).toHaveValue('অংশ 1');
   await texts.getByRole('switch', { name: 'শুধু বাকি' }).check();
   await expect(texts.getByRole('textbox', { name: 'অংশের নাম (বাংলা)' })).toHaveCount(0);
-  await expect(texts.getByRole('textbox')).toHaveCount(16);
+  await expect(texts.getByRole('textbox')).toHaveCount(2);
   await settled(page);
   expect((await scan(page)).violations, 'the translations').toEqual([]);
-  // the earlier question's English, then both texts of each identity question, named by its role
   await texts.getByRole('textbox', { name: 'প্রশ্ন 1 (ইংরেজি)' }).fill('Family members');
-  const wording: [string, string, string][] = [
-    [
-      'এনআইডি বা জন্মনিবন্ধন নম্বর',
-      'জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর',
-      'NID or birth registration number',
-    ],
-    ['নাম', 'উপকারভোগীর নাম', "Beneficiary's name"],
-    ['পিতা বা স্বামীর নাম', 'পিতা/স্বামীর নাম', "Father's or husband's name"],
-    ['মোবাইল নম্বর', 'মোবাইল নম্বর', 'Mobile number'],
-    ['লিঙ্গ', 'লিঙ্গ', 'Gender'],
-    ['ঠিকানা (বিভাগ থেকে ইউনিয়ন)', 'ঠিকানা', 'Address'],
-    ['গ্রাম', 'গ্রাম', 'Village'],
-  ];
-  for (const [i, [role, bn, en]] of wording.entries()) {
-    const n = i + 2;
-    const row = texts.getByRole('listitem').filter({ hasText: `পরিচয়: ${role}` });
-    await row.getByRole('textbox', { name: `প্রশ্ন ${n} (বাংলা)` }).fill(bn);
-    await row.getByRole('textbox', { name: `প্রশ্ন ${n} (ইংরেজি)` }).fill(en);
-  }
   // a written row stays where it is until the view is closed; nothing is left to write
   await expect(texts.getByRole('status')).toHaveText('সব লেখা দুই ভাষাতেই আছে');
   await expect(texts.getByRole('img', { name: 'বাকি' })).toHaveCount(0);
@@ -466,9 +451,8 @@ test('a new application form lists what to fix, gets its identity questions in o
   await expect(texts).toHaveCount(0);
   // the canvas names the questions, the list has nothing left, and the form publishes
   await expect(
-    part.getByRole('button', { name: 'উপকারভোগীর নাম বদলান', exact: true }),
+    part.getByRole('button', { name: 'আবেদনকারীর নাম বদলান', exact: true }),
   ).toBeVisible();
-  await expect(part.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^প্রকাশের আগে ঠিক করুন/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'অনুবাদ', exact: true })).toBeVisible();
   await publish(page, 1);
