@@ -213,7 +213,7 @@ Defined in `_common.yaml` under `project_lifecycle`: `draft → active` (`projec
 
 - Each template file carries `version`. Seeding stores templates in `workflow_definitions` (key, version, definition JSONB) and transitions in `workflow_transitions` for querying.
 - At project activation the project stores `template_key`, `template_version` and a JSONB snapshot of the merged definition (template + `_common` + project overrides). All engine decisions for that project read the snapshot (BD-10).
-- A template change is a new version; it applies to projects activated afterwards. Running projects are never migrated automatically; a deliberate migration is a decision with its own `down.sql`-style reversal plan.
+- A template change is a new version; it applies to projects activated afterwards. Running projects are never migrated automatically; a deliberate migration is a decision with its own `down.sql`-style reversal plan. A change of a template's `defaults` counts too, and a template that extends the changed one takes a new version with it. The templates therefore need not share one number: `distribution` and `qurbani` are at version 6 (their `defaults` name what a new project's application asks, D-172), `_common` and the four others at version 5.
 - Template edits by PM/Head/Monitoring (`project.template.manage`) are audited (BR-064).
 
 ## 13. What is code and what is data

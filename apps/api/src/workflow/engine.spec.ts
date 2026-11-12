@@ -61,9 +61,20 @@ describe('the action table', () => {
   });
 });
 
-describe('the templates at version 5', () => {
-  it('are all at version 5 and name only built or declared guards, effects and permissions', () => {
-    for (const d of definitions) expect(d.version, d.template).toBe(5);
+describe('the templates at their versions', () => {
+  // a change of a template file is a new version of that template, and of the ones that extend it
+  const VERSIONS: Record<string, number> = {
+    _common: 5,
+    advance_voucher: 5,
+    construction: 5,
+    distribution: 6,
+    implementation_evidence: 5,
+    open_application_visit: 5,
+    qurbani: 6,
+  };
+
+  it('are each at their version and name only built or declared guards, effects and permissions', () => {
+    expect(Object.fromEntries(definitions.map((d) => [d.template, d.version]))).toEqual(VERSIONS);
     const permissions = loadAccessRegistry();
     expect(() =>
       assertWorkflowNamesKnown(definitions, permissions.isKnownPermission),

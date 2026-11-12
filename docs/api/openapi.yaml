@@ -7648,7 +7648,8 @@ paths:
       description: >-
         The project starts with the components and settings of its workflow (D-095). The program
         must be in the caller's scope (403) and active (409 program.inactive); a taken code answers
-        409 project.code_taken. A master template and a copy of a project come with T1.12.
+        409 project.code_taken. A master template and a copy of a project come with T1.12. The audit
+        entry of the creation carries the four identity rules the project starts with (BR-309).
       x-permission: project.create
       x-scope: program
       x-audit: project.create

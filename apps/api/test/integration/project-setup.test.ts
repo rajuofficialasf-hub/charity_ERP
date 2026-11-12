@@ -258,7 +258,7 @@ describe('what the application asks', () => {
       .send({ settings: { ...row?.settings, ...settings } });
   };
 
-  it('starts a distribution and a Qurbani project asking the document and the mobile only where there is one, and a construction project asking both', async () => {
+  it('starts a distribution and a Qurbani project with the document and the mobile optional and repeats told, and a construction project with the defaults', async () => {
     const pm = await as(world.users.pm);
     const distribution = await draft('distribution');
     expect((await formRow(pm, distribution))!.settings).toMatchObject({
@@ -273,11 +273,20 @@ describe('what the application asks', () => {
       repeat_person: 'tell',
       repeat_family: 'tell',
     });
-    const construction = (await formRow(pm, await draft('construction')))!.settings;
+    const construction = await draft('construction');
+    const settings = (await formRow(pm, construction))!.settings;
     for (const key of ['identity_document', 'mobile', 'repeat_person', 'repeat_family'])
-      expect(construction, key).not.toHaveProperty(key);
+      expect(settings, key).not.toHaveProperty(key);
     // the starting values of a new project are no change of a project
     expect(await audit(distribution, ASKED)).toHaveLength(0);
+    expect(await audit(construction, ASKED)).toHaveLength(0);
+  });
+
+  it('records the rules a new project starts with in the audit of its creation', async () => {
+    const created = async (id: string) =>
+      (await audit(id, 'project.create')).map((row) => row.new as { identityRules: unknown });
+    expect(await created(await draft('distribution'))).toMatchObject([{ identityRules: LOOSE }]);
+    expect(await created(await draft('construction'))).toMatchObject([{ identityRules: STRICT }]);
   });
 
   it('saves the four choices of the PM and audits the values before and after', async () => {

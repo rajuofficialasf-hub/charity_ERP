@@ -1,4 +1,5 @@
 import type { LocationView } from '@css/shared';
+import { DEFAULT_IDENTITY_RULES, identityRulesSchema } from '@css/shared/projects';
 import type {
   Application,
   ApplicationForm,
@@ -105,9 +106,20 @@ export async function metaString(key: string): Promise<string | null> {
   return typeof row?.value === 'string' ? row.value : null;
 }
 
+/**
+ * A stored project as the screens read it. The store keeps what the server sent with no check, so
+ * a project written by a version of the app that knew no identity rules has none: it reads as the
+ * defaults, the strictest choice of each, until the next data set replaces it.
+ */
+function storedProject(data: unknown): MyProject {
+  const project = data as Omit<MyProject, 'identityRules'> & { identityRules?: unknown };
+  const rules = identityRulesSchema.safeParse(project.identityRules);
+  return { ...project, identityRules: rules.success ? rules.data : DEFAULT_IDENTITY_RULES };
+}
+
 /** The cached projects, as the screens read them offline. */
 export async function cachedProjects(): Promise<MyProject[]> {
-  return (await offlineDb().projects.toArray()).map((p) => p.data as MyProject);
+  return (await offlineDb().projects.toArray()).map((p) => storedProject(p.data));
 }
 
 /** The signed-in person of the last sign-in, sealed, for the open without network. */

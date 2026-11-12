@@ -260,6 +260,15 @@ describe('a copy of a previous project', () => {
       );
     const formOf = async (id: string) =>
       (await componentsOf(pm, id)).find((c) => c.componentKey === 'application_form')!.settings;
+    /** The rules the audit of a project's creation says it started with. */
+    const startedWith = async (id: string) => {
+      const { rows } = await h.db.query<{ new: { identityRules: unknown } }>(
+        `SELECT new FROM audit_log WHERE entity_id = $1 AND action = 'project.create'`,
+        [id],
+      );
+      expect(rows).toHaveLength(1);
+      return rows[0]!.new.identityRules;
+    };
     const sourceOf = async (workflowKey: string, change: Record<string, unknown>) => {
       const id = (await create(pm, { kind: 'workflow', workflowKey })).body.data.id as string;
       await patchComponent(pm, id, 'application_form', {
@@ -279,8 +288,13 @@ describe('a copy of a previous project', () => {
       repeat_person: 'hold',
       repeat_family: 'hold',
     });
-    for (const [source, expected] of [
-      [loose, { identity_document: 'optional', mobile: 'optional' }],
+    const HELD = { repeatPerson: 'hold', repeatFamily: 'hold' };
+    for (const [source, expected, rules] of [
+      [
+        loose,
+        { identity_document: 'optional', mobile: 'optional' },
+        { document: 'optional', mobile: 'optional', ...HELD },
+      ],
       [
         strict,
         {
@@ -289,11 +303,14 @@ describe('a copy of a previous project', () => {
           repeat_person: 'hold',
           repeat_family: 'hold',
         },
+        { document: 'required', mobile: 'required', ...HELD },
       ],
     ] as const) {
       const copy = await create(pm, { kind: 'copy', projectId: source });
       expect(copy.status).toBe(201);
       expect(asked(await formOf(copy.body.data.id as string))).toEqual(asked(expected));
+      // the creation is audited with the rules the source gave, not the workflow's starting ones
+      expect(await startedWith(copy.body.data.id as string)).toEqual(rules);
       const saved = await at(pm, 'post', `/projects/${source}/save-as-template`).send({
         name: text(`যা চাওয়া হবে ${source.slice(-6)}`),
       });
@@ -301,6 +318,7 @@ describe('a copy of a previous project', () => {
       const made = await create(pm, { kind: 'template', templateId: saved.body.data.id });
       expect(made.status).toBe(201);
       expect(asked(await formOf(made.body.data.id as string))).toEqual(asked(expected));
+      expect(await startedWith(made.body.data.id as string)).toEqual(rules);
     }
   });
 

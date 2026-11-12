@@ -4,6 +4,7 @@ import {
   BUDGET_LIMIT_PAISA,
   type CodeLabel,
   editableIn,
+  identityRules,
   plannedBudgetPaisa,
   type ProjectCreate,
   type ProjectFilter,
@@ -319,11 +320,22 @@ export class ProjectsService {
         if (start.definition) await applyDefinition(tx, id, start.definition, actor);
         // the application numbers of this project count from here
         await tx.idSequence.create({ data: { scopeKey: `app:${id}`, lastValue: 0 } });
+        // what the project's application asks from its first day, whichever source set it
+        const asked = await tx.projectComponent.findUnique({
+          where: {
+            projectId_componentKey: { projectId: id, componentKey: IDENTITY_RULES_COMPONENT },
+          },
+          select: { settings: true },
+        });
         await this.audit.record(tx, {
           action: 'project.create',
           entityType: 'project',
           entityId: id,
-          new: { ...view(row, EDITOR), source: body.source },
+          new: {
+            ...view(row, EDITOR),
+            source: body.source,
+            identityRules: identityRules(asked?.settings),
+          },
         });
         return { project: view(row, EDITOR), updatedAt: row.updatedAt };
       });
