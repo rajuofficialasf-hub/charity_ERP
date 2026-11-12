@@ -457,7 +457,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     missingIdentityRoles(draft).length > 0;
   /**
    * Adds the identity questions the form lacks, the library's where it has them and a worded one
-   * otherwise, and leaves the first of them chosen and in view. One step to undo.
+   * otherwise, with the two questions on whose number the mobile is, and leaves the first of
+   * them chosen and in view. One step to undo.
    */
   const addIdentity = () => {
     if (!identityMissing) return;

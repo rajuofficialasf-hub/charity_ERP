@@ -40,6 +40,32 @@ describe('the split', () => {
     expect(result.familyMembers).toEqual([]);
   });
 
+  it('sends whose number the mobile is and the owner’s name to their two profile columns', () => {
+    const definition = definitionWith([
+      field('q_owner', 'single_select', {
+        standardColumn: 'mobile_owner_code',
+        options: [option('own'), option('neighbour')],
+      }),
+      field('q_owner_name', 'short_text', { standardColumn: 'mobile_owner_name' }),
+    ]);
+    const result = split(definition, [
+      ...coreAnswers(),
+      answer('q_owner', { t: 'single_select', v: 'neighbour' }),
+      answer('q_owner_name', { t: 'short_text', v: 'Karim Mia' }),
+    ]);
+    expect(result.standard).toMatchObject({
+      mobile: '01712345678',
+      mobile_owner_code: 'neighbour',
+      mobile_owner_name: 'Karim Mia',
+    });
+    // neither stays behind as an application answer of its own
+    expect(result.custom).toEqual([]);
+    // a form without the two questions gives the profile neither column
+    const without = split(definitionWith(), coreAnswers());
+    expect(Object.keys(without.standard)).not.toContain('mobile_owner_code');
+    expect(Object.keys(without.standard)).not.toContain('mobile_owner_name');
+  });
+
   it('files a 10 or 13 digit number as an NID and anything else as a birth registration', () => {
     expect(identityColumn('1000000001')).toBe('nid');
     expect(identityColumn('1000000000123')).toBe('nid');

@@ -396,7 +396,8 @@ test('a new application form lists what to fix, gets its identity questions in o
   // holds no question yet, so each comes with a wording of its own in both languages
   await list.getByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' }).click();
   await expect(list).toHaveCount(0);
-  await expect(page.getByTestId('form-head').getByText('1টি অংশ · 8টি প্রশ্ন')).toBeVisible();
+  // seven identity questions and, after the mobile, the two on whose number it is
+  await expect(page.getByTestId('form-head').getByText('1টি অংশ · 10টি প্রশ্ন')).toBeVisible();
   const part = page.getByRole('list', { name: 'অংশ 1', exact: true });
   const identity: [string, string][] = [
     ['এনআইডি বা জন্মনিবন্ধন নম্বর', 'জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর'],
@@ -411,6 +412,8 @@ test('a new application form lists what to fix, gets its identity questions in o
     await expect(part.getByText(`পরিচয়: ${role}`, { exact: true })).toBeVisible();
     await expect(part.getByRole('button', { name: `${wording} বদলান`, exact: true })).toBeVisible();
   }
+  for (const wording of ['নম্বরটি কার?', 'যাঁর নম্বর, তাঁর নাম'])
+    await expect(part.getByRole('button', { name: `${wording} বদলান`, exact: true })).toBeVisible();
   await expect(part.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveCount(0);
   // the first of them is chosen and in view
   const first = part.getByRole('button', { name: / বদলান$/ }).nth(1);

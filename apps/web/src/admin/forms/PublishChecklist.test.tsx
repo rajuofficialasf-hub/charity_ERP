@@ -422,7 +422,8 @@ describe('the identity questions in one press', () => {
     open();
     await user.click(await listButton(2));
     await user.click(within(await list()).getByRole('button', { name: ADD }));
-    // the list closes; the questions stand after the form's own, in the order of the roles
+    // the list closes; the questions stand after the form's own, in the order of the roles, and
+    // right after the mobile the two questions on whose number it is, worded from the catalogue
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(questions()).toEqual([
       'মন্তব্য বদলান',
@@ -430,6 +431,8 @@ describe('the identity questions in one press', () => {
       'উপকারভোগীর নাম বদলান',
       'পিতা বা স্বামীর নাম বদলান',
       'মোবাইল নম্বর বদলান',
+      'নম্বরটি কার? বদলান',
+      'যাঁর নম্বর, তাঁর নাম বদলান',
       'লিঙ্গ বদলান',
       'ঠিকানা বদলান',
       'গ্রাম বদলান',
@@ -458,18 +461,43 @@ describe('the identity questions in one press', () => {
       'name',
       'father_or_husband_name',
       'mobile',
+      'mobile_owner_code',
+      'mobile_owner_name',
       'gender_code',
       'division_id,district_id,upazila_id,union_id',
       'village',
     ]);
+    // the seven identity questions are required; the two on the number's owner are optional,
+    // each shown by its condition, and carry no identity mark
+    const savedFields = saves.at(-1)!.flatMap((s) => s.fields);
+    const mobileKey = savedFields.find((f) => f.standardColumn === 'mobile')!.fieldKey;
+    const ownerQuestion = savedFields.find((f) => f.standardColumn === 'mobile_owner_code')!;
+    const ownerName = savedFields.find((f) => f.standardColumn === 'mobile_owner_name')!;
     expect(
-      saves
-        .at(-1)!
-        .flatMap((s) => s.fields)
+      savedFields
         .slice(1)
+        .filter((f) => f !== ownerQuestion && f !== ownerName)
         .every((f) => f.required),
     ).toBe(true);
-    // one step back takes all seven away, and the identity line returns
+    expect(ownerQuestion).toMatchObject({
+      type: 'single_select',
+      required: false,
+      label: T('নম্বরটি কার?', 'Whose number is it?'),
+      logic: { show_if: { field: mobileKey, op: 'not_empty' } },
+    });
+    expect(ownerName).toMatchObject({
+      type: 'short_text',
+      required: false,
+      label: T('যাঁর নম্বর, তাঁর নাম', "Name of the number's owner"),
+      logic: { show_if: { field: ownerQuestion.fieldKey, op: 'neq', value: 'own' } },
+    });
+    for (const question of [ownerQuestion, ownerName]) {
+      const item = screen
+        .getByRole('button', { name: `${question.label.bn} বদলান` })
+        .closest('li')!;
+      expect(within(item).queryByText(/^পরিচয়:/)).not.toBeInTheDocument();
+    }
+    // one step back takes all nine away, and the identity line returns
     await user.click(undo());
     expect(questions()).toEqual(['মন্তব্য বদলান']);
     expect(await listButton(2)).toBeInTheDocument();
@@ -483,13 +511,17 @@ describe('the identity questions in one press', () => {
     open();
     expect(await screen.findByText('পরিচয়ের প্রশ্ন দিয়ে শুরু করুন')).toBeInTheDocument();
     const canvas = within(screen.getByRole('region', { name: 'ফর্মের প্রশ্নগুলো' }));
+    // the card says what the press brings: the seven, and the two on whose number it is
+    expect(
+      canvas.getByText(/এক চাপেই সাতটিই যোগ হবে, সঙ্গে মোবাইল নম্বরটি কার তা জানার দুটি প্রশ্ন/),
+    ).toBeInTheDocument();
     await user.click(canvas.getByRole('button', { name: ADD }));
-    expect(questions()).toHaveLength(7);
+    expect(questions()).toHaveLength(9);
     // the card has done its work
     expect(screen.queryByText('পরিচয়ের প্রশ্ন দিয়ে শুরু করুন')).not.toBeInTheDocument();
     expect(canvas.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
     await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
-    expect(rolesOf(saves.at(-1))).toHaveLength(7);
+    expect(rolesOf(saves.at(-1))).toHaveLength(9);
     await user.click(undo());
     expect(screen.queryAllByRole('button', { name: / বদলান$/ })).toHaveLength(0);
     expect(await canvas.findByRole('button', { name: ADD })).toBeInTheDocument();

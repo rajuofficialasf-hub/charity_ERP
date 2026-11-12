@@ -157,6 +157,9 @@ export const beneficiaryProfile = z.object({
   postCode: address(z.string().nullable()),
   landmark: address(z.string().nullable()),
   mobile: contact(z.string().nullable()),
+  // whose number the mobile is (a code of the list mobile_owner) and that person's name
+  mobileOwnerCode: contact(z.string().nullable()),
+  mobileOwnerName: contact(z.string().nullable()),
   hasDocument: hasDocument(),
   familyMembers: contact(
     z.array(
@@ -301,6 +304,8 @@ const warning = z.object({
 const contactView = z.object({
   id: z.uuid(),
   mobile: z.string().nullable(),
+  mobileOwnerCode: z.string().nullable(),
+  mobileOwnerName: z.string().nullable(),
   divisionId: z.uuid(),
   districtId: z.uuid(),
   upazilaId: z.uuid(),

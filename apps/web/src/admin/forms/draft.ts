@@ -1,5 +1,11 @@
 import { type Condition, isFieldRef } from '@css/shared';
 import {
+  MOBILE_OWNER_COLUMN,
+  MOBILE_OWNER_NAME_COLUMN,
+  MOBILE_OWNER_NAME_MAX,
+  MOBILE_OWNER_OWN,
+} from '@css/shared/beneficiaries';
+import {
   conditionFields,
   CORE_FIELDS,
   type CoreFieldKey,
@@ -899,8 +905,10 @@ const takesIdentity = (section: FormSection) =>
  * role's type that the form does not hold yet; otherwise a new question of the role's type,
  * marked and worded in both languages by `wording`, so the form asks something from the start and
  * the wording can be changed afterwards. Each added question is required and has no condition. A
- * role already marked is left alone, and a form of another kind gets nothing. The keys of the
- * added questions come back in order, with the part they went to.
+ * role already marked is left alone, and a form of another kind gets nothing. With them come the
+ * two questions on whose number the mobile is (`addMobileOwnerQuestions`), which are no identity
+ * questions. The keys of the added questions come back, the identity questions in the order of
+ * the roles and then those two, with the part the identity questions went to.
  */
 export function addIdentityQuestions(
   def: FormDefinition,
@@ -908,7 +916,7 @@ export function addIdentityQuestions(
   options: {
     kind: FormKind | undefined;
     title: (n: number) => { bn: string; en: string };
-    wording: (role: CoreFieldKey) => { bn: string; en: string };
+    wording: (role: CoreFieldKey | MobileOwnerWording) => { bn: string; en: string };
     makeKey?: MakeKey;
   },
 ): { definition: FormDefinition; section: string | null; fieldKeys: string[] } {
@@ -947,7 +955,101 @@ export function addIdentityQuestions(
     });
     fieldKeys.push(added.fieldKey);
   }
-  return { definition: next, section, fieldKeys };
+  const owner = addMobileOwnerQuestions(next, library, options);
+  return { definition: owner.definition, section, fieldKeys: [...fieldKeys, ...owner.fieldKeys] };
+}
+
+/**
+ * The two questions on whose number the mobile is: the column each fills, its answer type and
+ * the name of its starting wording. Neither is an identity question.
+ */
+const MOBILE_OWNER_QUESTIONS = [
+  { column: MOBILE_OWNER_COLUMN, type: 'single_select', wording: 'mobile_owner' },
+  { column: MOBILE_OWNER_NAME_COLUMN, type: 'short_text', wording: 'mobile_owner_name' },
+] as const satisfies readonly { column: string; type: FieldType; wording: string }[];
+export type MobileOwnerWording = (typeof MOBILE_OWNER_QUESTIONS)[number]['wording'];
+
+/**
+ * Adds, right after the form's mobile question, the question whose number it is and, after that
+ * one, the question for the owner's name: the library's question of the column where the library
+ * has one of that type the form does not hold yet, otherwise a new one worded by `wording`.
+ * Neither is required or marked as identity. The first shows only when the mobile is answered,
+ * the second only when the owner is answered and is not the person's own. A column the form
+ * already has a question for gets no second one, and a form without a mobile question gets
+ * neither. The keys of the added questions come back in their order.
+ */
+function addMobileOwnerQuestions(
+  def: FormDefinition,
+  library: LibraryFields,
+  options: {
+    wording: (name: MobileOwnerWording) => { bn: string; en: string };
+    makeKey?: MakeKey;
+  },
+): { definition: FormDefinition; fieldKeys: string[] } {
+  const fieldsOf = (d: FormDefinition) => d.sections.flatMap((s) => s.fields);
+  const mobile = fieldsOf(def).find((f) => identityRoleOf(f) === 'mobile');
+  if (!mobile) return { definition: def, fieldKeys: [] };
+  let next = def;
+  const fieldKeys: string[] = [];
+  // each follows the question it depends on: the owner the mobile, the owner's name the owner
+  let anchor = mobile.fieldKey;
+  for (const question of MOBILE_OWNER_QUESTIONS) {
+    const held = fieldsOf(next).find(
+      (f) => f.standardColumn === question.column && groupOf(f) === undefined,
+    );
+    if (held) {
+      anchor = held.fieldKey;
+      continue;
+    }
+    const section = next.sections.find((s) => s.fields.some((f) => f.fieldKey === anchor));
+    if (!section) break;
+    const taken = allKeys(next);
+    const ready = [...library.values()].find(
+      (placed) =>
+        placed.length === 1 &&
+        placed[0]!.standardColumn === question.column &&
+        placed[0]!.type === question.type &&
+        !taken.has(placed[0]!.fieldKey),
+    )?.[0];
+    let key: string;
+    if (ready) {
+      key = ready.fieldKey;
+      const at = section.fields.findIndex((f) => f.fieldKey === anchor) + 1;
+      next = withSection(next, section.key, (s) => ({
+        ...s,
+        fields: [...s.fields.slice(0, at), ready, ...s.fields.slice(at)],
+      }));
+    } else {
+      const added = addOwnQuestion(
+        next,
+        section.key,
+        { type: question.type, after: anchor },
+        undefined,
+        options.makeKey,
+      );
+      if (!added.fieldKey) break;
+      key = added.fieldKey;
+      next = updateField(added.definition, key, {
+        standardColumn: question.column,
+        label: options.wording(question.wording),
+        // the profile keeps a name of this length at most
+        ...(question.column === MOBILE_OWNER_NAME_COLUMN
+          ? { settings: { validation: { max_length: MOBILE_OWNER_NAME_MAX } } }
+          : {}),
+      });
+    }
+    const condition: Condition =
+      question.column === MOBILE_OWNER_COLUMN
+        ? { field: anchor, op: 'not_empty' }
+        : { field: anchor, op: 'neq', value: MOBILE_OWNER_OWN };
+    next = updateField(next, key, {
+      required: false,
+      logic: { ...(ready?.logic ?? {}), show_if: condition },
+    });
+    fieldKeys.push(key);
+    anchor = key;
+  }
+  return { definition: next, fieldKeys };
 }
 
 /**

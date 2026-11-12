@@ -427,6 +427,12 @@
       "male": "পুরুষ",
       "other": "অন্যান্য"
     },
+    "mobile_owner": {
+      "own": "নিজের",
+      "family": "পরিবারের সদস্যের",
+      "neighbour": "প্রতিবেশীর",
+      "other": "অন্য কারও"
+    },
     "blocked": "ব্লক করা",
     "empty": "এই ফিল্টারে কোনো উপকারভোগী পাওয়া যায়নি।",
     "profile": {
@@ -454,6 +460,8 @@
       "age": "বয়স",
       "occupation": "পেশা",
       "mobile": "মোবাইল",
+      "mobile_owner": "কার নম্বর",
+      "mobile_owner_named": "{owner} ({name})",
       "nid": "NID বা জন্মনিবন্ধন",
       "village": "গ্রাম",
       "post_office": "ডাকঘর",
@@ -501,6 +509,8 @@
       "empty_value": "খালি",
       "fields": {
         "mobile": "মোবাইল",
+        "mobile_owner_code": "কার নম্বর",
+        "mobile_owner_name": "নম্বরের মালিকের নাম",
         "division_id": "বিভাগ",
         "district_id": "জেলা",
         "upazila_id": "উপজেলা",

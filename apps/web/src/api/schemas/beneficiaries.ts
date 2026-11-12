@@ -133,6 +133,10 @@ export const beneficiaryProfileSchema = z.object({
   landmark: z.string().nullable().optional(),
   /** Null for a person reached through their volunteer; absent without the contact class. */
   mobile: z.string().nullable().optional(),
+  /** Whose number the mobile is (a code of the list `mobile_owner`), with the contact class. */
+  mobileOwnerCode: z.string().nullable().optional(),
+  /** The name of the number's owner, when that is someone else than the person. */
+  mobileOwnerName: z.string().nullable().optional(),
   /** Whether an identity document is on file; absent without the identity class. */
   hasDocument: z.boolean().optional(),
   familyMembers: z

@@ -119,6 +119,33 @@ describe('the field settings', () => {
     expect(screen.queryByRole('textbox', { name: /অপশন 1/ })).not.toBeInTheDocument();
   });
 
+  it('shows the question whose number it is its list’s options to read, with no way to edit them', async () => {
+    // the question fills the column of the list mobile_owner, as the builder's press writes it
+    open(
+      definition(
+        section('extra', [
+          field('q_owner', 'single_select', {
+            label: T('নম্বরটি কার?', 'Whose number is it?'),
+            standardColumn: 'mobile_owner_code',
+            options: [
+              option('own', { label: T('নিজের', 'Own') }),
+              option('neighbour', { label: T('প্রতিবেশীর', "A neighbour's") }),
+            ],
+          }),
+        ]),
+      ),
+      { section: 'extra', field: 'q_owner' },
+    );
+    expect(
+      await screen.findByText(
+        'এই প্রশ্নের বিকল্প সিস্টেমের তালিকা থেকে আসে, তাই এখানে বদলানো যায় না। খসড়া সংরক্ষণ হলে তালিকার বিকল্প নিজে থেকে বসে যায়।',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('নিজের, প্রতিবেশীর')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'অপশন যোগ করুন' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /অপশন 1/ })).not.toBeInTheDocument();
+  });
+
   it('gives a new option a code no removed option had', async () => {
     const user = userEvent.setup();
     open(

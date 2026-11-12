@@ -98,9 +98,9 @@ sensitive_fields:
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
     source: "B8: NID number and photo visible to all official staff who do project work, never to volunteers, Media, Finance, Procurement"
   - key: beneficiary.contact
-    fields: [beneficiaries.mobile, beneficiary_family_members.*]
+    fields: [beneficiaries.mobile, beneficiaries.mobile_owner_code, beneficiaries.mobile_owner_name, beneficiary_family_members.*]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
-    source: "O-67, D-094: not to the Media or Procurement Team, in lists, profiles, search and filters"
+    source: "O-67, D-094: not to the Media or Procurement Team, in lists, profiles, search and filters. D-172: whose number the mobile is and that person's name are hidden wherever the mobile is (the profile, its contact history, the export of the list, the two answers on an application's record)"
   - key: beneficiary.address_detail
     fields: [beneficiaries.union_id, beneficiaries.village, beneficiaries.post_office, beneficiaries.post_code, beneficiaries.landmark, beneficiaries.latitude, beneficiaries.longitude]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee, procurement_team]

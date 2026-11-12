@@ -427,6 +427,12 @@
       "male": "Male",
       "other": "Other"
     },
+    "mobile_owner": {
+      "own": "Own",
+      "family": "A family member's",
+      "neighbour": "A neighbour's",
+      "other": "Someone else's"
+    },
     "blocked": "Blocked",
     "empty": "No beneficiary matches these filters.",
     "profile": {
@@ -454,6 +460,8 @@
       "age": "Age",
       "occupation": "Occupation",
       "mobile": "Mobile",
+      "mobile_owner": "Whose number",
+      "mobile_owner_named": "{owner} ({name})",
       "nid": "NID or birth registration",
       "village": "Village",
       "post_office": "Post office",
@@ -501,6 +509,8 @@
       "empty_value": "empty",
       "fields": {
         "mobile": "Mobile",
+        "mobile_owner_code": "Whose number",
+        "mobile_owner_name": "Name of the number's owner",
         "division_id": "Division",
         "district_id": "District",
         "upazila_id": "Upazila",

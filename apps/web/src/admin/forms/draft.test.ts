@@ -1,8 +1,10 @@
 import {
   checkDefinition,
   type FormDefinition,
+  type FormField,
   formDefinitionSchema,
   identityRoleOf,
+  listOfField,
 } from '@css/shared/forms';
 import { describe, expect, it } from 'vitest';
 import { definition, field, keysOf, option, section, T } from '../../../test/forms';
@@ -571,8 +573,12 @@ describe('the identity questions added all at once', () => {
       kind,
       title,
       wording,
-      makeKey: keysFrom('q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd', 'q_eeeeee'),
+      makeKey: keysFrom('q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd', 'q_eeeeee', 'q_ffffff'),
     });
+  /** The questions of a part that carry an identity mark, and the ones that carry none. */
+  const marked = (fields: readonly FormField[]) => fields.filter((f) => identityRoleOf(f) !== null);
+  const unmarked = (fields: readonly FormField[]) =>
+    fields.filter((f) => identityRoleOf(f) === null);
   const ROLES = [
     'nid_or_birth_reg',
     'name',
@@ -588,7 +594,8 @@ describe('the identity questions added all at once', () => {
     expect(missingIdentityRoles(start)).toEqual(ROLES);
     const { definition: next, section: part, fieldKeys } = add(start, 'beneficiary_application');
     expect(part).toBe('section_1');
-    // in the order of the roles: the library's question by its own key, an empty one otherwise
+    // in the order of the roles: the library's question by its own key, an empty one otherwise;
+    // then the two questions on whose number the mobile is
     expect(fieldKeys).toEqual([
       'q_aaaaaa',
       'name',
@@ -597,9 +604,11 @@ describe('the identity questions added all at once', () => {
       'gender',
       'q_cccccc',
       'q_dddddd',
+      'q_eeeeee',
+      'q_ffffff',
     ]);
-    const fields = next.sections[0]!.fields;
-    expect(fields.map((f) => f.fieldKey)).toEqual(fieldKeys);
+    const fields = marked(next.sections[0]!.fields);
+    expect(fields.map((f) => f.fieldKey)).toEqual(fieldKeys.slice(0, 7));
     expect(fields.map((f) => identityRoleOf(f))).toEqual(ROLES);
     expect(fields.every((f) => f.required)).toBe(true);
     expect(fields.map((f) => f.type)).toEqual([
@@ -645,6 +654,148 @@ describe('the identity questions added all at once', () => {
     ).toEqual([]);
   });
 
+  it('adds nine questions to an empty application form: after the mobile, whose number it is and the owner’s name, optional, conditional and unmarked', () => {
+    const { definition: next, fieldKeys } = add(empty(), 'beneficiary_application');
+    expect(fieldKeys).toHaveLength(9);
+    const fields = next.sections[0]!.fields;
+    expect(fields).toHaveLength(9);
+    // the two stand right after the mobile question, in their order
+    expect(fields.map((f) => f.fieldKey)).toEqual([
+      'q_aaaaaa',
+      'name',
+      'q_bbbbbb',
+      'mobile',
+      'q_eeeeee',
+      'q_ffffff',
+      'gender',
+      'q_cccccc',
+      'q_dddddd',
+    ]);
+    const [owner, ownerName] = unmarked(fields);
+    expect(owner).toMatchObject({
+      fieldKey: 'q_eeeeee',
+      type: 'single_select',
+      standardColumn: 'mobile_owner_code',
+      required: false,
+      libraryFieldKey: null,
+      label: T('mobile_owner (বাংলা)', 'mobile_owner (English)'),
+      // shown only once the mobile is answered
+      logic: { show_if: { field: 'mobile', op: 'not_empty' } },
+    });
+    expect(ownerName).toMatchObject({
+      fieldKey: 'q_ffffff',
+      type: 'short_text',
+      standardColumn: 'mobile_owner_name',
+      required: false,
+      label: T('mobile_owner_name (বাংলা)', 'mobile_owner_name (English)'),
+      // shown only for a number that is answered as someone else's
+      logic: { show_if: { field: 'q_eeeeee', op: 'neq', value: 'own' } },
+      settings: { validation: { max_length: 200 } },
+    });
+    // the owner's options are its list's, set by the server at the save: none of the builder's
+    expect(listOfField(owner!)).toBe('mobile_owner');
+    expect(owner!.options).toEqual([]);
+    expect(listOfField(ownerName!)).toBeNull();
+    for (const question of [owner!, ownerName!]) {
+      expect(identityRoleOf(question)).toBeNull();
+      expect(coreLocks(question)).toEqual({ optional: false, condition: false });
+    }
+    valid(next);
+    expect(checkDefinition(next, { publishing: true, kind: 'beneficiary_application' })).toEqual(
+      [],
+    );
+    // a second press adds nothing
+    expect(add(next, 'beneficiary_application').definition).toBe(next);
+  });
+
+  it('takes the library’s two questions where it has them, under the form’s own conditions, and adds none the form already asks', () => {
+    const withOwner = new Map([
+      ...identityLibrary,
+      [
+        'mobile_owner',
+        [
+          field('mobile_owner', 'single_select', {
+            label: T('নম্বরটি কার?', 'Whose number is it?'),
+            standardColumn: 'mobile_owner_code',
+            libraryFieldKey: 'mobile_owner',
+            required: true,
+            options: [option('own'), option('family')],
+            // the library's own condition names the library's mobile question
+            logic: { show_if: { field: 'somewhere_else', op: 'not_empty' } },
+          }),
+        ],
+      ],
+      [
+        'mobile_owner_name',
+        [
+          field('mobile_owner_name', 'short_text', {
+            label: T('যাঁর নম্বর, তাঁর নাম', "Name of the number's owner"),
+            standardColumn: 'mobile_owner_name',
+            libraryFieldKey: 'mobile_owner_name',
+          }),
+        ],
+      ],
+    ]);
+    const press = (def: FormDefinition) =>
+      addIdentityQuestions(def, withOwner, {
+        kind: 'beneficiary_application',
+        title,
+        wording,
+        makeKey: keysFrom('q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd', 'q_eeeeee'),
+      });
+    const { definition: next, fieldKeys } = press(empty());
+    expect(fieldKeys.slice(-2)).toEqual(['mobile_owner', 'mobile_owner_name']);
+    const fields = next.sections[0]!.fields;
+    const at = fields.findIndex((f) => f.fieldKey === 'mobile');
+    expect(fields.slice(at + 1, at + 3)).toMatchObject([
+      {
+        fieldKey: 'mobile_owner',
+        libraryFieldKey: 'mobile_owner',
+        label: T('নম্বরটি কার?', 'Whose number is it?'),
+        required: false,
+        logic: { show_if: { field: 'mobile', op: 'not_empty' } },
+      },
+      {
+        fieldKey: 'mobile_owner_name',
+        libraryFieldKey: 'mobile_owner_name',
+        required: false,
+        logic: { show_if: { field: 'mobile_owner', op: 'neq', value: 'own' } },
+      },
+    ]);
+    expect(fields[at + 1]!.options?.map((o) => o.code)).toEqual(['own', 'family']);
+    // the options are the list's: read among the form's texts, never written there
+    const optionRows = textsOf(next).filter(
+      (row) => row.kind === 'option' && row.place.field === 'mobile_owner',
+    );
+    expect(optionRows.map((row) => row.locked)).toEqual([true, true]);
+    expect(setText(next, optionRows[0]!, 'bn', 'আমার')).toBe(next);
+    valid(next);
+
+    // a form that asks whose number it is already, under a key of its own, gets only the name,
+    // after that question and conditional on it
+    const asking: FormDefinition = {
+      sections: [
+        section('section_1', [
+          field('q_whose', 'single_select', { standardColumn: 'mobile_owner_code' }),
+        ]),
+      ],
+    };
+    const some = press(asking);
+    const columns = some.definition.sections[0]!.fields.map((f) => f.standardColumn);
+    expect(columns.filter((c) => c === 'mobile_owner_code')).toHaveLength(1);
+    expect(columns.filter((c) => c === 'mobile_owner_name')).toHaveLength(1);
+    expect(some.definition.sections[0]!.fields.slice(0, 2)).toMatchObject([
+      { fieldKey: 'q_whose' },
+      {
+        fieldKey: 'mobile_owner_name',
+        logic: { show_if: { field: 'q_whose', op: 'neq', value: 'own' } },
+      },
+    ]);
+    expect(some.fieldKeys.at(-1)).toBe('mobile_owner_name');
+    expect(some.fieldKeys).not.toContain('mobile_owner');
+    valid(some.definition);
+  });
+
   it('adds only the roles that are missing, and nothing a second time', () => {
     const start = definition();
     expect(add(start, 'beneficiary_application')).toEqual({
@@ -654,11 +805,19 @@ describe('the identity questions added all at once', () => {
     });
     const some = setIdentityRole(setIdentityRole(start, 'name', null), 'village', null);
     const once = add(some, 'beneficiary_application');
-    // the form holds a question keyed name already, so the role gets an empty one of its own
-    expect(once.fieldKeys).toEqual(['q_aaaaaa', 'q_bbbbbb']);
+    // the form holds a question keyed name already, so the role gets an empty one of its own;
+    // the two questions on whose number it is come with the press, after the form's mobile
+    expect(once.fieldKeys).toEqual(['q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd']);
     expect(once.section).toBe('basic_info');
-    const added = once.definition.sections[0]!.fields.slice(-2);
+    const added = marked(once.definition.sections[0]!.fields).slice(-2);
+    expect(added.map((f) => f.fieldKey)).toEqual(['q_aaaaaa', 'q_bbbbbb']);
     expect(added.map((f) => identityRoleOf(f))).toEqual(['name', 'village']);
+    const all = once.definition.sections.flatMap((s) => s.fields);
+    const mobileAt = all.findIndex((f) => identityRoleOf(f) === 'mobile');
+    expect(all.slice(mobileAt + 1, mobileAt + 3).map((f) => f.standardColumn)).toEqual([
+      'mobile_owner_code',
+      'mobile_owner_name',
+    ]);
     expect(add(once.definition, 'beneficiary_application').definition).toBe(once.definition);
     valid(once.definition);
   });
@@ -680,8 +839,10 @@ describe('the identity questions added all at once', () => {
     expect(part).toBe('section_2');
     expect(next.sections.map((s) => s.key)).toEqual(['office', 'section_2']);
     expect(next.sections[1]).toMatchObject({ title: T('অংশ 2', 'Section 2') });
-    expect(next.sections[1]!.fields.map((f) => f.fieldKey)).toEqual(fieldKeys);
-    expect(fieldKeys).toHaveLength(7);
+    expect([...next.sections[1]!.fields.map((f) => f.fieldKey)].sort()).toEqual(
+      [...fieldKeys].sort(),
+    );
+    expect(fieldKeys).toHaveLength(9);
     valid(next);
   });
 });

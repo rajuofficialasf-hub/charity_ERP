@@ -718,6 +718,14 @@ describe('submitting', () => {
           WHERE form_version_id = $1 AND field_key = ANY($2::text[])`,
         [versionId, IDENTITY_KEYS],
       );
+      // a condition on a renamed question follows it, as a builder's own rename would keep it
+      // (the question whose number it is shows once the mobile is answered)
+      await h.db.query(
+        `UPDATE form_fields
+            SET logic = jsonb_set(logic, '{show_if,field}', to_jsonb('q_' || (logic #>> '{show_if,field}')))
+          WHERE form_version_id = $1 AND logic #>> '{show_if,field}' = ANY($2::text[])`,
+        [versionId, IDENTITY_KEYS],
+      );
     };
     const p = await project(renamed);
     const { token } = await enabled(p.id, p.formId);

@@ -1,4 +1,9 @@
-import type { ContactUpdate } from '@css/shared/beneficiaries';
+import {
+  MOBILE_OWNER_COLUMN,
+  MOBILE_OWNER_NAME_COLUMN,
+  MOBILE_OWNER_NAME_MAX,
+  mobileOwnerOf,
+} from '@css/shared/beneficiaries';
 import { type FormDefinition, identityColumn, indexFields, split } from '@css/shared/forms';
 import type { AccessService } from '../access/service.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
@@ -8,7 +13,7 @@ import type { Tx } from '../core/prisma.service.js';
 import { currentContext } from '../core/request-context.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
-import type { BeneficiaryContactService } from '../services/beneficiary-contact.js';
+import type { BeneficiaryContactService, ContactChange } from '../services/beneficiary-contact.js';
 import {
   type BeneficiaryIdentityService,
   type NewProfile,
@@ -67,7 +72,8 @@ export async function standardOf(tx: Tx, applicationId: string, formVersionId: s
  * without a document), since a submitted application always has its person, and a known person's
  * new mobile or address written to the profile with its change log when the submitter may edit
  * that profile's contact data (otherwise the application keeps the new values for the office to
- * see); after it,
+ * see), and with the mobile whose number it is and that person's name, on a new profile and on a
+ * known one alike; after it,
  * the number of the project in the order the office receives the applications
  * (`<code>-<year>-<5 digits>`). Both run in the move's transaction, so a refused move leaves
  * neither behind. A new person, with or without a number, is compared with the block list right
@@ -157,6 +163,7 @@ export class SubmissionWriter {
       const dob = text(standard, 'dob');
       const genderCode = text(standard, 'gender_code');
       if (genderCode) await this.assertListed(tx, definition, genderCode);
+      const owner = this.mobileOwner(definition, standard);
       // a blocked person does not come back as a new profile, with a new number or with none
       if (!options.compared) {
         const namesake = await this.namesake(tx, standard);
@@ -169,6 +176,8 @@ export class SubmissionWriter {
         fatherOrHusbandName: text(standard, 'father_or_husband_name') ?? '',
         motherName: text(standard, 'mother_name'),
         ...(mobile ? { mobile } : {}),
+        mobileOwnerCode: owner.code,
+        mobileOwnerName: owner.name,
         genderCode: text(standard, 'gender_code') ?? '',
         dob: dob ? new Date(dob) : undefined,
         ageYears: typeof standard.age_years === 'number' ? standard.age_years : undefined,
@@ -213,7 +222,17 @@ export class SubmissionWriter {
         const value = text(standard, column);
         if (value !== undefined) body[field] = value;
       }
-      await this.contact.apply(tx, actor, before, body as ContactUpdate);
+      // whose number it is, only where the answers give the number and say whose
+      const owner = this.mobileOwner(definition, standard);
+      if (owner.code) {
+        body.mobileOwnerCode = owner.code;
+        body.mobileOwnerName = owner.name;
+      }
+      try {
+        await this.contact.apply(tx, actor, before, body as ContactChange);
+      } catch (error) {
+        throw unlisted(error);
+      }
     }
     if (beneficiaryId === row.beneficiaryId && identityKind === row.identityKind) return {};
     await this.audit.record(tx, {
@@ -317,16 +336,38 @@ export class SubmissionWriter {
     ]);
   }
 
+  /**
+   * Whose number the answers' mobile is, as the profile keeps it: nothing without a mobile, and
+   * the owner's name only beside someone else than the person. A name longer than the profile
+   * takes is refused on its question.
+   */
+  private mobileOwner(definition: FormDefinition, standard: Record<string, unknown>) {
+    const owner = mobileOwnerOf(
+      text(standard, 'mobile'),
+      text(standard, MOBILE_OWNER_COLUMN),
+      text(standard, MOBILE_OWNER_NAME_COLUMN),
+    );
+    if (owner.name && owner.name.length > MOBILE_OWNER_NAME_MAX) {
+      const field = [...indexFields(definition).values()].find(
+        (located) => located.field.standardColumn === MOBILE_OWNER_NAME_COLUMN,
+      )?.field;
+      throw new ApiError('validation.failed', 422, undefined, [
+        {
+          path: field ? `answers.${field.fieldKey}` : 'answers',
+          code: 'validation.too_long',
+          params: { max: MOBILE_OWNER_NAME_MAX },
+        },
+      ]);
+    }
+    return owner;
+  }
+
   /** The profile from the answers; a code outside its reference list is the form's mistake, not the server's. */
   private async createProfile(tx: Tx, actor: Principal, input: NewProfile) {
     try {
       return await this.identity.createProfile(tx, actor, input);
     } catch (error) {
-      if (isForeignKeyViolation(error))
-        throw new ApiError('validation.failed', 422, undefined, [
-          { path: 'answers', code: 'validation.option_unknown' },
-        ]);
-      throw error;
+      throw unlisted(error);
     }
   }
 
@@ -363,4 +404,13 @@ export class SubmissionWriter {
     const next = Number(row?.n ?? 0) + 1;
     return `${project.code}-${project.year}-${String(next).padStart(NUMBER_WIDTH, '0')}`;
   }
+}
+
+/** A code no reference list holds reached a profile column: the answers are refused, not the server. */
+function unlisted(error: unknown): unknown {
+  return isForeignKeyViolation(error)
+    ? new ApiError('validation.failed', 422, undefined, [
+        { path: 'answers', code: 'validation.option_unknown' },
+      ])
+    : error;
 }

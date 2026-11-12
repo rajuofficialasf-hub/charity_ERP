@@ -15,6 +15,7 @@ import {
   type OptionalIdentity,
   optionalIdentityOf,
 } from '@css/shared/forms';
+import { MOBILE_OWNER_COLUMN, MOBILE_OWNER_NAME_COLUMN } from '@css/shared/beneficiaries';
 import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
 import {
@@ -1756,9 +1757,12 @@ export class ApplicationsService {
     // typed them and reads them.
     const hidden = new Set<string>();
     if (!mine) {
+      // whose number it is hides with the number
       const withheld: [string, string][] = [
         [IDENTITY_COLUMN, BENEFICIARY_NID],
         ['mobile', BENEFICIARY_CONTACT],
+        [MOBILE_OWNER_COLUMN, BENEFICIARY_CONTACT],
+        [MOBILE_OWNER_NAME_COLUMN, BENEFICIARY_CONTACT],
       ];
       for (const [column, fieldClass] of withheld) {
         const field = fieldByColumn(definition, column);

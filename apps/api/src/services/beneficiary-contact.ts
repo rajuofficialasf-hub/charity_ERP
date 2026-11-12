@@ -1,5 +1,5 @@
 import { uuidv7 } from '@css/shared';
-import type { ContactUpdate } from '@css/shared/beneficiaries';
+import { type ContactUpdate, mobileOwnerOf } from '@css/shared/beneficiaries';
 import type { AccessService } from '../access/service.js';
 import { beneficiaryWhere, type Scope } from '../access/scope.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
@@ -13,9 +13,14 @@ import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
 import { isAddressChain } from './locations.js';
 
-/** The contact columns an official edits outside an application, in the order they are logged. */
+/**
+ * The contact columns of a profile, in the order they are logged. An official edits them outside
+ * an application, all but whose number the mobile is, which comes with an application's answers.
+ */
 const CONTACT_FIELDS = [
   'mobile',
+  'mobileOwnerCode',
+  'mobileOwnerName',
   'divisionId',
   'districtId',
   'upazilaId',
@@ -26,6 +31,15 @@ const CONTACT_FIELDS = [
   'landmark',
 ] as const;
 type ContactField = (typeof CONTACT_FIELDS)[number];
+/**
+ * A change of a profile's contact data: what the contact edit takes, and whose number the mobile
+ * is with that person's name, which only an application's answers say (the edit's own request has
+ * no such key).
+ */
+export type ContactChange = ContactUpdate & {
+  mobileOwnerCode?: string | null;
+  mobileOwnerName?: string | null;
+};
 /** The contact columns of a profile, with its version. */
 export type ContactRow = { id: string; updatedAt: Date } & Record<ContactField, unknown>;
 
@@ -39,7 +53,9 @@ const SELECT = {
  * The contact data of a beneficiary edited outside an application (the mobile and the address down
  * to village, post office and landmark): every changed field is logged with its old and new value,
  * and the identity fields never change this way. The four places of the address must form one
- * chain, and the mobile may not be a volunteer's own on one of the person's applications.
+ * chain, and the mobile may not be a volunteer's own on one of the person's applications. Whose
+ * number the mobile is belongs to the number: a new number starts without an owner unless the
+ * same change says whose it is, and an owner is never kept without a number.
  */
 export class BeneficiaryContactService {
   constructor(
@@ -92,7 +108,8 @@ export class BeneficiaryContactService {
    * own-mobile rule and the shared-mobile warning, then the audit entry; the submission of an
    * application writes a known person's new mobile or address the same way.
    */
-  async apply(tx: Tx, actor: Principal, before: ContactRow, body: ContactUpdate) {
+  async apply(tx: Tx, actor: Principal, before: ContactRow, change: ContactChange) {
+    const body = withOwner(before, change);
     const changed = CONTACT_FIELDS.filter(
       // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
       (field) => body[field] !== undefined && body[field] !== before[field],
@@ -155,13 +172,31 @@ export class BeneficiaryContactService {
   }
 
   /** The four places of an address must be a division, a district in it, and so on down. */
-  private async assertChain(tx: Tx, body: ContactUpdate): Promise<void> {
+  private async assertChain(tx: Tx, body: ContactChange): Promise<void> {
     const ids = [body.divisionId, body.districtId, body.upazilaId, body.unionId] as string[];
     if (!(await isAddressChain(tx, ids)))
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'unionId', code: 'validation.failed' },
       ]);
   }
+}
+
+/**
+ * The change with the owner of the number as the profile keeps it: the owner the change names, by
+ * the rule of `mobileOwnerOf` against the number the profile will hold; without one, nothing of
+ * the owner changes while the number stays, and both are emptied when the number changes (the old
+ * owner was said of the old number). A name is never written without its owner.
+ */
+function withOwner(before: ContactRow, change: ContactChange): ContactChange {
+  const { mobileOwnerCode, mobileOwnerName, ...rest } = change;
+  if (mobileOwnerCode !== undefined) {
+    const mobile = change.mobile ?? (typeof before.mobile === 'string' ? before.mobile : null);
+    const owner = mobileOwnerOf(mobile, mobileOwnerCode, mobileOwnerName);
+    return { ...rest, mobileOwnerCode: owner.code, mobileOwnerName: owner.name };
+  }
+  if (change.mobile !== undefined && change.mobile !== before.mobile)
+    return { ...rest, mobileOwnerCode: null, mobileOwnerName: null };
+  return rest;
 }
 
 /** The column name of a field, as the change log names it. */

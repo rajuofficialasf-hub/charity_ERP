@@ -2166,6 +2166,8 @@ components:
         postCode: { type: [string, 'null'], x-sensitive-class: beneficiary.address_detail }
         landmark: { type: [string, 'null'], x-sensitive-class: beneficiary.address_detail }
         mobile: { type: [string, 'null'], x-sensitive-class: beneficiary.contact, description: 'Null for a person without a number of their own, who is reached through the volunteer (D-172)' }
+        mobileOwnerCode: { type: [string, 'null'], x-sensitive-class: beneficiary.contact, description: 'Whose number the mobile is: a code of the reference list mobile_owner (own, family, neighbour, other), or null when nothing says; never kept without a mobile (D-172, BR-300)' }
+        mobileOwnerName: { type: [string, 'null'], x-sensitive-class: beneficiary.contact, description: "The name of the number's owner, kept only when that is someone else than the person (D-172, BR-300)" }
         hasDocument: { type: boolean, x-sensitive-class: beneficiary.nid, description: 'Whether an NID or a birth registration number is on file, told with the identity class wherever the profile lives; the numbers themselves stay inside the beneficiary.view_nid scope (D-172)' }
         familyMembers:
           type: array
@@ -2378,10 +2380,12 @@ components:
       properties:
         data:
           type: object
-          required: [id, mobile, divisionId, districtId, upazilaId, unionId, village, postOffice, postCode, landmark, warnings]
+          required: [id, mobile, mobileOwnerCode, mobileOwnerName, divisionId, districtId, upazilaId, unionId, village, postOffice, postCode, landmark, warnings]
           properties:
             id: { $ref: '#/components/schemas/Uuid' }
             mobile: { type: [string, 'null'], description: 'Null for a person without a number of their own' }
+            mobileOwnerCode: { type: [string, 'null'], description: 'Whose number the mobile is; emptied when the edit changes the number, since the request names no owner (BR-300)' }
+            mobileOwnerName: { type: [string, 'null'], description: "The name of the number's owner; emptied with the owner" }
             divisionId: { $ref: '#/components/schemas/Uuid' }
             districtId: { $ref: '#/components/schemas/Uuid' }
             upazilaId: { $ref: '#/components/schemas/Uuid' }
@@ -7032,7 +7036,10 @@ paths:
       description: >-
         The mobile and the address down to village, post office and landmark (D-115); the four
         places of the address change together as one chain. Each changed field writes a change-log
-        row of kind `contact_update`. A name or an identity number answers 422
+        row of kind `contact_update`. Whose number the mobile is (`mobileOwnerCode`,
+        `mobileOwnerName`) is not taken here, it comes with an application's answers; a changed
+        number starts without an owner, so both are emptied with it, each with its change-log row
+        (BR-300). A name or an identity number answers 422
         `beneficiary.locked_field`; the mobile of a volunteer an application of the person belongs
         to answers 409 `beneficiary.mobile_is_volunteer_mobile`; a mobile other live profiles have
         is saved with the `beneficiary.mobile_shared` warning, which names only the profiles the

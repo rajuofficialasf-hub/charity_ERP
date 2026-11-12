@@ -35,6 +35,7 @@ import {
   type BeneficiaryProfile,
   beneficiaryProfile,
   type ContactSaved,
+  MOBILE_OWNERS,
 } from './beneficiaries-api';
 import { BeneficiaryArea } from './BeneficiaryArea';
 import { ContactDialog } from './ContactDialog';
@@ -126,6 +127,16 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
       : (code ?? empty);
   const optional = (key: keyof BeneficiaryProfile, label: string, value: ReactNode) =>
     key in p ? [{ label, value }] : [];
+  // whose number the mobile is, in the list's words, with the owner's name when there is one
+  const owner = p.mobileOwnerCode
+    ? (MOBILE_OWNERS as readonly string[]).includes(p.mobileOwnerCode)
+      ? t(`mobile_owner.${p.mobileOwnerCode as 'own'}`)
+      : p.mobileOwnerCode
+    : null;
+  const ownerLine =
+    owner && p.mobileOwnerName
+      ? tp('mobile_owner_named', { owner, name: p.mobileOwnerName })
+      : owner;
   const none = <p className="admin-muted">{tp('no_rows')}</p>;
   // the NID or the birth registration number only for a caller who sees identity numbers
   const identity = 'nid' in p ? (p.nid ?? p.birthReg ?? null) : null;
@@ -291,6 +302,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
                 ...optional('classCode', t('column.type'), typeLabel(p.classCode)),
                 ...optional('occupationCode', tp('occupation'), p.occupationCode ?? empty),
                 ...optional('mobile', tp('mobile'), p.mobile ?? <ThroughVolunteerChip />),
+                ...(ownerLine ? [{ label: tp('mobile_owner'), value: ownerLine }] : []),
                 {
                   label: tp('nid'),
                   value:

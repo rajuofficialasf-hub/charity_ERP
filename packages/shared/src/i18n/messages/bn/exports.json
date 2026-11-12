@@ -31,6 +31,8 @@
       "age": "বয়স",
       "mother": "মায়ের নাম",
       "mobile": "মোবাইল",
+      "mobile_owner": "নম্বরটি কার",
+      "mobile_owner_name": "নম্বরের মালিকের নাম",
       "union": "ইউনিয়ন",
       "village": "গ্রাম",
       "blocked": "ব্লক করা",

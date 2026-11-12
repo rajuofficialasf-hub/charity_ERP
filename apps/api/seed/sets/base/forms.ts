@@ -82,6 +82,23 @@ export const LIBRARY_FIELDS: LibraryField[] = [
     standard: 'mobile',
     settings: { validation: { pattern: 'mobile' } },
   },
+  // whose number the mobile is; both optional, and no identity questions
+  {
+    key: 'mobile_owner',
+    type: 'single_select',
+    bn: 'নম্বরটি কার?',
+    en: 'Whose number is it?',
+    standard: 'mobile_owner_code',
+    settings: { options_from_reference_list: 'mobile_owner' },
+  },
+  {
+    key: 'mobile_owner_name',
+    type: 'short_text',
+    bn: 'যাঁর নম্বর, তাঁর নাম',
+    en: "Name of the number's owner",
+    standard: 'mobile_owner_name',
+    settings: { validation: { max_length: 200 } },
+  },
   {
     key: 'name',
     type: 'short_text',
@@ -624,6 +641,8 @@ export const SECTIONS: LibrarySection[] = [
     fields: [
       'nid_or_birth_reg',
       'mobile',
+      'mobile_owner',
+      'mobile_owner_name',
       'name',
       'father_or_husband_name',
       'mother_name',
@@ -773,6 +792,10 @@ const eq = (field: string, value: string): Condition =>
  * দেখাবে"; docs/MASTER_SPEC.md, "Self-reliance and house construction form").
  */
 const CONDITIONS: Record<string, Condition> = {
+  // whose number it is is asked of a number that was given, and the owner's name of a number
+  // that is not the person's own
+  mobile_owner: conditionSchema.parse({ field: 'mobile', op: 'not_empty' }),
+  mobile_owner_name: conditionSchema.parse({ field: 'mobile_owner', op: 'neq', value: 'own' }),
   business_kind_current: eq('occupation', 'business'),
   day_labour_work: eq('occupation', 'day_labourer'),
   earners: eq('has_multiple_earners', 'yes'),
@@ -832,6 +855,8 @@ export const FORM_TEMPLATES: FormTemplate[] = [
           templateSection('basic_info', [
             'nid_or_birth_reg',
             'mobile',
+            'mobile_owner',
+            'mobile_owner_name',
             'name',
             'gender',
             'father_or_husband_name',
@@ -872,6 +897,8 @@ export const FORM_TEMPLATES: FormTemplate[] = [
           templateSection('basic_info', [
             'nid_or_birth_reg',
             'mobile',
+            'mobile_owner',
+            'mobile_owner_name',
             'name',
             'father_or_husband_name',
             'mother_name',

@@ -67,6 +67,7 @@ const LABELS: Readonly<Record<CodedSource, string>> = {
   'beneficiary.status': 'admin.beneficiaries.status',
   'reference.beneficiary_class': 'admin.beneficiaries.types',
   'reference.gender': 'admin.beneficiaries.gender',
+  'reference.mobile_owner': 'admin.beneficiaries.mobile_owner',
   'application.status': 'applications.status',
 };
 

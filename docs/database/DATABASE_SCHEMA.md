@@ -667,8 +667,8 @@ Constraints: UNIQUE (form_field_id, code).
 | father_or_husband_name | text | no | — | locked |
 | mother_name | text | yes | — | — |
 | mobile | text | yes | — | not unique (O-02); CHECK mobile format; null for a person who has no number and is reached through the volunteer of the application (D-172, BR-299): no number is stored in its place |
-| mobile_owner_code | text | yes | — | whose number the mobile is: reference list `mobile_owner` (composite FK through the generated `mobile_owner_list`; D-172, BR-300) |
-| mobile_owner_name | text | yes | — | that person's name; CHECK 1 to 200 characters after trimming |
+| mobile_owner_code | text | yes | — | whose number the mobile is: reference list `mobile_owner` (composite FK through the generated `mobile_owner_list`; D-172, BR-300). Written from the form question of that column at a submission (a new profile) and through the contact service for a known person, with a change-log row; never kept without a mobile, and emptied when the number changes without a new owner (the service's rule, `mobileOwnerOf` of `@css/shared/beneficiaries`) |
+| mobile_owner_name | text | yes | — | that person's name; CHECK 1 to 200 characters after trimming. Kept only beside an owner who is not the person; written and emptied with `mobile_owner_code` |
 | gender_code | text | no | — | reference list `gender` (composite FK) |
 | dob | date | yes | — | — |
 | age_years | smallint | yes | — | when dob unknown |

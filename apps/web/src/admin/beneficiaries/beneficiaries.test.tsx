@@ -1062,3 +1062,51 @@ describe('a person without an identity document or a mobile', () => {
     expect(screen.getAllByText('01911000001').length).toBeGreaterThan(0);
   });
 });
+
+describe('whose number the mobile is, on the profile', () => {
+  const full = { ...empty360, hasDocument: true, nid: '1234567890', birthReg: null };
+  const WHOSE = 'কার নম্বর';
+  /** The value beside the line's label in the details. */
+  const line = () => screen.getByText(WHOSE).closest('div')!;
+  const opened = async () => {
+    openProfile();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+  };
+
+  it('says whose it is in the list’s words, with the owner’s name in brackets', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, mobileOwnerCode: 'neighbour', mobileOwnerName: 'করিম মিয়া' });
+    await opened();
+    expect(within(line()).getByText('প্রতিবেশীর (করিম মিয়া)')).toBeInTheDocument();
+  });
+
+  it('says only whose it is when no name is on file, in English too', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, mobileOwnerCode: 'own', mobileOwnerName: null });
+    renderApp(<BeneficiaryProfilePage />, 'en', {
+      path: '/admin/beneficiaries/:beneficiaryId',
+      initialPath: `/admin/beneficiaries/${ID}`,
+    });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+    const english = screen.getByText('Whose number').closest('div')!;
+    expect(within(english).getByText('Own')).toBeInTheDocument();
+    expect(within(english).queryByText(/\(/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['the owner is empty', { mobileOwnerCode: null, mobileOwnerName: null }],
+    // a limited view's answer carries no contact data at all
+    ['the server left it out', {}],
+    ['a name stands without an owner', { mobileOwnerCode: null, mobileOwnerName: 'করিম মিয়া' }],
+  ])('shows no line when %s', async (_case, owner) => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, ...owner });
+    await opened();
+    expect(screen.queryByText(WHOSE)).not.toBeInTheDocument();
+    expect(screen.queryByText(/করিম মিয়া/)).not.toBeInTheDocument();
+  });
+});

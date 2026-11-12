@@ -29,6 +29,8 @@ const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
 const SECTION_ROWS = 20;
 /** The field classes of the limited beneficiary view (docs/security/permissions.yaml). */
 const CONTACT = 'beneficiary.contact';
+/** The contact changes that are of the contact class; every other one is the address. */
+const CONTACT_LOG_FIELDS = ['mobile', 'mobile_owner_code', 'mobile_owner_name'];
 const ADDRESS = 'beneficiary.address_detail';
 const CARE = 'beneficiary.care';
 const DETAIL = 'beneficiary.profile_detail';
@@ -297,6 +299,9 @@ export class BeneficiariesService {
       postCode: b.postCode,
       landmark: b.landmark,
       mobile: b.mobile,
+      // whose number it is, with the contact class like the number
+      mobileOwnerCode: b.mobileOwnerCode,
+      mobileOwnerName: b.mobileOwnerName,
       // told with the identity class, wherever the profile lives: it says a document is on
       // file, never its number
       hasDocument: b.nid !== null || b.birthReg !== null,
@@ -375,7 +380,8 @@ export class BeneficiariesService {
 
   /**
    * The history sections of the 360° profile and what the caller may do:
-   * - the contact changes: a mobile with the contact class, an address with the address class;
+   * - the contact changes: a mobile and whose it is with the contact class, an address with the
+   *   address class;
    * - the correction requests, to every caller who holds either correction permission on the
    *   person; identity values only inside the NID scope;
    * - the block history (the route masks it to officials);
@@ -422,12 +428,12 @@ export class BeneficiariesService {
               entityType: 'beneficiary',
               entityId: id,
               kind: 'contact_update',
-              // a mobile is contact data, every other change is the address
+              // a mobile and whose it is are contact data, every other change is the address
               ...(sees(CONTACT) && sees(ADDRESS)
                 ? {}
                 : sees(CONTACT)
-                  ? { field: 'mobile' }
-                  : { field: { not: 'mobile' } }),
+                  ? { field: { in: CONTACT_LOG_FIELDS } }
+                  : { field: { notIn: CONTACT_LOG_FIELDS } }),
             },
             orderBy: { createdAt: 'desc' },
             ...latest,
@@ -615,6 +621,8 @@ export class BeneficiariesService {
         postCode: true,
         landmark: true,
         mobile: true,
+        mobileOwnerCode: true,
+        mobileOwnerName: true,
         isBlocked: true,
         beneficiaryFamilyMembersBeneficiary: {
           where: { active: true },
