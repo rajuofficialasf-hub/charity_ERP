@@ -89,7 +89,8 @@ type MergeRow = Prisma.ProfileMergeGetPayload<{ select: typeof VIEW }>;
  * to the kept one and lists the moved ids in the snapshot, which the revert moves back exactly; rows
  * added to the kept profile later stay. An application past pending in a project both profiles
  * applied to stays on the retired profile; a pending one stops the merge. A merge never lifts a
- * block. Both profiles are locked in id order and must lie in the caller's scope.
+ * block, and never retires the only profile of the two that has an identity document. Both profiles
+ * are locked in id order and must lie in the caller's scope.
  */
 export class BeneficiaryMergesService {
   constructor(
@@ -112,10 +113,26 @@ export class BeneficiaryMergesService {
       await tx.$queryRaw`SELECT id FROM beneficiaries WHERE id = ${id}::uuid FOR UPDATE`;
     const found = await tx.beneficiary.findMany({
       where: { AND: [{ id: { in: ids } }, beneficiaryWhere(scope)] },
-      select: { id: true, benNo: true, mergedIntoId: true },
+      select: { id: true, benNo: true, mergedIntoId: true, nid: true, birthReg: true },
     });
     if (found.length !== 2) this.notFound(actor, scope);
     return new Map(found.map((r) => [r.id, r]));
+  }
+
+  /**
+   * A merge moves no identity number, so the profile that holds one (an NID or a birth registration
+   * number) is the one to keep: where only the profile to retire has a document, the choice of the
+   * kept profile is refused. Two profiles with a document, or two without, are kept either way.
+   */
+  private assertKeepsDocument(pair: LockedPair, keptId: string, retiredId: string) {
+    const hasDocument = (id: string) => {
+      const profile = pair.get(id)!;
+      return profile.nid !== null || profile.birthReg !== null;
+    };
+    if (hasDocument(retiredId) && !hasDocument(keptId))
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'keptId', code: 'beneficiary.merge_keep_document' },
+      ]);
   }
 
   async propose(actor: Principal, scope: Scope, request: MergeRequest) {
@@ -123,6 +140,7 @@ export class BeneficiaryMergesService {
     return this.prisma.$transaction(async (tx) => {
       const pair = await this.lockPair(tx, actor, scope, body.keptId, body.mergedId);
       if ([...pair.values()].some((p) => p.mergedIntoId)) this.notFound(actor, scope);
+      this.assertKeepsDocument(pair, body.keptId, body.mergedId);
       const open = await tx.profileMerge.count({
         where: {
           status: 'proposed',
@@ -217,7 +235,7 @@ export class BeneficiaryMergesService {
   private async merge(
     tx: Tx,
     actor: Principal,
-    pair: Awaited<ReturnType<BeneficiaryMergesService['lockPair']>>,
+    pair: LockedPair,
     mergeId: string,
     keptId: string,
     retiredId: string,
@@ -225,6 +243,7 @@ export class BeneficiaryMergesService {
     const kept = pair.get(keptId)!;
     if (kept.mergedIntoId || pair.get(retiredId)!.mergedIntoId)
       throw new ApiError('beneficiary.merge_stale', 409);
+    this.assertKeepsDocument(pair, keptId, retiredId);
     await this.assertWithinReach(tx, actor, retiredId);
     await this.assertNoClash(tx, keptId, retiredId);
     const shared = await tx.$queryRaw<{ id: string; project_id: string; status: string }[]>`
@@ -530,6 +549,8 @@ export class BeneficiaryMergesService {
     return rows.map(view);
   }
 }
+
+type LockedPair = Awaited<ReturnType<BeneficiaryMergesService['lockPair']>>;
 
 const counts = (snapshot: Snapshot) =>
   Object.fromEntries(Object.entries(snapshot.moved).map(([k, ids]) => [k, ids?.length ?? 0]));

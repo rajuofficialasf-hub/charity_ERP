@@ -234,6 +234,41 @@ describe('the verification of a public entry', () => {
     expect(audit.rowCount).toBe(1);
   });
 
+  it('verifies an entry without a number as a new person: a profile without a document', async () => {
+    // the project asks the document "if they have one" (the distribution workflow starts so)
+    const { q_id: _number, ...answers } = IDENTITY_ANSWERS(fakeNid(), fakeMobile(), world.dhaka);
+    const name = `নম্বরহীন ${randomUUID().slice(0, 8)}`;
+    const id = await applicationRow(h.db, {
+      projectId: project,
+      versionId,
+      loc: world.dhaka,
+      status: 'needs_verification',
+      answers: { ...answers, q_name: { t: 'short_text', v: name } },
+      over: { flags: ['public_entry'] },
+    });
+    const res = await verify(await as(world.users.rpmDhaka), id, 'verify_create', {});
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.data).toMatchObject({
+      status: 'submitted',
+      identityKind: 'none',
+      hasDocument: false,
+    });
+    const made = await h.db.query(
+      'SELECT id, nid, birth_reg, mobile FROM beneficiaries WHERE name = $1',
+      [name],
+    );
+    expect(made.rows).toEqual([
+      { id: res.body.data.beneficiaryId, nid: null, birth_reg: null, mobile: answers.q_mobile.v },
+    ]);
+    const stored = await h.db.query(
+      'SELECT beneficiary_id, identity_kind FROM applications WHERE id = $1',
+      [id],
+    );
+    expect(stored.rows).toEqual([
+      { beneficiary_id: res.body.data.beneficiaryId, identity_kind: 'none' },
+    ]);
+  });
+
   it('refuses a link to another person, a new profile for a known number, and a volunteer off the project', async () => {
     const nid = fakeNid();
     await beneficiary(h.db, world.dhaka, { nid });

@@ -409,7 +409,7 @@ describe('the public application page', () => {
         meta: { requestId: 'r' },
       });
 
-    it('asks the document "if they have one" where the project says so, and still the mobile', async () => {
+    it('asks the document "if they have one" where the project says so, and keeps the mobile required whatever the read says', async () => {
       const user = userEvent.setup();
       wide();
       // whatever else the answer carried about the mobile, the open link asks it

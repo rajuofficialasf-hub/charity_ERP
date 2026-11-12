@@ -9,10 +9,14 @@ import { currentContext } from '../core/request-context.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiaryContactService } from '../services/beneficiary-contact.js';
-import type { BeneficiaryIdentityService, NewProfile } from '../services/beneficiary-identity.js';
+import {
+  type BeneficiaryIdentityService,
+  type NewProfile,
+  personKeysOf,
+} from '../services/beneficiary-identity.js';
 import { readDefinition } from '../services/forms.js';
 import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
-import { readAnswers } from './answers.js';
+import { identityOf, readAnswers } from './answers.js';
 
 /** The contact columns an application's answers may change on a known person's profile. */
 const CONTACT_COLUMNS = {
@@ -34,6 +38,21 @@ const text = (standard: Record<string, unknown>, column: string): string | undef
   return typeof value === 'string' && value !== '' ? value : undefined;
 };
 
+/**
+ * Raised inside the move of a send when the new person looks like someone on the block list: no
+ * profile is made and the move is abandoned. The caller holds the entry for an official once the
+ * transaction has rolled back; this is never an answer to a client.
+ */
+export class BlockedNamesakeMatch extends Error {
+  constructor(
+    /** The blocked live profile the person looks like. */
+    readonly beneficiaryId: string,
+  ) {
+    super('the new person of this application looks like a blocked profile');
+    this.name = 'BlockedNamesakeMatch';
+  }
+}
+
 /** The standard columns of an application's answers, as the official definition reads them. */
 export async function standardOf(tx: Tx, applicationId: string, formVersionId: string) {
   const definition = await readDefinition(tx, formVersionId, 'official');
@@ -51,7 +70,9 @@ export async function standardOf(tx: Tx, applicationId: string, formVersionId: s
  * see); after it,
  * the number of the project in the order the office receives the applications
  * (`<code>-<year>-<5 digits>`). Both run in the move's transaction, so a refused move leaves
- * neither behind.
+ * neither behind. A new person, with or without a number, is compared with the block list right
+ * before the profile is made: a match makes none and raises `BlockedNamesakeMatch`, unless an
+ * official who is deciding the held entry has made that comparison.
  */
 export class SubmissionWriter {
   constructor(
@@ -73,6 +94,11 @@ export class SubmissionWriter {
        * is bound by that number and this is not read.
        */
       linkBeneficiaryId?: string;
+      /**
+       * An official is deciding an entry that waits for verification and has compared its person
+       * with the block list: the comparison is not made again, or the entry could never leave.
+       */
+      compared?: boolean;
     } = {},
   ): Promise<Prisma.ApplicationUncheckedUpdateInput> {
     const row = await tx.application.findUniqueOrThrow({
@@ -91,9 +117,10 @@ export class SubmissionWriter {
     });
     const rules = identityRulesOf(row.project);
     const { definition, standard } = await standardOf(tx, applicationId, row.formVersionId);
-    const nid = text(standard, 'nid');
-    const birthReg = text(standard, 'birth_reg');
-    const number = nid ?? birthReg;
+    const identity = identityOf(standard);
+    const number = identity?.number;
+    const nid = identity?.column === 'nid' ? identity.number : undefined;
+    const birthReg = identity?.column === 'birth_reg' ? identity.number : undefined;
     let { beneficiaryId, identityKind } = row;
     let profileCreated = false;
     if (!beneficiaryId && number) {
@@ -130,6 +157,11 @@ export class SubmissionWriter {
       const dob = text(standard, 'dob');
       const genderCode = text(standard, 'gender_code');
       if (genderCode) await this.assertListed(tx, definition, genderCode);
+      // a blocked person does not come back as a new profile, with a new number or with none
+      if (!options.compared) {
+        const namesake = await this.namesake(tx, standard);
+        if (namesake) throw new BlockedNamesakeMatch(namesake);
+      }
       const profile = await this.createProfile(tx, actor, {
         ...(nid ? { nid } : {}),
         ...(birthReg ? { birthReg } : {}),
@@ -207,8 +239,33 @@ export class SubmissionWriter {
       select: { formVersionId: true },
     });
     const { standard } = await standardOf(tx, applicationId, row.formVersionId);
-    const number = text(standard, 'nid') ?? text(standard, 'birth_reg') ?? null;
+    const number = identityOf(standard)?.number ?? null;
     return { number, holder: number ? await this.liveProfile(tx, number) : null };
+  }
+
+  /**
+   * The blocked profile the person of these answers looks like, where a send would make a new
+   * profile for them: with a number no live profile holds, or without a number where the project
+   * lets the document be left out. Null in every other case (a number a live profile holds binds
+   * that profile, and nothing is made), and for a person whose name, father's or husband's name,
+   * union or village is missing.
+   */
+  async blockedLookalike(
+    tx: Tx,
+    standard: Record<string, unknown>,
+    documentRule: 'required' | 'optional',
+  ): Promise<string | null> {
+    const identity = identityOf(standard);
+    const makesProfile = identity
+      ? (await this.liveProfile(tx, identity.number)) === null
+      : documentRule === 'optional';
+    return makesProfile ? this.namesake(tx, standard) : null;
+  }
+
+  /** The blocked live profile with this person's name, father's or husband's name and village. */
+  private async namesake(tx: Tx, standard: Record<string, unknown>): Promise<string | null> {
+    const person = personKeysOf(standard);
+    return person ? this.identity.blockedNamesake(tx, person) : null;
   }
 
   /** The live profile holding the number, through a retired profile's chain, or null. */

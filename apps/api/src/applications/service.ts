@@ -58,7 +58,7 @@ import { literalContains } from '../core/search.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiaryFamilyService } from '../services/beneficiary-family.js';
-import { type BeneficiaryIdentityService, personKeysOf } from '../services/beneficiary-identity.js';
+import type { BeneficiaryIdentityService } from '../services/beneficiary-identity.js';
 import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
 import { type FormAudience, readDefinition, versionView } from '../services/forms.js';
 import { isAddressChain } from '../services/locations.js';
@@ -78,7 +78,7 @@ import { namesMatch } from '@css/shared/sync';
 import { type BuiltGuard, isBuiltGuard } from '../workflow/registry.js';
 import { readActivities } from './activities.js';
 import { readChanges, readTimeline } from './history.js';
-import { standardOf, type SubmissionWriter } from './submission.js';
+import { BlockedNamesakeMatch, standardOf, type SubmissionWriter } from './submission.js';
 import {
   addressOf,
   assertUploadsOwn,
@@ -86,6 +86,7 @@ import {
   checkAnswers,
   fieldByColumn,
   IDENTITY_COLUMN,
+  identityNumberIn,
   nisabOption,
   readAnswers,
   textOf,
@@ -375,10 +376,11 @@ export class ApplicationsService {
           nameMatch: options.sync !== undefined,
         });
         if (person.candidate) held.push('existing_identity');
-        // an entry that waits for the office anyway says so when it looks like a blocked person
+        // an entry that waits for the office anyway says so when its person, for whom a
+        // verification would make a new profile, looks like a blocked one
         const namesake =
-          held.length && !person.number
-            ? await this.blockedNamesake(tx, rules.document, checked.standard)
+          held.length && !person.beneficiaryId && !person.candidate
+            ? await this.submission.blockedLookalike(tx, checked.standard, rules.document)
             : null;
         if (namesake) held.push(BLOCKED_NAME_MATCH);
         const candidate = person.candidate ?? namesake;
@@ -661,7 +663,9 @@ export class ApplicationsService {
 
   /**
    * The hold itself: the draft waits for an official's verification with the given flags, and
-   * with the blocked profile a person without a document looks like as its candidate. The send's
+   * with the blocked profile its new person looks like as its candidate. Whether the person was
+   * compared with the block list is read from the flag: a send abandoned for such a match hands
+   * the flag and the matched profile in, and every other entry is compared here. The send's
    * permission and every guard of the submit move run first (the window only for a send that is
    * not a late one), so a record waits only where it could have been sent. Null when there is
    * nothing to hold it for, and nothing is written then.
@@ -672,6 +676,8 @@ export class ApplicationsService {
     ifMatch: string | undefined,
     flags: readonly string[],
     sentAt: Date,
+    /** The blocked profile a send was abandoned for; given with its flag. */
+    matched?: string,
   ): Promise<ApplicationRead | null> {
     const actor = viewer.principal.userId;
     const access = await this.access.load(actor);
@@ -697,10 +703,12 @@ export class ApplicationsService {
     const done = await this.prisma.$transaction(async (tx) => {
       // the entry waits without a profile: the lists name it by the typed name meanwhile
       const { standard } = await standardOf(tx, applicationId, row.formVersionId);
-      const namesake =
-        row.beneficiaryId || row.candidateBeneficiaryId || hasNumber(standard)
+      const compared = [...row.flags, ...flags].includes(BLOCKED_NAME_MATCH);
+      const namesake = compared
+        ? (matched ?? null)
+        : row.beneficiaryId
           ? null
-          : await this.blockedNamesake(tx, identityRulesOf(project).document, standard);
+          : await this.submission.blockedLookalike(tx, standard, identityRulesOf(project).document);
       const held = [
         ...new Set([...row.flags, ...flags, ...(namesake ? [BLOCKED_NAME_MATCH] : [])]),
       ];
@@ -760,43 +768,6 @@ export class ApplicationsService {
     return done ? this.read(viewer, access, applicationId) : null;
   }
 
-  /**
-   * The blocked profile the person of these answers looks like, where the project lets a person
-   * without a document get a profile; null in every other project and for an incomplete person.
-   */
-  private async blockedNamesake(
-    tx: Tx,
-    documentRule: 'required' | 'optional',
-    standard: Record<string, unknown>,
-  ): Promise<string | null> {
-    if (documentRule !== 'optional') return null;
-    const person = personKeysOf(standard);
-    return person ? this.identity.blockedNamesake(tx, person) : null;
-  }
-
-  /**
-   * Whether a send of this draft would make a profile without a document for a person who looks
-   * like a blocked one: a draft without a person and without a number, in a project that asks the
-   * document only "if they have one". The send then waits for the office instead.
-   */
-  private async looksBlocked(applicationId: string): Promise<boolean> {
-    const row = await this.prisma.application.findUnique({
-      where: { id: applicationId },
-      select: {
-        status: true,
-        formVersionId: true,
-        beneficiaryId: true,
-        project: { select: IDENTITY_RULES_SELECT },
-      },
-    });
-    if (!row || row.status !== 'draft' || row.beneficiaryId) return false;
-    const rule = identityRulesOf(row.project).document;
-    if (rule !== 'optional') return false;
-    const { standard } = await standardOf(this.prisma, applicationId, row.formVersionId);
-    if (hasNumber(standard)) return false;
-    return (await this.blockedNamesake(this.prisma, rule, standard)) !== null;
-  }
-
   /** A workflow action through the engine, which decides the permission, the scope and the guards. */
   async act(
     viewer: ApplicationViewer,
@@ -828,16 +799,45 @@ export class ApplicationsService {
         throw new ApiError('permission.denied', 403);
       }
     }
-    // a submission binds the person with the move (a submitted application always has one) and
-    // takes its number after it; a verification does the same once its own checks pass, and a
-    // public entry never rewrites a known person's contact data
-    const submit = action === 'submit';
-    // a person without a document who looks like a blocked one gets no profile by this send: the
-    // entry waits for an official, under the send's own permission and guards
-    if (submit && (await this.looksBlocked(applicationId))) {
-      const held = await this.hold(viewer, applicationId, ifMatch ?? '', [], this.clock.now());
-      if (held) return held;
+    try {
+      await this.move(viewer, applicationId, action, body, ifMatch);
+    } catch (error) {
+      if (!(error instanceof BlockedNamesakeMatch)) throw error;
+      // the send would have made a profile for a person who looks like a blocked one. Its
+      // transaction has rolled back, so nothing of it stays; the entry waits for an official
+      // instead, under the send's own permission and guards, with the matched profile to compare
+      const held = await this.hold(
+        viewer,
+        applicationId,
+        ifMatch ?? '',
+        [BLOCKED_NAME_MATCH],
+        this.clock.now(),
+        error.beneficiaryId,
+      );
+      // the flag always holds
+      if (!held) throw new ApiError('application.not_editable', 409);
+      return held;
     }
+    const access = await this.access.load(viewer.principal.userId);
+    return this.read(viewer, access, applicationId);
+  }
+
+  /**
+   * The move of an action in one transaction. A submission binds the person with the move (a
+   * submitted application always has one) and takes its number after it; a verification does the
+   * same once its own checks pass, and a public entry never rewrites a known person's contact
+   * data. A send whose new person looks like a blocked one raises `BlockedNamesakeMatch` out of
+   * the transaction; an official's verification is not compared again.
+   */
+  private async move(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    action: ApplicationAction,
+    body: ApplicationActionBody,
+    ifMatch: string | undefined,
+  ): Promise<void> {
+    const submit = action === 'submit';
+    const verifying = action === 'verify_link' || action === 'verify_create';
     try {
       await this.prisma.$transaction(async (tx) => {
         // the decisions of a project run one after another, as the pulls do, so the score order
@@ -877,6 +877,7 @@ export class ApplicationsService {
                         writeContact: false,
                         ownerUserId: owner?.userId,
                         linkBeneficiaryId,
+                        compared: true,
                       })),
                     };
                   },
@@ -897,8 +898,6 @@ export class ApplicationsService {
         throw new ApiError('application.verify_identity_exists', 409);
       throw error;
     }
-    const access = await this.access.load(viewer.principal.userId);
-    return this.read(viewer, access, applicationId);
   }
 
   /** The steps of the application as the caller's audience may read them. */
@@ -1293,8 +1292,7 @@ export class ApplicationsService {
     definition: FormDefinition,
     answers: Answer[],
   ): Promise<void> {
-    const field = fieldByColumn(definition, IDENTITY_COLUMN);
-    const number = field ? textOf(answers, field.fieldKey) : null;
+    const number = identityNumberIn(definition, answers);
     if (!number || !IDENTITY_NUMBER.test(number)) return;
     const permission = 'beneficiary.lookup';
     if (!holdsPermission(permission, access.grants)) {
@@ -1384,7 +1382,7 @@ export class ApplicationsService {
     options: { nameMatch?: boolean; boundWithoutNumber?: boolean } = {},
   ): Promise<Person> {
     const field = fieldByColumn(definition, IDENTITY_COLUMN);
-    const number = field ? textOf(answers, field.fieldKey) : null;
+    const number = identityNumberIn(definition, answers);
     const locked = (path: string) =>
       new ApiError('validation.failed', 422, undefined, [
         { path, code: 'beneficiary.locked_field' },
@@ -1903,13 +1901,6 @@ export class ApplicationsService {
 
 /** The flags only the office reads: a volunteer neither receives them nor filters by them. */
 const OFFICE_FLAGS: readonly string[] = [BLOCKED_NAME_MATCH];
-
-/** Whether the answers carry an identity number. */
-const hasNumber = (standard: Record<string, unknown>) =>
-  ['nid', 'birth_reg'].some((column) => {
-    const value = new Map(Object.entries(standard)).get(column);
-    return typeof value === 'string' && value !== '';
-  });
 
 /** The answers with the questions of these identity columns set to the profile's own values. */
 function lockedTo(

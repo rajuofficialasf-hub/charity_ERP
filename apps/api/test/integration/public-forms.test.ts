@@ -485,7 +485,7 @@ describe('reading the form', () => {
     expect(rows.rows).toEqual([{ id: taken.body.data.id }]);
   });
 
-  it('flags an entry without a number whose person looks like a blocked one, and tells the applicant nothing', async () => {
+  it('flags an entry whose new person looks like a blocked one, without a number or with one nobody holds, and tells the applicant nothing', async () => {
     const p = await project();
     const { token } = await enabled(p.id, p.formId);
     const blocked = await beneficiary(h.db, loc, {
@@ -528,6 +528,17 @@ describe('reading the form', () => {
     expect(await row(other.body.data.id)).toEqual({
       flags: ['public_entry'],
       candidate_beneficiary_id: null,
+    });
+    // a number nobody holds changes nothing: a verification would make a new profile for the
+    // same person, so the entry says so as well
+    const withNumber = person('পূর্ব পাড়া');
+    withNumber.answers.push(answer('nid_or_birth_reg', { t: 'short_text', v: fakeNid() }));
+    const numbered = await submit(token, withNumber);
+    expect(numbered.status, JSON.stringify(numbered.body)).toBe(201);
+    expect({ ...numbered.body.data, id: '' }).toEqual({ ...plain.body.data, id: '' });
+    expect(await row(numbered.body.data.id)).toEqual({
+      flags: ['public_entry', 'blocked_name_match'],
+      candidate_beneficiary_id: blocked,
     });
   });
 });

@@ -218,6 +218,44 @@ describe('the lookup of the application form', () => {
   });
 });
 
+describe('a person without a mobile and without a document, where they are read', () => {
+  it('answers mobile null and hasDocument false on the list row, the profile and the contact view, and a null mobile in the lookup', async () => {
+    const name = 'নমুনা নম্বরহীন সখিনা';
+    const id = await person(world.dhaka, { name, nid: null, mobile: null });
+    await f.application(h.db, { project: world.a1, loc: world.dhaka }, { beneficiary_id: id });
+    const rpm = await as(world.users.rpmDhaka);
+
+    const listed = await list(rpm, name).expect(200);
+    const listRow = (listed.body.data as Record<string, unknown>[]).find((r) => r.id === id);
+    expect(listRow).toMatchObject({ mobile: null, hasDocument: false });
+
+    const profile = await api().get(`/api/v1/beneficiaries/${id}`).set(bearer(rpm)).expect(200);
+    expect(profile.body.data).toMatchObject({
+      mobile: null,
+      hasDocument: false,
+      nid: null,
+      birthReg: null,
+    });
+
+    // the contact view after an edit that leaves the missing mobile alone
+    const edited = await api()
+      .patch(`/api/v1/beneficiaries/${id}/contact`)
+      .set(bearer(rpm))
+      .set('If-Match', profile.headers.etag as string)
+      .send({ village: 'নতুন পাড়া' });
+    expect(edited.status, JSON.stringify(edited.body)).toBe(200);
+    expect(edited.body.data).toMatchObject({ mobile: null, village: 'নতুন পাড়া' });
+    expect((await row(id)).mobile).toBeNull();
+
+    // a lookup needs a number: a person with a document and no mobile fills in no mobile
+    const numbered = await person(world.dhaka, { mobile: null });
+    const found = await lookup(rpm, { nid: (await row(numbered)).nid, projectId: world.a1.id });
+    expect(found.status, JSON.stringify(found.body)).toBe(200);
+    expect(found.body.data).toMatchObject({ found: true, blocked: false });
+    expect(found.body.data.autofill).toMatchObject({ beneficiaryId: numbered, mobile: null });
+  });
+});
+
 describe('the search of the beneficiary tab', () => {
   it('finds a profile by its BEN number in any typed form', async () => {
     const id = await person(world.dhaka);

@@ -624,6 +624,7 @@
     "merge": {
       "title": "Compare profiles",
       "keep": "Keep this profile",
+      "keep_document": "Keep the profile that has the identity document.",
       "keep_required": "Choose the profile to keep",
       "applications": "Applications",
       "applications_value": "{count}",

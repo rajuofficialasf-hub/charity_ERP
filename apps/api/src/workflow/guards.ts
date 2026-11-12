@@ -1,4 +1,5 @@
 import { answerValueSchema } from '@css/shared';
+import { identityNumberIn } from '../applications/answers.js';
 import {
   pendingSlotsOf,
   photoFieldKeys,
@@ -156,22 +157,6 @@ export type Guard = (ctx: GuardContext) => Promise<GuardResult>;
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 const IDENTITY_NUMBER = /^(\d{10}|\d{13}|\d{17})$/;
-const IDENTITY_COLUMN = 'nid_or_birth_reg';
-
-/**
- * The number the identity question holds, read from its answer directly so a missing answer
- * elsewhere does not hide the identity's own refusal.
- */
-async function identityNumber(ctx: GuardContext): Promise<string | null> {
-  const definition = await ctx.definition();
-  const field = definition.sections
-    .flatMap((s) => s.fields)
-    .find((f) => f.standardColumn === IDENTITY_COLUMN);
-  if (!field) return null;
-  const answer = (await ctx.answers()).find((a) => a.fieldKey === field.fieldKey);
-  const value = (answer?.value as { v?: unknown } | undefined)?.v;
-  return typeof value === 'string' ? value.trim() : null;
-}
 
 /**
  * One function per built guard of the catalogue (docs/architecture/WORKFLOW_ENGINE.md, "Guard
@@ -210,7 +195,9 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
   // a project that asks the document "if they have one" lets the answer stay empty; a number
   // that is given must be a valid one everywhere
   'identity.present': async (ctx) => {
-    const number = await identityNumber(ctx);
+    // read from the identity answer directly, so a missing answer elsewhere does not hide the
+    // identity's own refusal
+    const number = identityNumberIn(await ctx.definition(), await ctx.answers());
     if (!number) return ctx.application.project.identityRules.document === 'optional';
     return IDENTITY_NUMBER.test(number);
   },

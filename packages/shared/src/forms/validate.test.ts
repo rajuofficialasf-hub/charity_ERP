@@ -705,6 +705,36 @@ describe('the identity questions a project lets stay empty', () => {
     expect(result.standard).toMatchObject({ name: 'Rahima Khatun', village: 'Charpara' });
   });
 
+  it('never stores an identity number of only spaces, and stores a number without the spaces around it', () => {
+    const spaces = validate(
+      definitionWith(),
+      replaced('nid_or_birth_reg', { t: 'short_text', v: '   ' }),
+      { ...official, ...BOTH },
+    );
+    expect(spaces.ok).toBe(true);
+    if (!spaces.ok) return;
+    expect(spaces.answers.map((a) => a.fieldKey)).not.toContain('nid_or_birth_reg');
+    expect(Object.keys(spaces.standard)).not.toContain('nid');
+    expect(Object.keys(spaces.standard)).not.toContain('birth_reg');
+    // where the document is required, spaces are a missing answer
+    expect(errors(replaced('nid_or_birth_reg', { t: 'short_text', v: '   ' }))).toEqual([
+      ['nid_or_birth_reg', 'validation.required'],
+    ]);
+    const padded = validate(
+      definitionWith(),
+      replaced('nid_or_birth_reg', { t: 'short_text', v: '  1234567890 ' }),
+      official,
+    );
+    expect(padded.ok).toBe(true);
+    if (!padded.ok) return;
+    expect(padded.answers.find((a) => a.fieldKey === 'nid_or_birth_reg')?.value).toEqual({
+      t: 'short_text',
+      v: '1234567890',
+    });
+    expect(padded.standard).toMatchObject({ nid: '1234567890' });
+    expect(Object.keys(padded.standard)).not.toContain('birth_reg');
+  });
+
   it('still checks a number and a mobile that are given, with the codes of a required question', () => {
     const badNumber = replaced('nid_or_birth_reg', { t: 'short_text', v: '12345' });
     const badMobile = replaced('mobile', { t: 'phone', v: '02712345678' });

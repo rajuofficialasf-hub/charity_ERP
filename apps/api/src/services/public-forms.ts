@@ -2,7 +2,13 @@ import { uuidv7 } from '@css/shared';
 import { optionalIdentityOf, type PublicApplicationCreate, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
 import type { IdentityRules } from '@css/shared/projects';
-import { addressOf, nisabOption, photoAnswers, typedName } from '../applications/answers.js';
+import {
+  addressOf,
+  identityOf,
+  nisabOption,
+  photoAnswers,
+  typedName,
+} from '../applications/answers.js';
 import { BLOCKED_NAME_MATCH } from '../applications/view.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Clock } from '../core/clock.js';
@@ -201,8 +207,9 @@ export class PublicFormsService {
   /**
    * What the verifying official will want to know, never told to the applicant: whether a live
    * profile holds the number, whether that profile is blocked, whether the same number or mobile
-   * came through this link in the last day, and, for an entry without a number, the blocked
-   * profile its person looks like, kept as the entry's candidate.
+   * came through this link in the last day, and, for a person no profile stands for yet (an entry
+   * without a number, or with a number nobody holds), the blocked profile that person looks like,
+   * kept as the entry's candidate.
    */
   private async identityFlags(
     projectId: string,
@@ -214,16 +221,15 @@ export class PublicFormsService {
       return typeof value === 'string' && value !== '' ? value : null;
     };
     const flags: string[] = [];
-    const nid = text('nid');
-    const birthReg = text('birth_reg');
+    const identity = identityOf(standard);
     const mobile = text('mobile');
-    const identities = [nid, birthReg].filter((v): v is string => v !== null);
-    if (identities.length) {
+    let live: string | null = null;
+    if (identity) {
       const holder = await this.prisma.beneficiary.findFirst({
-        where: { OR: [...(nid ? [{ nid }] : []), ...(birthReg ? [{ birthReg }] : [])] },
+        where: identity.column === 'nid' ? { nid: identity.number } : { birthReg: identity.number },
         select: { id: true },
       });
-      const live = holder ? await this.identity.liveOf(this.prisma, holder.id) : null;
+      live = holder ? await this.identity.liveOf(this.prisma, holder.id) : null;
       if (live) {
         flags.push(PUBLIC_FLAGS.existingIdentity);
         const profile = await this.prisma.beneficiary.findUnique({
@@ -233,11 +239,13 @@ export class PublicFormsService {
         if (profile?.isBlocked) flags.push(PUBLIC_FLAGS.identityBlocked);
       }
     }
-    const terms = [...identities, ...(mobile ? [mobile] : [])];
+    const terms = [...(identity ? [identity.number] : []), ...(mobile ? [mobile] : [])];
     if (terms.length && (await this.repeatedToday(this.prisma, projectId, terms)))
       flags.push(PUBLIC_FLAGS.identityRepeated);
-    // an entry reaches here without a number only where the project lets the document be left out
-    const person = identities.length ? null : personKeysOf(standard);
+    // a person the verification would make a new profile for is compared with the block list:
+    // one with a number no profile holds, or one without a number (an entry reaches here without
+    // one only where the project lets the document be left out)
+    const person = live ? null : personKeysOf(standard);
     const candidate = person ? await this.identity.blockedNamesake(this.prisma, person) : null;
     if (candidate) flags.push(BLOCKED_NAME_MATCH);
     return { flags, candidate };

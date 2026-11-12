@@ -219,40 +219,117 @@ describe('a merge proposed by an RPM and carried out by the PM', () => {
     ]);
   });
 
-  it('leaves the number on the retired profile when the kept one has none: the number still leads to the kept profile', async () => {
+  it('refuses to keep the profile without a document when the other has one: directly, as a proposal and when a proposal is carried out', async () => {
     const light = await person(world.dhaka, { nid: null, mobile: null });
     const full = await person();
     await applyTo(world.a1, light);
     await applyTo(world.a2, full);
-    const { nid } = (await h.db.query('SELECT nid FROM beneficiaries WHERE id = $1', [full]))
-      .rows[0] as { nid: string };
-    const done = await direct(await as(world.users.head), {
-      keptId: light,
-      mergedId: full,
-      reason: REASON,
-    });
-    expect(done.status, JSON.stringify(done.body)).toBe(201);
-    // a merge moves no number, as with a profile that holds only one of the two: the kept
-    // profile stays without a document of its own
-    const after = await h.db.query(
-      'SELECT id, nid, merged_into_id FROM beneficiaries WHERE id = ANY($1::uuid[]) ORDER BY nid NULLS LAST',
+    const refusal = {
+      code: 'validation.failed',
+      details: [{ path: 'keptId', code: 'beneficiary.merge_keep_document' }],
+    };
+    const wrongWay = { keptId: light, mergedId: full, reason: REASON };
+
+    const directly = await direct(await as(world.users.head), wrongWay).set(
+      'Accept-Language',
+      'en',
+    );
+    expect(directly.status).toBe(422);
+    expect(directly.body.error).toMatchObject(refusal);
+    expect(directly.body.error.details[0].message).toBe(
+      'Keep the profile that has the identity document.',
+    );
+    const rpm = await as(world.users.rpmDhaka);
+    const proposedWrong = await propose(rpm, wrongWay);
+    expect(proposedWrong.status).toBe(422);
+    expect(proposedWrong.body.error).toMatchObject(refusal);
+    expect(proposedWrong.body.error.details[0].message).toBe(
+      'যে প্রোফাইলে পরিচয়পত্র আছে, সেটিই রাখতে হবে।',
+    );
+    // nothing was written by either refusal
+    const rows = await h.db.query(
+      'SELECT count(*)::int AS n FROM profile_merges WHERE kept_id = ANY($1::uuid[]) OR merged_id = ANY($1::uuid[])',
       [[light, full]],
     );
-    expect(after.rows).toEqual([
-      { id: full, nid, merged_into_id: light },
-      { id: light, nid: null, merged_into_id: null },
-    ]);
-    // a search by the number finds the kept profile through the retired one
-    const found = await h.container.beneficiaryIdentity.idsByIdentity(
-      nid,
-      await h.container.access.scopeOfUser(world.users.head, 'beneficiary.view_nid', 'beneficiary'),
-    );
-    expect(found).toEqual([light]);
+    expect(rows.rows[0].n).toBe(0);
+    expect((await pointer(full)).merged_into_id).toBeNull();
+    expect((await pointer(light)).merged_into_id).toBeNull();
+
+    // the other way round the RPM proposes, and the PM cannot turn the proposal round
+    const proposed = await propose(rpm, { keptId: full, mergedId: light, reason: REASON });
+    expect(proposed.status, JSON.stringify(proposed.body)).toBe(201);
+    const pm = await as(world.users.pm);
+    const turned = await execute(pm, proposed.body.data.id, { keptId: light });
+    expect(turned.status).toBe(422);
+    expect(turned.body.error).toMatchObject(refusal);
+    expect((await pointer(full)).merged_into_id).toBeNull();
+    const done = await execute(pm, proposed.body.data.id);
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
+    expect(done.body.data).toMatchObject({ keptId: full, mergedId: light, status: 'merged' });
+    expect((await pointer(light)).merged_into_id).toBe(full);
+    // the kept profile still has its document
     const profile = await api()
-      .get(`/api/v1/beneficiaries/${light}`)
+      .get(`/api/v1/beneficiaries/${full}`)
       .set(bearer(await as(world.users.head)));
-    expect(profile.status).toBe(200);
-    expect(profile.body.data).toMatchObject({ hasDocument: false, nid: null, mobile: null });
+    expect(profile.body.data).toMatchObject({ hasDocument: true });
+  });
+
+  it('counts a birth registration number as the document to keep', async () => {
+    const light = await person(world.dhaka, { nid: null, mobile: null });
+    const registered = await person(world.dhaka, {
+      nid: null,
+      birth_reg: `2${Array.from({ length: 16 }, () => Math.floor(Math.random() * 10)).join('')}`,
+    });
+    await applyTo(world.a1, light);
+    await applyTo(world.a2, registered);
+    const head = await as(world.users.head);
+    const wrong = await direct(head, { keptId: light, mergedId: registered, reason: REASON });
+    expect(wrong.status).toBe(422);
+    expect(wrong.body.error.details).toMatchObject([
+      { path: 'keptId', code: 'beneficiary.merge_keep_document' },
+    ]);
+    const right = await direct(head, { keptId: registered, mergedId: light, reason: REASON });
+    expect(right.status, JSON.stringify(right.body)).toBe(201);
+    expect((await pointer(light)).merged_into_id).toBe(registered);
+  });
+
+  it('keeps either of two profiles without a document', async () => {
+    const head = await as(world.users.head);
+    for (const keepFirst of [true, false]) {
+      const first = await person(world.dhaka, { nid: null, mobile: null });
+      const second = await person(world.dhaka, { nid: null, mobile: null });
+      await applyTo(world.a1, first);
+      await applyTo(world.a2, second);
+      const [kept, retired] = keepFirst ? [first, second] : [second, first];
+      const done = await direct(head, { keptId: kept, mergedId: retired, reason: REASON });
+      expect(done.status, JSON.stringify(done.body)).toBe(201);
+      expect((await pointer(retired)).merged_into_id).toBe(kept);
+      expect((await pointer(kept)).merged_into_id).toBeNull();
+    }
+  });
+
+  it('refuses the kept profile of a proposal once only the other one has a document', async () => {
+    const first = await person(world.dhaka, { nid: null, mobile: null });
+    const second = await person(world.dhaka, { nid: null, mobile: null });
+    await applyTo(world.a1, first);
+    await applyTo(world.a2, second);
+    const proposed = await propose(await as(world.users.rpmDhaka), {
+      keptId: first,
+      mergedId: second,
+      reason: REASON,
+    });
+    expect(proposed.status, JSON.stringify(proposed.body)).toBe(201);
+    // the profile to retire got its document after the proposal
+    await h.db.query('UPDATE beneficiaries SET nid = $2 WHERE id = $1', [second, f.fakeNid()]);
+    const pm = await as(world.users.pm);
+    const asProposed = await execute(pm, proposed.body.data.id);
+    expect(asProposed.status).toBe(422);
+    expect(asProposed.body.error.details).toMatchObject([
+      { path: 'keptId', code: 'beneficiary.merge_keep_document' },
+    ]);
+    const turned = await execute(pm, proposed.body.data.id, { keptId: second });
+    expect(turned.status, JSON.stringify(turned.body)).toBe(200);
+    expect(turned.body.data).toMatchObject({ keptId: second, mergedId: first });
   });
 
   it('lets the merging official keep the other profile of the proposal', async () => {

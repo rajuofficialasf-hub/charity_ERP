@@ -315,6 +315,115 @@ describe('the comparison', () => {
     expect(screen.queryByText('প্রোফাইল মার্জ হয়েছে')).not.toBeInTheDocument();
   });
 
+  /** The pair with the identity mark of each side, as the profile answers it to a merging role. */
+  function serveDocuments(first: boolean, second: boolean) {
+    const profiles: Record<string, unknown> = {
+      [A]: profile(A, 51, { actions: { ...NONE, merge: true }, hasDocument: first }),
+      [B]: profile(B, 52, { actions: { ...NONE, merge: true }, hasDocument: second }),
+    };
+    server.use(
+      http.get('*/api/v1/beneficiaries/:id', ({ params }) =>
+        envelope(profiles[params.id as string], { etag: ETAG }),
+      ),
+      http.get('*/api/v1/locations', () => envelope([])),
+    );
+  }
+  const KEEP_DOCUMENT = 'যে প্রোফাইলে পরিচয়পত্র আছে, সেটিই রাখতে হবে।';
+
+  it('keeps the one profile that has an identity document: the other cannot be chosen, and says why', async () => {
+    refreshAs(PM);
+    serveDocuments(false, true);
+    let body: unknown;
+    server.use(
+      http.post('*/api/v1/beneficiary-merges/direct', async ({ request }) => {
+        body = await request.json();
+        return envelope({ id: MERGE_ID, keptId: B, mergedId: A }, {});
+      }),
+    );
+    const user = userEvent.setup();
+    openCompare();
+    const [without, withDocument] = await screen.findAllByRole('radio', {
+      name: 'এই প্রোফাইল রাখুন',
+    });
+    expect(without).toBeDisabled();
+    expect(without).not.toBeChecked();
+    expect(withDocument).toBeEnabled();
+    expect(withDocument).toBeChecked();
+    expect(screen.getAllByText(KEEP_DOCUMENT)).toHaveLength(1);
+    // nothing to choose: the merge opens with the documented profile kept
+    await user.click(screen.getByRole('button', { name: 'মার্জ করুন' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'একই ব্যক্তি');
+    await user.click(within(dialog).getByRole('button', { name: 'মার্জ করুন' }));
+    await waitFor(() => expect(body).toEqual({ keptId: B, mergedId: A, reason: 'একই ব্যক্তি' }));
+  });
+
+  it.each([
+    ['both have a document', true],
+    ['neither has a document', false],
+  ])('leaves the choice free when %s', async (_case, has) => {
+    refreshAs(PM);
+    serveDocuments(has, has);
+    openCompare();
+    const radios = await screen.findAllByRole('radio', { name: 'এই প্রোফাইল রাখুন' });
+    expect(radios).toHaveLength(2);
+    for (const radio of radios) {
+      expect(radio).toBeEnabled();
+      expect(radio).not.toBeChecked();
+    }
+    expect(screen.queryByText(KEEP_DOCUMENT)).not.toBeInTheDocument();
+  });
+
+  it('carries out a proposal with the documented profile kept, whatever the proposal named', async () => {
+    refreshAs(PM);
+    serveDocuments(false, true);
+    let body: unknown;
+    server.use(
+      http.get('*/api/v1/beneficiary-merges', () =>
+        envelope([
+          { id: MERGE_ID, keptId: A, mergedId: B, reason: 'একই ব্যক্তি', status: 'proposed' },
+        ]),
+      ),
+      http.post('*/api/v1/beneficiary-merges/:id/execute', async ({ request }) => {
+        body = await request.json();
+        return envelope({ id: MERGE_ID, keptId: B, mergedId: A }, {});
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(<ComparePage />, 'bn', {
+      path: '/admin/beneficiaries/duplicates/compare',
+      initialPath: `/admin/beneficiaries/duplicates/compare?a=${A}&b=${B}&proposal=${MERGE_ID}`,
+    });
+    await user.click(await screen.findByRole('button', { name: 'মার্জ করুন' }));
+    // a proposal is carried out with a confirmation, its reason was given when it was proposed
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'মার্জ করুন' }));
+    await waitFor(() => expect(body).toEqual({ keptId: B }));
+  });
+
+  it("shows the server's sentence when it refuses the kept profile", async () => {
+    refreshAs(PM);
+    serveProfiles({ merge: true });
+    server.use(
+      http.post('*/api/v1/beneficiary-merges/direct', () =>
+        failure(422, 'validation.failed', 'দেওয়া তথ্য ঠিক নেই।', [
+          {
+            path: 'keptId',
+            code: 'beneficiary.merge_keep_document',
+            messageKey: 'errors.beneficiary.merge_keep_document',
+            message: KEEP_DOCUMENT,
+          },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    openCompare();
+    const dialog = await chooseAndOpen(user);
+    await user.click(within(dialog).getByRole('button', { name: 'মার্জ করুন' }));
+    expect(await within(dialog).findByText(KEEP_DOCUMENT)).toBeVisible();
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+  });
+
   it('shows the not-found state when a profile is gone and the error state when a read fails', async () => {
     refreshAs(PM);
     server.use(

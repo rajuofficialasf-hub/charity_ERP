@@ -324,6 +324,21 @@ describe('reading a referral', () => {
     expect(JSON.stringify(light.body.data)).not.toMatch(/"(hasDocument|nid|birthReg)"/);
   });
 
+  it('answers null for the mobile of a person without one, never an empty number', async () => {
+    const id = await application();
+    await h.db.query(
+      `UPDATE beneficiaries SET mobile = NULL
+        WHERE id = (SELECT beneficiary_id FROM applications WHERE id = $1)`,
+      [id],
+    );
+    const referralId = await referred(id);
+    for (const reader of [media.director, world.users.rpmDhaka]) {
+      const res = await at(await as(reader), 'get', `/media-referrals/${referralId}`);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(res.body.data.beneficiary).toHaveProperty('mobile', null);
+    }
+  });
+
   it('is open to the directors and the referrers of the region or program, and 404 for everyone else', async () => {
     const id = await application();
     const referralId = await referred(id);

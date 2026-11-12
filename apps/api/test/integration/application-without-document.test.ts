@@ -5,10 +5,12 @@ import { SeedContext } from '../../seed/context.js';
 import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
 import { seedWorkflows } from '../../seed/sets/base/workflows.js';
 import { accessWorld } from './support/access-fixtures.js';
+import { SubmissionWriter } from '../../src/applications/submission.js';
 import {
   applicationProject,
   applicationRow,
   IDENTITY_ANSWERS,
+  principalOf,
   setIdentityRules,
   statusOf,
 } from './support/applications.js';
@@ -25,8 +27,9 @@ import { beneficiary, fakeMobile, fakeNid, volunteer } from './support/fixtures.
 
 // An application without an identity document, by the project's own rule: where the document is
 // asked "if they have one" the send makes a profile without a document (and without a mobile when
-// none was given); where it is required the send is refused as it always was. A person who looks
-// like a blocked one gets no profile by a send: the entry waits for an official.
+// none was given); where it is required the send is refused as it always was. A new person who
+// looks like a blocked one, with a number or without, gets no profile by a send: the entry waits
+// for an official.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -199,11 +202,26 @@ describe('a send without an identity number', () => {
         },
       },
     ]);
-    // a second send of the same application makes no second profile
+  });
+
+  it('makes no second profile when the same application is sent a second time', async () => {
+    const s = await as(world.users.general);
+    const who = someone();
+    const id = await draft(s, open, answersOf(['q_id', 'q_mobile'], who));
+    const first = await act(s, id, 'submit');
+    expect(first.status, JSON.stringify(first.body)).toBe(200);
     const again = await act(s, id, 'submit');
     expect(again.status).toBe(409);
     expect(again.body.error.code).toBe('workflow.transition_not_allowed');
     expect(await profilesNamed(who.q_name.v)).toBe(1);
+    const stored = await h.db.query('SELECT beneficiary_id FROM applications WHERE id = $1', [id]);
+    expect(stored.rows).toEqual([{ beneficiary_id: first.body.data.beneficiaryId }]);
+    const made = await h.db.query(
+      `SELECT count(*)::int AS n FROM audit_log
+        WHERE action = 'beneficiary.create' AND new->>'applicationId' = $1`,
+      [id],
+    );
+    expect(made.rows[0].n).toBe(1);
   });
 
   it('is refused where the project requires the document, with the error it always gave, whatever the request claims', async () => {
@@ -246,6 +264,107 @@ describe('a send without an identity number', () => {
         expect.objectContaining({ path: 'q_id', code: 'beneficiary.identity_missing' }),
       ]);
     }
+  });
+});
+
+describe('an identity number of only spaces, or with spaces around it', () => {
+  /** A draft written directly, as a row another writer or an earlier version could have left. */
+  const stored = (target: Target, id: string, who = someone()) =>
+    applicationRow(h.db, {
+      projectId: target.project,
+      versionId: target.versionId,
+      loc: world.dhaka,
+      status: 'draft',
+      ownerVolunteerId: generalVolunteer,
+      createdByUserId: world.users.general,
+      answers: Object.fromEntries(
+        answersOf([], { ...who, q_id: text(id) }).map((a) => [a.fieldKey, a.value]),
+      ),
+      over: { beneficiary_id: null },
+    });
+
+  it('is never stored by a save: spaces are no answer, and a number loses the spaces around it', async () => {
+    const s = await as(world.users.general);
+    const spaces = await create(s, open, answersOf([], { ...someone(), q_id: text('   ') }));
+    expect(spaces.status, JSON.stringify(spaces.body)).toBe(201);
+    expect(answerOf(spaces.body, 'q_id')).toBeUndefined();
+    const sent = await act(s, spaces.body.data.id as string, 'submit');
+    expect(sent.status, JSON.stringify(sent.body)).toBe(200);
+    expect(sent.body.data).toMatchObject({ identityKind: 'none', hasDocument: false });
+    expect(await profileOf(sent.body.data.beneficiaryId as string)).toMatchObject({
+      nid: null,
+      birth_reg: null,
+    });
+
+    const nid = fakeNid();
+    const padded = await create(s, open, answersOf([], { ...someone(), q_id: text(`  ${nid} `) }));
+    expect(padded.status, JSON.stringify(padded.body)).toBe(201);
+    expect(answerOf(padded.body, 'q_id')).toEqual(text(nid));
+    // where the document is required, spaces are as good as nothing
+    const who = someone();
+    const strictId = await draft(s, strict, answersOf([], { ...who, q_id: text('  ') }));
+    const refused = await act(s, strictId, 'submit');
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('workflow.guard.identity_present');
+    expect(await profilesNamed(who.q_name.v)).toBe(0);
+  });
+
+  it('ends as an entry without a number when a stored answer holds only spaces: a profile without a document', async () => {
+    const s = await as(world.users.general);
+    const who = someone();
+    const id = await stored(open, '   ', who);
+    const sent = await act(s, id, 'submit');
+    expect(sent.status, JSON.stringify(sent.body)).toBe(200);
+    expect(sent.body.data).toMatchObject({
+      status: 'submitted',
+      identityKind: 'none',
+      hasDocument: false,
+    });
+    expect(await profileOf(sent.body.data.beneficiaryId as string)).toMatchObject({
+      nid: null,
+      birth_reg: null,
+      name: who.q_name.v,
+    });
+    const kind = await h.db.query('SELECT identity_kind FROM applications WHERE id = $1', [id]);
+    expect(kind.rows).toEqual([{ identity_kind: 'none' }]);
+    // the guard and the binding agree where the document is required too: no number, no send
+    const strictWho = someone();
+    const strictId = await stored(strict, '   ', strictWho);
+    const refused = await act(s, strictId, 'submit');
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('workflow.guard.identity_present');
+    expect(await profilesNamed(strictWho.q_name.v)).toBe(0);
+  });
+
+  it('takes a stored number with spaces around it as the number it is', async () => {
+    const s = await as(world.users.general);
+    const nid = fakeNid();
+    const id = await stored(strict, ` ${nid}  `);
+    const sent = await act(s, id, 'submit');
+    expect(sent.status, JSON.stringify(sent.body)).toBe(200);
+    expect(sent.body.data).toMatchObject({
+      status: 'submitted',
+      identityKind: 'nid',
+      hasDocument: true,
+    });
+    expect(await profileOf(sent.body.data.beneficiaryId as string)).toMatchObject({
+      nid,
+      birth_reg: null,
+    });
+    // a second entry with the same number, written with spaces, binds that profile and makes none
+    await h.db.query(
+      `UPDATE applications SET status = 'deleted', deleted_at = now() WHERE id = $1`,
+      [id],
+    );
+    const again = await stored(strict, `${nid} `);
+    const bound = await act(s, again, 'submit');
+    expect(bound.status, JSON.stringify(bound.body)).toBe(200);
+    expect(bound.body.data.beneficiaryId).toBe(sent.body.data.beneficiaryId);
+    const holders = await h.db.query(
+      'SELECT count(*)::int AS n FROM beneficiaries WHERE nid = $1',
+      [nid],
+    );
+    expect(holders.rows[0].n).toBe(1);
   });
 });
 
@@ -450,17 +569,170 @@ describe('a person who looks like a blocked one', () => {
     }
   });
 
-  it('does not catch a namesake of another village, nor a person who gives a number', async () => {
+  it('holds a new person with an unused number too, also where the project requires the document, and the official who says it is another person makes the profile', async () => {
+    const s = await as(world.users.general);
+    const rpm = await as(world.users.rpmDhaka);
+    for (const target of [strict, open]) {
+      const nid = fakeNid();
+      const id = await draft(s, target, answersOf([], { ...lookalike(), q_id: text(nid) }));
+      const sent = await act(s, id, 'submit');
+      expect(sent.status, JSON.stringify(sent.body)).toBe(200);
+      // the volunteer reads only that the entry waits
+      expect(sent.body.data).toMatchObject({
+        status: 'needs_verification',
+        beneficiaryId: null,
+        candidateBeneficiaryId: null,
+        flags: [],
+      });
+      expect(JSON.stringify(sent.body)).not.toContain('blocked');
+      expect(JSON.stringify(sent.body)).not.toContain(blocked);
+      const mine = await at(s, 'get', `/applications/${id}`);
+      expect(mine.body.data).toMatchObject({ flags: [], candidateBeneficiaryId: null });
+      const stored = await h.db.query(
+        'SELECT status, flags, candidate_beneficiary_id, beneficiary_id, app_no FROM applications WHERE id = $1',
+        [id],
+      );
+      expect(stored.rows).toEqual([
+        {
+          status: 'needs_verification',
+          flags: ['blocked_name_match'],
+          candidate_beneficiary_id: blocked,
+          beneficiary_id: null,
+          app_no: null,
+        },
+      ]);
+      // the abandoned send left no profile for the number
+      const holders = () =>
+        h.db.query<{ id: string }>('SELECT id FROM beneficiaries WHERE nid = $1', [nid]);
+      expect((await holders()).rows).toEqual([]);
+
+      const office = await at(rpm, 'get', `/applications/${id}`);
+      expect(office.body.data).toMatchObject({
+        flags: ['blocked_name_match'],
+        candidateBeneficiaryId: blocked,
+      });
+      // the official compared the two and says it is another person: the profile is made, with
+      // its number, and the entry does not come back to the queue
+      const created = await act(rpm, id, 'verify_create', {});
+      expect(created.status, JSON.stringify(created.body)).toBe(200);
+      expect(created.body.data).toMatchObject({
+        status: 'submitted',
+        identityKind: 'nid',
+        hasDocument: true,
+      });
+      expect((await holders()).rows).toEqual([{ id: created.body.data.beneficiaryId }]);
+      expect(created.body.data.beneficiaryId).not.toBe(blocked);
+      expect(await statusOf(h.db, id)).toBe('submitted');
+    }
+  });
+
+  it('lets an official make the profile of an entry without a number as another person, once', async () => {
+    const s = await as(world.users.general);
+    const rpm = await as(world.users.rpmDhaka);
+    const id = await draft(s, open, answersOf(['q_id'], lookalike()));
+    expect((await act(s, id, 'submit')).body.data.status).toBe('needs_verification');
+    const created = await act(rpm, id, 'verify_create', {});
+    expect(created.status, JSON.stringify(created.body)).toBe(200);
+    expect(created.body.data).toMatchObject({ status: 'submitted', identityKind: 'none' });
+    // the verification is one move: a second one finds nothing waiting
+    const again = await act(rpm, id, 'verify_create', {});
+    expect(again.status).toBe(409);
+    expect(await statusOf(h.db, id)).toBe('submitted');
+    const made = await h.db.query(
+      `SELECT count(*)::int AS n FROM audit_log
+        WHERE action = 'beneficiary.create' AND new->>'applicationId' = $1`,
+      [id],
+    );
+    expect(made.rows[0].n).toBe(1);
+  });
+
+  it('compares inside the move: a person blocked after the draft was made is held by the send, and nothing of the abandoned send stays', async () => {
+    const s = await as(world.users.general);
+    const tag = randomUUID().slice(0, 8);
+    const person = {
+      name: `রহিমা ${tag}`,
+      father_or_husband_name: `করিম ${tag}`,
+      village: 'পূর্ব পাড়া',
+    };
+    const profile = await beneficiary(h.db, world.dhaka, person);
+    const nid = fakeNid();
+    const id = await draft(
+      s,
+      strict,
+      answersOf([], {
+        q_id: text(nid),
+        q_name: text(person.name),
+        q_father: text(person.father_or_husband_name),
+        q_village: text(person.village),
+      }),
+    );
+    // the block arrives after every check the draft passed
+    await h.db.query('UPDATE beneficiaries SET is_blocked = true WHERE id = $1', [profile]);
+    // the binding itself makes no profile, in whatever transaction calls it
+    const c = h.container;
+    const writer = new SubmissionWriter(
+      c.access,
+      c.beneficiaryIdentity,
+      c.beneficiaryContact,
+      c.audit,
+    );
+    const principal = await principalOf(h.db, world.users.general);
+    await expect(
+      c.prisma.$transaction((tx) => writer.bindPerson(tx, principal, id)),
+    ).rejects.toMatchObject({ name: 'BlockedNamesakeMatch', beneficiaryId: profile });
+
+    const sent = await act(s, id, 'submit');
+    expect(sent.status, JSON.stringify(sent.body)).toBe(200);
+    expect(sent.body.data).toMatchObject({ status: 'needs_verification', flags: [] });
+    const stored = await h.db.query(
+      'SELECT status, flags, candidate_beneficiary_id, beneficiary_id, app_no, submitted_by FROM applications WHERE id = $1',
+      [id],
+    );
+    expect(stored.rows).toEqual([
+      {
+        status: 'needs_verification',
+        flags: ['blocked_name_match'],
+        candidate_beneficiary_id: profile,
+        beneficiary_id: null,
+        app_no: null,
+        submitted_by: null,
+      },
+    ]);
+    const holders = await h.db.query(
+      'SELECT count(*)::int AS n FROM beneficiaries WHERE nid = $1',
+      [nid],
+    );
+    expect(holders.rows[0].n).toBe(0);
+    // of the send only the hold is on record: no move, no person, no number
+    const audits = await h.db.query<{ action: string }>(
+      `SELECT action FROM audit_log WHERE entity_type = 'application' AND entity_id = $1 ORDER BY created_at, id`,
+      [id],
+    );
+    expect(audits.rows.map((r) => r.action)).toEqual([
+      'application.create',
+      'application.held_for_verification',
+    ]);
+  });
+
+  it('does not hold a namesake of another village, with a number or without, nor a person whose number a profile already holds', async () => {
     const s = await as(world.users.general);
     const elsewhere = await draft(s, open, answersOf(['q_id'], lookalike('অন্য গ্রাম')));
     const sent = await act(s, elsewhere, 'submit');
     expect(sent.status, JSON.stringify(sent.body)).toBe(200);
     expect(sent.body.data.status).toBe('submitted');
     expect(sent.body.data.beneficiaryId).not.toBe(blocked);
-    const numbered = await draft(s, open, answersOf([], lookalike()));
+    const numbered = await draft(s, strict, answersOf([], lookalike('আরেক গ্রাম')));
     const withNumber = await act(s, numbered, 'submit');
     expect(withNumber.status, JSON.stringify(withNumber.body)).toBe(200);
     expect(withNumber.body.data).toMatchObject({ status: 'submitted', identityKind: 'nid' });
+    // a known person is bound to their own profile: nothing is made, so nothing is compared,
+    // even when a blocked profile carries the same names in the same village
+    const known = await beneficiary(h.db, world.dhaka, blockedPerson);
+    const { nid } = await profileOf(known);
+    const forKnown = await draft(s, strict, answersOf([], { q_id: text(nid!) }));
+    const bound = await act(s, forKnown, 'submit');
+    expect(bound.status, JSON.stringify(bound.body)).toBe(200);
+    expect(bound.body.data).toMatchObject({ status: 'submitted', beneficiaryId: known });
   });
 });
 

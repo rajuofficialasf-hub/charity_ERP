@@ -624,6 +624,7 @@
     "merge": {
       "title": "প্রোফাইল তুলনা",
       "keep": "এই প্রোফাইল রাখুন",
+      "keep_document": "যে প্রোফাইলে পরিচয়পত্র আছে, সেটিই রাখতে হবে।",
       "keep_required": "কোন প্রোফাইল রাখবেন, বেছে নিন",
       "applications": "আবেদন",
       "applications_value": "{count}টি",

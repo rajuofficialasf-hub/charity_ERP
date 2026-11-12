@@ -19,7 +19,8 @@ const CLASH_KINDS = [
 
 /**
  * What a refused merge names: the projects with an application still waiting for a decision
- * (by name where the caller reaches the project) and the records both profiles hold.
+ * (by name where the caller reaches the project) and the records both profiles hold, or the
+ * profile that must be kept because it alone has an identity document.
  */
 export function ConflictList({
   error,
@@ -29,7 +30,13 @@ export function ConflictList({
   projectName: (id: string) => string | undefined;
 }) {
   const t = useTranslations('admin.beneficiaries.merge.conflict');
-  if (!(error instanceof ApiFailure) || error.code !== 'beneficiary.merge_conflict') return null;
+  if (!(error instanceof ApiFailure)) return null;
+  // the kept profile the server refuses: its own sentence says which one to keep
+  if (error.code === 'validation.failed') {
+    const kept = error.details.find((d) => d.code === 'beneficiary.merge_keep_document');
+    return kept ? <p>{kept.message}</p> : null;
+  }
+  if (error.code !== 'beneficiary.merge_conflict') return null;
   const lines = error.details.map((d) => {
     const kind = d.path?.split('.')[0] ?? '';
     if (kind === 'applications') {

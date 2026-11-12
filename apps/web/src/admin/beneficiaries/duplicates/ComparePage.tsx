@@ -37,8 +37,10 @@ import { LoadError } from '../../../components/LoadError';
 
 /**
  * Two beneficiary profiles side by side (a suggested pair or a proposal): the official chooses the
- * profile to keep and merges, or proposes the merge when only a proposal is allowed. What is
- * offered follows the action flags of both profiles; the server checks scope and reach again.
+ * profile to keep and merges, or proposes the merge when only a proposal is allowed. Where only one
+ * of the two has an identity document, that one is the kept profile and the other cannot be chosen.
+ * What is offered follows the action flags of both profiles; the server checks scope, reach and the
+ * kept profile again.
  */
 export function ComparePage() {
   const { me } = useAuth();
@@ -140,7 +142,13 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
     );
 
   const sides = [first.data.data, second.data.data] as const;
-  const kept = chosen ?? proposal?.keptId ?? null;
+  // a merge moves no identity number, so the one profile that has a document is the kept one
+  const withDocument = sides.filter((p) => p.hasDocument === true);
+  const documentKept =
+    withDocument.length === 1 && sides.some((p) => p.hasDocument === false)
+      ? withDocument[0]!.id
+      : null;
+  const kept = documentKept ?? chosen ?? proposal?.keptId ?? null;
   const live = sides.every((p) => !p.mergedInto);
   const merges = live && sides.every((p) => p.actions.merge);
   const proposes = live && sides.every((p) => p.actions.proposeMerge);
@@ -238,9 +246,18 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
                 <RadioGroup
                   name="kept-profile"
                   label={formatBenNo(p.benNo)}
-                  options={[{ value: p.id, label: tm('keep') }]}
+                  options={[
+                    {
+                      value: p.id,
+                      label: tm('keep'),
+                      disabled: documentKept !== null && documentKept !== p.id,
+                    },
+                  ]}
                   value={kept === p.id ? p.id : null}
                   error={missingChoice && !kept ? tm('keep_required') : undefined}
+                  hint={
+                    documentKept !== null && documentKept !== p.id ? tm('keep_document') : undefined
+                  }
                   onChange={(id) => {
                     setChosen(id);
                     setMissingChoice(false);

@@ -3,6 +3,7 @@ import { FILE_KINDS, kindAllowedOn } from '@css/shared/files';
 import {
   type Answer,
   type FormDefinition,
+  identityColumn,
   validate,
   type ValidateOptions,
   type ValidationError,
@@ -70,7 +71,38 @@ export function fieldByColumn(definition: FormDefinition, column: string): Field
   return fieldsOf(definition).find((f) => f.standardColumn === column) ?? null;
 }
 
-/** The text an answer of a short question holds, trimmed, or null. */
+/**
+ * An identity number as the server reads it everywhere: trimmed, and no number when nothing is
+ * left. The guard of the send, the binding of the person and the comparison with the block list
+ * all read it here, so an answer of only spaces is "no number" for each of them alike.
+ */
+export function identityNumber(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+}
+
+/** The identity number in the answer of the form's identity question, or null. */
+export function identityNumberIn(
+  definition: FormDefinition,
+  answers: readonly { fieldKey: string; repeatIndex?: number | null; value: unknown }[],
+): string | null {
+  const field = fieldByColumn(definition, IDENTITY_COLUMN);
+  if (!field) return null;
+  const answer = answers.find((a) => a.fieldKey === field.fieldKey && (a.repeatIndex ?? 0) === 0);
+  return identityNumber((answer?.value as { v?: unknown } | undefined)?.v);
+}
+
+/**
+ * The identity number of an application's standard columns with the column it fills, or null. The
+ * column is read from the trimmed number, so a number stored with spaces around it is still the
+ * NID it is.
+ */
+export function identityOf(
+  standard: Record<string, unknown>,
+): { number: string; column: 'nid' | 'birth_reg' } | null {
+  const number = identityNumber(standard.nid) ?? identityNumber(standard.birth_reg);
+  return number ? { number, column: identityColumn(number) } : null;
+}
+
 /**
  * The name typed on an application, from its standard columns: kept on an entry that waits for
  * verification so the lists can name it before a profile exists; null when none was given.
@@ -80,6 +112,7 @@ export function typedName(standard: Record<string, unknown>): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
 
+/** The text an answer of a short question holds, trimmed, or null. */
 export function textOf(answers: readonly Answer[], fieldKey: string): string | null {
   const answer = answers.find((a) => a.fieldKey === fieldKey && (a.repeatIndex ?? 0) === 0);
   const value = answer ? (answer.value as { v?: unknown }).v : undefined;

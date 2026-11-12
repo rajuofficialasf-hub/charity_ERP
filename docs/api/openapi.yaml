@@ -409,6 +409,7 @@ components:
       description: >-
         validation.failed with field details; business rules such as beneficiary.identity_missing,
         beneficiary.mobile_is_volunteer_mobile, beneficiary.blocked, beneficiary.locked_field,
+        beneficiary.merge_keep_document,
         workflow.reason_required, workflow.comment_required, otp.invalid, otp.expired, file.source_not_allowed,
         export.too_many_rows, export.pdf_too_many_rows;
         password details validation.password_too_short, validation.password_uppercase_digit,
@@ -3283,9 +3284,10 @@ components:
           type: array
           items: { type: string }
           description: >-
-            The reasons an entry waits for verification. blocked_name_match (a person without a
-            document whose name, father's or husband's name and village match a blocked profile) is
-            answered to the office only; a volunteer neither receives it nor filters by it
+            The reasons an entry waits for verification. blocked_name_match (a new person, with an
+            identity number or without, whose name, father's or husband's name and village match a
+            blocked profile) is answered to the office only; a volunteer neither receives it nor
+            filters by it
         totalScore: { type: [number, 'null'], x-sensitive-class: application.official_section }
         districtId: { $ref: '#/components/schemas/Uuid' }
         unionId: { $ref: '#/components/schemas/Uuid' }
@@ -7233,7 +7235,11 @@ paths:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.propose
       summary: Propose a merge of two profiles with a reason
-      description: Both profiles live and in the caller's scope (404 otherwise, without naming either); one open proposal per pair.
+      description: >-
+        Both profiles live and in the caller's scope (404 otherwise, without naming either); one
+        open proposal per pair. Where only one of the two has an identity document, that one is the
+        kept profile: the other choice answers 422 with the detail
+        `beneficiary.merge_keep_document` on `keptId` (D-172).
       x-permission: beneficiary.merge.propose
       x-scope: beneficiary
       x-audit: beneficiary.merge_proposed
@@ -7289,7 +7295,9 @@ paths:
       description: >-
         The same merge as an executed proposal (D-113); the caller is proposer and merger. A merge
         that moves an application outside the caller's merge reach (another program, for a PM)
-        answers 403 `beneficiary.merge_needs_global` (D-118).
+        answers 403 `beneficiary.merge_needs_global` (D-118). Where only one of the two profiles has
+        an identity document, keeping the other answers 422 with the detail
+        `beneficiary.merge_keep_document` on `keptId` (D-172).
       x-permission: beneficiary.merge
       x-scope: beneficiary
       x-audit: beneficiary.merge
@@ -7325,6 +7333,9 @@ paths:
         retired profile (`leftBehind`); a block moves to the kept profile; a proposal whose profiles
         are no longer both live answers 409 `beneficiary.merge_stale` (D-113); an application of
         another program than the caller reaches answers 403 `beneficiary.merge_needs_global` (D-118).
+        A merge moves no identity number: where only one of the two profiles has an identity
+        document, keeping the other (as proposed, or as chosen with `keptId`) answers 422 with the
+        detail `beneficiary.merge_keep_document` on `keptId` (D-172).
       x-permission: beneficiary.merge
       x-scope: beneficiary
       x-audit: beneficiary.merge

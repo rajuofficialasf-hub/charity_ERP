@@ -237,7 +237,7 @@
       "confirm_create": "Create",
       "title": "Verify the entry",
       "blocked_profile": "Open the blocked person's profile",
-      "create_other_help": "If this is someone else, a new profile is made from the entry. If it is the same person, reject the entry."
+      "create_other_help": "If this is someone else, a new profile is made from the entry. If it is the same person, refuse the entry."
     },
     "queue": {
       "label": "Which applications to show",

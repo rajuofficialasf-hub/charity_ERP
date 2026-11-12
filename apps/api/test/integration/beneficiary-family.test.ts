@@ -131,6 +131,28 @@ describe('the family-duplicate warning', () => {
     ]);
   });
 
+  it('reads a missing mobile as no shared mobile, never as unknown, when one of the two has none', async () => {
+    const elsewhere = await f.project(db);
+    const family = { village: 'নতুন চর', father_or_husband_name: 'কাশেম' };
+    const without = await applicantIn(elsewhere, { ...family, mobile: null });
+    const withMobile = await applicantIn(elsewhere, { ...family, mobile: '01611000008' });
+    // from either side the family rule alone: a mobile compared with a missing one is no match
+    for (const [me, other] of [
+      [without, withMobile],
+      [withMobile, without],
+    ] as const) {
+      const found = await matches(me, elsewhere.id);
+      expect(found).toEqual([
+        {
+          beneficiaryId: other,
+          benNo: await benNo(other),
+          name: expect.any(String),
+          matchedOn: ['union_village_father'],
+        },
+      ]);
+    }
+  });
+
   it('ignores deleted applications and retired profiles', async () => {
     const a = await applicantIn(project, { mobile: '01611000006' });
     await applicantIn(project, { mobile: '01611000006' }, 'deleted');
