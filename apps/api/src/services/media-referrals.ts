@@ -521,7 +521,9 @@ export class MediaReferralsService {
         name: b.name,
         fatherOrHusbandName: b.fatherOrHusbandName,
         ageYears: ageOn(this.clock.now(), b.dob, b.ageYears),
-        // the answer promises a string: a person without a number reads as an empty one
+        // The answer promises a string, so a missing number reads as an empty one. No service
+        // makes a profile without a mobile yet; the answer is widened to say "no number" together
+        // with the code that makes such profiles.
         mobile: b.mobile ?? '',
         address: {
           divisionId: b.divisionId,

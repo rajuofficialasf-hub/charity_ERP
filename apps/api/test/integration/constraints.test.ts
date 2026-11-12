@@ -141,9 +141,20 @@ describe('beneficiary identity', () => {
         mobile_owner_list: 'mobile_owner',
       },
     ]);
+    const owner = async (given: Record<string, unknown>) =>
+      (
+        await db.query(
+          'SELECT mobile_owner_code, mobile_owner_name FROM beneficiaries WHERE id = $1',
+          [await f.beneficiary(db, loc, given)],
+        )
+      ).rows;
     // both are optional, each on its own
-    await expect(f.beneficiary(db, loc, { mobile_owner_code: 'neighbour' })).resolves.toBeTruthy();
-    await expect(f.beneficiary(db, loc, { mobile_owner_name: 'ক' })).resolves.toBeTruthy();
+    expect(await owner({ mobile_owner_code: 'neighbour' })).toEqual([
+      { mobile_owner_code: 'neighbour', mobile_owner_name: null },
+    ]);
+    expect(await owner({ mobile_owner_name: 'ক' })).toEqual([
+      { mobile_owner_code: null, mobile_owner_name: 'ক' },
+    ]);
     await expectSqlError(
       f.beneficiary(db, loc, { mobile_owner_code: 'stranger' }),
       SQLSTATE.foreignKeyViolation,
@@ -163,9 +174,9 @@ describe('beneficiary identity', () => {
         SQLSTATE.checkViolation,
         /beneficiaries_mobile_owner_name_check/,
       );
-    await expect(
-      f.beneficiary(db, loc, { mobile_owner_name: 'ক'.repeat(200) }),
-    ).resolves.toBeTruthy();
+    expect(await owner({ mobile_owner_name: 'ক'.repeat(200) })).toEqual([
+      { mobile_owner_code: null, mobile_owner_name: 'ক'.repeat(200) },
+    ]);
   });
 
   it('an application names the kind of its identity: an NID, a birth registration or none', async () => {

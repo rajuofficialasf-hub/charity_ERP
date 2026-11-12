@@ -35,6 +35,8 @@ Step-by-step deploy and rollback; smoke tests after deploy.
 
 Deploy note, the S3 settings' names (D-169): the API reads the store of `STORAGE_DRIVER=s3` from `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`. The earlier names are refused at start, each naming the one to set, so a configuration that still carries one never starts without a store: `MINIO_ENDPOINT`, `MINIO_PORT` and `MINIO_USE_SSL` become the one URL `S3_ENDPOINT` (for example `https://s3.internal.example.org:9000`), `MINIO_ACCESS_KEY` becomes `S3_ACCESS_KEY_ID` and `MINIO_SECRET_KEY` becomes `S3_SECRET_ACCESS_KEY`. No environment was deployed before the rename; a developer's `apps/api/.env` takes the `S3_*` lines of `apps/api/.env.example`.
 
+Deploy note, the list of whose number a mobile is (D-172): migration `20261112160000_beneficiary_optional_identity` adds `beneficiaries.mobile_owner_code`, whose codes come from the reference list `mobile_owner` of the base seed and not from the migration. After `pnpm db:migrate`, the base seed (`pnpm db:seed --set base`) must run before the "whose number" question is used; until then every code is refused by the foreign key. The seed command accepts only a development or test database (`apps/api/src/config/db-guard.ts`), so the way the base lists (this one, like `gender`) reach staging and production is part of the release procedure T3.0 writes here. The migration rewrites the table `beneficiaries` once (a stored generated column). Its rollback is described beside the table in `docs/database/DATABASE_SCHEMA.md`: run `down.sql` in one transaction, and read its WARNING, which counts the rows it kept and that stay frozen.
+
 ## 6. Backups
 What, where, how often, encryption, retention of backups, verification.
 
