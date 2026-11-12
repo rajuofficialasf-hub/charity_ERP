@@ -1,7 +1,7 @@
 ---
 title: The project decides the identity and contact an application asks, and a person's help shows on one profile
 type: feat
-status: ready
+status: in-progress
 source: plan
 date: 2026-11-12
 doc_review: 2026-11-12
@@ -83,14 +83,14 @@ Build order: U1 to U7 (the first pull request), then U8, U9, U10, U11, U12, U16 
 
 - **Goal:** the business rules and the specification say what D-172 decided before the code that follows them is merged.
 - **Requirements:** R1 to R19
-- **Files:** `docs/BUSINESS_RULES.md` (BR-001, BR-008, BR-009, BR-011, BR-012, BR-078 reworded where they change; new rules from BR-287 for the project switches, the light profile, the name key, the new pair rule, the name lookup and its limits, the family from the members list, the hold, the times helped, the document added by an official), `docs/MASTER_SPEC.md`, `docs/MODULE_CATALOG.md` where it names the mandatory identity, `docs/security/RBAC.md` (the name lookup)
+- **Files:** `docs/BUSINESS_RULES.md` (BR-001, BR-008, BR-009, BR-011, BR-012, BR-078 reworded where they change; new rules from BR-297 for the project switches, the light profile, the name key, the new pair rule, the name lookup and its limits, the family from the members list, the hold, the times helped, the document added by an official), `docs/MASTER_SPEC.md`, `docs/MODULE_CATALOG.md` where it names the mandatory identity, `docs/security/RBAC.md` (the name lookup)
 - **Approach:** the rows of D-171 and BR-245 in the register are the example; each new rule names D-172 and its test layer, with status "approved" and the test still "planned".
 - **Tests:** none (documents); `pnpm docs:check` and `pnpm rules:status --phase 2 --report-only` run.
 - **Done when:** `pnpm docs:check` passes and no rule in the register contradicts D-172.
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. The project's switches
 
@@ -366,3 +366,12 @@ Build order: U1 to U7 (the first pull request), then U8, U9, U10, U11, U12, U16 
 - Verification commands pass
 - `ae-review` has run, with no open P0 or P1
 - Code from abandoned attempts is removed
+
+## Progress
+
+- **Branch:** `feat/beneficiary-identity-by-project`
+- **Updated:** 2026-11-12 14:50
+- **Next:** U2: the project's switches; first step: read the `photo_rule` schema of `packages/shared/src/jsonb/component-settings.ts` and `photoRuleSettings` of `workflow-defaults.ts`
+- **Reviewed through:** none
+- **Uncommitted:** none
+- **Notes:** U1: the register already held BR-287 to BR-296 (the official's offline app, the official's own profile, the post codes, the stale reference answer), so the new rules are BR-297 to BR-309: BR-297 the project's four settings (section 4), BR-298 to BR-305, BR-307 and BR-308 in section 1, BR-306 in section 6, BR-309 the audit (section 13). Each has a register line `deferred to U<n> of the D-172 plan`, the form `pnpm rules:status` reads as answered; the unit that builds a rule replaces its line with the passing tests, and a rule built in parts keeps the open parts in the note. BR-001 keeps "DB + service" and its register line (`constraints.test.ts`, "NID or birth registration is mandatory") until U3 drops the database check: U3 changes both. The public entry that always needs a mobile is written into BR-299 as the plan's reading. RBAC.md describes the name lookup's permission as "a permission of its own" without its name, because that document lists only names `permissions.yaml` holds; U11 adds `beneficiary.match` to both. Found and left: BR-296's register line has no `— passing (date)` ending, so `pnpm rules:status --phase 2` counts it untested, as it did before this work.

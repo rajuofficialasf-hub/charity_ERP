@@ -878,13 +878,15 @@ When the PM adds or changes a question on a published form a new version (v2, v3
 
 The basis of beneficiary identity is the NID or birth-registration number, and one of the two is mandatory in every project. The first field of the application form is this number; the system checks whether it exists. (Approved by BD-01, BD-02, BD-03; Q-21, Q-44.)
 
+Owner decision D-172 (2026-11-12): the project decides. A project requires the document, as above, until its PM sets it to "if they have one"; such a project (the distributions: winter clothing, iftar, Qurbani, flood relief) takes a person without a document, who gets a profile from the name, the father's or husband's name, the gender, the address and the village. The mobile number follows the project the same way: where there is none, the profile reads "contact through the volunteer" and no number is stored. The rules are BR-297 to BR-309 of BUSINESS_RULES.md.
+
 - Not found: new beneficiary; on submission with name, father/husband name, mobile, address, etc., the profile and BEN-ID are created.
 - Found: previous profile found; name, father/husband name, mobile, address and other basic data auto-fill; the volunteer does not retype them.
 - What can change: data that may change, such as mobile and address, can be updated by the volunteer, every change logged. NID, name and father/husband name are locked; if wrong, they change only through the official's controlled "profile correction request" process (PROPOSED; approved by BD-02).
 - One NID or birth registration = one beneficiary profile; no second profile on the same number. The same mobile number may belong to several beneficiaries (e.g. one family), but the system warns.
 - If the volunteer enters own mobile number as the beneficiary's, the system blocks it; this check also exists at database level (constraint).
 - An NID or birth registration on the blocklist is refused for new applications (A7).
-- Someone without an NID (a child, or NID not yet issued) gets a profile with the birth-registration number; either of the two suffices, but no application is accepted without one.
+- Someone without an NID (a child, or NID not yet issued) gets a profile with the birth-registration number; either of the two suffices, but no application is accepted without one. (D-172: this holds in a project that requires the document; a project that asks it "if they have one" accepts the application, and a volunteer who starts without a document is shown the people already there under that name, father's or husband's name and village, to pick one or to say it is a new person.)
 
 ### B4. Roles, permissions and data scopes
 
@@ -1068,7 +1070,7 @@ Numbering is kept from the previous version so that "(প্রশ্ন N)" ref
 | Q-28 | Duplicated questions (occupation, earner relationship, loan type, business type) turned into one field with conditional options; correct? | Yes: one field whose options change with the previous answer. The Google Form duplicated them because "other" needed a new text box; in the new system "other" adds a text box to the same field | Decided |
 | Q-29 | Does the system compute net assets and zakat status (nisab in project settings, updated yearly)? | Yes: the system computes total assets, debts and net assets, compares with the nisab and shows a proposal; the আলেম/official finalizes. The nisab is set by the PM or above (Monitoring, Head). The nisab used at verification is saved with the application; later changes do not affect old data | Decided |
 | Q-30 | Is the "dawah representative and zakat-approving আলেম" the Official দায়ী? Is the name taken from the assigned দায়ী automatically? | Yes: the Official দায়ী. Names and mobiles are not typed: chosen from the list of officials/দায়ীs assigned to the project; the approver's name is recorded automatically at zakat approval | Decided |
-| Q-31 | Which fields are mandatory in the two forms? | NID/birth registration, name, father/husband name, mobile, gender, division → district → upazila → union, village: mandatory in every project; the rest per project, decided by the PM (toggle per field in the form builder) | Decided |
+| Q-31 | Which fields are mandatory in the two forms? | NID/birth registration, name, father/husband name, mobile, gender, division → district → upazila → union, village: mandatory in every project; the rest per project, decided by the PM (toggle per field in the form builder). D-172: whether the NID/birth registration and the mobile must be answered is the project's choice, required until its PM changes it | Decided |
 | Q-32 | Is the volunteer rating computed by the system from work data or given by hand? During or at the end of the project? | Yes: at project close the system shows a proposed score per criterion from work data; the official (PM/RPM/Executive per A4) reviews, changes if wanted and finalizes | Decided |
 | Q-33 | Can the PM reopen a closed project (wrong close)? Who does follow-up evaluations, how often? | Reopen: the PM, with reason, logged. Follow-up: no fixed schedule or reminders; continuous work; an official or Official দায়ী adds an evaluation whenever they check; continues after close | Decided |
 | Q-34 | Volunteer category list (e.g. A/B/C, active/inactive)? | A (excellent), B (good), C (weak), D (risky); plus a separate "inactive" flag (no work for a long time) | Decided |
@@ -1088,7 +1090,7 @@ The blueprint says these are Part B proposals that become decisions when managem
 | Q-41 | Central dashboard KPI list (also answers Q-13) | Start with the seven proposed KPI groups of A11; more later if needed | Decided |
 | Q-42 | Staff and volunteer registration form fields and OTP verification (A5) | Decided: form after mobile and email OTP verification; full field list in A5 | Decided |
 | Q-43 | Offline sync conflict rule (B7) | The server's value stays on approved data; last write on drafts and field updates; both in the audit log | Decided |
-| Q-44 | How are beneficiaries without NID (e.g. children) taken? | Profile by NID or birth registration, either; no application without one; the field is added to the distribution form too | Decided |
+| Q-44 | How are beneficiaries without NID (e.g. children) taken? | Profile by NID or birth registration, either; no application without one; the field is added to the distribution form too. D-172: a project may ask the document "if they have one", and then a person without either number gets a profile from the name, the father's or husband's name and the village | Decided |
 | Q-45 | Blocklist: who can set and lift it, and what happens to ongoing applications? | RPM or above (PM, Monitoring Team, Head) with reason; ongoing applications stay as they are; a newly added volunteer manages them | Decided |
 | Q-46 | How much may the Procurement Team do? | View applications only (no edit/delete); raise issues in the issue log and resolve issues with an update | Decided |
 | Q-47 | How are animals allocated in Qurbani? | Animal numbers from donor data; allocation by hand on the volunteer's profile. One person may get several cows, or one to four goats; an allocated animal cannot be given to anyone else | Decided |
@@ -1244,7 +1246,7 @@ The first page of the form is for officials; the rest is filled by the volunteer
 | Mobile number | Standard | Phone; changeable; auto-fills from NID |
 | Beneficiary name, father/husband name, mother's name | Standard | Text |
 | Gender, marital status, education level | Standard | Select |
-| National id / birth certificate number | Standard | Text; first field of the form and basis of the profile; mandatory in every project |
+| National id / birth certificate number | Standard | Text; first field of the form and basis of the profile; mandatory in every project that requires the document (D-172: the project's choice, required by default) |
 | Date of birth | Standard | Date; age computed |
 | Division, district, upazila, union, village | Standard | Cascading address + text |
 | Post office name, post code | Standard | Text, number |
