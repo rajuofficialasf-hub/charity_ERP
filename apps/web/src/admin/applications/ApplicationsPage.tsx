@@ -20,6 +20,7 @@ import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { NoDocumentChip, ThroughVolunteerChip } from '../../components/PersonMarks';
 import { stateLabel as labelOf, stateTone } from '../../features/applications/status';
 import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../api/client';
@@ -139,6 +140,8 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       {r.flags.includes('public_entry') ? (
         <Chip tone="info">{t('signals.flag.public_entry_short')}</Chip>
       ) : null}
+      {r.hasDocument === false ? <NoDocumentChip /> : null}
+      {r.hasMobile === false ? <ThroughVolunteerChip /> : null}
     </span>
   );
   const waiting = (r: ApplicationSummary) =>

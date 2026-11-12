@@ -113,6 +113,24 @@ describe('the family-duplicate warning', () => {
     expect(await matches(a)).toEqual([]);
   });
 
+  it('treats a missing mobile as no match, and answers the other rule without it', async () => {
+    const elsewhere = await f.project(db);
+    // two people reached through their volunteer, of different families
+    const alone = await applicantIn(elsewhere, { mobile: null, village: 'উত্তর চর' });
+    await applicantIn(elsewhere, { mobile: null, village: 'দক্ষিণ চর' });
+    // a person with a number beside them matches neither
+    await applicantIn(elsewhere, { mobile: '01611000007', village: 'পশ্চিম চর' });
+    expect(await matches(alone, elsewhere.id)).toEqual([]);
+    // the same family, both without a mobile: matched by the family rule alone
+    const family = { mobile: null, village: 'মাঝের চর', father_or_husband_name: 'হাশেম' };
+    const first = await applicantIn(elsewhere, family);
+    const second = await applicantIn(elsewhere, family);
+    const found = await matches(first, elsewhere.id);
+    expect(found.map((m) => [m.beneficiaryId, m.matchedOn])).toEqual([
+      [second, ['union_village_father']],
+    ]);
+  });
+
   it('ignores deleted applications and retired profiles', async () => {
     const a = await applicantIn(project, { mobile: '01611000006' });
     await applicantIn(project, { mobile: '01611000006' }, 'deleted');

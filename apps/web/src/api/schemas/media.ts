@@ -162,7 +162,8 @@ export const mediaReferralSchema = z.object({
     name: z.string(),
     fatherOrHusbandName: z.string(),
     ageYears: z.number().int().nullable(),
-    mobile: z.string(),
+    /** Null for a person reached through their volunteer. */
+    mobile: z.string().nullable(),
     address: z.object({
       divisionId: z.uuid(),
       districtId: z.uuid(),

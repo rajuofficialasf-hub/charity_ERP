@@ -196,6 +196,65 @@ describe('a merge proposed by an RPM and carried out by the PM', () => {
     ]);
   });
 
+  it('keeps the document when a profile without one is merged into a profile with one', async () => {
+    const kept = await person();
+    const light = await person(world.dhaka, { nid: null, mobile: null });
+    await applyTo(world.a1, kept);
+    await applyTo(world.a2, light);
+    const { nid } = (await h.db.query('SELECT nid FROM beneficiaries WHERE id = $1', [kept]))
+      .rows[0] as { nid: string };
+    const done = await direct(await as(world.users.head), {
+      keptId: kept,
+      mergedId: light,
+      reason: REASON,
+    });
+    expect(done.status, JSON.stringify(done.body)).toBe(201);
+    const after = await h.db.query(
+      'SELECT id, nid, birth_reg, merged_into_id FROM beneficiaries WHERE id = ANY($1::uuid[]) ORDER BY nid NULLS LAST',
+      [[kept, light]],
+    );
+    expect(after.rows).toEqual([
+      { id: kept, nid, birth_reg: null, merged_into_id: null },
+      { id: light, nid: null, birth_reg: null, merged_into_id: kept },
+    ]);
+  });
+
+  it('leaves the number on the retired profile when the kept one has none: the number still leads to the kept profile', async () => {
+    const light = await person(world.dhaka, { nid: null, mobile: null });
+    const full = await person();
+    await applyTo(world.a1, light);
+    await applyTo(world.a2, full);
+    const { nid } = (await h.db.query('SELECT nid FROM beneficiaries WHERE id = $1', [full]))
+      .rows[0] as { nid: string };
+    const done = await direct(await as(world.users.head), {
+      keptId: light,
+      mergedId: full,
+      reason: REASON,
+    });
+    expect(done.status, JSON.stringify(done.body)).toBe(201);
+    // a merge moves no number, as with a profile that holds only one of the two: the kept
+    // profile stays without a document of its own
+    const after = await h.db.query(
+      'SELECT id, nid, merged_into_id FROM beneficiaries WHERE id = ANY($1::uuid[]) ORDER BY nid NULLS LAST',
+      [[light, full]],
+    );
+    expect(after.rows).toEqual([
+      { id: full, nid, merged_into_id: light },
+      { id: light, nid: null, merged_into_id: null },
+    ]);
+    // a search by the number finds the kept profile through the retired one
+    const found = await h.container.beneficiaryIdentity.idsByIdentity(
+      nid,
+      await h.container.access.scopeOfUser(world.users.head, 'beneficiary.view_nid', 'beneficiary'),
+    );
+    expect(found).toEqual([light]);
+    const profile = await api()
+      .get(`/api/v1/beneficiaries/${light}`)
+      .set(bearer(await as(world.users.head)));
+    expect(profile.status).toBe(200);
+    expect(profile.body.data).toMatchObject({ hasDocument: false, nid: null, mobile: null });
+  });
+
   it('lets the merging official keep the other profile of the proposal', async () => {
     const { kept, retired } = await duplicate();
     const proposed = await propose(await as(world.users.rpmDhaka), {

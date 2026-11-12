@@ -21,6 +21,7 @@ import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiariesService } from '../services/beneficiaries.js';
 import type { VolunteerListService } from '../services/volunteer-list.js';
 import { exportClasses } from './access.js';
+import { personCells } from './file.js';
 import { placeNames } from './places.js';
 
 /** Where the label of a coded value comes from: a message family or a reference list. */
@@ -457,12 +458,11 @@ export class ExportRows {
         gender: coded(b.genderCode, 'reference.gender'),
         age: b.ageYears,
         mother: b.motherName,
-        mobile: b.mobile,
         union: names.get(b.unionId) ?? null,
         village: b.village,
         blocked: b.isBlocked,
-        nid: b.nid,
-        birth_reg: b.birthReg,
+        // a missing mobile or document prints its words; each cell is masked with its class
+        ...personCells(b, frozen.locale),
       } satisfies Record<string, Cell>,
     }));
     const last = found.at(-1);

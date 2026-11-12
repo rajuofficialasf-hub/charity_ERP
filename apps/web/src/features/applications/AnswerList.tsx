@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { FileImage } from '../../components/FileImage';
+import { ThroughVolunteerChip } from '../../components/PersonMarks';
 import { QuestionTitle } from '../forms/QuestionTitle';
 
 /** The answer of a question as text, in the reader's language; null for photos and files. */
@@ -78,16 +79,20 @@ export function answerText(
 /**
  * The answers of an application as a reader sees them: every question of the form (the caller's
  * audience) that has an answer, by section, with photos drawn from the file service; `action`
- * draws a control beside an answer (the office's "সংশোধনের জন্য খুলুন").
+ * draws a control beside an answer (the office's "সংশোধনের জন্য খুলুন"). With `throughVolunteer`
+ * the person has no mobile of their own, and the mobile question without an answer says so in the
+ * place of the number.
  */
 export function AnswerList({
   form,
   answers,
   action,
+  throughVolunteer = false,
 }: {
   form: FormDefinition;
   answers: Answer[];
   action?: (field: FormField) => ReactNode;
+  throughVolunteer?: boolean;
 }) {
   const t = useTranslations('applications.detail');
   const tr = useTranslations('forms.renderer');
@@ -101,8 +106,10 @@ export function AnswerList({
       section,
       items: section.fields.flatMap((field): Item[] => {
         const value = byKey.get(`${field.fieldKey}#0`);
-        if (!value || field.type === 'note' || field.type === 'repeat_group') return [];
         const label = field.label[locale];
+        if (!value && throughVolunteer && field.standardColumn === 'mobile')
+          return [{ kind: 'text', label, text: <ThroughVolunteerChip />, field }];
+        if (!value || field.type === 'note' || field.type === 'repeat_group') return [];
         if (
           'v' in value &&
           Array.isArray(value.v) &&

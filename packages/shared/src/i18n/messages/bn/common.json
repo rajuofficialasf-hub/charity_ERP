@@ -63,5 +63,9 @@
   },
   "list": {
     "result_count": "{total}টির মধ্যে {shown}টি"
+  },
+  "person": {
+    "no_document": "পরিচয়পত্র নেই",
+    "through_volunteer": "স্বেচ্ছাসেবকের মাধ্যমে যোগাযোগ"
   }
 }

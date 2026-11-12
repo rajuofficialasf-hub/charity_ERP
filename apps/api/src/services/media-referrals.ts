@@ -69,14 +69,15 @@ const mediaEventView = z.object({
 
 /**
  * What the Media Team may know of the person (docs/BUSINESS_RULES.md, the media team's data): the
- * names, age, mobile, address, occupation and income; never the identity numbers, ratings,
- * categories or scores.
+ * names, age, mobile, address, occupation and income; never the identity numbers, whether the
+ * person has an identity document, ratings, categories or scores. The mobile is null for a
+ * person reached through their volunteer.
  */
 const mediaBeneficiaryView = z.object({
   name: z.string(),
   fatherOrHusbandName: z.string(),
   ageYears: z.number().int().nullable(),
-  mobile: z.string(),
+  mobile: z.string().nullable(),
   address: z.object({
     divisionId: uuid,
     districtId: uuid,
@@ -521,10 +522,7 @@ export class MediaReferralsService {
         name: b.name,
         fatherOrHusbandName: b.fatherOrHusbandName,
         ageYears: ageOn(this.clock.now(), b.dob, b.ageYears),
-        // The answer promises a string, so a missing number reads as an empty one. No service
-        // makes a profile without a mobile yet; the answer is widened to say "no number" together
-        // with the code that makes such profiles.
-        mobile: b.mobile ?? '',
+        mobile: b.mobile,
         address: {
           divisionId: b.divisionId,
           districtId: b.districtId,

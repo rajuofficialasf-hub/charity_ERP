@@ -5,8 +5,9 @@ import {
   slotParts,
   slotPath,
 } from '../applications/pending-photos.js';
-import { type Answer, type FormDefinition, validate } from '@css/shared/forms';
+import { type Answer, type FormDefinition, optionalIdentityOf, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
+import type { IdentityRules } from '@css/shared/projects';
 import type { EffectiveAccess } from '../access/effective.js';
 import type { Clock } from '../core/clock.js';
 import type { Tx } from '../core/prisma.service.js';
@@ -49,6 +50,11 @@ export interface EngineApplication {
      * only a grant carrying the condition, or one the panel or a project gave, may make the move.
      */
     approval: { permission: string; condition: string } | null;
+    /**
+     * What the project's application asks about identity and contact, read from the project's
+     * stored settings for this check; never from the request or the record.
+     */
+    identityRules: IdentityRules;
   };
 }
 
@@ -109,7 +115,13 @@ export class GuardContext {
         : await readDefinition(this.tx, this.application.formVersionId, audience);
     const keys = new Set(definition.sections.flatMap((s) => s.fields.map((f) => f.fieldKey)));
     const answers = (await this.answers()).filter((a) => keys.has(a.fieldKey));
-    const options = { audience, today: isoDateInDhaka(this.clock.now()), previous: answers };
+    const options = {
+      audience,
+      today: isoDateInDhaka(this.clock.now()),
+      previous: answers,
+      // the document and the mobile may stay empty only where the project says so
+      optionalIdentity: optionalIdentityOf(this.application.project.identityRules, audience),
+    };
     const result = validate(definition, answers, options);
     // a photo still on the phone is on its way: its slot is not a missing answer; only a photo
     // question of this form may be such a slot, in the path the validator reports it by
@@ -195,9 +207,12 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
     });
     return others < limit;
   },
+  // a project that asks the document "if they have one" lets the answer stay empty; a number
+  // that is given must be a valid one everywhere
   'identity.present': async (ctx) => {
     const number = await identityNumber(ctx);
-    return number !== null && IDENTITY_NUMBER.test(number);
+    if (!number) return ctx.application.project.identityRules.document === 'optional';
+    return IDENTITY_NUMBER.test(number);
   },
   'mandatory_fields.present': async (ctx) => (await ctx.validation()).ok,
   'beneficiary.not_blocked': async (ctx) => {

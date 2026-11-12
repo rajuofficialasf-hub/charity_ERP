@@ -156,6 +156,53 @@ describe('the rows of an export', () => {
     }
   });
 
+  it('print the words of a missing mobile and a missing document, never a number or an empty word, and only where the classes reach', async () => {
+    const name = `পরিচয়পত্র ছাড়া ${randomUUID().slice(0, 8)}`;
+    const inside = await f.beneficiary(h.db, world.dhaka, { name, nid: null, mobile: null });
+    const outside = await f.beneficiary(h.db, world.rangpur, { name, nid: null, mobile: null });
+    const birthOnly = await f.beneficiary(h.db, world.dhaka, {
+      name,
+      nid: null,
+      birth_reg: '20261112000000017',
+    });
+    for (const [locale, noDocument, throughVolunteer] of [
+      ['bn', 'পরিচয়পত্র নেই', 'স্বেচ্ছাসেবকের মাধ্যমে যোগাযোগ'],
+      ['en', 'No identity document', 'Contact through the volunteer'],
+    ] as const) {
+      const frozen = await rows().freeze(
+        await principalOf(h.db, world.users.rpmDhaka),
+        { kind: 'beneficiaries', filters: { q: name } },
+        locale,
+      );
+      const exported = new Map((await readAll(frozen)).map((r) => [r.id, r.cells]));
+      expect(exported.get(inside)).toMatchObject({
+        mobile: throughVolunteer,
+        nid: noDocument,
+        birth_reg: noDocument,
+      });
+      // outside the region the identity cells are gone, words and all; the contact stays
+      expect(exported.get(outside)).toMatchObject({ mobile: throughVolunteer });
+      expect(exported.get(outside)).not.toHaveProperty('nid');
+      expect(exported.get(outside)).not.toHaveProperty('birth_reg');
+      // a person with one of the two numbers leaves the other cell empty
+      expect(exported.get(birthOnly)).toMatchObject({
+        nid: null,
+        birth_reg: '20261112000000017',
+        mobile: expect.stringMatching(/^01\d{9}$/),
+      });
+      expect(JSON.stringify([...exported.values()])).not.toContain('"null"');
+    }
+    // a role whose export carries no identity class gets no word about the document either
+    const executive = await readAll(
+      await freeze(world.users.executive, { kind: 'beneficiaries', filters: { q: name } }),
+    );
+    expect(executive.length).toBeGreaterThanOrEqual(3);
+    for (const row of executive) {
+      expect(row.cells).not.toHaveProperty('nid');
+      expect(JSON.stringify(row.cells)).not.toContain('পরিচয়পত্র নেই');
+    }
+  });
+
   it('carry an RPM’s NIDs only of the people their region reaches, on the nationwide list', async () => {
     const exported = await readAll(
       await freeze(world.users.rpmDhaka, { kind: 'beneficiaries', filters: {} }),

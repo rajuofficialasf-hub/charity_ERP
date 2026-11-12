@@ -1,5 +1,6 @@
 import { DEFAULT_IDENTITY_RULES } from '@css/shared/projects';
 import type { Me } from '@css/shared/auth';
+import { bn } from '@css/shared/i18n';
 import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
@@ -735,4 +736,54 @@ describe('the identity questions of the new application follow the project', () 
     },
     60_000,
   );
+});
+
+describe('the volunteer’s own application of a person without a document or a mobile', () => {
+  const NO_DOCUMENT = bn.common.person.no_document;
+  const THROUGH_VOLUNTEER = bn.common.person.through_volunteer;
+  const submitted = (over: Record<string, unknown>) =>
+    record({
+      appNo: 'WC-2026-00021',
+      status: 'submitted',
+      beneficiaryId: PERSON,
+      submittedAt: '2026-11-02T10:00:00Z',
+      availableActions: [],
+      answers: [
+        { fieldKey: 'name', repeatIndex: 0, value: { t: 'short_text', v: 'নমুনা উপকারভোগী' } },
+      ],
+      ...over,
+    });
+  const open = (over: Record<string, unknown>) => {
+    refreshAs(VOLUNTEER);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${APP}`, () => envelope(submitted(over))),
+      http.get(`*/api/v1/applications/${APP}/timeline`, () => envelope([])),
+    );
+    return renderApp(<ApplicationDetailPage />, 'bn', {
+      path: '/my-applications/:applicationId',
+      initialPath: `/my-applications/${APP}`,
+    });
+  };
+
+  it('shows the chip beside the state and the volunteer in the place of the mobile', async () => {
+    open({ identityKind: 'none', hasDocument: false, hasMobile: false });
+    expect(await screen.findByText('WC-2026-00021')).toBeInTheDocument();
+    expect(screen.getByText(NO_DOCUMENT)).toBeInTheDocument();
+    const answers = screen.getByRole('region', { name: 'basic_info' });
+    expect(within(answers).getByText(THROUGH_VOLUNTEER)).toBeInTheDocument();
+  });
+
+  it('shows neither for a person who has both, nor before the person is known', async () => {
+    const first = open({ identityKind: 'nid', hasDocument: true, hasMobile: true });
+    expect(await screen.findByText('WC-2026-00021')).toBeInTheDocument();
+    expect(screen.queryByText(NO_DOCUMENT)).not.toBeInTheDocument();
+    expect(screen.queryByText(THROUGH_VOLUNTEER)).not.toBeInTheDocument();
+    first.unmount();
+    resetClientForTests();
+    open({ status: 'needs_verification', beneficiaryId: null, hasDocument: null, hasMobile: null });
+    expect(await screen.findByText('WC-2026-00021')).toBeInTheDocument();
+    expect(screen.queryByText(NO_DOCUMENT)).not.toBeInTheDocument();
+    expect(screen.queryByText(THROUGH_VOLUNTEER)).not.toBeInTheDocument();
+  });
 });

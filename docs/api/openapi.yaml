@@ -2049,7 +2049,8 @@ components:
         upazilaId: { $ref: '#/components/schemas/Uuid' }
         unionId: { type: string, format: uuid, x-sensitive-class: beneficiary.address_detail }
         village: { type: string, x-sensitive-class: beneficiary.address_detail }
-        mobile: { type: string, x-sensitive-class: beneficiary.contact }
+        mobile: { type: [string, 'null'], x-sensitive-class: beneficiary.contact, description: 'Null for a person without a number of their own, who is reached through the volunteer (D-172)' }
+        hasDocument: { type: boolean, x-sensitive-class: beneficiary.nid, description: 'Whether an NID or a birth registration number is on file; never the number (D-172)' }
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
         photoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: beneficiary.profile_detail }
     BeneficiaryStatistics:
@@ -2163,7 +2164,8 @@ components:
         postOffice: { type: [string, 'null'], x-sensitive-class: beneficiary.address_detail }
         postCode: { type: [string, 'null'], x-sensitive-class: beneficiary.address_detail }
         landmark: { type: [string, 'null'], x-sensitive-class: beneficiary.address_detail }
-        mobile: { type: string, x-sensitive-class: beneficiary.contact }
+        mobile: { type: [string, 'null'], x-sensitive-class: beneficiary.contact, description: 'Null for a person without a number of their own, who is reached through the volunteer (D-172)' }
+        hasDocument: { type: boolean, x-sensitive-class: beneficiary.nid, description: 'Whether an NID or a birth registration number is on file, told with the identity class wherever the profile lives; the numbers themselves stay inside the beneficiary.view_nid scope (D-172)' }
         familyMembers:
           type: array
           x-sensitive-class: beneficiary.contact
@@ -2288,7 +2290,7 @@ components:
                 name: { type: string }
                 fatherOrHusbandName: { type: string }
                 motherName: { type: [string, 'null'] }
-                mobile: { type: string }
+                mobile: { type: [string, 'null'], description: 'Null for a person without a number of their own' }
                 genderCode: { type: string }
                 dob: { type: [string, 'null'], format: date }
                 ageYears: { type: [integer, 'null'] }
@@ -2378,7 +2380,7 @@ components:
           required: [id, mobile, divisionId, districtId, upazilaId, unionId, village, postOffice, postCode, landmark, warnings]
           properties:
             id: { $ref: '#/components/schemas/Uuid' }
-            mobile: { type: string }
+            mobile: { type: [string, 'null'], description: 'Null for a person without a number of their own' }
             divisionId: { $ref: '#/components/schemas/Uuid' }
             districtId: { $ref: '#/components/schemas/Uuid' }
             upazilaId: { $ref: '#/components/schemas/Uuid' }
@@ -3260,11 +3262,30 @@ components:
         beneficiaryName:
           type: [string, 'null']
           description: The profile's name; while the entry waits for verification, the name typed on the application.
+        hasDocument:
+          type: [boolean, 'null']
+          description: >-
+            Whether the person's profile holds an identity document (D-172); null before a profile is
+            bound and for a caller who may not know: in a list a holder of the class beneficiary.nid
+            is told, on the record also the volunteer who brought the application
+        hasMobile:
+          type: [boolean, 'null']
+          description: >-
+            Whether the person's profile holds a mobile of their own; false reads "contact through the
+            volunteer" (D-172). Null before a profile is bound and for a caller who may not know: in a
+            list a holder of the class beneficiary.contact is told, on the record also the volunteer
+            who brought the application
         ownerVolunteerId: { type: [string, 'null'], format: uuid }
         status: { type: string, enum: [draft, needs_verification, submitted, under_review, reviewed, waitlisted, approved, rejected, implementation, completed, closed, deleted] }
         stage: { type: [string, 'null'] }
         outcome: { type: [string, 'null'] }
-        flags: { type: array, items: { type: string } }
+        flags:
+          type: array
+          items: { type: string }
+          description: >-
+            The reasons an entry waits for verification. blocked_name_match (a person without a
+            document whose name, father's or husband's name and village match a blocked profile) is
+            answered to the office only; a volunteer neither receives it nor filters by it
         totalScore: { type: [number, 'null'], x-sensitive-class: application.official_section }
         districtId: { $ref: '#/components/schemas/Uuid' }
         unionId: { $ref: '#/components/schemas/Uuid' }
@@ -3315,10 +3336,10 @@ components:
         - type: object
           properties:
             formVersionId: { $ref: '#/components/schemas/Uuid' }
-            candidateBeneficiaryId: { type: [string, 'null'], format: uuid }
+            candidateBeneficiaryId: { type: [string, 'null'], format: uuid, description: "The profile the entry is compared with at its verification; the candidate of a blocked_name_match is answered to the office only" }
             clientCreatedAt: { type: [string, 'null'], format: date-time, description: "The device time the record was made, when it came from a phone; its late_sync, stale_form_version or existing_identity flag says why it waits" }
             createdByUserId: { type: [string, 'null'], format: uuid, description: The account that created it (a team member's own records) }
-            identityKind: { type: [string, 'null'], enum: [nid, birth_reg, null], description: Which number identifies the person }
+            identityKind: { type: [string, 'null'], enum: [nid, birth_reg, none, null], description: "Which number identifies the person; none for an application without an identity document (D-172), told only to a caller who may know whether the profile has a document" }
             rejectionMessage: { type: [string, 'null'], description: The words written for the volunteer at a rejection; the office's reason stays in decisionComment }
             answers:
               type: array
@@ -3444,13 +3465,13 @@ components:
         at: { type: string, format: date-time }
     MediaBeneficiary:
       type: object
-      description: What the Media Team may know of the person (BR-265); never the identity numbers, ratings, categories or scores
+      description: What the Media Team may know of the person (BR-265); never the identity numbers, whether the person has an identity document, ratings, categories or scores
       required: [name, fatherOrHusbandName, ageYears, mobile, address, occupation, monthlyIncome]
       properties:
         name: { type: string }
         fatherOrHusbandName: { type: string }
         ageYears: { type: [integer, 'null'] }
-        mobile: { type: string }
+        mobile: { type: [string, 'null'], description: 'Null for a person without a number of their own, who is reached through the volunteer' }
         address:
           type: object
           required: [divisionId, districtId, upazilaId, unionId, village, postOffice]
@@ -6817,7 +6838,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail]
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail, beneficiary.nid]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/PageNumber'

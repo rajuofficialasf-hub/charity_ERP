@@ -19,6 +19,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { unlockRefusal, type FormField } from '@css/shared/forms';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { NoDocumentChip } from '../../components/PersonMarks';
 import { AnswerList } from '../../features/applications/AnswerList';
 import { stateLabel as labelOf, stateTone } from '../../features/applications/status';
 import { FormRenderer, type Submission } from '../../features/forms/FormRenderer';
@@ -286,6 +287,7 @@ function Review() {
               value: (
                 <Stack direction="row" gap={2} wrap>
                   <Chip tone={stateTone(a.status)}>{stateLabel(a.status)}</Chip>
+                  {a.hasDocument === false ? <NoDocumentChip /> : null}
                   {a.media ? <MediaBadge media={a.media} /> : null}
                 </Stack>
               ),
@@ -346,7 +348,12 @@ function Review() {
             onSubmit={save}
           />
         ) : (
-          <AnswerList form={a.form} answers={a.answers} action={unlockAction} />
+          <AnswerList
+            form={a.form}
+            answers={a.answers}
+            action={unlockAction}
+            throughVolunteer={a.hasMobile === false}
+          />
         )}
       </Card>
       <Card title={t('timeline')} headingLevel={2}>

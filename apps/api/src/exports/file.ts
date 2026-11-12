@@ -39,6 +39,27 @@ export function fileWords(locale: 'bn' | 'en'): FileWords {
   };
 }
 
+/**
+ * The mobile and the identity numbers of a person as a file prints them, in the screens' own
+ * words: a person without a mobile is reached through the volunteer, and a person without an
+ * identity document says so in both number columns. A person who has one of the two numbers
+ * leaves the other cell empty, as before.
+ */
+export function personCells(
+  person: { mobile: string | null; nid: string | null; birthReg: string | null },
+  locale: 'bn' | 'en',
+): { mobile: string; nid: string | null; birth_reg: string | null } {
+  const noDocument =
+    person.nid === null && person.birthReg === null
+      ? translate(locale, 'common.person.no_document')
+      : null;
+  return {
+    mobile: person.mobile ?? translate(locale, 'common.person.through_volunteer'),
+    nid: person.nid ?? noDocument,
+    birth_reg: person.birthReg ?? noDocument,
+  };
+}
+
 /** Where the words of each code list live in the message catalogue (the screens' own words). */
 const LABELS: Readonly<Record<CodedSource, string>> = {
   'user.state': 'admin.volunteers.state',

@@ -172,11 +172,18 @@ export class BeneficiariesService {
           mobile: true,
           isBlocked: true,
           photoFileId: true,
+          // read only to say whether a document is on file; the numbers never leave the list
+          nid: true,
+          birthReg: true,
         },
       }),
       total: query.include === 'total' ? await tx.beneficiary.count({ where: filter }) : undefined,
     }));
-    const { rows, meta } = buildPage(fetched, {
+    const listed = fetched.map(({ nid, birthReg, ...row }) => ({
+      ...row,
+      hasDocument: nid !== null || birthReg !== null,
+    }));
+    const { rows, meta } = buildPage(listed, {
       limit: query.limit,
       sort: SORT,
       direction,
@@ -290,6 +297,9 @@ export class BeneficiariesService {
       postCode: b.postCode,
       landmark: b.landmark,
       mobile: b.mobile,
+      // told with the identity class, wherever the profile lives: it says a document is on
+      // file, never its number
+      hasDocument: b.nid !== null || b.birthReg !== null,
       familyMembers: b.beneficiaryFamilyMembersBeneficiary.map((m) => ({
         id: m.id,
         name: m.name,
@@ -583,8 +593,9 @@ export class BeneficiariesService {
         benNo: true,
         updatedAt: true,
         mergedInto: { select: { id: true, benNo: true } },
-        nid: sees('beneficiary.nid'),
-        birthReg: sees('beneficiary.nid'),
+        // the numbers themselves leave only inside the caller's identity scope
+        nid: true,
+        birthReg: true,
         name: true,
         fatherOrHusbandName: true,
         motherName: true,

@@ -9,6 +9,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
+import { NoDocumentChip } from '../../components/PersonMarks';
 import { ApiFailure } from '../../api/client';
 import { AnswerList } from './AnswerList';
 import { ApplicationTimeline } from './ApplicationTimeline';
@@ -166,6 +167,7 @@ function Detail() {
           <dd>
             <Stack direction="row" gap={1} wrap>
               <Chip tone={stateTone(a.status)}>{status}</Chip>
+              {a.hasDocument === false ? <NoDocumentChip /> : null}
               <SyncBadge sync={a.sync} />
             </Stack>
           </dd>
@@ -222,7 +224,7 @@ function Detail() {
         </Card>
       ) : null}
       <Card title={t('detail.answers')} headingLevel={2}>
-        <AnswerList form={a.form} answers={a.answers} />
+        <AnswerList form={a.form} answers={a.answers} throughVolunteer={a.hasMobile === false} />
       </Card>
       {a.local ? null : (
         <Card title={t('detail.timeline')} headingLevel={2}>

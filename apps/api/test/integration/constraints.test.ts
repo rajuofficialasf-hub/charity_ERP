@@ -199,6 +199,22 @@ describe('beneficiary identity', () => {
   });
 });
 
+describe('the flags of an entry that waits for verification', () => {
+  it('take the match with a blocked person beside the earlier reasons, and no other word', async () => {
+    const p = await f.project(db);
+    const flagged = (flags: string[]) =>
+      f.application(db, { project: p, loc }, { status: 'needs_verification', flags });
+    const id = await flagged(['public_entry', 'blocked_name_match']);
+    const stored = await db.query('SELECT flags FROM applications WHERE id = $1', [id]);
+    expect(stored.rows).toEqual([{ flags: ['public_entry', 'blocked_name_match'] }]);
+    await expectSqlError(
+      flagged(['blocked_person']),
+      SQLSTATE.checkViolation,
+      /applications_flags_check/,
+    );
+  });
+});
+
 describe('BEN numbers and duplicate dismissals', () => {
   const benNo = async (id: string) =>
     (await db.query('SELECT ben_no FROM beneficiaries WHERE id = $1', [id])).rows[0]

@@ -13,6 +13,7 @@ import {
 } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
+import { Link } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
@@ -52,8 +53,10 @@ async function allVolunteers(projectId: string) {
  * The verification of a public or offline entry: the entry's number is looked up now, through the
  * audited lookup. A profile that holds it is shown with the lookup's own fields (never the whole
  * profile) and the entry is linked to it; without one a new profile is made from the entry; a
- * blocked person's entry can only be refused, which the record's own button does. Either way the
- * application may take a volunteer of the project as its owner, or stay the office's.
+ * blocked person's entry can only be refused, which the record's own button does. An entry without
+ * a number that looks like a blocked person names that person's profile, so the official compares
+ * the two before making a new profile. Either way the application may take a volunteer of the
+ * project as its owner, or stay the office's.
  */
 export function VerifyDialog({
   application: a,
@@ -67,8 +70,10 @@ export function VerifyDialog({
   onDone: (action: 'verify_link' | 'verify_create') => Promise<unknown> | void;
 }) {
   const t = useTranslations('applications.office.verify');
+  const ts = useTranslations('applications.office.signals');
   const tc = useTranslations('common');
   const number = numberOf(a);
+  const blockedMatch = a.flags.includes('blocked_name_match');
   const form = useForm<VerifyFields>({
     resolver: useSchemaResolver(VERIFY_SCHEMA),
     defaultValues: { ownerVolunteerId: '' },
@@ -156,6 +161,22 @@ export function VerifyDialog({
                 { label: t('father'), value: found.fatherOrHusbandName },
               ]}
             />
+          </>
+        ) : blockedMatch ? (
+          <>
+            <Alert
+              tone="error"
+              action={
+                a.candidateBeneficiaryId ? (
+                  <Link to={`/admin/beneficiaries/${a.candidateBeneficiaryId}`}>
+                    {t('blocked_profile')}
+                  </Link>
+                ) : undefined
+              }
+            >
+              {ts('flag.blocked_name_match')}
+            </Alert>
+            <Text tone="muted">{t('create_other_help')}</Text>
           </>
         ) : (
           <Text tone="muted">{t('create_help')}</Text>

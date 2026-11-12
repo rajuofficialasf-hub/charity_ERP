@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
+import { ThroughVolunteerChip } from '../../../components/PersonMarks';
 import { ApiFailure } from '../../../api/client';
 import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
@@ -204,7 +205,9 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
                   ...('fatherOrHusbandName' in p
                     ? [{ label: t('column.father'), value: p.fatherOrHusbandName }]
                     : []),
-                  ...('mobile' in p ? [{ label: t('profile.mobile'), value: p.mobile }] : []),
+                  ...('mobile' in p
+                    ? [{ label: t('profile.mobile'), value: p.mobile ?? <ThroughVolunteerChip /> }]
+                    : []),
                   ...('nid' in p
                     ? [{ label: t('profile.nid'), value: p.nid ?? p.birthReg ?? t('none') }]
                     : []),

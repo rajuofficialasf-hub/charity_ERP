@@ -100,7 +100,8 @@
       "approved": "Approved on",
       "reviewed": "Reviewed on",
       "application": "Application details",
-      "comment": "Decision comment"
+      "comment": "Decision comment",
+      "document": "Identity document"
     }
   },
   "dialog": {

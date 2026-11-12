@@ -393,7 +393,7 @@ describe('reading the form', () => {
     expect(new Set(text.match(UUID) ?? [])).toEqual(new Set([p.formId, p.versionId]));
   });
 
-  it('says whether the project requires the identity document, and refuses an entry without a number either way', async () => {
+  it('says whether the project requires the identity document, takes an entry without a number only where it does not, and always asks the mobile', async () => {
     /** The stored application form settings of a project, changed as its PM's choice would. */
     const setDocument = (projectId: string, to: 'required' | 'optional' | null) =>
       h.db.query(
@@ -420,22 +420,43 @@ describe('reading the form', () => {
       applyTo: '2099-12-31',
       identityDocument: 'optional',
     });
-    // the read tells the page how to mark the question; the entry itself still needs its number
     const refused = async () => {
       const res = await submit(token, withoutNumber());
       expect(res.status).toBe(422);
       expect(res.body.error.code).toBe('validation.failed');
       expect(res.body.error.details).toEqual([detail('nid_or_birth_reg', 'validation.required')]);
     };
-    await refused();
+    // where the document is asked "if they have one", the entry waits for verification without it
+    const taken = await submit(token, withoutNumber());
+    expect(taken.status, JSON.stringify(taken.body)).toBe(201);
+    expect(taken.body.data.status).toBe('needs_verification');
+    const stored = await h.db.query(
+      'SELECT flags, beneficiary_id, candidate_beneficiary_id, identity_kind FROM applications WHERE id = $1',
+      [taken.body.data.id],
+    );
+    expect(stored.rows).toEqual([
+      {
+        flags: ['public_entry'],
+        beneficiary_id: null,
+        candidate_beneficiary_id: null,
+        identity_kind: null,
+      },
+    ]);
 
+    // the rule is the project's own, read at the entry: a body that claims another one changes nothing
     await setDocument(p.id, 'required');
     expect((await asked()).identityDocument).toBe('required');
     await refused();
+    const claimed = await submit(token, {
+      ...withoutNumber(),
+      identityRules: { document: 'optional' },
+    });
+    expect(claimed.status).toBe(422);
 
     // a project that never chose reads as required
     await setDocument(p.id, null);
     expect((await asked()).identityDocument).toBe('required');
+    await refused();
     await setDocument(p.id, 'optional');
     expect((await asked()).identityDocument).toBe('optional');
 
@@ -448,8 +469,66 @@ describe('reading the form', () => {
     });
     expect(noMobile.status).toBe(422);
     expect(noMobile.body.error.details).toEqual([detail('mobile', 'validation.required')]);
-    const rows = await h.db.query(`SELECT 1 FROM applications WHERE project_id = $1`, [p.id]);
-    expect(rows.rows).toEqual([]);
+    // also where the project lets a volunteer's entry leave the mobile out
+    await h.db.query(
+      `UPDATE project_components SET settings = settings || '{"mobile":"optional"}'::jsonb
+        WHERE project_id = $1 AND component_key = 'application_form'`,
+      [p.id],
+    );
+    const stillNoMobile = await submit(token, {
+      clientUuid: randomUUID(),
+      answers: answers().filter((a) => a.fieldKey !== 'mobile'),
+    });
+    expect(stillNoMobile.status).toBe(422);
+    expect(stillNoMobile.body.error.details).toEqual([detail('mobile', 'validation.required')]);
+    const rows = await h.db.query(`SELECT id FROM applications WHERE project_id = $1`, [p.id]);
+    expect(rows.rows).toEqual([{ id: taken.body.data.id }]);
+  });
+
+  it('flags an entry without a number whose person looks like a blocked one, and tells the applicant nothing', async () => {
+    const p = await project();
+    const { token } = await enabled(p.id, p.formId);
+    const blocked = await beneficiary(h.db, loc, {
+      name: 'আব্দুল খালেক',
+      father_or_husband_name: 'আব্দুল মালেক',
+      village: 'পূর্ব পাড়া',
+      is_blocked: true,
+    });
+    const person = (village: string) => ({
+      clientUuid: randomUUID(),
+      answers: answers()
+        .filter(
+          (a) =>
+            !['nid_or_birth_reg', 'name', 'father_or_husband_name', 'village'].includes(a.fieldKey),
+        )
+        .concat([
+          answer('name', { t: 'short_text', v: 'আব্দুল খালেক' }),
+          answer('father_or_husband_name', { t: 'short_text', v: 'আব্দুল মালেক' }),
+          answer('village', { t: 'short_text', v: village }),
+        ]),
+    });
+    const plain = await submit(token, submission());
+    const same = await submit(token, person('পূর্ব পাড়া'));
+    expect(same.status, JSON.stringify(same.body)).toBe(201);
+    // the applicant reads the same answer as anyone
+    expect({ ...same.body.data, id: '' }).toEqual({ ...plain.body.data, id: '' });
+    const row = async (id: string) =>
+      (
+        await h.db.query('SELECT flags, candidate_beneficiary_id FROM applications WHERE id = $1', [
+          id,
+        ])
+      ).rows[0];
+    expect(await row(same.body.data.id)).toEqual({
+      flags: ['public_entry', 'blocked_name_match'],
+      candidate_beneficiary_id: blocked,
+    });
+    // a namesake of another village is nobody's match
+    const other = await submit(token, person('পশ্চিম পাড়া'));
+    expect(other.status).toBe(201);
+    expect(await row(other.body.data.id)).toEqual({
+      flags: ['public_entry'],
+      candidate_beneficiary_id: null,
+    });
   });
 });
 

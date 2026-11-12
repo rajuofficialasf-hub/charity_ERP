@@ -138,6 +138,7 @@ export class ExportRecords {
       postOffice: p.postOffice,
       postCode: p.postCode,
       mobile: p.mobile,
+      hasDocument: p.hasDocument,
       nid: p.nid,
       birthReg: p.birthReg,
       familyMembers: p.familyMembers,

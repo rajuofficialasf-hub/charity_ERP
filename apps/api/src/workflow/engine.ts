@@ -14,6 +14,7 @@ import type { Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { ApplicationEvents } from '../notifications/application-events.js';
+import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
 import { z } from 'zod';
 import { readEffects, type SideEffect, type SideEffectRunner } from './effects.js';
 import { type EngineApplication, GuardContext, type GuardInput, GUARDS } from './guards.js';
@@ -44,6 +45,7 @@ const APPLICATION_SELECT = {
       perVolunteerLimit: true,
       workflowSnapshot: true,
       workflowDefinition: { select: { key: true, definition: true } },
+      ...IDENTITY_RULES_SELECT,
     },
   },
 } as const;
@@ -152,6 +154,7 @@ export class WorkflowEngine {
         applyTo: row.project.applyTo,
         perVolunteerLimit: row.project.perVolunteerLimit,
         approval: approvalOf(definition, permission),
+        identityRules: identityRulesOf(row.project),
       },
     };
 

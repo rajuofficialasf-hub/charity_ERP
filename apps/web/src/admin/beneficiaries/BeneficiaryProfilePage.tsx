@@ -20,6 +20,7 @@ import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { NoDocumentChip, ThroughVolunteerChip } from '../../components/PersonMarks';
 import { PersonBanner } from '../../components/PersonPhoto';
 import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
@@ -231,6 +232,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
               {t(`status.${p.status as 'active'}`)}
             </Chip>
             {p.isBlocked && <Chip tone="error">{t('blocked')}</Chip>}
+            {p.hasDocument === false && <NoDocumentChip />}
           </>
         }
         facts={facts}
@@ -288,8 +290,18 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
                 ...optional('ageYears', tp('age'), p.ageYears ?? empty),
                 ...optional('classCode', t('column.type'), typeLabel(p.classCode)),
                 ...optional('occupationCode', tp('occupation'), p.occupationCode ?? empty),
-                ...optional('mobile', tp('mobile'), p.mobile),
-                { label: tp('nid'), value: 'nid' in p ? (identity ?? empty) : hidden },
+                ...optional('mobile', tp('mobile'), p.mobile ?? <ThroughVolunteerChip />),
+                {
+                  label: tp('nid'),
+                  value:
+                    p.hasDocument === false ? (
+                      <NoDocumentChip />
+                    ) : 'nid' in p ? (
+                      (identity ?? empty)
+                    ) : (
+                      hidden
+                    ),
+                },
               ]}
             />
           </ProfileSection>
@@ -417,6 +429,11 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
         </Stack>
 
         <aside className="admin-profile-side">
+          {p.mobile === null && (
+            <ProfileSection title={tp('contact')} icon="phone">
+              <ThroughVolunteerChip />
+            </ProfileSection>
+          )}
           {p.mobile && (
             <ProfileSection title={tp('contact')} icon="phone">
               <ContactList

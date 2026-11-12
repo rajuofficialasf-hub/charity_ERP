@@ -17,6 +17,7 @@ import {
   type StatFilterItem,
   type DataTableExtendedColumn,
 } from '@/ui';
+import { NoDocumentChip, ThroughVolunteerChip } from '../../components/PersonMarks';
 import { PhotoPersonCell } from '../../components/PersonPhoto';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -208,6 +209,8 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
         {t(`status.${r.status as 'active'}`)}
       </Chip>
       {r.isBlocked && <Chip tone="error">{t('blocked')}</Chip>}
+      {r.hasDocument === false && <NoDocumentChip />}
+      {r.mobile === null && <ThroughVolunteerChip />}
     </span>
   );
   const actions = (r: BeneficiaryRow) => (

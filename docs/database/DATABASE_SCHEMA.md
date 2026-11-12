@@ -953,7 +953,7 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | status | text | no | 'draft' | L-app-status |
 | stage | text | yes | — | template stage key (validated by the engine) |
 | outcome | text | yes | — | template outcome code |
-| flags | text[] | no | '{}' | needs-verification reasons: existing_identity, late_sync, stale_form_version, public_entry, identity_blocked, identity_repeated (the last two set by the public link, O-08) |
+| flags | text[] | no | '{}' | needs-verification reasons: existing_identity, late_sync, stale_form_version, public_entry, identity_blocked, identity_repeated (the last two set by the public link, O-08), blocked_name_match (a person without a document who looks like a blocked profile, D-172, migration `20261112180000_application_blocked_match_flag`; CHECK `applications_flags_check`) |
 | total_score | numeric(5,2) | yes | — | CHECK 0–100; the priority score beside its breakdown in application_scores, so the office's list pages by score (index `(project_id, total_score DESC, id DESC)`); null for a form without points or before the application reaches the office (D-132) |
 | waitlisted_at | timestamptz | yes | — | when the application entered the waitlist; the pull takes the highest score, then the earliest (partial index on waitlisted rows) |
 | region_location_id | uuid | no | — | FK locations (division of the beneficiary address, for scope filters) |

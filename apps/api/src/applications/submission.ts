@@ -11,6 +11,7 @@ import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiaryContactService } from '../services/beneficiary-contact.js';
 import type { BeneficiaryIdentityService, NewProfile } from '../services/beneficiary-identity.js';
 import { readDefinition } from '../services/forms.js';
+import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
 import { readAnswers } from './answers.js';
 
 /** The contact columns an application's answers may change on a known person's profile. */
@@ -33,12 +34,21 @@ const text = (standard: Record<string, unknown>, column: string): string | undef
   return typeof value === 'string' && value !== '' ? value : undefined;
 };
 
+/** The standard columns of an application's answers, as the official definition reads them. */
+export async function standardOf(tx: Tx, applicationId: string, formVersionId: string) {
+  const definition = await readDefinition(tx, formVersionId, 'official');
+  const { standard } = split(definition, await readAnswers(tx, applicationId, definition));
+  return { definition, standard };
+}
+
 /**
  * What a submission adds to an application around the engine's move: with it, the person (the
- * live profile behind the number when one exists by now, else a profile created from the answers),
- * since a submitted application always has its person, and a known person's new mobile or
- * address written to the profile with its change log when the submitter may edit that profile's
- * contact data (otherwise the application keeps the new values for the office to see); after it,
+ * live profile behind the number when one exists by now, else a profile created from the answers;
+ * without a number, where the project asks the document only "if they have one", a profile
+ * without a document), since a submitted application always has its person, and a known person's
+ * new mobile or address written to the profile with its change log when the submitter may edit
+ * that profile's contact data (otherwise the application keeps the new values for the office to
+ * see); after it,
  * the number of the project in the order the office receives the applications
  * (`<code>-<year>-<5 digits>`). Both run in the move's transaction, so a refused move leaves
  * neither behind.
@@ -55,42 +65,61 @@ export class SubmissionWriter {
     tx: Tx,
     actor: Principal,
     applicationId: string,
-    options: { writeContact?: boolean; ownerUserId?: string } = {},
+    options: {
+      writeContact?: boolean;
+      ownerUserId?: string;
+      /**
+       * The live profile an official linked an entry without a number to; an entry with a number
+       * is bound by that number and this is not read.
+       */
+      linkBeneficiaryId?: string;
+    } = {},
   ): Promise<Prisma.ApplicationUncheckedUpdateInput> {
     const row = await tx.application.findUniqueOrThrow({
       where: { id: applicationId },
       select: {
         id: true,
+        projectId: true,
         formVersionId: true,
         beneficiaryId: true,
         identityKind: true,
         createdByUserId: true,
         ownerVolunteer: { select: { userId: true } },
+        // the project's own rule, read in the move's transaction
+        project: { select: IDENTITY_RULES_SELECT },
       },
     });
-    const definition = await readDefinition(tx, row.formVersionId, 'official');
-    const { standard } = split(definition, await readAnswers(tx, applicationId, definition));
+    const rules = identityRulesOf(row.project);
+    const { definition, standard } = await standardOf(tx, applicationId, row.formVersionId);
+    const nid = text(standard, 'nid');
+    const birthReg = text(standard, 'birth_reg');
+    const number = nid ?? birthReg;
     let { beneficiaryId, identityKind } = row;
     let profileCreated = false;
-    if (!beneficiaryId) {
-      const nid = text(standard, 'nid');
-      const birthReg = text(standard, 'birth_reg');
-      // without a number there is no profile to make; the engine's identity guard refuses the move
-      if (!nid && !birthReg) return {};
+    if (!beneficiaryId && number) {
       // a profile for the number may exist by now (another application, a public entry): it is
       // bound like a lookup would, never refused as a duplicate of itself
-      const number = nid ?? birthReg!;
       const live = await this.liveProfile(tx, number);
       if (live) {
         await this.identity.assertMayApply(tx, live);
         beneficiaryId = live;
         identityKind = identityColumn(number);
       }
+    } else if (!beneficiaryId && options.linkBeneficiaryId) {
+      // a blocked person stays refused here, as on every new application
+      await this.identity.assertMayApply(tx, options.linkBeneficiaryId);
+      beneficiaryId = options.linkBeneficiaryId;
+      identityKind = 'none';
+    } else if (!beneficiaryId && rules.document !== 'optional') {
+      // without a number there is no profile to make; the engine's identity guard refuses the move
+      return {};
     }
     if (!beneficiaryId) {
-      const nid = text(standard, 'nid');
-      const birthReg = text(standard, 'birth_reg');
-      const mobile = text(standard, 'mobile') ?? '';
+      const mobile = text(standard, 'mobile');
+      // a person without a number of their own is reached through the volunteer, where the
+      // project allows it; elsewhere a profile needs its mobile as before
+      if (!mobile && rules.mobile !== 'optional')
+        throw new ApiError('validation.mobile_format', 422);
       // the creating team member's own mobile is refused as the person's, like the owner's (one
       // chosen at a verification too, which the row does not hold yet)
       const volunteers = [row.createdByUserId, options.ownerUserId].filter((id): id is string =>
@@ -107,7 +136,7 @@ export class SubmissionWriter {
         name: text(standard, 'name') ?? '',
         fatherOrHusbandName: text(standard, 'father_or_husband_name') ?? '',
         motherName: text(standard, 'mother_name'),
-        mobile,
+        ...(mobile ? { mobile } : {}),
         genderCode: text(standard, 'gender_code') ?? '',
         dob: dob ? new Date(dob) : undefined,
         ageYears: typeof standard.age_years === 'number' ? standard.age_years : undefined,
@@ -120,15 +149,27 @@ export class SubmissionWriter {
         postCode: text(standard, 'post_code'),
         landmark: text(standard, 'landmark'),
         ownerUserId: options.ownerUserId ?? row.ownerVolunteer?.userId,
+        documentOptional: rules.document === 'optional',
       } satisfies NewProfile);
       beneficiaryId = profile.id;
-      identityKind = nid ? 'nid' : 'birth_reg';
+      identityKind = nid ? 'nid' : birthReg ? 'birth_reg' : 'none';
       profileCreated = true;
+      // who made the profile, on which project and under which rule: a profile without a document
+      // has no number to trace it by
       await this.audit.record(tx, {
         action: 'beneficiary.create',
         entityType: 'beneficiary',
         entityId: profile.id,
-        new: { benNo: profile.benNo, applicationId },
+        new: {
+          benNo: profile.benNo,
+          applicationId,
+          projectId: row.projectId,
+          identityDocument: rules.document,
+          mobileRule: rules.mobile,
+          document: identityKind,
+          hasMobile: Boolean(mobile),
+          madeBy: actor.userId,
+        },
       });
     } else if (
       options.writeContact !== false &&
@@ -153,16 +194,21 @@ export class SubmissionWriter {
     return { beneficiaryId, identityKind };
   }
 
-  /** The live profile behind the identity number of the application's answers, or null. */
-  async identityHolder(tx: Tx, applicationId: string): Promise<string | null> {
+  /**
+   * The identity number of the application's answers with the live profile behind it; both null
+   * for an entry without a number.
+   */
+  async identityHolder(
+    tx: Tx,
+    applicationId: string,
+  ): Promise<{ number: string | null; holder: string | null }> {
     const row = await tx.application.findUniqueOrThrow({
       where: { id: applicationId },
       select: { formVersionId: true },
     });
-    const definition = await readDefinition(tx, row.formVersionId, 'official');
-    const { standard } = split(definition, await readAnswers(tx, applicationId, definition));
-    const number = text(standard, 'nid') ?? text(standard, 'birth_reg');
-    return number ? this.liveProfile(tx, number) : null;
+    const { standard } = await standardOf(tx, applicationId, row.formVersionId);
+    const number = text(standard, 'nid') ?? text(standard, 'birth_reg') ?? null;
+    return { number, holder: number ? await this.liveProfile(tx, number) : null };
   }
 
   /** The live profile holding the number, through a retired profile's chain, or null. */

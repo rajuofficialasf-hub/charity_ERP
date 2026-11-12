@@ -47,7 +47,8 @@ export interface NewProfile {
   name: string;
   fatherOrHusbandName: string;
   motherName?: string;
-  mobile: string;
+  /** None where the person has no number of their own: the volunteer is the contact. */
+  mobile?: string;
   genderCode: string;
   dob?: Date;
   ageYears?: number;
@@ -61,6 +62,38 @@ export interface NewProfile {
   landmark?: string;
   /** The volunteer the application belongs to, when another person enters it. */
   ownerUserId?: string;
+  /**
+   * The project asks the identity document only "if they have one": the profile may then be made
+   * with neither number. Without it a profile needs one, as every profile did.
+   */
+  documentOptional?: boolean;
+}
+
+/** What a person without a document is compared by: the names and the village inside one union. */
+export interface PersonKeys {
+  name: string;
+  fatherOrHusbandName: string;
+  unionId: string;
+  village: string;
+}
+
+/**
+ * The comparison keys of the person an application's standard columns describe, or null when one
+ * of them is missing: a comparison on a missing part would match people it knows nothing about.
+ */
+export function personKeysOf(standard: Record<string, unknown>): PersonKeys | null {
+  const columns = new Map(Object.entries(standard));
+  const text = (column: string) => {
+    const value = columns.get(column);
+    return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+  };
+  const name = text('name');
+  const fatherOrHusbandName = text('father_or_husband_name');
+  const unionId = text('union_id');
+  const village = text('village');
+  return name && fatherOrHusbandName && unionId && village
+    ? { name, fatherOrHusbandName, unionId, village }
+    : null;
 }
 
 export interface ProfileWarning {
@@ -258,6 +291,25 @@ export class BeneficiaryIdentityService {
   }
 
   /**
+   * The blocked live profile a person without a document looks like: the same union, and the same
+   * name, father's or husband's name and village as `person_name_key` reads them. Such a person
+   * gets no new profile by themselves; an official compares the two first. Null when nobody on the
+   * block list matches. The one place this comparison is made.
+   */
+  async blockedNamesake(db: Tx, person: PersonKeys): Promise<string | null> {
+    const rows = await db.$queryRaw<{ id: string }[]>`
+      SELECT b.id FROM beneficiaries b
+      WHERE b.is_blocked AND b.merged_into_id IS NULL
+        AND b.union_id = ${person.unionId}::uuid
+        AND person_name_key(b.name) = person_name_key(${person.name})
+        AND person_name_key(b.father_or_husband_name) = person_name_key(${person.fatherOrHusbandName})
+        AND person_name_key(b.village) = person_name_key(${person.village})
+      ORDER BY b.ben_no
+      LIMIT 1`;
+    return rows[0]?.id ?? null;
+  }
+
+  /**
    * Refuses a mobile that belongs to the volunteer entering the profile, or to the volunteer an
    * application belongs to; the database refuses the same on every application as well.
    */
@@ -345,22 +397,28 @@ export class BeneficiaryIdentityService {
   }
 
   /**
-   * Creates a profile inside the caller's transaction: at least one valid identity number that no
-   * other profile holds, a mobile that is not the volunteer's own, and a warning when another
-   * profile has the same mobile. The BEN number comes from its sequence.
+   * Creates a profile inside the caller's transaction: a valid identity number that no other
+   * profile holds, or none where the project asks the document only "if they have one"; a mobile,
+   * when one is given, that is not the volunteer's own, with a warning when another profile has
+   * the same one. The BEN number comes from its sequence.
    */
   async createProfile(tx: Tx, actor: Principal, input: NewProfile) {
-    const { nid, birthReg } = input;
-    if (!nid && !birthReg) throw new ApiError('beneficiary.identity_missing', 422);
+    const { nid, birthReg, mobile } = input;
+    if (!nid && !birthReg && !input.documentOptional)
+      throw new ApiError('beneficiary.identity_missing', 422);
     if (nid !== undefined && !isNidNumber(nid)) throw new ApiError('validation.nid_format', 422);
     if (birthReg !== undefined && !isBirthRegNumber(birthReg))
       throw new ApiError('validation.birth_reg_format', 422);
     // one spelling of a mobile, so the comparison with a volunteer's own number cannot be dodged
-    if (!MOBILE_PATTERN.test(input.mobile)) throw new ApiError('validation.mobile_format', 422);
-    const holder = await tx.beneficiary.findFirst({
-      where: { OR: [...(nid ? [{ nid }] : []), ...(birthReg ? [{ birthReg }] : [])] },
-      select: { id: true, nid: true },
-    });
+    if (mobile !== undefined && !MOBILE_PATTERN.test(mobile))
+      throw new ApiError('validation.mobile_format', 422);
+    const holder =
+      nid || birthReg
+        ? await tx.beneficiary.findFirst({
+            where: { OR: [...(nid ? [{ nid }] : []), ...(birthReg ? [{ birthReg }] : [])] },
+            select: { id: true, nid: true },
+          })
+        : null;
     if (holder)
       throw await this.identityTaken(
         tx,
@@ -368,11 +426,13 @@ export class BeneficiaryIdentityService {
         holder.id,
         nid && holder.nid === nid ? 'nid' : 'birthReg',
       );
-    await this.assertNotVolunteerMobile(tx, input.mobile, [
-      actor.userId,
-      ...(input.ownerUserId ? [input.ownerUserId] : []),
-    ]);
-    const warnings = await this.sharedMobile(tx, actor, input.mobile);
+    // a person without a number shares none: neither the own-mobile rule nor the warning applies
+    if (mobile !== undefined)
+      await this.assertNotVolunteerMobile(tx, mobile, [
+        actor.userId,
+        ...(input.ownerUserId ? [input.ownerUserId] : []),
+      ]);
+    const warnings = mobile !== undefined ? await this.sharedMobile(tx, actor, mobile) : [];
     try {
       // an explicit insert: the reference-list columns are generated by the database, and Prisma
       // would send their schema default
@@ -381,7 +441,7 @@ export class BeneficiaryIdentityService {
           mobile, gender_code, dob, age_years, division_id, district_id, upazila_id, union_id,
           village, post_office, post_code, landmark, created_by, updated_by)
         VALUES (${uuidv7()}::uuid, ${nid ?? null}, ${birthReg ?? null}, ${input.name},
-          ${input.fatherOrHusbandName}, ${input.motherName ?? null}, ${input.mobile},
+          ${input.fatherOrHusbandName}, ${input.motherName ?? null}, ${mobile ?? null},
           ${input.genderCode}, ${input.dob ?? null}::date, ${input.ageYears ?? null}::smallint,
           ${input.divisionId}::uuid, ${input.districtId}::uuid, ${input.upazilaId}::uuid,
           ${input.unionId}::uuid, ${input.village}, ${input.postOffice ?? null},

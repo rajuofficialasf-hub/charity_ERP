@@ -94,7 +94,7 @@ permission_sets:
 # global_scope roles (department_head, monitoring_team) are always included.
 sensitive_fields:
   - key: beneficiary.nid
-    fields: [beneficiaries.nid, beneficiaries.birth_reg, "files where kind = nid_photo (beneficiary)"]
+    fields: [beneficiaries.nid, beneficiaries.birth_reg, "files where kind = nid_photo (beneficiary)", "hasDocument (whether an NID or a birth registration number is on file; told with the class alone, the numbers themselves only inside the beneficiary.view_nid scope; D-172)"]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
     source: "B8: NID number and photo visible to all official staff who do project work, never to volunteers, Media, Finance, Procurement"
   - key: beneficiary.contact

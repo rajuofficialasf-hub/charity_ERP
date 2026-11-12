@@ -323,6 +323,68 @@ describe('the creation of a profile', () => {
     expect(none).toMatchObject({ code: 'beneficiary.identity_missing', status: 422 });
   });
 
+  it('makes a profile with neither number only where the project lets the document be left out', async () => {
+    const without = { nid: undefined, name: 'পরিচয়পত্র ছাড়া একজন' };
+    const refused = await refusal(create(world.users.rpmDhaka, without));
+    expect(refused).toMatchObject({ code: 'beneficiary.identity_missing', status: 422 });
+    const made = await create(world.users.rpmDhaka, { ...without, documentOptional: true });
+    expect(await row(made.id)).toMatchObject({ nid: null, birth_reg: null });
+    expect(made.benNo).toBeGreaterThan(0);
+    // a number that is given is still checked and still unique
+    const bad = await refusal(
+      create(world.users.rpmDhaka, { nid: '12345', documentOptional: true }),
+    );
+    expect(bad).toMatchObject({ code: 'validation.nid_format', status: 422 });
+  });
+
+  it('makes a profile without a mobile, which shares its missing number with nobody', async () => {
+    const first = await create(world.users.rpmDhaka, { mobile: undefined });
+    const second = await create(world.users.rpmDhaka, { mobile: undefined });
+    expect(first.warnings).toEqual([]);
+    expect(second.warnings).toEqual([]);
+    expect((await row(second.id)).mobile).toBeNull();
+    // a volunteer makes one too: with no number there is none of their own to refuse
+    const byVolunteer = await create(world.users.general, {
+      mobile: undefined,
+      ownerUserId: world.users.general,
+    });
+    expect((await row(byVolunteer.id)).mobile).toBeNull();
+    // an empty mobile is no missing one: it is a number in a wrong shape
+    const empty = await refusal(create(world.users.rpmDhaka, { mobile: '' }));
+    expect(empty).toMatchObject({ code: 'validation.mobile_format', status: 422 });
+  });
+
+  it('finds the blocked profile a person looks like by name, father and village inside the union, and nobody else', async () => {
+    const keys = {
+      name: 'ব্লক করা নাম',
+      fatherOrHusbandName: 'ব্লক করা পিতা',
+      unionId: world.dhaka.union,
+      village: 'ব্লক গ্রাম',
+    };
+    const columns = {
+      name: keys.name,
+      father_or_husband_name: keys.fatherOrHusbandName,
+      village: keys.village,
+    };
+    const blocked = await person(world.dhaka, { ...columns, is_blocked: true });
+    // the same person, not blocked, in the same village; a blocked namesake in another union
+    await person(world.dhaka, columns);
+    await person(world.rangpur, { ...columns, is_blocked: true });
+    const namesake = (over: Partial<typeof keys> = {}) =>
+      h.container.beneficiaryIdentity.blockedNamesake(h.container.prisma, { ...keys, ...over });
+    expect(await namesake()).toBe(blocked);
+    // spaces are no difference, as the name key reads them
+    expect(await namesake({ name: ' ব্লক  করা নাম ', village: 'ব্লক  গ্রাম' })).toBe(blocked);
+    expect(await namesake({ village: 'অন্য গ্রাম' })).toBeNull();
+    expect(await namesake({ fatherOrHusbandName: 'অন্য পিতা' })).toBeNull();
+    expect(await namesake({ name: 'অন্য নাম' })).toBeNull();
+    // a retired profile is no longer the person's own
+    const kept = await person(world.dhaka);
+    await retire(blocked, kept);
+    expect(await namesake()).toBeNull();
+    await h.db.query('UPDATE beneficiaries SET merged_into_id = NULL WHERE id = $1', [blocked]);
+  });
+
   it("refuses the caller's own mobile and the owner volunteer's mobile", async () => {
     const own = accounts.get(world.users.general)!.mobile;
     const e = await refusal(create(world.users.general, { mobile: own }));
