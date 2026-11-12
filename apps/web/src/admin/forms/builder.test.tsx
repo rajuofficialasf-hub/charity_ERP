@@ -212,14 +212,21 @@ const open = (locale: 'bn' | 'en' = 'bn') =>
     initialPath: `/admin/projects/${PROJECT}/forms/${FORM}`,
   });
 
+/** What the page asked to bring into view (jsdom has no scrolling of its own). */
+let scrolled: Element[];
 beforeEach(() => {
   // each test signs in afresh, so a role set by one never carries into the next
   resetClientForTests();
   refreshAs({ ...ME, roles: ['monitoring_team'] });
+  scrolled = [];
+  Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
+    scrolled.push(this);
+  };
 });
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
 });
 
 /** The canvas's list of a section's questions. */
@@ -236,16 +243,6 @@ const openGroup = async (user: ReturnType<typeof userEvent.setup>, title: string
   const heading = await screen.findByRole('button', { name: new RegExp(`^${title}`) });
   if (heading.getAttribute('aria-expanded') === 'false') await user.click(heading);
 };
-/** Picks an option of a select of the set, found by its label. */
-async function choose(
-  user: ReturnType<typeof userEvent.setup>,
-  label: RegExp,
-  optionName: string | RegExp,
-  scope: ReturnType<typeof within> | typeof screen = screen,
-) {
-  await user.click(scope.getByRole('combobox', { name: label }));
-  await user.click(await screen.findByRole('option', { name: optionName }));
-}
 /**
  * The waits of the save on a clock the test moves by hand. The library's own waiting helpers
  * lean on the same clock, so with it the screen is given its turns here, and presses are plain
@@ -304,6 +301,18 @@ const withNote = (): FormDefinition['sections'] => [
     title: T('অতিরিক্ত', 'Extra'),
   }),
 ];
+/** The key every new and every copied question takes: random, never a word of its text. */
+const RANDOM_KEY = /^q_[a-z0-9]{6}$/;
+/** The questions of a part in the last saved draft. */
+const savedFields = (sectionKey: string) =>
+  saves.at(-1)?.body.sections.find((s) => s.key === sectionKey)?.fields ?? [];
+/** The Bengali text of the chosen question or part, in the settings pane. */
+const bnText = () => screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
+/** The names of the questions of a part, in the order of the canvas. */
+const questionsOf = async (title: string) =>
+  (await outlineOf(title))
+    .getAllByRole('button', { name: / বদলান$/ })
+    .map((b) => b.getAttribute('aria-label'));
 /** The field of the last saved draft. */
 const savedField = (key: string) =>
   saves
@@ -423,11 +432,10 @@ describe('the outline and the libraries', () => {
     expect(list.getAllByRole('listitem')).toHaveLength(2);
     expect(list.getByRole('button', { name: 'মন্তব্য (কপি) বদলান' })).toBeInTheDocument();
     await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
-    const keys = saves
-      .at(-1)!
-      .body.sections.find((s) => s.key === 'extra')!
-      .fields.map((f) => f.fieldKey);
-    expect(keys).toEqual(['q_note', 'q_note_copy']);
+    const keys = savedFields('extra').map((f) => f.fieldKey);
+    // the copy's key is its own, and no word of the copied question's key or text
+    expect(keys).toEqual(['q_note', expect.stringMatching(RANDOM_KEY)]);
+    expect(keys[1]).not.toContain('note');
   }, 15_000);
 
   it('finds a library field by its label', async () => {
@@ -480,7 +488,7 @@ describe('the outline and the libraries', () => {
     expect(items[2]).toHaveTextContent('হিসাবের নিয়ম দিন');
   });
 
-  it("takes a question into a group's rows from the group's own button", async () => {
+  it("takes a question into a group's rows from the types the group's own button opens", async () => {
     const user = userEvent.setup();
     api({
       sections: [
@@ -494,22 +502,38 @@ describe('the outline and the libraries', () => {
     });
     open();
     await user.click(await screen.findByRole('button', { name: 'সারিতে প্রশ্ন যোগ করুন' }));
-    await user.click(screen.getByRole('button', { name: 'সংখ্যা প্রশ্ন যোগ করুন' }));
-    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
-    expect(within(dialog).getByRole('combobox', { name: /কোন তালিকার সারিতে/ })).toHaveTextContent(
-      'পরিবারের সদস্যরা',
+    const menu = within(await screen.findByRole('menu', { name: 'সারিতে প্রশ্ন যোগ করুন' }));
+    // a list holds no list and no number table, so the rows are offered neither
+    expect(menu.queryByRole('menuitem', { name: 'কয়েকজনের তালিকা' })).not.toBeInTheDocument();
+    expect(menu.queryByRole('menuitem', { name: 'সংখ্যার ছক' })).not.toBeInTheDocument();
+    await user.click(menu.getByRole('menuitem', { name: 'সংখ্যা' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    const rows = within(
+      await screen.findByRole('list', { name: 'পরিবারের সদস্যরা: প্রতিটি সারির প্রশ্ন' }),
     );
-    await user.type(within(dialog).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'বয়স');
-    await user.type(within(dialog).getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }), 'Age');
-    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
-    expect(
-      within(
-        await screen.findByRole('list', { name: 'পরিবারের সদস্যরা: প্রতিটি সারির প্রশ্ন' }),
-      ).getByRole('button', { name: 'বয়স বদলান' }),
-    ).toBeInTheDocument();
-    await waitFor(() => expect(savedField('q_age')).toBeDefined(), { timeout: 4000 });
-    expect(savedField('q_age')!.settings).toEqual({ repeat: { group: 'members' } });
-  }, 15_000);
+    expect(rows.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    await user.type(bnText(), 'বয়স');
+    expect(await rows.findByRole('button', { name: 'বয়স বদলান' })).toBeInTheDocument();
+    await waitFor(() => expect(savedFields('family')[1]?.label.bn).toBe('বয়স'), {
+      timeout: 4000,
+    });
+    expect(savedFields('family')[1]).toMatchObject({
+      fieldKey: expect.stringMatching(RANDOM_KEY),
+      type: 'number',
+      settings: { repeat: { group: 'members' } },
+    });
+    // with the row question chosen, a type from the left goes into the rows right after it
+    await user.click(screen.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
+    await waitFor(() =>
+      expect(
+        rows.getAllByRole('button', { name: / বদলান$/ }).map((b) => b.getAttribute('aria-label')),
+      ).toEqual(['বয়স বদলান', 'নাম ছাড়া প্রশ্ন বদলান']),
+    );
+  }, 20_000);
 
   it('undoes a removal and an added part one by one until the form is as it was, and redoes them', async () => {
     const user = userEvent.setup();
@@ -868,12 +892,12 @@ describe('deleting', () => {
       () =>
         expect(savedSection('family')?.fields.map((f) => f.fieldKey)).toEqual([
           'members',
-          'q_member_name_copy',
+          expect.stringMatching(RANDOM_KEY),
           'm_age',
         ]),
       { timeout: 4000 },
     );
-    expect(savedField('q_member_name_copy')!.settings).toEqual(inGroup.settings);
+    expect(savedSection('family')!.fields[1]!.settings).toEqual(inGroup.settings);
     // the removal is one step back
     await user.click(undoButton());
     await waitFor(() =>
@@ -1053,70 +1077,132 @@ describe('the points of the score', () => {
 });
 
 describe('the own question', () => {
-  it('comes from a type on the left, needs both labels and, for a choice, an option in both languages', async () => {
+  const withProject = (...fields: FormField[]): FormDefinition['sections'] => [
+    ...titled({ sections: coreSections() }).sections,
+    section('project', fields, { title: T('প্রকল্পের প্রশ্ন', 'Project') }),
+  ];
+
+  it('is added at once from a type on the left: no dialog, chosen, in view, the Bengali text ready to type, and saved without a text', async () => {
+    const user = userEvent.setup();
+    api({ sections: withProject() });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'প্রকল্পের প্রশ্ন' }));
+    await user.click(screen.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    const list = await outlineOf('প্রকল্পের প্রশ্ন');
+    const question = list.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' });
+    expect(question).toHaveAttribute('aria-pressed', 'true');
+    // never an empty row: the question says it has no name yet
+    const row = question.closest('li')!;
+    expect(row).toHaveClass('is-unnamed');
+    expect(within(row).getAllByText('নাম ছাড়া প্রশ্ন').length).toBeGreaterThan(0);
+    expect(scrolled).toEqual([row]);
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    expect(bnText()).toHaveValue('');
+    await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
+    expect(savedFields('project')).toEqual([
+      expect.objectContaining({
+        fieldKey: expect.stringMatching(RANDOM_KEY),
+        type: 'short_text',
+        label: { bn: '', en: '' },
+        libraryFieldKey: null,
+        required: false,
+        options: [],
+      }),
+    ]);
+    // the text typed shows on the canvas, and the key stays what it was
+    const key = savedFields('project')[0]!.fieldKey;
+    await user.type(bnText(), 'পেশা');
+    expect(await list.findByRole('button', { name: 'পেশা বদলান' })).toBeInTheDocument();
+    expect(row).not.toHaveClass('is-unnamed');
+    await waitFor(() => expect(savedField(key)?.label).toEqual({ bn: 'পেশা', en: '' }), {
+      timeout: 4000,
+    });
+  }, 20_000);
+
+  it('lands right after the chosen question, and one step back takes it away', async () => {
     const user = userEvent.setup();
     api({
-      sections: [
-        ...titled({ sections: coreSections() }).sections,
-        section('project', [], { title: T('প্রকল্পের প্রশ্ন', 'Project') }),
-      ],
+      sections: withProject(
+        field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') }),
+        field('q_more', 'short_text', { label: T('আরও', 'More') }),
+      ),
     });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'সংখ্যা প্রশ্ন যোগ করুন' }));
+    await waitFor(async () =>
+      expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual([
+        'মন্তব্য বদলান',
+        'নাম ছাড়া প্রশ্ন বদলান',
+        'আরও বদলান',
+      ]),
+    );
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    // the next one follows the one just added, which is the chosen question now
+    await user.click(screen.getByRole('button', { name: 'তারিখ প্রশ্ন যোগ করুন' }));
+    await waitFor(() => expect(savedFields('project')).toHaveLength(4), { timeout: 4000 });
+    expect(savedFields('project').map((f) => f.type)).toEqual([
+      'short_text',
+      'number',
+      'date',
+      'short_text',
+    ]);
+    // each addition is a step of its own
+    await user.click(undoButton());
+    await user.click(undoButton());
+    await waitFor(async () =>
+      expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual(['মন্তব্য বদলান', 'আরও বদলান']),
+    );
+    await waitFor(
+      () => expect(savedFields('project').map((f) => f.fieldKey)).toEqual(['q_note', 'q_more']),
+      { timeout: 4000 },
+    );
+  }, 30_000);
+
+  it('goes to the end of the last part when nothing is chosen', async () => {
+    const user = userEvent.setup();
+    api({ sections: withProject(field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })) });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
+    await waitFor(async () =>
+      expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual([
+        'মন্তব্য বদলান',
+        'নাম ছাড়া প্রশ্ন বদলান',
+      ]),
+    );
+  }, 15_000);
+
+  it('starts a choice without options, written in the settings afterwards', async () => {
+    const user = userEvent.setup();
+    api({ sections: withProject() });
     open();
     await user.click(await screen.findByRole('button', { name: 'প্রকল্পের প্রশ্ন' }));
     await user.click(screen.getByRole('button', { name: 'একটি বেছে নিন প্রশ্ন যোগ করুন' }));
-    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
-    expect(within(dialog).getByRole('textbox', { name: /^প্রশ্নের ধরন/ })).toHaveValue(
-      'একটি বেছে নিন',
-    );
-    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('দুই ভাষাতেই লেবেল লিখুন।');
-    await user.type(
-      within(dialog).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }),
-      'নিজের ঘর আছে?',
-    );
-    await user.type(
-      within(dialog).getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }),
-      'Own house?',
-    );
-    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('অন্তত একটি অপশন রাখুন');
-    await user.type(within(dialog).getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }), 'হ্যাঁ');
-    await user.type(within(dialog).getByRole('textbox', { name: /^অপশন 1 \(ইংরেজি\)/ }), 'Yes');
-    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'নতুন প্রশ্ন' })).not.toBeInTheDocument(),
-    );
-    // the new question opens in the settings
-    expect(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('নিজের ঘর আছে?');
-    await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
-    expect(savedField('q_own_house')).toMatchObject({
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    await user.type(bnText(), 'নিজের ঘর আছে?');
+    expect(screen.queryByRole('textbox', { name: /^অপশন 1/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অপশন যোগ করুন' }));
+    await user.type(screen.getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }), 'হ্যাঁ');
+    await waitFor(() => expect(savedFields('project')[0]?.options?.[0]?.label.bn).toBe('হ্যাঁ'), {
+      timeout: 4000,
+    });
+    expect(savedFields('project')[0]).toMatchObject({
+      fieldKey: expect.stringMatching(RANDOM_KEY),
       type: 'radio',
-      label: { bn: 'নিজের ঘর আছে?', en: 'Own house?' },
-      libraryFieldKey: null,
-      options: [{ code: expect.stringMatching(/^opt_/), label: { bn: 'হ্যাঁ', en: 'Yes' } }],
+      label: { bn: 'নিজের ঘর আছে?', en: '' },
+      options: [{ code: expect.stringMatching(/^opt_/), label: { bn: 'হ্যাঁ', en: '' } }],
     });
   }, 20_000);
 
   it('adds a number table from its type, with one row and one column to start', async () => {
     const user = userEvent.setup();
-    api({
-      sections: [
-        ...titled({ sections: coreSections() }).sections,
-        section('project', [], { title: T('প্রকল্পের প্রশ্ন', 'Project') }),
-      ],
-    });
+    api({ sections: withProject() });
     open();
     await user.click(await screen.findByRole('button', { name: 'প্রকল্পের প্রশ্ন' }));
     await user.click(screen.getByRole('button', { name: 'সংখ্যার ছক প্রশ্ন যোগ করুন' }));
-    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
-    await user.type(within(dialog).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'গবাদি পশু');
-    await user.type(
-      within(dialog).getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }),
-      'Livestock',
-    );
-    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
     await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
-    expect(savedField('q_livestock')).toMatchObject({
+    expect(savedFields('project')[0]).toMatchObject({
       type: 'number_table',
       settings: {
         table: {
@@ -1127,47 +1213,170 @@ describe('the own question', () => {
     });
   }, 20_000);
 
-  it('goes to the section picked in the dialog and names the earlier answer a branching option follows', async () => {
+  it('opens the question types at the end of a part and adds the chosen one there, by the keyboard too', async () => {
+    const user = userEvent.setup();
+    api({ sections: withProject(field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })) });
+    const view = open();
+    // a question of another part is the chosen one
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    const address = within(screen.getByRole('region', { name: 'ঠিকানা' }));
+    const before = (await questionsOf('ঠিকানা')).length;
+    await user.click(address.getByRole('button', { name: 'এই অংশে প্রশ্ন যোগ করুন' }));
+    const menu = await screen.findByRole('menu', { name: 'এই অংশে প্রশ্ন যোগ করুন' });
+    // every type, in the groups of the left pane, each with its name
+    const items = within(menu).getAllByRole('menuitem');
+    expect(items.map((i) => i.textContent)).toEqual([
+      'ছোট লেখা',
+      'বড় লেখা',
+      'ইমেইল',
+      'সংখ্যা',
+      'দশমিক সংখ্যা',
+      'টাকার অঙ্ক',
+      'মোবাইল নম্বর',
+      'সংখ্যার ছক',
+      'তালিকা থেকে একটি',
+      'তালিকা থেকে কয়েকটি',
+      'একটি বেছে নিন',
+      'কয়েকটি বেছে নিন',
+      'তারিখ',
+      'সময়',
+      'তারিখ ও সময়',
+      'ছবি',
+      'ফাইল',
+      'স্বাক্ষরের ছবি',
+      'অবস্থান (GPS)',
+      'ঠিকানা',
+      'কয়েকজনের তালিকা',
+      'নিজে থেকে হিসাব',
+      'শুধু লেখা দেখানো',
+    ]);
+    // the open list itself, and the page under it
+    await expectNoAxeViolations(menu);
+    await expectNoAxeViolations(view.container);
+    await user.click(within(menu).getByRole('menuitem', { name: 'টাকার অঙ্ক' }));
+    await waitFor(async () => expect(await questionsOf('ঠিকানা')).toHaveLength(before + 1));
+    expect((await questionsOf('ঠিকানা')).at(-1)).toBe('নাম ছাড়া প্রশ্ন বদলান');
+    expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual(['মন্তব্য বদলান']);
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    expect(savedFields('address')).toEqual([]);
+    await waitFor(() => expect(savedFields('address').at(-1)?.type).toBe('money'), {
+      timeout: 4000,
+    });
+    // the keyboard: the button opens the list, the arrow and Enter choose from it
+    const project = within(screen.getByRole('region', { name: 'প্রকল্পের প্রশ্ন' }));
+    project.getByRole('button', { name: 'এই অংশে প্রশ্ন যোগ করুন' }).focus();
+    await user.keyboard('{Enter}');
+    await screen.findByRole('menu', { name: 'এই অংশে প্রশ্ন যোগ করুন' });
+    await user.keyboard('{ArrowDown}{Enter}');
+    await waitFor(async () =>
+      expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual([
+        'মন্তব্য বদলান',
+        'নাম ছাড়া প্রশ্ন বদলান',
+      ]),
+    );
+    await waitFor(() => expect(savedFields('project').at(-1)?.type).toBe('long_text'), {
+      timeout: 4000,
+    });
+    await waitFor(() => expect(bnText()).toHaveFocus());
+  }, 40_000);
+
+  it('chooses a library question it adds, and brings it into view', async () => {
+    const user = userEvent.setup();
+    api({ sections: withProject(field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })) });
+    open();
+    await user.click(await screen.findByRole('tab', { name: 'লাইব্রেরি' }));
+    await openGroup(user, 'পরিবার ও আয়');
+    await user.click(await screen.findByRole('button', { name: 'দৈনিক আয় যোগ করুন' }));
+    const question = await screen.findByRole('button', { name: 'দৈনিক আয় বদলান' });
+    expect(question).toHaveAttribute('aria-pressed', 'true');
+    expect(scrolled).toEqual([question.closest('li')]);
+    await waitFor(() => expect(question).toHaveFocus());
+    expect(bnText()).toHaveValue('দৈনিক আয়');
+    // the library's own key, as before
+    await waitFor(
+      () =>
+        expect(savedFields('project').map((f) => f.fieldKey)).toEqual(['q_note', 'daily_income']),
+      { timeout: 4000 },
+    );
+  }, 20_000);
+
+  it('moves a question to another part from its bar, keeps it chosen, and comes back in one step', async () => {
     const user = userEvent.setup();
     api({
       sections: [
-        ...titled({ sections: coreSections() }).sections,
+        ...withProject(field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })),
+        section('office', [], { title: T('অফিসের অংশ', 'Office'), visibility: 'official_only' }),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    const bar = within(screen.getByRole('group', { name: 'মন্তব্য: কাজ' }));
+    await user.click(bar.getByRole('button', { name: 'মন্তব্য অন্য অংশে নিন' }));
+    const menu = within(await screen.findByRole('menu', { name: 'মন্তব্য অন্য অংশে নিন' }));
+    // the other parts, never its own
+    expect(menu.getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
+      'মৌলিক তথ্য',
+      'ঠিকানা',
+      'অফিসের অংশ',
+    ]);
+    await user.click(menu.getByRole('menuitem', { name: 'ঠিকানা' }));
+    await waitFor(async () => expect((await questionsOf('ঠিকানা')).at(-1)).toBe('মন্তব্য বদলান'));
+    const moved = screen.getByRole('button', { name: 'মন্তব্য বদলান' });
+    expect(moved).toHaveAttribute('aria-pressed', 'true');
+    expect(scrolled.at(-1)).toBe(moved.closest('li'));
+    await waitFor(() => expect(moved).toHaveFocus());
+    expect(
+      within(screen.getByRole('region', { name: 'প্রকল্পের প্রশ্ন' })).queryByRole('button', {
+        name: 'মন্তব্য বদলান',
+      }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(savedFields('address').at(-1)?.fieldKey).toBe('q_note'), {
+      timeout: 4000,
+    });
+    expect(savedFields('project')).toEqual([]);
+    // an identity question is not offered a part only officials see
+    await user.click(screen.getByRole('button', { name: 'name বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'name অন্য অংশে নিন' }));
+    const identity = within(await screen.findByRole('menu', { name: 'name অন্য অংশে নিন' }));
+    expect(identity.getByRole('menuitem', { name: 'অফিসের অংশ' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    // one step back: the question is in its part again
+    await user.click(undoButton());
+    await waitFor(async () =>
+      expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual(['মন্তব্য বদলান']),
+    );
+  }, 40_000);
+
+  it('offers no move to another part in a form of one part, nor to a row question of a list', async () => {
+    const user = userEvent.setup();
+    const inGroup = { settings: { repeat: { group: 'members' } } };
+    api({
+      sections: [
         section(
-          'work',
+          'only',
           [
-            field('occupation', 'radio', {
-              label: T('পেশা', 'Occupation'),
-              options: [
-                option('business', { label: T('ব্যবসা', 'Business') }),
-                option('farming', { label: T('কৃষি', 'Farming') }),
-              ],
-            }),
+            field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') }),
+            field('members', 'repeat_group', { label: T('সদস্যরা', 'Members') }),
+            field('m_name', 'short_text', { label: T('সদস্যের নাম', 'Member name'), ...inGroup }),
           ],
-          { title: T('কাজ', 'Work') },
+          { title: T('একমাত্র অংশ', 'Only part') },
         ),
       ],
     });
     open();
-    // the first section is chosen; the dialog moves the question to the work section
-    await user.click(await screen.findByRole('button', { name: 'মৌলিক তথ্য' }));
-    await user.click(screen.getByRole('button', { name: 'তালিকা থেকে একটি প্রশ্ন যোগ করুন' }));
-    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
-    const scope = within(dialog);
-    await user.type(scope.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'ব্যবসার ধরন');
-    await user.type(scope.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }), 'Kind of business');
-    await choose(user, /কোন অংশে/, 'কাজ', scope);
-    await choose(user, /কোন প্রশ্নের উত্তর অনুযায়ী/, 'পেশা', scope);
-    await user.type(scope.getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }), 'দোকান');
-    await user.type(scope.getByRole('textbox', { name: /^অপশন 1 \(ইংরেজি\)/ }), 'Shop');
-    await choose(user, /অপশন 1 দেখাবে যখন “পেশা”-এর উত্তর/, 'ব্যবসা', scope);
-    await user.click(scope.getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
-    const work = await outlineOf('কাজ');
-    expect(work.getByRole('button', { name: 'ব্যবসার ধরন বদলান' })).toBeInTheDocument();
-    await waitFor(() => expect(savedField('q_kind_of_business')).toBeDefined(), { timeout: 4000 });
-    expect(savedField('q_kind_of_business')).toMatchObject({
-      logic: { options_depend_on: 'occupation' },
-      options: [{ code: expect.stringMatching(/^opt_/), dependsOnOptionCode: 'business' }],
-    });
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    expect(screen.getByRole('button', { name: 'মন্তব্য কপি করুন' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /অন্য অংশে নিন/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'নতুন অংশ' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
+    expect(screen.getByRole('button', { name: 'মন্তব্য অন্য অংশে নিন' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'সদস্যের নাম বদলান' }));
+    expect(screen.getByRole('button', { name: 'সদস্যের নাম কপি করুন' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /অন্য অংশে নিন/ })).not.toBeInTheDocument();
   }, 20_000);
 });
 

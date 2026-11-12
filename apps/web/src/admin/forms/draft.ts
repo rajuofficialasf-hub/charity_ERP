@@ -17,6 +17,7 @@ import {
   pipeWithout,
 } from '@css/shared/forms';
 import type { LibrarySectionView } from '../../api/schemas';
+import { sitsInRows } from './type-meta';
 
 /**
  * The edits the form builder makes to a draft definition, as pure functions: each returns a new
@@ -110,94 +111,111 @@ export function addLibraryField(
   return withSection(def, sectionKey, (s) => ({ ...s, fields: [...s.fields, ...fresh] }));
 }
 
-/** A project's own question as the builder's dialog collects it. */
+/** A question of the form's own as the builder adds it: of a type, at a place, with no text yet. */
 export interface OwnQuestion {
   type: FieldType;
-  label: { bn: string; en: string };
-  options?: FieldOption[];
-  /** The earlier single-choice question whose answer decides which options show. */
-  dependsOn?: string;
-  /** The repeat group of the section the question joins, as one of its row's fields. */
+  /**
+   * The question of the section it follows: right after it, among a repeat group's row
+   * questions when that one is a row question, and at the end of a group's rows when it is the
+   * group. A type that cannot sit in rows (a list, a number table) goes after the whole group.
+   */
+  after?: string;
+  /** The repeat group of the section the question joins, at the end of its row questions. */
   group?: string;
   /** A number table's starting rows and columns. */
   table?: NumberTable;
 }
 
+/** Makes a candidate key for a new question; the form's own keys are checked by the caller. */
+export type MakeKey = () => string;
+
+const KEY_LETTERS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+const KEY_LENGTH = 6;
+/** The bytes below this are whole runs of the alphabet, so each letter is as likely as another. */
+const KEY_BYTE_LIMIT = 256 - (256 % KEY_LETTERS.length);
+
+/** `q_` and six random small letters and digits. */
+const randomKey: MakeKey = () => {
+  let letters = '';
+  while (letters.length < KEY_LENGTH)
+    for (const byte of crypto.getRandomValues(new Uint8Array(KEY_LENGTH * 2)))
+      if (byte < KEY_BYTE_LIMIT && letters.length < KEY_LENGTH)
+        letters += KEY_LETTERS.charAt(byte % KEY_LETTERS.length);
+  return `q_${letters}`;
+};
+
 /**
- * The key of a new own question: `q_` and the English label in small letters and underscores,
- * numbered when the form has it already (or when the label has no Latin letters). The key is never
- * shown; it stays the same when the label changes and in the next version, so the question keeps
- * its identity across versions.
+ * The key of a new or copied question: random, never made from a text (a question starts
+ * without one, and its texts change), and not one the form has. The key is never shown; it stays
+ * the same when the texts change and in the next version, so the question keeps its identity
+ * across versions.
  */
-function ownQuestionKey(def: FormDefinition, englishLabel: string): string {
-  const slug = englishLabel
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 48)
-    .replace(/_+$/, '');
+function freshKey(def: FormDefinition, makeKey: MakeKey = randomKey): string {
   const taken = allKeys(def);
-  const base = slug && /^[a-z]/.test(slug) ? `q_${slug}` : 'q';
-  if (base !== 'q' && !taken.has(base)) return base;
-  for (let n = 2; ; n += 1) {
-    const candidate = `${base}_${n}`;
-    if (!taken.has(candidate)) return candidate;
+  for (;;) {
+    const key = makeKey();
+    if (!taken.has(key)) return key;
   }
 }
 
+/**
+ * Adds an empty question of the form's own to a section: after the question it follows, in the
+ * rows of the group it joins, at a dropped place, else at the end of the section. Its texts and,
+ * for a choice, its options are written afterwards in the settings; a draft saves without them.
+ */
 export function addOwnQuestion(
   def: FormDefinition,
   sectionKey: string,
   question: OwnQuestion,
   /** The block index the question takes (a drop at a place); the end of the section otherwise. */
   at?: number,
+  makeKey?: MakeKey,
 ): { definition: FormDefinition; fieldKey: string | null } {
   const section = def.sections.find((s) => s.key === sectionKey);
   if (!section) return { definition: def, fieldKey: null };
-  const group = question.group
-    ? section.fields.find((f) => f.fieldKey === question.group && f.type === 'repeat_group')
-    : undefined;
-  // a repeat group takes no group of its own, and a group must be one of this section
-  if (question.group && (!group || question.type === 'repeat_group'))
+  const inSection = (key: string | undefined) =>
+    key === undefined ? undefined : section.fields.find((f) => f.fieldKey === key);
+  const rows = sitsInRows(question.type);
+  // a group to join must be a group of this section, and the type one its rows take
+  if (question.group && (inSection(question.group)?.type !== 'repeat_group' || !rows))
     return { definition: def, fieldKey: null };
-  const fieldKey = ownQuestionKey(def, question.label.en);
+  const anchor = question.group ? undefined : inSection(question.after);
+  // the group around the question it follows: that question's own, or the question itself
+  const around = anchor?.type === 'repeat_group' ? anchor.fieldKey : anchor && groupOf(anchor);
+  const group = question.group ?? (rows ? around : undefined);
+  const fieldKey = freshKey(def, makeKey);
   const field: FormField = {
     fieldKey,
     libraryFieldKey: null,
     type: question.type,
-    label: question.label,
+    label: { bn: '', en: '' },
     required: false,
     standardColumn: null,
-    settings: group
-      ? { repeat: { group: group.fieldKey } }
-      : question.table
-        ? { table: question.table }
-        : {},
-    options: question.options ?? [],
-    ...(question.dependsOn ? { logic: { options_depend_on: question.dependsOn } } : {}),
+    settings: group ? { repeat: { group } } : question.table ? { table: question.table } : {},
+    options: [],
   };
-  if (at !== undefined && !group) {
+  // a group's fields follow it directly: its end is after its last row question
+  const endOf = (groupKey: string) =>
+    section.fields.reduce(
+      (last, f, i) => (f.fieldKey === groupKey || groupOf(f) === groupKey ? i : last),
+      -1,
+    ) + 1;
+  let index = section.fields.length;
+  if (question.group) index = endOf(question.group);
+  else if (anchor)
+    // among the rows right after a row question; otherwise past the group, or past the question
+    index =
+      around === undefined || (rows && anchor.fieldKey !== around)
+        ? section.fields.indexOf(anchor) + 1
+        : endOf(around);
+  else if (at !== undefined) {
     const blocks = blocksOf(section.fields);
-    const index = Math.max(0, Math.min(at, blocks.length));
-    return {
-      definition: withSection(def, sectionKey, (s) => ({
-        ...s,
-        fields: [...blocks.slice(0, index).flat(), field, ...blocks.slice(index).flat()],
-      })),
-      fieldKey,
-    };
+    index = blocks.slice(0, Math.max(0, Math.min(at, blocks.length))).flat().length;
   }
-  // a group's fields follow it directly, so a new one goes after the group's last field
-  const after = group
-    ? section.fields.reduce(
-        (last, f, i) => (f.fieldKey === group.fieldKey || groupOf(f) === group.fieldKey ? i : last),
-        -1,
-      )
-    : section.fields.length - 1;
   return {
     definition: withSection(def, sectionKey, (s) => ({
       ...s,
-      fields: [...s.fields.slice(0, after + 1), field, ...s.fields.slice(after + 1)],
+      fields: [...s.fields.slice(0, index), field, ...s.fields.slice(index)],
     })),
     fieldKey,
   };
@@ -643,21 +661,26 @@ export function moveFieldTo(
 
 /**
  * Copies a question right after itself as one of the project's own, with the label marked as a
- * copy in both languages and a key of its own; its options, settings, logic and calculation come
- * along; the copy carries no identity mark. A row question of a repeat group is copied inside its
- * group; a whole repeat group is not copied.
+ * copy in both languages and a random key of its own; its options, settings, logic and
+ * calculation come along; the copy carries no identity mark. A row question of a repeat group is
+ * copied inside its group; a whole repeat group is not copied.
  */
 export function duplicateField(
   def: FormDefinition,
   fieldKey: string,
   mark: { bn: string; en: string },
+  makeKey?: MakeKey,
 ): { definition: FormDefinition; fieldKey: string | null } {
   const section = def.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
   const field = section?.fields.find((f) => f.fieldKey === fieldKey);
   if (!section || !field) return { definition: def, fieldKey: null };
   if (field.type === 'repeat_group') return { definition: def, fieldKey: null };
-  const label = { bn: `${field.label.bn} ${mark.bn}`, en: `${field.label.en} ${mark.en}` };
-  const key = ownQuestionKey(def, label.en);
+  // a question with no text yet is copied with the mark alone
+  const label = {
+    bn: `${field.label.bn} ${mark.bn}`.trim(),
+    en: `${field.label.en} ${mark.en}`.trim(),
+  };
+  const key = freshKey(def, makeKey);
   const copy: FormField = {
     ...structuredClone(field),
     fieldKey: key,

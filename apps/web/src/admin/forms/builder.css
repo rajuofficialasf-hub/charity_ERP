@@ -289,6 +289,17 @@
   background: var(--color-bg-warning-soft);
   color: var(--color-text-primary);
 }
+/* a question with no text yet says so in the muted ink, never as an empty row */
+.fb-q.is-unnamed > .fb-q-main > .fb-q-preview :is(label, legend, strong) {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+/* the words of a button that opens the question types: a plus, then the text */
+.fb-menu-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
 /* above the question's overlay button, so the rows' add button takes the press */
 .fb-q-add-row {
   position: relative;

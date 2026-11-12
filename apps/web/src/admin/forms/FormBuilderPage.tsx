@@ -31,6 +31,7 @@ import {
   addOwnQuestion,
   duplicateField,
   type LibraryFields,
+  moveFieldTo,
   removeFieldWithUses,
   removeSectionWithUses,
   usesOf,
@@ -52,9 +53,8 @@ import {
 import { AddPane } from './AddPane';
 import { BuildersOnly } from './BuildersOnly';
 import { type BuilderScope, useFormSummary } from './form-summary';
-import { CanvasDnd, FormCanvas } from './FormCanvas';
+import { CanvasDnd, FormCanvas, type Reveal } from './FormCanvas';
 import { HistoryButtons } from './HistoryButtons';
-import { OwnQuestionDialog } from './OwnQuestionDialog';
 import type { BuilderMode, Selection } from './selection';
 import { PreviewPane } from './PreviewPane';
 import { PublicLinkPanel } from './PublicLinkPanel';
@@ -71,6 +71,7 @@ import { UsesDialog } from './UsesDialog';
 import { type HistoryStep, type Typed, useDraftHistory } from './use-draft-history';
 import { detailsOf, refusalOf, useDraftSave } from './use-draft-save';
 import { ScoringDialog } from './ScoringDialog';
+import { startTable } from './TableSettings';
 import { VersionList } from './VersionList';
 import './builder.css';
 import { LoadError } from '../../components/LoadError';
@@ -101,7 +102,9 @@ function useMedia(media: string) {
  * The form builder of a project's form, a ready form or the question library (docs/ui/SCREENS.md,
  * "Form builder"): the library,
  * the outline and the settings of the chosen part side by side on a computer, the outline alone
- * with text edits on a phone. The draft saves itself, tries again by itself when a save fails
+ * with text edits on a phone. A question is added in place with no dialog: empty, after the
+ * chosen question or where a menu of the types was opened, chosen, in view, and with the cursor
+ * in its Bengali text. The draft saves itself, tries again by itself when a save fails
  * on the way and says so in the form head, and every change to it can be undone and redone from
  * there; leaving saves first. A published version opens read-only. The
  * preview opens from the header in a dialog; the form's name, its versions with their change
@@ -142,7 +145,9 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   // elsewhere, until the server is asked again or another draft takes this one's place
   const [refusal, setRefusal] = useState(NO_REFUSAL);
   // the question or the part the canvas is asked to bring into view, until it has
-  const [reveal, setReveal] = useState<Selection | null>(null);
+  const [reveal, setReveal] = useState<Reveal | null>(null);
+  // the question just added, whose Bengali text takes the focus in the settings, until it has
+  const [typing, setTyping] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [scoring, setScoring] = useState(false);
   // the question or part removed last, named until the next change so its way back is said
@@ -152,16 +157,6 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const history = useDraftHistory();
   // a question is being dragged: the undo and redo keys rest until it lands
   const [dragging, setDragging] = useState(false);
-  // a question of the project's own being asked for: its type, its section and, after a drop,
-  // its place; the key opens the dialog afresh each time
-  const [asking, setAsking] = useState<{
-    key: number;
-    type: FieldType;
-    section: string;
-    at?: number;
-    /** The repeat group the question joins, when a group was chosen. */
-    group?: string;
-  } | null>(null);
   // the right pane: the chosen question, or the form itself; choosing a question opens the first
   const [pane, setPane] = useState<'question' | 'form'>('question');
   const sum = useFormSummary(scope, projectId, routeFormId);
@@ -365,7 +360,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   };
   const labelOf = (fieldKey: string) => {
     const field = draft.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === fieldKey);
-    return field ? localized(field.label, locale) : null;
+    // a question with no text yet goes by the name the canvas gives it
+    return field ? localized(field.label, locale) || t('publish_list.unnamed_question') : null;
   };
   const titleOf = (sectionKey: string) => {
     const section = draft.sections.find((s) => s.key === sectionKey);
@@ -402,6 +398,46 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     if (!section || !made.fieldKey) return;
     change(made.definition);
     setSelected({ section: section.key, field: made.fieldKey });
+  };
+  /**
+   * Adds an empty question of a type and leaves it chosen, in view, and with the cursor in its
+   * Bengali text: after the question it follows (in a list's rows when that one is in them), at
+   * the end of a list's rows, at a dropped place, else at the end of the section. One step to undo.
+   */
+  const addQuestion = (
+    type: FieldType,
+    place: { section: string; after?: string; group?: string; at?: number },
+  ) => {
+    if (mode !== 'full') return;
+    const added = addOwnQuestion(
+      draft,
+      place.section,
+      {
+        type,
+        ...(place.after === undefined ? {} : { after: place.after }),
+        ...(place.group === undefined ? {} : { group: place.group }),
+        // a table starts with one row and one column
+        ...(type === 'number_table'
+          ? { table: startTable(t('table_row', { n: '1' }), t('table_col', { n: '1' })) }
+          : {}),
+      },
+      place.at,
+    );
+    if (!added.fieldKey) return;
+    change(added.definition);
+    const chosen = { section: place.section, field: added.fieldKey };
+    setSelected(chosen);
+    setReveal({ ...chosen, quiet: true });
+    setTyping(added.fieldKey);
+  };
+  /** Sends a question to the end of another part, where it stays chosen and comes into view. */
+  const moveTo = (fieldKey: string, sectionKey: string) => {
+    const next = moveFieldTo(draft, fieldKey, sectionKey, Number.MAX_SAFE_INTEGER);
+    if (next === draft || mode !== 'full') return;
+    change(next);
+    const moved = { section: sectionKey, field: fieldKey };
+    setSelected(moved);
+    setReveal(moved);
   };
   const versionLabel = t(
     isDraft
@@ -481,7 +517,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       onRemoveField={remove}
       onRemoveSection={removeSection}
       onCopyField={copy}
-      onAddTo={(sectionKey) => setSelected({ section: sectionKey })}
+      onMoveFieldTo={moveTo}
+      onAddTo={(sectionKey, type) => addQuestion(type, { section: sectionKey })}
       onAddSection={() => {
         const made = addEmptySection(draft, (n) => ({
           bn: t('section_n_bn', { n: String(n) }),
@@ -490,9 +527,9 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
         change(made.definition);
         setSelected({ section: made.key });
       }}
-      onAddRow={(groupKey) => {
+      onAddRow={(groupKey, type) => {
         const section = sectionOf(groupKey);
-        if (section) setSelected({ section: section.key, field: groupKey });
+        if (section) addQuestion(type, { section: section.key, group: groupKey });
       }}
     />
   );
@@ -503,6 +540,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
         selected={selection}
         mode={mode === 'full' ? 'full' : 'texts'}
         identityMarks={form?.kind !== 'other'}
+        focusText={typing}
+        onTextFocused={() => setTyping(null)}
         onChange={change}
       />
     );
@@ -518,15 +557,24 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
             targetSection={target}
             onAddSection={(s) => change(addLibrarySection(draft, s, fields))}
             onAddField={(key) => {
-              if (target) change(addLibraryField(draft, target, fields.get(key) ?? []));
+              if (!target) return;
+              const placed = fields.get(key) ?? [];
+              const next = addLibraryField(draft, target, placed);
+              if (next === draft) return;
+              change(next);
+              // the question that came is chosen and shown: a list with its row questions by itself
+              const first = placed.find((f) => !named.has(f.fieldKey));
+              if (!first) return;
+              const added = { section: target, field: first.fieldKey };
+              setSelected(added);
+              setReveal(added);
             }}
             onAddType={(type) => {
-              // a chosen repeat group takes the question into its rows
-              const chosen = selection?.field
-                ? sectionOf(selection.field)?.fields.find((f) => f.fieldKey === selection.field)
-                : undefined;
-              const group = chosen?.type === 'repeat_group' ? chosen.fieldKey : undefined;
-              if (target) setAsking({ key: Date.now(), type, section: target, group });
+              // after the chosen question (a list or one of its row questions takes it into the
+              // rows), else at the end of the chosen part, else of the last one
+              if (selection?.field)
+                addQuestion(type, { section: selection.section, after: selection.field });
+              else if (target) addQuestion(type, { section: target });
             }}
           />
         </aside>
@@ -590,7 +638,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       <CanvasDnd
         definition={draft}
         onChange={change}
-        onDropType={(type, section, at) => setAsking({ key: Date.now(), type, section, at })}
+        onDropType={(type, section, at) => addQuestion(type, { section, at })}
         onDragging={setDragging}
       >
         {panes}
@@ -738,25 +786,6 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       >
         {previewing ? <PreviewPane definition={draft} /> : null}
       </Dialog>
-      {asking ? (
-        <OwnQuestionDialog
-          key={asking.key}
-          open
-          definition={draft}
-          type={asking.type}
-          sectionKey={asking.section}
-          placed={asking.at !== undefined}
-          groupKey={asking.group}
-          onClose={() => setAsking(null)}
-          onAdd={(question, sectionKey) => {
-            const added = addOwnQuestion(draft, sectionKey, question, asking.at);
-            setAsking(null);
-            if (!added.fieldKey) return;
-            change(added.definition);
-            setSelected({ section: sectionKey, field: added.fieldKey });
-          }}
-        />
-      ) : null}
       {mode === 'full' && removing && 'field' in removing ? (
         <UsesDialog
           definition={draft}

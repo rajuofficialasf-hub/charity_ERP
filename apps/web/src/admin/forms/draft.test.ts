@@ -120,85 +120,184 @@ describe('adding from the library', () => {
   });
 });
 
+/** A key maker that hands out the given keys in turn, so a test knows the key a question takes. */
+const keysFrom = (...keys: string[]) => {
+  let next = 0;
+  return () => keys[Math.min(next++, keys.length - 1)]!;
+};
+const RANDOM_KEY = /^q_[a-z0-9]{6}$/;
+
 describe('the project own question', () => {
-  it('gets a key from its English label, unique in the form, and keeps it', () => {
+  it('starts empty, with a key of q_ and six letters or digits that is different each time', () => {
     const base = definition(section('project_questions', []));
-    const question = {
-      type: 'radio' as const,
-      label: T('আপনার কি নিজের ঘর আছে?', 'Do you have your own house?'),
-      options: [
-        option('yes', { label: T('হ্যাঁ', 'Yes') }),
-        option('no', { label: T('না', 'No') }),
-      ],
-    };
-    const first = addOwnQuestion(base, 'project_questions', question);
-    expect(first.fieldKey).toBe('q_do_you_have_your_own_house');
-    const second = addOwnQuestion(first.definition, 'project_questions', question);
-    expect(second.fieldKey).toBe('q_do_you_have_your_own_house_2');
+    const first = addOwnQuestion(base, 'project_questions', { type: 'radio' });
+    expect(first.fieldKey).toMatch(RANDOM_KEY);
+    const second = addOwnQuestion(first.definition, 'project_questions', { type: 'radio' });
+    expect(second.fieldKey).toMatch(RANDOM_KEY);
+    expect(second.fieldKey).not.toBe(first.fieldKey);
     const added = second.definition.sections.at(-1)!.fields;
-    expect(added.map((f) => f.libraryFieldKey)).toEqual([null, null]);
-    expect(added[0]!.options!.map((o) => o.code)).toEqual(['yes', 'no']);
+    expect(added.map((f) => f.fieldKey)).toEqual([first.fieldKey, second.fieldKey]);
+    // no text yet, no option yet: the settings pane is where they are written
+    for (const question of added)
+      expect(question).toMatchObject({
+        type: 'radio',
+        label: { bn: '', en: '' },
+        libraryFieldKey: null,
+        standardColumn: null,
+        required: false,
+        options: [],
+        settings: {},
+      });
     valid(second.definition);
+    // many questions, many keys
+    let def = base;
+    const keys = new Set<string>();
+    for (let n = 0; n < 60; n += 1) {
+      const made = addOwnQuestion(def, 'project_questions', { type: 'short_text' });
+      def = made.definition;
+      keys.add(made.fieldKey!);
+    }
+    expect(keys.size).toBe(60);
+    for (const key of keys) expect(key).toMatch(RANDOM_KEY);
   });
 
-  it('keeps the key of an own question after its label changes', () => {
+  it('draws another key when the form already has the one drawn', () => {
+    const base = definition(section('project_questions', [field('q_taken0', 'number')]));
+    const made = addOwnQuestion(
+      base,
+      'project_questions',
+      { type: 'short_text' },
+      undefined,
+      keysFrom('q_taken0', 'name', 'q_fresh1'),
+    );
+    // `name` is a question of another part: a key is the form's, not the part's
+    expect(made.fieldKey).toBe('q_fresh1');
+    valid(made.definition);
+  });
+
+  it('keeps its key when its text is written and changed: the key never comes from a text', () => {
     const { definition: def, fieldKey } = addOwnQuestion(
       definition(section('project_questions', [])),
       'project_questions',
-      {
-        type: 'short_text',
-        label: T('পেশা', 'Work'),
-      },
+      { type: 'short_text' },
     );
-    expect(fieldKey).toBe('q_work');
-    const renamed = updateField(def, 'q_work', { label: T('বর্তমান পেশা', 'Current work') });
-    expect(keysOf(renamed)).toContain('q_work');
+    const named = updateField(def, fieldKey!, { label: T('পেশা', 'Work') });
+    const renamed = updateField(named, fieldKey!, { label: T('বর্তমান পেশা', 'Current work') });
+    expect(keysOf(renamed)).toContain(fieldKey);
+    expect(fieldKey).not.toContain('work');
   });
 
-  it('places a row question after the last field of its repeat group, and lets options follow an earlier answer', () => {
+  describe('lands', () => {
     const base = definition(
       section('family', [
-        field('occupation', 'radio', {
-          options: [option('business'), option('farming')],
-        }),
+        field('occupation', 'radio', { options: [option('business'), option('farming')] }),
         field('earners', 'repeat_group', { settings: { repeat: { min_rows: 0, max_rows: 5 } } }),
         field('earner_name', 'short_text', { settings: { repeat: { group: 'earners' } } }),
+        field('earner_age', 'number', { settings: { repeat: { group: 'earners' } } }),
         field('family_note', 'long_text'),
       ]),
+      section('last', [field('end', 'number')]),
     );
-    const inGroup = addOwnQuestion(base, 'family', {
-      type: 'money',
-      label: T('আয়', 'Income'),
-      group: 'earners',
+    const add = (question: Parameters<typeof addOwnQuestion>[2], at?: number) =>
+      addOwnQuestion(base, 'family', question, at, keysFrom('q_new001'));
+    const family = (def: FormDefinition) =>
+      def.sections.find((s) => s.key === 'family')!.fields.map((f) => f.fieldKey);
+    const added = (def: FormDefinition) =>
+      def.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === 'q_new001')!;
+
+    it('right after the question it follows, in the same part', () => {
+      const made = add({ type: 'short_text', after: 'occupation' });
+      expect(made.fieldKey).toBe('q_new001');
+      expect(family(made.definition)).toEqual([
+        'occupation',
+        'q_new001',
+        'earners',
+        'earner_name',
+        'earner_age',
+        'family_note',
+      ]);
+      expect(added(made.definition).settings).toEqual({});
+      valid(made.definition);
+      // after the last question of the part, at its end
+      expect(family(add({ type: 'short_text', after: 'family_note' }).definition).at(-1)).toBe(
+        'q_new001',
+      );
     });
-    expect(inGroup.definition.sections.at(-1)!.fields.map((f) => f.fieldKey)).toEqual([
-      'occupation',
-      'earners',
-      'earner_name',
-      'q_income',
-      'family_note',
-    ]);
-    expect(inGroup.definition.sections.at(-1)!.fields[3]!.settings).toEqual({
-      repeat: { group: 'earners' },
+
+    it('at the end of the part when no question is named, or one the part does not hold', () => {
+      expect(family(add({ type: 'short_text' }).definition).at(-1)).toBe('q_new001');
+      expect(family(add({ type: 'short_text', after: 'end' }).definition).at(-1)).toBe('q_new001');
+      expect(family(add({ type: 'short_text', after: 'nothing' }).definition).at(-1)).toBe(
+        'q_new001',
+      );
     });
-    const branching = addOwnQuestion(inGroup.definition, 'family', {
-      type: 'single_select',
-      label: T('কাজের ধরন', 'Kind of work'),
-      dependsOn: 'occupation',
-      options: [option('shop', { dependsOnOptionCode: 'business' })],
+
+    it('in the rows of a repeat group, right after the row question it follows', () => {
+      const made = add({ type: 'money', after: 'earner_name' });
+      expect(family(made.definition)).toEqual([
+        'occupation',
+        'earners',
+        'earner_name',
+        'q_new001',
+        'earner_age',
+        'family_note',
+      ]);
+      expect(added(made.definition).settings).toEqual({ repeat: { group: 'earners' } });
+      valid(made.definition);
     });
-    const added = branching.definition.sections.at(-1)!.fields.at(-1)!;
-    expect(added.logic).toEqual({ options_depend_on: 'occupation' });
-    valid(branching.definition);
-    // a group inside a group, or a group the section does not hold, adds nothing
-    expect(
-      addOwnQuestion(base, 'family', { type: 'repeat_group', label: T('দল'), group: 'earners' })
-        .fieldKey,
-    ).toBeNull();
-    expect(
-      addOwnQuestion(base, 'family', { type: 'short_text', label: T('x'), group: 'occupation' })
-        .fieldKey,
-    ).toBeNull();
+
+    it('at the end of the rows when the group itself is named, as a question to follow or as the group to join', () => {
+      for (const question of [
+        { type: 'money' as const, after: 'earners' },
+        { type: 'money' as const, group: 'earners' },
+      ]) {
+        const made = add(question);
+        expect(family(made.definition)).toEqual([
+          'occupation',
+          'earners',
+          'earner_name',
+          'earner_age',
+          'q_new001',
+          'family_note',
+        ]);
+        expect(added(made.definition).settings).toEqual({ repeat: { group: 'earners' } });
+        valid(made.definition);
+      }
+    });
+
+    it('after the whole group when its type cannot sit in rows: a list and a number table', () => {
+      const table = {
+        rows: [{ key: 'r1', label: T('সারি 1') }],
+        cols: [{ key: 'c1', label: T('কলাম 1') }],
+      };
+      for (const after of ['earners', 'earner_name']) {
+        const list = add({ type: 'repeat_group', after });
+        expect(family(list.definition)).toEqual([
+          'occupation',
+          'earners',
+          'earner_name',
+          'earner_age',
+          'q_new001',
+          'family_note',
+        ]);
+        expect(added(list.definition).settings).toEqual({});
+        valid(list.definition);
+        const numbers = add({ type: 'number_table', after, table });
+        expect(family(numbers.definition).indexOf('q_new001')).toBe(4);
+        expect(added(numbers.definition).settings).toEqual({ table });
+        valid(numbers.definition);
+      }
+    });
+
+    it('nowhere when it is to join a group that is none of the part, or with a type rows do not take', () => {
+      for (const question of [
+        { type: 'repeat_group' as const, group: 'earners' },
+        { type: 'number_table' as const, group: 'earners' },
+        { type: 'short_text' as const, group: 'occupation' },
+        { type: 'short_text' as const, group: 'end' },
+      ])
+        expect(add(question)).toEqual({ definition: base, fieldKey: null });
+    });
   });
 
   it('frees the options of a later question that followed a removed option', () => {
@@ -253,66 +352,66 @@ describe('the project own question', () => {
         field('b', 'number'),
       ]),
     );
-    const own = { type: 'short_text' as const, label: T('নতুন', 'New') };
-    const placed = addOwnQuestion(def, 'one', own, 2);
+    const own = { type: 'short_text' as const };
+    const key = () => 'q_new001';
+    const placed = addOwnQuestion(def, 'one', own, 2, key);
     expect(placed.definition.sections.at(-1)!.fields.map((f) => f.fieldKey)).toEqual([
       'a',
       'g',
       'm',
-      'q_new',
+      'q_new001',
       'b',
     ]);
-    const first = addOwnQuestion(def, 'one', own, 0);
-    expect(first.definition.sections.at(-1)!.fields[0]!.fieldKey).toBe('q_new');
-    const past = addOwnQuestion(def, 'one', own, 9);
-    expect(past.definition.sections.at(-1)!.fields.at(-1)!.fieldKey).toBe('q_new');
+    const first = addOwnQuestion(def, 'one', own, 0, key);
+    expect(first.definition.sections.at(-1)!.fields[0]!.fieldKey).toBe('q_new001');
+    const past = addOwnQuestion(def, 'one', own, 9, key);
+    expect(past.definition.sections.at(-1)!.fields.at(-1)!.fieldKey).toBe('q_new001');
     valid(placed.definition);
   });
 
-  it('copies a question after itself with a marked label and a key of its own', () => {
+  it('copies a question after itself with a marked label and a random key of its own', () => {
     const def = definition(
       section('one', [
         field('q_note', 'radio', { label: T('মন্তব্য', 'Note'), options: [option('a')] }),
         field('g', 'repeat_group'),
       ]),
     );
-    const made = duplicateField(def, 'q_note', { bn: '(কপি)', en: '(copy)' });
-    expect(made.fieldKey).toBe('q_note_copy');
+    const mark = { bn: '(কপি)', en: '(copy)' };
+    const made = duplicateField(def, 'q_note', mark);
+    // never the copied question's key with a mark, never a word of its text
+    expect(made.fieldKey).toMatch(RANDOM_KEY);
+    expect(made.fieldKey).not.toContain('note');
+    expect(duplicateField(def, 'q_note', mark).fieldKey).not.toBe(made.fieldKey);
     const [first, second] = made.definition.sections.at(-1)!.fields;
     expect(second).toMatchObject({
-      fieldKey: 'q_note_copy',
+      fieldKey: made.fieldKey,
       libraryFieldKey: null,
       standardColumn: null,
       label: { bn: 'মন্তব্য (কপি)', en: 'Note (copy)' },
       options: first!.options,
     });
     valid(made.definition);
-    expect(duplicateField(def, 'g', { bn: '(কপি)', en: '(copy)' }).fieldKey).toBeNull();
+    // a key the form has is drawn again
+    expect(duplicateField(def, 'q_note', mark, keysFrom('g', 'q_copy01')).fieldKey).toBe(
+      'q_copy01',
+    );
+    expect(duplicateField(def, 'g', mark).fieldKey).toBeNull();
     // the copy of an identity question carries no mark, so each role stays marked once
-    const copied = duplicateField(definition(), 'name', { bn: '(কপি)', en: '(copy)' });
+    const copied = duplicateField(definition(), 'name', mark);
     const copy = copied.definition.sections[0]!.fields.find((f) => f.fieldKey === copied.fieldKey);
     expect(copy).toMatchObject({ standardColumn: null });
+    // a question with no text yet is copied with the mark alone
+    const blank = addOwnQuestion(def, 'one', { type: 'short_text' }, undefined, () => 'q_blank1');
+    const twin = duplicateField(blank.definition, 'q_blank1', mark, () => 'q_twin01');
+    expect(
+      twin.definition.sections.at(-1)!.fields.find((f) => f.fieldKey === 'q_twin01')!.label,
+    ).toEqual({ bn: '(কপি)', en: '(copy)' });
   });
 
   it('adds nothing and names no key for a section the form does not have', () => {
     const def = definition();
-    const result = addOwnQuestion(def, 'no_such_section', {
-      type: 'short_text',
-      label: T('x', 'x'),
-    });
+    const result = addOwnQuestion(def, 'no_such_section', { type: 'short_text' });
     expect(result).toEqual({ definition: def, fieldKey: null });
-  });
-
-  it('gives a label with no Latin letters a numbered key', () => {
-    const { fieldKey } = addOwnQuestion(
-      definition(section('project_questions', [])),
-      'project_questions',
-      {
-        type: 'short_text',
-        label: T('পেশা', 'পেশা'),
-      },
-    );
-    expect(fieldKey).toMatch(/^q_\d+$/);
   });
 });
 
@@ -555,13 +654,13 @@ describe('a row question of a repeat group', () => {
   });
 
   it('is copied right after itself inside the group, with a key of its own', () => {
-    const made = duplicateField(grouped(), 'm_name', mark);
-    expect(made.fieldKey).toBe('q_member_name_copy');
+    const made = duplicateField(grouped(), 'm_name', mark, () => 'q_copy01');
+    expect(made.fieldKey).toBe('q_copy01');
     expect(familyKeys(made.definition)).toEqual([
       'before',
       'members',
       'm_name',
-      'q_member_name_copy',
+      'q_copy01',
       'm_age',
       'after',
     ]);
@@ -864,7 +963,11 @@ describe('the rest of the definition', () => {
         }),
         field('q_note', 'short_text'),
       ]),
-      section('more', [field('last', 'short_text')]),
+      section('more', [
+        field('last', 'short_text'),
+        field('list', 'repeat_group'),
+        field('row', 'number', { settings: { repeat: { group: 'list' } } }),
+      ]),
     ),
     scoring: POINTS,
   });
@@ -887,13 +990,27 @@ describe('the rest of the definition', () => {
     [
       'addOwnQuestion',
       'at the end of a part',
-      (d) => addOwnQuestion(d, 'extra', { type: 'short_text', label: T('নতুন', 'New') }).definition,
+      (d) => addOwnQuestion(d, 'extra', { type: 'short_text' }).definition,
     ],
     [
       'addOwnQuestion',
       'at a place',
-      (d) =>
-        addOwnQuestion(d, 'extra', { type: 'short_text', label: T('নতুন', 'New') }, 0).definition,
+      (d) => addOwnQuestion(d, 'extra', { type: 'short_text' }, 0).definition,
+    ],
+    [
+      'addOwnQuestion',
+      'after a question',
+      (d) => addOwnQuestion(d, 'extra', { type: 'short_text', after: 'has_cow' }).definition,
+    ],
+    [
+      'addOwnQuestion',
+      'in the rows of a list',
+      (d) => addOwnQuestion(d, 'more', { type: 'short_text', after: 'row' }).definition,
+    ],
+    [
+      'moveFieldTo',
+      'to the end of another part',
+      (d) => moveFieldTo(d, 'q_note', 'more', Number.MAX_SAFE_INTEGER),
     ],
     ['updateField', 'a setting', (d) => updateField(d, 'q_note', { required: true })],
     [

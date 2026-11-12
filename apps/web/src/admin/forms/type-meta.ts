@@ -43,3 +43,9 @@ export const TYPE_META: Readonly<Record<FieldType, { icon: ExtendedIconName; gro
 /** The types of a group, in the order the builder offers them. */
 export const typesOfGroup = (group: TypeGroup): FieldType[] =>
   (Object.keys(TYPE_META) as FieldType[]).filter((t) => TYPE_META[t].group === group);
+
+/**
+ * Whether a question of this type may be a row question of a repeat group: a list holds no list,
+ * and a number table stands outside any list (the engine refuses both at every save).
+ */
+export const sitsInRows = (type: FieldType) => type !== 'repeat_group' && type !== 'number_table';

@@ -256,6 +256,64 @@ describe('the builder of a ready form', () => {
     expect(screen.getAllByText('প্রশ্ন-লাইব্রেরি').length).toBeGreaterThan(1);
   });
 
+  it('adds a question at once from its type, with no dialog and the Bengali text ready to type', async () => {
+    const user = userEvent.setup();
+    api();
+    const saved: { sections: { fields: { fieldKey: string; label: unknown }[] }[] }[] = [];
+    server.use(
+      http.patch(`*/api/v1/form-versions/${DRAFT}`, async ({ request }) => {
+        const body = (await request.json()) as (typeof saved)[number];
+        saved.push(body);
+        return HttpResponse.json({
+          data: version(DRAFT, READY, body.sections),
+          meta: { ...meta, etag: `"d${saved.length + 1}"` },
+        });
+      }),
+    );
+    renderApp(<ReadyFormBuilderPage />, 'bn', {
+      path: '/admin/ready-forms/:formId',
+      initialPath: `/admin/ready-forms/${READY}`,
+    });
+    // nothing is chosen: the question goes to the end of the form's last part
+    await user.click(await screen.findByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    const list = within(await screen.findByRole('list', { name: 'অংশ 1' }));
+    expect(list.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const text = screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
+    await waitFor(() => expect(text).toHaveFocus());
+    await user.type(text, 'পেশা');
+    expect(await list.findByRole('button', { name: 'পেশা বদলান' })).toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(saved.at(-1)?.sections[0]?.fields).toEqual([
+          expect.objectContaining({ fieldKey: 'q_name' }),
+          expect.objectContaining({
+            fieldKey: expect.stringMatching(/^q_[a-z0-9]{6}$/),
+            label: { bn: 'পেশা', en: '' },
+          }),
+        ]),
+      { timeout: 4000 },
+    );
+  }, 20_000);
+
+  it('says the library is empty, and keeps "none by this name" for a search', async () => {
+    const user = userEvent.setup();
+    api();
+    renderApp(<ReadyFormBuilderPage />, 'bn', {
+      path: '/admin/ready-forms/:formId',
+      initialPath: `/admin/ready-forms/${READY}`,
+    });
+    await user.click(await screen.findByRole('tab', { name: 'লাইব্রেরি' }));
+    expect(await screen.findByText('লাইব্রেরিতে এখনো কোনো প্রশ্ন নেই।')).toBeInTheDocument();
+    expect(screen.queryByText('এই নামে কোনো প্রশ্ন নেই।')).not.toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: 'লাইব্রেরিতে প্রশ্ন খুঁজুন' }), 'আয়');
+    expect(screen.getByText('এই নামে কোনো প্রশ্ন নেই।')).toBeInTheDocument();
+    expect(screen.queryByText('লাইব্রেরিতে এখনো কোনো প্রশ্ন নেই।')).not.toBeInTheDocument();
+  });
+
   it('adds an empty section at the end with the next number', async () => {
     const user = userEvent.setup();
     api();
