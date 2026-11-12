@@ -8,6 +8,7 @@ import {
   type FieldType,
   type FormDefinition,
   type FormField,
+  type FormKind,
   type FormSection,
   type NumberTable,
   emptySection,
@@ -757,6 +758,71 @@ export function canMarkIdentity(section: FormSection, field: FormField): boolean
     field.type !== 'repeat_group' &&
     field.settings?.repeat?.group === undefined
   );
+}
+
+/** The identity roles no question of the form is marked with, in the order of the roles. */
+export function missingIdentityRoles(def: FormDefinition): CoreFieldKey[] {
+  const marked = new Set(def.sections.flatMap((s) => s.fields.map((f) => identityRoleOf(f))));
+  return CORE_FIELDS.filter((core) => !marked.has(core.key)).map((core) => core.key);
+}
+
+/** A part that takes identity questions: seen by everyone, always shown. */
+const takesIdentity = (section: FormSection) =>
+  section.visibility === 'volunteer' && !section.condition;
+
+/**
+ * Adds a question for every identity role a beneficiary application form has none marked with,
+ * in the order of the roles, at the end of the first part everyone always sees (a new part at the
+ * end of the form, titled by `title`, when the form has no such part). A role takes the library's
+ * question of it, with the library's own texts and settings, where the library has one of the
+ * role's type that the form does not hold yet; otherwise an empty question of the role's type,
+ * marked, to be worded afterwards. Each added question is required and has no condition. A role
+ * already marked is left alone, and a form of another kind gets nothing. The keys of the added
+ * questions come back in order, with the part they went to.
+ */
+export function addIdentityQuestions(
+  def: FormDefinition,
+  library: LibraryFields,
+  options: {
+    kind: FormKind | undefined;
+    title: (n: number) => { bn: string; en: string };
+    makeKey?: MakeKey;
+  },
+): { definition: FormDefinition; section: string | null; fieldKeys: string[] } {
+  const roles = options.kind === 'beneficiary_application' ? missingIdentityRoles(def) : [];
+  if (!roles.length) return { definition: def, section: null, fieldKeys: [] };
+  let next = def;
+  let section = def.sections.find(takesIdentity)?.key;
+  if (section === undefined) {
+    const made = addEmptySection(def, options.title);
+    next = made.definition;
+    section = made.key;
+  }
+  const fieldKeys: string[] = [];
+  for (const role of roles) {
+    const core = CORE_FIELDS.find((c) => c.key === role)!;
+    const taken = allKeys(next);
+    // the library's question of the role: one question, of the role's type, not in the form yet
+    const ready = [...library.values()].find(
+      (placed) =>
+        placed.length === 1 &&
+        identityRoleOf(placed[0]!) === role &&
+        placed[0]!.type === core.type &&
+        !taken.has(placed[0]!.fieldKey),
+    );
+    if (ready) {
+      const key = ready[0]!.fieldKey;
+      // a marked question stays required and without a condition, whatever the library's has
+      next = updateField(addLibraryField(next, section, ready), key, { required: true });
+      fieldKeys.push(key);
+      continue;
+    }
+    const added = addOwnQuestion(next, section, { type: core.type }, undefined, options.makeKey);
+    if (!added.fieldKey) continue;
+    next = setIdentityRole(added.definition, added.fieldKey, role);
+    fieldKeys.push(added.fieldKey);
+  }
+  return { definition: next, section, fieldKeys };
 }
 
 /**

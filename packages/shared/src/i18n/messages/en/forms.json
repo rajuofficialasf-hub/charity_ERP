@@ -435,6 +435,9 @@
       "locked": "An identity question is seen by everyone, so it takes no condition.",
       "section": "This section holds identity questions, so everyone sees it.",
       "tag": "Identity: {role}",
+      "add_all": "Add the identity questions",
+      "start_title": "Start with the identity questions",
+      "start_hint": "A beneficiary application form needs seven identity questions: NID or birth registration number, name, father's or husband's name, mobile number, gender, address and village. One press adds them all; you can change their wording afterwards.",
       "roles": {
         "nid_or_birth_reg": "NID or birth registration number",
         "name": "Name",

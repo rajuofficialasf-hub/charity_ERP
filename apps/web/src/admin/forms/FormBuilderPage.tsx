@@ -26,11 +26,13 @@ import { useAuth } from '../../lib/auth';
 import { canBuildForms, canManagePublicLink, canPlaceForms } from '../roles';
 import {
   addEmptySection,
+  addIdentityQuestions,
   addLibraryField,
   addLibrarySection,
   addOwnQuestion,
   duplicateField,
   type LibraryFields,
+  missingIdentityRoles,
   moveFieldTo,
   removeFieldWithUses,
   removeSectionWithUses,
@@ -112,7 +114,9 @@ function useMedia(media: string) {
  * and its publishing is listed beside the Publish button while the form is built, each line
  * leading to its place; Publish opens that list while the draft's own check finds anything, and
  * asks first with the summary of the changes once it finds nothing; what the server refuses
- * lands in the same list, and leaves it once the question or the part it names is changed.
+ * lands in the same list, and leaves it once the question or the part it names is changed. A
+ * beneficiary application form that lacks identity questions gets them in one press, from the
+ * start card of the empty canvas or from the list's identity line.
  */
 /** The builder of a ready form outside the projects (`/admin/ready-forms/:formId`). */
 export const ReadyFormBuilderPage = () => (
@@ -430,6 +434,32 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     setReveal({ ...chosen, quiet: true });
     setTyping(added.fieldKey);
   };
+  const newSectionTitle = (n: number) => ({
+    bn: t('section_n_bn', { n: String(n) }),
+    en: t('section_n_en', { n: String(n) }),
+  });
+  // a beneficiary application form that still lacks identity questions is offered them all in
+  // one press, once the library they come from is read
+  const identityMissing =
+    mode === 'full' &&
+    kind === 'beneficiary_application' &&
+    lib.isSuccess &&
+    missingIdentityRoles(draft).length > 0;
+  /**
+   * Adds the identity questions the form lacks, the library's where it has them, and leaves the
+   * first of them chosen and in view. One step to undo.
+   */
+  const addIdentity = () => {
+    if (!identityMissing) return;
+    const added = addIdentityQuestions(draft, fields, { kind, title: newSectionTitle });
+    const first = added.fieldKeys[0];
+    if (added.section === null || first === undefined) return;
+    change(added.definition);
+    setListing(false);
+    const chosen = { section: added.section, field: first };
+    setSelected(chosen);
+    setReveal(chosen);
+  };
   /** Sends a question to the end of another part, where it stays chosen and comes into view. */
   const moveTo = (fieldKey: string, sectionKey: string) => {
     const next = moveFieldTo(draft, fieldKey, sectionKey, Number.MAX_SAFE_INTEGER);
@@ -520,13 +550,11 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       onMoveFieldTo={moveTo}
       onAddTo={(sectionKey, type) => addQuestion(type, { section: sectionKey })}
       onAddSection={() => {
-        const made = addEmptySection(draft, (n) => ({
-          bn: t('section_n_bn', { n: String(n) }),
-          en: t('section_n_en', { n: String(n) }),
-        }));
+        const made = addEmptySection(draft, newSectionTitle);
         change(made.definition);
         setSelected({ section: made.key });
       }}
+      onAddIdentity={identityMissing ? addIdentity : undefined}
       onAddRow={(groupKey, type) => {
         const section = sectionOf(groupKey);
         if (section) addQuestion(type, { section: section.key, group: groupKey });
@@ -679,6 +707,11 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
                   onOpen={() => setListing(true)}
                   onClose={() => setListing(false)}
                   onGo={go}
+                  actions={{
+                    ...(identityMissing
+                      ? { identity: { label: t('identity.add_all'), onSelect: addIdentity } }
+                      : {}),
+                  }}
                 />
               ) : null}
               {canPublish ? (

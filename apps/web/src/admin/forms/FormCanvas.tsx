@@ -154,7 +154,8 @@ export function CanvasDnd({
  * no text yet says so in place of its text. Removing is the page's: it asks first when something
  * else reads what goes. A question or a part with something to fix before publishing carries a
  * mark, and says what once it is chosen; the page has one brought into view through `reveal`,
- * and given the focus unless the page keeps it.
+ * and given the focus unless the page keeps it. A beneficiary application form with no question
+ * yet opens with a card that adds its identity questions in one press.
  */
 export function FormCanvas({
   definition,
@@ -173,6 +174,7 @@ export function FormCanvas({
   onAddTo,
   onAddRow,
   onAddSection,
+  onAddIdentity,
 }: {
   definition: FormDefinition;
   mode: BuilderMode;
@@ -197,9 +199,19 @@ export function FormCanvas({
   onAddRow: (groupKey: string, type: FieldType) => void;
   /** The person wants a new empty section at the end of the form. */
   onAddSection: () => void;
+  /**
+   * The person wants the identity questions the form still lacks, all at once; given only while
+   * a beneficiary application form lacks some.
+   */
+  onAddIdentity?: () => void;
 }) {
   const t = useTranslations('forms.builder');
   const root = useRef<HTMLElement>(null);
+  // a form with no question yet starts with its identity questions, where it needs them
+  const starting =
+    mode === 'full' &&
+    onAddIdentity !== undefined &&
+    definition.sections.every((s) => s.fields.length === 0);
   const revealed = useEffectEvent(() => onRevealed?.());
   useEffect(() => {
     if (!reveal) return;
@@ -239,6 +251,22 @@ export function FormCanvas({
   return (
     <section ref={root} aria-label={t('outline')}>
       <Stack gap={4}>
+        {starting ? (
+          <div className="fb-start">
+            <span className="fb-start-icon">
+              <Icon name="id-card" />
+            </span>
+            <Text>
+              <strong>{t('identity.start_title')}</strong>
+            </Text>
+            <Text tone="muted">{t('identity.start_hint')}</Text>
+            <div>
+              <Button startIcon="add" onClick={onAddIdentity}>
+                {t('identity.add_all')}
+              </Button>
+            </div>
+          </div>
+        ) : null}
         {body}
         {mode === 'full' ? (
           <div>

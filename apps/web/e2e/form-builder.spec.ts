@@ -338,8 +338,8 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
 });
 
 // A form built in Bengali first: what stands between it and its publishing is listed beside the
-// Publish button, and each line leads to its place.
-test('a new application form lists what to fix before publishing, and a line leads to its question', async ({
+// Publish button, each line leads to its place, and the identity questions come in one press.
+test('a new application form lists what to fix before publishing, a line leads to its question, and the identity questions come in one press', async ({
   page,
 }, info) => {
   test.skip(info.project.name !== 'desktop', 'the builders work on a computer');
@@ -390,6 +390,40 @@ test('a new application form lists what to fix before publishing, and a line lea
   await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
   await expect(list).toBeVisible();
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
+
+  // the identity questions come in one press, from the list, each marked; the seeded library
+  // holds no question yet, so each comes empty, to be worded
+  await list.getByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' }).click();
+  await expect(list).toHaveCount(0);
+  await expect(page.getByTestId('form-head').getByText('1টি অংশ · 8টি প্রশ্ন')).toBeVisible();
+  const part = page.getByRole('list', { name: 'অংশ 1', exact: true });
+  for (const role of [
+    'এনআইডি বা জন্মনিবন্ধন নম্বর',
+    'নাম',
+    'পিতা বা স্বামীর নাম',
+    'মোবাইল নম্বর',
+    'লিঙ্গ',
+    'ঠিকানা (বিভাগ থেকে ইউনিয়ন)',
+    'গ্রাম',
+  ])
+    await expect(part.getByText(`পরিচয়: ${role}`, { exact: true })).toBeVisible();
+  await expect(part.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveCount(7);
+  // the first of them is chosen and in view
+  const first = part.getByRole('button', { name: / বদলান$/ }).nth(1);
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(first).toBeInViewport();
+  await expect(questionTexts(page).bn).toHaveValue('');
+  await saved(page);
+  // the identity line has left the list: what remains is the texts, the earlier question's
+  // English one and both of each new question
+  const left = await openFixList(page, 15);
+  await expect(left.getByText(/^পরিচয়ের প্রশ্ন বাকি/)).toHaveCount(0);
+  await expect(left.getByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' })).toHaveCount(0);
+  await expect(
+    left.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন: প্রশ্নের বাংলা লেখা বাকি' }),
+  ).toHaveCount(7);
+  await page.keyboard.press('Escape');
+  await expect(left).toHaveCount(0);
 });
 
 // A question is added where the person works, with no dialog, and moved to another part by a

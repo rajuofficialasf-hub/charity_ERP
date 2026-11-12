@@ -1,13 +1,20 @@
-import { type FormDefinition, formDefinitionSchema } from '@css/shared/forms';
+import {
+  checkDefinition,
+  type FormDefinition,
+  formDefinitionSchema,
+  identityRoleOf,
+} from '@css/shared/forms';
 import { describe, expect, it } from 'vitest';
 import { definition, field, keysOf, option, section, T } from '../../../test/forms';
 import {
   addEmptySection,
+  addIdentityQuestions,
   addLibraryField,
   addLibrarySection,
   addOwnQuestion,
   coreLocks,
   duplicateField,
+  missingIdentityRoles,
   moveField,
   moveFieldTo,
   moveSection,
@@ -501,6 +508,153 @@ describe('the identity mark', () => {
     const def = own();
     for (const key of ['g', 'member', 'remark'])
       expect(setIdentityRole(def, key, 'name'), key).toBe(def);
+  });
+});
+
+describe('the identity questions added all at once', () => {
+  const title = (n: number) => T(`অংশ ${n}`, `Section ${n}`);
+  /** A library that holds the questions of four of the seven roles, and one of no role. */
+  const identityLibrary = new Map([
+    [
+      'name',
+      [
+        field('name', 'short_text', {
+          label: T('উপকারভোগীর নাম', "Beneficiary's name"),
+          standardColumn: 'name',
+          libraryFieldKey: 'name',
+        }),
+      ],
+    ],
+    [
+      'mobile',
+      [
+        field('mobile', 'phone', {
+          label: T('মোবাইল নম্বর', 'Mobile number'),
+          standardColumn: 'mobile',
+          libraryFieldKey: 'mobile',
+          settings: { validation: { pattern: 'mobile' } },
+          // the library's own question is optional and conditional; a marked one is neither
+          logic: { show_if: { field: 'name', op: 'not_empty' } },
+        }),
+      ],
+    ],
+    [
+      'gender',
+      [
+        field('gender', 'single_select', {
+          label: T('লিঙ্গ', 'Gender'),
+          standardColumn: 'gender_code',
+          libraryFieldKey: 'gender',
+          options: [option('male'), option('female')],
+        }),
+      ],
+    ],
+    // a question that fills the village column under another type is not the role's question
+    ['village', [field('village', 'long_text', { standardColumn: 'village' })]],
+    ['members_14_plus', [field('members_14_plus', 'number')]],
+  ]);
+  const empty = (): FormDefinition => ({ sections: [section('section_1', [])] });
+  const add = (def: FormDefinition, kind: 'beneficiary_application' | 'other' | 'library') =>
+    addIdentityQuestions(def, identityLibrary, {
+      kind,
+      title,
+      makeKey: keysFrom('q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd', 'q_eeeeee'),
+    });
+  const ROLES = [
+    'nid_or_birth_reg',
+    'name',
+    'father_or_husband_name',
+    'mobile',
+    'gender',
+    'address',
+    'village',
+  ];
+
+  it('gives an empty application form one marked question per role, the library’s where it has one', () => {
+    const start = empty();
+    expect(missingIdentityRoles(start)).toEqual(ROLES);
+    const { definition: next, section: part, fieldKeys } = add(start, 'beneficiary_application');
+    expect(part).toBe('section_1');
+    // in the order of the roles: the library's question by its own key, an empty one otherwise
+    expect(fieldKeys).toEqual([
+      'q_aaaaaa',
+      'name',
+      'q_bbbbbb',
+      'mobile',
+      'gender',
+      'q_cccccc',
+      'q_dddddd',
+    ]);
+    const fields = next.sections[0]!.fields;
+    expect(fields.map((f) => f.fieldKey)).toEqual(fieldKeys);
+    expect(fields.map((f) => identityRoleOf(f))).toEqual(ROLES);
+    expect(fields.every((f) => f.required)).toBe(true);
+    expect(fields.map((f) => f.type)).toEqual([
+      'short_text',
+      'short_text',
+      'short_text',
+      'phone',
+      'single_select',
+      'bd_address',
+      'short_text',
+    ]);
+    // the library's texts and settings come along, without what a marked question may not have
+    expect(fields[1]).toMatchObject({ label: T('উপকারভোগীর নাম', "Beneficiary's name") });
+    expect(fields[3]).toMatchObject({
+      label: T('মোবাইল নম্বর', 'Mobile number'),
+      settings: { validation: { pattern: 'mobile' } },
+    });
+    expect(fields[3]!.logic).toBeUndefined();
+    expect(fields[4]!.options?.map((o) => o.code)).toEqual(['male', 'female']);
+    // a role the library lacks is an empty question to word
+    expect(fields[0]).toMatchObject({ label: T('', ''), libraryFieldKey: null, options: [] });
+    expect(missingIdentityRoles(next)).toEqual([]);
+    valid(next);
+    expect(
+      checkDefinition(next, { publishing: true, kind: 'beneficiary_application' }).filter((i) =>
+        i.code.startsWith('form.core_field'),
+      ),
+    ).toEqual([]);
+  });
+
+  it('adds only the roles that are missing, and nothing a second time', () => {
+    const start = definition();
+    expect(add(start, 'beneficiary_application')).toEqual({
+      definition: start,
+      section: null,
+      fieldKeys: [],
+    });
+    const some = setIdentityRole(setIdentityRole(start, 'name', null), 'village', null);
+    const once = add(some, 'beneficiary_application');
+    // the form holds a question keyed name already, so the role gets an empty one of its own
+    expect(once.fieldKeys).toEqual(['q_aaaaaa', 'q_bbbbbb']);
+    expect(once.section).toBe('basic_info');
+    const added = once.definition.sections[0]!.fields.slice(-2);
+    expect(added.map((f) => identityRoleOf(f))).toEqual(['name', 'village']);
+    expect(add(once.definition, 'beneficiary_application').definition).toBe(once.definition);
+    valid(once.definition);
+  });
+
+  it('gives a form of another kind nothing', () => {
+    const start = empty();
+    for (const kind of ['other', 'library'] as const)
+      expect(add(start, kind)).toEqual({ definition: start, section: null, fieldKeys: [] });
+    expect(
+      addIdentityQuestions(start, identityLibrary, { kind: undefined, title }).definition,
+    ).toBe(start);
+  });
+
+  it('opens a new part when no part of the form is seen by everyone at all times', () => {
+    const start: FormDefinition = {
+      sections: [section('office', [], { visibility: 'official_only' })],
+    };
+    const { definition: next, section: part, fieldKeys } = add(start, 'beneficiary_application');
+    expect(part).toBe('section_2');
+    expect(next.sections.map((s) => s.key)).toEqual(['office', 'section_2']);
+    expect(next.sections[1]).toMatchObject({ title: T('অংশ 2', 'Section 2') });
+    expect(next.sections[1]!.fields.map((f) => f.fieldKey)).toEqual(fieldKeys);
+    expect(fieldKeys).toHaveLength(7);
+    valid(next);
   });
 });
 
@@ -1043,12 +1197,22 @@ describe('the rest of the definition', () => {
       'an empty part',
       (d) => addEmptySection(d, (n) => T(`অংশ ${n}`, `Section ${n}`)).definition,
     ],
+    [
+      'addIdentityQuestions',
+      'the question of a role no question is marked with',
+      (d) =>
+        addIdentityQuestions(setIdentityRole(d, 'name', null), library.fields, {
+          kind: 'beneficiary_application',
+          title: (n) => T(`অংশ ${n}`, `Section ${n}`),
+        }).definition,
+    ],
   ];
   /** The exported functions that read a draft and return no draft. */
   const READERS: (keyof typeof draftEdits)[] = [
     'canMarkIdentity',
     'coreLocks',
     'hasIdentity',
+    'missingIdentityRoles',
     'usesOf',
     'usesOfSection',
   ];

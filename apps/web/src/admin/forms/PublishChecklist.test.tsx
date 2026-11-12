@@ -38,9 +38,43 @@ const IDENTITY_LINE =
 
 let saves: FormDefinition['sections'][];
 let publishes: number;
+/** The library's own questions of two identity roles, as the library read gives them. */
+const libraryQuestion = (key: string, type: 'short_text' | 'phone', bn: string, en: string) => {
+  const label = T(bn, en);
+  return {
+    key,
+    type,
+    label,
+    standardColumn: key,
+    defaultSettings: {},
+    formFields: [field(key, type, { label, standardColumn: key, libraryFieldKey: key })],
+  };
+};
+const IDENTITY_LIBRARY = {
+  sections: [
+    {
+      key: 'basic_info',
+      title: T('মৌলিক তথ্য', 'Basic information'),
+      defaultVisibility: 'volunteer',
+      fieldKeys: ['name', 'mobile'],
+    },
+  ],
+  fields: [
+    libraryQuestion('name', 'short_text', 'উপকারভোগীর নাম', "Beneficiary's name"),
+    libraryQuestion('mobile', 'phone', 'মোবাইল নম্বর', 'Mobile number'),
+  ],
+  templates: [],
+};
+const NO_LIBRARY = { sections: [], fields: [], templates: [] };
+
 function api(
   sections: FormDefinition['sections'],
-  options: { status?: 'draft' | 'published'; publish?: () => Response | undefined } = {},
+  options: {
+    status?: 'draft' | 'published';
+    publish?: () => Response | undefined;
+    kind?: 'beneficiary_application' | 'other';
+    library?: typeof IDENTITY_LIBRARY;
+  } = {},
 ) {
   saves = [];
   publishes = 0;
@@ -66,7 +100,7 @@ function api(
             title: T('উপকারভোগীর আবেদন', 'Beneficiary application'),
             publishedVersionId: current.status === 'published' ? DRAFT : null,
             draftVersionId: current.status === 'draft' ? DRAFT : null,
-            kind: 'beneficiary_application',
+            kind: options.kind ?? 'beneficiary_application',
             sourceFormId: null,
             sourceVersionNo: null,
             newerVersionNo: null,
@@ -76,10 +110,7 @@ function api(
       }),
     ),
     http.get('*/api/v1/form-library', () =>
-      HttpResponse.json({
-        data: { sections: [], fields: [], templates: [] },
-        meta: { requestId: 'r' },
-      }),
+      HttpResponse.json({ data: options.library ?? NO_LIBRARY, meta: { requestId: 'r' } }),
     ),
     http.get(`*/api/v1/forms/${FORM}/versions`, () =>
       HttpResponse.json({
@@ -373,6 +404,108 @@ describe('a refusal of the server', () => {
     expect(dialog.getByText('ফর্মটি অনেক বড়।')).toBeInTheDocument();
     expect(dialog.queryByRole('button', { name: /ফর্মটি অনেক বড়/ })).not.toBeInTheDocument();
   }, 30_000);
+});
+
+describe('the identity questions in one press', () => {
+  const ADD = 'পরিচয়ের প্রশ্নগুলো যোগ করুন';
+  const UNNAMED = 'নাম ছাড়া প্রশ্ন বদলান';
+  const questions = () =>
+    screen.getAllByRole('button', { name: / বদলান$/ }).map((b) => b.getAttribute('aria-label'));
+  const undo = () =>
+    within(screen.getByTestId('form-head')).getByRole('button', { name: 'ফিরিয়ে আনুন' });
+  const rolesOf = (sections: FormDefinition['sections'] | undefined) =>
+    (sections ?? []).flatMap((s) => s.fields).map((f) => f.standardColumn);
+
+  it('are added from the list, the library’s where it has them, and one undo takes them all away', async () => {
+    const user = userEvent.setup();
+    api(bare(), { library: IDENTITY_LIBRARY });
+    open();
+    await user.click(await listButton(2));
+    await user.click(within(await list()).getByRole('button', { name: ADD }));
+    // the list closes; the questions stand after the form's own, in the order of the roles
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(questions()).toEqual([
+      'মন্তব্য বদলান',
+      UNNAMED,
+      'উপকারভোগীর নাম বদলান',
+      UNNAMED,
+      'মোবাইল নম্বর বদলান',
+      UNNAMED,
+      UNNAMED,
+      UNNAMED,
+    ]);
+    // the first of them is chosen and brought into view
+    const first = screen.getAllByRole('button', { name: UNNAMED })[0]!;
+    expect(first).toHaveAttribute('aria-pressed', 'true');
+    expect(scrolled).toEqual([first.closest('li')]);
+    expect(
+      within(first.closest('li')!).getByText(/^পরিচয়: এনআইডি বা জন্মনিবন্ধন নম্বর/),
+    ).toBeInTheDocument();
+    // the identity line is gone; what the empty questions still need is listed in its place
+    await user.click(await screen.findByRole('button', { name: /^প্রকাশের আগে ঠিক করুন/ }));
+    const dialog = within(await list());
+    expect(dialog.queryByText(/^পরিচয়ের প্রশ্ন বাকি/)).not.toBeInTheDocument();
+    expect(dialog.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
+    expect(
+      dialog.getAllByRole('button', { name: 'নাম ছাড়া প্রশ্ন: প্রশ্নের বাংলা লেখা বাকি' }),
+    ).toHaveLength(5);
+    await user.click(dialog.getByRole('button', { name: 'বন্ধ করুন' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    expect(rolesOf(saves.at(-1))).toEqual([
+      null,
+      'nid_or_birth_reg',
+      'name',
+      'father_or_husband_name',
+      'mobile',
+      'gender_code',
+      'division_id,district_id,upazila_id,union_id',
+      'village',
+    ]);
+    expect(
+      saves
+        .at(-1)!
+        .flatMap((s) => s.fields)
+        .slice(1)
+        .every((f) => f.required),
+    ).toBe(true);
+    // one step back takes all seven away, and the identity line returns
+    await user.click(undo());
+    expect(questions()).toEqual(['মন্তব্য বদলান']);
+    expect(await listButton(2)).toBeInTheDocument();
+  }, 30_000);
+
+  it('are offered on the start card of an empty application form', async () => {
+    const user = userEvent.setup();
+    api([section('section_1', [], { title: T('অংশ 1', 'Section 1') })], {
+      library: IDENTITY_LIBRARY,
+    });
+    open();
+    expect(await screen.findByText('পরিচয়ের প্রশ্ন দিয়ে শুরু করুন')).toBeInTheDocument();
+    const canvas = within(screen.getByRole('region', { name: 'ফর্মের প্রশ্নগুলো' }));
+    await user.click(canvas.getByRole('button', { name: ADD }));
+    expect(questions()).toHaveLength(7);
+    // the card has done its work
+    expect(screen.queryByText('পরিচয়ের প্রশ্ন দিয়ে শুরু করুন')).not.toBeInTheDocument();
+    expect(canvas.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    expect(rolesOf(saves.at(-1))).toHaveLength(7);
+    await user.click(undo());
+    expect(screen.queryAllByRole('button', { name: / বদলান$/ })).toHaveLength(0);
+    expect(await canvas.findByRole('button', { name: ADD })).toBeInTheDocument();
+  }, 30_000);
+
+  it('are not offered on a form of another kind', async () => {
+    api([section('section_1', [], { title: T('অংশ 1', 'Section 1') })], {
+      kind: 'other',
+      library: IDENTITY_LIBRARY,
+    });
+    open();
+    await screen.findByRole('list', { name: 'অংশ 1' });
+    await screen.findByRole('tab', { name: 'লাইব্রেরি' });
+    expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
+    expect(screen.queryByText('পরিচয়ের প্রশ্ন দিয়ে শুরু করুন')).not.toBeInTheDocument();
+  });
 });
 
 describe('the marks on the form', () => {
