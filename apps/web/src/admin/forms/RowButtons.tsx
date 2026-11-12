@@ -1,15 +1,16 @@
-import { Button, Stack } from '@/ui';
+import { IconButton } from '@/ui';
 
 export interface RowButton {
-  /** The accessible name, naming the row it acts on. */
+  /** The accessible name and the tip, naming the row it acts on. */
   label: string;
   onPress: () => void;
   disabled?: boolean;
 }
 
 /**
- * The icon buttons of a row in the builder (the outline, the options, the condition rows and the
- * calculation terms): edit, move up, move down and remove, each shown only when given.
+ * The icon buttons of a row in the builder (the options, the condition rows, the calculation
+ * terms, a table's rows and columns): edit, move up, move down and remove, each shown only when
+ * given. A button shows its icon alone; its label is its accessible name and its tip.
  */
 export function RowButtons({
   edit,
@@ -29,21 +30,19 @@ export function RowButtons({
     { icon: 'delete' as const, action: remove },
   ];
   return (
-    <Stack direction="row" gap={1} wrap>
+    <span className="fb-row-buttons">
       {buttons.map(({ icon, action }) =>
         action ? (
-          <Button
-            key={action.label}
+          <IconButton
+            key={icon}
             size="small"
-            variant="text"
-            startIcon={icon}
+            label={action.label}
+            icon={icon}
             disabled={action.disabled}
             onClick={action.onPress}
-          >
-            {action.label}
-          </Button>
+          />
         ) : null,
       )}
-    </Stack>
+    </span>
   );
 }

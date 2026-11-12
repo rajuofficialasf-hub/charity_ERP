@@ -3,6 +3,7 @@ import {
   conditionFields,
   CORE_FIELDS,
   type CoreFieldKey,
+  DEFINITION_LIMITS,
   exprReferences,
   type FieldOption,
   type FieldType,
@@ -127,7 +128,10 @@ export interface OwnQuestion {
   table?: NumberTable;
 }
 
-/** Makes a candidate key for a new question; the form's own keys are checked by the caller. */
+/**
+ * Makes a candidate key for a new question, or a candidate code for a new option; the keys and
+ * codes already taken are checked by the caller.
+ */
 export type MakeKey = () => string;
 
 const KEY_LETTERS = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -135,15 +139,20 @@ const KEY_LENGTH = 6;
 /** The bytes below this are whole runs of the alphabet, so each letter is as likely as another. */
 const KEY_BYTE_LIMIT = 256 - (256 % KEY_LETTERS.length);
 
-/** `q_` and six random small letters and digits. */
-const randomKey: MakeKey = () => {
+/** Six random small letters and digits. */
+function randomLetters(): string {
   let letters = '';
   while (letters.length < KEY_LENGTH)
     for (const byte of crypto.getRandomValues(new Uint8Array(KEY_LENGTH * 2)))
       if (byte < KEY_BYTE_LIMIT && letters.length < KEY_LENGTH)
         letters += KEY_LETTERS.charAt(byte % KEY_LETTERS.length);
-  return `q_${letters}`;
-};
+  return letters;
+}
+
+/** `q_` and six random small letters and digits. */
+const randomKey: MakeKey = () => `q_${randomLetters()}`;
+/** `o_` and six random small letters and digits. */
+const randomCode: MakeKey = () => `o_${randomLetters()}`;
 
 /**
  * The key of a new or copied question: random, never made from a text (a question starts
@@ -282,6 +291,106 @@ export function setOptions(
       ),
     })),
   };
+}
+
+/**
+ * A code for a new option: random, never made from its text (an option starts without one, and
+ * its texts change), and not one the question's options have. The code is never shown and never
+ * changed, so a condition, the points of the score and a branching option that name it go on
+ * naming the same option; and an option removed and another added never share a code, so an
+ * answer stored under the old one in an earlier version never reads as the new option.
+ */
+function freshCode(taken: ReadonlySet<string>, makeCode: MakeKey = randomCode): string {
+  for (;;) {
+    const code = makeCode();
+    if (!taken.has(code)) return code;
+  }
+}
+
+const codesOf = (options: readonly FieldOption[]) => new Set(options.map((o) => o.code));
+
+const optionOf = (code: string, label: FieldOption['label']): FieldOption => ({
+  code,
+  label,
+  dependsOnOptionCode: null,
+  allowsOtherText: false,
+});
+
+/** A new option to fill in, with a code none of the question's options has. */
+export function emptyOption(options: readonly FieldOption[], makeCode?: MakeKey): FieldOption {
+  return optionOf(freshCode(codesOf(options), makeCode), { bn: '', en: '' });
+}
+
+/** The options with a new empty one right after the option at `index`; the new one comes back too. */
+export function insertOptionAfter(
+  options: readonly FieldOption[],
+  index: number,
+  makeCode?: MakeKey,
+): { options: FieldOption[]; added: FieldOption } {
+  const added = emptyOption(options, makeCode);
+  const at = Math.max(0, Math.min(index + 1, options.length));
+  return { options: [...options.slice(0, at), added, ...options.slice(at)], added };
+}
+
+/** The lines of a pasted text that hold something, each without the space around it. */
+export function pastedLines(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+}
+
+/**
+ * The options after several lines are pasted into the text of the option at `index`. Into the
+ * Bengali text: the first line is that option's text, and each further line is a new option right
+ * after it, in order. Into the English text: the lines are the English texts of that option and
+ * the ones after it, line by line, and a line with no option left to take it is a new option at
+ * the end. A question holds 100 options at most; the lines beyond that are left out. The same
+ * list comes back when there is nothing to place.
+ */
+export function pasteOptions(
+  options: readonly FieldOption[],
+  index: number,
+  language: 'bn' | 'en',
+  lines: readonly string[],
+  makeCode?: MakeKey,
+): readonly FieldOption[] {
+  const current = options.at(index);
+  if (!current || index < 0 || lines.length === 0) return options;
+  const room = DEFINITION_LIMITS.optionsPerField - options.length;
+  const taken = codesOf(options);
+  const fresh = (label: FieldOption['label']) => {
+    const code = freshCode(taken, makeCode);
+    taken.add(code);
+    return optionOf(code, label);
+  };
+  if (language === 'bn') {
+    const [first = '', ...rest] = lines;
+    return [
+      ...options.slice(0, index),
+      { ...current, label: { ...current.label, bn: first } },
+      ...rest.slice(0, Math.max(0, room)).map((bn) => fresh({ bn, en: '' })),
+      ...options.slice(index + 1),
+    ];
+  }
+  const next = options.map((option, i) => {
+    const en = lines.at(i - index);
+    return i < index || en === undefined ? option : { ...option, label: { ...option.label, en } };
+  });
+  const extra = lines.slice(options.length - index, options.length - index + Math.max(0, room));
+  return [...next, ...extra.map((en) => fresh({ bn: '', en }))];
+}
+
+/** The two options of a yes-or-no question, in both languages. */
+export function yesNoOptions(
+  texts: { yes: FieldOption['label']; no: FieldOption['label'] },
+  makeCode?: MakeKey,
+): FieldOption[] {
+  const yes = emptyOption([], makeCode);
+  return [
+    { ...yes, label: texts.yes },
+    { ...emptyOption([yes], makeCode), label: texts.no },
+  ];
 }
 
 /** Removes a field, and a repeat group's members with it. */

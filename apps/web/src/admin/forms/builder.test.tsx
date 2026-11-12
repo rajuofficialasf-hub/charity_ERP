@@ -1191,7 +1191,8 @@ describe('the own question', () => {
       fieldKey: expect.stringMatching(RANDOM_KEY),
       type: 'radio',
       label: { bn: 'নিজের ঘর আছে?', en: '' },
-      options: [{ code: expect.stringMatching(/^opt_/), label: { bn: 'হ্যাঁ', en: '' } }],
+      // the option's code is random too, never a word of its text
+      options: [{ code: expect.stringMatching(/^o_[a-z0-9]{6}$/), label: { bn: 'হ্যাঁ', en: '' } }],
     });
   }, 20_000);
 

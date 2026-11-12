@@ -14,10 +14,14 @@ import {
   addOwnQuestion,
   coreLocks,
   duplicateField,
+  emptyOption,
+  insertOptionAfter,
   missingIdentityRoles,
   moveField,
   moveFieldTo,
   moveSection,
+  pastedLines,
+  pasteOptions,
   setOptions,
   removeField,
   removeFieldWithUses,
@@ -31,6 +35,7 @@ import {
   updateField,
   usesOf,
   usesOfSection,
+  yesNoOptions,
 } from './draft';
 import * as draftEdits from './draft';
 
@@ -658,6 +663,121 @@ describe('the identity questions added all at once', () => {
   });
 });
 
+describe('the options of a choice question', () => {
+  const RANDOM_CODE = /^o_[a-z0-9]{6}$/;
+  const codes = (list: readonly { code: string }[]) => list.map((o) => o.code);
+  const texts = (list: readonly { label: { bn: string; en: string } }[]) =>
+    list.map((o) => [o.label.bn, o.label.en]);
+  const three = () => [
+    option('a', { label: T('ক', 'A') }),
+    option('b', { label: T('খ', 'B') }),
+    option('c', { label: T('গ', 'C') }),
+  ];
+
+  it('gives a new option a random code, never made from a text and never one the question has', () => {
+    const first = emptyOption([]);
+    expect(first).toEqual({
+      code: expect.stringMatching(RANDOM_CODE),
+      label: T('', ''),
+      dependsOnOptionCode: null,
+      allowsOtherText: false,
+    });
+    expect(emptyOption([first]).code).not.toBe(first.code);
+    // a code the question has is drawn again
+    const taken = [option('o_aaaaaa'), option('o_bbbbbb')];
+    expect(emptyOption(taken, keysFrom('o_aaaaaa', 'o_bbbbbb', 'o_cccccc')).code).toBe('o_cccccc');
+  });
+
+  it('puts a new option right after the one it follows, and leaves the others their codes', () => {
+    const { options: next, added } = insertOptionAfter(three(), 0, keysFrom('o_new000'));
+    expect(codes(next)).toEqual(['a', 'o_new000', 'b', 'c']);
+    expect(added).toMatchObject({ code: 'o_new000', label: T('', '') });
+    expect(codes(insertOptionAfter(three(), 2, keysFrom('o_new000')).options)).toEqual([
+      'a',
+      'b',
+      'c',
+      'o_new000',
+    ]);
+    expect(codes(insertOptionAfter([], 0, keysFrom('o_new000')).options)).toEqual(['o_new000']);
+  });
+
+  it('reads the lines of a pasted text, without the empty ones and the space around each', () => {
+    expect(pastedLines(' বৃদ্ধ \r\n\r\nবিধবা\n  \nএতিম\n')).toEqual(['বৃদ্ধ', 'বিধবা', 'এতিম']);
+    expect(pastedLines('একটি')).toEqual(['একটি']);
+    expect(pastedLines(' \n ')).toEqual([]);
+  });
+
+  it('makes one option of each line pasted into a Bengali text, the first in the option itself', () => {
+    const start = [option('a', { label: T('', '') }), option('z', { label: T('শেষ', 'Last') })];
+    const next = pasteOptions(
+      start,
+      0,
+      'bn',
+      ['বৃদ্ধ', 'বিধবা', 'এতিম'],
+      keysFrom('o_new001', 'o_new002'),
+    );
+    expect(codes(next)).toEqual(['a', 'o_new001', 'o_new002', 'z']);
+    expect(texts(next)).toEqual([
+      ['বৃদ্ধ', ''],
+      ['বিধবা', ''],
+      ['এতিম', ''],
+      ['শেষ', 'Last'],
+    ]);
+    // a draft takes options that wait for their English
+    valid(definition(section('extra', [field('kind', 'radio', { options: [...next] })])));
+  });
+
+  it('fills the English of the option and the ones after it from the lines pasted into an English text', () => {
+    const start = [
+      option('a', { label: T('বৃদ্ধ', '') }),
+      option('b', { label: T('বিধবা', 'old text') }),
+      option('c', { label: T('এতিম', '') }),
+    ];
+    const filled = pasteOptions(start, 0, 'en', ['Elderly', 'Widow', 'Orphan']);
+    expect(codes(filled)).toEqual(['a', 'b', 'c']);
+    expect(texts(filled)).toEqual([
+      ['বৃদ্ধ', 'Elderly'],
+      ['বিধবা', 'Widow'],
+      ['এতিম', 'Orphan'],
+    ]);
+    // from the second option on, and a line with no option left is a new one at the end
+    const more = pasteOptions(start, 1, 'en', ['Widow', 'Orphan', 'Other'], keysFrom('o_new001'));
+    expect(codes(more)).toEqual(['a', 'b', 'c', 'o_new001']);
+    expect(texts(more)).toEqual([
+      ['বৃদ্ধ', ''],
+      ['বিধবা', 'Widow'],
+      ['এতিম', 'Orphan'],
+      ['', 'Other'],
+    ]);
+  });
+
+  it('places nothing for no line or an option that is not there, and stops at 100 options', () => {
+    const start = three();
+    expect(pasteOptions(start, 0, 'bn', [])).toBe(start);
+    expect(pasteOptions(start, 5, 'bn', ['ক', 'খ'])).toBe(start);
+    expect(pasteOptions(start, -1, 'en', ['A', 'B'])).toBe(start);
+    const many = Array.from({ length: 150 }, (_, i) => `লাইন ${i}`);
+    expect(pasteOptions(start, 2, 'bn', many)).toHaveLength(100);
+    expect(pasteOptions(start, 2, 'en', many)).toHaveLength(100);
+  });
+
+  it('makes yes and no in both languages, each under a code of its own', () => {
+    const made = yesNoOptions(
+      { yes: T('হ্যাঁ', 'Yes'), no: T('না', 'No') },
+      keysFrom('o_same00', 'o_same00', 'o_other0'),
+    );
+    expect(texts(made)).toEqual([
+      ['হ্যাঁ', 'Yes'],
+      ['না', 'No'],
+    ]);
+    expect(codes(made)).toEqual(['o_same00', 'o_other0']);
+    expect(codes(yesNoOptions({ yes: T('হ্যাঁ', 'Yes'), no: T('না', 'No') }))).toEqual([
+      expect.stringMatching(RANDOM_CODE),
+      expect.stringMatching(RANDOM_CODE),
+    ]);
+  });
+});
+
 describe('the other sections and fields', () => {
   const extraSection = () =>
     section('loans', [field('has_loan', 'radio'), field('loan_total', 'money')]);
@@ -1207,14 +1327,22 @@ describe('the rest of the definition', () => {
         }).definition,
     ],
   ];
-  /** The exported functions that read a draft and return no draft. */
+  /**
+   * The exported functions that return no draft: the ones that read a draft, and the ones that
+   * work on a question's list of options, which `setOptions` then writes into the draft.
+   */
   const READERS: (keyof typeof draftEdits)[] = [
     'canMarkIdentity',
     'coreLocks',
+    'emptyOption',
     'hasIdentity',
+    'insertOptionAfter',
     'missingIdentityRoles',
+    'pastedLines',
+    'pasteOptions',
     'usesOf',
     'usesOfSection',
+    'yesNoOptions',
   ];
 
   it.each(EDITS)('%s (%s) keeps the points of the form', (_name, _what, edit) => {

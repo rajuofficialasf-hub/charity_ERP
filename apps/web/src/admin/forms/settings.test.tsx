@@ -135,7 +135,9 @@ describe('the field settings', () => {
     await user.click(await screen.findByRole('button', { name: 'অপশন 1 সরান' }));
     await user.click(screen.getByRole('button', { name: 'অপশন যোগ করুন' }));
     const [added] = fieldOf(latest, 'kind').options!;
-    expect(added!.code).toMatch(/^opt_[0-9a-f]{12}$/);
+    // random, never the removed option's code and never a word of a text
+    expect(added!.code).toMatch(/^o_[a-z0-9]{6}$/);
+    expect(added!.code).not.toBe('opt_1');
   });
 
   it('keeps a repeat group from having fewer rows at most than at least', async () => {
