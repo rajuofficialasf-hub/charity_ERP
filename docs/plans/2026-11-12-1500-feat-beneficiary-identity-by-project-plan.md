@@ -42,7 +42,7 @@ Every beneficiary application needs an NID or a birth registration number and a 
 ## Scope
 
 - In: the project switches and their setup screen; the database and engine changes for a missing document and a missing number; the entry screen without a document, online and offline; the name key; the new pair and family rules; the decision reason; the family members on the profile; an official adding a document to a light profile; the help history on the profile, the list, the review page and the exports; the documents and rules that state all of this.
-- Out (not now): a household record (BD-04 stays); the monitoring alerts on a volunteer's unusual share of such entries (the monitoring centre, Phase 5); "received" as the count (the distribution module, Phase 3; approved applications count until then); a recommendation as anything but form questions (the builder already makes them; a ready library part can follow); face matching; a guardian's document as an identity; changing who may merge profiles; a daily cap on profiles without a document per volunteer (see Open questions).
+- Out (not now): a household record (BD-04 stays); the monitoring alerts on a volunteer's unusual share of such entries (the monitoring centre, Phase 5); "received" as the count (the distribution module, Phase 3; approved applications count until then); a recommendation as anything but form questions (the builder already makes them; a ready library part can follow); face matching; a guardian's document as an identity; changing who may merge profiles; a daily cap on profiles without a document per volunteer (the owner decided against one).
 
 ## Key decisions
 
@@ -57,7 +57,7 @@ Every beneficiary application needs an NID or a birth registration number and a 
 ## Open questions
 
 - The list of honorifics and near spellings the name key folds (U8 proposes one from the department's own forms; the owner confirms it before U8 is merged).
-- A daily cap on profiles without a document per volunteer: the security review asked for one (for example 30 a day) against invented people. The plan has none, because a distribution day brings hundreds of entries per volunteer and the project's per-volunteer limit already bounds them; every such profile is recorded with its maker (R19). The owner may ask for the cap.
+- ~~A daily cap on profiles without a document per volunteer~~ (decided 2026-11-12: none; the owner: "দৈনিক সীমা লাগবে না"; the project's per-volunteer limit bounds them and every such profile is recorded with its maker, R19).
 
 <!-- ae-plan adds everything below -->
 
@@ -357,7 +357,7 @@ Build order: U1 to U7 (the first pull request), then U8, U9, U10, U11, U12, U16 
 - **A document on the wrong profile (U16).** Only an official in scope adds it, after the review page showed both; the write is audited with the application it came from, and a number already held points at the merge.
 - **The name key (U8).** A key that folds too much pairs different people; it only ever suggests, an official decides, and a dismissal is remembered. The owner confirms the list.
 - **The counters (U14).** A missed update shows a wrong count; the nightly recount repairs it, and the profile's own summary never reads the counters.
-- **Invented people (U5).** A profile without a document has no unique key; each is recorded with its maker, project and rule, the project's per-volunteer limit bounds them, and the alerts come with the monitoring centre. A daily cap is the owner's to ask for (Open questions).
+- **Invented people (U5).** A profile without a document has no unique key; each is recorded with its maker, project and rule, the project's per-volunteer limit bounds them, and the alerts come with the monitoring centre. The owner decided against a daily cap.
 - **Existing projects.** Every default is today's behaviour; only a PM's change of a switch changes a project, and that change is recorded.
 
 ## Definition of done
