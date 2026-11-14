@@ -1,11 +1,9 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { bn, en } from '@css/shared/i18n';
+import { bn, en, type RestMessages } from '@css/shared/i18n';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { refreshAs } from '../../test/auth';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ME, refreshAs } from '../../test/auth';
 import { AppProviders } from '../components/AppProviders';
 import { forgetMessages, loadMessages, messagesFor, primeMessages } from '../i18n/locale';
 import { LocaleProvider } from '../i18n/LocaleProvider';
@@ -13,6 +11,24 @@ import { AuthProvider } from '../lib/auth';
 import { resetClientForTests } from '../api/client';
 import { createQueryClient } from '../lib/query-client';
 import { routes } from './index';
+
+// The English rest part arrives when a test releases it (a slow network), else at once.
+const gate = vi.hoisted(() => ({ en: undefined as Promise<void> | undefined }));
+vi.mock('@css/shared/i18n/en-rest', async (importOriginal) => {
+  const real = await importOriginal<{ enRest: RestMessages }>();
+  return {
+    get enRest() {
+      return gate.en ? gate.en.then(() => real.enRest) : real.enRest;
+    },
+  };
+});
+
+/** Holds the English rest part back until the returned function is called. */
+const holdRest = () => {
+  let release = () => {};
+  gate.en = new Promise<void>((resolve) => (release = resolve));
+  return () => release();
+};
 
 function mount(path: string, gallery: boolean) {
   const router = createMemoryRouter(routes({ gallery }), { initialEntries: [path] });
@@ -70,17 +86,10 @@ describe('the rest of the catalogue', () => {
     refreshAs(null);
   });
   afterEach(() => {
+    gate.en = undefined;
     forgetMessages();
     primeMessages('bn', bn);
     primeMessages('en', en);
-  });
-
-  it('loads every lazy screen through the one helper that waits for the rest', () => {
-    const source = readFileSync(join(__dirname, 'index.tsx'), 'utf8');
-    const imports = source.match(/import\(/g) ?? [];
-    const waited = source.match(/withRest\(import\(/g) ?? [];
-    expect(imports.length).toBeGreaterThan(50);
-    expect(waited).toHaveLength(imports.length);
   });
 
   it('opens the login with the start part alone', async () => {
@@ -100,5 +109,35 @@ describe('the rest of the catalogue', () => {
       await screen.findByRole('heading', { level: 2, name: 'Reset password' }),
     ).toBeInTheDocument();
     expect(messagesFor('en')?.nav).toEqual(en.nav);
+  });
+
+  // a message key of the rest as use-intl shows a missing one, e.g. "nav.my_work"
+  const KEY = /\b(nav|home)\.[a-z_]+/;
+
+  it('shows a signed-in page only once the rest has arrived, never its keys', async () => {
+    forgetMessages();
+    await loadMessages('en');
+    const release = holdRest();
+    refreshAs(ME);
+    const router = mount('/', false);
+    // the shell's and the page's modules are in, and the sign-in has had its time; the rest is not
+    await act(async () => {
+      await Promise.all([
+        import('../components/shell/AppShell'),
+        import('../features/home/MyWorkPage'),
+      ]);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(screen.queryAllByText(KEY)).toEqual([]);
+    expect(screen.queryByRole('heading', { level: 1, name: 'My Work' })).toBeNull();
+    expect(screen.queryByText('Work centre')).toBeNull();
+    // the router still waits for the page
+    expect(router.state.initialized).toBe(false);
+
+    release();
+    expect(await screen.findByRole('heading', { level: 1, name: 'My Work' })).toBeInTheDocument();
+    expect(screen.getByText('Work centre')).toBeInTheDocument();
+    expect(screen.queryAllByText(KEY)).toEqual([]);
+    expect(router.state.location.pathname).toBe('/');
   });
 });

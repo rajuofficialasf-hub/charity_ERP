@@ -89,6 +89,7 @@ describe('device locale', () => {
 // login, the other language when the person switches.
 describe('loading a catalogue', () => {
   afterEach(() => {
+    clear();
     forgetMessages();
     primeMessages('bn', bn);
     primeMessages('en', en);
@@ -150,6 +151,25 @@ describe('loading a catalogue', () => {
     expect(page).toBe('page');
     expect(messagesFor('en')?.nav).toEqual(en.nav);
     expect(messagesFor('bn')).toBeUndefined();
+  });
+
+  it('makes a page wait, before the first render, for the rest of the language the provider will show', async () => {
+    forgetMessages();
+    await Promise.all([loadMessages('bn'), loadMessages('en')]);
+    // the pseudo-locale renders Bengali even when the system default language is English
+    writeDefaultLocale('en');
+    writeLocale('qps');
+    await withRest(Promise.resolve(null));
+    expect(messagesFor('bn')?.nav).toEqual(bn.nav);
+    expect(messagesFor('en')).not.toHaveProperty('nav');
+    // no choice stored: the system default language
+    forgetMessages();
+    await Promise.all([loadMessages('bn'), loadMessages('en')]);
+    clear();
+    writeDefaultLocale('en');
+    await withRest(Promise.resolve(null));
+    expect(messagesFor('en')?.nav).toEqual(en.nav);
+    expect(messagesFor('bn')).not.toHaveProperty('nav');
   });
 
   it('waits for the rest of a switched-to language once a page has asked for the rest', async () => {

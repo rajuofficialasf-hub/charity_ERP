@@ -87,26 +87,32 @@ export function writeLocale(value: string): void {
 interface Part<T> {
   loaded: Map<Locale, T>;
   loading: Map<Locale, Promise<T>>;
-  load: (locale: Locale) => Promise<T>;
+  load: Record<Locale, () => Promise<T>>;
 }
 
-const start: Part<StartMessages> = {
-  loaded: new Map(),
-  loading: new Map(),
-  load: (locale) =>
-    locale === 'en'
-      ? import('@css/shared/i18n/en-start').then((m) => m.enStart)
-      : import('@css/shared/i18n/bn-start').then((m) => m.bnStart),
+/** The loader of each part in each language; the paths stay literal so Vite splits each chunk. */
+const LOADERS: {
+  start: Record<Locale, () => Promise<StartMessages>>;
+  rest: Record<Locale, () => Promise<RestMessages>>;
+} = {
+  start: {
+    bn: () => import('@css/shared/i18n/bn-start').then((m) => m.bnStart),
+    en: () => import('@css/shared/i18n/en-start').then((m) => m.enStart),
+  },
+  rest: {
+    bn: () => import('@css/shared/i18n/bn-rest').then((m) => m.bnRest),
+    en: () => import('@css/shared/i18n/en-rest').then((m) => m.enRest),
+  },
 };
 
-const rest: Part<RestMessages> = {
+const newPart = <T>(load: Record<Locale, () => Promise<T>>): Part<T> => ({
   loaded: new Map(),
   loading: new Map(),
-  load: (locale) =>
-    locale === 'en'
-      ? import('@css/shared/i18n/en-rest').then((m) => m.enRest)
-      : import('@css/shared/i18n/bn-rest').then((m) => m.bnRest),
-};
+  load,
+});
+
+const start = newPart(LOADERS.start);
+const rest = newPart(LOADERS.rest);
 
 /** The messages of each language as handed to use-intl: the merge of its loaded parts. */
 const merged = new Map<Locale, Messages>();
@@ -139,7 +145,8 @@ function loadPart<T>(part: Part<T>, locale: Locale): Promise<T> {
   if (ready) return Promise.resolve(ready);
   let pending = part.loading.get(locale);
   if (!pending) {
-    pending = part.load(locale).then(
+    // eslint-disable-next-line security/detect-object-injection -- a language of the fixed list
+    pending = part.load[locale]().then(
       (messages) => {
         part.loaded.set(locale, messages);
         part.loading.delete(locale);
@@ -179,12 +186,15 @@ export async function loadCatalogue(locale: Locale): Promise<Messages> {
 }
 
 /**
- * The language whose rest a page waits for: the one the provider shows, or the device language
- * before the provider has shown one (the router starts loading the first page before the first
- * render).
+ * The language whose rest a page waits for: the one the provider shows, or, before the provider
+ * has shown one (the router starts loading the first page before the first render), the language
+ * the provider will show for the stored choice: `qps` shows bn, a choice that is not a language
+ * the system default.
  */
-export function restLanguage(): Locale {
-  return shownLanguage ?? readLocale();
+function restLanguage(): Locale {
+  if (shownLanguage) return shownLanguage;
+  const value = storedLocaleValue();
+  return value === PSEUDO ? catalogueLanguage(value) : readLocale();
 }
 
 /**
