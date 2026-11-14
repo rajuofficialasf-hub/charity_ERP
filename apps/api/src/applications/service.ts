@@ -585,7 +585,12 @@ export class ApplicationsService {
           checked.answers,
           row.beneficiaryId,
           {
-            boundWithoutNumber: row.identityKind === 'none',
+            // also one an official completed with its document later: its answers still carry no
+            // number, and the volunteer who edits it need not know the one the office added
+            boundWithoutNumber:
+              row.identityKind === 'none' ||
+              (row.beneficiaryId !== null && !identityNumberIn(definition, before)),
+            boundKind: row.identityKind as Person['identityKind'],
             keptNumber: identityNumberIn(definition, before),
           },
         );
@@ -1465,6 +1470,8 @@ export class ApplicationsService {
     options: {
       nameMatch?: boolean;
       boundWithoutNumber?: boolean;
+      /** The identity kind the bound application has now (a document an official added since). */
+      boundKind?: Person['identityKind'];
       /** The number the stored answers already carry. */
       keptNumber?: string | null;
     } = {},
@@ -1479,15 +1486,21 @@ export class ApplicationsService {
       // a number is added to such a profile by an official who compared the two, never by an edit;
       // one the application already carries (given when its person was picked by name) stays in
       // its answers and never reaches the profile, and is still no other person's
-      if (number && number !== options.keptNumber) throw locked(field!.fieldKey);
-      const looseNumber = await this.numberBeside(tx, definition, answers, boundTo);
       const profile = await tx.beneficiary.findUniqueOrThrow({
         where: { id: boundTo },
-        select: { name: true, fatherOrHusbandName: true },
+        select: { name: true, fatherOrHusbandName: true, nid: true, birthReg: true },
       });
+      if (
+        number &&
+        number !== options.keptNumber &&
+        number !== profile.nid &&
+        number !== profile.birthReg
+      )
+        throw locked(field!.fieldKey);
+      const looseNumber = await this.numberBeside(tx, definition, answers, boundTo);
       return {
         beneficiaryId: boundTo,
-        identityKind: 'none',
+        identityKind: options.boundKind ?? 'none',
         number: null,
         looseNumber,
         answers: lockedTo(definition, answers, {

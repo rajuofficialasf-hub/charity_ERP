@@ -529,8 +529,15 @@ describe('an application for a picked person', () => {
       [id],
     );
     expect(audit.rows[0]!.new).toMatchObject({ applicationId: null, applicationsBound: 2 });
-    // an edit by the volunteer now carries the person's number like any known person's
-    const [first] = made;
+    // an edit by the volunteer may leave the number out (they need not know the one the office
+    // added) or give the profile's own; another number is refused
+    const [first, later] = made;
+    const laterNow = await at(s, 'get', `/applications/${later!.body.data.id}`);
+    const without = await at(s, 'patch', `/applications/${later!.body.data.id}`)
+      .set('If-Match', laterNow.headers.etag as string)
+      .send({ answers: later!.body.data.answers });
+    expect(without.status, JSON.stringify(without.body)).toBe(200);
+    expect(without.body.data).toMatchObject({ beneficiaryId: id, identityKind: 'nid' });
     const answers = first!.body.data.answers as { fieldKey: string; value: unknown }[];
     const withNumber = (number: string) => [
       ...answers.filter((a) => a.fieldKey !== 'q_id'),
