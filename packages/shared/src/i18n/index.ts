@@ -3,7 +3,19 @@
  * server-side t(), locale resolution, bilingual-data helpers and the catalogue check. Kept out of
  * the package index so the web client never bundles every catalogue.
  */
-export { bn, en, NAMESPACES, type Messages, type Namespace } from './catalogue.js';
+export {
+  bn,
+  en,
+  NAMESPACES,
+  REST_NAMESPACES,
+  START_NAMESPACES,
+  type Messages,
+  type Namespace,
+  type RestMessages,
+  type RestNamespace,
+  type StartMessages,
+  type StartNamespace,
+} from './catalogue.js';
 export {
   DEFAULT_LOCALE,
   isLocale,

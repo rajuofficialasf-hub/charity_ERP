@@ -27,8 +27,8 @@ const gzipBytes = (/** @type {string} */ dist, /** @type {string} */ file) =>
  * error, never an empty pass.
  * @param {string} dist the build folder
  * @param {number} [budgetKb]
- * @param {string[]} [alsoLoaded] chunks the first render loads on its own (the device language's
- *   catalogue, docs/ui/I18N.md), named by their module
+ * @param {string[]} [alsoLoaded] chunks the first render loads on its own (the start part of the
+ *   device language's catalogue, docs/ui/I18N.md), named by their module
  */
 export function measureFirstRoute(dist, budgetKb = BUDGET_KB, alsoLoaded = []) {
   const html = readFileSync(join(dist, 'index.html'), 'utf8');
@@ -93,12 +93,14 @@ const kb = (/** @type {number} */ bytes) => (bytes / 1024).toFixed(1);
 // `node scripts/bundle-report.mjs [dist]`: prints the files and fails over the budget
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const dist = process.argv[2] ?? 'dist';
-  // the default language's catalogue is part of the first render
-  const report = measureFirstRoute(dist, BUDGET_KB, ['bn']);
+  // the start part of the default language's catalogue is part of the first render; its rest
+  // comes with the first page after the login (docs/ui/I18N.md, "Typed keys and loading")
+  const report = measureFirstRoute(dist, BUDGET_KB, ['bn-start']);
   const lines = report.files.map((f) => `${kb(f.bytes).padStart(8)} KB  ${f.file}`);
   lines.push(
-    `first route (login, with the bn catalogue): ${kb(report.totalBytes)} KB gzip of ${report.budgetKb} KB (${report.files.length} files)`,
-    `the home of a signed-in person adds: ${kb(measureAddedRoute(dist, ['AppShell', 'MyWorkPage']))} KB gzip when not cached`,
+    `first route (login, with the bn start part): ${kb(report.totalBytes)} KB gzip of ${report.budgetKb} KB (${report.files.length} files)`,
+    `the rest of the bn catalogue: ${kb(measureAddedRoute(dist, ['bn-rest']))} KB gzip`,
+    `the home of a signed-in person adds: ${kb(measureAddedRoute(dist, ['AppShell', 'MyWorkPage', 'bn-rest']))} KB gzip when not cached`,
   );
   process.stdout.write(`${lines.join('\n')}\n`);
   if (!report.withinBudget) {

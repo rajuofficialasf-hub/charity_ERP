@@ -26,6 +26,26 @@
       "types": "./dist/i18n/en.d.ts",
       "default": "./dist/i18n/en.js"
     },
+    "./i18n/bn-start": {
+      "@css/source": "./src/i18n/bn-start.ts",
+      "types": "./dist/i18n/bn-start.d.ts",
+      "default": "./dist/i18n/bn-start.js"
+    },
+    "./i18n/bn-rest": {
+      "@css/source": "./src/i18n/bn-rest.ts",
+      "types": "./dist/i18n/bn-rest.d.ts",
+      "default": "./dist/i18n/bn-rest.js"
+    },
+    "./i18n/en-start": {
+      "@css/source": "./src/i18n/en-start.ts",
+      "types": "./dist/i18n/en-start.d.ts",
+      "default": "./dist/i18n/en-start.js"
+    },
+    "./i18n/en-rest": {
+      "@css/source": "./src/i18n/en-rest.ts",
+      "types": "./dist/i18n/en-rest.d.ts",
+      "default": "./dist/i18n/en-rest.js"
+    },
     "./format": {
       "@css/source": "./src/format/index.ts",
       "types": "./dist/format/index.d.ts",

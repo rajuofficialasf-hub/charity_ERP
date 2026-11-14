@@ -6,8 +6,9 @@ import { loadMessages, readLocale } from './i18n/locale';
 import { announceUpdate } from './lib/app-update';
 import './styles/globals.css';
 
-// The first render waits for the device language's catalogue, the only one in the first load;
-// if it cannot load, the app renders anyway and the language provider tries again.
+// The first render waits for the start part of the device language's catalogue, the only part in
+// the first load (the pages after the login wait for the rest themselves); if it cannot load, the
+// app renders anyway and the language provider tries again.
 const render = () =>
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

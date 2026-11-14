@@ -5,6 +5,8 @@ import {
   type Messages,
   PSEUDO_LOCALE,
   pseudoLocalize,
+  type RestMessages,
+  type StartMessages,
 } from '@css/shared/i18n';
 
 /**
@@ -76,73 +78,229 @@ export function writeLocale(value: string): void {
 }
 
 /**
- * The catalogues this tab has (docs/ui/I18N.md): the device language's is loaded before the first render,
- * the other one when the person switches, so the first load carries one language.
+ * The catalogue parts this tab has (docs/ui/I18N.md, "Typed keys and loading"). Each language comes
+ * in two parts: the start part (the sign-in page and the frame around every page) is loaded before
+ * the first render, the rest with the first page that is not the sign-in page (every lazy route
+ * waits for it, `withRest`). The other language loads when the person switches, so the first load
+ * carries one language and only its start part.
  */
-const loaded = new Map<Locale, Messages>();
-const loading = new Map<Locale, Promise<Messages>>();
+interface Part<T> {
+  loaded: Map<Locale, T>;
+  loading: Map<Locale, Promise<T>>;
+  load: Record<Locale, () => Promise<T>>;
+}
 
-/** Loads a language's catalogue once; later calls answer the same promise or the cached one. */
-export function loadMessages(locale: Locale): Promise<Messages> {
-  const ready = loaded.get(locale);
+/** The loader of each part in each language; the paths stay literal so Vite splits each chunk. */
+const LOADERS: {
+  start: Record<Locale, () => Promise<StartMessages>>;
+  rest: Record<Locale, () => Promise<RestMessages>>;
+} = {
+  start: {
+    bn: () => import('@css/shared/i18n/bn-start').then((m) => m.bnStart),
+    en: () => import('@css/shared/i18n/en-start').then((m) => m.enStart),
+  },
+  rest: {
+    bn: () => import('@css/shared/i18n/bn-rest').then((m) => m.bnRest),
+    en: () => import('@css/shared/i18n/en-rest').then((m) => m.enRest),
+  },
+};
+
+const newPart = <T>(load: Record<Locale, () => Promise<T>>): Part<T> => ({
+  loaded: new Map(),
+  loading: new Map(),
+  load,
+});
+
+const start = newPart(LOADERS.start);
+const rest = newPart(LOADERS.rest);
+
+/** The messages of each language as handed to use-intl: the merge of its loaded parts. */
+const merged = new Map<Locale, Messages>();
+/** Whether a page has asked for the rest; from then on a switch loads the new language's rest too. */
+let restWanted = false;
+/** The language of the catalogue the provider shows, once it has shown one. */
+let shownLanguage: Locale | undefined;
+
+const listeners = new Set<() => void>();
+let version = 0;
+const changed = () => {
+  version += 1;
+  for (const listener of listeners) listener();
+};
+
+/** Tells the subscriber when a part arrives or the rest is first asked for (the provider renders). */
+export function subscribeCatalogue(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** A number that changes with every arrival, the snapshot of `subscribeCatalogue`. */
+export function catalogueVersion(): number {
+  return version;
+}
+
+/** Loads one part of a language once; later calls answer the same promise or the cached part. */
+function loadPart<T>(part: Part<T>, locale: Locale): Promise<T> {
+  const ready = part.loaded.get(locale);
   if (ready) return Promise.resolve(ready);
-  let pending = loading.get(locale);
+  let pending = part.loading.get(locale);
   if (!pending) {
-    const load =
-      locale === 'en'
-        ? import('@css/shared/i18n/en').then((m) => m.en)
-        : import('@css/shared/i18n/bn').then((m) => m.bn);
-    pending = load.then(
+    // eslint-disable-next-line security/detect-object-injection -- a language of the fixed list
+    pending = part.load[locale]().then(
       (messages) => {
-        loaded.set(locale, messages);
-        loading.delete(locale);
+        part.loaded.set(locale, messages);
+        part.loading.delete(locale);
+        merged.delete(locale);
+        changed();
         return messages;
       },
       (error: unknown) => {
         // a failed load (no network on a first visit) is tried again on the next call
-        loading.delete(locale);
+        part.loading.delete(locale);
         throw error;
       },
     );
-    loading.set(locale, pending);
+    part.loading.set(locale, pending);
   }
   return pending;
 }
 
-/** Hands over a catalogue that is already in memory (the tests), so nothing has to load. */
-export function primeMessages(locale: Locale, messages: Messages): void {
-  loaded.set(locale, messages);
+/** Loads a language's start part once; it answers once the start part is in. */
+export function loadMessages(locale: Locale): Promise<StartMessages> {
+  return loadPart(start, locale);
 }
 
-/** Forgets every catalogue (tests of the loading). */
-export function forgetMessages(): void {
-  loaded.clear();
-  loading.clear();
+/** Loads a language's rest part once; a failed load is tried again on the next call. */
+export function loadRest(locale: Locale): Promise<RestMessages> {
+  if (!restWanted) {
+    restWanted = true;
+    changed();
+  }
+  return loadPart(rest, locale);
+}
+
+/** Loads both parts of a language and answers its whole catalogue (the form builder's preview). */
+export async function loadCatalogue(locale: Locale): Promise<Messages> {
+  await Promise.all([loadMessages(locale), loadRest(locale)]);
+  return mergedOf(locale)!;
 }
 
 /**
- * The language and catalogue to render: the wanted language once its catalogue is loaded, else a
- * language that is loaded (the one shown before a switch), else nothing yet.
+ * The language whose rest a page waits for: the one the provider shows, or, before the provider
+ * has shown one (the router starts loading the first page before the first render), the language
+ * the provider will show for the stored choice: `qps` shows bn, a choice that is not a language
+ * the system default.
+ */
+function restLanguage(): Locale {
+  if (shownLanguage) return shownLanguage;
+  const value = storedLocaleValue();
+  return value === PSEUDO ? catalogueLanguage(value) : readLocale();
+}
+
+/**
+ * A lazy page's module together with the rest of the catalogue of the shown language, both loaded
+ * at the same time; the page renders only when both are in, so it never shows a key.
+ */
+export async function withRest<T>(module: Promise<T>): Promise<T> {
+  const [loaded] = await Promise.all([module, loadRest(restLanguage())]);
+  // the language shown may have changed meanwhile (the router asked before the first render)
+  const shown = restLanguage();
+  if (!rest.loaded.has(shown)) await loadRest(shown);
+  return loaded;
+}
+
+/**
+ * Loads what a language needs before it is shown: its start part, and its rest part too once a page
+ * has asked for the rest (a switch never shows a page without its texts).
+ */
+export function loadLanguage(locale: Locale): Promise<unknown> {
+  return Promise.all([loadMessages(locale), restWanted ? loadRest(locale) : undefined]);
+}
+
+/** Whether a language has every part it needs to be shown (see `loadLanguage`). */
+export function languageReady(locale: Locale): boolean {
+  return start.loaded.has(locale) && (rest.loaded.has(locale) || !restWanted);
+}
+
+/** Notes the language of the catalogue the provider shows (the rest a page waits for follows it). */
+export function noteShownLanguage(locale: Locale): void {
+  shownLanguage = locale;
+}
+
+/**
+ * Hands over a whole catalogue that is already in memory (the tests), so nothing has to load: it
+ * counts as both parts.
+ */
+export function primeMessages(locale: Locale, messages: Messages): void {
+  start.loaded.set(locale, messages);
+  rest.loaded.set(locale, messages);
+  merged.set(locale, messages);
+  changed();
+}
+
+/** Forgets every part and what was shown (tests of the loading). */
+export function forgetMessages(): void {
+  for (const part of [start, rest] as Part<unknown>[]) {
+    part.loaded.clear();
+    part.loading.clear();
+  }
+  merged.clear();
+  restWanted = false;
+  shownLanguage = undefined;
+  changed();
+}
+
+/**
+ * The messages of a language: its start part with its rest when that has arrived. The type is the
+ * whole catalogue's (the typed keys); before the rest arrives only the sign-in page and the frame
+ * render, and they use the start part alone.
+ */
+function mergedOf(locale: Locale): Messages | undefined {
+  const cached = merged.get(locale);
+  if (cached) return cached;
+  const first = start.loaded.get(locale);
+  if (!first) return undefined;
+  const messages = { ...first, ...rest.loaded.get(locale) } as Messages;
+  merged.set(locale, messages);
+  return messages;
+}
+
+/** The language of the catalogue a stored value renders: `qps` renders bn. */
+export function catalogueLanguage(value: string | undefined): Locale {
+  return value === 'en' ? 'en' : 'bn';
+}
+
+/**
+ * The language and catalogue to render: the wanted one once it has what it needs, else the
+ * language shown so far (a switch in progress, or a page waiting for its rest), else whatever is
+ * loaded, else nothing yet.
  */
 export function shownCatalogue(
   key: string | undefined,
   wanted: Locale,
-): { locale: Locale; messages: Messages } | undefined {
+): { locale: Locale; language: Locale; messages: Messages } | undefined {
+  const language = catalogueLanguage(key);
   const messages = messagesFor(key);
-  if (messages) return { locale: wanted, messages };
-  const [locale, other] = [...loaded.entries()][0] ?? [];
-  return locale && other ? { locale, messages: other } : undefined;
+  if (messages && (languageReady(language) || shownLanguage === language))
+    return { locale: wanted, language, messages };
+  const before = shownLanguage && mergedOf(shownLanguage);
+  if (shownLanguage && before)
+    return { locale: shownLanguage, language: shownLanguage, messages: before };
+  if (messages) return { locale: wanted, language, messages };
+  const other: Locale = language === 'en' ? 'bn' : 'en';
+  const fallback = mergedOf(other);
+  return fallback ? { locale: other, language: other, messages: fallback } : undefined;
 }
 
 /**
- * The catalogue for a stored value once it is loaded; `qps` pseudo-localizes bn in development
- * only.
+ * The catalogue for a stored value once its start part is loaded (with the rest when that has
+ * arrived); `qps` pseudo-localizes bn in development only.
  */
 export function messagesFor(
   value: string | undefined,
   dev = import.meta.env.DEV,
 ): Messages | undefined {
-  const messages = loaded.get(value === 'en' ? 'en' : 'bn');
+  const messages = mergedOf(catalogueLanguage(value));
   if (value === PSEUDO && dev && messages) return pseudoLocalize(messages);
   return messages;
 }

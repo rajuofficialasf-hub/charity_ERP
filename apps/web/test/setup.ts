@@ -10,8 +10,9 @@ import { bn, en } from '@css/shared/i18n';
 import { primeMessages } from '../src/i18n/locale';
 import { server } from './msw/server';
 
-// Both catalogues are there from the start, as after a first switch of the language; the loading
-// itself is tested in src/i18n/locale.test.ts.
+// Both catalogues are there from the start, each whole (its start and rest parts), as after a
+// first switch of the language on a page past the login; the loading itself is tested in
+// src/i18n/locale.test.ts and src/i18n/LocaleProvider.test.tsx.
 primeMessages('bn', bn);
 primeMessages('en', en);
 
