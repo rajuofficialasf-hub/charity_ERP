@@ -2174,7 +2174,7 @@ components:
           type: array
           x-sensitive-class: beneficiary.contact
           description: >-
-            The household's active members, in the order they were written (at most 20): the list
+            The household's active members, every one, in the order they were written: the list
             of the latest submitted application that carried the family group replaces the earlier
             members, which stay stored as inactive (BR-305). The whole section, the income among
             it, goes with the contact class: not to the Media or the Procurement Team.
@@ -7408,7 +7408,8 @@ paths:
         409 `beneficiary.merge_conflict` (details name the project), one past pending stays on the
         retired profile (`leftBehind`); a block moves to the kept profile; where only the retired
         profile knows whether the name beside the person is the father's or the husband's, the kept
-        profile takes it and a revert empties it again; a proposal whose profiles
+        profile takes it and a revert empties it again; of the two family lists only the later
+        submitted one stays active, and a revert sets the other active again; a proposal whose profiles
         are no longer both live answers 409 `beneficiary.merge_stale` (D-113); an application of
         another program than the caller reaches answers 403 `beneficiary.merge_needs_global` (D-118).
         A merge moves no identity number: where only one of the two profiles has an identity

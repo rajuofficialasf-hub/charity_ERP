@@ -54,12 +54,13 @@ const APPLICATION_SELECT = {
  * What a caller adds to a move once every check has passed: `beforeApply` runs after the
  * permission, the scope, the version and the guards, and its columns are written with the new
  * state in the same statement (the submission binds the person this way, since a submitted
- * application always has one).
+ * application always has one). It gets the move's time, the one the stamps of the move hold.
  */
 export interface TransitionHooks {
   beforeApply?: (
     tx: Tx,
     application: EngineApplication,
+    movedAt: Date,
   ) => Promise<Prisma.ApplicationUncheckedUpdateInput>;
 }
 
@@ -255,7 +256,7 @@ export class WorkflowEngine {
     await tx.application.update({
       where: { id: application.id },
       data: {
-        ...(hooks.beforeApply ? await hooks.beforeApply(tx, application) : {}),
+        ...(hooks.beforeApply ? await hooks.beforeApply(tx, application, now) : {}),
         status: transition.to,
         updatedBy: actor,
         updatedAt: now,

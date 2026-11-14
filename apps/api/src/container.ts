@@ -390,7 +390,6 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         beneficiaryContact,
         audit,
         new BeneficiaryFamilyMembersService(audit, matchKeys),
-        clock,
       ),
       scoring,
       unlocks,

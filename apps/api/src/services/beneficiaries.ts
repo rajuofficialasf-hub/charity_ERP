@@ -633,11 +633,12 @@ export class BeneficiariesService {
         mobileOwnerCode: true,
         mobileOwnerName: true,
         isBlocked: true,
-        // the household's members, with the contact class (their income among them)
+        // the household's members, with the contact class (their income among them): every
+        // active member, never a cut list; the active rows are one application's family group,
+        // whose rows the form engine caps
         beneficiaryFamilyMembersBeneficiary: {
           where: { active: true },
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-          take: SECTION_ROWS,
           ...(sees(CONTACT) ? {} : none),
           select: {
             id: true,

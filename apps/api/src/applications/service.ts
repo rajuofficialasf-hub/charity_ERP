@@ -910,10 +910,13 @@ export class ApplicationsService {
           // the scope have passed, so a hidden application still answers not-found
           ifMatch ?? '',
           submit
-            ? { beforeApply: (t, app) => this.submission.bindPerson(t, viewer.principal, app.id) }
+            ? {
+                beforeApply: (t, app, movedAt) =>
+                  this.submission.bindPerson(t, viewer.principal, app.id, movedAt),
+              }
             : verifying
               ? {
-                  beforeApply: async (t, app) => {
+                  beforeApply: async (t, app, movedAt) => {
                     const { owner, linkBeneficiaryId } = await this.verified(
                       t,
                       viewer.principal,
@@ -923,7 +926,7 @@ export class ApplicationsService {
                     );
                     return {
                       ...(owner ? { ownerVolunteerId: owner.volunteerId } : {}),
-                      ...(await this.submission.bindPerson(t, viewer.principal, app.id, {
+                      ...(await this.submission.bindPerson(t, viewer.principal, app.id, movedAt, {
                         writeContact: false,
                         ownerUserId: owner?.userId,
                         linkBeneficiaryId,

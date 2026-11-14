@@ -783,11 +783,10 @@ describe('a person who looks like a blocked one', () => {
       c.beneficiaryContact,
       c.audit,
       new BeneficiaryFamilyMembersService(c.audit, c.matchKeys),
-      c.clock,
     );
     const principal = await principalOf(h.db, world.users.general);
     await expect(
-      c.prisma.$transaction((tx) => writer.bindPerson(tx, principal, id)),
+      c.prisma.$transaction((tx) => writer.bindPerson(tx, principal, id, new Date())),
     ).rejects.toMatchObject({ name: 'BlockedNamesakeMatch', beneficiaryId: profile });
 
     const sent = await act(s, id, 'submit');

@@ -7,8 +7,8 @@ import type { BeneficiaryProfile } from '../../api/schemas';
 type Member = NonNullable<BeneficiaryProfile['familyMembers']>[number];
 
 /**
- * The household's members on the profile, as the latest application that listed them gave them:
- * a small table of the name, the relationship in its list's words, the age and the monthly
+ * The household's members on the profile, as the latest application that listed them gave them,
+ * every one of them (a household of many is never cut short): a table of the name, the relationship in its list's words, the age and the monthly
  * income, and a card per member on a phone. The section is drawn only where a member is known.
  */
 export function FamilyMembers({ members }: { members: readonly Member[] }) {

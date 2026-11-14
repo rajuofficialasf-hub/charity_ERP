@@ -1214,6 +1214,20 @@ describe('the family members on the profile', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('shows every member of a large household, none cut off', async () => {
+    refreshAs(HEAD);
+    const thirty = Array.from({ length: 30 }, (_, i) => ({
+      ...MEMBERS[1]!,
+      id: `0190a1b2-0000-7000-8000-0000000010${String(i).padStart(2, '0')}`,
+      name: `সদস্য ${i + 1}`,
+    }));
+    serve(fullRow, {}, { ...empty360, familyMembers: thirty });
+    await opened();
+    const rows = within(sectionOf('পরিবারের সদস্য')).getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(30);
+    expect(within(rows[29]!).getByText('সদস্য 30')).toBeInTheDocument();
+  });
+
   it('says it in English too', async () => {
     refreshAs(HEAD);
     serve(fullRow, {}, { ...empty360, familyMembers: MEMBERS.slice(0, 1) });

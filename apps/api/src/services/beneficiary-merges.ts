@@ -10,6 +10,7 @@ import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
+import { keepOneFamilyList, restoreFamilyList } from './beneficiary-family-members.js';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
 import type { MatchKeysService } from './match-keys.js';
 
@@ -68,6 +69,11 @@ const snapshotSchema = z.object({
    * profile could take a fact has none.
    */
   filled: z.object({ guardianRelationCode: z.string() }).partial().optional(),
+  /**
+   * The family members the merge set inactive, so the kept profile holds one list: the revert sets
+   * them active again. Optional, so a snapshot written without it still reads.
+   */
+  familyDeactivated: z.array(z.uuid()).optional(),
 });
 type Snapshot = z.infer<typeof snapshotSchema>;
 
@@ -94,10 +100,11 @@ type MergeRow = Prisma.ProfileMergeGetPayload<{ select: typeof VIEW }>;
  * proposes, a PM or a global role merges from a proposal or directly, choosing the profile to keep;
  * the Monitoring Team or the Department Head reverts. A merge moves every row of the retired profile
  * to the kept one and lists the moved ids in the snapshot, which the revert moves back exactly; rows
- * added to the kept profile later stay. An application past pending in a project both profiles
- * applied to stays on the retired profile; a pending one stops the merge. A merge never lifts a
- * block, and never retires the only profile of the two that has an identity document. Both profiles
- * are locked in id order and must lie in the caller's scope.
+ * added to the kept profile later stay. Of the two family lists, only the later submitted one stays
+ * active, and the revert sets the other active again. An application past pending in a project both
+ * profiles applied to stays on the retired profile; a pending one stops the merge. A merge never
+ * lifts a block, and never retires the only profile of the two that has an identity document. Both
+ * profiles are locked in id order and must lie in the caller's scope.
  */
 export class BeneficiaryMergesService {
   constructor(
@@ -297,6 +304,8 @@ export class BeneficiaryMergesService {
       leftBehind,
       rejectedCorrections: [],
       block: { released: null, created: null },
+      // the kept profile ends with one family list, the later submitted one
+      familyDeactivated: await keepOneFamilyList(tx, actor.userId, keptId, retiredId),
     };
     for (const move of MOVES) {
       const extra = 'where' in move ? Prisma.raw(` AND ${move.where}`) : Prisma.empty;
@@ -353,6 +362,9 @@ export class BeneficiaryMergesService {
         moved: counts(snapshot),
         leftBehind: leftBehind.length,
         filled: snapshot.filled,
+        ...(snapshot.familyDeactivated?.length
+          ? { familyDeactivated: snapshot.familyDeactivated.length }
+          : {}),
       },
       reason: row.reason,
     });
@@ -509,6 +521,8 @@ export class BeneficiaryMergesService {
           if (back !== ids.length) throw new ApiError('beneficiary.merge_revert_order', 409);
         }
         await this.restoreBlock(tx, actor, found.mergedId, snapshot.block);
+        // the family list the merge set aside is the active one again, back on its own profile
+        await restoreFamilyList(tx, actor.userId, snapshot.familyDeactivated ?? []);
         // the kept profile's own earlier empty value comes back, while it still holds the one given
         if (snapshot.filled?.guardianRelationCode !== undefined)
           await tx.beneficiary.updateMany({

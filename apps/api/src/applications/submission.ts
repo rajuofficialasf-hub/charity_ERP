@@ -15,7 +15,6 @@ import type { Tx } from '../core/prisma.service.js';
 import { currentContext } from '../core/request-context.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
-import type { Clock } from '../core/clock.js';
 import type { BeneficiaryContactService, ContactChange } from '../services/beneficiary-contact.js';
 import type { BeneficiaryFamilyMembersService } from '../services/beneficiary-family-members.js';
 import {
@@ -101,13 +100,17 @@ export class SubmissionWriter {
     private readonly contact: BeneficiaryContactService,
     private readonly audit: AuditWriter,
     private readonly familyMembers: BeneficiaryFamilyMembersService,
-    private readonly clock: Clock,
   ) {}
 
+  /**
+   * `movedAt` is the time of the move that runs the binding, the one the engine stamps as a
+   * draft's submission: the order of the family lists compares that very value.
+   */
   async bindPerson(
     tx: Tx,
     actor: Principal,
     applicationId: string,
+    movedAt: Date,
     options: {
       writeContact?: boolean;
       ownerUserId?: string;
@@ -260,11 +263,13 @@ export class SubmissionWriter {
     }
     // the family the answers list, at the send and at a verification alike: the order of the
     // lists is the order of the applications' submission, so a list that arrives late never
-    // replaces a newer one. A draft is stamped with its submission by the move that runs this.
+    // replaces a newer one. A draft is stamped with its submission by the move that runs this,
+    // with the move's own time.
     await this.familyMembers.replaceFrom(tx, actor, {
       beneficiaryId,
       applicationId,
-      submittedAt: row.submittedAt ?? this.clock.now(),
+      submittedAt: row.submittedAt ?? movedAt,
+      definition,
       rows: familyMembers,
     });
     if (beneficiaryId === row.beneficiaryId && identityKind === row.identityKind) return {};
