@@ -264,13 +264,17 @@ export async function finishSetup(page: Page, setup: SetupOptions = {}): Promise
  * Sets what a project's application asks about identity and contact, through the API as
  * `loginId` (a PM of the project's program): the choices given are laid over the stored settings
  * of the application form component. A project of the distribution workflow starts with the
- * identity document and the mobile left free, so a journey that needs either asked says so here.
+ * identity document and the mobile left free and a repeated person or family only told, so a
+ * journey that needs either asked, or a repeat held for a reason, says so here.
  */
 export async function identityRulesOn(
   request: APIRequestContext,
   loginId: string,
   projectId: string,
-  rules: Partial<Record<'identity_document' | 'mobile', 'required' | 'optional'>>,
+  rules: Partial<
+    Record<'identity_document' | 'mobile', 'required' | 'optional'> &
+      Record<'repeat_person' | 'repeat_family', 'tell' | 'hold'>
+  >,
 ): Promise<void> {
   const pm = await apiAs(request, loginId);
   const list = await pm.get(`/projects/${projectId}/components`);

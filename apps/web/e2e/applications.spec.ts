@@ -7,7 +7,7 @@ import {
   test,
 } from '@playwright/test';
 import { apiAs, isPhone, openTab, scan, signIn } from './support/admin';
-import { activeProject, choice, code, ERR, question } from './support/projects';
+import { activeProject, choice, code, ERR, identityRulesOn, question } from './support/projects';
 import { pickByLabel, sendToOffice } from './support/forms';
 import { act, savar } from './support/applications';
 
@@ -361,6 +361,8 @@ test.describe('the application cycle', () => {
     await act(executive, knownId!, 'review');
     await act(executive, knownId!, 'send_for_approval');
 
+    // a distribution project only tells of a repeated family; this one holds it for a reason
+    await identityRulesOn(request, PM, projectId, { repeat_family: 'hold' });
     // the RPM reads the family warning and gives the approval with the reason it asks
     await onDesk(browser, async (rpm) => {
       await signIn(rpm, RPM);
