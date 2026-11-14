@@ -1278,6 +1278,7 @@ model Beneficiary {
   @@index([id], where: raw("is_blocked AND merged_into_id IS NULL"), map: "beneficiaries_blocked_idx")
   @@index([unionId, nameKey, guardianKey], where: raw("merged_into_id IS NULL"), map: "beneficiaries_union_id_name_key_guardian_key_idx")
   @@index([unionId, villageKey], where: raw("merged_into_id IS NULL"), map: "beneficiaries_union_id_village_key_idx")
+  @@index([matchKeysVersion], map: "beneficiaries_match_keys_version_idx")
   @@map("beneficiaries")
 }
 
@@ -1354,6 +1355,7 @@ model BeneficiaryFamilyMember {
   @@index([relationshipCode], map: "beneficiary_family_members_relationship_code_idx")
   @@index([genderCode], map: "beneficiary_family_members_gender_code_idx")
   @@index([nameKey], map: "beneficiary_family_members_name_key_idx")
+  @@index([matchKeysVersion], map: "beneficiary_family_members_match_keys_version_idx")
   @@index([createdBy], map: "beneficiary_family_members_created_by_idx")
   @@index([updatedBy], map: "beneficiary_family_members_updated_by_idx")
   @@map("beneficiary_family_members")

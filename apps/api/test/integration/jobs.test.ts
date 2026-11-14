@@ -4,6 +4,7 @@ import { PrismaService } from '../../src/core/prisma.service.js';
 import { installJobs } from '../../src/jobs/install.js';
 import { JobRunner } from '../../src/jobs/job-runner.js';
 import { HEARTBEAT_CRON, HEARTBEAT_QUEUE, JobConsumers } from '../../src/jobs/consumers.js';
+import { NAME_KEYS_QUEUE, NAME_KEYS_SINGLETON, queueNameKeys } from '../../src/jobs/name-keys.js';
 import { QUEUE_NAMES } from '../../src/jobs/queues.js';
 import { testEnv } from '../support/env.js';
 import { cloneTemplate, dropDatabase } from './support/db.js';
@@ -14,11 +15,13 @@ import { cloneTemplate, dropDatabase } from './support/db.js';
 let drop: () => Promise<void>;
 let prisma: PrismaService;
 let jobs: JobRunner;
+let url: string;
 
 beforeAll(async () => {
   const clone = await cloneTemplate(inject('templateDb'));
   await clone.client.end();
   drop = () => dropDatabase(clone.name);
+  url = clone.url;
   const env = testEnv({ DATABASE_URL: clone.url });
   await installJobs(clone.url);
   await installJobs(clone.url); // idempotent
@@ -66,6 +69,28 @@ describe('jobs', () => {
       jobs.enqueue('exports', { probe: 'commit' }, { tx }),
     );
     expect(await boss.findJobs('exports', { id: committedId! })).toHaveLength(1);
+  });
+
+  it('keeps one key job waiting at most, whoever queues it', async () => {
+    const boss = await jobs.instance();
+    expect((await boss.getQueue(NAME_KEYS_QUEUE))?.policy).toBe('stately');
+    const first = await queueNameKeys(jobs);
+    expect(first).not.toBeNull();
+    // the second, also from inside a transaction, finds one waiting and is dropped
+    expect(await prisma.$transaction((tx) => queueNameKeys(jobs, tx))).toBeNull();
+    const waiting = await boss.findJobs(NAME_KEYS_QUEUE, { queued: true });
+    expect(waiting.map((job) => [job.id, job.singletonKey])).toEqual([
+      [first, NAME_KEYS_SINGLETON],
+    ]);
+    await boss.deleteQueuedJobs(NAME_KEYS_QUEUE);
+  });
+
+  it('creates an empty queue again when its stored policy is not the registered one', async () => {
+    const boss = await jobs.instance();
+    await boss.deleteQueue(NAME_KEYS_QUEUE);
+    await boss.createQueue(NAME_KEYS_QUEUE, { policy: 'standard' });
+    await installJobs(url);
+    expect((await boss.getQueue(NAME_KEYS_QUEUE))?.policy).toBe('stately');
   });
 
   it('runs the sample heartbeat job and registers its schedule', async () => {

@@ -86,8 +86,6 @@ const allowed = [
   /^packages\/shared\/src\/testing\//,
   /^apps\/api\/seed\//,
   /\.(test|spec)\.(ts|tsx)$/,
-  // the table of cases a unit test reads
-  /\.cases\.ts$/,
   // test data: the unit, E2E and contract tests' own names and labels
   /\/(test|tests|e2e)\//,
 ];

@@ -79,11 +79,21 @@ export class JobRunner {
 
   /**
    * Scheduled job pattern: a cron expression in Asia/Dhaka time for a queue; `key`
-   * keeps several schedules apart on one queue.
+   * keeps several schedules apart on one queue; `singletonKey` is given to every job it sends.
    */
-  async schedule(queue: QueueName, cron: string, data: object = {}, key?: string): Promise<void> {
+  async schedule(
+    queue: QueueName,
+    cron: string,
+    data: object = {},
+    key?: string,
+    singletonKey?: string,
+  ): Promise<void> {
     const boss = await this.start(true);
-    await boss.schedule(queue, cron, data, { tz: 'Asia/Dhaka', ...(key ? { key } : {}) });
+    await boss.schedule(queue, cron, data, {
+      tz: 'Asia/Dhaka',
+      ...(key ? { key } : {}),
+      ...(singletonKey ? { singletonKey } : {}),
+    });
   }
 
   /**

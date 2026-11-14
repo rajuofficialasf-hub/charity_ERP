@@ -3,7 +3,7 @@ import { startingNameVariantRows } from '@css/shared/beneficiaries';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Principal } from '../../src/auth/principal.js';
-import { NAME_KEYS_QUEUE, NameKeysJob } from '../../src/jobs/name-keys.js';
+import { NAME_KEYS_QUEUE, NAME_KEYS_SINGLETON, NameKeysJob } from '../../src/jobs/name-keys.js';
 import { raiseVariantsVersion } from '../../src/services/match-keys.js';
 import { accessWorld } from './support/access-fixtures.js';
 import {
@@ -280,28 +280,39 @@ describe('the key job', () => {
     expect((await keysOf(id)).name_key).toBe('কারিম');
     const before = await version();
     const boss = await h.container.jobs.instance();
-    const queued = (await boss.findJobs(NAME_KEYS_QUEUE)).length;
+    await boss.deleteQueuedJobs(NAME_KEYS_QUEUE);
     const raised = await addVariants([
       { variant: 'করিম', canonical: 'করিম' },
       { variant: 'কারিম', canonical: 'করিম' },
     ]);
     expect(raised).toBe(before + 1);
     expect(await version()).toBe(raised);
-    expect(await boss.findJobs(NAME_KEYS_QUEUE)).toHaveLength(queued + 1);
+    const waiting = await boss.findJobs(NAME_KEYS_QUEUE, { queued: true });
+    expect(waiting).toHaveLength(1);
+    expect(waiting[0]!.singletonKey).toBe(NAME_KEYS_SINGLETON);
+    // one run at a time: a second change while one waits queues no second job
+    await h.container.prisma.$transaction((tx) =>
+      raiseVariantsVersion(tx, h.container.jobs, world.users.head),
+    );
+    expect(await boss.findJobs(NAME_KEYS_QUEUE, { queued: true })).toHaveLength(1);
+    const current = await version();
+    expect(current).toBe(raised + 1);
     const { job } = keyJob(3);
     expect(await job.hasStale()).toBe(true);
     const result = await job.run();
-    expect(result.version).toBe(raised);
+    expect(result.version).toBe(current);
     expect(result.profiles).toBeGreaterThanOrEqual(2);
-    expect(await keysOf(id)).toMatchObject({ name_key: 'করিম', match_keys_version: raised });
-    expect(await keysOf(fresh)).toMatchObject({ name_key: 'করিম', match_keys_version: raised });
-    expect(await job.run()).toEqual({ version: raised, profiles: 0, members: 0 });
+    expect(await keysOf(id)).toMatchObject({ name_key: 'করিম', match_keys_version: current });
+    expect(await keysOf(fresh)).toMatchObject({ name_key: 'করিম', match_keys_version: current });
+    expect(await job.run()).toEqual({ version: current, profiles: 0, members: 0 });
   });
 
   it('leaves a row whose name changed since its keys were computed for the next run', async () => {
     await settle();
     const id = await f.beneficiary(h.db, world.dhaka, { name: 'প্রথম নাম' });
-    // a write between the job's read and its update: the keys the job computed are of the old name
+    // the name changes between the job's read and its update (inside the job's own transaction,
+    // since a write from elsewhere waits for the batch's row lock): the keys the job computed are
+    // of the old name, so the compare-and-set leaves the row
     const { job } = keyJob(500);
     const prisma = h.container.prisma;
     const racing = new NameKeysJob(
@@ -314,10 +325,7 @@ describe('the key job', () => {
                 return async (...args: unknown[]) => {
                   const sql = args[0] as TemplateStringsArray;
                   if (sql.join('').includes('UPDATE beneficiaries AS b'))
-                    await h.db.query(
-                      `UPDATE beneficiaries SET name = 'দ্বিতীয় নাম' WHERE id = $1`,
-                      [id],
-                    );
+                    await target.$executeRaw`UPDATE beneficiaries SET name = 'দ্বিতীয় নাম' WHERE id = ${id}::uuid`;
                   return (target.$executeRaw as (...a: unknown[]) => unknown)(...args);
                 };
               },
@@ -334,6 +342,27 @@ describe('the key job', () => {
     await job.run();
     expect(await keysOf(id)).toMatchObject({
       name_key: 'দ্বিতীয়নাম',
+      match_keys_version: await version(),
+    });
+  });
+
+  it('waits for a write in progress on a row and computes the keys of the name it wrote', async () => {
+    await settle();
+    const id = await f.beneficiary(h.db, world.dhaka, { name: 'প্রথম নাম' });
+    await h.db.query('BEGIN');
+    try {
+      await h.db.query(`UPDATE beneficiaries SET name = 'মোঃ তৃতীয় নাম' WHERE id = $1`, [id]);
+      const running = keyJob(500).job.run();
+      // the batch reaches the row and waits for its lock
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await h.db.query('COMMIT');
+      expect((await running).profiles).toBeGreaterThanOrEqual(1);
+    } catch (error) {
+      await h.db.query('ROLLBACK');
+      throw error;
+    }
+    expect(await keysOf(id)).toMatchObject({
+      name_key: 'তৃতীয়নাম',
       match_keys_version: await version(),
     });
   });
@@ -370,6 +399,31 @@ describe('the indexes of the pair queries', () => {
         `SELECT id FROM beneficiaries WHERE union_id = '${union}' AND village_key = 'গ্রাম১' AND merged_into_id IS NULL`,
       ),
     ).toContain('beneficiaries_union_id_village_key_idx');
+  });
+
+  it('finds the rows whose keys are missing or older than the list through their index', async () => {
+    await settle();
+    await h.db.query('ANALYZE beneficiaries');
+    await h.db.query('ANALYZE beneficiary_family_members');
+    const current = await version();
+    for (const table of ['beneficiaries', 'beneficiary_family_members']) {
+      const index = `${table}_match_keys_version_idx`;
+      // the two probes of the check at the worker's start, each a condition of the index
+      const missing = await plan(`SELECT 1 FROM ${table} WHERE match_keys_version IS NULL`);
+      expect(missing).toContain(index);
+      expect(missing).toContain('Index Cond: (match_keys_version IS NULL)');
+      const older = await plan(`SELECT 1 FROM ${table} WHERE match_keys_version < ${current}`);
+      expect(older).toContain(index);
+      expect(older).toContain(`Index Cond: (match_keys_version < ${current})`);
+    }
+    // the job's read of a batch when no row is stale, on the table with rows enough to choose by
+    expect(
+      await plan(
+        `SELECT id FROM beneficiaries WHERE id > '00000000-0000-0000-0000-000000000000'
+         AND (match_keys_version IS NULL OR match_keys_version < ${current})
+         ORDER BY id LIMIT 2000 FOR UPDATE`,
+      ),
+    ).toContain('beneficiaries_match_keys_version_idx');
   });
 
   it('finds a family member by the key of the name through its index', async () => {

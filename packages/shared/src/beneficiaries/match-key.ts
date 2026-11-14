@@ -22,6 +22,8 @@ export type NameVariants = ReadonlyMap<string, string>;
  */
 export const START_TITLES: readonly string[] = [
   ...'মোঃ মো. মোহাম্মদ মুহাম্মদ মোছাঃ মোসাঃ মোসাম্মৎ হাজী আলহাজ্ব শ্রী শ্রীমতি'.split(' '), // i18n-allow-bengali: titles the key matches
+  // the short forms of the two spellings of Mohammad above
+  ...'মোহাঃ মোহা. মুহাঃ মুহা.'.split(' '), // i18n-allow-bengali: titles the key matches
   ...'Md. Mohammad Muhammad Mst. Mosammat Haji Alhaj Sri Srimati'.split(' '),
 ];
 
@@ -43,7 +45,7 @@ export const STARTING_NAME_VARIANT_GROUPS: readonly (readonly string[])[] =
 
 const VISARGA = '\u0983';
 /** The titles whose abbreviation mark ঃ is sometimes written with no space after it. */
-const GLUED_TITLE = new RegExp(`(^|\\s)(মো|মোছা|মোসা)${VISARGA}(?=\\p{L})`, 'gu'); // i18n-allow-bengali: titles the key matches
+const GLUED_TITLE = new RegExp(`(^|\\s)(মো|মোহা|মুহা|মোছা|মোসা)${VISARGA}(?=\\p{L})`, 'gu'); // i18n-allow-bengali: titles the key matches
 /** ঃ that ends a word: an abbreviation mark, read as a space. */
 const WORD_END_VISARGA = new RegExp(`${VISARGA}(?![\\p{L}\\p{M}])`, 'gu');
 /** Khanda ta written the older way: ta, hasant and a zero-width joiner. */
@@ -103,18 +105,36 @@ export function placeKey(text: string, variants: NameVariants): string {
 
 /**
  * The variants map of a stored list: each spelling and its group's spelling in key form. A row
- * whose spelling is empty in key form is left out.
+ * whose spelling is empty in key form is left out. A group's spelling that is itself a variant of
+ * another group is followed to the end of the chain, so every spelling of the chain gives one
+ * key; a chain that comes back to itself ends at its smallest spelling, the same for each member.
  */
 export function nameVariantsOf(
   rows: Iterable<{ variant: string; canonical: string }>,
 ): Map<string, string> {
-  const map = new Map<string, string>();
+  const direct = new Map<string, string>();
   for (const { variant, canonical } of rows) {
     const from = wordKey(variant);
     const to = wordKey(canonical);
-    if (from && to) map.set(from, to);
+    if (from && to) direct.set(from, to);
   }
+  const map = new Map<string, string>();
+  for (const from of direct.keys()) map.set(from, endOfChain(direct, from));
   return map;
+}
+
+/** Where a spelling's chain of group spellings ends; a cycle ends at its smallest spelling. */
+function endOfChain(direct: ReadonlyMap<string, string>, from: string): string {
+  const path: string[] = [];
+  let word = from;
+  for (;;) {
+    const next = direct.get(word);
+    if (next === undefined || next === word) return word;
+    path.push(word);
+    const seen = path.indexOf(next);
+    if (seen >= 0) return path.slice(seen).sort()[0]!;
+    word = next;
+  }
 }
 
 /** The rows of the starting list: every spelling of a group, its first one included. */

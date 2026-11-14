@@ -10,6 +10,8 @@ DROP FUNCTION set_updated_at_unless_match_keys();
 DROP TABLE "name_variants_version";
 DROP TABLE "name_variants";
 
+DROP INDEX "beneficiary_family_members_match_keys_version_idx";
+DROP INDEX "beneficiaries_match_keys_version_idx";
 DROP INDEX "beneficiary_family_members_name_key_idx";
 DROP INDEX "beneficiaries_union_id_village_key_idx";
 DROP INDEX "beneficiaries_union_id_name_key_guardian_key_idx";

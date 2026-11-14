@@ -5,6 +5,21 @@ import type { JobRunner } from '../jobs/job-runner.js';
 /** The queue of the key job (jobs/name-keys.ts); here so a writer can queue it without the job. */
 export const NAME_KEYS_QUEUE = 'name-keys' as const;
 
+/**
+ * The one singleton key of every key job, at each place that queues it: with the queue's policy
+ * (jobs/queues.ts) it keeps one run waiting and one running at most.
+ */
+export const NAME_KEYS_SINGLETON = 'name-keys';
+
+/** Queues the key job, in the caller's transaction when one is given. */
+export function queueNameKeys(jobs: Pick<JobRunner, 'enqueue'>, tx?: Tx): Promise<string | null> {
+  return jobs.enqueue(
+    NAME_KEYS_QUEUE,
+    {},
+    { ...(tx ? { tx } : {}), singletonKey: NAME_KEYS_SINGLETON },
+  );
+}
+
 /** The variants list in key form and the version it has. */
 export interface VariantList {
   version: number;
@@ -137,6 +152,6 @@ export async function raiseVariantsVersion(
     ON CONFLICT (id) DO UPDATE
       SET version = name_variants_version.version + 1, updated_by = EXCLUDED.updated_by
     RETURNING version`;
-  await jobs.enqueue(NAME_KEYS_QUEUE, {}, { tx });
+  await queueNameKeys(jobs, tx);
   return row!.version;
 }

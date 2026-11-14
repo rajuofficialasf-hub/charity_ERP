@@ -23,6 +23,12 @@ CREATE INDEX "beneficiaries_union_id_name_key_guardian_key_idx" ON "beneficiarie
 CREATE INDEX "beneficiaries_union_id_village_key_idx" ON "beneficiaries"("union_id", "village_key") WHERE (merged_into_id IS NULL);
 CREATE INDEX "beneficiary_family_members_name_key_idx" ON "beneficiary_family_members"("name_key");
 
+-- The rows whose keys are missing or older than the list: the key job's walk and the check at the
+-- worker's start read this index instead of the whole table. A btree index holds the NULLs too, so
+-- the one index serves both "missing" (IS NULL) and "older" (<).
+CREATE INDEX "beneficiaries_match_keys_version_idx" ON "beneficiaries"("match_keys_version");
+CREATE INDEX "beneficiary_family_members_match_keys_version_idx" ON "beneficiary_family_members"("match_keys_version");
+
 -- The known spelling variants of a word: each spelling points to its group's one spelling (the
 -- group's own spelling points to itself). One word each, kept as written; the key reads them in
 -- key form.
