@@ -8,6 +8,8 @@ import {
   type FormDefinition,
   type FormField,
   type FormSection,
+  type OptionalIdentity,
+  optionalIdentityQuestion,
   pipeText,
   validate,
 } from '@css/shared/forms';
@@ -66,6 +68,12 @@ export interface RendererProps {
   onPartDone?: (submission: Submission) => Promise<void>;
   /** A short mark beside the parts on a phone, such as the draft's "saved". */
   status?: ReactNode;
+  /**
+   * The identity questions the project lets stay empty (the identity document, the mobile): each
+   * loses its required mark, says so under the question and passes without an answer. Without
+   * it both are held as the form says.
+   */
+  optionalIdentity?: OptionalIdentity;
 }
 
 const PHONE = '(max-width: 767px)';
@@ -110,6 +118,7 @@ export function FormRenderer({
   onPartDone,
   fillDefaults = true,
   status,
+  optionalIdentity,
 }: RendererProps) {
   const t = useTranslations('forms.renderer');
   const te = useTranslations('errors');
@@ -242,7 +251,7 @@ export function FormRenderer({
   };
   /** The engine's messages by path, for the questions of the given sections. */
   const problemsIn = (sections: readonly FormSection[]) => {
-    const result = validate(form, state.answers, { audience, ...context });
+    const result = validate(form, state.answers, { audience, ...context, optionalIdentity });
     const found: Record<string, string> = {};
     if (result.ok) return found;
     const keys = new Set(sections.flatMap((s) => s.fields.map((f) => f.fieldKey)));
@@ -266,7 +275,7 @@ export function FormRenderer({
 
   /** The whole form checked; on a problem the messages show and a phone goes to its part. */
   const checkAll = () => {
-    const result = validate(form, state.answers, { audience, ...context });
+    const result = validate(form, state.answers, { audience, ...context, optionalIdentity });
     if (result.ok) return result;
     const found: Record<string, string> = {};
     for (const e of result.errors) found[e.path] = messageOf(e.code, e.params);
@@ -356,8 +365,12 @@ export function FormRenderer({
       required: field.required,
       options: field.options ?? [],
     };
-    const fieldState = evaluation.fields[path] ?? fallback;
-    if (!fieldState.visible) return null;
+    const evaluated = evaluation.fields[path] ?? fallback;
+    if (!evaluated.visible) return null;
+    // an identity question the project lets stay empty is drawn as the check treats it
+    const mayStayEmpty = optionalIdentityQuestion(field, optionalIdentity);
+    const fieldState = mayStayEmpty ? { ...evaluated, required: false } : evaluated;
+    const locked = lockedKeys?.has(field.fieldKey) === true;
     return (
       <FieldInput
         key={`${path}:${state.generation}:${redraws[field.fieldKey] ?? 0}`}
@@ -367,7 +380,9 @@ export function FormRenderer({
         value={answerOf(state, field.fieldKey, row)}
         computed={evaluation.computed[path]}
         error={allErrors[path]}
-        locked={lockedKeys?.has(field.fieldKey) === true}
+        locked={locked}
+        // an answer the person cannot change needs no word on leaving it empty
+        hint={mayStayEmpty && !locked ? t(`optional_${mayStayEmpty}`) : undefined}
         pipe={(text) => pipeText(text, texts)}
         onChange={(value) => change(field, row, inGroup, value)}
         onPostCode={field.type === 'bd_address' && !inGroup ? fillPostCode : undefined}

@@ -9,7 +9,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { BeneficiariesPage } from './BeneficiariesPage';
 import { BeneficiaryProfilePage } from './BeneficiaryProfilePage';
-import type { MessageKey } from '@css/shared/i18n';
+import { bn, type MessageKey } from '@css/shared/i18n';
 import { expectOnScreenColumns, serveExports } from '../../../test/msw/exports';
 
 // The beneficiary tab and the 360° shell (docs/ui/SCREENS.md "Beneficiary tab" and "Beneficiary 360 profile and merge"): counts,
@@ -1002,5 +1002,111 @@ describe('the profile actions', () => {
       await screen.findByText('This profile was merged into BEN-0000077.'),
     ).toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
+});
+
+describe('a person without an identity document or a mobile', () => {
+  const NO_DOCUMENT = bn.common.person.no_document;
+  const THROUGH_VOLUNTEER = bn.common.person.through_volunteer;
+  const light = { ...fullRow, mobile: null, hasDocument: false };
+
+  it('marks the row of the list with the two chips, and no other row', async () => {
+    refreshAs(HEAD);
+    serve(light, { total: 1, assistedThisYear: 0, blocked: 0 });
+    const first = openList();
+    expect((await screen.findAllByText(NO_DOCUMENT)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(THROUGH_VOLUNTEER).length).toBeGreaterThan(0);
+    first.unmount();
+    // a person who has both shows neither
+    resetClientForTests();
+    serve({ ...fullRow, hasDocument: true }, { total: 1, assistedThisYear: 0, blocked: 0 });
+    const second = openList();
+    expect((await screen.findAllByText('নমুনা উপকারভোগী')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(NO_DOCUMENT)).not.toBeInTheDocument();
+    expect(screen.queryByText(THROUGH_VOLUNTEER)).not.toBeInTheDocument();
+    second.unmount();
+    // the Media Team's rows carry neither fact, so nothing is said
+    resetClientForTests();
+    refreshAs(MEDIA);
+    serve(mediaRow, { total: 1, assistedThisYear: 0 });
+    openList();
+    expect((await screen.findAllByText('নমুনা উপকারভোগী')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(NO_DOCUMENT)).not.toBeInTheDocument();
+    expect(screen.queryByText(THROUGH_VOLUNTEER)).not.toBeInTheDocument();
+  });
+
+  it('shows the chip on the profile and the volunteer in the place of the number', async () => {
+    refreshAs(HEAD);
+    serve(light, {}, { ...empty360, mobile: null, hasDocument: false, nid: null, birthReg: null });
+    const { container } = openProfile();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+    // beside the state, and where the number stands in the details
+    expect(screen.getAllByText(NO_DOCUMENT)).toHaveLength(2);
+    // in the details and in the contact panel
+    expect(screen.getAllByText(THROUGH_VOLUNTEER)).toHaveLength(2);
+    expect(screen.queryByRole('link', { name: /কল/ })).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it('shows neither on the profile of a person who has both', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, hasDocument: true, nid: '1234567890', birthReg: null });
+    openProfile();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(NO_DOCUMENT)).not.toBeInTheDocument();
+    expect(screen.queryByText(THROUGH_VOLUNTEER)).not.toBeInTheDocument();
+    expect(screen.getAllByText('01911000001').length).toBeGreaterThan(0);
+  });
+});
+
+describe('whose number the mobile is, on the profile', () => {
+  const full = { ...empty360, hasDocument: true, nid: '1234567890', birthReg: null };
+  const WHOSE = 'কার নম্বর';
+  /** The value beside the line's label in the details. */
+  const line = () => screen.getByText(WHOSE).closest('div')!;
+  const opened = async () => {
+    openProfile();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+  };
+
+  it('says whose it is in the list’s words, with the owner’s name in brackets', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, mobileOwnerCode: 'neighbour', mobileOwnerName: 'করিম মিয়া' });
+    await opened();
+    expect(within(line()).getByText('প্রতিবেশীর (করিম মিয়া)')).toBeInTheDocument();
+  });
+
+  it('says only whose it is when no name is on file, in English too', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, mobileOwnerCode: 'own', mobileOwnerName: null });
+    renderApp(<BeneficiaryProfilePage />, 'en', {
+      path: '/admin/beneficiaries/:beneficiaryId',
+      initialPath: `/admin/beneficiaries/${ID}`,
+    });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+    const english = screen.getByText('Whose number').closest('div')!;
+    expect(within(english).getByText('Own')).toBeInTheDocument();
+    expect(within(english).queryByText(/\(/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['the owner is empty', { mobileOwnerCode: null, mobileOwnerName: null }],
+    // a limited view's answer carries no contact data at all
+    ['the server left it out', {}],
+    ['a name stands without an owner', { mobileOwnerCode: null, mobileOwnerName: 'করিম মিয়া' }],
+  ])('shows no line when %s', async (_case, owner) => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, ...owner });
+    await opened();
+    expect(screen.queryByText(WHOSE)).not.toBeInTheDocument();
+    expect(screen.queryByText(/করিম মিয়া/)).not.toBeInTheDocument();
   });
 });

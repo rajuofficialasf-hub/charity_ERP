@@ -18,6 +18,13 @@ export const applicationSummarySchema = z.object({
   projectId: z.uuid(),
   beneficiaryId: z.uuid().nullable(),
   beneficiaryName: z.string().nullable(),
+  /**
+   * Whether the person's profile holds an identity document, and a mobile of their own; null
+   * before a profile is bound and for a reader who may not know; absent on a record the phone
+   * holds on its own.
+   */
+  hasDocument: z.boolean().nullable().optional(),
+  hasMobile: z.boolean().nullable().optional(),
   ownerVolunteerId: z.uuid().nullable(),
   status: z.string(),
   stage: z.string().nullable(),
@@ -78,7 +85,9 @@ export type Unlock = z.infer<typeof unlockSchema>;
 export const applicationSchema = applicationSummarySchema.extend({
   formVersionId: z.uuid(),
   createdByUserId: z.uuid().nullable(),
-  identityKind: z.enum(['nid', 'birth_reg']).nullable(),
+  /** The profile an entry is compared with at its verification, where the reader may know it. */
+  candidateBeneficiaryId: z.uuid().nullable().optional(),
+  identityKind: z.enum(['nid', 'birth_reg', 'none']).nullable(),
   rejectionMessage: z.string().nullable(),
   answers: z.array(answerSchema),
   reviewedAt: dateTime.nullable(),

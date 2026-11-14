@@ -1,3 +1,4 @@
+import { DEFAULT_IDENTITY_RULES } from '@css/shared/projects';
 import type { Me } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -39,6 +40,7 @@ const PROJECT = {
   applicationsCounted: 18,
   applicationsLeft: 7,
   leadsTeam: true,
+  identityRules: DEFAULT_IDENTITY_RULES,
 };
 
 const ok = (data: unknown, meta: Record<string, unknown> = {}) =>

@@ -113,6 +113,46 @@ describe('the family-duplicate warning', () => {
     expect(await matches(a)).toEqual([]);
   });
 
+  it('treats a missing mobile as no match, and answers the other rule without it', async () => {
+    const elsewhere = await f.project(db);
+    // two people reached through their volunteer, of different families
+    const alone = await applicantIn(elsewhere, { mobile: null, village: 'উত্তর চর' });
+    await applicantIn(elsewhere, { mobile: null, village: 'দক্ষিণ চর' });
+    // a person with a number beside them matches neither
+    await applicantIn(elsewhere, { mobile: '01611000007', village: 'পশ্চিম চর' });
+    expect(await matches(alone, elsewhere.id)).toEqual([]);
+    // the same family, both without a mobile: matched by the family rule alone
+    const family = { mobile: null, village: 'মাঝের চর', father_or_husband_name: 'হাশেম' };
+    const first = await applicantIn(elsewhere, family);
+    const second = await applicantIn(elsewhere, family);
+    const found = await matches(first, elsewhere.id);
+    expect(found.map((m) => [m.beneficiaryId, m.matchedOn])).toEqual([
+      [second, ['union_village_father']],
+    ]);
+  });
+
+  it('reads a missing mobile as no shared mobile, never as unknown, when one of the two has none', async () => {
+    const elsewhere = await f.project(db);
+    const family = { village: 'নতুন চর', father_or_husband_name: 'কাশেম' };
+    const without = await applicantIn(elsewhere, { ...family, mobile: null });
+    const withMobile = await applicantIn(elsewhere, { ...family, mobile: '01611000008' });
+    // from either side the family rule alone: a mobile compared with a missing one is no match
+    for (const [me, other] of [
+      [without, withMobile],
+      [withMobile, without],
+    ] as const) {
+      const found = await matches(me, elsewhere.id);
+      expect(found).toEqual([
+        {
+          beneficiaryId: other,
+          benNo: await benNo(other),
+          name: expect.any(String),
+          matchedOn: ['union_village_father'],
+        },
+      ]);
+    }
+  });
+
   it('ignores deleted applications and retired profiles', async () => {
     const a = await applicantIn(project, { mobile: '01611000006' });
     await applicantIn(project, { mobile: '01611000006' }, 'deleted');

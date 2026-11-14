@@ -95,7 +95,16 @@
     },
     "overrides": { "type": "object" },
     "project_close_guards": { "type": "array", "items": { "$ref": "#/$defs/guardName" } },
-    "defaults": { "type": "object" },
+    "defaults": {
+      "type": "object",
+      "description": "Starting values of a new project. Open, except the four identity settings the application form component of a new project starts with (DECISION_LOG D-172); a workflow that names none starts as required, required, hold, hold.",
+      "properties": {
+        "identity_document": { "$ref": "#/$defs/identityRequirement" },
+        "mobile": { "$ref": "#/$defs/identityRequirement" },
+        "repeat_person": { "$ref": "#/$defs/repeatRule" },
+        "repeat_family": { "$ref": "#/$defs/repeatRule" }
+      }
+    },
     "project_lifecycle": {
       "type": "object",
       "required": ["states", "transitions"],
@@ -106,6 +115,8 @@
     }
   },
   "$defs": {
+    "identityRequirement": { "enum": ["required", "optional"] },
+    "repeatRule": { "enum": ["tell", "hold"] },
     "stateKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
     "activityType": { "enum": ["distribution", "construction", "purchase", "training", "visit", "payment", "voucher", "expense", "issue", "inspection", "follow_up"] },
     "permissionName": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$" },

@@ -221,3 +221,84 @@ describe('the seeded forms', () => {
       ]);
   });
 });
+
+describe('whose number the mobile is, in the seeded forms', () => {
+  const keysOf = (definition: FormDefinition) =>
+    definition.sections.flatMap((section) => section.fields).map((field) => field.fieldKey);
+  const standardOf = (answers: Answer[]) =>
+    computedOf(distribution(), [...core, ...answers]).standard;
+
+  it('stands right after the mobile question in both forms, optional, with the list’s options and no identity mark', () => {
+    for (const definition of [distribution(), selfReliance()]) {
+      const keys = keysOf(definition);
+      const at = keys.indexOf('mobile');
+      expect(keys.slice(at, at + 3)).toEqual(['mobile', 'mobile_owner', 'mobile_owner_name']);
+      const fields = definition.sections.flatMap((section) => section.fields);
+      const owner = fields.find((field) => field.fieldKey === 'mobile_owner')!;
+      const ownerName = fields.find((field) => field.fieldKey === 'mobile_owner_name')!;
+      expect(owner).toMatchObject({
+        type: 'single_select',
+        required: false,
+        standardColumn: 'mobile_owner_code',
+        label: { bn: 'নম্বরটি কার?', en: 'Whose number is it?' },
+        logic: { show_if: { field: 'mobile', op: 'not_empty' } },
+      });
+      expect(owner.options?.map((o) => o.code)).toEqual(['own', 'family', 'neighbour', 'other']);
+      expect(ownerName).toMatchObject({
+        type: 'short_text',
+        required: false,
+        standardColumn: 'mobile_owner_name',
+        label: { bn: 'যাঁর নম্বর, তাঁর নাম', en: "Name of the number's owner" },
+        logic: { show_if: { field: 'mobile_owner', op: 'neq', value: 'own' } },
+        settings: { validation: { max_length: 200 } },
+      });
+      expect(
+        checkDefinition(definition, { publishing: true, kind: 'beneficiary_application' }),
+      ).toEqual([]);
+    }
+  });
+
+  it('takes the owner and the owner’s name of a number that is someone else’s', () => {
+    expect(
+      standardOf([select('mobile_owner', 'neighbour'), text('mobile_owner_name', 'করিম মিয়া')]),
+    ).toMatchObject({ mobile_owner_code: 'neighbour', mobile_owner_name: 'করিম মিয়া' });
+  });
+
+  it('drops the owner’s name of the person’s own number, and both without a mobile', () => {
+    const own = standardOf([
+      select('mobile_owner', 'own'),
+      text('mobile_owner_name', 'করিম মিয়া'),
+    ]);
+    expect(own).toMatchObject({ mobile_owner_code: 'own' });
+    expect(Object.keys(own)).not.toContain('mobile_owner_name');
+    // the name is not asked before the owner is answered either
+    expect(Object.keys(standardOf([text('mobile_owner_name', 'করিম মিয়া')]))).not.toContain(
+      'mobile_owner_name',
+    );
+    const withoutMobile = validate(
+      distribution(),
+      [
+        ...core.filter((a) => a.fieldKey !== 'mobile'),
+        select('mobile_owner', 'neighbour'),
+        text('mobile_owner_name', 'করিম মিয়া'),
+      ],
+      { audience: 'official', today: TODAY, optionalIdentity: { mobile: true } },
+    );
+    expect(withoutMobile.ok).toBe(true);
+    if (!withoutMobile.ok) return;
+    for (const column of ['mobile', 'mobile_owner_code', 'mobile_owner_name'])
+      expect(Object.keys(withoutMobile.standard)).not.toContain(column);
+  });
+
+  it('refuses an owner the list does not hold', () => {
+    const result = validate(distribution(), [...core, select('mobile_owner', 'landlord')], {
+      audience: 'official',
+      today: TODAY,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.errors.map((e) => [e.path, e.code])).toEqual([
+        ['mobile_owner', 'validation.option_unknown'],
+      ]);
+  });
+});

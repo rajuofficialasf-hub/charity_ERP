@@ -133,6 +133,38 @@ describe('GET /sync/snapshot', () => {
     expect(res.headers.etag).toMatch(/^"[A-Za-z0-9_-]+"$/);
   });
 
+  it('carries what an application of each project asks, and a new tag when the PM changes it', async () => {
+    const s = await as(world.users.general);
+    const first = await snapshot(s).expect(200);
+    // the project was made from the distribution workflow
+    expect(first.body.data.projects[0].identityRules).toEqual({
+      document: 'optional',
+      mobile: 'optional',
+      repeatPerson: 'tell',
+      repeatFamily: 'tell',
+    });
+    const set = (settings: Record<string, unknown>) =>
+      h.db.query(
+        `UPDATE project_components SET settings = settings || $2::jsonb
+          WHERE project_id = $1 AND component_key = 'application_form'`,
+        [project, JSON.stringify(settings)],
+      );
+    await set({ identity_document: 'required', repeat_person: 'hold' });
+    try {
+      const changed = await snapshot(s, '', { 'If-None-Match': String(first.headers.etag) });
+      expect(changed.status).toBe(200);
+      expect(changed.body.data.projects[0].identityRules).toEqual({
+        document: 'required',
+        mobile: 'optional',
+        repeatPerson: 'hold',
+        repeatFamily: 'tell',
+      });
+      expect(changed.headers.etag).not.toBe(first.headers.etag);
+    } finally {
+      await set({ identity_document: 'optional', repeat_person: 'tell' });
+    }
+  });
+
   it('answers only what changed since the given time, and 304 for the same state', async () => {
     const s = await as(world.users.general);
     // the rows are stamped by the database clock, so the delta is asked from its latest change

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { identityRulesSchema } from '@css/shared/projects';
 import { z } from 'zod';
 import type { AccessService } from '../access/service.js';
 import type { ApplicationsService, ApplicationViewer } from '../applications/service.js';
@@ -33,6 +34,7 @@ const myProjectView = z.object({
   applicationsCounted: z.number().int(),
   applicationsLeft: z.number().int().nullable(),
   leadsTeam: z.boolean(),
+  identityRules: identityRulesSchema,
 });
 
 /** The data set a phone keeps, in one answer; the field mask runs on it like on every read. */

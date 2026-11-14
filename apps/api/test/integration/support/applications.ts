@@ -61,6 +61,27 @@ export async function applicationProject(
   return form;
 }
 
+/**
+ * What a project's application asks about the identity document and the mobile, written into the
+ * settings of its application form component as the PM's setup stores them.
+ */
+export async function setIdentityRules(
+  db: Client,
+  projectId: string,
+  rules: { document?: 'required' | 'optional'; mobile?: 'required' | 'optional' },
+): Promise<void> {
+  const settings = {
+    ...(rules.document ? { identity_document: rules.document } : {}),
+    ...(rules.mobile ? { mobile: rules.mobile } : {}),
+  };
+  const updated = await db.query(
+    `UPDATE project_components SET settings = settings || $2::jsonb
+      WHERE project_id = $1 AND component_key = 'application_form'`,
+    [projectId, JSON.stringify(settings)],
+  );
+  expect(updated.rowCount, 'the application form component of the project').toBe(1);
+}
+
 /** The answers of the fixture's placed form (`support/forms.ts`), as stored rows. */
 // each person their own family: the father's name carries a random code, so two applicants of
 // one village are no family match unless a test makes them one

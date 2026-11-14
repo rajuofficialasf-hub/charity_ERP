@@ -37,7 +37,8 @@ let newApp: string;
 
 const OFFICIAL = 'application.official_section';
 const NID = 'beneficiary.nid';
-const ALL = new Set([OFFICIAL, NID]);
+const CONTACT = 'beneficiary.contact';
+const ALL = new Set([OFFICIAL, NID, CONTACT]);
 const everything = () => true;
 const nothing = () => false;
 
@@ -227,14 +228,27 @@ describe('the form questions of an application export', () => {
     expect(byKey(columns).has('q_photo')).toBe(false);
     expect(byKey(columns).get('m_name')?.group).toBe('members');
     expect(byKey(columns).get('q_id')?.cls).toBe(NID);
+    expect(byKey(columns).get('q_mobile')?.cls).toBe(CONTACT);
     expect(byKey(columns).get('q_official')?.cls).toBe(OFFICIAL);
   });
 
-  it('leave out the official and identity questions of an export that does not carry them', async () => {
+  it('leave out the official, identity and mobile questions of an export that does not carry them', async () => {
     const columns = (await questions().catalogue(projectId, new Set())).map((c) => c.fieldKey);
     expect(columns).not.toContain('q_official');
     expect(columns).not.toContain('q_id');
+    expect(columns).not.toContain('q_mobile');
     expect(columns).toContain('q_income');
+    // each class on its own: the mobile question comes with the contact class and no other
+    const withContact = (await questions().catalogue(projectId, new Set([CONTACT]))).map(
+      (c) => c.fieldKey,
+    );
+    expect(withContact).toContain('q_mobile');
+    expect(withContact).not.toContain('q_id');
+    const withoutContact = (await questions().catalogue(projectId, new Set([OFFICIAL, NID]))).map(
+      (c) => c.fieldKey,
+    );
+    expect(withoutContact).not.toContain('q_mobile');
+    expect(withoutContact).toEqual(expect.arrayContaining(['q_id', 'q_official']));
   });
 
   it('fill each application from its own version, empty where its version had no such question', async () => {
@@ -289,11 +303,22 @@ describe('the form questions of an application export', () => {
     const values = await questions().values([oldApp], columns, 'bn', nothing);
     expect(values.get(oldApp)?.cells).not.toHaveProperty('q:q_official');
     expect(values.get(oldApp)?.cells).not.toHaveProperty('q:q_id');
+    expect(values.get(oldApp)?.cells).not.toHaveProperty('q:q_mobile');
     expect(values.get(oldApp)?.cells['q:q_income']).toBe(5000);
+    // the mobile answer leaves with the contact class alone
+    const contactOnly = await questions().values(
+      [oldApp],
+      columns,
+      'bn',
+      (_id, cls) => cls === CONTACT,
+    );
+    expect(contactOnly.get(oldApp)?.cells['q:q_mobile']).toMatch(/^01\d{9}$/);
+    expect(contactOnly.get(oldApp)?.cells).not.toHaveProperty('q:q_id');
     // the identity number alone may leave while the official section may not
     const nidOnly = await questions().values([oldApp], columns, 'bn', (_id, cls) => cls === NID);
     expect(nidOnly.get(oldApp)?.cells).toHaveProperty('q:q_id');
     expect(nidOnly.get(oldApp)?.cells).not.toHaveProperty('q:q_official');
+    expect(nidOnly.get(oldApp)?.cells).not.toHaveProperty('q:q_mobile');
   });
 
   // last: version 3 moves the new question into the official-only section

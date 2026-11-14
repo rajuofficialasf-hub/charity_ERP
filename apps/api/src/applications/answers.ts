@@ -1,8 +1,10 @@
 import { answerValueSchema, uuidv7 } from '@css/shared';
+import { MOBILE_OWNER_COLUMN, MOBILE_OWNER_NAME_COLUMN } from '@css/shared/beneficiaries';
 import { FILE_KINDS, kindAllowedOn } from '@css/shared/files';
 import {
   type Answer,
   type FormDefinition,
+  identityColumn,
   validate,
   type ValidateOptions,
   type ValidationError,
@@ -70,7 +72,75 @@ export function fieldByColumn(definition: FormDefinition, column: string): Field
   return fieldsOf(definition).find((f) => f.standardColumn === column) ?? null;
 }
 
-/** The text an answer of a short question holds, trimmed, or null. */
+/**
+ * The protected class (docs/security/permissions.yaml, the protected field classes) of the
+ * answers that fill these standard columns: the identity number, and the mobile with whose number
+ * it is and that person's name.
+ */
+const COLUMN_CLASSES: ReadonlyMap<string, string> = new Map([
+  [IDENTITY_COLUMN, 'beneficiary.nid'],
+  ['mobile', 'beneficiary.contact'],
+  [MOBILE_OWNER_COLUMN, 'beneficiary.contact'],
+  [MOBILE_OWNER_NAME_COLUMN, 'beneficiary.contact'],
+]);
+
+/**
+ * The protected class of a question's answers by the standard column it fills, or null. The
+ * record on screen and every export read it here, so an answer withheld in one is withheld in the
+ * other.
+ */
+export function classOfColumn(column: string | null | undefined): string | null {
+  return (column && COLUMN_CLASSES.get(column)) || null;
+}
+
+/**
+ * The questions whose answers a reader without their class is not given: every question that
+ * fills a protected column, not only the first, whatever part of the form holds it.
+ */
+export function withheldFields(
+  definition: FormDefinition,
+  fieldClasses: ReadonlySet<string>,
+): Set<string> {
+  const withheld = new Set<string>();
+  for (const field of fieldsOf(definition)) {
+    const cls = classOfColumn(field.standardColumn);
+    if (cls && !fieldClasses.has(cls)) withheld.add(field.fieldKey);
+  }
+  return withheld;
+}
+
+/**
+ * An identity number as the server reads it everywhere: trimmed, and no number when nothing is
+ * left. The guard of the send, the binding of the person and the comparison with the block list
+ * all read it here, so an answer of only spaces is "no number" for each of them alike.
+ */
+export function identityNumber(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+}
+
+/** The identity number in the answer of the form's identity question, or null. */
+export function identityNumberIn(
+  definition: FormDefinition,
+  answers: readonly { fieldKey: string; repeatIndex?: number | null; value: unknown }[],
+): string | null {
+  const field = fieldByColumn(definition, IDENTITY_COLUMN);
+  if (!field) return null;
+  const answer = answers.find((a) => a.fieldKey === field.fieldKey && (a.repeatIndex ?? 0) === 0);
+  return identityNumber((answer?.value as { v?: unknown } | undefined)?.v);
+}
+
+/**
+ * The identity number of an application's standard columns with the column it fills, or null. The
+ * column is read from the trimmed number, so a number stored with spaces around it is still the
+ * NID it is.
+ */
+export function identityOf(
+  standard: Record<string, unknown>,
+): { number: string; column: 'nid' | 'birth_reg' } | null {
+  const number = identityNumber(standard.nid) ?? identityNumber(standard.birth_reg);
+  return number ? { number, column: identityColumn(number) } : null;
+}
+
 /**
  * The name typed on an application, from its standard columns: kept on an entry that waits for
  * verification so the lists can name it before a profile exists; null when none was given.
@@ -80,6 +150,7 @@ export function typedName(standard: Record<string, unknown>): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
 
+/** The text an answer of a short question holds, trimmed, or null. */
 export function textOf(answers: readonly Answer[], fieldKey: string): string | null {
   const answer = answers.find((a) => a.fieldKey === fieldKey && (a.repeatIndex ?? 0) === 0);
   const value = answer ? (answer.value as { v?: unknown }).v : undefined;

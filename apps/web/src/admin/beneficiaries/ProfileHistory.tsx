@@ -38,6 +38,8 @@ function useFieldLabel() {
   const t = useTranslations('admin.beneficiaries.profile.fields');
   const known = [
     'mobile',
+    'mobile_owner_code',
+    'mobile_owner_name',
     'division_id',
     'district_id',
     'upazila_id',

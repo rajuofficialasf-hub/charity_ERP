@@ -17,7 +17,8 @@ export interface FamilyMatch {
  * union, the village and the father's or husband's name (compared through `person_name_key`, as
  * the duplicate indexes are). It only warns; the official decides at review with a reason, and a
  * household id is never kept. Union and village alone would flag whole villages, so they count
- * only together with the father's or husband's name.
+ * only together with the father's or husband's name. A person without a mobile shares it with
+ * nobody.
  */
 export class BeneficiaryFamilyService {
   async matches(tx: Tx, projectId: string, beneficiaryId: string): Promise<FamilyMatch[]> {
@@ -25,7 +26,7 @@ export class BeneficiaryFamilyService {
       { id: string; ben_no: number; name: string; same_mobile: boolean; same_family: boolean }[]
     >`
       SELECT b.id, b.ben_no, b.name,
-        b.mobile = me.mobile AS same_mobile,
+        COALESCE(b.mobile = me.mobile, false) AS same_mobile,
         (b.union_id = me.union_id
           AND person_name_key(b.village) = person_name_key(me.village)
           AND person_name_key(b.father_or_husband_name) = person_name_key(me.father_or_husband_name)

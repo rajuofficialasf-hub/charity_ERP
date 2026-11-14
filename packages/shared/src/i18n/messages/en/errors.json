@@ -80,6 +80,7 @@
     "mobile_shared": "This mobile number is also on another beneficiary profile.",
     "dismissed": "This pair is already marked as two different people.",
     "lookup_outside_limit": "Today's limit for finding profiles of other regions is used up. Try again tomorrow, or ask your RPM.",
+    "merge_keep_document": "Keep the profile that has the identity document.",
     "merge_needs_global": "Applications of another program are involved, so the Monitoring Team or the Department Head carries out this merge."
   },
   "payment": {
@@ -351,6 +352,7 @@
     "verify_no_profile": "No profile holds this number. Create a new profile.",
     "verify_other_person": "This entry's number belongs to another profile. Link it to the profile of its own number.",
     "verify_identity_exists": "A profile with this number already exists. Link to it instead of creating a new one.",
+    "verify_blocked_match": "The name, the father's or husband's name and the village match a blocked person. Compare before you decide.",
     "verify_owner_unfit": "The chosen volunteer is not active on this project or is blocklisted.",
     "verify_owner_full": "The chosen volunteer has reached the application limit. Choose someone else or keep the application with the office."
   },

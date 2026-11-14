@@ -44,6 +44,8 @@ export const MOBILE_GROUP_LIMIT = 20;
  * The pairs as SQL over the live profiles `x` and `y` (`x.id < y.id`) for the nightly job: the
  * same name, father's or husband's name and mobile; the same mobile in a group within the limit;
  * the same name, date of birth and union. Names compare through `person_name_key`, as the indexes do.
+ * A profile without a mobile pairs with nobody by the mobile: a missing number equals no number,
+ * here and in `refreshFor`, so the people reached through their volunteer are never one group.
  */
 const PAIRS_BY_NAME_FATHER_MOBILE = Prisma.sql`
   SELECT x.id AS low, y.id AS high, ARRAY['name_father_mobile'] AS rules
@@ -54,7 +56,7 @@ const PAIRS_BY_NAME_FATHER_MOBILE = Prisma.sql`
   WHERE x.merged_into_id IS NULL`;
 const PAIRS_BY_MOBILE = Prisma.sql`
   SELECT x.id AS low, y.id AS high, ARRAY['same_mobile'] AS rules
-  FROM (SELECT mobile FROM beneficiaries WHERE merged_into_id IS NULL
+  FROM (SELECT mobile FROM beneficiaries WHERE merged_into_id IS NULL AND mobile IS NOT NULL
         GROUP BY mobile HAVING count(*) BETWEEN 2 AND ${MOBILE_GROUP_LIMIT}) g
   JOIN beneficiaries x ON x.mobile = g.mobile AND x.merged_into_id IS NULL
   JOIN beneficiaries y ON y.mobile = g.mobile AND x.id < y.id AND y.merged_into_id IS NULL`;

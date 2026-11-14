@@ -249,6 +249,79 @@ describe('a copy of a previous project', () => {
     ).toBe(true);
   });
 
+  it('asks of an application what its source asks, in a copy and through a template, whatever the workflow starts with', async () => {
+    const pm = await as(world.users.pm);
+    const asked = (settings: Record<string, unknown>) =>
+      Object.fromEntries(
+        ['identity_document', 'mobile', 'repeat_person', 'repeat_family'].map((key) => [
+          key,
+          settings[key],
+        ]),
+      );
+    const formOf = async (id: string) =>
+      (await componentsOf(pm, id)).find((c) => c.componentKey === 'application_form')!.settings;
+    /** The rules the audit of a project's creation says it started with. */
+    const startedWith = async (id: string) => {
+      const { rows } = await h.db.query<{ new: { identityRules: unknown } }>(
+        `SELECT new FROM audit_log WHERE entity_id = $1 AND action = 'project.create'`,
+        [id],
+      );
+      expect(rows).toHaveLength(1);
+      return rows[0]!.new.identityRules;
+    };
+    const sourceOf = async (workflowKey: string, change: Record<string, unknown>) => {
+      const id = (await create(pm, { kind: 'workflow', workflowKey })).body.data.id as string;
+      await patchComponent(pm, id, 'application_form', {
+        settings: { ...(await formOf(id)), ...change },
+      });
+      return id;
+    };
+    // a construction project that asks less than its workflow starts with
+    const loose = await sourceOf('construction', {
+      identity_document: 'optional',
+      mobile: 'optional',
+    });
+    // a distribution project that asks more than its workflow starts with
+    const strict = await sourceOf('distribution', {
+      identity_document: 'required',
+      mobile: 'required',
+      repeat_person: 'hold',
+      repeat_family: 'hold',
+    });
+    const HELD = { repeatPerson: 'hold', repeatFamily: 'hold' };
+    for (const [source, expected, rules] of [
+      [
+        loose,
+        { identity_document: 'optional', mobile: 'optional' },
+        { document: 'optional', mobile: 'optional', ...HELD },
+      ],
+      [
+        strict,
+        {
+          identity_document: 'required',
+          mobile: 'required',
+          repeat_person: 'hold',
+          repeat_family: 'hold',
+        },
+        { document: 'required', mobile: 'required', ...HELD },
+      ],
+    ] as const) {
+      const copy = await create(pm, { kind: 'copy', projectId: source });
+      expect(copy.status).toBe(201);
+      expect(asked(await formOf(copy.body.data.id as string))).toEqual(asked(expected));
+      // the creation is audited with the rules the source gave, not the workflow's starting ones
+      expect(await startedWith(copy.body.data.id as string)).toEqual(rules);
+      const saved = await at(pm, 'post', `/projects/${source}/save-as-template`).send({
+        name: text(`যা চাওয়া হবে ${source.slice(-6)}`),
+      });
+      expect(saved.status).toBe(200);
+      const made = await create(pm, { kind: 'template', templateId: saved.body.data.id });
+      expect(made.status).toBe(201);
+      expect(asked(await formOf(made.body.data.id as string))).toEqual(asked(expected));
+      expect(await startedWith(made.body.data.id as string)).toEqual(rules);
+    }
+  });
+
   it('is refused for a project outside the caller reach', async () => {
     const other = await account(h.db, { role: 'program_manager' });
     accounts.set(other.id, other);

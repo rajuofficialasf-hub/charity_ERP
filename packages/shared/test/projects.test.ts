@@ -12,8 +12,11 @@ import {
   editableIn,
   extendDeadlineSchema,
   fromPaisa,
+  DEFAULT_IDENTITY_RULES,
   fundSourcesSchema,
   IDENTITY_FIELDS,
+  IDENTITY_RULE_SETTINGS,
+  identityRules,
   limitRequired,
   plannedBudgetPaisa,
   PROJECT_TRANSITIONS,
@@ -108,6 +111,35 @@ describe('the starting components of a workflow', () => {
     });
   });
 
+  it('starts a distribution and a Qurbani project asking the document and the mobile only where there is one, and only telling of a repeat', () => {
+    for (const key of ['distribution', 'qurbani'] as const) {
+      const settings = row(start(key), 'application_form').settings;
+      expect(settings, key).toMatchObject({
+        identity_document: 'optional',
+        mobile: 'optional',
+        repeat_person: 'tell',
+        repeat_family: 'tell',
+      });
+      expect(identityRules(settings), key).toEqual({
+        document: 'optional',
+        mobile: 'optional',
+        repeatPerson: 'tell',
+        repeatFamily: 'tell',
+      });
+    }
+  });
+
+  it('names no identity setting for every other workflow, which then asks both and holds both', () => {
+    const others = WORKFLOW_KEYS.filter((key) => key !== 'distribution' && key !== 'qurbani');
+    expect(others).toHaveLength(4);
+    for (const key of others) {
+      const settings = row(start(key), 'application_form').settings;
+      for (const name of Object.values(IDENTITY_RULE_SETTINGS))
+        expect(settings, `${key} ${name}`).not.toHaveProperty(name);
+      expect(identityRules(settings), key).toEqual(DEFAULT_IDENTITY_RULES);
+    }
+  });
+
   it('turns the workflow stages into bilingual stage settings', () => {
     const stages = row(start('implementation_evidence'), 'stages').settings as {
       list: { key: string; label: { bn: string; en: string }; photo_required?: boolean }[];
@@ -125,7 +157,10 @@ describe('the starting components of a workflow', () => {
   });
 
   it('gives the beneficiary types to every workflow and the application kinds to tree planting', () => {
-    expect(row(start('distribution'), 'application_form').settings).toEqual({
+    expect(row(start('construction'), 'application_form').settings).toEqual({
+      beneficiary_class_options: classes,
+    });
+    expect(row(start('distribution'), 'application_form').settings).toMatchObject({
       beneficiary_class_options: classes,
     });
     expect(row(start('open_application_visit'), 'application_form').settings).toEqual({

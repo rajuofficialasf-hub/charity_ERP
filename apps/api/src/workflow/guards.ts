@@ -1,12 +1,14 @@
 import { answerValueSchema } from '@css/shared';
+import { identityNumberIn } from '../applications/answers.js';
 import {
   pendingSlotsOf,
   photoFieldKeys,
   slotParts,
   slotPath,
 } from '../applications/pending-photos.js';
-import { type Answer, type FormDefinition, validate } from '@css/shared/forms';
+import { type Answer, type FormDefinition, optionalIdentityOf, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
+import type { IdentityRules } from '@css/shared/projects';
 import type { EffectiveAccess } from '../access/effective.js';
 import type { Clock } from '../core/clock.js';
 import type { Tx } from '../core/prisma.service.js';
@@ -49,6 +51,11 @@ export interface EngineApplication {
      * only a grant carrying the condition, or one the panel or a project gave, may make the move.
      */
     approval: { permission: string; condition: string } | null;
+    /**
+     * What the project's application asks about identity and contact, read from the project's
+     * stored settings for this check; never from the request or the record.
+     */
+    identityRules: IdentityRules;
   };
 }
 
@@ -109,7 +116,13 @@ export class GuardContext {
         : await readDefinition(this.tx, this.application.formVersionId, audience);
     const keys = new Set(definition.sections.flatMap((s) => s.fields.map((f) => f.fieldKey)));
     const answers = (await this.answers()).filter((a) => keys.has(a.fieldKey));
-    const options = { audience, today: isoDateInDhaka(this.clock.now()), previous: answers };
+    const options = {
+      audience,
+      today: isoDateInDhaka(this.clock.now()),
+      previous: answers,
+      // the document and the mobile may stay empty only where the project says so
+      optionalIdentity: optionalIdentityOf(this.application.project.identityRules, audience),
+    };
     const result = validate(definition, answers, options);
     // a photo still on the phone is on its way: its slot is not a missing answer; only a photo
     // question of this form may be such a slot, in the path the validator reports it by
@@ -144,22 +157,6 @@ export type Guard = (ctx: GuardContext) => Promise<GuardResult>;
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 const IDENTITY_NUMBER = /^(\d{10}|\d{13}|\d{17})$/;
-const IDENTITY_COLUMN = 'nid_or_birth_reg';
-
-/**
- * The number the identity question holds, read from its answer directly so a missing answer
- * elsewhere does not hide the identity's own refusal.
- */
-async function identityNumber(ctx: GuardContext): Promise<string | null> {
-  const definition = await ctx.definition();
-  const field = definition.sections
-    .flatMap((s) => s.fields)
-    .find((f) => f.standardColumn === IDENTITY_COLUMN);
-  if (!field) return null;
-  const answer = (await ctx.answers()).find((a) => a.fieldKey === field.fieldKey);
-  const value = (answer?.value as { v?: unknown } | undefined)?.v;
-  return typeof value === 'string' ? value.trim() : null;
-}
 
 /**
  * One function per built guard of the catalogue (docs/architecture/WORKFLOW_ENGINE.md, "Guard
@@ -195,9 +192,14 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
     });
     return others < limit;
   },
+  // a project that asks the document "if they have one" lets the answer stay empty; a number
+  // that is given must be a valid one everywhere
   'identity.present': async (ctx) => {
-    const number = await identityNumber(ctx);
-    return number !== null && IDENTITY_NUMBER.test(number);
+    // read from the identity answer directly, so a missing answer elsewhere does not hide the
+    // identity's own refusal
+    const number = identityNumberIn(await ctx.definition(), await ctx.answers());
+    if (!number) return ctx.application.project.identityRules.document === 'optional';
+    return IDENTITY_NUMBER.test(number);
   },
   'mandatory_fields.present': async (ctx) => (await ctx.validation()).ok,
   'beneficiary.not_blocked': async (ctx) => {

@@ -23,7 +23,10 @@ export interface ProfileForPdf {
   village?: string;
   postOffice?: string | null;
   postCode?: string | null;
-  mobile?: string;
+  /** Null for a person reached through their volunteer; absent where the export may not carry it. */
+  mobile?: string | null;
+  /** Whether an identity document is on file; absent where the export may not say. */
+  hasDocument?: boolean;
   nid?: string | null;
   birthReg?: string | null;
   familyMembers?: { name: string; relationshipCode: string | null; ageYears: number | null }[];
@@ -65,6 +68,9 @@ export function profileHtml(input: {
       ${t('exports.column.beneficiaries.ben_no')}: ${String(p.benNo)} · ${formatDate(input.date)}
     </p>
     ${factsHtml(t('exports.pdf.record.identity'), [
+      p.hasDocument === false
+        ? fact(t('exports.pdf.record.document'), t('common.person.no_document'))
+        : null,
       fact(t('exports.column.beneficiaries.nid'), p.nid),
       fact(t('exports.column.beneficiaries.birth_reg'), p.birthReg),
       fact(t('exports.column.beneficiaries.father'), p.fatherOrHusbandName),
@@ -84,7 +90,10 @@ export function profileHtml(input: {
       ),
     ])}
     ${factsHtml(t('exports.pdf.record.contact'), [
-      fact(t('exports.column.beneficiaries.mobile'), p.mobile),
+      fact(
+        t('exports.column.beneficiaries.mobile'),
+        p.mobile === null ? t('common.person.through_volunteer') : p.mobile,
+      ),
       fact(t('exports.pdf.record.address'), address),
       fact(t('exports.pdf.record.post_office'), p.postOffice),
       fact(t('exports.pdf.record.post_code'), p.postCode),

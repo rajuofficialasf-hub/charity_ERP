@@ -156,6 +156,10 @@ describe('templates and copies', () => {
       [
         'application_form.beneficiary_class_options',
         'application_form.application_kinds',
+        'application_form.identity_document',
+        'application_form.mobile',
+        'application_form.repeat_person',
+        'application_form.repeat_family',
         'public_link.enabled',
         'volunteer_assignment.team_members_allowed',
         'photo_rule.rule',
@@ -187,6 +191,8 @@ describe('templates and copies', () => {
               ? {
                   form_ids: ['0190a4c4-0000-7000-8000-000000000001'],
                   beneficiary_class_options: [],
+                  mobile: 'optional',
+                  repeat_family: 'tell',
                 }
               : {},
     })),
@@ -210,7 +216,12 @@ describe('templates and copies', () => {
     expect(settings('distribution')).toEqual({ rule: 'group' });
     // a copy never answers on the source's public link or reuses its forms
     expect(settings('public_link')).toEqual({ enabled: true });
-    expect(settings('application_form')).toEqual({ beneficiary_class_options: [] });
+    // what the application asks and what a repeat does travels with the copy
+    expect(settings('application_form')).toEqual({
+      beneficiary_class_options: [],
+      mobile: 'optional',
+      repeat_family: 'tell',
+    });
     expect(definition.syllabus).toEqual([text('তাওহীদ')]);
     expect(definition.rules).toEqual(allRules);
   });

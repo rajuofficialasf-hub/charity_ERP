@@ -14,6 +14,7 @@ import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import { liveApplicationCounts } from '../applications/limit.js';
+import { IDENTITY_RULES_SELECT, identityRulesOf } from './project-identity-rules.js';
 import { storedRules } from './project-rules.js';
 import type { ProjectEvents } from '../notifications/project-events.js';
 
@@ -32,6 +33,7 @@ const PROJECT = {
   perVolunteerLimit: true,
   dawahEnabled: true,
   rulesVersion: true,
+  ...IDENTITY_RULES_SELECT,
 } satisfies Prisma.ProjectSelect;
 type ProjectRow = Prisma.ProjectGetPayload<{ select: typeof PROJECT }>;
 
@@ -71,6 +73,8 @@ function item(p: ProjectRow, link: Link, volunteerType: string) {
     // a General or দাঈ-স্বেচ্ছাসেবক volunteer assigned to the project may build a team
     leadsTeam:
       link.via === 'assignment' && (TEAM_LEAD_TYPES as readonly string[]).includes(volunteerType),
+    // what an application here must carry, so the form and the phone ask the same as the server
+    identityRules: identityRulesOf(p),
   };
 }
 

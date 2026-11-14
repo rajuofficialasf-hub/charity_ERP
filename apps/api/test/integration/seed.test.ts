@@ -203,6 +203,7 @@ describe('base set', () => {
       media_platform: 4,
       media_role: 6,
       media_stage: 13,
+      mobile_owner: 4,
       payment_method: 4,
       relationship: 17,
     });

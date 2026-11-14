@@ -1,3 +1,4 @@
+import { DEFAULT_IDENTITY_RULES } from '@css/shared/projects';
 import Dexie from 'dexie';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ApplicationSummary } from '../features/applications/applications-api';
@@ -43,6 +44,7 @@ const project = (id: string, code: string): MyProject => ({
   applicationsCounted: 0,
   applicationsLeft: null,
   leadsTeam: false,
+  identityRules: DEFAULT_IDENTITY_RULES,
 });
 const form = (id: string, projectId: string) =>
   ({
@@ -113,6 +115,26 @@ describe('the cached data set', () => {
     expect((await cachedApplications()).map((a) => a.id).sort()).toEqual([A1, A2]);
     expect(await cursor()).toEqual({ since: '2026-10-31T09:59:00.000Z', afterId: null });
     expect(await metaString(META.pulledAt)).toBe('2026-10-31T10:00:05.000Z');
+  });
+
+  it('reads a stored project that carries no identity rules, or unknown ones, as the defaults', async () => {
+    const { identityRules: _rules, ...bare } = project(P1, 'WC');
+    const loose = { ...DEFAULT_IDENTITY_RULES, document: 'optional' as const };
+    await applySnapshot(
+      view({
+        projects: [
+          bare as MyProject,
+          { ...project(P2, 'IF'), identityRules: loose },
+          { ...bare, projectId: A1, code: 'QB', identityRules: { document: 'never' } } as never,
+        ],
+      }),
+      new Date(),
+    );
+    expect((await offlineDb().projects.get(P1))!.data).not.toHaveProperty('identityRules');
+    const read = new Map((await cachedProjects()).map((p) => [p.code, p.identityRules]));
+    expect(read.get('WC')).toEqual(DEFAULT_IDENTITY_RULES);
+    expect(read.get('IF')).toEqual(loose);
+    expect(read.get('QB')).toEqual(DEFAULT_IDENTITY_RULES);
   });
 
   it('drops what the server no longer lists: a project with its form, and an application', async () => {

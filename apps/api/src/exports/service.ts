@@ -24,12 +24,7 @@ import type { PrismaService } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { JobRunner } from '../jobs/job-runner.js';
-import {
-  IDENTITY_NUMBER,
-  OFFICIAL_SECTION,
-  type ExportQuestions,
-  type QuestionColumn,
-} from './questions.js';
+import { type ExportQuestions, QUESTION_CLASSES, type QuestionColumn } from './questions.js';
 import type { ExportRecords } from './records.js';
 import type { ExportRows, FrozenList } from './rows.js';
 
@@ -210,7 +205,7 @@ export class ExportsService {
             id: q.id,
             label: q.label,
             group: 'question',
-            protected: q.cls !== null,
+            protected: q.cls !== null && SENSITIVE.has(q.cls),
             onScreen: false,
             kind: q.group === null ? questionKind(q) : 'text',
             section: { key: q.sectionKey, title: q.sectionTitle },
@@ -429,7 +424,7 @@ export class ExportsService {
     if (input.kind !== 'applications' || !input.projectId) return { allowed: [], every: [] };
     const [allowed, every] = await Promise.all([
       this.questions.catalogue(input.projectId, classes),
-      this.questions.catalogue(input.projectId, new Set([OFFICIAL_SECTION, IDENTITY_NUMBER])),
+      this.questions.catalogue(input.projectId, new Set(QUESTION_CLASSES)),
     ]);
     return { allowed, every };
   }
@@ -457,7 +452,9 @@ export function questionKind(q: Pick<QuestionColumn, 'type'>): ColumnKind {
  * official section and the identity number whenever the export carries them (a question's class
  * can differ between the versions the applications were made with, so the answers are counted as
  * possibly protected). The request marks the job sensitive by them, and its download needs their
- * export permissions again.
+ * export permissions again. Contact data makes no export sensitive, in a question's answer as in
+ * the mobile column of the beneficiary list: it is withheld by its class and needs no export
+ * permission of its own.
  */
 export function sensitiveClasses(
   list: ExportList,
@@ -472,6 +469,6 @@ export function sensitiveClasses(
     if (cls && SENSITIVE.has(cls)) held.add(cls);
   }
   if (questions.length > 0)
-    for (const cls of [OFFICIAL_SECTION, IDENTITY_NUMBER]) if (classes.has(cls)) held.add(cls);
+    for (const cls of QUESTION_CLASSES) if (SENSITIVE.has(cls) && classes.has(cls)) held.add(cls);
   return [...held].sort();
 }

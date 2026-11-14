@@ -46,6 +46,7 @@ const KINDS: Readonly<Record<ExportList, Readonly<Record<string, ColumnKind>>>> 
     class: 'coded',
     gender: 'coded',
     age: 'number',
+    mobile_owner: 'coded',
     blocked: 'flag',
   },
   applications: { score: 'number', status: 'coded', submitted: 'datetime', waiting: 'number' },
@@ -107,6 +108,9 @@ const BENEFICIARIES: readonly ExportColumn[] = [
   column('beneficiaries', 'age', 'detail', PROFILE),
   column('beneficiaries', 'mother', 'detail', PROFILE),
   column('beneficiaries', 'mobile', 'detail', CONTACT),
+  // whose number the mobile is, and that person's name: contact data like the number itself
+  column('beneficiaries', 'mobile_owner', 'detail', CONTACT),
+  column('beneficiaries', 'mobile_owner_name', 'detail', CONTACT),
   column('beneficiaries', 'union', 'detail', ADDRESS),
   column('beneficiaries', 'village', 'detail', ADDRESS),
   column('beneficiaries', 'blocked', 'detail', 'beneficiary.care'),

@@ -13,7 +13,14 @@ import {
   UPAZILA,
   yesNo,
 } from '../../test/forms-fixture.js';
-import { validate, type Answer, type FormField, type ValidateOptions } from './index.js';
+import {
+  optionalIdentityOf,
+  optionalIdentityQuestion,
+  validate,
+  type Answer,
+  type FormField,
+  type ValidateOptions,
+} from './index.js';
 
 // The validator: the value shape of every type, required only while visible, the limits and the
 // patterns, options and the "other" text, repeat rows, the address, and the audiences.
@@ -633,5 +640,187 @@ describe('a number table', () => {
     ]);
     // "no cows" is an answer
     expect(errorsOf([{ ...livestock, required: true }], [table({ cow: { own: 0 } })])).toEqual([]);
+  });
+});
+
+describe('the identity questions a project lets stay empty', () => {
+  const without = (...keys: string[]) => coreAnswers().filter((a) => !keys.includes(a.fieldKey));
+  const replaced = (key: string, value: Answer['value']) => [...without(key), answer(key, value)];
+  /** The errors of the core form alone, for the given answers. */
+  const errors = (answers: Answer[], options: Partial<ValidateOptions> = {}) => {
+    const result = validate(definitionWith(), answers, { ...official, ...options });
+    return result.ok ? [] : result.errors.map((e) => [e.path, e.code]);
+  };
+  const BOTH = { optionalIdentity: { document: true, mobile: true } };
+
+  it('requires both without the option, and with an option that names neither', () => {
+    const missing = [
+      ['nid_or_birth_reg', 'validation.required'],
+      ['mobile', 'validation.required'],
+    ];
+    expect(errors(without('nid_or_birth_reg', 'mobile'))).toEqual(missing);
+    expect(errors(without('nid_or_birth_reg', 'mobile'), { optionalIdentity: {} })).toEqual(
+      missing,
+    );
+    expect(
+      errors(without('nid_or_birth_reg', 'mobile'), {
+        optionalIdentity: { document: false, mobile: false },
+      }),
+    ).toEqual(missing);
+  });
+
+  it('passes an empty document answer and an empty mobile answer, each by its own flag', () => {
+    expect(errors(without('nid_or_birth_reg', 'mobile'), BOTH)).toEqual([]);
+    expect(
+      errors(without('nid_or_birth_reg', 'mobile'), { optionalIdentity: { document: true } }),
+    ).toEqual([['mobile', 'validation.required']]);
+    expect(
+      errors(without('nid_or_birth_reg', 'mobile'), { optionalIdentity: { mobile: true } }),
+    ).toEqual([['nid_or_birth_reg', 'validation.required']]);
+    // a blank text is no answer
+    expect(
+      errors(
+        [
+          ...without('nid_or_birth_reg', 'mobile'),
+          answer('nid_or_birth_reg', { t: 'short_text', v: '  ' }),
+          answer('mobile', { t: 'phone', v: '' }),
+        ],
+        BOTH,
+      ),
+    ).toEqual([]);
+  });
+
+  it('stores no identity number and no mobile for the answers left empty', () => {
+    const result = validate(definitionWith(), without('nid_or_birth_reg', 'mobile'), {
+      ...official,
+      ...BOTH,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const answered = result.answers.map((a) => a.fieldKey);
+    expect(answered).not.toContain('nid_or_birth_reg');
+    expect(answered).not.toContain('mobile');
+    for (const column of ['nid', 'birth_reg', 'mobile'])
+      expect(Object.keys(result.standard)).not.toContain(column);
+    expect(result.standard).toMatchObject({ name: 'Rahima Khatun', village: 'Charpara' });
+  });
+
+  it('never stores an identity number of only spaces, and stores a number without the spaces around it', () => {
+    const spaces = validate(
+      definitionWith(),
+      replaced('nid_or_birth_reg', { t: 'short_text', v: '   ' }),
+      { ...official, ...BOTH },
+    );
+    expect(spaces.ok).toBe(true);
+    if (!spaces.ok) return;
+    expect(spaces.answers.map((a) => a.fieldKey)).not.toContain('nid_or_birth_reg');
+    expect(Object.keys(spaces.standard)).not.toContain('nid');
+    expect(Object.keys(spaces.standard)).not.toContain('birth_reg');
+    // where the document is required, spaces are a missing answer
+    expect(errors(replaced('nid_or_birth_reg', { t: 'short_text', v: '   ' }))).toEqual([
+      ['nid_or_birth_reg', 'validation.required'],
+    ]);
+    const padded = validate(
+      definitionWith(),
+      replaced('nid_or_birth_reg', { t: 'short_text', v: '  1234567890 ' }),
+      official,
+    );
+    expect(padded.ok).toBe(true);
+    if (!padded.ok) return;
+    expect(padded.answers.find((a) => a.fieldKey === 'nid_or_birth_reg')?.value).toEqual({
+      t: 'short_text',
+      v: '1234567890',
+    });
+    expect(padded.standard).toMatchObject({ nid: '1234567890' });
+    expect(Object.keys(padded.standard)).not.toContain('birth_reg');
+  });
+
+  it('still checks a number and a mobile that are given, with the codes of a required question', () => {
+    const badNumber = replaced('nid_or_birth_reg', { t: 'short_text', v: '12345' });
+    const badMobile = replaced('mobile', { t: 'phone', v: '02712345678' });
+    const wrongShape = replaced('mobile', { t: 'short_text', v: '01712345678' });
+    for (const options of [{}, BOTH]) {
+      expect(errors(badNumber, options)).toEqual([['nid_or_birth_reg', 'validation.nid_format']]);
+      expect(errors(badMobile, options)).toEqual([['mobile', 'validation.mobile_format']]);
+      expect(errors(wrongShape, options)).toEqual([['mobile', 'validation.value_shape']]);
+    }
+    // a good answer is kept as it is
+    const result = validate(definitionWith(), coreAnswers(), { ...official, ...BOTH });
+    expect(result.ok && result.standard).toMatchObject({
+      nid: '1234567890',
+      mobile: '01712345678',
+    });
+  });
+
+  it('leaves every other required question required', () => {
+    expect(errors(without('name', 'gender', 'address', 'village'), BOTH)).toEqual([
+      ['name', 'validation.required'],
+      ['gender', 'validation.required'],
+      ['address', 'validation.required'],
+      ['village', 'validation.required'],
+    ]);
+    const extra = [field('income', 'number', { required: true })];
+    const result = validate(definitionWith(extra), without('nid_or_birth_reg', 'mobile'), {
+      ...official,
+      ...BOTH,
+    });
+    expect(result.ok ? [] : result.errors).toEqual([
+      { path: 'income', code: 'validation.required' },
+    ]);
+  });
+
+  it('finds the two questions by their standard column, under any key and never inside a group', () => {
+    const renamed = definitionWith();
+    for (const f of renamed.sections.flatMap((s) => s.fields)) {
+      if (f.standardColumn === 'nid_or_birth_reg') f.fieldKey = 'id_number';
+      if (f.standardColumn === 'mobile') f.fieldKey = 'phone_number';
+    }
+    const result = validate(renamed, without('nid_or_birth_reg', 'mobile'), {
+      ...official,
+      ...BOTH,
+    });
+    expect(result.ok ? [] : result.errors).toEqual([]);
+    // a phone question that fills no profile column stays as the form made it
+    expect(
+      errorsOf([field('second_phone', 'phone', { required: true })], [], {
+        ...official,
+        ...BOTH,
+      }),
+    ).toEqual([['second_phone', 'validation.required']]);
+
+    const both = { document: true, mobile: true };
+    const document = { standardColumn: 'nid_or_birth_reg' };
+    const mobile = { standardColumn: 'mobile' };
+    expect(optionalIdentityQuestion(document, both)).toBe('document');
+    expect(optionalIdentityQuestion(mobile, both)).toBe('mobile');
+    expect(optionalIdentityQuestion(document, { mobile: true })).toBeNull();
+    expect(optionalIdentityQuestion(mobile, { document: true })).toBeNull();
+    expect(optionalIdentityQuestion(mobile, undefined)).toBeNull();
+    expect(optionalIdentityQuestion({ standardColumn: 'name' }, both)).toBeNull();
+    expect(optionalIdentityQuestion({ standardColumn: null }, both)).toBeNull();
+    // a family member's number in a row of a group is not the applicant's
+    expect(
+      optionalIdentityQuestion({ ...mobile, settings: { repeat: { group: 'members' } } }, both),
+    ).toBeNull();
+  });
+
+  it('builds the option from the rules of a project, and always asks the mobile of a public entry', () => {
+    type Choice = 'required' | 'optional';
+    const CASES: [Choice, Choice, boolean, boolean][] = [
+      ['required', 'required', false, false],
+      ['optional', 'required', true, false],
+      ['required', 'optional', false, true],
+      ['optional', 'optional', true, true],
+    ];
+    for (const [document, mobile, documentOptional, mobileOptional] of CASES) {
+      for (const audience of ['volunteer', 'official'] as const)
+        expect(optionalIdentityOf({ document, mobile }, audience), `${document}/${mobile}`).toEqual(
+          { document: documentOptional, mobile: mobileOptional },
+        );
+      expect(optionalIdentityOf({ document, mobile }, 'public'), `${document}/${mobile}`).toEqual({
+        document: documentOptional,
+        mobile: false,
+      });
+    }
   });
 });

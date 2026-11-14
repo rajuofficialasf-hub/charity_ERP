@@ -10,7 +10,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { ApplicationReviewPage } from './ApplicationReviewPage';
 import { ApplicationsPage } from './ApplicationsPage';
-import type { MessageKey } from '@css/shared/i18n';
+import { bn, type MessageKey } from '@css/shared/i18n';
 import { expectOnScreenColumns, serveExports, tickedColumns } from '../../../test/msw/exports';
 
 // The office's application screens: the list with its filters in the address and the bulk
@@ -1121,5 +1121,190 @@ describe('the referral to the Media Team', () => {
       await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'মিডিয়া টিমে পাঠান' })).not.toBeInTheDocument();
+  });
+});
+
+describe('a person without an identity document or a mobile', () => {
+  const NO_DOCUMENT = bn.common.person.no_document;
+  const THROUGH_VOLUNTEER = bn.common.person.through_volunteer;
+  const BLOCK_MATCH = bn.applications.office.signals.flag.blocked_name_match;
+  const CANDIDATE = '01900000-0000-7000-8000-0000000000b9';
+  const withoutNumbers = record().answers.filter(
+    (a) => a.fieldKey !== 'nid_or_birth_reg' && a.fieldKey !== 'mobile',
+  );
+
+  it('marks the row of the list with the two chips, and no other row', async () => {
+    refreshAs(EXECUTIVE);
+    serve([
+      row(A1, { hasDocument: false, hasMobile: false }),
+      row(A2, { beneficiaryName: 'দ্বিতীয় জন', hasDocument: true, hasMobile: true }),
+    ]);
+    openList();
+    const light = (await screen.findByRole('link', { name: 'নমুনা উপকারভোগী' })).closest('tr')!;
+    expect(within(light).getByText(NO_DOCUMENT)).toBeInTheDocument();
+    expect(within(light).getByText(THROUGH_VOLUNTEER)).toBeInTheDocument();
+    const full = screen.getByRole('link', { name: 'দ্বিতীয় জন' }).closest('tr')!;
+    expect(within(full).queryByText(NO_DOCUMENT)).not.toBeInTheDocument();
+    expect(within(full).queryByText(THROUGH_VOLUNTEER)).not.toBeInTheDocument();
+  });
+
+  it('shows the chip on the record and the volunteer in the place of the mobile answer', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            identityKind: 'none',
+            hasDocument: false,
+            hasMobile: false,
+            answers: withoutNumbers,
+          }),
+        ),
+      ),
+    );
+    openReview();
+    expect(await screen.findByText(NO_DOCUMENT)).toBeInTheDocument();
+    const answers = screen.getByRole('region', { name: 'basic_info' });
+    expect(within(answers).getByText(THROUGH_VOLUNTEER)).toBeInTheDocument();
+    expect(screen.queryByText('null')).not.toBeInTheDocument();
+  });
+
+  it('shows neither on the record of a person who has both, nor on one the server said nothing of', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(record({ hasDocument: true, hasMobile: true })),
+      ),
+    );
+    const first = openReview();
+    expect(await screen.findByText('01711111111')).toBeInTheDocument();
+    expect(screen.queryByText(NO_DOCUMENT)).not.toBeInTheDocument();
+    expect(screen.queryByText(THROUGH_VOLUNTEER)).not.toBeInTheDocument();
+    first.unmount();
+    // a reader who may not know: the mobile answer is withheld and nothing stands in its place
+    resetClientForTests();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(record({ hasDocument: null, hasMobile: null, answers: withoutNumbers })),
+      ),
+    );
+    openReview();
+    expect(await screen.findByText('নমুনা পিতা')).toBeInTheDocument();
+    expect(screen.queryByText(NO_DOCUMENT)).not.toBeInTheDocument();
+    expect(screen.queryByText(THROUGH_VOLUNTEER)).not.toBeInTheDocument();
+  });
+
+  it('tells the official why an entry that looks like a blocked person waits, with that profile to compare, and makes a new person on their word', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    const waiting = (flags: string[]) =>
+      record({
+        status: 'needs_verification',
+        identityKind: null,
+        beneficiaryId: null,
+        flags,
+        candidateBeneficiaryId: flags.includes('blocked_name_match') ? CANDIDATE : null,
+        answers: withoutNumbers,
+        availableActions: ['verify_link', 'verify_create', 'reject_unverified'],
+      });
+    let flags = ['blocked_name_match'];
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () => envelope(waiting(flags))),
+      http.get(`*/api/v1/projects/${PROJECT}/volunteers`, () =>
+        HttpResponse.json({
+          data: [],
+          meta: { requestId: 'r', nextCursor: null, prevCursor: null },
+        }),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json() });
+        return envelope(record({ status: 'submitted', availableActions: [] }), '"v2"');
+      }),
+    );
+    const view = openReview();
+    // on the record, before the dialog opens
+    expect(await screen.findByText(BLOCK_MATCH)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'যাচাই করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
+    expect(within(dialog).getByText(BLOCK_MATCH)).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('link', { name: bn.applications.office.verify.blocked_profile }),
+    ).toHaveAttribute('href', `/admin/beneficiaries/${CANDIDATE}`);
+    await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
+    await waitFor(() => expect(acted).toHaveLength(1));
+    expect(acted[0]).toEqual({ action: 'verify_create', body: {} });
+    view.unmount();
+    // an entry without a number that matched nobody says nothing of a block
+    flags = ['public_entry'];
+    resetClientForTests();
+    openReview();
+    await user.click(await screen.findByRole('button', { name: 'যাচাই করুন' }));
+    const plain = await screen.findByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
+    expect(
+      within(plain).getByText('এন্ট্রির তথ্য দিয়ে নতুন প্রোফাইল তৈরি হবে।'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(BLOCK_MATCH)).not.toBeInTheDocument();
+  });
+
+  it('shows the match the server finds when a new profile is asked for an entry that waits for another reason, with the profile to compare, and makes the person at the second press', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    let flags = ['late_sync'];
+    const sent: { action: string; version: string | null }[] = [];
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'needs_verification',
+            identityKind: null,
+            beneficiaryId: null,
+            flags,
+            candidateBeneficiaryId: flags.includes('blocked_name_match') ? CANDIDATE : null,
+            answers: withoutNumbers,
+            availableActions: ['verify_link', 'verify_create', 'reject_unverified'],
+          }),
+          flags.includes('blocked_name_match') ? '"v2"' : '"v1"',
+        ),
+      ),
+      http.get(`*/api/v1/projects/${PROJECT}/volunteers`, () =>
+        HttpResponse.json({
+          data: [],
+          meta: { requestId: 'r', nextCursor: null, prevCursor: null },
+        }),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, ({ params, request }) => {
+        sent.push({ action: String(params.action), version: request.headers.get('if-match') });
+        if (flags.includes('blocked_name_match'))
+          return envelope(record({ status: 'submitted', availableActions: [] }), '"v3"');
+        // the server found the match: the entry stays waiting and now carries it
+        flags = ['late_sync', 'blocked_name_match'];
+        return apiError(409, 'application.verify_blocked_match', BLOCK_MATCH);
+      }),
+    );
+    openReview();
+    await user.click(await screen.findByRole('button', { name: 'যাচাই করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
+    expect(within(dialog).queryByText(BLOCK_MATCH)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
+    // the dialog stays open with the line and the blocked person's profile to compare
+    expect(await within(dialog).findByText(BLOCK_MATCH)).toBeInTheDocument();
+    expect(
+      await within(dialog).findByRole('link', {
+        name: bn.applications.office.verify.blocked_profile,
+      }),
+    ).toHaveAttribute('href', `/admin/beneficiaries/${CANDIDATE}`);
+    expect(within(dialog).getByText(bn.applications.office.verify.create_other_help)).toBeVisible();
+    expect(sent).toEqual([{ action: 'verify_create', version: '"v1"' }]);
+    // the official compared the two: the second press carries the version the entry has now
+    await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[1]).toEqual({ action: 'verify_create', version: '"v2"' });
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' })).not.toBeInTheDocument(),
+    );
   });
 });

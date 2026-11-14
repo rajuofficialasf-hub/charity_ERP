@@ -3,7 +3,7 @@
 # The beneficiary side reuses the distribution template unchanged (same form, approval, meat distribution and photos).
 # The donor/animal side is a second flow on the animal entity, independent of the application cycle.
 template: qurbani
-version: 5
+version: 6
 title_en: Beneficiary + donor + animal
 title_bn: উপকারভোগী + ডোনার + পশু
 extends: distribution
@@ -72,3 +72,8 @@ defaults:
   photo_source: camera_only
   vouchers: required
   limit_counts: [draft, submitted, under_review, reviewed, waitlisted, approved, implementation, completed]
+  # as the distribution workflow it extends (D-172, BR-297): starting values of a new project
+  identity_document: optional
+  mobile: optional
+  repeat_person: tell
+  repeat_family: tell

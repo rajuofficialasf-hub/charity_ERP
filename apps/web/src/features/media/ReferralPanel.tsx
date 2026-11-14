@@ -5,6 +5,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
+import { ThroughVolunteerChip } from '../../components/PersonMarks';
 import { CommentDialog } from './CommentDialog';
 import { decideReferral, type MediaReferral } from './media-api';
 import { failureOf } from './work-errors';
@@ -112,7 +113,7 @@ export function ReferralPanel({
               { label: t('work.name'), value: b.name },
               { label: t('work.father'), value: b.fatherOrHusbandName },
               ...(b.ageYears !== null ? [{ label: t('work.age'), value: b.ageYears }] : []),
-              { label: t('work.mobile'), value: b.mobile },
+              { label: t('work.mobile'), value: b.mobile ?? <ThroughVolunteerChip /> },
               {
                 label: t('work.address'),
                 value: (

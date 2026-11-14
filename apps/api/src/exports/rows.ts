@@ -21,6 +21,7 @@ import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiariesService } from '../services/beneficiaries.js';
 import type { VolunteerListService } from '../services/volunteer-list.js';
 import { exportClasses } from './access.js';
+import { personCells } from './file.js';
 import { placeNames } from './places.js';
 
 /** Where the label of a coded value comes from: a message family or a reference list. */
@@ -30,6 +31,7 @@ export type CodedSource =
   | 'beneficiary.status'
   | 'reference.beneficiary_class'
   | 'reference.gender'
+  | 'reference.mobile_owner'
   | 'application.status';
 
 /** A value of the code lists a writer turns into the label of the file's language. */
@@ -431,6 +433,8 @@ export class ExportRows {
         genderCode: true,
         ageYears: true,
         mobile: true,
+        mobileOwnerCode: true,
+        mobileOwnerName: true,
         upazilaId: true,
         districtId: true,
         unionId: true,
@@ -457,12 +461,14 @@ export class ExportRows {
         gender: coded(b.genderCode, 'reference.gender'),
         age: b.ageYears,
         mother: b.motherName,
-        mobile: b.mobile,
         union: names.get(b.unionId) ?? null,
         village: b.village,
         blocked: b.isBlocked,
-        nid: b.nid,
-        birth_reg: b.birthReg,
+        // whose number the mobile is, masked with the contact class like the number
+        mobile_owner: coded(b.mobileOwnerCode, 'reference.mobile_owner'),
+        mobile_owner_name: b.mobileOwnerName,
+        // a missing mobile or document prints its words; each cell is masked with its class
+        ...personCells(b, frozen.locale),
       } satisfies Record<string, Cell>,
     }));
     const last = found.at(-1);

@@ -2,7 +2,7 @@ import { type AnswerValue, answerValueSchema } from '@css/shared';
 import { questionColumnId } from '@css/shared/exports';
 import type { FieldType, FormDefinition } from '@css/shared/forms';
 import type { Bilingual } from '@css/shared/i18n';
-import { IDENTITY_COLUMN } from '../applications/answers.js';
+import { classOfColumn } from '../applications/answers.js';
 import type { PrismaService } from '../core/prisma.service.js';
 import { readDefinition } from '../services/forms.js';
 import { placeNames } from './places.js';
@@ -12,6 +12,10 @@ import type { Cell } from './rows.js';
 export const OFFICIAL_SECTION = 'application.official_section';
 /** The protected class of the identity number answer. */
 export const IDENTITY_NUMBER = 'beneficiary.nid';
+/** The protected class of the mobile answer, of whose number it is and of that person's name. */
+export const CONTACT = 'beneficiary.contact';
+/** Every protected class a form question's answer can have. */
+export const QUESTION_CLASSES: readonly string[] = [OFFICIAL_SECTION, IDENTITY_NUMBER, CONTACT];
 
 /** One form question as an export column, keyed by its field key across the project's versions. */
 export interface QuestionColumn {
@@ -50,14 +54,29 @@ export type RowAllows = (applicationId: string, cls: string) => boolean;
 /** Questions that hold no value of their own, or only files, which an export never carries. */
 const NO_VALUE = new Set<FieldType>(['repeat_group', 'note', 'photo', 'file', 'signature']);
 
-/** The protected class of a question, from its section and its standard column. */
+/**
+ * The protected classes of a question, from its section and its standard column: the official
+ * section's, and the class of the column it fills (the identity number; the mobile, whose number
+ * it is and that person's name, which are contact data). An answer leaves only with every one of
+ * them, as the record on screen shows it only to a reader of each.
+ */
+export function classesOf(
+  sectionVisibility: string,
+  standardColumn: string | null | undefined,
+): string[] {
+  const own = classOfColumn(standardColumn);
+  return [
+    ...(sectionVisibility === 'official_only' ? [OFFICIAL_SECTION] : []),
+    ...(own ? [own] : []),
+  ];
+}
+
+/** The protected class a question is listed under: its section's first, else its column's. */
 export function classOf(
   sectionVisibility: string,
   standardColumn: string | null | undefined,
 ): string | null {
-  if (sectionVisibility === 'official_only') return OFFICIAL_SECTION;
-  if (standardColumn === IDENTITY_COLUMN) return IDENTITY_NUMBER;
-  return null;
+  return classesOf(sectionVisibility, standardColumn)[0] ?? null;
 }
 
 /**
@@ -89,10 +108,9 @@ export class ExportQuestions {
     const withheld = new Set<string>();
     for (const definition of definitions)
       for (const section of definition.sections)
-        for (const field of section.fields) {
-          const cls = classOf(section.visibility, field.standardColumn);
-          if (cls && !classes.has(cls)) withheld.add(field.fieldKey);
-        }
+        for (const field of section.fields)
+          if (classesOf(section.visibility, field.standardColumn).some((cls) => !classes.has(cls)))
+            withheld.add(field.fieldKey);
     const columns = new Map<string, QuestionColumn>();
     for (const definition of definitions)
       for (const section of definition.sections)
@@ -148,8 +166,8 @@ export class ExportQuestions {
       },
     });
     const kept = answers.flatMap((a) => {
-      const cls = classOf(a.field.formSection.visibility, a.field.standardColumn);
-      if (cls && !allows(a.applicationId, cls)) return [];
+      const protectedBy = classesOf(a.field.formSection.visibility, a.field.standardColumn);
+      if (protectedBy.some((cls) => !allows(a.applicationId, cls))) return [];
       // an answer that no longer reads as an answer leaves its cell empty
       const value = answerValueSchema.safeParse(a.value);
       return value.success ? [{ ...a, value: value.data }] : [];

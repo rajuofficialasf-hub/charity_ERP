@@ -69,14 +69,15 @@ const mediaEventView = z.object({
 
 /**
  * What the Media Team may know of the person (docs/BUSINESS_RULES.md, the media team's data): the
- * names, age, mobile, address, occupation and income; never the identity numbers, ratings,
- * categories or scores.
+ * names, age, mobile, address, occupation and income; never the identity numbers, whether the
+ * person has an identity document, ratings, categories or scores. The mobile is null for a
+ * person reached through their volunteer.
  */
 const mediaBeneficiaryView = z.object({
   name: z.string(),
   fatherOrHusbandName: z.string(),
   ageYears: z.number().int().nullable(),
-  mobile: z.string(),
+  mobile: z.string().nullable(),
   address: z.object({
     divisionId: uuid,
     districtId: uuid,

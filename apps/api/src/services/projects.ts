@@ -4,6 +4,7 @@ import {
   BUDGET_LIMIT_PAISA,
   type CodeLabel,
   editableIn,
+  identityRules,
   plannedBudgetPaisa,
   type ProjectCreate,
   type ProjectFilter,
@@ -36,6 +37,7 @@ import type { Env } from '../config/env.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import { applyDefinition, projectDefinition } from './project-definition.js';
+import { auditIdentityRulesChange, IDENTITY_RULES_COMPONENT } from './project-identity-rules.js';
 
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
 const DAY = 86_400_000;
@@ -318,11 +320,22 @@ export class ProjectsService {
         if (start.definition) await applyDefinition(tx, id, start.definition, actor);
         // the application numbers of this project count from here
         await tx.idSequence.create({ data: { scopeKey: `app:${id}`, lastValue: 0 } });
+        // what the project's application asks from its first day, whichever source set it
+        const asked = await tx.projectComponent.findUnique({
+          where: {
+            projectId_componentKey: { projectId: id, componentKey: IDENTITY_RULES_COMPONENT },
+          },
+          select: { settings: true },
+        });
         await this.audit.record(tx, {
           action: 'project.create',
           entityType: 'project',
           entityId: id,
-          new: { ...view(row, EDITOR), source: body.source },
+          new: {
+            ...view(row, EDITOR),
+            source: body.source,
+            identityRules: identityRules(asked?.settings),
+          },
         });
         return { project: view(row, EDITOR), updatedAt: row.updatedAt };
       });
@@ -381,6 +394,12 @@ export class ProjectsService {
           ...next,
           dawahEnabled: components.some((c) => c.componentKey === 'dawah' && c.enabled),
         };
+        const asked = await tx.projectComponent.findUnique({
+          where: {
+            projectId_componentKey: { projectId, componentKey: IDENTITY_RULES_COMPONENT },
+          },
+          select: { settings: true },
+        });
         for (const c of components)
           await tx.projectComponent.update({
             where: {
@@ -392,6 +411,14 @@ export class ProjectsService {
               updatedBy: actor,
             },
           });
+        // the new workflow's starting settings may ask something else of an application
+        await auditIdentityRulesChange(
+          this.audit,
+          tx,
+          projectId,
+          asked?.settings,
+          components.find((c) => c.componentKey === IDENTITY_RULES_COMPONENT)?.settings,
+        );
       }
       const row = await tx.project.update({
         where: { id: projectId },

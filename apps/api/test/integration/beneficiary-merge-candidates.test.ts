@@ -308,6 +308,45 @@ describe('keeping the pairs up to date', () => {
     ]);
   });
 
+  it('pairs nobody by a missing mobile, at a write and in the nightly run, whatever the names', async () => {
+    const n = ++counter;
+    const name = `নম্বর ছাড়া ${n}`;
+    const father = `নম্বর ছাড়া পিতা ${n}`;
+    // the same name and father with no mobile; a third with another name; none has a document
+    const light = { mobile: null, nid: null };
+    const a = await f.beneficiary(h.db, world.dhaka, {
+      ...light,
+      name,
+      father_or_husband_name: father,
+    });
+    const b = await f.beneficiary(h.db, world.dhaka, {
+      ...light,
+      name,
+      father_or_husband_name: father,
+    });
+    const c = await f.beneficiary(h.db, world.dhaka, { ...light, name: `আরেক জন ${n}` });
+    const pairsAmong = async () =>
+      (
+        await h.db.query(
+          `SELECT rules FROM beneficiary_merge_candidates
+            WHERE active AND low_id = ANY($1::uuid[]) AND high_id = ANY($1::uuid[])`,
+          [[a, b, c]],
+        )
+      ).rows;
+    await refresh(a, b, c);
+    expect(await pairsAmong()).toEqual([]);
+    await h.container.beneficiaryMergeCandidates.refreshAll();
+    expect(await pairsAmong()).toEqual([]);
+    // the number is what pairs them: once both hold one mobile, the pair is found
+    const mobile = `0177${String(1_000_000 + n).slice(-7)}`;
+    await h.db.query('UPDATE beneficiaries SET mobile = $2 WHERE id = ANY($1::uuid[])', [
+      [a, b],
+      mobile,
+    ]);
+    await refresh(a, b);
+    expect(await pairsAmong()).toEqual([{ rules: ['name_father_mobile', 'same_mobile'] }]);
+  });
+
   it('recomputes every pair nightly, finding new ones and marking gone ones inactive', async () => {
     const father = { father_or_husband_name: 'নমুনা পিতা' };
     const a = await f.beneficiary(h.db, world.dhaka, { ...father, mobile: '01577000020' });

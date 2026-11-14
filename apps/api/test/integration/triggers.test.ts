@@ -92,6 +92,55 @@ describe('beneficiary mobile is not the submitting volunteer mobile', () => {
       ),
     ).resolves.toBeUndefined();
   });
+
+  it('lets a beneficiary without a mobile through, whoever owns or created the application', async () => {
+    const { p, volUser, vol } = await setup();
+    const ben = await f.beneficiary(db, loc, { mobile: null });
+    await expect(
+      inTransaction(db, () =>
+        f.application(
+          db,
+          { project: p, loc },
+          { beneficiary_id: ben, owner_volunteer_id: vol, created_by_user_id: volUser },
+        ),
+      ),
+    ).resolves.toBeUndefined();
+    // an official without a mobile of their own enters a person without one: no number is no match
+    const official = await f.user(db);
+    await expect(
+      inTransaction(db, async () =>
+        f.application(
+          db,
+          { project: p, loc },
+          {
+            beneficiary_id: await f.beneficiary(db, loc, { mobile: null }),
+            created_by_user_id: official,
+          },
+        ),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it('checks a number given later to a beneficiary who had none, and lets it be taken away again', async () => {
+    const { p, mobile, vol } = await setup();
+    const ben = await f.beneficiary(db, loc, { mobile: null });
+    await inTransaction(db, () =>
+      f.application(db, { project: p, loc }, { beneficiary_id: ben, owner_volunteer_id: vol }),
+    );
+    const setMobile = (value: string | null) =>
+      inTransaction(db, () =>
+        db.query('UPDATE beneficiaries SET mobile = $1 WHERE id = $2', [value, ben]),
+      );
+    await expectSqlError(
+      setMobile(mobile),
+      SQLSTATE.checkViolation,
+      /beneficiary_mobile_is_volunteer_mobile/,
+    );
+    await expect(setMobile(f.fakeMobile())).resolves.toBeUndefined();
+    await expect(setMobile(null)).resolves.toBeUndefined();
+    const { rows } = await db.query('SELECT mobile FROM beneficiaries WHERE id = $1', [ben]);
+    expect(rows).toEqual([{ mobile: null }]);
+  });
 });
 
 describe('log tables', () => {

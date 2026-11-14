@@ -609,6 +609,7 @@ model ReferenceList {
   beneficiariesGenderCode                  Beneficiary[]             @relation("beneficiaries_gender_code")
   beneficiariesMaritalStatusCode           Beneficiary[]             @relation("beneficiaries_marital_status_code")
   beneficiariesEducationCode               Beneficiary[]             @relation("beneficiaries_education_code")
+  beneficiariesMobileOwnerCode             Beneficiary[]             @relation("beneficiaries_mobile_owner_code")
   beneficiaryFamilyMembersRelationshipCode BeneficiaryFamilyMember[] @relation("beneficiary_family_members_relationship_code")
   beneficiaryFamilyMembersGenderCode       BeneficiaryFamilyMember[] @relation("beneficiary_family_members_gender_code")
   workAssignmentsGenderScope               WorkAssignment[]          @relation("work_assignments_gender_scope")
@@ -1142,7 +1143,11 @@ model Beneficiary {
   name                                 String
   fatherOrHusbandName                  String                     @map("father_or_husband_name")
   motherName                           String?                    @map("mother_name")
-  mobile                               String
+  /// null for a person who is reached through the volunteer of the application
+  mobile                               String?
+  /// whose number the mobile is (the list mobile_owner), and that person's name
+  mobileOwnerCode                      String?                    @map("mobile_owner_code")
+  mobileOwnerName                      String?                    @map("mobile_owner_name")
   genderCode                           String                     @map("gender_code")
   dob                                  DateTime?                  @db.Date
   ageYears                             Int?                       @map("age_years") @db.SmallInt
@@ -1180,9 +1185,11 @@ model Beneficiary {
   genderList                           String?                    @default("gender") @map("gender_list")
   maritalStatusList                    String?                    @default("marital_status") @map("marital_status_list")
   educationList                        String?                    @default("education_level") @map("education_list")
+  mobileOwnerList                      String?                    @default("mobile_owner") @map("mobile_owner_list")
   gender                               ReferenceList?             @relation("beneficiaries_gender_code", fields: [genderList, genderCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   maritalStatus                        ReferenceList?             @relation("beneficiaries_marital_status_code", fields: [maritalStatusList, maritalStatusCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   education                            ReferenceList?             @relation("beneficiaries_education_code", fields: [educationList, educationCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
+  mobileOwner                          ReferenceList?             @relation("beneficiaries_mobile_owner_code", fields: [mobileOwnerList, mobileOwnerCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   division                             Location                   @relation("beneficiaries_division_id", fields: [divisionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   district                             Location                   @relation("beneficiaries_district_id", fields: [districtId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   upazila                              Location                   @relation("beneficiaries_upazila_id", fields: [upazilaId], references: [id], onDelete: Restrict, onUpdate: NoAction)
@@ -1218,6 +1225,7 @@ model Beneficiary {
   @@index([genderCode], map: "beneficiaries_gender_code_idx")
   @@index([maritalStatusCode], map: "beneficiaries_marital_status_code_idx")
   @@index([educationCode], map: "beneficiaries_education_code_idx")
+  @@index([mobileOwnerCode], map: "beneficiaries_mobile_owner_code_idx")
   @@index([divisionId], map: "beneficiaries_division_id_idx")
   @@index([upazilaId], map: "beneficiaries_upazila_id_idx")
   @@index([photoFileId], map: "beneficiaries_photo_file_id_idx")

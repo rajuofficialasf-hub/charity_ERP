@@ -537,6 +537,155 @@ describe('the setup wizard', () => {
     );
   });
 
+  describe('what the application asks', () => {
+    const FORM_ID = '01900000-0000-7000-8000-0000000000f1';
+    const withForm = (settings: Record<string, unknown>) =>
+      server.use(
+        http.get(`*/api/v1/projects/${ID}/components`, () =>
+          HttpResponse.json({
+            data: [
+              ...COMPONENTS,
+              { componentKey: 'application_form', enabled: true, settings, etag: '"a1"' },
+            ],
+            meta: {},
+          }),
+        ),
+      );
+    const openDrawer = async (user: ReturnType<typeof userEvent.setup>) => {
+      open('components');
+      await user.click(await screen.findByRole('button', { name: 'আবেদন ফর্ম-এর সেটিংস' }));
+      return within(await screen.findByRole('dialog'));
+    };
+    const chosen = (dialog: ReturnType<typeof within>, group: string) =>
+      within(dialog.getByRole('radiogroup', { name: group }))
+        .getAllByRole('radio')
+        .filter((radio) => (radio as HTMLInputElement).checked)
+        .map((radio) => radio.getAttribute('value'));
+
+    it('shows the four choices as a project that never said anything reads, and sends only what the PM changes', async () => {
+      serve();
+      withForm({ form_ids: [FORM_ID] });
+      const user = userEvent.setup();
+      const dialog = await openDrawer(user);
+      expect(dialog.getByText('আবেদনে যা চাওয়া হবে')).toBeInTheDocument();
+      expect(dialog.getByText('এখানে যা বদলাবেন, শুধু এই প্রকল্পে বদলাবে।')).toBeInTheDocument();
+      const document = within(
+        dialog.getByRole('radiogroup', { name: 'পরিচয়পত্র (এনআইডি বা জন্মনিবন্ধন)' }),
+      );
+      expect(document.getByRole('radio', { name: 'বাধ্যতামূলক' })).toBeChecked();
+      expect(document.getByRole('radio', { name: 'থাকলে দিন' })).not.toBeChecked();
+      const mobile = within(dialog.getByRole('radiogroup', { name: 'মোবাইল নম্বর' }));
+      expect(mobile.getByRole('radio', { name: 'বাধ্যতামূলক' })).toBeChecked();
+      expect(
+        mobile.getByRole('radio', { name: 'না থাকলে স্বেচ্ছাসেবকের মাধ্যমে যোগাযোগ' }),
+      ).not.toBeChecked();
+      for (const name of ['একই মানুষ আবার এলে', 'একই পরিবারের কেউ আবার এলে']) {
+        const repeat = within(dialog.getByRole('radiogroup', { name }));
+        expect(repeat.getByRole('radio', { name: 'অনুমোদনের আগে কারণ লিখতে হবে' })).toBeChecked();
+        expect(repeat.getByRole('radio', { name: 'শুধু জানাবে' })).not.toBeChecked();
+      }
+
+      await user.click(document.getByRole('radio', { name: 'থাকলে দিন' }));
+      await user.click(
+        within(dialog.getByRole('radiogroup', { name: 'একই পরিবারের কেউ আবার এলে' })).getByRole(
+          'radio',
+          { name: 'শুধু জানাবে' },
+        ),
+      );
+      expect(chosen(dialog, 'পরিচয়পত্র (এনআইডি বা জন্মনিবন্ধন)')).toEqual(['optional']);
+      await user.click(dialog.getByRole('button', { name: 'সংরক্ষণ' }));
+      await waitFor(() =>
+        expect(writes).toContainEqual({
+          path: 'component:application_form',
+          // the forms the component names stay, and the two untouched choices are not written
+          body: {
+            settings: { form_ids: [FORM_ID], identity_document: 'optional', repeat_family: 'tell' },
+          },
+        }),
+      );
+    });
+
+    it('shows the choices the project has stored, and takes one back', async () => {
+      serve();
+      withForm({
+        identity_document: 'optional',
+        mobile: 'optional',
+        repeat_person: 'tell',
+        repeat_family: 'tell',
+      });
+      const user = userEvent.setup();
+      const dialog = await openDrawer(user);
+      expect(chosen(dialog, 'পরিচয়পত্র (এনআইডি বা জন্মনিবন্ধন)')).toEqual(['optional']);
+      expect(chosen(dialog, 'মোবাইল নম্বর')).toEqual(['optional']);
+      expect(chosen(dialog, 'একই মানুষ আবার এলে')).toEqual(['tell']);
+      expect(chosen(dialog, 'একই পরিবারের কেউ আবার এলে')).toEqual(['tell']);
+      await user.click(
+        within(dialog.getByRole('radiogroup', { name: 'মোবাইল নম্বর' })).getByRole('radio', {
+          name: 'বাধ্যতামূলক',
+        }),
+      );
+      await user.click(dialog.getByRole('button', { name: 'সংরক্ষণ' }));
+      await waitFor(() =>
+        expect(writes).toContainEqual({
+          path: 'component:application_form',
+          body: {
+            settings: {
+              identity_document: 'optional',
+              mobile: 'required',
+              repeat_person: 'tell',
+              repeat_family: 'tell',
+            },
+          },
+        }),
+      );
+    });
+
+    it('only shows the choices on a closed project', async () => {
+      serve('closed');
+      withForm({ mobile: 'optional' });
+      const dialog = await openDrawer(userEvent.setup());
+      for (const radio of dialog.getAllByRole('radio')) expect(radio).toBeDisabled();
+      expect(chosen(dialog, 'মোবাইল নম্বর')).toEqual(['optional']);
+      expect(dialog.queryByRole('button', { name: 'সংরক্ষণ' })).not.toBeInTheDocument();
+    });
+
+    it('offers the choices in English too', async () => {
+      serve();
+      withForm({});
+      renderApp(<ProjectSetupPage />, 'en', {
+        path: '/admin/projects/:projectId/setup',
+        initialPath: `/admin/projects/${ID}/setup?step=components`,
+      });
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: /Application form/ }));
+      const dialog = within(await screen.findByRole('dialog'));
+      expect(dialog.getByText('What the application asks')).toBeInTheDocument();
+      expect(
+        dialog.getByText('What you change here changes this project only.'),
+      ).toBeInTheDocument();
+      const document = within(
+        dialog.getByRole('radiogroup', { name: 'Identity document (NID or birth registration)' }),
+      );
+      expect(document.getByRole('radio', { name: 'Required' })).toBeChecked();
+      expect(document.getByRole('radio', { name: 'If they have one' })).toBeInTheDocument();
+      expect(
+        within(dialog.getByRole('radiogroup', { name: 'Mobile number' })).getByRole('radio', {
+          name: 'If none, contact through the volunteer',
+        }),
+      ).toBeInTheDocument();
+      for (const name of [
+        'When the same person appears again',
+        'When someone of the same family appears again',
+      ]) {
+        const repeat = within(dialog.getByRole('radiogroup', { name }));
+        expect(repeat.getByRole('radio', { name: 'Only tell' })).toBeInTheDocument();
+        expect(
+          repeat.getByRole('radio', { name: 'A written reason before approval' }),
+        ).toBeChecked();
+      }
+    });
+  });
+
   it('keeps the year read-only while active and every field on a closed project', async () => {
     serve('active');
     const { unmount } = open('basics');

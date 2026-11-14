@@ -427,6 +427,12 @@
       "male": "Male",
       "other": "Other"
     },
+    "mobile_owner": {
+      "own": "Own",
+      "family": "A family member's",
+      "neighbour": "A neighbour's",
+      "other": "Someone else's"
+    },
     "blocked": "Blocked",
     "empty": "No beneficiary matches these filters.",
     "profile": {
@@ -454,6 +460,8 @@
       "age": "Age",
       "occupation": "Occupation",
       "mobile": "Mobile",
+      "mobile_owner": "Whose number",
+      "mobile_owner_named": "{owner} ({name})",
       "nid": "NID or birth registration",
       "village": "Village",
       "post_office": "Post office",
@@ -501,6 +509,8 @@
       "empty_value": "empty",
       "fields": {
         "mobile": "Mobile",
+        "mobile_owner_code": "Whose number",
+        "mobile_owner_name": "Name of the number's owner",
         "division_id": "Division",
         "district_id": "District",
         "upazila_id": "Upazila",
@@ -624,6 +634,7 @@
     "merge": {
       "title": "Compare profiles",
       "keep": "Keep this profile",
+      "keep_document": "Keep the profile that has the identity document.",
       "keep_required": "Choose the profile to keep",
       "applications": "Applications",
       "applications_value": "{count}",
@@ -930,6 +941,30 @@
           "family_attendance": "Classes for the whole family",
           "gender_split": "Split by gender",
           "dedup_identical": "Warn on identical photos"
+        },
+        "asks": {
+          "title": "What the application asks",
+          "hint": "What you change here changes this project only.",
+          "identity_document": {
+            "label": "Identity document (NID or birth registration)",
+            "required": "Required",
+            "optional": "If they have one"
+          },
+          "mobile": {
+            "label": "Mobile number",
+            "required": "Required",
+            "optional": "If none, contact through the volunteer"
+          },
+          "repeat_person": {
+            "label": "When the same person appears again",
+            "tell": "Only tell",
+            "hold": "A written reason before approval"
+          },
+          "repeat_family": {
+            "label": "When someone of the same family appears again",
+            "tell": "Only tell",
+            "hold": "A written reason before approval"
+          }
         }
       },
       "open_forms": "Open the form builder",

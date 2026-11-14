@@ -1,14 +1,22 @@
 import { uuidv7 } from '@css/shared';
-import { type PublicApplicationCreate, validate } from '@css/shared/forms';
+import { optionalIdentityOf, type PublicApplicationCreate, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
-import { addressOf, nisabOption, photoAnswers, typedName } from '../applications/answers.js';
+import type { IdentityRules } from '@css/shared/projects';
+import {
+  addressOf,
+  identityOf,
+  nisabOption,
+  photoAnswers,
+  typedName,
+} from '../applications/answers.js';
+import { BLOCKED_NAME_MATCH } from '../applications/view.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Clock } from '../core/clock.js';
 import { isUniqueViolation } from '../core/db-errors.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
-import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
+import { type BeneficiaryIdentityService, personKeysOf } from './beneficiary-identity.js';
 import { type FormVersionView, readDefinition, versionView } from './forms.js';
 import { isAddressChain } from './locations.js';
 import type { NisabService } from './nisab.js';
@@ -16,9 +24,16 @@ import { resolveOpenLink } from './public-link-rules.js';
 import type { PublicPhotosService } from './public-photos.js';
 import type { Replayable } from './uploads.js';
 
-/** What the public page shows: the project's name and closing date, and the form. */
+/**
+ * What the public page shows: the project's name and closing date, whether its application must
+ * carry an identity document, and the form.
+ */
 export interface PublicFormView {
-  project: { name: { bn: string; en: string }; applyTo: string | null };
+  project: {
+    name: { bn: string; en: string };
+    applyTo: string | null;
+    identityDocument: IdentityRules['document'];
+  };
   form: FormVersionView;
 }
 
@@ -66,7 +81,12 @@ export class PublicFormsService {
   async form(token: string): Promise<PublicFormView> {
     const link = await resolveOpenLink(this.prisma, this.clock.now(), token);
     return {
-      project: { name: link.name, applyTo: link.applyTo },
+      project: {
+        name: link.name,
+        applyTo: link.applyTo,
+        // the page marks the document question by it; the submission holds its own check
+        identityDocument: link.identityRules.document,
+      },
       form: versionView(
         link.version,
         await readDefinition(this.prisma, link.version.id, 'volunteer'),
@@ -86,6 +106,9 @@ export class PublicFormsService {
     const checked = validate(definition, body.answers, {
       audience: 'public',
       today,
+      // the document follows the project; the mobile is always asked on the open link, where no
+      // volunteer stands between the office and the person
+      optionalIdentity: optionalIdentityOf(link.identityRules, 'public'),
       ...(await nisabOption(this.nisab, today)),
     });
     if (!checked.ok) throw new ApiError('validation.failed', 422, undefined, checked.errors);
@@ -95,10 +118,8 @@ export class PublicFormsService {
         { path: 'address', code: 'validation.address_incomplete' },
       ]);
     const [divisionId, districtId, , unionId] = chain;
-    const flags = [
-      PUBLIC_FLAGS.publicEntry,
-      ...(await this.identityFlags(link.projectId, checked.standard)),
-    ];
+    const identity = await this.identityFlags(link.projectId, checked.standard);
+    const flags = [PUBLIC_FLAGS.publicEntry, ...identity.flags];
     try {
       const id = await this.prisma.$transaction(async (tx) => {
         const fields = new Map(
@@ -122,6 +143,7 @@ export class PublicFormsService {
             // the lists name the entry by the typed name until the office links it
             applicantName: typedName(checked.standard),
             flags,
+            candidateBeneficiaryId: identity.candidate,
             clientUuid: body.clientUuid,
             clientCreatedAt: body.clientCreatedAt ? new Date(body.clientCreatedAt) : null,
             submittedAt: this.clock.now(),
@@ -184,29 +206,30 @@ export class PublicFormsService {
 
   /**
    * What the verifying official will want to know, never told to the applicant: whether a live
-   * profile holds the number, whether that profile is blocked, and whether the same number or
-   * mobile came through this link in the last day.
+   * profile holds the number, whether that profile is blocked, whether the same number or mobile
+   * came through this link in the last day, and, for a person no profile stands for yet (an entry
+   * without a number, or with a number nobody holds), the blocked profile that person looks like,
+   * kept as the entry's candidate.
    */
   private async identityFlags(
     projectId: string,
     standard: Record<string, unknown>,
-  ): Promise<string[]> {
+  ): Promise<{ flags: string[]; candidate: string | null }> {
     const columns = new Map(Object.entries(standard));
     const text = (name: string) => {
       const value = columns.get(name);
       return typeof value === 'string' && value !== '' ? value : null;
     };
     const flags: string[] = [];
-    const nid = text('nid');
-    const birthReg = text('birth_reg');
+    const identity = identityOf(standard);
     const mobile = text('mobile');
-    const identities = [nid, birthReg].filter((v): v is string => v !== null);
-    if (identities.length) {
+    let live: string | null = null;
+    if (identity) {
       const holder = await this.prisma.beneficiary.findFirst({
-        where: { OR: [...(nid ? [{ nid }] : []), ...(birthReg ? [{ birthReg }] : [])] },
+        where: identity.column === 'nid' ? { nid: identity.number } : { birthReg: identity.number },
         select: { id: true },
       });
-      const live = holder ? await this.identity.liveOf(this.prisma, holder.id) : null;
+      live = holder ? await this.identity.liveOf(this.prisma, holder.id) : null;
       if (live) {
         flags.push(PUBLIC_FLAGS.existingIdentity);
         const profile = await this.prisma.beneficiary.findUnique({
@@ -216,10 +239,16 @@ export class PublicFormsService {
         if (profile?.isBlocked) flags.push(PUBLIC_FLAGS.identityBlocked);
       }
     }
-    const terms = [...identities, ...(mobile ? [mobile] : [])];
+    const terms = [...(identity ? [identity.number] : []), ...(mobile ? [mobile] : [])];
     if (terms.length && (await this.repeatedToday(this.prisma, projectId, terms)))
       flags.push(PUBLIC_FLAGS.identityRepeated);
-    return flags;
+    // a person the verification would make a new profile for is compared with the block list:
+    // one with a number no profile holds, or one without a number (an entry reaches here without
+    // one only where the project lets the document be left out)
+    const person = live ? null : personKeysOf(standard);
+    const candidate = person ? await this.identity.blockedNamesake(this.prisma, person) : null;
+    if (candidate) flags.push(BLOCKED_NAME_MATCH);
+    return { flags, candidate };
   }
 
   /** Whether a public entry of the last day on this project carries one of these values. */

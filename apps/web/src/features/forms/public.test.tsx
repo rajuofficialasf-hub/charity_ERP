@@ -383,6 +383,79 @@ describe('the public application page', () => {
     expect(await screen.findByRole('textbox', { name: 'প্রয়োজন' })).toBeInTheDocument();
   });
 
+  describe('the identity document follows the project and the mobile is always asked', () => {
+    const DOCUMENT_HINT = 'থাকলে দিন।';
+    const MOBILE_HINT = 'নম্বর না থাকলে ফাঁকা রাখুন, যোগাযোগ হবে স্বেচ্ছাসেবকের মাধ্যমে।';
+    const number = () => screen.findByRole('textbox', { name: /^nid_or_birth_reg/ });
+    const mobile = () => screen.getByRole('textbox', { name: /^mobile/ });
+    /** The read of a form whose only required questions are the identity number and the mobile. */
+    const read = (project: Record<string, unknown>) => () =>
+      HttpResponse.json({
+        data: {
+          project: { ...form.project, ...project },
+          form: {
+            ...form.form,
+            sections: coreSections()
+              .slice(0, 1)
+              .map((s) => ({
+                ...s,
+                fields: s.fields.map((f) => ({
+                  ...f,
+                  required: f.fieldKey === 'nid_or_birth_reg' || f.fieldKey === 'mobile',
+                })),
+              })),
+          },
+        },
+        meta: { requestId: 'r' },
+      });
+
+    it('asks the document "if they have one" where the project says so, and keeps the mobile required whatever the read says', async () => {
+      const user = userEvent.setup();
+      wide();
+      // whatever else the answer carried about the mobile, the open link asks it
+      const sends = page({
+        read: read({
+          identityDocument: 'optional',
+          identityRules: { document: 'optional', mobile: 'optional' },
+          mobile: 'optional',
+        }),
+      });
+      expect(await number()).not.toBeRequired();
+      expect(await number()).toHaveAccessibleDescription(DOCUMENT_HINT);
+      expect(mobile()).toBeRequired();
+      expect(screen.queryByText(MOBILE_HINT)).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'আবেদন জমা দিন' }));
+      expect(await screen.findByText('পাঠানোর আগে 1টি সমস্যা ঠিক করুন')).toBeInTheDocument();
+      expect(mobile()).toHaveAccessibleDescription(/./);
+      expect(sends).toHaveLength(0);
+      await user.type(mobile(), '01712345678');
+      await user.click(screen.getByRole('button', { name: 'আবেদন জমা দিন' }));
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'আবেদন জমা হয়েছে' }),
+      ).toBeInTheDocument();
+      expect(sends).toHaveLength(1);
+      expect(sends[0]!.answers.map((a) => a.fieldKey)).toEqual(['mobile']);
+    });
+
+    it.each([
+      ['requires the document', { identityDocument: 'required' }],
+      ['says nothing of the document', {}],
+      ['says something else', { identityDocument: 'sometimes' }],
+    ])('asks both where the read %s', async (_case, project) => {
+      const user = userEvent.setup();
+      wide();
+      const sends = page({ read: read(project) });
+      expect(await number()).toBeRequired();
+      expect(mobile()).toBeRequired();
+      expect(screen.queryByText(DOCUMENT_HINT)).not.toBeInTheDocument();
+      await user.type(mobile(), '01712345678');
+      await user.click(screen.getByRole('button', { name: 'আবেদন জমা দিন' }));
+      expect(await screen.findByText('পাঠানোর আগে 1টি সমস্যা ঠিক করুন')).toBeInTheDocument();
+      expect(await number()).toHaveAccessibleDescription(/./);
+      expect(sends).toHaveLength(0);
+    });
+  });
+
   it('has no axe violation in either language', async () => {
     wide();
     page();

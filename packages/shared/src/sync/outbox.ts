@@ -14,6 +14,12 @@ export type SyncResult = (typeof SYNC_RESULTS)[number];
 /** The reason of a record that gave up retrying. */
 export const RETRY_EXHAUSTED = 'retry_exhausted';
 
+/**
+ * What stands for the reason of a record the office holds for verification when the server names
+ * none: the record still counts as held, and nothing is told of why.
+ */
+export const HELD_WITHOUT_REASON = 'unspecified';
+
 /** The part of an outbox record the state machine reads and writes. */
 export interface OutboxTracking {
   state: OutboxState;
@@ -25,6 +31,7 @@ export interface OutboxTracking {
   failureParams?: Record<string, string> | null;
   serverId?: string | null;
   syncedAt?: Date | null;
+  /** Set while the office holds the record: the server's reason, or `HELD_WITHOUT_REASON`. */
   verificationReason?: string | null;
   photosPending?: boolean;
 }
@@ -85,7 +92,8 @@ export function transition<T extends OutboxTracking>(record: T, event: OutboxEve
         nextRetryAt: null,
         serverId: event.serverId ?? record.serverId ?? null,
         syncedAt: event.at,
-        verificationReason: event.result === 'needs_verification' ? (event.code ?? null) : null,
+        verificationReason:
+          event.result === 'needs_verification' ? (event.code ?? HELD_WITHOUT_REASON) : null,
         photosPending: (event.pendingPhotos ?? 0) > 0,
       };
     }

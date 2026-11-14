@@ -35,6 +35,8 @@ const contact = <T extends ZodType>(schema: T) => sensitive(schema, 'beneficiary
 const address = <T extends ZodType>(schema: T) => sensitive(schema, 'beneficiary.address_detail');
 const care = <T extends ZodType>(schema: T) => sensitive(schema, 'beneficiary.care');
 const detail = <T extends ZodType>(schema: T) => sensitive(schema, 'beneficiary.profile_detail');
+/** Whether an identity document is on file: an identity fact, though never the number itself. */
+const hasDocument = () => sensitive(z.boolean(), 'beneficiary.nid');
 const history = <T extends ZodType>(schema: T) =>
   sensitive(schema, 'beneficiary.application_history');
 
@@ -52,7 +54,9 @@ const beneficiaryRow = z.object({
   upazilaId: z.uuid(),
   unionId: address(z.uuid()),
   village: address(z.string()),
-  mobile: contact(z.string()),
+  // null for a person reached through their volunteer
+  mobile: contact(z.string().nullable()),
+  hasDocument: hasDocument(),
   isBlocked: care(z.boolean()),
   photoFileId: detail(z.uuid().nullable()),
 });
@@ -152,7 +156,11 @@ export const beneficiaryProfile = z.object({
   postOffice: address(z.string().nullable()),
   postCode: address(z.string().nullable()),
   landmark: address(z.string().nullable()),
-  mobile: contact(z.string()),
+  mobile: contact(z.string().nullable()),
+  // whose number the mobile is (a code of the list mobile_owner) and that person's name
+  mobileOwnerCode: contact(z.string().nullable()),
+  mobileOwnerName: contact(z.string().nullable()),
+  hasDocument: hasDocument(),
   familyMembers: contact(
     z.array(
       z.object({
@@ -267,7 +275,7 @@ const lookupResult = z.object({
       name: z.string(),
       fatherOrHusbandName: z.string(),
       motherName: z.string().nullable(),
-      mobile: z.string(),
+      mobile: z.string().nullable(),
       genderCode: z.string(),
       dob: z.iso.date().nullable(),
       ageYears: z.number().int().nullable(),
@@ -295,7 +303,9 @@ const warning = z.object({
 /** The contact data after an edit, with the warning about a mobile other profiles have. */
 const contactView = z.object({
   id: z.uuid(),
-  mobile: z.string(),
+  mobile: z.string().nullable(),
+  mobileOwnerCode: z.string().nullable(),
+  mobileOwnerName: z.string().nullable(),
   divisionId: z.uuid(),
   districtId: z.uuid(),
   upazilaId: z.uuid(),
@@ -438,6 +448,8 @@ export function beneficiariesRouter(
 
   defineRoute<unknown, Omit<PageQuery, 'sort'> & BeneficiaryFilter>(router, deps, {
     ...tabOp,
+    // the rows say whether a document is on file, an identity fact
+    sensitiveFields: [...tabOp.sensitiveFields, 'beneficiary.nid'],
     method: 'get',
     path: '/beneficiaries',
     operationId: 'beneficiaries.beneficiary.list',

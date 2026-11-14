@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export * from './identity.js';
+export * from './mobile-owner.js';
 export * from './requests.js';
 
 /**
@@ -43,7 +44,10 @@ export interface BeneficiaryRow {
   upazilaId: string;
   unionId?: string;
   village?: string;
-  mobile?: string;
+  /** With the contact class; null for a person reached through their volunteer. */
+  mobile?: string | null;
+  /** With the identity class: whether an identity document is on file, never its number. */
+  hasDocument?: boolean;
   isBlocked?: boolean;
   /** The uploaded photo, with the personal-details class; null shows the initial. */
   photoFileId?: string | null;

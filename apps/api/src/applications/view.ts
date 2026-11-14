@@ -13,6 +13,11 @@ export const OFFICIAL_SECTION = 'application.official_section';
 /** The person's identity number and their contact (permissions.yaml, the protected field classes). */
 export const BENEFICIARY_NID = 'beneficiary.nid';
 export const BENEFICIARY_CONTACT = 'beneficiary.contact';
+/**
+ * The flag of an entry that waits because a person without a document looks like a blocked one
+ * (the same name, father's or husband's name and village in the union): the office's to read.
+ */
+export const BLOCKED_NAME_MATCH = 'blocked_name_match';
 
 const uuid = z.uuid();
 const nullableUuid = z.uuid().nullable();
@@ -31,6 +36,12 @@ export const applicationSummary = z.object({
   projectId: uuid,
   beneficiaryId: nullableUuid,
   beneficiaryName: z.string().nullable(),
+  /**
+   * Whether the person's profile holds an identity document, and a mobile of their own; null
+   * before a profile is bound and for a viewer who may not know.
+   */
+  hasDocument: z.boolean().nullable(),
+  hasMobile: z.boolean().nullable(),
   ownerVolunteerId: nullableUuid,
   status: z.enum(APPLICATION_STATES),
   stage: z.string().nullable(),
@@ -66,7 +77,7 @@ export const applicationView = applicationSummary.extend({
   createdByUserId: nullableUuid,
   /** The device time the record was made, when it came from a phone; its late or stale flags say why it waits. */
   clientCreatedAt: z.string().nullable(),
-  identityKind: z.enum(['nid', 'birth_reg']).nullable(),
+  identityKind: z.enum(['nid', 'birth_reg', 'none']).nullable(),
   rejectionMessage: z.string().nullable(),
   answers: z.array(answerView),
   reviewedAt: z.string().nullable(),

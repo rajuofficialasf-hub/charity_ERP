@@ -422,7 +422,8 @@ describe('the identity questions in one press', () => {
     open();
     await user.click(await listButton(2));
     await user.click(within(await list()).getByRole('button', { name: ADD }));
-    // the list closes; the questions stand after the form's own, in the order of the roles
+    // the list closes; the questions stand after the form's own, in the order of the roles, and
+    // right after the mobile the two questions on whose number it is, worded from the catalogue
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(questions()).toEqual([
       'মন্তব্য বদলান',
@@ -430,6 +431,8 @@ describe('the identity questions in one press', () => {
       'উপকারভোগীর নাম বদলান',
       'পিতা বা স্বামীর নাম বদলান',
       'মোবাইল নম্বর বদলান',
+      'নম্বরটি কার? বদলান',
+      'যাঁর নম্বর, তাঁর নাম বদলান',
       'লিঙ্গ বদলান',
       'ঠিকানা বদলান',
       'গ্রাম বদলান',
@@ -458,18 +461,43 @@ describe('the identity questions in one press', () => {
       'name',
       'father_or_husband_name',
       'mobile',
+      'mobile_owner_code',
+      'mobile_owner_name',
       'gender_code',
       'division_id,district_id,upazila_id,union_id',
       'village',
     ]);
+    // the seven identity questions are required; the two on the number's owner are optional,
+    // each shown by its condition, and carry no identity mark
+    const savedFields = saves.at(-1)!.flatMap((s) => s.fields);
+    const mobileKey = savedFields.find((f) => f.standardColumn === 'mobile')!.fieldKey;
+    const ownerQuestion = savedFields.find((f) => f.standardColumn === 'mobile_owner_code')!;
+    const ownerName = savedFields.find((f) => f.standardColumn === 'mobile_owner_name')!;
     expect(
-      saves
-        .at(-1)!
-        .flatMap((s) => s.fields)
+      savedFields
         .slice(1)
+        .filter((f) => f !== ownerQuestion && f !== ownerName)
         .every((f) => f.required),
     ).toBe(true);
-    // one step back takes all seven away, and the identity line returns
+    expect(ownerQuestion).toMatchObject({
+      type: 'single_select',
+      required: false,
+      label: T('নম্বরটি কার?', 'Whose number is it?'),
+      logic: { show_if: { field: mobileKey, op: 'not_empty' } },
+    });
+    expect(ownerName).toMatchObject({
+      type: 'short_text',
+      required: false,
+      label: T('যাঁর নম্বর, তাঁর নাম', "Name of the number's owner"),
+      logic: { show_if: { field: ownerQuestion.fieldKey, op: 'neq', value: 'own' } },
+    });
+    for (const question of [ownerQuestion, ownerName]) {
+      const item = screen
+        .getByRole('button', { name: `${question.label.bn} বদলান` })
+        .closest('li')!;
+      expect(within(item).queryByText(/^পরিচয়:/)).not.toBeInTheDocument();
+    }
+    // one step back takes all nine away, and the identity line returns
     await user.click(undo());
     expect(questions()).toEqual(['মন্তব্য বদলান']);
     expect(await listButton(2)).toBeInTheDocument();
@@ -483,13 +511,17 @@ describe('the identity questions in one press', () => {
     open();
     expect(await screen.findByText('পরিচয়ের প্রশ্ন দিয়ে শুরু করুন')).toBeInTheDocument();
     const canvas = within(screen.getByRole('region', { name: 'ফর্মের প্রশ্নগুলো' }));
+    // the card says what the press brings: the seven, and the two on whose number it is
+    expect(
+      canvas.getByText(/এক চাপেই সাতটিই যোগ হবে, সঙ্গে মোবাইল নম্বরটি কার তা জানার দুটি প্রশ্ন/),
+    ).toBeInTheDocument();
     await user.click(canvas.getByRole('button', { name: ADD }));
-    expect(questions()).toHaveLength(7);
+    expect(questions()).toHaveLength(9);
     // the card has done its work
     expect(screen.queryByText('পরিচয়ের প্রশ্ন দিয়ে শুরু করুন')).not.toBeInTheDocument();
     expect(canvas.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
     await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
-    expect(rolesOf(saves.at(-1))).toHaveLength(7);
+    expect(rolesOf(saves.at(-1))).toHaveLength(9);
     await user.click(undo());
     expect(screen.queryAllByRole('button', { name: / বদলান$/ })).toHaveLength(0);
     expect(await canvas.findByRole('button', { name: ADD })).toBeInTheDocument();
@@ -505,6 +537,88 @@ describe('the identity questions in one press', () => {
     await screen.findByRole('tab', { name: 'লাইব্রেরি' });
     expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
     expect(screen.queryByText('পরিচয়ের প্রশ্ন দিয়ে শুরু করুন')).not.toBeInTheDocument();
+  });
+});
+
+describe('the two questions on whose number the mobile is, asked for on the mobile question', () => {
+  const ADD = '‘নম্বরটি কার?’ প্রশ্ন দুটি যোগ করুন';
+  const OWNER = 'নম্বরটি কার? বদলান';
+  const OWNER_NAME = 'যাঁর নম্বর, তাঁর নাম বদলান';
+  // the questions as the form draws them; the settings of a chosen one have buttons of their own
+  const questions = () =>
+    within(screen.getByRole('region', { name: 'ফর্মের প্রশ্নগুলো' }))
+      .getAllByRole('button', { name: / বদলান$/ })
+      .map((b) => b.getAttribute('aria-label'));
+  const undo = () =>
+    within(screen.getByTestId('form-head')).getByRole('button', { name: 'ফিরিয়ে আনুন' });
+  const choose = async (user: ReturnType<typeof userEvent.setup>, name: string) =>
+    user.click(await screen.findByRole('button', { name }));
+
+  it('are offered on a form that has its seven identity questions and no question for the owner, and go right after the mobile in one step', async () => {
+    const user = userEvent.setup();
+    api(complete(), { library: IDENTITY_LIBRARY });
+    open();
+    // the form lacks no identity question, so the one press of the seven is not offered
+    await choose(user, 'name বদলান');
+    await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ });
+    expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' }),
+    ).not.toBeInTheDocument();
+    const before = questions();
+    await choose(user, 'mobile বদলান');
+    await user.click(await screen.findByRole('button', { name: ADD }));
+    // the two stand right after the mobile, worded from the catalogue
+    const at = before.indexOf('mobile বদলান');
+    expect(questions()).toEqual([
+      ...before.slice(0, at + 1),
+      OWNER,
+      OWNER_NAME,
+      ...before.slice(at + 1),
+    ]);
+    // the first of them is chosen and brought into view
+    const first = screen.getByRole('button', { name: OWNER });
+    expect(first).toHaveAttribute('aria-pressed', 'true');
+    expect(scrolled).toEqual([first.closest('li')]);
+    // the form asks whose number it is now: the mobile question offers nothing more
+    await choose(user, 'mobile বদলান');
+    await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ });
+    expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    const saved = saves.at(-1)!.flatMap((s) => s.fields);
+    const mobileAt = saved.findIndex((f) => f.standardColumn === 'mobile');
+    expect(saved.slice(mobileAt + 1, mobileAt + 3)).toMatchObject([
+      {
+        type: 'single_select',
+        standardColumn: 'mobile_owner_code',
+        required: false,
+        label: T('নম্বরটি কার?', 'Whose number is it?'),
+        logic: { show_if: { field: 'mobile', op: 'not_empty' } },
+      },
+      {
+        type: 'short_text',
+        standardColumn: 'mobile_owner_name',
+        required: false,
+        label: T('যাঁর নম্বর, তাঁর নাম', "Name of the number's owner"),
+        logic: { show_if: { field: saved[mobileAt + 1]!.fieldKey, op: 'neq', value: 'own' } },
+      },
+    ]);
+    expect(saved).toHaveLength(before.length + 2);
+    // one step back takes both away, and the mobile question offers them again
+    await user.click(undo());
+    expect(questions()).toEqual(before);
+    await choose(user, 'mobile বদলান');
+    expect(await screen.findByRole('button', { name: ADD })).toBeInTheDocument();
+  }, 30_000);
+
+  it('are not offered on a phone, where only the texts change', async () => {
+    const user = userEvent.setup();
+    stubMatchMedia((q) => q.includes('max-width'));
+    api(complete(), { library: IDENTITY_LIBRARY });
+    open();
+    await choose(user, 'mobile বদলান');
+    await screen.findAllByRole('textbox');
+    expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
   });
 });
 

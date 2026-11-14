@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { PURGE_AFTER_DAYS } from './constants';
-import { mayPurge, type OutboxState, type OutboxTracking, transition } from './outbox';
+import {
+  HELD_WITHOUT_REASON,
+  mayPurge,
+  type OutboxState,
+  type OutboxTracking,
+  transition,
+} from './outbox';
 
 const NOW = new Date('2026-10-31T06:00:00.000Z');
 const DAY = 24 * 60 * 60_000;
@@ -76,6 +82,27 @@ describe('an outbox record', () => {
     });
     expect(next.state).toBe('synced');
     expect(next.verificationReason).toBe('existing_identity');
+  });
+
+  it('counts a record the office holds without a reason as held too, and as no longer held once it is plainly synced', () => {
+    for (const code of [undefined, null]) {
+      const held = transition(record('syncing'), {
+        type: 'result',
+        at: NOW,
+        result: 'needs_verification',
+        serverId: 'app-5',
+        ...(code === undefined ? {} : { code }),
+      });
+      expect(held.state).toBe('synced');
+      expect(held.verificationReason).toBe(HELD_WITHOUT_REASON);
+    }
+    const plain = transition(record('syncing'), {
+      type: 'result',
+      at: NOW,
+      result: 'synced',
+      serverId: 'app-5',
+    });
+    expect(plain.verificationReason).toBeNull();
   });
 
   it('remembers the photos still to upload beside any result', () => {

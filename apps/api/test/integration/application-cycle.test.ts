@@ -5,7 +5,12 @@ import { SeedContext } from '../../seed/context.js';
 import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
 import { seedWorkflows } from '../../seed/sets/base/workflows.js';
 import { accessWorld } from './support/access-fixtures.js';
-import { applicationProject, applicationRow, IDENTITY_ANSWERS } from './support/applications.js';
+import {
+  applicationProject,
+  applicationRow,
+  IDENTITY_ANSWERS,
+  setIdentityRules,
+} from './support/applications.js';
 import {
   type Account,
   account,
@@ -206,14 +211,20 @@ describe('the submission', () => {
     expect(submitted.body.data.beneficiaryId).toBe(later);
   });
 
-  it('refuses a submission without the identity number, with a stale version, and twice', async () => {
+  it('refuses a submission without the identity number where the project requires it, with a stale version, and twice', async () => {
     const s = await as(world.users.general);
     const answers = identity().filter((a) => a.fieldKey !== 'q_id');
     const noId = await create(s, answers);
-    expect(await refused(s, noId, 'submit')).toEqual({
-      status: 409,
-      code: 'workflow.guard.identity_present',
-    });
+    // a distribution project starts with the document asked "if they have one"; this one requires it
+    await setIdentityRules(h.db, project, { document: 'required' });
+    try {
+      expect(await refused(s, noId, 'submit')).toEqual({
+        status: 409,
+        code: 'workflow.guard.identity_present',
+      });
+    } finally {
+      await setIdentityRules(h.db, project, { document: 'optional' });
+    }
     const id = await create(s, identity());
     const stale = await at(s, 'post', `/applications/${id}/actions/submit`)
       .set('If-Match', '"stale"')

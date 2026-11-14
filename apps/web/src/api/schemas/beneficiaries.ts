@@ -16,7 +16,8 @@ export const beneficiaryRowSchema = z.object({
   upazilaId: z.uuid(),
   unionId: z.uuid().optional(),
   village: z.string().optional(),
-  mobile: z.string().optional(),
+  mobile: z.string().nullable().optional(),
+  hasDocument: z.boolean().optional(),
   isBlocked: z.boolean().optional(),
   photoFileId: z.uuid().nullable().optional(),
 }) satisfies z.ZodType<BeneficiaryRow>;
@@ -130,7 +131,14 @@ export const beneficiaryProfileSchema = z.object({
   postOffice: z.string().nullable().optional(),
   postCode: z.string().nullable().optional(),
   landmark: z.string().nullable().optional(),
-  mobile: z.string().optional(),
+  /** Null for a person reached through their volunteer; absent without the contact class. */
+  mobile: z.string().nullable().optional(),
+  /** Whose number the mobile is (a code of the list `mobile_owner`), with the contact class. */
+  mobileOwnerCode: z.string().nullable().optional(),
+  /** The name of the number's owner, when that is someone else than the person. */
+  mobileOwnerName: z.string().nullable().optional(),
+  /** Whether an identity document is on file; absent without the identity class. */
+  hasDocument: z.boolean().optional(),
   familyMembers: z
     .array(
       z.object({
@@ -218,7 +226,7 @@ export const lookupAutofillSchema = z.object({
   name: z.string(),
   fatherOrHusbandName: z.string(),
   motherName: z.string().nullable(),
-  mobile: z.string(),
+  mobile: z.string().nullable(),
   genderCode: z.string(),
   dob: date.nullable(),
   ageYears: z.number().int().nullable(),
@@ -250,7 +258,7 @@ export type LookupResult = z.infer<typeof lookupResultSchema>;
 /** The saved contact with the warning of a mobile other profiles share. */
 export const contactSavedSchema = z.object({
   id: z.uuid(),
-  mobile: z.string(),
+  mobile: z.string().nullable(),
   warnings: z.array(
     z.object({
       code: z.literal('beneficiary.mobile_shared'),

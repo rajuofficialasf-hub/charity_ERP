@@ -31,6 +31,8 @@
       "age": "Age",
       "mother": "Mother's name",
       "mobile": "Mobile",
+      "mobile_owner": "Whose number",
+      "mobile_owner_name": "Name of the number's owner",
       "union": "Union",
       "village": "Village",
       "blocked": "Blocked",
@@ -100,7 +102,8 @@
       "approved": "Approved on",
       "reviewed": "Reviewed on",
       "application": "Application details",
-      "comment": "Decision comment"
+      "comment": "Decision comment",
+      "document": "Identity document"
     }
   },
   "dialog": {

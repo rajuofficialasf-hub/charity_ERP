@@ -1,5 +1,6 @@
 import type { FormDefinition } from '@css/shared/forms';
 import { formScoringSchema, formSectionSchema } from '@css/shared/forms';
+import { identityRulesSchema } from '@css/shared/projects';
 import { z } from 'zod';
 import { bilingual, date } from './common';
 
@@ -18,7 +19,15 @@ export const formDefinitionSchema = z.object(
 
 /** The form behind a public link, as the API answers it to anyone: the volunteer-visible part. */
 export const publicFormSchema = z.object({
-  project: z.object({ name: bilingual, applyTo: date.nullable() }),
+  project: z.object({
+    name: bilingual,
+    applyTo: date.nullable(),
+    /**
+     * Whether the application must carry an identity document; an answer without it (a server
+     * that does not know the rule) reads as required.
+     */
+    identityDocument: identityRulesSchema.shape.document.default('required'),
+  }),
   form: z.object({ id: z.uuid(), versionNo: z.number().int(), ...formDefinitionShape }),
 });
 export type PublicForm = z.infer<typeof publicFormSchema>;

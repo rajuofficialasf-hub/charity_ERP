@@ -1,4 +1,4 @@
-import type { FieldType, FormDefinition } from '@css/shared/forms';
+import type { CoreFieldKey, FieldType, FormDefinition } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
 import {
   Alert,
@@ -27,12 +27,15 @@ import { canBuildForms, canManagePublicLink, canPlaceForms } from '../roles';
 import {
   addEmptySection,
   addIdentityQuestions,
+  addMobileOwnerQuestions,
   addLibraryField,
   addLibrarySection,
   addOwnQuestion,
   duplicateField,
+  lacksMobileOwnerQuestion,
   type LibraryFields,
   missingIdentityRoles,
+  type MobileOwnerWording,
   missingTextCount,
   moveFieldTo,
   removeFieldWithUses,
@@ -455,20 +458,16 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     kind === 'beneficiary_application' &&
     lib.isSuccess &&
     missingIdentityRoles(draft).length > 0;
-  /**
-   * Adds the identity questions the form lacks, the library's where it has them and a worded one
-   * otherwise, and leaves the first of them chosen and in view. One step to undo.
-   */
-  const addIdentity = () => {
-    if (!identityMissing) return;
-    const added = addIdentityQuestions(draft, fields, {
-      kind,
-      title: newSectionTitle,
-      wording: (role) => ({
-        bn: t(`identity.wording.${role}_bn`),
-        en: t(`identity.wording.${role}_en`),
-      }),
-    });
+  const startWording = (name: CoreFieldKey | MobileOwnerWording) => ({
+    bn: t(`identity.wording.${name}_bn`),
+    en: t(`identity.wording.${name}_en`),
+  });
+  /** The added questions as one step to undo, the first of them chosen and in view. */
+  const placeAdded = (added: {
+    definition: FormDefinition;
+    section: string | null;
+    fieldKeys: string[];
+  }) => {
     const first = added.fieldKeys[0];
     if (added.section === null || first === undefined) return;
     change(added.definition);
@@ -476,6 +475,32 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     const chosen = { section: added.section, field: first };
     setSelected(chosen);
     setReveal(chosen);
+  };
+  /**
+   * Adds the identity questions the form lacks, the library's where it has them and a worded one
+   * otherwise, with the two questions on whose number the mobile is, and leaves the first of
+   * them chosen and in view. One step to undo.
+   */
+  const addIdentity = () => {
+    if (!identityMissing) return;
+    placeAdded(
+      addIdentityQuestions(draft, fields, { kind, title: newSectionTitle, wording: startWording }),
+    );
+  };
+  // a form that asks the mobile and not whose number it is, is offered the two questions for it
+  // on its mobile question, once the library they may come from is read
+  const mobileOwnerMissing =
+    mode === 'full' &&
+    kind === 'beneficiary_application' &&
+    lib.isSuccess &&
+    lacksMobileOwnerQuestion(draft);
+  /**
+   * Adds the two questions on whose number the mobile is right after the mobile question, and
+   * leaves the first of them chosen and in view. One step to undo.
+   */
+  const addMobileOwner = () => {
+    if (!mobileOwnerMissing) return;
+    placeAdded(addMobileOwnerQuestions(draft, fields, { wording: startWording }));
   };
   /** Sends a question to the end of another part, where it stays chosen and comes into view. */
   const moveTo = (fieldKey: string, sectionKey: string) => {
@@ -587,6 +612,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
         identityMarks={form?.kind !== 'other'}
         focusText={typing}
         onTextFocused={() => setTyping(null)}
+        onAddMobileOwner={mobileOwnerMissing ? addMobileOwner : undefined}
         onChange={change}
       />
     );

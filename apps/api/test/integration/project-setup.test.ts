@@ -226,6 +226,212 @@ describe('components', () => {
   });
 });
 
+describe('what the application asks', () => {
+  const STRICT = {
+    document: 'required',
+    mobile: 'required',
+    repeatPerson: 'hold',
+    repeatFamily: 'hold',
+  };
+  const LOOSE = {
+    document: 'optional',
+    mobile: 'optional',
+    repeatPerson: 'tell',
+    repeatFamily: 'tell',
+  };
+  const ASKED = 'project.identity_rules_changed';
+  interface Row {
+    componentKey: string;
+    enabled: boolean;
+    settings: Record<string, unknown>;
+    etag: string;
+  }
+  const formRow = async (s: Session, id: string) =>
+    ((await at(s, 'get', `/projects/${id}/components`)).body.data as Row[]).find(
+      (c) => c.componentKey === 'application_form',
+    );
+  /** Saves the component's settings as the setup screen does: the stored ones with the change. */
+  const save = async (s: Session, id: string, settings: Record<string, unknown>) => {
+    const row = await formRow(s, id);
+    return at(s, 'patch', `/projects/${id}/components/application_form`)
+      .set('If-Match', row?.etag ?? '"none"')
+      .send({ settings: { ...row?.settings, ...settings } });
+  };
+
+  it('starts a distribution and a Qurbani project with the document and the mobile optional and repeats told, and a construction project with the defaults', async () => {
+    const pm = await as(world.users.pm);
+    const distribution = await draft('distribution');
+    expect((await formRow(pm, distribution))!.settings).toMatchObject({
+      identity_document: 'optional',
+      mobile: 'optional',
+      repeat_person: 'tell',
+      repeat_family: 'tell',
+    });
+    expect((await formRow(pm, await draft('qurbani')))!.settings).toMatchObject({
+      identity_document: 'optional',
+      mobile: 'optional',
+      repeat_person: 'tell',
+      repeat_family: 'tell',
+    });
+    const construction = await draft('construction');
+    const settings = (await formRow(pm, construction))!.settings;
+    for (const key of ['identity_document', 'mobile', 'repeat_person', 'repeat_family'])
+      expect(settings, key).not.toHaveProperty(key);
+    // the starting values of a new project are no change of a project
+    expect(await audit(distribution, ASKED)).toHaveLength(0);
+    expect(await audit(construction, ASKED)).toHaveLength(0);
+  });
+
+  it('records the rules a new project starts with in the audit of its creation', async () => {
+    const created = async (id: string) =>
+      (await audit(id, 'project.create')).map((row) => row.new as { identityRules: unknown });
+    expect(await created(await draft('distribution'))).toMatchObject([{ identityRules: LOOSE }]);
+    expect(await created(await draft('construction'))).toMatchObject([{ identityRules: STRICT }]);
+  });
+
+  it('saves the four choices of the PM and audits the values before and after', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft('construction');
+    const before = (await formRow(pm, id))!.settings;
+    const first = await save(pm, id, { identity_document: 'optional', repeat_family: 'tell' });
+    expect(first.status).toBe(200);
+    // the other settings of the component stay as they were
+    expect(first.body.data.settings).toEqual({
+      ...before,
+      identity_document: 'optional',
+      repeat_family: 'tell',
+    });
+    expect((await save(pm, id, { mobile: 'optional', repeat_person: 'tell' })).status).toBe(200);
+    expect((await save(pm, id, { identity_document: 'required' })).status).toBe(200);
+    expect(await audit(id, ASKED)).toEqual([
+      {
+        old: STRICT,
+        new: { ...STRICT, document: 'optional', repeatFamily: 'tell' },
+        reason: null,
+      },
+      { old: { ...STRICT, document: 'optional', repeatFamily: 'tell' }, new: LOOSE, reason: null },
+      { old: LOOSE, new: { ...LOOSE, document: 'required' }, reason: null },
+    ]);
+    // every save is a component change too
+    expect(await audit(id, 'project.component_change')).toHaveLength(3);
+  });
+
+  it('audits no change of the rules for a save that leaves the four as they read', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft('construction');
+    // naming the defaults, another setting of the component, and the switch alone
+    expect(
+      (await save(pm, id, { identity_document: 'required', repeat_person: 'hold' })).status,
+    ).toBe(200);
+    expect((await save(pm, id, { beneficiary_class_options: [] })).status).toBe(200);
+    const off = await at(pm, 'patch', `/projects/${id}/components/application_form`)
+      .set('If-Match', (await formRow(pm, id))!.etag)
+      .send({ enabled: false });
+    expect(off.status).toBe(200);
+    expect(await audit(id, ASKED)).toHaveLength(0);
+    expect(await audit(id, 'project.component_change')).toHaveLength(3);
+  });
+
+  it('refuses a value outside the two of a choice, and writes nothing', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft('construction');
+    for (const settings of [
+      { identity_document: 'sometimes' },
+      { mobile: 'volunteer' },
+      { repeat_person: 'reject' },
+      { repeat_family: true },
+    ]) {
+      const res = await save(pm, id, settings);
+      expect(res.status, JSON.stringify(settings)).toBe(422);
+      expect(JSON.stringify(res.body.error.details)).toContain(Object.keys(settings)[0]);
+    }
+    expect(await audit(id, ASKED)).toHaveLength(0);
+    expect(await audit(id, 'project.component_change')).toHaveLength(0);
+  });
+
+  it('creates the application form row of a project that has none, switched off, with the same audit', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft('construction');
+    await h.db.query(
+      `DELETE FROM project_components WHERE project_id = $1 AND component_key = 'application_form'`,
+      [id],
+    );
+    expect(await formRow(pm, id)).toBeUndefined();
+    const created = await save(pm, id, { mobile: 'optional' });
+    expect(created.status).toBe(200);
+    expect(created.body.data).toMatchObject({
+      componentKey: 'application_form',
+      enabled: false,
+      settings: { mobile: 'optional' },
+    });
+    const { rows } = await h.db.query<{ created_by: string; updated_by: string }>(
+      `SELECT created_by, updated_by FROM project_components
+        WHERE project_id = $1 AND component_key = 'application_form'`,
+      [id],
+    );
+    expect(rows).toEqual([{ created_by: world.users.pm, updated_by: world.users.pm }]);
+    expect(await audit(id, ASKED)).toEqual([
+      { old: STRICT, new: { ...STRICT, mobile: 'optional' }, reason: null },
+    ]);
+    expect((await audit(id, 'project.component_change'))[0]).toMatchObject({
+      old: { componentKey: 'application_form', enabled: false, settings: {} },
+      new: { componentKey: 'application_form', enabled: false, settings: { mobile: 'optional' } },
+    });
+    // the row now has a version: a save that does not carry it is stale
+    const stale = await at(pm, 'patch', `/projects/${id}/components/application_form`)
+      .set('If-Match', '"none"')
+      .send({ settings: { mobile: 'required' } });
+    expect(stale.status).toBe(412);
+    // only the application form is created this way: another missing row stays not found
+    await h.db.query(
+      `DELETE FROM project_components WHERE project_id = $1 AND component_key = 'dawah'`,
+      [id],
+    );
+    const dawah = await at(pm, 'patch', `/projects/${id}/components/dawah`)
+      .set('If-Match', '"none"')
+      .send({ enabled: true });
+    expect(dawah.status).toBe(404);
+  });
+
+  it('is refused to the PM of another program, to an RPM and an Executive of the project and to a volunteer, and nothing is written', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft('construction');
+    const etag = (await formRow(pm, id))!.etag;
+    const attempt = (s: Session, project: string, tag: string) =>
+      at(s, 'patch', `/projects/${project}/components/application_form`)
+        .set('If-Match', tag)
+        .send({ settings: { identity_document: 'optional' } });
+    // a PM configures the projects of the own program: another program's project is not found
+    const other = await staff('program_manager');
+    expect((await attempt(other.session, id, etag)).status).toBe(404);
+    // an RPM and an Executive work on the project and may not configure it
+    expect((await attempt(await as(world.users.rpmDhaka), world.a1.id, '"none"')).status).toBe(403);
+    expect((await attempt(await as(world.users.executive), world.a1.id, '"none"')).status).toBe(
+      403,
+    );
+    expect((await attempt(await as(world.users.general), id, etag)).status).toBe(403);
+    expect((await formRow(pm, id))!.settings).not.toHaveProperty('identity_document');
+    expect(await audit(id, ASKED)).toHaveLength(0);
+    expect(await audit(world.a1.id, ASKED)).toHaveLength(0);
+    const { rows } = await h.db.query(
+      `SELECT 1 FROM project_components WHERE project_id = $1 AND component_key = 'application_form'`,
+      [world.a1.id],
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it('audits the change when a draft takes the starting settings of another workflow', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft('construction');
+    const project = await at(pm, 'get', `/projects/${id}`);
+    const moved = await at(pm, 'patch', `/projects/${id}`)
+      .set('If-Match', String(project.headers.etag))
+      .send({ workflowKey: 'distribution' });
+    expect(moved.status).toBe(200);
+    expect(await audit(id, ASKED)).toEqual([{ old: STRICT, new: LOOSE, reason: null }]);
+  });
+});
+
 describe('fund sources', () => {
   it('replaces the list, audits it and refuses a nameless donor and a negative amount', async () => {
     const pm = await as(world.users.pm);

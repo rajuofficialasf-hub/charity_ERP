@@ -4,6 +4,7 @@ import { isoDateInDhaka } from '@css/shared/format';
 import {
   type Answer,
   type FormDefinition,
+  optionalIdentityOf,
   type UnlockCancel,
   type UnlockDecisionRequest,
   type UnlockOpen,
@@ -13,6 +14,7 @@ import {
   unlockRefusal,
   validate,
 } from '@css/shared/forms';
+import type { IdentityRules } from '@css/shared/projects';
 import { z } from 'zod';
 import { applicationWhere, holdsPermission } from '../access/scope.js';
 import type { EffectiveAccess } from '../access/effective.js';
@@ -29,6 +31,7 @@ import type { BeneficiaryContactService } from '../services/beneficiary-contact.
 import { readDefinition } from '../services/forms.js';
 import { isAddressChain } from '../services/locations.js';
 import type { NisabService } from '../services/nisab.js';
+import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
 import { addressOf, fieldsOf, nisabOption, readAnswers, writeAnswers } from './answers.js';
 import { assertReachesApplication, isBlockedVolunteer, reachesApplication } from './callers.js';
 
@@ -146,6 +149,8 @@ interface Target {
   ownerVolunteerId: string | null;
   ownerUserId: string | null;
   projectClosed: boolean;
+  /** What the project's application asks about identity and contact, from its stored settings. */
+  identityRules: IdentityRules;
 }
 
 /**
@@ -554,6 +559,8 @@ export class UnlocksService {
       audience: 'official' as const,
       today,
       previous: stored,
+      // an answer the project lets stay empty may be cleared by a correction too
+      optionalIdentity: optionalIdentityOf(target.identityRules, 'official'),
       ...(await nisabOption(this.nisab, today)),
     };
     let result = validate(definition, answers, { ...options, draft: false });
@@ -662,7 +669,7 @@ export class UnlocksService {
         createdByUserId: true,
         ownerVolunteerId: true,
         ownerVolunteer: { select: { userId: true } },
-        project: { select: { status: true } },
+        project: { select: { status: true, ...IDENTITY_RULES_SELECT } },
       },
     });
     return {
@@ -675,6 +682,7 @@ export class UnlocksService {
       ownerVolunteerId: row.ownerVolunteerId,
       ownerUserId: row.ownerVolunteer?.userId ?? null,
       projectClosed: row.project.status === 'closed',
+      identityRules: identityRulesOf(row.project),
     };
   }
 

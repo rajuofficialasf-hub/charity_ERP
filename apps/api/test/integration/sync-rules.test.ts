@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { etagOf } from '../../src/core/etag.js';
+import { setIdentityRules } from './support/applications.js';
 import { auditRows, type AuthHarness, authHarness, bearer } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
 import { syncWorld } from './support/sync.js';
@@ -54,6 +55,99 @@ const row = async (id: string) =>
       [id],
     )
   ).rows[0]!;
+
+describe('an entry without an identity number, taken offline', () => {
+  /** The draft and its send as one batch carries them, for a person nobody else in the tests is. */
+  const entry = (over: Record<string, unknown> = {}) => {
+    const tag = randomUUID().slice(0, 8);
+    const answers = w
+      .identity(undefined, undefined, {
+        q_name: { t: 'short_text', v: `অফলাইন ${tag}` },
+        q_father: { t: 'short_text', v: `অফলাইন পিতা ${tag}` },
+        ...over,
+      })
+      .filter((a) => a.fieldKey !== 'q_id' && a.fieldKey !== 'q_mobile');
+    const first = w.draft(answers);
+    const send = w.record({
+      kind: 'application_submit',
+      payload: {},
+      dependencies: [first.clientUuid],
+    });
+    return { first, send };
+  };
+  const person = async (beneficiaryId: string) =>
+    (
+      await h.db.query<{ nid: string | null; birth_reg: string | null; mobile: string | null }>(
+        'SELECT nid, birth_reg, mobile FROM beneficiaries WHERE id = $1',
+        [beneficiaryId],
+      )
+    ).rows[0];
+
+  it('syncs to a profile without a document and without a mobile, as an online send does', async () => {
+    const s = await w.as(w.world.users.general);
+    const { first, send } = entry();
+    const res = await w.batch(s, [first, send]).expect(200);
+    expect(w.resultOf(res, send.clientUuid)).toMatchObject({
+      result: 'synced',
+      status: 'submitted',
+    });
+    const stored = await row(w.resultOf(res, send.clientUuid).serverId);
+    expect(stored).toMatchObject({ status: 'submitted', flags: [] });
+    expect(await person(stored.beneficiary_id!)).toEqual({
+      nid: null,
+      birth_reg: null,
+      mobile: null,
+    });
+  });
+
+  it('is refused at its send where the project requires the document, and the draft stays', async () => {
+    const s = await w.as(w.world.users.general);
+    await setIdentityRules(h.db, w.project, { document: 'required' });
+    try {
+      const { first, send } = entry();
+      const res = await w.batch(s, [first, send]).expect(200);
+      expect(w.resultOf(res, first.clientUuid)).toMatchObject({
+        result: 'synced',
+        status: 'draft',
+      });
+      expect(w.resultOf(res, send.clientUuid)).toMatchObject({
+        result: 'failed',
+        code: 'workflow.guard.identity_present',
+      });
+      const stored = await row(w.resultOf(res, first.clientUuid).serverId);
+      expect(stored).toMatchObject({ status: 'draft', beneficiary_id: null });
+    } finally {
+      await setIdentityRules(h.db, w.project, { document: 'optional' });
+    }
+  });
+
+  it('waits for the office when the person looks like a blocked one, and the phone is told only that it waits', async () => {
+    const s = await w.as(w.world.users.general);
+    const who = {
+      name: 'অফলাইন ব্লক নাম',
+      father_or_husband_name: 'অফলাইন ব্লক পিতা',
+      village: 'অফলাইন গ্রাম',
+    };
+    const blocked = await f.beneficiary(h.db, w.world.dhaka, { ...who, is_blocked: true });
+    const { first, send } = entry({
+      q_name: { t: 'short_text', v: who.name },
+      q_father: { t: 'short_text', v: who.father_or_husband_name },
+      q_village: { t: 'short_text', v: who.village },
+    });
+    const res = await w.batch(s, [first, send]).expect(200);
+    const result = w.resultOf(res, send.clientUuid);
+    expect(result).toMatchObject({ result: 'needs_verification', status: 'needs_verification' });
+    expect(result.code ?? null).toBeNull();
+    expect(JSON.stringify(res.body)).not.toContain('blocked');
+    expect(await row(result.serverId)).toMatchObject({
+      status: 'needs_verification',
+      flags: ['blocked_name_match'],
+      candidate_beneficiary_id: blocked,
+      beneficiary_id: null,
+      applicant_name: who.name,
+    });
+  });
+});
 
 describe('a record that arrives after the deadline', () => {
   it('is held for the office when it was made before the deadline, refused when made after, with the device clock corrected', async () => {

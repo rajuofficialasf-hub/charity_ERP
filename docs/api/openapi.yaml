@@ -409,6 +409,7 @@ components:
       description: >-
         validation.failed with field details; business rules such as beneficiary.identity_missing,
         beneficiary.mobile_is_volunteer_mobile, beneficiary.blocked, beneficiary.locked_field,
+        beneficiary.merge_keep_document,
         workflow.reason_required, workflow.comment_required, otp.invalid, otp.expired, file.source_not_allowed,
         export.too_many_rows, export.pdf_too_many_rows;
         password details validation.password_too_short, validation.password_uppercase_digit,
@@ -1849,7 +1850,7 @@ components:
           items: { type: string, enum: [volunteer_duties, implementation_process, daee_duties, misconduct] }
     MyProject:
       type: object
-      required: [projectId, code, year, name, status, applyFrom, applyTo, perVolunteerLimit, dawahEnabled, via, permissionSet, isPaid, consentStatus, rulesVersion, applicationsCounted, applicationsLeft, leadsTeam]
+      required: [projectId, code, year, name, status, applyFrom, applyTo, perVolunteerLimit, dawahEnabled, via, permissionSet, isPaid, consentStatus, rulesVersion, applicationsCounted, applicationsLeft, leadsTeam, identityRules]
       properties:
         projectId: { $ref: '#/components/schemas/Uuid' }
         code: { type: string }
@@ -1868,6 +1869,19 @@ components:
         applicationsCounted: { type: integer, minimum: 0, description: The main volunteer's count for a team member (BR-059) }
         applicationsLeft: { type: [integer, 'null'], minimum: 0 }
         leadsTeam: { type: boolean, description: An assigned General or দাঈ-স্বেচ্ছাসেবক volunteer may build a team }
+        identityRules: { $ref: '#/components/schemas/IdentityRules' }
+    IdentityRules:
+      type: object
+      description: >-
+        What an application of the project asks about identity and contact, and what a second appearance of the same
+        person or family does at review (D-172, BR-297). Read from the settings of the project's application form
+        component; a project that says nothing answers required, required, hold, hold.
+      required: [document, mobile, repeatPerson, repeatFamily]
+      properties:
+        document: { type: string, enum: [required, optional], description: The NID or the birth registration number }
+        mobile: { type: string, enum: [required, optional], description: The mobile number }
+        repeatPerson: { type: string, enum: [tell, hold], description: "The same person again: only told, or the approval held for a written reason" }
+        repeatFamily: { type: string, enum: [tell, hold], description: "Someone of the same family again: only told, or held the same way" }
     MyProjectList:
       type: object
       required: [data]
@@ -2036,7 +2050,8 @@ components:
         upazilaId: { $ref: '#/components/schemas/Uuid' }
         unionId: { type: string, format: uuid, x-sensitive-class: beneficiary.address_detail }
         village: { type: string, x-sensitive-class: beneficiary.address_detail }
-        mobile: { type: string, x-sensitive-class: beneficiary.contact }
+        mobile: { type: [string, 'null'], x-sensitive-class: beneficiary.contact, description: 'Null for a person without a number of their own, who is reached through the volunteer (D-172)' }
+        hasDocument: { type: boolean, x-sensitive-class: beneficiary.nid, description: 'Whether an NID or a birth registration number is on file; never the number (D-172)' }
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
         photoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: beneficiary.profile_detail }
     BeneficiaryStatistics:
@@ -2150,7 +2165,10 @@ components:
         postOffice: { type: [string, 'null'], x-sensitive-class: beneficiary.address_detail }
         postCode: { type: [string, 'null'], x-sensitive-class: beneficiary.address_detail }
         landmark: { type: [string, 'null'], x-sensitive-class: beneficiary.address_detail }
-        mobile: { type: string, x-sensitive-class: beneficiary.contact }
+        mobile: { type: [string, 'null'], x-sensitive-class: beneficiary.contact, description: 'Null for a person without a number of their own, who is reached through the volunteer (D-172)' }
+        mobileOwnerCode: { type: [string, 'null'], x-sensitive-class: beneficiary.contact, description: 'Whose number the mobile is: a code of the reference list mobile_owner (own, family, neighbour, other), or null when nothing says; never kept without a mobile (D-172, BR-300)' }
+        mobileOwnerName: { type: [string, 'null'], x-sensitive-class: beneficiary.contact, description: "The name of the number's owner, kept only when that is someone else than the person (D-172, BR-300)" }
+        hasDocument: { type: boolean, x-sensitive-class: beneficiary.nid, description: 'Whether an NID or a birth registration number is on file, told with the identity class wherever the profile lives; the numbers themselves stay inside the beneficiary.view_nid scope (D-172)' }
         familyMembers:
           type: array
           x-sensitive-class: beneficiary.contact
@@ -2275,7 +2293,7 @@ components:
                 name: { type: string }
                 fatherOrHusbandName: { type: string }
                 motherName: { type: [string, 'null'] }
-                mobile: { type: string }
+                mobile: { type: [string, 'null'], description: 'Null for a person without a number of their own' }
                 genderCode: { type: string }
                 dob: { type: [string, 'null'], format: date }
                 ageYears: { type: [integer, 'null'] }
@@ -2362,10 +2380,12 @@ components:
       properties:
         data:
           type: object
-          required: [id, mobile, divisionId, districtId, upazilaId, unionId, village, postOffice, postCode, landmark, warnings]
+          required: [id, mobile, mobileOwnerCode, mobileOwnerName, divisionId, districtId, upazilaId, unionId, village, postOffice, postCode, landmark, warnings]
           properties:
             id: { $ref: '#/components/schemas/Uuid' }
-            mobile: { type: string }
+            mobile: { type: [string, 'null'], description: 'Null for a person without a number of their own' }
+            mobileOwnerCode: { type: [string, 'null'], description: 'Whose number the mobile is; emptied when the edit changes the number, since the request names no owner (BR-300)' }
+            mobileOwnerName: { type: [string, 'null'], description: "The name of the number's owner; emptied with the owner" }
             divisionId: { $ref: '#/components/schemas/Uuid' }
             districtId: { $ref: '#/components/schemas/Uuid' }
             upazilaId: { $ref: '#/components/schemas/Uuid' }
@@ -3209,10 +3229,17 @@ components:
           properties:
             project:
               type: object
-              required: [name, applyTo]
+              required: [name, applyTo, identityDocument]
               properties:
                 name: { $ref: '#/components/schemas/Bilingual' }
                 applyTo: { type: [string, 'null'], format: date, description: The last day applications are taken }
+                identityDocument:
+                  type: string
+                  enum: [required, optional]
+                  description: >-
+                    Whether an application of the project must carry the NID or the birth registration number, or
+                    carries it only when the person has one (D-172, BR-297); the page marks the question by it. The
+                    mobile number is always asked on the public link (BR-299).
             form: { $ref: '#/components/schemas/FormVersion' }
         meta: { $ref: '#/components/schemas/Meta' }
     PublicApplicationCreate:
@@ -3240,11 +3267,31 @@ components:
         beneficiaryName:
           type: [string, 'null']
           description: The profile's name; while the entry waits for verification, the name typed on the application.
+        hasDocument:
+          type: [boolean, 'null']
+          description: >-
+            Whether the person's profile holds an identity document (D-172); null before a profile is
+            bound and for a caller who may not know: in a list a holder of the class beneficiary.nid
+            is told, on the record also the volunteer who brought the application
+        hasMobile:
+          type: [boolean, 'null']
+          description: >-
+            Whether the person's profile holds a mobile of their own; false reads "contact through the
+            volunteer" (D-172). Null before a profile is bound and for a caller who may not know: in a
+            list a holder of the class beneficiary.contact is told, on the record also the volunteer
+            who brought the application
         ownerVolunteerId: { type: [string, 'null'], format: uuid }
         status: { type: string, enum: [draft, needs_verification, submitted, under_review, reviewed, waitlisted, approved, rejected, implementation, completed, closed, deleted] }
         stage: { type: [string, 'null'] }
         outcome: { type: [string, 'null'] }
-        flags: { type: array, items: { type: string } }
+        flags:
+          type: array
+          items: { type: string }
+          description: >-
+            The reasons an entry waits for verification. blocked_name_match (a new person, with an
+            identity number or without, whose name, father's or husband's name and village match a
+            blocked profile) is answered to the office only; a volunteer neither receives it nor
+            filters by it
         totalScore: { type: [number, 'null'], x-sensitive-class: application.official_section }
         districtId: { $ref: '#/components/schemas/Uuid' }
         unionId: { $ref: '#/components/schemas/Uuid' }
@@ -3295,10 +3342,10 @@ components:
         - type: object
           properties:
             formVersionId: { $ref: '#/components/schemas/Uuid' }
-            candidateBeneficiaryId: { type: [string, 'null'], format: uuid }
+            candidateBeneficiaryId: { type: [string, 'null'], format: uuid, description: "The profile the entry is compared with at its verification; the candidate of a blocked_name_match is answered to the office only" }
             clientCreatedAt: { type: [string, 'null'], format: date-time, description: "The device time the record was made, when it came from a phone; its late_sync, stale_form_version or existing_identity flag says why it waits" }
             createdByUserId: { type: [string, 'null'], format: uuid, description: The account that created it (a team member's own records) }
-            identityKind: { type: [string, 'null'], enum: [nid, birth_reg, null], description: Which number identifies the person }
+            identityKind: { type: [string, 'null'], enum: [nid, birth_reg, none, null], description: "Which number identifies the person; none for an application without an identity document (D-172), told only to a caller who may know whether the profile has a document" }
             rejectionMessage: { type: [string, 'null'], description: The words written for the volunteer at a rejection; the office's reason stays in decisionComment }
             answers:
               type: array
@@ -3424,13 +3471,13 @@ components:
         at: { type: string, format: date-time }
     MediaBeneficiary:
       type: object
-      description: What the Media Team may know of the person (BR-265); never the identity numbers, ratings, categories or scores
+      description: What the Media Team may know of the person (BR-265); never the identity numbers, whether the person has an identity document, ratings, categories or scores
       required: [name, fatherOrHusbandName, ageYears, mobile, address, occupation, monthlyIncome]
       properties:
         name: { type: string }
         fatherOrHusbandName: { type: string }
         ageYears: { type: [integer, 'null'] }
-        mobile: { type: string }
+        mobile: { type: [string, 'null'], description: 'Null for a person without a number of their own, who is reached through the volunteer' }
         address:
           type: object
           required: [divisionId, districtId, upazilaId, unionId, village, postOffice]
@@ -6797,7 +6844,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail]
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail, beneficiary.nid]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/PageNumber'
@@ -6989,7 +7036,10 @@ paths:
       description: >-
         The mobile and the address down to village, post office and landmark (D-115); the four
         places of the address change together as one chain. Each changed field writes a change-log
-        row of kind `contact_update`. A name or an identity number answers 422
+        row of kind `contact_update`. Whose number the mobile is (`mobileOwnerCode`,
+        `mobileOwnerName`) is not taken here, it comes with an application's answers; a changed
+        number starts without an owner, so both are emptied with it, each with its change-log row
+        (BR-300). A name or an identity number answers 422
         `beneficiary.locked_field`; the mobile of a volunteer an application of the person belongs
         to answers 409 `beneficiary.mobile_is_volunteer_mobile`; a mobile other live profiles have
         is saved with the `beneficiary.mobile_shared` warning, which names only the profiles the
@@ -7192,7 +7242,11 @@ paths:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.propose
       summary: Propose a merge of two profiles with a reason
-      description: Both profiles live and in the caller's scope (404 otherwise, without naming either); one open proposal per pair.
+      description: >-
+        Both profiles live and in the caller's scope (404 otherwise, without naming either); one
+        open proposal per pair. Where only one of the two has an identity document, that one is the
+        kept profile: the other choice answers 422 with the detail
+        `beneficiary.merge_keep_document` on `keptId` (D-172).
       x-permission: beneficiary.merge.propose
       x-scope: beneficiary
       x-audit: beneficiary.merge_proposed
@@ -7248,7 +7302,9 @@ paths:
       description: >-
         The same merge as an executed proposal (D-113); the caller is proposer and merger. A merge
         that moves an application outside the caller's merge reach (another program, for a PM)
-        answers 403 `beneficiary.merge_needs_global` (D-118).
+        answers 403 `beneficiary.merge_needs_global` (D-118). Where only one of the two profiles has
+        an identity document, keeping the other answers 422 with the detail
+        `beneficiary.merge_keep_document` on `keptId` (D-172).
       x-permission: beneficiary.merge
       x-scope: beneficiary
       x-audit: beneficiary.merge
@@ -7284,6 +7340,9 @@ paths:
         retired profile (`leftBehind`); a block moves to the kept profile; a proposal whose profiles
         are no longer both live answers 409 `beneficiary.merge_stale` (D-113); an application of
         another program than the caller reaches answers 403 `beneficiary.merge_needs_global` (D-118).
+        A merge moves no identity number: where only one of the two profiles has an identity
+        document, keeping the other (as proposed, or as chosen with `keptId`) answers 422 with the
+        detail `beneficiary.merge_keep_document` on `keptId` (D-172).
       x-permission: beneficiary.merge
       x-scope: beneficiary
       x-audit: beneficiary.merge
@@ -7635,7 +7694,8 @@ paths:
       description: >-
         The project starts with the components and settings of its workflow (D-095). The program
         must be in the caller's scope (403) and active (409 program.inactive); a taken code answers
-        409 project.code_taken. A master template and a copy of a project come with T1.12.
+        409 project.code_taken. A master template and a copy of a project come with T1.12. The audit
+        entry of the creation carries the four identity rules the project starts with (BR-309).
       x-permission: project.create
       x-scope: program
       x-audit: project.create
@@ -7938,6 +7998,9 @@ paths:
       summary: Switch a component on or off and replace its settings (checked against its JSON Schema; BD-09)
       description: >-
         If-Match carries the component's own etag from the list. Settings that fail the component's schema answer 422 with the field paths; a closing, closed or cancelled project answers 409 project.read_only.
+        A project without a stored application_form row gets it with the first save, switched off unless the save says otherwise.
+        A save that changes what the application asks (identity_document, mobile, repeat_person, repeat_family of application_form)
+        also writes the audit entry project.identity_rules_changed with the four values before and after (D-172, BR-309).
       x-permission: project.configure
       x-scope: project
       x-audit: project.component_change
@@ -8804,7 +8867,7 @@ paths:
     get:
       tags: [public]
       operationId: public.form.get
-      summary: The published volunteer-visible form behind a public link, with the project's name and closing date; a disabled link, an unpublished form, an inactive project or a passed closing date answer not found
+      summary: The published volunteer-visible form behind a public link, with the project's name and closing date and whether its application must carry an identity document; a disabled link, an unpublished form, an inactive project or a passed closing date answer not found
       security: []
       x-permission: public
       x-scope: none

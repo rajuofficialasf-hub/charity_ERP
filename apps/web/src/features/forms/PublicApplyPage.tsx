@@ -1,4 +1,5 @@
 import { maxSizeOf, PUBLIC_PHOTO_LIMITS } from '@css/shared/files';
+import { optionalIdentityOf } from '@css/shared/forms';
 import { formatDate, isoDateInDhaka } from '@css/shared/format';
 import { localized, type Locale } from '@css/shared/i18n';
 import { Skeleton, Stack, Text } from '@/ui';
@@ -146,6 +147,15 @@ export function PublicApplyPage() {
           submitLabel={t('submit')}
           onSubmit={send}
           serverErrors={serverErrors}
+          // the open link always asks the mobile; its document follows the project, and an answer
+          // that does not say so reads as required
+          optionalIdentity={optionalIdentityOf(
+            {
+              document: project.identityDocument === 'optional' ? 'optional' : 'required',
+              mobile: 'required',
+            },
+            'public',
+          )}
         />
       </Stack>
     );

@@ -218,6 +218,44 @@ describe('the lookup of the application form', () => {
   });
 });
 
+describe('a person without a mobile and without a document, where they are read', () => {
+  it('answers mobile null and hasDocument false on the list row, the profile and the contact view, and a null mobile in the lookup', async () => {
+    const name = 'নমুনা নম্বরহীন সখিনা';
+    const id = await person(world.dhaka, { name, nid: null, mobile: null });
+    await f.application(h.db, { project: world.a1, loc: world.dhaka }, { beneficiary_id: id });
+    const rpm = await as(world.users.rpmDhaka);
+
+    const listed = await list(rpm, name).expect(200);
+    const listRow = (listed.body.data as Record<string, unknown>[]).find((r) => r.id === id);
+    expect(listRow).toMatchObject({ mobile: null, hasDocument: false });
+
+    const profile = await api().get(`/api/v1/beneficiaries/${id}`).set(bearer(rpm)).expect(200);
+    expect(profile.body.data).toMatchObject({
+      mobile: null,
+      hasDocument: false,
+      nid: null,
+      birthReg: null,
+    });
+
+    // the contact view after an edit that leaves the missing mobile alone
+    const edited = await api()
+      .patch(`/api/v1/beneficiaries/${id}/contact`)
+      .set(bearer(rpm))
+      .set('If-Match', profile.headers.etag as string)
+      .send({ village: 'নতুন পাড়া' });
+    expect(edited.status, JSON.stringify(edited.body)).toBe(200);
+    expect(edited.body.data).toMatchObject({ mobile: null, village: 'নতুন পাড়া' });
+    expect((await row(id)).mobile).toBeNull();
+
+    // a lookup needs a number: a person with a document and no mobile fills in no mobile
+    const numbered = await person(world.dhaka, { mobile: null });
+    const found = await lookup(rpm, { nid: (await row(numbered)).nid, projectId: world.a1.id });
+    expect(found.status, JSON.stringify(found.body)).toBe(200);
+    expect(found.body.data).toMatchObject({ found: true, blocked: false });
+    expect(found.body.data.autofill).toMatchObject({ beneficiaryId: numbered, mobile: null });
+  });
+});
+
 describe('the search of the beneficiary tab', () => {
   it('finds a profile by its BEN number in any typed form', async () => {
     const id = await person(world.dhaka);
@@ -321,6 +359,68 @@ describe('the creation of a profile', () => {
     expect(e).toMatchObject({ code: 'validation.nid_format', status: 422 });
     const none = await refusal(create(world.users.rpmDhaka, { nid: undefined }));
     expect(none).toMatchObject({ code: 'beneficiary.identity_missing', status: 422 });
+  });
+
+  it('makes a profile with neither number only where the project lets the document be left out', async () => {
+    const without = { nid: undefined, name: 'পরিচয়পত্র ছাড়া একজন' };
+    const refused = await refusal(create(world.users.rpmDhaka, without));
+    expect(refused).toMatchObject({ code: 'beneficiary.identity_missing', status: 422 });
+    const made = await create(world.users.rpmDhaka, { ...without, documentOptional: true });
+    expect(await row(made.id)).toMatchObject({ nid: null, birth_reg: null });
+    expect(made.benNo).toBeGreaterThan(0);
+    // a number that is given is still checked and still unique
+    const bad = await refusal(
+      create(world.users.rpmDhaka, { nid: '12345', documentOptional: true }),
+    );
+    expect(bad).toMatchObject({ code: 'validation.nid_format', status: 422 });
+  });
+
+  it('makes a profile without a mobile, which shares its missing number with nobody', async () => {
+    const first = await create(world.users.rpmDhaka, { mobile: undefined });
+    const second = await create(world.users.rpmDhaka, { mobile: undefined });
+    expect(first.warnings).toEqual([]);
+    expect(second.warnings).toEqual([]);
+    expect((await row(second.id)).mobile).toBeNull();
+    // a volunteer makes one too: with no number there is none of their own to refuse
+    const byVolunteer = await create(world.users.general, {
+      mobile: undefined,
+      ownerUserId: world.users.general,
+    });
+    expect((await row(byVolunteer.id)).mobile).toBeNull();
+    // an empty mobile is no missing one: it is a number in a wrong shape
+    const empty = await refusal(create(world.users.rpmDhaka, { mobile: '' }));
+    expect(empty).toMatchObject({ code: 'validation.mobile_format', status: 422 });
+  });
+
+  it('finds the blocked profile a person looks like by name, father and village inside the union, and nobody else', async () => {
+    const keys = {
+      name: 'ব্লক করা নাম',
+      fatherOrHusbandName: 'ব্লক করা পিতা',
+      unionId: world.dhaka.union,
+      village: 'ব্লক গ্রাম',
+    };
+    const columns = {
+      name: keys.name,
+      father_or_husband_name: keys.fatherOrHusbandName,
+      village: keys.village,
+    };
+    const blocked = await person(world.dhaka, { ...columns, is_blocked: true });
+    // the same person, not blocked, in the same village; a blocked namesake in another union
+    await person(world.dhaka, columns);
+    await person(world.rangpur, { ...columns, is_blocked: true });
+    const namesake = (over: Partial<typeof keys> = {}) =>
+      h.container.beneficiaryIdentity.blockedNamesake(h.container.prisma, { ...keys, ...over });
+    expect(await namesake()).toBe(blocked);
+    // spaces are no difference, as the name key reads them
+    expect(await namesake({ name: ' ব্লক  করা নাম ', village: 'ব্লক  গ্রাম' })).toBe(blocked);
+    expect(await namesake({ village: 'অন্য গ্রাম' })).toBeNull();
+    expect(await namesake({ fatherOrHusbandName: 'অন্য পিতা' })).toBeNull();
+    expect(await namesake({ name: 'অন্য নাম' })).toBeNull();
+    // a retired profile is no longer the person's own
+    const kept = await person(world.dhaka);
+    await retire(blocked, kept);
+    expect(await namesake()).toBeNull();
+    await h.db.query('UPDATE beneficiaries SET merged_into_id = NULL WHERE id = $1', [blocked]);
   });
 
   it("refuses the caller's own mobile and the owner volunteer's mobile", async () => {

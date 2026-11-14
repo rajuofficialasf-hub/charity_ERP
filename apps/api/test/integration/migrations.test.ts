@@ -5,7 +5,17 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { runSeed } from '../../seed/run.js';
 import { prismaClientFor } from '../../src/core/prisma.service.js';
-import { beneficiary, locationTree, project, user, volunteer } from './support/fixtures.js';
+import { expectSqlError, SQLSTATE } from './support/expect-sql.js';
+import {
+  application,
+  beneficiary,
+  fakeMobile,
+  fakeNid,
+  locationTree,
+  project,
+  user,
+  volunteer,
+} from './support/fixtures.js';
 import {
   createDatabase,
   dropDatabase,
@@ -368,6 +378,349 @@ describe('migrations', () => {
     } finally {
       await client.end();
     }
+  });
+
+  describe('the optional identity migration and its down.sql', () => {
+    const OPTIONAL_IDENTITY = '20261112160000_beneficiary_optional_identity';
+    type Db = ReturnType<typeof newClient>;
+
+    /** A database migrated up to the migration before it, with the warnings its scripts raise. */
+    async function upToOptionalIdentity(prefix: string) {
+      const dirs = migrationDirs();
+      const at = dirs.indexOf(OPTIONAL_IDENTITY);
+      expect(at).toBeGreaterThan(0);
+      const client = newClient(urlFor(await freshDatabase(prefix)));
+      await client.connect();
+      const warnings: string[] = [];
+      client.on('notice', (notice) => {
+        if (notice.severity === 'WARNING') warnings.push(notice.message ?? '');
+      });
+      for (const dir of dirs.slice(0, at))
+        await client.query(readFileSync(join(MIGRATIONS_DIR, dir, 'migration.sql'), 'utf8'));
+      const apply = async (file: 'migration.sql' | 'down.sql') => {
+        warnings.length = 0;
+        await client.query(readFileSync(join(MIGRATIONS_DIR, OPTIONAL_IDENTITY, file), 'utf8'));
+      };
+      return { client, apply, warnings };
+    }
+
+    /** What the migration changes: the three rules and everything it adds for the number's owner. */
+    async function schemaOf(client: Db) {
+      const names = async (sql: string) =>
+        (await client.query(sql)).rows.map((r) => r.v as string).sort();
+      return {
+        mobileNullable: (
+          await client.query(
+            `SELECT is_nullable FROM information_schema.columns
+              WHERE table_name = 'beneficiaries' AND column_name = 'mobile'`,
+          )
+        ).rows[0].is_nullable as string,
+        // each rule's constraint, and whether it holds for the rows already there
+        checks: Object.fromEntries(
+          (
+            await client.query(
+              `SELECT conname, convalidated FROM pg_constraint
+                WHERE conname IN ('beneficiaries_identity_check', 'beneficiaries_mobile_required',
+                                  'applications_identity_kind_check')`,
+            )
+          ).rows.map((r) => [r.conname as string, r.convalidated as boolean]),
+        ),
+        ownerColumns: await names(
+          `SELECT column_name AS v FROM information_schema.columns
+            WHERE table_name = 'beneficiaries' AND column_name LIKE 'mobile_owner%'`,
+        ),
+        ownerConstraints: await names(
+          `SELECT conname AS v FROM pg_constraint
+            WHERE conrelid = 'beneficiaries'::regclass AND conname LIKE 'beneficiaries_mobile_owner%'`,
+        ),
+        ownerIndexes: await names(
+          `SELECT indexname AS v FROM pg_indexes
+            WHERE tablename = 'beneficiaries' AND indexname LIKE 'beneficiaries_mobile_owner%'`,
+        ),
+      };
+    }
+
+    const NO_OWNER = { ownerColumns: [], ownerConstraints: [], ownerIndexes: [] };
+    const BEFORE = {
+      mobileNullable: 'NO',
+      checks: { beneficiaries_identity_check: true, applications_identity_kind_check: true },
+      ...NO_OWNER,
+    };
+    const AFTER = {
+      mobileNullable: 'YES',
+      checks: { applications_identity_kind_check: true },
+      ownerColumns: ['mobile_owner_code', 'mobile_owner_list', 'mobile_owner_name'],
+      ownerConstraints: [
+        'beneficiaries_mobile_owner_list_mobile_owner_code_fkey',
+        'beneficiaries_mobile_owner_name_check',
+      ],
+      ownerIndexes: ['beneficiaries_mobile_owner_code_idx'],
+    };
+    const BARE = { nid: null, birth_reg: null, mobile: null };
+    const numbersOf = async (client: Db, id: string) =>
+      (await client.query('SELECT nid, birth_reg, mobile FROM beneficiaries WHERE id = $1', [id]))
+        .rows;
+
+    it('keeps a profile without a document and a mobile, refuses a new one, and the migration applies again', async () => {
+      const { client, apply, warnings } = await upToOptionalIdentity('light');
+      try {
+        expect(await schemaOf(client)).toEqual(BEFORE);
+        await apply('migration.sql');
+        expect(await schemaOf(client)).toEqual(AFTER);
+
+        // while every profile has a document and a mobile, the reverse is exact and warns of nothing
+        const loc = await locationTree(client);
+        const full = await beneficiary(client, loc);
+        await apply('down.sql');
+        expect(await schemaOf(client)).toEqual(BEFORE);
+        expect(warnings).toEqual([]);
+        await expectSqlError(beneficiary(client, loc, BARE), SQLSTATE.notNullViolation);
+        // a second run in a row changes nothing
+        await apply('down.sql');
+        expect(await schemaOf(client)).toEqual(BEFORE);
+        expect(warnings).toEqual([]);
+        await apply('migration.sql');
+        expect(await schemaOf(client)).toEqual(AFTER);
+
+        // with a profile that has neither, and its application, the reverse keeps both rows
+        const light = await beneficiary(client, loc, BARE);
+        const p = await project(client);
+        const entry = await application(
+          client,
+          { project: p, loc },
+          { beneficiary_id: light, identity_kind: 'none' },
+        );
+        const other = await application(
+          client,
+          { project: p, loc },
+          { beneficiary_id: full, identity_kind: 'nid' },
+        );
+        await apply('down.sql');
+        const KEPT = {
+          mobileNullable: 'YES',
+          checks: {
+            beneficiaries_identity_check: false,
+            beneficiaries_mobile_required: false,
+            applications_identity_kind_check: false,
+          },
+          ...NO_OWNER,
+        };
+        expect(await schemaOf(client)).toEqual(KEPT);
+        // the operator is told how many rows were kept, and which checks hold them
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0]).toContain(
+          '1 profiles without a mobile, 1 profiles without a document, 1 applications of the kind none',
+        );
+        for (const name of [
+          'beneficiaries_mobile_required',
+          'beneficiaries_identity_check',
+          'applications_identity_kind_check',
+        ])
+          expect(warnings[0]).toContain(name);
+        const kept = async () => ({
+          people: (
+            await client.query(
+              'SELECT id, nid IS NULL AND birth_reg IS NULL AND mobile IS NULL AS bare FROM beneficiaries ORDER BY ben_no',
+            )
+          ).rows,
+          withoutDocument: (
+            await client.query(`SELECT id FROM applications WHERE identity_kind = 'none'`)
+          ).rows,
+        });
+        const rows = {
+          people: [
+            { id: full, bare: false },
+            { id: light, bare: true },
+          ],
+          withoutDocument: [{ id: entry }],
+        };
+        expect(await kept()).toEqual(rows);
+        // a new row must have its document, its mobile and a kind of the earlier two again
+        await expectSqlError(
+          beneficiary(client, loc, { mobile: null }),
+          SQLSTATE.checkViolation,
+          /beneficiaries_mobile_required/,
+        );
+        await expectSqlError(
+          beneficiary(client, loc, { nid: null, birth_reg: null }),
+          SQLSTATE.checkViolation,
+          /beneficiaries_identity_check/,
+        );
+        await expectSqlError(
+          client.query(`UPDATE applications SET identity_kind = 'none' WHERE id = $1`, [other]),
+          SQLSTATE.checkViolation,
+          /applications_identity_kind_check/,
+        );
+        // the kept rows are frozen: any change that leaves them as they are is refused
+        await expectSqlError(
+          client.query(`UPDATE beneficiaries SET village = 'অন্য গ্রাম' WHERE id = $1`, [light]),
+          SQLSTATE.checkViolation,
+        );
+        await expectSqlError(
+          client.query(`UPDATE applications SET status = 'under_review' WHERE id = $1`, [entry]),
+          SQLSTATE.checkViolation,
+          /applications_identity_kind_check/,
+        );
+        expect(await kept()).toEqual(rows);
+        const later = await beneficiary(client, loc);
+
+        // a second run in a row leaves the same rules and the same rows, and warns again
+        await apply('down.sql');
+        expect(await schemaOf(client)).toEqual(KEPT);
+        expect(warnings).toHaveLength(1);
+        expect(await kept()).toEqual({
+          ...rows,
+          people: [...rows.people, { id: later, bare: false }],
+        });
+
+        // the migration applies again on what the reverse left
+        await apply('migration.sql');
+        expect(await schemaOf(client)).toEqual(AFTER);
+        expect(await kept()).toEqual({
+          ...rows,
+          people: [...rows.people, { id: later, bare: false }],
+        });
+        expect(await numbersOf(client, await beneficiary(client, loc, BARE))).toEqual([BARE]);
+      } finally {
+        await client.end();
+      }
+    });
+
+    it('brings each rule back on its own: only the rule a kept row breaks stays unvalidated', async () => {
+      const { client, apply, warnings } = await upToOptionalIdentity('mixed');
+      try {
+        await apply('migration.sql');
+        const loc = await locationTree(client);
+        const p = await project(client);
+        await beneficiary(client, loc);
+
+        // a document and no mobile: only the stand-in for NOT NULL appears
+        const person = await beneficiary(client, loc, { mobile: null });
+        await apply('down.sql');
+        expect(await schemaOf(client)).toEqual({
+          mobileNullable: 'YES',
+          checks: {
+            beneficiaries_identity_check: true,
+            beneficiaries_mobile_required: false,
+            applications_identity_kind_check: true,
+          },
+          ...NO_OWNER,
+        });
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0]).toContain(
+          '1 profiles without a mobile, 0 profiles without a document, 0 applications of the kind none',
+        );
+        // frozen until it is given its mobile; the same change then passes
+        await expectSqlError(
+          client.query(`UPDATE beneficiaries SET is_blocked = true WHERE id = $1`, [person]),
+          SQLSTATE.checkViolation,
+          /beneficiaries_mobile_required/,
+        );
+        const mobile = fakeMobile();
+        await client.query(
+          `UPDATE beneficiaries SET is_blocked = true, mobile = $2 WHERE id = $1`,
+          [person, mobile],
+        );
+        expect(
+          (
+            await client.query('SELECT is_blocked, mobile FROM beneficiaries WHERE id = $1', [
+              person,
+            ])
+          ).rows,
+        ).toEqual([{ is_blocked: true, mobile }]);
+
+        // a mobile and no document: the column is NOT NULL again, the identity check waits
+        await apply('migration.sql');
+        expect(await schemaOf(client)).toEqual(AFTER);
+        const undocumented = await beneficiary(client, loc, { nid: null, birth_reg: null });
+        await apply('down.sql');
+        expect(await schemaOf(client)).toEqual({
+          mobileNullable: 'NO',
+          checks: { beneficiaries_identity_check: false, applications_identity_kind_check: true },
+          ...NO_OWNER,
+        });
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0]).toContain(
+          '0 profiles without a mobile, 1 profiles without a document, 0 applications of the kind none',
+        );
+        await expectSqlError(beneficiary(client, loc, { mobile: null }), SQLSTATE.notNullViolation);
+        await expectSqlError(
+          beneficiary(client, loc, { nid: null, birth_reg: null }),
+          SQLSTATE.checkViolation,
+          /beneficiaries_identity_check/,
+        );
+        // the other way out: the check dropped by hand frees the kept row
+        await expectSqlError(
+          client.query(`UPDATE beneficiaries SET village = 'অন্য গ্রাম' WHERE id = $1`, [
+            undocumented,
+          ]),
+          SQLSTATE.checkViolation,
+          /beneficiaries_identity_check/,
+        );
+        await client.query(
+          `ALTER TABLE "beneficiaries" DROP CONSTRAINT "beneficiaries_identity_check"`,
+        );
+        await client.query(`UPDATE beneficiaries SET village = 'অন্য গ্রাম' WHERE id = $1`, [
+          undocumented,
+        ]);
+        expect(
+          (await client.query('SELECT village FROM beneficiaries WHERE id = $1', [undocumented]))
+            .rows,
+        ).toEqual([{ village: 'অন্য গ্রাম' }]);
+
+        // the migration applies again without the checks an operator dropped
+        await client.query(
+          `ALTER TABLE "applications" DROP CONSTRAINT "applications_identity_kind_check"`,
+        );
+        await apply('migration.sql');
+        expect(await schemaOf(client)).toEqual(AFTER);
+
+        // only an application of the kind none, and every profile whole: the kind check waits
+        await client.query('UPDATE beneficiaries SET nid = $2 WHERE id = $1', [
+          undocumented,
+          fakeNid(),
+        ]);
+        const entry = await application(
+          client,
+          { project: p, loc },
+          { beneficiary_id: person, identity_kind: 'none' },
+        );
+        await apply('down.sql');
+        expect(await schemaOf(client)).toEqual({
+          mobileNullable: 'NO',
+          checks: { beneficiaries_identity_check: true, applications_identity_kind_check: false },
+          ...NO_OWNER,
+        });
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0]).toContain(
+          '0 profiles without a mobile, 0 profiles without a document, 1 applications of the kind none',
+        );
+        // the application moves on once it names a kind of the earlier two
+        await expectSqlError(
+          client.query(`UPDATE applications SET status = 'under_review' WHERE id = $1`, [entry]),
+          SQLSTATE.checkViolation,
+          /applications_identity_kind_check/,
+        );
+        await client.query(
+          `UPDATE applications SET status = 'under_review', identity_kind = 'nid' WHERE id = $1`,
+          [entry],
+        );
+        expect(
+          (
+            await client.query('SELECT status, identity_kind FROM applications WHERE id = $1', [
+              entry,
+            ])
+          ).rows,
+        ).toEqual([{ status: 'under_review', identity_kind: 'nid' }]);
+
+        // with every row whole again, the next run restores the earlier schema exactly
+        await apply('down.sql');
+        expect(await schemaOf(client)).toEqual(BEFORE);
+        expect(warnings).toEqual([]);
+      } finally {
+        await client.end();
+      }
+    });
   });
 
   it('schema.prisma and the migrations do not drift apart', async () => {

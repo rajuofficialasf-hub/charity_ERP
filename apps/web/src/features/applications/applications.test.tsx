@@ -1,4 +1,6 @@
+import { DEFAULT_IDENTITY_RULES } from '@css/shared/projects';
 import type { Me } from '@css/shared/auth';
+import { bn } from '@css/shared/i18n';
 import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
@@ -84,6 +86,7 @@ const project = {
   applicationsCounted: 7,
   applicationsLeft: 43,
   leadsTeam: true,
+  identityRules: DEFAULT_IDENTITY_RULES,
   rules: { version: 2, parts: [] },
 };
 const form = {
@@ -647,5 +650,286 @@ describe('one application', () => {
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'মুছে ফেলুন' }));
     expect(await screen.findByText('আবেদনটি এর মধ্যে বদলেছে। আবার লোড করুন।')).toBeInTheDocument();
+  });
+});
+
+describe('the identity questions of the new application follow the project', () => {
+  const DOCUMENT_HINT = 'থাকলে দিন।';
+  const MOBILE_HINT = 'নম্বর না থাকলে ফাঁকা রাখুন, যোগাযোগ হবে স্বেচ্ছাসেবকের মাধ্যমে।';
+  const { identityRules: _rules, ...withoutRules } = project;
+  const number = () => screen.getByRole('textbox', { name: /^nid_or_birth_reg/ });
+  const mobile = () => screen.getByRole('textbox', { name: /^mobile/ });
+
+  /**
+   * The first part of a new person's form on a phone, with everything answered but the mobile, in
+   * a project whose read carries the given rules; `undefined` is a read without any.
+   */
+  async function firstPart(user: ReturnType<typeof userEvent.setup>, rules: unknown) {
+    onPhone();
+    refreshAs(VOLUNTEER);
+    serve({ found: false });
+    server.use(
+      http.get(`*/api/v1/me/projects/${PROJECT}`, () =>
+        envelope(rules === undefined ? withoutRules : { ...withoutRules, identityRules: rules }),
+      ),
+    );
+    renderApp(<ApplicationFormPage />, 'bn', {
+      path: '/my-projects/:projectId/apply',
+      initialPath: `/my-projects/${PROJECT}/apply`,
+    });
+    await lookUp(user, '9876543210');
+    await user.click(
+      await screen.findByRole('button', { name: 'নতুন ব্যক্তির জন্য ফর্ম পূরণ করুন' }),
+    );
+    await user.type(await screen.findByRole('textbox', { name: /^name/ }), 'নমুনা উপকারভোগী');
+    await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
+    await user.click(screen.getByRole('radio', { name: 'female' }));
+  }
+
+  it('asks neither where the project lets both stay empty, and goes on without the mobile', async () => {
+    const user = userEvent.setup();
+    await firstPart(user, { ...DEFAULT_IDENTITY_RULES, document: 'optional', mobile: 'optional' });
+    expect(number()).not.toBeRequired();
+    expect(number()).toHaveAccessibleDescription(DOCUMENT_HINT);
+    expect(mobile()).not.toBeRequired();
+    expect(mobile()).toHaveAccessibleDescription(MOBILE_HINT);
+    expect(screen.getByRole('textbox', { name: /^name/ })).toBeRequired();
+    await user.click(await screen.findByRole('button', { name: 'পরের অংশ' }));
+    expect(
+      await screen.findByRole('combobox', { name: /^বিভাগ/ }, { timeout: 15_000 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/সমস্যা ঠিক করুন/)).not.toBeInTheDocument();
+  }, 60_000);
+
+  it('asks the mobile where the project lets only the document stay empty', async () => {
+    const user = userEvent.setup();
+    await firstPart(user, { ...DEFAULT_IDENTITY_RULES, document: 'optional' });
+    expect(number()).not.toBeRequired();
+    expect(mobile()).toBeRequired();
+    expect(screen.queryByText(MOBILE_HINT)).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'পরের অংশ' }));
+    expect(
+      await screen.findByText('পরের অংশে যাওয়ার আগে 1টি সমস্যা ঠিক করুন'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /^বিভাগ/ })).not.toBeInTheDocument();
+  }, 60_000);
+
+  it.each([
+    ['requires both', DEFAULT_IDENTITY_RULES],
+    ['carries no rules', undefined],
+    ['carries rules that are not whole', { document: 'optional', mobile: 'optional' }],
+  ])(
+    'asks both as today where the project read %s',
+    async (_case, rules) => {
+      const user = userEvent.setup();
+      await firstPart(user, rules);
+      expect(number()).toBeRequired();
+      expect(mobile()).toBeRequired();
+      expect(screen.queryByText(DOCUMENT_HINT)).not.toBeInTheDocument();
+      expect(screen.queryByText(MOBILE_HINT)).not.toBeInTheDocument();
+      await user.click(await screen.findByRole('button', { name: 'পরের অংশ' }));
+      expect(
+        await screen.findByText('পরের অংশে যাওয়ার আগে 1টি সমস্যা ঠিক করুন'),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: /^বিভাগ/ })).not.toBeInTheDocument();
+      expect(created).toEqual([]);
+    },
+    60_000,
+  );
+});
+
+describe('the start without an identity document', () => {
+  const HELP = bn.applications.new.no_document_help;
+  const START = bn.applications.new.start_without_document;
+  const OPTIONAL = { ...DEFAULT_IDENTITY_RULES, document: 'optional', mobile: 'optional' };
+  const { identityRules: _rules, ...withoutRules } = project;
+  const number = () => screen.getByRole('textbox', { name: /^nid_or_birth_reg/ });
+  const keysOf = (payload: unknown) =>
+    ((payload as { answers?: { fieldKey: string }[] }).answers ?? []).map((a) => a.fieldKey);
+
+  /** The new application's first screen on a phone, in a project whose read carries the given rules. */
+  function open(rules: unknown, locale: 'bn' | 'en' = 'bn') {
+    onPhone();
+    refreshAs(VOLUNTEER);
+    serve({ found: false });
+    server.use(
+      http.get(`*/api/v1/me/projects/${PROJECT}`, () =>
+        envelope(rules === undefined ? withoutRules : { ...withoutRules, identityRules: rules }),
+      ),
+    );
+    return renderApp(<ApplicationFormPage />, locale, {
+      path: '/my-projects/:projectId/apply',
+      initialPath: `/my-projects/${PROJECT}/apply`,
+    });
+  }
+
+  /** The form started without a number, with the first part answered but the two numbers. */
+  async function startWithTheName(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: START }));
+    await user.type(await screen.findByRole('textbox', { name: /^name/ }), 'নমুনা উপকারভোগী');
+    await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
+    await user.click(screen.getByRole('radio', { name: 'female' }));
+  }
+  /** The next part answered: the four levels of the address and the village. */
+  async function giveTheAddress(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: 'পরের অংশ' }));
+    await user.click(await screen.findByRole('combobox', { name: /^বিভাগ/ }, { timeout: 15_000 }));
+    for (const name of ['ঢাকা বিভাগ', 'ঢাকা জেলা', 'সাভার', 'আশুলিয়া'])
+      await user.click(await screen.findByRole('option', { name }, { timeout: 15_000 }));
+    await user.type(await screen.findByRole('textbox', { name: /^village/ }), 'নমুনা গ্রাম');
+  }
+
+  it.each([
+    ['requires the document', DEFAULT_IDENTITY_RULES],
+    ['lets only the mobile stay empty', { ...DEFAULT_IDENTITY_RULES, mobile: 'optional' }],
+    ['carries no rules', undefined],
+    ['carries rules that are not whole', { document: 'optional', mobile: 'optional' }],
+  ])('is not offered where the project read %s', async (_case, rules) => {
+    open(rules);
+    expect(await screen.findByRole('textbox', { name: /NID নম্বর/ })).toBeInTheDocument();
+    expect(screen.queryByText(HELP)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: START })).not.toBeInTheDocument();
+  });
+
+  it('is offered under the lookup where the project takes an application without a document, in both languages', async () => {
+    const view = open(OPTIONAL);
+    expect(await screen.findByRole('button', { name: START })).toBeInTheDocument();
+    expect(screen.getByText(HELP)).toBeInTheDocument();
+    // the lookup by number stays the first way in
+    expect(screen.getByRole('textbox', { name: /NID নম্বর/ })).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+    view.unmount();
+    resetClientForTests();
+    const english = open(OPTIONAL, 'en');
+    expect(
+      await screen.findByRole('button', { name: 'No identity document: start with the name' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'This project takes an application without an identity document. If there is a number, enter it above and search.',
+      ),
+    ).toBeInTheDocument();
+    await expectNoAxeViolations(english.container);
+  });
+
+  it('opens the form with the document question empty and free, and saves and sends without a number', async () => {
+    const user = userEvent.setup();
+    open(OPTIONAL);
+    await startWithTheName(user);
+    expect(number()).toHaveValue('');
+    expect(number()).not.toBeRequired();
+    expect(number()).not.toHaveAttribute('readonly');
+    expect(number()).toHaveAccessibleDescription('থাকলে দিন।');
+    // the names are typed, never locked: nobody was looked up
+    expect(screen.getByRole('textbox', { name: /^name/ })).not.toHaveAttribute('readonly');
+    await giveTheAddress(user);
+    // the draft is made at the address part, as for a new person, with no number and no mobile
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    await waitFor(() => expect(created).toHaveLength(1), { timeout: 15_000 });
+    expect(keysOf(created[0])).toEqual(
+      expect.arrayContaining(['name', 'father_or_husband_name', 'gender', 'address', 'village']),
+    );
+    expect(keysOf(created[0])).not.toContain('nid_or_birth_reg');
+    expect(keysOf(created[0])).not.toContain('mobile');
+    await user.type(
+      await screen.findByRole('textbox', { name: /মন্তব্য/ }, { timeout: 15_000 }),
+      'শীতের কাপড় দরকার',
+    );
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    expect(await screen.findByText('পাঠানোর আগে দেখে নিন')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
+    expect(
+      await screen.findByText('আবেদন পাঠানো হয়েছে', {}, { timeout: 15_000 }),
+    ).toBeInTheDocument();
+    expect(acted).toEqual(['submit']);
+    expect(patched.length).toBeGreaterThan(0);
+    for (const payload of patched) {
+      expect(keysOf(payload)).not.toContain('nid_or_birth_reg');
+      expect(keysOf(payload)).not.toContain('mobile');
+    }
+  }, 60_000);
+
+  it('shows the server’s refusal of a typed number under the identity question until it is changed', async () => {
+    const REFUSAL = bn.errors.beneficiary.already_applied;
+    const user = userEvent.setup();
+    open(OPTIONAL);
+    // the server refuses the draft: the number belongs to a person who already applied here
+    server.use(
+      http.post('*/api/v1/sync/batch', async ({ request }) => {
+        const body = (await request.json()) as { records: BatchRecord[] };
+        return HttpResponse.json({
+          data: {
+            serverTime: new Date().toISOString(),
+            results: body.records.map((r) => ({
+              clientUuid: r.clientUuid,
+              result: 'failed',
+              code: 'beneficiary.already_applied',
+            })),
+          },
+          meta: { requestId: 'r' },
+        });
+      }),
+    );
+    await startWithTheName(user);
+    await user.type(number(), '1234567890123');
+    await giveTheAddress(user);
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    // said at once where the person stands
+    expect(await screen.findByRole('alert', {}, { timeout: 15_000 })).toHaveTextContent(REFUSAL);
+    // and under the question it is about, on that question's own part
+    await user.click(screen.getByRole('button', { name: 'আগের অংশ' }));
+    await waitFor(() => expect(number()).toHaveAccessibleDescription(REFUSAL));
+    await user.type(number(), '4');
+    expect(screen.queryByText(REFUSAL)).not.toBeInTheDocument();
+  }, 60_000);
+});
+
+describe('the volunteer’s own application of a person without a document or a mobile', () => {
+  const NO_DOCUMENT = bn.common.person.no_document;
+  const THROUGH_VOLUNTEER = bn.common.person.through_volunteer;
+  const submitted = (over: Record<string, unknown>) =>
+    record({
+      appNo: 'WC-2026-00021',
+      status: 'submitted',
+      beneficiaryId: PERSON,
+      submittedAt: '2026-11-02T10:00:00Z',
+      availableActions: [],
+      answers: [
+        { fieldKey: 'name', repeatIndex: 0, value: { t: 'short_text', v: 'নমুনা উপকারভোগী' } },
+      ],
+      ...over,
+    });
+  const open = (over: Record<string, unknown>) => {
+    refreshAs(VOLUNTEER);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${APP}`, () => envelope(submitted(over))),
+      http.get(`*/api/v1/applications/${APP}/timeline`, () => envelope([])),
+    );
+    return renderApp(<ApplicationDetailPage />, 'bn', {
+      path: '/my-applications/:applicationId',
+      initialPath: `/my-applications/${APP}`,
+    });
+  };
+
+  it('shows the chip beside the state and the volunteer in the place of the mobile', async () => {
+    open({ identityKind: 'none', hasDocument: false, hasMobile: false });
+    expect(await screen.findByText('WC-2026-00021')).toBeInTheDocument();
+    expect(screen.getByText(NO_DOCUMENT)).toBeInTheDocument();
+    const answers = screen.getByRole('region', { name: 'basic_info' });
+    expect(within(answers).getByText(THROUGH_VOLUNTEER)).toBeInTheDocument();
+  });
+
+  it('shows neither for a person who has both, nor before the person is known', async () => {
+    const first = open({ identityKind: 'nid', hasDocument: true, hasMobile: true });
+    expect(await screen.findByText('WC-2026-00021')).toBeInTheDocument();
+    expect(screen.queryByText(NO_DOCUMENT)).not.toBeInTheDocument();
+    expect(screen.queryByText(THROUGH_VOLUNTEER)).not.toBeInTheDocument();
+    first.unmount();
+    resetClientForTests();
+    open({ status: 'needs_verification', beneficiaryId: null, hasDocument: null, hasMobile: null });
+    expect(await screen.findByText('WC-2026-00021')).toBeInTheDocument();
+    expect(screen.queryByText(NO_DOCUMENT)).not.toBeInTheDocument();
+    expect(screen.queryByText(THROUGH_VOLUNTEER)).not.toBeInTheDocument();
   });
 });

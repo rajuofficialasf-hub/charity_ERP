@@ -63,5 +63,9 @@
   },
   "list": {
     "result_count": "{shown} of {total}"
+  },
+  "person": {
+    "no_document": "No identity document",
+    "through_volunteer": "Contact through the volunteer"
   }
 }

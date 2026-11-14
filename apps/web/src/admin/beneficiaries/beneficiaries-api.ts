@@ -29,6 +29,9 @@ export const FILTER_KEYS = [
 
 export type FilterValues = Partial<Record<(typeof FILTER_KEYS)[number], string>>;
 
+/** Whose number a mobile is: the codes of the reference list `mobile_owner`. */
+export const MOBILE_OWNERS = ['own', 'family', 'neighbour', 'other'] as const;
+
 /** The default beneficiary types; a project may rename them, the codes stay. */
 export const BENEFICIARY_TYPES = [
   'elderly',

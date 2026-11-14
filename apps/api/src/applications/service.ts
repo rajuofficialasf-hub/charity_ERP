@@ -12,7 +12,8 @@ import {
   type Audience,
   type FormDefinition,
   identityColumn,
-  split,
+  type OptionalIdentity,
+  optionalIdentityOf,
 } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
@@ -58,6 +59,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiaryFamilyService } from '../services/beneficiary-family.js';
 import type { BeneficiaryIdentityService } from '../services/beneficiary-identity.js';
+import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
 import { type FormAudience, readDefinition, versionView } from '../services/forms.js';
 import { isAddressChain } from '../services/locations.js';
 import type { NisabService } from '../services/nisab.js';
@@ -76,7 +78,7 @@ import { namesMatch } from '@css/shared/sync';
 import { type BuiltGuard, isBuiltGuard } from '../workflow/registry.js';
 import { readActivities } from './activities.js';
 import { readChanges, readTimeline } from './history.js';
-import type { SubmissionWriter } from './submission.js';
+import { BlockedNamesakeMatch, standardOf, type SubmissionWriter } from './submission.js';
 import {
   addressOf,
   assertUploadsOwn,
@@ -84,10 +86,12 @@ import {
   checkAnswers,
   fieldByColumn,
   IDENTITY_COLUMN,
+  identityNumberIn,
   nisabOption,
   readAnswers,
   textOf,
   typedName,
+  withheldFields,
   writeAnswers,
 } from './answers.js';
 import {
@@ -99,6 +103,7 @@ import {
   type ApplicationView,
   BENEFICIARY_CONTACT,
   BENEFICIARY_NID,
+  BLOCKED_NAME_MATCH,
   OFFICIAL_SECTION,
 } from './view.js';
 
@@ -237,7 +242,17 @@ const PROJECT_SELECT = {
   perVolunteerLimit: true,
   workflowSnapshot: true,
   workflowDefinition: { select: { key: true, definition: true } },
+  ...IDENTITY_RULES_SELECT,
 } satisfies Prisma.ProjectSelect;
+
+type ProjectRow = Prisma.ProjectGetPayload<{ select: typeof PROJECT_SELECT }>;
+
+/** The project as the guards read it, with its identity rules from its own stored settings. */
+const guardedProject = (project: ProjectRow) => ({
+  ...project,
+  approval: null,
+  identityRules: identityRulesOf(project),
+});
 
 const ROW_SELECT = {
   id: true,
@@ -245,7 +260,8 @@ const ROW_SELECT = {
   projectId: true,
   formVersionId: true,
   beneficiaryId: true,
-  beneficiary: { select: { name: true } },
+  // the numbers and the mobile only say whether the profile has them; they never leave here
+  beneficiary: { select: { name: true, nid: true, birthReg: true, mobile: true } },
   applicantName: true,
   candidateBeneficiaryId: true,
   ownerVolunteerId: true,
@@ -281,7 +297,7 @@ const OWN_IDS_MAX = 10_000;
 
 type Person = {
   beneficiaryId: string | null;
-  identityKind: 'nid' | 'birth_reg' | null;
+  identityKind: 'nid' | 'birth_reg' | 'none' | null;
   number: string | null;
   answers: Answer[];
   /** The profile the number belongs to when the typed names did not match it (a sync record). */
@@ -292,7 +308,7 @@ const iso = (d: Date | null) => (d ? d.toISOString() : null);
 const definitionKeys = (definition: FormDefinition) =>
   definition.sections.flatMap((s) => s.fields.map((f) => f.fieldKey));
 const statusSchema = z.enum(APPLICATION_STATES);
-const identityKindSchema = z.enum(['nid', 'birth_reg']).nullable();
+const identityKindSchema = z.enum(['nid', 'birth_reg', 'none']).nullable();
 
 /**
  * The applications of the core cycle: a draft is made on the project's published application form
@@ -341,7 +357,14 @@ export class ApplicationsService {
       held.push('late_sync');
     const audience = this.audienceOf(viewer);
     const definition = await readDefinition(this.prisma, version.id, audience);
-    const { checked, chain } = await this.checked(definition, body.answers, audience, true);
+    const rules = identityRulesOf(project);
+    const { checked, chain } = await this.checked(
+      definition,
+      body.answers,
+      audience,
+      true,
+      optionalIdentityOf(rules, audience),
+    );
     const access = await this.access.load(actor);
     await this.gateLookup(viewer.principal, access, projectId, definition, checked.answers);
     try {
@@ -354,6 +377,14 @@ export class ApplicationsService {
           nameMatch: options.sync !== undefined,
         });
         if (person.candidate) held.push('existing_identity');
+        // an entry that waits for the office anyway says so when its person, for whom a
+        // verification would make a new profile, looks like a blocked one
+        const namesake =
+          held.length && !person.beneficiaryId && !person.candidate
+            ? await this.submission.blockedLookalike(tx, checked.standard, rules.document)
+            : null;
+        if (namesake) held.push(BLOCKED_NAME_MATCH);
+        const candidate = person.candidate ?? namesake;
         await this.assertOnePerProject(tx, projectId, person, null);
         await this.assertMobile(tx, actor, checked.standard, owner.ownerUserId);
         const id = uuidv7();
@@ -372,7 +403,7 @@ export class ApplicationsService {
           pendingPhotos: options.pendingPhotos ?? [],
           flags: held,
           clientCreatedAt: options.sync?.createdAt ?? null,
-          project: { ...project, approval: null },
+          project: guardedProject(project),
         });
         const status = held.length ? 'needs_verification' : 'draft';
         await assertUploadsOwn(tx, actor, null, person.answers);
@@ -383,7 +414,7 @@ export class ApplicationsService {
             projectId,
             formVersionId: version.id,
             beneficiaryId: person.beneficiaryId,
-            candidateBeneficiaryId: person.candidate ?? null,
+            candidateBeneficiaryId: candidate,
             // an entry held at its creation is named by what was typed until the office links it
             applicantName: held.length ? typedName(checked.standard) : null,
             identityKind: person.identityKind,
@@ -413,7 +444,7 @@ export class ApplicationsService {
             status,
             flags: held,
             beneficiaryId: person.beneficiaryId,
-            candidateBeneficiaryId: person.candidate ?? null,
+            candidateBeneficiaryId: candidate,
             ownerVolunteerId: owner.ownerVolunteerId,
           },
         });
@@ -492,6 +523,8 @@ export class ApplicationsService {
       body.answers,
       audience,
       row.status === 'draft',
+      // the rule of the project as it stands now, never one the request or the draft carries
+      optionalIdentityOf(identityRulesOf(row.project), audience),
       previous,
     );
     if (!row.beneficiaryId)
@@ -514,7 +547,15 @@ export class ApplicationsService {
         );
         const before = stored.filter((a) => keys.has(a.fieldKey));
         const kept = stored.filter((a) => !keys.has(a.fieldKey));
-        const person = await this.resolvePerson(tx, definition, checked.answers, row.beneficiaryId);
+        const person = await this.resolvePerson(
+          tx,
+          definition,
+          checked.answers,
+          row.beneficiaryId,
+          {
+            boundWithoutNumber: row.identityKind === 'none',
+          },
+        );
         await this.assertOnePerProject(tx, row.projectId, person, applicationId);
         const ownerUser = row.ownerVolunteerId
           ? (
@@ -615,6 +656,30 @@ export class ApplicationsService {
     flags: readonly string[],
     sentAt: Date,
   ): Promise<ApplicationRead> {
+    const held = await this.hold(viewer, applicationId, ifMatch, flags, sentAt);
+    // a caller's own flag always holds
+    if (!held) throw new ApiError('application.not_editable', 409);
+    return held;
+  }
+
+  /**
+   * The hold itself: the draft waits for an official's verification with the given flags, and
+   * with the blocked profile its new person looks like as its candidate. Whether the person was
+   * compared with the block list is read from the flag: a send abandoned for such a match hands
+   * the flag and the matched profile in, and every other entry is compared here. The send's
+   * permission and every guard of the submit move run first (the window only for a send that is
+   * not a late one), so a record waits only where it could have been sent. Null when there is
+   * nothing to hold it for, and nothing is written then.
+   */
+  private async hold(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    ifMatch: string | undefined,
+    flags: readonly string[],
+    sentAt: Date,
+    /** The blocked profile a send was abandoned for; given with its flag. */
+    matched?: string,
+  ): Promise<ApplicationRead | null> {
     const actor = viewer.principal.userId;
     const access = await this.access.load(actor);
     const row = await this.reachedRow(viewer.principal, access, applicationId, 'application.view');
@@ -635,8 +700,20 @@ export class ApplicationsService {
     const now = this.clock.now();
     // a draft made online carries no device time: the send's stands for it
     const madeAt = row.clientCreatedAt ?? sentAt;
-    const held = [...new Set([...row.flags, ...flags])];
-    await this.prisma.$transaction(async (tx) => {
+    const late = flags.includes('late_sync');
+    const done = await this.prisma.$transaction(async (tx) => {
+      // the entry waits without a profile: the lists name it by the typed name meanwhile
+      const { standard } = await standardOf(tx, applicationId, row.formVersionId);
+      const compared = [...row.flags, ...flags].includes(BLOCKED_NAME_MATCH);
+      const namesake = compared
+        ? (matched ?? null)
+        : row.beneficiaryId
+          ? null
+          : await this.submission.blockedLookalike(tx, standard, identityRulesOf(project).document);
+      const held = [
+        ...new Set([...row.flags, ...flags, ...(namesake ? [BLOCKED_NAME_MATCH] : [])]),
+      ];
+      if (!held.length) return false;
       await this.runGuards(
         tx,
         viewer.principal,
@@ -656,20 +733,19 @@ export class ApplicationsService {
           pendingPhotos: row.pendingPhotos,
           flags: held,
           clientCreatedAt: madeAt,
-          project: { ...project, approval: null },
+          project: guardedProject(project),
         },
-        (submit.guards ?? []).filter(isBuiltGuard).filter((g) => g !== 'deadline.open'),
+        // a late send was made inside the window; every other one is judged by the window now
+        (submit.guards ?? []).filter(isBuiltGuard).filter((g) => !late || g !== 'deadline.open'),
         'submitted',
       );
-      // the entry waits without a profile: the lists name it by the typed name meanwhile
-      const form = await readDefinition(tx, row.formVersionId, 'official');
-      const { standard } = split(form, await readAnswers(tx, applicationId, form));
       await tx.application.update({
         where: { id: applicationId },
         data: {
           status: 'needs_verification',
           applicantName: typedName(standard),
           flags: held,
+          ...(namesake ? { candidateBeneficiaryId: namesake } : {}),
           clientCreatedAt: madeAt,
           submittedAt: now,
           updatedAt: now,
@@ -681,10 +757,16 @@ export class ApplicationsService {
         entityType: 'application',
         entityId: applicationId,
         old: { status: row.status },
-        new: { status: 'needs_verification', flags: held, sentAt: sentAt.toISOString() },
+        new: {
+          status: 'needs_verification',
+          flags: held,
+          sentAt: sentAt.toISOString(),
+          ...(namesake ? { candidateBeneficiaryId: namesake } : {}),
+        },
       });
+      return true;
     });
-    return this.read(viewer, access, applicationId);
+    return done ? this.read(viewer, access, applicationId) : null;
   }
 
   /** A workflow action through the engine, which decides the permission, the scope and the guards. */
@@ -718,10 +800,90 @@ export class ApplicationsService {
         throw new ApiError('permission.denied', 403);
       }
     }
-    // a submission binds the person with the move (a submitted application always has one) and
-    // takes its number after it; a verification does the same once its own checks pass, and a
-    // public entry never rewrites a known person's contact data
+    try {
+      await this.move(viewer, applicationId, action, body, ifMatch);
+    } catch (error) {
+      if (!(error instanceof BlockedNamesakeMatch)) throw error;
+      // an official was about to make a profile for an entry that waits for another reason, and
+      // its person looks like a blocked one. Nothing of the move stays; the entry keeps waiting,
+      // now with the matched profile to compare, and the official is told to compare first
+      if (action === 'verify_create') {
+        await this.markBlockedMatch(viewer.principal, applicationId, error.beneficiaryId);
+        throw new ApiError('application.verify_blocked_match', 409);
+      }
+      // the send would have made a profile for a person who looks like a blocked one. Its
+      // transaction has rolled back, so nothing of it stays; the entry waits for an official
+      // instead, under the send's own permission and guards, with the matched profile to compare
+      const held = await this.hold(
+        viewer,
+        applicationId,
+        ifMatch ?? '',
+        [BLOCKED_NAME_MATCH],
+        this.clock.now(),
+        error.beneficiaryId,
+      );
+      // the flag always holds
+      if (!held) throw new ApiError('application.not_editable', 409);
+      return held;
+    }
+    const access = await this.access.load(viewer.principal.userId);
+    return this.read(viewer, access, applicationId);
+  }
+
+  /**
+   * An entry that waits for verification gains the flag of a person who looks like a blocked one
+   * and that profile as its candidate. The caller has passed the verification's own permission,
+   * scope and version check inside the move that found the match; an entry that left the queue
+   * meanwhile, or carries the flag already, is left as it is.
+   */
+  private async markBlockedMatch(
+    principal: Principal,
+    applicationId: string,
+    beneficiaryId: string,
+  ): Promise<void> {
+    const now = this.clock.now();
+    await this.prisma.$transaction(async (tx) => {
+      // one writer of the entry's flags at a time
+      const [row] = await tx.$queryRaw<{ status: string; flags: string[] }[]>`
+        SELECT status, flags FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
+      if (row?.status !== 'needs_verification' || row.flags.includes(BLOCKED_NAME_MATCH)) return;
+      const flags = [...row.flags, BLOCKED_NAME_MATCH];
+      await tx.application.update({
+        where: { id: applicationId },
+        data: {
+          flags,
+          candidateBeneficiaryId: beneficiaryId,
+          updatedAt: now,
+          updatedBy: principal.userId,
+        },
+      });
+      await this.audit.record(tx, {
+        action: 'application.blocked_match_found',
+        entityType: 'application',
+        entityId: applicationId,
+        old: { flags: row.flags },
+        new: { flags, candidateBeneficiaryId: beneficiaryId },
+      });
+    });
+  }
+
+  /**
+   * The move of an action in one transaction. A submission binds the person with the move (a
+   * submitted application always has one) and takes its number after it; a verification does the
+   * same once its own checks pass, and a public entry never rewrites a known person's contact
+   * data. A move whose new person looks like a blocked one raises `BlockedNamesakeMatch` out of
+   * the transaction: a send always, a verification unless the entry already carries the flag of
+   * that match, which says the official has seen it and decides it is another person.
+   */
+  private async move(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    action: ApplicationAction,
+    body: ApplicationActionBody,
+    ifMatch: string | undefined,
+  ): Promise<void> {
     const submit = action === 'submit';
+    const verifying = action === 'verify_link' || action === 'verify_create';
     try {
       await this.prisma.$transaction(async (tx) => {
         // the decisions of a project run one after another, as the pulls do, so the score order
@@ -748,12 +910,21 @@ export class ApplicationsService {
             : verifying
               ? {
                   beforeApply: async (t, app) => {
-                    const owner = await this.verified(t, viewer.principal, app.id, action, body);
+                    const { owner, linkBeneficiaryId } = await this.verified(
+                      t,
+                      viewer.principal,
+                      app.id,
+                      action,
+                      body,
+                    );
                     return {
                       ...(owner ? { ownerVolunteerId: owner.volunteerId } : {}),
                       ...(await this.submission.bindPerson(t, viewer.principal, app.id, {
                         writeContact: false,
                         ownerUserId: owner?.userId,
+                        linkBeneficiaryId,
+                        // the official has seen the match only where the entry shows it
+                        compared: (app.flags ?? []).includes(BLOCKED_NAME_MATCH),
                       })),
                     };
                   },
@@ -774,8 +945,6 @@ export class ApplicationsService {
         throw new ApiError('application.verify_identity_exists', 409);
       throw error;
     }
-    const access = await this.access.load(viewer.principal.userId);
-    return this.read(viewer, access, applicationId);
   }
 
   /** The steps of the application as the caller's audience may read them. */
@@ -945,7 +1114,7 @@ export class ApplicationsService {
     ]);
     const hasMore = rows.length > limit;
     return {
-      changed: rows.slice(0, limit).map((r) => this.summaryOf(r, now)),
+      changed: rows.slice(0, limit).map((r) => this.summaryOf(r, now, viewer)),
       ids: ids.map((r) => r.id),
       hasMore,
     };
@@ -983,7 +1152,7 @@ export class ApplicationsService {
       total: query.include === 'total' ? await tx.application.count({ where: filter }) : undefined,
     }));
     const { rows, meta } = buildPage(
-      fetched.map((r) => this.summaryOf(r, now)),
+      fetched.map((r) => this.summaryOf(r, now, viewer)),
       {
         limit: query.limit,
         sort,
@@ -1014,10 +1183,16 @@ export class ApplicationsService {
     query: ApplicationFilter,
   ): Promise<Prisma.ApplicationWhereInput> {
     if (await this.blockedCaller(this.prisma, viewer.principal)) return { id: { in: [] } };
-    return { AND: [base, applicationWhere(viewer.scope), this.filterOf(query)] };
+    return {
+      AND: [
+        base,
+        applicationWhere(viewer.scope),
+        this.filterOf(query, this.audienceOf(viewer) === 'official'),
+      ],
+    };
   }
 
-  private filterOf(query: ApplicationFilter): Prisma.ApplicationWhereInput {
+  private filterOf(query: ApplicationFilter, official: boolean): Prisma.ApplicationWhereInput {
     const and: Prisma.ApplicationWhereInput[] = [];
     const states = query.status
       ?.split(',')
@@ -1028,7 +1203,13 @@ export class ApplicationsService {
     if (query.districtId) and.push({ districtId: query.districtId });
     if (query.unionId) and.push({ unionId: query.unionId });
     if (query.ownerVolunteerId) and.push({ ownerVolunteerId: query.ownerVolunteerId });
-    if (query.flag) and.push({ flags: { has: query.flag } });
+    // a flag only the office reads selects nothing for anyone else, so its filter tells nothing
+    if (query.flag)
+      and.push(
+        official || !OFFICE_FLAGS.includes(query.flag)
+          ? { flags: { has: query.flag } }
+          : { id: { in: [] } },
+      );
     if (query.submittedFrom) and.push({ submittedAt: { gte: new Date(query.submittedFrom) } });
     if (query.submittedTo)
       and.push({ submittedAt: { lt: new Date(new Date(query.submittedTo).getTime() + DAY_MS) } });
@@ -1045,18 +1226,37 @@ export class ApplicationsService {
     return { AND: and };
   }
 
-  private summaryOf(r: Row, now: Date): ApplicationSummary {
+  /**
+   * The row of a list. What only the office may know stays with the office: the flag of a match
+   * with a blocked person; and whether the person's profile has an identity document or a mobile
+   * is told only to a viewer who holds the class of that fact (`sees` adds the volunteer who
+   * brought the application, on its record).
+   */
+  private summaryOf(
+    r: Row,
+    now: Date,
+    viewer: ApplicationViewer,
+    sees: { document?: boolean; contact?: boolean } = {},
+  ): ApplicationSummary {
+    const official = this.audienceOf(viewer) === 'official';
+    const document = sees.document ?? viewer.fieldClasses.has(BENEFICIARY_NID);
+    const contact = sees.contact ?? viewer.fieldClasses.has(BENEFICIARY_CONTACT);
     return {
       id: r.id,
       appNo: r.appNo,
       projectId: r.projectId,
       beneficiaryId: r.beneficiaryId,
       beneficiaryName: r.beneficiary?.name ?? r.applicantName ?? null,
+      hasDocument:
+        r.beneficiary && document
+          ? r.beneficiary.nid !== null || r.beneficiary.birthReg !== null
+          : null,
+      hasMobile: r.beneficiary && contact ? r.beneficiary.mobile !== null : null,
       ownerVolunteerId: r.ownerVolunteerId,
       status: statusSchema.parse(r.status),
       stage: r.stage,
       outcome: r.outcome,
-      flags: r.flags,
+      flags: official ? r.flags : r.flags.filter((f) => !OFFICE_FLAGS.includes(f)),
       totalScore: r.totalScore === null ? null : Number(r.totalScore),
       districtId: r.districtId,
       unionId: r.unionId,
@@ -1076,6 +1276,7 @@ export class ApplicationsService {
     raw: readonly unknown[],
     audience: Audience,
     draft: boolean,
+    optionalIdentity: OptionalIdentity,
     previous: readonly Answer[] = [],
   ) {
     const today = isoDateInDhaka(this.clock.now());
@@ -1084,6 +1285,7 @@ export class ApplicationsService {
       audience,
       today,
       draft,
+      optionalIdentity,
       previous,
       ...(await nisabOption(this.nisab, today)),
     });
@@ -1137,8 +1339,7 @@ export class ApplicationsService {
     definition: FormDefinition,
     answers: Answer[],
   ): Promise<void> {
-    const field = fieldByColumn(definition, IDENTITY_COLUMN);
-    const number = field ? textOf(answers, field.fieldKey) : null;
+    const number = identityNumberIn(definition, answers);
     if (!number || !IDENTITY_NUMBER.test(number)) return;
     const permission = 'beneficiary.lookup';
     if (!holdsPermission(permission, access.grants)) {
@@ -1217,21 +1418,39 @@ export class ApplicationsService {
    * The person behind the number in the identity answer: a live profile binds the application and
    * locks the identity answers to its values; a blocked person is refused; no profile leaves the
    * number in the answer for the submission to create one. An application already bound keeps its
-   * person: the number of its answer cannot name another.
+   * person: the number of its answer cannot name another, and one bound without a number (a
+   * person without a document) stays without one, with the names its profile holds.
    */
   private async resolvePerson(
     tx: Tx,
     definition: FormDefinition,
     answers: Answer[],
     boundTo: string | null = null,
-    options: { nameMatch?: boolean } = {},
+    options: { nameMatch?: boolean; boundWithoutNumber?: boolean } = {},
   ): Promise<Person> {
     const field = fieldByColumn(definition, IDENTITY_COLUMN);
-    const number = field ? textOf(answers, field.fieldKey) : null;
+    const number = identityNumberIn(definition, answers);
     const locked = (path: string) =>
       new ApiError('validation.failed', 422, undefined, [
         { path, code: 'beneficiary.locked_field' },
       ]);
+    if (boundTo && options.boundWithoutNumber) {
+      // a number is added to such a profile by an official who compared the two, never by an edit
+      if (number) throw locked(field!.fieldKey);
+      const profile = await tx.beneficiary.findUniqueOrThrow({
+        where: { id: boundTo },
+        select: { name: true, fatherOrHusbandName: true },
+      });
+      return {
+        beneficiaryId: boundTo,
+        identityKind: 'none',
+        number: null,
+        answers: lockedTo(definition, answers, {
+          name: profile.name,
+          father_or_husband_name: profile.fatherOrHusbandName,
+        }),
+      };
+    }
     if (!number) {
       if (boundTo) throw locked(field!.fieldKey);
       return { beneficiaryId: null, identityKind: null, number: null, answers };
@@ -1269,29 +1488,16 @@ export class ApplicationsService {
       )
         return { beneficiaryId: null, identityKind: kind, number, answers, candidate: live };
     }
-    const values: Record<(typeof LOCKED_COLUMNS)[number], string> = {
-      // the number the volunteer typed: a birth registration never turns into the profile's NID
-      [IDENTITY_COLUMN]: number,
-      name: profile.name,
-      father_or_husband_name: profile.fatherOrHusbandName,
-    };
-    const lockedKeys = new Map(
-      LOCKED_COLUMNS.flatMap((column) => {
-        const f = fieldByColumn(definition, column);
-        return f ? [[f.fieldKey, values[column]] as const] : [];
-      }),
-    );
-    const rest = answers.filter((a) => !lockedKeys.has(a.fieldKey));
-    const own = [...lockedKeys].map(([fieldKey, v]) => ({
-      fieldKey,
-      repeatIndex: 0,
-      value: { t: 'short_text' as const, v },
-    }));
     return {
       beneficiaryId: live,
       identityKind: profile.nid ? 'nid' : 'birth_reg',
-      number: values[IDENTITY_COLUMN],
-      answers: [...rest, ...own],
+      number,
+      answers: lockedTo(definition, answers, {
+        // the number the volunteer typed: a birth registration never turns into the profile's NID
+        [IDENTITY_COLUMN]: number,
+        name: profile.name,
+        father_or_husband_name: profile.fatherOrHusbandName,
+      }),
     };
   }
 
@@ -1488,10 +1694,12 @@ export class ApplicationsService {
 
   /**
    * The checks of a verification, run once the engine has checked the caller: a link names the
-   * live profile behind the entry's identity number, one the caller's identity scope reaches; a
-   * new profile is made only when no profile holds the number; a chosen owner is an active,
-   * unblocked volunteer of the project who accepted its rules and is under its limit (the limit
-   * guard of the move ran before the owner was known), else the application stays the office's.
+   * live profile behind the entry's identity number, or, for an entry without a number, the
+   * profile the entry waits with as its candidate; either way one the caller's identity scope
+   * reaches; a new profile is made only when no profile holds the number; a chosen owner is an
+   * active, unblocked volunteer of the project who accepted its rules and is under its limit (the
+   * limit guard of the move ran before the owner was known), else the application stays the
+   * office's. Answers the owner and, for a link without a number, the profile to bind.
    */
   private async verified(
     tx: Tx,
@@ -1499,21 +1707,27 @@ export class ApplicationsService {
     applicationId: string,
     action: 'verify_link' | 'verify_create',
     body: ApplicationActionBody,
-  ): Promise<{ volunteerId: string; userId: string } | null> {
-    const holder = await this.submission.identityHolder(tx, applicationId);
+  ): Promise<{
+    owner: { volunteerId: string; userId: string } | null;
+    linkBeneficiaryId?: string;
+  }> {
+    const { number, holder } = await this.submission.identityHolder(tx, applicationId);
+    let linkBeneficiaryId: string | undefined;
     if (action === 'verify_link') {
-      if (!holder)
+      const target = number ? holder : await this.candidateOf(tx, applicationId);
+      if (!target)
         throw new ApiError('validation.failed', 422, undefined, [
           { path: 'linkBeneficiaryId', code: 'application.verify_no_profile' },
         ]);
-      if (!(await this.identity.seesHolder(tx, principal, holder)))
+      if (!(await this.identity.seesHolder(tx, principal, target)))
         throw new ApiError('permission.not_found', 404);
-      if ((await this.identity.liveOf(tx, body.linkBeneficiaryId!)) !== holder)
+      if ((await this.identity.liveOf(tx, body.linkBeneficiaryId!)) !== target)
         throw new ApiError('validation.failed', 422, undefined, [
           { path: 'linkBeneficiaryId', code: 'application.verify_other_person' },
         ]);
+      if (!number) linkBeneficiaryId = target;
     } else if (holder) throw new ApiError('application.verify_identity_exists', 409);
-    if (!body.ownerVolunteerId) return null;
+    if (!body.ownerVolunteerId) return { owner: null, linkBeneficiaryId };
     const { projectId, project } = await tx.application.findUniqueOrThrow({
       where: { id: applicationId },
       select: { projectId: true, project: { select: { perVolunteerLimit: true } } },
@@ -1544,7 +1758,19 @@ export class ApplicationsService {
       if (counts(projectId, body.ownerVolunteerId) >= project.perVolunteerLimit)
         throw unfit('application.verify_owner_full');
     }
-    return { volunteerId: body.ownerVolunteerId, userId: assignment.volunteer.userId };
+    return {
+      owner: { volunteerId: body.ownerVolunteerId, userId: assignment.volunteer.userId },
+      linkBeneficiaryId,
+    };
+  }
+
+  /** The live profile an entry waits with as its candidate, or null. */
+  private async candidateOf(tx: Tx, applicationId: string): Promise<string | null> {
+    const row = await tx.application.findUniqueOrThrow({
+      where: { id: applicationId },
+      select: { candidateBeneficiaryId: true },
+    });
+    return row.candidateBeneficiaryId ? this.identity.liveOf(tx, row.candidateBeneficiaryId) : null;
   }
 
   /** The record as the caller sees it. */
@@ -1575,26 +1801,28 @@ export class ApplicationsService {
     // read the application without the person's identity number and mobile unless their role holds
     // those classes (docs/BUSINESS_RULES.md, field-level protection); the volunteer who brings it
     // typed them and reads them.
-    const hidden = new Set<string>();
-    if (!mine) {
-      const withheld: [string, string][] = [
-        [IDENTITY_COLUMN, BENEFICIARY_NID],
-        ['mobile', BENEFICIARY_CONTACT],
-      ];
-      for (const [column, fieldClass] of withheld) {
-        const field = fieldByColumn(definition, column);
-        if (field && !viewer.fieldClasses.has(fieldClass)) hidden.add(field.fieldKey);
-      }
-    }
+    // whose number it is hides with the number, and every question of such a column hides
+    const hidden = mine ? new Set<string>() : withheldFields(definition, viewer.fieldClasses);
     const answers = read.filter((a) => !hidden.has(a.fieldKey));
+    // the volunteer who brings the application typed the number and the mobile, or left them out
+    const seesDocument = mine || viewer.fieldClasses.has(BENEFICIARY_NID);
+    const seesContact = mine || viewer.fieldClasses.has(BENEFICIARY_CONTACT);
+    const identityKind = identityKindSchema.parse(row.identityKind);
+    // the profile a person without a document was compared with is the office's to know
+    const blockedMatch = row.flags.includes(BLOCKED_NAME_MATCH);
     return {
       application: {
-        ...this.summaryOf(row, this.clock.now()),
+        ...this.summaryOf(row, this.clock.now(), viewer, {
+          document: seesDocument,
+          contact: seesContact,
+        }),
         formVersionId: row.formVersionId,
-        candidateBeneficiaryId: row.candidateBeneficiaryId,
+        candidateBeneficiaryId:
+          audience === 'official' || !blockedMatch ? row.candidateBeneficiaryId : null,
         createdByUserId: row.createdByUserId,
         clientCreatedAt: iso(row.clientCreatedAt),
-        identityKind: identityKindSchema.parse(row.identityKind),
+        // that an application carries no document is told like the document itself
+        identityKind: identityKind === 'none' && !seesDocument ? null : identityKind,
         // the message for the volunteer reaches the one who brings it and the office, never the
         // other volunteers of the project
         rejectionMessage: audience === 'official' || mine ? row.rejectionMessage : null,
@@ -1707,6 +1935,32 @@ export class ApplicationsService {
     }
     return actions;
   }
+}
+
+/** The flags only the office reads: a volunteer neither receives them nor filters by them. */
+const OFFICE_FLAGS: readonly string[] = [BLOCKED_NAME_MATCH];
+
+/** The answers with the questions of these identity columns set to the profile's own values. */
+function lockedTo(
+  definition: FormDefinition,
+  answers: Answer[],
+  values: Partial<Record<(typeof LOCKED_COLUMNS)[number], string>>,
+): Answer[] {
+  const lockedKeys = new Map(
+    LOCKED_COLUMNS.flatMap((column) => {
+      const f = fieldByColumn(definition, column);
+      // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
+      const value = values[column];
+      return f && value !== undefined ? [[f.fieldKey, value] as const] : [];
+    }),
+  );
+  const rest = answers.filter((a) => !lockedKeys.has(a.fieldKey));
+  const own = [...lockedKeys].map(([fieldKey, v]) => ({
+    fieldKey,
+    repeatIndex: 0,
+    value: { t: 'short_text' as const, v },
+  }));
+  return [...rest, ...own];
 }
 
 /**

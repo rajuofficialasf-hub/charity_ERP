@@ -156,6 +156,53 @@ describe('the rows of an export', () => {
     }
   });
 
+  it('print the words of a missing mobile and a missing document, never a number or an empty word, and only where the classes reach', async () => {
+    const name = `পরিচয়পত্র ছাড়া ${randomUUID().slice(0, 8)}`;
+    const inside = await f.beneficiary(h.db, world.dhaka, { name, nid: null, mobile: null });
+    const outside = await f.beneficiary(h.db, world.rangpur, { name, nid: null, mobile: null });
+    const birthOnly = await f.beneficiary(h.db, world.dhaka, {
+      name,
+      nid: null,
+      birth_reg: '20261112000000017',
+    });
+    for (const [locale, noDocument, throughVolunteer] of [
+      ['bn', 'পরিচয়পত্র নেই', 'স্বেচ্ছাসেবকের মাধ্যমে যোগাযোগ'],
+      ['en', 'No identity document', 'Contact through the volunteer'],
+    ] as const) {
+      const frozen = await rows().freeze(
+        await principalOf(h.db, world.users.rpmDhaka),
+        { kind: 'beneficiaries', filters: { q: name } },
+        locale,
+      );
+      const exported = new Map((await readAll(frozen)).map((r) => [r.id, r.cells]));
+      expect(exported.get(inside)).toMatchObject({
+        mobile: throughVolunteer,
+        nid: noDocument,
+        birth_reg: noDocument,
+      });
+      // outside the region the identity cells are gone, words and all; the contact stays
+      expect(exported.get(outside)).toMatchObject({ mobile: throughVolunteer });
+      expect(exported.get(outside)).not.toHaveProperty('nid');
+      expect(exported.get(outside)).not.toHaveProperty('birth_reg');
+      // a person with one of the two numbers leaves the other cell empty
+      expect(exported.get(birthOnly)).toMatchObject({
+        nid: null,
+        birth_reg: '20261112000000017',
+        mobile: expect.stringMatching(/^01\d{9}$/),
+      });
+      expect(JSON.stringify([...exported.values()])).not.toContain('"null"');
+    }
+    // a role whose export carries no identity class gets no word about the document either
+    const executive = await readAll(
+      await freeze(world.users.executive, { kind: 'beneficiaries', filters: { q: name } }),
+    );
+    expect(executive.length).toBeGreaterThanOrEqual(3);
+    for (const row of executive) {
+      expect(row.cells).not.toHaveProperty('nid');
+      expect(JSON.stringify(row.cells)).not.toContain('পরিচয়পত্র নেই');
+    }
+  });
+
   it('carry an RPM’s NIDs only of the people their region reaches, on the nationwide list', async () => {
     const exported = await readAll(
       await freeze(world.users.rpmDhaka, { kind: 'beneficiaries', filters: {} }),
@@ -217,6 +264,30 @@ describe('the rows of an export', () => {
     const byExecutive = await readAll(await freeze(world.users.executive, query));
     expect(byExecutive.map((r) => r.id)).toEqual(byRpm.map((r) => r.id));
     for (const row of byExecutive) expect(row.cells).not.toHaveProperty('score');
+  });
+
+  it('carry the contact class on an application’s row only for a requester who is shown the mobile, so a contact answer is read beside no other row', async () => {
+    const query = { kind: 'applications' as const, filters: {}, projectId: world.a1.id };
+    const office = await rows().batch(await freeze(world.users.rpmDhaka, query), null, 100);
+    expect(office.rows.length).toBeGreaterThanOrEqual(4);
+    for (const row of office.rows) expect(row.classes).toContain('beneficiary.contact');
+    // the Procurement Team is not shown a person's contact; the permission panel can give a
+    // member the application list of a project, and the classes stay those of the role
+    const member = await account(h.db, { role: 'procurement_team' });
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+       VALUES ($1, $2, 'application.view', 'grant', 'PROJECT', $3, 'Test override', $4)`,
+      [randomUUID(), member.id, world.a1.id, world.users.head],
+    );
+    const frozen = await freeze(member.id, query);
+    expect(frozen.classes).not.toContain('beneficiary.contact');
+    const theirs = await rows().batch(frozen, null, 100);
+    expect(theirs.rows.length).toBeGreaterThanOrEqual(4);
+    for (const row of theirs.rows) {
+      expect(row.classes).not.toContain('beneficiary.contact');
+      expect(row.classes).not.toContain('beneficiary.nid');
+      expect(row.cells).toHaveProperty('app_no');
+    }
   });
 
   it('need the export permission beside the list’s own', async () => {

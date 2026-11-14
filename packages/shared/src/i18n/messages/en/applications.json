@@ -7,6 +7,8 @@
     "identity_help": "First look the person up by NID or birth registration number. A known person's name and identity fill in by themselves.",
     "start_known": "Fill in the form for this person",
     "start_new": "Fill in the form for a new person",
+    "no_document_help": "This project takes an application without an identity document. If there is a number, enter it above and search.",
+    "start_without_document": "No identity document: start with the name",
     "blocked": "This person is blocklisted, so no new application can be made.",
     "already_applied": "This person already has an application in this project.",
     "own_mobile": "Your own mobile number cannot be the beneficiary's.",
@@ -175,7 +177,8 @@
         "stale_form_version": "Taken on a phone with an older version of the form; check whether the new questions matter.",
         "existing_identity": "A profile with this number already exists.",
         "identity_blocked": "The profile with this number is blocklisted.",
-        "identity_repeated": "The same number or mobile came through this link again within a day."
+        "identity_repeated": "The same number or mobile came through this link again within a day.",
+        "blocked_name_match": "The name, the father's or husband's name and the village match a blocked person. Compare before you decide."
       },
       "family": "Possibly the same family in this project: {name} ({benNo}) — {rule}",
       "rule": {
@@ -234,7 +237,9 @@
       "owner_help": "Without one the application stays the office's; a transfer can give it a volunteer later.",
       "confirm_link": "Link",
       "confirm_create": "Create",
-      "title": "Verify the entry"
+      "title": "Verify the entry",
+      "blocked_profile": "Open the blocked person's profile",
+      "create_other_help": "If this is someone else, a new profile is made from the entry. If it is the same person, refuse the entry."
     },
     "queue": {
       "label": "Which applications to show",

@@ -311,6 +311,32 @@ describe('reading a referral', () => {
     const text = JSON.stringify(data);
     expect(text).not.toContain(nid.rows[0]!.nid);
     expect(text).not.toMatch(/"(nid|birthReg|score|scoreItems|rating|category)"/);
+    // a person reached through their volunteer, without a document: no number instead of an
+    // empty one, and nothing about the document
+    await h.db.query(
+      `UPDATE beneficiaries SET mobile = NULL, nid = NULL
+        WHERE id = (SELECT beneficiary_id FROM applications WHERE id = $1)`,
+      [id],
+    );
+    const light = await at(await as(media.director), 'get', `/media-referrals/${referralId}`);
+    expect(light.status, JSON.stringify(light.body)).toBe(200);
+    expect(light.body.data.beneficiary.mobile).toBeNull();
+    expect(JSON.stringify(light.body.data)).not.toMatch(/"(hasDocument|nid|birthReg)"/);
+  });
+
+  it('answers null for the mobile of a person without one, never an empty number', async () => {
+    const id = await application();
+    await h.db.query(
+      `UPDATE beneficiaries SET mobile = NULL
+        WHERE id = (SELECT beneficiary_id FROM applications WHERE id = $1)`,
+      [id],
+    );
+    const referralId = await referred(id);
+    for (const reader of [media.director, world.users.rpmDhaka]) {
+      const res = await at(await as(reader), 'get', `/media-referrals/${referralId}`);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(res.body.data.beneficiary).toHaveProperty('mobile', null);
+    }
   });
 
   it('is open to the directors and the referrers of the region or program, and 404 for everyone else', async () => {

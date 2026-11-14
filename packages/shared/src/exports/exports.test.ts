@@ -79,6 +79,9 @@ describe('the column catalogues', () => {
     expect(classOf('beneficiaries', 'nid')).toBe('beneficiary.nid');
     expect(classOf('beneficiaries', 'birth_reg')).toBe('beneficiary.nid');
     expect(classOf('beneficiaries', 'mobile')).toBe('beneficiary.contact');
+    // whose number it is leaves a file only where the number does
+    expect(classOf('beneficiaries', 'mobile_owner')).toBe('beneficiary.contact');
+    expect(classOf('beneficiaries', 'mobile_owner_name')).toBe('beneficiary.contact');
     expect(classOf('applications', 'score')).toBe('application.official_section');
     expect(classOf('beneficiaries', 'name')).toBeNull();
   });
