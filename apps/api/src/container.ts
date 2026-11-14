@@ -61,6 +61,8 @@ import { BeneficiaryCorrectionsService } from './services/beneficiary-correction
 import { BeneficiaryFamilyService } from './services/beneficiary-family.js';
 import { BeneficiaryMergeCandidatesService } from './services/beneficiary-merge-candidates.js';
 import { BeneficiaryMergesService } from './services/beneficiary-merges.js';
+import { MatchKeysService } from './services/match-keys.js';
+import { NameKeysJob } from './jobs/name-keys.js';
 import { NotificationDelivery } from './notifications/delivery.js';
 import { NotificationService } from './notifications/service.js';
 import { RecipientResolver } from './notifications/recipients.js';
@@ -172,6 +174,8 @@ export interface Container {
   beneficiaryFamily: BeneficiaryFamilyService;
   beneficiaryMergeCandidates: BeneficiaryMergeCandidatesService;
   beneficiaryMerges: BeneficiaryMergesService;
+  matchKeys: MatchKeysService;
+  nameKeys: NameKeysJob;
   programs: ProgramsService;
   settings: SettingsService;
   referenceLists: ReferenceListsService;
@@ -328,9 +332,18 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     o.beneficiaryMergeCandidates ??
     new BeneficiaryMergeCandidatesService(env, prisma, access, audit);
   const beneficiaryFamily = o.beneficiaryFamily ?? new BeneficiaryFamilyService();
+  // the stored name keys of every write of a name or a village, and the job that repairs them
+  const matchKeys = o.matchKeys ?? new MatchKeysService();
   const beneficiaryIdentity =
     o.beneficiaryIdentity ??
-    new BeneficiaryIdentityService(prisma, access, audit, clock, beneficiaryMergeCandidates);
+    new BeneficiaryIdentityService(
+      prisma,
+      access,
+      audit,
+      clock,
+      beneficiaryMergeCandidates,
+      matchKeys,
+    );
   const beneficiaryContact =
     o.beneficiaryContact ??
     new BeneficiaryContactService(
@@ -339,6 +352,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       audit,
       beneficiaryIdentity,
       beneficiaryMergeCandidates,
+      matchKeys,
     );
   // the field unlock of approved applications; the record lists its waiting steps
   const unlocks =
@@ -467,7 +481,14 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     beneficiaryMergeCandidates,
     beneficiaryMerges:
       o.beneficiaryMerges ??
-      new BeneficiaryMergesService(prisma, access, audit, clock, beneficiaryMergeCandidates),
+      new BeneficiaryMergesService(
+        prisma,
+        access,
+        audit,
+        clock,
+        beneficiaryMergeCandidates,
+        matchKeys,
+      ),
     beneficiaryCorrections:
       o.beneficiaryCorrections ??
       new BeneficiaryCorrectionsService(
@@ -476,7 +497,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         audit,
         beneficiaryIdentity,
         beneficiaryMergeCandidates,
+        matchKeys,
       ),
+    matchKeys,
+    nameKeys: o.nameKeys ?? new NameKeysJob(prisma, matchKeys, logger),
     programs: o.programs ?? new ProgramsService(prisma, audit),
     settings,
     referenceLists,

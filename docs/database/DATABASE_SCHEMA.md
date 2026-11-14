@@ -693,9 +693,15 @@ Constraints: UNIQUE (form_field_id, code).
 | status | text | no | 'active' | L-beneficiary-status |
 | is_blocked | boolean | no | false | mirror of an active blocklist row (maintained by trigger) |
 | merged_into_id | uuid | yes | — | FK beneficiaries; retired profiles point to the kept one |
+| name_key | text | yes | — | the name key of `name` (D-174, BR-301): `matchKey` of `@css/shared/beneficiaries`, computed in TypeScript and stored; null until computed, and for a name with no letter |
+| guardian_key | text | yes | — | the name key of `father_or_husband_name` |
+| village_key | text | yes | — | the key of `village`: `placeKey`, the same as a name's but no title is dropped (a village may be called হাজী পাড়া) |
+| match_keys_version | integer | yes | — | the version of the spelling variants list (`name_variants_version`) the three keys were computed with; null until computed |
 | [A] | | | | |
 
 Constraints: UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. The database asks for no document and no mobile (D-172, BR-298, BR-299; migration `20261112160000_beneficiary_optional_identity` dropped the CHECK `beneficiaries_identity_check` and the NOT NULL of `mobile`): a profile without a document has neither number, and whether an application must carry a document or a mobile is its project's rule, held by the service (BR-001, BR-297). A number that is given keeps its format CHECK and its uniqueness; every comparison of a mobile (the format CHECK, the own-mobile triggers of section 18, the duplicate and family queries) uses `=` or `~`, which is never true for NULL, so a missing number is refused by none of them and pairs with nobody. Rollback of that migration (its `down.sql`): on a database where no profile lacks a document or a mobile and no application has the kind `none`, the earlier schema returns exactly; where such rows exist they stay, `mobile` stays nullable in its type (PostgreSQL cannot set NOT NULL on a column that holds a NULL) and the three rules return as CHECK constraints NOT VALID (`beneficiaries_mobile_required`, `beneficiaries_identity_check`, `applications_identity_kind_check`), which hold every new and every changed row and leave the existing ones. A kept row is therefore frozen: PostgreSQL holds a NOT VALID check against every new version of a row, so such a profile or application refuses every update (a block, a merge, an address change, a move to another state) until it is given its document and its mobile (the application: a kind of `nid` or `birth_reg`) or the check that holds it is dropped by hand; the script ends with a WARNING that counts the kept rows. It must be run in one transaction (`psql --single-transaction -f down.sql`), can be run again, and applying the migration again removes the stand-in checks. Adding the stored generated column `mobile_owner_list` rewrites the table once. Indexes: (mobile); (mobile_owner_code); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL; (id) WHERE merged_into_id IS NULL and (id) WHERE is_blocked AND merged_into_id IS NULL (the counts and the blocklist filter of the beneficiary tab, T1.10; docs/testing/PERFORMANCE.md). The duplicate suggestions (T2.2, D-113) read `beneficiaries_dup_name_father_mobile_idx` on (person_name_key(name), person_name_key(father_or_husband_name), mobile) and `beneficiaries_dup_name_dob_union_idx` on (person_name_key(name), dob, union_id), both WHERE merged_into_id IS NULL (the second also needs a dob); `person_name_key(text)` is an immutable SQL function (trimmed, inner spaces collapsed, lower case) that the queries use too, so a query and its index agree.
+
+The name keys (D-174, BR-301; migration `20261114120000_beneficiary_name_keys`): two spellings of one person's name compare equal through a key made from the name as written, which is always kept and shown. The key drops a known title only where it stands (at the start, any number in a row: মোঃ, মো., মোহাম্মদ, মুহাম্মদ, মোছাঃ, মোসাঃ, মোসাম্মৎ, হাজী, আলহাজ্ব, শ্রী, শ্রীমতি and their Latin forms; at the end: বেগম, খাতুন), keeps every word that can be a family name (শেখ, মুন্সী), removes spaces and punctuation, folds Unicode NFC, invisible joiners and Latin letter case, makes no letters equal (শ, ষ and স stay apart), and maps each word through the spelling variants of `name_variants`. The keys are computed once, in TypeScript, and stored: an editable list cannot feed an immutable SQL function, so there is no SQL twin and no expression index (the older `person_name_key` stays for the search and the three duplicate rules until the pair rules move to these columns). Every write of a name, a father's or husband's name or a village stores the keys with `match_keys_version` in the same transaction (`services/match-keys.ts`: a new profile, a decided correction of a name, a contact change of the village, a merge and its revert for both profiles). The migration computes nothing: on the field's table (2,000,000 rows in the measurement data set) that would hold the migration for minutes, so the columns arrive empty and the key job `jobs/name-keys.ts` on the `name-keys` queue fills them: queued when the worker starts and finds a row without current keys, queued in the transaction that raises the list's version, and nightly at 02:30 Dhaka time. It walks each table by id in batches of 2,000 rows, each in its own transaction, writes a row only while its keys are older than the list and its names and village are still the ones the keys were computed from (so it never overwrites a newer write, and a second run writes nothing), and marks its transactions with `css.match_keys_only = on`: the update-stamp trigger of the two tables (`set_updated_at_unless_match_keys`) then keeps `updated_at` as it was, so a key write moves no profile's "last changed" and makes no official's open edit stale. A write that read the version just before the list changed stores the older version; the job queued by the change or the nightly one computes that row again. Indexes for the pair queries: (union_id, name_key, guardian_key) and (union_id, village_key), both WHERE merged_into_id IS NULL. The rollback (`down.sql`) drops the columns, the two tables, the indexes and the trigger function and gives both tables the plain `set_updated_at` trigger again; the keys are derived, so nothing a person wrote is lost.
 
 ### beneficiary_family_members
 | Column | Type | Null | Default | Comment |
@@ -711,9 +717,11 @@ Constraints: UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_
 | monthly_income | numeric(14,2) | yes | — | — |
 | is_earner | boolean | no | false | B3 earners repeat group; from the group's `repeat.earner` setting, true unless set (D-124) |
 | active | boolean | no | true | left the household: false |
+| name_key | text | yes | — | the name key of `name` (see beneficiaries); null until computed |
+| match_keys_version | integer | yes | — | the version of the variants list it was computed with |
 | [A] | | | | |
 
-Index: (beneficiary_id) WHERE active.
+Indexes: (beneficiary_id) WHERE active; (name_key). The key job fills and recomputes `name_key` as it does the profiles' keys.
 
 ### profile_merges
 | Column | Type | Null | Default | Comment |
@@ -771,6 +779,26 @@ A suggested duplicate pair an official marked as not the same person (T2.2, D-11
 | computed_at | timestamptz | no | now() | — |
 
 The suggested duplicate pairs, kept instead of computed per request (T2.2, D-117): the write that changes a profile recomputes its own pairs, and the nightly job on the `duplicates` queue recomputes all of them and marks the pairs it did not find again as inactive. Derived data: rows are updated, never deleted, and the down migration drops the table (the job rebuilds it). Indexes (high_id) and (low_id, high_id) WHERE active.
+
+### name_variants
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| variant | text | no | — | one spelling of a word; UNIQUE; CHECK 1 to 100 characters and no white space |
+| canonical | text | no | — | the spelling of its group the keys use; the group's own spelling has a row pointing to itself; same CHECK |
+| [A] | | | | |
+
+The known spelling variants of names (D-174): only the words of one group are made equal by the name keys. The list starts with আক্তার, আকতার, আখতার; হোসেন, হোসাইন, হুসাইন; রহিমা, রাহিমা; রহমান, রাহমান (the base seed, which raises the version when it adds a spelling); the Department Head and the Monitoring Team extend it in the settings. Indexes (canonical), (created_by), (updated_by).
+
+### name_variants_version
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | smallint | no | 1 | PK; CHECK id = 1: one row, written by the migration |
+| version | integer | no | 1 | CHECK > 0; raised in the transaction of every change of `name_variants` (`raiseVariantsVersion`), which also queues the key job |
+| updated_at | timestamptz | no | now() | — |
+| updated_by | uuid | yes | — | FK users |
+
+The version of the spelling variants list, a table of its own rather than a key of `settings`: the raise is one atomic `version + 1` inside the list's own transaction, a stored value never falls back to a default, and it goes with the list in the same rollback.
 
 ### media_consents
 | Column | Type | Null | Default | Comment |
@@ -1810,6 +1838,8 @@ Rationale for triggers rather than a CHECK: the two values live in different tab
 | Mobile lookup and duplicate warning | (mobile) | beneficiaries |
 | Duplicate candidates and name search | GIN trigram (name), (father_or_husband_name) — pg_trgm, PROPOSAL | beneficiaries |
 | Family duplicate warning (union + village) | (union_id, village) | beneficiaries |
+| Same person by name keys: name with father's or husband's name, and village, inside a union (D-174) | (union_id, name_key, guardian_key), (union_id, village_key), both WHERE merged_into_id IS NULL | beneficiaries |
+| Family member by name key | (name_key) | beneficiary_family_members |
 | Audit by entity | (entity_type, entity_id, created_at desc) per partition | audit_log |
 | Audit by person | (actor_user_id, created_at desc) per partition | audit_log |
 | Today's distribution / class / construction for a worker | (project_id, done_by, done_on) | activities |

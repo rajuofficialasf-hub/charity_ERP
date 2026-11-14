@@ -11,6 +11,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
+import type { MatchKeysService } from './match-keys.js';
 
 /** The column of each locked field. */
 const COLUMN = {
@@ -48,6 +49,7 @@ export class BeneficiaryCorrectionsService {
     private readonly audit: AuditWriter,
     private readonly identity: BeneficiaryIdentityService,
     private readonly candidates: BeneficiaryMergeCandidatesService,
+    private readonly matchKeys: MatchKeysService,
   ) {}
 
   private async live(tx: Tx, actor: Principal, scope: Scope, beneficiaryId: string) {
@@ -60,6 +62,15 @@ export class BeneficiaryCorrectionsService {
       throw new ApiError('permission.not_found', 404);
     }
     return b;
+  }
+
+  /** The name keys of a profile once one of its names reads `value`. */
+  private async keysWith(tx: Tx, id: string, column: string, value: string) {
+    const person = await tx.beneficiary.findUniqueOrThrow({
+      where: { id },
+      select: { name: true, fatherOrHusbandName: true, village: true },
+    });
+    return this.matchKeys.ofProfile(tx, { ...person, [column]: value });
   }
 
   /**
@@ -168,10 +179,15 @@ export class BeneficiaryCorrectionsService {
           found.newValue,
           'approval',
         );
+        // a corrected name gives the profile new name keys, stored with it
+        const named = field === 'name' || field === 'father_or_husband_name';
+        const keys = named
+          ? await this.keysWith(tx, found.beneficiaryId, column, found.newValue)
+          : {};
         try {
           await tx.beneficiary.update({
             where: { id: found.beneficiaryId },
-            data: { [column]: found.newValue, updatedBy: actor.userId },
+            data: { [column]: found.newValue, ...keys, updatedBy: actor.userId },
           });
         } catch (error) {
           // another profile took the number in between
@@ -179,8 +195,7 @@ export class BeneficiaryCorrectionsService {
           throw error;
         }
         // a corrected name changes which profiles look like the same person
-        if (field === 'name' || field === 'father_or_husband_name')
-          await this.candidates.refreshFor(tx, [found.beneficiaryId]);
+        if (named) await this.candidates.refreshFor(tx, [found.beneficiaryId]);
         await tx.fieldChange.create({
           data: {
             id: uuidv7(),

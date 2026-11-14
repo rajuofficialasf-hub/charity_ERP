@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
+import type { MatchKeysService } from './match-keys.js';
 
 /** A UUID may arrive in capitals; the pair map and the stored rows use lower case. */
 const lowerIds = (body: MergeRequest): MergeRequest => ({
@@ -99,6 +100,7 @@ export class BeneficiaryMergesService {
     private readonly audit: AuditWriter,
     private readonly clock: Clock,
     private readonly candidates: BeneficiaryMergeCandidatesService,
+    private readonly matchKeys: MatchKeysService,
   ) {}
 
   private notFound(actor: Principal, scope: Scope): never {
@@ -324,6 +326,8 @@ export class BeneficiaryMergesService {
       },
       select: VIEW,
     });
+    // both profiles compare by their stored keys again: the pairs below read them
+    await this.matchKeys.refreshProfiles(tx, [keptId, retiredId]);
     await this.candidates.refreshFor(tx, [keptId, retiredId]);
     await this.audit.record(tx, {
       action: 'beneficiary.merge',
@@ -477,6 +481,7 @@ export class BeneficiaryMergesService {
           },
           select: VIEW,
         });
+        await this.matchKeys.refreshProfiles(tx, [found.keptId, found.mergedId]);
         await this.candidates.refreshFor(tx, [found.keptId, found.mergedId]);
         await this.audit.record(tx, {
           action: 'beneficiary.merge_reverted',

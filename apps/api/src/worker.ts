@@ -20,6 +20,7 @@ async function main(): Promise<void> {
     uploadSweep: container.uploadSweep,
     storageStats: container.storageStats,
     mergeCandidates: container.beneficiaryMergeCandidates,
+    nameKeys: container.nameKeys,
     fileProcessor: container.fileProcessor,
     delivery: container.delivery,
     exportRunner: container.exportRunner,

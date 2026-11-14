@@ -102,6 +102,9 @@ model User {
   referenceListsCreatedBy              ReferenceList[]            @relation("reference_lists_created_by")
   referenceListsUpdatedBy              ReferenceList[]            @relation("reference_lists_updated_by")
   settingsUpdatedBy                    Setting[]                  @relation("settings_updated_by")
+  nameVariantsCreatedBy                NameVariant[]              @relation("name_variants_created_by")
+  nameVariantsUpdatedBy                NameVariant[]              @relation("name_variants_updated_by")
+  nameVariantsVersionUpdatedBy         NameVariantsVersion[]      @relation("name_variants_version_updated_by")
   holidayCalendarCreatedBy             HolidayCalendar[]          @relation("holiday_calendar_created_by")
   holidayCalendarUpdatedBy             HolidayCalendar[]          @relation("holiday_calendar_updated_by")
   nisabVersionsSetBy                   NisabVersion[]             @relation("nisab_versions_set_by")
@@ -630,6 +633,37 @@ model Setting {
 
   @@index([updatedBy], map: "settings_updated_by_idx")
   @@map("settings")
+}
+
+/// A known spelling of a word and its group's one spelling, by which the name keys make the two equal
+model NameVariant {
+  id           String   @id @db.Uuid
+  variant      String
+  canonical    String
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?  @map("created_by") @db.Uuid
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?  @map("updated_by") @db.Uuid
+  createdByRef User?    @relation("name_variants_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef User?    @relation("name_variants_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([variant], map: "name_variants_variant_key")
+  @@index([canonical], map: "name_variants_canonical_idx")
+  @@index([createdBy], map: "name_variants_created_by_idx")
+  @@index([updatedBy], map: "name_variants_updated_by_idx")
+  @@map("name_variants")
+}
+
+/// The one row holding the version of the variants list; raised with every change of the list
+model NameVariantsVersion {
+  id           Int      @id @default(1) @db.SmallInt
+  version      Int      @default(1)
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?  @map("updated_by") @db.Uuid
+  updatedByRef User?    @relation("name_variants_version_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([updatedBy], map: "name_variants_version_updated_by_idx")
+  @@map("name_variants_version")
 }
 
 model HolidayCalendar {
@@ -1186,6 +1220,12 @@ model Beneficiary {
   maritalStatusList                    String?                    @default("marital_status") @map("marital_status_list")
   educationList                        String?                    @default("education_level") @map("education_list")
   mobileOwnerList                      String?                    @default("mobile_owner") @map("mobile_owner_list")
+  /// the keys of the name, the father's or husband's name and the village (matchKey of @css/shared/beneficiaries)
+  nameKey                              String?                    @map("name_key")
+  guardianKey                          String?                    @map("guardian_key")
+  villageKey                           String?                    @map("village_key")
+  /// the version of the variants list the keys were computed with; null until computed
+  matchKeysVersion                     Int?                       @map("match_keys_version")
   gender                               ReferenceList?             @relation("beneficiaries_gender_code", fields: [genderList, genderCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   maritalStatus                        ReferenceList?             @relation("beneficiaries_marital_status_code", fields: [maritalStatusList, maritalStatusCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   education                            ReferenceList?             @relation("beneficiaries_education_code", fields: [educationList, educationCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
@@ -1236,6 +1276,8 @@ model Beneficiary {
   @@index([fatherOrHusbandName(ops: raw("gin_trgm_ops"))], type: Gin, map: "beneficiaries_father_or_husband_name_trgm_idx")
   @@index([id], where: raw("merged_into_id IS NULL"), map: "beneficiaries_live_id_idx")
   @@index([id], where: raw("is_blocked AND merged_into_id IS NULL"), map: "beneficiaries_blocked_idx")
+  @@index([unionId, nameKey, guardianKey], where: raw("merged_into_id IS NULL"), map: "beneficiaries_union_id_name_key_guardian_key_idx")
+  @@index([unionId, villageKey], where: raw("merged_into_id IS NULL"), map: "beneficiaries_union_id_village_key_idx")
   @@map("beneficiaries")
 }
 
@@ -1296,6 +1338,9 @@ model BeneficiaryFamilyMember {
   updatedBy                    String?            @map("updated_by") @db.Uuid
   relationshipList             String?            @default("relationship") @map("relationship_list")
   genderList                   String?            @default("gender") @map("gender_list")
+  /// the key of the member's name, and the version of the variants list it was computed with
+  nameKey                      String?            @map("name_key")
+  matchKeysVersion             Int?               @map("match_keys_version")
   beneficiary                  Beneficiary        @relation("beneficiary_family_members_beneficiary_id", fields: [beneficiaryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   relationship                 ReferenceList?     @relation("beneficiary_family_members_relationship_code", fields: [relationshipList, relationshipCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   gender                       ReferenceList?     @relation("beneficiary_family_members_gender_code", fields: [genderList, genderCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
@@ -1308,6 +1353,7 @@ model BeneficiaryFamilyMember {
   @@index([beneficiaryId], where: raw("active"), map: "beneficiary_family_members_beneficiary_id_idx")
   @@index([relationshipCode], map: "beneficiary_family_members_relationship_code_idx")
   @@index([genderCode], map: "beneficiary_family_members_gender_code_idx")
+  @@index([nameKey], map: "beneficiary_family_members_name_key_idx")
   @@index([createdBy], map: "beneficiary_family_members_created_by_idx")
   @@index([updatedBy], map: "beneficiary_family_members_updated_by_idx")
   @@map("beneficiary_family_members")

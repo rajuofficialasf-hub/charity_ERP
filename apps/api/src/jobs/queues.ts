@@ -26,6 +26,11 @@ export const QUEUES = {
    * reporting").
    */
   'storage-stats': { retryLimit: 3, retryDelay: 600, retryBackoff: false, expireInSeconds: 1800 },
+  /**
+   * The stored name keys of the beneficiaries: computed again in batches after a change of the
+   * spelling variants, at the worker's start when keys are missing, and nightly.
+   */
+  'name-keys': { retryLimit: 3, retryDelay: 600, retryBackoff: false, expireInSeconds: 3600 },
   /** Nightly recomputation of the suggested duplicate beneficiaries. */
   duplicates: { retryLimit: 3, retryDelay: 600, retryBackoff: false, expireInSeconds: 1800 },
   /** Priority score recomputation. */
