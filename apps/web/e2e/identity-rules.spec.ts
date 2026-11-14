@@ -7,7 +7,7 @@ import {
   type TestInfo,
 } from '@playwright/test';
 import { apiAs, isPhone, scan, signIn, switchLanguage } from './support/admin';
-import { consent, onDesk, savar, volunteerId } from './support/applications';
+import { act, consent, onDesk, savar, volunteerId } from './support/applications';
 import { digits, pickByLabel, sendToOffice } from './support/forms';
 import { dataSetArrives, goOffline, goOnline } from './support/offline';
 import { activeProject, choice, code, ERR, identityRulesOn, question } from './support/projects';
@@ -16,9 +16,11 @@ import { activeProject, choice, code, ERR, identityRulesOn, question } from './s
 // (docs/ui/SCREENS.md, "New application with NID lookup"; docs/testing/DEMO_ACCOUNTS.md): the PM
 // lets the identity document and the mobile stay empty in the project's setup; a volunteer brings
 // a person without a document and without a phone on a 360 px phone, with network and without it;
-// the office reads both on the list and on the person's profile; and once the PM asks the
-// document again, the start without it is gone and the number is asked. One project of this run,
-// volunteer 15 assigned and consenting through the API; the journeys run in order on it.
+// the office reads both on the list and on the person's profile; a second application for the
+// same person, in a second project, finds the first one by the name and lands on its profile; and
+// once the PM asks the document again, the start without it is gone and the number is asked. One
+// project of this run (and a second for the person's second application), volunteer 15 assigned
+// and consenting through the API; the journeys run in order on it.
 const PM = 'pm.err@example.org';
 const HEAD = 'head@example.org';
 const RPM = 'rpm.dhaka@example.org';
@@ -32,6 +34,11 @@ const THROUGH_THE_VOLUNTEER = 'না থাকলে স্বেচ্ছা�
 const HELP = 'এই প্রকল্পে পরিচয়পত্র না থাকলেও আবেদন নেওয়া যায়। নম্বর থাকলে উপরে লিখে খুঁজুন।';
 const START = 'পরিচয়পত্র নেই, নাম দিয়ে শুরু করুন';
 const NO_DOCUMENT = 'পরিচয়পত্র নেই';
+const BY_NAME = 'নাম দিয়ে খোঁজা';
+const NOBODY = 'এই নামে আগে কেউ নেই';
+const START_NEW = 'নতুন মানুষ হিসেবে শুরু করুন';
+const FOUND = 'এই নামে আগে আছেন';
+const OFFLINE_LINE = 'সংযোগ নেই, তাই আগের নাম মেলানো যাচ্ছে না; অফিস পরে মিলিয়ে দেখবে।';
 const CONTACT_THROUGH_VOLUNTEER = 'স্বেচ্ছাসেবকের মাধ্যমে যোগাযোগ';
 
 const ddmmyyyy = (d: Date) =>
@@ -172,6 +179,24 @@ async function pmChooses(browser: Browser, id: string, picks: [group: string, op
   });
 }
 
+/**
+ * The name lookup of a person without a document: the name, the father's or husband's name, the
+ * union and the village, then the search. Answers the lookup's part of the page.
+ */
+async function lookUpTheName(page: Page, name: string) {
+  const step = page.getByRole('region', { name: BY_NAME });
+  await expect(step).toBeVisible();
+  await step.getByRole('textbox', { name: 'নাম', exact: true }).fill(name);
+  await step.getByRole('textbox', { name: 'পিতা বা স্বামীর নাম' }).fill('নমুনা পিতা');
+  await pickByLabel(page, 'বিভাগ', 'ঢাকা');
+  await pickByLabel(page, 'জেলা', 'ঢাকা');
+  await pickByLabel(page, 'উপজেলা', 'সাভার');
+  await pickByLabel(page, 'ইউনিয়ন', 'সাভার');
+  await step.getByRole('textbox', { name: 'গ্রাম' }).fill('নমুনা গ্রাম');
+  await step.getByRole('button', { name: 'খুঁজুন' }).click();
+  return step;
+}
+
 /** The first part of a person without a document and without a phone, typed from the name. */
 async function personWithoutNumbers(page: Page, name: string) {
   const number = page.getByRole('textbox', { name: /পরিচয় নম্বর/ });
@@ -193,9 +218,12 @@ async function personWithoutNumbers(page: Page, name: string) {
   await page.getByRole('textbox', { name: /গ্রাম/ }).fill('নমুনা গ্রাম');
 }
 
-/** The office's list of the project and the person's profile both say what the person lacks. */
+/**
+ * The office's list of the project and the person's profile both say what the person lacks.
+ * Answers the application and the person the send made.
+ */
 async function officeSeesBoth(browser: Browser, request: APIRequestContext, name: string) {
-  await onDesk(browser, async (desk) => {
+  return onDesk(browser, async (desk) => {
     await signIn(desk, RPM);
     await desk.goto(`/admin/projects/${projectId}/applications`);
     const row = desk.getByRole('row').filter({ hasText: name });
@@ -219,10 +247,13 @@ async function officeSeesBoth(browser: Browser, request: APIRequestContext, name
     await expect(desk.getByRole('heading', { level: 1, name })).toBeVisible();
     await expect(desk.getByText(NO_DOCUMENT, { exact: true }).first()).toBeVisible();
     await expect(desk.getByText(CONTACT_THROUGH_VOLUNTEER, { exact: true }).first()).toBeVisible();
+    return { applicationId: id!, beneficiaryId: data.beneficiaryId! };
   });
 }
 
 let projectId = '';
+/** The person of the first journey: the name, the application and the profile the send made. */
+let first = { name: '', applicationId: '', beneficiaryId: '' };
 
 test.describe.configure({ mode: 'serial' });
 // the volunteer's phone is 360 px wide, the narrowest the field screens must fit
@@ -265,7 +296,13 @@ test.describe('the identity an application asks follows the project', () => {
     await fitsThePhone(page, 'the identity card in English');
     await switchLanguage(page, 'bn');
 
+    // first the people already here under the name: nobody yet, so a new person
     await start.click();
+    const step = await lookUpTheName(page, name);
+    await expect(step.getByText(NOBODY)).toBeVisible();
+    await noViolations(page, 'the name lookup');
+    await fitsThePhone(page, 'the name lookup');
+    await step.getByRole('button', { name: START_NEW }).click();
     await expect(page.getByRole('heading', { level: 2, name: 'আবেদন ফর্ম' })).toBeVisible();
     await personWithoutNumbers(page, name);
     await fitsThePhone(page, 'the first part');
@@ -281,7 +318,7 @@ test.describe('the identity an application asks follows the project', () => {
     await expect(page.getByText(/^আবেদন নম্বর: [A-Z0-9]+-\d{4}-\d{5}/)).toBeVisible();
     await fitsThePhone(page, 'the result');
 
-    await officeSeesBoth(browser, request, name);
+    first = { name, ...(await officeSeesBoth(browser, request, name)) };
   });
 
   test('the same start without network keeps the entry on the phone, and it reaches the office when the network returns', async ({
@@ -304,7 +341,11 @@ test.describe('the identity an application asks follows the project', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'নতুন আবেদন' })).toBeVisible();
     // the rule comes from the project the phone holds
     await expect(page.getByText(HELP)).toBeVisible();
+    // without network the names already here cannot be looked up: the form starts at once and
+    // says so, and the office compares the person when the entry arrives
     await page.getByRole('button', { name: START }).click();
+    await expect(page.getByText(OFFLINE_LINE)).toBeVisible();
+    await expect(page.getByRole('region', { name: BY_NAME })).toHaveCount(0);
     await personWithoutNumbers(page, name);
     await page.getByRole('button', { name: 'পরের অংশ' }).click();
     await expect(page.getByText(/ফোনে জমা/)).toBeVisible();
@@ -334,6 +375,76 @@ test.describe('the identity an application asks follows the project', () => {
     await expect(row).toContainText(/[A-Z0-9]+-\d{4}-\d{5}/);
 
     await officeSeesBoth(browser, request, name);
+  });
+
+  test('a second application for the same person without a document finds the first one by the name and lands on its profile', async ({
+    browser,
+    page,
+    request,
+  }) => {
+    test.setTimeout(420_000);
+    // the first application helped the person: the office approves it
+    const rpm = await apiAs(request, RPM);
+    await act(rpm, first.applicationId, 'review');
+    await act(rpm, first.applicationId, 'send_for_approval');
+    // the entry of the offline journey shares the father's name and the village: the office says why
+    await act(rpm, first.applicationId, 'approve', { comment: 'আলাদা পরিবার, যাচাই করা হয়েছে' });
+    // the second application is another project's: one person applies once in a project
+    const second = await projectOfTheJourney(browser, request);
+    await identityRulesOn(request, PM, second, {
+      identity_document: 'optional',
+      mobile: 'optional',
+    });
+    const head = await apiAs(request, HEAD);
+    const project = (await (await head.get(`/projects/${projectId}`)).json()) as {
+      data: { name: { bn: string }; year: number };
+    };
+
+    await signIn(page, VOLUNTEER);
+    await page.goto(`/my-projects/${second}/apply`);
+    await page.getByRole('button', { name: START }).click();
+    const step = await lookUpTheName(page, first.name);
+    await expect(step.getByRole('heading', { name: FOUND })).toBeVisible();
+    const row = step.getByRole('listitem').filter({ hasText: first.name });
+    await expect(row).toHaveCount(1);
+    // the earlier year and the project the volunteer works on, and nothing more of the person
+    await expect(row.getByText(`সাহায্য পেয়েছেন: ${project.data.year}`)).toBeVisible();
+    await expect(row.getByText(`প্রকল্প: ${project.data.name.bn}`)).toBeVisible();
+    await expect(row).not.toContainText(/BEN-|01[3-9]\d{8}/);
+    await noViolations(page, 'the people already here');
+    await fitsThePhone(page, 'the people already here');
+    await row.getByRole('button', { name: 'ইনিই' }).click();
+
+    // the form starts with the person's names locked, as a known person's are
+    await expect(page.getByRole('heading', { level: 2, name: 'আবেদন ফর্ম' })).toBeVisible();
+    const name = page.getByRole('textbox', { name: /উপকারভোগীর নাম/ });
+    await expect(name).toHaveValue(first.name);
+    await expect(name).toHaveAttribute('readonly', '');
+    await expect(page.getByRole('textbox', { name: /পিতা বা স্বামীর নাম/ })).toHaveAttribute(
+      'readonly',
+      '',
+    );
+    await pickByLabel(page, 'লিঙ্গ', 'মহিলা');
+    await page.getByRole('button', { name: 'পরের অংশ' }).click();
+    await expect(page.getByText('খসড়া সংরক্ষিত হয়েছে')).toBeVisible();
+    await page.getByRole('textbox', { name: /কেন সহায়তা দরকার/ }).fill('আবার শীতের কাপড় দরকার');
+    await sendToOffice(page);
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' }),
+    ).toBeVisible();
+
+    // the office's profile of the person holds both applications: no second profile was made
+    const profile = await head.get(`/beneficiaries/${first.beneficiaryId}`);
+    expect(profile.ok(), await profile.text()).toBe(true);
+    const { data } = (await profile.json()) as { data: { applications: { projectId: string }[] } };
+    expect(data.applications.map((a) => a.projectId).sort()).toEqual([projectId, second].sort());
+    await onDesk(browser, async (desk) => {
+      await signIn(desk, RPM);
+      await desk.goto(`/admin/beneficiaries/${first.beneficiaryId}`);
+      await expect(desk.getByRole('heading', { level: 1, name: first.name })).toBeVisible();
+      await expect(desk.getByRole('heading', { level: 2, name: 'আবেদনের ইতিহাস' })).toBeVisible();
+      await expect(desk.getByText(project.data.name.bn).first()).toBeVisible();
+    });
   });
 
   test('once the PM asks the document again, the start without it is gone and the number is asked', async ({

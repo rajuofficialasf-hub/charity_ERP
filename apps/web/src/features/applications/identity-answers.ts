@@ -91,6 +91,52 @@ export function answersOfNumber(definition: FormDefinition, number: string): Ans
   return answer ? [answer] : [];
 }
 
+/** What the volunteer typed for the name lookup of a person without a document. */
+export interface TypedPerson {
+  name: string;
+  fatherOrHusbandName: string;
+  address: { divisionId: string; districtId: string; upazilaId: string; unionId: string };
+  village: string;
+}
+
+/**
+ * The answers the name lookup gives the form: the name, the father's or husband's name, the
+ * address and the village, each on the question that carries its column. A picked person's names
+ * and village are the profile's as written; a new person's are as typed.
+ */
+export function answersOfTyped(definition: FormDefinition, typed: TypedPerson): Answer[] {
+  const out: (Answer | null)[] = [];
+  const put = (column: string, v: string) => {
+    const field = fieldByColumn(definition, column);
+    if (field) out.push(text(field, v));
+  };
+  put('name', typed.name);
+  put('father_or_husband_name', typed.fatherOrHusbandName);
+  put('village', typed.village);
+  const address = fieldByColumn(definition, ADDRESS_COLUMNS);
+  if (address)
+    out.push({
+      fieldKey: address.fieldKey,
+      value: {
+        t: 'bd_address',
+        division_id: typed.address.divisionId,
+        district_id: typed.address.districtId,
+        upazila_id: typed.address.upazilaId,
+        union_id: typed.address.unionId,
+      },
+    });
+  return out.filter((a): a is Answer => a !== null);
+}
+
+/** The questions a picked person may read but not change: the name and the father's or husband's name. */
+export function lockedNamesOf(definition: FormDefinition): ReadonlySet<string> {
+  return new Set(
+    ['name', 'father_or_husband_name']
+      .map((c) => fieldByColumn(definition, c)?.fieldKey)
+      .filter((k): k is string => k !== undefined),
+  );
+}
+
 /** The questions a found person may read but not change. */
 export function lockedKeysOf(definition: FormDefinition): ReadonlySet<string> {
   return new Set(

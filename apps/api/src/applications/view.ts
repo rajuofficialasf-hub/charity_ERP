@@ -181,6 +181,10 @@ export const applicationCreateSchema = z.strictObject({
   projectId: uuid,
   formVersionId: uuid,
   beneficiaryId: uuid.optional(),
+  /** A person picked from the name lookup: the token that lookup gave this caller for this project. */
+  pickToken: z.string().min(1).max(512).optional(),
+  /** The phone left the name lookup out for want of network; the office compares at the send. */
+  nameLookupSkipped: z.literal(true).optional(),
   answers: z.array(z.unknown()).max(2000),
 });
 export type ApplicationCreate = z.infer<typeof applicationCreateSchema>;

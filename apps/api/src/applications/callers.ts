@@ -1,5 +1,9 @@
-import type { EffectiveAccess } from '../access/effective.js';
-import { holdsPermission } from '../access/scope.js';
+import {
+  type EffectiveAccess,
+  WORKING_ASSIGNMENT,
+  workingTeamProjects,
+} from '../access/effective.js';
+import { holdsPermission, projectWhere, type Scope } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
 import type { Principal } from '../auth/principal.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
@@ -45,4 +49,38 @@ export async function assertReachesApplication(
     !(await reachesApplication(access, principal, effective, permission, applicationId))
   )
     throw new ApiError('permission.not_found', 404);
+}
+
+/**
+ * Whether the caller's project scope reaches the project: a global, program, project or area
+ * instance through the project filter; a SELF instance through the caller's own work on it (an
+ * accepted assignment, a staff place, or a team whose lead works there). A project a panel revoke
+ * took out is never reached. The project must exist.
+ */
+export async function reachesProject(
+  db: Tx | PrismaService,
+  principal: Principal,
+  scope: Scope,
+  projectId: string,
+): Promise<boolean> {
+  const i = scope.instances;
+  if (i.revokedProjectIds.includes(projectId)) return false;
+  const filtered = await db.project.count({
+    where: { AND: [{ id: projectId }, projectWhere(scope)] },
+  });
+  if (filtered > 0) return true;
+  return i.self && (await worksOn(db, principal.userId, projectId));
+}
+
+/** Whether the user works on the project: a staff place, an accepted assignment, or a team. */
+async function worksOn(db: Tx | PrismaService, userId: string, projectId: string) {
+  const [staff, assignment, member] = await Promise.all([
+    db.projectStaff.count({ where: { projectId, userId, endedAt: null } }),
+    db.projectVolunteer.count({
+      where: { ...WORKING_ASSIGNMENT, projectId, volunteer: { userId } },
+    }),
+    db.volunteer.findUnique({ where: { userId }, select: { id: true } }),
+  ]);
+  if (staff + assignment > 0) return true;
+  return member ? (await workingTeamProjects(db, member.id)).includes(projectId) : false;
 }

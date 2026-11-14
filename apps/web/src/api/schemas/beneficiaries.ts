@@ -1,6 +1,6 @@
 import type { BeneficiaryRow, BeneficiaryStatistics } from '@css/shared/beneficiaries';
 import { z } from 'zod';
-import { date, dateTime, tabPageOf, versionedOf } from './common';
+import { bilingual, date, dateTime, tabPageOf, versionedOf } from './common';
 import { publishedWorkSchema } from './media';
 
 /** A row of the beneficiary tab (`GET /beneficiaries`). */
@@ -262,6 +262,25 @@ export const lookupResultSchema = z.object({
   autofill: lookupAutofillSchema.optional(),
 });
 export type LookupResult = z.infer<typeof lookupResultSchema>;
+
+/** One person of the name lookup: only what a volunteer may see of someone already here. */
+export const matchPersonSchema = z.object({
+  name: z.string(),
+  fatherOrHusbandName: z.string(),
+  village: z.string(),
+  helpedYears: z.array(z.number().int()),
+  projects: z.array(z.object({ name: bilingual, year: z.number().int() })),
+  blocked: z.boolean(),
+  pickToken: z.string().nullable(),
+});
+export type MatchPerson = z.infer<typeof matchPersonSchema>;
+
+/** `POST /beneficiaries/match`: at most five people and how many there are in all. */
+export const matchResultSchema = z.object({
+  total: z.number().int(),
+  people: z.array(matchPersonSchema),
+});
+export type MatchResult = z.infer<typeof matchResultSchema>;
 
 /** The saved contact with the warning of a mobile other profiles share. */
 export const contactSavedSchema = z.object({

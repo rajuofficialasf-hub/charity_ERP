@@ -18,16 +18,11 @@ import {
 import { GUARDIAN_RELATION_COLUMN } from '@css/shared/beneficiaries';
 import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
-import {
-  type EffectiveAccess,
-  WORKING_ASSIGNMENT,
-  workingTeamProjects,
-} from '../access/effective.js';
+import { type EffectiveAccess, WORKING_ASSIGNMENT } from '../access/effective.js';
 import {
   applicationWhere,
   holdsPermission,
   ownApplicationsWhere,
-  projectWhere,
   type Scope,
   teamLeadsOf,
 } from '../access/scope.js';
@@ -60,11 +55,12 @@ import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiaryFamilyService } from '../services/beneficiary-family.js';
 import type { BeneficiaryIdentityService } from '../services/beneficiary-identity.js';
+import type { BeneficiaryMatchService } from '../services/beneficiary-match.js';
 import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
 import { type FormAudience, readDefinition, versionView } from '../services/forms.js';
 import { isAddressChain } from '../services/locations.js';
 import type { NisabService } from '../services/nisab.js';
-import { assertReachesApplication, isBlockedVolunteer } from './callers.js';
+import { assertReachesApplication, isBlockedVolunteer, reachesProject } from './callers.js';
 import { liveApplicationCounts } from './limit.js';
 import type { MediaReferralsService } from '../services/media-referrals.js';
 import type { UnlocksService } from './unlocks.js';
@@ -338,6 +334,7 @@ export class ApplicationsService {
     private readonly unlocks: UnlocksService,
     private readonly media: MediaReferralsService,
     private readonly signals: PersonSignals,
+    private readonly match: BeneficiaryMatchService,
   ) {}
 
   async create(
@@ -372,6 +369,10 @@ export class ApplicationsService {
       optionalIdentityOf(rules, audience),
     );
     const access = await this.access.load(actor);
+    // a person picked from the name lookup: only with the token that lookup gave this caller here
+    const picked = body.pickToken
+      ? await this.match.pickedPerson(this.prisma, viewer.principal, projectId, body.pickToken)
+      : null;
     await this.gateLookup(viewer.principal, access, projectId, definition, checked.answers);
     try {
       const id = await this.prisma.$transaction(async (tx) => {
@@ -379,9 +380,11 @@ export class ApplicationsService {
         // one draft of an owner at a time, so parallel creates cannot pass the limit together
         if (owner.ownerVolunteerId)
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`application-owner:${projectId}:${owner.ownerVolunteerId}`}))`;
-        const person = await this.resolvePerson(tx, definition, checked.answers, null, {
-          nameMatch: options.sync !== undefined,
-        });
+        const person = picked
+          ? await this.pickedPerson(tx, definition, checked.answers, picked)
+          : await this.resolvePerson(tx, definition, checked.answers, null, {
+              nameMatch: options.sync !== undefined,
+            });
         if (person.candidate) held.push('existing_identity');
         // an entry that waits for the office anyway says so when its person, for whom a
         // verification would make a new profile, looks like a blocked one
@@ -452,6 +455,10 @@ export class ApplicationsService {
             beneficiaryId: person.beneficiaryId,
             candidateBeneficiaryId: candidate,
             ownerVolunteerId: owner.ownerVolunteerId,
+            // how the person was found: picked from the name lookup, or the lookup was left out
+            // on a phone without network, so the office compares the person at the send
+            ...(picked ? { pickedByName: true } : {}),
+            ...(body.nameLookupSkipped ? { nameLookupSkipped: true } : {}),
           },
         });
         return id;
@@ -560,6 +567,7 @@ export class ApplicationsService {
           row.beneficiaryId,
           {
             boundWithoutNumber: row.identityKind === 'none',
+            keptNumber: identityNumberIn(definition, before),
           },
         );
         await this.assertOnePerProject(tx, row.projectId, person, applicationId);
@@ -1435,7 +1443,12 @@ export class ApplicationsService {
     definition: FormDefinition,
     answers: Answer[],
     boundTo: string | null = null,
-    options: { nameMatch?: boolean; boundWithoutNumber?: boolean } = {},
+    options: {
+      nameMatch?: boolean;
+      boundWithoutNumber?: boolean;
+      /** The number the stored answers already carry. */
+      keptNumber?: string | null;
+    } = {},
   ): Promise<Person> {
     const field = fieldByColumn(definition, IDENTITY_COLUMN);
     const number = identityNumberIn(definition, answers);
@@ -1444,8 +1457,10 @@ export class ApplicationsService {
         { path, code: 'beneficiary.locked_field' },
       ]);
     if (boundTo && options.boundWithoutNumber) {
-      // a number is added to such a profile by an official who compared the two, never by an edit
-      if (number) throw locked(field!.fieldKey);
+      // a number is added to such a profile by an official who compared the two, never by an edit;
+      // one the application already carries (given when its person was picked by name) stays in
+      // its answers and never reaches the profile
+      if (number && number !== options.keptNumber) throw locked(field!.fieldKey);
       const profile = await tx.beneficiary.findUniqueOrThrow({
         where: { id: boundTo },
         select: { name: true, fatherOrHusbandName: true },
@@ -1504,6 +1519,35 @@ export class ApplicationsService {
       answers: lockedTo(definition, answers, {
         // the number the volunteer typed: a birth registration never turns into the profile's NID
         [IDENTITY_COLUMN]: number,
+        name: profile.name,
+        father_or_husband_name: profile.fatherOrHusbandName,
+      }),
+    };
+  }
+
+  /**
+   * The person picked from the name lookup binds the application at once, without a document:
+   * blocked people are refused as on every new application, and the name and the father's or
+   * husband's name are locked to the profile's, as a known person's are. A number the answers carry
+   * stays in them and is never written onto the profile: an official attaches a document after
+   * comparing the two.
+   */
+  private async pickedPerson(
+    tx: Tx,
+    definition: FormDefinition,
+    answers: Answer[],
+    beneficiaryId: string,
+  ): Promise<Person> {
+    await this.identity.assertMayApply(tx, beneficiaryId);
+    const profile = await tx.beneficiary.findUniqueOrThrow({
+      where: { id: beneficiaryId },
+      select: { name: true, fatherOrHusbandName: true },
+    });
+    return {
+      beneficiaryId,
+      identityKind: 'none',
+      number: identityNumberIn(definition, answers),
+      answers: lockedTo(definition, answers, {
         name: profile.name,
         father_or_husband_name: profile.fatherOrHusbandName,
       }),
@@ -1617,36 +1661,17 @@ export class ApplicationsService {
   }
 
   /**
-   * The project, when the caller's project scope reaches it: a global, program, project or area
-   * instance through the project filter; a SELF instance through the caller's own work on it (an
-   * accepted assignment, a staff place, or a team whose lead works there). Not-found otherwise.
+   * The project, when the caller's project scope reaches it (`reachesProject`). Not-found
+   * otherwise.
    */
   private async reachedProject(principal: Principal, scope: Scope, projectId: string) {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
       select: PROJECT_SELECT,
     });
-    if (!project) throw new ApiError('permission.not_found', 404);
-    const i = scope.instances;
-    if (i.revokedProjectIds.includes(projectId)) throw new ApiError('permission.not_found', 404);
-    const filtered = await this.prisma.project.count({
-      where: { AND: [{ id: projectId }, projectWhere(scope)] },
-    });
-    if (filtered > 0) return project;
-    if (i.self && (await this.worksOn(principal.userId, projectId))) return project;
-    throw new ApiError('permission.not_found', 404);
-  }
-
-  private async worksOn(userId: string, projectId: string): Promise<boolean> {
-    const [staff, assignment, member] = await Promise.all([
-      this.prisma.projectStaff.count({ where: { projectId, userId, endedAt: null } }),
-      this.prisma.projectVolunteer.count({
-        where: { ...WORKING_ASSIGNMENT, projectId, volunteer: { userId } },
-      }),
-      this.prisma.volunteer.findUnique({ where: { userId }, select: { id: true } }),
-    ]);
-    if (staff + assignment > 0) return true;
-    return member ? (await workingTeamProjects(this.prisma, member.id)).includes(projectId) : false;
+    if (!project || !(await reachesProject(this.prisma, principal, scope, projectId)))
+      throw new ApiError('permission.not_found', 404);
+    return project;
   }
 
   /** A volunteer on the blocklist reaches no application. */

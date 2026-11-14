@@ -63,6 +63,7 @@ permission_sets:
       - application.view
       - application.update_unlocked_field
       - beneficiary.lookup
+      - beneficiary.match
       - stock.receive
       - distribution.update
       - site_verification.record
@@ -439,6 +440,16 @@ permissions:
       - { role: volunteer_general, scope: PROJECT }
       - { role: volunteer_both, scope: PROJECT }
       - { role: volunteer_team_member, scope: PROJECT }
+  - name: beneficiary.match
+    description: Find the people already here by name, father's or husband's name and village for an application without a document (exact keys inside a union of an area of a project the caller works on; at most five; name, father's or husband's name, village, years of help, the names of the caller's own projects and a pick token; never a number, a contact or a document flag; every call audited and counted per day)
+    module: M05
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_team_member, scope: SELF }
   - name: beneficiary.correction.request
     description: Request correction of a locked beneficiary field (name, father/husband name, identity number)
     module: M05

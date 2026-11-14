@@ -207,6 +207,8 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | business | beneficiary.blocked | 422 | blocked beneficiary cannot apply (BR-010) |
 | business | beneficiary.already_applied | 409 | one application per beneficiary per project (BR-016) |
 | business | beneficiary.locked_field | 422 | locked field changes only through a correction request (BR-006) |
+| business | beneficiary.pick_invalid | 422 | a pick token of the name lookup that is forged, expired, another caller's or another project's, or names a profile no longer live (BR-303) |
+| business | beneficiary.match_limit | 429 | the day's number of name lookups (setting `lookup.match_daily_limit`) is used up until the next day in Bangladesh (BR-303) |
 | business | payment.transaction_id_exists | 409 | unique transaction id (BR-134) |
 | business | payment.claim_already_paid | 409 | one payment per claim |
 | business | animal.already_allocated | 409 | allocated animal (BR-145) |

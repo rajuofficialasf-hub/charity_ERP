@@ -24,7 +24,7 @@ describe('access registry', () => {
     // the Implementer is retired
     expect(registry.roles.size).toBe(16);
     expect(registry.roles.has('implementer')).toBe(false);
-    expect(registry.permissions.size).toBe(157);
+    expect(registry.permissions.size).toBe(158);
     expect(registry.roles.get('department_head')?.globalScope).toBe(true);
     expect(registry.permissions.get('system.owner.transfer')?.globalRolesExcluded).toEqual([
       'monitoring_team',

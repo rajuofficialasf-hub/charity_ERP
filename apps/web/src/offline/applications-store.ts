@@ -143,6 +143,12 @@ export async function saveDraft(input: {
   answers: Answer[];
   /** The server's record and the version the edit started from, when the draft is the server's. */
   server?: { id: string; etag: string | null } | null;
+  /**
+   * How a new draft's person was found without a document: the token of a person picked from the
+   * name lookup, or the mark that the lookup was left out for want of network. Only a new draft
+   * carries them; the rows of the lookup never reach the store.
+   */
+  person?: { pickToken: string } | { nameLookupSkipped: true };
 }): Promise<{ clientUuid: string; serverId: string | null }> {
   if (!storeOpen()) {
     if (!navigator.onLine) withoutStore();
@@ -153,6 +159,7 @@ export async function saveDraft(input: {
           clientUuid: input.clientUuid,
           formVersionId: input.formVersionId,
           answers: input.answers,
+          ...input.person,
         });
     directInfo(input.clientUuid, result.data.id);
     return { clientUuid: input.clientUuid, serverId: result.data.id };
@@ -184,7 +191,7 @@ export async function saveDraft(input: {
     projectId: input.projectId,
     formVersionId: input.formVersionId,
     target: null,
-    payload: { answers },
+    payload: { answers, ...input.person },
   });
   flushSoon();
   return { clientUuid: row.clientUuid, serverId: null };

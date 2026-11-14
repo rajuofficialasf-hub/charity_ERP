@@ -56,6 +56,7 @@ import { VolunteerListService } from './services/volunteer-list.js';
 import { VolunteerProfileService } from './services/volunteer-profile.js';
 import { BeneficiariesService } from './services/beneficiaries.js';
 import { BeneficiaryIdentityService } from './services/beneficiary-identity.js';
+import { BeneficiaryMatchService } from './services/beneficiary-match.js';
 import { BeneficiaryContactService } from './services/beneficiary-contact.js';
 import { BeneficiaryCorrectionsService } from './services/beneficiary-corrections.js';
 import { BeneficiaryFamilyService } from './services/beneficiary-family.js';
@@ -172,6 +173,7 @@ export interface Container {
   volunteerProfile: VolunteerProfileService;
   beneficiaries: BeneficiariesService;
   beneficiaryIdentity: BeneficiaryIdentityService;
+  beneficiaryMatch: BeneficiaryMatchService;
   beneficiaryContact: BeneficiaryContactService;
   beneficiaryCorrections: BeneficiaryCorrectionsService;
   beneficiaryFamily: BeneficiaryFamilyService;
@@ -348,6 +350,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       beneficiaryMergeCandidates,
       matchKeys,
     );
+  const beneficiaryMatch =
+    o.beneficiaryMatch ??
+    new BeneficiaryMatchService(env, prisma, access, audit, clock, settings, matchKeys);
   const beneficiaryContact =
     o.beneficiaryContact ??
     new BeneficiaryContactService(
@@ -396,6 +401,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       unlocks,
       mediaReferrals,
       new PersonSignals(access, beneficiaryFamily, beneficiaryMergeCandidates),
+      beneficiaryMatch,
     );
   const built = {
     env,
@@ -487,6 +493,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     beneficiaries:
       o.beneficiaries ?? new BeneficiariesService(env, prisma, clock, access, beneficiaryIdentity),
     beneficiaryIdentity,
+    beneficiaryMatch,
     beneficiaryContact,
     beneficiaryFamily,
     beneficiaryMergeCandidates,

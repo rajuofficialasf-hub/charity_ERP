@@ -167,7 +167,7 @@ describe('base set', () => {
         .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
     );
     expect(roles).toHaveLength(16);
-    expect(permissions).toHaveLength(157);
+    expect(permissions).toHaveLength(158);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {

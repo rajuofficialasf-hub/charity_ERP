@@ -10,6 +10,8 @@ import {
   type LookupRequest,
   LOCKED_FIELDS,
   lookupRequestSchema,
+  type MatchRequest,
+  matchRequestSchema,
   type MergeExecute,
   mergeExecuteSchema,
   type MergeRequest,
@@ -266,6 +268,27 @@ export const beneficiaryProfile = z.object({
 });
 
 /**
+ * The name lookup's answer: at most five people and their count, each with only what a volunteer
+ * may see of someone already here, and a token to pick one who is not blocked.
+ */
+const matchAnswer = z.object({
+  total: z.number().int(),
+  people: z.array(
+    z.object({
+      name: z.string(),
+      fatherOrHusbandName: z.string(),
+      village: z.string(),
+      helpedYears: z.array(z.number().int()),
+      projects: z.array(
+        z.object({ name: z.object({ bn: z.string(), en: z.string() }), year: z.number().int() }),
+      ),
+      blocked: z.boolean(),
+      pickToken: z.string().nullable(),
+    }),
+  ),
+});
+
+/**
  * The lookup answer of the application form: the full auto-fill of a found profile wherever it
  * lives, the identity fields marked locked, never the other identity number or a block reason;
  * a blocked person is only named blocked.
@@ -418,6 +441,7 @@ export function beneficiariesRouter(
     Container,
     | 'beneficiaries'
     | 'beneficiaryIdentity'
+    | 'beneficiaryMatch'
     | 'beneficiaryContact'
     | 'beneficiaryCorrections'
     | 'beneficiaryMergeCandidates'
@@ -444,6 +468,24 @@ export function beneficiariesRouter(
     responses: { 200: lookupResult, 401: null, 403: null, 404: null, 422: null, 429: null },
     handler: ({ body, req }) =>
       c.beneficiaryIdentity.lookup({ principal: principalOf(req), scope: scopeOf(req) }, body),
+  });
+  defineRoute<MatchRequest>(router, deps, {
+    tag: 'beneficiaries',
+    method: 'post',
+    path: '/beneficiaries/match',
+    operationId: 'beneficiaries.beneficiary.match',
+    summary:
+      'The people already here under a name, father or husband and village, for an application without a document (exact keys, at most five, every call audited and counted)',
+    permission: 'beneficiary.match',
+    scope: 'project',
+    audit: 'beneficiary.matched',
+    idempotency: 'none',
+    rateLimit: 'lookup',
+    status: 200,
+    body: matchRequestSchema,
+    responses: { 200: matchAnswer, 401: null, 403: null, 422: null, 429: null },
+    handler: ({ body, req }) =>
+      c.beneficiaryMatch.match({ principal: principalOf(req), scope: scopeOf(req) }, body),
   });
   const tabOp = {
     tag: 'beneficiaries',

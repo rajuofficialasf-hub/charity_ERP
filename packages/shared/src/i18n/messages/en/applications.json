@@ -31,7 +31,27 @@
     "upload_failed": "The photo could not be sent. Try again.",
     "team_note": "As a team member you can keep a draft; the main volunteer sends it to the office.",
     "edit_title": "Edit the draft",
-    "photos_need_network": "Adding photos needs network. The draft stays on this phone; add the photos when there is network."
+    "photos_need_network": "Adding photos needs network. The draft stays on this phone; add the photos when there is network.",
+    "match": {
+      "section": "Search by name",
+      "help": "To see whether the person was helped before, enter the name, the father's or husband's name, the union and the village, then search.",
+      "name": "Name",
+      "father": "Father's or husband's name",
+      "village": "Village",
+      "search": "Search",
+      "found_title": "Already here under this name",
+      "father_line": "Father or husband: {name}",
+      "village_line": "Village: {village}",
+      "helped": "Helped: {years}",
+      "projects": "Projects: {projects}",
+      "pick": "This is the person",
+      "none_of_them": "None of them: a new person",
+      "nobody": "Nobody is here under this name yet",
+      "start_new": "Start as a new person",
+      "more": "{n} more under the same name",
+      "outside": "This union is outside the project's areas. Choose a union of the project's areas.",
+      "offline": "No connection, so the names already here cannot be checked; the office will check them later."
+    }
   },
   "list": {
     "title": "My applications",

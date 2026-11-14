@@ -409,7 +409,7 @@ components:
       description: >-
         validation.failed with field details; business rules such as beneficiary.identity_missing,
         beneficiary.mobile_is_volunteer_mobile, beneficiary.blocked, beneficiary.locked_field,
-        beneficiary.merge_keep_document,
+        beneficiary.merge_keep_document, beneficiary.pick_invalid,
         workflow.reason_required, workflow.comment_required, otp.invalid, otp.expired, file.source_not_allowed,
         export.too_many_rows, export.pdf_too_many_rows;
         password details validation.password_too_short, validation.password_uppercase_digit,
@@ -430,7 +430,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
     TooManyRequests:
-      description: rate_limit.exceeded or otp.attempts_exceeded.
+      description: rate_limit.exceeded, otp.attempts_exceeded, beneficiary.lookup_outside_limit or beneficiary.match_limit.
       headers:
         Retry-After: { $ref: '#/components/headers/RetryAfter' }
       content:
@@ -2324,6 +2324,66 @@ components:
                   type: array
                   items: { type: string, enum: [name, father_or_husband_name, nid, birth_reg] }
         meta: { $ref: '#/components/schemas/Meta' }
+    MatchRequest:
+      type: object
+      additionalProperties: false
+      description: >-
+        The name, the father's or husband's name and the village as typed, in a union of an area of
+        the project; the server compares their keys (the name key with the spelling variants)
+      required: [projectId, name, fatherOrHusbandName, unionId, village]
+      properties:
+        projectId: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        fatherOrHusbandName: { type: string, minLength: 1, maxLength: 200 }
+        guardianRelationCode:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,49}$'
+          description: Whether that name is the father's or the husband's (list guardian_relation); a father's name never matches a husband's
+        unionId: { $ref: '#/components/schemas/Uuid' }
+        village: { type: string, minLength: 1, maxLength: 200 }
+    MatchResult:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [total, people]
+          properties:
+            total: { type: integer, minimum: 0, description: 'How many live profiles match, also beyond the five shown' }
+            people:
+              type: array
+              maxItems: 5
+              items:
+                type: object
+                additionalProperties: false
+                required: [name, fatherOrHusbandName, village, helpedYears, projects, blocked, pickToken]
+                properties:
+                  name: { type: string, description: As written on the profile }
+                  fatherOrHusbandName: { type: string, description: As written on the profile }
+                  village: { type: string, description: As written on the profile }
+                  helpedYears:
+                    type: array
+                    description: The project years of the person's applications in the approved state or after it (approved, implementation, completed), oldest first
+                    items: { type: integer }
+                  projects:
+                    type: array
+                    description: Those of the person's helped projects the caller works on; no other project is named
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [name, year]
+                      properties:
+                        name: { $ref: '#/components/schemas/Bilingual' }
+                        year: { type: integer }
+                  blocked: { type: boolean, description: The person cannot be picked (on the block list); nothing else is said }
+                  pickToken:
+                    type: [string, 'null']
+                    description: >-
+                      Starts an application for this person (ApplicationCreate.pickToken), for this
+                      caller and project, for 15 minutes; sealed, it names nobody on the phone. Null
+                      for a blocked person
+        meta: { $ref: '#/components/schemas/Meta' }
     FamilyMember:
       type: object
       required: [id, name, isEarner, active]
@@ -3346,6 +3406,21 @@ components:
           description: >-
             From the lookup, for the client's own use; the server binds the person from the number
             in the identity answer and never from this id
+        pickToken:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: >-
+            A person picked from the name lookup (POST /beneficiaries/match): the application binds
+            that person at once, without a document, with the name and the father's or husband's
+            name locked to the profile's. Good only for the caller and the project it was given for,
+            for 15 minutes, and for a live profile; otherwise 422 `beneficiary.pick_invalid`. A
+            blocked person is refused (`beneficiary.blocked`). A number the answers carry stays in
+            them and is never written onto the profile
+        nameLookupSkipped:
+          type: boolean
+          const: true
+          description: The phone left the name lookup out for want of network; recorded in the audit row, the office compares the person at the send
         answers:
           type: array
           maxItems: 2000
@@ -4816,7 +4891,7 @@ components:
           type: object
           propertyNames: { type: string }
           additionalProperties: {}
-          description: "Validated by the service of the record kind: { answers } for a draft and an update (a photo still on the phone travels as { pendingPhoto: true, slot }), {} for a submit, { unlockId, value } for a field update"
+          description: "Validated by the service of the record kind: { answers } for a draft and an update (a photo still on the phone travels as { pendingPhoto: true, slot }); a draft may add pickToken (a person picked from the name lookup, as ApplicationCreate) or nameLookupSkipped: true (the phone had no network for the name lookup); {} for a submit, { unlockId, value } for a field update"
         clientCreatedAt: { type: string, format: date-time }
         clientUpdatedAt: { type: string, format: date-time }
         dependencies: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/Uuid' }, description: "Client ids this record needs synced first; a failed one fails this record" }
@@ -7121,6 +7196,44 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /beneficiaries/match:
+    post:
+      tags: [beneficiaries]
+      operationId: beneficiaries.beneficiary.match
+      summary: The people already here under a name, father or husband and village, for an application without a document
+      description: >-
+        An exact comparison of keys, never a search (D-172, D-174, BR-303): the keys of the name, the
+        father's or husband's name and the village must all equal a live profile's, inside the given
+        union, which must lie in an area of the project (403 otherwise), on a project the caller works
+        on (403 otherwise; a union that is not one is 422). At most five people and their count; per
+        person only the name, the father's or husband's name and the village as written, the years of
+        help and the names of the caller's own projects among them, whether the person is blocked, and
+        a pick token. Never a number, a contact, the family, a document flag, a BEN number or an id.
+        Every call writes the audit row `beneficiary.matched` (the project, the union and the number
+        found, never a name) and is counted per caller and day in Bangladesh against the setting
+        `lookup.match_daily_limit` (default 60), found or not; past it the call answers 429
+        `beneficiary.match_limit`, audited as limited. The `lookup` rate limit counts it with the
+        number lookup.
+      x-permission: beneficiary.match
+      x-scope: project
+      x-audit: beneficiary.matched
+      x-idempotency: none
+      x-rate-limit: lookup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MatchRequest' }
+      responses:
+        '200':
+          description: The people found, at most five, and their count
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MatchResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /beneficiaries/{beneficiaryId}:

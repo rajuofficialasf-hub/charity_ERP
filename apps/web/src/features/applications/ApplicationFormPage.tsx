@@ -34,11 +34,15 @@ import {
 import {
   answersOfNumber,
   answersOfProfile,
+  answersOfTyped,
   fieldByColumn,
   hasAddress,
   IDENTITY_COLUMN,
   lockedKeysOf,
+  lockedNamesOf,
+  type TypedPerson,
 } from './identity-answers';
+import { NameMatch } from './NameMatch';
 import { loadStore, photoMessage, recordOf, storeMessage } from './use-local-records';
 import './applications.css';
 
@@ -46,11 +50,19 @@ const PHOTO_TYPES = ['image/jpeg', 'image/png'];
 const PHOTO_MAX_BYTES = maxSizeOf('form_photo', 'image/jpeg') ?? 0;
 const TEAM_MEMBER = 'volunteer_team_member';
 
-/** The person the identity step settled on: found by the number, new under it, or without one. */
+/**
+ * The person the identity step settled on: found by the number, new under it, or without one;
+ * without one either picked from the people already here, a new person as typed, or a new person
+ * whose lookup was left out for want of network.
+ */
 type Person =
   | { kind: 'known'; number: string; result: LookupResult }
   | { kind: 'new'; number: string }
-  | { kind: 'without_document' };
+  | { kind: 'picked'; typed: TypedPerson; pickToken: string }
+  | { kind: 'without_document'; skipped: boolean };
+
+/** How a new draft's person was found without a document, as the draft tells the server. */
+type DraftPerson = { pickToken: string } | { nameLookupSkipped: true };
 
 /** The refusals of the server that are about the person's identity number. */
 const IDENTITY_REFUSALS: ReadonlySet<string> = new Set([
@@ -118,6 +130,8 @@ function NewApplication({ me }: { me: Me }) {
   });
   const [person, setPerson] = useState<Person | null>(null);
   const [lookup, setLookup] = useState<{ result: LookupResult; number: string } | null>(null);
+  // the lookup of a person without a document, opened by its start
+  const [matching, setMatching] = useState(false);
   const back = <Link to={`/my-projects/${projectId}`}>{tc('action.close')}</Link>;
   if (project.isPending || form.isPending) return <Skeleton shape="card" />;
   if (form.error instanceof ApiFailure && form.error.status === 422)
@@ -194,36 +208,83 @@ function NewApplication({ me }: { me: Me }) {
             {rules.document === 'optional' ? (
               <div className="apply-without-document">
                 <Text tone="muted">{t('no_document_help')}</Text>
-                <Button
-                  variant="secondary"
-                  fullWidth
-                  onClick={() => setPerson({ kind: 'without_document' })}
-                >
-                  {t('start_without_document')}
-                </Button>
+                {matching ? (
+                  <NameMatch
+                    projectId={projectId}
+                    onChoose={(choice) =>
+                      setPerson(
+                        choice.kind === 'picked'
+                          ? {
+                              kind: 'picked',
+                              // the names and the village as the profile writes them
+                              typed: {
+                                ...choice.typed,
+                                name: choice.person.name,
+                                fatherOrHusbandName: choice.person.fatherOrHusbandName,
+                                village: choice.person.village,
+                              },
+                              pickToken: choice.pickToken,
+                            }
+                          : { kind: 'without_document', skipped: choice.kind === 'offline' },
+                      )
+                    }
+                  />
+                ) : (
+                  <Button
+                    variant="secondary"
+                    fullWidth
+                    onClick={() =>
+                      // without network the lookup is left out and the form starts at once
+                      navigator.onLine
+                        ? setMatching(true)
+                        : setPerson({ kind: 'without_document', skipped: true })
+                    }
+                  >
+                    {t('start_without_document')}
+                  </Button>
+                )}
               </div>
             ) : null}
           </Stack>
         </Card>
       </Stack>
     );
+  // a new person without a document starts with an empty form, as without the lookup
   const initial =
-    person.kind === 'without_document'
-      ? []
-      : person.kind === 'known' && person.result.autofill
-        ? answersOfProfile(definition, person.number, person.result.autofill)
-        : answersOfNumber(definition, person.number);
+    person.kind === 'picked'
+      ? answersOfTyped(definition, person.typed)
+      : person.kind === 'without_document'
+        ? []
+        : person.kind === 'known' && person.result.autofill
+          ? answersOfProfile(definition, person.number, person.result.autofill)
+          : answersOfNumber(definition, person.number);
+  // a person without a document whose lookup was left out: the office compares at the send
+  const skipped = person.kind === 'without_document' && person.skipped;
   return (
     <Stack gap={3}>
       <DocumentTitle title={t('title')} />
       {back}
+      {skipped ? <Alert tone="info">{t('match.offline')}</Alert> : null}
       <ApplicationForm
         me={me}
         projectId={projectId}
         form={definition}
         rules={rules}
         initialAnswers={initial}
-        lockedKeys={person.kind === 'known' ? lockedKeysOf(definition) : new Set()}
+        lockedKeys={
+          person.kind === 'known'
+            ? lockedKeysOf(definition)
+            : person.kind === 'picked'
+              ? lockedNamesOf(definition)
+              : new Set()
+        }
+        person={
+          person.kind === 'picked'
+            ? { pickToken: person.pickToken }
+            : skipped
+              ? { nameLookupSkipped: true }
+              : undefined
+        }
       />
     </Stack>
   );
@@ -293,6 +354,7 @@ function ApplicationForm({
   fillDefaults = true,
   lockedKeys,
   draft: existing,
+  person,
 }: {
   me: Me;
   projectId: string;
@@ -304,6 +366,8 @@ function ApplicationForm({
   fillDefaults?: boolean;
   lockedKeys: ReadonlySet<string>;
   draft?: { id: string; etag: string; local: boolean };
+  /** How a new draft's person was found without a document; sent until the server holds the draft. */
+  person?: DraftPerson;
 }) {
   const t = useTranslations('applications.new');
   const ts = useTranslations('applications.sync');
@@ -363,6 +427,7 @@ function ApplicationForm({
         clientUuid: current.clientUuid ?? clientUuid,
         answers,
         server: current.serverId ? { id: current.serverId, etag: current.etag } : null,
+        ...(person && !current.serverId ? { person } : {}),
       })
       .catch((error: unknown) => {
         throw worded(error);

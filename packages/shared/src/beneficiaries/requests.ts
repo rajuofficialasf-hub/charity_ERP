@@ -27,6 +27,28 @@ export const lookupRequestSchema = z
   });
 export type LookupRequest = z.infer<typeof lookupRequestSchema>;
 
+/** At most this many people the name lookup shows; its count says how many there are in all. */
+export const MATCH_ROWS_SHOWN = 5;
+
+/**
+ * The name lookup of an application without a document: the name, the father's or husband's name
+ * and the village as typed, in a union of an area of a project the caller works on; the server
+ * compares their keys. Whether the name beside the person is the father's or the husband's, where
+ * the volunteer says.
+ */
+export const matchRequestSchema = z.strictObject({
+  projectId: z.uuid(),
+  name: z.string().trim().min(1, { message: 'validation.required' }).max(200),
+  fatherOrHusbandName: z.string().trim().min(1, { message: 'validation.required' }).max(200),
+  guardianRelationCode: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,49}$/)
+    .optional(),
+  unionId: z.uuid(),
+  village: z.string().trim().min(1, { message: 'validation.required' }).max(200),
+});
+export type MatchRequest = z.infer<typeof matchRequestSchema>;
+
 /** A request to correct a locked field: the new value in that field's format and a reason. */
 export const correctionRequestSchema = z
   .strictObject({

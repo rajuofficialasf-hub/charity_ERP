@@ -210,6 +210,7 @@ function serve(lookup: Record<string, unknown> = { found: false }) {
     http.get('*/api/v1/me/projects', () => envelope([project])),
     http.get(`*/api/v1/projects/${PROJECT}/application-form`, () => envelope(form)),
     http.post('*/api/v1/beneficiaries/lookup', () => envelope(lookup)),
+    http.post('*/api/v1/beneficiaries/match', () => envelope({ total: 0, people: [] })),
   );
 }
 
@@ -763,9 +764,25 @@ describe('the start without an identity document', () => {
     });
   }
 
+  const M = bn.applications.new.match;
+  /** The name lookup: the name, the father's or husband's name, the union and the village, then the search. */
+  async function lookUpTheName(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: START }));
+    const step = await screen.findByRole('region', { name: M.section });
+    await user.type(within(step).getByRole('textbox', { name: M.name }), 'নমুনা উপকারভোগী');
+    await user.type(within(step).getByRole('textbox', { name: M.father }), 'নমুনা পিতা');
+    await user.click(within(step).getByRole('combobox', { name: /^বিভাগ/ }));
+    for (const name of ['ঢাকা বিভাগ', 'ঢাকা জেলা', 'সাভার', 'আশুলিয়া'])
+      await user.click(await screen.findByRole('option', { name }, { timeout: 15_000 }));
+    await user.type(await within(step).findByRole('textbox', { name: M.village }), 'নমুনা গ্রাম');
+    await user.click(within(step).getByRole('button', { name: M.search }));
+    return step;
+  }
   /** The form started without a number, with the first part answered but the two numbers. */
   async function startWithTheName(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(await screen.findByRole('button', { name: START }));
+    // nobody is here under the name: the form starts as for a new person
+    await lookUpTheName(user);
+    await user.click(await screen.findByRole('button', { name: M.start_new }));
     await user.type(await screen.findByRole('textbox', { name: /^name/ }), 'নমুনা উপকারভোগী');
     await user.type(screen.getByRole('textbox', { name: /^father_or_husband_name/ }), 'নমুনা পিতা');
     await user.click(screen.getByRole('radio', { name: 'female' }));
@@ -881,6 +898,164 @@ describe('the start without an identity document', () => {
     await waitFor(() => expect(number()).toHaveAccessibleDescription(REFUSAL));
     await user.type(number(), '4');
     expect(screen.queryByText(REFUSAL)).not.toBeInTheDocument();
+  }, 60_000);
+});
+
+describe('the people already here under the name', () => {
+  const M = bn.applications.new.match;
+  const START = bn.applications.new.start_without_document;
+  const OPTIONAL = { ...DEFAULT_IDENTITY_RULES, document: 'optional', mobile: 'optional' };
+  const helped = {
+    name: 'মোঃ করিম উদ্দিন',
+    fatherOrHusbandName: 'আব্দুল জব্বার',
+    village: 'চরপাড়া',
+    helpedYears: [2024, 2025],
+    projects: [{ name: { bn: 'শীতবস্ত্র 2024', en: 'Winter 2024' }, year: 2024 }],
+    blocked: false,
+    pickToken: 'sealed-token-1',
+  };
+  const blocked = {
+    ...helped,
+    name: 'রহিম মিয়া',
+    helpedYears: [],
+    projects: [],
+    blocked: true,
+    pickToken: null,
+  };
+  let asked: Record<string, unknown>[];
+  function open(people: unknown[], total = people.length, locale: 'bn' | 'en' = 'bn') {
+    onPhone();
+    refreshAs(VOLUNTEER);
+    serve({ found: false });
+    asked = [];
+    server.use(
+      http.get(`*/api/v1/me/projects/${PROJECT}`, () =>
+        envelope({ ...project, identityRules: OPTIONAL }),
+      ),
+      http.post('*/api/v1/beneficiaries/match', async ({ request }) => {
+        asked.push((await request.json()) as Record<string, unknown>);
+        return envelope({ total, people });
+      }),
+    );
+    return renderApp(<ApplicationFormPage />, locale, {
+      path: '/my-projects/:projectId/apply',
+      initialPath: `/my-projects/${PROJECT}/apply`,
+    });
+  }
+  async function lookUpTheName(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: START }));
+    const step = await screen.findByRole('region', { name: M.section });
+    await user.type(within(step).getByRole('textbox', { name: M.name }), 'করিম উদ্দিন');
+    await user.type(within(step).getByRole('textbox', { name: M.father }), 'আব্দুল জব্বার');
+    await user.click(within(step).getByRole('combobox', { name: /^বিভাগ/ }));
+    for (const name of ['ঢাকা বিভাগ', 'ঢাকা জেলা', 'সাভার', 'আশুলিয়া'])
+      await user.click(await screen.findByRole('option', { name }, { timeout: 15_000 }));
+    await user.type(await within(step).findByRole('textbox', { name: M.village }), 'চরপাড়া');
+    await user.click(within(step).getByRole('button', { name: M.search }));
+    return step;
+  }
+  const payloadOf = (i: number) =>
+    created[i] as { answers: { fieldKey: string; value: unknown }[]; pickToken?: string };
+
+  it('asks the name, the father’s or husband’s name, the union and the village first, and lists the people already here', async () => {
+    const user = userEvent.setup();
+    const view = open([helped, blocked], 7);
+    const step = await lookUpTheName(user);
+    expect(await within(step).findByRole('heading', { name: M.found_title })).toBeInTheDocument();
+    expect(asked).toEqual([
+      {
+        projectId: PROJECT,
+        name: 'করিম উদ্দিন',
+        fatherOrHusbandName: 'আব্দুল জব্বার',
+        unionId: UNION,
+        village: 'চরপাড়া',
+      },
+    ]);
+    expect(within(step).getByText('মোঃ করিম উদ্দিন')).toBeInTheDocument();
+    expect(within(step).getAllByText('পিতা/স্বামী: আব্দুল জব্বার')).toHaveLength(2);
+    expect(within(step).getByText('সাহায্য পেয়েছেন: 2024, 2025')).toBeInTheDocument();
+    expect(within(step).getByText('প্রকল্প: শীতবস্ত্র 2024')).toBeInTheDocument();
+    // a blocked person cannot be picked, in the words of the number lookup
+    const picks = within(step).getAllByRole('button', { name: M.pick });
+    expect(picks[0]).toBeEnabled();
+    expect(picks[1]).toBeDisabled();
+    expect(within(step).getByText(bn.applications.new.blocked)).toBeInTheDocument();
+    // seven in all, two shown
+    expect(within(step).getByText('একই নামে আরও 5 জন আছেন')).toBeInTheDocument();
+    expect(within(step).getByRole('button', { name: M.none_of_them })).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+  }, 60_000);
+
+  it('starts the form for the picked person with the names locked, and the draft carries the token', async () => {
+    const user = userEvent.setup();
+    open([helped]);
+    const step = await lookUpTheName(user);
+    await user.click(await within(step).findByRole('button', { name: M.pick }));
+    const name = await screen.findByRole('textbox', { name: /^name/ });
+    // the profile's names as written, locked as a known person's are
+    expect(name).toHaveValue('মোঃ করিম উদ্দিন');
+    expect(name).toHaveAttribute('readonly');
+    expect(screen.getByRole('textbox', { name: /^father_or_husband_name/ })).toHaveAttribute(
+      'readonly',
+    );
+    // the document question stays free: a number given stays in the application
+    expect(screen.getByRole('textbox', { name: /^nid_or_birth_reg/ })).not.toHaveAttribute(
+      'readonly',
+    );
+    await user.click(screen.getByRole('radio', { name: 'female' }));
+    await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
+    await waitFor(() => expect(created).toHaveLength(1), { timeout: 15_000 });
+    expect(payloadOf(0).pickToken).toBe('sealed-token-1');
+    expect(payloadOf(0).answers).toEqual(
+      expect.arrayContaining([
+        { fieldKey: 'name', value: { t: 'short_text', v: 'মোঃ করিম উদ্দিন' } },
+        { fieldKey: 'village', value: { t: 'short_text', v: 'চরপাড়া' } },
+      ]),
+    );
+  }, 60_000);
+
+  it('starts an empty form for a new person when none of them is the person', async () => {
+    const user = userEvent.setup();
+    open([helped]);
+    const step = await lookUpTheName(user);
+    await user.click(await within(step).findByRole('button', { name: M.none_of_them }));
+    const name = await screen.findByRole('textbox', { name: /^name/ });
+    expect(name).toHaveValue('');
+    expect(name).not.toHaveAttribute('readonly');
+    expect(screen.queryByRole('region', { name: M.section })).not.toBeInTheDocument();
+  }, 60_000);
+
+  it('says when nobody is here under the name, with the same start, in English too', async () => {
+    const user = userEvent.setup();
+    const view = open([]);
+    const step = await lookUpTheName(user);
+    expect(await within(step).findByText(M.nobody)).toBeInTheDocument();
+    expect(within(step).getByRole('button', { name: M.start_new })).toBeInTheDocument();
+    view.unmount();
+    resetClientForTests();
+    open([], 0, 'en');
+    await user.click(
+      await screen.findByRole('button', { name: 'No identity document: start with the name' }),
+    );
+    expect(await screen.findByRole('region', { name: 'Search by name' })).toBeInTheDocument();
+  }, 60_000);
+
+  it('leaves the lookup out without network, says so, and starts the form at once', async () => {
+    const user = userEvent.setup();
+    let onLine = true;
+    Object.defineProperty(navigator, 'onLine', { get: () => onLine, configurable: true });
+    try {
+      open([helped]);
+      const start = await screen.findByRole('button', { name: START });
+      onLine = false;
+      await user.click(start);
+      expect(await screen.findByText(M.offline)).toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: M.section })).not.toBeInTheDocument();
+      expect(asked).toEqual([]);
+      expect(await screen.findByRole('textbox', { name: /^name/ })).toHaveValue('');
+    } finally {
+      Object.defineProperty(navigator, 'onLine', { get: () => true, configurable: true });
+    }
   }, 60_000);
 });
 
