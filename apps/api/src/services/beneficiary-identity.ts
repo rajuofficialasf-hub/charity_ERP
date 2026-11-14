@@ -417,24 +417,34 @@ export class BeneficiaryIdentityService {
 
   /**
    * A refusal of an identity number another profile holds; it names that profile's BEN number only
-   * to a caller whose NID scope reaches it.
+   * to a caller whose NID scope reaches it. With `withId`, it also names the live profile behind
+   * the holder (`beneficiaryId`) to that caller, so a screen can open the comparison of the two.
    */
   async identityTaken(
     db: Tx,
     actor: Principal,
     holderId: string,
-    path: 'nid' | 'birthReg' | 'newValue',
+    path: 'nid' | 'birthReg' | 'newValue' | 'number',
+    options: { withId?: boolean } = {},
   ): Promise<ApiError> {
     const holder = await db.beneficiary.findUnique({
       where: { id: holderId },
       select: { benNo: true },
     });
     const sees = !!holder && (await this.seesHolder(db, actor, holderId));
+    const live = sees && options.withId ? await this.liveOf(db, holderId) : null;
     return new ApiError('beneficiary.identity_taken', 409, undefined, [
       {
         path,
         code: 'beneficiary.identity_taken',
-        ...(sees && holder ? { params: { benNo: formatBenNo(holder.benNo) } } : {}),
+        ...(sees && holder
+          ? {
+              params: {
+                benNo: formatBenNo(holder.benNo),
+                ...(live ? { beneficiaryId: live } : {}),
+              },
+            }
+          : {}),
       },
     ]);
   }

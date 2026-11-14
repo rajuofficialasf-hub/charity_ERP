@@ -376,7 +376,7 @@ components:
     Conflict:
       description: >-
         workflow.transition_not_allowed, workflow.guard.<guard_name>, conflict.locked_on_server,
-        beneficiary.already_applied, beneficiary.identity_taken, beneficiary.mobile_is_volunteer_mobile,
+        beneficiary.already_applied, beneficiary.identity_taken, beneficiary.document_present, beneficiary.mobile_is_volunteer_mobile,
         beneficiary.correction_pending, beneficiary.correction_stale, beneficiary.merge_conflict,
         beneficiary.merge_revert_order, beneficiary.merge_stale, beneficiary.dismissed,
         beneficiary.pick_number_conflict, payment.transaction_id_exists, payment.claim_already_paid,
@@ -2091,6 +2091,7 @@ components:
             editContact: { type: boolean }
             requestCorrection: { type: boolean }
             decideCorrection: { type: boolean }
+            addIdentity: { type: boolean, description: 'Add the identity document to a live profile without one: a caller who sees identity numbers and whose beneficiary.correction.approve scope reaches the person' }
             proposeMerge: { type: boolean }
             merge: { type: boolean }
             revertMerge: { type: boolean }
@@ -2441,6 +2442,27 @@ components:
         requestedAt: { type: string, format: date-time }
         decidedBy: { type: [string, 'null'], format: uuid }
         decidedAt: { type: [string, 'null'], format: date-time }
+    IdentityAdd:
+      type: object
+      additionalProperties: false
+      description: An NID has 10, 13 or 17 digits and a birth registration 17 (validation.nid_format, validation.birth_reg_format); the application, when named, is one of this person's (validation.failed on applicationId otherwise)
+      required: [kind, number]
+      properties:
+        kind: { type: string, enum: [nid, birth_reg] }
+        number: { type: string, minLength: 1, maxLength: 20 }
+        applicationId: { $ref: '#/components/schemas/Uuid' }
+    IdentityAddedResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [beneficiaryId, kind]
+          description: The profile with its document; the number itself is read with the profile, under the NID class
+          properties:
+            beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+            kind: { type: string, enum: [nid, birth_reg] }
+        meta: { $ref: '#/components/schemas/Meta' }
     ContactUpdate:
       type: object
       additionalProperties: false
@@ -3591,6 +3613,7 @@ components:
                 - $ref: '#/components/schemas/ApplicationMedia'
                 - type: 'null'
             mayReferToMedia: { type: boolean, description: 'Whether the caller may refer it to the Media Team now, or send a returned referral again' }
+            mayAddIdentity: { type: boolean, description: 'Whether the caller may add the identity number this application carries to the person''s profile, which has none (POST /beneficiaries/{beneficiaryId}/identity): an official who holds beneficiary.nid and whose beneficiary.correction.approve scope reaches the profile; false for a volunteer' }
             form: { $ref: '#/components/schemas/FormVersion', description: The form version the answers belong to, as the caller's audience sees it }
     ApplicationResponse:
       type: object
@@ -7345,6 +7368,52 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ContactResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /beneficiaries/{beneficiaryId}/identity:
+    parameters:
+      - $ref: '#/components/parameters/BeneficiaryId'
+    post:
+      tags: [beneficiaries]
+      operationId: beneficiaries.identity.add
+      summary: Add the identity document to a profile that has none, after comparing the two (the profile keeps its history)
+      description: >-
+        An official whose correction-approval scope reaches the profile adds the NID or the birth
+        registration number a profile without a document lacks, usually the number an application of
+        the person carries (D-172, BR-308); the profile is then a full one and keeps its BEN number and
+        history. A volunteer never writes a document onto an existing profile. A profile that has a
+        document answers 409 `beneficiary.document_present` (a change is a correction request); a
+        number another profile holds answers 409 `beneficiary.identity_taken`, whose detail names
+        the holder's BEN number and the live profile behind it (`beneficiaryId`) only to a caller
+        whose NID scope reaches it, so the two can be compared and merged. `applicationId`, when
+        given, must be one of this person's applications; one bound without a document whose answers
+        carry this number is bound by it from then on. The write adds a change-log row of kind
+        `correction`; the audit entry keeps the number masked to its last four digits, the actor
+        and the application. Out of scope or a retired profile 404.
+      x-permission: beneficiary.correction.approve
+      x-scope: beneficiary
+      x-audit: beneficiary.identity_added
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IdentityAdd' }
+      responses:
+        '200':
+          description: The document is on the profile; the ETag of its new version
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IdentityAddedResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }

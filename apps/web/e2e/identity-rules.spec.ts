@@ -17,8 +17,10 @@ import { activeProject, choice, code, ERR, identityRulesOn, question } from './s
 // lets the identity document and the mobile stay empty in the project's setup; a volunteer brings
 // a person without a document and without a phone on a 360 px phone, with network and without it;
 // the office reads both on the list and on the person's profile; a second application for the
-// person helped in another project finds that one by the name and lands on its profile; and
-// once the PM asks the document again, the start without it is gone and the number is asked. One
+// person helped in another project finds that one by the name and lands on its profile; the
+// number a later application of such a person carries reaches the profile only when an official
+// adds it from the review page; and once the PM asks the document again, the start without it is
+// gone and the number is asked. One
 // project of this run (and two more for the person helped before and their second application),
 // volunteer 15 assigned and consenting through the API; the journeys run in order on it.
 const PM = 'pm.err@example.org';
@@ -497,6 +499,94 @@ test.describe('the identity an application asks follows the project', () => {
       await expect(desk.getByRole('heading', { level: 1, name: first.name })).toBeVisible();
       await expect(desk.getByRole('heading', { level: 2, name: 'আবেদনের ইতিহাস' })).toBeVisible();
       await expect(desk.getByText(project.data.name.bn).first()).toBeVisible();
+    });
+  });
+
+  test('the number a later application carries reaches the profile without one only when the office adds it', async ({
+    browser,
+    request,
+  }) => {
+    test.setTimeout(420_000);
+    const first = await helpedPerson(browser, request);
+    const second = await projectOfTheJourney(browser, request);
+    await identityRulesOn(request, PM, second, {
+      identity_document: 'optional',
+      mobile: 'optional',
+    });
+    // the volunteer picks the person by the name and types the number the person brought
+    const me = await apiAs(request, VOLUNTEER);
+    const places = await savar(await apiAs(request, HEAD));
+    const looked = await me.post('/beneficiaries/match', {
+      projectId: second,
+      name: first.name,
+      fatherOrHusbandName: 'নমুনা পিতা',
+      unionId: places.union,
+      village: 'নমুনা গ্রাম',
+    });
+    expect(looked.ok(), await looked.text()).toBe(true);
+    const { data: found } = (await looked.json()) as {
+      data: { people: { pickToken: string | null }[] };
+    };
+    const pickToken = found.people[0]?.pickToken;
+    expect(pickToken).toBeTruthy();
+    const form = await me.get(`/projects/${second}/application-form`);
+    const { data: version } = (await form.json()) as { data: { id: string } };
+    const nid = `4${digits(9)}`;
+    const made = await me.post(`/projects/${second}/applications`, {
+      clientUuid: crypto.randomUUID(),
+      projectId: second,
+      formVersionId: version.id,
+      pickToken,
+      answers: [
+        { fieldKey: 'q_id', value: { t: 'short_text', v: nid } },
+        { fieldKey: 'q_name', value: { t: 'short_text', v: first.name } },
+        { fieldKey: 'q_father', value: { t: 'short_text', v: 'নমুনা পিতা' } },
+        { fieldKey: 'q_gender', value: { t: 'single_select', v: 'female' } },
+        {
+          fieldKey: 'q_address',
+          value: {
+            t: 'bd_address',
+            division_id: places.division,
+            district_id: places.district,
+            upazila_id: places.upazila,
+            union_id: places.union,
+          },
+        },
+        { fieldKey: 'q_village', value: { t: 'short_text', v: 'নমুনা গ্রাম' } },
+        { fieldKey: 'q_need', value: { t: 'long_text', v: 'আবার শীতের কাপড় দরকার' } },
+      ],
+    });
+    expect(made.status(), await made.text()).toBe(201);
+    const applicationId = ((await made.json()) as { data: { id: string } }).data.id;
+    await act(me, applicationId, 'submit');
+    // the send kept the number in the application only
+    const head = await apiAs(request, HEAD);
+    const before = await head.get(`/beneficiaries/${first.beneficiaryId}`);
+    expect(((await before.json()) as { data: { nid: string | null } }).data.nid).toBeNull();
+
+    await onDesk(browser, async (desk) => {
+      await signIn(desk, RPM);
+      await desk.goto(`/admin/applications/${applicationId}`);
+      await expect(desk.getByRole('heading', { level: 1, name: first.name })).toBeVisible();
+      await expect(
+        desk.getByText('এই আবেদনে পরিচয়পত্রের নম্বর আছে, প্রোফাইলে নেই।'),
+      ).toBeVisible();
+      await noViolations(desk, 'the review page with the missing document');
+      await desk.getByRole('button', { name: 'পরিচয়পত্র যোগ করুন' }).click();
+      const dialog = desk.getByRole('dialog', { name: 'পরিচয়পত্র যোগ করুন' });
+      await expect(dialog.getByRole('textbox', { name: /নম্বর/ })).toHaveValue(nid);
+      await noViolations(desk, 'the dialog that adds the document');
+      await dialog.getByRole('button', { name: 'যোগ করুন' }).click();
+      await expect(desk.getByText('পরিচয়পত্রের নম্বর প্রোফাইলে যোগ হয়েছে।')).toBeVisible();
+      await expect(desk.getByText('এই আবেদনে পরিচয়পত্রের নম্বর আছে, প্রোফাইলে নেই।')).toHaveCount(
+        0,
+      );
+      // the profile keeps its BEN number and its history, and shows the number now
+      await desk.goto(`/admin/beneficiaries/${first.beneficiaryId}`);
+      await expect(desk.getByRole('heading', { level: 1, name: first.name })).toBeVisible();
+      await expect(desk.getByText(nid).first()).toBeVisible();
+      await expect(desk.getByText(NO_DOCUMENT, { exact: true })).toHaveCount(0);
+      await expect(desk.getByRole('button', { name: 'পরিচয়পত্র যোগ করুন' })).toHaveCount(0);
     });
   });
 

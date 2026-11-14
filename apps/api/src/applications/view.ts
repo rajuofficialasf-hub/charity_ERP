@@ -164,6 +164,12 @@ export const applicationView = applicationSummary.extend({
   media: applicationMediaView.nullable(),
   /** Whether the caller may refer it to the Media Team now (or send a returned referral again). */
   mayReferToMedia: z.boolean(),
+  /**
+   * Whether the caller may add the identity number this application carries to the person's
+   * profile, which has none: an official who sees identity numbers and may approve a correction
+   * of the profile.
+   */
+  mayAddIdentity: z.boolean(),
   /** The form version the answers belong to, as the caller's audience sees it. */
   form: versionView,
 });

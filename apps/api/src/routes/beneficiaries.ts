@@ -7,6 +7,8 @@ import {
   correctionRequestSchema,
   type DismissalRequest,
   dismissalRequestSchema,
+  type IdentityAdd,
+  identityAddSchema,
   type LookupRequest,
   LOCKED_FIELDS,
   lookupRequestSchema,
@@ -84,6 +86,8 @@ export const beneficiaryProfile = z.object({
     editContact: z.boolean(),
     requestCorrection: z.boolean(),
     decideCorrection: z.boolean(),
+    /** Add the identity document to a profile without one (an official who sees numbers). */
+    addIdentity: z.boolean(),
     proposeMerge: z.boolean(),
     merge: z.boolean(),
     revertMerge: z.boolean(),
@@ -347,6 +351,12 @@ const contactView = z.object({
   postCode: z.string().nullable(),
   landmark: z.string().nullable(),
   warnings: z.array(warning),
+});
+
+/** The profile after an official added its identity document: the kind, never the number. */
+const identityAddedView = z.object({
+  beneficiaryId: z.uuid(),
+  kind: z.enum(['nid', 'birth_reg']),
 });
 
 /** A correction request; the values of an identity number only inside the caller's NID scope. */
@@ -848,6 +858,41 @@ export function beneficiariesRouter(
     responses: { 200: correctionView, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: ({ body, params, req }) =>
       c.beneficiaryCorrections.decide(principalOf(req), scopeOf(req), params.requestId, body),
+  });
+
+  defineRoute<IdentityAdd, unknown, { beneficiaryId: string }>(router, deps, {
+    ...writeOp,
+    method: 'post',
+    path: '/beneficiaries/:beneficiaryId/identity',
+    operationId: 'beneficiaries.identity.add',
+    summary:
+      'Add the identity document to a profile that has none, after comparing the two (the profile keeps its history)',
+    permission: 'beneficiary.correction.approve',
+    audit: 'beneficiary.identity_added',
+    params: { beneficiaryId: z.uuid() },
+    headers: [{ name: 'If-Match', required: true }],
+    body: identityAddSchema,
+    responses: {
+      200: identityAddedView,
+      401: null,
+      403: null,
+      404: null,
+      409: null,
+      412: null,
+      422: null,
+    },
+    handler: async ({ body, params, req, res }) => {
+      const { updatedAt, ...added } = await c.beneficiaryCorrections.addIdentity(
+        principalOf(req),
+        scopeOf(req),
+        params.beneficiaryId,
+        body,
+        req.get('if-match'),
+      );
+      const etag = etagOf(updatedAt);
+      res.setHeader('ETag', etag);
+      return ok(added, { etag });
+    },
   });
 
   return router;

@@ -41,6 +41,7 @@ import { BeneficiaryArea } from './BeneficiaryArea';
 import { FamilyMembers } from './FamilyMembers';
 import { ContactDialog } from './ContactDialog';
 import { CorrectionDialog } from './CorrectionDialog';
+import { IdentityDialog } from './IdentityDialog';
 import { RevertMergeAction } from './duplicates/RevertMergeAction';
 import { ContactLog, Corrections, useFileKind } from './ProfileHistory';
 import { MediaWorksSection } from '../../features/media/MediaWorksSection';
@@ -102,7 +103,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
   const { me } = useAuth();
   const printable = !!me && canPrintProfile(me);
   const fileKind = useFileKind();
-  const [dialog, setDialog] = useState<'contact' | 'correction' | null>(null);
+  const [dialog, setDialog] = useState<'contact' | 'correction' | 'identity' | null>(null);
   const { notice, setNotice, dismiss: dismissNotice } = useHandedNotice();
   const [shared, setShared] = useState<ContactSaved['warnings']>([]);
   const changed = (message: string) => {
@@ -214,6 +215,11 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           {tp('edit_contact')}
         </Button>
       )}
+      {a.addIdentity && (
+        <Button variant="secondary" startIcon="id-card" onClick={() => setDialog('identity')}>
+          {tp('add_identity')}
+        </Button>
+      )}
       {a.requestCorrection && (
         <Button variant="secondary" startIcon="file" onClick={() => setDialog('correction')}>
           {tp('request_correction')}
@@ -230,7 +236,8 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
       )}
     </>
   );
-  const hasActions = printable || a.editContact || a.requestCorrection || a.block || a.unblock;
+  const hasActions =
+    printable || a.editContact || a.addIdentity || a.requestCorrection || a.block || a.unblock;
   const showCorrections = p.corrections.length > 0 || a.requestCorrection || a.decideCorrection;
 
   return (
@@ -284,6 +291,14 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           etag={etag}
           onClose={() => setDialog(null)}
           onDone={contactSaved}
+        />
+      )}
+      {dialog === 'identity' && (
+        <IdentityDialog
+          beneficiaryId={p.id}
+          etag={etag}
+          onClose={() => setDialog(null)}
+          onDone={() => changed(tp('identity_added'))}
         />
       )}
       {dialog === 'correction' && (

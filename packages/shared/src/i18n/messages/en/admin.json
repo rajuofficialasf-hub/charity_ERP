@@ -482,6 +482,8 @@
       "request_correction": "Request a correction",
       "contact_saved": "Contact details saved",
       "correction_sent": "Correction request sent",
+      "add_identity": "Add identity document",
+      "identity_added": "The identity number was added to the profile",
       "correction_approved": "Correction approved; the new value is on the profile",
       "correction_rejected": "Correction request rejected",
       "correction_approve": "Approve",
@@ -593,6 +595,14 @@
       "post_code": "Post code",
       "landmark": "Landmark",
       "save": "Save"
+    },
+    "identity": {
+      "title": "Add identity document",
+      "help": "Add it once you have compared the two. The profile keeps all its history.",
+      "kind": "Document type",
+      "number": "Number",
+      "confirm": "Add",
+      "compare": "Compare the two profiles"
     },
     "correction": {
       "title": "Request a correction",

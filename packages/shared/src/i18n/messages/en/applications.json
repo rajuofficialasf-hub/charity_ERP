@@ -193,6 +193,11 @@
         "family_match": "Someone from the same family is in this project. Why approve anyway?"
       }
     },
+    "identity": {
+      "missing": "This application has an identity number; the profile does not.",
+      "add": "Add identity document",
+      "added": "The identity number was added to the profile."
+    },
     "signals": {
       "flag": {
         "public_entry": "An entry from the public link; verify it and link it to a profile, or refuse it.",

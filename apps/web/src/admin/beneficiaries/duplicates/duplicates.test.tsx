@@ -30,6 +30,7 @@ const NONE = {
   editContact: false,
   requestCorrection: false,
   decideCorrection: false,
+  addIdentity: false,
   proposeMerge: false,
   merge: false,
   revertMerge: false,

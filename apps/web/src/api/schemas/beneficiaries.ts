@@ -41,6 +41,8 @@ export const profileActionsSchema = z.object({
   editContact: z.boolean(),
   requestCorrection: z.boolean(),
   decideCorrection: z.boolean(),
+  /** Add the identity document a live profile lacks; for an official who sees numbers. */
+  addIdentity: z.boolean(),
   proposeMerge: z.boolean(),
   merge: z.boolean(),
   revertMerge: z.boolean(),

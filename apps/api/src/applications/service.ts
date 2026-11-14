@@ -1985,10 +1985,37 @@ export class ApplicationsService {
           status: row.status,
           beneficiaryId: row.beneficiaryId,
         })),
+        mayAddIdentity: await this.mayAddIdentity(viewer, access, row, definition, read),
         form: versionView(version, definition),
       },
       updatedAt: row.updatedAt,
     };
+  }
+
+  /**
+   * Whether the office may add the identity number the application carries to its person's
+   * profile, which has none (docs/BUSINESS_RULES.md, "Beneficiary identity and master"): an
+   * official who sees identity numbers and whose correction-approval scope reaches the profile.
+   */
+  private async mayAddIdentity(
+    viewer: ApplicationViewer,
+    access: EffectiveAccess,
+    row: Row,
+    definition: FormDefinition,
+    answers: readonly Answer[],
+  ): Promise<boolean> {
+    if (this.audienceOf(viewer) !== 'official' || !viewer.fieldClasses.has(BENEFICIARY_NID))
+      return false;
+    if (!row.beneficiaryId || !row.beneficiary) return false;
+    if (row.beneficiary.nid !== null || row.beneficiary.birthReg !== null) return false;
+    if (identityNumberIn(definition, answers) === null) return false;
+    const { add } = await this.access.allowedOn(
+      viewer.principal,
+      access,
+      { add: { permission: 'beneficiary.correction.approve', entity: 'beneficiary' } },
+      { beneficiaryId: row.beneficiaryId },
+    );
+    return add;
   }
 
   /** Whether the caller brings the application: its main volunteer, or the user who created it. */

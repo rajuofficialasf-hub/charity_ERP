@@ -76,6 +76,8 @@ export const officeApplicationSchema = applicationSchema.extend({
     .optional(),
   /** Whether the caller may send it to the Media Team now, or a returned referral again. */
   mayReferToMedia: z.boolean().optional(),
+  /** Whether the caller may add the number this application carries to the profile, which has none. */
+  mayAddIdentity: z.boolean().optional(),
   familyDuplicateWarnings: z.array(
     z.object({
       beneficiaryId: z.uuid(),

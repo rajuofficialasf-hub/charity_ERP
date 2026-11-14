@@ -69,6 +69,24 @@ export const correctionRequestSchema = z
   });
 export type CorrectionRequestCreate = z.infer<typeof correctionRequestSchema>;
 
+/**
+ * An identity document added by an official to a profile that has none, after comparing the two:
+ * the kind, the number in that kind's format, and the application the number came from, if any.
+ */
+export const identityAddSchema = z
+  .strictObject({
+    kind: z.enum(['nid', 'birth_reg']),
+    number: z.string().trim().min(1, { message: 'validation.required' }).max(20),
+    applicationId: z.uuid().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind === 'nid' && !NID_PATTERN.test(v.number))
+      ctx.addIssue({ code: 'custom', path: ['number'], message: 'validation.nid_format' });
+    if (v.kind === 'birth_reg' && !BIRTH_REG_PATTERN.test(v.number))
+      ctx.addIssue({ code: 'custom', path: ['number'], message: 'validation.birth_reg_format' });
+  });
+export type IdentityAdd = z.infer<typeof identityAddSchema>;
+
 /** A field that only a correction request changes; named so the answer says why, not "unknown". */
 const locked = z.never({ message: 'beneficiary.locked_field' }).optional();
 const optionalText = (max: number) => z.string().trim().min(1).max(max).optional();

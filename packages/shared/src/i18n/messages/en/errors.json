@@ -78,6 +78,7 @@
     "already_applied": "This beneficiary already has an application in this project.",
     "locked_field": "This information can be changed only through a correction request.",
     "identity_taken": "Another profile already has this number. If it is the same person, propose a merge.",
+    "document_present": "This profile already has an identity number. To change it, request a correction.",
     "correction_own": "Another official must decide on your own correction request.",
     "correction_pending": "A correction request for this field is already waiting for a decision.",
     "correction_stale": "The value changed after the request was made. Make a new request.",

@@ -890,6 +890,56 @@ describe('the review page', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('offers to add the number the application carries to a profile without one, from the answers', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    const sent: { ifMatch: string | null; body: unknown }[] = [];
+    let added = false;
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            hasDocument: added,
+            identityKind: added ? 'nid' : 'none',
+            mayAddIdentity: !added,
+          }),
+        ),
+      ),
+      http.get('*/api/v1/beneficiaries/:id', () =>
+        HttpResponse.json({ data: {}, meta: { requestId: 'r', etag: '"p1"' } }),
+      ),
+      http.post('*/api/v1/beneficiaries/:id/identity', async ({ request }) => {
+        sent.push({ ifMatch: request.headers.get('If-Match'), body: await request.json() });
+        added = true;
+        return HttpResponse.json({
+          data: { beneficiaryId: '01900000-0000-7000-8000-0000000000b1', kind: 'nid' },
+          meta: { requestId: 'r', etag: '"p2"' },
+        });
+      }),
+    );
+    openReview();
+    expect(
+      await screen.findByText('এই আবেদনে পরিচয়পত্রের নম্বর আছে, প্রোফাইলে নেই।'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'পরিচয়পত্র যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'পরিচয়পত্র যোগ করুন' });
+    expect(within(dialog).getByRole('textbox', { name: /নম্বর/ })).toHaveValue('1234567890');
+    await user.click(within(dialog).getByRole('button', { name: 'যোগ করুন' }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual({
+      ifMatch: '"p1"',
+      body: { kind: 'nid', number: '1234567890', applicationId: A1 },
+    });
+    expect(await screen.findByText('পরিচয়পত্রের নম্বর প্রোফাইলে যোগ হয়েছে।')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText('এই আবেদনে পরিচয়পত্রের নম্বর আছে, প্রোফাইলে নেই।'),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
   it('opens the comment box when the server asks one the screen did not expect', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);

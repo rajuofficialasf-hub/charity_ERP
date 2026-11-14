@@ -396,7 +396,8 @@ export class BeneficiariesService {
    * - the merges, naming the other profile's id only where the caller's scope reaches it;
    * - the files, an NID photo only inside the NID scope;
    * - the actions, each true only where its permission and scope reach the person and the
-   *   person's state allows it (a live profile, blocked or not, a merge to revert).
+   *   person's state allows it (a live profile, blocked or not, a merge to revert, a profile
+   *   without a document for a caller who sees identity numbers).
    */
   private async history(
     tx: Tx,
@@ -427,7 +428,7 @@ export class BeneficiariesService {
     const text = (value: unknown) => (value === null || value === undefined ? null : String(value));
     const state = await tx.beneficiary.findUniqueOrThrow({
       where: { id },
-      select: { isBlocked: true, mergedIntoId: true },
+      select: { isBlocked: true, mergedIntoId: true, nid: true, birthReg: true },
     });
     const contactLog =
       sees(CONTACT) || sees(ADDRESS)
@@ -533,6 +534,13 @@ export class BeneficiariesService {
         requestCorrection: allowed.requestCorrection && live,
         decideCorrection:
           allowed.decideCorrection && live && corrections.some((c) => c.status === 'submitted'),
+        // the one who may approve a correction adds the document a profile lacks, seeing numbers
+        addIdentity:
+          allowed.decideCorrection &&
+          live &&
+          seesNid &&
+          state.nid === null &&
+          state.birthReg === null,
         proposeMerge: allowed.proposeMerge && live,
         merge: allowed.merge && live,
         revertMerge: allowed.revertMerge && revertible,

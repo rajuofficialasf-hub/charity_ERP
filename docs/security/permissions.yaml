@@ -458,7 +458,7 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: beneficiary.correction.approve
-    description: Approve a profile correction request and change the locked field
+    description: Approve a profile correction request and change the locked field; add the identity document to a profile without one (D-172)
     module: M05
     sensitive: false
     default:

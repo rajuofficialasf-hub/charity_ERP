@@ -14,6 +14,7 @@ import * as f from './support/fixtures.js';
 
 // The correction of a locked field of a beneficiary: one official requests it with a reason,
 // another one decides; an approval changes the field in the same transaction, logged and audited.
+// A profile without a document gets one from an official who compared the two, in one write.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -230,5 +231,131 @@ describe('the correction of a locked field', () => {
       (await decide(await as(world.users.executive), created.body.data.id, { decision: 'approve' }))
         .status,
     ).toBe(403);
+  });
+});
+
+describe('an identity document added to a profile without one', () => {
+  /** The profile as the official reads it, with the version a write carries back. */
+  const read = (s: Session, id: string) => api().get(`/api/v1/beneficiaries/${id}`).set(bearer(s));
+  const add = async (s: Session, id: string, body: Record<string, unknown>, etag?: string) =>
+    api()
+      .post(`/api/v1/beneficiaries/${id}/identity`)
+      .set(bearer(s))
+      .set('If-Match', etag ?? ((await read(s, id)).headers.etag as string))
+      .send(body);
+  const benNoOf = async (id: string) =>
+    (await h.db.query('SELECT ben_no FROM beneficiaries WHERE id = $1', [id])).rows[0]
+      .ben_no as number;
+  const benText = (benNo: number) => `BEN-${String(benNo).padStart(7, '0')}`;
+
+  it('takes a free number from an official in scope; the profile keeps its BEN number and history, and the audit names the actor and the application', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka, { nid: null });
+    const source = await f.application(
+      h.db,
+      { project: world.a1, loc: world.dhaka },
+      { beneficiary_id: id },
+    );
+    const benNo = await benNoOf(id);
+    const rpm = await as(world.users.rpmDhaka);
+    const before = await read(rpm, id);
+    expect(before.body.data).toMatchObject({ hasDocument: false, nid: null });
+    expect(before.body.data.actions.addIdentity).toBe(true);
+    const nid = f.fakeNid();
+    const res = await add(rpm, id, { kind: 'nid', number: nid, applicationId: source });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.data).toEqual({ beneficiaryId: id, kind: 'nid' });
+    expect(res.headers.etag).toBeTruthy();
+    expect(await profileRow(id)).toMatchObject({ nid });
+    expect(await benNoOf(id)).toBe(benNo);
+    const after = await read(rpm, id);
+    expect(after.body.data).toMatchObject({ hasDocument: true, nid });
+    expect(after.body.data.actions.addIdentity).toBe(false);
+    expect(after.body.data.applications).toEqual([expect.objectContaining({ id: source })]);
+    expect(await audits('beneficiary.identity_added', id)).toEqual([
+      {
+        actor_user_id: world.users.rpmDhaka,
+        old: { nid: null },
+        new: { nid: `${'•'.repeat(nid.length - 4)}${nid.slice(-4)}`, applicationId: source },
+        reason: null,
+      },
+    ]);
+    const log = await h.db.query(
+      `SELECT field, old_value, new_value, kind, approved_by FROM field_changes WHERE entity_id = $1`,
+      [id],
+    );
+    expect(log.rows).toEqual([
+      {
+        field: 'nid',
+        old_value: null,
+        new_value: nid,
+        kind: 'correction',
+        approved_by: world.users.rpmDhaka,
+      },
+    ]);
+  });
+
+  it('refuses a number another profile holds, naming that profile for the comparison only to a caller who may see its number', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka, { nid: null });
+    const holder = await f.beneficiary(h.db, world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    const taken = await add(rpm, id, { kind: 'nid', number: (await profileRow(holder)).nid });
+    expect(taken.status).toBe(409);
+    expect(taken.body.error.code).toBe('beneficiary.identity_taken');
+    expect(taken.body.error.details[0]).toMatchObject({
+      path: 'number',
+      params: { benNo: benText(await benNoOf(holder)), beneficiaryId: holder },
+    });
+    // a holder in Rangpur lies outside the Dhaka RPM's NID scope: refused without a name
+    const far = await f.beneficiary(h.db, world.rangpur);
+    const unnamed = await add(rpm, id, { kind: 'nid', number: (await profileRow(far)).nid });
+    expect(unnamed.status).toBe(409);
+    expect(unnamed.body.error.details[0].params).toBeUndefined();
+    expect((await profileRow(id)).nid).toBeNull();
+    expect(await audits('beneficiary.identity_added', id)).toEqual([]);
+  });
+
+  it('refuses a profile that has a document, which only a correction changes', async () => {
+    const id = await applicant();
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await read(rpm, id)).body.data.actions.addIdentity).toBe(false);
+    const res = await add(rpm, id, { kind: 'nid', number: f.fakeNid() });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('beneficiary.document_present');
+  });
+
+  it('refuses a stale version, a number in a wrong format and an application of another person', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka, { nid: null });
+    const rpm = await as(world.users.rpmDhaka);
+    const stale = await add(rpm, id, { kind: 'nid', number: f.fakeNid() }, '"stale"');
+    expect(stale.status).toBe(412);
+    const format = await add(rpm, id, { kind: 'birth_reg', number: '12345' });
+    expect(format.status).toBe(422);
+    expect(format.body.error.details[0]).toMatchObject({
+      path: 'number',
+      code: 'validation.birth_reg_format',
+    });
+    const other = await applicant();
+    const elsewhere = await h.db.query<{ id: string }>(
+      'SELECT id FROM applications WHERE beneficiary_id = $1',
+      [other],
+    );
+    const foreign = await add(rpm, id, {
+      kind: 'nid',
+      number: f.fakeNid(),
+      applicationId: elsewhere.rows[0]!.id,
+    });
+    expect(foreign.status).toBe(422);
+    expect(foreign.body.error.details[0].path).toBe('applicationId');
+    expect((await profileRow(id)).nid).toBeNull();
+  });
+
+  it('refuses a volunteer, an official without the permission and one out of scope', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka, { nid: null });
+    const etag = (await read(await as(world.users.rpmDhaka), id)).headers.etag as string;
+    const body = { kind: 'nid', number: f.fakeNid() };
+    expect((await add(await as(world.users.general), id, body, etag)).status).toBe(403);
+    expect((await add(await as(world.users.executive), id, body, etag)).status).toBe(403);
+    expect((await add(await as(world.users.rpmRangpur), id, body, etag)).status).toBe(404);
+    expect((await profileRow(id)).nid).toBeNull();
   });
 });

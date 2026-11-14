@@ -457,6 +457,41 @@ describe('an application for a picked person', () => {
     ).toEqual({ nid: null, birth_reg: null });
   });
 
+  it('offers the office the number the application carries, and binds the application by it once an official adds it to the profile', async () => {
+    const p = person();
+    const id = await profile(p, { nid: null });
+    const s = await as(world.users.general);
+    const nid = f.fakeNid();
+    const made = await create(s, open, answersFor(p, { q_id: text(nid) }), {
+      pickToken: await tokenFor(s, p),
+    });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    const applicationId = made.body.data.id as string;
+    expect(made.body.data.mayAddIdentity).toBe(false);
+    const rpm = await as(world.users.rpmDhaka);
+    const record = await at(rpm, 'get', `/applications/${applicationId}`);
+    expect(record.body.data).toMatchObject({ hasDocument: false, mayAddIdentity: true });
+    const etag = (await at(rpm, 'get', `/beneficiaries/${id}`)).headers.etag as string;
+    const added = await at(rpm, 'post', `/beneficiaries/${id}/identity`)
+      .set('If-Match', etag)
+      .send({ kind: 'nid', number: nid, applicationId });
+    expect(added.status, JSON.stringify(added.body)).toBe(200);
+    expect((await h.db.query('SELECT nid FROM beneficiaries WHERE id = $1', [id])).rows[0]).toEqual(
+      { nid },
+    );
+    expect(
+      (await h.db.query('SELECT identity_kind FROM applications WHERE id = $1', [applicationId]))
+        .rows[0],
+    ).toEqual({ identity_kind: 'nid' });
+    const after = await at(rpm, 'get', `/applications/${applicationId}`);
+    expect(after.body.data).toMatchObject({
+      beneficiaryId: id,
+      hasDocument: true,
+      identityKind: 'nid',
+      mayAddIdentity: false,
+    });
+  });
+
   it('refuses a forged, an altered, another caller’s and another project’s token with one code', async () => {
     const p = person();
     await profile(p);

@@ -29,6 +29,7 @@ const NO_ACTIONS = {
   editContact: false,
   requestCorrection: false,
   decideCorrection: false,
+  addIdentity: false,
   proposeMerge: false,
   merge: false,
   revertMerge: false,
@@ -670,6 +671,101 @@ describe('the profile actions', () => {
     expect(await screen.findByRole('button', { name: 'ব্লক তুলুন' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'ব্লকলিস্টে দিন' })).not.toBeInTheDocument();
   });
+
+  it('offers the identity document only where the server allows it, on a profile without one', async () => {
+    refreshAs(RPM);
+    serve(fullRow, {}, { ...empty360, nid: '1234567890', actions: ALL_ACTIONS });
+    const first = openProfile();
+    await screen.findByRole('button', { name: 'সংশোধনের অনুরোধ করুন' });
+    expect(screen.queryByRole('button', { name: 'পরিচয়পত্র যোগ করুন' })).not.toBeInTheDocument();
+    first.unmount();
+    resetClientForTests();
+    serve(
+      fullRow,
+      {},
+      {
+        ...empty360,
+        nid: null,
+        birthReg: null,
+        hasDocument: false,
+        actions: { ...NO_ACTIONS, addIdentity: true },
+      },
+    );
+    openProfile();
+    expect(await screen.findByRole('button', { name: 'পরিচয়পত্র যোগ করুন' })).toBeInTheDocument();
+  });
+
+  it('adds the identity document with the version of the profile, and links the profile that holds a taken number', async () => {
+    refreshAs(RPM);
+    serve(
+      fullRow,
+      {},
+      {
+        ...empty360,
+        nid: null,
+        birthReg: null,
+        hasDocument: false,
+        actions: { ...NO_ACTIONS, addIdentity: true },
+      },
+    );
+    const sent: { ifMatch: string | null; body: unknown }[] = [];
+    server.use(
+      http.post('*/api/v1/beneficiaries/:id/identity', async ({ request }) => {
+        sent.push({ ifMatch: request.headers.get('If-Match'), body: await request.json() });
+        if (sent.length === 1)
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'beneficiary.identity_taken',
+                message: 'এই নম্বর অন্য একটি প্রোফাইলে আছে। একই মানুষ হলে মার্জের প্রস্তাব দিন।',
+                requestId: 'r',
+                details: [
+                  {
+                    path: 'number',
+                    code: 'beneficiary.identity_taken',
+                    message:
+                      'এই নম্বর অন্য একটি প্রোফাইলে আছে। একই মানুষ হলে মার্জের প্রস্তাব দিন।',
+                    params: { benNo: 'BEN-0000077', beneficiaryId: OTHER_ID },
+                  },
+                ],
+              },
+            },
+            { status: 409 },
+          );
+        return HttpResponse.json({
+          data: { beneficiaryId: ID, kind: 'nid' },
+          meta: { requestId: 'req_test', etag: ETAG },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    const view = openProfile();
+    await user.click(await screen.findByRole('button', { name: 'পরিচয়পত্র যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'পরিচয়পত্র যোগ করুন' });
+    const add = within(dialog).getByRole('button', { name: 'যোগ করুন' });
+    expect(add).toBeDisabled();
+    await user.click(within(dialog).getByRole('combobox', { name: /পরিচয়পত্রের ধরন/ }));
+    await user.click(await screen.findByRole('option', { name: 'NID' }));
+    const number = within(dialog).getByRole('textbox', { name: /নম্বর/ });
+    await user.type(number, '১২৩৪');
+    await user.click(add);
+    // a number of the wrong length is refused here, before any request
+    expect(number).toHaveAccessibleDescription('এনআইডি 10, 13 বা 17 অঙ্কের হতে হবে।');
+    expect(sent).toEqual([]);
+    await user.clear(number);
+    await user.type(number, '১২৩৪-৫৬৭ ৮৯০');
+    await user.click(add);
+    expect(
+      await within(dialog).findByRole('link', { name: 'দুটি প্রোফাইল মিলিয়ে দেখুন' }),
+    ).toHaveAttribute('href', expect.stringContaining(`b=${OTHER_ID}`));
+    await expectNoAxeViolations(view.container);
+    await user.clear(number);
+    await user.type(number, '1234567891');
+    await user.click(add);
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[1]).toEqual({ ifMatch: ETAG, body: { kind: 'nid', number: '1234567891' } });
+    expect(await screen.findByText('পরিচয়পত্রের নম্বর প্রোফাইলে যোগ হয়েছে')).toBeInTheDocument();
+  }, 15_000);
 
   it('saves a new mobile with the version of the profile and shows the shared-mobile warning', async () => {
     refreshAs(RPM);
