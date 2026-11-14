@@ -25,7 +25,7 @@ Every beneficiary application needs an NID or a birth registration number and a 
 - **R4** A given number can say whose it is (own, a family member's, a neighbour's) and that person's name.
 - **R5** A person without a document gets a profile from the name, the father's or husband's name, the gender, the address and the village, marked as without a document; an official who has compared the two adds a document later to the same profile, and its history stays.
 - **R6** A project that requires the document refuses an application without a valid one, exactly as today.
-- **R7** Names compare without honorifics and with near spellings folded, the same way in the database and on the phone.
+- **R7** Names compare through a key that drops a known title only at the start or the end of a name, keeps every word that can be a family name, and makes equal only the known spelling variants of a list; the name as written is always kept and shown (D-174).
 - **R8** Profiles that look like one person are paired by name with father's or husband's name and village, next to the three rules of today.
 - **R9** At entry, a volunteer who starts without a document is shown the people already there under that name, father's or husband's name and village, and picks one or says it is a new person.
 - **R10** A volunteer sees of such a person only the name, the father's or husband's name, the village and the years of earlier help (a project's name only when the volunteer works on it); never a number or a contact, never more than five exact matches, only inside the area of a project the volunteer works on, and every such look is counted and recorded.
@@ -38,6 +38,9 @@ Every beneficiary application needs an NID or a birth registration number and a 
 - **R17** The profile shows the family members, links a member who has a profile the viewer may open, and shows what the family received from the profiles the viewer may open; the others are a bare count.
 - **R18** A person on the block list does not come back as a new profile, with a document or without: every new profile a send would make is compared first, and a new person whose name, father's or husband's name and village match a blocked profile goes to an official's verification.
 - **R19** Every change of a project's switches and every profile made without a document is recorded with who did it, on which project and under which rule.
+- **R20** The Department Head and the Monitoring Team extend the list of spelling variants in the settings, and every stored key follows the list (D-174).
+- **R21** Whether the name beside the person is the father's or the husband's is recorded where known, and a father's name never pairs with a husband's (D-174).
+- **R22** Every suggested pair says its level: strong (an identity or BEN number), probable (several facts together) or for an official to check (a partial match) (D-174).
 
 ## Scope
 
@@ -56,7 +59,7 @@ Every beneficiary application needs an NID or a birth registration number and a 
 
 ## Open questions
 
-- The list of honorifics and near spellings the name key folds (U8 proposes one from the department's own forms; the owner confirms it before U8 is merged).
+- ~~The list of honorifics and near spellings the name key folds~~ (decided 2026-11-14 in D-174: the titles at the start and the end, the family names kept, the spelling variants as an editable list).
 - ~~A daily cap on profiles without a document per volunteer~~ (decided 2026-11-12: none; the owner: "দৈনিক সীমা লাগবে না"; the project's per-volunteer limit bounds them and every such profile is recorded with its maker, R19).
 
 <!-- ae-plan adds everything below -->
@@ -69,7 +72,7 @@ Every beneficiary application needs an NID or a birth registration number and a 
 - **The form keeps its seven identity questions** (BR-078 unchanged): whether the two number questions must be answered is decided when the answers are checked, from the project, because one ready form is placed on many projects. `validate` of `packages/shared/src/forms/validate.ts` takes the two flags from `identityRules`; its callers are the API's submit and save (`apps/api/src/applications/service.ts`), the public entry (`apps/api/src/services/public-forms.ts`, which always requires the mobile), the renderer (`FormRenderer`, from the project read of `my-projects.ts` or the public form's read) and the offline store (from the snapshot of `apps/api/src/sync/snapshot.ts`, which carries the four switches). The publish check passes no flags and does not change. The server reads the rule from the project at every submit and never from the client or a stored draft.
 - **Whose number it is are two ordinary standard-column questions** (`mobile_owner` from a reference list, `mobile_owner_name`), with ordinary conditions, so the engine's answer shapes do not change and the phone's stored drafts stay valid. A published form without them keeps working with its seven questions; the two are optional everywhere. Dropped: a composite phone answer (it changes the answer schema of every stored draft and export).
 - **Expand without contract** (DB-MIG-03, DB-MIG-04): `mobile` becomes nullable and the identity check is dropped; nothing is backfilled and no column is removed, so the migration is safe under the old code. Its `down.sql` cannot set `NOT NULL` back while rows without a mobile exist (PostgreSQL has no `NOT VALID` for it), so where such rows exist it restores the rules as CHECK constraints `NOT VALID` (`mobile IS NOT NULL`, the identity check, the earlier kind check), which hold every new and every changed row and leave the existing ones; on a database without such rows it restores the earlier schema exactly, which the step test of `migrations.test.ts` asks of every migration (DB-MIG-05, and this repository's rule of a hand-written `down.sql`).
-- **One name key in two languages**: `person_match_key(text)` in SQL (immutable, with expression indexes, as `person_name_key` of `20261020160000_beneficiary_master` has) and the same function in `packages/shared/src/beneficiaries/`, held together by one table of pairs that a unit test and an integration test both read. The existing `person_name_key` stays for the search; the pair rules move to the new key in U10.
+- **One name key, computed once and stored** (D-174): `matchKey(text, variants)` in `packages/shared/src/beneficiaries/match-key.ts` drops a known title at the start or the end, keeps family names, removes spaces and marks, and maps each word through the list of spelling variants. The keys are stored with the person (`name_key`, `guardian_key`, `village_key` on `beneficiaries`; `name_key` on `beneficiary_family_members`) and written on every path that writes a name; a list's version is stored beside them, so a changed list is followed by a job that computes every key again in batches. No SQL twin: an editable list cannot feed an immutable SQL function. The existing `person_name_key` stays for the search; the pair rules move to the stored keys in U10. The village is compared as text inside the same union (the locations master ends at the union).
 - **The name lookup for a volunteer is an exact-key lookup, not a search** (RBAC "field-level protection"): a permission of its own (`beneficiary.match`), the keys of the name, the father's or husband's name and the village must all match inside a union of a project area the caller works in, at most five rows and their count, no number, no contact and no document flag in the answer, the years of help with a project's name only where the caller works on it, a blocked person shown as "cannot be picked" in the words the number lookup uses today. Every call is audited (`beneficiary.matched`) and counted per caller and day against a setting (found or not; over it 429, also audited). Each row carries a short-lived signed token, and an application is started for a picked person only with that token, so no other call can ask "does this person exist". Picking returns nothing more than the row; the phone keeps the rows in memory only and the draft only the token and the typed answers, in the sealed store.
 - **The hold reuses the decision comment** (`COMMENT_REASONS` of `apps/api/src/applications/decision-rules.ts`): `same_person` joins `family_match`, and both are asked only where the project says "hold"; the guard of the move to approved (`apps/api/src/workflow/guards.ts`, which calls `familyMatch` too) reads the same rule. No new state.
 - **Times helped are kept on the profile row** (`help_count`, `max_helps_in_year`), because the list filters two million rows on it (`docs/testing/PERFORMANCE.md`). The states that count are named once in `@css/shared/workflow` (the approved state and the states after it: implementation, distribution, completed, closed, as the templates name them), and a test walks every seeded workflow so a new state must be classified. The engine recounts the one person after every move whose two states differ in counting, whatever the transition (approval, the pull from the waitlist, the reopen, the close), and the bulk paths that move states outside it (`applications.restore_prior_state` of a project's reopen, a project's close) recount the people they touched; a nightly recount repairs what is missed. The profile's own summary is read live and never from the counters.
@@ -77,7 +80,7 @@ Every beneficiary application needs an NID or a birth registration number and a 
 
 ## Implementation units
 
-Build order: U1 to U7 (the first pull request), then U8, U9, U10, U11, U12, U16 (the second), then U13, U14, U15 (the third).
+Build order: U1 to U7 (the first pull request), then U8, U17, U18, U9, U10, U11, U12, U16 (the second), then U13, U14, U15 (the third).
 
 ### U1. The rules in the register
 
@@ -189,16 +192,46 @@ Build order: U1 to U7 (the first pull request), then U8, U9, U10, U11, U12, U16 
 - **Risk area:** none
 - **Status:** done
 
-### U8. One name key
+### U8. One name key, kept with the person
 
-- **Goal:** two spellings of one name compare equal in the database and on the phone.
+- **Goal:** two spellings of one name give the same stored key, and different people do not.
 - **Requirements:** R7
-- **Files:** `apps/api/prisma/migrations/<new>/{migration.sql,down.sql}` (`person_match_key(text)`, expression indexes on the profile's name, father's or husband's name and village with the union, and on the family member's name), `packages/shared/src/beneficiaries/match-key.ts` (new) with `match-key.pairs.ts` (the table of pairs) and its test, `apps/api/test/integration/match-key.test.ts` (new, the same table through SQL), `docs/BUSINESS_RULES.md` (the list of what is dropped and folded), `docs/database/DATABASE_SCHEMA.md`
-- **Approach:** `person_name_key` and its indexes in `20261020160000_beneficiary_master/migration.sql` lines 36 to 40; no existing example for one rule kept equal in SQL and TypeScript, so the shared table of pairs is the contract.
+- **Files:** `packages/shared/src/beneficiaries/match-key.ts` (new) with `match-key.cases.ts` (the table of cases) and its test; `apps/api/prisma/migrations/<new>/{migration.sql,down.sql}` (the key columns on `beneficiaries` and `beneficiary_family_members`, the table `name_variants` with its version, the indexes `(union_id, name_key, guardian_key)` and `(union_id, village_key)`), `apps/api/prisma/schema.prisma`; the write paths that set or change a name, a father's or husband's name or a village (`beneficiary-identity.ts` `createProfile`, `beneficiary-contact.ts`, `beneficiary-corrections.ts`, `beneficiary-merges.ts`, the family write of U9 when it exists); a job `apps/api/src/jobs/name-keys.ts` that computes missing or stale keys in batches (run after the migration and when the list changes); the seed of the starting variants (`apps/api/seed/sets/base/`); `docs/BUSINESS_RULES.md`, `docs/database/DATABASE_SCHEMA.md`
+- **Approach:** the duplicate candidates' refresh on change and their nightly job (`beneficiary-merge-candidates.ts`, `jobs/duplicates.ts`) are the example of a derived value kept on every write and repaired by a job.
 - **Tests:**
-  - unit: every pair of the table (মোঃ করিম / মোহাম্মদ করিম / করিম; মোছাঃ রহিমা বেগম / রহিমা খাতুন / রহিমা; আক্তার / আকতার; near letters; spaces and marks) gives one key, and every "must differ" pair gives two.
-  - integration: the SQL function gives the same key as the TypeScript one for every row of the table; the indexes are used by the pair query (`EXPLAIN` names them).
-- **Done when:** both tests read the one table and pass, and the owner has confirmed the list.
+  - unit: every case of the table gives the expected key: মোঃ করিম, মোহাম্মদ করিম and করিম are one; মোছাঃ রহিমা বেগম, রহিমা খাতুন and রাহিমা are one; আকতার হোসাইন and আক্তার হোসেন are one; শেখ ফরিদ and ফরিদ differ; মুন্সী আলম and আলম differ; শফিক and সফিক differ; a title in the middle of a name stays; spaces and marks do not matter; a variant added to the list changes the key.
+  - integration: a new profile, a corrected name, a contact change of the village and a merge each store the keys; the job fills the keys of rows written before the migration and computes them again after a list change, and is idempotent; the indexes are used by the pair query (`EXPLAIN` names them).
+- **Done when:** both tests pass and every profile of a migrated database has its keys.
+- **Depends on:** none
+- **Size:** L
+- **Risk area:** migration
+- **Status:** todo
+
+### U17. The spelling variants in the settings
+
+- **Goal:** the Department Head and the Monitoring Team see and extend the list of spelling variants, and the keys follow.
+- **Requirements:** R20
+- **Files:** `apps/api/src/services/name-variants.ts` (new: list, add a group, change, remove; each audited; each change raises the list's version and queues the key job), its routes beside the settings routes (`apps/api/src/routes/settings.ts`, the settings permission), `docs/security/permissions.yaml` if the settings permission does not cover it, `docs/api/openapi.yaml`, `apps/web/src/admin/settings/` (a section "নামের বানানভেদ" on the lists page: a group per line, its words, add and remove), catalogues (the rest part), tests beside each, `docs/ui/SCREENS.md`
+- **Approach:** the editable reference lists of the settings page (`apps/api/src/services/reference-lists.ts`, `apps/web/src/admin/settings/`).
+- **Tests:**
+  - integration: the two roles add, change and remove a group, each audited; another role is refused (403); a word in two groups is refused (422); a change raises the version and queues the key job, after which the keys of the affected profiles changed.
+  - component: the section lists the groups and adds one.
+- **Done when:** a variant added on the settings page makes two profiles a pair after the job ran.
+- **Depends on:** U8
+- **Size:** M
+- **Risk area:** none
+- **Status:** todo
+
+### U18. The father's or the husband's name
+
+- **Goal:** where it is known whether the name beside the person is the father's or the husband's, it is kept, and a father's name never pairs with a husband's.
+- **Requirements:** R21
+- **Files:** `apps/api/prisma/migrations/<new>/{migration.sql,down.sql}` (`guardian_relation` on `beneficiaries`: `father`, `husband` or empty), `packages/shared/src/forms/core.ts` (a standard column backed by a small list, not an identity role), `split.ts`, the library question and its place after the father's or husband's name (`apps/api/seed/sets/base/forms.ts`, `apps/web/src/admin/forms/draft.ts` the identity press), `createProfile` and the contact and correction paths, the profile's line, catalogues, `docs/database/DATABASE_SCHEMA.md`, tests beside each
+- **Approach:** "whose number it is" of U6: an optional standard column backed by a reference list, filled from the answers.
+- **Tests:**
+  - unit: the press adds the question right after the father's or husband's name; `split` maps it.
+  - integration: a submit stores it; a form without the question still submits; the pair rule of U10 does not pair a father's name with a husband's and pairs where either side is unknown.
+- **Done when:** a profile shows "পিতার নাম" or "স্বামীর নাম" where the answer was given.
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** migration
@@ -221,8 +254,8 @@ Build order: U1 to U7 (the first pull request), then U8, U9, U10, U11, U12, U16 
 
 ### U10. The same person and the same family, recognised
 
-- **Goal:** profiles of one person are paired by name, father's or husband's name and village, and an applicant is recognised as a member of an earlier beneficiary's family.
-- **Requirements:** R8, R12, R14, R18
+- **Goal:** profiles of one person are paired by name, father's or husband's name and village, each pair says its level, and an applicant is recognised as a member of an earlier beneficiary's family.
+- **Requirements:** R8, R12, R14, R18, R21, R22
 - **Files:** `apps/api/src/services/beneficiary-merge-candidates.ts` (`DUPLICATE_RULES` gains `name_father_village`; the rules compare through the match key), `apps/api/src/jobs/duplicates.ts`, `apps/api/src/services/beneficiary-family.ts` (`FamilyRule` gains `family_member`; the same-person signal for a light profile in the same project), `apps/api/src/services/beneficiary-identity.ts` (the block check of U5 moves to the match key), `apps/api/src/applications/view.ts` and `decision-rules.ts` (the record's signals), `apps/web/src/admin/applications/Signals.tsx`, `apps/web/src/admin/beneficiaries/duplicates/`, catalogues, tests beside each, `docs/api/openapi.yaml`
 - **Approach:** the three pair queries of `beneficiary-merge-candidates.ts` lines 49 to 65 and `matches` of `beneficiary-family.ts`; the dismissal of a pair (`MergeDismissal`) already keeps "not the same person".
 - **Tests:**
@@ -230,7 +263,7 @@ Build order: U1 to U7 (the first pull request), then U8, U9, U10, U11, U12, U16 
   - component: `Signals` names the new reasons.
   - existing: covered by `apps/api/test/integration/beneficiary-merge-candidates.test.ts`, `beneficiary-family.test.ts`; updated for the key.
 - **Done when:** the review page of a second application by a light profile's person shows the pair with its reason.
-- **Depends on:** U8, U9
+- **Depends on:** U8, U9, U18
 - **Size:** L
 - **Risk area:** personal data
 - **Status:** todo
@@ -333,20 +366,18 @@ Build order: U1 to U7 (the first pull request), then U8, U9, U10, U11, U12, U16 
 
 ## Checkpoints
 
-- **Mode:** grouped (one by one 10, grouped 7, all at once 0; N is over 4, so one by one's 10 goes to grouped: 17)
-- **Signals:** N 16, L 3300, R 9, Fd 7, C 6, P 2
-- **C1** after U2: the switches U4 and U12 read
-- **C2** after U3: a migration that relaxes two constraints, and the foundation of U5 and U6
-- **C3** after U5: personal data, and the foundation of U7, U9, U11 and U16
-- **C4** after U7: end of the first part (the first pull request)
-- **C5** after U8: a migration and a new pattern (one rule in SQL and TypeScript), and the foundation of U10 and U11
-- **C6** after U9: personal data, and the foundation of U10 and U15
-- **C7** after U10: personal data, and the foundation of U12 and U15
-- **C8** after U11: personal data and a new lookup a volunteer can call
-- **C9** after U16 (built after U12): personal data, and the end of the second part (the second pull request)
-- **C10** after U13: the foundation of U14 and U15
-- **C11** after U14: a migration with a backfill
-- **C12** after U15: personal data, and the end (the third pull request)
+- **Mode:** grouped (scored again on 2026-11-14 over the units not yet done, after D-174 added U17 and U18 and resized U8: one by one 8, grouped 9, all at once 0; N is over 4, so one by one's 8 goes to grouped: 17)
+- **Signals:** N 11, L 2650, R 8, Fd 4, C 3, P 2
+- **C1** to **C4**: ran (the first part, merged through PR #55)
+- **C5** after U8: a migration and the foundation of U10, U11 and U17
+- **C6** after U17 and U18: a migration (U18), and what U10 reads
+- **C7** after U9: personal data, and the foundation of U10 and U15
+- **C8** after U10: personal data, and the foundation of U12 and U15
+- **C9** after U11: personal data and a new lookup a volunteer can call (a new pattern: the pick token)
+- **C10** after U16 (built after U12): personal data, and the end of the second part (the second pull request)
+- **C11** after U13: the foundation of U14 and U15
+- **C12** after U14: a migration with a backfill
+- **C13** after U15: personal data, and the end (the third pull request)
 
 ## Verification
 
@@ -372,9 +403,9 @@ Build order: U1 to U7 (the first pull request), then U8, U9, U10, U11, U12, U16 
 
 ## Progress
 
-- **Branch:** `feat/beneficiary-identity-by-project`
+- **Branch:** `feat/beneficiary-identity-part-two` (the first part was merged through PR #55)
 - **Updated:** 2026-11-14 10:30
-- **Next:** the full verification of the first part and its pull request
+- **Next:** U8, one name key kept with the person; first step: write the table of cases in `packages/shared/src/beneficiaries/match-key.cases.ts` from D-174
 - **Reviewed through:** C4 (the commit after 846b5654)
 - **Uncommitted:** none
 - **Notes:** U1: the register already held BR-287 to BR-296 (the official's offline app, the official's own profile, the post codes, the stale reference answer), so the new rules are BR-297 to BR-309: BR-297 the project's four settings (section 4), BR-298 to BR-305, BR-307 and BR-308 in section 1, BR-306 in section 6, BR-309 the audit (section 13). Each has a register line `deferred to U<n> of the D-172 plan`, the form `pnpm rules:status` reads as answered; the unit that builds a rule replaces its line with the passing tests, and a rule built in parts keeps the open parts in the note. BR-001 keeps "DB + service" and its register line (`constraints.test.ts`, "NID or birth registration is mandatory") until U3 drops the database check: U3 changes both. The public entry that always needs a mobile is written into BR-299 as the plan's reading. RBAC.md describes the name lookup's permission as "a permission of its own" without its name, because that document lists only names `permissions.yaml` holds; U11 adds `beneficiary.match` to both. Found and left: BR-296's register line has no `— passing (date)` ending, so `pnpm rules:status --phase 2` counts it untested, as it did before this work.
