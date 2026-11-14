@@ -28,8 +28,9 @@ jobs:
   checks:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
-    # the unit, component and database tests alone take about 17 minutes on the hosted runner
-    timeout-minutes: 30
+    # the unit, component and database tests take about 19 minutes on the hosted runner and up to
+    # half as long again on a slow one (2026-11-14: 26 minutes, cut at the earlier limit of 30)
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:17@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
@@ -138,8 +139,9 @@ jobs:
     # A secret or an unaccepted advisory stops the pipeline before E2E.
     needs: [checks, security]
     runs-on: ubuntu-latest
-    # one shard: about 3 minutes of setup and builds, then up to about 10 minutes of tests
-    timeout-minutes: 20
+    # one shard: about 3 minutes of setup and builds, then up to about 10 minutes of tests, and up
+    # to half as long again on a slow runner
+    timeout-minutes: 30
     # every shard runs to its end, so one run reports the failures of all four
     strategy:
       fail-fast: false
