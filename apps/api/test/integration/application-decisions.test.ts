@@ -356,6 +356,40 @@ describe('a repeat the project holds or only tells', () => {
     await moved(rpm, second, 'approve');
   });
 
+  it('holds the same person where the project never chose, and asks again once a mark of two people is lifted', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    await forgetRepeatRules();
+    const father = `একই পিতা ${randomUUID().slice(0, 8)}`;
+    const first = await reviewed('widow', world.dhaka.union, fakeMobile(), samePerson(father));
+    const second = await reviewed('widow', world.dhaka.union, fakeMobile(), samePerson(father));
+    const rpm = await as(world.users.rpmDhaka);
+    // the pair is a family match too, which the project also holds now
+    expect((await read(rpm, second)).body.data.decisionHints.approve).toContain('same_person');
+    const refused = await act(rpm, second, 'approve');
+    expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+    expect(refused.body.error.code).toBe('workflow.comment_required');
+    expect(refused.body.error.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'same_person' })]),
+    );
+    // a mark of two people that was lifted again counts for nothing
+    const [low, high] = [await personOf(first), await personOf(second)]
+      .map((id) => id.toLowerCase())
+      .sort();
+    await h.db.query(
+      `INSERT INTO beneficiary_merge_dismissals (id, low_id, high_id, reason, dismissed_by, lifted_at, lifted_by, lift_reason)
+       VALUES ($1, $2, $3, 'আলাদা মানুষ, একই নাম', $4, now(), $4, 'আবার দেখা দরকার')`,
+      [randomUUID(), low, high, world.users.rpmDhaka],
+    );
+    expect((await read(rpm, second)).body.data.decisionHints.approve).toContain('same_person');
+    const again = await act(rpm, second, 'approve');
+    expect(again.status, JSON.stringify(again.body)).toBe(422);
+    expect(again.body.error.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'same_person' })]),
+    );
+    await moved(rpm, second, 'approve', { comment: 'যাচাই করেছি, একই মানুষ নন' });
+  });
+
   it('follows the project for a family match, in the hints and the move alike, and holds where it never chose', async () => {
     await clearQueue();
     await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);

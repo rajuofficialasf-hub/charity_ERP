@@ -492,6 +492,66 @@ describe('an application for a picked person', () => {
     });
   });
 
+  it('binds every earlier application of the person once a document is added from the profile, and their edits then follow the profile’s number', async () => {
+    const p = person();
+    const id = await profile(p, { nid: null });
+    const s = await as(world.users.general);
+    const made = [];
+    for (const target of [open, second]) {
+      const pick = await match(s, p, { projectId: target.project });
+      expect(pick.status, JSON.stringify(pick.body)).toBe(200);
+      const res = await create(s, target, answersFor(p), {
+        pickToken: pick.body.data.people[0].pickToken as string,
+      });
+      expect(res.status, JSON.stringify(res.body)).toBe(201);
+      made.push(res);
+    }
+    const rpm = await as(world.users.rpmDhaka);
+    for (const res of made)
+      expect((await at(rpm, 'get', `/applications/${res.body.data.id}`)).body.data).toMatchObject({
+        hasDocument: false,
+        identityKind: 'none',
+      });
+    // added on the profile page: no application named
+    const nid = f.fakeNid();
+    const etag = (await at(rpm, 'get', `/beneficiaries/${id}`)).headers.etag as string;
+    const added = await at(rpm, 'post', `/beneficiaries/${id}/identity`)
+      .set('If-Match', etag)
+      .send({ kind: 'nid', number: nid });
+    expect(added.status, JSON.stringify(added.body)).toBe(200);
+    for (const res of made)
+      expect((await at(rpm, 'get', `/applications/${res.body.data.id}`)).body.data).toMatchObject({
+        hasDocument: true,
+        identityKind: 'nid',
+      });
+    const audit = await h.db.query<{ new: Record<string, unknown> }>(
+      `SELECT new FROM audit_log WHERE action = 'beneficiary.identity_added' AND entity_id = $1`,
+      [id],
+    );
+    expect(audit.rows[0]!.new).toMatchObject({ applicationId: null, applicationsBound: 2 });
+    // an edit by the volunteer now carries the person's number like any known person's
+    const [first] = made;
+    const answers = first!.body.data.answers as { fieldKey: string; value: unknown }[];
+    const withNumber = (number: string) => [
+      ...answers.filter((a) => a.fieldKey !== 'q_id'),
+      { fieldKey: 'q_id', value: text(number) },
+    ];
+    const current = await at(s, 'get', `/applications/${first!.body.data.id}`);
+    const other = await at(s, 'patch', `/applications/${first!.body.data.id}`)
+      .set('If-Match', current.headers.etag as string)
+      .send({ answers: withNumber(f.fakeNid()) });
+    expect(other.status).toBe(422);
+    expect(other.body.error.details[0].code).toBe('beneficiary.locked_field');
+    const same = await at(s, 'patch', `/applications/${first!.body.data.id}`)
+      .set('If-Match', current.headers.etag as string)
+      .send({ answers: withNumber(nid) });
+    expect(same.status, JSON.stringify(same.body)).toBe(200);
+    expect(same.body.data).toMatchObject({ beneficiaryId: id, identityKind: 'nid' });
+    expect((await h.db.query('SELECT nid FROM beneficiaries WHERE id = $1', [id])).rows[0]).toEqual(
+      { nid },
+    );
+  });
+
   it('refuses a forged, an altered, another caller’s and another project’s token with one code', async () => {
     const p = person();
     await profile(p);

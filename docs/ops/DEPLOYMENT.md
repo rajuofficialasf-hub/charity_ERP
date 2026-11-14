@@ -43,6 +43,8 @@ Deploy note, the list of whose name stands beside a person (D-174): migration `2
 
 Deploy note, the levels of the suggested pairs (D-174): migration `20261114220000_beneficiary_pair_levels` adds `beneficiary_merge_candidates.level` as NOT NULL with a CHECK that ties it to the rules. The API of the release before it does not write that column, so every refresh of a person's pairs it makes (a submission, a contact edit, a correction, a merge) fails on the NOT NULL, and with it the write that called it. The migration and the API of this release therefore go out together, in this order: stop the API and the worker, run `pnpm db:migrate`, then start the API and the worker of this release. Never run this migration under the old API. Its `down.sql` drops the level and the new rule again, so a rollback runs it after the new API is stopped and before the old one starts.
 
+Release note, a repeat in the same project (D-172, BR-306): a project whose application form component carries no `repeat_person` or `repeat_family` setting reads both as `hold`, the decided defaults. From this release that also covers a probable same-person pair (two live profiles whose name, father's or husband's name and village give the same keys in one union) and a person listed in another applicant's family in the same project. Behaviour change for existing projects: approvals of a repeated person or family member in the same project now ask a reason unless the PM switches the project to tell. Tell the Program Managers before the release, so a project that wants the earlier, quieter review switches its two settings to "only tell" in the project setup.
+
 ## 6. Backups
 What, where, how often, encryption, retention of backups, verification.
 

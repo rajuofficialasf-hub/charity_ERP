@@ -3613,7 +3613,7 @@ components:
                 - $ref: '#/components/schemas/ApplicationMedia'
                 - type: 'null'
             mayReferToMedia: { type: boolean, description: 'Whether the caller may refer it to the Media Team now, or send a returned referral again' }
-            mayAddIdentity: { type: boolean, description: 'Whether the caller may add the identity number this application carries to the person''s profile, which has none (POST /beneficiaries/{beneficiaryId}/identity): an official who holds beneficiary.nid and whose beneficiary.correction.approve scope reaches the profile; false for a volunteer' }
+            mayAddIdentity: { type: boolean, description: 'Whether the caller may add the identity number this application carries to the person''s profile, which has none (POST /beneficiaries/{beneficiaryId}/identity): an official who holds beneficiary.nid and whose beneficiary.correction.approve and beneficiary.view_nid scopes both reach the profile; false for a volunteer' }
             form: { $ref: '#/components/schemas/FormVersion', description: The form version the answers belong to, as the caller's audience sees it }
     ApplicationResponse:
       type: object
@@ -7385,15 +7385,20 @@ paths:
         An official whose correction-approval scope reaches the profile adds the NID or the birth
         registration number a profile without a document lacks, usually the number an application of
         the person carries (D-172, BR-308); the profile is then a full one and keeps its BEN number and
-        history. A volunteer never writes a document onto an existing profile. A profile that has a
+        history. A volunteer never writes a document onto an existing profile. The caller's
+        `beneficiary.view_nid` scope must reach the profile too, checked before any number is looked
+        up; without it the answer is the 404 of a profile out of scope. A profile that has a
         document answers 409 `beneficiary.document_present` (a change is a correction request); a
         number another profile holds answers 409 `beneficiary.identity_taken`, whose detail names
         the holder's BEN number and the live profile behind it (`beneficiaryId`) only to a caller
-        whose NID scope reaches it, so the two can be compared and merged. `applicationId`, when
-        given, must be one of this person's applications; one bound without a document whose answers
-        carry this number is bound by it from then on. The write adds a change-log row of kind
-        `correction`; the audit entry keeps the number masked to its last four digits, the actor
-        and the application. Out of scope or a retired profile 404.
+        whose NID scope reaches both the holder and the live profile (otherwise the detail carries
+        no params), so the two can be compared and merged. `applicationId`, when given, must be one
+        of this person's applications. Every application of the person bound without a document
+        (`identityKind` `none`, not deleted) is bound by the added document from then on, whichever
+        application the number came from; a later edit of one carries the profile's number like any
+        known person's. The write adds a change-log row of kind `correction`; the audit entry keeps
+        the number masked to its last four digits, the actor, the application and the count of
+        applications bound (`applicationsBound`). Out of scope or a retired profile 404.
       x-permission: beneficiary.correction.approve
       x-scope: beneficiary
       x-audit: beneficiary.identity_added

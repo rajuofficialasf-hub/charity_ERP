@@ -198,7 +198,7 @@ export class WorkflowEngine {
       if (!isBuiltGuard(name)) throw new ApiError('workflow.guard_not_built', 409);
       const result = await GUARDS[name](ctx);
       if (result === false) throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
-      if (result !== true) asked.push(...[result.comment].flat());
+      if (result !== true) asked.push(...result.comment);
     }
     // a decision that asks for a comment goes on with one, and names why it asks without
     if (asked.length && !ctx.input.comment?.trim())

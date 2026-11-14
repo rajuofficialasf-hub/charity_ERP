@@ -418,7 +418,9 @@ export class BeneficiaryIdentityService {
   /**
    * A refusal of an identity number another profile holds; it names that profile's BEN number only
    * to a caller whose NID scope reaches it. With `withId`, it also names the live profile behind
-   * the holder (`beneficiaryId`) to that caller, so a screen can open the comparison of the two.
+   * the holder (`beneficiaryId`), so a screen can open the comparison of the two, and then names
+   * anything only when the caller's NID scope reaches the live profile too: a holder merged into a
+   * profile outside that scope gets the refusal without a name.
    */
   async identityTaken(
     db: Tx,
@@ -431,8 +433,9 @@ export class BeneficiaryIdentityService {
       where: { id: holderId },
       select: { benNo: true },
     });
-    const sees = !!holder && (await this.seesHolder(db, actor, holderId));
+    let sees = !!holder && (await this.seesHolder(db, actor, holderId));
     const live = sees && options.withId ? await this.liveOf(db, holderId) : null;
+    if (live && live !== holderId) sees = await this.seesHolder(db, actor, live);
     return new ApiError('beneficiary.identity_taken', 409, undefined, [
       {
         path,

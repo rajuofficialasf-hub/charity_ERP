@@ -940,6 +940,54 @@ describe('the review page', () => {
     );
   });
 
+  it('sends the profile version read as the dialog opened, so a change made meanwhile is refused as stale', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    // the profile's version on the server; another official changes it while the dialog is open
+    let current = '"p1"';
+    let reads = 0;
+    const sent: (string | null)[] = [];
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            hasDocument: false,
+            identityKind: 'none',
+            mayAddIdentity: true,
+          }),
+        ),
+      ),
+      http.get('*/api/v1/beneficiaries/:id', () => {
+        reads += 1;
+        return HttpResponse.json({ data: {}, meta: { requestId: 'r', etag: current } });
+      }),
+      http.post('*/api/v1/beneficiaries/:id/identity', ({ request }) => {
+        const ifMatch = request.headers.get('If-Match');
+        sent.push(ifMatch);
+        if (ifMatch !== current)
+          return apiError(412, 'conflict.stale_version', 'অন্য কেউ এর মধ্যে তথ্য বদলেছেন।');
+        return HttpResponse.json({
+          data: { beneficiaryId: '01900000-0000-7000-8000-0000000000b1', kind: 'nid' },
+          meta: { requestId: 'r', etag: '"p3"' },
+        });
+      }),
+    );
+    openReview();
+    await user.click(await screen.findByRole('button', { name: 'পরিচয়পত্র যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'পরিচয়পত্র যোগ করুন' });
+    const confirm = within(dialog).getByRole('button', { name: 'যোগ করুন' });
+    await waitFor(() => expect(confirm).toBeEnabled());
+    expect(reads).toBe(1);
+    current = '"p2"';
+    await user.click(confirm);
+    await waitFor(() => expect(sent).toEqual(['"p1"']));
+    expect(await within(dialog).findByText('অন্য কেউ এর মধ্যে তথ্য বদলেছেন।')).toBeInTheDocument();
+    expect(reads).toBe(1);
+    expect(screen.getByRole('dialog', { name: 'পরিচয়পত্র যোগ করুন' })).toBeInTheDocument();
+  });
+
   it('opens the comment box when the server asks one the screen did not expect', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);

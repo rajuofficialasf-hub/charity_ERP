@@ -5,7 +5,6 @@ import type { AccessService } from '../access/service.js';
 import { beneficiaryWhere, type Scope } from '../access/scope.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
-import { identityNumberIn, readAnswers } from '../applications/answers.js';
 import { isUniqueViolation } from '../core/db-errors.js';
 import { assertIfMatch } from '../core/etag.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
@@ -13,7 +12,6 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
-import { readDefinition } from './forms.js';
 import type { MatchKeysService } from './match-keys.js';
 
 /**
@@ -251,12 +249,15 @@ export class BeneficiaryCorrectionsService {
   /**
    * An official adds an identity document to a profile that has none, after comparing the two
    * (docs/BUSINESS_RULES.md, "Beneficiary identity and master"): the profile becomes a full one
-   * and keeps its history. A profile that has a document is refused (that is a correction); a
-   * number another profile holds is refused with the duplicate error, which names that profile
-   * only to a caller who may see its number, so the official can compare and merge the two. The
-   * application the number came from must be one of this person's; when it was bound without a
-   * document and carries this number, it is bound by that number from now on. The audit keeps the
-   * number masked, the actor and the application; the change log keeps it as a correction does.
+   * and keeps its history. Only an official whose `beneficiary.view_nid` scope reaches the profile
+   * writes a number onto it; anyone else gets the answer of a profile out of scope, before any
+   * number is looked up. A profile that has a document is refused (that is a correction); a number
+   * another profile holds is refused with the duplicate error, which names that profile only to a
+   * caller who may see its number, so the official can compare and merge the two. The application
+   * the number came from, when named, must be one of this person's. Every application of the person
+   * bound without a document is bound by the document from then on, as one bound at its send would
+   * be. The audit keeps the number masked, the actor, the application and how many applications
+   * were bound; the change log keeps it as a correction does.
    */
   async addIdentity(
     actor: Principal,
@@ -268,6 +269,11 @@ export class BeneficiaryCorrectionsService {
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM beneficiaries WHERE id = ${beneficiaryId}::uuid FOR UPDATE`;
       await this.live(tx, actor, scope, beneficiaryId);
+      // the number is written only by one who would see it on the profile afterwards
+      if (!(await this.identity.seesHolder(tx, actor, beneficiaryId))) {
+        this.access.denied(actor.userId, 'beneficiary.view_nid', 'beneficiary');
+        throw new ApiError('permission.not_found', 404);
+      }
       const before = await tx.beneficiary.findUniqueOrThrow({
         where: { id: beneficiaryId },
         select: { nid: true, birthReg: true, updatedAt: true },
@@ -275,13 +281,12 @@ export class BeneficiaryCorrectionsService {
       assertIfMatch(ifMatch, before.updatedAt);
       if (before.nid !== null || before.birthReg !== null)
         throw new ApiError('beneficiary.document_present', 409);
-      const source = body.applicationId
-        ? await tx.application.findFirst({
-            where: { id: body.applicationId, beneficiaryId, status: { not: 'deleted' } },
-            select: { id: true, formVersionId: true, identityKind: true },
-          })
-        : null;
-      if (body.applicationId && !source)
+      if (
+        body.applicationId &&
+        !(await tx.application.count({
+          where: { id: body.applicationId, beneficiaryId, status: { not: 'deleted' } },
+        }))
+      )
         throw new ApiError('validation.failed', 422, undefined, [
           { path: 'applicationId', code: 'validation.failed' },
         ]);
@@ -304,16 +309,11 @@ export class BeneficiaryCorrectionsService {
         if (isUniqueViolation(error)) throw new ApiError('beneficiary.identity_taken', 409);
         throw error;
       }
-      // the application the number came from is bound by it now, as one bound at its send would be
-      if (source?.identityKind === 'none') {
-        const definition = await readDefinition(tx, source.formVersionId, 'official');
-        const answers = await readAnswers(tx, source.id, definition);
-        if (identityNumberIn(definition, answers) === body.number)
-          await tx.application.update({
-            where: { id: source.id },
-            data: { identityKind: body.kind, updatedBy: actor.userId },
-          });
-      }
+      // the person's applications follow the profile: none of them is "without a document" now
+      const bound = await tx.application.updateMany({
+        where: { beneficiaryId, identityKind: 'none', status: { not: 'deleted' } },
+        data: { identityKind: body.kind, updatedBy: actor.userId },
+      });
       await tx.fieldChange.create({
         data: {
           id: uuidv7(),
@@ -334,7 +334,8 @@ export class BeneficiaryCorrectionsService {
         old: { [column]: null },
         new: {
           [column]: maskedNumber(body.number),
-          applicationId: source?.id ?? null,
+          applicationId: body.applicationId ?? null,
+          applicationsBound: bound.count,
         },
       });
       return { beneficiaryId, kind: body.kind, updatedAt: after.updatedAt };

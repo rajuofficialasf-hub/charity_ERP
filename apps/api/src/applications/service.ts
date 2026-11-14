@@ -1995,7 +1995,8 @@ export class ApplicationsService {
   /**
    * Whether the office may add the identity number the application carries to its person's
    * profile, which has none (docs/BUSINESS_RULES.md, "Beneficiary identity and master"): an
-   * official who sees identity numbers and whose correction-approval scope reaches the profile.
+   * official whose correction-approval scope and identity-number scope both reach the profile, as
+   * the write itself asks.
    */
   private async mayAddIdentity(
     viewer: ApplicationViewer,
@@ -2009,13 +2010,16 @@ export class ApplicationsService {
     if (!row.beneficiaryId || !row.beneficiary) return false;
     if (row.beneficiary.nid !== null || row.beneficiary.birthReg !== null) return false;
     if (identityNumberIn(definition, answers) === null) return false;
-    const { add } = await this.access.allowedOn(
+    const { add, nid } = await this.access.allowedOn(
       viewer.principal,
       access,
-      { add: { permission: 'beneficiary.correction.approve', entity: 'beneficiary' } },
+      {
+        add: { permission: 'beneficiary.correction.approve', entity: 'beneficiary' },
+        nid: { permission: 'beneficiary.view_nid', entity: 'beneficiary' },
+      },
       { beneficiaryId: row.beneficiaryId },
     );
-    return add;
+    return add && nid;
   }
 
   /** Whether the caller brings the application: its main volunteer, or the user who created it. */

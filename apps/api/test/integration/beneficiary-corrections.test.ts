@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { accessWorld } from './support/access-fixtures.js';
@@ -253,7 +254,18 @@ describe('an identity document added to a profile without one', () => {
     const source = await f.application(
       h.db,
       { project: world.a1, loc: world.dhaka },
-      { beneficiary_id: id },
+      { beneficiary_id: id, identity_kind: 'none' },
+    );
+    // the person's other applications follow the profile too; a deleted one stays as it was
+    const other = await f.application(
+      h.db,
+      { project: world.a2, loc: world.dhaka },
+      { beneficiary_id: id, identity_kind: 'none' },
+    );
+    const deleted = await f.application(
+      h.db,
+      { project: world.b1, loc: world.dhaka },
+      { beneficiary_id: id, identity_kind: 'none', status: 'deleted', deleted_at: new Date() },
     );
     const benNo = await benNoOf(id);
     const rpm = await as(world.users.rpmDhaka);
@@ -270,12 +282,27 @@ describe('an identity document added to a profile without one', () => {
     const after = await read(rpm, id);
     expect(after.body.data).toMatchObject({ hasDocument: true, nid });
     expect(after.body.data.actions.addIdentity).toBe(false);
-    expect(after.body.data.applications).toEqual([expect.objectContaining({ id: source })]);
+    expect(after.body.data.applications).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: source })]),
+    );
+    const kinds = await h.db.query<{ id: string; identity_kind: string }>(
+      'SELECT id, identity_kind FROM applications WHERE beneficiary_id = $1',
+      [id],
+    );
+    expect(Object.fromEntries(kinds.rows.map((r) => [r.id, r.identity_kind]))).toEqual({
+      [source]: 'nid',
+      [other]: 'nid',
+      [deleted]: 'none',
+    });
     expect(await audits('beneficiary.identity_added', id)).toEqual([
       {
         actor_user_id: world.users.rpmDhaka,
         old: { nid: null },
-        new: { nid: `${'•'.repeat(nid.length - 4)}${nid.slice(-4)}`, applicationId: source },
+        new: {
+          nid: `${'•'.repeat(nid.length - 4)}${nid.slice(-4)}`,
+          applicationId: source,
+          applicationsBound: 2,
+        },
         reason: null,
       },
     ]);
@@ -312,6 +339,69 @@ describe('an identity document added to a profile without one', () => {
     expect(unnamed.body.error.details[0].params).toBeUndefined();
     expect((await profileRow(id)).nid).toBeNull();
     expect(await audits('beneficiary.identity_added', id)).toEqual([]);
+  });
+
+  it('names a holder merged into a profile outside the caller’s NID scope by neither profile', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka, { nid: null });
+    // the holder lies in Dhaka, inside the RPM's scope; the profile it was merged into in Rangpur
+    const holder = await f.beneficiary(h.db, world.dhaka);
+    const kept = await f.beneficiary(h.db, world.rangpur);
+    await h.db.query('UPDATE beneficiaries SET merged_into_id = $1 WHERE id = $2', [kept, holder]);
+    const rpm = await as(world.users.rpmDhaka);
+    const res = await add(rpm, id, { kind: 'nid', number: (await profileRow(holder)).nid });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('beneficiary.identity_taken');
+    expect(res.body.error.details[0]).toMatchObject({
+      path: 'number',
+      code: 'beneficiary.identity_taken',
+    });
+    expect(res.body.error.details[0].params).toBeUndefined();
+    // the Monitoring Team sees both: it is told the holder and the live profile behind it
+    const monitoring = await as(world.users.monitoring);
+    const named = await add(monitoring, id, {
+      kind: 'nid',
+      number: (await profileRow(holder)).nid,
+    });
+    expect(named.status).toBe(409);
+    expect(named.body.error.details[0].params).toEqual({
+      benNo: benText(await benNoOf(holder)),
+      beneficiaryId: kept,
+    });
+    expect((await profileRow(id)).nid).toBeNull();
+  });
+
+  it('is refused to an official who may approve corrections but not see identity numbers, as a profile out of scope, before any number is looked up', async () => {
+    // an RPM of Dhaka whose identity-number permission the panel revoked
+    const blind = await account(h.db, { kind: 'staff', role: 'regional_program_manager' });
+    accounts.set(blind.id, blind);
+    await h.db.query(
+      `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), world.a1.id, world.dhaka.division, blind.id],
+    );
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, reason, granted_by)
+       VALUES ($1, $2, 'beneficiary.view_nid', 'revoke', 'GLOBAL', 'Test override', $3)`,
+      [randomUUID(), blind.id, world.users.head],
+    );
+    const id = await applicant({ nid: null });
+    const s = await as(blind.id);
+    const profile = await read(s, id);
+    expect(profile.status).toBe(200);
+    expect(profile.body.data.actions.addIdentity).toBe(false);
+    const etag = profile.headers.etag as string;
+    const holder = await f.beneficiary(h.db, world.dhaka);
+    const free = await add(s, id, { kind: 'nid', number: f.fakeNid() }, etag);
+    const taken = await add(s, id, { kind: 'nid', number: (await profileRow(holder)).nid }, etag);
+    for (const res of [free, taken]) {
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('permission.not_found');
+      expect(res.body.error.details ?? []).toEqual([]);
+    }
+    expect((await profileRow(id)).nid).toBeNull();
+    expect(await audits('beneficiary.identity_added', id)).toEqual([]);
+    expect(
+      (await h.db.query('SELECT 1 FROM field_changes WHERE entity_id = $1', [id])).rows,
+    ).toEqual([]);
   });
 
   it('refuses a profile that has a document, which only a correction changes', async () => {

@@ -149,11 +149,11 @@ export class GuardContext {
 
 /**
  * What a guard answers: the move may go on (`true`), is refused (`false`), or may go on only with
- * a comment that says why (a decision against the score order, an approval in a full quota or of a
- * person with a family match).
+ * a comment that says why, for each reason the guard found (a decision against the score order, an
+ * approval in a full quota, of a person who appears again in the project under another profile or
+ * of someone of the same family).
  */
-/** Yes, no, or only with a comment, for one reason or several. */
-export type GuardResult = boolean | { comment: CommentReason | readonly CommentReason[] };
+export type GuardResult = boolean | { comment: readonly CommentReason[] };
 export type Guard = (ctx: GuardContext) => Promise<GuardResult>;
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
@@ -257,11 +257,13 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
   },
   // a decision against the score order inside the quota area asks for a comment; it is never refused
   'score.comment_if_against_order': async (ctx) =>
-    (await againstScore(ctx.tx, ctx.application.id, ctx.to)) ? { comment: 'against_score' } : true,
+    (await againstScore(ctx.tx, ctx.application.id, ctx.to))
+      ? { comment: ['against_score'] }
+      : true,
   // an approval in a full quota area asks for a comment; a quota never refuses a decision
   'quota.comment_if_full': async (ctx) =>
     ctx.to === 'approved' && (await quotaFull(ctx.tx, ctx.application.id))
-      ? { comment: 'quota_full' }
+      ? { comment: ['quota_full'] }
       : true,
   // an approval of a person who appears again in the project, as probably the same person under
   // another profile or as someone of the same family, asks for a comment where the project holds
