@@ -4386,7 +4386,9 @@ components:
         data: { type: array, items: { $ref: '#/components/schemas/ReferenceItem' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
     NameVariantSpelling:
-      description: One word of Bengali or Latin letters, trimmed; not a title the name key drops.
+      description: >-
+        One word of Bengali or Latin letters with at least one letter (marks alone are refused),
+        trimmed; not a title the name key drops.
       type: string
       minLength: 1
       maxLength: 100
@@ -4419,12 +4421,13 @@ components:
     NameVariantGroup:
       type: object
       additionalProperties: false
-      required: [id, canonical, variants, active]
+      required: [id, canonical, variants, active, etag]
       properties:
         id: { type: string, format: uuid }
         canonical: { type: string }
         variants: { type: array, items: { type: string } }
         active: { type: boolean }
+        etag: { type: string, description: "The group's version, for the If-Match of its change" }
     NameVariantGroupList:
       type: object
       required: [data, meta]
@@ -7391,7 +7394,9 @@ paths:
         Everything that points to the retired profile moves to the kept one and is listed in the
         snapshot; a pending application of the retired profile in a project both applied to answers
         409 `beneficiary.merge_conflict` (details name the project), one past pending stays on the
-        retired profile (`leftBehind`); a block moves to the kept profile; a proposal whose profiles
+        retired profile (`leftBehind`); a block moves to the kept profile; where only the retired
+        profile knows whether the name beside the person is the father's or the husband's, the kept
+        profile takes it and a revert empties it again; a proposal whose profiles
         are no longer both live answers 409 `beneficiary.merge_stale` (D-113); an application of
         another program than the caller reaches answers 403 `beneficiary.merge_needs_global` (D-118).
         A merge moves no identity number: where only one of the two profiles has an identity
@@ -11351,9 +11356,10 @@ paths:
       operationId: reference.nameVariants.add
       summary: Add a group of spellings of one name; the name keys are computed again
       description: >-
-        Each spelling is one word of Bengali or Latin letters and not a title the key drops
-        (422 validation.name_variant_one_word, validation.name_variant_letters,
-        validation.name_variant_title, validation.name_variant_repeated on the field). A spelling
+        Each spelling is one word of Bengali or Latin letters with at least one letter, and not a
+        title the key drops (422 validation.name_variant_one_word, validation.name_variant_letters,
+        validation.name_variant_no_letter, validation.name_variant_title,
+        validation.name_variant_repeated on the field). A spelling
         another group holds, switched on or off, is refused (422 validation.name_variant_taken),
         and so is one that would chain two groups: the canonical held as another group's spelling
         or another group's canonical given as a spelling (422 validation.name_variant_chain).
@@ -11392,12 +11398,16 @@ paths:
         left out stays stored, no longer active, and is free for another group. The rules of the
         addition apply (422). A group switched off keeps its spellings and the keys ignore it.
         Audited with the group before and after; when the change alters what the keys read, the
-        version of the list is raised and the key job queued in the same transaction.
+        version of the list is raised and the key job queued in the same transaction. If-Match
+        carries the group's etag from the read; a group changed since that read answers 412
+        conflict.stale_version, so a second save from the same read never drops the first.
       x-permission: settings.manage
       x-scope: global
       x-audit: name_variants.change
       x-idempotency: none
       x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -11412,6 +11422,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /settings:
     get:

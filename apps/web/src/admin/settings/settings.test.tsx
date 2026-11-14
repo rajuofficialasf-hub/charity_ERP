@@ -58,8 +58,8 @@ const LISTS: Record<string, unknown[]> = {
   ],
 };
 const GROUPS = [
-  { id: 'g1', canonical: 'আক্তার', variants: ['আকতার', 'আখতার'], active: true },
-  { id: 'g2', canonical: 'হোসেন', variants: ['হোসাইন'], active: false },
+  { id: 'g1', canonical: 'আক্তার', variants: ['আকতার', 'আখতার'], active: true, etag: '"v1"' },
+  { id: 'g2', canonical: 'হোসেন', variants: ['হোসাইন'], active: false, etag: '"v2"' },
 ];
 const CHANNELS = {
   smtp: {
@@ -83,6 +83,8 @@ let added: unknown[];
 let itemPatches: unknown[];
 let smsPut: unknown[];
 let variantsAdded: unknown[];
+let variantPatches: { id: string; ifMatch: string | null; body: unknown }[];
+let variantsRead: number;
 let settingsRead: number;
 
 function serve() {
@@ -91,6 +93,8 @@ function serve() {
   itemPatches = [];
   smsPut = [];
   variantsAdded = [];
+  variantPatches = [];
+  variantsRead = 0;
   settingsRead = 0;
   server.use(
     http.get('*/api/v1/settings', () => {
@@ -139,7 +143,28 @@ function serve() {
       itemPatches.push(body);
       return HttpResponse.json({ data: { ...ITEMS[0], ...body }, meta: {} });
     }),
-    http.get('*/api/v1/name-variants', () => HttpResponse.json({ data: GROUPS, meta: {} })),
+    http.get('*/api/v1/name-variants', () => {
+      variantsRead++;
+      return HttpResponse.json({ data: GROUPS, meta: {} });
+    }),
+    http.patch('*/api/v1/name-variants/:id', async ({ params, request }) => {
+      variantPatches.push({
+        id: String(params.id),
+        ifMatch: request.headers.get('if-match'),
+        body: await request.json(),
+      });
+      // another official changed the group after this page read it
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'conflict.stale_version',
+            message: 'অন্য কেউ এর মধ্যে তথ্য বদলেছেন। সর্বশেষ তথ্য দেখতে আবার লোড করুন।',
+            requestId: 'req_s',
+          },
+        },
+        { status: 412 },
+      );
+    }),
     http.post('*/api/v1/name-variants', async ({ request }) => {
       const body = (await request.json()) as { canonical: string; variants: string[] };
       variantsAdded.push(body);
@@ -162,7 +187,7 @@ function serve() {
           { status: 422 },
         );
       return HttpResponse.json(
-        { data: { id: 'g3', ...body, active: true }, meta: {} },
+        { data: { id: 'g3', ...body, active: true, etag: '"v3"' }, meta: {} },
         { status: 201 },
       );
     }),
@@ -548,6 +573,36 @@ describe('the settings page', () => {
     );
     expect(variantsAdded).toHaveLength(1);
     expect(screen.queryByText('কিছু তথ্য সঠিক নয়।')).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('sends the version a group was read at, and says so when another official changed it', async () => {
+    refreshAs(HEAD);
+    serve();
+    open('lists');
+    const heading = await screen.findByRole('heading', { level: 2, name: 'নামের বানানভেদ' });
+    const card = heading.closest('section') as HTMLElement;
+    const user = userEvent.setup();
+    const edits = await within(card).findAllByRole('button', { name: /^আক্তার/ });
+    await user.click(edits[0]!);
+    const dialog = await screen.findByRole('dialog', { name: /আক্তার/ });
+    const others = within(dialog).getByRole('textbox', { name: /^অন্য বানান/ });
+    await user.type(others, '{Enter}আকতের');
+    const reads = variantsRead;
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    expect(
+      await within(dialog).findByText(
+        'অন্য কেউ এর মধ্যে তথ্য বদলেছেন। সর্বশেষ তথ্য দেখতে আবার লোড করুন।',
+      ),
+    ).toBeInTheDocument();
+    expect(variantPatches).toEqual([
+      {
+        id: 'g1',
+        ifMatch: '"v1"',
+        body: { canonical: 'আক্তার', variants: ['আকতার', 'আখতার', 'আকতের'], active: true },
+      },
+    ]);
+    // the list is read again, so the next opening of the dialog starts from the stored group
+    await waitFor(() => expect(variantsRead).toBeGreaterThan(reads));
   }, 20_000);
 
   it('shows the forbidden content to a Program Manager', async () => {

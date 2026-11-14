@@ -31,6 +31,7 @@
   "validation": {
     "name_variant_one_word": "Write one word, without a space.",
     "name_variant_letters": "Use Bangla or English letters only.",
+    "name_variant_no_letter": "Marks alone are no spelling; write at least one letter.",
     "name_variant_title": "This is a title (such as Md. or Begum); titles cannot be spelling variants.",
     "name_variant_repeated": "This spelling is already in this group.",
     "name_variant_taken": "This spelling is already in another group.",

@@ -40,15 +40,23 @@ interface Group {
   canonical: string;
   variants: string[];
   active: boolean;
+  etag: string;
 }
 
 const add = (s: Session, body: object) =>
   api().post('/api/v1/name-variants').set(bearer(s)).send(body);
-const change = (s: Session, id: string, body: object) =>
-  api().patch(`/api/v1/name-variants/${id}`).set(bearer(s)).send(body);
+/** A change made from a read of the group: it names the version that read showed. */
+const change = (s: Session, group: Pick<Group, 'id' | 'etag'>, body: object) =>
+  api()
+    .patch(`/api/v1/name-variants/${group.id}`)
+    .set(bearer(s))
+    .set('If-Match', group.etag)
+    .send(body);
 const version = async () =>
   (await h.db.query('SELECT version FROM name_variants_version WHERE id = 1')).rows[0]
     .version as number;
+/** A group as the audit keeps it: without its version. */
+const audited = ({ etag: _etag, ...group }: Group) => group;
 async function audits(groupId: string) {
   const { rows } = await h.db.query<{ old: Group | null; new: Group }>(
     `SELECT old, new FROM audit_log
@@ -78,81 +86,158 @@ async function expectRecomputed(before: number) {
 const details = (body: { error: { details?: { path: string; code: string }[] } }) =>
   Object.fromEntries((body.error.details ?? []).map((d) => [d.path, d.code]));
 
-describe('the two roles keep the list', () => {
-  it('the Department Head adds a group, audited, raising the version and queuing the job', async () => {
-    const head = await as(world.users.head);
+// each of the two roles adds a group, changes its spellings and switches it off and on, with its
+// own spellings, so the two runs never touch each other's groups
+const KEEPERS = [
+  {
+    role: 'the Department Head',
+    user: () => world.users.head,
+    first: 'ইব্রাহিম',
+    others: ['ইবরাহীম', ' ইব্রাহীম '],
+    swap: ['ইবরাহীম', 'ইবরাহিম'],
+    freed: 'ইব্রাহীম',
+    freedOther: 'ইব্রাহীমু',
+  },
+  {
+    role: 'the Monitoring Team',
+    user: () => world.users.monitoring,
+    first: 'ইউসুফ',
+    others: ['ইউসূফ', 'ইয়ুসুফ'],
+    swap: ['ইউসূফ', 'ইউছুফ'],
+    freed: 'ইয়ুসুফ',
+    freedOther: 'ইয়ূসুফ',
+  },
+];
+
+describe.each(KEEPERS)('$role keeps the list', (keeper) => {
+  let group: Group;
+
+  it('adds a group, audited, raising the version and queuing the job', async () => {
+    const s = await as(keeper.user());
     await emptyQueue();
     const before = await version();
-    const res = await add(head, { canonical: 'ইব্রাহিম', variants: ['ইবরাহীম', ' ইব্রাহীম '] });
+    const res = await add(s, { canonical: keeper.first, variants: keeper.others });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
-    const group = res.body.data as Group;
+    group = res.body.data as Group;
     expect(group).toMatchObject({
-      canonical: 'ইব্রাহিম',
-      variants: ['ইবরাহীম', 'ইব্রাহীম'],
+      canonical: keeper.first,
+      variants: keeper.others.map((v) => v.trim()).sort(),
       active: true,
+      etag: expect.any(String),
     });
     const [entry] = await audits(group.id);
-    expect(entry).toEqual({ old: null, new: group });
+    expect(entry).toEqual({ old: null, new: audited(group) });
     await expectRecomputed(before);
-    const list = await api().get('/api/v1/name-variants').set(bearer(head));
+    const list = await api().get('/api/v1/name-variants').set(bearer(s));
     expect(list.status).toBe(200);
+    // the list carries each group's version
     expect(list.body.data).toContainEqual(group);
   });
 
-  it('the Monitoring Team changes the spellings: one left out is free for another group', async () => {
-    const monitoring = await as(world.users.monitoring);
-    const created = (await add(monitoring, { canonical: 'ইউসুফ', variants: ['ইউসূফ', 'ইয়ুসুফ'] }))
-      .body.data as Group;
+  it('changes the spellings: one left out is free for another group', async () => {
+    const s = await as(keeper.user());
     await emptyQueue();
     const before = await version();
-    const res = await change(monitoring, created.id, {
-      canonical: 'ইউসুফ',
-      variants: ['ইউসূফ', 'ইউছুফ'],
-    });
+    const res = await change(s, group, { canonical: keeper.first, variants: keeper.swap });
     expect(res.status, JSON.stringify(res.body)).toBe(200);
-    expect(res.body.data).toMatchObject({ id: created.id, variants: ['ইউছুফ', 'ইউসূফ'] });
-    const entries = await audits(created.id);
-    expect(entries.at(-1)).toEqual({ old: created, new: res.body.data });
+    const changed = res.body.data as Group;
+    expect(changed).toMatchObject({ id: group.id, variants: [...keeper.swap].sort() });
+    // the group's version moved with its spellings
+    expect(changed.etag).not.toBe(group.etag);
+    expect((await audits(group.id)).at(-1)).toEqual({
+      old: audited(group),
+      new: audited(changed),
+    });
     await expectRecomputed(before);
     // the spelling taken out stays stored, no longer active, and another group may hold it
     const { rows } = await h.db.query(
       'SELECT active FROM name_variants WHERE variant = $1 AND group_id = $2',
-      ['ইয়ুসুফ', created.id],
+      [keeper.freed, group.id],
     );
     expect(rows).toEqual([{ active: false }]);
-    const other = await add(monitoring, { canonical: 'ইয়ুসুফ', variants: ['ইয়ূসুফ'] });
+    const other = await add(s, { canonical: keeper.freed, variants: [keeper.freedOther] });
     expect(other.status, JSON.stringify(other.body)).toBe(201);
+    group = changed;
   });
 
-  it('switches a group off and on, each audited and raising the version', async () => {
-    const head = await as(world.users.head);
-    const created = (await add(head, { canonical: 'ইসমাইল', variants: ['ইসমাঈল'] })).body
-      .data as Group;
+  it('switches the group off and on, each audited and raising the version', async () => {
+    const s = await as(keeper.user());
     for (const active of [false, true]) {
       await emptyQueue();
       const before = await version();
-      const res = await change(head, created.id, { active });
+      const res = await change(s, group, { active });
       expect(res.status, JSON.stringify(res.body)).toBe(200);
-      expect(res.body.data).toEqual({ ...created, active });
-      expect((await audits(created.id)).at(-1)).toEqual({
-        old: { ...created, active: !active },
-        new: { ...created, active },
+      const switched = res.body.data as Group;
+      expect(switched).toEqual({ ...group, active, etag: expect.any(String) });
+      expect(switched.etag).not.toBe(group.etag);
+      expect((await audits(group.id)).at(-1)).toEqual({
+        old: audited(group),
+        new: audited(switched),
       });
       await expectRecomputed(before);
+      group = switched;
     }
     // a change that leaves what the keys read as it was is audited and computes nothing again
     await emptyQueue();
     const before = await version();
-    const same = await change(head, created.id, { active: true });
+    const same = await change(s, group, { active: true });
     expect(same.status).toBe(200);
-    expect(await audits(created.id)).toHaveLength(4);
+    expect(await audits(group.id)).toHaveLength(5);
     expect(await version()).toBe(before);
     expect(await waitingJobs()).toHaveLength(0);
+  });
+});
+
+describe('two officials change one group', () => {
+  const read = async (s: Session) =>
+    ((await api().get('/api/v1/name-variants').set(bearer(s))).body.data as Group[]).find(
+      (g) => g.canonical === 'ইসমাইল',
+    )!;
+
+  it('refuses the second save made from the same read, and takes a save after a fresh read', async () => {
+    const head = await as(world.users.head);
+    const monitoring = await as(world.users.monitoring);
+    expect((await add(head, { canonical: 'ইসমাইল', variants: ['ইসমাঈল'] })).status).toBe(201);
+    // both open the page and read the group at one version
+    const seenByHead = await read(head);
+    const seenByMonitoring = await read(monitoring);
+    expect(seenByMonitoring.etag).toBe(seenByHead.etag);
+    const first = await change(head, seenByHead, {
+      canonical: 'ইসমাইল',
+      variants: ['ইসমাঈল', 'ইছমাইল'],
+    });
+    expect(first.status, JSON.stringify(first.body)).toBe(200);
+    const before = await version();
+    const second = await change(monitoring, seenByMonitoring, {
+      canonical: 'ইসমাইল',
+      variants: ['ইসমাঈল', 'ইসমায়িল'],
+    });
+    expect(second.status).toBe(412);
+    expect(second.body.error.code).toBe('conflict.stale_version');
+    // the first official's spelling stays and the refused save wrote nothing
+    const stored = await read(head);
+    expect(stored.variants).toEqual(['ইছমাইল', 'ইসমাঈল']);
+    expect(await audits(stored.id)).toHaveLength(2);
+    expect(await version()).toBe(before);
+    // a save that names no version is refused as well
+    const unversioned = await api()
+      .patch(`/api/v1/name-variants/${stored.id}`)
+      .set(bearer(monitoring))
+      .send({ active: false });
+    expect(unversioned.status).toBe(412);
+    // after a fresh read the second official's save passes and keeps the first one's spelling
+    const again = await change(monitoring, await read(monitoring), {
+      canonical: 'ইসমাইল',
+      variants: ['ইসমাঈল', 'ইছমাইল', 'ইসমায়িল'],
+    });
+    expect(again.status, JSON.stringify(again.body)).toBe(200);
+    expect((again.body.data as Group).variants).toEqual(['ইছমাইল', 'ইসমাঈল', 'ইসমায়িল']);
   });
 
   it('answers 404 for a group that does not exist', async () => {
     const head = await as(world.users.head);
-    expect((await change(head, randomUUID(), { active: false })).status).toBe(404);
+    const res = await change(head, { id: randomUUID(), etag: '"x"' }, { active: false });
+    expect(res.status).toBe(404);
   });
 });
 
@@ -169,19 +254,19 @@ describe('who may keep the list', () => {
       const s = await as(userId);
       expect((await api().get('/api/v1/name-variants').set(bearer(s))).status).toBe(403);
       expect((await add(s, { canonical: 'মুসা', variants: ['মূসা'] })).status).toBe(403);
-      expect((await change(s, group.id, { active: false })).status).toBe(403);
+      expect((await change(s, group, { active: false })).status).toBe(403);
     }
     expect(await audits(group.id)).toHaveLength(1);
   });
 });
 
 describe('the spellings a group may hold', () => {
-  it('refuses a spelling with a space, a title, other letters and a spelling given twice', async () => {
+  it('refuses a spelling with a space, a title, other letters, marks alone and a spelling given twice', async () => {
     const head = await as(world.users.head);
     const before = await version();
     const res = await add(head, {
       canonical: 'আব্দুল করিম',
-      variants: ['মোঃ', 'বেগম', 'করিম১', 'Karim2', 'করিম', 'করিম'],
+      variants: ['মোঃ', 'বেগম', 'করিম১', 'Karim2', 'করিম', 'করিম', '\u0983', '\u0981'],
     });
     expect(res.status).toBe(422);
     expect(details(res.body)).toEqual({
@@ -191,6 +276,8 @@ describe('the spellings a group may hold', () => {
       'variants.2': 'validation.name_variant_letters',
       'variants.3': 'validation.name_variant_letters',
       'variants.5': 'validation.name_variant_repeated',
+      'variants.6': 'validation.name_variant_no_letter',
+      'variants.7': 'validation.name_variant_no_letter',
     });
     expect(await version()).toBe(before);
   });
@@ -199,7 +286,7 @@ describe('the spellings a group may hold', () => {
     const head = await as(world.users.head);
     const first = (await add(head, { canonical: 'ইদ্রিস', variants: ['ইদরিস'] })).body
       .data as Group;
-    await change(head, first.id, { active: false });
+    await change(head, first, { active: false });
     const res = await add(head, { canonical: 'ইদরীস', variants: ['ইদরিস'] });
     expect(res.status).toBe(422);
     expect(details(res.body)).toEqual({ 'variants.0': 'validation.name_variant_taken' });
@@ -222,7 +309,7 @@ describe('the spellings a group may hold', () => {
     expect(details(asSpelling.body)).toEqual({ 'variants.0': 'validation.name_variant_chain' });
     // a change of a group is held to the same rules
     const other = (await add(head, { canonical: 'লূত', variants: ['লুত'] })).body.data as Group;
-    const res = await change(head, other.id, { canonical: 'লূত', variants: ['লুত', 'নূহ'] });
+    const res = await change(head, other, { canonical: 'লূত', variants: ['লুত', 'নূহ'] });
     expect(res.status).toBe(422);
     expect(details(res.body)).toEqual({ 'variants.1': 'validation.name_variant_chain' });
     expect(base.active).toBe(true);
@@ -232,7 +319,7 @@ describe('the spellings a group may hold', () => {
     const head = await as(world.users.head);
     const group = (await add(head, { canonical: 'ইলিয়াস', variants: ['ইলইয়াস'] })).body
       .data as Group;
-    const res = await change(head, group.id, { variants: ['ইলিয়াছ'] });
+    const res = await change(head, group, { variants: ['ইলিয়াছ'] });
     expect(res.status).toBe(422);
     expect(details(res.body)).toEqual({ canonical: 'validation.required' });
   });

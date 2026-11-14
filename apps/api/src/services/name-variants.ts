@@ -7,6 +7,7 @@ import {
 import { uuidv7 } from '@css/shared';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
+import { assertIfMatch, etagOf } from '../core/etag.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
@@ -17,6 +18,7 @@ const GROUP_SELECT = {
   id: true,
   canonical: true,
   active: true,
+  updatedAt: true,
   spellings: {
     where: { active: true },
     select: { id: true, variant: true },
@@ -34,7 +36,11 @@ const view = (g: GroupRow): NameVariantGroup => ({
     // one order whatever the rows' order: by the letters' code points
     .sort(),
   active: g.active,
+  etag: etagOf(g.updatedAt),
 });
+
+/** A group as the audit keeps it: its spellings and state, not its version. */
+const audited = ({ etag: _etag, ...group }: NameVariantGroup) => group;
 
 /** Where a spelling of a request already stands in another group. */
 interface Holder {
@@ -45,14 +51,15 @@ interface Holder {
 
 /**
  * The spelling variants of names on the settings page (docs/database/DATABASE_SCHEMA.md,
- * "name_variant_groups"; D-174): the Department Head and the Monitoring Team list the groups, add
+ * "name_variant_groups"), which the name keys make equal word by word: the Department Head and the Monitoring Team list the groups, add
  * one, change its spellings and switch it off and on; nothing is deleted (a spelling taken out of
  * a group stays as a row that is no longer active). A spelling belongs to one group, switched on or
  * off, so switching a group on again never collides with another; and a group's canonical is never
  * a spelling of another group, nor another group's canonical a spelling of this one, so the list
  * holds no chains. Every change is audited (`name_variants.change`, the group before and after)
  * and, when it changes what the keys read, raises the list's version in the same transaction,
- * which queues the key job.
+ * which queues the key job. A change names the version of the group it was made from (If-Match),
+ * so a second official's save from the same read is refused instead of dropping the first's.
  */
 export class NameVariantsService {
   constructor(
@@ -97,7 +104,7 @@ export class NameVariantsService {
         action: 'name_variants.change',
         entityType: 'name_variant_group',
         entityId: group.id,
-        new: { ...created },
+        new: audited(created),
       });
       await raiseVariantsVersion(tx, this.jobs, actor.userId);
       return created;
@@ -108,33 +115,40 @@ export class NameVariantsService {
     actor: Principal,
     groupId: string,
     body: NameVariantGroupUpdate,
+    ifMatch: string | undefined,
   ): Promise<NameVariantGroup> {
     return this.prisma.$transaction(async (tx) => {
-      // lock before reading, so the audit's old value is the one this change replaces
+      // lock before reading, so the version compared and the audit's old value are the ones this
+      // change replaces
       await this.lock(tx);
       const found = await tx.nameVariantGroup.findUnique({
         where: { id: groupId },
         select: GROUP_SELECT,
       });
       if (!found) throw new ApiError('permission.not_found', 404);
+      assertIfMatch(ifMatch, found.updatedAt);
       const before = view(found);
       if (body.canonical !== undefined && body.variants !== undefined) {
         await this.refuseHeld(tx, body.canonical, body.variants, groupId);
         await this.respell(tx, actor, found, body.canonical, body.variants);
       }
-      if (body.active !== undefined && body.active !== found.active)
-        await tx.nameVariantGroup.update({
-          where: { id: groupId },
-          data: { active: body.active, updatedBy: actor.userId },
-          select: { id: true },
-        });
+      // the group's own row is written by every change, so its version moves even when only its
+      // spellings changed
+      await tx.nameVariantGroup.update({
+        where: { id: groupId },
+        data: {
+          ...(body.active === undefined ? {} : { active: body.active }),
+          updatedBy: actor.userId,
+        },
+        select: { id: true },
+      });
       const after = view(await this.read(tx, groupId));
       await this.audit.record(tx, {
         action: 'name_variants.change',
         entityType: 'name_variant_group',
         entityId: groupId,
-        old: { ...before },
-        new: { ...after },
+        old: audited(before),
+        new: audited(after),
       });
       // the keys read the spellings of the groups that are on: a group that is off and stays off
       // changes nothing they read

@@ -111,7 +111,13 @@ describe.skipIf(!contractBase())('the system administration', () => {
     );
     expect(groups.map((g) => g.id)).toContain(added.id);
     const off = expectContract(
-      await call(caller, 'PATCH', `/name-variants/${added.id}`, { active: false }),
+      await call(
+        caller,
+        'PATCH',
+        `/name-variants/${added.id}`,
+        { active: false },
+        { 'If-Match': added.etag },
+      ),
       200,
       nameVariantGroupSchema,
     );

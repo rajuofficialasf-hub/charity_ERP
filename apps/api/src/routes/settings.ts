@@ -180,10 +180,11 @@ export function settingsRouter(
     scope: 'global',
     audit: 'name_variants.change',
     params: { groupId: uuid },
+    headers: [{ name: 'If-Match', required: true }],
     body: nameVariantGroupUpdateSchema,
-    responses: { 200: null, 401: null, 403: null, 404: null, 422: null },
+    responses: { 200: null, 401: null, 403: null, 404: null, 412: null, 422: null },
     handler: async ({ body, params, req }) =>
-      ok(await c.nameVariants.update(principalOf(req), params.groupId, body)),
+      ok(await c.nameVariants.update(principalOf(req), params.groupId, body, req.get('if-match'))),
   });
 
   defineRoute(router, deps, {

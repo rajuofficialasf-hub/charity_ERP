@@ -422,9 +422,9 @@ describe('the identity questions in one press', () => {
     open();
     await user.click(await listButton(2));
     await user.click(within(await list()).getByRole('button', { name: ADD }));
-    // the list closes; the questions stand after the form's own, in the order of the roles, right
-    // after the father's or husband's name the question whose name it is, and right after the
-    // mobile the two questions on whose number it is, worded from the catalogue
+    // the list closes; the ten questions stand after the form's own, in the order of the roles,
+    // right after the father's or husband's name the question whose name it is, and right after
+    // the mobile the two questions on whose number it is, worded from the catalogue
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(questions()).toEqual([
       'মন্তব্য বদলান',

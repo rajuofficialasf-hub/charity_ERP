@@ -44,7 +44,9 @@ const spellingsOf = (others: string) =>
 /**
  * Adds a group of spellings or edits one: the spelling the keys use, the others, and on or off.
  * Each spelling is checked as the API checks it; that a spelling is in another group comes back
- * from the server, under the field that holds it.
+ * from the server, under the field that holds it. An edit carries the version the list showed, so
+ * a group another official changed meanwhile is refused with the server's message, and the list is
+ * read again.
  */
 function GroupDialog({
   group,
@@ -108,7 +110,7 @@ function GroupDialog({
     mutationFn: ({ canonical, others, active }: GroupFields) => {
       const spellings = { canonical: canonical.trim(), variants: spellingsOf(others) };
       return group
-        ? updateNameVariantGroup(group.id, { ...spellings, active })
+        ? updateNameVariantGroup(group, { ...spellings, active })
         : addNameVariantGroup(spellings);
     },
     onSuccess: onDone,
@@ -212,8 +214,9 @@ function GroupState({ group }: { group: NameVariantGroupView }) {
 }
 
 /**
- * The spelling variants of names (D-174): a line per group with its main spelling, the others and
- * whether it is on; a group is added and edited in a dialog and switched off, never deleted.
+ * The spelling variants of names, which the name keys make equal when two people are compared: a
+ * line per group with its main spelling, the others and whether it is on; a group is added and
+ * edited in a dialog and switched off, never deleted.
  */
 export function NameVariantsCard({ onNotice }: { onNotice: (text: string) => void }) {
   const t = useTranslations('admin.settings.name_variants');

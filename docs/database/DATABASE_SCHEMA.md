@@ -787,7 +787,7 @@ The suggested duplicate pairs, kept instead of computed per request (T2.2, D-117
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | canonical | text | no | — | the spelling of the group the keys use; CHECK 1 to 100 characters and no white space; a row of `name_variants` holds it too |
-| active | boolean | no | true | a group switched off is ignored by the keys and keeps its spellings |
+| active | boolean | no | true | a group switched off is ignored by the keys and keeps its spellings; every change of the group writes this row, so its `updated_at` is the group's version (the ETag a change sends back in If-Match) |
 | [A] | | | | |
 
 The known spelling variants of names, by group (D-174): only the spellings of one group that is switched on are made equal by the name keys. The list starts with আক্তার, আকতার, আখতার; হোসেন, হোসাইন, হুসাইন; রহিমা, রাহিমা; রহমান, রাহমান (the base seed, which raises the version when it adds a spelling); the Department Head and the Monitoring Team keep it on the settings page (`services/name-variants.ts`, `settings.manage`): add a group, change its spellings, switch it off and on; never deleted. Each change is audited (`name_variants.change`) and, when it changes what the keys read, raises `name_variants_version` in its transaction. Indexes (created_by), (updated_by).

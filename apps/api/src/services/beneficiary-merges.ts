@@ -62,6 +62,12 @@ const snapshotSchema = z.object({
   rejectedCorrections: z.array(z.uuid()),
   /** The block of the retired profile, released by the merge, and the copy it gave the kept one. */
   block: z.object({ released: z.uuid().nullable(), created: z.uuid().nullable() }),
+  /**
+   * The facts the kept profile lacked and took from the retired one, with the value given; the
+   * revert empties each again while it still holds that value. A merge made before the kept
+   * profile could take a fact has none.
+   */
+  filled: z.object({ guardianRelationCode: z.string() }).partial().optional(),
 });
 type Snapshot = z.infer<typeof snapshotSchema>;
 
@@ -115,7 +121,14 @@ export class BeneficiaryMergesService {
       await tx.$queryRaw`SELECT id FROM beneficiaries WHERE id = ${id}::uuid FOR UPDATE`;
     const found = await tx.beneficiary.findMany({
       where: { AND: [{ id: { in: ids } }, beneficiaryWhere(scope)] },
-      select: { id: true, benNo: true, mergedIntoId: true, nid: true, birthReg: true },
+      select: {
+        id: true,
+        benNo: true,
+        mergedIntoId: true,
+        nid: true,
+        birthReg: true,
+        guardianRelationCode: true,
+      },
     });
     if (found.length !== 2) this.notFound(actor, scope);
     return new Map(found.map((r) => [r.id, r]));
@@ -309,6 +322,7 @@ export class BeneficiaryMergesService {
       WHERE beneficiary_id = ${retiredId}::uuid AND status = 'submitted' RETURNING id`;
     snapshot.rejectedCorrections = rejected.map((r) => r.id);
     snapshot.block = await this.carryBlock(tx, actor, keptId, retiredId, formatBenNo(kept.benNo));
+    snapshot.filled = await this.fillKept(tx, actor, pair, keptId, retiredId);
     await tx.beneficiary.update({
       where: { id: retiredId },
       data: { mergedIntoId: keptId, updatedBy: actor.userId },
@@ -333,7 +347,13 @@ export class BeneficiaryMergesService {
       action: 'beneficiary.merge',
       entityType: 'beneficiary',
       entityId: keptId,
-      new: { mergeId, mergedId: retiredId, moved: counts(snapshot), leftBehind: leftBehind.length },
+      new: {
+        mergeId,
+        mergedId: retiredId,
+        moved: counts(snapshot),
+        leftBehind: leftBehind.length,
+        filled: snapshot.filled,
+      },
       reason: row.reason,
     });
     return view(row);
@@ -402,6 +422,28 @@ export class BeneficiaryMergesService {
   }
 
   /**
+   * Whether the name beside the person is the father's or the husband's: where the kept profile
+   * does not know it and the retired one does, the kept profile takes it, so the merge loses no
+   * fact. A relation the kept profile holds is never changed, as an application never changes it.
+   */
+  private async fillKept(
+    tx: Tx,
+    actor: Principal,
+    pair: LockedPair,
+    keptId: string,
+    retiredId: string,
+  ): Promise<Snapshot['filled']> {
+    const given = pair.get(retiredId)!.guardianRelationCode;
+    if (pair.get(keptId)!.guardianRelationCode !== null || given === null) return {};
+    await tx.beneficiary.update({
+      where: { id: keptId },
+      data: { guardianRelationCode: given, updatedBy: actor.userId },
+      select: { id: true },
+    });
+    return { guardianRelationCode: given };
+  }
+
+  /**
    * A block of the retired profile is released by the merge; the kept profile gets a copy with the
    * same reason unless it is blocked already, so a merge never lifts a block. New rows instead of a
    * changed subject, so the flag of each profile follows its own rows.
@@ -467,6 +509,15 @@ export class BeneficiaryMergesService {
           if (back !== ids.length) throw new ApiError('beneficiary.merge_revert_order', 409);
         }
         await this.restoreBlock(tx, actor, found.mergedId, snapshot.block);
+        // the kept profile's own earlier empty value comes back, while it still holds the one given
+        if (snapshot.filled?.guardianRelationCode !== undefined)
+          await tx.beneficiary.updateMany({
+            where: {
+              id: found.keptId,
+              guardianRelationCode: snapshot.filled.guardianRelationCode,
+            },
+            data: { guardianRelationCode: null, updatedBy: actor.userId },
+          });
         await tx.beneficiary.update({
           where: { id: found.mergedId },
           data: { mergedIntoId: null, updatedBy: actor.userId },

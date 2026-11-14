@@ -40,6 +40,8 @@ export const nameVariantGroupSchema = z.object({
   canonical: z.string(),
   variants: z.array(z.string()),
   active: z.boolean(),
+  /** The group's version, sent back in If-Match by its change. */
+  etag: z.string(),
 });
 export type NameVariantGroupView = z.infer<typeof nameVariantGroupSchema>;
 

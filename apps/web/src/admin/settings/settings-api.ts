@@ -51,8 +51,16 @@ export const nameVariantGroups = () => api<NameVariantGroupView[]>('/name-varian
 export const addNameVariantGroup = (body: NameVariantGroupCreate) =>
   api<NameVariantGroupView>('/name-variants', { method: 'POST', body });
 
-export const updateNameVariantGroup = (id: string, body: NameVariantGroupUpdate) =>
-  api<NameVariantGroupView>(`/name-variants/${id}`, { method: 'PATCH', body });
+/** The change names the version it was made from; a group changed meanwhile answers 412. */
+export const updateNameVariantGroup = (
+  group: Pick<NameVariantGroupView, 'id' | 'etag'>,
+  body: NameVariantGroupUpdate,
+) =>
+  api<NameVariantGroupView>(`/name-variants/${group.id}`, {
+    method: 'PATCH',
+    body,
+    headers: { 'If-Match': group.etag },
+  });
 
 export const channels = () => api<Channels>('/admin/channels');
 

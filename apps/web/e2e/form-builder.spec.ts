@@ -396,8 +396,9 @@ test('a new application form lists what to fix, gets its identity questions in o
   // holds no question yet, so each comes with a wording of its own in both languages
   await list.getByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' }).click();
   await expect(list).toHaveCount(0);
-  // seven identity questions, after the father's or husband's name whose name it is, and after
-  // the mobile the two on whose number it is
+  // the press adds ten questions to the form's one, eleven in all: the seven identity questions,
+  // after the father's or husband's name the question whose name it is, and after the mobile the
+  // two on whose number it is
   await expect(page.getByTestId('form-head').getByText('1টি অংশ · 11টি প্রশ্ন')).toBeVisible();
   const part = page.getByRole('list', { name: 'অংশ 1', exact: true });
   const identity: [string, string][] = [

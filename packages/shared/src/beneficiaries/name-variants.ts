@@ -2,8 +2,9 @@ import { z } from 'zod';
 import { isNameTitle, spellingKey } from './match-key.js';
 
 /**
- * The groups of spelling variants the Department Head and the Monitoring Team keep in the settings
- * (D-174): one spelling the name keys use (the canonical) and the other spellings of the same name.
+ * The groups of spelling variants the Department Head and the Monitoring Team keep in the settings:
+ * one spelling the name keys use (the canonical) and the other spellings of the same name, made
+ * equal word by word when two names are compared; the name as written is always kept.
  * The rules a request can be checked against alone live here, so the screen refuses what the API
  * refuses; that a spelling is already in another group is the server's to say.
  */
@@ -13,11 +14,14 @@ export const NAME_VARIANT_GROUP_MAX = 30;
 
 /** Letters and their marks of the Bengali and the Latin scripts, nothing else. */
 const LETTERS = /^(?:(?=[\p{L}\p{M}])[\p{Script=Bengali}\p{Script=Latin}])+$/u;
+/** At least one letter: marks alone (ঁ, ঃ) spell nothing. */
+const A_LETTER = /\p{L}/u;
 
 /**
  * One spelling: one word of Bengali or Latin letters, at most 100 characters (the database's own
  * check), never one of the titles the key drops (a title in a group would make names equal that
- * the key keeps apart on purpose).
+ * the key keeps apart on purpose), and never a word of marks alone, or one whose key form is empty
+ * (a lone ঃ is read as a space), since such a spelling would make nothing equal.
  */
 export const nameSpellingSchema = z
   .string()
@@ -30,6 +34,8 @@ export const nameSpellingSchema = z
       ctx.addIssue({ code: 'custom', message: 'validation.name_variant_one_word' });
     else if (!LETTERS.test(value))
       ctx.addIssue({ code: 'custom', message: 'validation.name_variant_letters' });
+    else if (!A_LETTER.test(value) || !spellingKey(value))
+      ctx.addIssue({ code: 'custom', message: 'validation.name_variant_no_letter' });
     else if (isNameTitle(value))
       ctx.addIssue({ code: 'custom', message: 'validation.name_variant_title' });
   });
@@ -95,4 +101,6 @@ export interface NameVariantGroup {
   /** The other spellings, in the order of their letters' code points. */
   variants: string[];
   active: boolean;
+  /** The group's version, sent back in If-Match by its change. */
+  etag: string;
 }
