@@ -1,4 +1,5 @@
 import { formatBenNo } from '@css/shared/beneficiaries';
+import { beneficiaryReachedByAll, type Scope } from '../access/scope.js';
 import type { Tx } from '../core/prisma.service.js';
 
 /**
@@ -18,16 +19,28 @@ export interface FamilyMatch {
   matchedOn: ProjectFamilyRule[];
 }
 
+/** A relationship a family list gives a member: a code of the list `relationship` and its words. */
+export interface MemberRelationship {
+  code: string;
+  name: { bn: string; en: string } | null;
+}
+
 /** An earlier beneficiary whose family list probably holds the applicant. */
 export interface FamilyMemberMatch {
   rule: 'family_member';
   headId: string;
   headBenNo: string;
   headName: string;
-  /** The relationship the head's list gives the member (a code of the list `relationship`). */
-  relationshipCode: string | null;
-  /** That relationship in the list's words. */
-  relationship: { bn: string; en: string } | null;
+  /** Every relationship under which the head's list holds the member, by code. */
+  relationships: MemberRelationship[];
+  /** Whether the scope the caller gave reaches the head. */
+  named: boolean;
+}
+
+/** The earlier families shown for a person, and how many there are in all. */
+export interface FamilyMemberMatches {
+  rows: FamilyMemberMatch[];
+  total: number;
 }
 
 /** At most this many earlier families are named for one applicant. */
@@ -81,42 +94,64 @@ export class BeneficiaryFamilyService {
   /**
    * The earlier beneficiaries whose active family list probably holds the person, in any project:
    * a member with the person's name, in the family of a live profile whose own name is the
-   * person's father's or husband's name, in the person's union and village. The relationship is
-   * the one the head's list gives.
+   * person's father's or husband's name, in the person's union and village. Each head comes once,
+   * with every relationship its list gives the member. Heads the scope `nameWith` reaches come
+   * first, so the ones the caller may name are never crowded out by others; `total` counts every
+   * head, also those beyond the ones returned.
    */
-  async membersOf(tx: Tx, beneficiaryId: string): Promise<FamilyMemberMatch[]> {
+  async membersOf(
+    tx: Tx,
+    beneficiaryId: string,
+    nameWith: Scope | null,
+  ): Promise<FamilyMemberMatches> {
     const rows = await tx.$queryRaw<
       {
         head_id: string;
         ben_no: number;
         name: string;
-        relationship_code: string | null;
-        label_bn: string | null;
-        label_en: string | null;
+        named: boolean;
+        relationships: { code: string; bn: string | null; en: string | null }[];
+        total: bigint;
       }[]
     >`
-      SELECT DISTINCT ON (h.ben_no, m.relationship_code)
-        h.id AS head_id, h.ben_no, h.name, m.relationship_code,
-        r.label_bn, r.label_en
-      FROM beneficiaries me
-      JOIN beneficiary_family_members m ON m.name_key = me.name_key AND m.active
-      JOIN beneficiaries h ON h.id = m.beneficiary_id AND h.id <> me.id
-        AND h.merged_into_id IS NULL
-        AND h.name_key = me.guardian_key
-        AND h.union_id = me.union_id AND h.village_key = me.village_key
-      LEFT JOIN reference_lists r
-        ON r.list_key = m.relationship_list AND r.code = m.relationship_code
-      WHERE me.id = ${beneficiaryId}::uuid
-      ORDER BY h.ben_no, m.relationship_code
+      WITH heads AS (
+        SELECT x.id AS head_id, x.ben_no, x.name,
+          ${beneficiaryReachedByAll(nameWith ? [nameWith] : null, 'x')} AS named,
+          COALESCE(
+            jsonb_agg(DISTINCT jsonb_build_object(
+              'code', m.relationship_code, 'bn', r.label_bn, 'en', r.label_en))
+              FILTER (WHERE m.relationship_code IS NOT NULL),
+            '[]'::jsonb) AS relationships
+        FROM beneficiaries me
+        JOIN beneficiary_family_members m ON m.name_key = me.name_key AND m.active
+        JOIN beneficiaries x ON x.id = m.beneficiary_id AND x.id <> me.id
+          AND x.merged_into_id IS NULL
+          AND x.name_key = me.guardian_key
+          AND x.union_id = me.union_id AND x.village_key = me.village_key
+        LEFT JOIN reference_lists r
+          ON r.list_key = m.relationship_list AND r.code = m.relationship_code
+        WHERE me.id = ${beneficiaryId}::uuid
+        GROUP BY x.id
+      )
+      SELECT head_id, ben_no, name, named, relationships, count(*) OVER () AS total
+      FROM heads
+      ORDER BY named DESC, ben_no
       LIMIT ${MEMBER_MATCHES_SHOWN}`;
-    return rows.map((r) => ({
-      rule: 'family_member',
-      headId: r.head_id,
-      headBenNo: formatBenNo(r.ben_no),
-      headName: r.name,
-      relationshipCode: r.relationship_code,
-      relationship:
-        r.label_bn !== null && r.label_en !== null ? { bn: r.label_bn, en: r.label_en } : null,
-    }));
+    return {
+      rows: rows.map((r) => ({
+        rule: 'family_member',
+        headId: r.head_id,
+        headBenNo: formatBenNo(r.ben_no),
+        headName: r.name,
+        relationships: r.relationships
+          .map((rel) => ({
+            code: rel.code,
+            name: rel.bn !== null && rel.en !== null ? { bn: rel.bn, en: rel.en } : null,
+          }))
+          .sort((a, b) => a.code.localeCompare(b.code)),
+        named: r.named,
+      })),
+      total: Number(rows[0]?.total ?? 0),
+    };
   }
 }

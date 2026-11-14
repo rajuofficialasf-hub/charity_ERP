@@ -6,6 +6,8 @@ import { bilingual, dateTime, recordOf } from './common';
 
 /** Another beneficiary profile a signal of the review names. */
 const personRefSchema = z.object({ beneficiaryId: z.uuid(), benNo: z.string(), name: z.string() });
+/** How sure a person signal is; an entry the viewer may not open carries this alone. */
+const signalLevel = z.object({ level: z.literal('probable') });
 
 /** The office's decisions on an application. */
 export const officeActionSchema = z.enum([
@@ -76,26 +78,34 @@ export const officeApplicationSchema = applicationSchema.extend({
       matchedOn: z.array(z.enum(['mobile', 'union_village_father'])),
     }),
   ),
-  /** The earlier families that probably hold the person; the head only where it may be opened. */
+  /**
+   * The earlier families that probably hold the person: the head and the relationships only where
+   * the head may be opened, else the level alone.
+   */
   familyMemberSignals: z
     .array(
-      z.object({
-        relationshipCode: z.string().nullable(),
-        relationship: bilingual.nullable(),
-        head: personRefSchema.nullable(),
-      }),
+      z.union([
+        signalLevel.extend({
+          relationships: z.array(z.object({ code: z.string(), name: bilingual.nullable() })),
+          head: personRefSchema,
+        }),
+        signalLevel,
+      ]),
     )
     .default([]),
-  /** The person's open probable pairs; the other profile only where both may be compared. */
+  /** How many earlier families there are in all, also beyond the ones listed. */
+  familyMemberSignalsTotal: z.number().int().default(0),
+  /** The person's open probable pairs: the rules and the other profile only where both may be compared. */
   samePersonSignals: z
     .array(
-      z.object({
-        level: z.literal('probable'),
-        matchedOn: z.array(duplicateRuleSchema),
-        other: personRefSchema.nullable(),
-      }),
+      z.union([
+        signalLevel.extend({ matchedOn: z.array(duplicateRuleSchema), other: personRefSchema }),
+        signalLevel,
+      ]),
     )
     .default([]),
+  /** How many open probable pairs there are in all, also beyond the ones listed. */
+  samePersonSignalsTotal: z.number().int().default(0),
 });
 export type OfficeApplication = z.infer<typeof officeApplicationSchema>;
 

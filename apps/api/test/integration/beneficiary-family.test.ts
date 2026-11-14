@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { makeScope, type Scope } from '../../src/access/scope.js';
 import { createContainer, closeContainer, type Container } from '../../src/container.js';
 import { testEnv } from '../support/env.js';
 import { cloneTemplate } from './support/db.js';
@@ -172,7 +173,8 @@ describe('an applicant who is probably a member of an earlier family', () => {
   let place: Awaited<ReturnType<typeof f.locationTree>>;
   beforeAll(async () => {
     place = await f.locationTree(db);
-    for (const code of ['son', 'wife', 'daughter']) await f.referenceCode(db, 'relationship', code);
+    for (const code of ['son', 'wife', 'daughter', 'nephew'])
+      await f.referenceCode(db, 'relationship', code);
   });
   let n = 0;
   /** An earlier beneficiary with the members of their family list, keys stored. */
@@ -199,8 +201,21 @@ describe('an applicant who is probably a member of an earlier family', () => {
     await storeKeys(container, [id]);
     return id;
   }
-  const membersOf = (id: string) =>
-    container.prisma.$transaction((tx) => container.beneficiaryFamily.membersOf(tx, id));
+  const found = (id: string, scope: Scope | null = null) =>
+    container.prisma.$transaction((tx) => container.beneficiaryFamily.membersOf(tx, id, scope));
+  const membersOf = async (id: string) => (await found(id)).rows;
+  /** A scope that reaches the profiles with an application in one project, and no other. */
+  const projectScope = (projectId: string) =>
+    makeScope(randomUUID(), 'beneficiary.view_all', 'beneficiary', {
+      global: false,
+      self: false,
+      programIds: [],
+      projectIds: [projectId],
+      areas: [],
+      volunteerAreas: [],
+      revokedProjectIds: [],
+      revokedProgramIds: [],
+    });
 
   it('finds the family whose head is the applicant’s father or husband and whose list holds the applicant', async () => {
     const k = ++n;
@@ -216,15 +231,15 @@ describe('an applicant who is probably a member of an earlier family', () => {
         headId: father,
         headBenNo: await benNo(father),
         headName: `মোঃ জামাল ${k}`,
-        relationshipCode: 'son',
-        relationship: { bn: 'son', en: 'son' },
+        relationships: [{ code: 'son', name: { bn: 'son', en: 'son' } }],
+        named: false,
       },
     ]);
     // the wife: her husband's name is the head's name
     const wife = await applicant({ name: `সালেহা ${k}`, father_or_husband_name: `জামাল ${k}` });
-    expect((await membersOf(wife)).map((m) => [m.headId, m.relationshipCode])).toEqual([
-      [father, 'wife'],
-    ]);
+    expect(
+      (await membersOf(wife)).map((m) => [m.headId, m.relationships.map((r) => r.code)]),
+    ).toEqual([[father, ['wife']]]);
   });
 
   it('finds nobody in another village or union, for another father, for a member who left, or for a retired head', async () => {
@@ -249,11 +264,50 @@ describe('an applicant who is probably a member of an earlier family', () => {
         await applicant({ name: `আগের সদস্য ${k}`, father_or_husband_name: `করিম ${k}` }),
       ),
     ).toEqual([]);
-    const found = await applicant(as);
-    expect((await membersOf(found)).map((m) => m.headId)).toEqual([father]);
+    const person = await applicant(as);
+    expect((await membersOf(person)).map((m) => m.headId)).toEqual([father]);
     const kept = await f.beneficiary(db, place);
     await db.query('UPDATE beneficiaries SET merged_into_id = $2 WHERE id = $1', [father, kept]);
-    expect(await membersOf(found)).toEqual([]);
+    expect(await membersOf(person)).toEqual([]);
+  });
+
+  it('names a head once, with every relationship its list gives the applicant', async () => {
+    const k = ++n;
+    const father = await head(`হাবিব ${k}`, [
+      { name: `সোহেল ${k}`, code: 'son' },
+      { name: `মোঃ সোহেল ${k}`, code: 'nephew' },
+      { name: `সোহেল ${k}`, code: 'son' },
+    ]);
+    const son = await applicant({ name: `সোহেল ${k}`, father_or_husband_name: `হাবিব ${k}` });
+    const { rows, total } = await found(son);
+    expect(total).toBe(1);
+    expect(rows.map((m) => [m.headId, m.relationships.map((r) => r.code)])).toEqual([
+      [father, ['nephew', 'son']],
+    ]);
+  });
+
+  it('lists the heads the scope reaches first, so more than ten others never crowd them out, and counts them all', async () => {
+    const k = ++n;
+    const reached = await f.project(db);
+    const heads: string[] = [];
+    // twelve earlier families of one name; only the last made (the highest BEN number) applied in
+    // the project the scope reaches
+    for (let i = 0; i < 12; i++)
+      heads.push(await head(`কাশেম ${k}`, [{ name: `মামুন ${k}`, code: 'son' }]));
+    await f.application(db, { project: reached, loc: place }, { beneficiary_id: heads[11] });
+    const son = await applicant({ name: `মামুন ${k}`, father_or_husband_name: `কাশেম ${k}` });
+    const scoped = await found(son, projectScope(reached.id));
+    expect(scoped.total).toBe(12);
+    expect(scoped.rows).toHaveLength(10);
+    expect(scoped.rows[0]).toMatchObject({ headId: heads[11], named: true });
+    expect(scoped.rows.slice(1).every((m) => !m.named)).toBe(true);
+    // the others follow by BEN number
+    expect(scoped.rows.slice(1).map((m) => m.headId)).toEqual(heads.slice(0, 9));
+    // without a scope nobody is named, and the first ten by BEN number are listed
+    const blind = await found(son);
+    expect(blind.total).toBe(12);
+    expect(blind.rows.map((m) => m.headId)).toEqual(heads.slice(0, 10));
+    expect(blind.rows.some((m) => m.named)).toBe(false);
   });
 
   it('is never the applicant’s own family list', async () => {

@@ -191,12 +191,15 @@
         "named": "Probably {head}'s {relationship}",
         "unnamed": "Probably a family member of another beneficiary",
         "relative": "family member",
-        "open": "Open profile ({benNo})"
+        "open": "Open profile ({benNo})",
+        "or": "or",
+        "more": "{n} more"
       },
       "same_person": {
         "named": "Probably the same person: {name} ({benNo}) — {rule}",
-        "unnamed": "Probably the same person as another profile — {rule}",
-        "compare": "Compare"
+        "unnamed": "Probably the same person as another profile",
+        "compare": "Compare",
+        "more": "{n} more"
       }
     },
     "changes": {

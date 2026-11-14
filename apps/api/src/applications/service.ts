@@ -70,7 +70,7 @@ import type { MediaReferralsService } from '../services/media-referrals.js';
 import type { UnlocksService } from './unlocks.js';
 import type { ScoringService } from './scoring.js';
 import { type CommentReason, commentReasons } from './decision-rules.js';
-import type { PersonSignals } from './person-signals.js';
+import { NO_PERSON_SIGNALS, type PersonSignals } from './person-signals.js';
 import type { Replayable } from '../services/uploads.js';
 import type { WorkflowEngine } from '../workflow/engine.js';
 import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards.js';
@@ -1801,7 +1801,7 @@ export class ApplicationsService {
         : [],
       audience === 'official' && row.beneficiaryId
         ? this.signals.forPerson(this.prisma, viewer.principal, access, row.beneficiaryId)
-        : { familyMemberSignals: [], samePersonSignals: [] },
+        : NO_PERSON_SIGNALS,
       this.availableActions(viewer.principal, access, row),
       this.prisma.formVersion.findUniqueOrThrow({
         where: { id: row.formVersionId },

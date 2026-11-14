@@ -18,7 +18,7 @@ import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-cand
 import type { MatchKeysService } from './match-keys.js';
 import { isUniqueViolation } from '../core/db-errors.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
-import { type Prisma } from '../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 
 /** How far a chain of merges is followed (a kept profile can itself be merged later). */
@@ -311,23 +311,33 @@ export class BeneficiaryIdentityService {
   /**
    * The blocked live profile a new person looks like: the same union, and the same keys of the
    * name, the father's or husband's name and the village (the stored keys, so a title or a known
-   * spelling variant makes no difference), and no father's name against a husband's. Such a
-   * person gets no new profile by themselves; an official compares the two first. Null when
-   * nobody on the block list matches, or when a key of the person is empty. The one place this
-   * comparison is made.
+   * spelling variant makes no difference), and no father's name against a husband's. A blocked
+   * profile whose keys are missing or older than the variants list (the key job has not reached
+   * it yet) is compared as the keys were before them, through `person_name_key` of the three
+   * texts, so no block slips through while the job runs. Such a person gets no new profile by
+   * themselves; an official compares the two first. Null when nobody on the block list matches.
+   * The one place this comparison is made.
    */
   async blockedNamesake(db: Tx, person: PersonKeys): Promise<string | null> {
     const keys = await this.matchKeys.ofProfile(db, person);
-    if (!keys.nameKey || !keys.guardianKey || !keys.villageKey) return null;
     const relation = person.guardianRelationCode;
+    const current =
+      keys.nameKey && keys.guardianKey && keys.villageKey
+        ? Prisma.sql`(b.name_key = ${keys.nameKey} AND b.guardian_key = ${keys.guardianKey}
+            AND b.village_key = ${keys.villageKey})`
+        : Prisma.sql`FALSE`;
     const rows = await db.$queryRaw<{ id: string }[]>`
       SELECT b.id FROM beneficiaries b
       WHERE b.is_blocked AND b.merged_into_id IS NULL
         AND b.union_id = ${person.unionId}::uuid
-        AND b.name_key = ${keys.nameKey} AND b.guardian_key = ${keys.guardianKey}
-        AND b.village_key = ${keys.villageKey}
         AND (b.guardian_relation_code IS NULL OR ${relation}::text IS NULL
           OR b.guardian_relation_code = ${relation}::text)
+        AND (${current}
+          OR ((b.match_keys_version IS NULL OR b.match_keys_version < ${keys.matchKeysVersion})
+            AND person_name_key(b.name) = person_name_key(${person.name})
+            AND person_name_key(b.father_or_husband_name)
+              = person_name_key(${person.fatherOrHusbandName})
+            AND person_name_key(b.village) = person_name_key(${person.village})))
       ORDER BY b.ben_no
       LIMIT 1`;
     return rows[0]?.id ?? null;

@@ -460,6 +460,51 @@ describe('the creation of a profile', () => {
     expect(await looks({ name: '।।' })).toBeNull();
   });
 
+  it('still catches a blocked profile whose keys the key job has not computed yet, or computed under an older list', async () => {
+    const texts = {
+      name: 'চাবিহীন ব্লক',
+      fatherOrHusbandName: 'চাবিহীন পিতা',
+      unionId: world.dhaka.union,
+      village: 'চাবিহীন গ্রাম',
+      guardianRelationCode: null as string | null,
+    };
+    // inserted straight, as a row the job has not reached: no keys at all
+    const blocked = await person(world.dhaka, {
+      name: texts.name,
+      father_or_husband_name: texts.fatherOrHusbandName,
+      village: texts.village,
+      is_blocked: true,
+    });
+    expect(
+      (
+        await h.db.query('SELECT name_key, match_keys_version FROM beneficiaries WHERE id = $1', [
+          blocked,
+        ])
+      ).rows[0],
+    ).toEqual({ name_key: null, match_keys_version: null });
+    const namesake = (over: Partial<typeof texts> = {}) =>
+      h.container.beneficiaryIdentity.blockedNamesake(h.container.prisma, { ...texts, ...over });
+    // compared as before the keys: the same texts up to spaces, in the union
+    expect(await namesake()).toBe(blocked);
+    expect(await namesake({ name: ' চাবিহীন  ব্লক ' })).toBe(blocked);
+    expect(await namesake({ village: 'অন্য গ্রাম' })).toBeNull();
+    expect(await namesake({ unionId: world.rangpur.union })).toBeNull();
+    // keys of an older list are stale too: the earlier rule still holds until the job runs
+    await storeKeys(h.container, [blocked]);
+    await addVariantGroup(h.db, h.container, ['চাবিহীন', 'চাবিহিন'], world.users.head);
+    const version = await h.db.query<{ match_keys_version: number }>(
+      'SELECT match_keys_version FROM beneficiaries WHERE id = $1',
+      [blocked],
+    );
+    const current = await h.container.matchKeys.list(h.container.prisma);
+    expect(version.rows[0]!.match_keys_version).toBeLessThan(current.version);
+    expect(await namesake()).toBe(blocked);
+    // once the keys are current, the keys decide
+    await storeKeys(h.container, [blocked]);
+    expect(await namesake({ name: 'চাবিহিন ব্লক' })).toBe(blocked);
+    expect(await namesake({ name: 'অন্য ব্লক' })).toBeNull();
+  });
+
   it("refuses the caller's own mobile and the owner volunteer's mobile", async () => {
     const own = accounts.get(world.users.general)!.mobile;
     const e = await refusal(create(world.users.general, { mobile: own }));

@@ -1,7 +1,12 @@
 import { uuidv7 } from '@css/shared';
 import { type DismissalRequest, formatBenNo } from '@css/shared/beneficiaries';
 import type { AccessService } from '../access/service.js';
-import { beneficiaryScopeSql, beneficiaryWhere, type Scope } from '../access/scope.js';
+import {
+  beneficiaryReachedByAll,
+  beneficiaryScopeSql,
+  beneficiaryWhere,
+  type Scope,
+} from '../access/scope.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
 import type { Env } from '../config/env.js';
@@ -75,6 +80,14 @@ export interface OpenPair {
   benNo: string;
   name: string;
   matchedOn: DuplicateRule[];
+  /** Whether every scope the caller gave reaches the other profile. */
+  named: boolean;
+}
+
+/** The open probable pairs shown for a person, and how many there are in all. */
+export interface OpenPairs {
+  rows: OpenPair[];
+  total: number;
 }
 
 /** The nightly recomputation reads every profile once; it may take a while on a large table. */
@@ -317,30 +330,48 @@ export class BeneficiaryMergeCandidatesService {
 
   /**
    * The open probable pairs of one profile: active, not marked as two people, the other profile
-   * live. The caller decides what of the other profile it may name.
+   * live. Those whose other profile every scope of `nameWith` reaches come first, so the ones the
+   * caller may name are never crowded out by others; the caller decides what of the rest it tells.
+   * `total` counts every open probable pair, also those beyond the ones returned.
    */
-  async probablePairsOf(db: Tx, beneficiaryId: string): Promise<OpenPair[]> {
+  async probablePairsOf(
+    db: Tx,
+    beneficiaryId: string,
+    nameWith: readonly Scope[] | null,
+  ): Promise<OpenPairs> {
     const rows = await db.$queryRaw<
-      { other: string; rules: DuplicateRule[]; ben_no: number; name: string }[]
+      {
+        other: string;
+        rules: DuplicateRule[];
+        ben_no: number;
+        name: string;
+        named: boolean;
+        total: bigint;
+      }[]
     >`
-      SELECT o.id AS other, c.rules, o.ben_no, o.name
+      SELECT x.id AS other, c.rules, x.ben_no, x.name, ${beneficiaryReachedByAll(nameWith, 'x')} AS named,
+        count(*) OVER () AS total
       FROM beneficiary_merge_candidates c
-      JOIN beneficiaries o
-        ON o.id = CASE WHEN c.low_id = ${beneficiaryId}::uuid THEN c.high_id ELSE c.low_id END
-        AND o.merged_into_id IS NULL
+      JOIN beneficiaries x
+        ON x.id = CASE WHEN c.low_id = ${beneficiaryId}::uuid THEN c.high_id ELSE c.low_id END
+        AND x.merged_into_id IS NULL
       WHERE (c.low_id = ${beneficiaryId}::uuid OR c.high_id = ${beneficiaryId}::uuid)
         AND c.active AND c.level = 'probable'
         AND NOT EXISTS (
           SELECT 1 FROM beneficiary_merge_dismissals d
           WHERE d.low_id = c.low_id AND d.high_id = c.high_id AND d.lifted_at IS NULL)
-      ORDER BY o.ben_no
+      ORDER BY named DESC, x.ben_no
       LIMIT ${OPEN_PAIRS_SHOWN}`;
-    return rows.map((r) => ({
-      beneficiaryId: r.other,
-      benNo: formatBenNo(r.ben_no),
-      name: r.name,
-      matchedOn: [...r.rules].sort(),
-    }));
+    return {
+      rows: rows.map((r) => ({
+        beneficiaryId: r.other,
+        benNo: formatBenNo(r.ben_no),
+        name: r.name,
+        matchedOn: [...r.rules].sort(),
+        named: r.named,
+      })),
+      total: Number(rows[0]?.total ?? 0),
+    };
   }
 
   /** Both profiles live and inside the scope, or 404 without saying which one is not. */

@@ -72,19 +72,34 @@ const familyWarning = z.object({
 /** Another profile a signal names, only where the viewer may open it. */
 const personRef = z.object({ beneficiaryId: uuid, benNo: z.string(), name: z.string() });
 
-/** The applicant is probably a member an earlier beneficiary listed in their family. */
-const familyMemberSignal = z.object({
-  relationshipCode: z.string().nullable(),
-  relationship: z.object({ bn: z.string(), en: z.string() }).nullable(),
-  head: personRef.nullable(),
-});
+/** How sure a person signal is; an entry the viewer may not open carries this alone. */
+const signalLevel = z.object({ level: z.enum(['probable']) });
 
-/** The applicant's profile and another one probably are one person (an open probable pair). */
-const samePersonSignal = z.object({
-  level: z.enum(['probable']),
-  matchedOn: z.array(z.enum(DUPLICATE_RULES)),
-  other: personRef.nullable(),
-});
+/**
+ * The applicant is probably a member an earlier beneficiary listed in their family: the head and
+ * every relationship its list gives, or the level alone where the viewer may not open the head.
+ */
+const familyMemberSignal = z.union([
+  signalLevel.extend({
+    relationships: z.array(
+      z.object({
+        code: z.string(),
+        name: z.object({ bn: z.string(), en: z.string() }).nullable(),
+      }),
+    ),
+    head: personRef,
+  }),
+  signalLevel,
+]);
+
+/**
+ * The applicant's profile and another one probably are one person (an open probable pair): the
+ * rules and the other profile, or the level alone where the viewer may not compare the two.
+ */
+const samePersonSignal = z.union([
+  signalLevel.extend({ matchedOn: z.array(z.enum(DUPLICATE_RULES)), other: personRef }),
+  signalLevel,
+]);
 
 /**
  * The record (contract `Application`): the answers of the caller's audience, the office's reason
@@ -132,8 +147,12 @@ export const applicationView = applicationSummary.extend({
   familyDuplicateWarnings: z.array(familyWarning),
   /** The earlier families that probably hold the person as a member; the office only. */
   familyMemberSignals: z.array(familyMemberSignal),
+  /** How many such families there are in all, also beyond the ones listed. */
+  familyMemberSignalsTotal: z.number().int(),
   /** The person's open probable pairs with another profile; the office only. */
   samePersonSignals: z.array(samePersonSignal),
+  /** How many such pairs there are in all, also beyond the ones listed. */
+  samePersonSignalsTotal: z.number().int(),
   availableActions: z.array(z.string()),
   /** The comments the office's decisions would ask for now, by action; empty for a volunteer. */
   decisionHints: z.record(z.string(), z.array(z.enum(COMMENT_REASONS))),

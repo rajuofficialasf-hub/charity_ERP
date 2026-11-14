@@ -1,6 +1,11 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { beneficiaryScopeSql, beneficiaryWhere } from '../../src/access/scope.js';
+import {
+  beneficiaryScopeSql,
+  beneficiaryWhere,
+  makeScope,
+  type Scope,
+} from '../../src/access/scope.js';
 import { Prisma } from '../../src/generated/prisma/client.js';
 import { accessWorld } from './support/access-fixtures.js';
 import {
@@ -781,5 +786,66 @@ describe('the pair by name, father’s or husband’s name and village', () => {
     } finally {
       await h.db.query('ROLLBACK');
     }
+  });
+});
+
+describe('the open probable pairs of one person, at review', () => {
+  /** A scope that reaches the profiles with an application in one project, and no other. */
+  const projectScope = (projectId: string) =>
+    makeScope(world.users.rpmDhaka, 'beneficiary.merge.dismiss', 'beneficiary', {
+      global: false,
+      self: false,
+      programIds: [],
+      projectIds: [projectId],
+      areas: [],
+      volunteerAreas: [],
+      revokedProjectIds: [],
+      revokedProgramIds: [],
+    });
+  const openPairs = (id: string, scopes: Scope[] | null) =>
+    h.container.prisma.$transaction((tx) =>
+      h.container.beneficiaryMergeCandidates.probablePairsOf(tx, id, scopes),
+    );
+
+  it('lists the pairs every given scope reaches first, so more than ten others never crowd them out, and counts them all', async () => {
+    const n = ++counter;
+    const person = {
+      name: `পর্যালোচনা ${n}`,
+      father_or_husband_name: `পর্যালোচনার পিতা ${n}`,
+      village: `পর্যালোচনা গ্রাম ${n}`,
+    };
+    // twelve other profiles of the person, made first (the lower BEN numbers); only the last of
+    // them applied in the project the scope reaches
+    const others: string[] = [];
+    for (let i = 0; i < 12; i++) others.push(await f.beneficiary(h.db, world.dhaka, person));
+    const me = await f.beneficiary(h.db, world.dhaka, person);
+    await f.application(
+      h.db,
+      { project: world.a1, loc: world.dhaka },
+      { beneficiary_id: others[11] },
+    );
+    await refresh(me, ...others);
+    const scoped = await openPairs(me, [projectScope(world.a1.id)]);
+    expect(scoped.total).toBe(12);
+    expect(scoped.rows).toHaveLength(10);
+    expect(scoped.rows[0]).toMatchObject({
+      beneficiaryId: others[11],
+      named: true,
+      matchedOn: ['name_father_village'],
+    });
+    expect(scoped.rows.slice(1).map((p) => [p.beneficiaryId, p.named])).toEqual(
+      others.slice(0, 9).map((id) => [id, false]),
+    );
+    // every scope must reach: a second scope that reaches nobody names nobody
+    const nobody = makeScope(world.users.rpmDhaka, 'beneficiary.view_all', 'beneficiary', {
+      ...projectScope(world.a1.id).instances,
+      projectIds: [],
+    });
+    const both = await openPairs(me, [projectScope(world.a1.id), nobody]);
+    expect(both.rows.some((p) => p.named)).toBe(false);
+    // without a scope nobody is named, and the first ten by BEN number are listed
+    const blind = await openPairs(me, null);
+    expect(blind.total).toBe(12);
+    expect(blind.rows.map((p) => p.beneficiaryId)).toEqual(others.slice(0, 10));
   });
 });

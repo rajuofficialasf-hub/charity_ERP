@@ -3,7 +3,10 @@ import type { AccessService } from '../access/service.js';
 import type { Scope } from '../access/scope.js';
 import type { Principal } from '../auth/principal.js';
 import type { Tx } from '../core/prisma.service.js';
-import type { BeneficiaryFamilyService } from '../services/beneficiary-family.js';
+import type {
+  BeneficiaryFamilyService,
+  MemberRelationship,
+} from '../services/beneficiary-family.js';
 import type {
   BeneficiaryMergeCandidatesService,
   DuplicateRule,
@@ -16,26 +19,39 @@ export interface PersonRef {
   name: string;
 }
 
-/** The applicant is probably a member an earlier beneficiary listed in their family. */
-export interface FamilyMemberSignal {
-  relationshipCode: string | null;
-  relationship: { bn: string; en: string } | null;
-  /** The earlier beneficiary, or null where the viewer may not open that profile. */
-  head: PersonRef | null;
-}
+/** How sure a signal is: both signals are probable, never certain. */
+type SignalLevel = { level: 'probable' };
 
-/** The applicant's profile and another one probably are one person. */
-export interface SamePersonSignal {
-  level: 'probable';
-  matchedOn: DuplicateRule[];
-  /** The other profile, or null where the viewer may not open both and compare them. */
-  other: PersonRef | null;
-}
+/**
+ * The applicant is probably a member an earlier beneficiary listed in their family. Where the
+ * viewer may not open the head, the signal carries its level alone.
+ */
+export type FamilyMemberSignal =
+  (SignalLevel & { relationships: MemberRelationship[]; head: PersonRef }) | SignalLevel;
+
+/**
+ * The applicant's profile and another one probably are one person. Where the viewer may not open
+ * both and compare them, the signal carries its level alone.
+ */
+export type SamePersonSignal =
+  (SignalLevel & { matchedOn: DuplicateRule[]; other: PersonRef }) | SignalLevel;
 
 export interface PersonSignalsView {
   familyMemberSignals: FamilyMemberSignal[];
+  /** How many earlier families there are in all, also beyond the ones listed. */
+  familyMemberSignalsTotal: number;
   samePersonSignals: SamePersonSignal[];
+  /** How many open probable pairs there are in all, also beyond the ones listed. */
+  samePersonSignalsTotal: number;
 }
+
+/** No signal: a volunteer's read, or a record without a person. */
+export const NO_PERSON_SIGNALS: PersonSignalsView = {
+  familyMemberSignals: [],
+  familyMemberSignalsTotal: 0,
+  samePersonSignals: [],
+  samePersonSignalsTotal: 0,
+};
 
 /** A profile the viewer may open: the beneficiary tab's permission reaches it. */
 const OPEN_PROFILE = 'beneficiary.view_all';
@@ -45,9 +61,10 @@ const COMPARE_PAIR = 'beneficiary.merge.dismiss';
 /**
  * What the review tells about the applicant's person beyond this project: the earlier families
  * that probably hold them as a member, and the open probable pairs with another profile. Both
- * only tell, never refuse. Another profile is named only where the viewer's scope reaches it,
- * so a signal never gives away a person the viewer could not look up; otherwise it says only
- * that such a profile exists.
+ * only tell, never refuse. Another profile is named only where the viewer's scope reaches it, so
+ * a signal never gives away a person the viewer could not look up; otherwise it says no more than
+ * that such a profile exists. The scopes are applied in the queries, before their limit, so the
+ * profiles the viewer may open are listed first.
  */
 export class PersonSignals {
   constructor(
@@ -62,42 +79,40 @@ export class PersonSignals {
     access: EffectiveAccess,
     beneficiaryId: string,
   ): Promise<PersonSignalsView> {
-    const [members, pairs] = await Promise.all([
-      this.family.membersOf(db, beneficiaryId),
-      this.candidates.probablePairsOf(db, beneficiaryId),
-    ]);
-    if (!members.length && !pairs.length) return { familyMemberSignals: [], samePersonSignals: [] };
     const [profiles, compare] = await Promise.all([
       this.access.sensitiveScope(principal, access, OPEN_PROFILE, 'beneficiary'),
-      pairs.length
-        ? this.access.sensitiveScope(principal, access, COMPARE_PAIR, 'beneficiary')
-        : null,
+      this.access.sensitiveScope(principal, access, COMPARE_PAIR, 'beneficiary'),
     ]);
-    const reaches = async (scope: Scope | null, id: string) =>
-      !!scope && (await this.access.reaches(scope, { beneficiaryId: id }, db));
-    const comparesAll = async (id: string) =>
-      (await reaches(profiles, id)) &&
-      (await reaches(compare, id)) &&
-      (await reaches(profiles, beneficiaryId)) &&
-      (await reaches(compare, beneficiaryId));
-    const familyMemberSignals: FamilyMemberSignal[] = [];
-    for (const m of members)
-      familyMemberSignals.push({
-        relationshipCode: m.relationshipCode,
-        relationship: m.relationship,
-        head: (await reaches(profiles, m.headId))
-          ? { beneficiaryId: m.headId, benNo: m.headBenNo, name: m.headName }
-          : null,
-      });
-    const samePersonSignals: SamePersonSignal[] = [];
-    for (const p of pairs)
-      samePersonSignals.push({
-        level: 'probable',
-        matchedOn: p.matchedOn,
-        other: (await comparesAll(p.beneficiaryId))
-          ? { beneficiaryId: p.beneficiaryId, benNo: p.benNo, name: p.name }
-          : null,
-      });
-    return { familyMemberSignals, samePersonSignals };
+    const reaches = async (scope: Scope | null) =>
+      !!scope && (await this.access.reaches(scope, { beneficiaryId }, db));
+    // a pair is compared from the applicant's side too: both scopes must reach the applicant
+    const [opensOwn, comparesOwn] = await Promise.all([reaches(profiles), reaches(compare)]);
+    const pairScopes = profiles && compare && opensOwn && comparesOwn ? [profiles, compare] : null;
+    const [members, pairs] = await Promise.all([
+      this.family.membersOf(db, beneficiaryId, profiles),
+      this.candidates.probablePairsOf(db, beneficiaryId, pairScopes),
+    ]);
+    return {
+      familyMemberSignals: members.rows.map((m) =>
+        m.named
+          ? {
+              level: 'probable' as const,
+              relationships: m.relationships,
+              head: { beneficiaryId: m.headId, benNo: m.headBenNo, name: m.headName },
+            }
+          : { level: 'probable' as const },
+      ),
+      familyMemberSignalsTotal: members.total,
+      samePersonSignals: pairs.rows.map((p) =>
+        p.named
+          ? {
+              level: 'probable' as const,
+              matchedOn: p.matchedOn,
+              other: { beneficiaryId: p.beneficiaryId, benNo: p.benNo, name: p.name },
+            }
+          : { level: 'probable' as const },
+      ),
+      samePersonSignalsTotal: pairs.total,
+    };
   }
 }

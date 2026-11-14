@@ -41,6 +41,8 @@ Deploy note, the name keys (D-174): migration `20261114120000_beneficiary_name_k
 
 Deploy note, the list of whose name stands beside a person (D-174): migration `20261114180000_beneficiary_guardian_relation` adds `beneficiaries.guardian_relation_code`, whose codes (`father`, `husband`) come from the reference list `guardian_relation` of the base seed and not from the migration, as for the list of whose number a mobile is above: until the base seed has run, every code is refused by the foreign key and a form's question for the column has no options. The migration rewrites the table `beneficiaries` once (a stored generated column) and builds one plain index, so on a large table it holds the beneficiary writes while it runs. Its `down.sql` drops the column with its values.
 
+Deploy note, the levels of the suggested pairs (D-174): migration `20261114220000_beneficiary_pair_levels` adds `beneficiary_merge_candidates.level` as NOT NULL with a CHECK that ties it to the rules. The API of the release before it does not write that column, so every refresh of a person's pairs it makes (a submission, a contact edit, a correction, a merge) fails on the NOT NULL, and with it the write that called it. The migration and the API of this release therefore go out together, in this order: stop the API and the worker, run `pnpm db:migrate`, then start the API and the worker of this release. Never run this migration under the old API. Its `down.sql` drops the level and the new rule again, so a rollback runs it after the new API is stopped and before the old one starts.
+
 ## 6. Backups
 What, where, how often, encryption, retention of backups, verification.
 

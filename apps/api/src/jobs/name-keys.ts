@@ -1,6 +1,8 @@
 import type { Logger } from 'pino';
 import type { Tx } from '../core/prisma.service.js';
 import type { PrismaClient } from '../generated/prisma/client.js';
+import { DUPLICATES_QUEUE } from './duplicates.js';
+import type { JobRunner } from './job-runner.js';
 import {
   type MatchKeysService,
   memberKeysWith,
@@ -60,15 +62,24 @@ interface MemberRow {
  * its rows in id order as it reads them, so it never takes them in an order that could deadlock
  * with another batch. One run at a time: the queue's policy and one singleton key at every place
  * that queues it. Its writes leave the rows' update stamps as they were (css.match_keys_only, see
- * the migration).
+ * the migration). A run that changed the keys of any profile queues the recomputation of the
+ * duplicate pairs (jobs/duplicates.ts), which compare those keys, so the pairs follow the keys at
+ * once rather than at night; the keys of family members are read live by the review and need none.
  */
 export class NameKeysJob {
+  private readonly batchSize: number;
+  private readonly jobs: Pick<JobRunner, 'enqueue'> | undefined;
+
   constructor(
     private readonly prisma: Pick<PrismaClient, '$transaction'>,
     private readonly keys: MatchKeysService,
     private readonly logger: Pick<Logger, 'info'>,
-    private readonly batchSize = BATCH,
-  ) {}
+    /** `jobs` queues the pairs' recomputation; without it (a script) nothing is queued. */
+    options: { batchSize?: number; jobs?: Pick<JobRunner, 'enqueue'> } = {},
+  ) {
+    this.batchSize = options.batchSize ?? BATCH;
+    this.jobs = options.jobs;
+  }
 
   async run(): Promise<NameKeysResult> {
     // the newest list a batch ran under: a change of the list during the run raises it
@@ -134,6 +145,7 @@ export class NameKeysJob {
       after = step.rows.at(-1)!.id;
     }
     if (profiles || members) this.logger.info({ version, profiles, members }, 'name keys computed');
+    if (profiles && this.jobs) await this.jobs.enqueue(DUPLICATES_QUEUE, {});
     return { version, profiles, members };
   }
 

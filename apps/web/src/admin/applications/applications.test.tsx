@@ -96,7 +96,9 @@ const record = (over: Record<string, unknown> = {}) => ({
   approvedAt: null,
   familyDuplicateWarnings: [],
   familyMemberSignals: [],
+  familyMemberSignalsTotal: 0,
   samePersonSignals: [],
+  samePersonSignalsTotal: 0,
   availableActions: ['review', 'delete'],
   decisionHints: {},
   totalScore: null,
@@ -510,7 +512,7 @@ describe('the review page', () => {
     await expectNoAxeViolations(view.container);
   });
 
-  it('names the earlier family and the same person with their links, and only tells where they may not be opened', async () => {
+  it('names the earlier family and the same person with their level and links, tells only the level where they may not be opened, and counts the rest', async () => {
     refreshAs(EXECUTIVE);
     serve();
     const HEAD = '01900000-0000-7000-8000-0000000000c1';
@@ -518,29 +520,37 @@ describe('the review page', () => {
     const signals = {
       familyMemberSignals: [
         {
-          relationshipCode: 'son',
-          relationship: { bn: 'ছেলে', en: 'son' },
+          level: 'probable',
+          relationships: [
+            { code: 'nephew', name: { bn: 'ভাতিজা', en: 'nephew' } },
+            { code: 'son', name: { bn: 'ছেলে', en: 'son' } },
+          ],
           head: { beneficiaryId: HEAD, benNo: 'BEN-0000011', name: 'মোঃ হাবিব' },
         },
-        { relationshipCode: null, relationship: null, head: null },
+        { level: 'probable' },
       ],
+      familyMemberSignalsTotal: 5,
       samePersonSignals: [
         {
           level: 'probable',
           matchedOn: ['name_father_village'],
           other: { beneficiaryId: OTHER, benNo: 'BEN-0000012', name: 'সোহেল মিয়া' },
         },
-        { level: 'probable', matchedOn: ['name_father_mobile', 'same_mobile'], other: null },
+        { level: 'probable' },
       ],
+      samePersonSignalsTotal: 2,
     };
     server.use(http.get(`*/api/v1/applications/${A1}`, () => envelope(record(signals))));
     const view = openReview();
-    expect(await screen.findByText(/সম্ভবত মোঃ হাবিব-এর ছেলে/)).toBeInTheDocument();
+    // one head once, every relationship its list gives joined by "or"
+    expect(await screen.findByText(/সম্ভবত মোঃ হাবিব-এর ভাতিজা বা ছেলে/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'প্রোফাইল দেখুন (BEN-0000011)' })).toHaveAttribute(
       'href',
       `/admin/beneficiaries/${HEAD}`,
     );
     expect(screen.getByText('সম্ভবত অন্য এক উপকারভোগীর পরিবারের সদস্য')).toBeInTheDocument();
+    // five families in all, two listed
+    expect(screen.getByText('আরও 3টি')).toBeInTheDocument();
     expect(
       screen.getByText(
         /সম্ভবত একই ব্যক্তি: সোহেল মিয়া \(BEN-0000012\) — নাম, পিতা\/স্বামীর নাম ও গ্রাম মিলেছে/,
@@ -549,18 +559,20 @@ describe('the review page', () => {
     const compare = screen.getByRole('link', { name: 'তুলনা করুন' });
     expect(compare.getAttribute('href')).toContain(`a=${row(A1).beneficiaryId}`);
     expect(compare.getAttribute('href')).toContain(`b=${OTHER}`);
-    // the pair the viewer may not compare names nobody and links nowhere
-    expect(
-      screen.getByText(
-        'অন্য একটি প্রোফাইলের সঙ্গে সম্ভবত একই ব্যক্তি — একই নাম, পিতা/স্বামী ও মোবাইল, একই মোবাইল নম্বর',
-      ),
-    ).toBeInTheDocument();
+    // the pair the viewer may not compare says no rule, names nobody and links nowhere
+    expect(screen.getByText('অন্য একটি প্রোফাইলের সঙ্গে সম্ভবত একই ব্যক্তি')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'তুলনা করুন' })).toHaveLength(1);
+    // each of the four says its level, as the duplicates list does
+    expect(screen.getAllByText('সম্ভাব্য')).toHaveLength(4);
+    // both pairs are listed: nothing more to count
+    expect(screen.getAllByText(/^আরও \d+টি$/)).toHaveLength(1);
     await expectNoAxeViolations(view.container);
     view.unmount();
     openReview('en');
-    expect(await screen.findByText(/Probably মোঃ হাবিব's son/)).toBeInTheDocument();
+    expect(await screen.findByText(/Probably মোঃ হাবিব's nephew or son/)).toBeInTheDocument();
     expect(screen.getByText('Probably a family member of another beneficiary')).toBeInTheDocument();
+    expect(screen.getByText('3 more')).toBeInTheDocument();
+    expect(screen.getAllByText('Probable')).toHaveLength(4);
   });
 
   it('tells why a record from a phone waits, with the time it was taken', async () => {

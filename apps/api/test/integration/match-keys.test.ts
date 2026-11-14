@@ -3,6 +3,7 @@ import { startingNameVariantRows } from '@css/shared/beneficiaries';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Principal } from '../../src/auth/principal.js';
+import { DUPLICATES_QUEUE } from '../../src/jobs/duplicates.js';
 import { NAME_KEYS_QUEUE, NAME_KEYS_SINGLETON, NameKeysJob } from '../../src/jobs/name-keys.js';
 import { raiseVariantsVersion } from '../../src/services/match-keys.js';
 import { accessWorld } from './support/access-fixtures.js';
@@ -89,7 +90,12 @@ function keyJob(batchSize = 2) {
       return h.container.prisma.$transaction(...args);
     }) as typeof h.container.prisma.$transaction,
   };
-  const job = new NameKeysJob(prisma, h.container.matchKeys, { info: () => undefined }, batchSize);
+  const job = new NameKeysJob(
+    prisma,
+    h.container.matchKeys,
+    { info: () => undefined },
+    { batchSize },
+  );
   return { job, counted };
 }
 /** Brings every key of the database to the current list, so a test counts only its own rows. */
@@ -286,6 +292,38 @@ describe('the key job', () => {
     expect(await versions()).toEqual(before);
   });
 
+  it('queues the recomputation of the pairs when it changed the keys of a profile, and only then', async () => {
+    await settle();
+    const boss = await h.container.jobs.instance();
+    await boss.deleteQueuedJobs(DUPLICATES_QUEUE);
+    const queued = () => boss.findJobs(DUPLICATES_QUEUE, { queued: true });
+    const run = () =>
+      new NameKeysJob(
+        h.container.prisma,
+        h.container.matchKeys,
+        { info: () => undefined },
+        { jobs: h.container.jobs },
+      ).run();
+    // nothing stale: nothing written, nothing queued
+    expect((await run()).profiles).toBe(0);
+    expect(await queued()).toHaveLength(0);
+    // a family member's key alone: the pairs compare no member, so nothing is queued
+    const head = await f.beneficiary(h.db, world.dhaka, { name: 'জোড়ার প্রধান' });
+    await settle();
+    await f.insert(h.db, 'beneficiary_family_members', {
+      id: randomUUID(),
+      beneficiary_id: head,
+      name: 'জোড়ার সদস্য',
+    });
+    expect(await run()).toMatchObject({ profiles: 0, members: 1 });
+    expect(await queued()).toHaveLength(0);
+    // a profile's keys: the pairs are recomputed without waiting for the night
+    await f.beneficiary(h.db, world.dhaka, { name: 'জোড়ার নতুন নাম' });
+    expect((await run()).profiles).toBe(1);
+    expect(await queued()).toHaveLength(1);
+    await boss.deleteQueuedJobs(DUPLICATES_QUEUE);
+  });
+
   it('computes every key again after the list changes, and the change queues it', async () => {
     await settle();
     const id = await f.beneficiary(h.db, world.dhaka, { name: 'কারিম' });
@@ -349,7 +387,7 @@ describe('the key job', () => {
       },
       h.container.matchKeys,
       { info: () => undefined },
-      500,
+      { batchSize: 500 },
     );
     expect((await racing.run()).profiles).toBe(0);
     expect((await keysOf(id)).match_keys_version).toBeNull();

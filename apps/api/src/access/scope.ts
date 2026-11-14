@@ -526,6 +526,21 @@ export function beneficiaryScopeSql(scope: Scope, alias: 'b' | 'x' | 'y'): Prism
 }
 
 /**
+ * The SQL condition that every scope reaches the beneficiary row named `alias`; FALSE where no
+ * scope is given, so a query that names only reachable profiles names nobody.
+ */
+export function beneficiaryReachedByAll(
+  scopes: readonly Scope[] | null,
+  alias: 'b' | 'x' | 'y',
+): Prisma.Sql {
+  if (!scopes?.length) return Prisma.sql`FALSE`;
+  return Prisma.sql`(${Prisma.join(
+    scopes.map((s) => beneficiaryScopeSql(s, alias)),
+    ' AND ',
+  )})`;
+}
+
+/**
  * The projects whose rows a caller sees inside one beneficiary's profile: no limit at GLOBAL or
  * for an area scope (the person is theirs) beyond the revoked projects, otherwise only the
  * scope's projects, so a team attached to a few projects never reads the person's other projects.

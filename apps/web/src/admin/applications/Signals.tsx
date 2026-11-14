@@ -1,8 +1,9 @@
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Stack } from '@/ui';
+import { Alert, Stack, Text } from '@/ui';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { comparePath } from '../beneficiaries/duplicates/merge-api';
+import { PairLevelChip } from '../beneficiaries/duplicates/PairLevelChip';
 import type { OfficeApplication } from './applications-api';
 
 /** The flags that name a blocked person: drawn as an error, the others as a warning. */
@@ -23,8 +24,9 @@ const KNOWN_FLAGS = [
  * What the official should know before deciding: the flags of a public entry, the family
  * matches of the project (another applicant with the same mobile, or the same union, village and
  * father's or husband's name), the earlier family that probably holds the applicant as a member,
- * and an open probable pair of the person with another profile. Each is a warning, never a
- * refusal; another profile is named and linked only where the server named it for this viewer.
+ * and an open probable pair of the person with another profile, each with its level. Each is a
+ * warning, never a refusal; another profile is named and linked only where the server named it for
+ * this viewer, and the entries beyond those listed are counted.
  */
 export function Signals({ application: a }: { application: OfficeApplication }) {
   const t = useTranslations('applications.office.signals');
@@ -35,8 +37,11 @@ export function Signals({ application: a }: { application: OfficeApplication }) 
   );
   const members = a.familyMemberSignals;
   const pairs = a.samePersonSignals;
+  const moreMembers = a.familyMemberSignalsTotal - members.length;
+  const morePairs = a.samePersonSignalsTotal - pairs.length;
   if (!flags.length && !a.familyDuplicateWarnings.length && !members.length && !pairs.length)
     return null;
+  const nameOf = (words: { bn: string; en: string }) => (locale === 'en' ? words.en : words.bn);
   return (
     <Stack gap={2}>
       {flags.map((flag) => (
@@ -53,45 +58,53 @@ export function Signals({ application: a }: { application: OfficeApplication }) 
           })}
         </Alert>
       ))}
-      {members.map((m, i) => {
-        const words = locale === 'en' ? m.relationship?.en : m.relationship?.bn;
-        const relationship = words ?? t('family_member.relative');
-        return (
-          <Alert key={m.head?.beneficiaryId ?? `member-${i}`} tone="warning">
-            {m.head ? (
-              <>
-                {t('family_member.named', { head: m.head.name, relationship })}{' '}
+      {members.map((m, i) => (
+        <Alert key={'head' in m ? m.head.beneficiaryId : `member-${i}`} tone="warning">
+          <Stack direction="row" gap={1} align="center" wrap>
+            <PairLevelChip level={m.level} />
+            {'head' in m ? (
+              <span>
+                {t('family_member.named', {
+                  head: m.head.name,
+                  relationship: m.relationships.length
+                    ? m.relationships
+                        .map((r) => (r.name ? nameOf(r.name) : t('family_member.relative')))
+                        .join(` ${t('family_member.or')} `)
+                    : t('family_member.relative'),
+                })}{' '}
                 <Link to={`/admin/beneficiaries/${m.head.beneficiaryId}`}>
                   {t('family_member.open', { benNo: m.head.benNo })}
                 </Link>
-              </>
+              </span>
             ) : (
-              t('family_member.unnamed')
+              <span>{t('family_member.unnamed')}</span>
             )}
-          </Alert>
-        );
-      })}
-      {pairs.map((p, i) => {
-        const rule = p.matchedOn.map((r) => tr(r)).join(', ');
-        return (
-          <Alert key={p.other?.beneficiaryId ?? `pair-${i}`} tone="warning">
-            {p.other && a.beneficiaryId ? (
-              <>
+          </Stack>
+        </Alert>
+      ))}
+      {moreMembers > 0 && <Text size="small">{t('family_member.more', { n: moreMembers })}</Text>}
+      {pairs.map((p, i) => (
+        <Alert key={'other' in p ? p.other.beneficiaryId : `pair-${i}`} tone="warning">
+          <Stack direction="row" gap={1} align="center" wrap>
+            <PairLevelChip level={p.level} />
+            {'other' in p && a.beneficiaryId ? (
+              <span>
                 {t('same_person.named', {
                   name: p.other.name,
                   benNo: p.other.benNo,
-                  rule,
+                  rule: p.matchedOn.map((r) => tr(r)).join(', '),
                 })}{' '}
                 <Link to={comparePath(a.beneficiaryId, p.other.beneficiaryId)}>
                   {t('same_person.compare')}
                 </Link>
-              </>
+              </span>
             ) : (
-              t('same_person.unnamed', { rule })
+              <span>{t('same_person.unnamed')}</span>
             )}
-          </Alert>
-        );
-      })}
+          </Stack>
+        </Alert>
+      ))}
+      {morePairs > 0 && <Text size="small">{t('same_person.more', { n: morePairs })}</Text>}
     </Stack>
   );
 }

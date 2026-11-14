@@ -511,7 +511,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         matchKeys,
       ),
     matchKeys,
-    nameKeys: o.nameKeys ?? new NameKeysJob(prisma, matchKeys, logger),
+    nameKeys: o.nameKeys ?? new NameKeysJob(prisma, matchKeys, logger, { jobs }),
     programs: o.programs ?? new ProgramsService(prisma, audit),
     settings,
     referenceLists,

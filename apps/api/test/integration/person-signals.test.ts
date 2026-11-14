@@ -128,26 +128,26 @@ describe('the family member signal', () => {
     expect(rpm.status, JSON.stringify(rpm.body)).toBe(200);
     expect(rpm.body.data.familyMemberSignals).toEqual([
       {
-        relationshipCode: 'son',
-        relationship: { bn: expect.any(String), en: expect.any(String) },
+        level: 'probable',
+        relationships: [{ code: 'son', name: { bn: expect.any(String), en: expect.any(String) } }],
         head: { beneficiaryId: head, benNo: await benNo(head), name: `মোঃ হাবিব ${n}` },
       },
     ]);
+    expect(rpm.body.data.familyMemberSignalsTotal).toBe(1);
     // a sign, never a family match of the project: the decision asks nothing for it
     expect(rpm.body.data.familyDuplicateWarnings).toEqual([]);
   });
 
-  it('tells an official who cannot open the head only that such a family exists, with no link', async () => {
+  it('tells an official who cannot open the head only that such a family exists: its level and nothing else', async () => {
     const n = ++counter;
     await familyOf(n);
     const son = await profile({ name: `সোহেল ${n}`, father_or_husband_name: `হাবিব ${n}` });
     const application = await applies(distribution, son);
     const rpm = await read(await as(withoutProfiles), application);
     expect(rpm.status, JSON.stringify(rpm.body)).toBe(200);
-    expect(rpm.body.data.familyMemberSignals).toEqual([
-      { relationshipCode: 'son', relationship: expect.any(Object), head: null },
-    ]);
-    expect(JSON.stringify(rpm.body.data.familyMemberSignals)).not.toContain('হাবিব');
+    // no head, no relationship: nothing that narrows down who the earlier family is
+    expect(rpm.body.data.familyMemberSignals).toEqual([{ level: 'probable' }]);
+    expect(rpm.body.data.familyMemberSignalsTotal).toBe(1);
   });
 
   it('gives a volunteer neither signal', async () => {
@@ -174,6 +174,8 @@ describe('the family member signal', () => {
     expect(theirs.status, JSON.stringify(theirs.body)).toBe(200);
     expect(theirs.body.data.familyMemberSignals).toEqual([]);
     expect(theirs.body.data.samePersonSignals).toEqual([]);
+    expect(theirs.body.data.familyMemberSignalsTotal).toBe(0);
+    expect(theirs.body.data.samePersonSignalsTotal).toBe(0);
   });
 });
 
@@ -193,13 +195,13 @@ describe('the same person signal', () => {
         other: { beneficiaryId: first, benNo: await benNo(first), name: person.name },
       },
     ]);
-    // an RPM who may not open the profiles is told, not named
+    expect(rpm.body.data.samePersonSignalsTotal).toBe(1);
+    // an RPM who may not open the profiles is told its level and nothing else: no rule, no name
     const blind = await read(await as(withoutProfiles), application);
     expect(blind.status, JSON.stringify(blind.body)).toBe(200);
-    expect(blind.body.data.samePersonSignals).toEqual([
-      { level: 'probable', matchedOn: ['name_father_village'], other: null },
-    ]);
-    // an executive opens profiles but does not compare pairs: told, not named
+    expect(blind.body.data.samePersonSignals).toEqual([{ level: 'probable' }]);
+    expect(blind.body.data.samePersonSignalsTotal).toBe(1);
+    // an executive opens profiles but does not compare pairs: told the level alone
     const onTheirProject = await applicationRow(h.db, {
       projectId: world.a1.id,
       versionId: world.a1.formVersion,
@@ -209,9 +211,7 @@ describe('the same person signal', () => {
     });
     const executive = await read(await as(world.users.executive), onTheirProject);
     expect(executive.status, JSON.stringify(executive.body)).toBe(200);
-    expect(executive.body.data.samePersonSignals).toEqual([
-      { level: 'probable', matchedOn: ['name_father_village'], other: null },
-    ]);
+    expect(executive.body.data.samePersonSignals).toEqual([{ level: 'probable' }]);
   });
 
   it('tells nothing of a pair that is only for an official to check, or one marked as two people', async () => {
