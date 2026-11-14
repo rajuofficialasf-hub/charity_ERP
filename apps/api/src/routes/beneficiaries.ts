@@ -163,13 +163,19 @@ export const beneficiaryProfile = z.object({
   mobileOwnerCode: contact(z.string().nullable()),
   mobileOwnerName: contact(z.string().nullable()),
   hasDocument: hasDocument(),
+  // the household's members, every detail with the contact class, their income among them
   familyMembers: contact(
     z.array(
       z.object({
         id: z.uuid(),
         name: z.string(),
         relationshipCode: z.string().nullable(),
+        // the relationship in the words of its list
+        relationship: z.object({ bn: z.string(), en: z.string() }).nullable(),
         ageYears: z.number().int().nullable(),
+        occupationCode: z.string().nullable(),
+        // taka, up to two decimals
+        monthlyIncome: z.number().nullable(),
       }),
     ),
   ),

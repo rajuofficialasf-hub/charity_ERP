@@ -1370,7 +1370,10 @@ model BeneficiaryFamilyMember {
   /// the key of the member's name, and the version of the variants list it was computed with
   nameKey                      String?            @map("name_key")
   matchKeysVersion             Int?               @map("match_keys_version")
+  /// the application whose list the row came from; the latest submitted list replaces the active rows
+  sourceApplicationId          String?            @map("source_application_id") @db.Uuid
   beneficiary                  Beneficiary        @relation("beneficiary_family_members_beneficiary_id", fields: [beneficiaryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  sourceApplication            Application?       @relation("beneficiary_family_members_source_application_id", fields: [sourceApplicationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   relationship                 ReferenceList?     @relation("beneficiary_family_members_relationship_code", fields: [relationshipList, relationshipCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   gender                       ReferenceList?     @relation("beneficiary_family_members_gender_code", fields: [genderList, genderCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   createdByRef                 User?              @relation("beneficiary_family_members_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
@@ -1384,6 +1387,7 @@ model BeneficiaryFamilyMember {
   @@index([genderCode], map: "beneficiary_family_members_gender_code_idx")
   @@index([nameKey], map: "beneficiary_family_members_name_key_idx")
   @@index([matchKeysVersion], map: "beneficiary_family_members_match_keys_version_idx")
+  @@index([sourceApplicationId], map: "beneficiary_family_members_source_application_id_idx")
   @@index([createdBy], map: "beneficiary_family_members_created_by_idx")
   @@index([updatedBy], map: "beneficiary_family_members_updated_by_idx")
   @@map("beneficiary_family_members")
@@ -1817,78 +1821,79 @@ model WorkAssignment {
 }
 
 model Application {
-  id                              String                @id @db.Uuid
-  mediaReferral                   MediaReferral?        @relation("media_referrals_application_id")
-  appNo                           String?               @map("app_no")
-  projectId                       String                @map("project_id") @db.Uuid
-  formVersionId                   String                @map("form_version_id") @db.Uuid
-  beneficiaryId                   String?               @map("beneficiary_id") @db.Uuid
-  candidateBeneficiaryId          String?               @map("candidate_beneficiary_id") @db.Uuid
-  ownerVolunteerId                String?               @map("owner_volunteer_id") @db.Uuid
-  createdByUserId                 String?               @map("created_by_user_id") @db.Uuid
-  status                          String                @default("draft")
+  id                              String                    @id @db.Uuid
+  mediaReferral                   MediaReferral?            @relation("media_referrals_application_id")
+  appNo                           String?                   @map("app_no")
+  projectId                       String                    @map("project_id") @db.Uuid
+  formVersionId                   String                    @map("form_version_id") @db.Uuid
+  beneficiaryId                   String?                   @map("beneficiary_id") @db.Uuid
+  candidateBeneficiaryId          String?                   @map("candidate_beneficiary_id") @db.Uuid
+  ownerVolunteerId                String?                   @map("owner_volunteer_id") @db.Uuid
+  createdByUserId                 String?                   @map("created_by_user_id") @db.Uuid
+  status                          String                    @default("draft")
   stage                           String?
   outcome                         String?
-  flags                           String[]              @default([])
-  totalScore                      Decimal?              @map("total_score") @db.Decimal(5, 2)
-  waitlistedAt                    DateTime?             @map("waitlisted_at") @db.Timestamptz(6)
-  regionLocationId                String                @map("region_location_id") @db.Uuid
-  districtId                      String                @map("district_id") @db.Uuid
-  unionId                         String                @map("union_id") @db.Uuid
+  flags                           String[]                  @default([])
+  totalScore                      Decimal?                  @map("total_score") @db.Decimal(5, 2)
+  waitlistedAt                    DateTime?                 @map("waitlisted_at") @db.Timestamptz(6)
+  regionLocationId                String                    @map("region_location_id") @db.Uuid
+  districtId                      String                    @map("district_id") @db.Uuid
+  unionId                         String                    @map("union_id") @db.Uuid
   /// the photo slots an offline record still waits for; the upload for a slot fills the answer
-  pendingPhotos                   Json                  @default("[]") @map("pending_photos")
+  pendingPhotos                   Json                      @default("[]") @map("pending_photos")
   /// the name typed on an entry that waits for verification; the lists show it until the entry links to a profile
-  applicantName                   String?               @map("applicant_name")
-  clientUuid                      String?               @map("client_uuid") @db.Uuid
-  clientCreatedAt                 DateTime?             @map("client_created_at") @db.Timestamptz(6)
-  submittedAt                     DateTime?             @map("submitted_at") @db.Timestamptz(6)
-  reviewedAt                      DateTime?             @map("reviewed_at") @db.Timestamptz(6)
-  approvedAt                      DateTime?             @map("approved_at") @db.Timestamptz(6)
-  completedAt                     DateTime?             @map("completed_at") @db.Timestamptz(6)
-  submittedBy                     String?               @map("submitted_by") @db.Uuid
-  reviewedBy                      String?               @map("reviewed_by") @db.Uuid
-  approvedBy                      String?               @map("approved_by") @db.Uuid
-  completedBy                     String?               @map("completed_by") @db.Uuid
-  decisionComment                 String?               @map("decision_comment")
-  nisabVersionId                  String?               @map("nisab_version_id") @db.Uuid
-  nisabValue                      Decimal?              @map("nisab_value") @db.Decimal(14, 2)
-  zakatDecision                   String?               @map("zakat_decision")
-  zakatDecidedBy                  String?               @map("zakat_decided_by") @db.Uuid
-  rejectionMessage                String?               @map("rejection_message")
+  applicantName                   String?                   @map("applicant_name")
+  clientUuid                      String?                   @map("client_uuid") @db.Uuid
+  clientCreatedAt                 DateTime?                 @map("client_created_at") @db.Timestamptz(6)
+  submittedAt                     DateTime?                 @map("submitted_at") @db.Timestamptz(6)
+  reviewedAt                      DateTime?                 @map("reviewed_at") @db.Timestamptz(6)
+  approvedAt                      DateTime?                 @map("approved_at") @db.Timestamptz(6)
+  completedAt                     DateTime?                 @map("completed_at") @db.Timestamptz(6)
+  submittedBy                     String?                   @map("submitted_by") @db.Uuid
+  reviewedBy                      String?                   @map("reviewed_by") @db.Uuid
+  approvedBy                      String?                   @map("approved_by") @db.Uuid
+  completedBy                     String?                   @map("completed_by") @db.Uuid
+  decisionComment                 String?                   @map("decision_comment")
+  nisabVersionId                  String?                   @map("nisab_version_id") @db.Uuid
+  nisabValue                      Decimal?                  @map("nisab_value") @db.Decimal(14, 2)
+  zakatDecision                   String?                   @map("zakat_decision")
+  zakatDecidedBy                  String?                   @map("zakat_decided_by") @db.Uuid
+  rejectionMessage                String?                   @map("rejection_message")
   /// which number identifies the person, written by the application service when it resolves the profile at submission
-  identityKind                    String?               @map("identity_kind")
-  deletedAt                       DateTime?             @map("deleted_at") @db.Timestamptz(6)
-  createdAt                       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy                       String?               @map("created_by") @db.Uuid
-  updatedAt                       DateTime              @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy                       String?               @map("updated_by") @db.Uuid
-  project                         Project               @relation("applications_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  formVersion                     FormVersion           @relation("applications_form_version_id", fields: [formVersionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  beneficiary                     Beneficiary?          @relation("applications_beneficiary_id", fields: [beneficiaryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  candidateBeneficiary            Beneficiary?          @relation("applications_candidate_beneficiary_id", fields: [candidateBeneficiaryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  ownerVolunteer                  Volunteer?            @relation("applications_owner_volunteer_id", fields: [ownerVolunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByUser                   User?                 @relation("applications_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  regionLocation                  Location              @relation("applications_region_location_id", fields: [regionLocationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  district                        Location              @relation("applications_district_id", fields: [districtId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  union                           Location              @relation("applications_union_id", fields: [unionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  submittedByRef                  User?                 @relation("applications_submitted_by", fields: [submittedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  reviewedByRef                   User?                 @relation("applications_reviewed_by", fields: [reviewedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  approvedByRef                   User?                 @relation("applications_approved_by", fields: [approvedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  completedByRef                  User?                 @relation("applications_completed_by", fields: [completedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  nisabVersion                    NisabVersion?         @relation("applications_nisab_version_id", fields: [nisabVersionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  zakatDecidedByRef               User?                 @relation("applications_zakat_decided_by", fields: [zakatDecidedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef                    User?                 @relation("applications_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef                    User?                 @relation("applications_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  applicationAnswersApplication   ApplicationAnswer[]   @relation("application_answers_application_id")
-  applicationScoresApplication    ApplicationScore?     @relation("application_scores_application_id")
-  applicationTransfersApplication ApplicationTransfer[] @relation("application_transfers_application_id")
-  activitiesApplication           Activity[]            @relation("activities_application_id")
-  constructionStagesApplication   ConstructionStage[]   @relation("construction_stages_application_id")
-  issuesApplication               Issue[]               @relation("issues_application_id")
-  siteVerificationsApplication    SiteVerification[]    @relation("site_verifications_application_id")
-  paymentsApplication             Payment[]             @relation("payments_application_id")
-  vouchersApplication             Voucher[]             @relation("vouchers_application_id")
-  budgetLedgerApplication         BudgetLedger[]        @relation("budget_ledger_application_id")
+  identityKind                    String?                   @map("identity_kind")
+  deletedAt                       DateTime?                 @map("deleted_at") @db.Timestamptz(6)
+  createdAt                       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy                       String?                   @map("created_by") @db.Uuid
+  updatedAt                       DateTime                  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy                       String?                   @map("updated_by") @db.Uuid
+  project                         Project                   @relation("applications_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  formVersion                     FormVersion               @relation("applications_form_version_id", fields: [formVersionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  beneficiary                     Beneficiary?              @relation("applications_beneficiary_id", fields: [beneficiaryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  candidateBeneficiary            Beneficiary?              @relation("applications_candidate_beneficiary_id", fields: [candidateBeneficiaryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  ownerVolunteer                  Volunteer?                @relation("applications_owner_volunteer_id", fields: [ownerVolunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByUser                   User?                     @relation("applications_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  regionLocation                  Location                  @relation("applications_region_location_id", fields: [regionLocationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  district                        Location                  @relation("applications_district_id", fields: [districtId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  union                           Location                  @relation("applications_union_id", fields: [unionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  submittedByRef                  User?                     @relation("applications_submitted_by", fields: [submittedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  reviewedByRef                   User?                     @relation("applications_reviewed_by", fields: [reviewedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  approvedByRef                   User?                     @relation("applications_approved_by", fields: [approvedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  completedByRef                  User?                     @relation("applications_completed_by", fields: [completedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  nisabVersion                    NisabVersion?             @relation("applications_nisab_version_id", fields: [nisabVersionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  zakatDecidedByRef               User?                     @relation("applications_zakat_decided_by", fields: [zakatDecidedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef                    User?                     @relation("applications_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef                    User?                     @relation("applications_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  applicationAnswersApplication   ApplicationAnswer[]       @relation("application_answers_application_id")
+  applicationScoresApplication    ApplicationScore?         @relation("application_scores_application_id")
+  applicationTransfersApplication ApplicationTransfer[]     @relation("application_transfers_application_id")
+  activitiesApplication           Activity[]                @relation("activities_application_id")
+  constructionStagesApplication   ConstructionStage[]       @relation("construction_stages_application_id")
+  issuesApplication               Issue[]                   @relation("issues_application_id")
+  siteVerificationsApplication    SiteVerification[]        @relation("site_verifications_application_id")
+  paymentsApplication             Payment[]                 @relation("payments_application_id")
+  vouchersApplication             Voucher[]                 @relation("vouchers_application_id")
+  budgetLedgerApplication         BudgetLedger[]            @relation("budget_ledger_application_id")
+  familyMembersFromApplication    BeneficiaryFamilyMember[] @relation("beneficiary_family_members_source_application_id")
 
   @@unique([appNo], map: "applications_app_no_key")
   @@unique([clientUuid], map: "applications_client_uuid_key")

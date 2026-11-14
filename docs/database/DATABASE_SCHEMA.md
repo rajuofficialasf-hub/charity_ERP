@@ -721,9 +721,12 @@ The name keys (D-174, BR-301; migration `20261114120000_beneficiary_name_keys`):
 | active | boolean | no | true | left the household: false |
 | name_key | text | yes | — | the name key of `name` (see beneficiaries); null until computed |
 | match_keys_version | integer | yes | — | the version of the variants list it was computed with |
+| source_application_id | uuid | yes | — | FK applications: the submitted application whose list the row came from; NULL for a row of no application (migration `20261114200000_beneficiary_family_source`) |
 | [A] | | | | |
 
-Indexes: (beneficiary_id) WHERE active; (name_key); (match_keys_version). The key job fills and recomputes `name_key` as it does the profiles' keys.
+Indexes: (beneficiary_id) WHERE active; (name_key); (match_keys_version); (source_application_id). The key job fills and recomputes `name_key` as it does the profiles' keys.
+
+Written at the submission of an application (BR-305; `BeneficiaryFamilyMembersService` in `apps/api/src/services/beneficiary-family-members.ts`, called by the binding of the person in `applications/submission.ts`, at a volunteer's or an official's send and at an official's verification alike): the rows of the form's family group (a repeat group whose standard column is `beneficiary_family_members`, its questions filling `name`, `relationship_code`, `age_years`, `occupation_code`, `monthly_income`; `is_earner` from the group's setting) replace the person's active members, which are kept with `active = false`, never deleted. The list of the latest submitted application stands: under a lock of the person's row, a list is taken only when its application's `submitted_at` (the send, or the receipt of an entry that waits for verification) is not earlier than the newest `submitted_at` among the applications the active rows came from, so an entry received earlier and verified later leaves a newer list as it is. An application whose answers hold no row of the group changes nothing. Each new row stores its `name_key`; a relationship code outside the list `relationship`, an age that is not a whole number from 0 to 150 and an income below 0 or beyond the column are the form's refusal (422). Each replacement is audited as `beneficiary.family_replaced` with the number of active members before and after and the application, never the members' details. A merge moves the rows of the retired profile to the kept one as they are (both lists stay active there until the next application replaces them).
 
 ### profile_merges
 | Column | Type | Null | Default | Comment |

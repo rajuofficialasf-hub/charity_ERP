@@ -442,7 +442,7 @@
       "sections": {
         "basic": "মূল তথ্য",
         "address": "ঠিকানা",
-        "family": "পরিবার",
+        "family": "পরিবারের সদস্য",
         "projects": "বছরভিত্তিক প্রজেক্ট",
         "applications": "আবেদনের ইতিহাস",
         "distributions": "বিতরণ ও বাস্তবায়ন",
@@ -509,6 +509,13 @@
       "change": "{old} থেকে {new}",
       "place_changed": "এলাকা বদলানো হয়েছে",
       "empty_value": "খালি",
+      "family": {
+        "name": "নাম",
+        "relationship": "সম্পর্ক",
+        "age": "বয়স",
+        "income": "মাসিক আয়",
+        "card": "বয়স {age} · মাসিক আয় {income}"
+      },
       "fields": {
         "mobile": "মোবাইল",
         "mobile_owner_code": "কার নম্বর",

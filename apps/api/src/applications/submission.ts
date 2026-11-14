@@ -15,7 +15,9 @@ import type { Tx } from '../core/prisma.service.js';
 import { currentContext } from '../core/request-context.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
+import type { Clock } from '../core/clock.js';
 import type { BeneficiaryContactService, ContactChange } from '../services/beneficiary-contact.js';
+import type { BeneficiaryFamilyMembersService } from '../services/beneficiary-family-members.js';
 import {
   type BeneficiaryIdentityService,
   type NewProfile,
@@ -61,11 +63,17 @@ export class BlockedNamesakeMatch extends Error {
   }
 }
 
-/** The standard columns of an application's answers, as the official definition reads them. */
+/**
+ * The standard columns of an application's answers and the rows of its family group, as the
+ * official definition reads them.
+ */
 export async function standardOf(tx: Tx, applicationId: string, formVersionId: string) {
   const definition = await readDefinition(tx, formVersionId, 'official');
-  const { standard } = split(definition, await readAnswers(tx, applicationId, definition));
-  return { definition, standard };
+  const { standard, familyMembers } = split(
+    definition,
+    await readAnswers(tx, applicationId, definition),
+  );
+  return { definition, standard, familyMembers };
 }
 
 /**
@@ -77,8 +85,9 @@ export async function standardOf(tx: Tx, applicationId: string, formVersionId: s
  * that profile's contact data (otherwise the application keeps the new values for the office to
  * see), and with the mobile whose number it is and that person's name, on a new profile and on a
  * known one alike, and whether the name beside the person is the father's or the husband's, on a
- * new profile and on a known one that holds none (a submission never changes one it holds);
- * after it,
+ * new profile and on a known one that holds none (a submission never changes one it holds),
+ * and the family members its answers list, which replace the person's active members unless a
+ * list of an application submitted later stands; after it,
  * the number of the project in the order the office receives the applications
  * (`<code>-<year>-<5 digits>`). Both run in the move's transaction, so a refused move leaves
  * neither behind. A new person, with or without a number, is compared with the block list right
@@ -91,6 +100,8 @@ export class SubmissionWriter {
     private readonly identity: BeneficiaryIdentityService,
     private readonly contact: BeneficiaryContactService,
     private readonly audit: AuditWriter,
+    private readonly familyMembers: BeneficiaryFamilyMembersService,
+    private readonly clock: Clock,
   ) {}
 
   async bindPerson(
@@ -122,13 +133,18 @@ export class SubmissionWriter {
         beneficiaryId: true,
         identityKind: true,
         createdByUserId: true,
+        submittedAt: true,
         ownerVolunteer: { select: { userId: true } },
         // the project's own rule, read in the move's transaction
         project: { select: IDENTITY_RULES_SELECT },
       },
     });
     const rules = identityRulesOf(row.project);
-    const { definition, standard } = await standardOf(tx, applicationId, row.formVersionId);
+    const { definition, standard, familyMembers } = await standardOf(
+      tx,
+      applicationId,
+      row.formVersionId,
+    );
     const identity = identityOf(standard);
     const number = identity?.number;
     const nid = identity?.column === 'nid' ? identity.number : undefined;
@@ -242,6 +258,15 @@ export class SubmissionWriter {
         }
       }
     }
+    // the family the answers list, at the send and at a verification alike: the order of the
+    // lists is the order of the applications' submission, so a list that arrives late never
+    // replaces a newer one. A draft is stamped with its submission by the move that runs this.
+    await this.familyMembers.replaceFrom(tx, actor, {
+      beneficiaryId,
+      applicationId,
+      submittedAt: row.submittedAt ?? this.clock.now(),
+      rows: familyMembers,
+    });
     if (beneficiaryId === row.beneficiaryId && identityKind === row.identityKind) return {};
     await this.audit.record(tx, {
       action: 'application.person_bound',

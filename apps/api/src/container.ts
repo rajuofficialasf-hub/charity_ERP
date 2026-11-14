@@ -59,6 +59,7 @@ import { BeneficiaryIdentityService } from './services/beneficiary-identity.js';
 import { BeneficiaryContactService } from './services/beneficiary-contact.js';
 import { BeneficiaryCorrectionsService } from './services/beneficiary-corrections.js';
 import { BeneficiaryFamilyService } from './services/beneficiary-family.js';
+import { BeneficiaryFamilyMembersService } from './services/beneficiary-family-members.js';
 import { BeneficiaryMergeCandidatesService } from './services/beneficiary-merge-candidates.js';
 import { BeneficiaryMergesService } from './services/beneficiary-merges.js';
 import { MatchKeysService } from './services/match-keys.js';
@@ -383,7 +384,14 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       beneficiaryFamily,
       nisab,
       workflow,
-      new SubmissionWriter(access, beneficiaryIdentity, beneficiaryContact, audit),
+      new SubmissionWriter(
+        access,
+        beneficiaryIdentity,
+        beneficiaryContact,
+        audit,
+        new BeneficiaryFamilyMembersService(audit, matchKeys),
+        clock,
+      ),
       scoring,
       unlocks,
       mediaReferrals,

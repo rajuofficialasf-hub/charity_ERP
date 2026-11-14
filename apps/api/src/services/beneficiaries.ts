@@ -307,11 +307,17 @@ export class BeneficiariesService {
       // told with the identity class, wherever the profile lives: it says a document is on
       // file, never its number
       hasDocument: b.nid !== null || b.birthReg !== null,
+      // the members of the household now: the list of the latest application that carried one
       familyMembers: b.beneficiaryFamilyMembersBeneficiary.map((m) => ({
         id: m.id,
         name: m.name,
         relationshipCode: m.relationshipCode,
+        relationship: m.relationship
+          ? { bn: m.relationship.labelBn, en: m.relationship.labelEn }
+          : null,
         ageYears: m.ageYears,
+        occupationCode: m.occupationCode,
+        monthlyIncome: m.monthlyIncome === null ? null : m.monthlyIncome.toNumber(),
       })),
       ...(seesNid ? { nid: b.nid ?? null, birthReg: b.birthReg ?? null } : {}),
       isBlocked: b.isBlocked,
@@ -627,11 +633,21 @@ export class BeneficiariesService {
         mobileOwnerCode: true,
         mobileOwnerName: true,
         isBlocked: true,
+        // the household's members, with the contact class (their income among them)
         beneficiaryFamilyMembersBeneficiary: {
           where: { active: true },
-          ...latest,
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          take: SECTION_ROWS,
           ...(sees(CONTACT) ? {} : none),
-          select: { id: true, name: true, relationshipCode: true, ageYears: true },
+          select: {
+            id: true,
+            name: true,
+            relationshipCode: true,
+            relationship: { select: { labelBn: true, labelEn: true } },
+            ageYears: true,
+            occupationCode: true,
+            monthlyIncome: true,
+          },
         },
         classAttendanceBeneficiary: {
           ...latest,

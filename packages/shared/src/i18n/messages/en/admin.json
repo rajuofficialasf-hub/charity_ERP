@@ -442,7 +442,7 @@
       "sections": {
         "basic": "Basic details",
         "address": "Address",
-        "family": "Family",
+        "family": "Family members",
         "projects": "Projects by year",
         "applications": "Application history",
         "distributions": "Distribution and implementation",
@@ -509,6 +509,13 @@
       "change": "{old} to {new}",
       "place_changed": "Area changed",
       "empty_value": "empty",
+      "family": {
+        "name": "Name",
+        "relationship": "Relationship",
+        "age": "Age",
+        "income": "Monthly income",
+        "card": "Age {age} · monthly income {income}"
+      },
       "fields": {
         "mobile": "Mobile",
         "mobile_owner_code": "Whose number",

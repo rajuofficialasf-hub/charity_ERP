@@ -141,13 +141,19 @@ export const beneficiaryProfileSchema = z.object({
   mobileOwnerName: z.string().nullable().optional(),
   /** Whether an identity document is on file; absent without the identity class. */
   hasDocument: z.boolean().optional(),
+  /** The household's active members; absent without the contact class. */
   familyMembers: z
     .array(
       z.object({
         id: z.uuid(),
         name: z.string(),
         relationshipCode: z.string().nullable(),
+        /** The relationship in the words of its list. */
+        relationship: z.object({ bn: z.string(), en: z.string() }).nullable(),
         ageYears: z.number().int().nullable(),
+        occupationCode: z.string().nullable(),
+        /** Taka, up to two decimals. */
+        monthlyIncome: z.number().nullable(),
       }),
     )
     .optional(),

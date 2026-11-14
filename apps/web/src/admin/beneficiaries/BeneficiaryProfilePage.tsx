@@ -38,6 +38,7 @@ import {
   MOBILE_OWNERS,
 } from './beneficiaries-api';
 import { BeneficiaryArea } from './BeneficiaryArea';
+import { FamilyMembers } from './FamilyMembers';
 import { ContactDialog } from './ContactDialog';
 import { CorrectionDialog } from './CorrectionDialog';
 import { RevertMergeAction } from './duplicates/RevertMergeAction';
@@ -337,17 +338,10 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             />
           </ProfileSection>
 
-          {p.familyMembers && (
+          {/* the household's members, only where the profile knows one */}
+          {p.familyMembers && p.familyMembers.length > 0 && (
             <ProfileSection title={tp('sections.family')} icon="users">
-              {p.familyMembers.length === 0 ? (
-                none
-              ) : (
-                <ul className="admin-plain-list">
-                  {p.familyMembers.map((m) => (
-                    <li key={m.id}>{m.name}</li>
-                  ))}
-                </ul>
-              )}
+              <FamilyMembers members={p.familyMembers} />
             </ProfileSection>
           )}
 

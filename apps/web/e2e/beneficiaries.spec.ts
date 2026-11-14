@@ -12,10 +12,10 @@ const official = (info: TestInfo) =>
 const TAB = 'উপকারভোগী';
 const rows = (page: Page) => listRows(page, TAB);
 
+// the family members' section is drawn only where a member is known, which no demo person is
 const SECTIONS = [
   'মূল তথ্য',
   'ঠিকানা',
-  'পরিবার',
   'বছরভিত্তিক প্রজেক্ট',
   'আবেদনের ইতিহাস',
   'বিতরণ ও বাস্তবায়ন',
@@ -80,7 +80,13 @@ test.describe('the beneficiary tab', () => {
 
     await rows(page).getByRole('link').first().click();
     await expect(page.getByRole('heading', { level: 2, name: 'মূল তথ্য' })).toBeVisible();
-    for (const section of ['পরিবার', 'আবেদনের ইতিহাস', 'দাওয়াহ', 'ফলো-আপ', 'কার্যক্রমের ইতিহাস'])
+    for (const section of [
+      'পরিবারের সদস্য',
+      'আবেদনের ইতিহাস',
+      'দাওয়াহ',
+      'ফলো-আপ',
+      'কার্যক্রমের ইতিহাস',
+    ])
       await expect(page.getByRole('heading', { level: 2, name: section })).toHaveCount(0);
     await expect(page.getByText(/^017000010\d\d$/)).toHaveCount(0);
   });

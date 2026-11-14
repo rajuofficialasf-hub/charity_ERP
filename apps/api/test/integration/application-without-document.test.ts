@@ -6,6 +6,7 @@ import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
 import { seedWorkflows } from '../../seed/sets/base/workflows.js';
 import { accessWorld } from './support/access-fixtures.js';
 import { SubmissionWriter } from '../../src/applications/submission.js';
+import { BeneficiaryFamilyMembersService } from '../../src/services/beneficiary-family-members.js';
 import {
   applicationProject,
   applicationRow,
@@ -781,6 +782,8 @@ describe('a person who looks like a blocked one', () => {
       c.beneficiaryIdentity,
       c.beneficiaryContact,
       c.audit,
+      new BeneficiaryFamilyMembersService(c.audit, c.matchKeys),
+      c.clock,
     );
     const principal = await principalOf(h.db, world.users.general);
     await expect(

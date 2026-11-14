@@ -2173,13 +2173,25 @@ components:
         familyMembers:
           type: array
           x-sensitive-class: beneficiary.contact
+          description: >-
+            The household's active members, in the order they were written (at most 20): the list
+            of the latest submitted application that carried the family group replaces the earlier
+            members, which stay stored as inactive (BR-305). The whole section, the income among
+            it, goes with the contact class: not to the Media or the Procurement Team.
           items:
             type: object
             properties:
               id: { $ref: '#/components/schemas/Uuid' }
               name: { type: string }
-              relationshipCode: { type: [string, 'null'] }
+              relationshipCode: { type: [string, 'null'], description: A code of the reference list relationship }
+              relationship:
+                description: The relationship in the words of its list, or null without one
+                oneOf:
+                  - { type: 'null' }
+                  - { $ref: '#/components/schemas/Bilingual' }
               ageYears: { type: [integer, 'null'], x-sensitive-class: beneficiary.profile_detail }
+              occupationCode: { type: [string, 'null'] }
+              monthlyIncome: { type: [number, 'null'], minimum: 0, description: 'Taka, up to two decimals' }
         nid: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
         birthReg: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
