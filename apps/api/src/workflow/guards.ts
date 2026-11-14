@@ -18,8 +18,8 @@ import { NOT_COUNTED_STATES } from '../applications/limit.js';
 import {
   againstScore,
   type CommentReason,
-  familyMatch,
   quotaFull,
+  repeatReasons,
 } from '../applications/decision-rules.js';
 
 /** The application a transition is about, with what the guards read of its project. */
@@ -152,7 +152,8 @@ export class GuardContext {
  * a comment that says why (a decision against the score order, an approval in a full quota or of a
  * person with a family match).
  */
-export type GuardResult = boolean | { comment: CommentReason };
+/** Yes, no, or only with a comment, for one reason or several. */
+export type GuardResult = boolean | { comment: CommentReason | readonly CommentReason[] };
 export type Guard = (ctx: GuardContext) => Promise<GuardResult>;
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
@@ -262,11 +263,14 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
     ctx.to === 'approved' && (await quotaFull(ctx.tx, ctx.application.id))
       ? { comment: 'quota_full' }
       : true,
-  // an approval of a person with a family match in the project asks for a comment; it never refuses
-  'family.comment_if_match': async (ctx) =>
-    ctx.to === 'approved' && (await familyMatch(ctx.tx, ctx.application.id))
-      ? { comment: 'family_match' }
-      : true,
+  // an approval of a person who appears again in the project, as probably the same person under
+  // another profile or as someone of the same family, asks for a comment where the project holds
+  // that repeat; it never refuses (docs/architecture/WORKFLOW_ENGINE.md, the guard catalogue)
+  'family.comment_if_match': async (ctx) => {
+    if (ctx.to !== 'approved') return true;
+    const reasons = await repeatReasons(ctx.tx, ctx.application.id);
+    return reasons.length ? { comment: reasons } : true;
+  },
   'zakat.eligible_if_zakat_fund': async (ctx) => {
     const zakat = await ctx.tx.fundSource.count({
       where: { projectId: ctx.application.projectId, source: 'zakat' },

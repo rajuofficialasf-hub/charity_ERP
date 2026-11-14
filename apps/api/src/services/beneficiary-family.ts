@@ -154,4 +154,26 @@ export class BeneficiaryFamilyService {
       total: Number(rows[0]?.total ?? 0),
     };
   }
+
+  /**
+   * Whether the person is probably a member listed in the family of another applicant of the
+   * project: the member signal of the review (`membersOf`), narrowed to the heads with an
+   * application in this project.
+   */
+  async memberInProject(tx: Tx, projectId: string, beneficiaryId: string): Promise<boolean> {
+    const rows = await tx.$queryRaw<{ found: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM beneficiaries me
+        JOIN beneficiary_family_members m ON m.name_key = me.name_key AND m.active
+        JOIN beneficiaries x ON x.id = m.beneficiary_id AND x.id <> me.id
+          AND x.merged_into_id IS NULL
+          AND x.name_key = me.guardian_key
+          AND x.union_id = me.union_id AND x.village_key = me.village_key
+        JOIN applications a
+          ON a.beneficiary_id = x.id AND a.project_id = ${projectId}::uuid AND a.status <> 'deleted'
+        WHERE me.id = ${beneficiaryId}::uuid
+      ) AS found`;
+    return rows[0]?.found === true;
+  }
 }

@@ -10,6 +10,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { ApplicationReviewPage } from './ApplicationReviewPage';
 import { ApplicationsPage } from './ApplicationsPage';
+import type { CommentReason } from './applications-api';
 import { bn, type MessageKey } from '@css/shared/i18n';
 import { expectOnScreenColumns, serveExports, tickedColumns } from '../../../test/msw/exports';
 
@@ -107,7 +108,7 @@ const record = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 /** The comment the server asks for, naming why. */
-const commentAsked = (reason: 'against_score' | 'quota_full' | 'family_match') =>
+const commentAsked = (reason: CommentReason) =>
   HttpResponse.json(
     {
       error: {
@@ -813,6 +814,80 @@ describe('the review page', () => {
     await user.click(confirm);
     await waitFor(() => expect(acted).toHaveLength(1));
     expect(acted[0]).toEqual({ action: 'approve', body: { comment: 'আলাদা পরিবার' } });
+  });
+
+  it('says the project holds the same person, and asks why before an approval', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            availableActions: ['approve', 'reject', 'waitlist'],
+            samePersonSignals: [{ level: 'probable' }],
+            samePersonSignalsTotal: 1,
+            decisionHints: { approve: ['same_person'], waitlist: [], reject: [] },
+          }),
+        ),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json() });
+        return envelope(record({ status: String(params.action) }), '"v2"');
+      }),
+    );
+    openReview();
+    expect(
+      await screen.findByText('এই প্রকল্পে একই ব্যক্তি আবার এলে অনুমোদনের আগে কারণ লিখতে হবে।'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
+    const approve = await screen.findByRole('dialog', { name: 'আবেদন অনুমোদন করুন' });
+    expect(
+      within(approve).getByText(
+        'এই ব্যক্তি সম্ভবত অন্য একটি প্রোফাইলে এই প্রকল্পে আবেদন করেছেন। তবু কেন অনুমোদন দিচ্ছেন?',
+      ),
+    ).toBeInTheDocument();
+    const confirm = within(approve).getByRole('button', { name: 'অনুমোদন করুন' });
+    expect(confirm).toBeDisabled();
+    await user.type(within(approve).getByRole('textbox', { name: /মন্তব্য/ }), 'যাচাই করেছি');
+    await user.click(confirm);
+    await waitFor(() => expect(acted).toHaveLength(1));
+    expect(acted[0]).toEqual({ action: 'approve', body: { comment: 'যাচাই করেছি' } });
+  });
+
+  it('approves in one click where the project only tells of the same person', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            availableActions: ['approve', 'reject', 'waitlist'],
+            samePersonSignals: [{ level: 'probable' }],
+            samePersonSignalsTotal: 1,
+            decisionHints: {},
+          }),
+        ),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json().catch(() => ({})) });
+        return envelope(record({ status: String(params.action) }), '"v2"');
+      }),
+    );
+    openReview();
+    expect(
+      await screen.findByText('অন্য একটি প্রোফাইলের সঙ্গে সম্ভবত একই ব্যক্তি'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('এই প্রকল্পে একই ব্যক্তি আবার এলে অনুমোদনের আগে কারণ লিখতে হবে।'),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
+    await waitFor(() => expect(acted).toHaveLength(1));
+    expect(acted[0]?.action).toBe('approve');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('opens the comment box when the server asks one the screen did not expect', async () => {

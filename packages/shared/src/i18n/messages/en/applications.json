@@ -189,6 +189,7 @@
       "why": {
         "against_score": "Why does this decision go against the score order?",
         "quota_full": "The quota of this area is full. Why approve anyway?",
+        "same_person": "This person has probably applied to this project under another profile. Why approve anyway?",
         "family_match": "Someone from the same family is in this project. Why approve anyway?"
       }
     },
@@ -221,6 +222,10 @@
         "unnamed": "Probably the same person as another profile",
         "compare": "Compare",
         "more": "{n} more"
+      },
+      "held": {
+        "same_person": "This project asks a reason before approving the same person again.",
+        "family_match": "This project asks a reason before approving the same family again."
       }
     },
     "changes": {

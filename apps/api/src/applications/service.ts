@@ -2007,7 +2007,8 @@ export class ApplicationsService {
 
   /**
    * The comments each decision the caller may take now would ask for (a decision against the
-   * score order, an approval in a full quota area), so the review screen asks before it sends.
+   * score order, an approval in a full quota area, an approval of a repeat the project holds), so
+   * the review screen asks before it sends; the same functions the guards of the move read.
    */
   private async decisionHints(
     applicationId: string,

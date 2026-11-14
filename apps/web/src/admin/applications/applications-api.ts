@@ -33,6 +33,7 @@ export type {
 const COMMENT_REASONS = [
   'against_score',
   'quota_full',
+  'same_person',
   'family_match',
 ] as const satisfies readonly CommentReason[];
 // the list holds every reason the API may name: one missing from it fails the typecheck

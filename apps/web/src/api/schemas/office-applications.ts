@@ -27,9 +27,15 @@ export type OfficeAction = z.infer<typeof officeActionSchema>;
 
 /**
  * Why a decision asks for a comment: it goes against the score order, the quota area is full, or
- * the person has a family match in the project.
+ * the person appears again in the project (probably the same person under another profile, or
+ * someone of the same family) where the project holds that repeat.
  */
-export const commentReasonSchema = z.enum(['against_score', 'quota_full', 'family_match']);
+export const commentReasonSchema = z.enum([
+  'against_score',
+  'quota_full',
+  'same_person',
+  'family_match',
+]);
 export type CommentReason = z.infer<typeof commentReasonSchema>;
 
 /** One part of the priority score, frozen with the score at the decision. */

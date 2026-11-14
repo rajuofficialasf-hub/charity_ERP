@@ -90,6 +90,34 @@ export interface OpenPairs {
   total: number;
 }
 
+/**
+ * Whether the profile has an open probable pair (active, not marked as two people) with another
+ * live profile that has an application in the project: the same person probably appears there a
+ * second time, under another profile. The pairs are the ones the review shows (`probablePairsOf`).
+ */
+export async function openPairInProject(
+  db: Tx,
+  projectId: string,
+  beneficiaryId: string,
+): Promise<boolean> {
+  const rows = await db.$queryRaw<{ found: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM beneficiary_merge_candidates c
+      JOIN beneficiaries x
+        ON x.id = CASE WHEN c.low_id = ${beneficiaryId}::uuid THEN c.high_id ELSE c.low_id END
+        AND x.merged_into_id IS NULL
+      JOIN applications a
+        ON a.beneficiary_id = x.id AND a.project_id = ${projectId}::uuid AND a.status <> 'deleted'
+      WHERE (c.low_id = ${beneficiaryId}::uuid OR c.high_id = ${beneficiaryId}::uuid)
+        AND c.active AND c.level = 'probable'
+        AND NOT EXISTS (
+          SELECT 1 FROM beneficiary_merge_dismissals d
+          WHERE d.low_id = c.low_id AND d.high_id = c.high_id AND d.lifted_at IS NULL)
+    ) AS found`;
+  return rows[0]?.found === true;
+}
+
 /** The nightly recomputation reads every profile once; it may take a while on a large table. */
 const FULL_REFRESH = { maxWait: 10_000, timeout: 600_000 };
 
