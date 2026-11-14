@@ -137,6 +137,13 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
     owner && p.mobileOwnerName
       ? tp('mobile_owner_named', { owner, name: p.mobileOwnerName })
       : owner;
+  // the name beside the person is named the father's or the husband's where the profile knows it
+  const fatherLabel =
+    p.guardianRelationCode === 'father'
+      ? tp('father_name')
+      : p.guardianRelationCode === 'husband'
+        ? tp('husband_name')
+        : t('column.father');
   const none = <p className="admin-muted">{tp('no_rows')}</p>;
   // the NID or the birth registration number only for a caller who sees identity numbers
   const identity = 'nid' in p ? (p.nid ?? p.birthReg ?? null) : null;
@@ -291,7 +298,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             <DescriptionList
               columns={2}
               items={[
-                ...optional('fatherOrHusbandName', t('column.father'), p.fatherOrHusbandName),
+                ...optional('fatherOrHusbandName', fatherLabel, p.fatherOrHusbandName),
                 ...optional('motherName', tp('mother'), p.motherName ?? empty),
                 ...optional(
                   'genderCode',

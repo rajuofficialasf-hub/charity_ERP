@@ -1124,6 +1124,40 @@ describe('the referral to the Media Team', () => {
   });
 });
 
+describe('the father’s or husband’s name on the record', () => {
+  /** The label beside the father's or husband's name among the answers. */
+  const labelOf = async () => (await screen.findByText('নমুনা পিতা')).closest('div')!;
+
+  it.each([
+    ['husband', 'স্বামীর নাম'],
+    ['father', 'পিতার নাম'],
+  ])('is called by the relation the record carries: %s', async (code, label) => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(record({ guardianRelationCode: code })),
+      ),
+    );
+    openReview();
+    expect(within(await labelOf()).getByText(label)).toBeInTheDocument();
+  });
+
+  it('keeps the form’s own label where the relation is not known', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(record({ guardianRelationCode: null })),
+      ),
+    );
+    openReview();
+    const line = await labelOf();
+    expect(within(line).queryByText('স্বামীর নাম')).not.toBeInTheDocument();
+    expect(within(line).queryByText('পিতার নাম')).not.toBeInTheDocument();
+  });
+});
+
 describe('a person without an identity document or a mobile', () => {
   const NO_DOCUMENT = bn.common.person.no_document;
   const THROUGH_VOLUNTEER = bn.common.person.through_volunteer;

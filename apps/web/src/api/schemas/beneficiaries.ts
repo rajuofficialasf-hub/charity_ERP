@@ -115,6 +115,8 @@ export const beneficiaryProfileSchema = z.object({
   files: z.array(z.object({ fileId: z.uuid(), slot: z.string(), kind: z.string() })).optional(),
   name: z.string(),
   fatherOrHusbandName: z.string().optional(),
+  /** Whether that name is the father's or the husband's (`father`, `husband`); null where not known. */
+  guardianRelationCode: z.string().nullable().optional(),
   motherName: z.string().nullable().optional(),
   genderCode: z.string().optional(),
   ageYears: z.number().int().nullable().optional(),

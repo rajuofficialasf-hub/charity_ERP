@@ -84,7 +84,9 @@
     "action_failed": "That could not be done. Try again.",
     "stale": "The application has changed meanwhile. Reload it.",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "father_name": "Father's name",
+    "husband_name": "Husband's name"
   },
   "office": {
     "title": "Applications",

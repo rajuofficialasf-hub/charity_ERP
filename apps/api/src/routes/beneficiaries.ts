@@ -140,6 +140,8 @@ export const beneficiaryProfile = z.object({
   files: detail(z.array(z.object({ fileId: z.uuid(), slot: z.string(), kind: z.string() }))),
   name: z.string(),
   fatherOrHusbandName: detail(z.string()),
+  // whether that name is the father's or the husband's (a code of the list guardian_relation)
+  guardianRelationCode: detail(z.string().nullable()),
   motherName: detail(z.string().nullable()),
   genderCode: detail(z.string()),
   ageYears: detail(z.number().int().nullable()),

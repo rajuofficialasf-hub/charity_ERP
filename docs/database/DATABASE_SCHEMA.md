@@ -153,6 +153,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | education_level | illiterate, primary, secondary, higher_secondary, graduate, postgraduate — O-38 | beneficiaries.education_code |
 | relationship | self, spouse, son, daughter, father, mother, brother, sister, grandfather, grandmother, grandson, granddaughter, son_in_law, daughter_in_law, other_relative, guardian, non_relative — O-38 | beneficiary_family_members.relationship_code |
 | mobile_owner | own (নিজের), family (পরিবারের সদস্যের), neighbour (প্রতিবেশীর), other (অন্য কারও) — D-172 | beneficiaries.mobile_owner_code |
+| guardian_relation | father (পিতা), husband (স্বামী) — D-174 | beneficiaries.guardian_relation_code |
 
 Bengali and English labels of these four lists are recorded in DECISION_LOG O-38 and seeded in T1.3.
 
@@ -665,6 +666,7 @@ Constraints: UNIQUE (form_field_id, code).
 | birth_reg | text | yes | — | CHECK `^[0-9]{17}$` |
 | name | text | no | — | locked after creation (BR-006) |
 | father_or_husband_name | text | no | — | locked |
+| guardian_relation_code | text | yes | — | whether `father_or_husband_name` is the father's or the husband's: reference list `guardian_relation` (`father`, `husband`; composite FK through the generated `guardian_relation_list`, constraint `beneficiaries_guardian_relation_fkey`, named by hand because the default name passes 63 characters; indexed; D-174, BR-310). Null where not known. Written from the form question of that column at a submission: on a new profile, and on a known profile only while it holds none (`guardianRelationToFill` of `@css/shared/beneficiaries`, the write conditioned on the column being null, audited `beneficiary.guardian_relation_set`); an application never changes a relation the profile holds. Migration `20261114180000_beneficiary_guardian_relation`; its `down.sql` drops the column with its values |
 | mother_name | text | yes | — | — |
 | mobile | text | yes | — | not unique (O-02); CHECK mobile format; null for a person who has no number and is reached through the volunteer of the application (D-172, BR-299): no number is stored in its place |
 | mobile_owner_code | text | yes | — | whose number the mobile is: reference list `mobile_owner` (composite FK through the generated `mobile_owner_list`; D-172, BR-300). Written from the form question of that column at a submission (a new profile) and through the contact service for a known person, with a change-log row; never kept without a mobile, and emptied when the number changes without a new owner (the service's rule, `mobileOwnerOf` of `@css/shared/beneficiaries`) |

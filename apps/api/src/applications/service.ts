@@ -15,6 +15,7 @@ import {
   type OptionalIdentity,
   optionalIdentityOf,
 } from '@css/shared/forms';
+import { GUARDIAN_RELATION_COLUMN } from '@css/shared/beneficiaries';
 import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
 import {
@@ -260,8 +261,11 @@ const ROW_SELECT = {
   projectId: true,
   formVersionId: true,
   beneficiaryId: true,
-  // the numbers and the mobile only say whether the profile has them; they never leave here
-  beneficiary: { select: { name: true, nid: true, birthReg: true, mobile: true } },
+  // the numbers and the mobile only say whether the profile has them; they never leave here.
+  // The relation of the father's or husband's name leaves on the record, under its class
+  beneficiary: {
+    select: { name: true, nid: true, birthReg: true, mobile: true, guardianRelationCode: true },
+  },
   applicantName: true,
   candidateBeneficiaryId: true,
   ownerVolunteerId: true,
@@ -1810,6 +1814,14 @@ export class ApplicationsService {
     const identityKind = identityKindSchema.parse(row.identityKind);
     // the profile a person without a document was compared with is the office's to know
     const blockedMatch = row.flags.includes(BLOCKED_NAME_MATCH);
+    // whose name stands beside the person: the profile's, else this application's own answer
+    const relationField = fieldByColumn(definition, GUARDIAN_RELATION_COLUMN);
+    const relationAnswer = read.find((a) => a.fieldKey === relationField?.fieldKey)?.value;
+    const guardianRelationCode =
+      row.beneficiary?.guardianRelationCode ??
+      (relationAnswer?.t === 'single_select' || relationAnswer?.t === 'radio'
+        ? relationAnswer.v
+        : null);
     return {
       application: {
         ...this.summaryOf(row, this.clock.now(), viewer, {
@@ -1823,6 +1835,7 @@ export class ApplicationsService {
         clientCreatedAt: iso(row.clientCreatedAt),
         // that an application carries no document is told like the document itself
         identityKind: identityKind === 'none' && !seesDocument ? null : identityKind,
+        guardianRelationCode,
         // the message for the volunteer reaches the one who brings it and the office, never the
         // other volunteers of the project
         rejectionMessage: audience === 'official' || mine ? row.rejectionMessage : null,

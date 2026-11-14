@@ -2149,6 +2149,7 @@ components:
               kind: { type: string }
         name: { type: string }
         fatherOrHusbandName: { type: string, x-sensitive-class: beneficiary.profile_detail }
+        guardianRelationCode: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail, description: "Whether fatherOrHusbandName is the father's or the husband's: a code of the reference list guardian_relation (father, husband), or null where it is not known; given by an application to a profile that holds none, never changed by one (D-174, BR-310)" }
         motherName: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
         genderCode: { type: string, x-sensitive-class: beneficiary.profile_detail }
         ageYears: { type: [integer, 'null'], x-sensitive-class: beneficiary.profile_detail }
@@ -3346,6 +3347,7 @@ components:
             clientCreatedAt: { type: [string, 'null'], format: date-time, description: "The device time the record was made, when it came from a phone; its late_sync, stale_form_version or existing_identity flag says why it waits" }
             createdByUserId: { type: [string, 'null'], format: uuid, description: The account that created it (a team member's own records) }
             identityKind: { type: [string, 'null'], enum: [nid, birth_reg, none, null], description: "Which number identifies the person; none for an application without an identity document (D-172), told only to a caller who may know whether the profile has a document" }
+            guardianRelationCode: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail, description: "Whether the father's or husband's name is the father's or the husband's (father, husband): the bound profile's, else the application's own answer; null where neither says (D-174, BR-310)" }
             rejectionMessage: { type: [string, 'null'], description: The words written for the volunteer at a rejection; the office's reason stays in decisionComment }
             answers:
               type: array
@@ -9071,7 +9073,7 @@ paths:
       x-audit: application.create
       x-idempotency: clientUuid
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
       requestBody:
         required: true
         content:
@@ -9107,7 +9109,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
       responses:
         '200':
           description: Application
@@ -9199,7 +9201,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
       responses:
         '200':
           description: Application
@@ -9220,7 +9222,7 @@ paths:
       x-audit: application.update
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
       x-workflow: { scope: application, action: edit }
       parameters:
         - $ref: '#/components/parameters/IfMatch'
@@ -9256,7 +9258,7 @@ paths:
       x-audit: application.<action>
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
       x-workflow: { scope: application, action: path }
       parameters:
         - $ref: '#/components/parameters/IfMatch'

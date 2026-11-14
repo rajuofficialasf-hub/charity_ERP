@@ -353,6 +353,7 @@ function Review() {
             answers={a.answers}
             action={unlockAction}
             throughVolunteer={a.hasMobile === false}
+            guardianRelation={a.guardianRelationCode}
           />
         )}
       </Card>

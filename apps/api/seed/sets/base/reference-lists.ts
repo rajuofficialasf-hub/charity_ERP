@@ -75,6 +75,11 @@ export const REFERENCE_LISTS: Record<string, Entry[]> = {
     ['neighbour', 'প্রতিবেশীর', "A neighbour's"],
     ['other', 'অন্য কারও', "Someone else's"],
   ],
+  // whether the name beside a beneficiary is the father's or the husband's
+  guardian_relation: [
+    ['father', 'পিতা', 'Father'],
+    ['husband', 'স্বামী', 'Husband'],
+  ],
   beneficiary_class_default: [
     ['elderly', 'বৃদ্ধ', 'Elderly'],
     ['widow', 'বিধবা', 'Widow'],

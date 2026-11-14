@@ -1,4 +1,6 @@
 import {
+  GUARDIAN_RELATION_COLUMN,
+  guardianRelationToFill,
   MOBILE_OWNER_COLUMN,
   MOBILE_OWNER_NAME_COLUMN,
   MOBILE_OWNER_NAME_MAX,
@@ -74,7 +76,9 @@ export async function standardOf(tx: Tx, applicationId: string, formVersionId: s
  * new mobile or address written to the profile with its change log when the submitter may edit
  * that profile's contact data (otherwise the application keeps the new values for the office to
  * see), and with the mobile whose number it is and that person's name, on a new profile and on a
- * known one alike; after it,
+ * known one alike, and whether the name beside the person is the father's or the husband's, on a
+ * new profile and on a known one that holds none (a submission never changes one it holds);
+ * after it,
  * the number of the project in the order the office receives the applications
  * (`<code>-<year>-<5 digits>`). Both run in the move's transaction, so a refused move leaves
  * neither behind. A new person, with or without a number, is compared with the block list right
@@ -176,6 +180,7 @@ export class SubmissionWriter {
         ...(birthReg ? { birthReg } : {}),
         name: text(standard, 'name') ?? '',
         fatherOrHusbandName: text(standard, 'father_or_husband_name') ?? '',
+        guardianRelationCode: text(standard, GUARDIAN_RELATION_COLUMN) ?? null,
         motherName: text(standard, 'mother_name'),
         ...(mobile ? { mobile } : {}),
         mobileOwnerCode: owner.code,
@@ -214,26 +219,27 @@ export class SubmissionWriter {
           madeBy: actor.userId,
         },
       });
-    } else if (
-      options.writeContact !== false &&
-      (await this.mayEditContact(tx, actor, beneficiaryId))
-    ) {
-      const before = await this.contact.locked(tx, beneficiaryId);
-      const body: Record<string, unknown> = {};
-      for (const [column, field] of Object.entries(CONTACT_COLUMNS)) {
-        const value = text(standard, column);
-        if (value !== undefined) body[field] = value;
-      }
-      // whose number it is, only where the answers give the number and say whose
-      const owner = this.mobileOwner(definition, standard);
-      if (owner.code) {
-        body.mobileOwnerCode = owner.code;
-        body.mobileOwnerName = owner.name;
-      }
-      try {
-        await this.contact.apply(tx, actor, before, body as ContactChange);
-      } catch (error) {
-        throw unlisted(error);
+    } else if (options.writeContact !== false) {
+      // whether the name is the father's or the husband's, given to a profile that has none
+      await this.fillGuardianRelation(tx, actor, applicationId, beneficiaryId, standard);
+      if (await this.mayEditContact(tx, actor, beneficiaryId)) {
+        const before = await this.contact.locked(tx, beneficiaryId);
+        const body: Record<string, unknown> = {};
+        for (const [column, field] of Object.entries(CONTACT_COLUMNS)) {
+          const value = text(standard, column);
+          if (value !== undefined) body[field] = value;
+        }
+        // whose number it is, only where the answers give the number and say whose
+        const owner = this.mobileOwner(definition, standard);
+        if (owner.code) {
+          body.mobileOwnerCode = owner.code;
+          body.mobileOwnerName = owner.name;
+        }
+        try {
+          await this.contact.apply(tx, actor, before, body as ContactChange);
+        } catch (error) {
+          throw unlisted(error);
+        }
       }
     }
     if (beneficiaryId === row.beneficiaryId && identityKind === row.identityKind) return {};
@@ -371,6 +377,46 @@ export class SubmissionWriter {
     } catch (error) {
       throw unlisted(error);
     }
+  }
+
+  /**
+   * Gives a known person's profile the answer whether the name beside them is the father's or the
+   * husband's, only where the profile holds none: the relation describes a locked name, so a
+   * relation already on the profile is never changed by an application. Any submitter's answer
+   * may fill it, as it fills a new profile; an unlisted code is the form's mistake (422).
+   */
+  private async fillGuardianRelation(
+    tx: Tx,
+    actor: Principal,
+    applicationId: string,
+    beneficiaryId: string,
+    standard: Record<string, unknown>,
+  ): Promise<void> {
+    const answered = text(standard, GUARDIAN_RELATION_COLUMN);
+    if (!answered) return;
+    const current = await tx.beneficiary.findUniqueOrThrow({
+      where: { id: beneficiaryId },
+      select: { guardianRelationCode: true },
+    });
+    const code = guardianRelationToFill(current.guardianRelationCode, answered);
+    if (!code) return;
+    try {
+      // the condition holds the rule against a write that came in between
+      const { count } = await tx.beneficiary.updateMany({
+        where: { id: beneficiaryId, guardianRelationCode: null },
+        data: { guardianRelationCode: code, updatedBy: actor.userId },
+      });
+      if (!count) return;
+    } catch (error) {
+      throw unlisted(error);
+    }
+    await this.audit.record(tx, {
+      action: 'beneficiary.guardian_relation_set',
+      entityType: 'beneficiary',
+      entityId: beneficiaryId,
+      old: { guardianRelationCode: null },
+      new: { guardianRelationCode: code, applicationId },
+    });
   }
 
   /** The number, once the application is in the office's hands. */

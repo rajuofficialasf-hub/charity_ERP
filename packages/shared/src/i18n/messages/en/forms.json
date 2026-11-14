@@ -449,7 +449,7 @@
       "add_mobile_owner": "Add the two “whose number” questions",
       "add_mobile_owner_hint": "Two questions go after the mobile to say whether the number is the person's own, a family member's or a neighbour's.",
       "start_title": "Start with the identity questions",
-      "start_hint": "A beneficiary application form needs seven identity questions: NID or birth registration number, name, father's or husband's name, mobile number, gender, address and village. One press adds all seven, with two questions on whose number the mobile is; you can change their wording afterwards.",
+      "start_hint": "A beneficiary application form needs seven identity questions: NID or birth registration number, name, father's or husband's name, mobile number, gender, address and village. One press adds all seven, with two questions on whose number the mobile is and one on whether the name is the father's or the husband's; you can change their wording afterwards.",
       "wording": {
         "nid_or_birth_reg_bn": "জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর",
         "nid_or_birth_reg_en": "NID or birth registration number",
@@ -463,6 +463,8 @@
         "mobile_owner_en": "Whose number is it?",
         "mobile_owner_name_bn": "যাঁর নম্বর, তাঁর নাম",
         "mobile_owner_name_en": "Name of the number's owner",
+        "guardian_relation_bn": "এটি পিতার নাম নাকি স্বামীর নাম?",
+        "guardian_relation_en": "Is this the father's or the husband's name?",
         "gender_bn": "লিঙ্গ",
         "gender_en": "Gender",
         "address_bn": "ঠিকানা",

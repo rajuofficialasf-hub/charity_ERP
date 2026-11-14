@@ -13,6 +13,7 @@ import {
   addIdentityQuestions,
   addLibraryField,
   addMobileOwnerQuestions,
+  addGuardianRelationQuestion,
   addLibrarySection,
   addOwnQuestion,
   coreLocks,
@@ -575,7 +576,15 @@ describe('the identity questions added all at once', () => {
       kind,
       title,
       wording,
-      makeKey: keysFrom('q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd', 'q_eeeeee', 'q_ffffff'),
+      makeKey: keysFrom(
+        'q_aaaaaa',
+        'q_bbbbbb',
+        'q_cccccc',
+        'q_dddddd',
+        'q_eeeeee',
+        'q_ffffff',
+        'q_gggggg',
+      ),
     });
   /** The questions of a part that carry an identity mark, and the ones that carry none. */
   const marked = (fields: readonly FormField[]) => fields.filter((f) => identityRoleOf(f) !== null);
@@ -597,7 +606,7 @@ describe('the identity questions added all at once', () => {
     const { definition: next, section: part, fieldKeys } = add(start, 'beneficiary_application');
     expect(part).toBe('section_1');
     // in the order of the roles: the library's question by its own key, an empty one otherwise;
-    // then the two questions on whose number the mobile is
+    // then the two questions on whose number the mobile is, and whose name stands beside the person
     expect(fieldKeys).toEqual([
       'q_aaaaaa',
       'name',
@@ -608,6 +617,7 @@ describe('the identity questions added all at once', () => {
       'q_dddddd',
       'q_eeeeee',
       'q_ffffff',
+      'q_gggggg',
     ]);
     const fields = marked(next.sections[0]!.fields);
     expect(fields.map((f) => f.fieldKey)).toEqual(fieldKeys.slice(0, 7));
@@ -656,16 +666,18 @@ describe('the identity questions added all at once', () => {
     ).toEqual([]);
   });
 
-  it('adds nine questions to an empty application form: after the mobile, whose number it is and the owner’s name, optional, conditional and unmarked', () => {
+  it('adds ten questions to an empty application form: after the father’s or husband’s name whose it is, after the mobile whose number it is and the owner’s name, optional and unmarked', () => {
     const { definition: next, fieldKeys } = add(empty(), 'beneficiary_application');
-    expect(fieldKeys).toHaveLength(9);
+    expect(fieldKeys).toHaveLength(10);
     const fields = next.sections[0]!.fields;
-    expect(fields).toHaveLength(9);
-    // the two stand right after the mobile question, in their order
+    expect(fields).toHaveLength(10);
+    // the relation stands right after the father's or husband's name, the two right after the
+    // mobile question, in their order
     expect(fields.map((f) => f.fieldKey)).toEqual([
       'q_aaaaaa',
       'name',
       'q_bbbbbb',
+      'q_gggggg',
       'mobile',
       'q_eeeeee',
       'q_ffffff',
@@ -673,7 +685,20 @@ describe('the identity questions added all at once', () => {
       'q_cccccc',
       'q_dddddd',
     ]);
-    const [owner, ownerName] = unmarked(fields);
+    const [relation, owner, ownerName] = unmarked(fields);
+    expect(relation).toMatchObject({
+      fieldKey: 'q_gggggg',
+      type: 'single_select',
+      standardColumn: 'guardian_relation_code',
+      required: false,
+      libraryFieldKey: null,
+      label: T('guardian_relation (বাংলা)', 'guardian_relation (English)'),
+    });
+    expect(relation!.logic?.show_if).toBeUndefined();
+    // its options are its list's, set by the server at the save: none of the builder's
+    expect(listOfField(relation!)).toBe('guardian_relation');
+    expect(relation!.options).toEqual([]);
+    expect(identityRoleOf(relation!)).toBeNull();
     expect(owner).toMatchObject({
       fieldKey: 'q_eeeeee',
       type: 'single_select',
@@ -746,7 +771,7 @@ describe('the identity questions added all at once', () => {
         makeKey: keysFrom('q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd', 'q_eeeeee'),
       });
     const { definition: next, fieldKeys } = press(empty());
-    expect(fieldKeys.slice(-2)).toEqual(['mobile_owner', 'mobile_owner_name']);
+    expect(fieldKeys.slice(-3, -1)).toEqual(['mobile_owner', 'mobile_owner_name']);
     const fields = next.sections[0]!.fields;
     const at = fields.findIndex((f) => f.fieldKey === 'mobile');
     expect(fields.slice(at + 1, at + 3)).toMatchObject([
@@ -793,7 +818,7 @@ describe('the identity questions added all at once', () => {
         logic: { show_if: { field: 'q_whose', op: 'neq', value: 'own' } },
       },
     ]);
-    expect(some.fieldKeys.at(-1)).toBe('mobile_owner_name');
+    expect(some.fieldKeys.at(-2)).toBe('mobile_owner_name');
     expect(some.fieldKeys).not.toContain('mobile_owner');
     valid(some.definition);
   });
@@ -807,7 +832,7 @@ describe('the identity questions added all at once', () => {
       .find((f) => identityRoleOf(f) === 'mobile')!;
     const home = start.sections.find((s) => s.fields.includes(mobile))!;
     const once = add(start, 'beneficiary_application');
-    expect(once.fieldKeys).toEqual(['q_aaaaaa', 'q_bbbbbb']);
+    expect(once.fieldKeys).toEqual(['q_aaaaaa', 'q_bbbbbb', 'q_cccccc']);
     // the part the two went to is the mobile question's, for the page to show
     expect(once.section).toBe(home.key);
     // no part and no identity question was added, and the seven stand as they were
@@ -852,12 +877,82 @@ describe('the identity questions added all at once', () => {
       wording,
       makeKey: keysFrom('q_aaaaaa', 'q_bbbbbb'),
     });
-    expect(alone).toEqual(once);
+    expect(
+      addGuardianRelationQuestion(alone.definition, identityLibrary, {
+        wording,
+        makeKey: keysFrom('q_cccccc'),
+      }).definition,
+    ).toEqual(once.definition);
     expect(addMobileOwnerQuestions(once.definition, identityLibrary, { wording })).toEqual({
       definition: once.definition,
       section: null,
       fieldKeys: [],
     });
+  });
+
+  it('places the library’s relation question right after the father’s or husband’s name, never a second one, and none without that name', () => {
+    const withRelation = new Map([
+      ...identityLibrary,
+      [
+        'guardian_relation',
+        [
+          field('guardian_relation', 'single_select', {
+            label: T(
+              'এটি পিতার নাম নাকি স্বামীর নাম?',
+              "Is this the father's or the husband's name?",
+            ),
+            standardColumn: 'guardian_relation_code',
+            libraryFieldKey: 'guardian_relation',
+            required: true,
+            options: [option('father'), option('husband')],
+          }),
+        ],
+      ],
+    ]);
+    const start = definition();
+    const father = start.sections
+      .flatMap((s) => s.fields)
+      .find((f) => identityRoleOf(f) === 'father_or_husband_name')!;
+    const home = start.sections.find((s) => s.fields.includes(father))!;
+    const once = addGuardianRelationQuestion(start, withRelation, { wording });
+    expect(once.fieldKeys).toEqual(['guardian_relation']);
+    expect(once.section).toBe(home.key);
+    const fields = once.definition.sections.find((s) => s.key === home.key)!.fields;
+    const at = fields.findIndex((f) => f.fieldKey === father.fieldKey);
+    expect(fields[at + 1]).toMatchObject({
+      fieldKey: 'guardian_relation',
+      libraryFieldKey: 'guardian_relation',
+      standardColumn: 'guardian_relation_code',
+      label: T('এটি পিতার নাম নাকি স্বামীর নাম?', "Is this the father's or the husband's name?"),
+      // optional, whatever the library's question says
+      required: false,
+    });
+    valid(once.definition);
+    // the options are the list's: read among the form's texts, never written there
+    const optionRows = textsOf(once.definition).filter(
+      (row) => row.kind === 'option' && row.place.field === 'guardian_relation',
+    );
+    expect(optionRows.map((row) => row.locked)).toEqual([true, true]);
+    // a form that has a question for the column, under any key, gets no second one
+    expect(addGuardianRelationQuestion(once.definition, withRelation, { wording })).toEqual({
+      definition: once.definition,
+      section: null,
+      fieldKeys: [],
+    });
+    const asking = addOwnQuestion(
+      start,
+      home.key,
+      { type: 'single_select' },
+      undefined,
+      () => 'q_whose',
+    ).definition;
+    const marked = updateField(asking, 'q_whose', { standardColumn: 'guardian_relation_code' });
+    expect(addGuardianRelationQuestion(marked, withRelation, { wording }).fieldKeys).toEqual([]);
+    // a form without a father's or husband's name question gets none
+    const unmarkedFather = setIdentityRole(start, father.fieldKey, null);
+    expect(addGuardianRelationQuestion(unmarkedFather, withRelation, { wording }).definition).toBe(
+      unmarkedFather,
+    );
   });
 
   it('offers the two only to a form that asks the mobile and not whose number it is', () => {
@@ -881,7 +976,7 @@ describe('the identity questions added all at once', () => {
     const once = add(some, 'beneficiary_application');
     // the form holds a question keyed name already, so the role gets an empty one of its own;
     // the two questions on whose number it is come with the press, after the form's mobile
-    expect(once.fieldKeys).toEqual(['q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd']);
+    expect(once.fieldKeys).toEqual(['q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd', 'q_eeeeee']);
     expect(once.section).toBe('basic_info');
     const added = marked(once.definition.sections[0]!.fields).slice(-2);
     expect(added.map((f) => f.fieldKey)).toEqual(['q_aaaaaa', 'q_bbbbbb']);
@@ -916,7 +1011,7 @@ describe('the identity questions added all at once', () => {
     expect([...next.sections[1]!.fields.map((f) => f.fieldKey)].sort()).toEqual(
       [...fieldKeys].sort(),
     );
-    expect(fieldKeys).toHaveLength(9);
+    expect(fieldKeys).toHaveLength(10);
     valid(next);
   });
 });
@@ -1801,6 +1896,13 @@ describe('the rest of the definition', () => {
       'the two questions on whose number the mobile is',
       (d) =>
         addMobileOwnerQuestions(d, library.fields, { wording: (name) => T(name, name) }).definition,
+    ],
+    [
+      'addGuardianRelationQuestion',
+      'the question whether the name is the father’s or the husband’s',
+      (d) =>
+        addGuardianRelationQuestion(d, library.fields, { wording: (name) => T(name, name) })
+          .definition,
     ],
   ];
   /**

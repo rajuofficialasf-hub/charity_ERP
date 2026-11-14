@@ -462,6 +462,8 @@
       "mobile": "মোবাইল",
       "mobile_owner": "কার নম্বর",
       "mobile_owner_named": "{owner} ({name})",
+      "father_name": "পিতার নাম",
+      "husband_name": "স্বামীর নাম",
       "nid": "NID বা জন্মনিবন্ধন",
       "village": "গ্রাম",
       "post_office": "ডাকঘর",

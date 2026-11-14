@@ -13,6 +13,39 @@ import {
 } from './index.js';
 
 // The columns a form may fill and the reference list a coded one takes its options from.
+describe('the question whether the name is the father’s or the husband’s', () => {
+  const relation = field('q_relation', 'single_select', {
+    standardColumn: 'guardian_relation_code',
+  });
+
+  it('fills a column of the profile a form may fill, never its list column', () => {
+    expect(isStandardColumn('guardian_relation_code')).toBe(true);
+    expect(isStandardColumn('guardian_relation_list')).toBe(false);
+  });
+
+  it('takes its options from the list guardian_relation, and a family row’s question does not', () => {
+    expect(listOfField(relation)).toBe('guardian_relation');
+    expect(
+      listOfField({
+        standardColumn: 'guardian_relation_code',
+        settings: { repeat: { group: 'g' } },
+      }),
+    ).toBeNull();
+  });
+
+  it('is no identity role: a form publishes without it, and with it optional', () => {
+    expect(identityRoleOf(relation)).toBeNull();
+    const publishing = { publishing: true, kind: 'beneficiary_application' } as const;
+    expect(checkDefinition(definitionWith(), publishing)).toEqual([]);
+    expect(
+      checkDefinition(
+        definitionWith([{ ...relation, options: [option('father'), option('husband')] }]),
+        publishing,
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('the two questions on whose number the mobile is', () => {
   const owner = field('q_owner', 'single_select', {
     standardColumn: 'mobile_owner_code',

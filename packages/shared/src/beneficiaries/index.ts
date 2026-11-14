@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+export * from './guardian-relation.js';
 export * from './identity.js';
 export * from './match-key.js';
 export * from './mobile-owner.js';

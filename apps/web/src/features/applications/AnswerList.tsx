@@ -81,18 +81,21 @@ export function answerText(
  * audience) that has an answer, by section, with photos drawn from the file service; `action`
  * draws a control beside an answer (the office's "সংশোধনের জন্য খুলুন"). With `throughVolunteer`
  * the person has no mobile of their own, and the mobile question without an answer says so in the
- * place of the number.
+ * place of the number. With `guardianRelation` (`father` or `husband`) the question of the father's
+ * or husband's name is labelled the father's or the husband's name.
  */
 export function AnswerList({
   form,
   answers,
   action,
   throughVolunteer = false,
+  guardianRelation = null,
 }: {
   form: FormDefinition;
   answers: Answer[];
   action?: (field: FormField) => ReactNode;
   throughVolunteer?: boolean;
+  guardianRelation?: string | null;
 }) {
   const t = useTranslations('applications.detail');
   const tr = useTranslations('forms.renderer');
@@ -106,7 +109,12 @@ export function AnswerList({
       section,
       items: section.fields.flatMap((field): Item[] => {
         const value = byKey.get(`${field.fieldKey}#0`);
-        const label = field.label[locale];
+        const label =
+          field.standardColumn === 'father_or_husband_name' && guardianRelation === 'father'
+            ? t('father_name')
+            : field.standardColumn === 'father_or_husband_name' && guardianRelation === 'husband'
+              ? t('husband_name')
+              : field.label[locale];
         if (!value && throughVolunteer && field.standardColumn === 'mobile')
           return [{ kind: 'text', label, text: <ThroughVolunteerChip />, field }];
         if (!value || field.type === 'note' || field.type === 'repeat_group') return [];

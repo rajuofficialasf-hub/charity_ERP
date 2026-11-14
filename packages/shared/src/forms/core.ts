@@ -45,8 +45,9 @@ export type FormKind = (typeof FORM_KINDS)[number];
 
 /**
  * The only beneficiary columns a form may fill, taken from the standard fields of the library:
- * the identity, the names, the contact and address data (with whose number the mobile is and
- * that person's name, two optional questions that are no identity roles), the family and income
+ * the identity, the names (with whether the name beside the person is the father's or the
+ * husband's), the contact and address data (with whose number the mobile is and that person's
+ * name; these three are optional questions and no identity roles), the family and income
  * figures and the photo. A definition naming any other column is refused, so no form can write a status, a flag
  * or an audit column of the profile. The two comma-separated entries are the exact chains the
  * address and the GPS fields fill.
@@ -58,6 +59,7 @@ export const STANDARD_COLUMNS = [
   'mobile_owner_name',
   'name',
   'father_or_husband_name',
+  'guardian_relation_code',
   'mother_name',
   'gender_code',
   'dob',
@@ -108,6 +110,7 @@ export const isFamilyMemberColumn = (column: string): column is FamilyMemberColu
 const PROFILE_COLUMN_LISTS: ReadonlyMap<string, string> = new Map([
   ['gender_code', 'gender'],
   ['mobile_owner_code', 'mobile_owner'],
+  ['guardian_relation_code', 'guardian_relation'],
   ['marital_status_code', 'marital_status'],
   ['education_code', 'education_level'],
 ]);

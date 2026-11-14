@@ -13,6 +13,8 @@ export const OFFICIAL_SECTION = 'application.official_section';
 /** The person's identity number and their contact (permissions.yaml, the protected field classes). */
 export const BENEFICIARY_NID = 'beneficiary.nid';
 export const BENEFICIARY_CONTACT = 'beneficiary.contact';
+/** The person's details beside the name, among them the father's or husband's name. */
+export const BENEFICIARY_PROFILE_DETAIL = 'beneficiary.profile_detail';
 /**
  * The flag of an entry that waits because a person without a document looks like a blocked one
  * (the same name, father's or husband's name and village in the union): the office's to read.
@@ -78,6 +80,11 @@ export const applicationView = applicationSummary.extend({
   /** The device time the record was made, when it came from a phone; its late or stale flags say why it waits. */
   clientCreatedAt: z.string().nullable(),
   identityKind: z.enum(['nid', 'birth_reg', 'none']).nullable(),
+  /**
+   * Whether the father's or husband's name is the father's or the husband's: the profile's, else
+   * the application's own answer; null where neither says.
+   */
+  guardianRelationCode: sensitive(z.string().nullable(), BENEFICIARY_PROFILE_DETAIL),
   rejectionMessage: z.string().nullable(),
   answers: z.array(answerView),
   reviewedAt: z.string().nullable(),

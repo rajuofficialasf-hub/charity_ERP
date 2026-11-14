@@ -1110,3 +1110,49 @@ describe('whose number the mobile is, on the profile', () => {
     expect(screen.queryByText(/করিম মিয়া/)).not.toBeInTheDocument();
   });
 });
+
+describe('the father’s or husband’s name, on the profile', () => {
+  const full = { ...empty360, hasDocument: true, nid: '1234567890', birthReg: null };
+  /** The label beside the name in the details. */
+  const labelOf = () => screen.getByText('নমুনা স্বামী').closest('div')!;
+  const opened = async () => {
+    openProfile();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+  };
+
+  it.each([
+    ['husband', 'স্বামীর নাম'],
+    ['father', 'পিতার নাম'],
+  ])('is called by the relation the profile holds: %s', async (code, label) => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, guardianRelationCode: code });
+    await opened();
+    expect(within(labelOf()).getByText(label)).toBeInTheDocument();
+    expect(screen.queryByText('পিতা বা স্বামীর নাম')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['the relation is not known', { guardianRelationCode: null }],
+    ['the server left it out', {}],
+  ])('keeps the label of both when %s', async (_case, relation) => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, ...relation });
+    await opened();
+    expect(within(labelOf()).getByText('পিতা বা স্বামীর নাম')).toBeInTheDocument();
+  });
+
+  it('says it in English too', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, guardianRelationCode: 'husband' });
+    renderApp(<BeneficiaryProfilePage />, 'en', {
+      path: '/admin/beneficiaries/:beneficiaryId',
+      initialPath: `/admin/beneficiaries/${ID}`,
+    });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+    expect(within(labelOf()).getByText("Husband's name")).toBeInTheDocument();
+  });
+});

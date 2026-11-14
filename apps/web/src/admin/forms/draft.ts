@@ -1,5 +1,6 @@
 import { type Condition, isFieldRef } from '@css/shared';
 import {
+  GUARDIAN_RELATION_COLUMN,
   MOBILE_OWNER_COLUMN,
   MOBILE_OWNER_NAME_COLUMN,
   MOBILE_OWNER_NAME_MAX,
@@ -906,10 +907,11 @@ const takesIdentity = (section: FormSection) =>
  * marked and worded in both languages by `wording`, so the form asks something from the start and
  * the wording can be changed afterwards. Each added question is required and has no condition. A
  * role already marked is left alone, and a form of another kind gets nothing. With them come the
- * two questions on whose number the mobile is (`addMobileOwnerQuestions`), which are no identity
- * questions, also on a form that lacks no identity question and only those two. The keys of the
- * added questions come back, the identity questions in the order of the roles and then those two,
- * with the part the first of them went to.
+ * two questions on whose number the mobile is (`addMobileOwnerQuestions`) and the question whether
+ * the father's or husband's name is the father's or the husband's (`addGuardianRelationQuestion`),
+ * which are no identity questions, also on a form that lacks no identity question and only those.
+ * The keys of the added questions come back, the identity questions in the order of the roles,
+ * then those two and then that one, with the part the first of them went to.
  */
 export function addIdentityQuestions(
   def: FormDefinition,
@@ -917,7 +919,10 @@ export function addIdentityQuestions(
   options: {
     kind: FormKind | undefined;
     title: (n: number) => { bn: string; en: string };
-    wording: (role: CoreFieldKey | MobileOwnerWording) => { bn: string; en: string };
+    wording: (role: CoreFieldKey | MobileOwnerWording | GuardianRelationWording) => {
+      bn: string;
+      en: string;
+    };
     makeKey?: MakeKey;
   },
 ): { definition: FormDefinition; section: string | null; fieldKeys: string[] } {
@@ -961,13 +966,80 @@ export function addIdentityQuestions(
     fieldKeys.push(added.fieldKey);
   }
   const owner = addMobileOwnerQuestions(next, library, options);
-  const added = [...fieldKeys, ...owner.fieldKeys];
+  const relation = addGuardianRelationQuestion(owner.definition, library, options);
+  const added = [...fieldKeys, ...owner.fieldKeys, ...relation.fieldKeys];
   if (!added.length) return { definition: def, section: null, fieldKeys: [] };
   return {
-    definition: owner.definition,
-    section: fieldKeys.length ? (section ?? null) : owner.section,
+    definition: relation.definition,
+    section: fieldKeys.length ? (section ?? null) : (owner.section ?? relation.section),
     fieldKeys: added,
   };
+}
+
+/** The name of the starting wording of the question whose name stands beside the person. */
+export type GuardianRelationWording = 'guardian_relation';
+
+/**
+ * Adds, right after the form's father's or husband's name question, the question whether that
+ * name is the father's or the husband's: the library's question of the column where the library
+ * has a single choice for it the form does not hold yet, otherwise a new single choice worded by
+ * `wording`. Its options are the list's, set by the server. It is not required, has no condition
+ * and is no identity question. A form that already has a question for the column gets no second
+ * one, and a form without a father's or husband's name question gets none. The key of the added
+ * question comes back with the part it went to.
+ */
+export function addGuardianRelationQuestion(
+  def: FormDefinition,
+  library: LibraryFields,
+  options: {
+    wording: (name: GuardianRelationWording) => { bn: string; en: string };
+    makeKey?: MakeKey;
+  },
+): { definition: FormDefinition; section: string | null; fieldKeys: string[] } {
+  const none = { definition: def, section: null, fieldKeys: [] };
+  const fields = def.sections.flatMap((s) => s.fields);
+  const anchor = fields.find((f) => identityRoleOf(f) === 'father_or_husband_name');
+  if (
+    !anchor ||
+    fields.some((f) => f.standardColumn === GUARDIAN_RELATION_COLUMN && groupOf(f) === undefined)
+  )
+    return none;
+  const section = def.sections.find((s) => s.fields.some((f) => f.fieldKey === anchor.fieldKey));
+  if (!section) return none;
+  const taken = allKeys(def);
+  const ready = [...library.values()].find(
+    (placed) =>
+      placed.length === 1 &&
+      placed[0]!.standardColumn === GUARDIAN_RELATION_COLUMN &&
+      placed[0]!.type === 'single_select' &&
+      !taken.has(placed[0]!.fieldKey),
+  )?.[0];
+  let next: FormDefinition;
+  let key: string;
+  if (ready) {
+    key = ready.fieldKey;
+    const at = section.fields.findIndex((f) => f.fieldKey === anchor.fieldKey) + 1;
+    next = withSection(def, section.key, (s) => ({
+      ...s,
+      fields: [...s.fields.slice(0, at), ready, ...s.fields.slice(at)],
+    }));
+  } else {
+    const added = addOwnQuestion(
+      def,
+      section.key,
+      { type: 'single_select', after: anchor.fieldKey },
+      undefined,
+      options.makeKey,
+    );
+    if (!added.fieldKey) return none;
+    key = added.fieldKey;
+    next = updateField(added.definition, key, {
+      standardColumn: GUARDIAN_RELATION_COLUMN,
+      label: options.wording('guardian_relation'),
+    });
+  }
+  next = updateField(next, key, { required: false });
+  return { definition: next, section: section.key, fieldKeys: [key] };
 }
 
 /** Whether the form asks the mobile and has no question on whose number it is. */

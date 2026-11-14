@@ -179,6 +179,30 @@ describe('beneficiary identity', () => {
     ]);
   });
 
+  it('whether the name is the father’s or the husband’s must be a code of its own list, or none', async () => {
+    await f.referenceCode(db, 'guardian_relation', 'husband');
+    const id = await f.beneficiary(db, loc, { guardian_relation_code: 'husband' });
+    const { rows } = await db.query(
+      'SELECT guardian_relation_code, guardian_relation_list FROM beneficiaries WHERE id = $1',
+      [id],
+    );
+    expect(rows).toEqual([
+      { guardian_relation_code: 'husband', guardian_relation_list: 'guardian_relation' },
+    ]);
+    const none = await f.beneficiary(db, loc, {});
+    expect(
+      (await db.query('SELECT guardian_relation_code FROM beneficiaries WHERE id = $1', [none]))
+        .rows,
+    ).toEqual([{ guardian_relation_code: null }]);
+    await expect(f.beneficiary(db, loc, { guardian_relation_code: 'brother' })).rejects.toThrow(
+      /beneficiaries_guardian_relation_fkey/,
+    );
+    // a code of another list is not one of this list
+    await expect(f.beneficiary(db, loc, { guardian_relation_code: 'female' })).rejects.toThrow(
+      /beneficiaries_guardian_relation_fkey/,
+    );
+  });
+
   it('an application names the kind of its identity: an NID, a birth registration or none', async () => {
     const p = await f.project(db);
     const kindOf = async (kind: string | null) => {

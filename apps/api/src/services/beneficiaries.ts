@@ -282,6 +282,8 @@ export class BeneficiariesService {
       ...history,
       name: b.name,
       fatherOrHusbandName: b.fatherOrHusbandName,
+      // whether that name is the father's or the husband's, with the same class as the name
+      guardianRelationCode: b.guardianRelationCode,
       motherName: b.motherName,
       genderCode: b.genderCode,
       ageYears: b.ageYears,
@@ -604,6 +606,7 @@ export class BeneficiariesService {
         birthReg: true,
         name: true,
         fatherOrHusbandName: true,
+        guardianRelationCode: true,
         motherName: true,
         genderCode: true,
         ageYears: true,

@@ -66,6 +66,31 @@ describe('the split', () => {
     expect(Object.keys(without.standard)).not.toContain('mobile_owner_name');
   });
 
+  it('sends whether the name beside the person is the father’s or the husband’s to its profile column', () => {
+    const definition = definitionWith([
+      field('q_relation', 'single_select', {
+        standardColumn: 'guardian_relation_code',
+        options: [option('father'), option('husband')],
+      }),
+    ]);
+    const result = split(definition, [
+      ...coreAnswers(),
+      answer('q_relation', { t: 'single_select', v: 'husband' }),
+    ]);
+    expect(result.standard).toMatchObject({
+      father_or_husband_name: 'Abdul Karim',
+      guardian_relation_code: 'husband',
+    });
+    expect(result.custom).toEqual([]);
+    // a form without the question, or the question left empty, gives the profile no relation
+    expect(Object.keys(split(definition, coreAnswers()).standard)).not.toContain(
+      'guardian_relation_code',
+    );
+    expect(Object.keys(split(definitionWith(), coreAnswers()).standard)).not.toContain(
+      'guardian_relation_code',
+    );
+  });
+
   it('files a 10 or 13 digit number as an NID and anything else as a birth registration', () => {
     expect(identityColumn('1000000001')).toBe('nid');
     expect(identityColumn('1000000000123')).toBe('nid');

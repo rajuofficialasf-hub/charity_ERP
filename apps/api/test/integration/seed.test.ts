@@ -198,6 +198,7 @@ describe('base set', () => {
       education_level: 6,
       expense_category_default: 5,
       gender: 2,
+      guardian_relation: 2,
       issue_type_default: 6,
       marital_status: 6,
       media_platform: 4,

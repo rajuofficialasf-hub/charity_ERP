@@ -615,6 +615,7 @@ model ReferenceList {
   beneficiariesMaritalStatusCode           Beneficiary[]             @relation("beneficiaries_marital_status_code")
   beneficiariesEducationCode               Beneficiary[]             @relation("beneficiaries_education_code")
   beneficiariesMobileOwnerCode             Beneficiary[]             @relation("beneficiaries_mobile_owner_code")
+  beneficiariesGuardianRelationCode        Beneficiary[]             @relation("beneficiaries_guardian_relation_code")
   beneficiaryFamilyMembersRelationshipCode BeneficiaryFamilyMember[] @relation("beneficiary_family_members_relationship_code")
   beneficiaryFamilyMembersGenderCode       BeneficiaryFamilyMember[] @relation("beneficiary_family_members_gender_code")
   workAssignmentsGenderScope               WorkAssignment[]          @relation("work_assignments_gender_scope")
@@ -1204,6 +1205,8 @@ model Beneficiary {
   /// whose number the mobile is (the list mobile_owner), and that person's name
   mobileOwnerCode                      String?                    @map("mobile_owner_code")
   mobileOwnerName                      String?                    @map("mobile_owner_name")
+  /// whether fatherOrHusbandName is the father's or the husband's (the list guardian_relation); null where not known
+  guardianRelationCode                 String?                    @map("guardian_relation_code")
   genderCode                           String                     @map("gender_code")
   dob                                  DateTime?                  @db.Date
   ageYears                             Int?                       @map("age_years") @db.SmallInt
@@ -1242,6 +1245,7 @@ model Beneficiary {
   maritalStatusList                    String?                    @default("marital_status") @map("marital_status_list")
   educationList                        String?                    @default("education_level") @map("education_list")
   mobileOwnerList                      String?                    @default("mobile_owner") @map("mobile_owner_list")
+  guardianRelationList                 String?                    @default("guardian_relation") @map("guardian_relation_list")
   /// the keys of the name, the father's or husband's name and the village (matchKey of @css/shared/beneficiaries)
   nameKey                              String?                    @map("name_key")
   guardianKey                          String?                    @map("guardian_key")
@@ -1252,6 +1256,7 @@ model Beneficiary {
   maritalStatus                        ReferenceList?             @relation("beneficiaries_marital_status_code", fields: [maritalStatusList, maritalStatusCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   education                            ReferenceList?             @relation("beneficiaries_education_code", fields: [educationList, educationCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   mobileOwner                          ReferenceList?             @relation("beneficiaries_mobile_owner_code", fields: [mobileOwnerList, mobileOwnerCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
+  guardianRelation                     ReferenceList?             @relation("beneficiaries_guardian_relation_code", fields: [guardianRelationList, guardianRelationCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction, map: "beneficiaries_guardian_relation_fkey")
   division                             Location                   @relation("beneficiaries_division_id", fields: [divisionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   district                             Location                   @relation("beneficiaries_district_id", fields: [districtId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   upazila                              Location                   @relation("beneficiaries_upazila_id", fields: [upazilaId], references: [id], onDelete: Restrict, onUpdate: NoAction)
@@ -1288,6 +1293,7 @@ model Beneficiary {
   @@index([maritalStatusCode], map: "beneficiaries_marital_status_code_idx")
   @@index([educationCode], map: "beneficiaries_education_code_idx")
   @@index([mobileOwnerCode], map: "beneficiaries_mobile_owner_code_idx")
+  @@index([guardianRelationCode], map: "beneficiaries_guardian_relation_code_idx")
   @@index([divisionId], map: "beneficiaries_division_id_idx")
   @@index([upazilaId], map: "beneficiaries_upazila_id_idx")
   @@index([photoFileId], map: "beneficiaries_photo_file_id_idx")
@@ -1747,29 +1753,29 @@ model Blocklist {
 }
 
 model VolunteerChangeRequest {
-  id             String    @id @db.Uuid
+  id             String     @id @db.Uuid
   /// the person the request is about: a volunteer's user or an official
-  userId         String    @map("user_id") @db.Uuid
+  userId         String     @map("user_id") @db.Uuid
   /// set for a volunteer's request, null for an official's
-  volunteerId    String?   @map("volunteer_id") @db.Uuid
+  volunteerId    String?    @map("volunteer_id") @db.Uuid
   kind           String
   field          String
-  newValue       String?   @map("new_value")
+  newValue       String?    @map("new_value")
   note           String?
-  requestedBy    String    @map("requested_by") @db.Uuid
-  status         String    @default("open")
-  decidedBy      String?   @map("decided_by") @db.Uuid
-  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy      String?   @map("created_by") @db.Uuid
-  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy      String?   @map("updated_by") @db.Uuid
-  user           User      @relation("volunteer_change_requests_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  requestedBy    String     @map("requested_by") @db.Uuid
+  status         String     @default("open")
+  decidedBy      String?    @map("decided_by") @db.Uuid
+  decidedAt      DateTime?  @map("decided_at") @db.Timestamptz(6)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?    @map("created_by") @db.Uuid
+  updatedAt      DateTime   @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy      String?    @map("updated_by") @db.Uuid
+  user           User       @relation("volunteer_change_requests_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   volunteer      Volunteer? @relation("volunteer_change_requests_volunteer_id", fields: [volunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  requestedByRef User      @relation("volunteer_change_requests_requested_by", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  decidedByRef   User?     @relation("volunteer_change_requests_decided_by", fields: [decidedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef   User?     @relation("volunteer_change_requests_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef   User?     @relation("volunteer_change_requests_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  requestedByRef User       @relation("volunteer_change_requests_requested_by", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  decidedByRef   User?      @relation("volunteer_change_requests_decided_by", fields: [decidedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef   User?      @relation("volunteer_change_requests_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef   User?      @relation("volunteer_change_requests_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([userId, status], map: "volunteer_change_requests_user_id_status_idx")
   @@index([volunteerId, status], map: "volunteer_change_requests_volunteer_id_status_idx")
@@ -3140,33 +3146,33 @@ model Alert {
 }
 
 model ExportJob {
-  id             String   @id @db.Uuid
-  requestedBy    String   @map("requested_by") @db.Uuid
+  id             String    @id @db.Uuid
+  requestedBy    String    @map("requested_by") @db.Uuid
   kind           String
-  locale         String   @default("bn")
-  filters        Json     @default("{}")
-  sensitive      Boolean  @default(false)
-  status         String   @default("queued")
-  fileId         String?  @map("file_id") @db.Uuid
-  rowCount       Int?     @map("row_count")
+  locale         String    @default("bn")
+  filters        Json      @default("{}")
+  sensitive      Boolean   @default(false)
+  status         String    @default("queued")
+  fileId         String?   @map("file_id") @db.Uuid
+  rowCount       Int?      @map("row_count")
   /// csv, xlsx or pdf
   format         String
   /// the column ids the person chose, in the file's order; empty only for a record's PDF
   columns        String[]
   /// the scope instances and field classes the request froze; the job never reads live access
   access         Json
-  rowsDone       Int      @default(0) @map("rows_done")
-  rowsTotal      Int?     @map("rows_total")
-  errorCode      String?  @map("error_code")
+  rowsDone       Int       @default(0) @map("rows_done")
+  rowsTotal      Int?      @map("rows_total")
+  errorCode      String?   @map("error_code")
   finishedAt     DateTime? @map("finished_at") @db.Timestamptz(6)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy      String?  @map("created_by") @db.Uuid
-  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy      String?  @map("updated_by") @db.Uuid
-  requestedByRef User     @relation("export_jobs_requested_by", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  file           File?    @relation("export_jobs_file_id", fields: [fileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef   User?    @relation("export_jobs_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef   User?    @relation("export_jobs_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  requestedByRef User      @relation("export_jobs_requested_by", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  file           File?     @relation("export_jobs_file_id", fields: [fileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef   User?     @relation("export_jobs_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef   User?     @relation("export_jobs_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([requestedBy, createdAt(sort: Desc)], map: "export_jobs_requested_by_created_at_idx")
   @@index([status, createdAt], map: "export_jobs_status_created_at_idx")
@@ -3288,22 +3294,22 @@ model MediaWorkMember {
 
 /// A publication of a work on one platform (a code of the list media_platform).
 model MediaPublication {
-  id                 String         @id @db.Uuid
-  workId             String         @map("work_id") @db.Uuid
-  platformList       String?        @default("media_platform") @map("platform_list")
-  platformCode       String         @map("platform_code")
-  state              String         @default("waiting")
-  publishedOn        DateTime?      @map("published_on") @db.Date
-  link               String?
-  note               String?
-  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy          String?        @map("created_by") @db.Uuid
-  updatedAt          DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy          String?        @map("updated_by") @db.Uuid
-  work               MediaWork      @relation("media_publications_work_id", fields: [workId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  platform           ReferenceList? @relation("media_publications_platform_code", fields: [platformList, platformCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef       User?          @relation("media_publications_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef       User?          @relation("media_publications_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id           String         @id @db.Uuid
+  workId       String         @map("work_id") @db.Uuid
+  platformList String?        @default("media_platform") @map("platform_list")
+  platformCode String         @map("platform_code")
+  state        String         @default("waiting")
+  publishedOn  DateTime?      @map("published_on") @db.Date
+  link         String?
+  note         String?
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?        @map("created_by") @db.Uuid
+  updatedAt    DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?        @map("updated_by") @db.Uuid
+  work         MediaWork      @relation("media_publications_work_id", fields: [workId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  platform     ReferenceList? @relation("media_publications_platform_code", fields: [platformList, platformCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef User?          @relation("media_publications_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef User?          @relation("media_publications_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([workId], map: "media_publications_work_id_idx")
   @@index([platformCode], map: "media_publications_platform_code_idx")

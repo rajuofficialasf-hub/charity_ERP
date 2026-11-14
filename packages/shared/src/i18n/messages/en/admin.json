@@ -462,6 +462,8 @@
       "mobile": "Mobile",
       "mobile_owner": "Whose number",
       "mobile_owner_named": "{owner} ({name})",
+      "father_name": "Father's name",
+      "husband_name": "Husband's name",
       "nid": "NID or birth registration",
       "village": "Village",
       "post_office": "Post office",
