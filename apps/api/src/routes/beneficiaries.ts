@@ -268,8 +268,9 @@ export const beneficiaryProfile = z.object({
 });
 
 /**
- * The name lookup's answer: at most five people and their count, each with only what a volunteer
- * may see of someone already here, and a token to pick one who is not blocked.
+ * The name lookup's answer: at most five people and a count that stops one past them, each with
+ * only what a volunteer may see of someone already here, and a token to pick one who may be
+ * picked here.
  */
 const matchAnswer = z.object({
   total: z.number().int(),
@@ -282,7 +283,7 @@ const matchAnswer = z.object({
       projects: z.array(
         z.object({ name: z.object({ bn: z.string(), en: z.string() }), year: z.number().int() }),
       ),
-      blocked: z.boolean(),
+      pickable: z.boolean(),
       pickToken: z.string().nullable(),
     }),
   ),
@@ -475,7 +476,7 @@ export function beneficiariesRouter(
     path: '/beneficiaries/match',
     operationId: 'beneficiaries.beneficiary.match',
     summary:
-      'The people already here under a name, father or husband and village, for an application without a document (exact keys, at most five, every call audited and counted)',
+      'The people already here under a name, father or husband and village, for an application without a document (exact keys, at most five, only where the project asks the document "if they have one", every call audited and counted)',
     permission: 'beneficiary.match',
     scope: 'project',
     audit: 'beneficiary.matched',

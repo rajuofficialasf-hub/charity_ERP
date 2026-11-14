@@ -13,14 +13,15 @@ export function storeKeys(c: Pick<Container, 'prisma' | 'matchKeys'>, ids: reado
 
 /**
  * Adds one group of spelling variants (its first spelling the group's own) and raises the list's
- * version, as a change in the settings does; the keys stored before it are older then.
+ * version, as a change in the settings does; the keys stored before it are older then. Answers
+ * the group's id.
  */
 export async function addVariantGroup(
   db: Client,
   c: Pick<Container, 'prisma' | 'jobs'>,
   spellings: readonly [string, ...string[]],
   actorId: string,
-): Promise<void> {
+): Promise<string> {
   const groupId = randomUUID();
   await db.query('INSERT INTO name_variant_groups (id, canonical) VALUES ($1, $2)', [
     groupId,
@@ -32,5 +33,20 @@ export async function addVariantGroup(
       groupId,
       variant,
     ]);
+  await c.prisma.$transaction((tx) => raiseVariantsVersion(tx, c.jobs, actorId));
+  return groupId;
+}
+
+/**
+ * Switches a group of spelling variants off and raises the list's version, as the settings do,
+ * so a test that added it leaves the list as it found it.
+ */
+export async function removeVariantGroup(
+  db: Client,
+  c: Pick<Container, 'prisma' | 'jobs'>,
+  groupId: string,
+  actorId: string,
+): Promise<void> {
+  await db.query('UPDATE name_variant_groups SET active = false WHERE id = $1', [groupId]);
   await c.prisma.$transaction((tx) => raiseVariantsVersion(tx, c.jobs, actorId));
 }

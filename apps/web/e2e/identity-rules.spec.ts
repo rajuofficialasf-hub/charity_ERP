@@ -17,10 +17,10 @@ import { activeProject, choice, code, ERR, identityRulesOn, question } from './s
 // lets the identity document and the mobile stay empty in the project's setup; a volunteer brings
 // a person without a document and without a phone on a 360 px phone, with network and without it;
 // the office reads both on the list and on the person's profile; a second application for the
-// same person, in a second project, finds the first one by the name and lands on its profile; and
+// person helped in another project finds that one by the name and lands on its profile; and
 // once the PM asks the document again, the start without it is gone and the number is asked. One
-// project of this run (and a second for the person's second application), volunteer 15 assigned
-// and consenting through the API; the journeys run in order on it.
+// project of this run (and two more for the person helped before and their second application),
+// volunteer 15 assigned and consenting through the API; the journeys run in order on it.
 const PM = 'pm.err@example.org';
 const HEAD = 'head@example.org';
 const RPM = 'rpm.dhaka@example.org';
@@ -252,8 +252,63 @@ async function officeSeesBoth(browser: Browser, request: APIRequestContext, name
 }
 
 let projectId = '';
-/** The person of the first journey: the name, the application and the profile the send made. */
-let first = { name: '', applicationId: '', beneficiaryId: '' };
+
+/**
+ * A person without a document and without a phone, helped in a project of their own: the
+ * volunteer sends the application through the API in a project that lets both stay empty, and the
+ * office approves it. Answers the person's name and profile and that project, so the journey of a
+ * second application reads no state another journey wrote.
+ */
+async function helpedPerson(browser: Browser, request: APIRequestContext) {
+  const helpedIn = await projectOfTheJourney(browser, request);
+  await identityRulesOn(request, PM, helpedIn, {
+    identity_document: 'optional',
+    mobile: 'optional',
+  });
+  const name = `আগে সাহায্য পাওয়া ${code()}`;
+  const me = await apiAs(request, VOLUNTEER);
+  const form = await me.get(`/projects/${helpedIn}/application-form`);
+  expect(form.ok(), await form.text()).toBe(true);
+  const { data: version } = (await form.json()) as { data: { id: string } };
+  const places = await savar(await apiAs(request, HEAD));
+  const made = await me.post(`/projects/${helpedIn}/applications`, {
+    clientUuid: crypto.randomUUID(),
+    projectId: helpedIn,
+    formVersionId: version.id,
+    answers: [
+      { fieldKey: 'q_name', value: { t: 'short_text', v: name } },
+      { fieldKey: 'q_father', value: { t: 'short_text', v: 'নমুনা পিতা' } },
+      { fieldKey: 'q_gender', value: { t: 'single_select', v: 'female' } },
+      {
+        fieldKey: 'q_address',
+        value: {
+          t: 'bd_address',
+          division_id: places.division,
+          district_id: places.district,
+          upazila_id: places.upazila,
+          union_id: places.union,
+        },
+      },
+      { fieldKey: 'q_village', value: { t: 'short_text', v: 'নমুনা গ্রাম' } },
+      { fieldKey: 'q_need', value: { t: 'long_text', v: 'শীতের কাপড় দরকার' } },
+    ],
+  });
+  expect(made.status(), await made.text()).toBe(201);
+  const applicationId = ((await made.json()) as { data: { id: string } }).data.id;
+  await act(me, applicationId, 'submit');
+  const rpm = await apiAs(request, RPM);
+  await act(rpm, applicationId, 'review');
+  await act(rpm, applicationId, 'send_for_approval');
+  await act(rpm, applicationId, 'approve', { comment: 'যাচাই করা হয়েছে' });
+  const record = await rpm.get(`/applications/${applicationId}`);
+  expect(record.ok(), await record.text()).toBe(true);
+  const { data } = (await record.json()) as {
+    data: { beneficiaryId: string | null; identityKind: string | null };
+  };
+  expect(data.identityKind).toBe('none');
+  expect(data.beneficiaryId).toBeTruthy();
+  return { name, beneficiaryId: data.beneficiaryId!, projectId: helpedIn };
+}
 
 test.describe.configure({ mode: 'serial' });
 // the volunteer's phone is 360 px wide, the narrowest the field screens must fit
@@ -318,7 +373,7 @@ test.describe('the identity an application asks follows the project', () => {
     await expect(page.getByText(/^আবেদন নম্বর: [A-Z0-9]+-\d{4}-\d{5}/)).toBeVisible();
     await fitsThePhone(page, 'the result');
 
-    first = { name, ...(await officeSeesBoth(browser, request, name)) };
+    await officeSeesBoth(browser, request, name);
   });
 
   test('the same start without network keeps the entry on the phone, and it reaches the office when the network returns', async ({
@@ -382,13 +437,9 @@ test.describe('the identity an application asks follows the project', () => {
     page,
     request,
   }) => {
-    test.setTimeout(420_000);
-    // the first application helped the person: the office approves it
-    const rpm = await apiAs(request, RPM);
-    await act(rpm, first.applicationId, 'review');
-    await act(rpm, first.applicationId, 'send_for_approval');
-    // the entry of the offline journey shares the father's name and the village: the office says why
-    await act(rpm, first.applicationId, 'approve', { comment: 'আলাদা পরিবার, যাচাই করা হয়েছে' });
+    test.setTimeout(540_000);
+    // the person's first application, in a project of its own, was approved
+    const first = await helpedPerson(browser, request);
     // the second application is another project's: one person applies once in a project
     const second = await projectOfTheJourney(browser, request);
     await identityRulesOn(request, PM, second, {
@@ -396,7 +447,7 @@ test.describe('the identity an application asks follows the project', () => {
       mobile: 'optional',
     });
     const head = await apiAs(request, HEAD);
-    const project = (await (await head.get(`/projects/${projectId}`)).json()) as {
+    const project = (await (await head.get(`/projects/${first.projectId}`)).json()) as {
       data: { name: { bn: string }; year: number };
     };
 
@@ -437,7 +488,9 @@ test.describe('the identity an application asks follows the project', () => {
     const profile = await head.get(`/beneficiaries/${first.beneficiaryId}`);
     expect(profile.ok(), await profile.text()).toBe(true);
     const { data } = (await profile.json()) as { data: { applications: { projectId: string }[] } };
-    expect(data.applications.map((a) => a.projectId).sort()).toEqual([projectId, second].sort());
+    expect(data.applications.map((a) => a.projectId).sort()).toEqual(
+      [first.projectId, second].sort(),
+    );
     await onDesk(browser, async (desk) => {
       await signIn(desk, RPM);
       await desk.goto(`/admin/beneficiaries/${first.beneficiaryId}`);

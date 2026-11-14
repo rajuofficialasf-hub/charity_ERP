@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { matchKey } from '@css/shared/beneficiaries';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context.js';
@@ -16,7 +17,7 @@ import {
   type Session,
 } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
-import { addVariantGroup, storeKeys } from './support/name-keys.js';
+import { addVariantGroup, removeVariantGroup, storeKeys } from './support/name-keys.js';
 
 // The name lookup of an application without a document: an exact comparison of the keys of the
 // name, the father's or husband's name and the village inside a union of an area of a project the
@@ -203,7 +204,7 @@ describe('the name lookup', () => {
           village: p.village,
           helpedYears: [2024, 2025],
           projects: [{ name: { bn: 'শীতবস্ত্র 2024', en: 'Winter 2024' }, year: 2024 }],
-          blocked: false,
+          pickable: true,
           pickToken: expect.any(String),
         },
       ],
@@ -226,30 +227,62 @@ describe('the name lookup', () => {
     // a spelling the list does not join is another name until the list joins it
     const variant = { ...plain, name: plain.name.replace('হোসেন', 'হোসাইন') };
     expect((await match(s, variant)).body.data.total).toBe(0);
-    await addVariantGroup(h.db, h.container, ['হোসেন', 'হোসাইন'], world.users.head);
-    await storeKeys(
-      h.container,
-      (await h.db.query<{ id: string }>('SELECT id FROM beneficiaries')).rows.map((r) => r.id),
-    );
-    expect((await match(s, variant)).body.data.total).toBe(1);
-    expect((await match(s, { ...p, village: 'অন্য গ্রাম' })).body.data.total).toBe(0);
-    expect((await match(s, { ...p, father: 'অন্য পিতা' })).body.data.total).toBe(0);
+    const everyone = async () =>
+      storeKeys(
+        h.container,
+        (await h.db.query<{ id: string }>('SELECT id FROM beneficiaries')).rows.map((r) => r.id),
+      );
+    const group = await addVariantGroup(h.db, h.container, ['হোসেন', 'হোসাইন'], world.users.head);
+    try {
+      await everyone();
+      expect((await match(s, variant)).body.data.total).toBe(1);
+      expect((await match(s, { ...p, village: 'অন্য গ্রাম' })).body.data.total).toBe(0);
+      expect((await match(s, { ...p, father: 'অন্য পিতা' })).body.data.total).toBe(0);
+    } finally {
+      // the list as the other tests found it
+      await removeVariantGroup(h.db, h.container, group, world.users.head);
+      await everyone();
+    }
+    expect((await match(s, variant)).body.data.total).toBe(0);
   });
 
-  it('shows five and counts them all', async () => {
+  it('shows five and says that there are more, never how many', async () => {
     const p = person();
     for (let i = 0; i < 7; i++) await profile(p);
     const res = await match(await as(world.users.general), p);
-    expect(res.body.data.total).toBe(7);
+    expect(res.body.data.total).toBe(6);
     expect(res.body.data.people).toHaveLength(5);
+    const exact = person();
+    for (let i = 0; i < 5; i++) await profile(exact);
+    const five = await match(await as(world.users.general), exact);
+    expect(five.body.data.total).toBe(5);
   });
 
-  it('marks a blocked person as one who cannot be picked, with no token', async () => {
+  it('shows a blocked person as one who cannot be picked here, with no token and no reason', async () => {
     const p = person();
     await profile(p, { is_blocked: true });
     const res = await match(await as(world.users.general), p);
     expect(res.body.data.people).toEqual([
-      expect.objectContaining({ name: p.name, blocked: true, pickToken: null }),
+      expect.objectContaining({ name: p.name, pickable: false, pickToken: null }),
+    ]);
+    expect(res.body.data.people[0]).not.toHaveProperty('blocked');
+  });
+
+  it('shows a person who already has an application in this project the same way', async () => {
+    const p = person();
+    await profile(p);
+    const s = await as(world.users.general);
+    const made = await create(s, open, answersFor(p), { pickToken: await tokenFor(s, p) });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    const again = await match(s, p);
+    expect(again.body.data.people).toEqual([
+      expect.objectContaining({ name: p.name, pickable: false, pickToken: null }),
+    ]);
+    expect(again.body.data.people[0]).not.toHaveProperty('blocked');
+    // in another project the person may still be picked
+    const elsewhere = await match(s, p, { projectId: second.project });
+    expect(elsewhere.body.data.people).toEqual([
+      expect.objectContaining({ pickable: true, pickToken: expect.any(String) }),
     ]);
   });
 
@@ -271,19 +304,33 @@ describe('the name lookup', () => {
     expect(rows).toEqual([]);
   });
 
-  it('writes an audit row for every call, found or not, with the project, the union and the count but no name', async () => {
+  it('writes an audit row for every call, found or not, with the project, the union, the count and a keyed digest of the keys but no name', async () => {
     const actor = await freshVolunteer();
     const s = await as(actor.id);
     const p = person();
     await profile(p);
     await match(s, p);
     await match(s, person());
+    // the same person asked again under a title: the same keys, so the same digest
+    await match(s, { ...p, name: `মোঃ ${p.name}` });
     const rows = (await matchedRows(actor.id)).rows.map((r) => r.new);
+    const digest = expect.stringMatching(/^[A-Za-z0-9_-]{43}$/);
     expect(rows).toEqual([
-      { projectId: open.project, unionId: world.dhaka.union, found: 1 },
-      { projectId: open.project, unionId: world.dhaka.union, found: 0 },
+      { projectId: open.project, unionId: world.dhaka.union, keysDigest: digest, found: 1 },
+      { projectId: open.project, unionId: world.dhaka.union, keysDigest: digest, found: 0 },
+      { projectId: open.project, unionId: world.dhaka.union, keysDigest: digest, found: 1 },
     ]);
-    expect(JSON.stringify(rows)).not.toContain(p.name);
+    expect(rows[2]!.keysDigest).toBe(rows[0]!.keysDigest);
+    expect(rows[1]!.keysDigest).not.toBe(rows[0]!.keysDigest);
+    // neither the names nor their keys
+    const all = JSON.stringify(rows);
+    for (const plain of [
+      p.name,
+      p.father,
+      matchKey(p.name, new Map()),
+      matchKey(p.father, new Map()),
+    ])
+      expect(all).not.toContain(plain);
   });
 
   it('answers 429 past the day’s setting, audited as limited', async () => {
@@ -304,6 +351,7 @@ describe('the name lookup', () => {
       expect(rows.at(-1)).toEqual({
         projectId: open.project,
         unionId: world.dhaka.union,
+        keysDigest: rows[0]!.keysDigest,
         limited: true,
       });
       expect(rows).toHaveLength(3);
@@ -361,6 +409,16 @@ describe('an application for a picked person', () => {
     expect(body).not.toContain('01711000099');
     expect(read.body.data.beneficiaryId).toBe(id);
     expect(read.body.data.identityKind).toBe('none');
+    // whether there is a document or a mobile is read from what the volunteer typed: neither
+    expect(read.body.data).toMatchObject({ hasDocument: false, hasMobile: false });
+    // the office reads the profile's own
+    const office = await at(
+      await as(world.users.rpmDhaka),
+      'get',
+      `/applications/${made.body.data.id}`,
+    );
+    expect(office.status, JSON.stringify(office.body)).toBe(200);
+    expect(office.body.data).toMatchObject({ hasDocument: true, hasMobile: true });
   });
 
   it('keeps a document typed with it in the application’s answers, never on the profile', async () => {
@@ -399,9 +457,9 @@ describe('an application for a picked person', () => {
     ).toEqual({ nid: null, birth_reg: null });
   });
 
-  it('refuses a forged, an altered, an expired, another caller’s and another project’s token with one code', async () => {
+  it('refuses a forged, an altered, another caller’s and another project’s token with one code', async () => {
     const p = person();
-    const id = await profile(p);
+    await profile(p);
     const s = await as(world.users.general);
     const token = await tokenFor(s, p);
     const refused = async (session: Session, target: Target, pickToken: string) => {
@@ -412,13 +470,6 @@ describe('an application for a picked person', () => {
     await refused(s, open, 'not-a-token');
     const altered = (token.startsWith('A') ? 'B' : 'A') + token.slice(1);
     await refused(s, open, altered);
-    const expired = h.container.beneficiaryMatch.seal({
-      u: world.users.general,
-      p: open.project,
-      b: id,
-      e: h.container.clock.now().getTime() - 1000,
-    });
-    await refused(s, open, expired);
     // the RPM brings applications too, but the token was the volunteer's
     await refused(await as(world.users.rpmDhaka), open, token);
     await refused(s, second, token);
@@ -479,5 +530,215 @@ describe('an application for a picked person', () => {
       [serverOf(skipped.clientUuid).serverId],
     );
     expect(audit.rows[0]!.new).toMatchObject({ nameLookupSkipped: true });
+  });
+});
+
+describe('the lookup and the pick where the project requires the document', () => {
+  it('refuses the lookup, and an application with a token given before the PM asked the document again', async () => {
+    const target = await projectOf('MRQ');
+    const p = person();
+    await profile(p);
+    const s = await as(world.users.general);
+    const found = await match(s, p, { projectId: target.project });
+    expect(found.status, JSON.stringify(found.body)).toBe(200);
+    const token = found.body.data.people[0].pickToken as string;
+    await h.db.query(
+      `UPDATE project_components SET settings = settings || '{"identity_document": "required"}'::jsonb
+        WHERE project_id = $1 AND component_key = 'application_form'`,
+      [target.project],
+    );
+    const refused = await match(s, p, { projectId: target.project });
+    expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+    expect(refused.body.error.code).toBe('beneficiary.match_not_open');
+    const made = await create(s, target, answersFor(p, { q_id: text(f.fakeNid()) }), {
+      pickToken: token,
+    });
+    expect(made.status, JSON.stringify(made.body)).toBe(422);
+    expect(made.body.error.code).toBe('beneficiary.match_not_open');
+  });
+});
+
+describe('a number typed beside a picked person', () => {
+  const conflict = async (res: request.Response, code: string) => {
+    expect(res.status, JSON.stringify(res.body)).toBe(409);
+    expect(res.body.error.code).toBe(code);
+  };
+
+  it('refuses a blocked person’s number on a picked namesake', async () => {
+    const p = person();
+    await profile(p);
+    const nid = f.fakeNid();
+    await profile(person(), { nid, is_blocked: true });
+    const s = await as(world.users.general);
+    const res = await create(s, open, answersFor(p, { q_id: text(nid) }), {
+      pickToken: await tokenFor(s, p),
+    });
+    // a number goes through the number lookup's gate first, which says what that lookup says
+    await conflict(res, 'beneficiary.blocked');
+  });
+
+  it('refuses another profile’s number', async () => {
+    const p = person();
+    await profile(p);
+    const s = await as(world.users.general);
+    const nid = f.fakeNid();
+    await profile(person(), { nid });
+    await conflict(
+      await create(s, open, answersFor(p, { q_id: text(nid) }), {
+        pickToken: await tokenFor(s, p),
+      }),
+      'beneficiary.pick_number_conflict',
+    );
+  });
+
+  it('takes the picked person’s own number, and refuses a number already used in this project', async () => {
+    const s = await as(world.users.general);
+    const own = person();
+    const nid = f.fakeNid();
+    const id = await profile(own, { nid });
+    const mine = await create(s, open, answersFor(own, { q_id: text(nid) }), {
+      pickToken: await tokenFor(s, own),
+    });
+    expect(mine.status, JSON.stringify(mine.body)).toBe(201);
+    expect(mine.body.data.beneficiaryId).toBe(id);
+    // a number nobody holds, taken once beside one person and refused beside another
+    const loose = f.fakeNid();
+    const first = person();
+    await profile(first);
+    const taken = await create(s, open, answersFor(first, { q_id: text(loose) }), {
+      pickToken: await tokenFor(s, first),
+    });
+    expect(taken.status, JSON.stringify(taken.body)).toBe(201);
+    const second = person();
+    await profile(second);
+    await conflict(
+      await create(s, open, answersFor(second, { q_id: text(loose) }), {
+        pickToken: await tokenFor(s, second),
+      }),
+      'application.number_in_project',
+    );
+  });
+
+  it('refuses an edit that keeps a number another profile has come to hold since', async () => {
+    const p = person();
+    await profile(p);
+    const s = await as(world.users.general);
+    const nid = f.fakeNid();
+    const made = await create(s, open, answersFor(p, { q_id: text(nid) }), {
+      pickToken: await tokenFor(s, p),
+    });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    await profile(person(), { nid });
+    const edit = await at(s, 'patch', `/applications/${made.body.data.id}`)
+      .set('If-Match', made.headers.etag as string)
+      .send({ answers: made.body.data.answers });
+    await conflict(edit, 'beneficiary.pick_number_conflict');
+  });
+});
+
+describe('a picked person merged into another profile before the application', () => {
+  it('binds the application to the profile the merge kept, with its names', async () => {
+    const p = person();
+    const picked = await profile(p);
+    const keptPerson = person();
+    const kept = await profile(keptPerson);
+    const s = await as(world.users.general);
+    const token = await tokenFor(s, p);
+    await h.db.query('UPDATE beneficiaries SET merged_into_id = $2 WHERE id = $1', [picked, kept]);
+    const made = await create(s, open, answersFor(p), { pickToken: token });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    expect(made.body.data.beneficiaryId).toBe(kept);
+    const name = (made.body.data.answers as { fieldKey: string; value: unknown }[]).find(
+      (a) => a.fieldKey === 'q_name',
+    )?.value;
+    expect(name).toEqual(text(keptPerson.name));
+  });
+});
+
+describe('an expired pick token', () => {
+  const expiredFor = (beneficiaryId: string) =>
+    h.container.beneficiaryMatch.seal({
+      u: world.users.general,
+      p: open.project,
+      b: beneficiaryId,
+      e: h.container.clock.now().getTime() - 1000,
+    });
+  const rowOf = async (id: string) =>
+    (
+      await h.db.query<{
+        status: string;
+        beneficiary_id: string | null;
+        candidate_beneficiary_id: string | null;
+        flags: string[];
+      }>(
+        'SELECT status, beneficiary_id, candidate_beneficiary_id, flags FROM applications WHERE id = $1',
+        [id],
+      )
+    ).rows[0]!;
+
+  it('creates the application unbound, for the office to compare with the picked person', async () => {
+    const p = person();
+    const id = await profile(p);
+    const s = await as(world.users.general);
+    const made = await create(s, open, answersFor(p), { pickToken: expiredFor(id) });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    expect(made.body.data).toMatchObject({
+      status: 'needs_verification',
+      beneficiaryId: null,
+      candidateBeneficiaryId: id,
+    });
+    expect(await rowOf(made.body.data.id)).toMatchObject({
+      status: 'needs_verification',
+      beneficiary_id: null,
+      candidate_beneficiary_id: id,
+      flags: ['existing_identity'],
+    });
+    const audit = await h.db.query<{ new: Record<string, unknown> }>(
+      `SELECT new FROM audit_log WHERE action = 'application.create' AND entity_id = $1`,
+      [made.body.data.id],
+    );
+    expect(audit.rows[0]!.new).toMatchObject({ pickedByName: true, pickExpired: true });
+  });
+
+  it('does the same through the phone’s sync, and a forged token is still refused there', async () => {
+    const p = person();
+    const id = await profile(p);
+    const s = await as(world.users.general);
+    const now = h.container.clock.now().toISOString();
+    const draft = (pickToken: string) => ({
+      clientUuid: randomUUID(),
+      kind: 'application_draft',
+      projectId: open.project,
+      formVersionId: open.versionId,
+      payload: { answers: answersFor(p), pickToken },
+      clientCreatedAt: now,
+      clientUpdatedAt: now,
+    });
+    const expired = draft(expiredFor(id));
+    const forged = draft('not-a-token');
+    const res = await at(s, 'post', '/sync/batch')
+      .set('Idempotency-Key', randomUUID())
+      .send({ deviceTime: now, records: [expired, forged] });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    const results = res.body.data.results as {
+      clientUuid: string;
+      result: string;
+      code?: string;
+      serverId?: string;
+    }[];
+    const resultOf = (clientUuid: string) => results.find((r) => r.clientUuid === clientUuid)!;
+    expect(resultOf(expired.clientUuid)).toMatchObject({
+      result: 'needs_verification',
+      code: 'existing_identity',
+    });
+    expect(await rowOf(resultOf(expired.clientUuid).serverId!)).toMatchObject({
+      beneficiary_id: null,
+      candidate_beneficiary_id: id,
+      flags: ['existing_identity'],
+    });
+    expect(resultOf(forged.clientUuid)).toMatchObject({
+      result: 'failed',
+      code: 'beneficiary.pick_invalid',
+    });
   });
 });

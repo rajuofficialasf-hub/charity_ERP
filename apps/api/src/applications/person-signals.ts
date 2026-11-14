@@ -20,7 +20,8 @@ export interface PersonRef {
 }
 
 /** How sure a signal is: both signals are probable, never certain. */
-type SignalLevel = { level: 'probable' };
+const PROBABLE = { level: 'probable' } as const;
+type SignalLevel = typeof PROBABLE;
 
 /**
  * The applicant is probably a member an earlier beneficiary listed in their family. Where the
@@ -96,21 +97,21 @@ export class PersonSignals {
       familyMemberSignals: members.rows.map((m) =>
         m.named
           ? {
-              level: 'probable' as const,
+              ...PROBABLE,
               relationships: m.relationships,
               head: { beneficiaryId: m.headId, benNo: m.headBenNo, name: m.headName },
             }
-          : { level: 'probable' as const },
+          : PROBABLE,
       ),
       familyMemberSignalsTotal: members.total,
       samePersonSignals: pairs.rows.map((p) =>
         p.named
           ? {
-              level: 'probable' as const,
+              ...PROBABLE,
               matchedOn: p.matchedOn,
               other: { beneficiaryId: p.beneficiaryId, benNo: p.benNo, name: p.name },
             }
-          : { level: 'probable' as const },
+          : PROBABLE,
       ),
       samePersonSignalsTotal: pairs.total,
     };

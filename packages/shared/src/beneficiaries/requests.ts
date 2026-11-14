@@ -27,8 +27,13 @@ export const lookupRequestSchema = z
   });
 export type LookupRequest = z.infer<typeof lookupRequestSchema>;
 
-/** At most this many people the name lookup shows; its count says how many there are in all. */
+/** At most this many people the name lookup shows. */
 export const MATCH_ROWS_SHOWN = 5;
+/**
+ * The name lookup's count stops here, one past the people shown: it says that there are more,
+ * never how many, so the count gives away no more than the rows.
+ */
+export const MATCH_TOTAL_CAP = MATCH_ROWS_SHOWN + 1;
 
 /**
  * The name lookup of an application without a document: the name, the father's or husband's name

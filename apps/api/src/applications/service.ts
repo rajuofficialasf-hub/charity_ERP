@@ -55,7 +55,13 @@ import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiaryFamilyService } from '../services/beneficiary-family.js';
 import type { BeneficiaryIdentityService } from '../services/beneficiary-identity.js';
-import type { BeneficiaryMatchService } from '../services/beneficiary-match.js';
+import {
+  type BeneficiaryMatchService,
+  MATCH_NOT_OPEN,
+  PICK_INVALID,
+  PICK_NUMBER_CONFLICT,
+  type PickedPerson,
+} from '../services/beneficiary-match.js';
 import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
 import { type FormAudience, readDefinition, versionView } from '../services/forms.js';
 import { isAddressChain } from '../services/locations.js';
@@ -301,8 +307,17 @@ type Person = {
   identityKind: 'nid' | 'birth_reg' | 'none' | null;
   number: string | null;
   answers: Answer[];
-  /** The profile the number belongs to when the typed names did not match it (a sync record). */
+  /**
+   * The profile the office compares the person with, the application unbound until then: the
+   * number's holder when the typed names did not match it (a sync record), or the person of an
+   * expired pick token.
+   */
   candidate?: string | null;
+  /**
+   * An identity number the answers of a person bound without a document carry and no profile
+   * holds: it stays in the application, and only one application of the project may carry it.
+   */
+  looseNumber?: string | null;
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -369,9 +384,11 @@ export class ApplicationsService {
       optionalIdentityOf(rules, audience),
     );
     const access = await this.access.load(actor);
-    // a person picked from the name lookup: only with the token that lookup gave this caller here
+    // a person picked from the name lookup: only where the project lets the document stay empty,
+    // and only with the token that lookup gave this caller here
+    if (body.pickToken && rules.document !== 'optional') throw new ApiError(MATCH_NOT_OPEN, 422);
     const picked = body.pickToken
-      ? await this.match.pickedPerson(this.prisma, viewer.principal, projectId, body.pickToken)
+      ? this.match.pickedPerson(viewer.principal, projectId, body.pickToken)
       : null;
     await this.gateLookup(viewer.principal, access, projectId, definition, checked.answers);
     try {
@@ -456,8 +473,10 @@ export class ApplicationsService {
             candidateBeneficiaryId: candidate,
             ownerVolunteerId: owner.ownerVolunteerId,
             // how the person was found: picked from the name lookup, or the lookup was left out
-            // on a phone without network, so the office compares the person at the send
+            // on a phone without network, so the office compares the person at the send; an
+            // expired pick binds nobody and the office compares the person it named
             ...(picked ? { pickedByName: true } : {}),
+            ...(picked?.expired ? { pickExpired: true } : {}),
             ...(body.nameLookupSkipped ? { nameLookupSkipped: true } : {}),
           },
         });
@@ -1459,8 +1478,9 @@ export class ApplicationsService {
     if (boundTo && options.boundWithoutNumber) {
       // a number is added to such a profile by an official who compared the two, never by an edit;
       // one the application already carries (given when its person was picked by name) stays in
-      // its answers and never reaches the profile
+      // its answers and never reaches the profile, and is still no other person's
       if (number && number !== options.keptNumber) throw locked(field!.fieldKey);
+      const looseNumber = await this.numberBeside(tx, definition, answers, boundTo);
       const profile = await tx.beneficiary.findUniqueOrThrow({
         where: { id: boundTo },
         select: { name: true, fatherOrHusbandName: true },
@@ -1469,6 +1489,7 @@ export class ApplicationsService {
         beneficiaryId: boundTo,
         identityKind: 'none',
         number: null,
+        looseNumber,
         answers: lockedTo(definition, answers, {
           name: profile.name,
           father_or_husband_name: profile.fatherOrHusbandName,
@@ -1484,15 +1505,7 @@ export class ApplicationsService {
         { path: field!.fieldKey, code: 'beneficiary.identity_missing' },
       ]);
     const kind = identityColumn(number);
-    const holder = await tx.beneficiary.findFirst({
-      where: kind === 'nid' ? { nid: number } : { birthReg: number },
-      select: { id: true, mergedIntoId: true },
-    });
-    const live = holder
-      ? holder.mergedIntoId
-        ? await this.identity.liveOf(tx, holder.id)
-        : holder.id
-      : null;
+    const live = await this.liveHolderOf(tx, number);
     if (boundTo && live !== boundTo) throw locked(field!.fieldKey);
     if (!live) return { beneficiaryId: null, identityKind: kind, number, answers };
     await this.identity.assertMayApply(tx, live);
@@ -1525,20 +1538,75 @@ export class ApplicationsService {
     };
   }
 
+  /** The live profile that holds an identity number, following merges; null when none does. */
+  private async liveHolderOf(tx: Tx, number: string): Promise<string | null> {
+    const holder = await tx.beneficiary.findFirst({
+      where: identityColumn(number) === 'nid' ? { nid: number } : { birthReg: number },
+      select: { id: true, mergedIntoId: true },
+    });
+    if (!holder) return null;
+    return holder.mergedIntoId ? this.identity.liveOf(tx, holder.id) : holder.id;
+  }
+
   /**
-   * The person picked from the name lookup binds the application at once, without a document:
-   * blocked people are refused as on every new application, and the name and the father's or
-   * husband's name are locked to the profile's, as a known person's are. A number the answers carry
-   * stays in them and is never written onto the profile: an official attaches a document after
-   * comparing the two.
+   * The identity number typed beside a person bound or picked without a document. One another
+   * live profile holds (a blocked one too) would put this person's application under another
+   * person's number: 409. One the person's own profile holds is theirs. One nobody holds stays in
+   * the application's answers and is answered as its loose number, never written onto the profile.
+   */
+  private async numberBeside(
+    tx: Tx,
+    definition: FormDefinition,
+    answers: Answer[],
+    personId: string,
+  ): Promise<string | null> {
+    const number = identityNumberIn(definition, answers);
+    if (!number) return null;
+    if (!IDENTITY_NUMBER.test(number))
+      throw new ApiError('validation.failed', 422, undefined, [
+        {
+          path: fieldByColumn(definition, IDENTITY_COLUMN)!.fieldKey,
+          code: 'beneficiary.identity_missing',
+        },
+      ]);
+    const holder = await this.liveHolderOf(tx, number);
+    if (holder && holder !== personId) throw new ApiError(PICK_NUMBER_CONFLICT, 409);
+    return holder ? null : number;
+  }
+
+  /**
+   * The person picked from the name lookup, followed to the profile kept by any merge since the
+   * pick (422 when the token's profile is gone). Blocked people are refused as on every new
+   * application. A good token binds the application at once, without a document, the name and the
+   * father's or husband's name locked to the profile's, as a known person's are. An expired token
+   * binds nobody: the application waits for the office with the person as its candidate, as an
+   * entry whose number names a profile its typed names do not match. A number the answers carry
+   * must be no other person's; it stays in them and is never written onto the profile: an official
+   * attaches a document after comparing the two.
    */
   private async pickedPerson(
     tx: Tx,
     definition: FormDefinition,
     answers: Answer[],
-    beneficiaryId: string,
+    pick: PickedPerson,
   ): Promise<Person> {
-    await this.identity.assertMayApply(tx, beneficiaryId);
+    if (!(await this.identity.liveOf(tx, pick.beneficiaryId)))
+      throw new ApiError(PICK_INVALID, 422);
+    // the gate locks the merge chain, so the profile read after it stays the kept one
+    await this.identity.assertMayApply(tx, pick.beneficiaryId);
+    const beneficiaryId = await this.identity.liveOf(tx, pick.beneficiaryId);
+    if (!beneficiaryId) throw new ApiError(PICK_INVALID, 422);
+    const looseNumber = await this.numberBeside(tx, definition, answers, beneficiaryId);
+    if (pick.expired) {
+      const number = identityNumberIn(definition, answers);
+      return {
+        beneficiaryId: null,
+        identityKind: number ? identityColumn(number) : null,
+        number,
+        answers,
+        candidate: beneficiaryId,
+      };
+    }
     const profile = await tx.beneficiary.findUniqueOrThrow({
       where: { id: beneficiaryId },
       select: { name: true, fatherOrHusbandName: true },
@@ -1546,7 +1614,8 @@ export class ApplicationsService {
     return {
       beneficiaryId,
       identityKind: 'none',
-      number: identityNumberIn(definition, answers),
+      number: null,
+      looseNumber,
       answers: lockedTo(definition, answers, {
         name: profile.name,
         father_or_husband_name: profile.fatherOrHusbandName,
@@ -1556,8 +1625,9 @@ export class ApplicationsService {
 
   /**
    * One application per person per project: a known person may not have another live one (the
-   * unique index holds it), and before the profile exists the same number may not be drafted
-   * twice; the number is locked for the transaction, so two drafts at once cannot both pass.
+   * unique index holds it), and a number no profile holds may not be drafted twice, neither
+   * before its profile exists nor beside a person picked without a document; the number is locked
+   * for the transaction, so two drafts at once cannot both pass.
    */
   private async assertOnePerProject(
     tx: Tx,
@@ -1575,9 +1645,9 @@ export class ApplicationsService {
         },
       });
       if (live > 0) throw new ApiError('beneficiary.already_applied', 409);
-      return;
     }
-    const number = person.number;
+    // a known person's number is theirs; a number nobody holds is once per project
+    const number = person.beneficiaryId ? person.looseNumber : person.number;
     if (!number) return;
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`application-number:${projectId}:${number}`}))`;
     const [row] = await tx.$queryRaw<{ n: bigint }[]>`
@@ -1844,6 +1914,19 @@ export class ApplicationsService {
     // the volunteer who brings the application typed the number and the mobile, or left them out
     const seesDocument = mine || viewer.fieldClasses.has(BENEFICIARY_NID);
     const seesContact = mine || viewer.fieldClasses.has(BENEFICIARY_CONTACT);
+    // ...but of the profile, only what the class gives: without it, the volunteer who brings the
+    // application reads whether it carries a number or a mobile from what they typed, so a person
+    // picked by name never tells them whether the profile holds a document or a mobile
+    const typed = (has: boolean) => (row.beneficiary ? has : null);
+    const mobileField = fieldByColumn(definition, 'mobile');
+    const fromAnswers = {
+      ...(mine && !viewer.fieldClasses.has(BENEFICIARY_NID)
+        ? { hasDocument: typed(identityNumberIn(definition, read) !== null) }
+        : {}),
+      ...(mine && !viewer.fieldClasses.has(BENEFICIARY_CONTACT)
+        ? { hasMobile: typed(!!mobileField && textOf(read, mobileField.fieldKey) !== null) }
+        : {}),
+    };
     const identityKind = identityKindSchema.parse(row.identityKind);
     // the profile a person without a document was compared with is the office's to know
     const blockedMatch = row.flags.includes(BLOCKED_NAME_MATCH);
@@ -1861,6 +1944,7 @@ export class ApplicationsService {
           document: seesDocument,
           contact: seesContact,
         }),
+        ...fromAnswers,
         formVersionId: row.formVersionId,
         candidateBeneficiaryId:
           audience === 'official' || !blockedMatch ? row.candidateBeneficiaryId : null,

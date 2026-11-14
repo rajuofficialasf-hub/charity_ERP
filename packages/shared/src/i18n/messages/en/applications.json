@@ -48,7 +48,8 @@
       "none_of_them": "None of them: a new person",
       "nobody": "Nobody is here under this name yet",
       "start_new": "Start as a new person",
-      "more": "{n} more under the same name",
+      "more": "More people are here under this name",
+      "not_pickable": "This person cannot be chosen here; tell the office.",
       "outside": "This union is outside the project's areas. Choose a union of the project's areas.",
       "offline": "No connection, so the names already here cannot be checked; the office will check them later."
     }

@@ -63,24 +63,54 @@ export async function reachesProject(
   scope: Scope,
   projectId: string,
 ): Promise<boolean> {
-  const i = scope.instances;
-  if (i.revokedProjectIds.includes(projectId)) return false;
-  const filtered = await db.project.count({
-    where: { AND: [{ id: projectId }, projectWhere(scope)] },
-  });
-  if (filtered > 0) return true;
-  return i.self && (await worksOn(db, principal.userId, projectId));
+  return (await reachedProjects(db, principal, scope, [projectId])).has(projectId);
 }
 
-/** Whether the user works on the project: a staff place, an accepted assignment, or a team. */
-async function worksOn(db: Tx | PrismaService, userId: string, projectId: string) {
-  const [staff, assignment, member] = await Promise.all([
-    db.projectStaff.count({ where: { projectId, userId, endedAt: null } }),
-    db.projectVolunteer.count({
-      where: { ...WORKING_ASSIGNMENT, projectId, volunteer: { userId } },
+/**
+ * Those of the projects the caller's project scope reaches, by the rule of `reachesProject`, read
+ * together: one query through the project filter, and one read of the caller's own work for the
+ * rest under a SELF instance, however many projects are asked about.
+ */
+export async function reachedProjects(
+  db: Tx | PrismaService,
+  principal: Principal,
+  scope: Scope,
+  projectIds: readonly string[],
+): Promise<Set<string>> {
+  const i = scope.instances;
+  const asked = [...new Set(projectIds)].filter((id) => !i.revokedProjectIds.includes(id));
+  if (!asked.length) return new Set();
+  const filtered = await db.project.findMany({
+    where: { AND: [{ id: { in: asked } }, projectWhere(scope)] },
+    select: { id: true },
+  });
+  const reached = new Set(filtered.map((p) => p.id));
+  const rest = asked.filter((id) => !reached.has(id));
+  if (i.self && rest.length)
+    for (const id of await worksOn(db, principal.userId, rest)) reached.add(id);
+  return reached;
+}
+
+/** Those of the projects the user works on: a staff place, an accepted assignment, or a team. */
+async function worksOn(
+  db: Tx | PrismaService,
+  userId: string,
+  projectIds: string[],
+): Promise<string[]> {
+  const [staff, assignments, member] = await Promise.all([
+    db.projectStaff.findMany({
+      where: { projectId: { in: projectIds }, userId, endedAt: null },
+      select: { projectId: true },
+    }),
+    db.projectVolunteer.findMany({
+      where: { ...WORKING_ASSIGNMENT, projectId: { in: projectIds }, volunteer: { userId } },
+      select: { projectId: true },
     }),
     db.volunteer.findUnique({ where: { userId }, select: { id: true } }),
   ]);
-  if (staff + assignment > 0) return true;
-  return member ? (await workingTeamProjects(db, member.id)).includes(projectId) : false;
+  const own = new Set([...staff, ...assignments].map((r) => r.projectId));
+  // the team's projects only where the user's own places leave a project open
+  if (member && projectIds.some((id) => !own.has(id)))
+    for (const id of await workingTeamProjects(db, member.id)) own.add(id);
+  return projectIds.filter((id) => own.has(id));
 }

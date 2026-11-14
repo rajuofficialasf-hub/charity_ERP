@@ -110,6 +110,8 @@ const levelOf = (res: request.Response, [low, high]: [string, string]) =>
   )?.level;
 const has = (res: request.Response, [low, high]: [string, string]) =>
   pairsOf(res).find(([a, b]) => a === low && b === high);
+/** Whether the list holds the pair. */
+const lists = (res: request.Response, key: [string, string]) => has(res, key) !== undefined;
 const dismiss = (s: Session, [a, b]: [string, string], reason = 'আলাদা মানুষ, ভিন্ন গ্রাম') =>
   api()
     .post('/api/v1/beneficiaries/merge-dismissals')
@@ -196,7 +198,7 @@ describe('the suggested duplicate pairs', () => {
     expect((onlyCheck.body.data as { level: string }[]).every((r) => r.level === 'check')).toBe(
       true,
     );
-    expect(has(onlyCheck, check)).toBeTruthy();
+    expect(lists(onlyCheck, check)).toBe(true);
     expect(has(onlyCheck, probable)).toBeUndefined();
     const ofOne = await candidates(rpm, { beneficiaryId: probable[1] });
     expect(pairsOf(ofOne)).toEqual([[probable[0], probable[1], ['name_dob_union']]]);
@@ -259,13 +261,13 @@ describe('the suggested duplicate pairs', () => {
     const dhaka = await pair(world.dhaka, 'same_mobile');
     const rangpur = await pair(world.rangpur, 'same_mobile');
     const rpm = await candidates(await as(world.users.rpmDhaka));
-    expect(has(rpm, dhaka)).toBeTruthy();
+    expect(lists(rpm, dhaka)).toBe(true);
     expect(has(rpm, rangpur)).toBeUndefined();
     const applied = await pair(world.rangpur, 'same_mobile');
     for (const id of applied)
       await f.application(h.db, { project: world.a1, loc: world.rangpur }, { beneficiary_id: id });
     const pm = await candidates(await as(world.users.pm));
-    expect(has(pm, applied)).toBeTruthy();
+    expect(lists(pm, applied)).toBe(true);
     expect(has(pm, rangpur)).toBeUndefined();
   });
 
@@ -502,7 +504,7 @@ describe('marking a pair as two different people', () => {
       .set(bearer(rpm))
       .send({ reason: 'আবার যাচাই করা দরকার' });
     expect(liftedByRpm.status).toBe(200);
-    expect(has(await candidates(rpm), p)).toBeTruthy();
+    expect(lists(await candidates(rpm), p)).toBe(true);
     const audits = await h.db.query(
       `SELECT action FROM audit_log WHERE entity_type = 'beneficiary' AND entity_id = $1 AND action LIKE 'beneficiary.merge_dismiss%' ORDER BY created_at`,
       [p[0]],
@@ -670,7 +672,7 @@ describe('the pair by name, father’s or husband’s name and village', () => {
     const p = person();
     const marked = await two({ ...p, village: 'চিহ্ন গ্রাম' }, { ...p, village: 'চিহ্ন গ্রাম' });
     const rpm = await as(world.users.rpmDhaka);
-    expect(has(await candidates(rpm), marked)).toBeTruthy();
+    expect(lists(await candidates(rpm), marked)).toBe(true);
     await dismiss(rpm, marked).expect(201);
     await refresh(...marked);
     await refreshAll(...marked);
@@ -684,7 +686,7 @@ describe('the pair by name, father’s or husband’s name and village', () => {
     const again = await f.beneficiary(h.db, world.rangpur, { ...p, village: 'দূর গ্রাম' });
     await refresh(rangpur, again);
     const key = [rangpur, again].sort() as [string, string];
-    expect(has(await candidates(await as(world.users.rpmRangpur)), key)).toBeTruthy();
+    expect(lists(await candidates(await as(world.users.rpmRangpur)), key)).toBe(true);
     expect(has(await candidates(await as(world.users.rpmDhaka)), key)).toBeUndefined();
     expect(
       has(await candidates(await as(world.users.rpmDhaka), { beneficiaryId: rangpur }), key),

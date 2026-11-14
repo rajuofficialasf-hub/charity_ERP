@@ -87,8 +87,10 @@
     "mobile_shared": "This mobile number is also on another beneficiary profile.",
     "dismissed": "This pair is already marked as two different people.",
     "lookup_outside_limit": "Today's limit for finding profiles of other regions is used up. Try again tomorrow, or ask your RPM.",
-    "pick_invalid": "The pick of this person has run out or belongs to another project. Search again.",
+    "pick_invalid": "This choice no longer works: it belongs to another project or person, or the profile is gone. Search by name again.",
     "match_limit": "Today's limit for searching by name is used up. Try again tomorrow, or start as a new person.",
+    "match_not_open": "This project needs an identity document, so people cannot be searched or chosen by name. Search by the NID or birth registration number.",
+    "pick_number_conflict": "This number belongs to another beneficiary. Correct the number, or leave it empty.",
     "merge_keep_document": "Keep the profile that has the identity document.",
     "merge_needs_global": "Applications of another program are involved, so the Monitoring Team or the Department Head carries out this merge."
   },

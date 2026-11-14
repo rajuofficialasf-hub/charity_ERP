@@ -911,15 +911,15 @@ describe('the people already here under the name', () => {
     village: 'চরপাড়া',
     helpedYears: [2024, 2025],
     projects: [{ name: { bn: 'শীতবস্ত্র 2024', en: 'Winter 2024' }, year: 2024 }],
-    blocked: false,
+    pickable: true,
     pickToken: 'sealed-token-1',
   };
-  const blocked = {
+  const unpickable = {
     ...helped,
     name: 'রহিম মিয়া',
     helpedYears: [],
     projects: [],
-    blocked: true,
+    pickable: false,
     pickToken: null,
   };
   let asked: Record<string, unknown>[];
@@ -959,7 +959,8 @@ describe('the people already here under the name', () => {
 
   it('asks the name, the father’s or husband’s name, the union and the village first, and lists the people already here', async () => {
     const user = userEvent.setup();
-    const view = open([helped, blocked], 7);
+    // the count stops one past the five a full answer shows: six says there are more
+    const view = open([helped, unpickable], 6);
     const step = await lookUpTheName(user);
     expect(await within(step).findByRole('heading', { name: M.found_title })).toBeInTheDocument();
     expect(asked).toEqual([
@@ -975,13 +976,14 @@ describe('the people already here under the name', () => {
     expect(within(step).getAllByText('পিতা/স্বামী: আব্দুল জব্বার')).toHaveLength(2);
     expect(within(step).getByText('সাহায্য পেয়েছেন: 2024, 2025')).toBeInTheDocument();
     expect(within(step).getByText('প্রকল্প: শীতবস্ত্র 2024')).toBeInTheDocument();
-    // a blocked person cannot be picked, in the words of the number lookup
+    // a person who cannot be picked here gets one neutral line, never the reason
     const picks = within(step).getAllByRole('button', { name: M.pick });
     expect(picks[0]).toBeEnabled();
     expect(picks[1]).toBeDisabled();
-    expect(within(step).getByText(bn.applications.new.blocked)).toBeInTheDocument();
-    // seven in all, two shown
-    expect(within(step).getByText('একই নামে আরও 5 জন আছেন')).toBeInTheDocument();
+    expect(within(step).getByText(M.not_pickable)).toBeInTheDocument();
+    expect(within(step).queryByText(bn.applications.new.blocked)).not.toBeInTheDocument();
+    // more than shown, and no number of how many
+    expect(within(step).getByText(M.more)).toBeInTheDocument();
     expect(within(step).getByRole('button', { name: M.none_of_them })).toBeInTheDocument();
     await expectNoAxeViolations(view.container);
   }, 60_000);

@@ -441,7 +441,7 @@ permissions:
       - { role: volunteer_both, scope: PROJECT }
       - { role: volunteer_team_member, scope: PROJECT }
   - name: beneficiary.match
-    description: Find the people already here by name, father's or husband's name and village for an application without a document (exact keys inside a union of an area of a project the caller works on; at most five; name, father's or husband's name, village, years of help, the names of the caller's own projects and a pick token; never a number, a contact or a document flag; every call audited and counted per day)
+    description: Find the people already here by name, father's or husband's name and village for an application without a document, on a project that asks the document 'if they have one' (exact keys inside a union of an area of a project the caller works on; at most five; name, father's or husband's name, village, years of help, the names of the caller's own projects, whether the person may be picked here and a pick token; never a number, a contact, a document flag or why a person may not be picked; every call audited and counted per day)
     module: M05
     sensitive: false
     default:

@@ -21,8 +21,9 @@ const unreached = (error: unknown) => !(error instanceof ApiFailure) || error.st
  * The people already here under a name (docs/ui/SCREENS.md, "New application with NID lookup"):
  * before a person without a document is taken as new, the volunteer types the name, the father's
  * or husband's name, the union and the village and searches; the server shows at most five people
- * with those keys in that union, each with the years of help, and the volunteer picks one ("ইনিই")
- * or says it is a new person. The rows are kept in this screen's memory only. Without network the
+ * with those keys in that union (and says when there are more), each with the years of help, and
+ * the volunteer picks one ("ইনিই") or says it is a new person; a person who cannot be picked here
+ * keeps the button disabled under one neutral line. The rows are kept in this screen's memory only. Without network the
  * lookup is left out and the form starts as for a new person; the office compares at the send.
  */
 export function NameMatch({
@@ -33,7 +34,6 @@ export function NameMatch({
   onChoose: (choice: NameMatchChoice) => void;
 }) {
   const t = useTranslations('applications.new.match');
-  const tn = useTranslations('applications.new');
   const te = useTranslations('errors.validation');
   const locale = useLocale() as Locale;
   const [name, setName] = useState('');
@@ -161,7 +161,7 @@ export function NameMatch({
             <Heading level={3}>{t('found_title')}</Heading>
             <ul className="apply-match-list">
               {found.people.map((person, i) => (
-                <li key={person.pickToken ?? `blocked-${i}`} className="apply-match-row">
+                <li key={person.pickToken ?? `unpickable-${i}`} className="apply-match-row">
                   <span className="apply-match-name">{person.name}</span>
                   <Text size="small">{t('father_line', { name: person.fatherOrHusbandName })}</Text>
                   <Text size="small">{t('village_line', { village: person.village })}</Text>
@@ -177,13 +177,13 @@ export function NameMatch({
                       })}
                     </Text>
                   ) : null}
-                  {person.blocked || !person.pickToken ? (
+                  {!person.pickable || !person.pickToken ? (
                     <>
-                      {/* the person cannot be picked, in the words of the number lookup */}
+                      {/* one neutral line: why the person cannot be picked here is not said */}
                       <Button variant="primary" disabled>
                         {t('pick')}
                       </Button>
-                      <Text tone="error">{tn('blocked')}</Text>
+                      <Text tone="muted">{t('not_pickable')}</Text>
                     </>
                   ) : (
                     <Button
@@ -203,9 +203,10 @@ export function NameMatch({
                 </li>
               ))}
             </ul>
+            {/* the count stops one past the people shown: there are more, never how many */}
             {found.total > found.people.length ? (
               <Text size="small" tone="muted">
-                {t('more', { n: String(found.total - found.people.length) })}
+                {t('more')}
               </Text>
             ) : null}
             {startNew(t('none_of_them'))}

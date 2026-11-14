@@ -270,12 +270,13 @@ export const matchPersonSchema = z.object({
   village: z.string(),
   helpedYears: z.array(z.number().int()),
   projects: z.array(z.object({ name: bilingual, year: z.number().int() })),
-  blocked: z.boolean(),
+  /** Whether the person may be picked here; the reason is not said. */
+  pickable: z.boolean(),
   pickToken: z.string().nullable(),
 });
 export type MatchPerson = z.infer<typeof matchPersonSchema>;
 
-/** `POST /beneficiaries/match`: at most five people and how many there are in all. */
+/** `POST /beneficiaries/match`: at most five people, and a count above five when there are more. */
 export const matchResultSchema = z.object({
   total: z.number().int(),
   people: z.array(matchPersonSchema),

@@ -405,8 +405,22 @@ describe('the key job', () => {
     try {
       await h.db.query(`UPDATE beneficiaries SET name = 'মোঃ তৃতীয় নাম' WHERE id = $1`, [id]);
       const running = keyJob(500).job.run();
-      // the batch reaches the row and waits for its lock
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // the batch reaches the row and waits for its lock: seen in the server's own activity, the
+      // view read afresh each time (it is otherwise read once per transaction)
+      await expect
+        .poll(
+          async () => {
+            await h.db.query('SELECT pg_stat_clear_snapshot()');
+            const { rows } = await h.db.query<{ n: number }>(
+              `SELECT count(*)::int AS n FROM pg_stat_activity
+                WHERE datname = current_database() AND pid <> pg_backend_pid()
+                  AND wait_event_type = 'Lock' AND query ILIKE '%beneficiaries%'`,
+            );
+            return rows[0]!.n;
+          },
+          { timeout: 10_000, interval: 50 },
+        )
+        .toBeGreaterThan(0);
       await h.db.query('COMMIT');
       expect((await running).profiles).toBeGreaterThanOrEqual(1);
     } catch (error) {

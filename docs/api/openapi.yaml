@@ -379,7 +379,7 @@ components:
         beneficiary.already_applied, beneficiary.identity_taken, beneficiary.mobile_is_volunteer_mobile,
         beneficiary.correction_pending, beneficiary.correction_stale, beneficiary.merge_conflict,
         beneficiary.merge_revert_order, beneficiary.merge_stale, beneficiary.dismissed,
-        payment.transaction_id_exists, payment.claim_already_paid,
+        beneficiary.pick_number_conflict, payment.transaction_id_exists, payment.claim_already_paid,
         animal.already_allocated, file.duplicate, export.not_ready, export.running_limit, session.use_logout,
         user.system_owner_protected, user.handover_required, user.transition_not_allowed, user.not_locked.
       content:
@@ -409,7 +409,7 @@ components:
       description: >-
         validation.failed with field details; business rules such as beneficiary.identity_missing,
         beneficiary.mobile_is_volunteer_mobile, beneficiary.blocked, beneficiary.locked_field,
-        beneficiary.merge_keep_document, beneficiary.pick_invalid,
+        beneficiary.merge_keep_document, beneficiary.pick_invalid, beneficiary.match_not_open,
         workflow.reason_required, workflow.comment_required, otp.invalid, otp.expired, file.source_not_allowed,
         export.too_many_rows, export.pdf_too_many_rows;
         password details validation.password_too_short, validation.password_uppercase_digit,
@@ -2350,14 +2350,21 @@ components:
           additionalProperties: false
           required: [total, people]
           properties:
-            total: { type: integer, minimum: 0, description: 'How many live profiles match, also beyond the five shown' }
+            total:
+              type: integer
+              minimum: 0
+              maximum: 6
+              description: >-
+                How many live profiles match, counted up to one past the five shown: 6 says there
+                are more, never how many
+
             people:
               type: array
               maxItems: 5
               items:
                 type: object
                 additionalProperties: false
-                required: [name, fatherOrHusbandName, village, helpedYears, projects, blocked, pickToken]
+                required: [name, fatherOrHusbandName, village, helpedYears, projects, pickable, pickToken]
                 properties:
                   name: { type: string, description: As written on the profile }
                   fatherOrHusbandName: { type: string, description: As written on the profile }
@@ -2376,13 +2383,18 @@ components:
                       properties:
                         name: { $ref: '#/components/schemas/Bilingual' }
                         year: { type: integer }
-                  blocked: { type: boolean, description: The person cannot be picked (on the block list); nothing else is said }
+                  pickable:
+                    type: boolean
+                    description: >-
+                      Whether the person may be picked here; false for a person on the block list
+                      and for one who already has a live application in this project, without saying
+                      which
                   pickToken:
                     type: [string, 'null']
                     description: >-
                       Starts an application for this person (ApplicationCreate.pickToken), for this
-                      caller and project, for 15 minutes; sealed, it names nobody on the phone. Null
-                      for a blocked person
+                      caller and project, for 7 days; sealed, it names nobody on the phone. Null for
+                      a person who may not be picked here
         meta: { $ref: '#/components/schemas/Meta' }
     FamilyMember:
       type: object
@@ -3413,10 +3425,17 @@ components:
           description: >-
             A person picked from the name lookup (POST /beneficiaries/match): the application binds
             that person at once, without a document, with the name and the father's or husband's
-            name locked to the profile's. Good only for the caller and the project it was given for,
-            for 15 minutes, and for a live profile; otherwise 422 `beneficiary.pick_invalid`. A
-            blocked person is refused (`beneficiary.blocked`). A number the answers carry stays in
-            them and is never written onto the profile
+            name locked to the profile's, or to the profile a merge kept since the pick. Taken only
+            where the project asks the document "if they have one" (422
+            `beneficiary.match_not_open`), and only from the caller and for the project it was given
+            for (422 `beneficiary.pick_invalid` for a forged, altered, another caller's or another
+            project's token). A token past its 7 days binds nobody: the application waits for the
+            office's verification (`needs_verification`, flag `existing_identity`) with the person
+            as `candidateBeneficiaryId`. A blocked person is refused (`beneficiary.blocked`). A
+            number the answers carry must be no other live profile's (409
+            `beneficiary.pick_number_conflict`); one nobody holds stays in them, is never written
+            onto the profile, and only one application of the project may carry it (409
+            `application.number_in_project`)
         nameLookupSkipped:
           type: boolean
           const: true
@@ -7207,12 +7226,16 @@ paths:
         An exact comparison of keys, never a search (D-172, D-174, BR-303): the keys of the name, the
         father's or husband's name and the village must all equal a live profile's, inside the given
         union, which must lie in an area of the project (403 otherwise), on a project the caller works
-        on (403 otherwise; a union that is not one is 422). At most five people and their count; per
-        person only the name, the father's or husband's name and the village as written, the years of
-        help and the names of the caller's own projects among them, whether the person is blocked, and
-        a pick token. Never a number, a contact, the family, a document flag, a BEN number or an id.
-        Every call writes the audit row `beneficiary.matched` (the project, the union and the number
-        found, never a name) and is counted per caller and day in Bangladesh against the setting
+        on (403 otherwise; a union that is not one is 422), and only where the project asks the
+        identity document "if they have one" (422 `beneficiary.match_not_open` otherwise). At most
+        five people and a count that stops at six (more than five, never how many); per person only
+        the name, the father's or husband's name and the village as written, the years of help and the
+        names of the caller's own projects among them, whether the person may be picked here (not for
+        a blocked person or one already applied in this project, without saying which), and a pick
+        token. Never a number, a contact, the family, a document flag, a BEN number or an id. Every
+        call writes the audit row `beneficiary.matched` (the project, the union, a keyed digest of
+        the compared name and father's or husband's name keys, and the number found, never a name)
+        and is counted per caller and day in Bangladesh against the setting
         `lookup.match_daily_limit` (default 60), found or not; past it the call answers 429
         `beneficiary.match_limit`, audited as limited. The `lookup` rate limit counts it with the
         number lookup.
