@@ -11,16 +11,23 @@ import {
   en,
   localized,
   localizedColumn,
+  NAMESPACES,
   normalizedText,
   pseudoLocalize,
   recipientLocale,
   renderNotification,
   resolveLocale,
+  REST_NAMESPACES,
+  START_NAMESPACES,
   stateLabel,
   translate,
 } from '../src/i18n/index.js';
 import { bn as bnAlone } from '../src/i18n/bn.js';
+import { bnRest } from '../src/i18n/bn-rest.js';
+import { bnStart } from '../src/i18n/bn-start.js';
 import { en as enAlone } from '../src/i18n/en.js';
+import { enRest } from '../src/i18n/en-rest.js';
+import { enStart } from '../src/i18n/en-start.js';
 
 const repo = join(__dirname, '../../..');
 
@@ -35,9 +42,49 @@ describe('one catalogue per language entry', () => {
   });
 
   it('keeps each entry free of the other language', () => {
-    const source = (file: string) => readFileSync(join(__dirname, '../src/i18n', file), 'utf8');
-    expect(source('catalogue-bn.ts')).not.toMatch(/messages\/en\//);
-    expect(source('catalogue-en.ts')).not.toMatch(/messages\/bn\//);
+    // the imports that load code (a type import loads nothing)
+    const imports = (file: string) =>
+      readFileSync(join(__dirname, '../src/i18n', file), 'utf8')
+        .split('\n')
+        .filter((line) => line.startsWith('import ') && !line.startsWith('import type '))
+        .join('\n');
+    for (const file of ['catalogue-bn.ts', 'bn-start.ts', 'bn-rest.ts'])
+      expect(imports(file)).not.toMatch(/messages\/en\/|'\.\/(en-|catalogue-en)/);
+    for (const file of ['catalogue-en.ts', 'en-start.ts', 'en-rest.ts'])
+      expect(imports(file)).not.toMatch(/messages\/bn\/|'\.\/(bn-|catalogue-bn)/);
+    // and the parts load nothing but their own JSON files
+    for (const file of ['bn-start.ts', 'bn-rest.ts', 'en-start.ts', 'en-rest.ts'])
+      expect(imports(file)).not.toMatch(/from '\.\/[^m]/);
+  });
+});
+
+// The web app loads each language in two parts: the start part before the first render, the rest
+// with every page but the sign-in page. Together they are the whole catalogue, each namespace once.
+describe('the start and rest parts of a language', () => {
+  const sorted = (names: readonly string[]) => [...names].sort();
+
+  it('names every namespace of the catalogue, each in exactly one part', () => {
+    expect(sorted(NAMESPACES)).toEqual(sorted(Object.keys(bn)));
+    expect(sorted(NAMESPACES)).toEqual(sorted(Object.keys(en)));
+    expect(sorted([...START_NAMESPACES, ...REST_NAMESPACES])).toEqual(sorted(NAMESPACES));
+    const rest = new Set<string>(REST_NAMESPACES);
+    expect(START_NAMESPACES.filter((name) => rest.has(name))).toEqual([]);
+  });
+
+  it('gives each part exactly its namespaces, in both languages', () => {
+    for (const start of [bnStart, enStart])
+      expect(sorted(Object.keys(start))).toEqual(sorted(START_NAMESPACES));
+    for (const rest of [bnRest, enRest])
+      expect(sorted(Object.keys(rest))).toEqual(sorted(REST_NAMESPACES));
+  });
+
+  it('builds the whole catalogue from the same texts as its parts', () => {
+    expect(bn.auth).toBe(bnStart.auth);
+    expect(bn.home).toBe(bnRest.home);
+    expect(en.ui).toBe(enStart.ui);
+    expect(en.admin).toBe(enRest.admin);
+    expect(enStart.common.language.label).toBe('Language');
+    expect(bnRest.nav).toEqual(bn.nav);
   });
 });
 

@@ -1,7 +1,7 @@
 ---
 title: The message catalogue in two parts, so the sign-in page loads only its own texts
 type: refactor
-status: ready
+status: in-progress
 source: plan
 date: 2026-11-14
 ---
@@ -61,7 +61,7 @@ The first route was 399.1 KB gzip of 400 KB (D-154) on 2026-11-14, because the w
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ## Checkpoints
 
@@ -83,3 +83,12 @@ The first route was 399.1 KB gzip of 400 KB (D-154) on 2026-11-14, because the w
 - Verification commands pass
 - `ae-review` has run, with no open P0 or P1
 - Code from abandoned attempts is removed
+
+## Progress
+
+- **Branch:** `refactor/catalogue-by-area`
+- **Updated:** 2026-11-14 12:45
+- **Next:** C1: review, then the pull request
+- **Reviewed through:** none
+- **Uncommitted:** none
+- **Notes:** U1: the start part is `auth`, `common`, `errors`, `notifications`, `registration` and `ui`, found by following the static imports of `main.tsx` and the sign-in form's lazy chunk (80 files) and reading every `useTranslations`/`useMessages` in them: `auth` (the sign-in page and its form), `common` (the sign-in frame's system name, the language switch, the route error, `RequireAuth`'s loading state), `errors` (the sign-in form's `useSchemaResolver` asks for the namespace), `notifications` (the top bar's notification bell calls `useTranslations('notifications')` on the sign-in page too, even with nobody signed in, and use-intl reports a missing namespace at the hook), `registration` (two keys under the sign-in form: the registration link and its intro) and `ui` (the asf words `AppProviders` hands to the UI provider around every page). Not in it, unlike the plan's expectation: `nav` (only the lazy app shell uses it), `codes` (an empty `{}` that no code reads) and `sync` (the update notice is rendered by the lazy app shell only; the offline provider renders no text). `NAMESPACES` listed 15 of the 17 namespaces (`media` and `notifications` were missing); nothing but the package's index read it (`check-i18n.mjs` reads the JSON files itself), so it is now complete, and `REST_NAMESPACES` is its complement. The whole catalogues are built from the parts (`{ ...bnStart, ...bnRest }`), so each namespace is imported once per language. Decided here, not in the plan: (1) `withRest` re-checks the shown language after its wait and loads that language's rest too when it differs (the router asks for its first page before the first render, so the device language and the provider's language can differ); (2) the provider loads the catalogue of the language it renders (`qps` renders bn), where it loaded `wanted` before, which in development with `qps` and an English default loaded the wrong one; (3) the gallery's `React.lazy` goes through `withRest` too; (4) `loadMessages` resolves with the start part (typed `StartMessages`), and `loadCatalogue` answers a whole language for the builder's preview. First route 360.1 KB gzip (399.1 KB before), the bn start part 16.5 KB, the bn rest 40.1 KB; the home adds 80.9 KB when not cached (40.9 KB before plus the rest). The precache of the build lists all four parts (`dist/sw.js`); no unit test reads the precache list (it exists only after a build), so the shell E2E (the installed app offline) covers it. Found and left: the sign-in form's lazy chunk shows a skeleton for a moment after the page appears (as before this unit).

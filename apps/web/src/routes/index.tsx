@@ -2,17 +2,22 @@ import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { RouteError } from '../components/RouteError';
 import { LoginPage } from '../features/auth/LoginPage';
+import { withRest } from '../i18n/locale';
 
 /** The asf component gallery exists in `vite dev` and in the E2E build only. */
 export const GALLERY_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEV_GALLERY === '1';
 
 // Constant-folded at build time, so a normal production build has no gallery chunk at all.
-const AsfGalleryPage = GALLERY_ENABLED ? lazy(() => import('../dev/AsfGalleryPage')) : null;
+const AsfGalleryPage = GALLERY_ENABLED
+  ? lazy(() => withRest(import('../dev/AsfGalleryPage')))
+  : null;
 
 /**
  * Every screen of the PWA: the sign-in pages alone, every signed-in page inside the app shell.
  * Only the login is in the first load; every other screen, the shell too, is its own chunk, so the
- * first route stays within the JavaScript budget of docs/NON_FUNCTIONAL_REQUIREMENTS.md.
+ * first route stays within the JavaScript budget of docs/NON_FUNCTIONAL_REQUIREMENTS.md. Every lazy
+ * screen loads through `withRest`, so it renders only once the rest of the catalogue is in too
+ * (docs/ui/I18N.md, "Typed keys and loading"); the login uses the start part alone.
  */
 export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
   const gallery = options.gallery ?? GALLERY_ENABLED;
@@ -23,66 +28,72 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
         { path: '/login', element: <LoginPage /> },
         {
           path: '/login/reset',
-          lazy: async () => ({ Component: (await import('../features/auth/ResetPage')).ResetPage }),
+          lazy: async () => ({
+            Component: (await withRest(import('../features/auth/ResetPage'))).ResetPage,
+          }),
         },
         {
           path: '/invite',
           lazy: async () => ({
-            Component: (await import('../features/auth/InvitePage')).InvitePage,
+            Component: (await withRest(import('../features/auth/InvitePage'))).InvitePage,
           }),
         },
         {
           path: '/apply/:token',
           lazy: async () => ({
-            Component: (await import('../features/forms/PublicApplyPage')).PublicApplyPage,
+            Component: (await withRest(import('../features/forms/PublicApplyPage')))
+              .PublicApplyPage,
           }),
         },
         {
           path: '/register',
           lazy: async () => ({
-            Component: (await import('../features/registration/RegisterPage')).RegisterPage,
+            Component: (await withRest(import('../features/registration/RegisterPage')))
+              .RegisterPage,
           }),
         },
         {
           lazy: async () => ({
-            Component: (await import('../components/shell/AppShell')).AppShell,
+            Component: (await withRest(import('../components/shell/AppShell'))).AppShell,
           }),
           children: [
             {
               path: '/',
               lazy: async () => ({
-                Component: (await import('../features/home/MyWorkPage')).MyWorkPage,
+                Component: (await withRest(import('../features/home/MyWorkPage'))).MyWorkPage,
               }),
             },
             {
               path: '/account/profile',
               lazy: async () => ({
-                Component: (await import('../features/account/ProfileView')).ProfileView,
+                Component: (await withRest(import('../features/account/ProfileView'))).ProfileView,
               }),
             },
             {
               path: '/account/sessions',
               lazy: async () => ({
-                Component: (await import('../features/account/SessionsView')).SessionsView,
+                Component: (await withRest(import('../features/account/SessionsView')))
+                  .SessionsView,
               }),
             },
             {
               path: '/account/exports',
               lazy: async () => ({
-                Component: (await import('../features/exports/MyExportsPage')).MyExportsPage,
+                Component: (await withRest(import('../features/exports/MyExportsPage')))
+                  .MyExportsPage,
               }),
             },
             {
               path: '/account/password',
               lazy: async () => ({
-                Component: (await import('../features/account/ChangePasswordView'))
+                Component: (await withRest(import('../features/account/ChangePasswordView')))
                   .ChangePasswordView,
               }),
             },
             {
               path: '/notifications',
               lazy: async () => ({
-                Component: (await import('../features/notifications/NotificationsPage'))
+                Component: (await withRest(import('../features/notifications/NotificationsPage')))
                   .NotificationsPage,
               }),
             },
@@ -90,306 +101,331 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
             {
               path: '/my-projects',
               lazy: async () => ({
-                Component: (await import('../features/projects/MyProjectsPage')).MyProjectsPage,
+                Component: (await withRest(import('../features/projects/MyProjectsPage')))
+                  .MyProjectsPage,
               }),
             },
             {
               path: '/my-projects/:projectId',
               lazy: async () => ({
-                Component: (await import('../features/projects/MyProjectPage')).MyProjectPage,
+                Component: (await withRest(import('../features/projects/MyProjectPage')))
+                  .MyProjectPage,
               }),
             },
             {
               path: '/my-projects/:projectId/team',
               lazy: async () => ({
-                Component: (await import('../features/projects/TeamPage')).TeamPage,
+                Component: (await withRest(import('../features/projects/TeamPage'))).TeamPage,
               }),
             },
             {
               path: '/my-projects/:projectId/apply',
               lazy: async () => ({
-                Component: (await import('../features/applications/ApplicationFormPage'))
+                Component: (await withRest(import('../features/applications/ApplicationFormPage')))
                   .ApplicationFormPage,
               }),
             },
             {
               path: '/my-applications',
               lazy: async () => ({
-                Component: (await import('../features/applications/MyApplicationsPage'))
+                Component: (await withRest(import('../features/applications/MyApplicationsPage')))
                   .MyApplicationsPage,
               }),
             },
             {
               path: '/my-applications/:applicationId',
               lazy: async () => ({
-                Component: (await import('../features/applications/ApplicationDetailPage'))
-                  .ApplicationDetailPage,
+                Component: (
+                  await withRest(import('../features/applications/ApplicationDetailPage'))
+                ).ApplicationDetailPage,
               }),
             },
             {
               path: '/my-applications/:applicationId/edit',
               lazy: async () => ({
-                Component: (await import('../features/applications/ApplicationFormPage'))
+                Component: (await withRest(import('../features/applications/ApplicationFormPage')))
                   .ApplicationFormPage,
               }),
             },
             {
               path: '/sync',
               lazy: async () => ({
-                Component: (await import('../features/sync/SyncCentrePage')).SyncCentrePage,
+                Component: (await withRest(import('../features/sync/SyncCentrePage')))
+                  .SyncCentrePage,
               }),
             },
             // the Media Team's screens are their own chunks, like the volunteer's pages
             {
               path: '/media',
               lazy: async () => ({
-                Component: (await import('../features/media/MediaHomePage')).MediaHomePage,
+                Component: (await withRest(import('../features/media/MediaHomePage')))
+                  .MediaHomePage,
               }),
             },
             {
               path: '/media/referrals/:referralId',
               lazy: async () => ({
-                Component: (await import('../features/media/WorkPage')).WorkPage,
+                Component: (await withRest(import('../features/media/WorkPage'))).WorkPage,
               }),
             },
             {
               path: '/media/members/:userId',
               lazy: async () => ({
-                Component: (await import('../features/media/MemberPage')).MemberPage,
+                Component: (await withRest(import('../features/media/MemberPage'))).MemberPage,
               }),
             },
             {
               // The admin area is its own chunk: the other screens never load it.
               path: '/admin',
-              lazy: async () => ({ Component: (await import('../admin/AdminLayout')).AdminLayout }),
+              lazy: async () => ({
+                Component: (await withRest(import('../admin/AdminLayout'))).AdminLayout,
+              }),
               children: [
                 // My Work is the home of the officials too
                 { index: true, element: <Navigate to="/" replace /> },
                 {
                   path: 'programs',
                   lazy: async () => ({
-                    Component: (await import('../admin/programs/ProgramsPage')).ProgramsPage,
+                    Component: (await withRest(import('../admin/programs/ProgramsPage')))
+                      .ProgramsPage,
                   }),
                 },
                 {
                   path: 'templates',
                   lazy: async () => ({
-                    Component: (await import('../admin/templates/TemplatesPage')).TemplatesPage,
+                    Component: (await withRest(import('../admin/templates/TemplatesPage')))
+                      .TemplatesPage,
                   }),
                 },
                 {
                   path: 'ready-forms',
                   lazy: async () => ({
-                    Component: (await import('../admin/forms/ReadyFormsPage')).ReadyFormsPage,
+                    Component: (await withRest(import('../admin/forms/ReadyFormsPage')))
+                      .ReadyFormsPage,
                   }),
                 },
                 {
                   path: 'ready-forms/:formId',
                   lazy: async () => ({
-                    Component: (await import('../admin/forms/FormBuilderPage'))
+                    Component: (await withRest(import('../admin/forms/FormBuilderPage')))
                       .ReadyFormBuilderPage,
                   }),
                 },
                 {
                   path: 'question-library',
                   lazy: async () => ({
-                    Component: (await import('../admin/forms/FormBuilderPage')).LibraryBuilderPage,
+                    Component: (await withRest(import('../admin/forms/FormBuilderPage')))
+                      .LibraryBuilderPage,
                   }),
                 },
                 {
                   path: 'projects',
                   lazy: async () => ({
-                    Component: (await import('../admin/projects/ProjectsPage')).ProjectsPage,
+                    Component: (await withRest(import('../admin/projects/ProjectsPage')))
+                      .ProjectsPage,
                   }),
                 },
                 {
                   path: 'projects/new',
                   lazy: async () => ({
-                    Component: (await import('../admin/projects/setup/ProjectSetupPage'))
+                    Component: (await withRest(import('../admin/projects/setup/ProjectSetupPage')))
                       .ProjectSetupPage,
                   }),
                 },
                 {
                   path: 'projects/:projectId',
                   lazy: async () => ({
-                    Component: (await import('../admin/projects/ProjectOverviewPage'))
+                    Component: (await withRest(import('../admin/projects/ProjectOverviewPage')))
                       .ProjectOverviewPage,
                   }),
                 },
                 {
                   path: 'projects/:projectId/setup',
                   lazy: async () => ({
-                    Component: (await import('../admin/projects/setup/ProjectSetupPage'))
+                    Component: (await withRest(import('../admin/projects/setup/ProjectSetupPage')))
                       .ProjectSetupPage,
                   }),
                 },
                 {
                   path: 'projects/:projectId/applications',
                   lazy: async () => ({
-                    Component: (await import('../admin/applications/ApplicationsPage'))
+                    Component: (await withRest(import('../admin/applications/ApplicationsPage')))
                       .ApplicationsPage,
                   }),
                 },
                 {
                   path: 'applications/:applicationId',
                   lazy: async () => ({
-                    Component: (await import('../admin/applications/ApplicationReviewPage'))
-                      .ApplicationReviewPage,
+                    Component: (
+                      await withRest(import('../admin/applications/ApplicationReviewPage'))
+                    ).ApplicationReviewPage,
                   }),
                 },
                 {
                   path: 'projects/:projectId/forms',
                   lazy: async () => ({
-                    Component: (await import('../admin/forms/FormsPage')).FormsPage,
+                    Component: (await withRest(import('../admin/forms/FormsPage'))).FormsPage,
                   }),
                 },
                 {
                   path: 'projects/:projectId/forms/:formId',
                   lazy: async () => ({
-                    Component: (await import('../admin/forms/FormBuilderPage')).FormBuilderPage,
+                    Component: (await withRest(import('../admin/forms/FormBuilderPage')))
+                      .FormBuilderPage,
                   }),
                 },
                 {
                   path: 'projects/:projectId/volunteers',
                   lazy: async () => ({
-                    Component: (await import('../admin/projects/volunteers/ProjectVolunteersPage'))
-                      .ProjectVolunteersPage,
+                    Component: (
+                      await withRest(import('../admin/projects/volunteers/ProjectVolunteersPage'))
+                    ).ProjectVolunteersPage,
                   }),
                 },
                 {
                   path: 'projects/:projectId/transfer',
                   lazy: async () => ({
-                    Component: (await import('../admin/projects/volunteers/TransferPage'))
+                    Component: (await withRest(import('../admin/projects/volunteers/TransferPage')))
                       .TransferPage,
                   }),
                 },
                 {
                   path: 'volunteers',
                   lazy: async () => ({
-                    Component: (await import('../admin/volunteers/VolunteersPage')).VolunteersPage,
+                    Component: (await withRest(import('../admin/volunteers/VolunteersPage')))
+                      .VolunteersPage,
                   }),
                 },
                 {
                   path: 'volunteers/:volunteerId',
                   lazy: async () => ({
-                    Component: (await import('../admin/volunteers/VolunteerProfilePage'))
+                    Component: (await withRest(import('../admin/volunteers/VolunteerProfilePage')))
                       .VolunteerProfilePage,
                   }),
                 },
                 {
                   path: 'beneficiaries',
                   lazy: async () => ({
-                    Component: (await import('../admin/beneficiaries/BeneficiariesPage'))
+                    Component: (await withRest(import('../admin/beneficiaries/BeneficiariesPage')))
                       .BeneficiariesPage,
                   }),
                 },
                 {
                   path: 'beneficiaries/duplicates',
                   lazy: async () => ({
-                    Component: (await import('../admin/beneficiaries/duplicates/DuplicatesPage'))
-                      .DuplicatesPage,
+                    Component: (
+                      await withRest(import('../admin/beneficiaries/duplicates/DuplicatesPage'))
+                    ).DuplicatesPage,
                   }),
                 },
                 {
                   path: 'beneficiaries/duplicates/compare',
                   lazy: async () => ({
-                    Component: (await import('../admin/beneficiaries/duplicates/ComparePage'))
-                      .ComparePage,
+                    Component: (
+                      await withRest(import('../admin/beneficiaries/duplicates/ComparePage'))
+                    ).ComparePage,
                   }),
                 },
                 {
                   path: 'beneficiaries/:beneficiaryId',
                   lazy: async () => ({
-                    Component: (await import('../admin/beneficiaries/BeneficiaryProfilePage'))
-                      .BeneficiaryProfilePage,
+                    Component: (
+                      await withRest(import('../admin/beneficiaries/BeneficiaryProfilePage'))
+                    ).BeneficiaryProfilePage,
                   }),
                 },
                 {
                   path: 'registrations',
                   lazy: async () => ({
-                    Component: (await import('../admin/registrations/RegistrationsPage'))
+                    Component: (await withRest(import('../admin/registrations/RegistrationsPage')))
                       .RegistrationsPage,
                   }),
                 },
                 {
                   path: 'registrations/:userId',
                   lazy: async () => ({
-                    Component: (await import('../admin/registrations/RegistrationDetail'))
+                    Component: (await withRest(import('../admin/registrations/RegistrationDetail')))
                       .RegistrationDetail,
                   }),
                 },
                 {
                   path: 'staff',
                   lazy: async () => ({
-                    Component: (await import('../admin/staff/StaffPage')).StaffPage,
+                    Component: (await withRest(import('../admin/staff/StaffPage'))).StaffPage,
                   }),
                 },
                 {
                   path: 'staff/:userId',
                   lazy: async () => ({
-                    Component: (await import('../admin/staff/StaffProfilePage')).StaffProfilePage,
+                    Component: (await withRest(import('../admin/staff/StaffProfilePage')))
+                      .StaffProfilePage,
                   }),
                 },
                 {
                   path: 'staff/organogram',
                   lazy: async () => ({
-                    Component: (await import('../admin/staff/OrganogramPage')).OrganogramPage,
+                    Component: (await withRest(import('../admin/staff/OrganogramPage')))
+                      .OrganogramPage,
                   }),
                 },
                 {
                   path: 'settings',
                   lazy: async () => ({
-                    Component: (await import('../admin/settings/SettingsPage')).SettingsPage,
+                    Component: (await withRest(import('../admin/settings/SettingsPage')))
+                      .SettingsPage,
                   }),
                 },
                 {
                   path: 'nisab',
                   lazy: async () => ({
-                    Component: (await import('../admin/nisab/NisabPage')).NisabPage,
+                    Component: (await withRest(import('../admin/nisab/NisabPage'))).NisabPage,
                   }),
                 },
                 {
                   path: 'audit',
                   lazy: async () => ({
-                    Component: (await import('../admin/audit/AuditPage')).AuditPage,
+                    Component: (await withRest(import('../admin/audit/AuditPage'))).AuditPage,
                   }),
                 },
                 {
                   path: 'sessions',
                   lazy: async () => ({
-                    Component: (await import('../admin/system/SessionsPage')).SessionsPage,
+                    Component: (await withRest(import('../admin/system/SessionsPage')))
+                      .SessionsPage,
                   }),
                 },
                 {
                   path: 'health',
                   lazy: async () => ({
-                    Component: (await import('../admin/system/HealthPage')).HealthPage,
+                    Component: (await withRest(import('../admin/system/HealthPage'))).HealthPage,
                   }),
                 },
                 {
                   path: 'notification-templates',
                   lazy: async () => ({
-                    Component: (await import('../admin/notifications/NotificationTemplatesPage'))
-                      .NotificationTemplatesPage,
+                    Component: (
+                      await withRest(import('../admin/notifications/NotificationTemplatesPage'))
+                    ).NotificationTemplatesPage,
                   }),
                 },
                 {
                   path: 'deliveries',
                   lazy: async () => ({
-                    Component: (await import('../admin/notifications/DeliveriesPage'))
+                    Component: (await withRest(import('../admin/notifications/DeliveriesPage')))
                       .DeliveriesPage,
                   }),
                 },
                 {
                   path: 'handover',
                   lazy: async () => ({
-                    Component: (await import('../admin/handover/HandoverPage')).HandoverPage,
+                    Component: (await withRest(import('../admin/handover/HandoverPage')))
+                      .HandoverPage,
                   }),
                 },
                 {
                   path: 'permissions',
                   lazy: async () => ({
-                    Component: (await import('../admin/permissions/PermissionsPage'))
+                    Component: (await withRest(import('../admin/permissions/PermissionsPage')))
                       .PermissionsPage,
                   }),
                 },

@@ -7,7 +7,7 @@ import { type ReactNode, useState } from 'react';
 import { IntlProvider, useLocale, useTranslations } from 'use-intl';
 import { AppProviders } from '../../components/AppProviders';
 import { FormRenderer } from '../../features/forms/FormRenderer';
-import { loadMessages } from '../../i18n/locale';
+import { loadCatalogue } from '../../i18n/locale';
 import { FORMS_KEY, nisabInForce } from './forms-api';
 
 /**
@@ -79,13 +79,13 @@ export function PreviewPane({ definition }: { definition: FormDefinition }) {
   );
 }
 
-/** Draws its children in another language than the app's, once that catalogue has loaded. */
+/** Draws its children in another language than the app's, once both parts of its catalogue have loaded. */
 function InLanguage({ locale, children }: { locale: Locale; children: ReactNode }) {
   const current = useLocale();
   const other = locale !== current;
   const messages = useQuery({
     queryKey: ['catalogue', locale],
-    queryFn: () => loadMessages(locale),
+    queryFn: () => loadCatalogue(locale),
     enabled: other,
     staleTime: Infinity,
   });

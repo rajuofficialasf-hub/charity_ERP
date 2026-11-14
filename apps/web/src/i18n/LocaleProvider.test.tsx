@@ -1,14 +1,51 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { bn, en } from '@css/shared/i18n';
+import { bn, en, type RestMessages } from '@css/shared/i18n';
 import { act, render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { createMemoryRouter, RouterProvider } from 'react-router';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useTranslations } from 'use-intl';
 import { PUBLIC_SETTINGS } from '../../test/msw/handlers';
 import { server } from '../../test/msw/server';
 import { createQueryClient } from '../lib/query-client';
-import { forgetMessages, primeMessages } from './locale';
+import {
+  forgetMessages,
+  loadMessages,
+  loadRest,
+  messagesFor,
+  primeMessages,
+  withRest,
+} from './locale';
 import { LocaleProvider, useLocaleSwitch } from './LocaleProvider';
+
+// Each rest part arrives when a test opens its gate (a slow network), else at once.
+const gate = vi.hoisted(() => ({
+  bn: undefined as Promise<void> | undefined,
+  en: undefined as Promise<void> | undefined,
+}));
+vi.mock('@css/shared/i18n/bn-rest', async (importOriginal) => {
+  const real = await importOriginal<{ bnRest: RestMessages }>();
+  return {
+    get bnRest() {
+      return gate.bn ? gate.bn.then(() => real.bnRest) : real.bnRest;
+    },
+  };
+});
+vi.mock('@css/shared/i18n/en-rest', async (importOriginal) => {
+  const real = await importOriginal<{ enRest: RestMessages }>();
+  return {
+    get enRest() {
+      return gate.en ? gate.en.then(() => real.enRest) : real.enRest;
+    },
+  };
+});
+
+/** Holds a language's rest part back until the returned function is called. */
+const holdRest = (language: 'bn' | 'en') => {
+  let open = () => {};
+  gate[language] = new Promise<void>((resolve) => (open = resolve));
+  return () => open();
+};
 
 function Probe() {
   const t = useTranslations('common.language');
@@ -118,5 +155,109 @@ describe('loading the catalogues', () => {
     expect(screen.queryByText('common.language.label')).toBeNull();
     expect(await screen.findByText('Language')).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('en');
+  });
+});
+
+function SignIn() {
+  const t = useTranslations('auth.login');
+  return <h2>{t('title')}</h2>;
+}
+
+function Home() {
+  const t = useTranslations('home.attention');
+  return <h2>{t('title')}</h2>;
+}
+
+/** use-intl reports a missing text (a key shown on the screen) through console.error. */
+const watchMissing = () => {
+  const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+  return () => errors.mock.calls.filter((call) => String(call[0]).includes('MISSING_MESSAGE'));
+};
+
+// Two parts per language (docs/ui/I18N.md, "Typed keys and loading"): the sign-in page renders with
+// the start part alone, every other page only once the rest is in, and a switch after the rest was
+// loaded waits for the new language's rest too.
+describe('the start and rest parts', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    gate.bn = undefined;
+    gate.en = undefined;
+    document.cookie = 'css_locale=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+    window.localStorage.clear();
+    forgetMessages();
+    primeMessages('bn', bn);
+    primeMessages('en', en);
+  });
+
+  it('shows the sign-in page with the start part, and a lazy page only after the rest', async () => {
+    forgetMessages();
+    serverDefault('bn');
+    await loadMessages('bn');
+    const open = holdRest('bn');
+    const missing = watchMissing();
+    const router = createMemoryRouter(
+      [
+        { path: '/login', element: <SignIn /> },
+        {
+          path: '/home',
+          lazy: async () => ({ Component: (await withRest(Promise.resolve({ Home }))).Home }),
+        },
+      ],
+      { initialEntries: ['/login'] },
+    );
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <LocaleProvider initial="bn">
+          <RouterProvider router={router} />
+        </LocaleProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole('heading', { name: 'লগইন করুন' })).toBeInTheDocument();
+    expect(messagesFor('bn')).not.toHaveProperty('home');
+
+    act(() => void router.navigate('/home'));
+    // the rest is on its way: the sign-in page stays, never a key
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('heading', { name: 'লগইন করুন' })).toBeInTheDocument();
+    expect(screen.queryByText(/home\.attention/)).toBeNull();
+
+    open();
+    expect(await screen.findByRole('heading', { name: 'এখন আপনার কাজ' })).toBeInTheDocument();
+    expect(missing()).toEqual([]);
+  });
+
+  it('switches, once the rest was loaded, only when the new language has its rest too', async () => {
+    forgetMessages();
+    serverDefault('bn');
+    await loadMessages('bn');
+    await loadRest('bn');
+    const open = holdRest('en');
+    const missing = watchMissing();
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <LocaleProvider initial="bn">
+          <Home />
+          <Switch />
+        </LocaleProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole('heading', { name: 'এখন আপনার কাজ' })).toBeInTheDocument();
+    act(() => {
+      screen.getByRole('button', { name: 'switch' }).click();
+    });
+    // the English start part is in, its rest is not: still Bengali, never a key
+    await act(async () => {
+      await loadMessages('en');
+    });
+    expect(screen.getByRole('heading', { name: 'এখন আপনার কাজ' })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('bn');
+    open();
+    expect(
+      await screen.findByRole('heading', { name: 'Needs your attention' }),
+    ).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('en');
+    expect(missing()).toEqual([]);
   });
 });
