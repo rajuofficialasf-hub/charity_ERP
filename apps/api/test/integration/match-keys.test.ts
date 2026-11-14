@@ -57,11 +57,25 @@ const version = async () =>
     .version as number;
 /** Adds spellings to the list and raises its version, as a change of the list does. */
 async function addVariants(rows: { variant: string; canonical: string }[]) {
-  for (const row of rows)
-    await h.db.query(
-      'INSERT INTO name_variants (id, variant, canonical) VALUES ($1, $2, $3) ON CONFLICT (variant) DO NOTHING',
-      [randomUUID(), row.variant, row.canonical],
+  for (const row of rows) {
+    // the group of the canonical, made with its first spelling
+    const found = await h.db.query(
+      'SELECT id FROM name_variant_groups WHERE canonical = $1 AND active',
+      [row.canonical],
     );
+    let groupId = found.rows[0]?.id as string | undefined;
+    if (!groupId) {
+      groupId = randomUUID();
+      await h.db.query('INSERT INTO name_variant_groups (id, canonical) VALUES ($1, $2)', [
+        groupId,
+        row.canonical,
+      ]);
+    }
+    await h.db.query(
+      'INSERT INTO name_variants (id, group_id, variant) VALUES ($1, $2, $3) ON CONFLICT (variant) WHERE active DO NOTHING',
+      [randomUUID(), groupId, row.variant],
+    );
+  }
   return h.container.prisma.$transaction((tx) =>
     raiseVariantsVersion(tx, h.container.jobs, world.users.head),
   );

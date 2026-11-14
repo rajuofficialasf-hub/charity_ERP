@@ -29,6 +29,12 @@
     "grant_refused": "This permission change is not allowed."
   },
   "validation": {
+    "name_variant_one_word": "Write one word, without a space.",
+    "name_variant_letters": "Use Bangla or English letters only.",
+    "name_variant_title": "This is a title (such as Md. or Begum); titles cannot be spelling variants.",
+    "name_variant_repeated": "This spelling is already in this group.",
+    "name_variant_taken": "This spelling is already in another group.",
+    "name_variant_chain": "This spelling ties into another group: one group's main spelling cannot be in another group.",
     "failed": "Some information is not valid.",
     "unknown_parameter": "The request has an unknown parameter.",
     "malformed": "The request could not be read.",

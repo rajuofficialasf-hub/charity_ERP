@@ -29,6 +29,7 @@ import { z } from 'zod';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { addItem, listKey, type ReferenceItem, referenceItems, updateItem } from './settings-api';
 import { LoadError } from '../../components/LoadError';
+import { NameVariantsCard } from './NameVariantsCard';
 
 type ItemFields = {
   code: string;
@@ -306,7 +307,7 @@ function ListCard({ list, onNotice }: { list: EditableList; onNotice: (text: str
 
 /**
  * The expense categories, the issue types and the Media Team's stages, production roles and
- * platforms; nothing is deleted, an item is switched off instead.
+ * platforms, and the spelling variants of names; nothing is deleted, an item is switched off instead.
  */
 export function ListsPanel({ onNotice }: { onNotice: (text: string) => void }) {
   const t = useTranslations('admin.settings.lists');
@@ -316,6 +317,7 @@ export function ListsPanel({ onNotice }: { onNotice: (text: string) => void }) {
       {EDITABLE_LISTS.map((list) => (
         <ListCard key={list} list={list} onNotice={onNotice} />
       ))}
+      <NameVariantsCard onNotice={onNotice} />
     </Stack>
   );
 }

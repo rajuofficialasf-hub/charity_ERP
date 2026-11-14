@@ -4383,6 +4383,58 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/ReferenceItem' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
+    NameVariantSpelling:
+      description: One word of Bengali or Latin letters, trimmed; not a title the name key drops.
+      type: string
+      minLength: 1
+      maxLength: 100
+    NameVariantGroupCreate:
+      description: A new group of spelling variants (D-174); a spelling given twice is refused.
+      type: object
+      additionalProperties: false
+      required: [canonical, variants]
+      properties:
+        canonical: { $ref: '#/components/schemas/NameVariantSpelling' }
+        variants:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items: { $ref: '#/components/schemas/NameVariantSpelling' }
+    NameVariantGroupUpdate:
+      description: >-
+        canonical and variants together (the group's spellings as they are to be), active, or both;
+        at least one of them.
+      type: object
+      additionalProperties: false
+      properties:
+        canonical: { $ref: '#/components/schemas/NameVariantSpelling' }
+        variants:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items: { $ref: '#/components/schemas/NameVariantSpelling' }
+        active: { type: boolean }
+    NameVariantGroup:
+      type: object
+      additionalProperties: false
+      required: [id, canonical, variants, active]
+      properties:
+        id: { type: string, format: uuid }
+        canonical: { type: string }
+        variants: { type: array, items: { type: string } }
+        active: { type: boolean }
+    NameVariantGroupList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/NameVariantGroup' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+    NameVariantGroupResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/NameVariantGroup' }
+        meta: { $ref: '#/components/schemas/Meta' }
     ReferenceItemResponse:
       type: object
       required: [data, meta]
@@ -11270,6 +11322,94 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /name-variants:
+    get:
+      tags: [reference]
+      operationId: reference.nameVariants.list
+      summary: The groups of spelling variants of names, switched off ones included; not paginated
+      description: >-
+        Each group is one spelling the name keys use (canonical) and its other spellings
+        (DECISION_LOG D-174, BR-301). The settings page reads it.
+      x-permission: settings.manage
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Every group, by its canonical
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NameVariantGroupList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [reference]
+      operationId: reference.nameVariants.add
+      summary: Add a group of spellings of one name; the name keys are computed again
+      description: >-
+        Each spelling is one word of Bengali or Latin letters and not a title the key drops
+        (422 validation.name_variant_one_word, validation.name_variant_letters,
+        validation.name_variant_title, validation.name_variant_repeated on the field). A spelling
+        another group holds, switched on or off, is refused (422 validation.name_variant_taken),
+        and so is one that would chain two groups: the canonical held as another group's spelling
+        or another group's canonical given as a spelling (422 validation.name_variant_chain).
+        Audited; raises the version of the list and queues the key job in the same transaction.
+      x-permission: settings.manage
+      x-scope: global
+      x-audit: name_variants.change
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NameVariantGroupCreate' }
+      responses:
+        '201':
+          description: Added
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NameVariantGroupResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /name-variants/{groupId}:
+    parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [reference]
+      operationId: reference.nameVariants.update
+      summary: Change a group's spellings, or switch it off or on; nothing is deleted
+      description: >-
+        canonical and variants together give the group's spellings as they are to be: a spelling
+        left out stays stored, no longer active, and is free for another group. The rules of the
+        addition apply (422). A group switched off keeps its spellings and the keys ignore it.
+        Audited with the group before and after; when the change alters what the keys read, the
+        version of the list is raised and the key job queued in the same transaction.
+      x-permission: settings.manage
+      x-scope: global
+      x-audit: name_variants.change
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NameVariantGroupUpdate' }
+      responses:
+        '200':
+          description: Changed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NameVariantGroupResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /settings:
     get:

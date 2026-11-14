@@ -1441,6 +1441,33 @@
         "other": "Other website"
       }
     },
+    "name_variants": {
+      "title": "Name spellings",
+      "intro": "Put different spellings of one name in one group. They are treated as one when profiles are compared for the same person; names stay as they were written.",
+      "add": "Add spellings",
+      "empty": "No spellings yet",
+      "edit": "Edit {name}",
+      "saved": "{name} is saved.",
+      "column": {
+        "canonical": "Main spelling",
+        "others": "Other spellings",
+        "state": "State"
+      },
+      "state": {
+        "active": "On",
+        "inactive": "Off"
+      },
+      "dialog": {
+        "create_title": "New spellings",
+        "edit_title": "Edit spellings: {name}",
+        "canonical": "Main spelling",
+        "canonical_hint": "When names are compared, every spelling of the group counts as this one",
+        "others": "Other spellings",
+        "others_hint": "One per line, or separated by commas",
+        "active": "On",
+        "word_error": "{word}: {message}"
+      }
+    },
     "channels": {
       "dummy_title": "The dummy OTP is on",
       "dummy_text": "A fixed code stands in for the OTP. Switch it off and connect real SMS and email before production.",

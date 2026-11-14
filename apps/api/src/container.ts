@@ -80,6 +80,7 @@ import { MediaHomeService } from './services/media-home.js';
 import { WaitlistService } from './applications/waitlist.js';
 import { ProgramsService } from './services/programs.js';
 import { ReferenceListsService } from './services/reference-lists.js';
+import { NameVariantsService } from './services/name-variants.js';
 import { SessionMonitorService } from './services/session-monitor.js';
 import { SettingsService } from './services/settings.js';
 import { SystemHealthService } from './services/system-health.js';
@@ -179,6 +180,7 @@ export interface Container {
   programs: ProgramsService;
   settings: SettingsService;
   referenceLists: ReferenceListsService;
+  nameVariants: NameVariantsService;
   formLibrary: FormLibraryService;
   forms: FormsService;
   workflow: WorkflowEngine;
@@ -504,6 +506,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     programs: o.programs ?? new ProgramsService(prisma, audit),
     settings,
     referenceLists,
+    nameVariants: o.nameVariants ?? new NameVariantsService(prisma, audit, jobs),
     formLibrary,
     forms,
     workflow,

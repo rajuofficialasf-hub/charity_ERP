@@ -85,11 +85,18 @@ export class MatchKeysService {
     // the migration writes the row; a database without it has never had a list
     const version = row?.version ?? 1;
     if (this.cached?.version === version) return this.cached;
+    // the spellings that belong to a group that is switched on
     const rows = await db.nameVariant.findMany({
-      select: { variant: true, canonical: true },
+      where: { active: true, group: { active: true } },
+      select: { variant: true, group: { select: { canonical: true } } },
       orderBy: { variant: 'asc' },
     });
-    this.cached = { version, variants: nameVariantsOf(rows) };
+    this.cached = {
+      version,
+      variants: nameVariantsOf(
+        rows.map((r) => ({ variant: r.variant, canonical: r.group.canonical })),
+      ),
+    };
     return this.cached;
   }
 

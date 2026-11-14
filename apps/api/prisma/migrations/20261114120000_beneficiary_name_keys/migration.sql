@@ -29,25 +29,46 @@ CREATE INDEX "beneficiary_family_members_name_key_idx" ON "beneficiary_family_me
 CREATE INDEX "beneficiaries_match_keys_version_idx" ON "beneficiaries"("match_keys_version");
 CREATE INDEX "beneficiary_family_members_match_keys_version_idx" ON "beneficiary_family_members"("match_keys_version");
 
--- The known spelling variants of a word: each spelling points to its group's one spelling (the
--- group's own spelling points to itself). One word each, kept as written; the key reads them in
--- key form.
+-- The known spelling variants of names, by group: a group is one spelling the keys use (its
+-- canonical) and the other spellings of the same name. A group is switched off and on as a whole
+-- and never deleted; while off, the keys ignore it and its spellings stay its own.
+CREATE TABLE "name_variant_groups" (
+    "id" UUID NOT NULL,
+    "canonical" TEXT NOT NULL,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_by" UUID,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_by" UUID,
+    CONSTRAINT "name_variant_groups_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "name_variant_groups_canonical_check" CHECK (char_length(btrim("canonical")) BETWEEN 1 AND 100 AND "canonical" !~ '\s')
+);
+CREATE INDEX "name_variant_groups_created_by_idx" ON "name_variant_groups"("created_by");
+CREATE INDEX "name_variant_groups_updated_by_idx" ON "name_variant_groups"("updated_by");
+ALTER TABLE "name_variant_groups" ADD CONSTRAINT "name_variant_groups_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
+ALTER TABLE "name_variant_groups" ADD CONSTRAINT "name_variant_groups_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
+CREATE TRIGGER name_variant_groups_set_updated_at BEFORE UPDATE ON "name_variant_groups" FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- Each spelling of a group, its canonical included, one word each, kept as written; the key reads
+-- them in key form. A spelling taken out of its group stays as a row that is no longer active, so
+-- nothing is deleted; an active spelling belongs to one group only.
 CREATE TABLE "name_variants" (
     "id" UUID NOT NULL,
+    "group_id" UUID NOT NULL,
     "variant" TEXT NOT NULL,
-    "canonical" TEXT NOT NULL,
+    "active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" UUID,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_by" UUID,
     CONSTRAINT "name_variants_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "name_variants_variant_check" CHECK (char_length(btrim("variant")) BETWEEN 1 AND 100 AND "variant" !~ '\s'),
-    CONSTRAINT "name_variants_canonical_check" CHECK (char_length(btrim("canonical")) BETWEEN 1 AND 100 AND "canonical" !~ '\s')
+    CONSTRAINT "name_variants_variant_check" CHECK (char_length(btrim("variant")) BETWEEN 1 AND 100 AND "variant" !~ '\s')
 );
-CREATE UNIQUE INDEX "name_variants_variant_key" ON "name_variants"("variant");
-CREATE INDEX "name_variants_canonical_idx" ON "name_variants"("canonical");
+CREATE UNIQUE INDEX "name_variants_variant_key" ON "name_variants"("variant") WHERE (active);
+CREATE INDEX "name_variants_group_id_idx" ON "name_variants"("group_id");
 CREATE INDEX "name_variants_created_by_idx" ON "name_variants"("created_by");
 CREATE INDEX "name_variants_updated_by_idx" ON "name_variants"("updated_by");
+ALTER TABLE "name_variants" ADD CONSTRAINT "name_variants_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "name_variant_groups"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 ALTER TABLE "name_variants" ADD CONSTRAINT "name_variants_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 ALTER TABLE "name_variants" ADD CONSTRAINT "name_variants_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 CREATE TRIGGER name_variants_set_updated_at BEFORE UPDATE ON "name_variants" FOR EACH ROW EXECUTE FUNCTION set_updated_at();

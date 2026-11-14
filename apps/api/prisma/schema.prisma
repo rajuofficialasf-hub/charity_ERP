@@ -102,6 +102,8 @@ model User {
   referenceListsCreatedBy              ReferenceList[]            @relation("reference_lists_created_by")
   referenceListsUpdatedBy              ReferenceList[]            @relation("reference_lists_updated_by")
   settingsUpdatedBy                    Setting[]                  @relation("settings_updated_by")
+  nameVariantGroupsCreatedBy           NameVariantGroup[]         @relation("name_variant_groups_created_by")
+  nameVariantGroupsUpdatedBy           NameVariantGroup[]         @relation("name_variant_groups_updated_by")
   nameVariantsCreatedBy                NameVariant[]              @relation("name_variants_created_by")
   nameVariantsUpdatedBy                NameVariant[]              @relation("name_variants_updated_by")
   nameVariantsVersionUpdatedBy         NameVariantsVersion[]      @relation("name_variants_version_updated_by")
@@ -635,20 +637,40 @@ model Setting {
   @@map("settings")
 }
 
-/// A known spelling of a word and its group's one spelling, by which the name keys make the two equal
-model NameVariant {
-  id           String   @id @db.Uuid
-  variant      String
+/// A group of spellings of one name: the spelling the keys use and the others; switched off and on, never deleted
+model NameVariantGroup {
+  id           String        @id @db.Uuid
   canonical    String
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy    String?  @map("created_by") @db.Uuid
-  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy    String?  @map("updated_by") @db.Uuid
-  createdByRef User?    @relation("name_variants_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef User?    @relation("name_variants_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?       @map("created_by") @db.Uuid
+  updatedAt    DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?       @map("updated_by") @db.Uuid
+  createdByRef User?         @relation("name_variant_groups_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef User?         @relation("name_variant_groups_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  spellings    NameVariant[] @relation("name_variants_group_id")
 
-  @@unique([variant], map: "name_variants_variant_key")
-  @@index([canonical], map: "name_variants_canonical_idx")
+  @@index([createdBy], map: "name_variant_groups_created_by_idx")
+  @@index([updatedBy], map: "name_variant_groups_updated_by_idx")
+  @@map("name_variant_groups")
+}
+
+/// One spelling of a group, its canonical included; a spelling taken out of its group stays, no longer active
+model NameVariant {
+  id           String           @id @db.Uuid
+  groupId      String           @map("group_id") @db.Uuid
+  variant      String
+  active       Boolean          @default(true)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?          @map("created_by") @db.Uuid
+  updatedAt    DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?          @map("updated_by") @db.Uuid
+  group        NameVariantGroup @relation("name_variants_group_id", fields: [groupId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef User?            @relation("name_variants_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef User?            @relation("name_variants_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([variant], where: raw("active"), map: "name_variants_variant_key")
+  @@index([groupId], map: "name_variants_group_id_idx")
   @@index([createdBy], map: "name_variants_created_by_idx")
   @@index([updatedBy], map: "name_variants_updated_by_idx")
   @@map("name_variants")

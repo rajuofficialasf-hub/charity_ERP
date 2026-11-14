@@ -6,13 +6,21 @@ import type {
   SmsProviderSetting,
 } from '@css/shared/settings';
 import { api } from '../../api/client';
-import type { Channels, GeneralSettings, ReferenceItem, SettingEntry } from '../../api/schemas';
+import type { NameVariantGroupCreate, NameVariantGroupUpdate } from '@css/shared/beneficiaries';
+import type {
+  Channels,
+  GeneralSettings,
+  NameVariantGroupView,
+  ReferenceItem,
+  SettingEntry,
+} from '../../api/schemas';
 
-export type { Channels, GeneralSettings, ReferenceItem, SettingEntry };
+export type { Channels, GeneralSettings, NameVariantGroupView, ReferenceItem, SettingEntry };
 
 export const SETTINGS_KEY = ['admin', 'settings'] as const;
 export const listKey = (list: EditableList) => ['admin', 'reference-list', list] as const;
 export const CHANNELS_KEY = ['admin', 'channels'] as const;
+export const NAME_VARIANTS_KEY = ['admin', 'name-variants'] as const;
 
 /** GET /settings, by key. */
 export async function settings(): Promise<GeneralSettings> {
@@ -37,6 +45,14 @@ export const updateItem = (list: EditableList, code: string, body: ReferenceItem
     method: 'PATCH',
     body,
   });
+
+export const nameVariantGroups = () => api<NameVariantGroupView[]>('/name-variants');
+
+export const addNameVariantGroup = (body: NameVariantGroupCreate) =>
+  api<NameVariantGroupView>('/name-variants', { method: 'POST', body });
+
+export const updateNameVariantGroup = (id: string, body: NameVariantGroupUpdate) =>
+  api<NameVariantGroupView>(`/name-variants/${id}`, { method: 'PATCH', body });
 
 export const channels = () => api<Channels>('/admin/channels');
 

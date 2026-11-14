@@ -75,8 +75,17 @@ export function keyWords(text: string): string[] {
 /** One word, or a short text, in key form with its spaces removed. */
 const wordKey = (text: string) => keyWords(text).join('');
 
+/** A spelling in the form the key compares it in: two spellings with one key form are one. */
+export const spellingKey = wordKey;
+
 const START = new Set(START_TITLES.map(wordKey));
 const END = new Set(END_TITLES.map(wordKey));
+
+/** Whether a word is one of the titles the key drops, at the start or at the end of a name. */
+export function isNameTitle(word: string): boolean {
+  const key = wordKey(word);
+  return START.has(key) || END.has(key);
+}
 
 const spell = (words: string[], variants: NameVariants) =>
   words.map((word) => variants.get(word) ?? word).join('');

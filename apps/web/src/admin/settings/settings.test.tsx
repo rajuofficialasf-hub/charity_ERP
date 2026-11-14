@@ -57,6 +57,10 @@ const LISTS: Record<string, unknown[]> = {
     },
   ],
 };
+const GROUPS = [
+  { id: 'g1', canonical: 'আক্তার', variants: ['আকতার', 'আখতার'], active: true },
+  { id: 'g2', canonical: 'হোসেন', variants: ['হোসাইন'], active: false },
+];
 const CHANNELS = {
   smtp: {
     host: 'mail.example.org',
@@ -78,6 +82,7 @@ let patched: { key: string; body: unknown }[];
 let added: unknown[];
 let itemPatches: unknown[];
 let smsPut: unknown[];
+let variantsAdded: unknown[];
 let settingsRead: number;
 
 function serve() {
@@ -85,6 +90,7 @@ function serve() {
   added = [];
   itemPatches = [];
   smsPut = [];
+  variantsAdded = [];
   settingsRead = 0;
   server.use(
     http.get('*/api/v1/settings', () => {
@@ -132,6 +138,33 @@ function serve() {
       const body = (await request.json()) as Record<string, unknown>;
       itemPatches.push(body);
       return HttpResponse.json({ data: { ...ITEMS[0], ...body }, meta: {} });
+    }),
+    http.get('*/api/v1/name-variants', () => HttpResponse.json({ data: GROUPS, meta: {} })),
+    http.post('*/api/v1/name-variants', async ({ request }) => {
+      const body = (await request.json()) as { canonical: string; variants: string[] };
+      variantsAdded.push(body);
+      if (body.variants.includes('হোসাইন'))
+        return HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              message: 'কিছু তথ্য সঠিক নয়।',
+              requestId: 'req_v',
+              details: [
+                {
+                  path: 'variants.0',
+                  code: 'validation.name_variant_taken',
+                  message: 'এই বানান আরেকটি দলে আছে।',
+                },
+              ],
+            },
+          },
+          { status: 422 },
+        );
+      return HttpResponse.json(
+        { data: { id: 'g3', ...body, active: true }, meta: {} },
+        { status: 201 },
+      );
     }),
     http.get('*/api/v1/admin/channels', () => HttpResponse.json({ data: CHANNELS, meta: {} })),
     http.put('*/api/v1/admin/channels/sms', async ({ request }) => {
@@ -468,6 +501,53 @@ describe('the settings page', () => {
         },
       ]),
     );
+  }, 20_000);
+
+  it('lists the spelling groups and adds one through the dialog', async () => {
+    refreshAs(HEAD);
+    serve();
+    const { container } = open('lists');
+    const heading = await screen.findByRole('heading', { level: 2, name: 'নামের বানানভেদ' });
+    const card = heading.closest('section') as HTMLElement;
+    expect(within(card).getByText(/একই নামের ভিন্ন বানান এখানে এক দলে রাখুন।/)).toBeInTheDocument();
+    expect(await within(card).findAllByText('আক্তার')).not.toHaveLength(0);
+    expect(within(card).getAllByText('আকতার, আখতার').length).toBeGreaterThan(0);
+    expect(within(card).getAllByText('বন্ধ').length).toBeGreaterThan(0);
+    const user = userEvent.setup();
+    await user.click(within(card).getByRole('button', { name: 'নতুন বানানভেদ যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন বানানভেদ' });
+    await user.type(within(dialog).getByRole('textbox', { name: /^মূল বানান/ }), 'কাদের');
+    await user.type(within(dialog).getByRole('textbox', { name: /^অন্য বানান/ }), 'কাদির, কাদীর');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    expect(await screen.findByText('কাদের সংরক্ষিত হয়েছে।')).toBeInTheDocument();
+    expect(variantsAdded).toEqual([{ canonical: 'কাদের', variants: ['কাদির', 'কাদীর'] }]);
+    await expectNoAxeViolations(container);
+  }, 20_000);
+
+  it('refuses a title before asking, and shows the server’s refusal of a spelling at its field', async () => {
+    refreshAs(HEAD);
+    serve();
+    open('lists');
+    const heading = await screen.findByRole('heading', { level: 2, name: 'নামের বানানভেদ' });
+    const card = heading.closest('section') as HTMLElement;
+    const user = userEvent.setup();
+    await user.click(within(card).getByRole('button', { name: 'নতুন বানানভেদ যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন বানানভেদ' });
+    const others = within(dialog).getByRole('textbox', { name: /^অন্য বানান/ });
+    await user.type(within(dialog).getByRole('textbox', { name: /^মূল বানান/ }), 'হোসেন');
+    await user.type(others, 'মোঃ');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() => expect(others).toHaveAccessibleDescription(/^মোঃ: এটি উপাধি/));
+    expect(variantsAdded).toHaveLength(0);
+    // a spelling another group holds is refused by the server, under the field that holds it
+    await user.clear(others);
+    await user.type(others, 'হোসাইন');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() =>
+      expect(others).toHaveAccessibleDescription('হোসাইন: এই বানান আরেকটি দলে আছে।'),
+    );
+    expect(variantsAdded).toHaveLength(1);
+    expect(screen.queryByText('কিছু তথ্য সঠিক নয়।')).not.toBeInTheDocument();
   }, 20_000);
 
   it('shows the forbidden content to a Program Manager', async () => {

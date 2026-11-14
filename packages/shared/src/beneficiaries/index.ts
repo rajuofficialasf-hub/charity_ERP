@@ -3,6 +3,7 @@ import { z } from 'zod';
 export * from './identity.js';
 export * from './match-key.js';
 export * from './mobile-owner.js';
+export * from './name-variants.js';
 export * from './requests.js';
 
 /**
