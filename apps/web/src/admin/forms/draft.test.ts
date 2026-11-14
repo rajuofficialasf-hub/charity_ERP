@@ -12,12 +12,14 @@ import {
   addEmptySection,
   addIdentityQuestions,
   addLibraryField,
+  addMobileOwnerQuestions,
   addLibrarySection,
   addOwnQuestion,
   coreLocks,
   duplicateField,
   emptyOption,
   insertOptionAfter,
+  lacksMobileOwnerQuestion,
   missingIdentityRoles,
   missingIn,
   missingTextCount,
@@ -796,13 +798,85 @@ describe('the identity questions added all at once', () => {
     valid(some.definition);
   });
 
-  it('adds only the roles that are missing, and nothing a second time', () => {
+  it('gives a form that has all seven identity questions the two on whose number the mobile is, right after its mobile question, and nothing a second time', () => {
     const start = definition();
-    expect(add(start, 'beneficiary_application')).toEqual({
-      definition: start,
+    expect(missingIdentityRoles(start)).toEqual([]);
+    expect(lacksMobileOwnerQuestion(start)).toBe(true);
+    const mobile = start.sections
+      .flatMap((s) => s.fields)
+      .find((f) => identityRoleOf(f) === 'mobile')!;
+    const home = start.sections.find((s) => s.fields.includes(mobile))!;
+    const once = add(start, 'beneficiary_application');
+    expect(once.fieldKeys).toEqual(['q_aaaaaa', 'q_bbbbbb']);
+    // the part the two went to is the mobile question's, for the page to show
+    expect(once.section).toBe(home.key);
+    // no part and no identity question was added, and the seven stand as they were
+    expect(once.definition.sections.map((s) => s.key)).toEqual(start.sections.map((s) => s.key));
+    expect(
+      once.definition.sections.flatMap((s) => s.fields).filter((f) => identityRoleOf(f) !== null),
+    ).toEqual(start.sections.flatMap((s) => s.fields).filter((f) => identityRoleOf(f) !== null));
+    const fields = once.definition.sections.find((s) => s.key === home.key)!.fields;
+    const at = fields.findIndex((f) => f.fieldKey === mobile.fieldKey);
+    expect(fields.slice(at + 1, at + 3)).toMatchObject([
+      {
+        fieldKey: 'q_aaaaaa',
+        type: 'single_select',
+        standardColumn: 'mobile_owner_code',
+        required: false,
+        label: T('mobile_owner (বাংলা)', 'mobile_owner (English)'),
+        logic: { show_if: { field: mobile.fieldKey, op: 'not_empty' } },
+      },
+      {
+        fieldKey: 'q_bbbbbb',
+        type: 'short_text',
+        standardColumn: 'mobile_owner_name',
+        required: false,
+        label: T('mobile_owner_name (বাংলা)', 'mobile_owner_name (English)'),
+        logic: { show_if: { field: 'q_aaaaaa', op: 'neq', value: 'own' } },
+        settings: { validation: { max_length: 200 } },
+      },
+    ]);
+    valid(once.definition);
+    expect(
+      checkDefinition(once.definition, { publishing: true, kind: 'beneficiary_application' }),
+    ).toEqual(checkDefinition(start, { publishing: true, kind: 'beneficiary_application' }));
+    expect(lacksMobileOwnerQuestion(once.definition)).toBe(false);
+    // a second press adds nothing
+    expect(add(once.definition, 'beneficiary_application')).toEqual({
+      definition: once.definition,
       section: null,
       fieldKeys: [],
     });
+    // the edit of the two alone does the same on such a form, and nothing on its result
+    const alone = addMobileOwnerQuestions(start, identityLibrary, {
+      wording,
+      makeKey: keysFrom('q_aaaaaa', 'q_bbbbbb'),
+    });
+    expect(alone).toEqual(once);
+    expect(addMobileOwnerQuestions(once.definition, identityLibrary, { wording })).toEqual({
+      definition: once.definition,
+      section: null,
+      fieldKeys: [],
+    });
+  });
+
+  it('offers the two only to a form that asks the mobile and not whose number it is', () => {
+    expect(lacksMobileOwnerQuestion(empty())).toBe(false);
+    const start = definition();
+    expect(lacksMobileOwnerQuestion(start)).toBe(true);
+    const unmarkedMobile = setIdentityRole(
+      start,
+      start.sections.flatMap((s) => s.fields).find((f) => identityRoleOf(f) === 'mobile')!.fieldKey,
+      null,
+    );
+    expect(lacksMobileOwnerQuestion(unmarkedMobile)).toBe(false);
+    expect(addMobileOwnerQuestions(unmarkedMobile, identityLibrary, { wording }).definition).toBe(
+      unmarkedMobile,
+    );
+  });
+
+  it('adds only the roles that are missing, and nothing a second time', () => {
+    const start = definition();
     const some = setIdentityRole(setIdentityRole(start, 'name', null), 'village', null);
     const once = add(some, 'beneficiary_application');
     // the form holds a question keyed name already, so the role gets an empty one of its own;
@@ -1722,6 +1796,12 @@ describe('the rest of the definition', () => {
           wording: (role) => T(role, role),
         }).definition,
     ],
+    [
+      'addMobileOwnerQuestions',
+      'the two questions on whose number the mobile is',
+      (d) =>
+        addMobileOwnerQuestions(d, library.fields, { wording: (name) => T(name, name) }).definition,
+    ],
   ];
   /**
    * The exported functions that return no draft: the ones that read a draft, and the ones that
@@ -1733,6 +1813,7 @@ describe('the rest of the definition', () => {
     'emptyOption',
     'hasIdentity',
     'insertOptionAfter',
+    'lacksMobileOwnerQuestion',
     'missingIdentityRoles',
     'missingIn',
     'missingTextCount',

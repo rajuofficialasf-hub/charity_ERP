@@ -786,6 +786,56 @@ describe('the identity mark', () => {
   });
 });
 
+describe('the two questions on whose number the mobile is', () => {
+  const ADD = '‘নম্বরটি কার?’ প্রশ্ন দুটি যোগ করুন';
+  const HINT =
+    'মোবাইল নম্বরটি নিজের, পরিবারের নাকি প্রতিবেশীর, তা জানতে দুটি প্রশ্ন মোবাইলের পরে বসবে।';
+  const pane = (
+    select: Selection,
+    mode: 'full' | 'texts',
+    onAddMobileOwner: (() => void) | undefined,
+  ) =>
+    renderApp(
+      <SettingsPane
+        definition={definition()}
+        selected={select}
+        mode={mode}
+        identityMarks
+        onAddMobileOwner={onAddMobileOwner}
+        onChange={() => undefined}
+      />,
+    );
+  const MOBILE = { section: 'basic_info', field: 'mobile' };
+
+  it('are offered on the mobile question with what they are for, and the press asks the page for them', async () => {
+    const user = userEvent.setup();
+    let asked = 0;
+    const view = pane(MOBILE, 'full', () => {
+      asked += 1;
+    });
+    const button = await screen.findByRole('button', { name: ADD });
+    expect(screen.getByText(HINT)).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+    await user.click(button);
+    expect(asked).toBe(1);
+  });
+
+  it('are offered on no other question, not on a phone, and not once the page has none to add', async () => {
+    const other = pane({ section: 'basic_info', field: 'name' }, 'full', () => undefined);
+    await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ });
+    expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
+    other.unmount();
+    const phone = pane(MOBILE, 'texts', () => undefined);
+    await screen.findAllByRole('textbox');
+    expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
+    expect(screen.queryByText(HINT)).not.toBeInTheDocument();
+    phone.unmount();
+    pane(MOBILE, 'full', undefined);
+    await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ });
+    expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
+  });
+});
+
 describe('a stale identity mark', () => {
   it('on a form of another kind still shows, so it can be cleared', async () => {
     const user = userEvent.setup();

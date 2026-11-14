@@ -266,6 +266,30 @@ describe('the rows of an export', () => {
     for (const row of byExecutive) expect(row.cells).not.toHaveProperty('score');
   });
 
+  it('carry the contact class on an application’s row only for a requester who is shown the mobile, so a contact answer is read beside no other row', async () => {
+    const query = { kind: 'applications' as const, filters: {}, projectId: world.a1.id };
+    const office = await rows().batch(await freeze(world.users.rpmDhaka, query), null, 100);
+    expect(office.rows.length).toBeGreaterThanOrEqual(4);
+    for (const row of office.rows) expect(row.classes).toContain('beneficiary.contact');
+    // the Procurement Team is not shown a person's contact; the permission panel can give a
+    // member the application list of a project, and the classes stay those of the role
+    const member = await account(h.db, { role: 'procurement_team' });
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+       VALUES ($1, $2, 'application.view', 'grant', 'PROJECT', $3, 'Test override', $4)`,
+      [randomUUID(), member.id, world.a1.id, world.users.head],
+    );
+    const frozen = await freeze(member.id, query);
+    expect(frozen.classes).not.toContain('beneficiary.contact');
+    const theirs = await rows().batch(frozen, null, 100);
+    expect(theirs.rows.length).toBeGreaterThanOrEqual(4);
+    for (const row of theirs.rows) {
+      expect(row.classes).not.toContain('beneficiary.contact');
+      expect(row.classes).not.toContain('beneficiary.nid');
+      expect(row.cells).toHaveProperty('app_no');
+    }
+  });
+
   it('need the export permission beside the list’s own', async () => {
     const official = await account(h.db, { role: 'project_executive' });
     await h.db.query(

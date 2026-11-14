@@ -646,6 +646,112 @@ describe('a person who looks like a blocked one', () => {
     expect(made.rows[0].n).toBe(1);
   });
 
+  it('compares at the verification of an entry that waits for another reason: a person blocked after the hold gets no profile, the entry gains the profile to compare, and the official who then says it is another person makes it', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    for (const [target, without] of [
+      [open, ['q_id']],
+      [strict, []],
+    ] as const) {
+      const tag = randomUUID().slice(0, 8);
+      const person = {
+        name: `জমিলা ${tag}`,
+        father_or_husband_name: `হাশেম ${tag}`,
+        village: 'দক্ষিণ পাড়া',
+      };
+      const profile = await beneficiary(h.db, world.dhaka, person);
+      // a late offline send: the entry waits, and nobody of that name was blocked then
+      const id = await applicationRow(h.db, {
+        projectId: target.project,
+        versionId: target.versionId,
+        loc: world.dhaka,
+        status: 'needs_verification',
+        ownerVolunteerId: generalVolunteer,
+        createdByUserId: world.users.general,
+        answers: Object.fromEntries(
+          answersOf([...without], {
+            q_name: text(person.name),
+            q_father: text(person.father_or_husband_name),
+            q_village: text(person.village),
+          }).map((a) => [a.fieldKey, a.value]),
+        ),
+        over: { flags: ['late_sync'], submitted_at: new Date() },
+      });
+      await h.db.query('UPDATE beneficiaries SET is_blocked = true WHERE id = $1', [profile]);
+
+      const first = await act(rpm, id, 'verify_create', {});
+      expect(first.status, JSON.stringify(first.body)).toBe(409);
+      expect(first.body.error.code).toBe('application.verify_blocked_match');
+      expect(first.body.error.message).toContain('ব্লক করা ব্যক্তির');
+      // no profile was made, and the entry still waits, now with the match and whom to compare
+      expect(await profilesNamed(person.name)).toBe(1);
+      const stored = await h.db.query(
+        'SELECT status, flags, candidate_beneficiary_id, beneficiary_id, app_no FROM applications WHERE id = $1',
+        [id],
+      );
+      expect(stored.rows).toEqual([
+        {
+          status: 'needs_verification',
+          flags: ['late_sync', 'blocked_name_match'],
+          candidate_beneficiary_id: profile,
+          beneficiary_id: null,
+          app_no: null,
+        },
+      ]);
+      const office = await at(rpm, 'get', `/applications/${id}`);
+      expect(office.body.data).toMatchObject({
+        status: 'needs_verification',
+        flags: ['late_sync', 'blocked_name_match'],
+        candidateBeneficiaryId: profile,
+      });
+      // the volunteer who brought it still reads only that it waits
+      const mine = await at(await as(world.users.general), 'get', `/applications/${id}`);
+      expect(mine.body.data).toMatchObject({ flags: ['late_sync'], candidateBeneficiaryId: null });
+      // the version the official saw before the match no longer stands
+      const stale = await at(rpm, 'post', `/applications/${id}/actions/verify_create`)
+        .set('If-Match', '"stale"')
+        .send({});
+      expect(stale.status).toBe(412);
+
+      // the official has compared the two and says it is another person
+      const second = await act(rpm, id, 'verify_create', {});
+      expect(second.status, JSON.stringify(second.body)).toBe(200);
+      expect(second.body.data.status).toBe('submitted');
+      expect(second.body.data.beneficiaryId).not.toBe(profile);
+      expect(await profilesNamed(person.name)).toBe(2);
+      const audits = await h.db.query<{ action: string; new: Record<string, unknown> }>(
+        `SELECT action, new FROM audit_log WHERE entity_type = 'application' AND entity_id = $1
+          ORDER BY created_at, id`,
+        [id],
+      );
+      expect(audits.rows.map((r) => r.action)).toEqual([
+        'application.blocked_match_found',
+        'application.person_bound',
+        'application.verify_create',
+        'application.numbered',
+      ]);
+      expect(audits.rows[0]!.new).toMatchObject({
+        flags: ['late_sync', 'blocked_name_match'],
+        candidateBeneficiaryId: profile,
+      });
+    }
+  });
+
+  it('makes the profile at the first attempt for an entry that waits for another reason when its person matches nobody blocked', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const who = someone();
+    const id = await applicationRow(h.db, {
+      projectId: open.project,
+      versionId: open.versionId,
+      loc: world.dhaka,
+      status: 'needs_verification',
+      answers: Object.fromEntries(answersOf(['q_id'], who).map((a) => [a.fieldKey, a.value])),
+      over: { flags: ['late_sync'], submitted_at: new Date() },
+    });
+    const created = await act(rpm, id, 'verify_create', {});
+    expect(created.status, JSON.stringify(created.body)).toBe(200);
+    expect(created.body.data).toMatchObject({ status: 'submitted', flags: ['late_sync'] });
+  });
+
   it('compares inside the move: a person blocked after the draft was made is held by the send, and nothing of the abandoned send stays', async () => {
     const s = await as(world.users.general);
     const tag = randomUUID().slice(0, 8);

@@ -1,4 +1,5 @@
 import { answerValueSchema, uuidv7 } from '@css/shared';
+import { MOBILE_OWNER_COLUMN, MOBILE_OWNER_NAME_COLUMN } from '@css/shared/beneficiaries';
 import { FILE_KINDS, kindAllowedOn } from '@css/shared/files';
 import {
   type Answer,
@@ -69,6 +70,43 @@ export const fieldsOf = (definition: FormDefinition): Field[] =>
 /** The question marked with a standard column, if the form has one. */
 export function fieldByColumn(definition: FormDefinition, column: string): Field | null {
   return fieldsOf(definition).find((f) => f.standardColumn === column) ?? null;
+}
+
+/**
+ * The protected class (docs/security/permissions.yaml, the protected field classes) of the
+ * answers that fill these standard columns: the identity number, and the mobile with whose number
+ * it is and that person's name.
+ */
+const COLUMN_CLASSES: ReadonlyMap<string, string> = new Map([
+  [IDENTITY_COLUMN, 'beneficiary.nid'],
+  ['mobile', 'beneficiary.contact'],
+  [MOBILE_OWNER_COLUMN, 'beneficiary.contact'],
+  [MOBILE_OWNER_NAME_COLUMN, 'beneficiary.contact'],
+]);
+
+/**
+ * The protected class of a question's answers by the standard column it fills, or null. The
+ * record on screen and every export read it here, so an answer withheld in one is withheld in the
+ * other.
+ */
+export function classOfColumn(column: string | null | undefined): string | null {
+  return (column && COLUMN_CLASSES.get(column)) || null;
+}
+
+/**
+ * The questions whose answers a reader without their class is not given: every question that
+ * fills a protected column, not only the first, whatever part of the form holds it.
+ */
+export function withheldFields(
+  definition: FormDefinition,
+  fieldClasses: ReadonlySet<string>,
+): Set<string> {
+  const withheld = new Set<string>();
+  for (const field of fieldsOf(definition)) {
+    const cls = classOfColumn(field.standardColumn);
+    if (cls && !fieldClasses.has(cls)) withheld.add(field.fieldKey);
+  }
+  return withheld;
 }
 
 /**

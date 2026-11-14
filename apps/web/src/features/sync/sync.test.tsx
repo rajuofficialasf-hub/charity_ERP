@@ -199,6 +199,46 @@ describe('the sync centre', () => {
     await waitFor(async () => expect((await offlineDb().outbox.get(FAILED))?.state).toBe('synced'));
   });
 
+  it('lists a record the office is verifying whatever the reason, also when the server names none, with the general note and no reason', async () => {
+    await seedPhone();
+    const HELD = '01900000-0000-7000-8000-0000000000c5';
+    // the phone holds this application as waiting for the office too
+    await applySnapshot(
+      {
+        ...view,
+        applications: [
+          summary,
+          { ...summary, id: HELD, appNo: null, beneficiaryName: 'কারণ ছাড়া উপকারভোগী', flags: [] },
+        ],
+        applicationIds: [APP, HELD],
+      } as SnapshotView,
+      T0,
+    );
+    await draft(LATER, 'কারণ ছাড়া উপকারভোগী');
+    await apply([LATER], { type: 'flush', at: T0 });
+    // the server answers that the entry waits and gives no reason code
+    await applyResult({ clientUuid: LATER, result: 'needs_verification', serverId: HELD }, T0);
+    open();
+    const verifying = await screen.findByRole('region', { name: /অফিস যাচাই করছে/ });
+    expect(within(verifying).getByRole('heading', { level: 2 })).toHaveTextContent(
+      'অফিস যাচাই করছে (2)',
+    );
+    const row = within(verifying)
+      .getByRole('heading', { name: 'কারণ ছাড়া উপকারভোগী' })
+      .closest('li')!;
+    expect(
+      within(row).getByText('অফিস এই রেকর্ডটি যাচাই করছে। সিদ্ধান্ত এলে আপনার আবেদনে দেখা যাবে।'),
+    ).toBeInTheDocument();
+    expect(within(row).getByRole('link', { name: 'খুলুন' })).toHaveAttribute(
+      'href',
+      `/my-applications/${HELD}`,
+    );
+    // nothing says why it waits: no reason line, and nothing to send again or drop
+    expect(row.querySelector('.sync-record-reason')).toBeNull();
+    expect(row).not.toHaveTextContent(/ব্লক/);
+    expect(within(row).queryByRole('button')).toBeNull();
+  });
+
   it('names the question of an answer no longer in its list on a refused record', async () => {
     await seedPhone();
     await draft(LATER, 'পুরনো খসড়া');

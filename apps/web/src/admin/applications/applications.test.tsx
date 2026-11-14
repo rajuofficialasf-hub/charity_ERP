@@ -1248,4 +1248,63 @@ describe('a person without an identity document or a mobile', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(BLOCK_MATCH)).not.toBeInTheDocument();
   });
+
+  it('shows the match the server finds when a new profile is asked for an entry that waits for another reason, with the profile to compare, and makes the person at the second press', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    let flags = ['late_sync'];
+    const sent: { action: string; version: string | null }[] = [];
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'needs_verification',
+            identityKind: null,
+            beneficiaryId: null,
+            flags,
+            candidateBeneficiaryId: flags.includes('blocked_name_match') ? CANDIDATE : null,
+            answers: withoutNumbers,
+            availableActions: ['verify_link', 'verify_create', 'reject_unverified'],
+          }),
+          flags.includes('blocked_name_match') ? '"v2"' : '"v1"',
+        ),
+      ),
+      http.get(`*/api/v1/projects/${PROJECT}/volunteers`, () =>
+        HttpResponse.json({
+          data: [],
+          meta: { requestId: 'r', nextCursor: null, prevCursor: null },
+        }),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, ({ params, request }) => {
+        sent.push({ action: String(params.action), version: request.headers.get('if-match') });
+        if (flags.includes('blocked_name_match'))
+          return envelope(record({ status: 'submitted', availableActions: [] }), '"v3"');
+        // the server found the match: the entry stays waiting and now carries it
+        flags = ['late_sync', 'blocked_name_match'];
+        return apiError(409, 'application.verify_blocked_match', BLOCK_MATCH);
+      }),
+    );
+    openReview();
+    await user.click(await screen.findByRole('button', { name: 'যাচাই করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
+    expect(within(dialog).queryByText(BLOCK_MATCH)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
+    // the dialog stays open with the line and the blocked person's profile to compare
+    expect(await within(dialog).findByText(BLOCK_MATCH)).toBeInTheDocument();
+    expect(
+      await within(dialog).findByRole('link', {
+        name: bn.applications.office.verify.blocked_profile,
+      }),
+    ).toHaveAttribute('href', `/admin/beneficiaries/${CANDIDATE}`);
+    expect(within(dialog).getByText(bn.applications.office.verify.create_other_help)).toBeVisible();
+    expect(sent).toEqual([{ action: 'verify_create', version: '"v1"' }]);
+    // the official compared the two: the second press carries the version the entry has now
+    await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[1]).toEqual({ action: 'verify_create', version: '"v2"' });
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' })).not.toBeInTheDocument(),
+    );
+  });
 });

@@ -100,7 +100,7 @@ sensitive_fields:
   - key: beneficiary.contact
     fields: [beneficiaries.mobile, beneficiaries.mobile_owner_code, beneficiaries.mobile_owner_name, beneficiary_family_members.*]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
-    source: "O-67, D-094: not to the Media or Procurement Team, in lists, profiles, search and filters. D-172: whose number the mobile is and that person's name are hidden wherever the mobile is (the profile, its contact history, the export of the list, the two answers on an application's record)"
+    source: "O-67, D-094: not to the Media or Procurement Team, in lists, profiles, search and filters. D-172: whose number the mobile is and that person's name are hidden wherever the mobile is (the profile, its contact history, the export of the list, the two answers on an application's record). A question of an application's form that fills one of these columns is withheld like the column: its answer is hidden on the record and neither offered nor written in an export of the application list or the application's PDF for a reader without this class"
   - key: beneficiary.address_detail
     fields: [beneficiaries.union_id, beneficiaries.village, beneficiaries.post_office, beneficiaries.post_code, beneficiaries.landmark, beneficiaries.latitude, beneficiaries.longitude]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee, procurement_team]

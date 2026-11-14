@@ -540,6 +540,88 @@ describe('the identity questions in one press', () => {
   });
 });
 
+describe('the two questions on whose number the mobile is, asked for on the mobile question', () => {
+  const ADD = '‘নম্বরটি কার?’ প্রশ্ন দুটি যোগ করুন';
+  const OWNER = 'নম্বরটি কার? বদলান';
+  const OWNER_NAME = 'যাঁর নম্বর, তাঁর নাম বদলান';
+  // the questions as the form draws them; the settings of a chosen one have buttons of their own
+  const questions = () =>
+    within(screen.getByRole('region', { name: 'ফর্মের প্রশ্নগুলো' }))
+      .getAllByRole('button', { name: / বদলান$/ })
+      .map((b) => b.getAttribute('aria-label'));
+  const undo = () =>
+    within(screen.getByTestId('form-head')).getByRole('button', { name: 'ফিরিয়ে আনুন' });
+  const choose = async (user: ReturnType<typeof userEvent.setup>, name: string) =>
+    user.click(await screen.findByRole('button', { name }));
+
+  it('are offered on a form that has its seven identity questions and no question for the owner, and go right after the mobile in one step', async () => {
+    const user = userEvent.setup();
+    api(complete(), { library: IDENTITY_LIBRARY });
+    open();
+    // the form lacks no identity question, so the one press of the seven is not offered
+    await choose(user, 'name বদলান');
+    await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ });
+    expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' }),
+    ).not.toBeInTheDocument();
+    const before = questions();
+    await choose(user, 'mobile বদলান');
+    await user.click(await screen.findByRole('button', { name: ADD }));
+    // the two stand right after the mobile, worded from the catalogue
+    const at = before.indexOf('mobile বদলান');
+    expect(questions()).toEqual([
+      ...before.slice(0, at + 1),
+      OWNER,
+      OWNER_NAME,
+      ...before.slice(at + 1),
+    ]);
+    // the first of them is chosen and brought into view
+    const first = screen.getByRole('button', { name: OWNER });
+    expect(first).toHaveAttribute('aria-pressed', 'true');
+    expect(scrolled).toEqual([first.closest('li')]);
+    // the form asks whose number it is now: the mobile question offers nothing more
+    await choose(user, 'mobile বদলান');
+    await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ });
+    expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    const saved = saves.at(-1)!.flatMap((s) => s.fields);
+    const mobileAt = saved.findIndex((f) => f.standardColumn === 'mobile');
+    expect(saved.slice(mobileAt + 1, mobileAt + 3)).toMatchObject([
+      {
+        type: 'single_select',
+        standardColumn: 'mobile_owner_code',
+        required: false,
+        label: T('নম্বরটি কার?', 'Whose number is it?'),
+        logic: { show_if: { field: 'mobile', op: 'not_empty' } },
+      },
+      {
+        type: 'short_text',
+        standardColumn: 'mobile_owner_name',
+        required: false,
+        label: T('যাঁর নম্বর, তাঁর নাম', "Name of the number's owner"),
+        logic: { show_if: { field: saved[mobileAt + 1]!.fieldKey, op: 'neq', value: 'own' } },
+      },
+    ]);
+    expect(saved).toHaveLength(before.length + 2);
+    // one step back takes both away, and the mobile question offers them again
+    await user.click(undo());
+    expect(questions()).toEqual(before);
+    await choose(user, 'mobile বদলান');
+    expect(await screen.findByRole('button', { name: ADD })).toBeInTheDocument();
+  }, 30_000);
+
+  it('are not offered on a phone, where only the texts change', async () => {
+    const user = userEvent.setup();
+    stubMatchMedia((q) => q.includes('max-width'));
+    api(complete(), { library: IDENTITY_LIBRARY });
+    open();
+    await choose(user, 'mobile বদলান');
+    await screen.findAllByRole('textbox');
+    expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
+  });
+});
+
 describe('the translations of the form', () => {
   /** A question written in Bengali only, and a choice whose two options wait for their English. */
   const untranslated = () =>

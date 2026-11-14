@@ -907,8 +907,9 @@ const takesIdentity = (section: FormSection) =>
  * the wording can be changed afterwards. Each added question is required and has no condition. A
  * role already marked is left alone, and a form of another kind gets nothing. With them come the
  * two questions on whose number the mobile is (`addMobileOwnerQuestions`), which are no identity
- * questions. The keys of the added questions come back, the identity questions in the order of
- * the roles and then those two, with the part the identity questions went to.
+ * questions, also on a form that lacks no identity question and only those two. The keys of the
+ * added questions come back, the identity questions in the order of the roles and then those two,
+ * with the part the first of them went to.
  */
 export function addIdentityQuestions(
   def: FormDefinition,
@@ -920,17 +921,21 @@ export function addIdentityQuestions(
     makeKey?: MakeKey;
   },
 ): { definition: FormDefinition; section: string | null; fieldKeys: string[] } {
-  const roles = options.kind === 'beneficiary_application' ? missingIdentityRoles(def) : [];
-  if (!roles.length) return { definition: def, section: null, fieldKeys: [] };
+  if (options.kind !== 'beneficiary_application')
+    return { definition: def, section: null, fieldKeys: [] };
+  const roles = missingIdentityRoles(def);
   let next = def;
   let section = def.sections.find(takesIdentity)?.key;
-  if (section === undefined) {
+  // a new part only for identity questions that have none to go to
+  if (section === undefined && roles.length) {
     const made = addEmptySection(def, options.title);
     next = made.definition;
     section = made.key;
   }
   const fieldKeys: string[] = [];
   for (const role of roles) {
+    // the part exists whenever a role is missing
+    if (section === undefined) break;
     const core = CORE_FIELDS.find((c) => c.key === role)!;
     const taken = allKeys(next);
     // the library's question of the role: one question, of the role's type, not in the form yet
@@ -956,7 +961,22 @@ export function addIdentityQuestions(
     fieldKeys.push(added.fieldKey);
   }
   const owner = addMobileOwnerQuestions(next, library, options);
-  return { definition: owner.definition, section, fieldKeys: [...fieldKeys, ...owner.fieldKeys] };
+  const added = [...fieldKeys, ...owner.fieldKeys];
+  if (!added.length) return { definition: def, section: null, fieldKeys: [] };
+  return {
+    definition: owner.definition,
+    section: fieldKeys.length ? (section ?? null) : owner.section,
+    fieldKeys: added,
+  };
+}
+
+/** Whether the form asks the mobile and has no question on whose number it is. */
+export function lacksMobileOwnerQuestion(def: FormDefinition): boolean {
+  const fields = def.sections.flatMap((s) => s.fields);
+  return (
+    fields.some((f) => identityRoleOf(f) === 'mobile') &&
+    !fields.some((f) => f.standardColumn === MOBILE_OWNER_COLUMN && groupOf(f) === undefined)
+  );
 }
 
 /**
@@ -976,21 +996,23 @@ export type MobileOwnerWording = (typeof MOBILE_OWNER_QUESTIONS)[number]['wordin
  * Neither is required or marked as identity. The first shows only when the mobile is answered,
  * the second only when the owner is answered and is not the person's own. A column the form
  * already has a question for gets no second one, and a form without a mobile question gets
- * neither. The keys of the added questions come back in their order.
+ * neither. The keys of the added questions come back in their order, with the part the first of
+ * them went to.
  */
-function addMobileOwnerQuestions(
+export function addMobileOwnerQuestions(
   def: FormDefinition,
   library: LibraryFields,
   options: {
     wording: (name: MobileOwnerWording) => { bn: string; en: string };
     makeKey?: MakeKey;
   },
-): { definition: FormDefinition; fieldKeys: string[] } {
+): { definition: FormDefinition; section: string | null; fieldKeys: string[] } {
   const fieldsOf = (d: FormDefinition) => d.sections.flatMap((s) => s.fields);
   const mobile = fieldsOf(def).find((f) => identityRoleOf(f) === 'mobile');
-  if (!mobile) return { definition: def, fieldKeys: [] };
+  if (!mobile) return { definition: def, section: null, fieldKeys: [] };
   let next = def;
   const fieldKeys: string[] = [];
+  let first: string | null = null;
   // each follows the question it depends on: the owner the mobile, the owner's name the owner
   let anchor = mobile.fieldKey;
   for (const question of MOBILE_OWNER_QUESTIONS) {
@@ -1003,6 +1025,7 @@ function addMobileOwnerQuestions(
     }
     const section = next.sections.find((s) => s.fields.some((f) => f.fieldKey === anchor));
     if (!section) break;
+    first ??= section.key;
     const taken = allKeys(next);
     const ready = [...library.values()].find(
       (placed) =>
@@ -1049,7 +1072,7 @@ function addMobileOwnerQuestions(
     fieldKeys.push(key);
     anchor = key;
   }
-  return { definition: next, fieldKeys };
+  return { definition: next, section: fieldKeys.length ? first : null, fieldKeys };
 }
 
 /**

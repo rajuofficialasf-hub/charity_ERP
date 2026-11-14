@@ -446,6 +446,8 @@
       "section": "This section holds identity questions, so everyone sees it.",
       "tag": "Identity: {role}",
       "add_all": "Add the identity questions",
+      "add_mobile_owner": "Add the two “whose number” questions",
+      "add_mobile_owner_hint": "Two questions go after the mobile to say whether the number is the person's own, a family member's or a neighbour's.",
       "start_title": "Start with the identity questions",
       "start_hint": "A beneficiary application form needs seven identity questions: NID or birth registration number, name, father's or husband's name, mobile number, gender, address and village. One press adds all seven, with two questions on whose number the mobile is; you can change their wording afterwards.",
       "wording": {

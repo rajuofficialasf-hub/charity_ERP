@@ -14,7 +14,7 @@ import {
   validationOf,
 } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
-import { Disclosure, Icon, SelectField, Stack, Switch, Text, TextField } from '@/ui';
+import { Button, Disclosure, Icon, SelectField, Stack, Switch, Text, TextField } from '@/ui';
 import { useEffect, useEffectEvent, useId } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import {
@@ -53,6 +53,8 @@ function compact<T extends object>(value: T): T | undefined {
  * the named check of a text, the limits, the options and their branching, a repeat group's rows,
  * the conditions, the calculation, and a section's visibility, condition and own questions. A
  * question just added takes the focus in its Bengali text (`focusText`), so it is typed at once.
+ * On a computer the mobile question of a form that does not ask whose number it is offers the two
+ * questions for it (`onAddMobileOwner`).
  */
 export function SettingsPane({
   definition,
@@ -61,6 +63,7 @@ export function SettingsPane({
   identityMarks = false,
   focusText = null,
   onTextFocused,
+  onAddMobileOwner,
   onChange,
 }: {
   definition: FormDefinition;
@@ -72,6 +75,11 @@ export function SettingsPane({
   focusText?: string | null;
   /** The focus is there: the page forgets the request. */
   onTextFocused?: () => void;
+  /**
+   * The person wants the two questions on whose number the mobile is; given only while the form
+   * asks the mobile and has no question for its owner.
+   */
+  onAddMobileOwner?: () => void;
   /** `how` says the change was typed, so the history joins it to the typing just before it. */
   onChange: (definition: FormDefinition, how?: Typed) => void;
 }) {
@@ -98,6 +106,7 @@ export function SettingsPane({
       identityMarks={identityMarks}
       focusText={focusText === field.fieldKey}
       onTextFocused={onTextFocused}
+      onAddMobileOwner={onAddMobileOwner}
       onChange={onChange}
     />
   );
@@ -235,6 +244,7 @@ function FieldSettingsView({
   identityMarks,
   focusText,
   onTextFocused,
+  onAddMobileOwner,
   onChange,
 }: {
   definition: FormDefinition;
@@ -244,6 +254,7 @@ function FieldSettingsView({
   identityMarks: boolean;
   focusText: boolean;
   onTextFocused?: () => void;
+  onAddMobileOwner?: () => void;
   onChange: (definition: FormDefinition, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
@@ -376,6 +387,16 @@ function FieldSettingsView({
                 ...CORE_FIELD_KEYS.map((k) => ({ value: k, label: t(`identity.roles.${k}`) })),
               ]}
             />
+          ) : null}
+          {role === 'mobile' && onAddMobileOwner ? (
+            <Stack gap={1}>
+              <div>
+                <Button variant="secondary" startIcon="add" onClick={onAddMobileOwner}>
+                  {t('identity.add_mobile_owner')}
+                </Button>
+              </div>
+              <Text tone="muted">{t('identity.add_mobile_owner_hint')}</Text>
+            </Stack>
           ) : null}
         </Stack>
       </Disclosure>

@@ -15,7 +15,6 @@ import {
   type OptionalIdentity,
   optionalIdentityOf,
 } from '@css/shared/forms';
-import { MOBILE_OWNER_COLUMN, MOBILE_OWNER_NAME_COLUMN } from '@css/shared/beneficiaries';
 import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
 import {
@@ -92,6 +91,7 @@ import {
   readAnswers,
   textOf,
   typedName,
+  withheldFields,
   writeAnswers,
 } from './answers.js';
 import {
@@ -804,6 +804,13 @@ export class ApplicationsService {
       await this.move(viewer, applicationId, action, body, ifMatch);
     } catch (error) {
       if (!(error instanceof BlockedNamesakeMatch)) throw error;
+      // an official was about to make a profile for an entry that waits for another reason, and
+      // its person looks like a blocked one. Nothing of the move stays; the entry keeps waiting,
+      // now with the matched profile to compare, and the official is told to compare first
+      if (action === 'verify_create') {
+        await this.markBlockedMatch(viewer.principal, applicationId, error.beneficiaryId);
+        throw new ApiError('application.verify_blocked_match', 409);
+      }
       // the send would have made a profile for a person who looks like a blocked one. Its
       // transaction has rolled back, so nothing of it stays; the entry waits for an official
       // instead, under the send's own permission and guards, with the matched profile to compare
@@ -824,11 +831,49 @@ export class ApplicationsService {
   }
 
   /**
+   * An entry that waits for verification gains the flag of a person who looks like a blocked one
+   * and that profile as its candidate. The caller has passed the verification's own permission,
+   * scope and version check inside the move that found the match; an entry that left the queue
+   * meanwhile, or carries the flag already, is left as it is.
+   */
+  private async markBlockedMatch(
+    principal: Principal,
+    applicationId: string,
+    beneficiaryId: string,
+  ): Promise<void> {
+    const now = this.clock.now();
+    await this.prisma.$transaction(async (tx) => {
+      // one writer of the entry's flags at a time
+      const [row] = await tx.$queryRaw<{ status: string; flags: string[] }[]>`
+        SELECT status, flags FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
+      if (row?.status !== 'needs_verification' || row.flags.includes(BLOCKED_NAME_MATCH)) return;
+      const flags = [...row.flags, BLOCKED_NAME_MATCH];
+      await tx.application.update({
+        where: { id: applicationId },
+        data: {
+          flags,
+          candidateBeneficiaryId: beneficiaryId,
+          updatedAt: now,
+          updatedBy: principal.userId,
+        },
+      });
+      await this.audit.record(tx, {
+        action: 'application.blocked_match_found',
+        entityType: 'application',
+        entityId: applicationId,
+        old: { flags: row.flags },
+        new: { flags, candidateBeneficiaryId: beneficiaryId },
+      });
+    });
+  }
+
+  /**
    * The move of an action in one transaction. A submission binds the person with the move (a
    * submitted application always has one) and takes its number after it; a verification does the
    * same once its own checks pass, and a public entry never rewrites a known person's contact
-   * data. A send whose new person looks like a blocked one raises `BlockedNamesakeMatch` out of
-   * the transaction; an official's verification is not compared again.
+   * data. A move whose new person looks like a blocked one raises `BlockedNamesakeMatch` out of
+   * the transaction: a send always, a verification unless the entry already carries the flag of
+   * that match, which says the official has seen it and decides it is another person.
    */
   private async move(
     viewer: ApplicationViewer,
@@ -878,7 +923,8 @@ export class ApplicationsService {
                         writeContact: false,
                         ownerUserId: owner?.userId,
                         linkBeneficiaryId,
-                        compared: true,
+                        // the official has seen the match only where the entry shows it
+                        compared: (app.flags ?? []).includes(BLOCKED_NAME_MATCH),
                       })),
                     };
                   },
@@ -1755,20 +1801,8 @@ export class ApplicationsService {
     // read the application without the person's identity number and mobile unless their role holds
     // those classes (docs/BUSINESS_RULES.md, field-level protection); the volunteer who brings it
     // typed them and reads them.
-    const hidden = new Set<string>();
-    if (!mine) {
-      // whose number it is hides with the number
-      const withheld: [string, string][] = [
-        [IDENTITY_COLUMN, BENEFICIARY_NID],
-        ['mobile', BENEFICIARY_CONTACT],
-        [MOBILE_OWNER_COLUMN, BENEFICIARY_CONTACT],
-        [MOBILE_OWNER_NAME_COLUMN, BENEFICIARY_CONTACT],
-      ];
-      for (const [column, fieldClass] of withheld) {
-        const field = fieldByColumn(definition, column);
-        if (field && !viewer.fieldClasses.has(fieldClass)) hidden.add(field.fieldKey);
-      }
-    }
+    // whose number it is hides with the number, and every question of such a column hides
+    const hidden = mine ? new Set<string>() : withheldFields(definition, viewer.fieldClasses);
     const answers = read.filter((a) => !hidden.has(a.fieldKey));
     // the volunteer who brings the application typed the number and the mobile, or left them out
     const seesDocument = mine || viewer.fieldClasses.has(BENEFICIARY_NID);

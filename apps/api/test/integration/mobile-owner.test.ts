@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Readable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context.js';
@@ -303,6 +304,69 @@ describe('a submit that says whose number it is', () => {
     expect((await ownerOf(made200.beneficiaryId)).mobile_owner_name).toHaveLength(200);
   });
 
+  it('refuses an owner the list no longer holds at the send that makes the profile, as it does for a known person, and makes no profile', async () => {
+    // the list holds the code while the form is published, so the form offers it, and loses it
+    // before the send
+    await h.db.query(
+      `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en) VALUES ($1, 'mobile_owner', 'tenant', 'ভাড়াটিয়ার', 'Of a tenant')`,
+      [randomUUID()],
+    );
+    const withTenant = await projectOf('OWT', OWNER_QUESTIONS);
+    const s = await as(world.users.general);
+    const nid = f.fakeNid();
+    const made = await create(
+      s,
+      withTenant,
+      answersOf({ q_id: text(nid), q_owner: owner('tenant'), q_owner_name: text('রহিম') }),
+    );
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    // a person the office already knows, whose later application names the same owner
+    const person = await sent(
+      s,
+      asking,
+      answersOf({ q_owner: owner('family'), q_owner_name: text('করিম মিয়া') }),
+    );
+    const { nid: knownNid, mobile } = (
+      await h.db.query<{ nid: string; mobile: string }>(
+        'SELECT nid, mobile FROM beneficiaries WHERE id = $1',
+        [person.beneficiaryId],
+      )
+    ).rows[0]!;
+    const rpm = await as(world.users.rpmDhaka);
+    const forKnown = await create(
+      rpm,
+      withTenant,
+      answersOf({
+        q_id: text(knownNid),
+        q_mobile: { t: 'phone', v: mobile },
+        q_owner: owner('tenant'),
+        q_owner_name: text('রহিম'),
+      }),
+    );
+    expect(forKnown.status, JSON.stringify(forKnown.body)).toBe(201);
+    await h.db.query(
+      `DELETE FROM reference_lists WHERE list_key = 'mobile_owner' AND code = 'tenant'`,
+    );
+
+    const refused = await act(s, made.body.data.id as string, 'submit');
+    expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+    expect(refused.body.error).toMatchObject({
+      code: 'validation.failed',
+      details: [{ path: 'answers', code: 'validation.option_unknown' }],
+    });
+    const profiles = await h.db.query('SELECT 1 FROM beneficiaries WHERE nid = $1', [nid]);
+    expect(profiles.rowCount).toBe(0);
+    const draft = await at(s, 'get', `/applications/${made.body.data.id as string}`);
+    expect(draft.body.data).toMatchObject({ status: 'draft', beneficiaryId: null });
+
+    const known = await act(rpm, forKnown.body.data.id as string, 'submit');
+    expect(known.status, JSON.stringify(known.body)).toBe(422);
+    expect(known.body.error.details).toEqual([
+      expect.objectContaining({ path: 'answers', code: 'validation.option_unknown' }),
+    ]);
+    expect(await ownerOf(person.beneficiaryId)).toMatchObject({ mobile_owner_code: 'family' });
+  });
+
   it('still takes an application of a form published without the two questions', async () => {
     const s = await as(world.users.general);
     const record = await sent(s, plain, answersOf());
@@ -455,8 +519,11 @@ describe('a later application of a known person', () => {
 });
 
 describe('who is told whose number it is', () => {
-  let person: { id: string; applicationId: string };
+  let person: { id: string; applicationId: string; mobile: string };
   let procurement: Session;
+  /** A Procurement Team member the permission panel lets read the applications of `asking`. */
+  let panelReader: { id: string; session: Session };
+  const CONTACT_QUESTIONS = ['q:q_mobile', 'q:q_owner', 'q:q_owner_name'];
   beforeAll(async () => {
     const general = await as(world.users.general);
     const nid = f.fakeNid();
@@ -471,7 +538,7 @@ describe('who is told whose number it is', () => {
         q_owner_name: text('করিম মিয়া'),
       }),
     );
-    person = { id: record.beneficiaryId, applicationId: record.id };
+    person = { id: record.beneficiaryId, applicationId: record.id, mobile };
     // an official changes the owner, so the profile has contact changes of it on record
     await sent(
       await as(world.users.rpmDhaka),
@@ -502,7 +569,62 @@ describe('who is told whose number it is', () => {
       { beneficiary_id: person.id, status: 'approved' },
     );
     procurement = await login(h, team);
+    // no role without the contact class reaches an application list by its defaults; the panel
+    // can give one the list of a project, and the classes stay those of the role
+    panelReader = await readerOf(asking.project);
   });
+
+  /** A Procurement Team member with a panel grant of the project's application list. */
+  async function readerOf(projectId: string) {
+    const reader = await account(h.db, { role: 'procurement_team' });
+    accounts.set(reader.id, reader);
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+       VALUES ($1, $2, 'application.view', 'grant', 'PROJECT', $3, 'Test override', $4)`,
+      [randomUUID(), reader.id, projectId, world.users.head],
+    );
+    return { id: reader.id, session: await login(h, reader) };
+  }
+
+  /** The text of an export of the project's application list, once its job ran. */
+  async function exported(s: Session, columns: string[]): Promise<string> {
+    const made = await at(s, 'post', '/exports').send({
+      kind: 'applications',
+      format: 'csv',
+      columns,
+      filters: {},
+      projectId: asking.project,
+    });
+    expect(made.status, JSON.stringify(made.body)).toBe(202);
+    await h.container.exportRunner.run(made.body.data.id as string, 0);
+    const done = await at(s, 'get', `/exports/${made.body.data.id as string}`);
+    expect(done.body.data.status).toBe('done');
+    const file = await h.db.query<{ object_key: string }>(
+      'SELECT object_key FROM files WHERE id = $1',
+      [done.body.data.fileId],
+    );
+    const body = await h.container.storage.get('exports', file.rows[0]!.object_key);
+    const chunks: Buffer[] = [];
+    for await (const chunk of body as Readable) chunks.push(chunk as Buffer);
+    return Buffer.concat(chunks).toString('utf8');
+  }
+  const offered = async (s: Session) => {
+    const res = await at(
+      s,
+      'get',
+      `/exports/columns?list=applications&projectId=${asking.project}`,
+    );
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    return res.body.data.columns as { id: string; protected: boolean }[];
+  };
+  const ask = (s: Session, columns: string[]) =>
+    at(s, 'post', '/exports').send({
+      kind: 'applications',
+      format: 'csv',
+      columns,
+      filters: {},
+      projectId: asking.project,
+    });
 
   it('tells an official who sees the mobile, with the changes of both in the contact history', async () => {
     const profile = await at(await as(world.users.rpmDhaka), 'get', `/beneficiaries/${person.id}`);
@@ -562,6 +684,142 @@ describe('who is told whose number it is', () => {
         expect.arrayContaining(['q_mobile', 'q_owner', 'q_owner_name']),
       );
     }
+  });
+
+  it('offers the mobile question and the two owner questions in the export of the application list to an official who is shown the mobile, and writes their answers', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const columns = await offered(rpm);
+    expect(columns.map((c) => c.id)).toEqual(expect.arrayContaining(CONTACT_QUESTIONS));
+    const file = await exported(rpm, ['app_no', ...CONTACT_QUESTIONS]);
+    expect(file).toContain(person.mobile);
+    expect(file).toContain('প্রতিবেশীর');
+    expect(file).toContain('করিম মিয়া');
+    // contact data marks no export as sensitive, in an answer as in the list's mobile column: an
+    // official without the identity and the forms export gets the three in a plain export
+    await h.db.query(
+      `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, granted_by)
+       VALUES ($1, $2, $3, 'project_executive', $4, $5)`,
+      [
+        randomUUID(),
+        asking.project,
+        world.users.executive,
+        world.dhaka.division,
+        world.users.rpmDhaka,
+      ],
+    );
+    const executive = await as(world.users.executive);
+    const theirs = await offered(executive);
+    for (const id of CONTACT_QUESTIONS)
+      expect(
+        theirs.find((c) => c.id === id),
+        id,
+      ).toMatchObject({ protected: false });
+    const plain = await ask(executive, ['app_no', ...CONTACT_QUESTIONS]);
+    expect(plain.status, JSON.stringify(plain.body)).toBe(202);
+    expect(plain.body.data.sensitive).toBe(false);
+  });
+
+  it('neither offers the three questions nor writes them for a requester who is not shown the mobile, and refuses them by key as withheld', async () => {
+    const { session, id } = panelReader;
+    // the list opens for them
+    const listed = await at(session, 'get', `/projects/${asking.project}/applications?limit=100`);
+    expect(listed.status, JSON.stringify(listed.body)).toBe(200);
+    expect((listed.body.data as { id: string }[]).map((r) => r.id)).toContain(person.applicationId);
+    const columns = (await offered(session)).map((c) => c.id);
+    for (const column of CONTACT_QUESTIONS) expect(columns, column).not.toContain(column);
+    // the identity number is withheld from them as before, and an ordinary question is offered
+    expect(columns).not.toContain('q:q_id');
+    expect(columns).toEqual(expect.arrayContaining(['app_no', 'q:q_name']));
+
+    for (const column of CONTACT_QUESTIONS) {
+      const asked = await ask(session, ['app_no', column]);
+      expect(asked.status, column).toBe(403);
+      expect(asked.body.error.code).toBe('permission.denied');
+    }
+    // a key no form of the project has is unknown, not withheld
+    expect((await ask(session, ['app_no', 'q:q_nope'])).status).toBe(422);
+    const jobs = await h.db.query('SELECT 1 FROM export_jobs WHERE requested_by = $1', [id]);
+    expect(jobs.rowCount).toBe(0);
+
+    const file = await exported(session, ['app_no', 'q:q_name']);
+    expect(file).not.toContain(person.mobile);
+    expect(file).not.toContain('করিম মিয়া');
+    expect(file).not.toContain('প্রতিবেশীর');
+
+    // the answers themselves, read for the columns an official was given: none leaves on a row
+    // that does not carry the contact class
+    const all = await h.container.exportQuestions.catalogue(
+      asking.project,
+      new Set(['beneficiary.contact', 'beneficiary.nid', 'application.official_section']),
+    );
+    const frozen = await h.container.exportRows.freeze(
+      await principalOf(h.db, id),
+      { kind: 'applications', filters: {}, projectId: asking.project },
+      'bn',
+    );
+    expect(frozen.classes).not.toContain('beneficiary.contact');
+    const page = await h.container.exportRows.batch(frozen, null, 100);
+    const row = page.rows.find((r) => r.id === person.applicationId)!;
+    expect(row.classes).not.toContain('beneficiary.contact');
+    const values = await h.container.exportQuestions.values([row.id], all, 'bn', (_id, cls) =>
+      row.classes.includes(cls),
+    );
+    for (const column of [...CONTACT_QUESTIONS, 'q:q_id'])
+      expect(values.get(row.id)?.cells, column).not.toHaveProperty(column);
+    expect(values.get(row.id)?.cells).toHaveProperty('q:q_name');
+  });
+
+  it('prints the three answers on the PDF of an application only for a requester who is shown the mobile', async () => {
+    const records = h.container.exportRecords;
+    const keysOf = async (userId: string) => {
+      const record = await records.snapshot(
+        await principalOf(h.db, userId),
+        'application',
+        person.applicationId,
+        'bn',
+      );
+      const view = record.view as {
+        answers: { fieldKey: string }[];
+        form: { sections: { fields: { fieldKey: string }[] }[] };
+      };
+      return {
+        answers: view.answers.map((a) => a.fieldKey),
+        questions: view.form.sections.flatMap((s) => s.fields.map((field) => field.fieldKey)),
+        classes: record.classes,
+        text: JSON.stringify(record.view),
+      };
+    };
+    const office = await keysOf(world.users.rpmDhaka);
+    expect(office.answers).toEqual(expect.arrayContaining(['q_mobile', 'q_owner', 'q_owner_name']));
+    expect(office.text).toContain('করিম মিয়া');
+    // the contact class stands for no export permission, so it marks no PDF sensitive
+    expect(office.classes).not.toContain('beneficiary.contact');
+    const theirs = await keysOf(panelReader.id);
+    for (const key of ['q_mobile', 'q_owner', 'q_owner_name', 'q_id']) {
+      expect(theirs.answers, key).not.toContain(key);
+      expect(theirs.questions, key).not.toContain(key);
+    }
+    expect(theirs.questions).toContain('q_name');
+    expect(theirs.text).not.toContain(person.mobile);
+    expect(theirs.text).not.toContain('করিম মিয়া');
+  });
+
+  it('hides the three answers on the record from a reader of the list who is not shown the mobile, and shows them to the office', async () => {
+    const theirs = await at(panelReader.session, 'get', `/applications/${person.applicationId}`);
+    expect(theirs.status, JSON.stringify(theirs.body)).toBe(200);
+    const keys = (theirs.body.data.answers as { fieldKey: string }[]).map((a) => a.fieldKey);
+    for (const key of ['q_mobile', 'q_owner', 'q_owner_name', 'q_id'])
+      expect(keys, key).not.toContain(key);
+    expect(keys).toContain('q_name');
+    expect(JSON.stringify(theirs.body.data.answers)).not.toContain(person.mobile);
+    const office = await at(
+      await as(world.users.rpmDhaka),
+      'get',
+      `/applications/${person.applicationId}`,
+    );
+    expect((office.body.data.answers as { fieldKey: string }[]).map((a) => a.fieldKey)).toEqual(
+      expect.arrayContaining(['q_mobile', 'q_owner', 'q_owner_name']),
+    );
   });
 
   it('carries the two in the export of the beneficiary list only where it carries the mobile', async () => {

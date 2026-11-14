@@ -413,6 +413,7 @@ function Review() {
             setVerifying(false);
             await refresh();
           }}
+          onChanged={refresh}
         />
       ) : null}
       {opening ? (

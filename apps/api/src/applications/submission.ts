@@ -44,9 +44,10 @@ const text = (standard: Record<string, unknown>, column: string): string | undef
 };
 
 /**
- * Raised inside the move of a send when the new person looks like someone on the block list: no
- * profile is made and the move is abandoned. The caller holds the entry for an official once the
- * transaction has rolled back; this is never an answer to a client.
+ * Raised inside a move that would make a profile when the new person looks like someone on the
+ * block list: no profile is made and the move is abandoned. Once the transaction has rolled back
+ * the caller holds a sent entry for an official, or marks an entry an official was verifying;
+ * this is never an answer to a client.
  */
 export class BlockedNamesakeMatch extends Error {
   constructor(
@@ -78,7 +79,7 @@ export async function standardOf(tx: Tx, applicationId: string, formVersionId: s
  * (`<code>-<year>-<5 digits>`). Both run in the move's transaction, so a refused move leaves
  * neither behind. A new person, with or without a number, is compared with the block list right
  * before the profile is made: a match makes none and raises `BlockedNamesakeMatch`, unless an
- * official who is deciding the held entry has made that comparison.
+ * official is deciding an entry that already shows that match.
  */
 export class SubmissionWriter {
   constructor(
@@ -101,8 +102,9 @@ export class SubmissionWriter {
        */
       linkBeneficiaryId?: string;
       /**
-       * An official is deciding an entry that waits for verification and has compared its person
-       * with the block list: the comparison is not made again, or the entry could never leave.
+       * An official is deciding an entry that waits for verification with the flag of a person
+       * who looks like a blocked one, so has compared the two: the comparison is not made again,
+       * or the entry could never leave. An entry that waits for another reason is compared.
        */
       compared?: boolean;
     } = {},

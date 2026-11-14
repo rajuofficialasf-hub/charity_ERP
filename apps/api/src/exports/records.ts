@@ -1,4 +1,4 @@
-import { EXPORT_RECORDS, type ExportRecord } from '@css/shared/exports';
+import { EXPORT_PERMISSION_OF_CLASS, EXPORT_RECORDS, type ExportRecord } from '@css/shared/exports';
 import { z } from 'zod';
 import { maskData } from '../access/field-mask.js';
 import { beneficiaryWhere } from '../access/scope.js';
@@ -13,7 +13,7 @@ import { beneficiaryProfile } from '../routes/beneficiaries.js';
 import type { BeneficiariesService } from '../services/beneficiaries.js';
 import type { ApplicationForPdf } from './pdf/application.js';
 import type { ProfileForPdf } from './pdf/profile.js';
-import { classOf, IDENTITY_NUMBER, OFFICIAL_SECTION } from './questions.js';
+import { classesOf, IDENTITY_NUMBER, OFFICIAL_SECTION } from './questions.js';
 import type { ExportRows } from './rows.js';
 
 /** The permission that lets a record leave as a PDF, beside the record's own read. */
@@ -194,8 +194,8 @@ export class ExportRecords {
       .map((section) => ({
         ...section,
         fields: section.fields.filter((field) => {
-          const cls = classOf(section.visibility, field.standardColumn);
-          if (cls && !allowed.has(cls)) return false;
+          const protectedBy = classesOf(section.visibility, field.standardColumn);
+          if (protectedBy.some((cls) => !allowed.has(cls))) return false;
           kept.add(field.fieldKey);
           return true;
         }),
@@ -203,11 +203,14 @@ export class ExportRecords {
       .filter((section) => section.fields.length > 0);
     const answers = a.answers.filter((answer) => kept.has(answer.fieldKey));
     const answered = new Set(answers.map((answer) => answer.fieldKey));
+    // the classes that make the PDF sensitive are those an export permission stands for; contact
+    // data is withheld by its class above and marks nothing, as on the profile's PDF
     const classes = new Set<string>();
     for (const section of sections)
       for (const field of section.fields) {
-        const cls = classOf(section.visibility, field.standardColumn);
-        if (cls && answered.has(field.fieldKey)) classes.add(cls);
+        if (!answered.has(field.fieldKey)) continue;
+        for (const cls of classesOf(section.visibility, field.standardColumn))
+          if (Object.hasOwn(EXPORT_PERMISSION_OF_CLASS, cls)) classes.add(cls);
       }
     if (a.totalScore !== undefined || a.decisionComment !== undefined)
       if (allowed.has(OFFICIAL_SECTION)) classes.add(OFFICIAL_SECTION);
