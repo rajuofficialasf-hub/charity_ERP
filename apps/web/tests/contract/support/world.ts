@@ -371,6 +371,45 @@ export async function activeProject(options: { scoring?: boolean } = {}): Promis
   return { projectId, formId: placed.id, places };
 }
 
+/**
+ * The project's identity rules changed by its PM, as the setup screen saves them: the settings of
+ * the application form component with the given keys replaced.
+ */
+export async function identityRulesOn(
+  projectId: string,
+  rules: Partial<
+    Record<'identity_document' | 'mobile', 'required' | 'optional'> &
+      Record<'repeat_person' | 'repeat_family', 'tell' | 'hold'>
+  >,
+): Promise<void> {
+  const pm = await signIn(PM_HUM);
+  const component = must(
+    await call(pm, 'GET', `/projects/${projectId}/components`),
+    200,
+    'components',
+    z.array(
+      z.object({
+        componentKey: z.string(),
+        etag: z.string(),
+        settings: z.record(z.string(), z.unknown()),
+      }),
+    ),
+  ).data.find((c) => c.componentKey === 'application_form');
+  if (!component) throw new Error(`no application form component on ${projectId}`);
+  must(
+    await call(
+      pm,
+      'PATCH',
+      `/projects/${projectId}/components/application_form`,
+      { settings: { ...component.settings, ...rules } },
+      { 'If-Match': component.etag },
+    ),
+    200,
+    'identity rules',
+    unread,
+  );
+}
+
 /** The volunteer's id by the mobile they sign in with. */
 export async function volunteerIdOf(head: Caller, mobile: string): Promise<string> {
   const [found] = must(
@@ -432,11 +471,14 @@ export async function consent(volunteer: Caller, projectId: string) {
 /**
  * An application of a person (a new one unless given) on the project by the volunteer, sent to
  * the office; its person's profile is made at the send. Answers the application and the profile.
+ * With `document: false` the identity number is left out, for a project that asks it only "if
+ * they have one".
  */
 export async function sentApplication(
   project: ActiveProject,
   volunteer: Caller,
   person: Partial<Person> = {},
+  options: { document?: boolean } = {},
 ): Promise<{ id: string; beneficiaryId: string }> {
   const form = must(
     await call(volunteer, 'GET', `/projects/${project.projectId}/application-form`),
@@ -450,7 +492,9 @@ export async function sentApplication(
       projectId: project.projectId,
       formVersionId: form.id,
       clientCreatedAt: new Date().toISOString(),
-      answers: answers(project.places, person),
+      answers: answers(project.places, person).filter(
+        (a) => options.document !== false || a.fieldKey !== 'q_id',
+      ),
     }),
     201,
     'application',

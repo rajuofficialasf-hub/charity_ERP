@@ -24,6 +24,7 @@ import {
   assign,
   consent,
   HEAD,
+  identityRulesOn,
   must,
   newPerson,
   PM_HUM,
@@ -112,6 +113,8 @@ describe.skipIf(!contractBase())('the office’s applications', () => {
       z.array(fieldChangeSchema),
     );
     expect(changes.length).toBeGreaterThan(0);
+    // a distribution project only tells of a family seen before; held, its approval asks a reason
+    await identityRulesOn(project.projectId, { repeat_family: 'hold' });
     const reviewed = await decide(id, 'send_for_approval');
     // the family match asks for a comment; the project sets no quota and every person scores the same
     expect(reviewed.decisionHints.approve).toEqual(['family_match']);
