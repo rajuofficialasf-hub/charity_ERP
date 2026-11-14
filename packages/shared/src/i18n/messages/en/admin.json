@@ -613,10 +613,12 @@
       "column": {
         "first": "First profile",
         "second": "Second profile",
-        "rules": "Matched on"
+        "rules": "Matched on",
+        "level": "Match level"
       },
       "rules": {
         "name_father_mobile": "Same name, father/husband and mobile",
+        "name_father_village": "Name, father's or husband's name and village match",
         "name_dob_union": "Same name, date of birth and union",
         "same_mobile": "Same mobile number"
       },
@@ -638,7 +640,13 @@
       },
       "eyebrow": "Data quality",
       "description": "Review the identities that match. Compare every detail and the help history before a merge.",
-      "back": "Back to beneficiaries"
+      "back": "Back to beneficiaries",
+      "level": {
+        "filter": "Match level",
+        "all": "All",
+        "probable": "Probable",
+        "check": "To check"
+      }
     },
     "merge": {
       "title": "Compare profiles",

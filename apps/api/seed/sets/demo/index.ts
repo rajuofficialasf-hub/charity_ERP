@@ -230,7 +230,7 @@ const DEMO_BLOCKED_BENEFICIARY = 3;
 
 /**
  * Two suggested duplicate pairs after the 50 beneficiaries (numbers n of `beneficiary:n`): each
- * pair has the same name, father's or husband's name and mobile, and both people applied to
+ * pair has the same name, father's or husband's name, mobile and village, and both people applied to
  * project WNT, so the PM of program HUM reaches them. The merge journey uses one pair per
  * Playwright project, since the projects share the database.
  */
@@ -598,11 +598,13 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         {
           low_id: low,
           high_id: high,
-          rules: ['name_father_mobile', 'same_mobile'],
+          // the same name, father's or husband's name, mobile and village: every rule but the birth date
+          rules: ['name_father_mobile', 'name_father_village', 'same_mobile'],
+          level: 'probable',
           active: true,
           computed_at: SEED_AT,
         },
-        { key: ['low_id', 'high_id'], insertOnly: ['rules', 'active', 'computed_at'] },
+        { key: ['low_id', 'high_id'], insertOnly: ['rules', 'level', 'active', 'computed_at'] },
       );
     }
   });

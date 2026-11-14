@@ -1315,6 +1315,8 @@ model MergeCandidate {
   lowId      String      @map("low_id") @db.Uuid
   highId     String      @map("high_id") @db.Uuid
   rules      String[]
+  /// probable (a rule that compares a name, or two rules) or check (a shared mobile alone); follows from the rules
+  level      String
   active     Boolean     @default(true)
   computedAt DateTime    @default(now()) @map("computed_at") @db.Timestamptz(6)
   low        Beneficiary @relation("beneficiary_merge_candidates_low_id", fields: [lowId], references: [id], onDelete: Restrict, onUpdate: NoAction)
@@ -1323,6 +1325,7 @@ model MergeCandidate {
   @@id([lowId, highId])
   @@index([highId], map: "beneficiary_merge_candidates_high_id_idx")
   @@index([lowId, highId], where: raw("active"), map: "beneficiary_merge_candidates_active_idx")
+  @@index([level(sort: Desc), lowId, highId], where: raw("active"), map: "beneficiary_merge_candidates_level_idx")
   @@map("beneficiary_merge_candidates")
 }
 

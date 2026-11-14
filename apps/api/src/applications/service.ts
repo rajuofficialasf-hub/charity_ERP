@@ -70,6 +70,7 @@ import type { MediaReferralsService } from '../services/media-referrals.js';
 import type { UnlocksService } from './unlocks.js';
 import type { ScoringService } from './scoring.js';
 import { type CommentReason, commentReasons } from './decision-rules.js';
+import type { PersonSignals } from './person-signals.js';
 import type { Replayable } from '../services/uploads.js';
 import type { WorkflowEngine } from '../workflow/engine.js';
 import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards.js';
@@ -336,6 +337,7 @@ export class ApplicationsService {
     private readonly scoring: ScoringService,
     private readonly unlocks: UnlocksService,
     private readonly media: MediaReferralsService,
+    private readonly signals: PersonSignals,
   ) {}
 
   async create(
@@ -1792,11 +1794,14 @@ export class ApplicationsService {
     });
     const audience = this.audienceOf(viewer);
     const definition = await readDefinition(this.prisma, row.formVersionId, audience);
-    const [read, warnings, availableActions, version, mine] = await Promise.all([
+    const [read, warnings, signals, availableActions, version, mine] = await Promise.all([
       readAnswers(this.prisma, applicationId, definition),
       audience === 'official' && row.beneficiaryId
         ? this.family.matches(this.prisma, row.projectId, row.beneficiaryId)
         : [],
+      audience === 'official' && row.beneficiaryId
+        ? this.signals.forPerson(this.prisma, viewer.principal, access, row.beneficiaryId)
+        : { familyMemberSignals: [], samePersonSignals: [] },
       this.availableActions(viewer.principal, access, row),
       this.prisma.formVersion.findUniqueOrThrow({
         where: { id: row.formVersionId },
@@ -1856,6 +1861,7 @@ export class ApplicationsService {
             }
           : null,
         familyDuplicateWarnings: warnings,
+        ...signals,
         availableActions,
         decisionHints:
           audience === 'official' ? await this.decisionHints(applicationId, availableActions) : {},

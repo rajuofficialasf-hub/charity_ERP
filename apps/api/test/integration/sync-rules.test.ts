@@ -4,6 +4,7 @@ import { etagOf } from '../../src/core/etag.js';
 import { setIdentityRules } from './support/applications.js';
 import { auditRows, type AuthHarness, authHarness, bearer } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
+import { storeKeys } from './support/name-keys.js';
 import { syncWorld } from './support/sync.js';
 
 // What the server does with a record that arrived late, on a stale form, with a known number under
@@ -129,6 +130,8 @@ describe('an entry without an identity number, taken offline', () => {
       village: 'অফলাইন গ্রাম',
     };
     const blocked = await f.beneficiary(h.db, w.world.dhaka, { ...who, is_blocked: true });
+    // the comparison reads the stored name keys, as every service write stores them
+    await storeKeys(h.container, [blocked]);
     const { first, send } = entry({
       q_name: { t: 'short_text', v: who.name },
       q_father: { t: 'short_text', v: who.father_or_husband_name },

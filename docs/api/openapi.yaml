@@ -2425,8 +2425,11 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     MergeCandidate:
       type: object
-      description: The pair with the lower id first; every rule the pair meets
-      required: [beneficiaryId, otherBeneficiaryId, benNo, otherBenNo, name, otherName, matchedOn]
+      description: >-
+        The pair with the lower id first; every rule the pair meets, and its level (D-174): probable
+        where a rule compares a name (or two rules agree), check where a shared mobile is the only
+        fact. A stored pair is never strong: two live profiles never share an identity or BEN number.
+      required: [beneficiaryId, otherBeneficiaryId, benNo, otherBenNo, name, otherName, matchedOn, level]
       properties:
         beneficiaryId: { $ref: '#/components/schemas/Uuid' }
         otherBeneficiaryId: { $ref: '#/components/schemas/Uuid' }
@@ -2436,7 +2439,16 @@ components:
         otherName: { type: string }
         matchedOn:
           type: array
-          items: { type: string, enum: [name_dob_union, name_father_mobile, same_mobile] }
+          items: { type: string, enum: [name_dob_union, name_father_mobile, name_father_village, same_mobile] }
+        level: { type: string, enum: [probable, check] }
+    BeneficiaryRef:
+      type: object
+      description: Another beneficiary profile a signal names, only where the caller may open it
+      required: [beneficiaryId, benNo, name]
+      properties:
+        beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        benNo: { type: string, description: 'BEN- and 7 digits' }
+        name: { type: string }
     MergeDismissalRequest:
       type: object
       additionalProperties: false
@@ -3403,6 +3415,47 @@ components:
                   matchedOn:
                     type: array
                     items: { type: string, enum: [mobile, union_village_father] }
+            familyMemberSignals:
+              type: array
+              description: >-
+                For the office (D-172, D-174, BR-305): the earlier beneficiaries, in any project, whose
+                active family list probably holds the applicant: a member with the applicant's name key,
+                in the family of a live profile whose name key is the applicant's father's or husband's
+                name key, in the applicant's union and village. Always "probably", never a refusal; the
+                head is named only where the caller's beneficiary.view_all scope reaches that profile,
+                else null; empty for a volunteer. At most 10.
+              items:
+                type: object
+                required: [relationshipCode, relationship, head]
+                properties:
+                  relationshipCode: { type: [string, 'null'], description: The relationship the head's list gives the member (list relationship) }
+                  relationship:
+                    oneOf:
+                      - { $ref: '#/components/schemas/Bilingual' }
+                      - { type: 'null' }
+                  head:
+                    oneOf:
+                      - $ref: '#/components/schemas/BeneficiaryRef'
+                      - { type: 'null' }
+            samePersonSignals:
+              type: array
+              description: >-
+                For the office (D-174, BR-302): the applicant's open probable duplicate pairs (active, not
+                marked as two people, the other profile live), with the rules they meet. The other profile
+                is named only where the caller's beneficiary.view_all and beneficiary.merge.dismiss scopes
+                both reach both profiles (the comparison page), else null; empty for a volunteer. At most 10.
+              items:
+                type: object
+                required: [level, matchedOn, other]
+                properties:
+                  level: { type: string, enum: [probable] }
+                  matchedOn:
+                    type: array
+                    items: { type: string, enum: [name_dob_union, name_father_mobile, name_father_village, same_mobile] }
+                  other:
+                    oneOf:
+                      - $ref: '#/components/schemas/BeneficiaryRef'
+                      - { type: 'null' }
             availableActions: { type: array, items: { type: string }, description: Actions the caller may perform now }
             decisionHints:
               type: object
@@ -7204,11 +7257,13 @@ paths:
     get:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.candidates
-      summary: Suggested duplicate profiles in the caller scope (name, father or husband and mobile; name, date of birth and union; one mobile)
+      summary: Suggested duplicate profiles in the caller scope with their level (name, father or husband and mobile; name, date of birth and union; name, father or husband and village; one mobile)
       description: >-
-        Pairs of live profiles both inside the caller's scope (D-113), in id order, paged forward
-        by cursor; a pair marked as two different people is left out until the mark is lifted.
-        Never an identity number or a mobile.
+        Pairs of live profiles both inside the caller's scope (D-113), probable first and then in
+        id order, paged forward by cursor (a cursor serves only the filters it was made for); a pair
+        marked as two different people is left out until the mark is lifted. Names and villages
+        compare through the stored name keys (D-174), and a father's name never pairs with a
+        husband's. Never an identity number or a mobile.
       x-permission: beneficiary.merge.dismiss
       x-scope: beneficiary
       x-audit: none
@@ -7217,6 +7272,16 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
+        - name: level
+          in: query
+          required: false
+          description: Only the pairs of this level
+          schema: { type: string, enum: [probable, check] }
+        - name: beneficiaryId
+          in: query
+          required: false
+          description: Only the pairs this profile is one of (the comparison page reads its own pair so)
+          schema: { $ref: '#/components/schemas/Uuid' }
       responses:
         '200':
           description: Candidates

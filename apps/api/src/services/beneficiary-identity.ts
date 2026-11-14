@@ -1,6 +1,7 @@
 import { uuidv7 } from '@css/shared';
 import {
   formatBenNo,
+  GUARDIAN_RELATION_COLUMN,
   isBirthRegNumber,
   isNidNumber,
   LOCKED_FIELDS,
@@ -83,6 +84,8 @@ export interface PersonKeys {
   fatherOrHusbandName: string;
   unionId: string;
   village: string;
+  /** Whether that name is the father's or the husband's, where the answers say. */
+  guardianRelationCode: string | null;
 }
 
 /**
@@ -100,7 +103,13 @@ export function personKeysOf(standard: Record<string, unknown>): PersonKeys | nu
   const unionId = text('union_id');
   const village = text('village');
   return name && fatherOrHusbandName && unionId && village
-    ? { name, fatherOrHusbandName, unionId, village }
+    ? {
+        name,
+        fatherOrHusbandName,
+        unionId,
+        village,
+        guardianRelationCode: text(GUARDIAN_RELATION_COLUMN),
+      }
     : null;
 }
 
@@ -300,19 +309,25 @@ export class BeneficiaryIdentityService {
   }
 
   /**
-   * The blocked live profile a person without a document looks like: the same union, and the same
-   * name, father's or husband's name and village as `person_name_key` reads them. Such a person
-   * gets no new profile by themselves; an official compares the two first. Null when nobody on the
-   * block list matches. The one place this comparison is made.
+   * The blocked live profile a new person looks like: the same union, and the same keys of the
+   * name, the father's or husband's name and the village (the stored keys, so a title or a known
+   * spelling variant makes no difference), and no father's name against a husband's. Such a
+   * person gets no new profile by themselves; an official compares the two first. Null when
+   * nobody on the block list matches, or when a key of the person is empty. The one place this
+   * comparison is made.
    */
   async blockedNamesake(db: Tx, person: PersonKeys): Promise<string | null> {
+    const keys = await this.matchKeys.ofProfile(db, person);
+    if (!keys.nameKey || !keys.guardianKey || !keys.villageKey) return null;
+    const relation = person.guardianRelationCode;
     const rows = await db.$queryRaw<{ id: string }[]>`
       SELECT b.id FROM beneficiaries b
       WHERE b.is_blocked AND b.merged_into_id IS NULL
         AND b.union_id = ${person.unionId}::uuid
-        AND person_name_key(b.name) = person_name_key(${person.name})
-        AND person_name_key(b.father_or_husband_name) = person_name_key(${person.fatherOrHusbandName})
-        AND person_name_key(b.village) = person_name_key(${person.village})
+        AND b.name_key = ${keys.nameKey} AND b.guardian_key = ${keys.guardianKey}
+        AND b.village_key = ${keys.villageKey}
+        AND (b.guardian_relation_code IS NULL OR ${relation}::text IS NULL
+          OR b.guardian_relation_code = ${relation}::text)
       ORDER BY b.ben_no
       LIMIT 1`;
     return rows[0]?.id ?? null;

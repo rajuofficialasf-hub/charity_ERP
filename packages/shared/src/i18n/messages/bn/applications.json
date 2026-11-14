@@ -186,6 +186,17 @@
       "rule": {
         "mobile": "একই মোবাইল",
         "union_village_father": "একই ইউনিয়ন, গ্রাম ও পিতা/স্বামীর নাম"
+      },
+      "family_member": {
+        "named": "সম্ভবত {head}-এর {relationship}",
+        "unnamed": "সম্ভবত অন্য এক উপকারভোগীর পরিবারের সদস্য",
+        "relative": "পরিবারের সদস্য",
+        "open": "প্রোফাইল দেখুন ({benNo})"
+      },
+      "same_person": {
+        "named": "সম্ভবত একই ব্যক্তি: {name} ({benNo}) — {rule}",
+        "unnamed": "অন্য একটি প্রোফাইলের সঙ্গে সম্ভবত একই ব্যক্তি — {rule}",
+        "compare": "তুলনা করুন"
       }
     },
     "changes": {

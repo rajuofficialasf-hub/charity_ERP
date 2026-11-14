@@ -5,6 +5,7 @@ import {
   Button,
   Chip,
   DataTable,
+  FilterBar,
   LinkButton,
   Page,
   Tabs,
@@ -20,6 +21,7 @@ import { ForbiddenContent } from '../../AdminLayout';
 import { ReasonDialog } from '../../projects/ReasonDialog';
 import { canReviewDuplicates } from '../../roles';
 import { useHandedNotice } from '../../use-handed-notice';
+import { useTabView } from '../../use-tab-view';
 import { BENEFICIARIES_KEY } from '../beneficiaries-api';
 import {
   candidatePage,
@@ -29,14 +31,18 @@ import {
   type MergeCandidate,
   mergeProposals,
   type MergeView,
+  PAIR_LEVELS,
+  pairLevelOf,
 } from './merge-api';
+import { PairLevelChip } from './PairLevelChip';
 import { PageCrumbs } from '../../../components/shell/breadcrumb';
 import { LoadError } from '../../../components/LoadError';
 
 /**
- * The suggested duplicate profiles in the caller's scope, with the rules each pair meets: an
- * official compares a pair or marks it as two different people; the merge proposals waiting for a
- * decision are listed beside them. The server decides what each list holds.
+ * The suggested duplicate profiles in the caller's scope, with the rules each pair meets and how
+ * sure it is (probable first; the level filter lives in the address): an official compares a pair
+ * or marks it as two different people; the merge proposals waiting for a decision are listed
+ * beside them. The server decides what each list holds.
  */
 export function DuplicatesPage() {
   const { me } = useAuth();
@@ -89,9 +95,11 @@ function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const [dismissing, setDismissing] = useState<MergeCandidate | null>(null);
+  const { filters, change } = useTabView(['level'] as const);
+  const level = pairLevelOf(filters.level ?? null);
   const list = useInfiniteQuery({
-    queryKey: [...DUPLICATES_KEY, 'pairs'],
-    queryFn: ({ pageParam }) => candidatePage(pageParam),
+    queryKey: [...DUPLICATES_KEY, 'pairs', level ?? 'all'],
+    queryFn: ({ pageParam }) => candidatePage(pageParam, level),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.meta.nextCursor,
   });
@@ -121,7 +129,9 @@ function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
   const rules = (r: MergeCandidate) => (
     <span className="admin-badges">
       {r.matchedOn.map((rule) => (
-        <Chip tone="info">{t(`rules.${rule}`)}</Chip>
+        <Chip key={rule} tone="info">
+          {t(`rules.${rule}`)}
+        </Chip>
       ))}
     </span>
   );
@@ -160,6 +170,7 @@ function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
       header: t('column.second'),
       cell: (r) => person(r.otherBeneficiaryId, r.otherName, r.otherBenNo),
     },
+    { id: 'level', header: t('column.level'), cell: (r) => <PairLevelChip level={r.level} /> },
     { id: 'rules', header: t('column.rules'), cell: rules },
   ];
   const pairName = (r: MergeCandidate) => t('pair', { first: r.name, second: r.otherName });
@@ -181,6 +192,17 @@ function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
           ) : undefined
         }
         emptyTitle={t('empty')}
+        toolbar={
+          <FilterBar
+            label={t('level.filter')}
+            chips={[
+              { id: 'all', label: t('level.all') },
+              ...PAIR_LEVELS.map((l) => ({ id: l, label: t(`level.${l}`) })),
+            ]}
+            activeChip={level ?? 'all'}
+            onChipChange={(id) => change({ level: id === 'all' ? undefined : id })}
+          />
+        }
         cursorPagination={
           rows.length
             ? {
@@ -196,6 +218,7 @@ function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
           <div className="admin-person-card">
             {person(r.beneficiaryId, r.name, r.benNo)}
             {person(r.otherBeneficiaryId, r.otherName, r.otherBenNo)}
+            <PairLevelChip level={r.level} />
             {rules(r)}
           </div>
         )}

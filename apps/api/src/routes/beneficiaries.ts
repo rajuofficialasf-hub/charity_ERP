@@ -27,7 +27,7 @@ import { type PageQuery, pageNumberQuery, pageQuery } from '../core/pagination.j
 import { etagOf } from '../core/etag.js';
 import { ok, page } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
-import { DUPLICATE_RULES } from '../services/beneficiary-merge-candidates.js';
+import { DUPLICATE_RULES, PAIR_LEVELS } from '../services/beneficiary-merge-candidates.js';
 import { blocklistEntry } from './volunteers.js';
 
 // Each marked field gets a schema of its own: `sensitive` marks the instance it is given.
@@ -340,7 +340,7 @@ const correctionView = z.object({
   decidedAt: z.iso.datetime({ offset: true }).nullable(),
 });
 
-/** A suggested duplicate pair: who, by which rules; never an identity number or a mobile. */
+/** A suggested duplicate pair: who, by which rules, how sure; never an identity number or a mobile. */
 const mergeCandidate = z.object({
   beneficiaryId: z.uuid(),
   otherBeneficiaryId: z.uuid(),
@@ -349,6 +349,12 @@ const mergeCandidate = z.object({
   name: z.string(),
   otherName: z.string(),
   matchedOn: z.array(z.enum(DUPLICATE_RULES)),
+  level: z.enum(PAIR_LEVELS),
+});
+/** The suggestions of one level, or of one profile (the comparison reads its own pair so). */
+const mergeCandidateQuery = pageQuery.omit({ sort: true, include: true }).extend({
+  level: z.enum(PAIR_LEVELS).optional(),
+  beneficiaryId: z.uuid().optional(),
 });
 
 /** A pair marked as two different people, with who marked it and why. */
@@ -485,16 +491,16 @@ export function beneficiariesRouter(
   };
 
   // before /beneficiaries/:beneficiaryId, so the path is never read as an id
-  defineRoute<unknown, Omit<PageQuery, 'sort'>>(router, deps, {
+  defineRoute<unknown, z.infer<typeof mergeCandidateQuery>>(router, deps, {
     ...duplicatesOp,
     method: 'get',
     path: '/beneficiaries/merge-candidates',
     operationId: 'beneficiaries.merge.candidates',
     summary:
-      'Suggested duplicate profiles in the caller scope (name, father or husband and mobile; name, date of birth and union; one mobile)',
+      'Suggested duplicate profiles in the caller scope with their level (name, father or husband and mobile; name, date of birth and union; name, father or husband and village; one mobile)',
     audit: 'none',
     rateLimit: 'list',
-    query: pageQuery.omit({ sort: true, include: true }),
+    query: mergeCandidateQuery,
     responses: {
       200: z.array(mergeCandidate),
       401: null,
@@ -504,10 +510,12 @@ export function beneficiariesRouter(
       503: null,
     },
     handler: async ({ query, req }) => {
+      const { level, beneficiaryId, ...paging } = query;
       const { rows, meta } = await c.beneficiaryMergeCandidates.list(
         principalOf(req),
         scopeOf(req),
-        query,
+        paging,
+        { level, beneficiaryId },
       );
       return page(rows, meta);
     },

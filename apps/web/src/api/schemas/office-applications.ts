@@ -1,7 +1,11 @@
 import { MEDIA_PRIORITIES, REFERRAL_STATES } from '@css/shared/media';
 import { z } from 'zod';
 import { applicationSchema, applicationSummarySchema } from './applications';
+import { duplicateRuleSchema } from './beneficiaries';
 import { bilingual, dateTime, recordOf } from './common';
+
+/** Another beneficiary profile a signal of the review names. */
+const personRefSchema = z.object({ beneficiaryId: z.uuid(), benNo: z.string(), name: z.string() });
 
 /** The office's decisions on an application. */
 export const officeActionSchema = z.enum([
@@ -72,6 +76,26 @@ export const officeApplicationSchema = applicationSchema.extend({
       matchedOn: z.array(z.enum(['mobile', 'union_village_father'])),
     }),
   ),
+  /** The earlier families that probably hold the person; the head only where it may be opened. */
+  familyMemberSignals: z
+    .array(
+      z.object({
+        relationshipCode: z.string().nullable(),
+        relationship: bilingual.nullable(),
+        head: personRefSchema.nullable(),
+      }),
+    )
+    .default([]),
+  /** The person's open probable pairs; the other profile only where both may be compared. */
+  samePersonSignals: z
+    .array(
+      z.object({
+        level: z.literal('probable'),
+        matchedOn: z.array(duplicateRuleSchema),
+        other: personRefSchema.nullable(),
+      }),
+    )
+    .default([]),
 });
 export type OfficeApplication = z.infer<typeof officeApplicationSchema>;
 

@@ -186,6 +186,17 @@
       "rule": {
         "mobile": "same mobile",
         "union_village_father": "same union, village and father's or husband's name"
+      },
+      "family_member": {
+        "named": "Probably {head}'s {relationship}",
+        "unnamed": "Probably a family member of another beneficiary",
+        "relative": "family member",
+        "open": "Open profile ({benNo})"
+      },
+      "same_person": {
+        "named": "Probably the same person: {name} ({benNo}) — {rule}",
+        "unnamed": "Probably the same person as another profile — {rule}",
+        "compare": "Compare"
       }
     },
     "changes": {

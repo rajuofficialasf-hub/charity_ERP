@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { sensitive } from '../access/field-mask.js';
 import { versionView } from '../routes/forms.js';
 import type { FormVersionView } from '../services/forms.js';
+import { DUPLICATE_RULES } from '../services/beneficiary-merge-candidates.js';
 import { applicationMediaView } from '../services/media-referrals.js';
 
 /** The class of the official section and of the office's own texts (permissions.yaml). */
@@ -68,6 +69,23 @@ const familyWarning = z.object({
   matchedOn: z.array(z.enum(['mobile', 'union_village_father'])),
 });
 
+/** Another profile a signal names, only where the viewer may open it. */
+const personRef = z.object({ beneficiaryId: uuid, benNo: z.string(), name: z.string() });
+
+/** The applicant is probably a member an earlier beneficiary listed in their family. */
+const familyMemberSignal = z.object({
+  relationshipCode: z.string().nullable(),
+  relationship: z.object({ bn: z.string(), en: z.string() }).nullable(),
+  head: personRef.nullable(),
+});
+
+/** The applicant's profile and another one probably are one person (an open probable pair). */
+const samePersonSignal = z.object({
+  level: z.enum(['probable']),
+  matchedOn: z.array(z.enum(DUPLICATE_RULES)),
+  other: personRef.nullable(),
+});
+
 /**
  * The record (contract `Application`): the answers of the caller's audience, the office's reason
  * and the zakat figures for the office only, the family warnings at review, and the actions the
@@ -112,6 +130,10 @@ export const applicationView = applicationSummary.extend({
     OFFICIAL_SECTION,
   ),
   familyDuplicateWarnings: z.array(familyWarning),
+  /** The earlier families that probably hold the person as a member; the office only. */
+  familyMemberSignals: z.array(familyMemberSignal),
+  /** The person's open probable pairs with another profile; the office only. */
+  samePersonSignals: z.array(samePersonSignal),
   availableActions: z.array(z.string()),
   /** The comments the office's decisions would ask for now, by action; empty for a volunteer. */
   decisionHints: z.record(z.string(), z.array(z.enum(COMMENT_REASONS))),

@@ -59,6 +59,7 @@ import { BeneficiaryIdentityService } from './services/beneficiary-identity.js';
 import { BeneficiaryContactService } from './services/beneficiary-contact.js';
 import { BeneficiaryCorrectionsService } from './services/beneficiary-corrections.js';
 import { BeneficiaryFamilyService } from './services/beneficiary-family.js';
+import { PersonSignals } from './applications/person-signals.js';
 import { BeneficiaryFamilyMembersService } from './services/beneficiary-family-members.js';
 import { BeneficiaryMergeCandidatesService } from './services/beneficiary-merge-candidates.js';
 import { BeneficiaryMergesService } from './services/beneficiary-merges.js';
@@ -394,6 +395,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       scoring,
       unlocks,
       mediaReferrals,
+      new PersonSignals(access, beneficiaryFamily, beneficiaryMergeCandidates),
     );
   const built = {
     env,

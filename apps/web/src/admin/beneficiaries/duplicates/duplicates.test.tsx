@@ -72,6 +72,7 @@ const PAIR = {
   name: 'নমুনা রাবেয়া',
   otherName: 'নমুনা রাবেয়া',
   matchedOn: ['name_father_mobile', 'same_mobile'],
+  level: 'probable',
 };
 
 const envelope = (data: unknown, meta: Record<string, unknown> = {}) =>
@@ -149,6 +150,66 @@ describe('the duplicates list', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('says each pair’s level and filters by it in the address', async () => {
+    refreshAs(PM);
+    const asked: (string | null)[] = [];
+    const village = {
+      ...PAIR,
+      beneficiaryId: B,
+      otherBeneficiaryId: A,
+      matchedOn: ['name_father_village'],
+    };
+    const phone = { ...PAIR, matchedOn: ['same_mobile'], level: 'check' };
+    server.use(
+      http.get('*/api/v1/beneficiaries/merge-candidates', ({ request }) => {
+        const level = new URL(request.url).searchParams.get('level');
+        asked.push(level);
+        const rows = level === 'check' ? [phone] : [village, phone];
+        return envelope(rows, { nextCursor: null, prevCursor: null, limit: 10 });
+      }),
+      http.get('*/api/v1/beneficiary-merges', () => envelope([])),
+    );
+    const user = userEvent.setup();
+    const view = renderApp(<DuplicatesPage />, 'bn', {
+      path: '/admin/beneficiaries/duplicates',
+    });
+    expect(
+      (await screen.findAllByText('নাম, পিতা/স্বামীর নাম ও গ্রাম মিলেছে')).length,
+    ).toBeGreaterThan(0);
+    const table = screen.getByRole('table', { name: 'সম্ভাব্য ডুপ্লিকেট জোড়া' });
+    expect(within(table).getByRole('columnheader', { name: 'মিলের মাত্রা' })).toBeInTheDocument();
+    expect(within(table).getByText('সম্ভাব্য')).toBeInTheDocument();
+    expect(within(table).getByText('যাচাই করুন')).toBeInTheDocument();
+    expect(asked).toEqual([null]);
+    await user.click(screen.getByRole('button', { name: 'যাচাই করুন' }));
+    await waitFor(() => expect(asked).toContain('check'));
+    expect(view.router.state.location.search).toBe('?level=check');
+    await waitFor(() => expect(within(table).queryByText('সম্ভাব্য')).not.toBeInTheDocument());
+    await expectNoAxeViolations(view.container);
+  });
+
+  it('asks the level the address names, and reads in English', async () => {
+    refreshAs(PM);
+    const asked: (string | null)[] = [];
+    server.use(
+      http.get('*/api/v1/beneficiaries/merge-candidates', ({ request }) => {
+        asked.push(new URL(request.url).searchParams.get('level'));
+        return envelope([{ ...PAIR, matchedOn: ['same_mobile'], level: 'check' }], {
+          nextCursor: null,
+          prevCursor: null,
+          limit: 10,
+        });
+      }),
+      http.get('*/api/v1/beneficiary-merges', () => envelope([])),
+    );
+    renderApp(<DuplicatesPage />, 'en', {
+      path: '/admin/beneficiaries/duplicates',
+      initialPath: '/admin/beneficiaries/duplicates?level=check',
+    });
+    expect((await screen.findAllByText('To check')).length).toBeGreaterThan(0);
+    expect(asked).toEqual(['check']);
+  });
+
   it('marks a pair as two people with a reason, in English too', async () => {
     refreshAs(PM);
     let body: unknown;
@@ -220,6 +281,32 @@ describe('the duplicates list', () => {
 });
 
 describe('the comparison', () => {
+  it('shows the level and the rules of the suggested pair of the two, and nothing for two no rule paired', async () => {
+    refreshAs(PM);
+    serveProfiles({ merge: true });
+    let pairs: unknown[] = [{ ...PAIR, matchedOn: ['name_father_village'] }];
+    const asked: (string | null)[] = [];
+    server.use(
+      http.get('*/api/v1/beneficiaries/merge-candidates', ({ request }) => {
+        asked.push(new URL(request.url).searchParams.get('beneficiaryId'));
+        return envelope(pairs, { nextCursor: null, prevCursor: null, limit: 100 });
+      }),
+    );
+    const first = openCompare();
+    expect(await screen.findByText('নাম, পিতা/স্বামীর নাম ও গ্রাম মিলেছে')).toBeInTheDocument();
+    expect(screen.getByText('মিলের মাত্রা')).toBeInTheDocument();
+    expect(screen.getByText('সম্ভাব্য')).toBeInTheDocument();
+    expect(asked).toEqual([A]);
+    await expectNoAxeViolations(first.container);
+    first.unmount();
+    resetClientForTests();
+    pairs = [];
+    openCompare();
+    expect(await screen.findAllByRole('radio', { name: 'এই প্রোফাইল রাখুন' })).toHaveLength(2);
+    await waitFor(() => expect(asked).toHaveLength(2));
+    expect(screen.queryByText('মিলের মাত্রা')).not.toBeInTheDocument();
+  });
+
   it('shows both profiles side by side and asks for the kept profile before merging', async () => {
     refreshAs(PM);
     serveProfiles({ merge: true, proposeMerge: false });

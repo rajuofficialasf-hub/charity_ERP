@@ -31,13 +31,21 @@ import {
 } from '../beneficiaries-api';
 import { BeneficiaryArea } from '../BeneficiaryArea';
 import { MergeDialog, type MergeMode } from './MergeDialog';
-import { DUPLICATES_KEY, DUPLICATES_PATH, type MergeView, mergeProposals } from './merge-api';
+import {
+  candidatePairOf,
+  DUPLICATES_KEY,
+  DUPLICATES_PATH,
+  type MergeView,
+  mergeProposals,
+} from './merge-api';
+import { PairLevelChip } from './PairLevelChip';
 import { PageCrumbs } from '../../../components/shell/breadcrumb';
 import { LoadError } from '../../../components/LoadError';
 
 /**
- * Two beneficiary profiles side by side (a suggested pair or a proposal): the official chooses the
- * profile to keep and merges, or proposes the merge when only a proposal is allowed. Where only one
+ * Two beneficiary profiles side by side (a suggested pair or a proposal), with the pair's level and
+ * rules where the suggestions hold it: the official chooses the profile to keep and merges, or
+ * proposes the merge when only a proposal is allowed. Where only one
  * of the two has an identity document, that one is the kept profile and the other cannot be chosen.
  * What is offered follows the action flags of both profiles; the server checks scope, reach and the
  * kept profile again.
@@ -75,6 +83,13 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
     queryKey: [...DUPLICATES_KEY, 'proposals'],
     queryFn: mergeProposals,
     enabled: proposalId !== null,
+  });
+  // the suggested pair of the two, if any: a proposal may join two profiles no rule paired
+  const pair = useQuery({
+    queryKey: [...DUPLICATES_KEY, 'pair', a, b],
+    queryFn: () => candidatePairOf(a, b),
+    enabled: a !== '' && b !== '' && a !== b,
+    retry: false,
   });
   const [chosen, setChosen] = useState<string | null>(null);
   const [missingChoice, setMissingChoice] = useState(false);
@@ -195,6 +210,28 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
     <>
       {heading}
       {proposal && <Alert tone="info">{tm('proposal_reason', { reason: proposal.reason })}</Alert>}
+      {pair.data && (
+        <DescriptionList
+          items={[
+            {
+              label: t('duplicates.column.level'),
+              value: <PairLevelChip level={pair.data.level} />,
+            },
+            {
+              label: t('duplicates.column.rules'),
+              value: (
+                <span className="admin-badges">
+                  {pair.data.matchedOn.map((rule) => (
+                    <Chip key={rule} tone="info">
+                      {t(`duplicates.rules.${rule}`)}
+                    </Chip>
+                  ))}
+                </span>
+              ),
+            },
+          ]}
+        />
+      )}
       {sides
         .filter((p) => p.mergedInto)
         .map((p) => (

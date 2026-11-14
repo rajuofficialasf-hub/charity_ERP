@@ -278,9 +278,17 @@ export const contactSavedSchema = z.object({
 export type ContactSaved = z.infer<typeof contactSavedSchema>;
 
 /** Why two profiles look like one person. */
-export const duplicateRuleSchema = z.enum(['name_dob_union', 'name_father_mobile', 'same_mobile']);
+export const duplicateRuleSchema = z.enum([
+  'name_dob_union',
+  'name_father_mobile',
+  'name_father_village',
+  'same_mobile',
+]);
 
-/** A suggested pair: who and by which rules; never an identity number or a mobile. */
+/** How sure a suggested pair is: several facts agree, or one weaker fact for an official to check. */
+export const pairLevelSchema = z.enum(['probable', 'check']);
+
+/** A suggested pair: who, by which rules and how sure; never an identity number or a mobile. */
 export const mergeCandidateSchema = z.object({
   beneficiaryId: z.uuid(),
   otherBeneficiaryId: z.uuid(),
@@ -289,6 +297,7 @@ export const mergeCandidateSchema = z.object({
   name: z.string(),
   otherName: z.string(),
   matchedOn: z.array(duplicateRuleSchema),
+  level: pairLevelSchema,
 });
 export type MergeCandidate = z.infer<typeof mergeCandidateSchema>;
 

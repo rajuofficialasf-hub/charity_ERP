@@ -14,21 +14,68 @@ import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 
 /** Why two profiles look like one person, in the order the suggestions name the rules. */
-export const DUPLICATE_RULES = ['name_dob_union', 'name_father_mobile', 'same_mobile'] as const;
+export const DUPLICATE_RULES = [
+  'name_dob_union',
+  'name_father_mobile',
+  'name_father_village',
+  'same_mobile',
+] as const;
 export type DuplicateRule = (typeof DUPLICATE_RULES)[number];
+
+/**
+ * How sure a suggested pair is (docs/DECISION_LOG.md, the decision on comparing names): `probable`
+ * where several facts agree (a rule that compares a name, or two rules together), `check` where
+ * one weaker fact alone stands (a shared mobile). The strong level, the same identity or BEN
+ * number, never belongs to a stored pair: two live profiles cannot hold one number (the unique
+ * indexes), so it is the number lookup's and the verification's. Probable first.
+ */
+export const PAIR_LEVELS = ['probable', 'check'] as const;
+export type PairLevel = (typeof PAIR_LEVELS)[number];
+
+/** The rules that alone make a pair only one for an official to check. */
+const WEAK_RULES: readonly DuplicateRule[] = ['same_mobile'];
+
+/** The level a set of rules gives, as the database's check of the stored column computes it. */
+export function pairLevel(rules: readonly DuplicateRule[]): PairLevel {
+  return rules.every((r) => WEAK_RULES.includes(r)) ? 'check' : 'probable';
+}
+
+/** The level of the rules array `rules` in SQL, the same as `pairLevel`. */
+const levelOf = (rules: Prisma.Sql) =>
+  Prisma.sql`CASE WHEN ${rules} <@ ARRAY[${Prisma.join(WEAK_RULES)}]::text[] THEN 'check' ELSE 'probable' END`;
 
 type PairRow = {
   low: string;
   high: string;
   rules: DuplicateRule[];
+  level: PairLevel;
   low_ben_no: number;
   low_name: string;
   high_ben_no: number;
   high_name: string;
 };
 
-/** The position a page of suggestions continues after: the last pair of the page before. */
-const pairCursor = z.tuple([z.uuid(), z.uuid()]);
+/** The position a page of suggestions continues after: the level and the last pair of the page. */
+const pairCursor = z.tuple([z.enum(PAIR_LEVELS), z.uuid(), z.uuid()]);
+
+/** The filters of the suggestions list. */
+export interface PairFilter {
+  /** Only the pairs of this level. */
+  level?: PairLevel | undefined;
+  /** Only the pairs this profile is one of. */
+  beneficiaryId?: string | undefined;
+}
+
+/** At most this many open pairs of one person are named at review. */
+const OPEN_PAIRS_SHOWN = 10;
+
+/** An open probable pair of a person, as the review reads it. */
+export interface OpenPair {
+  beneficiaryId: string;
+  benNo: string;
+  name: string;
+  matchedOn: DuplicateRule[];
+}
 
 /** The nightly recomputation reads every profile once; it may take a while on a large table. */
 const FULL_REFRESH = { maxWait: 10_000, timeout: 600_000 };
@@ -41,18 +88,29 @@ const FULL_REFRESH = { maxWait: 10_000, timeout: 600_000 };
 export const MOBILE_GROUP_LIMIT = 20;
 
 /**
+ * Whether the names beside two profiles `x` and `y` may be one person's father or husband: a
+ * father's name never pairs with a husband's, and where either side does not say, they may.
+ */
+const relationsAgree = (x: string, y: string) =>
+  Prisma.sql`(${Prisma.raw(x)}.guardian_relation_code IS NULL OR ${Prisma.raw(y)}.guardian_relation_code IS NULL
+    OR ${Prisma.raw(x)}.guardian_relation_code = ${Prisma.raw(y)}.guardian_relation_code)`;
+
+/**
  * The pairs as SQL over the live profiles `x` and `y` (`x.id < y.id`) for the nightly job: the
  * same name, father's or husband's name and mobile; the same mobile in a group within the limit;
- * the same name, date of birth and union. Names compare through `person_name_key`, as the indexes do.
- * A profile without a mobile pairs with nobody by the mobile: a missing number equals no number,
- * here and in `refreshFor`, so the people reached through their volunteer are never one group.
+ * the same name, date of birth and union; the same name, father's or husband's name and village in
+ * one union. Names and villages compare through the stored keys (the name key of the shared
+ * package, with the spelling variants), so a title or a known variant makes no difference; a
+ * missing key equals no key, so a name of punctuation alone pairs with nobody. A profile without
+ * a mobile pairs with nobody by the mobile: a missing number equals no number, here and in
+ * `refreshFor`, so the people reached through their volunteer are never one group.
  */
 const PAIRS_BY_NAME_FATHER_MOBILE = Prisma.sql`
   SELECT x.id AS low, y.id AS high, ARRAY['name_father_mobile'] AS rules
   FROM beneficiaries x
-  JOIN beneficiaries y ON person_name_key(y.name) = person_name_key(x.name)
-    AND person_name_key(y.father_or_husband_name) = person_name_key(x.father_or_husband_name)
-    AND y.mobile = x.mobile AND x.id < y.id AND y.merged_into_id IS NULL
+  JOIN beneficiaries y ON y.mobile = x.mobile AND y.name_key = x.name_key
+    AND y.guardian_key = x.guardian_key AND ${relationsAgree('x', 'y')}
+    AND x.id < y.id AND y.merged_into_id IS NULL
   WHERE x.merged_into_id IS NULL`;
 const PAIRS_BY_MOBILE = Prisma.sql`
   SELECT x.id AS low, y.id AS high, ARRAY['same_mobile'] AS rules
@@ -63,18 +121,74 @@ const PAIRS_BY_MOBILE = Prisma.sql`
 const PAIRS_BY_DOB = Prisma.sql`
   SELECT x.id AS low, y.id AS high, ARRAY['name_dob_union'] AS rules
   FROM beneficiaries x
-  JOIN beneficiaries y ON person_name_key(y.name) = person_name_key(x.name) AND y.dob = x.dob
-    AND y.union_id = x.union_id AND x.id < y.id AND y.merged_into_id IS NULL AND y.dob IS NOT NULL
+  JOIN beneficiaries y ON y.union_id = x.union_id AND y.name_key = x.name_key AND y.dob = x.dob
+    AND x.id < y.id AND y.merged_into_id IS NULL
   WHERE x.merged_into_id IS NULL AND x.dob IS NOT NULL`;
+const PAIRS_BY_NAME_FATHER_VILLAGE = Prisma.sql`
+  SELECT x.id AS low, y.id AS high, ARRAY['name_father_village'] AS rules
+  FROM beneficiaries x
+  JOIN beneficiaries y ON y.union_id = x.union_id AND y.name_key = x.name_key
+    AND y.guardian_key = x.guardian_key AND y.village_key = x.village_key
+    AND ${relationsAgree('x', 'y')} AND x.id < y.id AND y.merged_into_id IS NULL
+  WHERE x.merged_into_id IS NULL`;
 
 /**
- * The suggested duplicate profiles (docs/DECISION_LOG.md, the decisions on profile merges and on
- * the kept duplicate pairs): pairs of live
- * profiles with the same name, father's or husband's name and mobile; the same name, date of birth
- * and union; or the same mobile. The pairs are kept in `beneficiary_merge_candidates`: a profile's
- * own pairs are recomputed in the transaction that changes it, and a nightly job recomputes them all;
- * a pair that no longer holds is marked inactive, never deleted. The list reads the active pairs
- * whose two profiles are live and inside the caller's scope and not marked as different people.
+ * The statement that recomputes the pairs of one profile (`refreshFor`): the rules of the nightly
+ * run, found through the profile's own mobile and through its union with its name key, so each is
+ * an index lookup. A pair that no longer holds becomes inactive.
+ */
+export function refreshPairsOf(id: string): Prisma.Sql {
+  return Prisma.sql`
+    WITH me AS (
+      SELECT b.*, (SELECT count(*) FROM beneficiaries s
+                   WHERE s.mobile = b.mobile AND s.merged_into_id IS NULL) <= ${MOBILE_GROUP_LIMIT} AS small
+      FROM beneficiaries b WHERE b.id = ${id}::uuid AND b.merged_into_id IS NULL
+    ), near AS (
+      SELECT o.* FROM me JOIN beneficiaries o ON o.id <> me.id AND o.merged_into_id IS NULL
+        AND o.mobile = me.mobile
+        AND (me.small OR (o.name_key = me.name_key AND o.guardian_key = me.guardian_key))
+      UNION
+      SELECT o.* FROM me JOIN beneficiaries o ON o.id <> me.id AND o.merged_into_id IS NULL
+        AND o.union_id = me.union_id AND o.name_key = me.name_key
+    ), found AS (
+      SELECT LEAST(me.id, o.id) AS low, GREATEST(me.id, o.id) AS high,
+        array_remove(ARRAY[
+          CASE WHEN o.union_id = me.union_id AND o.name_key = me.name_key AND o.dob = me.dob
+            THEN 'name_dob_union' END,
+          CASE WHEN o.mobile = me.mobile AND o.name_key = me.name_key
+            AND o.guardian_key = me.guardian_key AND ${relationsAgree('o', 'me')}
+            THEN 'name_father_mobile' END,
+          CASE WHEN o.union_id = me.union_id AND o.name_key = me.name_key
+            AND o.guardian_key = me.guardian_key AND o.village_key = me.village_key
+            AND ${relationsAgree('o', 'me')}
+            THEN 'name_father_village' END,
+          CASE WHEN o.mobile = me.mobile AND me.small THEN 'same_mobile' END], NULL) AS rules
+      FROM me JOIN near o ON true
+    ), kept AS (
+      -- a namesake with another father, or on a mobile too many profiles share, is no pair
+      SELECT low, high, rules, ${levelOf(Prisma.sql`rules`)} AS level
+      FROM found WHERE cardinality(rules) > 0
+    ), gone AS (
+      UPDATE beneficiary_merge_candidates c SET active = false, computed_at = now()
+      WHERE (c.low_id = ${id}::uuid OR c.high_id = ${id}::uuid) AND c.active
+        AND NOT EXISTS (SELECT 1 FROM kept f WHERE f.low = c.low_id AND f.high = c.high_id)
+    )
+    INSERT INTO beneficiary_merge_candidates (low_id, high_id, rules, level, active, computed_at)
+    SELECT low, high, rules, level, true, now() FROM kept
+    ON CONFLICT (low_id, high_id) DO UPDATE
+      SET rules = EXCLUDED.rules, level = EXCLUDED.level, active = true,
+        computed_at = EXCLUDED.computed_at`;
+}
+
+/**
+ * The suggested duplicate profiles (docs/DECISION_LOG.md, the decisions on profile merges, on
+ * the kept duplicate pairs and on comparing names): pairs of live profiles with the same name,
+ * father's or husband's name and mobile; the same name, date of birth and union; the same name,
+ * father's or husband's name and village in one union; or the same mobile. Each pair says its
+ * level. The pairs are kept in `beneficiary_merge_candidates`: a profile's own pairs are
+ * recomputed in the transaction that changes it, and a nightly job recomputes them all; a pair
+ * that no longer holds is marked inactive, never deleted. The list reads the active pairs whose
+ * two profiles are live and inside the caller's scope and not marked as different people.
  */
 export class BeneficiaryMergeCandidatesService {
   constructor(
@@ -86,48 +200,14 @@ export class BeneficiaryMergeCandidatesService {
 
   /**
    * Recomputes the pairs of the given profiles in the caller's transaction: index lookups by the
-   * profile's own mobile and name, so it stays cheap on a large table. A retired profile keeps no
-   * active pair.
+   * profile's own mobile, and by its union with its name key, so it stays cheap on a large table.
+   * A retired profile keeps no active pair. The rules are those of the nightly run, profile by
+   * profile, so both give the same pairs.
    */
   async refreshFor(tx: Tx, beneficiaryIds: string[]): Promise<void> {
     // shared with other writes, exclusive against the nightly run, so neither undoes the other
     await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(hashtextextended('merge-candidates', 0))`;
-    for (const id of new Set(beneficiaryIds)) {
-      await tx.$executeRaw`
-        WITH me AS (
-          SELECT b.*, (SELECT count(*) FROM beneficiaries s
-                       WHERE s.mobile = b.mobile AND s.merged_into_id IS NULL) <= ${MOBILE_GROUP_LIMIT} AS small
-          FROM beneficiaries b WHERE b.id = ${id}::uuid AND b.merged_into_id IS NULL
-        ), named AS (
-          SELECT o.* FROM me JOIN beneficiaries o ON o.id <> me.id AND o.merged_into_id IS NULL
-            AND person_name_key(o.name) = person_name_key(me.name)
-            AND (o.mobile = me.mobile OR (o.dob = me.dob AND o.union_id = me.union_id))
-          UNION
-          SELECT o.* FROM me JOIN beneficiaries o ON o.id <> me.id AND o.merged_into_id IS NULL
-            AND o.mobile = me.mobile AND me.small
-        ), found AS (
-          SELECT LEAST(me.id, o.id) AS low, GREATEST(me.id, o.id) AS high,
-            array_remove(ARRAY[
-              CASE WHEN o.dob = me.dob AND o.union_id = me.union_id
-                AND person_name_key(o.name) = person_name_key(me.name) THEN 'name_dob_union' END,
-              CASE WHEN o.mobile = me.mobile AND person_name_key(o.name) = person_name_key(me.name)
-                AND person_name_key(o.father_or_husband_name) = person_name_key(me.father_or_husband_name)
-                THEN 'name_father_mobile' END,
-              CASE WHEN o.mobile = me.mobile AND me.small THEN 'same_mobile' END], NULL) AS rules
-          FROM me JOIN named o ON true
-        ), kept AS (
-          -- the same name on a mobile too many profiles share, with another father, is no pair
-          SELECT * FROM found WHERE cardinality(rules) > 0
-        ), gone AS (
-          UPDATE beneficiary_merge_candidates c SET active = false, computed_at = now()
-          WHERE (c.low_id = ${id}::uuid OR c.high_id = ${id}::uuid) AND c.active
-            AND NOT EXISTS (SELECT 1 FROM kept f WHERE f.low = c.low_id AND f.high = c.high_id)
-        )
-        INSERT INTO beneficiary_merge_candidates (low_id, high_id, rules, active, computed_at)
-        SELECT low, high, rules, true, now() FROM kept
-        ON CONFLICT (low_id, high_id) DO UPDATE
-          SET rules = EXCLUDED.rules, active = true, computed_at = EXCLUDED.computed_at`;
-    }
+    for (const id of new Set(beneficiaryIds)) await tx.$executeRaw(refreshPairsOf(id));
   }
 
   /**
@@ -140,13 +220,17 @@ export class BeneficiaryMergeCandidatesService {
       const [row] = await tx.$queryRaw<{ started: Date }[]>`SELECT now() AS started`;
       const started = row!.started;
       await tx.$executeRaw(Prisma.sql`
-        INSERT INTO beneficiary_merge_candidates (low_id, high_id, rules, active, computed_at)
-        SELECT p.low, p.high, array_agg(DISTINCT r ORDER BY r), true, ${started}
-        FROM (${PAIRS_BY_NAME_FATHER_MOBILE} UNION ALL ${PAIRS_BY_MOBILE} UNION ALL ${PAIRS_BY_DOB}) p,
-          unnest(p.rules) AS r
-        GROUP BY p.low, p.high
+        INSERT INTO beneficiary_merge_candidates (low_id, high_id, rules, level, active, computed_at)
+        SELECT q.low, q.high, q.rules, ${levelOf(Prisma.sql`q.rules`)}, true, ${started}
+        FROM (
+          SELECT p.low, p.high, array_agg(DISTINCT r ORDER BY r) AS rules
+          FROM (${PAIRS_BY_NAME_FATHER_MOBILE} UNION ALL ${PAIRS_BY_MOBILE} UNION ALL ${PAIRS_BY_DOB}
+                UNION ALL ${PAIRS_BY_NAME_FATHER_VILLAGE}) p,
+            unnest(p.rules) AS r
+          GROUP BY p.low, p.high) q
         ON CONFLICT (low_id, high_id) DO UPDATE
-          SET rules = EXCLUDED.rules, active = true, computed_at = EXCLUDED.computed_at`);
+          SET rules = EXCLUDED.rules, level = EXCLUDED.level, active = true,
+            computed_at = EXCLUDED.computed_at`);
       await tx.$executeRaw`
         UPDATE beneficiary_merge_candidates SET active = false
         WHERE active AND computed_at < ${started}`;
@@ -155,18 +239,28 @@ export class BeneficiaryMergeCandidatesService {
     }, FULL_REFRESH);
   }
 
-  async list(actor: Principal, scope: Scope, query: Omit<PageQuery, 'sort'>) {
-    const binding = `beneficiaries.mergeCandidates|${actor.userId}`;
+  /**
+   * The active pairs in the caller's scope, probable first, then by the pair; a filter by level
+   * or by one of the two profiles narrows them. A cursor serves only the list and the filters it
+   * was made for.
+   */
+  async list(
+    actor: Principal,
+    scope: Scope,
+    query: Omit<PageQuery, 'sort'>,
+    filter: PairFilter = {},
+  ) {
+    const binding = `beneficiaries.mergeCandidates|${actor.userId}|${filter.level ?? ''}|${filter.beneficiaryId ?? ''}`;
     const after = query.cursor ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor) : null;
     const position = after ? pairCursor.safeParse(after.v) : null;
     if (after && (after.d !== 'next' || !position?.success))
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'cursor', code: 'validation.failed' },
       ]);
-    const [low, high] = position?.success ? position.data : [];
+    const [level, low, high] = position?.success ? position.data : [];
     const fetched = await boundedRead(this.prisma, async (tx) => {
       const pairs = await tx.$queryRaw<PairRow[]>(Prisma.sql`
-        SELECT c.low_id AS low, c.high_id AS high, c.rules,
+        SELECT c.low_id AS low, c.high_id AS high, c.rules, c.level,
           x.ben_no AS low_ben_no, x.name AS low_name, y.ben_no AS high_ben_no, y.name AS high_name
         FROM beneficiary_merge_candidates c
         JOIN beneficiaries x ON x.id = c.low_id AND x.merged_into_id IS NULL
@@ -176,8 +270,19 @@ export class BeneficiaryMergeCandidatesService {
           AND NOT EXISTS (
             SELECT 1 FROM beneficiary_merge_dismissals d
             WHERE d.low_id = c.low_id AND d.high_id = c.high_id AND d.lifted_at IS NULL)
-          ${low && high ? Prisma.sql`AND (c.low_id, c.high_id) > (${low}::uuid, ${high}::uuid)` : Prisma.empty}
-        ORDER BY c.low_id, c.high_id
+          ${filter.level ? Prisma.sql`AND c.level = ${filter.level}` : Prisma.empty}
+          ${
+            filter.beneficiaryId
+              ? Prisma.sql`AND (c.low_id = ${filter.beneficiaryId}::uuid OR c.high_id = ${filter.beneficiaryId}::uuid)`
+              : Prisma.empty
+          }
+          ${
+            level && low && high
+              ? Prisma.sql`AND (c.level < ${level}
+                  OR (c.level = ${level} AND (c.low_id, c.high_id) > (${low}::uuid, ${high}::uuid)))`
+              : Prisma.empty
+          }
+        ORDER BY c.level DESC, c.low_id, c.high_id
         LIMIT ${query.limit + 1}`);
       return pairs;
     });
@@ -192,18 +297,50 @@ export class BeneficiaryMergeCandidatesService {
       name: p.low_name,
       otherName: p.high_name,
       matchedOn: [...p.rules].sort(),
+      level: p.level,
     }));
     return {
       rows,
       meta: {
         nextCursor:
           more && last
-            ? encodeCursor(this.env.CURSOR_SECRET, binding, { v: [last.low, last.high], d: 'next' })
+            ? encodeCursor(this.env.CURSOR_SECRET, binding, {
+                v: [last.level, last.low, last.high],
+                d: 'next',
+              })
             : null,
         prevCursor: null,
         limit: query.limit,
       },
     };
+  }
+
+  /**
+   * The open probable pairs of one profile: active, not marked as two people, the other profile
+   * live. The caller decides what of the other profile it may name.
+   */
+  async probablePairsOf(db: Tx, beneficiaryId: string): Promise<OpenPair[]> {
+    const rows = await db.$queryRaw<
+      { other: string; rules: DuplicateRule[]; ben_no: number; name: string }[]
+    >`
+      SELECT o.id AS other, c.rules, o.ben_no, o.name
+      FROM beneficiary_merge_candidates c
+      JOIN beneficiaries o
+        ON o.id = CASE WHEN c.low_id = ${beneficiaryId}::uuid THEN c.high_id ELSE c.low_id END
+        AND o.merged_into_id IS NULL
+      WHERE (c.low_id = ${beneficiaryId}::uuid OR c.high_id = ${beneficiaryId}::uuid)
+        AND c.active AND c.level = 'probable'
+        AND NOT EXISTS (
+          SELECT 1 FROM beneficiary_merge_dismissals d
+          WHERE d.low_id = c.low_id AND d.high_id = c.high_id AND d.lifted_at IS NULL)
+      ORDER BY o.ben_no
+      LIMIT ${OPEN_PAIRS_SHOWN}`;
+    return rows.map((r) => ({
+      beneficiaryId: r.other,
+      benNo: formatBenNo(r.ben_no),
+      name: r.name,
+      matchedOn: [...r.rules].sort(),
+    }));
   }
 
   /** Both profiles live and inside the scope, or 404 without saying which one is not. */

@@ -368,9 +368,9 @@ describe('demo set', () => {
   it('keeps two duplicate pairs the duplicate rules find, both people applied in program HUM', async () => {
     const pairs = (
       await db.query(
-        `SELECT x.nid AS low_nid, y.nid AS high_nid, c.rules, c.active,
-           person_name_key(x.name) = person_name_key(y.name)
-             AND person_name_key(x.father_or_husband_name) = person_name_key(y.father_or_husband_name)
+        `SELECT x.nid AS low_nid, y.nid AS high_nid, c.rules, c.level, c.active,
+           x.name_key = y.name_key AND x.guardian_key = y.guardian_key
+             AND x.village_key = y.village_key AND x.union_id = y.union_id
              AND x.mobile = y.mobile AS same_person_data
          FROM beneficiary_merge_candidates c
          JOIN beneficiaries x ON x.id = c.low_id
@@ -382,7 +382,8 @@ describe('demo set', () => {
     for (const [i, pair] of pairs.entries()) {
       expect([pair.low_nid, pair.high_nid].sort()).toEqual([...DEMO_DUPLICATE_PAIRS[i]!.nids]);
       expect(pair).toMatchObject({
-        rules: ['name_father_mobile', 'same_mobile'],
+        rules: ['name_father_mobile', 'name_father_village', 'same_mobile'],
+        level: 'probable',
         active: true,
         same_person_data: true,
       });

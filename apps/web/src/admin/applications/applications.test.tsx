@@ -95,6 +95,8 @@ const record = (over: Record<string, unknown> = {}) => ({
   reviewedAt: null,
   approvedAt: null,
   familyDuplicateWarnings: [],
+  familyMemberSignals: [],
+  samePersonSignals: [],
   availableActions: ['review', 'delete'],
   decisionHints: {},
   totalScore: null,
@@ -506,6 +508,59 @@ describe('the review page', () => {
     expect(screen.getByRole('button', { name: 'এন্ট্রি বাতিল করুন' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'রিভিউ শুরু' })).not.toBeInTheDocument();
     await expectNoAxeViolations(view.container);
+  });
+
+  it('names the earlier family and the same person with their links, and only tells where they may not be opened', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    const HEAD = '01900000-0000-7000-8000-0000000000c1';
+    const OTHER = '01900000-0000-7000-8000-0000000000c2';
+    const signals = {
+      familyMemberSignals: [
+        {
+          relationshipCode: 'son',
+          relationship: { bn: 'ছেলে', en: 'son' },
+          head: { beneficiaryId: HEAD, benNo: 'BEN-0000011', name: 'মোঃ হাবিব' },
+        },
+        { relationshipCode: null, relationship: null, head: null },
+      ],
+      samePersonSignals: [
+        {
+          level: 'probable',
+          matchedOn: ['name_father_village'],
+          other: { beneficiaryId: OTHER, benNo: 'BEN-0000012', name: 'সোহেল মিয়া' },
+        },
+        { level: 'probable', matchedOn: ['name_father_mobile', 'same_mobile'], other: null },
+      ],
+    };
+    server.use(http.get(`*/api/v1/applications/${A1}`, () => envelope(record(signals))));
+    const view = openReview();
+    expect(await screen.findByText(/সম্ভবত মোঃ হাবিব-এর ছেলে/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'প্রোফাইল দেখুন (BEN-0000011)' })).toHaveAttribute(
+      'href',
+      `/admin/beneficiaries/${HEAD}`,
+    );
+    expect(screen.getByText('সম্ভবত অন্য এক উপকারভোগীর পরিবারের সদস্য')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /সম্ভবত একই ব্যক্তি: সোহেল মিয়া \(BEN-0000012\) — নাম, পিতা\/স্বামীর নাম ও গ্রাম মিলেছে/,
+      ),
+    ).toBeInTheDocument();
+    const compare = screen.getByRole('link', { name: 'তুলনা করুন' });
+    expect(compare.getAttribute('href')).toContain(`a=${row(A1).beneficiaryId}`);
+    expect(compare.getAttribute('href')).toContain(`b=${OTHER}`);
+    // the pair the viewer may not compare names nobody and links nowhere
+    expect(
+      screen.getByText(
+        'অন্য একটি প্রোফাইলের সঙ্গে সম্ভবত একই ব্যক্তি — একই নাম, পিতা/স্বামী ও মোবাইল, একই মোবাইল নম্বর',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'তুলনা করুন' })).toHaveLength(1);
+    await expectNoAxeViolations(view.container);
+    view.unmount();
+    openReview('en');
+    expect(await screen.findByText(/Probably মোঃ হাবিব's son/)).toBeInTheDocument();
+    expect(screen.getByText('Probably a family member of another beneficiary')).toBeInTheDocument();
   });
 
   it('tells why a record from a phone waits, with the time it was taken', async () => {

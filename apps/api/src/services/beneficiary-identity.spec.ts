@@ -18,7 +18,20 @@ describe('the keys a person without a document is compared by', () => {
       fatherOrHusbandName: 'আব্দুল করিম',
       unionId: UNION,
       village: 'চর নিকলী',
+      guardianRelationCode: null,
     });
+  });
+
+  it('carry whether the name beside the person is the father’s or the husband’s, where the answers say', () => {
+    expect(
+      personKeysOf({
+        name: 'রহিমা',
+        father_or_husband_name: 'করিম',
+        union_id: UNION,
+        village: 'চর নিকলী',
+        guardian_relation_code: 'husband',
+      })?.guardianRelationCode,
+    ).toBe('husband');
   });
 
   it('are none when a part is missing, empty or no text: a comparison on less would match strangers', () => {
