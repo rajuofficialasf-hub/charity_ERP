@@ -111,7 +111,7 @@ describe('the field settings', () => {
     open(def, { section: 'basic_info', field: 'gender' });
     expect(
       await screen.findByText(
-        'এই প্রশ্নের বিকল্প সিস্টেমের তালিকা থেকে আসে, তাই এখানে বদলানো যায় না। খসড়া সংরক্ষণ হলে তালিকার বিকল্প নিজে থেকে বসে যায়।',
+        'এই প্রশ্নের অপশন সিস্টেমের তালিকা থেকে আসে, তাই এখানে বদলানো যায় না। খসড়া সংরক্ষণ হলে তালিকার অপশন নিজে থেকে বসে যায়।',
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('পুরুষ, মহিলা')).toBeInTheDocument();
@@ -138,7 +138,7 @@ describe('the field settings', () => {
     );
     expect(
       await screen.findByText(
-        'এই প্রশ্নের বিকল্প সিস্টেমের তালিকা থেকে আসে, তাই এখানে বদলানো যায় না। খসড়া সংরক্ষণ হলে তালিকার বিকল্প নিজে থেকে বসে যায়।',
+        'এই প্রশ্নের অপশন সিস্টেমের তালিকা থেকে আসে, তাই এখানে বদলানো যায় না। খসড়া সংরক্ষণ হলে তালিকার অপশন নিজে থেকে বসে যায়।',
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('নিজের, প্রতিবেশীর')).toBeInTheDocument();
@@ -167,7 +167,7 @@ describe('the field settings', () => {
     );
     expect(
       await screen.findByText(
-        'এই প্রশ্নের বিকল্প সিস্টেমের তালিকা থেকে আসে, তাই এখানে বদলানো যায় না। খসড়া সংরক্ষণ হলে তালিকার বিকল্প নিজে থেকে বসে যায়।',
+        'এই প্রশ্নের অপশন সিস্টেমের তালিকা থেকে আসে, তাই এখানে বদলানো যায় না। খসড়া সংরক্ষণ হলে তালিকার অপশন নিজে থেকে বসে যায়।',
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('পিতা, স্বামী')).toBeInTheDocument();
@@ -253,15 +253,15 @@ describe('the condition rows', () => {
   it('saves two rows joined by "any" as the engine condition and shows them again', async () => {
     const user = userEvent.setup();
     const view = open(form(), { section: 'money', field: 'loan_note' });
-    const show = await openRules(user, /^শর্ত (ঠিক করুন|বদলান)$/, 'কখন দেখাবে');
+    const show = await openRules(user, /^শর্ত (দিন|বদলান)$/, 'কখন দেখাবে');
     await user.click(show.getByRole('button', { name: 'শর্ত যোগ করুন' }));
-    await choose(user, /শর্ত 1: প্রশ্ন/, 'ঋণ আছে?', show);
-    await choose(user, /শর্ত 1: মান/, 'হ্যাঁ', show);
+    await choose(user, /শর্ত 1: কোন প্রশ্নের উত্তর/, 'ঋণ আছে?', show);
+    await choose(user, /শর্ত 1: কোন উত্তরের সঙ্গে তুলনা/, 'হ্যাঁ', show);
     await user.click(show.getByRole('button', { name: 'শর্ত যোগ করুন' }));
-    await choose(user, /শর্ত 2: প্রশ্ন/, 'আয়', show);
-    await choose(user, /শর্ত 2: তুলনা/, 'বেশি', show);
-    await user.type(show.getByRole('textbox', { name: 'শর্ত 2: মান' }), '5000');
-    await user.click(show.getByRole('radio', { name: 'যেকোনো একটি মিললে' }));
+    await choose(user, /শর্ত 2: কোন প্রশ্নের উত্তর/, 'আয়', show);
+    await choose(user, /শর্ত 2: উত্তরটি কেমন হলে/, 'বেশি', show);
+    await user.type(show.getByRole('textbox', { name: 'শর্ত 2: কোন উত্তরের সঙ্গে তুলনা' }), '5000');
+    await user.click(show.getByRole('radio', { name: 'যেকোনো একটি' }));
     const condition: Condition = {
       any: [
         { field: 'has_loan', op: 'eq', value: 'yes' },
@@ -272,11 +272,17 @@ describe('the condition rows', () => {
     // opened again from the saved draft, the rows read the same
     view.unmount();
     open(form({ show_if: condition }), { section: 'money', field: 'loan_note' });
-    const again = await openRules(user, /^শর্ত (ঠিক করুন|বদলান)$/, 'কখন দেখাবে');
-    expect(again.getByRole('combobox', { name: /শর্ত 1: মান/ })).toHaveTextContent('হ্যাঁ');
-    expect(again.getByRole('combobox', { name: /শর্ত 2: তুলনা/ })).toHaveTextContent('বেশি');
-    expect(again.getByRole('textbox', { name: 'শর্ত 2: মান' })).toHaveValue('5000');
-    expect(again.getByRole('radio', { name: 'যেকোনো একটি মিললে' })).toBeChecked();
+    const again = await openRules(user, /^শর্ত (দিন|বদলান)$/, 'কখন দেখাবে');
+    expect(
+      again.getByRole('combobox', { name: /শর্ত 1: কোন উত্তরের সঙ্গে তুলনা/ }),
+    ).toHaveTextContent('হ্যাঁ');
+    expect(again.getByRole('combobox', { name: /শর্ত 2: উত্তরটি কেমন হলে/ })).toHaveTextContent(
+      'বেশি',
+    );
+    expect(again.getByRole('textbox', { name: 'শর্ত 2: কোন উত্তরের সঙ্গে তুলনা' })).toHaveValue(
+      '5000',
+    );
+    expect(again.getByRole('radio', { name: 'যেকোনো একটি' })).toBeChecked();
   }, 20_000);
 
   it('shows a deeper condition read-only with its note, and removes it whole', async () => {
@@ -292,10 +298,10 @@ describe('the condition rows', () => {
       }),
       { section: 'money', field: 'loan_note' },
     );
-    const show = await openRules(user, /^শর্ত (ঠিক করুন|বদলান)$/, 'কখন দেখাবে');
-    expect(show.getByText(/একাধিক স্তর আছে/)).toBeInTheDocument();
+    const show = await openRules(user, /^শর্ত (দিন|বদলান)$/, 'কখন দেখাবে');
+    expect(show.getByText(/ভেতরে আরও শর্ত আছে/)).toBeInTheDocument();
     expect(show.queryByRole('button', { name: 'শর্ত যোগ করুন' })).not.toBeInTheDocument();
-    await user.click(show.getByRole('button', { name: 'শর্তটি মুছুন' }));
+    await user.click(show.getByRole('button', { name: 'শর্তটি সরান' }));
     expect(fieldOf(latest, 'loan_note').logic).toBeUndefined();
   });
 });
@@ -314,7 +320,7 @@ describe('the calculation', () => {
   it('builds a total of three answers by clicking and saves it', async () => {
     const user = userEvent.setup();
     open(income(), { section: 'income', field: 'total' });
-    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    const calc = await openRules(user, /^হিসাবের নিয়ম (দিন|বদলান)$/, 'হিসাবের নিয়ম');
     await choose(user, /হিসাব: ধরন$/, 'হিসাব (+ − × ÷)', calc);
     await user.click(calc.getByRole('button', { name: 'অংশ যোগ করুন' }));
     await user.click(calc.getByRole('button', { name: 'অংশ যোগ করুন' }));
@@ -351,7 +357,7 @@ describe('the calculation', () => {
       ),
       { section: 'family', field: 'family_income' },
     );
-    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    const calc = await openRules(user, /^হিসাবের নিয়ম (দিন|বদলান)$/, 'হিসাবের নিয়ম');
     await choose(user, /হিসাব: ধরন$/, 'তালিকার সব সারির যোগফল', calc);
     expect(fieldOf(latest, 'family_income').calculation).toEqual({
       expr: { sum_repeat: { group: 'earners', field: 'earner_income' } },
@@ -364,7 +370,7 @@ describe('the calculation', () => {
       definition(section('x', [field('n', 'number'), field('calc', 'calculation')])),
       { section: 'x', field: 'calc' },
     );
-    let calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    let calc = await openRules(user, /^হিসাবের নিয়ম (দিন|বদলান)$/, 'হিসাবের নিয়ম');
     await user.click(calc.getByRole('combobox', { name: /হিসাব: ধরন/ }));
     expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
       'একটি প্রশ্নের উত্তর',
@@ -384,7 +390,7 @@ describe('the calculation', () => {
       ),
       { section: 'x', field: 'age' },
     );
-    calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    calc = await openRules(user, /^হিসাবের নিয়ম (দিন|বদলান)$/, 'হিসাবের নিয়ম');
     await choose(user, /হিসাব: ধরন$/, 'জন্মতারিখ থেকে বয়স', calc);
     expect(fieldOf(latest, 'age').calculation).toEqual({
       expr: { op: 'age_from_dob', args: [{ field: 'dob' }] },
@@ -409,7 +415,7 @@ describe('the calculation', () => {
       ),
       { section: 'gold', field: 'price' },
     );
-    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    const calc = await openRules(user, /^হিসাবের নিয়ম (দিন|বদলান)$/, 'হিসাবের নিয়ম');
     await choose(user, /হিসাব: ধরন$/, 'যদি … তবে', calc);
     await user.clear(calc.getByRole('textbox', { name: 'তবে 1: সংখ্যা' }));
     await user.type(calc.getByRole('textbox', { name: 'তবে 1: সংখ্যা' }), '16236');
@@ -430,7 +436,7 @@ describe('the calculation', () => {
   it('takes a typed formula, names a mistake and where it is, and rounds the result', async () => {
     const user = userEvent.setup();
     open(income(), { section: 'income', field: 'total' });
-    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    const calc = await openRules(user, /^হিসাবের নিয়ম (দিন|বদলান)$/, 'হিসাবের নিয়ম');
     await user.click(calc.getByRole('radio', { name: 'সূত্র লিখুন' }));
     const formula = calc.getByRole('textbox', { name: /^সূত্র/ });
     await user.type(formula, 'a + bb');
@@ -447,7 +453,7 @@ describe('the calculation', () => {
   it('removes the calculation when the formula is emptied, and keeps a mistaken one with a note', async () => {
     const user = userEvent.setup();
     open(income(), { section: 'income', field: 'total' });
-    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    const calc = await openRules(user, /^হিসাবের নিয়ম (দিন|বদলান)$/, 'হিসাবের নিয়ম');
     await user.click(calc.getByRole('radio', { name: 'সূত্র লিখুন' }));
     const formula = calc.getByRole('textbox', { name: /^সূত্র/ });
     await user.type(formula, 'a + b');
@@ -455,7 +461,7 @@ describe('the calculation', () => {
     await user.clear(formula);
     expect(fieldOf(latest, 'total').calculation).toBeUndefined();
     await user.type(formula, 'a + b +');
-    await user.click(calc.getByRole('radio', { name: 'ক্লিক করে' }));
+    await user.click(calc.getByRole('radio', { name: 'বেছে নিন' }));
     expect(calc.getByText(/সূত্রে ভুল আছে, তাই আগের হিসাবই রাখা আছে/)).toBeInTheDocument();
     await user.click(calc.getByRole('radio', { name: 'সূত্র লিখুন' }));
     expect(calc.getByRole('textbox', { name: /^সূত্র/ })).toHaveValue('a + b +');
@@ -464,7 +470,7 @@ describe('the calculation', () => {
   it('keeps the text results of a calculation with the question', async () => {
     const user = userEvent.setup();
     open(income(), { section: 'income', field: 'total' });
-    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    const calc = await openRules(user, /^হিসাবের নিয়ম (দিন|বদলান)$/, 'হিসাবের নিয়ম');
     await user.click(calc.getByRole('button', { name: 'লেখা-ফল যোগ করুন' }));
     const bn = calc.getByRole('textbox', { name: 'ফল 1: বাংলা' });
     await user.clear(bn);
@@ -482,10 +488,10 @@ describe('defaults, read-only, counted rows, comparisons and earlier answers', (
       section: 'x',
       field: 'visit',
     });
-    await user.click(await screen.findByRole('button', { name: /^ডিফল্ট মান/ }));
+    await user.click(await screen.findByRole('button', { name: /^আগে থেকে বসানো উত্তর/ }));
     const readOnly = screen.getByRole('switch', { name: 'শুধু দেখা যাবে, বদলানো যাবে না' });
     expect(readOnly).toBeDisabled();
-    await choose(user, /^ডিফল্ট মান/, 'আজকের তারিখ');
+    await choose(user, /^আগে থেকে বসানো উত্তর/, 'আজকের তারিখ');
     expect(fieldOf(latest, 'visit').settings).toEqual({ default: { today: true } });
     await user.click(screen.getByRole('switch', { name: 'শুধু দেখা যাবে, বদলানো যাবে না' }));
     expect(fieldOf(latest, 'visit').settings).toEqual({
@@ -500,9 +506,9 @@ describe('defaults, read-only, counted rows, comparisons and earlier answers', (
       section: 'x',
       field: 'number_prefix',
     });
-    await user.click(await screen.findByRole('button', { name: /^ডিফল্ট মান/ }));
-    await choose(user, /^ডিফল্ট মান/, 'লেখা');
-    await user.type(screen.getByRole('textbox', { name: 'ডিফল্ট লেখা' }), 'ASF-');
+    await user.click(await screen.findByRole('button', { name: /^আগে থেকে বসানো উত্তর/ }));
+    await choose(user, /^আগে থেকে বসানো উত্তর/, 'লেখা');
+    await user.type(screen.getByRole('textbox', { name: 'যে লেখা বসানো থাকবে' }), 'ASF-');
     expect(fieldOf(latest, 'number_prefix').settings).toEqual({ default: { text: 'ASF-' } });
   });
 
@@ -597,8 +603,8 @@ describe('defaults, read-only, counted rows, comparisons and earlier answers', (
       ),
       { section: 'x', field: 'q_rooms' },
     );
-    await user.click(await screen.findByRole('button', { name: /^ডিফল্ট মান/ }));
-    await choose(user, /^ডিফল্ট মান/, 'সংখ্যা');
+    await user.click(await screen.findByRole('button', { name: /^আগে থেকে বসানো উত্তর/ }));
+    await choose(user, /^আগে থেকে বসানো উত্তর/, 'সংখ্যা');
     expect(fieldOf(latest, 'q_rooms').settings?.default).toEqual({ number: 1 });
   });
 
@@ -614,12 +620,12 @@ describe('defaults, read-only, counted rows, comparisons and earlier answers', (
       ),
       { section: 'money', field: 'why' },
     );
-    const show = await openRules(user, /^শর্ত (ঠিক করুন|বদলান)$/, 'কখন দেখাবে');
+    const show = await openRules(user, /^শর্ত (দিন|বদলান)$/, 'কখন দেখাবে');
     await user.click(show.getByRole('button', { name: 'শর্ত যোগ করুন' }));
-    await choose(user, /শর্ত 1: প্রশ্ন/, 'মাসিক ব্যয়', show);
-    await choose(user, /শর্ত 1: তুলনা/, 'বেশি', show);
+    await choose(user, /শর্ত 1: কোন প্রশ্নের উত্তর/, 'মাসিক ব্যয়', show);
+    await choose(user, /শর্ত 1: উত্তরটি কেমন হলে/, 'বেশি', show);
     await user.click(show.getByRole('radio', { name: 'অন্য প্রশ্নের উত্তর' }));
-    await choose(user, /শর্ত 1: কোন প্রশ্নের উত্তর/, 'মোট আয়', show);
+    await choose(user, /শর্ত 1: অন্য কোন প্রশ্নের উত্তরের সঙ্গে তুলনা/, 'মোট আয়', show);
     expect(fieldOf(latest, 'why').logic).toEqual({
       show_if: { field: 'expense', op: 'gt', value: { field: 'income' } },
     });
@@ -733,7 +739,7 @@ it('has no axe violation', async () => {
   // the groups with their sentences, and the show-if dialog open over them
   await screen.findByText('সব সময় দেখাবে।');
   await expectNoAxeViolations(container);
-  await openRules(userEvent.setup(), /^শর্ত ঠিক করুন$/, 'কখন দেখাবে');
+  await openRules(userEvent.setup(), /^শর্ত দিন$/, 'কখন দেখাবে');
   await expectNoAxeViolations(document.body);
 });
 
@@ -762,7 +768,7 @@ it('has no axe violation in the calculation dialog with a step and a bracket', a
     ),
     { section: 'gold', field: 'price' },
   );
-  await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+  await openRules(user, /^হিসাবের নিয়ম (দিন|বদলান)$/, 'হিসাবের নিয়ম');
   await expectNoAxeViolations(document.body);
 }, 20_000);
 
@@ -776,10 +782,10 @@ describe('the identity mark', () => {
   it('offers the seven roles and sets the role, its column and its type', async () => {
     const user = userEvent.setup();
     open(own(), { section: 'mine', field: 'q_who' }, true);
-    await user.click(await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ }));
+    await user.click(await screen.findByRole('combobox', { name: /এটি পরিচয়ের কোন প্রশ্ন/ }));
     const names = (await screen.findAllByRole('option')).map((o) => o.textContent);
     expect(names).toEqual([
-      'চিহ্ন নেই',
+      'পরিচয়ের প্রশ্ন নয়',
       'এনআইডি বা জন্মনিবন্ধন নম্বর',
       'নাম',
       'পিতা বা স্বামীর নাম',
@@ -806,12 +812,16 @@ describe('the identity mark', () => {
   it('is not offered in an official-only section, nor on a form of another kind', async () => {
     const office = open(own(), { section: 'office', field: 'remark' }, true);
     await screen.findByRole('button', { name: 'মূল তথ্য' });
-    expect(screen.queryByRole('button', { name: /পরিচয়-চিহ্ন/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /এটি পরিচয়ের কোন প্রশ্ন/ }),
+    ).not.toBeInTheDocument();
     office.unmount();
     // a form of the kind other takes no identity marks at all
     open(own(), { section: 'mine', field: 'q_who' }, false);
     await screen.findByRole('button', { name: 'মূল তথ্য' });
-    expect(screen.queryByRole('button', { name: /পরিচয়-চিহ্ন/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /এটি পরিচয়ের কোন প্রশ্ন/ }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -851,7 +861,7 @@ describe('the two questions on whose number the mobile is', () => {
 
   it('are offered on no other question, not on a phone, and not once the page has none to add', async () => {
     const other = pane({ section: 'basic_info', field: 'name' }, 'full', () => undefined);
-    await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ });
+    await screen.findByRole('combobox', { name: /এটি পরিচয়ের কোন প্রশ্ন/ });
     expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
     other.unmount();
     const phone = pane(MOBILE, 'texts', () => undefined);
@@ -860,7 +870,7 @@ describe('the two questions on whose number the mobile is', () => {
     expect(screen.queryByText(HINT)).not.toBeInTheDocument();
     phone.unmount();
     pane(MOBILE, 'full', undefined);
-    await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ });
+    await screen.findByRole('combobox', { name: /এটি পরিচয়ের কোন প্রশ্ন/ });
     expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
   });
 });
@@ -869,8 +879,8 @@ describe('a stale identity mark', () => {
   it('on a form of another kind still shows, so it can be cleared', async () => {
     const user = userEvent.setup();
     open(definition(), { section: 'basic_info', field: 'name' }, false);
-    await user.click(await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ }));
-    await user.click(await screen.findByRole('option', { name: 'চিহ্ন নেই' }));
+    await user.click(await screen.findByRole('combobox', { name: /এটি পরিচয়ের কোন প্রশ্ন/ }));
+    await user.click(await screen.findByRole('option', { name: 'পরিচয়ের প্রশ্ন নয়' }));
     expect(fieldOf(latest, 'name').standardColumn).toBeNull();
   });
 });
@@ -887,16 +897,16 @@ describe('the points of the priority score', () => {
   it('gives each option of a choice its points, and an emptied box takes them away', async () => {
     const user = userEvent.setup();
     const view = open(definition(section('more', [kind])), { section: 'more', field: 'kind' });
-    await user.click(await screen.findByRole('button', { name: /নম্বর/ }));
-    const widow = await screen.findByRole('textbox', { name: 'বিধবা: নম্বর' });
+    await user.click(await screen.findByRole('button', { name: /স্কোর/ }));
+    const widow = await screen.findByRole('textbox', { name: 'বিধবা: স্কোর' });
     await user.type(widow, '20');
-    await user.type(screen.getByRole('textbox', { name: 'বৃদ্ধ: নম্বর' }), '15');
+    await user.type(screen.getByRole('textbox', { name: 'বৃদ্ধ: স্কোর' }), '15');
     expect(fieldOf(latest, 'kind').settings?.score).toEqual({
       options: { widow: 20, elderly: 15 },
     });
     await user.clear(widow);
     expect(fieldOf(latest, 'kind').settings?.score).toEqual({ options: { elderly: 15 } });
-    await user.clear(screen.getByRole('textbox', { name: 'বৃদ্ধ: নম্বর' }));
+    await user.clear(screen.getByRole('textbox', { name: 'বৃদ্ধ: স্কোর' }));
     expect(fieldOf(latest, 'kind').settings?.score).toBeUndefined();
     await expectNoAxeViolations(view.container);
   });
@@ -910,11 +920,11 @@ describe('the points of the priority score', () => {
         field: 'members',
       },
     );
-    await user.click(await screen.findByRole('button', { name: /নম্বর/ }));
+    await user.click(await screen.findByRole('button', { name: /স্কোর/ }));
     await user.click(await screen.findByRole('button', { name: 'সীমা যোগ করুন' }));
-    const rows = screen.getByRole('list', { name: 'নম্বরের সীমা' });
+    const rows = screen.getByRole('list', { name: 'স্কোরের সীমা' });
     await user.type(within(rows).getByRole('textbox', { name: /থেকে/ }), '6');
-    await user.type(within(rows).getByRole('textbox', { name: /^নম্বর/ }), '20');
+    await user.type(within(rows).getByRole('textbox', { name: /^স্কোর/ }), '20');
     expect(fieldOf(latest, 'members').settings?.score).toEqual({
       ranges: [{ min: 6, points: 20 }],
     });
@@ -928,10 +938,10 @@ describe('the points of the priority score', () => {
       definition(section('more', [field('members', 'number', { label: T('সদস্য', 'Members') })])),
       { section: 'more', field: 'members' },
     );
-    await user.click(await screen.findByRole('button', { name: /নম্বর/ }));
+    await user.click(await screen.findByRole('button', { name: /স্কোর/ }));
     for (let n = 0; n < 3; n += 1)
       await user.click(await screen.findByRole('button', { name: 'সীমা যোগ করুন' }));
-    const rows = screen.getByRole('list', { name: 'নম্বরের সীমা' });
+    const rows = screen.getByRole('list', { name: 'স্কোরের সীমা' });
     // the third range's lower bound, still being typed: "7." is not a finished number yet
     await user.type(within(rows).getAllByRole('textbox', { name: /থেকে/ })[2]!, '7.');
     await user.click(within(rows).getAllByRole('button', { name: 'সীমাটি সরান' })[0]!);
@@ -948,6 +958,6 @@ describe('the points of the priority score', () => {
       field: 'note',
     });
     await screen.findByRole('button', { name: /মূল তথ্য/ });
-    expect(screen.queryByRole('button', { name: /নম্বর/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /স্কোর/ })).not.toBeInTheDocument();
   });
 });

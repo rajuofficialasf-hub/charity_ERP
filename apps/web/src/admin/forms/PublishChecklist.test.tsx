@@ -200,7 +200,7 @@ describe('the list beside the Publish button', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     const question = screen.getByRole('button', { name: 'মন্তব্য বদলান' });
     expect(question).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(ইংরেজি\)/ })).toHaveValue('');
     expect(scrolled).toEqual([question.closest('li')]);
     await waitFor(() => expect(question).toHaveFocus());
   }, 20_000);
@@ -211,11 +211,11 @@ describe('the list beside the Publish button', () => {
     open();
     await listButton(1);
     await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
-    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }), 'Note');
+    await user.type(screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(ইংরেজি\)/ }), 'Note');
     await waitFor(noListButton);
     expect(publishes).toBe(0);
     // and comes back with the problem
-    await user.clear(screen.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }));
+    await user.clear(screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(ইংরেজি\)/ }));
     expect(await listButton(1)).toBeInTheDocument();
   }, 20_000);
 
@@ -249,7 +249,7 @@ describe('the list beside the Publish button', () => {
       'ধরন: অপশনের ইংরেজি লেখা বাকি (2টি)',
       'ধরন: অপশনের বাংলা লেখা বাকি',
       // any other problem in the words of the errors catalogue
-      'মোট: এই হিসাব-প্রশ্নের নিয়ম এখনো ঠিক করা হয়নি।',
+      'মোট: এই প্রশ্নের হিসাবের নিয়ম এখনো দেওয়া হয়নি।',
     ])
       expect(dialog.getByRole('button', { name })).toBeInTheDocument();
     expect(dialog.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
@@ -263,8 +263,8 @@ describe('the list beside the Publish button', () => {
     await waitFor(() => expect(part).toHaveFocus());
     expect(scrolled).toEqual([part.closest('section')]);
     // the part's own texts are in the right pane
-    expect(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('অতিরিক্ত');
-    expect(screen.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: /^অংশের নাম \(বাংলা\)/ })).toHaveValue('অতিরিক্ত');
+    expect(screen.getByRole('textbox', { name: /^অংশের নাম \(ইংরেজি\)/ })).toHaveValue('');
   }, 20_000);
 
   it('reads in English too', async () => {
@@ -367,7 +367,7 @@ describe('a refusal of the server', () => {
     expect(await listButton(1)).toBeInTheDocument();
     // the person changes that very question: whether it is right now is for the server to say
     await user.click(screen.getByRole('button', { name: 'gender বদলান' }));
-    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' ক');
+    await user.type(screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ }), ' ক');
     await waitFor(noListButton);
     expect(screen.queryByText(EMPTY_LIST)).not.toBeInTheDocument();
     expect(publishes).toBe(1);
@@ -451,7 +451,7 @@ describe('the identity questions in one press', () => {
     const dialog = within(await list());
     expect(dialog.queryByText(/^পরিচয়ের প্রশ্ন বাকি/)).not.toBeInTheDocument();
     expect(dialog.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
-    expect(dialog.queryByRole('button', { name: /^নাম ছাড়া প্রশ্ন/ })).not.toBeInTheDocument();
+    expect(dialog.queryByRole('button', { name: /^লেখা ছাড়া প্রশ্ন/ })).not.toBeInTheDocument();
     // the one text still missing is the earlier question's English
     expect(dialog.getAllByRole('button', { name: /লেখা বাকি/ })).toHaveLength(1);
     await user.click(dialog.getByRole('button', { name: 'বন্ধ করুন' }));
@@ -573,7 +573,7 @@ describe('the two questions on whose number the mobile is, asked for on the mobi
     open();
     // the form lacks no identity question, so the one press of the seven is not offered
     await choose(user, 'name বদলান');
-    await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ });
+    await screen.findByRole('combobox', { name: /এটি পরিচয়ের কোন প্রশ্ন/ });
     expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' }),
@@ -595,7 +595,7 @@ describe('the two questions on whose number the mobile is, asked for on the mobi
     expect(scrolled).toEqual([first.closest('li')]);
     // the form asks whose number it is now: the mobile question offers nothing more
     await choose(user, 'mobile বদলান');
-    await screen.findByRole('combobox', { name: /পরিচয়-চিহ্ন/ });
+    await screen.findByRole('combobox', { name: /এটি পরিচয়ের কোন প্রশ্ন/ });
     expect(screen.queryByRole('button', { name: ADD })).not.toBeInTheDocument();
     await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
     const saved = saves.at(-1)!.flatMap((s) => s.fields);
@@ -744,7 +744,7 @@ describe('the marks on the form', () => {
     await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
     expect(row('মন্তব্য').getByText('প্রশ্নের ইংরেজি লেখা বাকি')).toBeInTheDocument();
     // and goes with its cause
-    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }), 'Note');
+    await user.type(screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(ইংরেজি\)/ }), 'Note');
     await waitFor(() =>
       expect(row('মন্তব্য').queryByRole('img', { name: 'ঠিক করতে হবে' })).not.toBeInTheDocument(),
     );

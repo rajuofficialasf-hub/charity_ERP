@@ -14,8 +14,8 @@ export const digits = (n: number) =>
 
 /** The Bengali and the English text of the chosen question, in the settings pane. */
 export const questionTexts = (page: Page) => ({
-  bn: page.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }),
-  en: page.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }),
+  bn: page.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ }),
+  en: page.getByRole('textbox', { name: /^প্রশ্নের লেখা \(ইংরেজি\)/ }),
 });
 
 /**

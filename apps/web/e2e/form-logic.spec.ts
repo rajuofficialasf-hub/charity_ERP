@@ -26,7 +26,7 @@ test.use({ actionTimeout: 20_000, navigationTimeout: 30_000 });
 /** Opens the calculation dialog of a calculation question on the canvas. */
 async function openCalculation(page: Page, label: string): Promise<Locator> {
   await page.getByRole('button', { name: `${label} বদলান`, exact: true }).click();
-  await page.getByRole('button', { name: 'হিসাব ঠিক করুন' }).click();
+  await page.getByRole('button', { name: 'হিসাবের নিয়ম দিন' }).click();
   return page.getByRole('dialog', { name: 'হিসাবের নিয়ম' });
 }
 
@@ -66,11 +66,11 @@ test('the demo form: a price by condition, a typed formula, a number table and c
   let calc = await openCalculation(page, 'প্রতি আনার দাম');
   await chooseIn(page, calc, 'হিসাব: ধরন', 'যদি … তবে');
   const branch = calc.getByRole('region', { name: 'শর্ত 1', exact: true });
-  await chooseIn(page, branch, 'শর্ত 1: প্রশ্ন', 'সোনার ক্যারেট');
-  await chooseIn(page, branch, 'শর্ত 1: তুলনা', 'সমান');
-  await chooseIn(page, branch, 'শর্ত 1: মান', '22 ক্যারেট');
+  await chooseIn(page, branch, 'শর্ত 1: কোন প্রশ্নের উত্তর', 'সোনার ক্যারেট');
+  await chooseIn(page, branch, 'শর্ত 1: উত্তরটি কেমন হলে', 'সমান');
+  await chooseIn(page, branch, 'শর্ত 1: কোন উত্তরের সঙ্গে তুলনা', '22 ক্যারেট');
   await calc.getByRole('textbox', { name: 'তবে 1: সংখ্যা' }).fill('14883');
-  await calc.getByRole('button', { name: 'হয়ে গেছে' }).click();
+  await calc.getByRole('button', { name: 'ঠিক আছে' }).click();
   await expect(
     page.getByText(/^প্রতি আনার দাম = যদি “সোনার ক্যারেট”.*14883, নইলে 0$/),
   ).toBeVisible();
@@ -80,7 +80,7 @@ test('the demo form: a price by condition, a typed formula, a number table and c
   // the radio's input is visually hidden; its text chooses it
   await calc.getByText('সূত্র লিখুন', { exact: true }).click();
   await calc.getByRole('textbox', { name: /^সূত্র/ }).fill('q_gold_anas * q_gold_price + q_cash');
-  await calc.getByRole('button', { name: 'হয়ে গেছে' }).click();
+  await calc.getByRole('button', { name: 'ঠিক আছে' }).click();
   await expect(page.getByText(/^মোট সম্পদ = .*“সোনার পরিমাণ \(আনা\)”/)).toBeVisible();
 
   // the livestock table: cows and goats, own and sharecropped

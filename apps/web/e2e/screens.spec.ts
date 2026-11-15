@@ -104,7 +104,9 @@ for (const mode of MODES) {
       await expect(page.locator(':root')).toHaveAttribute('data-color-scheme', mode);
       // a chosen question shows its bar and its settings
       await page.getByRole('button', { name: 'লিঙ্গ বদলান', exact: true }).click();
-      await expect(page.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('লিঙ্গ');
+      await expect(page.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ })).toHaveValue(
+        'লিঙ্গ',
+      );
       await page.waitForLoadState('networkidle');
       const drawer = page.getByRole('dialog', { name: 'প্রশ্ন ও ফর্মের সেটিং' });
       if (await drawer.count()) {

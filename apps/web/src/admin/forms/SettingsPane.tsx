@@ -131,7 +131,7 @@ function SectionSettings({
     <Stack gap={2}>
       <Disclosure title={t('group_basics')} headingLevel={2} defaultOpen>
         <Stack gap={3}>
-          <Texts value={section.title} onChange={setTitle} />
+          <Texts of="section" value={section.title} onChange={setTitle} />
           {mode === 'full' ? (
             <SelectField
               label={t('visibility')}
@@ -574,13 +574,18 @@ function helpOf(bn: string, en: string): FieldSettings['help'] {
   return bn === '' && en === '' ? undefined : { bn, en };
 }
 
-/** A text in both languages, each required; `focus` puts the cursor in the Bengali one, once. */
+/**
+ * A text in both languages, each required: a question's text, or a section's name (`of`), each
+ * called what it is; `focus` puts the cursor in the Bengali one, once.
+ */
 function Texts({
+  of = 'question',
   value,
   onChange,
   focus = false,
   onFocused,
 }: {
+  of?: 'question' | 'section';
   value: { bn: string; en: string };
   onChange: (value: { bn: string; en: string }) => void;
   focus?: boolean;
@@ -598,13 +603,13 @@ function Texts({
     <>
       <TextField
         id={bnId}
-        label={t('label_bn')}
+        label={t(of === 'section' ? 'section_name_bn' : 'label_bn')}
         required
         value={value.bn}
         onChange={(bn) => onChange({ ...value, bn })}
       />
       <TextField
-        label={t('label_en')}
+        label={t(of === 'section' ? 'section_name_en' : 'label_en')}
         required
         lang="en"
         value={value.en}

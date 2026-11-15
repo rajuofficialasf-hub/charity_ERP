@@ -278,11 +278,11 @@ describe('the builder of a ready form', () => {
     await user.click(await screen.findByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     const list = within(await screen.findByRole('list', { name: 'অংশ 1' }));
-    expect(list.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveAttribute(
+    expect(list.getByRole('button', { name: 'লেখা ছাড়া প্রশ্ন বদলান' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    const text = screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
+    const text = screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ });
     await waitFor(() => expect(text).toHaveFocus());
     await user.type(text, 'পেশা');
     expect(await list.findByRole('button', { name: 'পেশা বদলান' })).toBeInTheDocument();
@@ -308,9 +308,9 @@ describe('the builder of a ready form', () => {
     });
     await user.click(await screen.findByRole('tab', { name: 'লাইব্রেরি' }));
     expect(await screen.findByText('লাইব্রেরিতে এখনো কোনো প্রশ্ন নেই।')).toBeInTheDocument();
-    expect(screen.queryByText('এই নামে কোনো প্রশ্ন নেই।')).not.toBeInTheDocument();
+    expect(screen.queryByText('এমন কোনো প্রশ্ন নেই।')).not.toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: 'লাইব্রেরিতে প্রশ্ন খুঁজুন' }), 'আয়');
-    expect(screen.getByText('এই নামে কোনো প্রশ্ন নেই।')).toBeInTheDocument();
+    expect(screen.getByText('এমন কোনো প্রশ্ন নেই।')).toBeInTheDocument();
     expect(screen.queryByText('লাইব্রেরিতে এখনো কোনো প্রশ্ন নেই।')).not.toBeInTheDocument();
   });
 

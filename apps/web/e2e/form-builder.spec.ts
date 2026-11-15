@@ -38,7 +38,7 @@ test.use({ actionTimeout: 20_000, navigationTimeout: 30_000 });
 
 /** Marks the chosen question with an identity role in the settings pane. */
 async function mark(page: Page, role: string) {
-  await chooseIn(page, page.locator('main'), 'পরিচয়-চিহ্ন', role);
+  await chooseIn(page, page.locator('main'), 'এটি পরিচয়ের কোন প্রশ্ন', role);
   const tag = role.replace(/ \(.*\)$/, '');
   await expect(page.locator('main').getByText(`পরিচয়: ${tag}`).first()).toBeVisible();
 }
@@ -122,7 +122,7 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
   await ownQuestion(page, 'অংশ 2', 'সংখ্যা', ['পুরুষ সদস্য', 'Male members']);
   await ownQuestion(page, 'অংশ 2', 'সংখ্যা', ['নারী সদস্য', 'Female members']);
   await ownQuestion(page, 'অংশ 2', 'নিজে থেকে হিসাব', ['মোট সদস্য', 'All members']);
-  await page.getByRole('button', { name: 'হিসাব ঠিক করুন' }).click();
+  await page.getByRole('button', { name: 'হিসাবের নিয়ম দিন' }).click();
   const calc = page.getByRole('dialog', { name: 'হিসাবের নিয়ম' });
   await chooseIn(page, calc, 'হিসাব: ধরন', 'হিসাব (+ − × ÷)');
   // a sum starts with one part
@@ -134,7 +134,7 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     await chooseIn(page, calc, `হিসাব › অংশ ${n}: ধরন`, 'একটি প্রশ্নের উত্তর');
     await chooseIn(page, calc, `হিসাব › অংশ ${n}: প্রশ্ন`, label);
   }
-  await calc.getByRole('button', { name: 'হয়ে গেছে' }).click();
+  await calc.getByRole('button', { name: 'ঠিক আছে' }).click();
   await expect(page.getByText('মোট সদস্য = “পুরুষ সদস্য” + “নারী সদস্য”')).toBeVisible();
   // the keyboard drags too: the second number moves one place up by its handle
   const list = page.getByRole('list', { name: 'অংশ 2', exact: true });
@@ -146,6 +146,8 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
   await expect(announced).toHaveText('নারী সদস্য তুলেছেন।');
   await page.keyboard.press('ArrowUp');
   await expect(announced).toHaveText('নারী সদস্য অংশ 2-এ প্রথম স্থানে বসবে।');
+  // the line is drawn where it will land, so the screen has caught up with the move
+  await expect(list.locator('.is-land-before')).toHaveCount(1);
   await page.keyboard.press('Space');
   await expect(announced).toHaveText('নারী সদস্য অংশ 2-এ প্রথম স্থানে বসেছে।');
   await expect
@@ -163,13 +165,13 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
       ['না', 'No'],
     ],
   );
-  await page.getByRole('button', { name: 'শর্ত ঠিক করুন' }).click();
+  await page.getByRole('button', { name: 'শর্ত দিন' }).click();
   const show = page.getByRole('dialog', { name: 'প্রশ্নটি কখন দেখাবে' });
   await show.getByRole('button', { name: 'শর্ত যোগ করুন' }).click();
-  await chooseIn(page, show, 'শর্ত 1: প্রশ্ন', 'পুরুষ সদস্য');
-  await chooseIn(page, show, 'শর্ত 1: তুলনা', 'বেশি');
-  await show.getByRole('textbox', { name: 'শর্ত 1: মান' }).fill('0');
-  await show.getByRole('button', { name: 'হয়ে গেছে' }).click();
+  await chooseIn(page, show, 'শর্ত 1: কোন প্রশ্নের উত্তর', 'পুরুষ সদস্য');
+  await chooseIn(page, show, 'শর্ত 1: উত্তরটি কেমন হলে', 'বেশি');
+  await show.getByRole('textbox', { name: 'শর্ত 1: কোন উত্তরের সঙ্গে তুলনা' }).fill('0');
+  await show.getByRole('button', { name: 'ঠিক আছে' }).click();
   await expect(page.getByText('দেখাবে যখন “পুরুষ সদস্য” 0-এর বেশি।')).toBeVisible();
 
   await publish(page, 1);
@@ -352,7 +354,7 @@ test('a new application form lists what to fix, gets its identity questions in o
   // one question, then its English text emptied in the right pane: the draft still saves
   await ownQuestion(page, 'অংশ 1', 'ছোট লেখা', ['পরিবারের সদস্য', 'Family members']);
   const question = page.getByRole('button', { name: 'পরিবারের সদস্য বদলান' });
-  await page.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }).fill('');
+  await page.getByRole('textbox', { name: /^প্রশ্নের লেখা \(ইংরেজি\)/ }).fill('');
   await saved(page);
   // the question carries the mark, by an icon with a name
   await expect(
@@ -379,10 +381,10 @@ test('a new application form lists what to fix, gets its identity questions in o
   await expect(question).toHaveAttribute('aria-pressed', 'true');
   await expect(question).toBeFocused();
   await expect(question).toBeInViewport();
-  await expect(page.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue(
+  await expect(page.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ })).toHaveValue(
     'পরিবারের সদস্য',
   );
-  await expect(page.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ })).toHaveValue('');
+  await expect(page.getByRole('textbox', { name: /^প্রশ্নের লেখা \(ইংরেজি\)/ })).toHaveValue('');
 
   // Publish says the same instead of asking
   await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
@@ -413,7 +415,7 @@ test('a new application form lists what to fix, gets its identity questions in o
   }
   for (const wording of ['এটি পিতার নাম নাকি স্বামীর নাম?', 'নম্বরটি কার?', 'যাঁর নম্বর, তাঁর নাম'])
     await expect(part.getByRole('button', { name: `${wording} বদলান`, exact: true })).toBeVisible();
-  await expect(part.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveCount(0);
+  await expect(part.getByRole('button', { name: 'লেখা ছাড়া প্রশ্ন বদলান' })).toHaveCount(0);
   // the first of them is chosen and in view
   const first = part.getByRole('button', { name: / বদলান$/ }).nth(1);
   await expect(first).toHaveAttribute('aria-pressed', 'true');
@@ -425,7 +427,7 @@ test('a new application form lists what to fix, gets its identity questions in o
   const left = await openFixList(page, 1);
   await expect(left.getByText(/^পরিচয়ের প্রশ্ন বাকি/)).toHaveCount(0);
   await expect(left.getByRole('button', { name: 'পরিচয়ের প্রশ্নগুলো যোগ করুন' })).toHaveCount(0);
-  await expect(left.getByRole('button', { name: /^নাম ছাড়া প্রশ্ন/ })).toHaveCount(0);
+  await expect(left.getByRole('button', { name: /^লেখা ছাড়া প্রশ্ন/ })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(left).toHaveCount(0);
 
@@ -477,7 +479,7 @@ test('a question is added in place and typed at once, and a button moves it to a
   // a press on a type: the question is there, chosen, and the cursor is in its Bengali text
   await page.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  const unnamed = firstPart.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' });
+  const unnamed = firstPart.getByRole('button', { name: 'লেখা ছাড়া প্রশ্ন বদলান' });
   await expect(unnamed).toHaveAttribute('aria-pressed', 'true');
   await expect(unnamed).toBeInViewport();
   const texts = questionTexts(page);
@@ -643,7 +645,9 @@ test('the form has the most room, a pane folds away, the bar of a question overl
   await page.setViewportSize({ width: 1024, height: 800 });
   const gender = page.getByRole('button', { name: 'লিঙ্গ বদলান', exact: true });
   await gender.click();
-  await expect(settings.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('লিঙ্গ');
+  await expect(settings.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ })).toHaveValue(
+    'লিঙ্গ',
+  );
   expect(await widthOf(canvas)).toBeGreaterThan(await widthOf(settings));
   const bar = page.getByRole('group', { name: 'লিঙ্গ: কাজ' });
   const type = bar.getByText('তালিকা থেকে একটি', { exact: true });
@@ -673,7 +677,9 @@ test('the form has the most room, a pane folds away, the bar of a question overl
   await expect(settings).toHaveCount(0);
   await page.getByRole('button', { name: 'গ্রাম বদলান', exact: true }).click();
   const drawer = page.getByRole('dialog', { name: 'প্রশ্ন ও ফর্মের সেটিং' });
-  await expect(drawer.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('গ্রাম');
+  await expect(drawer.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ })).toHaveValue(
+    'গ্রাম',
+  );
   await settled(page);
   expect((await scan(page)).violations, 'the settings in a drawer').toEqual([]);
   await page.keyboard.press('Escape');
@@ -771,7 +777,7 @@ test('a dragged question shows the line of its landing, says the place, and land
   await expect(head.getByText('5টি অংশ · 24টি প্রশ্ন')).toBeVisible();
   await expect(firstPart.getByRole('button', { name: / বদলান$/ }).last()).toHaveAttribute(
     'aria-label',
-    'নাম ছাড়া প্রশ্ন বদলান',
+    'লেখা ছাড়া প্রশ্ন বদলান',
   );
   await expect(questionTexts(page).bn).toBeFocused();
 });

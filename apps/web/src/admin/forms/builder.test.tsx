@@ -310,7 +310,7 @@ const RANDOM_KEY = /^q_[a-z0-9]{6}$/;
 const savedFields = (sectionKey: string) =>
   saves.at(-1)?.body.sections.find((s) => s.key === sectionKey)?.fields ?? [];
 /** The Bengali text of the chosen question or part, in the settings pane. */
-const bnText = () => screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
+const bnText = () => screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ });
 /** The names of the questions of a part, in the order of the canvas. */
 const questionsOf = async (title: string) =>
   (await outlineOf(title))
@@ -514,7 +514,7 @@ describe('the outline and the libraries', () => {
     const rows = within(
       await screen.findByRole('list', { name: 'পরিবারের সদস্যরা: প্রতিটি সারির প্রশ্ন' }),
     );
-    expect(rows.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' })).toHaveAttribute(
+    expect(rows.getByRole('button', { name: 'লেখা ছাড়া প্রশ্ন বদলান' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -534,7 +534,7 @@ describe('the outline and the libraries', () => {
     await waitFor(() =>
       expect(
         rows.getAllByRole('button', { name: / বদলান$/ }).map((b) => b.getAttribute('aria-label')),
-      ).toEqual(['বয়স বদলান', 'নাম ছাড়া প্রশ্ন বদলান']),
+      ).toEqual(['বয়স বদলান', 'লেখা ছাড়া প্রশ্ন বদলান']),
     );
   }, 20_000);
 
@@ -626,7 +626,7 @@ describe('the outline and the libraries', () => {
     await user.keyboard('{Control>}{Shift>}z{/Shift}{/Control}');
     await waitFor(() => expect(copyButton()).toBeInTheDocument());
     // in a text field the keys are the field's own: the draft's steps stay as they are
-    const label = screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
+    const label = screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ });
     await user.click(label);
     await user.keyboard('{Control>}z{/Control}');
     await user.keyboard('{Control>}y{/Control}');
@@ -674,7 +674,7 @@ describe('the outline and the libraries', () => {
     await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
     const required = screen.getByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' });
     await user.click(required);
-    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' দিন');
+    await user.type(screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ }), ' দিন');
     expect(await screen.findByRole('button', { name: 'মন্তব্য দিন বদলান' })).toBeInTheDocument();
     // the four letters typed are one step back
     await user.click(undoButton());
@@ -714,7 +714,9 @@ describe('the outline and the libraries', () => {
     );
     // the question chosen at that step is chosen again, under the tab that was left alone
     await user.click(screen.getByRole('tab', { name: 'প্রশ্নের সেটিং' }));
-    expect(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('মন্তব্য (কপি)');
+    expect(screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ })).toHaveValue(
+      'মন্তব্য (কপি)',
+    );
   }, 20_000);
 
   it('undoes by the keyboard from a switch, and not while a dialog is open', async () => {
@@ -733,7 +735,7 @@ describe('the outline and the libraries', () => {
     expect(required()).toBeChecked();
     // a dialog over the page: the focus on one of its buttons
     await user.click(screen.getByRole('button', { name: 'স্কোর' }));
-    const dialog = await screen.findByRole('dialog', { name: 'অগ্রাধিকার স্কোর' });
+    const dialog = await screen.findByRole('dialog', { name: 'স্কোর' });
     within(dialog).getByRole('button', { name: 'ঠিক আছে' }).focus();
     await user.keyboard('{Control>}z{/Control}');
     // and on the page's body, as after a click on the dialog's text
@@ -1009,7 +1011,7 @@ describe('deleting', () => {
       'গরুর সংখ্যা: “মোট” প্রশ্নের হিসাবে',
     ]);
     expect(
-      within(dialog).getByText('যে প্রশ্নের হিসাব সরবে, তার হিসাব নতুন করে ঠিক করতে হবে।'),
+      within(dialog).getByText('যে প্রশ্নের হিসাব সরবে, তার হিসাবের নিয়ম নতুন করে দিতে হবে।'),
     ).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'অংশ ও এই ব্যবহারগুলো সরান' }));
     await waitFor(() =>
@@ -1035,10 +1037,10 @@ describe('the points of the score', () => {
     api();
     const view = open();
     await user.click(await screen.findByRole('button', { name: 'স্কোর' }));
-    const dialog = await screen.findByRole('dialog', { name: 'অগ্রাধিকার স্কোর' });
-    expect(within(dialog).getByText('সর্বোচ্চ মোট: 0 / 100')).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog', { name: 'স্কোর' });
+    expect(within(dialog).getByText('সবচেয়ে বেশি মোট স্কোর: 0 / 100')).toBeInTheDocument();
     await user.type(within(dialog).getByRole('textbox', { name: /আগে সহায়তা পাননি/ }), '20');
-    expect(within(dialog).getByText('সর্বোচ্চ মোট: 20 / 100')).toBeInTheDocument();
+    expect(within(dialog).getByText('সবচেয়ে বেশি মোট স্কোর: 20 / 100')).toBeInTheDocument();
     await expectNoAxeViolations(view.container);
     await user.click(within(dialog).getByRole('button', { name: 'ঠিক আছে' }));
     await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
@@ -1050,7 +1052,7 @@ describe('the points of the score', () => {
     api({ sections: withNote() });
     open();
     await user.click(await screen.findByRole('button', { name: 'স্কোর' }));
-    const dialog = await screen.findByRole('dialog', { name: 'অগ্রাধিকার স্কোর' });
+    const dialog = await screen.findByRole('dialog', { name: 'স্কোর' });
     await user.type(within(dialog).getByRole('textbox', { name: /আগে সহায়তা পাননি/ }), '20');
     await user.click(within(dialog).getByRole('button', { name: 'ঠিক আছে' }));
     await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
@@ -1058,13 +1060,13 @@ describe('the points of the score', () => {
     expect(saves[0]!.body.scoring).toEqual(points);
     // a question renamed
     await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
-    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' দিন');
+    await user.type(screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ }), ' দিন');
     await waitFor(() => expect(saves).toHaveLength(2), { timeout: 4000 });
     expect(savedField('q_note')!.label.bn).toBe('মন্তব্য দিন');
     expect(saves[1]!.body.scoring).toEqual(points);
     // a part renamed
     await user.click(screen.getByRole('button', { name: 'অতিরিক্ত' }));
-    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' তথ্য');
+    await user.type(screen.getByRole('textbox', { name: /^অংশের নাম \(বাংলা\)/ }), ' তথ্য');
     await waitFor(() => expect(saves).toHaveLength(3), { timeout: 4000 });
     expect(saves[2]!.body.sections.at(-1)!.title.bn).toBe('অতিরিক্ত তথ্য');
     expect(saves[2]!.body.scoring).toEqual(points);
@@ -1093,12 +1095,12 @@ describe('the own question', () => {
     await user.click(screen.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     const list = await outlineOf('প্রকল্পের প্রশ্ন');
-    const question = list.getByRole('button', { name: 'নাম ছাড়া প্রশ্ন বদলান' });
+    const question = list.getByRole('button', { name: 'লেখা ছাড়া প্রশ্ন বদলান' });
     expect(question).toHaveAttribute('aria-pressed', 'true');
     // never an empty row: the question says it has no name yet
     const row = question.closest('li')!;
     expect(row).toHaveClass('is-unnamed');
-    expect(within(row).getAllByText('নাম ছাড়া প্রশ্ন').length).toBeGreaterThan(0);
+    expect(within(row).getAllByText('লেখা ছাড়া প্রশ্ন').length).toBeGreaterThan(0);
     expect(scrolled).toEqual([row]);
     await waitFor(() => expect(bnText()).toHaveFocus());
     expect(bnText()).toHaveValue('');
@@ -1137,7 +1139,7 @@ describe('the own question', () => {
     await waitFor(async () =>
       expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual([
         'মন্তব্য বদলান',
-        'নাম ছাড়া প্রশ্ন বদলান',
+        'লেখা ছাড়া প্রশ্ন বদলান',
         'আরও বদলান',
       ]),
     );
@@ -1171,7 +1173,7 @@ describe('the own question', () => {
     await waitFor(async () =>
       expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual([
         'মন্তব্য বদলান',
-        'নাম ছাড়া প্রশ্ন বদলান',
+        'লেখা ছাড়া প্রশ্ন বদলান',
       ]),
     );
   }, 15_000);
@@ -1259,7 +1261,7 @@ describe('the own question', () => {
     await expectNoAxeViolations(view.container);
     await user.click(within(menu).getByRole('menuitem', { name: 'টাকার অঙ্ক' }));
     await waitFor(async () => expect(await questionsOf('ঠিকানা')).toHaveLength(before + 1));
-    expect((await questionsOf('ঠিকানা')).at(-1)).toBe('নাম ছাড়া প্রশ্ন বদলান');
+    expect((await questionsOf('ঠিকানা')).at(-1)).toBe('লেখা ছাড়া প্রশ্ন বদলান');
     expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual(['মন্তব্য বদলান']);
     await waitFor(() => expect(bnText()).toHaveFocus());
     expect(savedFields('address')).toEqual([]);
@@ -1275,7 +1277,7 @@ describe('the own question', () => {
     await waitFor(async () =>
       expect(await questionsOf('প্রকল্পের প্রশ্ন')).toEqual([
         'মন্তব্য বদলান',
-        'নাম ছাড়া প্রশ্ন বদলান',
+        'লেখা ছাড়া প্রশ্ন বদলান',
       ]),
     );
     await waitFor(() => expect(savedFields('project').at(-1)?.type).toBe('long_text'), {
@@ -1542,7 +1544,7 @@ describe('saving', () => {
     });
     open();
     await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
-    await user.type(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), ' খ');
+    await user.type(screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ }), ' খ');
     expect(await screen.findByText('ফর্মটি অনেক বড়।', {}, { timeout: 4000 })).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /^প্রকাশের আগে ঠিক করুন/ }),
@@ -1616,7 +1618,7 @@ describe('saving', () => {
     });
     open('en');
     await user.click(await screen.findByRole('button', { name: 'Change Kind' }));
-    await user.clear(screen.getByRole('textbox', { name: /^Label \(English\)/ }));
+    await user.clear(screen.getByRole('textbox', { name: /^Question text \(English\)/ }));
     // the draft saves with the text missing, and the question reads in the other language
     await waitFor(() => expect(savedField('q_kind')?.label).toEqual({ bn: 'ধরন', en: '' }), {
       timeout: 4000,
@@ -1810,7 +1812,9 @@ describe('the room for the form', () => {
     expect(drawer()).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
     const settings = within(await screen.findByRole('dialog', { name: 'প্রশ্ন ও ফর্মের সেটিং' }));
-    expect(settings.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('মন্তব্য');
+    expect(settings.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ })).toHaveValue(
+      'মন্তব্য',
+    );
     // closed, the question stays the chosen one, and choosing it again opens them again
     await user.keyboard('{Escape}');
     await waitFor(() => expect(drawer()).not.toBeInTheDocument());
@@ -1850,14 +1854,16 @@ describe('the room for the form', () => {
     expect(drawer()).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
     const settings = within(await screen.findByRole('dialog', { name: 'প্রশ্ন ও ফর্মের সেটিং' }));
-    expect(settings.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('মন্তব্য');
+    expect(settings.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ })).toHaveValue(
+      'মন্তব্য',
+    );
     await user.keyboard('{Escape}');
     await waitFor(() => expect(drawer()).not.toBeInTheDocument());
     // unfolded, the settings are in their pane again and nothing comes over the form
     await user.click(screen.getByRole('button', { name: 'সেটিং দেখান' }));
-    expect(within(settingsPane()).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue(
-      'মন্তব্য',
-    );
+    expect(
+      within(settingsPane()).getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ }),
+    ).toHaveValue('মন্তব্য');
     await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
     expect(drawer()).not.toBeInTheDocument();
   }, 20_000);
@@ -2028,13 +2034,13 @@ describe('who may change what', () => {
     });
     open();
     expect(
-      await screen.findByText(/ফোনে শুধু লেবেল ও অপশনের লেখা বদলানো যায়/),
+      await screen.findByText(/ফোনে শুধু প্রশ্ন ও অপশনের লেখা বদলানো যায়/),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /নিচে নিন$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'ফিরিয়ে আনুন' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'ধরন বদলান' }));
-    const label = screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
+    const label = screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ });
     await user.clear(label);
     await user.type(label, 'ধরনটি');
     await user.clear(screen.getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }));
