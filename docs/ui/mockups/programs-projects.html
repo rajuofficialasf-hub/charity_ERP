@@ -1,0 +1,486 @@
+<title>প্রোগ্রাম ও প্রকল্প</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: the admin shell's content column; program cards in a grid (3 / 2 / 1 columns), each a 3D flip card.
+   Colours are the asf tokens of apps/web/src/ui/tokens.ts; dark mode uses neutral 900 page and 800 paper. */
+:root {
+  --primary: #00A76F; --primary-dark: #007867; --primary-darker: #004B50; --primary-lighter: #C8FAD6; --primary-light: #5BE49B;
+  --page: #F9FAFB; --paper: #FFFFFF; --line: #DFE3E8; --soft: #F4F6F8;
+  --ink: #1C252E; --ink-2: #637381; --ink-3: #919EAB;
+  --warn-bg: rgba(255,171,0,.16); --warn: #B76E00;
+  --ok-bg: rgba(34,197,94,.16); --ok: #118D57;
+  --info-bg: rgba(0,184,217,.16); --info: #006C9C;
+  --mute-bg: rgba(145,158,171,.16); --mute: #454F5B;
+  --btn-dark: #1C252E; --btn-dark-ink: #FFFFFF;
+  --shadow: 0 0 2px 0 rgba(145,158,171,.2), 0 12px 24px -4px rgba(145,158,171,.14);
+  --font: "Public Sans", "Noto Sans Bengali", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #141A21; --paper: #1C252E; --line: rgba(145,158,171,.2); --soft: #212B36;
+  --ink: #FFFFFF; --ink-2: #919EAB; --ink-3: #637381;
+  --warn: #FFD666; --ok: #77ED8B; --info: #61F3F3; --mute: #C4CDD5;
+  --btn-dark: #FFFFFF; --btn-dark-ink: #1C252E; --primary-dark: #5BE49B;
+  --shadow: 0 0 2px 0 rgba(0,0,0,.2), 0 12px 24px -4px rgba(0,0,0,.24); color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #141A21; --paper: #1C252E; --line: rgba(145,158,171,.2); --soft: #212B36;
+  --ink: #FFFFFF; --ink-2: #919EAB; --ink-3: #637381;
+  --warn: #FFD666; --ok: #77ED8B; --info: #61F3F3; --mute: #C4CDD5;
+  --btn-dark: #FFFFFF; --btn-dark-ink: #1C252E; --primary-dark: #5BE49B;
+  --shadow: 0 0 2px 0 rgba(0,0,0,.2), 0 12px 24px -4px rgba(0,0,0,.24); color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--page); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; }
+button, a { font: inherit }
+a { color: inherit }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px }
+.num { font-variant-numeric: tabular-nums }
+
+/* mockup bar: not part of the design */
+.mockbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 0; margin-bottom: 8px;
+  border-bottom: 1px dashed var(--line); color: var(--ink-2); font-size: 13px }
+.mockbar b { color: var(--ink) }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; padding: 2px; gap: 2px; background: var(--paper) }
+.seg button { border: 0; background: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; color: var(--ink-2) }
+.seg button[aria-pressed="true"] { background: var(--soft); color: var(--ink); font-weight: 600 }
+
+.app { max-width: 1200px; margin: 0 auto }
+.app.phone { max-width: 360px; border-inline: 1px dashed var(--line); padding-inline: 12px }
+.crumbs { display: flex; flex-wrap: wrap; gap: 6px; color: var(--ink-2); font-size: 13px; padding-top: 16px }
+.crumbs a { text-decoration: none } .crumbs a:hover { text-decoration: underline }
+.head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 20px }
+h1 { font-size: 24px; line-height: 1.3; margin: 0; text-wrap: balance }
+h2 { font-size: 18px; margin: 0 }
+.actions { display: flex; flex-wrap: wrap; gap: 8px }
+.btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; padding: 7px 14px; font-weight: 600; cursor: pointer;
+  border: 1px solid transparent; text-decoration: none; min-height: 36px }
+.btn-dark { background: var(--btn-dark); color: var(--btn-dark-ink) }
+.btn-green { background: var(--primary); color: #fff }
+.btn-green:hover { background: #007867 }
+.btn-line { background: var(--paper); border-color: var(--line); color: var(--ink) }
+.btn[disabled] { opacity: .5; cursor: not-allowed }
+.chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 600; white-space: nowrap }
+.chip.ok { background: var(--ok-bg); color: var(--ok) } .chip.warn { background: var(--warn-bg); color: var(--warn) }
+.chip.info { background: var(--info-bg); color: var(--info) } .chip.mute { background: var(--mute-bg); color: var(--mute) }
+.chip svg { width: 12px; height: 12px }
+.example { font-size: 12px; color: var(--ink-3) }
+
+/* the flip card */
+.grid { display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) }
+.app.phone .grid { grid-template-columns: 1fr }
+.flip { perspective: 1200px; height: 460px; position: relative }
+.flip-inner { position: absolute; inset: 0; transition: transform .7s ease-in-out; transform-style: preserve-3d }
+.face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 16px;
+  background: var(--paper); box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column }
+.back { transform: rotateY(180deg); padding: 20px; gap: 14px }
+.hoverable .flip:hover .flip-inner, .hoverable .flip:focus-within .flip-inner, .flip.flipped .flip-inner { transform: rotateY(180deg) }
+@media (prefers-reduced-motion: reduce) { .flip-inner { transition: none } }
+
+.cover { position: relative; height: 150px; flex: none; overflow: hidden }
+.cover canvas { width: 100%; height: 100%; display: block }
+.cover::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,75,80,0) 30%, rgba(0,75,80,.55)) }
+.cover .badge { position: absolute; left: 16px; top: 14px; z-index: 1; background: rgba(255,255,255,.92); color: #004B50;
+  border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 700; letter-spacing: .06em }
+.cover .state { position: absolute; left: 16px; bottom: 12px; z-index: 1 }
+.cover .state .chip { background: rgba(255,255,255,.92) }
+.front-body { padding: 16px 20px 14px; display: flex; flex-direction: column; gap: 14px; flex: 1; min-height: 0 }
+.title { font-size: 18px; font-weight: 700; line-height: 1.35; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+.title a { text-decoration: none } .title a::after { content: ""; position: absolute; inset: 0; z-index: 0 }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: auto }
+.stat { display: flex; flex-direction: column; gap: 2px; min-width: 0 }
+.stat svg { width: 20px; height: 20px; color: var(--primary) }
+.stat .v { font-size: 22px; font-weight: 700; line-height: 1.2 }
+.stat .l { font-size: 12px; color: var(--ink-2) }
+.hint { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 10px; color: var(--ink-2); font-size: 12px }
+.hint svg { width: 16px; height: 16px }
+.flip-btn { position: relative; z-index: 1; display: none; border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+  border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; align-items: center; gap: 4px }
+.flip-btn svg { width: 14px; height: 14px }
+.touch .flip-btn { display: inline-flex } .touch .hint-hover { display: none }
+.back-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--primary-dark) }
+.back h3 { font-size: 15px; margin: 2px 0 0; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+.person { display: flex; align-items: center; gap: 10px }
+.avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--primary-lighter); color: #004B50; display: grid; place-items: center; font-weight: 700; flex: none }
+.person .who { font-weight: 600 } .person .role { font-size: 12px; color: var(--ink-2) }
+.blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+.block { background: var(--soft); border-radius: 8px; padding: 8px 10px }
+.block .v { font-size: 18px; font-weight: 700 } .block .l { font-size: 12px; color: var(--ink-2) }
+.desc { color: var(--ink-2); font-size: 13px; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden }
+.back .go { margin-top: auto; display: flex; flex-direction: column; gap: 8px }
+.back .go .btn { justify-content: center }
+.locked { display: flex; gap: 6px; align-items: center; color: var(--ink-2); font-size: 12px; justify-content: center; padding: 6px }
+.locked svg { width: 14px; height: 14px }
+.progress { display: flex; flex-direction: column; gap: 6px }
+.progress .row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--ink-2) }
+.progress .row b { color: var(--ink); font-size: 15px }
+.bar { height: 8px; border-radius: 4px; background: var(--soft); overflow: hidden }
+.bar span { display: block; height: 100%; background: var(--primary); border-radius: 4px }
+.cover .days { position: absolute; right: 16px; top: 14px; z-index: 1 }
+.cover .days .chip { background: rgba(255,255,255,.92) }
+.team { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2) }
+.stack { display: flex } .stack .avatar { width: 30px; height: 30px; font-size: 12px; border: 2px solid var(--paper); margin-left: -8px }
+.stack .avatar:first-child { margin-left: 0 } .stack .more { background: var(--soft); color: var(--ink-2) }
+.todo { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px }
+.todo .t { font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--ink-2) }
+.todo .items { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px }
+.todo .items b { font-variant-numeric: tabular-nums }
+
+/* project page and list */
+.panel { background: var(--paper); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden }
+.panel-head { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line) }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 16px 20px; color: var(--ink-2) }
+.facts b { color: var(--ink); font-weight: 600 }
+.table-wrap { overflow-x: auto }
+table { width: 100%; border-collapse: collapse; min-width: 560px }
+th, td { text-align: left; padding: 12px 20px; border-bottom: 1px solid var(--line); white-space: nowrap }
+th { font-size: 12px; color: var(--ink-2); font-weight: 600; background: var(--soft) }
+td a { font-weight: 600 }
+.rows-cards { display: none; flex-direction: column }
+.rows-cards .rc { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px }
+.rows-cards .rc .top { display: flex; justify-content: space-between; gap: 8px; align-items: center }
+.app.phone .table-wrap { display: none } .app.phone .rows-cards { display: flex }
+@media (max-width: 640px) { .table-wrap { display: none } .rows-cards { display: flex } }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--line) }
+.select { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: var(--paper); color: var(--ink-2); font-size: 13px }
+.statchips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 16px }
+.statchip { border: 1px solid var(--line); background: var(--paper); border-radius: 12px; padding: 8px 14px; min-width: 110px; text-align: left; cursor: pointer; color: var(--ink) }
+.statchip[aria-pressed="true"] { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary) }
+.statchip .v { font-size: 20px; font-weight: 700; display: block } .statchip .l { font-size: 12px; color: var(--ink-2) }
+.note { border: 1px dashed var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--paper)); border-radius: 12px; padding: 16px 20px; margin-top: 16px; color: var(--ink-2) }
+
+/* dialog */
+.scrim { position: fixed; inset: 0; background: rgba(20,26,33,.48); display: grid; place-items: center; padding: 16px; z-index: 20 }
+.dialog { background: var(--paper); border-radius: 16px; width: min(520px, 100%); max-height: 90vh; overflow: auto; box-shadow: var(--shadow) }
+.dialog header, .dialog footer { padding: 16px 20px } .dialog header { border-bottom: 1px solid var(--line) }
+.dialog footer { border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px }
+.dialog .body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px }
+.field label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 4px }
+.field .input { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; color: var(--ink) }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px }
+.checks ul { margin: 4px 0 0; padding-left: 18px; color: var(--ink-2) }
+.checks h4 { margin: 0; font-size: 13px }
+@media (max-width: 480px) { .two, .checks { grid-template-columns: 1fr } }
+</style>
+
+<div class="mockbar" role="region" aria-label="মকআপের নিয়ন্ত্রণ">
+  <span><b>মকআপ</b> · শুধু দেখার জন্য, সংখ্যা ও নাম উদাহরণ</span>
+  <span>যিনি দেখছেন:
+    <span class="seg" id="roles">
+      <button type="button" data-role="head" aria-pressed="true">Department Head</button>
+      <button type="button" data-role="pm" aria-pressed="false">PM</button>
+      <button type="button" data-role="rpm" aria-pressed="false">RPM</button>
+    </span></span>
+  <span>মাপ:
+    <span class="seg" id="sizes">
+      <button type="button" data-size="desk" aria-pressed="true">কম্পিউটার</button>
+      <button type="button" data-size="phone" aria-pressed="false">ফোন 360 px</button>
+    </span></span>
+</div>
+
+<div class="app" id="app"></div>
+<div id="dialog-root"></div>
+
+<script>
+const ICON = {
+  folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.8v6.4l5-3.2z"/></svg>',
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19.5c.8-3.3 3.4-5 6.5-5s5.7 1.7 6.5 5"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.8.6 3 2.2 3.5 4.7"/></svg>',
+  doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.3 2.4 2.4 4.8-5"/></svg>',
+  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  flip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2"/><path d="M20 4v4h-4M4 20v-4h4"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v5M12 16.5v.01"/><circle cx="12" cy="12" r="9"/></svg>',
+  add: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+};
+
+const fmt = n => n.toLocaleString('en-US');
+const STATE = { active: ['ok', 'সক্রিয়'], draft: ['info', 'খসড়া'], closing: ['warn', 'বন্ধ হচ্ছে'], closed: ['mute', 'ক্লোজড'] };
+const chip = s => `<span class="chip ${STATE[s][0]}">${STATE[s][1]}</span>`;
+
+// example data: one program from the owner's brief, the rest invented for the mockup
+const PROGRAMS = [
+  { id: 'upcd', name: 'আন্ডারপ্রিভিলেজড কমিউনিটি ডেভেলপমেন্ট প্রোগ্রাম', pm: 'ফরিদুর রহমান সাগর', seed: 3,
+    desc: 'অসহায় পরিবারকে টেকসইভাবে স্বাবলম্বী করার কাজ: প্রশিক্ষণ, উপকরণ আর পাশে থাকা।',
+    beneficiaries: 150000, thisSessionApps: 1240, rpmSees: true },
+  { id: 'hum', name: 'হিউম্যানিটেরিয়ান প্রোগ্রাম', pm: 'আব্দুর রহিম', seed: 7,
+    desc: 'শীতবস্ত্র, ইফতার, কুরবানী, নিরাপদ পানি আর বৃক্ষরোপণ: প্রতি বছরের মানবিক সহায়তা।',
+    beneficiaries: 412300, thisSessionApps: 18450, rpmSees: true },
+  { id: 'emg', name: 'ইমার্জেন্সি রেসপন্স অ্যান্ড রিহ্যাবিলিটেশন প্রোগ্রাম', pm: null, seed: 11,
+    desc: 'বন্যা ও দুর্যোগে জরুরি ত্রাণ, তারপর ঘর নির্মাণে পুনর্বাসন।',
+    beneficiaries: 28640, thisSessionApps: 960, rpmSees: false },
+];
+// the people and to-do figures of each project's current session (example values)
+const WORK = {
+  swb: { target: 600, daysLeft: 45, rpms: ['মা', 'হা', 'সা', 'রা', 'জা'], volunteers: 86, districts: 12, pending: 38, waitlist: 21, budget: 12000000 },
+  ksb: { target: 300, daysLeft: null, rpms: ['কা'], volunteers: 20, districts: 4, pending: 0, waitlist: 0, budget: 4500000 },
+  dkp: { target: 400, daysLeft: null, rpms: [], volunteers: 0, districts: 0, pending: 0, waitlist: 0, budget: null },
+  win: { target: 12000, daysLeft: 5, rpms: ['মা', 'হা', 'সা', 'রা', 'জা', 'না', 'তা'], volunteers: 640, districts: 38, pending: 1120, waitlist: 410, budget: 36000000 },
+  ift: { target: 3200, daysLeft: null, rpms: ['মা', 'হা', 'সা'], volunteers: 210, districts: 18, pending: 0, waitlist: 0, budget: 9600000 },
+  hse: { target: 80, daysLeft: 61, rpms: ['রা', 'জা'], volunteers: 14, districts: 3, pending: 22, waitlist: 6, budget: 32000000 },
+};
+const PROJECTS = [
+  { id: 'swb', program: 'upcd', code: 'SWB', name: 'স্বাবলম্বী প্রকল্প', seed: 4, inRegion: true,
+    sessions: [ { label: '2026-27', period: 'জুন 2026 – জুলাই 2027', state: 'active', apps: 1240, approved: 412, applyTo: '30 Dec 2026' },
+                { label: '2025-26', period: 'জুন 2025 – জুলাই 2026', state: 'closed', apps: 3110, approved: 980 },
+                { label: '2024-25', period: 'জুন 2024 – জুলাই 2025', state: 'closed', apps: 2604, approved: 870 } ], total: 2262 },
+  { id: 'ksb', program: 'upcd', code: 'KSB', name: 'ক্ষুদ্র ব্যবসা সহায়তা প্রকল্প', seed: 5, inRegion: false,
+    sessions: [ { label: '2025', period: 'জানু – ডিসে 2025', state: 'closed', apps: 820, approved: 300 } ], total: 300 },
+  { id: 'dkp', program: 'upcd', code: 'DKP', name: 'দক্ষতা প্রশিক্ষণ প্রকল্প', seed: 6, inRegion: true,
+    sessions: [ { label: '2027', period: 'জানু – ডিসে 2027', state: 'draft', apps: 0, approved: 0 } ], total: 0 },
+  { id: 'win', program: 'hum', code: 'WIN', name: 'শীতবস্ত্র বিতরণ প্রকল্প', seed: 8, inRegion: true,
+    sessions: [ { label: '2026', period: 'নভে 2026 – ফেব্রু 2027', state: 'active', apps: 15200, approved: 9800, applyTo: '20 Dec 2026' },
+                { label: '2025', period: 'নভে 2025 – ফেব্রু 2026', state: 'closed', apps: 14100, approved: 12040 } ], total: 21840 },
+  { id: 'ift', program: 'hum', code: 'IFT', name: 'ইফতার বিতরণ প্রকল্প', seed: 9, inRegion: true,
+    sessions: [ { label: '2026', period: 'ফেব্রু – মার্চ 2026', state: 'closing', apps: 3250, approved: 3100 } ], total: 3100 },
+  { id: 'hse', program: 'emg', code: 'HSE', name: 'ঘর নির্মাণ প্রকল্প', seed: 12, inRegion: false,
+    sessions: [ { label: '2026', period: 'জানু – ডিসে 2026', state: 'active', apps: 960, approved: 64, applyTo: '15 Jan 2027' } ], total: 64 },
+];
+
+let role = 'head', size = 'desk';
+const touchDevice = matchMedia('(hover: none)').matches;
+const canManagePrograms = () => role === 'head';
+// everyone of the five roles sees every program and project; a session opens only within the caller's scope
+const canCreate = (programId) => role === 'head' || (role === 'pm' && programId === 'upcd');
+const canOpenSession = p => role === 'head' || (role === 'pm' ? p.program === 'upcd' : p.inRegion);
+const projectsOf = id => PROJECTS.filter(p => p.program === id);
+const current = p => p.sessions[0];
+const running = p => ['active', 'closing'].includes(current(p).state);
+
+// a quiet generated cover: soft green hills and a sun, seeded per card (an uploaded photo replaces it)
+function paintCover(canvas, seed) {
+  const r = canvas.getBoundingClientRect(); const dpr = devicePixelRatio || 1;
+  canvas.width = Math.max(1, r.width * dpr); canvas.height = Math.max(1, r.height * dpr);
+  const c = canvas.getContext('2d'); c.scale(dpr, dpr); const w = r.width, h = r.height;
+  let s = seed * 9301 + 49297; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#C8FAD6'); g.addColorStop(1, '#5BE49B'); c.fillStyle = g; c.fillRect(0, 0, w, h);
+  c.fillStyle = 'rgba(255,255,255,.7)'; c.beginPath(); c.arc(w * (.6 + rnd() * .3), h * .32, 18 + rnd() * 10, 0, 7); c.fill();
+  ['#00A76F', '#007867', '#004B50'].forEach((col, i) => {
+    c.fillStyle = col; c.beginPath(); c.moveTo(0, h);
+    const base = h * (.55 + i * .14), amp = 10 + rnd() * 16, ph = rnd() * 6;
+    for (let x = 0; x <= w; x += 8) c.lineTo(x, base - Math.sin(x / (60 + i * 30) + ph) * amp);
+    c.lineTo(w, h); c.fill();
+  });
+}
+
+const flipButton = (label) => `<button type="button" class="flip-btn" data-flip aria-label="${label}">${ICON.flip}<span>বিস্তারিত</span></button>`;
+const backButton = `<button type="button" class="flip-btn" data-flip aria-label="সামনের দিকে ফিরুন">${ICON.flip}<span>ফিরুন</span></button>`;
+
+function programCard(g) {
+  const ps = projectsOf(g.id), run = ps.filter(running).length;
+  const sum = k => ps.reduce((n, p) => n + WORK[p.id][k], 0);
+  const mine = ps.filter(canOpenSession);
+  const rpms = [...new Set(ps.flatMap(p => WORK[p.id].rpms))];
+  return `<article class="flip" aria-label="${g.name}">
+  <div class="flip-inner">
+    <div class="face front">
+      <div class="cover"><canvas data-seed="${g.seed}"></canvas><span class="badge">প্রোগ্রাম</span></div>
+      <div class="front-body">
+        <h2 class="title"><a href="#program-${g.id}">${g.name}</a></h2>
+        <div class="stats">
+          <div class="stat">${ICON.folder}<span class="v num">${ps.length}</span><span class="l">মোট প্রকল্প</span></div>
+          <div class="stat">${ICON.play}<span class="v num">${run}</span><span class="l">চলমান প্রকল্প</span></div>
+          <div class="stat">${ICON.users}<span class="v num">${fmt(g.beneficiaries)}</span><span class="l">মোট উপকারভোগী</span></div>
+        </div>
+        <div class="hint"><span class="hint-hover">কার্সর রাখলে বিস্তারিত</span>${flipButton(g.name + ': বিস্তারিত দেখুন')}<span aria-hidden="true">${ICON.arrow}</span></div>
+      </div>
+    </div>
+    <div class="face back">
+      <div class="back-top"><div><div class="eyebrow">প্রোগ্রামের খুঁটিনাটি</div><h3>${g.name}</h3></div>${backButton}</div>
+      ${g.pm ? `<div class="person"><span class="avatar">${g.pm[0]}</span><div><div class="who">${g.pm}</div><div class="role">প্রোগ্রাম ম্যানেজার</div></div></div>`
+             : `<div><span class="chip warn">${ICON.warn}PM দেওয়া হয়নি</span></div>`}
+      ${teamRow({ rpms })}
+      <div class="blocks">
+        <div class="block"><div class="v num">${fmt(g.thisSessionApps)}</div><div class="l">চলমান সেশনে আবেদন</div></div>
+        <div class="block"><div class="v num">${fmt(sum('volunteers'))}</div><div class="l">স্বেচ্ছাসেবক</div></div>
+      </div>
+      ${mine.length ? todoBox(mine.reduce((n, p) => n + WORK[p.id].pending, 0), mine.reduce((n, p) => n + WORK[p.id].waitlist, 0), null) : ''}
+      <p class="desc" style="-webkit-line-clamp:2">${g.desc}</p>
+      <div class="go">
+        <a class="btn btn-green" href="#program-${g.id}">সব প্রকল্প দেখুন ${ICON.arrow.replace('<svg', '<svg width="16" height="16"')}</a>
+        ${canManagePrograms() ? `<button type="button" class="btn btn-line" data-dialog="program">প্রোগ্রাম এডিট করুন</button>` : ''}
+      </div>
+    </div>
+  </div>
+</article>`;
+}
+
+const taka = n => '৳' + fmt(n);
+const teamRow = w => w.rpms.length
+  ? `<div class="team"><span class="stack">${w.rpms.slice(0, 3).map(a => `<span class="avatar">${a}</span>`).join('')}${w.rpms.length > 3 ? `<span class="avatar more">+${w.rpms.length - 3}</span>` : ''}</span><span>${w.rpms.length} জন RPM</span></div>`
+  : `<div class="team"><span class="example">এখনো কোনো RPM দেওয়া হয়নি</span></div>`;
+const todoBox = (pending, waitlist, budget) => `<div class="todo"><span class="t">আপনার করণীয়</span><div class="items">
+  <span>রিভিউর অপেক্ষায় <b>${fmt(pending)}</b></span><span>ওয়েটলিস্টে <b>${fmt(waitlist)}</b></span>${budget ? `<span>বাজেট <b>${taka(budget)}</b></span>` : ''}</div></div>`;
+
+function projectCard(p) {
+  const s = current(p), w = WORK[p.id];
+  const pct = w.target ? Math.min(100, Math.round(s.approved / w.target * 100)) : 0;
+  const days = running(p) && w.daysLeft !== null
+    ? `<span class="days"><span class="chip ${w.daysLeft <= 7 ? 'warn' : 'mute'}">${w.daysLeft <= 7 ? 'শিগগির শেষ · ' : ''}আবেদন আর ${w.daysLeft} দিন</span></span>` : '';
+  const stateLine = s.state === 'draft' ? `সেশন ${s.label} · খসড়া` : running(p) ? `সেশন ${s.label} · ${STATE[s.state][1]}` : `চলমান সেশন নেই · শেষ ${s.label}`;
+  const tone = s.state === 'draft' ? 'info' : running(p) ? STATE[s.state][0] : 'mute';
+  return `<article class="flip" aria-label="${p.name}">
+  <div class="flip-inner">
+    <div class="face front">
+      <div class="cover"><canvas data-seed="${p.seed}"></canvas><span class="badge">প্রকল্প</span>
+        <span class="state"><span class="chip ${tone}">${stateLine}</span></span>${days}</div>
+      <div class="front-body">
+        <h2 class="title"><a href="#project-${p.id}">${p.name}</a></h2>
+        <div class="progress" style="margin-top:auto">
+          <div class="row"><span>লক্ষ্যের অগ্রগতি</span><span><b class="num">${fmt(s.approved)}</b> / <span class="num">${fmt(w.target)}</span> অনুমোদিত</span></div>
+          <div class="bar" role="img" aria-label="লক্ষ্যের ${pct}% অনুমোদিত"><span style="width:${pct}%"></span></div>
+        </div>
+        <div class="stats" style="margin-top:0">
+          <div class="stat">${ICON.doc}<span class="v num">${fmt(s.apps)}</span><span class="l">এই সেশনের আবেদন</span></div>
+          <div class="stat">${ICON.check}<span class="v num">${pct}%</span><span class="l">লক্ষ্য পূরণ</span></div>
+          <div class="stat">${ICON.cal}<span class="v num" style="font-size:16px">${s.applyTo ?? '—'}</span><span class="l">আবেদনের শেষ দিন</span></div>
+        </div>
+        <div class="hint"><span class="hint-hover">কার্সর রাখলে বিস্তারিত</span>${flipButton(p.name + ': বিস্তারিত দেখুন')}<span aria-hidden="true">${ICON.arrow}</span></div>
+      </div>
+    </div>
+    <div class="face back">
+      <div class="back-top"><div><div class="eyebrow">প্রকল্পের খুঁটিনাটি · ${p.code}</div><h3>${p.name}</h3></div>${backButton}</div>
+      ${teamRow(w)}
+      <div class="blocks">
+        <div class="block"><div class="v num">${fmt(w.volunteers)}</div><div class="l">স্বেচ্ছাসেবক</div></div>
+        <div class="block"><div class="v num">${w.districts}</div><div class="l">জেলায় কাজ চলছে</div></div>
+        <div class="block"><div class="v num">${p.sessions.length}</div><div class="l">মোট সেশন</div></div>
+        <div class="block"><div class="v num">${fmt(p.total)}</div><div class="l">সব সেশনে উপকারভোগী</div></div>
+      </div>
+      ${canOpenSession(p) ? todoBox(w.pending, w.waitlist, w.budget) : ''}
+      <div class="go">
+        <a class="btn btn-green" href="#project-${p.id}">প্রকল্প খুলুন ${ICON.arrow.replace('<svg', '<svg width="16" height="16"')}</a>
+        ${canOpenSession(p) ? '' : `<span class="locked">${ICON.lock}সেশনের বিস্তারিত আপনার অনুমতির বাইরে</span>`}
+        ${canCreate(p.program) ? `<button type="button" class="btn btn-line" data-dialog="session" data-project="${p.id}">${ICON.add.replace('<svg', '<svg width="16" height="16"')}নতুন সেশন শুরু করুন</button>` : ''}
+      </div>
+    </div>
+  </div>
+</article>`;
+}
+
+const viewSwitch = (active) => `<span class="seg" role="group" aria-label="দেখার ধরন">
+  <button type="button" data-go="#programs" aria-pressed="${active === 'cards'}">কার্ড</button>
+  <button type="button" data-go="#list" aria-pressed="${active === 'list'}">তালিকা</button></span>`;
+
+function programsView() {
+  return `<div class="head"><h1>প্রোগ্রাম ও প্রকল্প</h1><div class="actions">${viewSwitch('cards')}
+    ${canManagePrograms() ? `<button type="button" class="btn btn-dark" data-dialog="program">${ICON.add.replace('<svg', '<svg width="16" height="16"')}নতুন প্রোগ্রাম</button>` : ''}</div></div>
+  <div class="grid">${PROGRAMS.map(programCard).join('')}</div>`;
+}
+
+function programView(id) {
+  const g = PROGRAMS.find(x => x.id === id);
+  return `<nav class="crumbs" aria-label="অবস্থান"><a href="#programs">প্রোগ্রাম ও প্রকল্প</a><span>/</span><span>${g.name}</span></nav>
+  <div class="head"><h1>${g.name}</h1><div class="actions">
+    ${canCreate(id) ? `<button type="button" class="btn btn-dark" data-dialog="project">${ICON.add.replace('<svg', '<svg width="16" height="16"')}নতুন প্রকল্প</button>` : ''}</div></div>
+  <div class="grid">${projectsOf(id).map(projectCard).join('')}</div>`;
+}
+
+function projectView(id) {
+  const p = PROJECTS.find(x => x.id === id), g = PROGRAMS.find(x => x.id === p.program);
+  const rows = p.sessions.map(s => ({ s, open: canOpenSession(p) }));
+  return `<nav class="crumbs" aria-label="অবস্থান"><a href="#programs">প্রোগ্রাম ও প্রকল্প</a><span>/</span><a href="#program-${g.id}">${g.name}</a><span>/</span><span>${p.name}</span></nav>
+  <div class="head"><h1>${p.name}</h1><div class="actions">
+    ${canCreate(p.program) ? `<button type="button" class="btn btn-line" data-dialog="project">প্রকল্প এডিট করুন</button>
+    <button type="button" class="btn btn-dark" data-dialog="session" data-project="${p.id}">${ICON.add.replace('<svg', '<svg width="16" height="16"')}নতুন সেশন শুরু করুন</button>` : ''}</div></div>
+  <section class="panel" aria-label="সেশন">
+    <div class="facts"><span>কোড <b>${p.code}</b></span><span>প্রোগ্রাম <b>${g.name}</b></span><span>সব সেশনে উপকারভোগী <b class="num">${fmt(p.total)}</b></span></div>
+    <div class="table-wrap"><table><thead><tr><th>সেশন</th><th>সময়</th><th>অবস্থা</th><th>আবেদন</th><th>অনুমোদিত</th><th></th></tr></thead><tbody>
+      ${rows.map(({ s, open }) => `<tr><td><b>সেশন ${s.label}</b></td><td>${s.period}</td><td>${chip(s.state)}</td><td class="num">${fmt(s.apps)}</td><td class="num">${fmt(s.approved)}</td>
+        <td>${open ? `<a href="#session" data-session="${p.name} · সেশন ${s.label}">খুলুন →</a>` : `<span class="locked">${ICON.lock}অনুমতি নেই</span>`}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="rows-cards">${rows.map(({ s, open }) => `<div class="rc"><div class="top"><b>সেশন ${s.label}</b>${chip(s.state)}</div>
+      <span class="example">${s.period}</span><span class="num">আবেদন ${fmt(s.apps)} · অনুমোদিত ${fmt(s.approved)}</span>
+      ${open ? `<a href="#session" data-session="${p.name} · সেশন ${s.label}">খুলুন →</a>` : `<span class="locked" style="justify-content:flex-start">${ICON.lock}অনুমতি নেই</span>`}</div>`).join('')}</div>
+  </section>`;
+}
+
+function sessionView() {
+  const name = sessionStorageSafe() || 'স্বাবলম্বী প্রকল্প · সেশন 2026-27';
+  return `<nav class="crumbs" aria-label="অবস্থান"><a href="#programs">প্রোগ্রাম ও প্রকল্প</a><span>/</span><span>${name}</span></nav>
+  <div class="head"><h1>${name}</h1></div>
+  <div class="note">এখানে খুলবে আজকের প্রকল্পের পাতা, আগের মতোই: তথ্য, সক্রিয় করা বা বন্ধ করার বোতাম, সেটআপ, স্বেচ্ছাসেবক, আবেদন আর ফর্ম। এর ঠিকানাও আগের মতো থাকবে (<code>/admin/projects/:id</code>), তাই হোম আর নোটিফিকেশনের লিংক ভাঙবে না। শুধু শিরোনামে প্রকল্পের নামের পাশে সেশন দেখাবে।</div>`;
+}
+let lastSession = '';
+const sessionStorageSafe = () => lastSession;
+
+function listView() {
+  const all = PROJECTS.flatMap(p => p.sessions.map(s => ({ p, s, g: PROGRAMS.find(x => x.id === p.program) })))
+    .filter(r => canOpenSession(r.p));
+  const count = st => all.filter(r => !st || r.s.state === st).length;
+  return `<div class="head"><h1>প্রোগ্রাম ও প্রকল্প</h1><div class="actions">${viewSwitch('list')}</div></div>
+  <div class="statchips">${[['', 'সব সেশন'], ['draft', 'খসড়া'], ['active', 'সক্রিয়'], ['closing', 'বন্ধ হচ্ছে'], ['closed', 'ক্লোজড']]
+    .map(([k, l], i) => `<button type="button" class="statchip" aria-pressed="${i === 0}"><span class="v num">${count(k)}</span><span class="l">${l}</span></button>`).join('')}</div>
+  <section class="panel" aria-label="সব সেশন">
+    <div class="filters"><span class="select">প্রোগ্রাম ▾</span><span class="select">প্রকল্প ▾</span><span class="select">বছর ▾</span><span class="select">শিগগির শেষ ▾</span></div>
+    <div class="table-wrap"><table><thead><tr><th>প্রকল্প</th><th>সেশন</th><th>প্রোগ্রাম</th><th>অবস্থা</th></tr></thead><tbody>
+      ${all.map(r => `<tr><td><a href="#project-${r.p.id}">${r.p.name}</a></td><td>${r.s.label}</td><td>${r.g.name}</td><td>${chip(r.s.state)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="rows-cards">${all.map(r => `<div class="rc"><div class="top"><a href="#project-${r.p.id}"><b>${r.p.name}</b></a>${chip(r.s.state)}</div>
+      <span class="example">সেশন ${r.s.label} · ${r.g.name}</span></div>`).join('')}</div>
+  </section>`;
+}
+
+function render() {
+  const app = document.getElementById('app');
+  const h = location.hash || '#programs';
+  const touch = touchDevice || size === 'phone';
+  app.className = `app ${size === 'phone' ? 'phone' : ''} ${touch ? 'touch' : 'hoverable'}`;
+  app.innerHTML = h.startsWith('#program-') ? programView(h.slice(9))
+    : h.startsWith('#project-') ? projectView(h.slice(9))
+    : h === '#list' ? listView() : h === '#session' ? sessionView() : programsView();
+  requestAnimationFrame(() => app.querySelectorAll('canvas[data-seed]').forEach(c => paintCover(c, +c.dataset.seed)));
+}
+
+function openDialog(kind, projectId) {
+  const root = document.getElementById('dialog-root');
+  const p = PROJECTS.find(x => x.id === projectId);
+  const body = kind === 'session' ? `
+    <header><h2>নতুন সেশন শুরু করুন</h2><div class="example">${p.name}</div></header>
+    <div class="body">
+      <div class="two"><div class="field"><label for="f-from">শুরুর মাস</label><div class="input" id="f-from">জুন 2027</div></div>
+      <div class="field"><label for="f-to">শেষের মাস</label><div class="input" id="f-to">জুলাই 2028</div></div></div>
+      <div class="field"><label for="f-name">সেশনের নাম</label><div class="input" id="f-name">2027-28</div></div>
+      <div class="field"><label for="f-src">যেখান থেকে কপি হবে</label><div class="input" id="f-src">সেশন ${current(p).label}</div></div>
+      <div class="checks"><div><h4>কপি হবে</h4><ul><li>উপাদান ও তাদের সেটিং</li><li>আবেদন ফর্ম</li><li>নিয়মাবলি</li><li>দাওয়াহ সিলেবাস</li><li>স্কোরের নিয়ম</li></ul></div>
+      <div><h4>নতুন করে দিতে হবে</h4><ul><li>তারিখ ও আবেদনের সময়</li><li>বাজেটের অঙ্ক</li><li>এলাকা ও RPM</li><li>স্বেচ্ছাসেবক</li><li>কোটার লক্ষ্য</li></ul></div></div>
+    </div>
+    <footer><button type="button" class="btn btn-line" data-close>বাতিল</button><button type="button" class="btn btn-dark" data-close>খসড়া তৈরি করুন</button></footer>`
+  : kind === 'program' ? `
+    <header><h2>প্রোগ্রাম</h2></header>
+    <div class="body"><div class="field"><label>নাম (বাংলা)</label><div class="input">আন্ডারপ্রিভিলেজড কমিউনিটি ডেভেলপমেন্ট প্রোগ্রাম</div></div>
+      <div class="field"><label>প্রোগ্রাম ম্যানেজার</label><div class="input">ফরিদুর রহমান সাগর</div></div>
+      <div class="field"><label>ছোট বিবরণ</label><div class="input">অসহায় পরিবারকে টেকসইভাবে স্বাবলম্বী করার কাজ…</div></div>
+      <div class="field"><label>কভার ছবি</label><div class="input">ছবি বেছে নিন (JPEG, PNG বা WebP) · না দিলে ইলাস্ট্রেশন দেখাবে</div></div></div>
+    <footer><button type="button" class="btn btn-line" data-close>বাতিল</button><button type="button" class="btn btn-dark" data-close>সেভ করুন</button></footer>`
+  : `<header><h2>প্রকল্প</h2></header>
+    <div class="body"><div class="two"><div class="field"><label>কোড</label><div class="input">SWB</div></div><div class="field"><label>প্রোগ্রাম</label><div class="input">আন্ডারপ্রিভিলেজড…</div></div></div>
+      <div class="field"><label>নাম (বাংলা)</label><div class="input">স্বাবলম্বী প্রকল্প</div></div>
+      <div class="field"><label>ছোট বিবরণ</label><div class="input">…</div></div>
+      <div class="field"><label>কভার ছবি</label><div class="input">ছবি বেছে নিন · না দিলে ইলাস্ট্রেশন দেখাবে</div></div>
+      <p class="example">নতুন প্রকল্প সেভ হলে প্রথম সেশনের সেটআপ খুলবে।</p></div>
+    <footer><button type="button" class="btn btn-line" data-close>বাতিল</button><button type="button" class="btn btn-dark" data-close>সেভ করুন</button></footer>`;
+  root.innerHTML = `<div class="scrim" data-close-scrim><div class="dialog" role="dialog" aria-modal="true">${body}</div></div>`;
+  root.querySelector('[data-close]')?.focus();
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, a'); if (!t) { if (e.target.matches('[data-close-scrim]')) document.getElementById('dialog-root').innerHTML = ''; return; }
+  if (t.dataset.flip !== undefined) { t.closest('.flip').classList.toggle('flipped'); return; }
+  if (t.dataset.role) { role = t.dataset.role; document.querySelectorAll('#roles button').forEach(b => b.setAttribute('aria-pressed', b === t)); render(); return; }
+  if (t.dataset.size) { size = t.dataset.size; document.querySelectorAll('#sizes button').forEach(b => b.setAttribute('aria-pressed', b === t)); render(); return; }
+  if (t.dataset.go) { location.hash = t.dataset.go; return; }
+  if (t.dataset.dialog) { openDialog(t.dataset.dialog, t.dataset.project); return; }
+  if (t.dataset.close !== undefined) { document.getElementById('dialog-root').innerHTML = ''; return; }
+  if (t.dataset.session) lastSession = t.dataset.session;
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('dialog-root').innerHTML = ''; });
+addEventListener('hashchange', () => { render(); scrollTo(0, 0); });
+addEventListener('resize', () => document.querySelectorAll('canvas[data-seed]').forEach(c => paintCover(c, +c.dataset.seed)));
+render();
+</script>
