@@ -59,7 +59,7 @@ test.describe('duplicate beneficiary profiles', () => {
       page
         .getByRole('listitem')
         .filter({ hasText: 'BEN নম্বর' })
-        .getByText(keptBen, { exact: true }),
+        .getByText(keptBen!, { exact: true }),
     ).toBeVisible();
 
     // the retired BEN number leads to the kept profile
@@ -73,7 +73,7 @@ test.describe('duplicate beneficiary profiles', () => {
       page
         .getByRole('listitem')
         .filter({ hasText: 'BEN নম্বর' })
-        .getByText(keptBen, { exact: true }),
+        .getByText(keptBen!, { exact: true }),
     ).toBeVisible();
     await expect(page.getByText(`${retiredBen} এর সাথে মার্জ হয়েছে`).first()).toBeVisible();
     const keptUrl = page.url();
