@@ -334,6 +334,7 @@ export class BeneficiariesService {
     return {
       id: b.id,
       benNo: b.benNo,
+      createdAt: b.createdAt.toISOString(),
       /** The version of the profile for the ETag; not part of the answer's data. */
       updatedAt: b.updatedAt,
       mergedInto: b.mergedInto,
@@ -685,6 +686,7 @@ export class BeneficiariesService {
       select: {
         id: true,
         benNo: true,
+        createdAt: true,
         updatedAt: true,
         mergedInto: { select: { id: true, benNo: true } },
         // the numbers themselves leave only inside the caller's identity scope

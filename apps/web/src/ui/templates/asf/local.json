@@ -89,7 +89,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "people and profiles: a tinted tile with an icon, initial or photo, the first cell of a people list with the name as a link, a copy button that announces each copy, the dark profile banner with state chips, key facts with copy buttons and an action panel, profile sections that open and close by their title with an edit button beside it, and a contact list with call, message and copy; built for the CSS ERP; the banner's state chips take their dark-mode look on its dark green in both modes, a contact row moves its buttons under the value on a narrow screen and never breaks a number apart",
+      "note": "people and profiles: a tinted tile with an icon, initial or photo, the first cell of a people list with the name as a link, a copy button that announces each copy, the dark profile banner with state chips, key facts with copy buttons and an action panel, profile sections that open and close by their title with an edit button beside it, and a contact list with call, message and copy; built for the CSS ERP; the banner's state chips take their dark-mode look on its dark green in both modes, the banner holds the person, a short line of facts and the actions (a contained button light, a danger action set apart and outlined in the error colour) above a darker band of the key facts, each under its label with a copy button that takes the value while the band may show it in groups, the actions move under the person when both do not fit and a number is never broken, a contact row moves its buttons under the value on a narrow screen and never breaks a number apart",
       "screenshot": "docs/ui/asf-pieces/gallery-people.png"
     },
     {

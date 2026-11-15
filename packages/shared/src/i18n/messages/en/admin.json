@@ -484,6 +484,7 @@
       "call": "Call",
       "age_value": "{age} years",
       "ben": "BEN number",
+      "registered": "Registered",
       "actions_label": "Actions",
       "edit_contact": "Edit contact details",
       "request_correction": "Request a correction",
@@ -533,6 +534,7 @@
         "help_title": "What this family received",
         "help_total": "{people, plural, one {{count} times in all, from {peopleCount} profile} other {{count} times in all, from {peopleCount} profiles}}",
         "help_none": "This family has not been helped yet.",
+        "none": "No application of this person lists the family members.",
         "not_shown": "{n, plural, one {{count} more not shown} other {{count} more not shown}}"
       },
       "fields": {

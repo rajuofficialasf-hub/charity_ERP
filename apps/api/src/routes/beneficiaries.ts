@@ -88,6 +88,8 @@ const at = () => z.iso.datetime({ offset: true });
 export const beneficiaryProfile = z.object({
   id: z.uuid(),
   benNo: benNo(),
+  /** When the profile was made, shown as its registration date. */
+  createdAt: at(),
   mergedInto: z.object({ id: z.uuid(), benNo: benNo() }).nullable(),
   actions: z.object({
     block: z.boolean(),

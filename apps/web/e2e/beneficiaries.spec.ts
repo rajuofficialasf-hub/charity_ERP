@@ -149,6 +149,8 @@ test.describe('the lookup by NID or birth registration', () => {
     await expect(rows(page).getByText(benNo, { exact: true })).toBeVisible();
     await rows(page).getByRole('link').click();
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.getByText(`BEN নম্বর: ${benNo}`, { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('listitem').filter({ hasText: 'BEN নম্বর' }).getByText(benNo, { exact: true }),
+    ).toBeVisible();
   });
 });

@@ -75,6 +75,9 @@ export function FamilySection({
           })}
         </ul>
       )}
+      {members.length === 0 && memberOf.length === 0 && (
+        <Text tone="muted">{t('family.none')}</Text>
+      )}
       {members.length > 0 && (
         <DataTable
           label={t('family.members')}

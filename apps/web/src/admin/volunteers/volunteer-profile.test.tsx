@@ -202,9 +202,10 @@ describe('the volunteer profile for officials', () => {
     // in the banner's facts and in the personal details
     expect((await screen.findAllByText('1000000000501')).length).toBeGreaterThan(0);
     expect(screen.getByText('17-05-1990')).toBeInTheDocument();
-    // the banner shows the NID and the mobile with a copy button; the rest is in the facts below
+    // the banner's band shows the NID and the mobile under their labels with a copy button; the
+    // rest is in the facts below
     expect(
-      screen.getAllByText((_, el) => el?.textContent === 'NID নম্বর: 1000000000501').length,
+      screen.getAllByText((_, el) => el?.textContent === 'NID নম্বর1000000000501').length,
     ).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'NID নম্বর কপি করুন' })).toBeInTheDocument();
     expect(screen.queryByText('রক্তের গ্রুপ: O+')).toBeNull();

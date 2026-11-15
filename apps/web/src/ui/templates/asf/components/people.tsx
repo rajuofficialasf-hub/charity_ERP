@@ -119,56 +119,122 @@ export function CopyButton({ value, label }: CopyButtonProps) {
   );
 }
 
-/** The dark banner at the top of a person's profile. */
-export function ProfileBanner({ name, headingLevel = 1, photo, status, facts, actions, actionsLabel }: ProfileBannerProps) {
+/** A thin line on the banner's dark green. */
+const LINE = 'rgba(255 255 255 / 0.1)';
+
+/**
+ * The dark banner at the top of a person's profile: the photo, the name with its states and a short
+ * line of facts beside the actions, then a darker band of the key facts, each with its label above it
+ * and a copy button. Actions that do not fit beside the person move under it; a number is never broken.
+ */
+export function ProfileBanner({ name, headingLevel = 1, photo, status, facts, actions, dangerAction, actionsLabel }: ProfileBannerProps) {
   const labels = useLabels();
+  const band = (facts ?? []).filter((fact) => fact.copy || fact.prominent);
+  const line = (facts ?? []).filter((fact) => !fact.copy && !fact.prominent);
   return (
     <Card
       sx={{
-        p: { xs: 2.5, md: 3 },
+        p: 0,
         color: 'common.white',
         background: 'linear-gradient(135deg, var(--asf-palette-primary-darker), var(--asf-palette-primary-dark))',
-        display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
-        alignItems: { md: 'center' },
-        gap: 2.5,
+        overflow: 'hidden',
       }}
     >
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, flex: 1, minWidth: 0 }}>
-        <Avatar name={name} src={photo} size="xlarge" decorative />
-        <Box sx={{ minWidth: 0, display: 'grid', gap: 1 }}>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-            <Box component={headingLevel === 1 ? 'h1' : 'h2'} sx={{ m: 0, typography: 'h4' }}>
-              {name}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2.5, p: { xs: 2.5, md: 3 } }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, flex: '1 1 320px', minWidth: 0 }}>
+          <Avatar name={name} src={photo} size="xlarge" decorative />
+          <Box sx={{ minWidth: 0, display: 'grid', gap: 0.75 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+              <Box component={headingLevel === 1 ? 'h1' : 'h2'} sx={{ m: 0, typography: 'h4' }}>
+                {name}
+              </Box>
+              {/* the state chips stand on the dark banner, so they take their dark-mode look */}
+              <Box data-color-scheme="dark" sx={{ display: 'contents' }}>
+                {status}
+              </Box>
             </Box>
-            {/* the state chips stand on the dark banner, so they take their dark-mode look */}
-            <Box data-color-scheme="dark" sx={{ display: 'contents' }}>
-              {status}
-            </Box>
-          </Box>
-          {facts && facts.length > 0 && (
-            <Box component="ul" sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, m: 0, p: 0, listStyle: 'none' }}>
-              {facts.map((fact) => (
-                <Box
-                  component="li"
-                  key={fact.id}
-                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, pl: 1.25, pr: fact.copy ? 0.25 : 1.25, py: 0.25, borderRadius: 1, bgcolor: 'rgba(255 255 255 / 0.12)', typography: 'body2' }}
-                >
-                  {fact.icon && <Icon name={fact.icon} size={16} />}
-                  {fact.showLabel ? `${fact.label}: ` : <Box component="span" sx={srOnly}>{`${fact.label}: `}</Box>}
-                  <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
-                    {fact.value}
+            {line.length > 0 && (
+              <Box
+                component="ul"
+                sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1.5, rowGap: 0.5, m: 0, p: 0, listStyle: 'none', typography: 'body2', color: 'rgba(255 255 255 / 0.8)' }}
+              >
+                {line.map((fact, index) => (
+                  <Box component="li" key={fact.id} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                    {index > 0 && <Box component="span" aria-hidden sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'rgba(255 255 255 / 0.4)', mr: 0.75 }} />}
+                    {fact.icon && <Icon name={fact.icon} size={16} />}
+                    {fact.showLabel ? `${fact.label}: ` : <Box component="span" sx={srOnly}>{`${fact.label}: `}</Box>}
+                    <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                      {fact.display ?? fact.value}
+                    </Box>
                   </Box>
-                  {fact.copy && <CopyButton value={fact.value} label={fact.label} />}
-                </Box>
-              ))}
-            </Box>
-          )}
+                ))}
+              </Box>
+            )}
+          </Box>
         </Box>
+        {(actions || dangerAction) && (
+          <Box
+            role="region"
+            aria-label={actionsLabel ?? labels.actions}
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: { md: 'flex-end' },
+              gap: 1,
+              flex: '0 1 auto',
+              // on the dark green: an outline in white, the main action light, a block in the error colour
+              '& .MuiButton-outlined': { borderColor: 'rgba(255 255 255 / 0.32)', color: 'common.white', '&:hover': { borderColor: 'rgba(255 255 255 / 0.56)', bgcolor: 'rgba(255 255 255 / 0.08)' } },
+              '& .MuiButton-contained': { bgcolor: 'common.white', color: 'primary.darker', boxShadow: 'none', '&:hover': { bgcolor: 'grey.200', boxShadow: 'none' } },
+              '& [data-banner-danger] .MuiButton-root': { bgcolor: 'transparent', color: 'error.light', border: '1px solid rgba(255 255 255 / 0.32)', '&:hover': { bgcolor: 'rgba(255 255 255 / 0.08)', borderColor: 'rgba(255 255 255 / 0.56)' } },
+            }}
+          >
+            {actions}
+            {dangerAction && (
+              <>
+                {/* the line apart stands only in a row beside the person, not among wrapped buttons */}
+                {actions && <Box aria-hidden sx={{ display: { xs: 'none', md: 'block' }, width: '1px', alignSelf: 'stretch', minHeight: 28, mx: 0.5, bgcolor: 'rgba(255 255 255 / 0.2)' }} />}
+                <Box data-banner-danger="" sx={{ display: 'contents' }}>
+                  {dangerAction}
+                </Box>
+              </>
+            )}
+          </Box>
+        )}
       </Box>
-      {actions && (
-        <Box role="region" aria-label={actionsLabel ?? labels.actions} sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, flexShrink: 0 }}>
-          {actions}
+      {band.length > 0 && (
+        <Box
+          component="ul"
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+            m: 0,
+            p: 0,
+            listStyle: 'none',
+            overflow: 'hidden',
+            borderTop: `1px solid ${LINE}`,
+            bgcolor: 'rgba(0 0 0 / 0.16)',
+          }}
+        >
+          {band.map((fact) => (
+            <Box
+              component="li"
+              key={fact.id}
+              // a line before and above each cell; the band's edges clip the outer ones
+              sx={{ display: 'grid', gap: 0.5, px: { xs: 2.5, md: 3 }, py: 2, minWidth: 0, boxShadow: `-1px 0 0 ${LINE}, 0 -1px 0 ${LINE}` }}
+            >
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, typography: 'caption', color: 'rgba(255 255 255 / 0.72)' }}>
+                {fact.icon && <Icon name={fact.icon} size={16} />}
+                {fact.label}
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
+                <Box component="span" sx={{ typography: 'subtitle1', fontWeight: 700, fontVariantNumeric: 'tabular-nums', ...(fact.copy && { whiteSpace: 'nowrap' }), minWidth: 0 }}>
+                  {fact.display ?? fact.value}
+                </Box>
+                {fact.copy && <CopyButton value={fact.value} label={fact.label} />}
+              </Box>
+            </Box>
+          ))}
         </Box>
       )}
     </Card>
