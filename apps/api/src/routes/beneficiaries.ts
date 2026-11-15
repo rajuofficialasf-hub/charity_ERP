@@ -66,7 +66,8 @@ const beneficiaryRow = z.object({
   hasDocument: hasDocument(),
   isBlocked: care(z.boolean()),
   photoFileId: detail(z.uuid().nullable()),
-  // the times helped, kept on the profile (docs/BUSINESS_RULES.md, BR-307)
+  // the times helped, kept on the profile (docs/BUSINESS_RULES.md, "Beneficiary identity and
+  // master")
   helpCount: history(z.number().int().min(0)),
 });
 
@@ -208,7 +209,7 @@ export const beneficiaryProfile = z.object({
       ),
     }),
   ),
-  // how often the person was helped (docs/BUSINESS_RULES.md, BR-307)
+  // how often the person was helped (docs/BUSINESS_RULES.md, "Beneficiary identity and master")
   help: history(helpSummarySchema()).optional(),
   applications: history(
     z.array(

@@ -228,12 +228,26 @@ describe('the beneficiary tab', () => {
       expect(listUrls.at(-1)?.searchParams.get('helpedMoreThanOnceInYear')).toBe('true'),
     );
     expect(statUrls.at(-1)?.searchParams.get('helpedMoreThanOnceInYear')).toBe('true');
-    // the order by the count: from the column's header, kept in the URL, never sent to the counts
+    // the order by the count: from the column's header, kept in the URL, never sent to the counts;
+    // the first press orders the fewest first, the second the most first
+    const sortOf = () => new URLSearchParams(router.state.location.search).get('sort');
     await user.click(within(table).getByRole('button', { name: /কতবার সাহায্য/ }));
-    await waitFor(() => expect(router.state.location.search).toMatch(/sort=-?helpCount/));
-    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('sort')).toMatch(/helpCount/));
+    await waitFor(() => expect(sortOf()).toBe('helpCount'));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('sort')).toBe('helpCount'));
+    expect(
+      screen.getByRole('button', { name: 'ক্রম: সাহায্য কম থেকে বেশি সরান' }),
+    ).toBeInTheDocument();
+    await user.click(
+      within(await screen.findByRole('table', { name: 'উপকারভোগী' })).getByRole('button', {
+        name: /কতবার সাহায্য/,
+      }),
+    );
+    await waitFor(() => expect(sortOf()).toBe('-helpCount'));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('sort')).toBe('-helpCount'));
+    expect(
+      screen.getByRole('button', { name: 'ক্রম: সাহায্য বেশি থেকে কম সরান' }),
+    ).toBeInTheDocument();
     expect(statUrls.every((u) => !u.searchParams.has('sort'))).toBe(true);
-    expect(screen.getByRole('button', { name: /^ক্রম: সাহায্য/ })).toBeInTheDocument();
   });
 
   it('restores the order from the URL and takes it away with its chip', async () => {

@@ -66,6 +66,7 @@ import {
 import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
 import {
   helpView,
+  lockPeople,
   personApplications,
   personApplicationsWhere,
   visibleProjects,
@@ -572,7 +573,9 @@ export class ApplicationsService {
     try {
       await this.prisma.$transaction(async (tx) => {
         // the version and the state are read again under the lock: two edits with the same
-        // version, or an edit racing a submission, must not both land
+        // version, or an edit racing a submission, must not both land; the person first, as every
+        // writer of a person's applications takes them (`lockPeople`)
+        if (row.beneficiaryId) await lockPeople(tx, [row.beneficiaryId]);
         const [locked] = await tx.$queryRaw<{ status: string; updated_at: Date }[]>`
           SELECT status, updated_at FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
         if (!locked || locked.status !== row.status)
@@ -2045,9 +2048,10 @@ export class ApplicationsService {
   }
 
   /**
-   * How often the person was helped by their other applications (docs/BUSINESS_RULES.md, BR-307),
-   * read live as the profile reads it: the same applications, a merge's left-behind ones among them,
-   * and a project outside the caller's rows of a profile counted but not named. Only for a caller
+   * How often the person was helped by their other applications (docs/BUSINESS_RULES.md,
+   * "Beneficiary identity and master"), read live as the profile reads it: the same applications,
+   * a merge's left-behind ones among them, and a project outside the caller's rows of a profile
+   * counted but not named. Only for a caller
    * with the application history class; null before a person is bound.
    */
   private async helpedBefore(

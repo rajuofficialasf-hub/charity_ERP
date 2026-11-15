@@ -58,3 +58,20 @@ export const isVolunteerMobileRefusal = (error: unknown) =>
       text(r).includes('beneficiary_mobile_is_volunteer_mobile') ||
       JSON.stringify(r.meta ?? '').includes('beneficiary_mobile_is_volunteer_mobile'),
   );
+
+/**
+ * Two transactions waited on each other and the database ended one (a deadlock, 40P01), or a
+ * serializable transaction could not be ordered (40001; P2034 through the client). Nothing was
+ * written: the caller may send the same request again.
+ */
+export const isConcurrencyConflict = (error: unknown) =>
+  mentions(
+    error,
+    (r) =>
+      r.code === 'P2034' ||
+      r.code === '40P01' ||
+      r.code === '40001' ||
+      r.originalCode === '40P01' ||
+      r.originalCode === '40001' ||
+      /\b40P01\b|\b40001\b|deadlock detected/.test(text(r) + JSON.stringify(r.meta ?? '')),
+  );

@@ -5,6 +5,7 @@ import type { Principal } from '../auth/principal.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
+import { lockPeople } from '../services/help-history.js';
 import type { IdempotencyService } from '../idempotency/idempotency.service.js';
 import type { WorkflowEngine } from '../workflow/engine.js';
 import { WAITLIST_ORDER } from './decision-rules.js';
@@ -104,6 +105,10 @@ export class WaitlistService {
         take: PAGE,
       });
       for (const { id } of page) {
+        // the person before the application, as the engine's move takes them (`lockPeople`)
+        const [person] = await tx.$queryRaw<{ beneficiary_id: string | null }[]>`
+          SELECT beneficiary_id FROM applications WHERE id = ${id}::uuid`;
+        if (person?.beneficiary_id) await lockPeople(tx, [person.beneficiary_id]);
         const held = await tx.$queryRaw<{ id: string }[]>`
           SELECT id FROM applications WHERE id = ${id}::uuid AND status = 'waitlisted'
              FOR UPDATE`;

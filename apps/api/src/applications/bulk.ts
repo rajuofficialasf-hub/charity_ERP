@@ -8,6 +8,7 @@ import type { Logger } from 'pino';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { IdempotencyService } from '../idempotency/idempotency.service.js';
+import { lockPeople } from '../services/help-history.js';
 import type { WorkflowEngine } from '../workflow/engine.js';
 
 const uuid = z.uuid();
@@ -92,6 +93,17 @@ export class BulkReviewService {
       { userId: principal.userId, deviceSessionId: principal.sessionId },
       body.rows.length,
       async (tx) => {
+        // the people of every row first, all at once in id order, before any row takes its
+        // application: each row's move takes its person before the application, and so does a
+        // merge, so the order never crosses another request's (`lockPeople`)
+        const people = await tx.application.findMany({
+          where: { id: { in: body.rows.map((r) => r.applicationId) }, projectId },
+          select: { beneficiaryId: true },
+        });
+        await lockPeople(
+          tx,
+          people.map((p) => p.beneficiaryId).filter((id): id is string => id !== null),
+        );
         const results: RowResult[] = [];
         for (const row of body.rows)
           results.push(await this.row(tx, principal, projectId, body.action, row));

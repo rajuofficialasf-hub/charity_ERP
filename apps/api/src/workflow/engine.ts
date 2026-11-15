@@ -14,7 +14,7 @@ import type { Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { ApplicationEvents } from '../notifications/application-events.js';
-import { recountAfterMove } from '../services/help-history.js';
+import { lockPeople, recountAfterMove } from '../services/help-history.js';
 import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
 import { z } from 'zod';
 import { readEffects, type SideEffect, type SideEffectRunner } from './effects.js';
@@ -118,6 +118,11 @@ export class WorkflowEngine {
   ): Promise<TransitionResult> {
     const spec = APPLICATION_ACTIONS[action];
     if ('later' in spec && spec.later) throw new ApiError('workflow.action_not_built', 409);
+    // the person before the application, as every writer of a person's applications takes them
+    // (`lockPeople` of services/help-history.ts): read without a lock, then the person, then the row
+    const [person] = await tx.$queryRaw<{ beneficiary_id: string | null }[]>`
+      SELECT beneficiary_id FROM applications WHERE id = ${applicationId}::uuid`;
+    if (person?.beneficiary_id) await lockPeople(tx, [person.beneficiary_id]);
     await tx.$queryRaw`SELECT id FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
     const row = await tx.application.findUnique({
       where: { id: applicationId },

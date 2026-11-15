@@ -11,9 +11,10 @@ import type { Tx } from '../core/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 
 /**
- * How often a person was helped (docs/BUSINESS_RULES.md, BR-307): which applications count is
- * decided once in `@css/shared` (`countsAsHelped`); this file reads a person's applications, the
- * ones a merge left on a retired profile among them, and gives the profile its summary.
+ * How often a person was helped (docs/BUSINESS_RULES.md, "Beneficiary identity and master"):
+ * which applications count is decided once in `@css/shared` (`countsAsHelped`); this file reads a
+ * person's applications, the ones a merge left on a retired profile among them, and gives the
+ * profile its summary.
  */
 
 /** The counted applications as SQL, for an `applications` row under the given alias. */
@@ -40,8 +41,8 @@ export const HELPED_WHERE: Prisma.ApplicationWhereInput = {
 /**
  * The applications a merge left on a profile retired into each of these people (an application in
  * a project where the kept profile has one stays on the retired profile; docs/BUSINESS_RULES.md,
- * BR-013), following a chain of merges, so a profile retired into one that was later retired too
- * still hands its applications on. A reverted merge hands nothing. A subquery of the rows
+ * "Beneficiary identity and master", the merge), following a chain of merges, so a profile
+ * retired into one that was later retired too still hands its applications on. A reverted merge hands nothing. A subquery of the rows
  * `(person_id, application_id)`; the people's own applications are not among them.
  */
 export function leftBehindSql(beneficiaryIds: readonly string[]): Prisma.Sql {
@@ -99,9 +100,43 @@ export function helpCountsSql(beneficiaryIds: readonly string[]): Prisma.Sql {
 }
 
 /**
+ * Locks these people and every profile they were retired into (`FOR NO KEY UPDATE`, in id order),
+ * then walks `merged_into_id` again under the locks and locks what a merge committed in between
+ * added, until the set stops growing; answers the locked ids. Every writer that touches a person's
+ * applications and their count takes the person first this way, before any application row: the
+ * workflow engine, a bulk decision for all its rows at once, a merge (which locks both profiles
+ * `FOR UPDATE` before it moves their applications), so two of them never wait on each other in
+ * opposite orders. `FOR NO KEY UPDATE` changes no key, so a new application of the person, which
+ * takes `FOR KEY SHARE` through its foreign key, is not held up.
+ */
+export async function lockPeople(tx: Tx, beneficiaryIds: readonly string[]): Promise<string[]> {
+  const locked = new Set<string>();
+  let wanted = [...new Set(beneficiaryIds)];
+  while (wanted.length) {
+    const chain = await tx.$queryRaw<{ id: string }[]>`
+      WITH RECURSIVE up(id) AS (
+        SELECT unnest(${wanted}::uuid[])
+        UNION
+        SELECT b.merged_into_id FROM beneficiaries b JOIN up ON b.id = up.id
+        WHERE b.merged_into_id IS NOT NULL
+      )
+      SELECT id FROM up`;
+    const fresh = chain.map((r) => r.id).filter((id) => !locked.has(id));
+    if (!fresh.length) break;
+    await tx.$queryRaw`
+      SELECT id FROM beneficiaries WHERE id = ANY(${fresh}::uuid[]) ORDER BY id FOR NO KEY UPDATE`;
+    for (const id of fresh) locked.add(id);
+    // the chain as it stands under the locks: a merge that committed meanwhile may have added to it
+    wanted = [...locked];
+  }
+  return [...locked];
+}
+
+/**
  * Writes the kept counters of these people (docs/database/DATABASE_SCHEMA.md, "beneficiaries"),
- * locked first in id order so a count is never computed from a snapshot older than another
- * writer's committed change. Only a counter that differs is written, and such a write leaves the
+ * locked first in id order (`FOR NO KEY UPDATE`, as `lockPeople`; a row the transaction holds
+ * already is no new lock) so a count is never computed from a snapshot older than another writer's
+ * committed change. Only a counter that differs is written, and such a write leaves the
  * profile's update stamp as it was (the migration's trigger reads `css.help_counts_only`). The
  * caller passes every person whose count may have changed; `recountHelp` adds the profiles above
  * them.
@@ -110,7 +145,7 @@ export async function writeHelpCounts(tx: Tx, beneficiaryIds: readonly string[])
   const ids = [...new Set(beneficiaryIds)];
   if (!ids.length) return 0;
   await tx.$queryRaw`
-    SELECT id FROM beneficiaries WHERE id = ANY(${ids}::uuid[]) ORDER BY id FOR UPDATE`;
+    SELECT id FROM beneficiaries WHERE id = ANY(${ids}::uuid[]) ORDER BY id FOR NO KEY UPDATE`;
   // the counters alone: the update stamp stays (the migration's trigger), for this one statement
   // only, so another write of the same transaction still stamps the row; and no JIT, see
   // `withoutJit`
@@ -143,24 +178,12 @@ export async function withoutJit<T>(tx: Tx, work: () => Promise<T>): Promise<T> 
 }
 
 /**
- * Recounts these people and every profile they were retired into, through a chain of merges: an
- * application a merge left on a retired profile counts for the kept one too.
+ * Recounts these people and every profile they were retired into, through a chain of merges (an
+ * application a merge left on a retired profile counts for the kept one too), the chain read under
+ * the locks of `lockPeople`.
  */
 export async function recountHelp(tx: Tx, beneficiaryIds: readonly string[]): Promise<number> {
-  const ids = [...new Set(beneficiaryIds)];
-  if (!ids.length) return 0;
-  const people = await tx.$queryRaw<{ id: string }[]>`
-    WITH RECURSIVE up(id) AS (
-      SELECT unnest(${ids}::uuid[])
-      UNION
-      SELECT b.merged_into_id FROM beneficiaries b JOIN up ON b.id = up.id
-      WHERE b.merged_into_id IS NOT NULL
-    )
-    SELECT id FROM up`;
-  return writeHelpCounts(
-    tx,
-    people.map((p) => p.id),
-  );
+  return writeHelpCounts(tx, await lockPeople(tx, beneficiaryIds));
 }
 
 /** The application as the counting reads it, with its person. */
@@ -194,9 +217,9 @@ export async function recountAfterMove(
 }
 
 /**
- * How often a person was helped (docs/BUSINESS_RULES.md, BR-307), as the profile and an
- * application's record show it: a project the caller does not see is counted in its year's
- * `unnamed`, never named. A new instance per use, as `sensitive` marks the instance it is given.
+ * How often a person was helped (docs/BUSINESS_RULES.md, "Beneficiary identity and master"), as
+ * the profile and an application's record show it: a project the caller does not see is counted
+ * in its year's `unnamed`, never named. A new instance per use, as `sensitive` marks the instance it is given.
  */
 export const helpSummarySchema = () =>
   z.object({

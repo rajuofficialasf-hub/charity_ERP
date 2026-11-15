@@ -1,6 +1,7 @@
 import { type MessageKey, type MessageParams, translate } from '@css/shared/i18n';
 import type { ErrorRequestHandler, Request, RequestHandler, Response } from 'express';
 import type { Logger } from 'pino';
+import { isConcurrencyConflict } from '../core/db-errors.js';
 import { currentContext } from '../core/request-context.js';
 import { ApiError, type ApiErrorDetail } from '../i18n/api-error.js';
 import { requestLocale } from '../i18n/request-locale.js';
@@ -118,6 +119,13 @@ export function errorHandler(logger: Logger): ErrorRequestHandler {
     const known = bodyParserError(err) ?? clientError(err);
     if (known) {
       sendApiError(req, res, known.status, known.code);
+      return;
+    }
+    // a deadlock or a write conflict the database ended: nothing was written, and the same request
+    // may be sent again (docs/api/API_STANDARDS.md, the error codes)
+    if (isConcurrencyConflict(err)) {
+      logger.warn({ err: err instanceof Error ? err : new Error(String(err)) }, 'write conflict');
+      sendApiError(req, res, 409, 'conflict.stale_version');
       return;
     }
     logger.error({ err: err instanceof Error ? err : new Error(String(err)) }, 'unhandled error');

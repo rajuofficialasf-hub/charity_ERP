@@ -4,8 +4,8 @@ import { bilingual, date, dateTime, tabPageOf, versionedOf } from './common';
 import { publishedWorkSchema } from './media';
 
 /**
- * How often a person was helped (docs/BUSINESS_RULES.md, BR-307), on the profile and on an
- * application's review: a project the viewer does not see is counted in its year's `unnamed`.
+ * How often a person was helped (docs/BUSINESS_RULES.md, "Beneficiary identity and master"), on
+ * the profile and on an application's review: a project the viewer does not see is counted in its year's `unnamed`.
  */
 export const helpSummarySchema = z.object({
   total: z.number().int(),

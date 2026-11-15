@@ -1,9 +1,9 @@
 import type { ApplicationState } from './actions.js';
 
 /**
- * Whether an application says its person was helped (docs/BUSINESS_RULES.md, BR-307; the states in
- * docs/architecture/workflow-templates/_common.yaml). The one reading of it, used by the name
- * lookup at entry and by the help history on the profile:
+ * Whether an application says its person was helped (docs/BUSINESS_RULES.md, "Beneficiary
+ * identity and master"; the states in docs/architecture/workflow-templates/_common.yaml). The one
+ * reading of it, used by the name lookup at entry and by the help history on the profile:
  * - `always`: the approval and the states only an approved application reaches. Until the
  *   distribution module records what was received, an approved application counts as help.
  * - `never`: an application not decided yet, waitlisted, rejected or deleted.

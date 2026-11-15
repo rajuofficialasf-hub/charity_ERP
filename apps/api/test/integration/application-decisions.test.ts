@@ -5,7 +5,12 @@ import { SeedContext } from '../../seed/context.js';
 import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
 import { seedWorkflows } from '../../seed/sets/base/workflows.js';
 import { accessWorld } from './support/access-fixtures.js';
-import { applicationProject, IDENTITY_ANSWERS, setIdentityRules } from './support/applications.js';
+import {
+  applicationProject,
+  IDENTITY_ANSWERS,
+  principalOf,
+  setIdentityRules,
+} from './support/applications.js';
 import {
   type Account,
   account,
@@ -16,7 +21,13 @@ import {
   type Session,
 } from './support/auth-app.js';
 import { helpCountsSql } from '../../src/services/help-history.js';
-import { fakeMobile, fakeNid, insert, project as fixtureProject } from './support/fixtures.js';
+import {
+  beneficiary as fixtureBeneficiary,
+  fakeMobile,
+  fakeNid,
+  insert,
+  project as fixtureProject,
+} from './support/fixtures.js';
 import { notificationsOf } from './support/notifications.js';
 import { option, question } from './support/forms.js';
 
@@ -690,5 +701,87 @@ describe('the times helped kept on the profile', () => {
     const own = await read(await as(world.users.general), id);
     expect(own.status).toBe(200);
     expect(own.body.data).not.toHaveProperty('helpedBefore');
+  });
+});
+
+describe('the earlier help on the record', () => {
+  it('counts the other applications only, names a project only where the caller reaches it, and tells a volunteer nothing', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const id = await reviewed('widow');
+    const person = await personOf(id);
+    // an earlier help in a project of another program, which the PM of this one does not reach
+    const elsewhere = await fixtureProject(h.db, { year: 2024 });
+    await insert(h.db, 'applications', {
+      id: randomUUID(),
+      project_id: elsewhere.id,
+      form_version_id: elsewhere.formVersion,
+      region_location_id: world.dhaka.division,
+      district_id: world.dhaka.district,
+      union_id: world.dhaka.union,
+      beneficiary_id: person,
+      status: 'completed',
+      approved_at: new Date().toISOString(),
+    });
+    await moved(await as(world.users.rpmDhaka), id, 'approve', { comment: 'হিসাবের পরীক্ষা' });
+    // the approved application itself is never its own earlier help
+    const byRpm = (await read(await as(world.users.rpmDhaka), id)).body.data.helpedBefore;
+    expect(byRpm).toMatchObject({ total: 1, thisYear: 0, firstYear: 2024 });
+    expect(byRpm.years).toEqual([
+      expect.objectContaining({
+        year: 2024,
+        count: 1,
+        projects: [expect.objectContaining({ id: elsewhere.id })],
+        unnamed: 0,
+      }),
+    ]);
+    // the PM's program scope does not reach the other program: counted with its year, not named
+    const pm = await read(await as(world.users.pm), id);
+    expect(pm.status).toBe(200);
+    expect(pm.body.data.helpedBefore.total).toBe(1);
+    expect(pm.body.data.helpedBefore.years).toEqual([
+      { year: 2024, count: 1, projects: [], unnamed: 1 },
+    ]);
+    // a role without the application history class gets no help at all
+    const own = await read(await as(world.users.general), id);
+    expect(own.status).toBe(200);
+    expect(own.body.data).not.toHaveProperty('helpedBefore');
+  });
+});
+
+describe('a move and a merge of the same person at once', () => {
+  it('both finish, whichever takes the person first, and leave the counters equal to a fresh count', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const office = await principalOf(h.db, world.users.rpmDhaka);
+    const head = await as(world.users.head);
+    for (let round = 0; round < 3; round += 1) {
+      const id = await reviewed('widow');
+      const retired = await personOf(id);
+      const kept = await fixtureBeneficiary(h.db, world.dhaka);
+      // the approval through the engine in its own transaction, the merge through its route
+      const [approval, merge] = await Promise.allSettled([
+        h.container.prisma.$transaction((tx) =>
+          h.container.workflow.transition(tx, office, id, 'approve', {
+            comment: 'একসাথে দুটি কাজ',
+          }),
+        ),
+        at(head, 'post', '/beneficiary-merges/direct').send({
+          keptId: kept,
+          mergedId: retired,
+          reason: 'একই মানুষ, দুইবার নিবন্ধন হয়েছিল',
+        }),
+      ]);
+      expect(approval.status, JSON.stringify(approval)).toBe('fulfilled');
+      expect(merge.status).toBe('fulfilled');
+      const merged = (merge as PromiseFulfilledResult<{ status: number; body: unknown }>).value;
+      expect(merged.status, JSON.stringify(merged.body)).toBe(201);
+      // the approved application is the kept profile's now, counted there and not twice
+      expect((await countersOf(kept)).kept).toEqual(ONCE);
+      for (const person of [kept, retired]) {
+        const c = await countersOf(person);
+        expect(c.kept, person).toEqual(c.fresh);
+      }
+    }
   });
 });

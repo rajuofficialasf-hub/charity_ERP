@@ -5,10 +5,11 @@ import { useLocale, useTranslations } from 'use-intl';
 import type { HelpSummary } from '../../api/schemas/beneficiaries';
 
 /**
- * How often the person was helped, on the profile (docs/BUSINESS_RULES.md, BR-307): the total,
- * since which year and this year, the marks for more than once in a year and in one project, and
- * the years newest first with each project's times; a year or a project with more than one shows
- * its number. Help in a project the viewer does not see is counted in its year without a name.
+ * How often the person was helped, on the profile (docs/BUSINESS_RULES.md, "Beneficiary
+ * identity and master"): the total, since which year and this year, the marks for more than once
+ * in a year and in one project, and the years newest first with each project's times; a year or a
+ * project with more than one shows its number. Help in a project the viewer does not see is
+ * counted in its year without a name.
  * The review of an application shows the same for the person's other applications, with its own
  * words for none.
  */
