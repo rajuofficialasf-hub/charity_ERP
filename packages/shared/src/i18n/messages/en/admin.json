@@ -448,7 +448,7 @@
       "sections": {
         "basic": "Basic details",
         "address": "Address",
-        "family": "Family members",
+        "family": "Family",
         "projects": "Projects by year",
         "applications": "Application history",
         "distributions": "Distribution and implementation",
@@ -523,7 +523,17 @@
         "relationship": "Relationship",
         "age": "Age",
         "income": "Monthly income",
-        "card": "Age {age} · monthly income {income}"
+        "card": "Age {age} · monthly income {income}",
+        "members": "Family members",
+        "profile": "Profile",
+        "probably": "Probably {name} ({benNo})",
+        "member_of": "Probably the {relationship} in the family of {name} ({benNo})",
+        "member_of_plain": "Probably a member of the family of {name} ({benNo})",
+        "or": "or",
+        "help_title": "What this family received",
+        "help_total": "{people, plural, one {{count} times in all, from {peopleCount} profile} other {{count} times in all, from {peopleCount} profiles}}",
+        "help_none": "This family has not been helped yet.",
+        "not_shown": "{n, plural, one {{count} more not shown} other {{count} more not shown}}"
       },
       "fields": {
         "mobile": "Mobile",

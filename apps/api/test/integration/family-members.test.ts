@@ -312,6 +312,8 @@ describe('a submitted application that lists the household', () => {
         ageYears: 34,
         occupationCode: null,
         monthlyIncome: 3000,
+        // no profile of hers is known, so the member links to none
+        profile: null,
       },
       expect.objectContaining({ name: 'করিম', relationshipCode: 'son', monthlyIncome: null }),
       expect.objectContaining({ name: 'সালমা', relationshipCode: 'daughter', ageYears: 9 }),

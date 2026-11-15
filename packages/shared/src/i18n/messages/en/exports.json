@@ -105,7 +105,16 @@
       "reviewed": "Reviewed on",
       "application": "Application details",
       "comment": "Decision comment",
-      "document": "Identity document"
+      "document": "Identity document",
+      "income": "Monthly income",
+      "profile": "Profile",
+      "probably": "Probably {name} ({benNo})",
+      "member_of": "Member of the family of",
+      "family_help": "What this family received",
+      "year": "Year",
+      "times": "Times",
+      "unnamed": "Other projects",
+      "not_shown": "{count} more not shown"
     }
   },
   "dialog": {

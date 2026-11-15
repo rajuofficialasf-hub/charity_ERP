@@ -38,7 +38,7 @@ import {
   MOBILE_OWNERS,
 } from './beneficiaries-api';
 import { BeneficiaryArea } from './BeneficiaryArea';
-import { FamilyMembers } from './FamilyMembers';
+import { FamilySection } from './FamilySection';
 import { HelpHistory } from './HelpHistory';
 import { ContactDialog } from './ContactDialog';
 import { CorrectionDialog } from './CorrectionDialog';
@@ -354,10 +354,15 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             />
           </ProfileSection>
 
-          {/* the household's members, only where the profile knows one */}
-          {p.familyMembers && p.familyMembers.length > 0 && (
+          {/* the household now, the families that hold the person, and what the family received:
+              only where the profile knows a member or a family */}
+          {((p.familyMembers?.length ?? 0) > 0 || (p.memberOf?.length ?? 0) > 0) && (
             <ProfileSection title={tp('sections.family')} icon="users">
-              <FamilyMembers members={p.familyMembers} />
+              <FamilySection
+                members={p.familyMembers ?? []}
+                memberOf={p.memberOf ?? []}
+                help={p.familyHelp}
+              />
             </ProfileSection>
           )}
 

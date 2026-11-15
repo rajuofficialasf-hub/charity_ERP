@@ -105,7 +105,16 @@
       "reviewed": "যাচাইয়ের তারিখ",
       "application": "আবেদনের তথ্য",
       "comment": "সিদ্ধান্তের মন্তব্য",
-      "document": "পরিচয়পত্র"
+      "document": "পরিচয়পত্র",
+      "income": "মাসিক আয়",
+      "profile": "প্রোফাইল",
+      "probably": "সম্ভবত {name} ({benNo})",
+      "member_of": "যে পরিবারের সদস্য",
+      "family_help": "এই পরিবার যা পেয়েছে",
+      "year": "বছর",
+      "times": "কতবার",
+      "unnamed": "অন্য প্রকল্প",
+      "not_shown": "আরও {count} জন দেখানো হয়নি"
     }
   },
   "dialog": {

@@ -684,7 +684,7 @@ describe('the 360° profile', () => {
       await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
     ).toBeInTheDocument();
     for (const section of [
-      'পরিবারের সদস্য',
+      'পরিবার',
       'সাহায্যের হিসাব',
       'আবেদনের ইতিহাস',
       'দাওয়াহ',
@@ -1438,8 +1438,8 @@ describe('the family members on the profile', () => {
     refreshAs(HEAD);
     serve(fullRow, {}, { ...empty360, familyMembers: MEMBERS });
     const { container } = await opened();
-    const section = within(sectionOf('পরিবারের সদস্য'));
-    for (const header of ['নাম', 'সম্পর্ক', 'বয়স', 'মাসিক আয়'])
+    const section = within(sectionOf('পরিবার'));
+    for (const header of ['নাম', 'সম্পর্ক', 'বয়স', 'মাসিক আয়', 'প্রোফাইল'])
       expect(section.getByRole('columnheader', { name: header })).toBeInTheDocument();
     const [first, second] = section.getAllByRole('row').slice(1);
     expect(within(first!).getByText('রহিমা খাতুন')).toBeInTheDocument();
@@ -1461,7 +1461,7 @@ describe('the family members on the profile', () => {
     }));
     serve(fullRow, {}, { ...empty360, familyMembers: thirty });
     await opened();
-    const rows = within(sectionOf('পরিবারের সদস্য')).getAllByRole('row').slice(1);
+    const rows = within(sectionOf('পরিবার')).getAllByRole('row').slice(1);
     expect(rows).toHaveLength(30);
     expect(within(rows[29]!).getByText('সদস্য 30')).toBeInTheDocument();
   });
@@ -1470,7 +1470,7 @@ describe('the family members on the profile', () => {
     refreshAs(HEAD);
     serve(fullRow, {}, { ...empty360, familyMembers: MEMBERS.slice(0, 1) });
     await opened('en');
-    const section = within(sectionOf('Family members'));
+    const section = within(sectionOf('Family'));
     expect(section.getByRole('columnheader', { name: 'Monthly income' })).toBeInTheDocument();
     expect(section.getByText('Spouse')).toBeInTheDocument();
     expect(section.getByText('34 years')).toBeInTheDocument();
@@ -1485,8 +1485,125 @@ describe('the family members on the profile', () => {
     serve(fullRow, {}, { ...rest, ...family });
     await opened();
     expect(screen.getByRole('heading', { level: 2, name: 'ঠিকানা' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: 'পরিবার' })).not.toBeInTheDocument();
+  });
+
+  const SON = '0190a1b2-0000-7000-8000-00000000f101';
+  const HEAD_OF = '0190a1b2-0000-7000-8000-00000000f102';
+  const linked = [
+    { ...MEMBERS[0]!, profile: { beneficiaryId: SON, benNo: 'BEN-0000007', name: 'সালাম' } },
+    { ...MEMBERS[1]!, profile: null },
+  ];
+  const familyHelp = {
+    total: 3,
+    firstYear: 2024,
+    thisYear: 0,
+    repeatedInYear: false,
+    repeatedInProject: false,
+    years: [
+      {
+        year: 2025,
+        count: 2,
+        projects: [
+          {
+            id: '0190a1b2-0000-7000-8000-00000000f201',
+            code: 'WC',
+            nameBn: 'শীতবস্ত্র ২০২৫',
+            nameEn: 'Winter 2025',
+            count: 2,
+          },
+        ],
+        unnamed: 0,
+      },
+      {
+        year: 2024,
+        count: 1,
+        projects: [
+          {
+            id: '0190a1b2-0000-7000-8000-00000000f202',
+            code: 'IF',
+            nameBn: 'ইফতার ২০২৪',
+            nameEn: 'Iftar 2024',
+            count: 1,
+          },
+        ],
+        unnamed: 0,
+      },
+    ],
+    people: 2,
+    notShown: 1,
+  };
+
+  it('links a member to the profile it probably is, and shows nothing for a member without one', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: linked });
+    const { container } = await opened();
+    const section = within(sectionOf('পরিবার'));
+    const [first, second] = section.getAllByRole('row').slice(1);
     expect(
-      screen.queryByRole('heading', { level: 2, name: 'পরিবারের সদস্য' }),
+      within(first!).getByRole('link', { name: 'সম্ভবত সালাম (BEN-0000007)' }),
+    ).toHaveAttribute('href', `/admin/beneficiaries/${SON}`);
+    expect(within(second!).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(second!).queryByText(/সম্ভবত/)).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it('names the family that probably holds the person, with a link to its head', async () => {
+    refreshAs(HEAD);
+    serve(
+      fullRow,
+      {},
+      {
+        ...empty360,
+        familyMembers: [],
+        memberOf: [
+          {
+            head: { beneficiaryId: HEAD_OF, benNo: 'BEN-0000003', name: 'রহিম' },
+            relationships: [
+              { code: 'son', name: { bn: 'ছেলে', en: 'son' } },
+              { code: 'nephew', name: { bn: 'ভাতিজা', en: 'nephew' } },
+            ],
+          },
+        ],
+      },
+    );
+    await opened();
+    expect(
+      within(sectionOf('পরিবার')).getByRole('link', {
+        name: 'সম্ভবত রহিম (BEN-0000003)-এর পরিবারের ছেলে বা ভাতিজা',
+      }),
+    ).toHaveAttribute('href', `/admin/beneficiaries/${HEAD_OF}`);
+  });
+
+  it('shows what the family received by year, and the profiles not shown as a bare count', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: linked, familyHelp });
+    await opened();
+    const section = within(sectionOf('পরিবার'));
+    expect(
+      section.getByRole('heading', { level: 3, name: 'এই পরিবার যা পেয়েছে' }),
+    ).toBeInTheDocument();
+    expect(section.getByText('2 জনের প্রোফাইল মিলিয়ে মোট 3 বার সাহায্য')).toBeInTheDocument();
+    expect(section.getByText('শীতবস্ত্র ২০২৫')).toBeInTheDocument();
+    expect(section.getByText('ইফতার ২০২৪')).toBeInTheDocument();
+    expect(section.getByText('আরও 1 জন দেখানো হয়নি')).toBeInTheDocument();
+  });
+
+  it('says what the family received in English', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: linked, familyHelp });
+    await opened('en');
+    expect(
+      within(sectionOf('Family')).getByText('3 times in all, from 2 profiles'),
+    ).toBeInTheDocument();
+  });
+
+  it('draws no family help where the server sent none', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: linked });
+    await opened();
+    expect(
+      within(sectionOf('পরিবার')).queryByRole('heading', { name: 'এই পরিবার যা পেয়েছে' }),
     ).not.toBeInTheDocument();
   });
 });

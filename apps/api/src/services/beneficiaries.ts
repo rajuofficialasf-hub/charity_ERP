@@ -23,6 +23,7 @@ import {
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
+import { familySection } from './family-profile.js';
 import { publishedWorksOf } from './media-home.js';
 import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
 import {
@@ -283,14 +284,37 @@ export class BeneficiariesService {
         seesNid,
         history: await this.history(tx, viewer, access, read.b.id, seesNid),
         media: await publishedWorksOf(tx, read.b.id, rows ?? undefined),
+        // the household, its links and what it received: with the contact class, which holds
+        // the members, and the help only with the application history class too
+        family: viewer.fieldClasses.has(CONTACT)
+          ? await familySection(tx, {
+              headId: read.b.id,
+              members: read.b.beneficiaryFamilyMembersBeneficiary,
+              scope: viewer.scope,
+              seesHelp: viewer.fieldClasses.has(HISTORY),
+              own: read.all,
+              rows,
+              thisYear: dhakaYear(this.clock.now()),
+            })
+          : null,
       };
     });
     if (!found) {
       this.access.denied(viewer.principal.userId, viewer.scope.permission, 'beneficiary');
       throw new ApiError('permission.not_found', 404);
     }
-    const { b, applications, activities, distributions, seesNid, history, media, all, visible } =
-      found;
+    const {
+      b,
+      applications,
+      activities,
+      distributions,
+      seesNid,
+      history,
+      media,
+      all,
+      visible,
+      family,
+    } = found;
     // the projects the caller sees in the profile, each with the state of the person's latest
     // application there (the list is newest first)
     const years = new Map<number, { year: number; projects: Map<string, ProjectOfYear> }>();
@@ -341,18 +365,27 @@ export class BeneficiariesService {
       // told with the identity class, wherever the profile lives: it says a document is on
       // file, never its number
       hasDocument: b.nid !== null || b.birthReg !== null,
-      // the members of the household now: the list of the latest application that carried one
-      familyMembers: b.beneficiaryFamilyMembersBeneficiary.map((m) => ({
-        id: m.id,
-        name: m.name,
-        relationshipCode: m.relationshipCode,
-        relationship: m.relationship
-          ? { bn: m.relationship.labelBn, en: m.relationship.labelEn }
-          : null,
-        ageYears: m.ageYears,
-        occupationCode: m.occupationCode,
-        monthlyIncome: m.monthlyIncome === null ? null : m.monthlyIncome.toNumber(),
-      })),
+      // the members of the household now: the list of the latest application that carried one,
+      // each with the profile it probably is where the viewer reaches that profile
+      familyMembers: b.beneficiaryFamilyMembersBeneficiary
+        .filter((m) => family?.memberIds.has(m.id))
+        .map((m) => ({
+          id: m.id,
+          name: m.name,
+          relationshipCode: m.relationshipCode,
+          relationship: m.relationship
+            ? { bn: m.relationship.labelBn, en: m.relationship.labelEn }
+            : null,
+          ageYears: m.ageYears,
+          occupationCode: m.occupationCode,
+          monthlyIncome: m.monthlyIncome === null ? null : m.monthlyIncome.toNumber(),
+          profile: family?.links.get(m.id) ?? null,
+        })),
+      // the families that probably hold the person as a member, each head the viewer reaches
+      memberOf: family?.memberOf ?? [],
+      // what the family received: the person and the members' profiles the viewer reaches, the
+      // others a number of people
+      familyHelp: family?.help ?? null,
       ...(seesNid ? { nid: b.nid ?? null, birthReg: b.birthReg ?? null } : {}),
       isBlocked: b.isBlocked,
       projectsByYear: [...years.values()]
@@ -689,6 +722,8 @@ export class BeneficiariesService {
           ...(sees(CONTACT) ? {} : none),
           select: {
             id: true,
+            sourceApplicationId: true,
+            createdAt: true,
             name: true,
             relationshipCode: true,
             relationship: { select: { labelBn: true, labelEn: true } },

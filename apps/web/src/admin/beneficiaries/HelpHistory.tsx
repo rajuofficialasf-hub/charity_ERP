@@ -10,10 +10,19 @@ import type { HelpSummary } from '../../api/schemas/beneficiaries';
  * in a year and in one project, and the years newest first with each project's times; a year or a
  * project with more than one shows its number. Help in a project the viewer does not see is
  * counted in its year without a name.
- * The review of an application shows the same for the person's other applications, with its own
- * words for none.
+ * The review of an application shows the same for the person's other applications, and the
+ * family section for the family, each with its own words for none and the first line.
  */
-export function HelpHistory({ help, none }: { help: HelpSummary; none?: string }) {
+export function HelpHistory({
+  help,
+  none,
+  summary,
+}: {
+  help: HelpSummary;
+  none?: string;
+  /** The first line in place of the person's total (the family's help says whose it counts). */
+  summary?: string;
+}) {
   const t = useTranslations('admin.beneficiaries.profile.help');
   const locale = useLocale() as Locale;
   const times = (n: number) => ({ n, count: formatCount(n, locale) });
@@ -22,7 +31,7 @@ export function HelpHistory({ help, none }: { help: HelpSummary; none?: string }
   return (
     <Stack gap={2}>
       <Stack direction="row" wrap gap={2}>
-        <strong>{t('total', times(help.total))}</strong>
+        <strong>{summary ?? t('total', times(help.total))}</strong>
         {help.firstYear !== null && <span>{t('since', { year: String(help.firstYear) })}</span>}
         <span className="admin-muted">{t('this_year', times(help.thisYear))}</span>
       </Stack>

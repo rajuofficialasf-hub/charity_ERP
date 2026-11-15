@@ -106,6 +106,44 @@ const FORM = [
   },
 ];
 
+/** The form with the household's members: the two parts above and a part of the family group. */
+const FAMILY_FORM = [
+  ...FORM,
+  {
+    key: 'section_3',
+    librarySectionKey: null,
+    title: { bn: 'পরিবার', en: 'Family' },
+    visibility: 'volunteer',
+    condition: null,
+    fields: [
+      question('q_members', 'repeat_group', {
+        standardColumn: 'beneficiary_family_members',
+        required: false,
+        settings: { repeat: { earner: false } },
+        label: { bn: 'পরিবারের সদস্য', en: 'Family members' },
+      }),
+      question('q_member_name', 'short_text', {
+        standardColumn: 'name',
+        required: false,
+        settings: { repeat: { group: 'q_members' } },
+        label: { bn: 'সদস্যের নাম', en: 'Member name' },
+      }),
+      question('q_member_relationship', 'single_select', {
+        standardColumn: 'relationship_code',
+        required: false,
+        settings: { repeat: { group: 'q_members' } },
+        label: { bn: 'সম্পর্ক', en: 'Relationship' },
+      }),
+      question('q_member_age', 'number', {
+        standardColumn: 'age_years',
+        required: false,
+        settings: { repeat: { group: 'q_members' } },
+        label: { bn: 'বয়স', en: 'Age' },
+      }),
+    ],
+  },
+];
+
 const noViolations = async (page: Page, where: string) =>
   expect((await scan(page)).violations, where).toEqual([]);
 const fitsThePhone = async (page: Page, where: string) =>
@@ -119,11 +157,15 @@ const fitsThePhone = async (page: Page, where: string) =>
  * A project of the distribution workflow starts with the document and the mobile left free, so
  * both are set to required here: the journey begins where the PM has not allowed anything yet.
  */
-async function projectOfTheJourney(browser: Browser, request: APIRequestContext) {
+async function projectOfTheJourney(
+  browser: Browser,
+  request: APIRequestContext,
+  form: unknown[] = FORM,
+) {
   const id = await onDesk(browser, async (desk) => {
     await signIn(desk, PM);
     await desk.goto('/admin/projects');
-    return activeProject(desk, `পরিচয়ের নিয়ম ${code()}`, ERR, PM, FORM, {
+    return activeProject(desk, `পরিচয়ের নিয়ম ${code()}`, ERR, PM, form, {
       window: windowAroundToday(),
       fundSource: 'সাধারণ দান',
     });
@@ -261,13 +303,22 @@ let projectId = '';
  * office approves it. Answers the person's name and profile and that project, so the journey of a
  * second application reads no state another journey wrote.
  */
-async function helpedPerson(browser: Browser, request: APIRequestContext) {
-  const helpedIn = await projectOfTheJourney(browser, request);
+async function helpedPerson(
+  browser: Browser,
+  request: APIRequestContext,
+  person: {
+    name?: string;
+    father?: string;
+    form?: unknown[];
+    more?: { fieldKey: string; repeatIndex?: number; value: unknown }[];
+  } = {},
+) {
+  const helpedIn = await projectOfTheJourney(browser, request, person.form);
   await identityRulesOn(request, PM, helpedIn, {
     identity_document: 'optional',
     mobile: 'optional',
   });
-  const name = `আগে সাহায্য পাওয়া ${code()}`;
+  const name = person.name ?? `আগে সাহায্য পাওয়া ${code()}`;
   const me = await apiAs(request, VOLUNTEER);
   const form = await me.get(`/projects/${helpedIn}/application-form`);
   expect(form.ok(), await form.text()).toBe(true);
@@ -279,7 +330,7 @@ async function helpedPerson(browser: Browser, request: APIRequestContext) {
     formVersionId: version.id,
     answers: [
       { fieldKey: 'q_name', value: { t: 'short_text', v: name } },
-      { fieldKey: 'q_father', value: { t: 'short_text', v: 'নমুনা পিতা' } },
+      { fieldKey: 'q_father', value: { t: 'short_text', v: person.father ?? 'নমুনা পিতা' } },
       { fieldKey: 'q_gender', value: { t: 'single_select', v: 'female' } },
       {
         fieldKey: 'q_address',
@@ -293,6 +344,7 @@ async function helpedPerson(browser: Browser, request: APIRequestContext) {
       },
       { fieldKey: 'q_village', value: { t: 'short_text', v: 'নমুনা গ্রাম' } },
       { fieldKey: 'q_need', value: { t: 'long_text', v: 'শীতের কাপড় দরকার' } },
+      ...(person.more ?? []),
     ],
   });
   expect(made.status(), await made.text()).toBe(201);
@@ -656,5 +708,67 @@ test.describe('the identity an application asks follows the project', () => {
     expect(refused.status(), await refused.text()).toBe(409);
     const { error } = (await refused.json()) as { error: { code: string } };
     expect(error.code).toBe('workflow.guard.identity_present');
+  });
+  test('the head of a household lists a son, the office opens the son’s profile from the head’s, and the family’s help shows both projects', async ({
+    browser,
+    request,
+  }) => {
+    test.setTimeout(540_000);
+    const headName = `পরিবারের প্রধান ${code()}`;
+    const sonName = `প্রধানের ছেলে ${code()}`;
+    // the head is helped in a project whose form lists the household, the son among it
+    const head = await helpedPerson(browser, request, {
+      name: headName,
+      form: FAMILY_FORM,
+      more: [
+        { fieldKey: 'q_member_name', repeatIndex: 0, value: { t: 'short_text', v: sonName } },
+        {
+          fieldKey: 'q_member_relationship',
+          repeatIndex: 0,
+          value: { t: 'single_select', v: 'son' },
+        },
+        { fieldKey: 'q_member_age', repeatIndex: 0, value: { t: 'number', v: 20 } },
+      ],
+    });
+    // the son is helped in another project, his father the head
+    const son = await helpedPerson(browser, request, { name: sonName, father: headName });
+    const office = await apiAs(request, HEAD);
+    const projectNames = await Promise.all(
+      [head.projectId, son.projectId].map(async (id) => {
+        const read = await office.get(`/projects/${id}`);
+        return ((await read.json()) as { data: { name: { bn: string } } }).data.name.bn;
+      }),
+    );
+    const probably = (name: string) => new RegExp(`^সম্ভবত ${name} \\(BEN-\\d+\\)$`);
+
+    await onDesk(browser, async (desk) => {
+      await signIn(desk, RPM);
+      await desk.goto(`/admin/beneficiaries/${head.beneficiaryId}`);
+      await expect(desk.getByRole('heading', { level: 1, name: headName })).toBeVisible();
+      const family = desk.getByRole('region', { name: 'পরিবার', exact: true });
+      const row = family.getByRole('row').filter({ hasText: sonName });
+      await expect(row).toBeVisible();
+      await expect(row.getByText('ছেলে', { exact: true })).toBeVisible();
+      // what the family received: the head's project and the son's
+      await expect(family.getByRole('heading', { name: 'এই পরিবার যা পেয়েছে' })).toBeVisible();
+      for (const name of projectNames) await expect(family.getByText(name)).toBeVisible();
+      await noViolations(desk, 'the family on the profile');
+      // the link opens the son's profile, which names the family that holds him
+      await row.getByRole('link', { name: probably(sonName) }).click();
+      await expect(desk.getByRole('heading', { level: 1, name: sonName })).toBeVisible();
+      await expect(desk).toHaveURL(new RegExp(`/admin/beneficiaries/${son.beneficiaryId}$`));
+      await expect(
+        desk.getByRole('link', { name: new RegExp(`^সম্ভবত ${headName} .*-এর পরিবারের ছেলে$`) }),
+      ).toBeVisible();
+    });
+    // at 360 px the members are cards with the same link, and the page fits the phone
+    await onDesk(browser, async (desk) => {
+      await desk.setViewportSize({ width: 360, height: 740 });
+      await signIn(desk, RPM);
+      await desk.goto(`/admin/beneficiaries/${head.beneficiaryId}`);
+      const family = desk.getByRole('region', { name: 'পরিবার', exact: true });
+      await expect(family.getByRole('link', { name: probably(sonName) })).toBeVisible();
+      await fitsThePhone(desk, 'the family on the phone');
+    });
   });
 });

@@ -2055,6 +2055,14 @@ components:
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
         photoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: beneficiary.profile_detail }
         helpCount: { type: integer, minimum: 0, x-sensitive-class: beneficiary.application_history, description: 'The times the person was helped (BR-307), kept on the profile by the application moves, the merges and the nightly recount' }
+    FamilyProfileRef:
+      type: object
+      description: Another beneficiary profile the family section names, for a caller who reaches it
+      required: [beneficiaryId, benNo, name]
+      properties:
+        beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        benNo: { type: string, description: 'As read out, BEN-0000123' }
+        name: { type: string }
     HelpSummary:
       type: object
       description: >-
@@ -2230,6 +2238,55 @@ components:
               ageYears: { type: [integer, 'null'], x-sensitive-class: beneficiary.profile_detail }
               occupationCode: { type: [string, 'null'] }
               monthlyIncome: { type: [number, 'null'], minimum: 0, description: 'Taka, up to two decimals' }
+              profile:
+                description: >-
+                  The live profile the member probably is: one with the member's name whose
+                  father's or husband's name is this person's name, in this person's union and
+                  village; only one the caller reaches (the lowest BEN number of several), else
+                  null, also where a profile exists the caller does not reach
+                oneOf:
+                  - { type: 'null' }
+                  - { $ref: '#/components/schemas/FamilyProfileRef' }
+        memberOf:
+          type: array
+          x-sensitive-class: beneficiary.contact
+          description: >-
+            The families that probably hold this person as a member (the family signal of the
+            review read on the profile), only those whose head the caller reaches; a family the
+            caller does not reach is not mentioned
+          items:
+            type: object
+            required: [head, relationships]
+            properties:
+              head: { $ref: '#/components/schemas/FamilyProfileRef' }
+              relationships:
+                type: array
+                items:
+                  type: object
+                  required: [code, name]
+                  properties:
+                    code: { type: string }
+                    name:
+                      oneOf:
+                        - { type: 'null' }
+                        - { $ref: '#/components/schemas/Bilingual' }
+        familyHelp:
+          x-sensitive-class: beneficiary.application_history
+          description: >-
+            What the family received (BR-305): the help of this person and of the members'
+            profiles the caller reaches, counted by the rule of `help`, the projects named as
+            there; `people` is how many profiles were counted, `notShown` how many more profiles
+            of members, beyond the caller's reach, were helped (never a year, a project or an
+            amount). Null without the contact class or without a known member
+          oneOf:
+            - { type: 'null' }
+            - allOf:
+                - { $ref: '#/components/schemas/HelpSummary' }
+                - type: object
+                  required: [people, notShown]
+                  properties:
+                    people: { type: integer, minimum: 1 }
+                    notShown: { type: integer, minimum: 0 }
         nid: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
         birthReg: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }

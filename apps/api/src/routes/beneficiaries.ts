@@ -48,6 +48,9 @@ const history = <T extends ZodType>(schema: T) =>
   sensitive(schema, 'beneficiary.application_history');
 
 const benNo = () => z.number().int().positive();
+/** Another profile the family section names: its id, BEN number as read out, and name. */
+const familyProfileRef = () =>
+  z.object({ beneficiaryId: z.uuid(), benNo: z.string(), name: z.string() });
 
 const beneficiaryRow = z.object({
   id: z.uuid(),
@@ -188,9 +191,35 @@ export const beneficiaryProfile = z.object({
         occupationCode: z.string().nullable(),
         // taka, up to two decimals
         monthlyIncome: z.number().nullable(),
+        // the profile the member probably is, only where the caller reaches it
+        profile: familyProfileRef().nullable(),
       }),
     ),
   ),
+  // the families that probably hold the person as a member, each head the caller reaches
+  memberOf: contact(
+    z.array(
+      z.object({
+        head: familyProfileRef(),
+        relationships: z.array(
+          z.object({
+            code: z.string(),
+            name: z.object({ bn: z.string(), en: z.string() }).nullable(),
+          }),
+        ),
+      }),
+    ),
+  ),
+  // what the family received: the person and the members' profiles the caller reaches; the others
+  // only as a number of people, never a year, a project or an amount
+  familyHelp: history(
+    helpSummarySchema()
+      .extend({
+        people: z.number().int().min(1),
+        notShown: z.number().int().min(0),
+      })
+      .nullable(),
+  ).optional(),
   // inside the caller's beneficiary.view_nid scope only, and only with the class
   nid: sensitive(z.string().nullable(), 'beneficiary.nid').optional(),
   birthReg: sensitive(z.string().nullable(), 'beneficiary.nid').optional(),

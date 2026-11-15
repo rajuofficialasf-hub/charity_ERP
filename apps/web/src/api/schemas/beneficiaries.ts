@@ -35,6 +35,13 @@ export const helpSummarySchema = z.object({
 });
 export type HelpSummary = z.infer<typeof helpSummarySchema>;
 
+/** Another profile the family section names, for a viewer who reaches it. */
+export const familyProfileRefSchema = z.object({
+  beneficiaryId: z.uuid(),
+  benNo: z.string(),
+  name: z.string(),
+});
+
 /** A row of the beneficiary tab (`GET /beneficiaries`). */
 export const beneficiaryRowSchema = z.object({
   id: z.uuid(),
@@ -190,8 +197,27 @@ export const beneficiaryProfileSchema = z.object({
         occupationCode: z.string().nullable(),
         /** Taka, up to two decimals. */
         monthlyIncome: z.number().nullable(),
+        /** The profile the member probably is, only where the viewer reaches it. */
+        profile: familyProfileRefSchema.nullable().default(null),
       }),
     )
+    .optional(),
+  /** The families that probably hold the person as a member, each head the viewer reaches. */
+  memberOf: z
+    .array(
+      z.object({
+        head: familyProfileRefSchema,
+        relationships: z.array(z.object({ code: z.string(), name: bilingual.nullable() })),
+      }),
+    )
+    .optional(),
+  /**
+   * What the family received: the person and the members' profiles the viewer reaches, the others
+   * only as a number of people; absent without the application history class.
+   */
+  familyHelp: helpSummarySchema
+    .extend({ people: z.number().int(), notShown: z.number().int() })
+    .nullable()
     .optional(),
   nid: z.string().nullable().optional(),
   birthReg: z.string().nullable().optional(),

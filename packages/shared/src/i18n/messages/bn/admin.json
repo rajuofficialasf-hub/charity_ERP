@@ -448,7 +448,7 @@
       "sections": {
         "basic": "মূল তথ্য",
         "address": "ঠিকানা",
-        "family": "পরিবারের সদস্য",
+        "family": "পরিবার",
         "projects": "বছরভিত্তিক প্রজেক্ট",
         "applications": "আবেদনের ইতিহাস",
         "distributions": "বিতরণ ও বাস্তবায়ন",
@@ -523,7 +523,17 @@
         "relationship": "সম্পর্ক",
         "age": "বয়স",
         "income": "মাসিক আয়",
-        "card": "বয়স {age} · মাসিক আয় {income}"
+        "card": "বয়স {age} · মাসিক আয় {income}",
+        "members": "পরিবারের সদস্য",
+        "profile": "প্রোফাইল",
+        "probably": "সম্ভবত {name} ({benNo})",
+        "member_of": "সম্ভবত {name} ({benNo})-এর পরিবারের {relationship}",
+        "member_of_plain": "সম্ভবত {name} ({benNo})-এর পরিবারের সদস্য",
+        "or": "বা",
+        "help_title": "এই পরিবার যা পেয়েছে",
+        "help_total": "{people, plural, other {{peopleCount} জনের প্রোফাইল মিলিয়ে মোট {count} বার সাহায্য}}",
+        "help_none": "এই পরিবার এখনো কোনো সাহায্য পায়নি।",
+        "not_shown": "{n, plural, other {আরও {count} জন দেখানো হয়নি}}"
       },
       "fields": {
         "mobile": "মোবাইল",
