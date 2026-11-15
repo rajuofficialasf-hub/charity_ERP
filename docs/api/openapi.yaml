@@ -2242,8 +2242,9 @@ components:
                 description: >-
                   The live profile the member probably is: one with the member's name whose
                   father's or husband's name is this person's name, in this person's union and
-                  village; only one the caller reaches (the lowest BEN number of several), else
-                  null, also where a profile exists the caller does not reach
+                  village, the lowest BEN number of several, chosen whatever the caller reaches;
+                  null where the caller does not reach it, exactly as where no profile matches. A
+                  missing name or village key matches nothing
                 oneOf:
                   - { type: 'null' }
                   - { $ref: '#/components/schemas/FamilyProfileRef' }
@@ -2273,11 +2274,14 @@ components:
         familyHelp:
           x-sensitive-class: beneficiary.application_history
           description: >-
-            What the family received (BR-305): the help of this person and of the members'
-            profiles the caller reaches, counted by the rule of `help`, the projects named as
-            there; `people` is how many profiles were counted, `notShown` how many more profiles
-            of members, beyond the caller's reach, were helped (never a year, a project or an
-            amount). Null without the contact class or without a known member
+            What the family received (BR-305). Each member counts as the one profile it probably
+            is (the lowest BEN number of its matches, chosen whatever the caller reaches). Where a
+            member links to a profile the caller reaches: the help of this person and of those
+            profiles, counted by the rule of `help`, the projects named as there, `people` the
+            profiles counted and `notShown` how many more chosen profiles beyond the caller's reach
+            were helped. Where none does but such profiles were helped: `notShown` alone, never a
+            year, a project or an amount. Null otherwise, and without the contact class. At most
+            the first 50 members of a household are linked and counted
           oneOf:
             - { type: 'null' }
             - allOf:
@@ -2285,8 +2289,13 @@ components:
                 - type: object
                   required: [people, notShown]
                   properties:
-                    people: { type: integer, minimum: 1 }
+                    people: { type: integer, minimum: 2 }
                     notShown: { type: integer, minimum: 0 }
+            - type: object
+              additionalProperties: false
+              required: [notShown]
+              properties:
+                notShown: { type: integer, minimum: 1 }
         nid: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
         birthReg: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }

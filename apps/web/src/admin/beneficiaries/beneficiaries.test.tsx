@@ -11,6 +11,7 @@ import { BeneficiariesPage } from './BeneficiariesPage';
 import { BeneficiaryProfilePage } from './BeneficiaryProfilePage';
 import { bn, type MessageKey } from '@css/shared/i18n';
 import { expectOnScreenColumns, serveExports } from '../../../test/msw/exports';
+import { stubScreen } from '../../../test/match-media';
 
 // The beneficiary tab and the 360° shell (docs/ui/SCREENS.md "Beneficiary tab" and "Beneficiary 360 profile and merge"): counts,
 // filters in the URL, the limited view of the Media Team and the sections. Test data only.
@@ -1596,6 +1597,37 @@ describe('the family members on the profile', () => {
     expect(
       within(sectionOf('Family')).getByText('3 times in all, from 2 profiles'),
     ).toBeInTheDocument();
+  });
+
+  it('shows each member as a card on a phone, with the age, the income and the link', async () => {
+    stubScreen(360);
+    try {
+      refreshAs(HEAD);
+      serve(fullRow, {}, { ...empty360, familyMembers: linked });
+      await opened();
+      const section = within(sectionOf('পরিবার'));
+      // no table on a phone: the cards hold the same facts
+      expect(section.queryByRole('columnheader', { name: 'মাসিক আয়' })).not.toBeInTheDocument();
+      expect(section.getByText('বয়স 34 বছর · মাসিক আয় ৳ 3,000')).toBeInTheDocument();
+      expect(section.getByRole('link', { name: 'সম্ভবত সালাম (BEN-0000007)' })).toHaveAttribute(
+        'href',
+        `/admin/beneficiaries/${SON}`,
+      );
+      expect(section.getByText('করিম')).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('shows only the count where no member links to a profile the viewer reaches', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: MEMBERS, familyHelp: { notShown: 2 } });
+    await opened();
+    const section = within(sectionOf('পরিবার'));
+    expect(section.getByText('আরও 2 জন দেখানো হয়নি')).toBeInTheDocument();
+    expect(
+      section.queryByRole('heading', { name: 'এই পরিবার যা পেয়েছে' }),
+    ).not.toBeInTheDocument();
   });
 
   it('draws no family help where the server sent none', async () => {

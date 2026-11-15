@@ -135,3 +135,37 @@ describe('the family on the profile PDF', () => {
     expect(page({ familyMembers: [] })).not.toContain('এই পরিবার যা পেয়েছে');
   });
 });
+
+describe('the family on the profile PDF of an export without the contact class', () => {
+  const base: ProfileForPdf = {
+    benNo: 42,
+    name: 'নমুনা',
+    status: 'active',
+    divisionId: 'd',
+    districtId: 'e',
+    upazilaId: 'u',
+    projectsByYear: [],
+  };
+  const page = (over: Partial<ProfileForPdf>) =>
+    profileHtml({
+      locale: 'bn',
+      profile: { ...base, ...over },
+      places: new Map(),
+      date: new Date(),
+    });
+
+  it('prints no family heading, no link to a profile and no income where the mask left the family out', () => {
+    // the masked export carries none of the three fields
+    const html = page({});
+    expect(html).not.toContain(bn.exports.pdf.record.family);
+    expect(html).not.toContain('সম্ভবত');
+    expect(html).not.toContain(bn.exports.pdf.record.income);
+    expect(html).not.toContain(bn.exports.pdf.record.family_help);
+  });
+
+  it('prints only the count where no member links to a profile the export reaches', () => {
+    const html = page({ familyHelp: { notShown: 2 } });
+    expect(html).toContain('আরও 2 জন দেখানো হয়নি');
+    expect(html).not.toContain(bn.exports.pdf.record.family_help);
+  });
+});

@@ -233,7 +233,7 @@ describe('the household now', () => {
     expect((data.familyMembers as Member[]).map((m) => m.name)).toEqual(['নতুন সদস্য']);
   });
 
-  it('after a merge shows the kept household, and after its revert each profile its own', async () => {
+  it('after a merge shows the newer household, the merged-in one here, and after its revert each profile its own', async () => {
     const tree = await f.locationTree(h.db);
     const name = unique('হাবিব');
     const father = unique('হাশেম');
@@ -242,12 +242,12 @@ describe('the household now', () => {
     const keptApp = await f.application(
       h.db,
       { project: world.a1, loc: tree },
-      { beneficiary_id: kept, status: 'submitted', submitted_at: '2026-02-01T00:00:00Z' },
+      { beneficiary_id: kept, status: 'submitted', submitted_at: '2025-02-01T00:00:00Z' },
     );
     const retiredApp = await f.application(
       h.db,
       { project: world.a2, loc: tree },
-      { beneficiary_id: retired, status: 'submitted', submitted_at: '2025-02-01T00:00:00Z' },
+      { beneficiary_id: retired, status: 'submitted', submitted_at: '2026-02-01T00:00:00Z' },
     );
     await members(kept, [{ name: 'রাখা পরিবারের সদস্য' }], keptApp);
     await members(retired, [{ name: 'অবসর পরিবারের সদস্য' }], retiredApp);
@@ -259,7 +259,8 @@ describe('the household now', () => {
     expect(merged.status, JSON.stringify(merged.body)).toBe(201);
     const names = async (id: string) =>
       ((await profile(await head(), id)).body.data.familyMembers as Member[]).map((m) => m.name);
-    expect(await names(kept)).toEqual(['রাখা পরিবারের সদস্য']);
+    // the retired profile's list was submitted later: it is the household of the kept profile now
+    expect(await names(kept)).toEqual(['অবসর পরিবারের সদস্য']);
     await api()
       .post(`/api/v1/beneficiary-merges/${merged.body.data.id}/revert`)
       .set(bearer(await as(world.users.monitoring)))
@@ -267,5 +268,111 @@ describe('the household now', () => {
       .expect(200);
     expect(await names(kept)).toEqual(['রাখা পরিবারের সদস্য']);
     expect(await names(retired)).toEqual(['অবসর পরিবারের সদস্য']);
+  });
+});
+
+describe('which profile a member is', () => {
+  it('chooses one profile per member whatever the viewer reaches, and never links another in its place', async () => {
+    const tree = await f.locationTree(h.db);
+    const headName = unique('মজিদ');
+    const headId = await person(tree, headName, unique('রশিদ'));
+    const sonName = unique('জসিম');
+    // two profiles of the son's name and father: the first made has the lower BEN number
+    const lower = await person(tree, sonName, headName);
+    const higher = await person(tree, sonName, headName);
+    const projects = {
+      head: await f.project(h.db, { year: 2025 }),
+      lower: await f.project(h.db, { year: 2025 }),
+      higher: await f.project(h.db, { year: 2026 }),
+    };
+    await helped(projects.head, tree, headId);
+    await helped(projects.lower, tree, lower);
+    await helped(projects.higher, tree, higher);
+    await members(headId, [{ name: sonName, relationship: 'son' }]);
+    const [low, high] = (
+      await h.db.query<{ id: string; ben_no: number }>(
+        'SELECT id, ben_no FROM beneficiaries WHERE id = ANY($1) ORDER BY ben_no',
+        [[lower, higher]],
+      )
+    ).rows;
+    expect(low!.id).toBe(lower);
+    expect(low!.ben_no).toBeLessThan(high!.ben_no);
+    // a viewer who reaches everyone: the lower BEN number
+    const full = (await profile(await head(), headId)).body.data;
+    expect((full.familyMembers as Member[])[0]!.profile).toMatchObject({ beneficiaryId: lower });
+    expect(full.familyHelp).toMatchObject({ people: 2, notShown: 0 });
+    // a viewer who reaches the head and the higher one only: the member is the lower one all the
+    // same, so nothing is linked, and the family's help is the bare count of that one person
+    const limited = await readReachingOnly([projects.head.id, projects.higher.id], headId);
+    expect(limited.familyMembers[0]!.profile).toBeNull();
+    expect(limited.familyHelp).toEqual({ notShown: 1 });
+    expect(JSON.stringify(limited)).not.toContain(higher);
+  });
+
+  it('counts a profile two members chose once', async () => {
+    const tree = await f.locationTree(h.db);
+    const headName = unique('মতিন');
+    const headId = await person(tree, headName, unique('সামাদ'));
+    const sonName = unique('বাদল');
+    const son = await person(tree, sonName, headName);
+    const project = await f.project(h.db, { year: 2025 });
+    await helped(project, tree, son);
+    // the same son written twice in the list
+    await members(headId, [{ name: sonName }, { name: sonName }]);
+    const data = (await profile(await head(), headId)).body.data;
+    expect((data.familyMembers as Member[]).map((m) => m.profile?.beneficiaryId)).toEqual([
+      son,
+      son,
+    ]);
+    expect(data.familyHelp).toMatchObject({ people: 2, total: 1, notShown: 0 });
+  });
+
+  it('matches nobody through a village or a name of no letter, and tells no family help then', async () => {
+    const tree = await f.locationTree(h.db);
+    const headName = unique('সবুর');
+    // a village of punctuation alone has no key
+    const headId = await person(tree, headName, unique('গফুর'), '...');
+    const sonName = unique('রতন');
+    await person(tree, sonName, headName, '---');
+    await helped(await f.project(h.db, { year: 2025 }), tree, headId);
+    await members(headId, [{ name: sonName }, { name: '...' }]);
+    const keys = await h.db.query<{ village_key: string | null }>(
+      'SELECT village_key FROM beneficiaries WHERE id = $1',
+      [headId],
+    );
+    expect(keys.rows[0]!.village_key).toBeNull();
+    const data = (await profile(await head(), headId)).body.data;
+    expect((data.familyMembers as Member[]).every((m) => m.profile === null)).toBe(true);
+    // no member links to anyone: the family's help would only repeat the person's own
+    expect(data.familyHelp).toBeNull();
+  });
+});
+
+describe('the family that holds a person', () => {
+  it('is named only where its household now holds the person', async () => {
+    const tree = await f.locationTree(h.db);
+    const headName = unique('আজিজ');
+    const headId = await person(tree, headName, unique('হামিদ'));
+    const sonName = unique('শফিক');
+    const son = await person(tree, sonName, headName);
+    const older = await f.application(
+      h.db,
+      { project: await f.project(h.db), loc: tree },
+      { beneficiary_id: headId, status: 'submitted', submitted_at: '2025-01-01T00:00:00Z' },
+    );
+    const newer = await f.application(
+      h.db,
+      { project: await f.project(h.db), loc: tree },
+      { beneficiary_id: headId, status: 'submitted', submitted_at: '2026-01-01T00:00:00Z' },
+    );
+    // two lists stand active; only the older one holds the son
+    await members(headId, [{ name: sonName, relationship: 'son' }], older);
+    await members(headId, [{ name: unique('অন্য সদস্য') }], newer);
+    expect((await profile(await head(), son)).body.data.memberOf).toEqual([]);
+    // once the son is in the newer list too, the family is named
+    await members(headId, [{ name: sonName, relationship: 'son' }], newer);
+    expect((await profile(await head(), son)).body.data.memberOf).toEqual([
+      expect.objectContaining({ head: expect.objectContaining({ beneficiaryId: headId }) }),
+    ]);
   });
 });

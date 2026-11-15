@@ -212,13 +212,18 @@ export const beneficiaryProfile = z.object({
   ),
   // what the family received: the person and the members' profiles the caller reaches; the others
   // only as a number of people, never a year, a project or an amount
+  // where no member links to a profile the caller reaches, only how many helped members'
+  // profiles the caller cannot open
   familyHelp: history(
-    helpSummarySchema()
-      .extend({
-        people: z.number().int().min(1),
+    z.union([
+      helpSummarySchema().extend({
+        people: z.number().int().min(2),
         notShown: z.number().int().min(0),
-      })
-      .nullable(),
+      }),
+      z.strictObject({ notShown: z.number().int().min(1) }),
+      // null is an option of its own: the mask matches a union's value against its options
+      z.null(),
+    ]),
   ).optional(),
   // inside the caller's beneficiary.view_nid scope only, and only with the class
   nid: sensitive(z.string().nullable(), 'beneficiary.nid').optional(),

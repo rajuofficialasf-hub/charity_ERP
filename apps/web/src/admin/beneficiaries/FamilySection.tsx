@@ -92,7 +92,7 @@ export function FamilySection({
           )}
         />
       )}
-      {help && (
+      {help && 'years' in help && (
         <Stack gap={2}>
           <Heading level={3}>{t('family.help_title')}</Heading>
           <HelpHistory
@@ -108,6 +108,10 @@ export function FamilySection({
             <Text tone="muted">{t('family.not_shown', times(help.notShown))}</Text>
           )}
         </Stack>
+      )}
+      {/* no member links to a profile the viewer reaches: only how many others were helped */}
+      {help && !('years' in help) && help.notShown > 0 && (
+        <Text tone="muted">{t('family.not_shown', times(help.notShown))}</Text>
       )}
     </Stack>
   );

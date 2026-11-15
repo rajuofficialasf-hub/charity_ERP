@@ -41,17 +41,21 @@ export interface ProfileForPdf {
   /** The families that probably hold the person, each head the requester reaches. */
   memberOf?: { head: ProfileRef; relationships: { code: string; name: Words | null }[] }[];
   /** What the family received, with the application history class; absent or null otherwise. */
-  familyHelp?: {
-    total: number;
-    people: number;
-    notShown: number;
-    years: {
-      year: number;
-      count: number;
-      projects: { id: string; nameBn: string; nameEn: string; count: number }[];
-      unnamed: number;
-    }[];
-  } | null;
+  /** Or, where no member links to a profile the requester reaches, only the count of the others. */
+  familyHelp?:
+    | {
+        total: number;
+        people: number;
+        notShown: number;
+        years: {
+          year: number;
+          count: number;
+          projects: { id: string; nameBn: string; nameEn: string; count: number }[];
+          unnamed: number;
+        }[];
+      }
+    | { notShown: number }
+    | null;
   projectsByYear: {
     year: number;
     projects: { id: string; nameBn: string; nameEn: string; status: string }[];
@@ -96,7 +100,9 @@ export function profileHtml(input: {
     ref
       ? translate(locale, 'exports.pdf.record.probably', { name: ref.name, benNo: ref.benNo })
       : '';
-  const help = p.familyHelp ?? null;
+  // the family's help where a member links to a profile the export reaches, else only the count
+  const summed = p.familyHelp && 'years' in p.familyHelp ? p.familyHelp : null;
+  const notShown = p.familyHelp?.notShown ?? 0;
   const address = [p.village, p.unionId, p.upazilaId, p.districtId, p.divisionId]
     .map((part, i) => (i === 0 ? part : part ? places.get(part) : undefined))
     .filter(Boolean)
@@ -163,7 +169,7 @@ export function profileHtml(input: {
       })),
     )}
     ${
-      help
+      summed
         ? html`${tableHtml(
             t('exports.pdf.record.family_help'),
             [
@@ -171,7 +177,7 @@ export function profileHtml(input: {
               t('exports.pdf.record.project'),
               t('exports.pdf.record.times'),
             ],
-            help.years.flatMap((y) => [
+            summed.years.flatMap((y) => [
               ...y.projects.map((pr) => [
                 String(y.year),
                 locale === 'en' ? pr.nameEn : pr.nameBn,
@@ -187,16 +193,16 @@ export function profileHtml(input: {
                   ]
                 : []),
             ]),
-          )}
-          ${
-            help.notShown
-              ? html`<p class="meta">
-                  ${translate(locale, 'exports.pdf.record.not_shown', {
-                    count: formatCount(help.notShown, locale),
-                  })}
-                </p>`
-              : html``
-          }`
+          )}`
+        : html``
+    }
+    ${
+      notShown
+        ? html`<p class="meta">
+            ${translate(locale, 'exports.pdf.record.not_shown', {
+              count: formatCount(notShown, locale),
+            })}
+          </p>`
         : html``
     }
     ${tableHtml(

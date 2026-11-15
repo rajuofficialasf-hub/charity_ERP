@@ -215,8 +215,12 @@ export const beneficiaryProfileSchema = z.object({
    * What the family received: the person and the members' profiles the viewer reaches, the others
    * only as a number of people; absent without the application history class.
    */
-  familyHelp: helpSummarySchema
-    .extend({ people: z.number().int(), notShown: z.number().int() })
+  familyHelp: z
+    .union([
+      helpSummarySchema.extend({ people: z.number().int(), notShown: z.number().int() }),
+      /** No member links to a profile the viewer reaches: only how many others were helped. */
+      z.object({ notShown: z.number().int() }),
+    ])
     .nullable()
     .optional(),
   nid: z.string().nullable().optional(),
