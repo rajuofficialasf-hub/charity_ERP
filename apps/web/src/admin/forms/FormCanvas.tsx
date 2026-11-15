@@ -187,6 +187,9 @@ export function CanvasDnd({
   const landingNow = useRef<Landing | null>(null);
   // whether the dragged question has been over a place it can go to since it was picked up
   const wandered = useRef(false);
+  // whether a question is on its way: the drag's last move may be told after its end, and must
+  // then neither draw a line nor take the place of what the end said
+  const underWay = useRef(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -220,13 +223,18 @@ export function CanvasDnd({
   };
   const started = (event: DragStartEvent) => {
     onDragging?.(true);
+    underWay.current = true;
     wandered.current = false;
     show(null);
     const id = String(event.active.id);
     const type = typeFromDragId(id);
     setGhost(type ? tt(type) : nameOf(id));
   };
+  const moved = (event: DragMoveEvent) => {
+    if (underWay.current) show(landingOf(event));
+  };
   const ended = () => {
+    underWay.current = false;
     onDragging?.(false);
     setGhost(null);
     setLanding(null);
@@ -264,6 +272,7 @@ export function CanvasDnd({
     };
   };
   const whileDragged = (id: string) => {
+    if (!underWay.current) return undefined;
     const at = landingNow.current;
     if (at) return t('dnd.will_land', { label: nameOf(id), ...placeOf(at) });
     // just picked up, the question is over its own place: the pick-up was said already
@@ -295,8 +304,8 @@ export function CanvasDnd({
         screenReaderInstructions: { draggable: t('dnd.instructions') },
       }}
       onDragStart={started}
-      onDragMove={(event) => show(landingOf(event))}
-      onDragOver={(event) => show(landingOf(event))}
+      onDragMove={moved}
+      onDragOver={moved}
       onDragEnd={dropped}
       onDragCancel={cancelled}
     >
