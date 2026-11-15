@@ -2054,6 +2054,43 @@ components:
         hasDocument: { type: boolean, x-sensitive-class: beneficiary.nid, description: 'Whether an NID or a birth registration number is on file; never the number (D-172)' }
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
         photoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: beneficiary.profile_detail }
+        helpCount: { type: integer, minimum: 0, x-sensitive-class: beneficiary.application_history, description: 'The times the person was helped (BR-307), kept on the profile by the application moves, the merges and the nightly recount' }
+    HelpSummary:
+      type: object
+      description: >-
+        How often the person was helped (BR-307): the counted applications are the approved ones
+        and the states after it, and a closed one only when it was approved before the close
+        and its outcome is not the template's not-delivered one. Every counted application of
+        the person and of a profile merged into them is counted; a project the caller does not
+        see in the profile is counted in its year's `unnamed`, never named
+      required: [total, firstYear, thisYear, repeatedInYear, repeatedInProject, years]
+      properties:
+        total: { type: integer, minimum: 0 }
+        firstYear: { type: [integer, 'null'], description: The year of the earliest help; null when never helped }
+        thisYear: { type: integer, minimum: 0, description: The times helped in the current year (Asia/Dhaka) }
+        repeatedInYear: { type: boolean, description: Helped more than once in one year }
+        repeatedInProject: { type: boolean, description: Helped more than once in one project }
+        years:
+          type: array
+          description: The years with help, newest first
+          items:
+            type: object
+            required: [year, count, projects, unnamed]
+            properties:
+              year: { type: integer }
+              count: { type: integer, minimum: 1 }
+              projects:
+                type: array
+                items:
+                  type: object
+                  required: [id, code, nameBn, nameEn, count]
+                  properties:
+                    id: { $ref: '#/components/schemas/Uuid' }
+                    code: { type: string }
+                    nameBn: { type: string }
+                    nameEn: { type: string }
+                    count: { type: integer, minimum: 1 }
+              unnamed: { type: integer, minimum: 0, description: The times helped that year in projects the caller does not see }
     BeneficiaryStatistics:
       type: object
       required: [total, assistedThisYear]
@@ -2217,42 +2254,8 @@ components:
             project-scoped caller only its projects), never cut to a page of applications; a merge's
             left-behind applications included
         help:
-          type: object
+          allOf: [{ $ref: '#/components/schemas/HelpSummary' }]
           x-sensitive-class: beneficiary.application_history
-          description: >-
-            How often the person was helped (BR-307): the counted applications are the approved ones
-            and the states after it, and a closed one only when it was approved before the close
-            and its outcome is not the template's not-delivered one. Every counted application of
-            the person and of a profile merged into them is counted; a project the caller does not
-            see in the profile is counted in its year's `unnamed`, never named
-          required: [total, firstYear, thisYear, repeatedInYear, repeatedInProject, years]
-          properties:
-            total: { type: integer, minimum: 0 }
-            firstYear: { type: [integer, 'null'], description: The year of the earliest help; null when never helped }
-            thisYear: { type: integer, minimum: 0, description: The times helped in the current year (Asia/Dhaka) }
-            repeatedInYear: { type: boolean, description: Helped more than once in one year }
-            repeatedInProject: { type: boolean, description: Helped more than once in one project }
-            years:
-              type: array
-              description: The years with help, newest first
-              items:
-                type: object
-                required: [year, count, projects, unnamed]
-                properties:
-                  year: { type: integer }
-                  count: { type: integer, minimum: 1 }
-                  projects:
-                    type: array
-                    items:
-                      type: object
-                      required: [id, code, nameBn, nameEn, count]
-                      properties:
-                        id: { $ref: '#/components/schemas/Uuid' }
-                        code: { type: string }
-                        nameBn: { type: string }
-                        nameEn: { type: string }
-                        count: { type: integer, minimum: 1 }
-                  unnamed: { type: integer, minimum: 0, description: The times helped that year in projects the caller does not see }
         applications:
           type: array
           x-sensitive-class: beneficiary.application_history
@@ -3636,6 +3639,16 @@ components:
                     properties:
                       level: { type: string, enum: [probable] }
             samePersonSignalsTotal: { type: integer, minimum: 0, description: 'How many open probable pairs there are in all, also beyond the ones listed; 0 for a volunteer' }
+            helpedBefore:
+              x-sensitive-class: beneficiary.application_history
+              description: >-
+                How often the person was helped by their other applications and those a merge left on
+                a profile retired into them (BR-307), read live as the profile reads it; a project the
+                caller does not see in a profile is counted in its year's `unnamed`, never named. Null
+                before a person is bound
+              oneOf:
+                - $ref: '#/components/schemas/HelpSummary'
+                - type: 'null'
             availableActions: { type: array, items: { type: string }, description: Actions the caller may perform now }
             decisionHints:
               type: object
@@ -7141,13 +7154,15 @@ paths:
         the officials and the Media Team nationwide, the Procurement Team only the beneficiaries of
         its house-construction projects. A digit search matches the mobile only with the
         beneficiary.contact class, an NID or birth registration only inside the beneficiary.view_nid
-        scope.
+        scope. With the beneficiary.application_history class each row carries the times the person
+        was helped (`helpCount`, kept on the profile), and the list filters on "more than once in a
+        year" and orders by that count; without the class the filter and the order are refused (403).
       x-permission: beneficiary.view_all
       x-scope: beneficiary
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail, beneficiary.nid]
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail, beneficiary.nid, beneficiary.application_history]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/PageNumber'
@@ -7181,6 +7196,17 @@ paths:
           in: query
           description: true for blocked beneficiaries; 403 without the beneficiary.care class (O-67)
           schema: { type: string, enum: ['true', 'false'] }
+        - name: helpedMoreThanOnceInYear
+          in: query
+          description: true for the people helped more than once in one project year (the kept counter `max_helps_in_year`, BR-307); 403 without the beneficiary.application_history class
+          schema: { type: string, enum: ['true'] }
+        - name: sort
+          in: query
+          description: >-
+            By the times helped (`-helpCount` most first, `helpCount` fewest first; the newest first
+            among equals), else the newest first; 403 without the beneficiary.application_history
+            class. A cursor belongs to the order it was made in
+          schema: { type: string, enum: ['-helpCount', helpCount] }
       responses:
         '200':
           description: Beneficiaries
@@ -7206,7 +7232,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail]
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail, beneficiary.application_history]
       parameters:
         - $ref: '#/components/parameters/Search'
         - $ref: '#/components/parameters/VolunteerDivisionId'
@@ -7236,6 +7262,10 @@ paths:
           in: query
           description: true for blocked beneficiaries; 403 without the beneficiary.care class (O-67)
           schema: { type: string, enum: ['true', 'false'] }
+        - name: helpedMoreThanOnceInYear
+          in: query
+          description: true for the people helped more than once in one project year (the kept counter `max_helps_in_year`, BR-307); 403 without the beneficiary.application_history class
+          schema: { type: string, enum: ['true'] }
       responses:
         '200':
           description: Counts
@@ -9430,7 +9460,7 @@ paths:
       x-audit: application.create
       x-idempotency: clientUuid
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail, beneficiary.application_history]
       requestBody:
         required: true
         content:
@@ -9466,7 +9496,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail, beneficiary.application_history]
       responses:
         '200':
           description: Application
@@ -9558,7 +9588,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail, beneficiary.application_history]
       responses:
         '200':
           description: Application
@@ -9579,7 +9609,7 @@ paths:
       x-audit: application.update
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail, beneficiary.application_history]
       x-workflow: { scope: application, action: edit }
       parameters:
         - $ref: '#/components/parameters/IfMatch'
@@ -9615,7 +9645,7 @@ paths:
       x-audit: application.<action>
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail, beneficiary.application_history]
       x-workflow: { scope: application, action: path }
       parameters:
         - $ref: '#/components/parameters/IfMatch'

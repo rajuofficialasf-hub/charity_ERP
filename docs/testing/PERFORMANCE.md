@@ -136,6 +136,51 @@ has no duplicates) and marked inactive again by a run of the job:
 `pnpm --filter @css/api perf:lists --only mergeCandidates` measures the list, and the flag
 `--duplicates-job` times one run of the job first.
 
+### The times helped (U14 of the identity plan, D-172, BR-307; 2026-11-15)
+
+The beneficiary list shows, filters ("helped more than once in a year") and orders by how often a
+person was helped. Counting it per request over 2,000,000 people is out of the question, so the
+count is kept on the profile (`help_count`, `max_helps_in_year`; docs/database/DATABASE_SCHEMA.md,
+"beneficiaries") with two indexes: (help_count, id) and (id) WHERE max_helps_in_year > 1, both
+among the live profiles. `perf:lists` gained the cases "helped more than once in a year" (with and
+without the total), "by times helped" (first and next page, fewest first, inside a district, and
+with the filter) and the flag `--help-counters-job`, which times one run of the nightly recount.
+
+Run of 2026-11-15, same machine and server settings as section 2, after `VACUUM ANALYZE`; the data
+set holds 187,500 people helped once and, as `perf:seed` makes one application per person, nobody
+helped twice. A second run made one helped person in ten (19,270) a repeat by writing their counters
+by hand, then let the nightly job put them back. Times in milliseconds, p50 / p95 of 20 runs:
+
+| Case | Head (no repeats) | RPM (no repeats) | Head (19,270 repeats) | RPM (19,270 repeats) |
+|---|---|---|---|---|
+| `beneficiaries.list` first page (for comparison) | 6 / 7 | 5 / 6 | | |
+| `beneficiaries.list` helped more than once in a year | 5 / 5 | 5 / 6 | 6 / 10 | 6 / 6 |
+| `beneficiaries.list` helped more than once + total | 6 / 8 | 8 / 10 | 10 / 11 | 9 / 15 |
+| `beneficiaries.list` by times helped | 5 / 7 | 7 / 8 | 7 / 8 | 6 / 6 |
+| `beneficiaries.list` by times helped, next page | 6 / 8 | 5 / 6 | 6 / 7 | 6 / 7 |
+| `beneficiaries.list` by times helped, fewest first | 5 / 6 | 5 / 5 | 6 / 8 | 5 / 7 |
+| `beneficiaries.list` district by times helped | 5 / 6 | 5 / 5 | 7 / 9 | 5 / 7 |
+| `beneficiaries.list` more than once by times helped | 5 / 6 | 4 / 5 | 6 / 7 | 5 / 5 |
+
+Every new case is far inside the 300 ms target. The migration `20261115120000_beneficiary_help_counters`
+on this data set, run in a transaction that was rolled back: 61 seconds in all, of which the backfill
+UPDATE (187,500 rows written) 57.6 s, its count alone 1.2 s, the CHECK 0.8 s and the two indexes 2.2
+and 0.5 s; writing the rows and their many indexes is the cost, not the count (docs/ops/DEPLOYMENT.md).
+The nightly recount over all 2,000,000 profiles: 32 s when nothing is wrong, 52 s when it repairs
+the 19,270 changed counters. Its first version took 19 minutes: each batch's count (20 ms on its own)
+spent about 0.8 s in PostgreSQL's JIT compilation, because the recursive query over the merges is
+estimated far above the rows it reads, and it locked all 2,000 rows of each batch (a lock writes
+to every row). The counting now turns JIT off for its own statements (`withoutJit` and
+`writeHelpCounts` of `services/help-history.ts`, the setting put back afterwards) and the job counts
+without a lock, then locks and counts again only the profiles whose counter differs.
+
+Found and left (not caused by this change, which adds no statement to these calls): the same run
+measured `beneficiaries.statistics` all at 1,473 / 1,673 ms (Head) and 1,437 / 1,710 ms (RPM), and
+district at 295 / 339 and 294 / 318, over the 300 ms target, and the profile at 54 / 95 (it was
+16 / 28 in section 3). The counts of men and women (D-146) and of "assisted this year" read by the
+shared rule (U13) came after the measurement of section 3; their plans read the table rather than an
+index. They need their own measurement and a proposal.
+
 ## 5. When to measure again
 
 - when a nationwide list gains a filter, a sort or a column read from another table;

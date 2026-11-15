@@ -1,4 +1,9 @@
-import { type BeneficiaryRow, formatBenNo } from '@css/shared/beneficiaries';
+import {
+  BENEFICIARY_SORTS,
+  type BeneficiaryRow,
+  type BeneficiarySort,
+  formatBenNo,
+} from '@css/shared/beneficiaries';
 import { formatCount } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
@@ -14,6 +19,7 @@ import {
   Stack,
   StatFilterBar,
   type ActiveFilter,
+  type DataTableSort,
   type StatFilterItem,
   type DataTableExtendedColumn,
 } from '@/ui';
@@ -40,6 +46,7 @@ import {
   canSeeBeneficiaries,
   canSeeBeneficiaryAddress,
   canSeeBeneficiaryDetails,
+  canSeeHelpHistory,
 } from '../roles';
 import { useTabView } from '../use-tab-view';
 import {
@@ -97,26 +104,51 @@ export function BeneficiariesPage() {
         documentTitle={false}
       />
       {lookup && <LookupDialog onClose={() => setLookup(false)} />}
-      <BeneficiaryTab details={canSeeBeneficiaryDetails(me)} union={canSeeBeneficiaryAddress(me)} />
+      <BeneficiaryTab
+        details={canSeeBeneficiaryDetails(me)}
+        union={canSeeBeneficiaryAddress(me)}
+        history={canSeeHelpHistory(me)}
+      />
     </>
   );
 }
 
-function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }) {
+/** The column of the times helped, and the two orders it offers. */
+const HELPS_COLUMN = 'helps';
+const isSort = (value: string | undefined): value is BeneficiarySort =>
+  (BENEFICIARY_SORTS as readonly (string | undefined)[]).includes(value);
+
+function BeneficiaryTab({
+  details,
+  union,
+  history,
+}: {
+  details: boolean;
+  union: boolean;
+  /** The times helped: the column, the filter and the order (the application history class). */
+  history: boolean;
+}) {
   const t = useTranslations('admin.beneficiaries');
   const tp = useTranslations('admin.projects');
   const locale = useLocale() as Locale;
   // a filter the role may not use is never read from the URL (an older or shared link)
-  const keys = FILTER_KEYS.filter(
-    (key) =>
-      (details || (key !== 'type' && key !== 'blocked' && key !== 'gender')) &&
-      (union || key !== 'unionId'),
-  );
-  const { filters, setFilters, change, q, onSearch, page, cursor, goTo } = useTabView(keys);
+  const keys = [
+    ...FILTER_KEYS.filter(
+      (key) =>
+        (details || (key !== 'type' && key !== 'blocked' && key !== 'gender')) &&
+        (union || key !== 'unionId') &&
+        (history || key !== 'helpedMoreThanOnceInYear'),
+    ),
+    // the order lives in the URL beside the filters, but only the list reads it
+    ...(history ? (['sort'] as const) : []),
+  ];
+  const { filters: view, setFilters, change, q, onSearch, page, cursor, goTo } = useTabView(keys);
+  const { sort: sortValue, ...filters } = view;
+  const sort = isSort(sortValue) ? sortValue : undefined;
 
   const list = useQuery({
-    queryKey: [...BENEFICIARIES_KEY, 'page', filters, q, page, cursor],
-    queryFn: () => beneficiaryPage(filters, q, page, cursor),
+    queryKey: [...BENEFICIARIES_KEY, 'page', filters, sort, q, page, cursor],
+    queryFn: () => beneficiaryPage(filters, q, page, cursor, sort),
   });
   // a count card filters the list, not the counts: every card keeps its number when one is chosen
   const blockedCard = filters.blocked === 'true';
@@ -240,8 +272,37 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
         ]
       : []),
     { id: 'area', header: t('column.area'), cell: (r) => <Area row={r} />, priority: 2 },
+    ...(history
+      ? [
+          {
+            id: HELPS_COLUMN,
+            header: t('column.helps'),
+            cell: (r: BeneficiaryRow) =>
+              r.helpCount === undefined ? (
+                <EmptyValue label={t('none')} />
+              ) : (
+                formatCount(r.helpCount, locale)
+              ),
+            numeric: true,
+            sortable: true,
+            priority: 2 as const,
+          },
+        ]
+      : []),
     { id: 'status', header: t('column.status'), cell: status },
   ];
+  const tableSort: DataTableSort | undefined = sort
+    ? { columnId: HELPS_COLUMN, direction: sort === '-helpCount' ? 'desc' : 'asc' }
+    : undefined;
+  const changeSort = (next: DataTableSort) =>
+    change({
+      sort:
+        next.columnId === HELPS_COLUMN
+          ? next.direction === 'desc'
+            ? '-helpCount'
+            : 'helpCount'
+          : undefined,
+    });
 
   const projectName = (id: string) => {
     const found = projects.data?.find((p) => p.id === id);
@@ -285,6 +346,24 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
           },
         ]
       : []),
+    ...(filters.helpedMoreThanOnceInYear
+      ? [
+          {
+            id: 'helpedMoreThanOnceInYear',
+            label: `${t('filter.help')}: ${t('filter.help_repeated')}`,
+            onRemove: () => change({ helpedMoreThanOnceInYear: undefined }),
+          },
+        ]
+      : []),
+    ...(sort
+      ? [
+          {
+            id: 'sort',
+            label: `${t('filter.order')}: ${t(sort === '-helpCount' ? 'filter.order_most' : 'filter.order_least')}`,
+            onRemove: () => change({ sort: undefined }),
+          },
+        ]
+      : []),
     ...(filters.blocked === 'false'
       ? [
           {
@@ -313,6 +392,7 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
           loading={stats.isPending}
         />
       )}
+      {/* the order is the screen's; the file keeps the list's own */}
       <ExportButton list="beneficiaries" filters={{ ...filters, q }} />
       <DataTable
         label={t('table')}
@@ -321,6 +401,7 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
         getRowId={(r) => r.id}
         rowLabel={(r) => r.name}
         rowActions={actions}
+        {...(history ? { sort: tableSort, onSortChange: changeSort } : {})}
         loading={list.isPending}
         error={
           list.error ? (
@@ -392,6 +473,14 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
                     onChange={(id) => change({ blocked: id || undefined })}
                   />
                 )}
+                {history && (
+                  <SelectField
+                    label={t('filter.help')}
+                    value={filters.helpedMoreThanOnceInYear ?? ''}
+                    options={[{ value: 'true', label: t('filter.help_repeated') }]}
+                    onChange={(id) => change({ helpedMoreThanOnceInYear: id || undefined })}
+                  />
+                )}
               </fieldset>
             </>
           </FilterBar>
@@ -413,6 +502,11 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
             <div className="admin-person-card-head">{person(r)}</div>
             <span>{formatBenNo(r.benNo)}</span>
             <Area row={r} />
+            {r.helpCount !== undefined && (
+              <span>
+                {t('column.helps')}: {formatCount(r.helpCount, locale)}
+              </span>
+            )}
             {status(r)}
           </div>
         )}

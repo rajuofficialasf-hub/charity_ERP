@@ -2,22 +2,22 @@ import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import { Chip, Stack, Text } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
-import type { BeneficiaryProfile } from '../../api/schemas';
-
-type Help = NonNullable<BeneficiaryProfile['help']>;
+import type { HelpSummary } from '../../api/schemas/beneficiaries';
 
 /**
  * How often the person was helped, on the profile (docs/BUSINESS_RULES.md, BR-307): the total,
  * since which year and this year, the marks for more than once in a year and in one project, and
  * the years newest first with each project's times; a year or a project with more than one shows
  * its number. Help in a project the viewer does not see is counted in its year without a name.
+ * The review of an application shows the same for the person's other applications, with its own
+ * words for none.
  */
-export function HelpHistory({ help }: { help: Help }) {
+export function HelpHistory({ help, none }: { help: HelpSummary; none?: string }) {
   const t = useTranslations('admin.beneficiaries.profile.help');
   const locale = useLocale() as Locale;
   const times = (n: number) => ({ n, count: formatCount(n, locale) });
   const nameOf = (p: { nameBn: string; nameEn: string }) => (locale === 'en' ? p.nameEn : p.nameBn);
-  if (help.total === 0) return <p className="admin-muted">{t('none')}</p>;
+  if (help.total === 0) return <p className="admin-muted">{none ?? t('none')}</p>;
   return (
     <Stack gap={2}>
       <Stack direction="row" wrap gap={2}>

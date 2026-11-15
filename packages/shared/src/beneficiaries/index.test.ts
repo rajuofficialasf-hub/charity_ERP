@@ -9,6 +9,7 @@ describe('beneficiaryFilterSchema', () => {
     expect(ok({})).toBe(true);
     expect(beneficiaryFilterSchema.parse({ year: '2026' })).toEqual({ year: 2026 });
     expect(ok({ type: 'widow', blocked: 'false', q: 'আমেনা' })).toBe(true);
+    expect(ok({ helpedMoreThanOnceInYear: 'true' })).toBe(true);
   });
 
   it('refuses a bad id, an odd type, a year out of range and unknown keys', () => {
@@ -17,5 +18,7 @@ describe('beneficiaryFilterSchema', () => {
     expect(ok({ year: '1999' })).toBe(false);
     expect(ok({ year: '2026.5' })).toBe(false);
     expect(ok({ status: 'active' })).toBe(false);
+    // the repeat filter has one value; "false" is no filter
+    expect(ok({ helpedMoreThanOnceInYear: 'false' })).toBe(false);
   });
 });

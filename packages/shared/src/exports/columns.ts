@@ -48,6 +48,8 @@ const KINDS: Readonly<Record<ExportList, Readonly<Record<string, ColumnKind>>>> 
     age: 'number',
     mobile_owner: 'coded',
     blocked: 'flag',
+    help_count: 'number',
+    max_helps_in_year: 'number',
   },
   applications: { score: 'number', status: 'coded', submitted: 'datetime', waiting: 'number' },
 };
@@ -96,12 +98,16 @@ const VOLUNTEERS: readonly ExportColumn[] = [
 const PROFILE = 'beneficiary.profile_detail';
 const CONTACT = 'beneficiary.contact';
 const ADDRESS = 'beneficiary.address_detail';
+const HISTORY = 'beneficiary.application_history';
 
 const BENEFICIARIES: readonly ExportColumn[] = [
   column('beneficiaries', 'name', 'list', null, true),
   column('beneficiaries', 'ben_no', 'list', null, true),
   column('beneficiaries', 'father', 'list', PROFILE, true),
   column('beneficiaries', 'area', 'list', null, true),
+  // the times helped (and, among the details, the most of them in one year): the person's
+  // application history, beside the area as the list shows it
+  column('beneficiaries', 'help_count', 'list', HISTORY, true),
   column('beneficiaries', 'status', 'list', null, true),
   column('beneficiaries', 'class', 'detail', PROFILE),
   column('beneficiaries', 'gender', 'detail', PROFILE),
@@ -114,6 +120,7 @@ const BENEFICIARIES: readonly ExportColumn[] = [
   column('beneficiaries', 'union', 'detail', ADDRESS),
   column('beneficiaries', 'village', 'detail', ADDRESS),
   column('beneficiaries', 'blocked', 'detail', 'beneficiary.care'),
+  column('beneficiaries', 'max_helps_in_year', 'detail', HISTORY),
   column('beneficiaries', 'nid', 'detail', 'beneficiary.nid'),
   column('beneficiaries', 'birth_reg', 'detail', 'beneficiary.nid'),
 ];

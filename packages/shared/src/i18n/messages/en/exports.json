@@ -25,6 +25,7 @@
       "ben_no": "BEN number",
       "father": "Father's or husband's name",
       "area": "Area",
+      "help_count": "Times helped",
       "status": "Status",
       "class": "Beneficiary type",
       "gender": "Gender",
@@ -37,7 +38,8 @@
       "village": "Village",
       "blocked": "Blocked",
       "nid": "NID number",
-      "birth_reg": "Birth registration number"
+      "birth_reg": "Birth registration number",
+      "max_helps_in_year": "Most times helped in one year"
     },
     "applications": {
       "app_no": "Application number",

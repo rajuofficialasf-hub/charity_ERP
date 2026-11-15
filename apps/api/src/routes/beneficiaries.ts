@@ -1,6 +1,8 @@
 import {
+  BENEFICIARY_SORTS,
   type BeneficiaryFilter,
   beneficiaryFilterSchema,
+  type BeneficiarySort,
   type ContactUpdate,
   contactUpdateSchema,
   type CorrectionRequestCreate,
@@ -32,6 +34,7 @@ import { etagOf } from '../core/etag.js';
 import { ok, page } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 import { DUPLICATE_RULES, PAIR_LEVELS } from '../services/beneficiary-merge-candidates.js';
+import { helpSummarySchema } from '../services/help-history.js';
 import { blocklistEntry } from './volunteers.js';
 
 // Each marked field gets a schema of its own: `sensitive` marks the instance it is given.
@@ -63,6 +66,8 @@ const beneficiaryRow = z.object({
   hasDocument: hasDocument(),
   isBlocked: care(z.boolean()),
   photoFileId: detail(z.uuid().nullable()),
+  // the times helped, kept on the profile (docs/BUSINESS_RULES.md, BR-307)
+  helpCount: history(z.number().int().min(0)),
 });
 
 const count = () => z.number().int().min(0);
@@ -204,32 +209,7 @@ export const beneficiaryProfile = z.object({
     }),
   ),
   // how often the person was helped (docs/BUSINESS_RULES.md, BR-307)
-  help: history(
-    z.object({
-      total: z.number().int().min(0),
-      firstYear: z.number().int().nullable(),
-      thisYear: z.number().int().min(0),
-      repeatedInYear: z.boolean(),
-      repeatedInProject: z.boolean(),
-      years: z.array(
-        z.object({
-          year: z.number().int(),
-          count: z.number().int().min(1),
-          projects: z.array(
-            z.object({
-              id: z.uuid(),
-              code: z.string(),
-              nameBn: z.string(),
-              nameEn: z.string(),
-              count: z.number().int().min(1),
-            }),
-          ),
-          /** The times helped that year in projects the caller does not see. */
-          unnamed: z.number().int().min(0),
-        }),
-      ),
-    }),
-  ).optional(),
+  help: history(helpSummarySchema()).optional(),
   applications: history(
     z.array(
       z.object({
@@ -460,7 +440,9 @@ const mergeListQuery = z.strictObject({
 const listQuery = pageQuery
   .omit({ sort: true })
   .extend(pageNumberQuery.shape)
-  .extend(beneficiaryFilterSchema.shape);
+  .extend(beneficiaryFilterSchema.shape)
+  // by the times helped, for a caller with the application history class only
+  .extend({ sort: z.enum(BENEFICIARY_SORTS).optional() });
 
 const viewerOf = (req: AuthedRequest) => ({
   principal: principalOf(req),
@@ -540,28 +522,36 @@ export function beneficiariesRouter(
     ],
   };
 
-  defineRoute<unknown, Omit<PageQuery, 'sort'> & BeneficiaryFilter>(router, deps, {
-    ...tabOp,
-    // the rows say whether a document is on file, an identity fact
-    sensitiveFields: [...tabOp.sensitiveFields, 'beneficiary.nid'],
-    method: 'get',
-    path: '/beneficiaries',
-    operationId: 'beneficiaries.beneficiary.list',
-    summary: 'Nationwide beneficiary tab with filters (masks per role)',
-    query: listQuery,
-    responses: {
-      200: z.array(beneficiaryRow),
-      401: null,
-      403: null,
-      422: null,
-      429: null,
-      503: null,
+  defineRoute<unknown, Omit<PageQuery, 'sort'> & BeneficiaryFilter & { sort?: BeneficiarySort }>(
+    router,
+    deps,
+    {
+      ...tabOp,
+      // the rows say whether a document is on file, an identity fact, and the times helped
+      sensitiveFields: [
+        ...tabOp.sensitiveFields,
+        'beneficiary.nid',
+        'beneficiary.application_history',
+      ],
+      method: 'get',
+      path: '/beneficiaries',
+      operationId: 'beneficiaries.beneficiary.list',
+      summary: 'Nationwide beneficiary tab with filters (masks per role)',
+      query: listQuery,
+      responses: {
+        200: z.array(beneficiaryRow),
+        401: null,
+        403: null,
+        422: null,
+        429: null,
+        503: null,
+      },
+      handler: async ({ query, req }) => {
+        const { rows, meta } = await c.beneficiaries.list(query, viewerOf(req));
+        return page(rows, meta);
+      },
     },
-    handler: async ({ query, req }) => {
-      const { rows, meta } = await c.beneficiaries.list(query, viewerOf(req));
-      return page(rows, meta);
-    },
-  });
+  );
 
   const duplicatesOp = {
     tag: 'beneficiaries',
@@ -654,6 +644,8 @@ export function beneficiariesRouter(
     method: 'get',
     path: '/beneficiaries/statistics',
     operationId: 'beneficiaries.beneficiary.statistics',
+    // the filter on the times helped is the application history's
+    sensitiveFields: [...tabOp.sensitiveFields, 'beneficiary.application_history'],
     summary: 'Counts of the beneficiary tab for the filters in use (masks per role)',
     query: beneficiaryFilterSchema,
     responses: {

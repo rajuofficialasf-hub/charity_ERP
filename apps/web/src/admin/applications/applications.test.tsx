@@ -513,6 +513,78 @@ describe('the review page', () => {
     await expectNoAxeViolations(view.container);
   });
 
+  it('shows how often the person was helped before, by year and project, and none for a role that may not know', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    const EARLIER = '01900000-0000-7000-8000-0000000000e1';
+    const helpedBefore = {
+      total: 3,
+      firstYear: 2024,
+      thisYear: 0,
+      repeatedInYear: true,
+      repeatedInProject: false,
+      years: [
+        {
+          year: 2025,
+          count: 2,
+          projects: [
+            { id: EARLIER, code: 'WC', nameBn: 'শীতবস্ত্র ২০২৫', nameEn: 'Winter 2025', count: 1 },
+          ],
+          unnamed: 1,
+        },
+        {
+          year: 2024,
+          count: 1,
+          projects: [
+            { id: EARLIER, code: 'WC', nameBn: 'শীতবস্ত্র ২০২৪', nameEn: 'Winter 2024', count: 1 },
+          ],
+          unnamed: 0,
+        },
+      ],
+    };
+    server.use(http.get(`*/api/v1/applications/${A1}`, () => envelope(record({ helpedBefore }))));
+    const view = openReview();
+    const card = (await screen.findByRole('heading', { name: 'আগে কতবার সাহায্য পেয়েছেন' }))
+      .parentElement!.parentElement!;
+    expect(within(card).getByText('মোট 3 বার সাহায্য পেয়েছেন')).toBeInTheDocument();
+    expect(within(card).getByText('এক বছরে একাধিকবার')).toBeInTheDocument();
+    expect(within(card).getByText('শীতবস্ত্র ২০২৫')).toBeInTheDocument();
+    expect(within(card).getByText(/অন্য প্রকল্পে 1 বার/)).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+  });
+
+  it('says the person was not helped before, and shows nothing where the server sent no help', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            helpedBefore: {
+              total: 0,
+              firstYear: null,
+              thisYear: 0,
+              repeatedInYear: false,
+              repeatedInProject: false,
+              years: [],
+            },
+          }),
+        ),
+      ),
+    );
+    const first = openReview();
+    expect(await screen.findByText('এর আগে কোনো সাহায্য পাননি।')).toBeInTheDocument();
+    first.unmount();
+    server.use(http.get(`*/api/v1/applications/${A1}`, () => envelope(record())));
+    openReview();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'আগে কতবার সাহায্য পেয়েছেন' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('names the earlier family and the same person with their level and links, tells only the level where they may not be opened, and counts the rest', async () => {
     refreshAs(EXECUTIVE);
     serve();

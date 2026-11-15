@@ -132,11 +132,15 @@ describe('the beneficiary tab', () => {
     serveExports('beneficiaries');
     const user = userEvent.setup();
     openList();
-    // the BEN number's column is the page's "ben"
+    // the BEN number's column is the page's "ben", the times helped its "helps"
+    const PAGE_COLUMN = new Map([
+      ['ben_no', 'ben'],
+      ['help_count', 'helps'],
+    ]);
     await expectOnScreenColumns(
       user,
       'beneficiaries',
-      (id) => `admin.beneficiaries.column.${id === 'ben_no' ? 'ben' : id}` as MessageKey,
+      (id) => `admin.beneficiaries.column.${PAGE_COLUMN.get(id) ?? id}` as MessageKey,
     );
   });
 
@@ -204,6 +208,57 @@ describe('the beneficiary tab', () => {
     ).not.toBeInTheDocument();
     const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
     expect(within(counts).queryByText('ব্লক লিস্ট')).not.toBeInTheDocument();
+  });
+
+  it('shows the times helped, filters the people helped more than once in a year and orders by the count, all in the URL', async () => {
+    refreshAs(HEAD);
+    serve({ ...fullRow, helpCount: 3 }, { total: 1, assistedThisYear: 0, blocked: 0 });
+    const user = userEvent.setup();
+    const { router } = openList();
+    const table = await screen.findByRole('table', { name: 'উপকারভোগী' });
+    expect(within(table).getByRole('columnheader', { name: /কতবার সাহায্য/ })).toBeInTheDocument();
+    expect(await within(table).findByText('3')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
+    await user.click(await screen.findByRole('combobox', { name: /সাহায্য/ }));
+    await user.click(await screen.findByRole('option', { name: 'এক বছরে একাধিকবার পেয়েছেন' }));
+    await waitFor(() =>
+      expect(router.state.location.search).toContain('helpedMoreThanOnceInYear=true'),
+    );
+    await waitFor(() =>
+      expect(listUrls.at(-1)?.searchParams.get('helpedMoreThanOnceInYear')).toBe('true'),
+    );
+    expect(statUrls.at(-1)?.searchParams.get('helpedMoreThanOnceInYear')).toBe('true');
+    // the order by the count: from the column's header, kept in the URL, never sent to the counts
+    await user.click(within(table).getByRole('button', { name: /কতবার সাহায্য/ }));
+    await waitFor(() => expect(router.state.location.search).toMatch(/sort=-?helpCount/));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('sort')).toMatch(/helpCount/));
+    expect(statUrls.every((u) => !u.searchParams.has('sort'))).toBe(true);
+    expect(screen.getByRole('button', { name: /^ক্রম: সাহায্য/ })).toBeInTheDocument();
+  });
+
+  it('restores the order from the URL and takes it away with its chip', async () => {
+    refreshAs(HEAD);
+    serve({ ...fullRow, helpCount: 3 }, { total: 1, assistedThisYear: 0, blocked: 0 });
+    const user = userEvent.setup();
+    const { router } = openList('/admin/beneficiaries?sort=-helpCount');
+    await waitFor(() => expect(listUrls[0]?.searchParams.get('sort')).toBe('-helpCount'));
+    await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
+    await user.click(screen.getByRole('button', { name: 'ক্রম: সাহায্য বেশি থেকে কম সরান' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.has('sort')).toBe(false));
+  });
+
+  it('gives the Media Team no times helped, no repeat filter and no order, whatever the URL says', async () => {
+    refreshAs(MEDIA);
+    serve(mediaRow, { total: 1, assistedThisYear: 0 });
+    const user = userEvent.setup();
+    openList('/admin/beneficiaries?helpedMoreThanOnceInYear=true&sort=-helpCount');
+    expect((await screen.findAllByText('নমুনা উপকারভোগী')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('columnheader', { name: /কতবার সাহায্য/ })).not.toBeInTheDocument();
+    expect(listUrls[0]!.searchParams.has('helpedMoreThanOnceInYear')).toBe(false);
+    expect(listUrls[0]!.searchParams.has('sort')).toBe(false);
+    await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
+    expect(screen.queryByRole('combobox', { name: /সাহায্য/ })).not.toBeInTheDocument();
   });
 
   it('filters by the blocked count without narrowing the counts, shows the assisted count as a number, and offers the profile from the row menu', async () => {

@@ -395,7 +395,8 @@
       "type": "ধরন",
       "area": "এলাকা",
       "status": "অবস্থা",
-      "ben": "BEN নম্বর"
+      "ben": "BEN নম্বর",
+      "helps": "কতবার সাহায্য"
     },
     "filter": {
       "type": "ধরন",
@@ -405,7 +406,12 @@
       "blocked_no": "ব্লক নয়",
       "group_area": "এলাকা",
       "group_other": "অন্যান্য",
-      "gender": "লিঙ্গ"
+      "gender": "লিঙ্গ",
+      "help": "সাহায্য",
+      "help_repeated": "এক বছরে একাধিকবার পেয়েছেন",
+      "order": "ক্রম",
+      "order_most": "সাহায্য বেশি থেকে কম",
+      "order_least": "সাহায্য কম থেকে বেশি"
     },
     "types": {
       "elderly": "বৃদ্ধ",

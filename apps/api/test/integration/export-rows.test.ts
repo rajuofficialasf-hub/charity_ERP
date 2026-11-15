@@ -290,6 +290,52 @@ describe('the rows of an export', () => {
     }
   });
 
+  it('carry the times helped only for a role that sees a person’s application history, and refuse its filter to one that does not', async () => {
+    const helped = await f.beneficiary(h.db, world.dhaka);
+    await h.db.query(
+      'UPDATE beneficiaries SET help_count = 3, max_helps_in_year = 2 WHERE id = $1',
+      [helped],
+    );
+    const head = await readAll(
+      await freeze(world.users.head, {
+        kind: 'beneficiaries',
+        filters: { helpedMoreThanOnceInYear: 'true' },
+      }),
+    );
+    expect(head.map((r) => r.id)).toContain(helped);
+    expect(head.find((r) => r.id === helped)!.cells).toMatchObject({
+      help_count: 3,
+      max_helps_in_year: 2,
+    });
+    const offered = await h.container.exports.columns(
+      await principalOf(h.db, world.users.head),
+      'beneficiaries',
+      undefined,
+      'bn',
+    );
+    expect(offered.columns.map((c) => c.id)).toEqual(
+      expect.arrayContaining(['help_count', 'max_helps_in_year']),
+    );
+    // the Media Team reads the list, never the help of a person
+    const media = await account(h.db, { role: 'media_team' });
+    const theirs = await readAll(await freeze(media.id, { kind: 'beneficiaries', filters: {} }));
+    expect(theirs.length).toBeGreaterThan(0);
+    for (const row of theirs) {
+      expect(row.cells).not.toHaveProperty('help_count');
+      expect(row.cells).not.toHaveProperty('max_helps_in_year');
+    }
+    const columns = await h.container.exports.columns(
+      await principalOf(h.db, media.id),
+      'beneficiaries',
+      undefined,
+      'bn',
+    );
+    expect(columns.columns.map((c) => c.id)).not.toContain('help_count');
+    await expect(
+      freeze(media.id, { kind: 'beneficiaries', filters: { helpedMoreThanOnceInYear: 'true' } }),
+    ).rejects.toMatchObject({ code: 'permission.denied', status: 403 });
+  });
+
   it('need the export permission beside the list’s own', async () => {
     const official = await account(h.db, { role: 'project_executive' });
     await h.db.query(

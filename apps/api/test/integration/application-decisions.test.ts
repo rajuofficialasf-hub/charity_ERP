@@ -15,7 +15,8 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
-import { fakeMobile, fakeNid, insert } from './support/fixtures.js';
+import { helpCountsSql } from '../../src/services/help-history.js';
+import { fakeMobile, fakeNid, insert, project as fixtureProject } from './support/fixtures.js';
 import { notificationsOf } from './support/notifications.js';
 import { option, question } from './support/forms.js';
 
@@ -591,5 +592,103 @@ describe('a bulk approval', () => {
     // the low row came first, while the high one still waited
     expect(byId[low]).toMatchObject({ result: 'failed', code: 'workflow.comment_required' });
     expect(byId[high]).toMatchObject({ result: 'done' });
+  });
+});
+
+/** A person's kept counters beside a fresh count by the same rule, and the profile's update stamp. */
+async function countersOf(beneficiaryId: string) {
+  const kept = (
+    await h.db.query<{ help_count: number; max_helps_in_year: number; updated_at: Date }>(
+      'SELECT help_count, max_helps_in_year, updated_at FROM beneficiaries WHERE id = $1',
+      [beneficiaryId],
+    )
+  ).rows[0]!;
+  const [fresh] = await h.container.prisma.$queryRaw<
+    { help_count: number; max_helps_in_year: number }[]
+  >(helpCountsSql([beneficiaryId]));
+  return {
+    kept: { help_count: kept.help_count, max_helps_in_year: kept.max_helps_in_year },
+    fresh: { help_count: fresh!.help_count, max_helps_in_year: fresh!.max_helps_in_year },
+    stamp: kept.updated_at.toISOString(),
+  };
+}
+const ONCE = { help_count: 1, max_helps_in_year: 1 };
+const NEVER = { help_count: 0, max_helps_in_year: 0 };
+
+describe('the times helped kept on the profile', () => {
+  // a comment goes with every decision, so the order of the score never stops a move here
+  const comment = 'হিসাবের পরীক্ষা';
+  // a fresh sign-in for each step: the volunteer's and the office's sign-ins of `reviewed` may end
+  // an older session of the same account
+  const office = () => as(world.users.rpmDhaka);
+
+  it('follow an approval, a pull from the waitlist and a wrong rejection put right, each equal to a fresh count', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+
+    const approved = await reviewed('widow');
+    const first = await personOf(approved);
+    const before = await countersOf(first);
+    expect(before.kept).toEqual(NEVER);
+    await moved(await office(), approved, 'approve', { comment });
+    const after = await countersOf(first);
+    expect(after.kept).toEqual(ONCE);
+    expect(after.kept).toEqual(after.fresh);
+    // a recount is no edit of the person: the profile's version stays
+    expect(after.stamp).toBe(before.stamp);
+
+    const waiting = await reviewed('widow');
+    const second = await personOf(waiting);
+    await moved(await office(), waiting, 'waitlist', { reason: 'মালামাল কম', comment });
+    expect((await countersOf(second)).kept).toEqual(NEVER);
+    const pulled = await pullNext(await office(), { areaId: world.dhaka.union, comment });
+    expect(pulled.status, JSON.stringify(pulled.body)).toBe(200);
+    expect(pulled.body.data.id).toBe(waiting);
+    const afterPull = await countersOf(second);
+    expect(afterPull.kept).toEqual(ONCE);
+    expect(afterPull.kept).toEqual(afterPull.fresh);
+
+    const wronged = await reviewed('widow');
+    const third = await personOf(wronged);
+    await moved(await office(), wronged, 'reject', { reason: 'ভুল', message: 'বাতিল', comment });
+    await moved(await office(), wronged, 'return_to_review', { reason: 'ভুল করে বাতিল হয়েছিল' });
+    const reopened = await countersOf(third);
+    expect(reopened.kept).toEqual(NEVER);
+    expect(reopened.kept).toEqual(reopened.fresh);
+    await moved(await office(), wronged, 'approve', { comment });
+    expect((await countersOf(third)).kept).toEqual(ONCE);
+  });
+
+  it('names the earlier help of the person on the record of a second application, by project and year, for the office only', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const id = await reviewed('widow');
+    const person = await personOf(id);
+    const earlier = await fixtureProject(h.db, { year: 2025 });
+    await insert(h.db, 'applications', {
+      id: randomUUID(),
+      project_id: earlier.id,
+      form_version_id: earlier.formVersion,
+      region_location_id: world.dhaka.division,
+      district_id: world.dhaka.district,
+      union_id: world.dhaka.union,
+      beneficiary_id: person,
+      status: 'approved',
+      approved_at: new Date().toISOString(),
+    });
+    const expected = {
+      total: 1,
+      firstYear: 2025,
+      repeatedInYear: false,
+      years: [{ year: 2025, count: 1, projects: [{ id: earlier.id, count: 1 }] }],
+    };
+    expect((await read(await office(), id)).body.data.helpedBefore).toMatchObject(expected);
+    // the application itself is never its own earlier help
+    await moved(await office(), id, 'approve', { comment });
+    expect((await read(await office(), id)).body.data.helpedBefore).toMatchObject(expected);
+    // the volunteer who brought it reads no help of the person
+    const own = await read(await as(world.users.general), id);
+    expect(own.status).toBe(200);
+    expect(own.body.data).not.toHaveProperty('helpedBefore');
   });
 });

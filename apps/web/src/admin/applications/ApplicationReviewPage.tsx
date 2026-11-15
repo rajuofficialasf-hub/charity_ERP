@@ -42,6 +42,7 @@ import {
   saveAnswers,
 } from './applications-api';
 import { BENEFICIARIES_KEY } from '../beneficiaries/beneficiaries-api';
+import { HelpHistory } from '../beneficiaries/HelpHistory';
 import { IdentityDialog } from '../beneficiaries/IdentityDialog';
 import { ChangeLog } from './ChangeLog';
 import { MediaBadge } from './MediaBadge';
@@ -326,6 +327,12 @@ function Review() {
         />
       </Card>
       <Signals application={a} />
+      {/* the person's help by their other applications, for a role that sees their history */}
+      {a.helpedBefore ? (
+        <Card title={t('helped_before.title')} headingLevel={2}>
+          <HelpHistory help={a.helpedBefore} none={t('helped_before.none')} />
+        </Card>
+      ) : null}
       {a.mayAddIdentity && a.beneficiaryId ? (
         <Alert
           tone="info"

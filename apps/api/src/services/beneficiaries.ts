@@ -1,4 +1,8 @@
-import { type BeneficiaryFilter, parseBenNo } from '@css/shared/beneficiaries';
+import {
+  type BeneficiaryFilter,
+  type BeneficiarySort,
+  parseBenNo,
+} from '@css/shared/beneficiaries';
 import type { AccessService } from '../access/service.js';
 import { beneficiaryRowsProjectWhere, beneficiaryWhere, type Scope } from '../access/scope.js';
 import type { Principal } from '../auth/principal.js';
@@ -30,7 +34,8 @@ import {
 } from './help-history.js';
 
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
-const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
+const NEWEST = [{ field: 'id', direction: 'desc' }] as const;
+const SORT = parseSort(undefined, ['id'], [...NEWEST]);
 /** The most rows a section of the 360° profile carries. */
 const SECTION_ROWS = 20;
 /** The field classes of the limited beneficiary view (docs/security/permissions.yaml). */
@@ -84,6 +89,9 @@ export class BeneficiariesService {
     if (filter.type && !sees(DETAIL)) this.refuse(viewer, DETAIL);
     // the gender is a profile detail too, so its filter would tell what the caller may not see
     if (filter.gender && !sees(DETAIL)) this.refuse(viewer, DETAIL);
+    // the times helped are the application history's: neither the filter nor the order may tell
+    // them to a caller without it
+    if (filter.helpedMoreThanOnceInYear && !sees(HISTORY)) this.refuse(viewer, HISTORY);
     const and: Prisma.BeneficiaryWhereInput[] = [
       beneficiaryWhere(viewer.scope),
       { mergedIntoId: null },
@@ -96,6 +104,8 @@ export class BeneficiariesService {
     if (filter.type) and.push({ classCode: filter.type });
     if (filter.gender) and.push({ genderCode: filter.gender });
     if (filter.blocked) and.push({ isBlocked: filter.blocked === 'true' });
+    // the kept counter (docs/database/DATABASE_SCHEMA.md, "beneficiaries")
+    if (filter.helpedMoreThanOnceInYear) and.push({ maxHelpsInYear: { gt: 1 } });
     if (filter.projectId || filter.year) {
       // a project-scoped caller filters only among its own projects, so the filter never tells it
       // who applied to another project
@@ -152,8 +162,19 @@ export class BeneficiariesService {
     );
   }
 
-  async list(query: BeneficiaryFilter & PageQuery & PageNumberQuery, viewer: BeneficiaryViewer) {
-    const binding = `beneficiaries.list|${viewer.principal.userId}`;
+  async list(
+    query: BeneficiaryFilter &
+      Omit<PageQuery, 'sort'> &
+      PageNumberQuery & { sort?: BeneficiarySort },
+    viewer: BeneficiaryViewer,
+  ) {
+    if (query.sort && !viewer.fieldClasses.has(HISTORY)) this.refuse(viewer, HISTORY);
+    // by the times helped, the newest first among equals; else the newest first
+    const sort = query.sort ? parseSort(query.sort, ['helpCount'], [...NEWEST]) : SORT;
+    // a cursor belongs to the order it was made in, so one order never reads another's cursor
+    const binding = query.sort
+      ? `beneficiaries.list|${viewer.principal.userId}|${query.sort}`
+      : `beneficiaries.list|${viewer.principal.userId}`;
     const cursor = query.cursor
       ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
       : undefined;
@@ -162,8 +183,8 @@ export class BeneficiariesService {
     const filter = await this.where(query, viewer);
     const { fetched, total } = await boundedRead(this.prisma, async (tx) => ({
       fetched: await tx.beneficiary.findMany({
-        where: cursor ? { AND: [filter, keysetWhere(SORT, cursor)] } : filter,
-        orderBy: orderBy(SORT, direction),
+        where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
+        orderBy: orderBy(sort, direction),
         skip: offset,
         take: query.limit + 1,
         select: {
@@ -181,6 +202,8 @@ export class BeneficiariesService {
           mobile: true,
           isBlocked: true,
           photoFileId: true,
+          // the kept count, with the application history class (the response mask)
+          helpCount: true,
           // read only to say whether a document is on file; the numbers never leave the list
           nid: true,
           birthReg: true,
@@ -194,7 +217,7 @@ export class BeneficiariesService {
     }));
     const { rows, meta } = buildPage(listed, {
       limit: query.limit,
-      sort: SORT,
+      sort,
       direction,
       // a page past the first has a page before it, as a cursor does
       hadCursor: Boolean(cursor) || Boolean(offset),

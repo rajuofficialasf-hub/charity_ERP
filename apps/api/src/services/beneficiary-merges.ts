@@ -12,6 +12,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import { keepOneFamilyList, restoreFamilyList } from './beneficiary-family-members.js';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
+import { recountHelp } from './help-history.js';
 import type { MatchKeysService } from './match-keys.js';
 
 /** A UUID may arrive in capitals; the pair map and the stored rows use lower case. */
@@ -349,6 +350,9 @@ export class BeneficiaryMergesService {
       },
       select: VIEW,
     });
+    // the kept profile now counts the moved applications and the ones left behind, the retired one
+    // only what stays on it (docs/database/DATABASE_SCHEMA.md, "beneficiaries")
+    await recountHelp(tx, [keptId, retiredId]);
     // both profiles compare by their stored keys again: the pairs below read them
     await this.matchKeys.refreshProfiles(tx, [keptId, retiredId]);
     await this.candidates.refreshFor(tx, [keptId, retiredId]);
@@ -546,6 +550,8 @@ export class BeneficiaryMergesService {
           },
           select: VIEW,
         });
+        // each profile counts its own help again
+        await recountHelp(tx, [found.keptId, found.mergedId]);
         await this.matchKeys.refreshProfiles(tx, [found.keptId, found.mergedId]);
         await this.candidates.refreshFor(tx, [found.keptId, found.mergedId]);
         await this.audit.record(tx, {

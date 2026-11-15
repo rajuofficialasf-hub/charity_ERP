@@ -3,6 +3,38 @@ import { z } from 'zod';
 import { bilingual, date, dateTime, tabPageOf, versionedOf } from './common';
 import { publishedWorkSchema } from './media';
 
+/**
+ * How often a person was helped (docs/BUSINESS_RULES.md, BR-307), on the profile and on an
+ * application's review: a project the viewer does not see is counted in its year's `unnamed`.
+ */
+export const helpSummarySchema = z.object({
+  total: z.number().int(),
+  firstYear: z.number().int().nullable(),
+  thisYear: z.number().int(),
+  repeatedInYear: z.boolean(),
+  repeatedInProject: z.boolean(),
+  /** Newest first. */
+  years: z.array(
+    z.object({
+      year: z.number().int(),
+      count: z.number().int(),
+      /** The projects the viewer sees, each with its times helped. */
+      projects: z.array(
+        z.object({
+          id: z.uuid(),
+          code: z.string(),
+          nameBn: z.string(),
+          nameEn: z.string(),
+          count: z.number().int(),
+        }),
+      ),
+      /** The times helped that year in projects the viewer does not see. */
+      unnamed: z.number().int(),
+    }),
+  ),
+});
+export type HelpSummary = z.infer<typeof helpSummarySchema>;
+
 /** A row of the beneficiary tab (`GET /beneficiaries`). */
 export const beneficiaryRowSchema = z.object({
   id: z.uuid(),
@@ -20,6 +52,8 @@ export const beneficiaryRowSchema = z.object({
   hasDocument: z.boolean().optional(),
   isBlocked: z.boolean().optional(),
   photoFileId: z.uuid().nullable().optional(),
+  /** The times helped, with the application history class only. */
+  helpCount: z.number().int().optional(),
 }) satisfies z.ZodType<BeneficiaryRow>;
 
 export const beneficiaryPageSchema = tabPageOf(beneficiaryRowSchema);
@@ -177,34 +211,7 @@ export const beneficiaryProfileSchema = z.object({
     }),
   ),
   /** How often the person was helped; absent without the application history class. */
-  help: z
-    .object({
-      total: z.number().int(),
-      firstYear: z.number().int().nullable(),
-      thisYear: z.number().int(),
-      repeatedInYear: z.boolean(),
-      repeatedInProject: z.boolean(),
-      /** Newest first. */
-      years: z.array(
-        z.object({
-          year: z.number().int(),
-          count: z.number().int(),
-          /** The projects the viewer sees, each with its times helped. */
-          projects: z.array(
-            z.object({
-              id: z.uuid(),
-              code: z.string(),
-              nameBn: z.string(),
-              nameEn: z.string(),
-              count: z.number().int(),
-            }),
-          ),
-          /** The times helped that year in projects the viewer does not see. */
-          unnamed: z.number().int(),
-        }),
-      ),
-    })
-    .optional(),
+  help: helpSummarySchema.optional(),
   applications: z
     .array(
       z.object({

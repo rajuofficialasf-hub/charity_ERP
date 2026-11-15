@@ -395,7 +395,8 @@
       "type": "Type",
       "area": "Area",
       "status": "Status",
-      "ben": "BEN number"
+      "ben": "BEN number",
+      "helps": "Times helped"
     },
     "filter": {
       "type": "Type",
@@ -405,7 +406,12 @@
       "blocked_no": "Not blocked",
       "group_area": "Area",
       "group_other": "Other",
-      "gender": "Gender"
+      "gender": "Gender",
+      "help": "Help",
+      "help_repeated": "More than once in a year",
+      "order": "Order",
+      "order_most": "Most helped first",
+      "order_least": "Least helped first"
     },
     "types": {
       "elderly": "Elderly",

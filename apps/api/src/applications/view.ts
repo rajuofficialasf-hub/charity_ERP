@@ -7,6 +7,7 @@ import { sensitive } from '../access/field-mask.js';
 import { versionView } from '../routes/forms.js';
 import type { FormVersionView } from '../services/forms.js';
 import { DUPLICATE_RULES } from '../services/beneficiary-merge-candidates.js';
+import { helpSummarySchema } from '../services/help-history.js';
 import { applicationMediaView } from '../services/media-referrals.js';
 
 /** The class of the official section and of the office's own texts (permissions.yaml). */
@@ -16,6 +17,8 @@ export const BENEFICIARY_NID = 'beneficiary.nid';
 export const BENEFICIARY_CONTACT = 'beneficiary.contact';
 /** The person's details beside the name, among them the father's or husband's name. */
 export const BENEFICIARY_PROFILE_DETAIL = 'beneficiary.profile_detail';
+/** The person's applications elsewhere and how often they were helped. */
+export const APPLICATION_HISTORY = 'beneficiary.application_history';
 /**
  * The flag of an entry that waits because a person without a document looks like a blocked one
  * (the same name, father's or husband's name and village in the union): the office's to read.
@@ -153,6 +156,11 @@ export const applicationView = applicationSummary.extend({
   samePersonSignals: z.array(samePersonSignal),
   /** How many such pairs there are in all, also beyond the ones listed. */
   samePersonSignalsTotal: z.number().int(),
+  /**
+   * How often the person was helped before, by the other applications of the person and of a
+   * profile merged into them, as the profile counts it; null before a person is bound.
+   */
+  helpedBefore: sensitive(helpSummarySchema().nullable(), APPLICATION_HISTORY),
   availableActions: z.array(z.string()),
   /** The comments the office's decisions would ask for now, by action; empty for a volunteer. */
   decisionHints: z.record(z.string(), z.array(z.enum(COMMENT_REASONS))),

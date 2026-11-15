@@ -29,6 +29,11 @@ export const beneficiaryFilterSchema = z.strictObject({
   projectId: z.uuid().optional(),
   year: z.coerce.number().int().min(2000).max(2100).optional(),
   blocked: z.enum(['true', 'false']).optional(),
+  /**
+   * Only the people helped more than once in one year (the kept counter `max_helps_in_year`);
+   * refused for a caller without the application history class.
+   */
+  helpedMoreThanOnceInYear: z.enum(['true']).optional(),
 });
 export type BeneficiaryFilter = z.infer<typeof beneficiaryFilterSchema>;
 
@@ -54,7 +59,13 @@ export interface BeneficiaryRow {
   isBlocked?: boolean;
   /** The uploaded photo, with the personal-details class; null shows the initial. */
   photoFileId?: string | null;
+  /** The times the person was helped, with the application history class. */
+  helpCount?: number;
 }
+
+/** The orders of the beneficiary tab besides the newest first: by the times helped. */
+export const BENEFICIARY_SORTS = ['-helpCount', 'helpCount'] as const;
+export type BeneficiarySort = (typeof BENEFICIARY_SORTS)[number];
 
 /** The counts above the beneficiary tab for the filters in use. */
 export interface BeneficiaryStatistics {

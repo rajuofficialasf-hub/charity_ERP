@@ -28,6 +28,7 @@ void startInlineConsumers(env, container.jobs, logger, {
   storageStats: container.storageStats,
   mergeCandidates: container.beneficiaryMergeCandidates,
   nameKeys: container.nameKeys,
+  helpCounters: container.helpCounters,
   fileProcessor: container.fileProcessor,
   delivery: container.delivery,
   exportRunner: container.exportRunner,

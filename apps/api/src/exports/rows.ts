@@ -440,6 +440,8 @@ export class ExportRows {
         unionId: true,
         village: true,
         isBlocked: true,
+        helpCount: true,
+        maxHelpsInYear: true,
         nid: true,
         birthReg: true,
       },
@@ -464,6 +466,9 @@ export class ExportRows {
         union: names.get(b.unionId) ?? null,
         village: b.village,
         blocked: b.isBlocked,
+        // the kept counters, masked with the application history class
+        help_count: b.helpCount,
+        max_helps_in_year: b.maxHelpsInYear,
         // whose number the mobile is, masked with the contact class like the number
         mobile_owner: coded(b.mobileOwnerCode, 'reference.mobile_owner'),
         mobile_owner_name: b.mobileOwnerName,

@@ -230,6 +230,113 @@ describe('the beneficiary list', () => {
     expect((await list(head, { limit: '100', page: '101' })).status).toBe(422);
   });
 
+  it('shows the times helped, filters the people helped more than once in a year and orders by the count, inside the caller scope', async () => {
+    const counted = async (tree: Tree, helps: number, inYear: number) => {
+      const id = await person(tree);
+      // the kept counters as the moves would leave them
+      await h.db.query(
+        'UPDATE beneficiaries SET help_count = $2, max_helps_in_year = $3 WHERE id = $1',
+        [id, helps, inYear],
+      );
+      return id;
+    };
+    const tree = await f.locationTree(h.db);
+    const twice = await counted(tree, 2, 2);
+    const fiveOld = await counted(tree, 5, 3);
+    const never = await counted(tree, 0, 0);
+    const spread = await counted(tree, 5, 1);
+    const head = await as(world.users.head);
+    const rows = (await list(head, { unionId: tree.union })).body.data as {
+      id: string;
+      helpCount: number;
+    }[];
+    expect(Object.fromEntries(rows.map((r) => [r.id, r.helpCount]))).toEqual({
+      [twice]: 2,
+      [fiveOld]: 5,
+      [never]: 0,
+      [spread]: 5,
+    });
+    // more than once in one year: not the person helped five times over five years
+    expect(
+      ids(await list(head, { unionId: tree.union, helpedMoreThanOnceInYear: 'true' })).sort(),
+    ).toEqual([twice, fiveOld].sort());
+    expect(
+      (await statistics(head, { unionId: tree.union, helpedMoreThanOnceInYear: 'true' })).body.data
+        .total,
+    ).toBe(2);
+    // the most helped first, by id among equals (newest first for the ids the API makes), page
+    // by page with a cursor
+    const fives = [fiveOld, spread].sort();
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await list(head, {
+        unionId: tree.union,
+        sort: '-helpCount',
+        limit: '3',
+        ...(cursor ? { cursor } : {}),
+      });
+      expect(page.status, JSON.stringify(page.body)).toBe(200);
+      seen.push(...ids(page));
+      cursor = page.body.meta.nextCursor ?? undefined;
+    } while (cursor);
+    expect(seen).toEqual([...[...fives].reverse(), twice, never]);
+    expect(ids(await list(head, { unionId: tree.union, sort: 'helpCount' }))).toEqual([
+      never,
+      twice,
+      ...fives,
+    ]);
+    // a cursor of one order is no cursor of another
+    const first = await list(head, { unionId: tree.union, sort: '-helpCount', limit: '1' });
+    expect(
+      (await list(head, { unionId: tree.union, cursor: first.body.meta.nextCursor })).status,
+    ).toBe(422);
+    // a team that reaches a few projects filters and orders only their people
+    const inHouse = await counted(tree, 3, 2);
+    await applyTo(house, tree, inHouse);
+    const elsewhere = await counted(tree, 4, 2);
+    await applyTo(await f.project(h.db, { year: THIS_YEAR }), tree, elsewhere);
+    expect(
+      ids(await list(procurement, { upazilaId: tree.upazila, helpedMoreThanOnceInYear: 'true' })),
+    ).toEqual([inHouse]);
+    expect(ids(await list(procurement, { upazilaId: tree.upazila, sort: '-helpCount' }))).toEqual([
+      inHouse,
+    ]);
+    expect(
+      ids(await list(head, { upazilaId: tree.upazila, helpedMoreThanOnceInYear: 'true' })).sort(),
+    ).toEqual([twice, fiveOld, inHouse, elsewhere].sort());
+  });
+
+  it('never tells the times helped to a role without the application history, and refuses its filter and order', async () => {
+    const tree = await f.locationTree(h.db);
+    const someone = await person(tree);
+    await h.db.query(
+      'UPDATE beneficiaries SET help_count = 2, max_helps_in_year = 2 WHERE id = $1',
+      [someone],
+    );
+    const media = await staff('media_team');
+    const row = (await list(media, { upazilaId: tree.upazila })).body.data[0];
+    expect(row).toMatchObject({ id: someone });
+    expect(row).not.toHaveProperty('helpCount');
+    for (const query of [
+      { helpedMoreThanOnceInYear: 'true' },
+      { sort: '-helpCount' },
+      { sort: 'helpCount' },
+    ] as Record<string, string>[]) {
+      const refused = await list(media, query);
+      expect(refused.status, JSON.stringify(query)).toBe(403);
+      expect(refused.body.error.code).toBe('permission.denied');
+    }
+    expect((await statistics(media, { helpedMoreThanOnceInYear: 'true' })).status).toBe(403);
+    // the Procurement Team holds the class: it reads the count of its own people
+    const inHouse = await person(tree);
+    await applyTo(house, tree, inHouse);
+    const own = (await list(procurement, { upazilaId: tree.upazila })).body.data[0];
+    expect(own).toMatchObject({ id: inHouse, helpCount: 0 });
+    // an order the list does not know is a bad request
+    expect((await list(await as(world.users.head), { sort: 'name' })).status).toBe(422);
+  });
+
   it('answers 401 without a sign-in and 403 to volunteers', async () => {
     expect((await api().get('/api/v1/beneficiaries')).status).toBe(401);
     const volunteer = await as(world.users.general);

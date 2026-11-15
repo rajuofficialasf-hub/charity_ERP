@@ -6,6 +6,7 @@ import type { JobRunner } from './job-runner.js';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup.js';
 import type { BeneficiaryMergeCandidatesService } from '../services/beneficiary-merge-candidates.js';
 import { DUPLICATES_CRON, DUPLICATES_QUEUE } from './duplicates.js';
+import { HELP_COUNTERS_CRON, HELP_COUNTERS_QUEUE, type HelpCountersJob } from './help-counters.js';
 import {
   NAME_KEYS_CRON,
   NAME_KEYS_QUEUE,
@@ -55,6 +56,7 @@ export interface ConsumerServices {
   storageStats?: StorageStats;
   mergeCandidates?: Pick<BeneficiaryMergeCandidatesService, 'refreshAll'>;
   nameKeys?: Pick<NameKeysJob, 'run' | 'hasStale'>;
+  helpCounters?: Pick<HelpCountersJob, 'run'>;
   fileProcessor?: FileProcessor;
   delivery?: NotificationDelivery;
   exportRunner?: Pick<ExportRunner, 'run'>;
@@ -179,6 +181,12 @@ export class JobConsumers {
     if (mergeCandidates) {
       await this.jobs.work(DUPLICATES_QUEUE, () => mergeCandidates.refreshAll());
       await this.jobs.schedule(DUPLICATES_QUEUE, DUPLICATES_CRON, {}, 'duplicates');
+    }
+    // the nightly recount of the times each beneficiary was helped
+    const { helpCounters } = this.services;
+    if (helpCounters) {
+      await this.jobs.work(HELP_COUNTERS_QUEUE, () => helpCounters.run());
+      await this.jobs.schedule(HELP_COUNTERS_QUEUE, HELP_COUNTERS_CRON, {}, 'help-counters');
     }
     // the files the scan has not cleared yet; a catch-up that fails is logged and tried at the
     // next start, never in the way of the consumers and schedules above

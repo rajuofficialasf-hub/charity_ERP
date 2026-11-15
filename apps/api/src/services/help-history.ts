@@ -1,9 +1,12 @@
 import {
+  countsAsHelped,
   HELPED_IF_DELIVERED_STATES,
   HELPED_STATES,
+  type HelpFacts,
   helpSummary,
   NOT_DELIVERED_OUTCOMES,
 } from '@css/shared';
+import { z } from 'zod';
 import type { Tx } from '../core/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 
@@ -68,6 +71,158 @@ export async function personApplicationsWhere(
     ? { OR: [{ beneficiaryId }, { id: { in: leftBehind } }] }
     : { beneficiaryId };
 }
+
+/**
+ * The times each of these people was helped, from their applications and the ones a merge left on
+ * a profile retired into them (the same set as the profile's `personApplicationsWhere`): rows of
+ * `(id, help_count, max_helps_in_year)`, one per person, zero for one never helped.
+ */
+export function helpCountsSql(beneficiaryIds: readonly string[]): Prisma.Sql {
+  const ids = [...beneficiaryIds];
+  return Prisma.sql`
+    SELECT p.id, COALESCE(sum(y.n), 0)::int AS help_count, COALESCE(max(y.n), 0)::int AS max_helps_in_year
+    FROM unnest(${ids}::uuid[]) AS p(id)
+    LEFT JOIN (
+      SELECT h.person_id, pr.year, count(*)::int AS n
+      FROM (
+        SELECT a.beneficiary_id AS person_id, a.id AS application_id
+          FROM applications a WHERE a.beneficiary_id = ANY(${ids}::uuid[])
+        UNION
+        SELECT person_id, application_id FROM (${leftBehindSql(ids)}) AS l
+      ) AS h
+        JOIN applications a ON a.id = h.application_id
+        JOIN projects pr ON pr.id = a.project_id
+      WHERE ${helpedSql('a')}
+      GROUP BY h.person_id, pr.year
+    ) AS y ON y.person_id = p.id
+    GROUP BY p.id`;
+}
+
+/**
+ * Writes the kept counters of these people (docs/database/DATABASE_SCHEMA.md, "beneficiaries"),
+ * locked first in id order so a count is never computed from a snapshot older than another
+ * writer's committed change. Only a counter that differs is written, and such a write leaves the
+ * profile's update stamp as it was (the migration's trigger reads `css.help_counts_only`). The
+ * caller passes every person whose count may have changed; `recountHelp` adds the profiles above
+ * them.
+ */
+export async function writeHelpCounts(tx: Tx, beneficiaryIds: readonly string[]): Promise<number> {
+  const ids = [...new Set(beneficiaryIds)];
+  if (!ids.length) return 0;
+  await tx.$queryRaw`
+    SELECT id FROM beneficiaries WHERE id = ANY(${ids}::uuid[]) ORDER BY id FOR UPDATE`;
+  // the counters alone: the update stamp stays (the migration's trigger), for this one statement
+  // only, so another write of the same transaction still stamps the row; and no JIT, see
+  // `withoutJit`
+  const [before] = await tx.$queryRaw<{ jit: string }[]>`
+    SELECT current_setting('jit') AS jit, set_config('jit', 'off', true),
+           set_config('css.help_counts_only', 'on', true)`;
+  const written = await tx.$executeRaw`
+    UPDATE beneficiaries AS b
+    SET help_count = c.help_count, max_helps_in_year = c.max_helps_in_year
+    FROM (${helpCountsSql(ids)}) AS c
+    WHERE b.id = c.id
+      AND (b.help_count, b.max_helps_in_year) IS DISTINCT FROM (c.help_count, c.max_helps_in_year)`;
+  await tx.$queryRaw`
+    SELECT set_config('jit', ${before!.jit}, true), set_config('css.help_counts_only', 'off', true)`;
+  return written;
+}
+
+/**
+ * Runs the counting of `helpCountsSql` with PostgreSQL's JIT off for the transaction: the recursive
+ * query over the merges is estimated far above the few rows it reads, and on the measurement data
+ * set the JIT compilation took about 0.8 s of a statement that runs in 20 ms
+ * (docs/testing/PERFORMANCE.md, "The times helped"). The setting is put back afterwards.
+ */
+export async function withoutJit<T>(tx: Tx, work: () => Promise<T>): Promise<T> {
+  const [before] = await tx.$queryRaw<{ jit: string }[]>`
+    SELECT current_setting('jit') AS jit, set_config('jit', 'off', true)`;
+  const result = await work();
+  await tx.$queryRaw`SELECT set_config('jit', ${before!.jit}, true)`;
+  return result;
+}
+
+/**
+ * Recounts these people and every profile they were retired into, through a chain of merges: an
+ * application a merge left on a retired profile counts for the kept one too.
+ */
+export async function recountHelp(tx: Tx, beneficiaryIds: readonly string[]): Promise<number> {
+  const ids = [...new Set(beneficiaryIds)];
+  if (!ids.length) return 0;
+  const people = await tx.$queryRaw<{ id: string }[]>`
+    WITH RECURSIVE up(id) AS (
+      SELECT unnest(${ids}::uuid[])
+      UNION
+      SELECT b.merged_into_id FROM beneficiaries b JOIN up ON b.id = up.id
+      WHERE b.merged_into_id IS NOT NULL
+    )
+    SELECT id FROM up`;
+  return writeHelpCounts(
+    tx,
+    people.map((p) => p.id),
+  );
+}
+
+/** The application as the counting reads it, with its person. */
+export interface MovedApplication extends HelpFacts {
+  beneficiaryId: string | null;
+}
+
+/**
+ * After a move of the application: recounts its person when the move changed whether it counts
+ * (or, for a counted one, whose it is). A move between two states that count alike changes nothing.
+ */
+export async function recountAfterMove(
+  tx: Tx,
+  applicationId: string,
+  before: MovedApplication,
+): Promise<void> {
+  const after = await tx.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    select: { status: true, approvedAt: true, outcome: true, beneficiaryId: true },
+  });
+  const counted = countsAsHelped(before);
+  if (
+    counted === countsAsHelped(after) &&
+    (!counted || before.beneficiaryId === after.beneficiaryId)
+  )
+    return;
+  await recountHelp(
+    tx,
+    [before.beneficiaryId, after.beneficiaryId].filter((id): id is string => id !== null),
+  );
+}
+
+/**
+ * How often a person was helped (docs/BUSINESS_RULES.md, BR-307), as the profile and an
+ * application's record show it: a project the caller does not see is counted in its year's
+ * `unnamed`, never named. A new instance per use, as `sensitive` marks the instance it is given.
+ */
+export const helpSummarySchema = () =>
+  z.object({
+    total: z.number().int().min(0),
+    firstYear: z.number().int().nullable(),
+    thisYear: z.number().int().min(0),
+    repeatedInYear: z.boolean(),
+    repeatedInProject: z.boolean(),
+    years: z.array(
+      z.object({
+        year: z.number().int(),
+        count: z.number().int().min(1),
+        projects: z.array(
+          z.object({
+            id: z.uuid(),
+            code: z.string(),
+            nameBn: z.string(),
+            nameEn: z.string(),
+            count: z.number().int().min(1),
+          }),
+        ),
+        /** The times helped that year in projects the caller does not see. */
+        unnamed: z.number().int().min(0),
+      }),
+    ),
+  });
 
 const PROJECT_SELECT = { id: true, code: true, nameBn: true, nameEn: true, year: true } as const;
 

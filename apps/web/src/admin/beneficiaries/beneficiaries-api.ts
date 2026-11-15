@@ -1,4 +1,8 @@
-import type { BeneficiaryFilter, BeneficiaryStatistics } from '@css/shared/beneficiaries';
+import type {
+  BeneficiaryFilter,
+  BeneficiarySort,
+  BeneficiaryStatistics,
+} from '@css/shared/beneficiaries';
 import { api } from '../../api/client';
 import type {
   BeneficiaryPage,
@@ -25,6 +29,7 @@ export const FILTER_KEYS = [
   'projectId',
   'year',
   'blocked',
+  'helpedMoreThanOnceInYear',
 ] as const satisfies readonly (keyof BeneficiaryFilter)[];
 
 export type FilterValues = Partial<Record<(typeof FILTER_KEYS)[number], string>>;
@@ -49,11 +54,13 @@ export function beneficiaryPage(
   q: string,
   page: number,
   cursor: string | null,
+  sort?: BeneficiarySort,
 ) {
   return api<BeneficiaryPage>(
     `/beneficiaries${listQuery({
       ...filters,
       q: q || undefined,
+      sort,
       ...pageParams(page, cursor),
       limit: String(PAGE_SIZE),
       include: 'total',

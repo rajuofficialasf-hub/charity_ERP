@@ -11,6 +11,7 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
+import { helpCountsSql, recountHelp } from '../../src/services/help-history.js';
 import * as f from './support/fixtures.js';
 
 // Profile merges: an RPM proposes, a PM or a global role merges (from a proposal or directly) with
@@ -739,5 +740,49 @@ describe("whether the name beside the person is the father's or the husband's", 
     expect(await relationOf(kept)).toBe('father');
     await revert(head, done.body.data.id).expect(200);
     expect(await relationOf(kept)).toBe('father');
+  });
+});
+
+describe('the times helped kept on both profiles', () => {
+  /** The kept counters beside a fresh count, and the update stamp of the profile. */
+  async function counters(id: string) {
+    const row = (
+      await h.db.query<{ help_count: number; max_helps_in_year: number }>(
+        'SELECT help_count, max_helps_in_year FROM beneficiaries WHERE id = $1',
+        [id],
+      )
+    ).rows[0]!;
+    const [fresh] = await h.container.prisma.$queryRaw<
+      { help_count: number; max_helps_in_year: number }[]
+    >(helpCountsSql([id]));
+    expect(row, 'the kept counters equal a fresh count').toEqual({
+      help_count: fresh!.help_count,
+      max_helps_in_year: fresh!.max_helps_in_year,
+    });
+    return [row.help_count, row.max_helps_in_year];
+  }
+
+  it('move with a merge, the left-behind application counted for the kept profile, and come back with its revert', async () => {
+    const { kept, retired } = await duplicate();
+    // past pending in a project where the kept profile applied too: it stays on the retired one
+    await applyTo(world.a1, retired, 'approved');
+    // the fixtures wrote the applications without the moves, so the counters start from a recount
+    await h.container.prisma.$transaction((tx) => recountHelp(tx, [kept, retired]));
+    expect(await counters(kept)).toEqual([1, 1]);
+    expect(await counters(retired)).toEqual([2, 2]);
+    const res = await direct(await as(world.users.head), {
+      keptId: kept,
+      mergedId: retired,
+      reason: REASON,
+    });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.body.data.leftBehind).toBe(1);
+    // the kept profile: its own, the moved one and the one left behind, all of one year
+    expect(await counters(kept)).toEqual([3, 3]);
+    // the retired profile keeps what still sits on it
+    expect(await counters(retired)).toEqual([1, 1]);
+    await revert(await as(world.users.monitoring), res.body.data.id).expect(200);
+    expect(await counters(kept)).toEqual([1, 1]);
+    expect(await counters(retired)).toEqual([2, 2]);
   });
 });

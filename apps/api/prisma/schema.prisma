@@ -1252,7 +1252,11 @@ model Beneficiary {
   villageKey                           String?                    @map("village_key")
   /// the version of the variants list the keys were computed with; null until computed
   matchKeysVersion                     Int?                       @map("match_keys_version")
-  gender                               ReferenceList?             @relation("beneficiaries_gender_code", fields: [genderList, genderCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
+  /// the times the person was helped, kept by the moves, the merges and the nightly recount (countsAsHelped of @css/shared)
+  helpCount                            Int                        @default(0) @map("help_count")
+  /// the most of those in one project year; more than one is "helped more than once in a year"
+  maxHelpsInYear                       Int                        @default(0) @map("max_helps_in_year")
+  gender                            ReferenceList?             @relation("beneficiaries_gender_code", fields: [genderList, genderCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   maritalStatus                        ReferenceList?             @relation("beneficiaries_marital_status_code", fields: [maritalStatusList, maritalStatusCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   education                            ReferenceList?             @relation("beneficiaries_education_code", fields: [educationList, educationCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   mobileOwner                          ReferenceList?             @relation("beneficiaries_mobile_owner_code", fields: [mobileOwnerList, mobileOwnerCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
@@ -1307,6 +1311,8 @@ model Beneficiary {
   @@index([unionId, nameKey, guardianKey], where: raw("merged_into_id IS NULL"), map: "beneficiaries_union_id_name_key_guardian_key_idx")
   @@index([unionId, villageKey], where: raw("merged_into_id IS NULL"), map: "beneficiaries_union_id_village_key_idx")
   @@index([matchKeysVersion], map: "beneficiaries_match_keys_version_idx")
+  @@index([helpCount, id], where: raw("merged_into_id IS NULL"), map: "beneficiaries_help_count_idx")
+  @@index([id], where: raw("max_helps_in_year > 1 AND merged_into_id IS NULL"), map: "beneficiaries_helped_repeat_idx")
   @@map("beneficiaries")
 }
 
