@@ -1,7 +1,7 @@
 ---
 title: An easier form builder
 type: feat
-status: ready
+status: done
 source: plan
 date: 2026-11-11
 doc_review: 2026-11-11
