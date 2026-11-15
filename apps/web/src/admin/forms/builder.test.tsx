@@ -8,10 +8,31 @@ import { apiError, ME, refreshAs, renderApp } from '../../../test/auth';
 import { coreSections, field, option, section, T } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
+import type * as FieldInputModule from '../../features/forms/FieldInput';
 import { FormBuilderPage } from './FormBuilderPage';
 import { FormsPage } from './FormsPage';
 import { LEAVE_ASK_AFTER_MS, SAVE_DELAY_MS, SAVE_RETRY_EVERY_MS } from './use-draft-save';
 import { stubMatchMedia } from '../../../test/match-media';
+
+/**
+ * How many times the canvas drew each question, by its key: the question's own drawing is counted
+ * where the renderer's input is asked for with the canvas's id. The settings, the preview and the
+ * handle of a row draw none of these.
+ */
+const drawn = vi.hoisted(() => new Map<string, number>());
+vi.mock('../../features/forms/FieldInput', async (original) => {
+  const real = await original<typeof FieldInputModule>();
+  const { createElement } = await import('react');
+  type Props = Parameters<typeof real.FieldInput>[0];
+  return {
+    ...real,
+    FieldInput: (props: Props) => {
+      const key = props.field.fieldKey;
+      if (props.id.startsWith('canvas-')) drawn.set(key, (drawn.get(key) ?? 0) + 1);
+      return createElement(real.FieldInput, props);
+    },
+  };
+});
 
 // The form builder: the libraries on one side, the outline in the middle, the draft saved by
 // itself with its version, the mandatory core locked, and read-only where saving is not possible.
@@ -219,6 +240,7 @@ beforeEach(() => {
   resetClientForTests();
   refreshAs({ ...ME, roles: ['monitoring_team'] });
   scrolled = [];
+  drawn.clear();
   Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
     scrolled.push(this);
   };
@@ -1976,6 +1998,34 @@ describe('a question on its way to another place', () => {
     expect(await questionsOf('অতিরিক্ত')).toEqual(['মন্তব্য বদলান', 'আরও বদলান', 'শেষ বদলান']);
   }, 20_000);
 
+  it('draws no question again while one is on its way, and after the drop only the three whose place changed', async () => {
+    const user = userEvent.setup();
+    api({ sections: three() });
+    open();
+    await outlineOf('অতিরিক্ত');
+    layOut();
+    screen.getByRole('button', { name: 'মন্তব্য টেনে সরান' }).focus();
+    drawn.clear();
+    await user.keyboard('[Space]');
+    await waitFor(() => expect(said()).toBe('মন্তব্য তুলেছেন।'));
+    await user.keyboard('[ArrowDown]');
+    await waitFor(() => expect(rowOf('আরও বদলান')).toHaveClass('is-land-after'));
+    await user.keyboard('[ArrowDown]');
+    await waitFor(() => expect(rowOf('শেষ বদলান')).toHaveClass('is-land-after'));
+    // the dimmed question and the two that carried the line changed on the outside only
+    expect([...drawn]).toEqual([]);
+    await user.keyboard('[Space]');
+    await waitFor(() => expect(said()).toBe('মন্তব্য অতিরিক্ত-এ তৃতীয় স্থানে বসেছে।'));
+    // the first, the last and the moved question stand elsewhere now; the seven above them do not
+    expect(new Map(drawn)).toEqual(
+      new Map([
+        ['q_note', 1],
+        ['q_more', 1],
+        ['q_last', 1],
+      ]),
+    );
+  }, 20_000);
+
   it('says it in English to a person who reads English', async () => {
     const user = userEvent.setup();
     api({ sections: three() });
@@ -1992,6 +2042,43 @@ describe('a question on its way to another place', () => {
     await user.keyboard('[Space]');
     await waitFor(() => expect(said()).toBe('Note is now second in Extra.'));
   }, 20_000);
+});
+
+describe('a long form', () => {
+  /** A hundred questions in two parts of fifty. */
+  const hundred = (): FormDefinition['sections'] =>
+    [0, 1].map((part) =>
+      section(
+        `part_${part}`,
+        Array.from({ length: 50 }, (_, i) => {
+          const n = part * 50 + i + 1;
+          return field(`q_${n}`, 'short_text', { label: T(`প্রশ্ন ${n}`, `Question ${n}`) });
+        }),
+        { title: T(part ? 'দ্বিতীয় ভাগ' : 'প্রথম ভাগ', part ? 'Second' : 'First') },
+      ),
+    );
+
+  it('draws one question again for each keystroke in its text, and no other', async () => {
+    const user = userEvent.setup();
+    api({ sections: hundred() });
+    open();
+    const question = await screen.findByRole(
+      'button',
+      { name: 'প্রশ্ন 7 বদলান' },
+      { timeout: 30_000 },
+    );
+    expect(drawn.size).toBe(100);
+    // choosing a question draws that question, which shows its bar, and no other
+    drawn.clear();
+    await user.click(question);
+    const text = await screen.findByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ });
+    expect([...drawn]).toEqual([['q_7', 1]]);
+    // three letters, three drawings of the one question
+    drawn.clear();
+    await user.type(text, 'abc');
+    expect(screen.getByRole('button', { name: 'প্রশ্ন 7abc বদলান' })).toBeInTheDocument();
+    expect([...drawn]).toEqual([['q_7', 3]]);
+  }, 90_000);
 });
 
 describe('who may change what', () => {
