@@ -7,8 +7,10 @@ import {
   ConfirmDialog,
   Dialog,
   Disclosure,
+  Drawer,
   EmptyState,
   Icon,
+  IconButton,
   Page,
   Skeleton,
   Stack,
@@ -79,6 +81,7 @@ import { TranslationsDialog } from './TranslationsDialog';
 import { UsesDialog } from './UsesDialog';
 import { type HistoryStep, type Typed, useDraftHistory } from './use-draft-history';
 import { detailsOf, refusalOf, useDraftSave } from './use-draft-save';
+import { usePaneFolds } from './use-pane-folds';
 import { ScoringDialog } from './ScoringDialog';
 import { startTable } from './TableSettings';
 import { VersionList } from './VersionList';
@@ -86,6 +89,8 @@ import './builder.css';
 import { LoadError } from '../../components/LoadError';
 
 const PHONE = '(max-width: 767px)';
+/** Under a computer's width the settings have no column of their own. */
+const NARROW = '(max-width: 1023px)';
 const NO_DETAILS: readonly ApiErrorDetail[] = [];
 /** What the server named when it refused a publish, and the draft it was asked about. */
 interface Refusal {
@@ -111,7 +116,10 @@ function useMedia(media: string) {
  * The form builder of a project's form, a ready form or the question library (docs/ui/SCREENS.md,
  * "Form builder"): the library,
  * the outline and the settings of the chosen part side by side on a computer, the outline alone
- * with text edits on a phone. A question is added in place with no dialog: empty, after the
+ * with text edits on a phone. The outline has the most room; each side pane folds away to a strip,
+ * as the person left it on this device, and where the settings have no column (under 1024 px, or
+ * folded) they open over the form in a drawer when a question or a part is chosen. A question is
+ * added in place with no dialog: empty, after the
  * chosen question or where a menu of the types was opened, chosen, in view, and with the cursor
  * in its Bengali text. The draft saves itself, tries again by itself when a save fails
  * on the way and says so in the form head, and every change to it can be undone and redone from
@@ -147,6 +155,12 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const locale = useLocale() as Locale;
   const { me } = useAuth();
   const phone = useMedia(PHONE);
+  const narrow = useMedia(NARROW);
+  const folds = usePaneFolds();
+  // where the settings have no column (a narrow screen, or the column folded away) they come
+  // over the form in a drawer
+  const settingsOver = narrow || folds.isFolded('settings');
+  const [drawer, setDrawer] = useState(false);
   const online = useOnline();
   const queries = useQueryClient();
   // an earlier version opened from the list; otherwise the draft, else the published version
@@ -234,7 +248,10 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const [selected, setSelectedOnly] = useState<Selection | null>(null);
   const setSelected = (next: Selection | null) => {
     setSelectedOnly(next);
-    if (next) setPane('question');
+    if (!next) return;
+    setPane('question');
+    // choosing a question or a part is asking for its settings
+    if (settingsOver) setDrawer(true);
   };
   const versionKey = [...FORMS_KEY, 'version', versionId];
   const save = useDraftSave({
@@ -509,7 +526,9 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     if (next === draft || mode !== 'full') return;
     change(next);
     const moved = { section: sectionKey, field: fieldKey };
-    setSelected(moved);
+    // the question was the chosen one already, so its settings are not opened over the form again
+    setSelectedOnly(moved);
+    setPane('question');
     setReveal(moved);
   };
   const versionLabel = t(
@@ -618,91 +637,127 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       />
     );
 
+  const settingsTabs = (
+    <Tabs
+      label={t('settings')}
+      value={pane}
+      onChange={(id) => setPane(id === 'form' ? 'form' : 'question')}
+      items={[
+        {
+          value: 'question',
+          label: t('question_settings'),
+          content: settings ?? <Text tone="muted">{t('read_only_pane')}</Text>,
+        },
+        {
+          value: 'form',
+          label: t('form_settings'),
+          content: (
+            <Stack gap={3}>
+              <Text>
+                <Text>
+                  <strong>{t('form_name')}</strong>
+                </Text>{' '}
+                {title}
+              </Text>
+              {/* the version list is the builders' read; a PM sees the placed version only */}
+              {builder ? (
+                <Disclosure title={t('versions')} icon="history" headingLevel={2} defaultOpen>
+                  <VersionList
+                    formId={formId}
+                    shown={version.id}
+                    canOpen={save.state === 'saved'}
+                    onOpen={setViewing}
+                  />
+                </Disclosure>
+              ) : null}
+              {/* the public link belongs to a project, and opens an application form only */}
+              {scope === 'project' && form?.kind === 'beneficiary_application' ? (
+                <Disclosure title={t('link.title')} icon="link" headingLevel={2}>
+                  <PublicLinkPanel
+                    projectId={projectId}
+                    formId={formId}
+                    published={Boolean(form.publishedVersionId)}
+                    canManage={linkManager}
+                  />
+                </Disclosure>
+              ) : null}
+            </Stack>
+          ),
+        },
+      ]}
+    />
+  );
+  const addFolded = folds.isFolded('add');
+  const settingsFolded = folds.isFolded('settings');
+
   const panes = (
     <div className="fb-panes">
       {mode === 'full' && lib.data ? (
-        <aside className="fb-side" aria-label={t('add_pane')}>
-          <AddPane
-            library={lib.data}
-            fields={fields}
-            definition={draft}
-            targetSection={target}
-            onAddSection={(s) => change(addLibrarySection(draft, s, fields))}
-            onAddField={(key) => {
-              if (!target) return;
-              const placed = fields.get(key) ?? [];
-              const next = addLibraryField(draft, target, placed);
-              if (next === draft) return;
-              change(next);
-              // the question that came is chosen and shown: a list with its row questions by itself
-              const first = placed.find((f) => !named.has(f.fieldKey));
-              if (!first) return;
-              const added = { section: target, field: first.fieldKey };
-              setSelected(added);
-              setReveal(added);
-            }}
-            onAddType={(type) => {
-              // after the chosen question (a list or one of its row questions takes it into the
-              // rows), else at the end of the chosen part, else of the last one
-              if (selection?.field)
-                addQuestion(type, { section: selection.section, after: selection.field });
-              else if (target) addQuestion(type, { section: target });
-            }}
-          />
+        <aside
+          className={`fb-side fb-add${addFolded ? ' is-folded' : ''}`}
+          aria-label={t('add_pane')}
+        >
+          <span className="fb-fold">
+            <IconButton
+              size="small"
+              label={t(addFolded ? 'unfold_add' : 'fold_add')}
+              icon={addFolded ? 'chevron-right' : 'chevron-left'}
+              onClick={() => folds.toggle('add')}
+            />
+          </span>
+          {/* folded, the pane keeps its tab, its search and its open groups for when it is back */}
+          <div className="fb-side-body" hidden={addFolded}>
+            <AddPane
+              library={lib.data}
+              fields={fields}
+              definition={draft}
+              targetSection={target}
+              onAddSection={(s) => change(addLibrarySection(draft, s, fields))}
+              onAddField={(key) => {
+                if (!target) return;
+                const placed = fields.get(key) ?? [];
+                const next = addLibraryField(draft, target, placed);
+                if (next === draft) return;
+                change(next);
+                // the question that came is chosen and shown: a list with its row questions by itself
+                const first = placed.find((f) => !named.has(f.fieldKey));
+                if (!first) return;
+                const added = { section: target, field: first.fieldKey };
+                setSelected(added);
+                setReveal(added);
+              }}
+              onAddType={(type) => {
+                // after the chosen question (a list or one of its row questions takes it into the
+                // rows), else at the end of the chosen part, else of the last one
+                if (selection?.field)
+                  addQuestion(type, { section: selection.section, after: selection.field });
+                else if (target) addQuestion(type, { section: target });
+              }}
+            />
+          </div>
         </aside>
       ) : null}
 
       <div className="fb-canvas">{outline}</div>
-      <aside className="fb-side" aria-label={t('settings')}>
-        <Tabs
-          label={t('settings')}
-          value={pane}
-          onChange={(id) => setPane(id === 'form' ? 'form' : 'question')}
-          items={[
-            {
-              value: 'question',
-              label: t('question_settings'),
-              content: settings ?? <Text tone="muted">{t('read_only_pane')}</Text>,
-            },
-            {
-              value: 'form',
-              label: t('form_settings'),
-              content: (
-                <Stack gap={3}>
-                  <Text>
-                    <Text>
-                      <strong>{t('form_name')}</strong>
-                    </Text>{' '}
-                    {title}
-                  </Text>
-                  {/* the version list is the builders' read; a PM sees the placed version only */}
-                  {builder ? (
-                    <Disclosure title={t('versions')} icon="history" headingLevel={2} defaultOpen>
-                      <VersionList
-                        formId={formId}
-                        shown={version.id}
-                        canOpen={save.state === 'saved'}
-                        onOpen={setViewing}
-                      />
-                    </Disclosure>
-                  ) : null}
-                  {/* the public link belongs to a project, and opens an application form only */}
-                  {scope === 'project' && form?.kind === 'beneficiary_application' ? (
-                    <Disclosure title={t('link.title')} icon="link" headingLevel={2}>
-                      <PublicLinkPanel
-                        projectId={projectId}
-                        formId={formId}
-                        published={Boolean(form.publishedVersionId)}
-                        canManage={linkManager}
-                      />
-                    </Disclosure>
-                  ) : null}
-                </Stack>
-              ),
-            },
-          ]}
-        />
-      </aside>
+      {narrow ? null : (
+        <aside
+          className={`fb-side fb-settings${settingsFolded ? ' is-folded' : ''}`}
+          aria-label={t('settings')}
+        >
+          <span className="fb-fold">
+            <IconButton
+              size="small"
+              label={t(settingsFolded ? 'unfold_settings' : 'fold_settings')}
+              icon={settingsFolded ? 'chevron-left' : 'chevron-right'}
+              onClick={() => folds.toggle('settings')}
+            />
+          </span>
+          {settingsFolded ? null : <div className="fb-side-body">{settingsTabs}</div>}
+        </aside>
+      )}
+      <Drawer open={settingsOver && drawer} onClose={() => setDrawer(false)} title={t('settings')}>
+        {settingsTabs}
+      </Drawer>
     </div>
   );
   const panesWithDrag =
@@ -720,7 +775,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     );
 
   return (
-    <>
+    <div className="fb-page">
       <DocumentTitle title={title} />
       <div data-testid="form-head">
         <Page
@@ -844,6 +899,20 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
               onRedo={() => restore(history.redo(shown))}
             />
           ) : null}
+          {/* without a settings column the form's own settings open from here */}
+          {settingsOver ? (
+            <Button
+              size="small"
+              variant="secondary"
+              startIcon="settings"
+              onClick={() => {
+                setPane('form');
+                setDrawer(true);
+              }}
+            >
+              {t('form_settings')}
+            </Button>
+          ) : null}
         </div>
       </div>
       {failure ? <Alert tone="error">{failure.message}</Alert> : null}
@@ -943,6 +1012,6 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       >
         <Text>{t(save.leave.saving ? 'leave_saving_message' : 'leave_message')}</Text>
       </Dialog>
-    </>
+    </div>
   );
 }

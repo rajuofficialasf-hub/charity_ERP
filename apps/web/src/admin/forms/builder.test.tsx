@@ -226,7 +226,10 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  vi.restoreAllMocks();
   Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+  // a pane folded by one test opens unfolded in the next
+  localStorage.clear();
 });
 
 /** The canvas's list of a section's questions. */
@@ -1714,6 +1717,150 @@ describe('saving', () => {
     // read-only now: the left pane is gone
     expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
   }, 15_000);
+});
+
+describe('the room for the form', () => {
+  const addPane = () => screen.getByRole('complementary', { name: 'প্রশ্ন যোগ করার জায়গা' });
+  const settingsPane = () => screen.getByRole('complementary', { name: 'প্রশ্ন ও ফর্মের সেটিং' });
+  const drawer = () => screen.queryByRole('dialog', { name: 'প্রশ্ন ও ফর্মের সেটিং' });
+
+  it('folds each side pane away and opens it again, and keeps the choice on the device', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    const first = open();
+    await outlineOf('অতিরিক্ত');
+    // the left pane folds to its button alone, and the form's questions stay
+    await user.click(
+      await within(addPane()).findByRole('button', { name: 'প্রশ্ন যোগের তালিকা লুকান' }),
+    );
+    expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
+    expect(
+      within(addPane()).getByRole('button', { name: 'প্রশ্ন যোগের তালিকা দেখান' }),
+    ).toBeInTheDocument();
+    // the right one too
+    await user.click(within(settingsPane()).getByRole('button', { name: 'সেটিং লুকান' }));
+    expect(screen.queryByRole('tab', { name: 'প্রশ্নের সেটিং' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'মন্তব্য বদলান' })).toBeInTheDocument();
+
+    // the page opened again on this device finds both as they were left
+    first.unmount();
+    open();
+    await outlineOf('অতিরিক্ত');
+    const showAdd = await within(addPane()).findByRole('button', {
+      name: 'প্রশ্ন যোগের তালিকা দেখান',
+    });
+    expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'প্রশ্নের সেটিং' })).not.toBeInTheDocument();
+    await user.click(showAdd);
+    expect(screen.getByRole('tab', { name: 'লাইব্রেরি' })).toBeInTheDocument();
+    await user.click(within(settingsPane()).getByRole('button', { name: 'সেটিং দেখান' }));
+    expect(screen.getByRole('tab', { name: 'প্রশ্নের সেটিং' })).toBeInTheDocument();
+    expect(within(settingsPane()).getByRole('button', { name: 'সেটিং লুকান' })).toBeInTheDocument();
+  }, 20_000);
+
+  it('keeps what the left pane showed while it was folded', async () => {
+    const user = userEvent.setup();
+    api();
+    open();
+    await user.click(await screen.findByRole('tab', { name: 'লাইব্রেরি' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'লাইব্রেরিতে প্রশ্ন খুঁজুন' }),
+      'আয়',
+    );
+    await user.click(screen.getByRole('button', { name: 'প্রশ্ন যোগের তালিকা লুকান' }));
+    await user.click(screen.getByRole('button', { name: 'প্রশ্ন যোগের তালিকা দেখান' }));
+    expect(screen.getByRole('tab', { name: 'লাইব্রেরি' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('textbox', { name: 'লাইব্রেরিতে প্রশ্ন খুঁজুন' })).toHaveValue('আয়');
+  }, 15_000);
+
+  it('folds for the visit where the device keeps nothing', async () => {
+    const user = userEvent.setup();
+    const blocked = () => {
+      throw new DOMException('blocked', 'SecurityError');
+    };
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked);
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked);
+    api();
+    open();
+    await user.click(await screen.findByRole('button', { name: 'প্রশ্ন যোগের তালিকা লুকান' }));
+    expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'প্রশ্ন যোগের তালিকা দেখান' }));
+    expect(screen.getByRole('tab', { name: 'লাইব্রেরি' })).toBeInTheDocument();
+  }, 15_000);
+
+  it('opens unfolded when what the device kept is not a list of panes', async () => {
+    localStorage.setItem('css_form_builder_folded', '{"add":true}');
+    api();
+    open();
+    expect(await screen.findByRole('tab', { name: 'লাইব্রেরি' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'প্রশ্নের সেটিং' })).toBeInTheDocument();
+  });
+
+  it('opens the settings as a drawer when a question is chosen on a screen under 1024 px', async () => {
+    const user = userEvent.setup();
+    // a tablet: narrower than a computer, wider than a phone
+    stubMatchMedia((q) => q.includes('max-width: 1023px'));
+    api({ sections: withNote() });
+    open();
+    await outlineOf('অতিরিক্ত');
+    // no settings column, and nothing over the form until a question is chosen
+    expect(
+      screen.queryByRole('complementary', { name: 'প্রশ্ন ও ফর্মের সেটিং' }),
+    ).not.toBeInTheDocument();
+    expect(drawer()).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
+    const settings = within(await screen.findByRole('dialog', { name: 'প্রশ্ন ও ফর্মের সেটিং' }));
+    expect(settings.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('মন্তব্য');
+    // closed, the question stays the chosen one, and choosing it again opens them again
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(drawer()).not.toBeInTheDocument());
+    const question = screen.getByRole('button', { name: 'মন্তব্য বদলান' });
+    expect(question).toHaveAttribute('aria-pressed', 'true');
+    await user.click(question);
+    expect(
+      await screen.findByRole('dialog', { name: 'প্রশ্ন ও ফর্মের সেটিং' }),
+    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(drawer()).not.toBeInTheDocument());
+
+    // a question added from the left is typed in the drawer straight away
+    await user.click(screen.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
+    await screen.findByRole('dialog', { name: 'প্রশ্ন ও ফর্মের সেটিং' });
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(drawer()).not.toBeInTheDocument());
+
+    // the form's own settings open from the form head
+    await user.click(
+      within(screen.getByTestId('form-head')).getByRole('button', { name: 'ফর্মের সেটিং' }),
+    );
+    const form = within(await screen.findByRole('dialog', { name: 'প্রশ্ন ও ফর্মের সেটিং' }));
+    expect(form.getByRole('tab', { name: 'ফর্মের সেটিং' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  }, 30_000);
+
+  it('opens the settings over the form on a computer too while their pane is folded', async () => {
+    const user = userEvent.setup();
+    api({ sections: withNote() });
+    open();
+    await outlineOf('অতিরিক্ত');
+    await user.click(await screen.findByRole('button', { name: 'সেটিং লুকান' }));
+    expect(drawer()).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
+    const settings = within(await screen.findByRole('dialog', { name: 'প্রশ্ন ও ফর্মের সেটিং' }));
+    expect(settings.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('মন্তব্য');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(drawer()).not.toBeInTheDocument());
+    // unfolded, the settings are in their pane again and nothing comes over the form
+    await user.click(screen.getByRole('button', { name: 'সেটিং দেখান' }));
+    expect(within(settingsPane()).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue(
+      'মন্তব্য',
+    );
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
+    expect(drawer()).not.toBeInTheDocument();
+  }, 20_000);
 });
 
 describe('who may change what', () => {

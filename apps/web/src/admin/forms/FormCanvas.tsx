@@ -594,25 +594,33 @@ function QuestionRow({
       {isSelected && full ? (
         <div className="fb-q-bar" role="group" aria-label={t('question_actions', { label })}>
           <Icon name={meta.icon} size={16} />
-          <span className="fb-q-bar-type">{tt(field.type)}</span>
+          {/* a name cut short in a narrow question is whole in its tip */}
+          <span className="fb-q-bar-type" title={tt(field.type)}>
+            {tt(field.type)}
+          </span>
           <IconButton
             label={t('move_up', { label })}
             icon="arrow-up"
-
+            size="small"
             disabled={first}
             onClick={() => onMove(-1)}
           />
           <IconButton
             label={t('move_down', { label })}
             icon="arrow-down"
-
+            size="small"
             disabled={last}
             onClick={() => onMove(1)}
           />
           {field.type === 'repeat_group' ? null : (
-            <IconButton label={t('copy', { label })} icon="copy" onClick={onCopy} />
+            <IconButton label={t('copy', { label })} icon="copy" size="small" onClick={onCopy} />
           )}
-          <IconButton label={t('remove', { label })} icon="delete" onClick={onRemove} />
+          <IconButton
+            label={t('remove', { label })}
+            icon="delete"
+            size="small"
+            onClick={onRemove}
+          />
           {/* a form of one part has nowhere else to send a question */}
           {others.length ? (
             <Menu
@@ -684,19 +692,24 @@ function MemberRow({
           <IconButton
             label={t('move_up', { label })}
             icon="arrow-up"
-
+            size="small"
             disabled={first}
             onClick={() => onMove(-1)}
           />
           <IconButton
             label={t('move_down', { label })}
             icon="arrow-down"
-
+            size="small"
             disabled={last}
             onClick={() => onMove(1)}
           />
-          <IconButton label={t('copy', { label })} icon="copy" onClick={onCopy} />
-          <IconButton label={t('remove', { label })} icon="delete" onClick={onRemove} />
+          <IconButton label={t('copy', { label })} icon="copy" size="small" onClick={onCopy} />
+          <IconButton
+            label={t('remove', { label })}
+            icon="delete"
+            size="small"
+            onClick={onRemove}
+          />
         </div>
       ) : null}
     </li>

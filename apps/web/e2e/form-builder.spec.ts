@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { devices, expect, type Page, test } from '@playwright/test';
 import { scan, signIn, switchLanguage } from './support/admin';
+import { DEMO_FINISHED, demoReadyForm } from './support/demo-form';
 import {
   dayFromToday,
   digits,
@@ -608,4 +609,87 @@ test('a removed question and a removed part come back with the undo of the form 
   await expect(second).toBeVisible();
   await expect(third).toBeVisible();
   await expect(undo).toBeDisabled();
+});
+
+// The form has the most room of the three panes, a side pane folds away and stays so, the chosen
+// question's bar keeps its buttons clear of its type's name at the narrowest three-pane width, and
+// under that width the settings come over the form in a drawer.
+test('the form has the most room, a pane folds away, the bar of a question overlaps nothing at 1024 px, and a narrower screen opens the settings as a drawer', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'the builders work on a computer');
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, MONITORING);
+  const form = await demoReadyForm(page, MONITORING, `জায়গা ${code()}`, DEMO_FINISHED);
+  await page.goto(`/admin/ready-forms/${form}`);
+  const canvas = page.getByRole('region', { name: 'ফর্মের প্রশ্নগুলো', exact: true });
+  const add = page.getByRole('complementary', { name: 'প্রশ্ন যোগ করার জায়গা' });
+  const settings = page.getByRole('complementary', { name: 'প্রশ্ন ও ফর্মের সেটিং' });
+  const widthOf = async (pane: typeof canvas) => (await pane.boundingBox())!.width;
+  await expect(add.getByRole('tab', { name: 'লাইব্রেরি' })).toBeVisible();
+  const wide = await widthOf(canvas);
+  expect(wide).toBeGreaterThan(await widthOf(add));
+  expect(wide).toBeGreaterThan(await widthOf(settings));
+
+  // the left pane folds away to a strip, the form takes its room, and the device remembers
+  await add.getByRole('button', { name: 'প্রশ্ন যোগের তালিকা লুকান' }).click();
+  await expect(add.getByRole('tab', { name: 'লাইব্রেরি' })).toBeHidden();
+  expect(await widthOf(canvas)).toBeGreaterThan(wide + 100);
+  await page.reload();
+  const unfold = add.getByRole('button', { name: 'প্রশ্ন যোগের তালিকা দেখান' });
+  await expect(unfold).toBeVisible();
+  await expect(add.getByRole('tab', { name: 'লাইব্রেরি' })).toBeHidden();
+  await unfold.click();
+  await expect(add.getByRole('tab', { name: 'লাইব্রেরি' })).toBeVisible();
+
+  // three panes at their narrowest: the bar of a question with a long type name and every button
+  await page.setViewportSize({ width: 1024, height: 800 });
+  const gender = page.getByRole('button', { name: 'লিঙ্গ বদলান', exact: true });
+  await gender.click();
+  await expect(settings.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('লিঙ্গ');
+  expect(await widthOf(canvas)).toBeGreaterThan(await widthOf(settings));
+  const bar = page.getByRole('group', { name: 'লিঙ্গ: কাজ' });
+  const type = bar.getByText('তালিকা থেকে একটি', { exact: true });
+  await expect(type).toBeVisible();
+  const name = (await type.boundingBox())!;
+  // the whole name shows, none of it cut
+  expect(await type.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const buttons = bar.getByRole('button');
+  await expect(buttons).toHaveCount(5);
+  const question = (await page.locator('[data-question="q_gender"]').boundingBox())!;
+  for (const button of await buttons.all()) {
+    const box = (await button.boundingBox())!;
+    const apart =
+      box.x >= name.x + name.width ||
+      box.x + box.width <= name.x ||
+      box.y >= name.y + name.height ||
+      box.y + box.height <= name.y;
+    expect(apart, `${await button.getAttribute('aria-label')} stands clear of the type`).toBe(true);
+    // and the bar stays inside its question
+    expect(box.x).toBeGreaterThanOrEqual(question.x);
+    expect(box.x + box.width).toBeLessThanOrEqual(question.x + question.width);
+  }
+
+  // under a computer's width the settings have no column: choosing a question opens them over
+  // the form, and closing them leaves the question chosen
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await expect(settings).toHaveCount(0);
+  await page.getByRole('button', { name: 'গ্রাম বদলান', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'প্রশ্ন ও ফর্মের সেটিং' });
+  await expect(drawer.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('গ্রাম');
+  await settled(page);
+  expect((await scan(page)).violations, 'the settings in a drawer').toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'গ্রাম বদলান', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  // the form's own settings open from the form head
+  await page.getByTestId('form-head').getByRole('button', { name: 'ফর্মের সেটিং' }).click();
+  await expect(drawer.getByRole('tab', { name: 'ফর্মের সেটিং' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
 });
