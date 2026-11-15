@@ -2121,7 +2121,7 @@ components:
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         benNo: { $ref: '#/components/schemas/BenNo' }
-        createdAt: { type: string, format: date-time, description: When the profile was made, shown as its registration date }
+        createdAt: { type: string, format: date-time, description: 'When the profile was made, shown as its registration date' }
         mergedInto:
           description: The kept profile a retired one leads to; null for a live profile
           type: [object, 'null']
