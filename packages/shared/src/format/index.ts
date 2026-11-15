@@ -207,6 +207,19 @@ export function formatFileSize(bytes: number, locale: Locale = 'bn'): string {
   return `${formatDecimal(bytes / 1024 ** 3, 1, locale)} GB`;
 }
 
+/**
+ * An identity number in groups of four for reading aloud or across a desk: 2365 4789 6541 2365 4.
+ * Only for display; a copy or a search keeps the number as it is.
+ */
+export function formatIdNumber(value: string): string {
+  return /^\d+$/.test(value) ? (value.match(/\d{1,4}/g) ?? []).join(' ') : value;
+}
+
+/** A Bangladeshi mobile number as it is read out: 01365-478965 (the operator's part, then the rest). */
+export function formatMobile(value: string): string {
+  return /^01\d{9}$/.test(value) ? `${value.slice(0, 5)}-${value.slice(5)}` : value;
+}
+
 /** Photo stamps and site verification: 23.8456, 90.2567 · ±8 m. */
 export function formatGps(lat: number, lng: number, accuracyMeters?: number): string {
   const position = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;

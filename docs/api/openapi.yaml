@@ -2117,10 +2117,11 @@ components:
     Beneficiary:
       type: object
       description: The 360° profile shell (SCR-045, O-67, D-094); each section an empty array when nothing exists
-      required: [id, benNo, name, status, divisionId, districtId, upazilaId, projectsByYear, distributions, mergedInto, actions, corrections, merges]
+      required: [id, benNo, createdAt, name, status, divisionId, districtId, upazilaId, projectsByYear, distributions, mergedInto, actions, corrections, merges]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         benNo: { $ref: '#/components/schemas/BenNo' }
+        createdAt: { type: string, format: date-time, description: When the profile was made, shown as its registration date }
         mergedInto:
           description: The kept profile a retired one leads to; null for a live profile
           type: [object, 'null']

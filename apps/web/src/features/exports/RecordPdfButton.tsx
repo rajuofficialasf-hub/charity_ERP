@@ -11,6 +11,8 @@ import { EXPORTS_KEY, startRecordPdf } from './exports-api';
 interface RecordPdfButtonProps {
   kind: 'beneficiary_profile' | 'application';
   id: string;
+  /** The page's main action, in the full size (a profile's banner). */
+  main?: boolean;
 }
 
 /**
@@ -18,7 +20,7 @@ interface RecordPdfButtonProps {
  * (the lists' export roles): starts the record's PDF and follows it in a dialog. The server
  * checks the permission, the record's reach and every protected field again.
  */
-export function RecordPdfButton({ kind, id }: RecordPdfButtonProps) {
+export function RecordPdfButton({ kind, id, main = false }: RecordPdfButtonProps) {
   const t = useTranslations('exports.dialog');
   const { me } = useAuth();
   const queryClient = useQueryClient();
@@ -38,9 +40,9 @@ export function RecordPdfButton({ kind, id }: RecordPdfButtonProps) {
   return (
     <>
       <Button
-        variant="secondary"
-        size="small"
-        startIcon="file"
+        variant={main ? 'primary' : 'secondary'}
+        size={main ? 'medium' : 'small'}
+        startIcon={main ? 'download' : 'file'}
         loading={start.isPending}
         onClick={() => {
           setOpen(true);

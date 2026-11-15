@@ -1,5 +1,5 @@
 import { formatBenNo } from '@css/shared/beneficiaries';
-import { formatDate } from '@css/shared/format';
+import { formatDate, formatIdNumber, formatMobile } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
@@ -37,7 +37,7 @@ import {
   type ContactSaved,
   MOBILE_OWNERS,
 } from './beneficiaries-api';
-import { BeneficiaryArea } from './BeneficiaryArea';
+import { BeneficiaryArea, useAreaText } from './BeneficiaryArea';
 import { FamilySection } from './FamilySection';
 import { HelpHistory } from './HelpHistory';
 import { ContactDialog } from './ContactDialog';
@@ -117,6 +117,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
     setShared(saved.warnings);
   };
   const a = p.actions;
+  const area = useAreaText(p, true);
   const empty = tf('profile.empty');
   const hidden = tp('hidden');
   const nameOf = (project: { nameBn: string; nameEn: string }) =>
@@ -151,13 +152,14 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
   // the NID or the birth registration number only for a caller who sees identity numbers
   const identity = 'nid' in p ? (p.nid ?? p.birthReg ?? null) : null;
 
+  // the key numbers and the area in the banner's band; the gender, the age, the type and the
+  // registration date in the line under the name
   const facts: ProfileFact[] = [
     {
       id: 'ben',
       label: tp('ben'),
       value: formatBenNo(p.benNo),
       icon: 'id-card' as const,
-      showLabel: true,
       copy: true,
     },
     ...(identity
@@ -166,14 +168,34 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             id: 'id',
             label: tp('nid'),
             value: identity,
+            display: formatIdNumber(identity),
             icon: 'hash' as const,
-            showLabel: true,
             copy: true,
           },
         ]
       : []),
     ...(p.mobile
-      ? [{ id: 'mobile', label: tp('mobile'), value: p.mobile, icon: 'phone' as const, copy: true }]
+      ? [
+          {
+            id: 'mobile',
+            label: tp('mobile'),
+            value: p.mobile,
+            display: formatMobile(p.mobile),
+            icon: 'phone' as const,
+            copy: true,
+          },
+        ]
+      : []),
+    ...(area
+      ? [
+          {
+            id: 'area',
+            label: tp('sections.address'),
+            value: area,
+            icon: 'map-pin' as const,
+            prominent: true,
+          },
+        ]
       : []),
     ...(p.genderCode
       ? [
@@ -206,11 +228,18 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           },
         ]
       : []),
+    {
+      id: 'registered',
+      label: tp('registered'),
+      value: formatDate(p.createdAt),
+      icon: 'calendar' as const,
+      showLabel: true,
+    },
   ];
 
   const actions = (
     <>
-      <RecordPdfButton kind="beneficiary_profile" id={p.id} />
+      <RecordPdfButton kind="beneficiary_profile" id={p.id} main />
       {a.editContact && (
         <Button variant="secondary" startIcon="edit-line" onClick={() => setDialog('contact')}>
           {tp('edit_contact')}
@@ -226,19 +255,20 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           {tp('request_correction')}
         </Button>
       )}
-      {(a.block || a.unblock) && (
-        <BlocklistAction
-          danger
-          beneficiaryId={p.id}
-          name={p.name}
-          blocked={a.unblock}
-          onDone={changed}
-        />
-      )}
     </>
   );
-  const hasActions =
-    printable || a.editContact || a.addIdentity || a.requestCorrection || a.block || a.unblock;
+  // the block stands apart at the end of the banner's actions
+  const dangerAction =
+    a.block || a.unblock ? (
+      <BlocklistAction
+        danger
+        beneficiaryId={p.id}
+        name={p.name}
+        blocked={a.unblock}
+        onDone={changed}
+      />
+    ) : undefined;
+  const hasActions = printable || a.editContact || a.addIdentity || a.requestCorrection;
   const showCorrections = p.corrections.length > 0 || a.requestCorrection || a.decideCorrection;
 
   return (
@@ -264,6 +294,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
         }
         facts={facts}
         actions={hasActions ? actions : undefined}
+        dangerAction={dangerAction}
         actionsLabel={tp('actions_label')}
       />
       {p.mergedInto && (
@@ -355,8 +386,8 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           </ProfileSection>
 
           {/* the household now, the families that hold the person, and what the family received:
-              only where the profile knows a member or a family */}
-          {((p.familyMembers?.length ?? 0) > 0 || (p.memberOf?.length ?? 0) > 0) && (
+              whenever the server sent the members (the contact class), with a note where none is known */}
+          {p.familyMembers !== undefined && (
             <ProfileSection title={tp('sections.family')} icon="users">
               <FamilySection
                 members={p.familyMembers ?? []}

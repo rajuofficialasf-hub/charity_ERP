@@ -38,6 +38,7 @@ const NO_ACTIONS = {
 /** What the server adds to every profile, whoever asks. */
 const profileBase = {
   benNo: 123,
+  createdAt: '2026-03-02T04:00:00.000Z',
   mergedInto: null,
   actions: NO_ACTIONS,
   corrections: [],
@@ -786,6 +787,27 @@ describe('BEN numbers and the lookup', () => {
 });
 
 describe('the profile actions', () => {
+  it('heads the profile with the key numbers in the band and the block set apart', async () => {
+    refreshAs(RPM);
+    serve(
+      fullRow,
+      {},
+      { ...empty360, nid: '23654789654123654', mobile: '01365478965', actions: ALL_ACTIONS },
+    );
+    openProfile();
+    await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' });
+    // the numbers in groups, each copied whole; the date of the profile in the line under the name
+    expect(screen.getByText('2365 4789 6541 2365 4')).toBeInTheDocument();
+    expect(screen.getByText('01365-478965')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'BEN নম্বর কপি করুন' })).toBeInTheDocument();
+    expect(
+      screen.getByText((_, el) => el?.textContent === 'নিবন্ধন: 02-03-2026'),
+    ).toBeInTheDocument();
+    const actions = within(screen.getByRole('region', { name: 'কাজ' }));
+    const names = actions.getAllByRole('button').map((b) => b.textContent);
+    expect(names.at(-1)).toBe('ব্লকলিস্টে দিন');
+  });
+
   it('shows the BEN number and no action without its flag', async () => {
     refreshAs(HEAD);
     serve(fullRow, {}, empty360);
@@ -1477,13 +1499,21 @@ describe('the family members on the profile', () => {
     expect(section.getByText('34 years')).toBeInTheDocument();
   });
 
-  it.each([
-    ['no member is known', { familyMembers: [] }],
-    ['the server left the section out', {}],
-  ])('draws no family section when %s', async (_case, family) => {
+  it('draws the family section with its note when no member is known', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: [] });
+    await opened();
+    expect(
+      within(sectionOf('পরিবার')).getByText(
+        'এই ব্যক্তির কোনো আবেদনে পরিবারের সদস্যদের তথ্য দেওয়া হয়নি।',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('draws no family section when the server left the members out', async () => {
     refreshAs(HEAD);
     const { familyMembers: _members, ...rest } = empty360;
-    serve(fullRow, {}, { ...rest, ...family });
+    serve(fullRow, {}, rest);
     await opened();
     expect(screen.getByRole('heading', { level: 2, name: 'ঠিকানা' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 2, name: 'পরিবার' })).not.toBeInTheDocument();

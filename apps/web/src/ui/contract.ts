@@ -1207,15 +1207,22 @@ export type PersonCellProps = {
 /** Copies a value and says so to screen readers, each time it is pressed. */
 export type CopyButtonProps = { value: string; label: string };
 
-/** A key fact of a profile under the name, for example the NID with a copy button. */
+/**
+ * A key fact of a profile. A fact with `copy` or `prominent` stands in the banner's lower band with its
+ * label above it; the others form the short line under the name, for example the gender and the date.
+ */
 export type ProfileFact = {
   id: string;
-  /** Written before the value with `showLabel`, otherwise only read out. */
+  /** Above the value in the band; in the line under the name written before it with `showLabel`, otherwise only read out. */
   label: string;
+  /** What a copy takes. */
   value: string;
+  /** Shown in place of the value, for example a number in groups; the copy keeps the value. */
+  display?: string;
   icon?: ExtendedIconName;
   showLabel?: boolean;
   copy?: boolean;
+  prominent?: boolean;
 };
 
 /** The dark banner at the top of a person's profile: photo or initial, name, states, key facts and actions. */
@@ -1227,8 +1234,10 @@ export type ProfileBannerProps = {
   /** The state chips beside the name. */
   status?: ReactNode;
   facts?: readonly ProfileFact[];
-  /** Right of the banner on a wide screen, under the person on a phone. */
+  /** Right of the person where both fit, under the person otherwise; a contained button is the light main one. */
   actions?: ReactNode;
+  /** Set apart after the actions, drawn as an outline in the error colour (a block). */
+  dangerAction?: ReactNode;
   /** The name of the action panel; labels.actions when left out. */
   actionsLabel?: string;
 };

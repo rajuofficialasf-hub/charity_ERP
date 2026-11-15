@@ -55,7 +55,12 @@ test.describe('duplicate beneficiary profiles', () => {
     await dialog.getByRole('textbox', { name: /কারণ/ }).fill('একই ব্যক্তি দুইবার নিবন্ধিত হয়েছেন');
     await dialog.getByRole('button', { name: 'মার্জ করুন' }).click();
     await expect(page.getByText('প্রোফাইল মার্জ হয়েছে')).toBeVisible();
-    await expect(page.getByText(`BEN নম্বর: ${keptBen}`, { exact: true })).toBeVisible();
+    await expect(
+      page
+        .getByRole('listitem')
+        .filter({ hasText: 'BEN নম্বর' })
+        .getByText(keptBen, { exact: true }),
+    ).toBeVisible();
 
     // the retired BEN number leads to the kept profile
     await openTab(page, 'উপকারভোগী');
@@ -64,7 +69,12 @@ test.describe('duplicate beneficiary profiles', () => {
     await expect(found.getByRole('link')).toHaveCount(1);
     await expect(found.getByText(keptBen!, { exact: true })).toBeVisible();
     await found.getByRole('link').click();
-    await expect(page.getByText(`BEN নম্বর: ${keptBen}`, { exact: true })).toBeVisible();
+    await expect(
+      page
+        .getByRole('listitem')
+        .filter({ hasText: 'BEN নম্বর' })
+        .getByText(keptBen, { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText(`${retiredBen} এর সাথে মার্জ হয়েছে`).first()).toBeVisible();
     const keptUrl = page.url();
 
