@@ -235,6 +235,90 @@ describe('migrations', () => {
     }
   });
 
+  it('the help counters migration counts everyone by the shared rule, merges included, without stamping a profile', async () => {
+    const dirs = migrationDirs();
+    const at = dirs.indexOf('20261115120000_beneficiary_help_counters');
+    expect(at).toBeGreaterThan(0);
+    const db = await freshDatabase('help');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const apply = (dir: string, file: 'migration.sql' | 'down.sql' = 'migration.sql') =>
+        client.query(readFileSync(join(MIGRATIONS_DIR, dir, file), 'utf8'));
+      for (const dir of dirs.slice(0, at)) await apply(dir);
+      const loc = await locationTree(client);
+      const y2025 = [await project(client, { year: 2025 }), await project(client, { year: 2025 })];
+      const y2026 = [await project(client, { year: 2026 }), await project(client, { year: 2026 })];
+      const approvedAt = new Date().toISOString();
+      const apply_ = (
+        p: Awaited<ReturnType<typeof project>>,
+        beneficiaryId: string,
+        over: Record<string, unknown> = {},
+      ) =>
+        application(
+          client,
+          { project: p, loc },
+          { beneficiary_id: beneficiaryId, status: 'approved', approved_at: approvedAt, ...over },
+        );
+      const twice = await beneficiary(client, loc);
+      await apply_(y2025[0]!, twice);
+      await apply_(y2025[1]!, twice, { status: 'completed', outcome: 'distributed' });
+      await apply_(y2026[0]!, twice);
+      // closed: counted only when approved before the close and delivered
+      await apply_(y2026[1]!, twice, { status: 'closed', outcome: 'not_distributed' });
+      const never = await beneficiary(client, loc);
+      await apply_(y2025[0]!, never, { status: 'rejected', approved_at: null });
+      await apply_(y2026[0]!, never, { status: 'closed', approved_at: null });
+      // a merge left one application on the retired profile; it counts for the kept one too
+      const keptOne = await beneficiary(client, loc);
+      const retired = await beneficiary(client, loc);
+      await apply_(y2026[1]!, keptOne);
+      const left = await apply_(y2026[1]!, retired, { status: 'closed', outcome: null });
+      const proposer = await user(client);
+      await client.query(
+        `INSERT INTO profile_merges (id, kept_id, merged_id, status, reason, proposed_by, merged_by, merged_at, snapshot)
+         VALUES (gen_random_uuid(), $1, $2, 'merged', 'একই মানুষ', $3, $3, now(), $4)`,
+        [keptOne, retired, proposer, JSON.stringify({ moved: {}, leftBehind: [left] })],
+      );
+      await client.query('UPDATE beneficiaries SET merged_into_id = $1 WHERE id = $2', [
+        keptOne,
+        retired,
+      ]);
+      const stamps = async () =>
+        (await client.query('SELECT id, updated_at FROM beneficiaries ORDER BY id')).rows;
+      const before = await stamps();
+      await apply(dirs[at]!);
+      const counters = Object.fromEntries(
+        (
+          await client.query('SELECT id, help_count, max_helps_in_year FROM beneficiaries')
+        ).rows.map((r) => [
+          r.id as string,
+          [r.help_count as number, r.max_helps_in_year as number],
+        ]),
+      );
+      expect(counters[twice]).toEqual([3, 2]);
+      expect(counters[never]).toEqual([0, 0]);
+      expect(counters[keptOne]).toEqual([2, 2]);
+      expect(counters[retired]).toEqual([1, 1]);
+      // counting is not an edit of the profile
+      expect(await stamps()).toEqual(before);
+      await apply(dirs[at]!, 'down.sql');
+      const columns = await client.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'beneficiaries' AND column_name IN ('help_count', 'max_helps_in_year')`,
+      );
+      expect(columns.rows).toEqual([]);
+      // the update stamp follows every edit again after the rollback
+      await client.query(`UPDATE beneficiaries SET village = 'অন্য গ্রাম' WHERE id = $1`, [never]);
+      const after = (
+        await client.query('SELECT updated_at FROM beneficiaries WHERE id = $1', [never])
+      ).rows[0].updated_at as Date;
+      const old = before.find((r) => r.id === never)!.updated_at as Date;
+      expect(after.getTime()).toBeGreaterThan(old.getTime());
+    } finally {
+      await client.end();
+    }
+  });
+
   it('the draft channels migration keeps existing verified and submitted drafts (backfill)', async () => {
     const dirs = migrationDirs();
     const at = dirs.indexOf('20261013000000_registration_draft_channels');

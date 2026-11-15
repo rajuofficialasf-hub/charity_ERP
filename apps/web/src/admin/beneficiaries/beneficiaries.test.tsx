@@ -11,6 +11,7 @@ import { BeneficiariesPage } from './BeneficiariesPage';
 import { BeneficiaryProfilePage } from './BeneficiaryProfilePage';
 import { bn, type MessageKey } from '@css/shared/i18n';
 import { expectOnScreenColumns, serveExports } from '../../../test/msw/exports';
+import { stubScreen } from '../../../test/match-media';
 
 // The beneficiary tab and the 360° shell (docs/ui/SCREENS.md "Beneficiary tab" and "Beneficiary 360 profile and merge"): counts,
 // filters in the URL, the limited view of the Media Team and the sections. Test data only.
@@ -132,11 +133,15 @@ describe('the beneficiary tab', () => {
     serveExports('beneficiaries');
     const user = userEvent.setup();
     openList();
-    // the BEN number's column is the page's "ben"
+    // the BEN number's column is the page's "ben", the times helped its "helps"
+    const PAGE_COLUMN = new Map([
+      ['ben_no', 'ben'],
+      ['help_count', 'helps'],
+    ]);
     await expectOnScreenColumns(
       user,
       'beneficiaries',
-      (id) => `admin.beneficiaries.column.${id === 'ben_no' ? 'ben' : id}` as MessageKey,
+      (id) => `admin.beneficiaries.column.${PAGE_COLUMN.get(id) ?? id}` as MessageKey,
     );
   });
 
@@ -204,6 +209,71 @@ describe('the beneficiary tab', () => {
     ).not.toBeInTheDocument();
     const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
     expect(within(counts).queryByText('ব্লক লিস্ট')).not.toBeInTheDocument();
+  });
+
+  it('shows the times helped, filters the people helped more than once in a year and orders by the count, all in the URL', async () => {
+    refreshAs(HEAD);
+    serve({ ...fullRow, helpCount: 3 }, { total: 1, assistedThisYear: 0, blocked: 0 });
+    const user = userEvent.setup();
+    const { router } = openList();
+    const table = await screen.findByRole('table', { name: 'উপকারভোগী' });
+    expect(within(table).getByRole('columnheader', { name: /কতবার সাহায্য/ })).toBeInTheDocument();
+    expect(await within(table).findByText('3')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
+    await user.click(await screen.findByRole('combobox', { name: /সাহায্য/ }));
+    await user.click(await screen.findByRole('option', { name: 'এক বছরে একাধিকবার পেয়েছেন' }));
+    await waitFor(() =>
+      expect(router.state.location.search).toContain('helpedMoreThanOnceInYear=true'),
+    );
+    await waitFor(() =>
+      expect(listUrls.at(-1)?.searchParams.get('helpedMoreThanOnceInYear')).toBe('true'),
+    );
+    expect(statUrls.at(-1)?.searchParams.get('helpedMoreThanOnceInYear')).toBe('true');
+    // the order by the count: from the column's header, kept in the URL, never sent to the counts;
+    // the first press orders the fewest first, the second the most first
+    const sortOf = () => new URLSearchParams(router.state.location.search).get('sort');
+    await user.click(within(table).getByRole('button', { name: /কতবার সাহায্য/ }));
+    await waitFor(() => expect(sortOf()).toBe('helpCount'));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('sort')).toBe('helpCount'));
+    expect(
+      screen.getByRole('button', { name: 'ক্রম: সাহায্য কম থেকে বেশি সরান' }),
+    ).toBeInTheDocument();
+    await user.click(
+      within(await screen.findByRole('table', { name: 'উপকারভোগী' })).getByRole('button', {
+        name: /কতবার সাহায্য/,
+      }),
+    );
+    await waitFor(() => expect(sortOf()).toBe('-helpCount'));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('sort')).toBe('-helpCount'));
+    expect(
+      screen.getByRole('button', { name: 'ক্রম: সাহায্য বেশি থেকে কম সরান' }),
+    ).toBeInTheDocument();
+    expect(statUrls.every((u) => !u.searchParams.has('sort'))).toBe(true);
+  });
+
+  it('restores the order from the URL and takes it away with its chip', async () => {
+    refreshAs(HEAD);
+    serve({ ...fullRow, helpCount: 3 }, { total: 1, assistedThisYear: 0, blocked: 0 });
+    const user = userEvent.setup();
+    const { router } = openList('/admin/beneficiaries?sort=-helpCount');
+    await waitFor(() => expect(listUrls[0]?.searchParams.get('sort')).toBe('-helpCount'));
+    await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
+    await user.click(screen.getByRole('button', { name: 'ক্রম: সাহায্য বেশি থেকে কম সরান' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.has('sort')).toBe(false));
+  });
+
+  it('gives the Media Team no times helped, no repeat filter and no order, whatever the URL says', async () => {
+    refreshAs(MEDIA);
+    serve(mediaRow, { total: 1, assistedThisYear: 0 });
+    const user = userEvent.setup();
+    openList('/admin/beneficiaries?helpedMoreThanOnceInYear=true&sort=-helpCount');
+    expect((await screen.findAllByText('নমুনা উপকারভোগী')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('columnheader', { name: /কতবার সাহায্য/ })).not.toBeInTheDocument();
+    expect(listUrls[0]!.searchParams.has('helpedMoreThanOnceInYear')).toBe(false);
+    expect(listUrls[0]!.searchParams.has('sort')).toBe(false);
+    await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
+    expect(screen.queryByRole('combobox', { name: /সাহায্য/ })).not.toBeInTheDocument();
   });
 
   it('filters by the blocked count without narrowing the counts, shows the assisted count as a number, and offers the profile from the row menu', async () => {
@@ -363,6 +433,78 @@ describe('the 360° profile', () => {
     expect((await screen.findAllByText('1000000000777')).length).toBeGreaterThan(0);
     expect(screen.getByText('APP-2026-0001')).toBeInTheDocument();
     expect(screen.getAllByText(/শীতবস্ত্র 2026/).length).toBeGreaterThan(0);
+  });
+
+  it('says how often the person was helped, with the marks and the number of a repeated year', async () => {
+    refreshAs(HEAD);
+    const winter = { id: PROJECT, code: 'WIN26', nameBn: 'শীতবস্ত্র 2026', nameEn: 'Winter 2026' };
+    const help = {
+      total: 5,
+      firstYear: 2023,
+      thisYear: 2,
+      repeatedInYear: true,
+      repeatedInProject: true,
+      years: [
+        { year: 2026, count: 2, projects: [{ ...winter, count: 2 }], unnamed: 0 },
+        {
+          year: 2024,
+          count: 2,
+          projects: [
+            {
+              id: '01900000-0000-7000-8000-0000000000b1',
+              code: 'IFT24',
+              nameBn: 'ইফতার 2024',
+              nameEn: 'Iftar 2024',
+              count: 1,
+            },
+          ],
+          unnamed: 1,
+        },
+        { year: 2023, count: 1, projects: [], unnamed: 1 },
+      ],
+    };
+    serve(fullRow, {}, { ...empty360, help });
+    const { container } = openProfile();
+    const section = (
+      await screen.findByRole('heading', { level: 2, name: 'সাহায্যের হিসাব' })
+    ).closest('section') as HTMLElement;
+    const card = within(section ?? container);
+    expect(card.getByText('মোট 5 বার সাহায্য পেয়েছেন')).toBeInTheDocument();
+    expect(card.getByText('2023 সাল থেকে')).toBeInTheDocument();
+    expect(card.getByText('এই বছর 2 বার')).toBeInTheDocument();
+    expect(card.getByText('এক বছরে একাধিকবার')).toBeInTheDocument();
+    expect(card.getByText('একই প্রকল্পে একাধিকবার')).toBeInTheDocument();
+    // a year with two shows its number; the project helped twice shows it too
+    expect(card.getAllByText('2 বার')).toHaveLength(3);
+    expect(card.getByText('শীতবস্ত্র 2026')).toBeInTheDocument();
+    expect(card.getByText('ইফতার 2024')).toBeInTheDocument();
+    expect(card.getAllByText('অন্য প্রকল্পে 1 বার, নাম আপনার জন্য দেখানো হয় না')).toHaveLength(2);
+    await expectNoAxeViolations(container);
+  });
+
+  it('says so for a person never helped, in English too', async () => {
+    refreshAs(HEAD);
+    const help = {
+      total: 0,
+      firstYear: null,
+      thisYear: 0,
+      repeatedInYear: false,
+      repeatedInProject: false,
+      years: [],
+    };
+    serve(fullRow, {}, { ...empty360, help });
+    const first = openProfile();
+    expect(await screen.findByText('এখনো কোনো সাহায্য পাননি।')).toBeInTheDocument();
+    expect(screen.queryByText('এক বছরে একাধিকবার')).not.toBeInTheDocument();
+    first.unmount();
+    renderApp(<BeneficiaryProfilePage />, 'en', {
+      path: '/admin/beneficiaries/:beneficiaryId',
+      initialPath: `/admin/beneficiaries/${ID}`,
+    });
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Help received' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Not helped yet.')).toBeInTheDocument();
   });
 
   it('refuses a volunteer without asking the server', async () => {
@@ -543,7 +685,8 @@ describe('the 360° profile', () => {
       await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
     ).toBeInTheDocument();
     for (const section of [
-      'পরিবারের সদস্য',
+      'পরিবার',
+      'সাহায্যের হিসাব',
       'আবেদনের ইতিহাস',
       'দাওয়াহ',
       'ফলো-আপ',
@@ -1296,8 +1439,8 @@ describe('the family members on the profile', () => {
     refreshAs(HEAD);
     serve(fullRow, {}, { ...empty360, familyMembers: MEMBERS });
     const { container } = await opened();
-    const section = within(sectionOf('পরিবারের সদস্য'));
-    for (const header of ['নাম', 'সম্পর্ক', 'বয়স', 'মাসিক আয়'])
+    const section = within(sectionOf('পরিবার'));
+    for (const header of ['নাম', 'সম্পর্ক', 'বয়স', 'মাসিক আয়', 'প্রোফাইল'])
       expect(section.getByRole('columnheader', { name: header })).toBeInTheDocument();
     const [first, second] = section.getAllByRole('row').slice(1);
     expect(within(first!).getByText('রহিমা খাতুন')).toBeInTheDocument();
@@ -1319,7 +1462,7 @@ describe('the family members on the profile', () => {
     }));
     serve(fullRow, {}, { ...empty360, familyMembers: thirty });
     await opened();
-    const rows = within(sectionOf('পরিবারের সদস্য')).getAllByRole('row').slice(1);
+    const rows = within(sectionOf('পরিবার')).getAllByRole('row').slice(1);
     expect(rows).toHaveLength(30);
     expect(within(rows[29]!).getByText('সদস্য 30')).toBeInTheDocument();
   });
@@ -1328,7 +1471,7 @@ describe('the family members on the profile', () => {
     refreshAs(HEAD);
     serve(fullRow, {}, { ...empty360, familyMembers: MEMBERS.slice(0, 1) });
     await opened('en');
-    const section = within(sectionOf('Family members'));
+    const section = within(sectionOf('Family'));
     expect(section.getByRole('columnheader', { name: 'Monthly income' })).toBeInTheDocument();
     expect(section.getByText('Spouse')).toBeInTheDocument();
     expect(section.getByText('34 years')).toBeInTheDocument();
@@ -1343,8 +1486,156 @@ describe('the family members on the profile', () => {
     serve(fullRow, {}, { ...rest, ...family });
     await opened();
     expect(screen.getByRole('heading', { level: 2, name: 'ঠিকানা' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: 'পরিবার' })).not.toBeInTheDocument();
+  });
+
+  const SON = '0190a1b2-0000-7000-8000-00000000f101';
+  const HEAD_OF = '0190a1b2-0000-7000-8000-00000000f102';
+  const linked = [
+    { ...MEMBERS[0]!, profile: { beneficiaryId: SON, benNo: 'BEN-0000007', name: 'সালাম' } },
+    { ...MEMBERS[1]!, profile: null },
+  ];
+  const familyHelp = {
+    total: 3,
+    firstYear: 2024,
+    thisYear: 0,
+    repeatedInYear: false,
+    repeatedInProject: false,
+    years: [
+      {
+        year: 2025,
+        count: 2,
+        projects: [
+          {
+            id: '0190a1b2-0000-7000-8000-00000000f201',
+            code: 'WC',
+            nameBn: 'শীতবস্ত্র ২০২৫',
+            nameEn: 'Winter 2025',
+            count: 2,
+          },
+        ],
+        unnamed: 0,
+      },
+      {
+        year: 2024,
+        count: 1,
+        projects: [
+          {
+            id: '0190a1b2-0000-7000-8000-00000000f202',
+            code: 'IF',
+            nameBn: 'ইফতার ২০২৪',
+            nameEn: 'Iftar 2024',
+            count: 1,
+          },
+        ],
+        unnamed: 0,
+      },
+    ],
+    people: 2,
+    notShown: 1,
+  };
+
+  it('links a member to the profile it probably is, and shows nothing for a member without one', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: linked });
+    const { container } = await opened();
+    const section = within(sectionOf('পরিবার'));
+    const [first, second] = section.getAllByRole('row').slice(1);
     expect(
-      screen.queryByRole('heading', { level: 2, name: 'পরিবারের সদস্য' }),
+      within(first!).getByRole('link', { name: 'সম্ভবত সালাম (BEN-0000007)' }),
+    ).toHaveAttribute('href', `/admin/beneficiaries/${SON}`);
+    expect(within(second!).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(second!).queryByText(/সম্ভবত/)).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it('names the family that probably holds the person, with a link to its head', async () => {
+    refreshAs(HEAD);
+    serve(
+      fullRow,
+      {},
+      {
+        ...empty360,
+        familyMembers: [],
+        memberOf: [
+          {
+            head: { beneficiaryId: HEAD_OF, benNo: 'BEN-0000003', name: 'রহিম' },
+            relationships: [
+              { code: 'son', name: { bn: 'ছেলে', en: 'son' } },
+              { code: 'nephew', name: { bn: 'ভাতিজা', en: 'nephew' } },
+            ],
+          },
+        ],
+      },
+    );
+    await opened();
+    expect(
+      within(sectionOf('পরিবার')).getByRole('link', {
+        name: 'সম্ভবত রহিম (BEN-0000003)-এর পরিবারের ছেলে বা ভাতিজা',
+      }),
+    ).toHaveAttribute('href', `/admin/beneficiaries/${HEAD_OF}`);
+  });
+
+  it('shows what the family received by year, and the profiles not shown as a bare count', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: linked, familyHelp });
+    await opened();
+    const section = within(sectionOf('পরিবার'));
+    expect(
+      section.getByRole('heading', { level: 3, name: 'এই পরিবার যা পেয়েছে' }),
+    ).toBeInTheDocument();
+    expect(section.getByText('2 জনের প্রোফাইল মিলিয়ে মোট 3 বার সাহায্য')).toBeInTheDocument();
+    expect(section.getByText('শীতবস্ত্র ২০২৫')).toBeInTheDocument();
+    expect(section.getByText('ইফতার ২০২৪')).toBeInTheDocument();
+    expect(section.getByText('আরও 1 জন দেখানো হয়নি')).toBeInTheDocument();
+  });
+
+  it('says what the family received in English', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: linked, familyHelp });
+    await opened('en');
+    expect(
+      within(sectionOf('Family')).getByText('3 times in all, from 2 profiles'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows each member as a card on a phone, with the age, the income and the link', async () => {
+    stubScreen(360);
+    try {
+      refreshAs(HEAD);
+      serve(fullRow, {}, { ...empty360, familyMembers: linked });
+      await opened();
+      const section = within(sectionOf('পরিবার'));
+      // no table on a phone: the cards hold the same facts
+      expect(section.queryByRole('columnheader', { name: 'মাসিক আয়' })).not.toBeInTheDocument();
+      expect(section.getByText('বয়স 34 বছর · মাসিক আয় ৳ 3,000')).toBeInTheDocument();
+      expect(section.getByRole('link', { name: 'সম্ভবত সালাম (BEN-0000007)' })).toHaveAttribute(
+        'href',
+        `/admin/beneficiaries/${SON}`,
+      );
+      expect(section.getByText('করিম')).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('shows only the count where no member links to a profile the viewer reaches', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: MEMBERS, familyHelp: { notShown: 2 } });
+    await opened();
+    const section = within(sectionOf('পরিবার'));
+    expect(section.getByText('আরও 2 জন দেখানো হয়নি')).toBeInTheDocument();
+    expect(
+      section.queryByRole('heading', { name: 'এই পরিবার যা পেয়েছে' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('draws no family help where the server sent none', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: linked });
+    await opened();
+    expect(
+      within(sectionOf('পরিবার')).queryByRole('heading', { name: 'এই পরিবার যা পেয়েছে' }),
     ).not.toBeInTheDocument();
   });
 });

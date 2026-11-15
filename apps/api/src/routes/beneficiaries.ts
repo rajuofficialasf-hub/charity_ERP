@@ -1,6 +1,8 @@
 import {
+  BENEFICIARY_SORTS,
   type BeneficiaryFilter,
   beneficiaryFilterSchema,
+  type BeneficiarySort,
   type ContactUpdate,
   contactUpdateSchema,
   type CorrectionRequestCreate,
@@ -32,6 +34,7 @@ import { etagOf } from '../core/etag.js';
 import { ok, page } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 import { DUPLICATE_RULES, PAIR_LEVELS } from '../services/beneficiary-merge-candidates.js';
+import { helpSummarySchema } from '../services/help-history.js';
 import { blocklistEntry } from './volunteers.js';
 
 // Each marked field gets a schema of its own: `sensitive` marks the instance it is given.
@@ -45,6 +48,9 @@ const history = <T extends ZodType>(schema: T) =>
   sensitive(schema, 'beneficiary.application_history');
 
 const benNo = () => z.number().int().positive();
+/** Another profile the family section names: its id, BEN number as read out, and name. */
+const familyProfileRef = () =>
+  z.object({ beneficiaryId: z.uuid(), benNo: z.string(), name: z.string() });
 
 const beneficiaryRow = z.object({
   id: z.uuid(),
@@ -63,6 +69,9 @@ const beneficiaryRow = z.object({
   hasDocument: hasDocument(),
   isBlocked: care(z.boolean()),
   photoFileId: detail(z.uuid().nullable()),
+  // the times helped, kept on the profile (docs/BUSINESS_RULES.md, "Beneficiary identity and
+  // master")
+  helpCount: history(z.number().int().min(0)),
 });
 
 const count = () => z.number().int().min(0);
@@ -182,9 +191,40 @@ export const beneficiaryProfile = z.object({
         occupationCode: z.string().nullable(),
         // taka, up to two decimals
         monthlyIncome: z.number().nullable(),
+        // the profile the member probably is, only where the caller reaches it
+        profile: familyProfileRef().nullable(),
       }),
     ),
   ),
+  // the families that probably hold the person as a member, each head the caller reaches
+  memberOf: contact(
+    z.array(
+      z.object({
+        head: familyProfileRef(),
+        relationships: z.array(
+          z.object({
+            code: z.string(),
+            name: z.object({ bn: z.string(), en: z.string() }).nullable(),
+          }),
+        ),
+      }),
+    ),
+  ),
+  // what the family received: the person and the members' profiles the caller reaches; the others
+  // only as a number of people, never a year, a project or an amount
+  // where no member links to a profile the caller reaches, only how many helped members'
+  // profiles the caller cannot open
+  familyHelp: history(
+    z.union([
+      helpSummarySchema().extend({
+        people: z.number().int().min(2),
+        notShown: z.number().int().min(0),
+      }),
+      z.strictObject({ notShown: z.number().int().min(1) }),
+      // null is an option of its own: the mask matches a union's value against its options
+      z.null(),
+    ]),
+  ).optional(),
   // inside the caller's beneficiary.view_nid scope only, and only with the class
   nid: sensitive(z.string().nullable(), 'beneficiary.nid').optional(),
   birthReg: sensitive(z.string().nullable(), 'beneficiary.nid').optional(),
@@ -203,6 +243,8 @@ export const beneficiaryProfile = z.object({
       ),
     }),
   ),
+  // how often the person was helped (docs/BUSINESS_RULES.md, "Beneficiary identity and master")
+  help: history(helpSummarySchema()).optional(),
   applications: history(
     z.array(
       z.object({
@@ -433,7 +475,9 @@ const mergeListQuery = z.strictObject({
 const listQuery = pageQuery
   .omit({ sort: true })
   .extend(pageNumberQuery.shape)
-  .extend(beneficiaryFilterSchema.shape);
+  .extend(beneficiaryFilterSchema.shape)
+  // by the times helped, for a caller with the application history class only
+  .extend({ sort: z.enum(BENEFICIARY_SORTS).optional() });
 
 const viewerOf = (req: AuthedRequest) => ({
   principal: principalOf(req),
@@ -513,28 +557,36 @@ export function beneficiariesRouter(
     ],
   };
 
-  defineRoute<unknown, Omit<PageQuery, 'sort'> & BeneficiaryFilter>(router, deps, {
-    ...tabOp,
-    // the rows say whether a document is on file, an identity fact
-    sensitiveFields: [...tabOp.sensitiveFields, 'beneficiary.nid'],
-    method: 'get',
-    path: '/beneficiaries',
-    operationId: 'beneficiaries.beneficiary.list',
-    summary: 'Nationwide beneficiary tab with filters (masks per role)',
-    query: listQuery,
-    responses: {
-      200: z.array(beneficiaryRow),
-      401: null,
-      403: null,
-      422: null,
-      429: null,
-      503: null,
+  defineRoute<unknown, Omit<PageQuery, 'sort'> & BeneficiaryFilter & { sort?: BeneficiarySort }>(
+    router,
+    deps,
+    {
+      ...tabOp,
+      // the rows say whether a document is on file, an identity fact, and the times helped
+      sensitiveFields: [
+        ...tabOp.sensitiveFields,
+        'beneficiary.nid',
+        'beneficiary.application_history',
+      ],
+      method: 'get',
+      path: '/beneficiaries',
+      operationId: 'beneficiaries.beneficiary.list',
+      summary: 'Nationwide beneficiary tab with filters (masks per role)',
+      query: listQuery,
+      responses: {
+        200: z.array(beneficiaryRow),
+        401: null,
+        403: null,
+        422: null,
+        429: null,
+        503: null,
+      },
+      handler: async ({ query, req }) => {
+        const { rows, meta } = await c.beneficiaries.list(query, viewerOf(req));
+        return page(rows, meta);
+      },
     },
-    handler: async ({ query, req }) => {
-      const { rows, meta } = await c.beneficiaries.list(query, viewerOf(req));
-      return page(rows, meta);
-    },
-  });
+  );
 
   const duplicatesOp = {
     tag: 'beneficiaries',
@@ -627,6 +679,8 @@ export function beneficiariesRouter(
     method: 'get',
     path: '/beneficiaries/statistics',
     operationId: 'beneficiaries.beneficiary.statistics',
+    // the filter on the times helped is the application history's
+    sensitiveFields: [...tabOp.sensitiveFields, 'beneficiary.application_history'],
     summary: 'Counts of the beneficiary tab for the filters in use (masks per role)',
     query: beneficiaryFilterSchema,
     responses: {

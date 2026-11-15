@@ -1,4 +1,5 @@
-// pnpm --filter @css/api perf:lists [--runs 20] [--explain-over 100] [--only <text>]: measures
+// pnpm --filter @css/api perf:lists [--runs 20] [--explain-over 100] [--only <text>]
+// [--duplicates-job] [--help-counters-job]: measures
 // the volunteer and beneficiary tabs on the large data set of perf:seed (docs/testing/PERFORMANCE.md,
 // section "Method"). Each case calls the real service (the same code as the route, without HTTP and the rate
 // limit) as the Department Head (GLOBAL) and as the Dhaka RPM, twice to warm up and then --runs
@@ -161,6 +162,13 @@ async function main(): Promise<void> {
      ORDER BY v.id LIMIT 1 OFFSET 777`,
   );
 
+  // the kept times helped are repaired by a nightly job; its run is timed once here
+  if (process.argv.includes('--help-counters-job')) {
+    const started = performance.now();
+    const { checked, repaired } = await c.helpCounters.run();
+    out(`help counters nightly job: ${checked} profiles checked, ${repaired} repaired in ${Math.round(performance.now() - started)} ms
+`);
+  }
   // the suggested duplicate pairs are kept by a nightly job; its run is timed once here
   if (process.argv.includes('--duplicates-job')) {
     const started = performance.now();
@@ -187,6 +195,7 @@ async function main(): Promise<void> {
       );
     const firstVolunteers = await c.volunteerList.list({ ...page }, vv);
     const firstBeneficiaries = await c.beneficiaries.list({ ...page }, bv);
+    const firstByHelp = await c.beneficiaries.list({ ...page, sort: '-helpCount' }, bv);
     results.push(
       await v('first page', {}),
       await measure(`${who} volunteers.list next page`, () =>
@@ -225,6 +234,25 @@ async function main(): Promise<void> {
       await b('name search + total', { q: SEARCH_TERMS.beneficiaryPair, include: 'total' }),
       await b('mobile search', { q: ben.mobile }),
       await b('NID search', { q: ben.nid }),
+      // the times helped (docs/testing/PERFORMANCE.md, "The times helped")
+      await b('helped more than once in a year', { helpedMoreThanOnceInYear: 'true' }),
+      await b('helped more than once + total', {
+        helpedMoreThanOnceInYear: 'true',
+        include: 'total',
+      }),
+      await b('by times helped', { sort: '-helpCount' }),
+      await measure(`${who} beneficiaries.list by times helped next page`, () =>
+        c.beneficiaries.list(
+          { ...page, sort: '-helpCount', cursor: firstByHelp.meta.nextCursor! },
+          bv,
+        ),
+      ),
+      await b('by times helped, fewest first', { sort: 'helpCount' }),
+      await b('district by times helped', { districtId: dhaka.id, sort: '-helpCount' }),
+      await b('more than once by times helped', {
+        helpedMoreThanOnceInYear: 'true',
+        sort: '-helpCount',
+      }),
       await measure(`${who} beneficiaries.mergeCandidates first page`, () =>
         c.beneficiaryMergeCandidates.list(mv.principal, mv.scope, page),
       ),

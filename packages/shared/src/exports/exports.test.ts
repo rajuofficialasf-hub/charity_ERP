@@ -58,7 +58,14 @@ describe('the column catalogues', () => {
         .filter((c) => c.onScreen)
         .map((c) => c.id);
     expect(onScreen('volunteers')).toEqual(['name', 'area', 'projects', 'state', 'category']);
-    expect(onScreen('beneficiaries')).toEqual(['name', 'ben_no', 'father', 'area', 'status']);
+    expect(onScreen('beneficiaries')).toEqual([
+      'name',
+      'ben_no',
+      'father',
+      'area',
+      'help_count',
+      'status',
+    ]);
     expect(onScreen('applications')).toEqual([
       'app_no',
       'person',
@@ -78,6 +85,8 @@ describe('the column catalogues', () => {
     expect(classOf('volunteers', 'category')).toBe('volunteer.rating');
     expect(classOf('beneficiaries', 'nid')).toBe('beneficiary.nid');
     expect(classOf('beneficiaries', 'birth_reg')).toBe('beneficiary.nid');
+    expect(classOf('beneficiaries', 'help_count')).toBe('beneficiary.application_history');
+    expect(classOf('beneficiaries', 'max_helps_in_year')).toBe('beneficiary.application_history');
     expect(classOf('beneficiaries', 'mobile')).toBe('beneficiary.contact');
     // whose number it is leaves a file only where the number does
     expect(classOf('beneficiaries', 'mobile_owner')).toBe('beneficiary.contact');

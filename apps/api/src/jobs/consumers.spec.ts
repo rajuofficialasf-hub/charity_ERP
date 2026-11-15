@@ -11,6 +11,7 @@ import type { JobRunner } from './job-runner.js';
 import type { FileProcessor } from './file-process.js';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup.js';
 import { DUPLICATES_CRON, DUPLICATES_QUEUE } from './duplicates.js';
+import { HELP_COUNTERS_CRON, HELP_COUNTERS_QUEUE } from './help-counters.js';
 import { NAME_KEYS_CRON, NAME_KEYS_QUEUE, NAME_KEYS_SINGLETON } from './name-keys.js';
 import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats.js';
 import type { UploadSweep } from './upload-sweep.js';
@@ -137,6 +138,30 @@ describe('the nightly duplicate pairs', () => {
     const bare = fakeRunner();
     await new JobConsumers(bare.runner, quiet).register();
     expect(bare.work.mock.calls.some((c) => (c as unknown[])[0] === DUPLICATES_QUEUE)).toBe(false);
+  });
+});
+
+describe('the nightly recount of the times helped', () => {
+  it('works and schedules its own queue, and neither without the job', async () => {
+    const { runner, work, schedule } = fakeRunner();
+    const run = vi.fn(async () => ({ checked: 10, repaired: 1 }));
+    await new JobConsumers(runner, quiet, { helpCounters: { run } }).register();
+    const call = (work.mock.calls as unknown as [string, () => Promise<unknown>][]).find(
+      (c) => c[0] === HELP_COUNTERS_QUEUE,
+    );
+    expect(call).toBeDefined();
+    expect(await call![1]()).toEqual({ checked: 10, repaired: 1 });
+    expect(schedule).toHaveBeenCalledWith(
+      HELP_COUNTERS_QUEUE,
+      HELP_COUNTERS_CRON,
+      {},
+      'help-counters',
+    );
+    const bare = fakeRunner();
+    await new JobConsumers(bare.runner, quiet).register();
+    expect(bare.work.mock.calls.some((c) => (c as unknown[])[0] === HELP_COUNTERS_QUEUE)).toBe(
+      false,
+    );
   });
 });
 

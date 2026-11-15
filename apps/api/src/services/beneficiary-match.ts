@@ -1,5 +1,4 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
-import { HELPED_STATES } from '@css/shared';
 import { MATCH_ROWS_SHOWN, MATCH_TOTAL_CAP, type MatchRequest } from '@css/shared/beneficiaries';
 import { z } from 'zod';
 import type { Scope } from '../access/scope.js';
@@ -12,6 +11,7 @@ import type { Clock } from '../core/clock.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { ApiError } from '../i18n/api-error.js';
 import { dhakaDayStart, type PersonKeys, samePersonSql } from './beneficiary-identity.js';
+import { helpedSql, leftBehindSql } from './help-history.js';
 import type { MatchKeysService, ProfileKeys } from './match-keys.js';
 import { IDENTITY_RULES_SELECT, identityRulesOf } from './project-identity-rules.js';
 import type { SettingsService } from './settings.js';
@@ -303,6 +303,8 @@ export class BeneficiaryMatchService {
   ): Promise<MatchAnswer> {
     const rows = found.slice(0, MATCH_ROWS_SHOWN);
     const ids = rows.map((r) => r.id);
+    // the applications the profile counts: the person's own and the ones a merge left on a
+    // profile retired into them
     const helped = ids.length
       ? await this.prisma.$queryRaw<
           {
@@ -313,10 +315,17 @@ export class BeneficiaryMatchService {
             name_en: string;
           }[]
         >`
-          SELECT DISTINCT a.beneficiary_id, p.id AS project_id, p.year, p.name_bn, p.name_en
-          FROM applications a JOIN projects p ON p.id = a.project_id
-          WHERE a.beneficiary_id = ANY(${ids}::uuid[])
-            AND a.status = ANY(${[...HELPED_STATES]}::text[])
+          SELECT DISTINCT x.person_id AS beneficiary_id, p.id AS project_id, p.year,
+            p.name_bn, p.name_en
+          FROM (
+            SELECT a.beneficiary_id AS person_id, a.id AS application_id
+            FROM applications a WHERE a.beneficiary_id = ANY(${ids}::uuid[])
+            UNION
+            SELECT person_id, application_id FROM (${leftBehindSql(ids)}) AS l
+          ) AS x
+          JOIN applications a ON a.id = x.application_id
+          JOIN projects p ON p.id = a.project_id
+          WHERE ${helpedSql('a')}
           ORDER BY p.year, p.name_en`
       : [];
     // a project is named only where the caller works on it, all of them read at once

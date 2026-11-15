@@ -142,6 +142,8 @@ export class ExportRecords {
       nid: p.nid,
       birthReg: p.birthReg,
       familyMembers: p.familyMembers,
+      memberOf: p.memberOf,
+      familyHelp: p.familyHelp,
       projectsByYear: p.projectsByYear,
       applications: p.applications,
     };

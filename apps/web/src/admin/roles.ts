@@ -222,6 +222,12 @@ export const canSeeBeneficiaryDetails = (me: Pick<Me, 'roles'>) =>
   holds(me, BENEFICIARY_DETAIL_ROLES);
 export const canSeeBeneficiaryAddress = (me: Pick<Me, 'roles'>) =>
   holds(me, BENEFICIARY_ADDRESS_ROLES);
+/**
+ * Who sees a person's application history and how often they were helped (the class
+ * `beneficiary.application_history`): the officials and the Procurement Team, never the Media Team.
+ * The server masks the count and refuses its filter and order anyway.
+ */
+export const canSeeHelpHistory = (me: Pick<Me, 'roles'>) => holds(me, BENEFICIARY_ADDRESS_ROLES);
 export const canLookUpBeneficiaries = (me: Pick<Me, 'roles'>) =>
   holds(me, BENEFICIARY_LOOKUP_ROLES);
 export const canReviewDuplicates = (me: Pick<Me, 'roles'>) => holds(me, DUPLICATE_ROLES);

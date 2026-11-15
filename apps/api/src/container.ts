@@ -66,6 +66,7 @@ import { BeneficiaryMergeCandidatesService } from './services/beneficiary-merge-
 import { BeneficiaryMergesService } from './services/beneficiary-merges.js';
 import { MatchKeysService } from './services/match-keys.js';
 import { NameKeysJob } from './jobs/name-keys.js';
+import { HelpCountersJob } from './jobs/help-counters.js';
 import { NotificationDelivery } from './notifications/delivery.js';
 import { NotificationService } from './notifications/service.js';
 import { RecipientResolver } from './notifications/recipients.js';
@@ -181,6 +182,7 @@ export interface Container {
   beneficiaryMerges: BeneficiaryMergesService;
   matchKeys: MatchKeysService;
   nameKeys: NameKeysJob;
+  helpCounters: HelpCountersJob;
   programs: ProgramsService;
   settings: SettingsService;
   referenceLists: ReferenceListsService;
@@ -519,6 +521,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       ),
     matchKeys,
     nameKeys: o.nameKeys ?? new NameKeysJob(prisma, matchKeys, logger, { jobs }),
+    helpCounters: o.helpCounters ?? new HelpCountersJob(prisma, logger),
     programs: o.programs ?? new ProgramsService(prisma, audit),
     settings,
     referenceLists,

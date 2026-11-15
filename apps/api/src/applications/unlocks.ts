@@ -26,6 +26,7 @@ import { isUniqueViolation, isVolunteerMobileRefusal } from '../core/db-errors.j
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
+import { lockPeople } from '../services/help-history.js';
 import type { ApplicationEvents } from '../notifications/application-events.js';
 import type { BeneficiaryContactService } from '../services/beneficiary-contact.js';
 import { readDefinition } from '../services/forms.js';
@@ -299,7 +300,12 @@ export class UnlocksService {
     await this.assertMay(principal, access, UNLOCK_PERMISSION, await this.applicationOf(unlockId));
     await this.write(async (tx) => {
       const unlock = await this.lockedUnlock(tx, unlockId);
-      // two acceptances on one application rewrite its answers one after another
+      // two acceptances on one application rewrite its answers one after another; the person first,
+      // as every writer of a person's applications takes them (`lockPeople`), since an accepted
+      // contact answer writes the profile too
+      const [person] = await tx.$queryRaw<{ beneficiary_id: string | null }[]>`
+        SELECT beneficiary_id FROM applications WHERE id = ${unlock.entityId}::uuid`;
+      if (person?.beneficiary_id) await lockPeople(tx, [person.beneficiary_id]);
       await tx.$queryRaw`SELECT id FROM applications WHERE id = ${unlock.entityId}::uuid FOR UPDATE`;
       if (unlock.unlockState !== 'updated') throw new ApiError('application.unlock_not_open', 409);
       // two people for every corrected answer

@@ -219,6 +219,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | workflow | workflow.guard.<guard_name> | 409 | a named guard failed; `<guard_name>` is any guard of WORKFLOW_ENGINE §6 with dots replaced by underscores, e.g. `workflow.guard.deadline_open`, `workflow.guard.limit_not_exceeded`, `workflow.guard.photos_required_per_rule`, `workflow.guard.photos_not_pending_sync`, `workflow.guard.stock_balanced`, `workflow.guard.exam_passed`, `workflow.guard.vouchers_verified`, `workflow.guard.project_not_closed`, `workflow.guard.score_comment_if_against_order` |
 | workflow | workflow.reason_required, workflow.comment_required | 422 | transition needs a reason, or a comment against the score order, into a full quota, or for a repeat of the same person or family the project holds (the details name each reason) |
 | conflict | conflict.stale_version | 412 | `If-Match` mismatch |
+| conflict | conflict.stale_version | 409 | the database ended the write because another request was changing the same person or application at the same moment (a deadlock or a write conflict); nothing was written and the same request may be sent again |
 | conflict | conflict.locked_on_server | 409 | locked or approved data; server wins (OFFLINE_SYNC §6) |
 | sync | sync.batch_too_large | 413 | more than 50 records or over the payload limit (O-29) |
 | sync | sync.deadline_passed | 409 (per record) | late draft created after the deadline (O-13) |

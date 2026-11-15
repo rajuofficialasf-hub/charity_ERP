@@ -176,6 +176,10 @@
     },
     "stale": "The application changed meanwhile. Reload it to see the latest.",
     "edit_answers": "Edit the answers",
+    "helped_before": {
+      "title": "Help received before",
+      "none": "Not helped before."
+    },
     "answers": "Answers",
     "timeline": "Steps of the application",
     "decision": {

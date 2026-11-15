@@ -1,5 +1,8 @@
-import { type BeneficiaryFilter, parseBenNo } from '@css/shared/beneficiaries';
-import { APPROVED_STATES } from '@css/shared/volunteers';
+import {
+  type BeneficiaryFilter,
+  type BeneficiarySort,
+  parseBenNo,
+} from '@css/shared/beneficiaries';
 import type { AccessService } from '../access/service.js';
 import { beneficiaryRowsProjectWhere, beneficiaryWhere, type Scope } from '../access/scope.js';
 import type { Principal } from '../auth/principal.js';
@@ -20,11 +23,20 @@ import {
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
+import { familySection } from './family-profile.js';
 import { publishedWorksOf } from './media-home.js';
 import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
+import {
+  HELPED_WHERE,
+  helpView,
+  personApplications,
+  personApplicationsWhere,
+  visibleProjects,
+} from './help-history.js';
 
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
-const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
+const NEWEST = [{ field: 'id', direction: 'desc' }] as const;
+const SORT = parseSort(undefined, ['id'], [...NEWEST]);
 /** The most rows a section of the 360° profile carries. */
 const SECTION_ROWS = 20;
 /** The field classes of the limited beneficiary view (docs/security/permissions.yaml). */
@@ -34,6 +46,7 @@ const CONTACT_LOG_FIELDS = ['mobile', 'mobile_owner_code', 'mobile_owner_name'];
 const ADDRESS = 'beneficiary.address_detail';
 const CARE = 'beneficiary.care';
 const DETAIL = 'beneficiary.profile_detail';
+const HISTORY = 'beneficiary.application_history';
 
 /** The calendar year in Bangladesh (UTC+6). */
 const dhakaYear = (now: Date) => new Date(now.getTime() + 6 * 3_600_000).getUTCFullYear();
@@ -77,6 +90,9 @@ export class BeneficiariesService {
     if (filter.type && !sees(DETAIL)) this.refuse(viewer, DETAIL);
     // the gender is a profile detail too, so its filter would tell what the caller may not see
     if (filter.gender && !sees(DETAIL)) this.refuse(viewer, DETAIL);
+    // the times helped are the application history's: neither the filter nor the order may tell
+    // them to a caller without it
+    if (filter.helpedMoreThanOnceInYear && !sees(HISTORY)) this.refuse(viewer, HISTORY);
     const and: Prisma.BeneficiaryWhereInput[] = [
       beneficiaryWhere(viewer.scope),
       { mergedIntoId: null },
@@ -89,6 +105,8 @@ export class BeneficiariesService {
     if (filter.type) and.push({ classCode: filter.type });
     if (filter.gender) and.push({ genderCode: filter.gender });
     if (filter.blocked) and.push({ isBlocked: filter.blocked === 'true' });
+    // the kept counter (docs/database/DATABASE_SCHEMA.md, "beneficiaries")
+    if (filter.helpedMoreThanOnceInYear) and.push({ maxHelpsInYear: { gt: 1 } });
     if (filter.projectId || filter.year) {
       // a project-scoped caller filters only among its own projects, so the filter never tells it
       // who applied to another project
@@ -145,8 +163,19 @@ export class BeneficiariesService {
     );
   }
 
-  async list(query: BeneficiaryFilter & PageQuery & PageNumberQuery, viewer: BeneficiaryViewer) {
-    const binding = `beneficiaries.list|${viewer.principal.userId}`;
+  async list(
+    query: BeneficiaryFilter &
+      Omit<PageQuery, 'sort'> &
+      PageNumberQuery & { sort?: BeneficiarySort },
+    viewer: BeneficiaryViewer,
+  ) {
+    if (query.sort && !viewer.fieldClasses.has(HISTORY)) this.refuse(viewer, HISTORY);
+    // by the times helped, the newest first among equals; else the newest first
+    const sort = query.sort ? parseSort(query.sort, ['helpCount'], [...NEWEST]) : SORT;
+    // a cursor belongs to the order it was made in, so one order never reads another's cursor
+    const binding = query.sort
+      ? `beneficiaries.list|${viewer.principal.userId}|${query.sort}`
+      : `beneficiaries.list|${viewer.principal.userId}`;
     const cursor = query.cursor
       ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
       : undefined;
@@ -155,8 +184,8 @@ export class BeneficiariesService {
     const filter = await this.where(query, viewer);
     const { fetched, total } = await boundedRead(this.prisma, async (tx) => ({
       fetched: await tx.beneficiary.findMany({
-        where: cursor ? { AND: [filter, keysetWhere(SORT, cursor)] } : filter,
-        orderBy: orderBy(SORT, direction),
+        where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
+        orderBy: orderBy(sort, direction),
         skip: offset,
         take: query.limit + 1,
         select: {
@@ -174,6 +203,8 @@ export class BeneficiariesService {
           mobile: true,
           isBlocked: true,
           photoFileId: true,
+          // the kept count, with the application history class (the response mask)
+          helpCount: true,
           // read only to say whether a document is on file; the numbers never leave the list
           nid: true,
           birthReg: true,
@@ -187,7 +218,7 @@ export class BeneficiariesService {
     }));
     const { rows, meta } = buildPage(listed, {
       limit: query.limit,
-      sort: SORT,
+      sort,
       direction,
       // a page past the first has a page before it, as a cursor does
       hadCursor: Boolean(cursor) || Boolean(offset),
@@ -216,8 +247,7 @@ export class BeneficiariesService {
             {
               applicationsBeneficiary: {
                 some: {
-                  status: { in: [...APPROVED_STATES] },
-                  project: { AND: [{ year }, rowsProjects ?? {}] },
+                  AND: [HELPED_WHERE, { project: { AND: [{ year }, rowsProjects ?? {}] } }],
                 },
               },
             },
@@ -254,23 +284,51 @@ export class BeneficiariesService {
         seesNid,
         history: await this.history(tx, viewer, access, read.b.id, seesNid),
         media: await publishedWorksOf(tx, read.b.id, rows ?? undefined),
+        // the household, its links and what it received: with the contact class, which holds
+        // the members, and the help only with the application history class too
+        family: viewer.fieldClasses.has(CONTACT)
+          ? await familySection(tx, {
+              headId: read.b.id,
+              members: read.b.beneficiaryFamilyMembersBeneficiary,
+              scope: viewer.scope,
+              seesHelp: viewer.fieldClasses.has(HISTORY),
+              own: read.all,
+              rows,
+              thisYear: dhakaYear(this.clock.now()),
+            })
+          : null,
       };
     });
     if (!found) {
       this.access.denied(viewer.principal.userId, viewer.scope.permission, 'beneficiary');
       throw new ApiError('permission.not_found', 404);
     }
-    const { b, applications, activities, distributions, seesNid, history, media } = found;
+    const {
+      b,
+      applications,
+      activities,
+      distributions,
+      seesNid,
+      history,
+      media,
+      all,
+      visible,
+      family,
+    } = found;
+    // the projects the caller sees in the profile, each with the state of the person's latest
+    // application there (the list is newest first)
     const years = new Map<number, { year: number; projects: Map<string, ProjectOfYear> }>();
-    for (const a of applications) {
+    for (const a of all) {
+      if (!visible.has(a.project.id)) continue;
       const year = years.get(a.project.year) ?? { year: a.project.year, projects: new Map() };
-      year.projects.set(a.project.id, {
-        id: a.project.id,
-        code: a.project.code,
-        nameBn: a.project.nameBn,
-        nameEn: a.project.nameEn,
-        status: a.status,
-      });
+      if (!year.projects.has(a.project.id))
+        year.projects.set(a.project.id, {
+          id: a.project.id,
+          code: a.project.code,
+          nameBn: a.project.nameBn,
+          nameEn: a.project.nameEn,
+          status: a.status,
+        });
       years.set(a.project.year, year);
     }
     return {
@@ -307,23 +365,37 @@ export class BeneficiariesService {
       // told with the identity class, wherever the profile lives: it says a document is on
       // file, never its number
       hasDocument: b.nid !== null || b.birthReg !== null,
-      // the members of the household now: the list of the latest application that carried one
-      familyMembers: b.beneficiaryFamilyMembersBeneficiary.map((m) => ({
-        id: m.id,
-        name: m.name,
-        relationshipCode: m.relationshipCode,
-        relationship: m.relationship
-          ? { bn: m.relationship.labelBn, en: m.relationship.labelEn }
-          : null,
-        ageYears: m.ageYears,
-        occupationCode: m.occupationCode,
-        monthlyIncome: m.monthlyIncome === null ? null : m.monthlyIncome.toNumber(),
-      })),
+      // the members of the household now: the list of the latest application that carried one,
+      // each with the profile it probably is where the viewer reaches that profile
+      familyMembers: b.beneficiaryFamilyMembersBeneficiary
+        .filter((m) => family?.memberIds.has(m.id))
+        .map((m) => ({
+          id: m.id,
+          name: m.name,
+          relationshipCode: m.relationshipCode,
+          relationship: m.relationship
+            ? { bn: m.relationship.labelBn, en: m.relationship.labelEn }
+            : null,
+          ageYears: m.ageYears,
+          occupationCode: m.occupationCode,
+          monthlyIncome: m.monthlyIncome === null ? null : m.monthlyIncome.toNumber(),
+          profile: family?.links.get(m.id) ?? null,
+        })),
+      // the families that probably hold the person as a member, each head the viewer reaches
+      memberOf: family?.memberOf ?? [],
+      // what the family received: the person and the members' profiles the viewer reaches, the
+      // others a number of people
+      familyHelp: family?.help ?? null,
       ...(seesNid ? { nid: b.nid ?? null, birthReg: b.birthReg ?? null } : {}),
       isBlocked: b.isBlocked,
       projectsByYear: [...years.values()]
         .sort((x, y) => y.year - x.year)
         .map((y) => ({ year: y.year, projects: [...y.projects.values()] })),
+      // how often the person was helped, with the application history class: every counted
+      // application, a project the caller does not see counted but not named
+      ...(viewer.fieldClasses.has(HISTORY)
+        ? { help: helpView(all, visible, dhakaYear(this.clock.now())) }
+        : {}),
       applications: applications.map((a) => ({
         id: a.id,
         appNo: a.appNo,
@@ -650,6 +722,8 @@ export class BeneficiariesService {
           ...(sees(CONTACT) ? {} : none),
           select: {
             id: true,
+            sourceApplicationId: true,
+            createdAt: true,
             name: true,
             relationshipCode: true,
             relationship: { select: { labelBn: true, labelEn: true } },
@@ -688,30 +762,12 @@ export class BeneficiariesService {
       },
     });
     if (!b) return null;
-    const keptMerges = await tx.profileMerge.findMany({
-      where: { keptId: b.id, status: 'merged' },
-      select: { snapshot: true },
-    });
-    const leftBehind = keptMerges.flatMap((m) => {
-      const ids = (m.snapshot as { leftBehind?: unknown } | null)?.leftBehind;
-      return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : [];
-    });
-    const applications = await tx.application.findMany({
-      where: {
-        AND: [{ OR: [{ beneficiaryId: b.id }, { id: { in: leftBehind } }] }, inProjects],
-      },
-      ...latest,
-      select: {
-        id: true,
-        appNo: true,
-        beneficiaryId: true,
-        status: true,
-        submittedAt: true,
-        reviewedAt: true,
-        approvedAt: true,
-        project: { select: { id: true, code: true, nameBn: true, nameEn: true, year: true } },
-      },
-    });
+    // every application of the person, never cut to a page: their own and the ones a merge left
+    // on a profile retired into them, for the projects by year and the help
+    const all = await personApplications(tx, await personApplicationsWhere(tx, b.id));
+    const visible = await visibleProjects(tx, all, inProjects.project ?? null);
+    // the page of the newest the caller sees, from the same read in the same order
+    const applications = all.filter((a) => visible.has(a.project.id)).slice(0, SECTION_ROWS);
     const activitySelect = {
       id: true,
       applicationId: true,
@@ -737,7 +793,7 @@ export class BeneficiariesService {
       take: SECTION_ROWS,
       select: activitySelect,
     });
-    return { b, applications, activities, distributions };
+    return { b, applications, activities, distributions, all, visible };
   }
 }
 

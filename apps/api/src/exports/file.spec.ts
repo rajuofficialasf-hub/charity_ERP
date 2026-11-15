@@ -63,3 +63,109 @@ describe('the profile PDF of a person without a document or a mobile', () => {
     expect(masked).not.toContain(bn.common.person.no_document);
   });
 });
+
+describe('the family on the profile PDF', () => {
+  const base: ProfileForPdf = {
+    benNo: 42,
+    name: 'নমুনা',
+    status: 'active',
+    divisionId: 'd',
+    districtId: 'e',
+    upazilaId: 'u',
+    projectsByYear: [],
+  };
+  const page = (over: Partial<ProfileForPdf>) =>
+    profileHtml({
+      locale: 'bn',
+      profile: { ...base, ...over },
+      places: new Map(),
+      date: new Date(),
+    });
+
+  it('prints the members with the profile each probably is, the family that holds the person, and what the family received', () => {
+    const html = page({
+      familyMembers: [
+        {
+          name: 'সালাম',
+          relationshipCode: 'son',
+          relationship: { bn: 'ছেলে', en: 'son' },
+          ageYears: 20,
+          monthlyIncome: 3000,
+          profile: { beneficiaryId: 'p1', benNo: 'BEN-0000007', name: 'সালাম' },
+        },
+        {
+          name: 'নাসির',
+          relationshipCode: null,
+          ageYears: null,
+          monthlyIncome: null,
+          profile: null,
+        },
+      ],
+      memberOf: [
+        {
+          head: { beneficiaryId: 'p2', benNo: 'BEN-0000003', name: 'রহিম' },
+          relationships: [{ code: 'son', name: { bn: 'ছেলে', en: 'son' } }],
+        },
+      ],
+      familyHelp: {
+        total: 3,
+        people: 2,
+        notShown: 1,
+        years: [
+          {
+            year: 2025,
+            count: 2,
+            projects: [{ id: 'x', nameBn: 'শীতবস্ত্র', nameEn: 'Winter', count: 1 }],
+            unnamed: 1,
+          },
+        ],
+      },
+    });
+    expect(html).toContain('ছেলে');
+    expect(html).toContain('সম্ভবত সালাম (BEN-0000007)');
+    expect(html).toContain('সম্ভবত রহিম (BEN-0000003)');
+    expect(html).toContain('এই পরিবার যা পেয়েছে');
+    expect(html).toContain('শীতবস্ত্র');
+    expect(html).toContain('অন্য প্রকল্প');
+    expect(html).toContain('আরও 1 জন দেখানো হয়নি');
+    expect(html).not.toContain('null');
+  });
+
+  it('prints no family help where the export may not carry it', () => {
+    expect(page({ familyMembers: [] })).not.toContain('এই পরিবার যা পেয়েছে');
+  });
+});
+
+describe('the family on the profile PDF of an export without the contact class', () => {
+  const base: ProfileForPdf = {
+    benNo: 42,
+    name: 'নমুনা',
+    status: 'active',
+    divisionId: 'd',
+    districtId: 'e',
+    upazilaId: 'u',
+    projectsByYear: [],
+  };
+  const page = (over: Partial<ProfileForPdf>) =>
+    profileHtml({
+      locale: 'bn',
+      profile: { ...base, ...over },
+      places: new Map(),
+      date: new Date(),
+    });
+
+  it('prints no family heading, no link to a profile and no income where the mask left the family out', () => {
+    // the masked export carries none of the three fields
+    const html = page({});
+    expect(html).not.toContain(bn.exports.pdf.record.family);
+    expect(html).not.toContain('সম্ভবত');
+    expect(html).not.toContain(bn.exports.pdf.record.income);
+    expect(html).not.toContain(bn.exports.pdf.record.family_help);
+  });
+
+  it('prints only the count where no member links to a profile the export reaches', () => {
+    const html = page({ familyHelp: { notShown: 2 } });
+    expect(html).toContain('আরও 2 জন দেখানো হয়নি');
+    expect(html).not.toContain(bn.exports.pdf.record.family_help);
+  });
+});

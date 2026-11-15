@@ -48,6 +48,7 @@ describe('the remembered columns', () => {
       'ben_no',
       'father',
       'area',
+      'help_count',
       'status',
     ]);
   });
@@ -71,7 +72,14 @@ describe('the export dialog', () => {
     await user.click(await screen.findByRole('button', { name: 'এক্সপোর্ট' }));
     const dialog = await screen.findByRole('dialog', { name: 'এক্সপোর্ট: উপকারভোগীর তালিকা' });
     await waitFor(() =>
-      expect(tickedColumns(dialog)).toEqual(['name', 'ben_no', 'father', 'area', 'status']),
+      expect(tickedColumns(dialog)).toEqual([
+        'name',
+        'ben_no',
+        'father',
+        'area',
+        'help_count',
+        'status',
+      ]),
     );
     await user.click(within(dialog).getByRole('radio', { name: 'CSV' }));
     await user.click(within(dialog).getByRole('button', { name: 'এক্সপোর্ট শুরু করুন' }));
@@ -79,7 +87,7 @@ describe('the export dialog', () => {
     expect(bodies[0]).toEqual({
       kind: 'beneficiaries',
       format: 'csv',
-      columns: ['name', 'ben_no', 'father', 'area', 'status'],
+      columns: ['name', 'ben_no', 'father', 'area', 'help_count', 'status'],
       filters: { divisionId: DIVISION },
     });
     // the choice is kept on the device for the next export of this list
@@ -88,6 +96,7 @@ describe('the export dialog', () => {
       'ben_no',
       'father',
       'area',
+      'help_count',
       'status',
     ]);
     expect(await screen.findByRole('button', { name: 'ডাউনলোড করুন' })).toBeInTheDocument();

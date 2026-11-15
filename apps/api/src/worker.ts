@@ -21,6 +21,7 @@ async function main(): Promise<void> {
     storageStats: container.storageStats,
     mergeCandidates: container.beneficiaryMergeCandidates,
     nameKeys: container.nameKeys,
+    helpCounters: container.helpCounters,
     fileProcessor: container.fileProcessor,
     delivery: container.delivery,
     exportRunner: container.exportRunner,

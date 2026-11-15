@@ -3,6 +3,45 @@ import { z } from 'zod';
 import { bilingual, date, dateTime, tabPageOf, versionedOf } from './common';
 import { publishedWorkSchema } from './media';
 
+/**
+ * How often a person was helped (docs/BUSINESS_RULES.md, "Beneficiary identity and master"), on
+ * the profile and on an application's review: a project the viewer does not see is counted in its year's `unnamed`.
+ */
+export const helpSummarySchema = z.object({
+  total: z.number().int(),
+  firstYear: z.number().int().nullable(),
+  thisYear: z.number().int(),
+  repeatedInYear: z.boolean(),
+  repeatedInProject: z.boolean(),
+  /** Newest first. */
+  years: z.array(
+    z.object({
+      year: z.number().int(),
+      count: z.number().int(),
+      /** The projects the viewer sees, each with its times helped. */
+      projects: z.array(
+        z.object({
+          id: z.uuid(),
+          code: z.string(),
+          nameBn: z.string(),
+          nameEn: z.string(),
+          count: z.number().int(),
+        }),
+      ),
+      /** The times helped that year in projects the viewer does not see. */
+      unnamed: z.number().int(),
+    }),
+  ),
+});
+export type HelpSummary = z.infer<typeof helpSummarySchema>;
+
+/** Another profile the family section names, for a viewer who reaches it. */
+export const familyProfileRefSchema = z.object({
+  beneficiaryId: z.uuid(),
+  benNo: z.string(),
+  name: z.string(),
+});
+
 /** A row of the beneficiary tab (`GET /beneficiaries`). */
 export const beneficiaryRowSchema = z.object({
   id: z.uuid(),
@@ -20,6 +59,8 @@ export const beneficiaryRowSchema = z.object({
   hasDocument: z.boolean().optional(),
   isBlocked: z.boolean().optional(),
   photoFileId: z.uuid().nullable().optional(),
+  /** The times helped, with the application history class only. */
+  helpCount: z.number().int().optional(),
 }) satisfies z.ZodType<BeneficiaryRow>;
 
 export const beneficiaryPageSchema = tabPageOf(beneficiaryRowSchema);
@@ -156,8 +197,31 @@ export const beneficiaryProfileSchema = z.object({
         occupationCode: z.string().nullable(),
         /** Taka, up to two decimals. */
         monthlyIncome: z.number().nullable(),
+        /** The profile the member probably is, only where the viewer reaches it. */
+        profile: familyProfileRefSchema.nullable().default(null),
       }),
     )
+    .optional(),
+  /** The families that probably hold the person as a member, each head the viewer reaches. */
+  memberOf: z
+    .array(
+      z.object({
+        head: familyProfileRefSchema,
+        relationships: z.array(z.object({ code: z.string(), name: bilingual.nullable() })),
+      }),
+    )
+    .optional(),
+  /**
+   * What the family received: the person and the members' profiles the viewer reaches, the others
+   * only as a number of people; absent without the application history class.
+   */
+  familyHelp: z
+    .union([
+      helpSummarySchema.extend({ people: z.number().int(), notShown: z.number().int() }),
+      /** No member links to a profile the viewer reaches: only how many others were helped. */
+      z.object({ notShown: z.number().int() }),
+    ])
+    .nullable()
     .optional(),
   nid: z.string().nullable().optional(),
   birthReg: z.string().nullable().optional(),
@@ -176,6 +240,8 @@ export const beneficiaryProfileSchema = z.object({
       ),
     }),
   ),
+  /** How often the person was helped; absent without the application history class. */
+  help: helpSummarySchema.optional(),
   applications: z
     .array(
       z.object({

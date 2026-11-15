@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isConcurrencyConflict,
   isForeignKeyViolation,
   isUniqueViolation,
   isUniqueViolationOf,
@@ -7,6 +8,14 @@ import {
 } from './db-errors.js';
 
 describe('the database refusals recognised in a Prisma error', () => {
+  it('sees a deadlock or a write conflict by the client code, the SQLSTATE or the text', () => {
+    expect(isConcurrencyConflict({ code: 'P2034' })).toBe(true);
+    expect(isConcurrencyConflict({ meta: { code: '40P01' } })).toBe(true);
+    expect(isConcurrencyConflict({ cause: { originalCode: '40001' } })).toBe(true);
+    expect(isConcurrencyConflict({ message: 'ERROR: deadlock detected' })).toBe(true);
+    expect(isConcurrencyConflict({ code: '23505' })).toBe(false);
+  });
+
   it('sees a foreign-key refusal by the client code, the SQLSTATE, or a nested cause', () => {
     expect(isForeignKeyViolation({ code: 'P2003' })).toBe(true);
     expect(isForeignKeyViolation({ code: '23503' })).toBe(true);

@@ -41,6 +41,11 @@ export const QUEUES = {
   },
   /** Nightly recomputation of the suggested duplicate beneficiaries. */
   duplicates: { retryLimit: 3, retryDelay: 600, retryBackoff: false, expireInSeconds: 1800 },
+  /**
+   * The nightly recount of the times each beneficiary was helped, which repairs the kept counters
+   * the application moves and the merges missed.
+   */
+  'help-counters': { retryLimit: 3, retryDelay: 600, retryBackoff: false, expireInSeconds: 3600 },
   /** Priority score recomputation. */
   scores: { retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 600 },
   /** Housekeeping, including the sample heartbeat job. */

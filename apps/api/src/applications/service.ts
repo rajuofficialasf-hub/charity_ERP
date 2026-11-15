@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { type EffectiveAccess, WORKING_ASSIGNMENT } from '../access/effective.js';
 import {
   applicationWhere,
+  beneficiaryRowsProjectWhere,
   holdsPermission,
   ownApplicationsWhere,
   type Scope,
@@ -63,6 +64,13 @@ import {
   type PickedPerson,
 } from '../services/beneficiary-match.js';
 import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
+import {
+  helpView,
+  lockPeople,
+  personApplications,
+  personApplicationsWhere,
+  visibleProjects,
+} from '../services/help-history.js';
 import { type FormAudience, readDefinition, versionView } from '../services/forms.js';
 import { isAddressChain } from '../services/locations.js';
 import type { NisabService } from '../services/nisab.js';
@@ -105,6 +113,7 @@ import {
   type ApplicationSummary,
   type ApplicationUpdate,
   type ApplicationView,
+  APPLICATION_HISTORY,
   BENEFICIARY_CONTACT,
   BENEFICIARY_NID,
   BLOCKED_NAME_MATCH,
@@ -564,7 +573,9 @@ export class ApplicationsService {
     try {
       await this.prisma.$transaction(async (tx) => {
         // the version and the state are read again under the lock: two edits with the same
-        // version, or an edit racing a submission, must not both land
+        // version, or an edit racing a submission, must not both land; the person first, as every
+        // writer of a person's applications takes them (`lockPeople`)
+        if (row.beneficiaryId) await lockPeople(tx, [row.beneficiaryId]);
         const [locked] = await tx.$queryRaw<{ status: string; updated_at: Date }[]>`
           SELECT status, updated_at FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
         if (!locked || locked.status !== row.status)
@@ -1999,6 +2010,7 @@ export class ApplicationsService {
           beneficiaryId: row.beneficiaryId,
         })),
         mayAddIdentity: await this.mayAddIdentity(viewer, access, row, definition, read),
+        helpedBefore: await this.helpedBefore(viewer, applicationId, row.beneficiaryId),
         form: versionView(version, definition),
       },
       updatedAt: row.updatedAt,
@@ -2033,6 +2045,34 @@ export class ApplicationsService {
       { beneficiaryId: row.beneficiaryId },
     );
     return add && nid;
+  }
+
+  /**
+   * How often the person was helped by their other applications (docs/BUSINESS_RULES.md,
+   * "Beneficiary identity and master"), read live as the profile reads it: the same applications,
+   * a merge's left-behind ones among them, and a project outside the caller's rows of a profile
+   * counted but not named. Only for a caller
+   * with the application history class; null before a person is bound.
+   */
+  private async helpedBefore(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    beneficiaryId: string | null,
+  ): Promise<ApplicationView['helpedBefore']> {
+    if (!beneficiaryId || !viewer.fieldClasses.has(APPLICATION_HISTORY)) return null;
+    const others = (
+      await personApplications(
+        this.prisma,
+        await personApplicationsWhere(this.prisma, beneficiaryId),
+      )
+    ).filter((a) => a.id !== applicationId);
+    const visible = await visibleProjects(
+      this.prisma,
+      others,
+      beneficiaryRowsProjectWhere(viewer.scope),
+    );
+    const year = Number(isoDateInDhaka(this.clock.now()).slice(0, 4));
+    return helpView(others, visible, year);
   }
 
   /** Whether the caller brings the application: its main volunteer, or the user who created it. */

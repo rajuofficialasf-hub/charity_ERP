@@ -395,7 +395,8 @@
       "type": "Type",
       "area": "Area",
       "status": "Status",
-      "ben": "BEN number"
+      "ben": "BEN number",
+      "helps": "Times helped"
     },
     "filter": {
       "type": "Type",
@@ -405,7 +406,12 @@
       "blocked_no": "Not blocked",
       "group_area": "Area",
       "group_other": "Other",
-      "gender": "Gender"
+      "gender": "Gender",
+      "help": "Help",
+      "help_repeated": "More than once in a year",
+      "order": "Order",
+      "order_most": "Most helped first",
+      "order_least": "Least helped first"
     },
     "types": {
       "elderly": "Elderly",
@@ -442,7 +448,7 @@
       "sections": {
         "basic": "Basic details",
         "address": "Address",
-        "family": "Family members",
+        "family": "Family",
         "projects": "Projects by year",
         "applications": "Application history",
         "distributions": "Distribution and implementation",
@@ -453,7 +459,8 @@
         "contact_log": "Contact changes",
         "blocks": "Block history",
         "merges": "Merge history",
-        "files": "Photos and files"
+        "files": "Photos and files",
+        "help": "Help received"
       },
       "mother": "Mother's name",
       "gender": "Gender",
@@ -516,7 +523,17 @@
         "relationship": "Relationship",
         "age": "Age",
         "income": "Monthly income",
-        "card": "Age {age} · monthly income {income}"
+        "card": "Age {age} · monthly income {income}",
+        "members": "Family members",
+        "profile": "Profile",
+        "probably": "Probably {name} ({benNo})",
+        "member_of": "Probably the {relationship} in the family of {name} ({benNo})",
+        "member_of_plain": "Probably a member of the family of {name} ({benNo})",
+        "or": "or",
+        "help_title": "What this family received",
+        "help_total": "{people, plural, one {{count} times in all, from {peopleCount} profile} other {{count} times in all, from {peopleCount} profiles}}",
+        "help_none": "This family has not been helped yet.",
+        "not_shown": "{n, plural, one {{count} more not shown} other {{count} more not shown}}"
       },
       "fields": {
         "mobile": "Mobile",
@@ -547,6 +564,16 @@
         "nid_photo": "NID photo",
         "media_asset": "Media file",
         "issue_photo": "Issue photo"
+      },
+      "help": {
+        "total": "{n, plural, one {Helped {count} time in all} other {Helped {count} times in all}}",
+        "none": "Not helped yet.",
+        "since": "Since {year}",
+        "this_year": "{n, plural, one {{count} time this year} other {{count} times this year}}",
+        "times": "{n, plural, one {{count} time} other {{count} times}}",
+        "repeated_in_year": "More than once in a year",
+        "repeated_in_project": "More than once in one project",
+        "unnamed": "{n, plural, one {{count} time in other projects, not named for you} other {{count} times in other projects, not named for you}}"
       }
     },
     "none": "None",

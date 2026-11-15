@@ -1,4 +1,4 @@
-import { formatDate } from '@css/shared/format';
+import { formatCount, formatDate, formatTaka } from '@css/shared/format';
 import { translate } from '@css/shared/i18n';
 import { documentHtml, html } from './html.js';
 import { codeText, dateText, factsHtml, tableHtml } from './record.js';
@@ -29,7 +29,33 @@ export interface ProfileForPdf {
   hasDocument?: boolean;
   nid?: string | null;
   birthReg?: string | null;
-  familyMembers?: { name: string; relationshipCode: string | null; ageYears: number | null }[];
+  familyMembers?: {
+    name: string;
+    relationshipCode: string | null;
+    relationship?: { bn: string; en: string } | null;
+    ageYears: number | null;
+    monthlyIncome?: number | null;
+    /** The profile the member probably is, where the requester reaches it. */
+    profile?: ProfileRef | null;
+  }[];
+  /** The families that probably hold the person, each head the requester reaches. */
+  memberOf?: { head: ProfileRef; relationships: { code: string; name: Words | null }[] }[];
+  /** What the family received, with the application history class; absent or null otherwise. */
+  /** Or, where no member links to a profile the requester reaches, only the count of the others. */
+  familyHelp?:
+    | {
+        total: number;
+        people: number;
+        notShown: number;
+        years: {
+          year: number;
+          count: number;
+          projects: { id: string; nameBn: string; nameEn: string; count: number }[];
+          unnamed: number;
+        }[];
+      }
+    | { notShown: number }
+    | null;
   projectsByYear: {
     year: number;
     projects: { id: string; nameBn: string; nameEn: string; status: string }[];
@@ -41,6 +67,16 @@ export interface ProfileForPdf {
     submittedAt: string | null;
     approvedAt: string | null;
   }[];
+}
+
+interface ProfileRef {
+  beneficiaryId: string;
+  benNo: string;
+  name: string;
+}
+interface Words {
+  bn: string;
+  en: string;
 }
 
 /** The 360° profile printed portrait: identity, contact and address, family, projects. */
@@ -59,6 +95,14 @@ export function profileHtml(input: {
       y.projects.map((pr) => [pr.id, locale === 'en' ? pr.nameEn : pr.nameBn] as const),
     ),
   );
+  const inWords = (w: Words | null | undefined) => (w ? (locale === 'en' ? w.en : w.bn) : null);
+  const probably = (ref: ProfileRef | null | undefined) =>
+    ref
+      ? translate(locale, 'exports.pdf.record.probably', { name: ref.name, benNo: ref.benNo })
+      : '';
+  // the family's help where a member links to a profile the export reaches, else only the count
+  const summed = p.familyHelp && 'years' in p.familyHelp ? p.familyHelp : null;
+  const notShown = p.familyHelp?.notShown ?? 0;
   const address = [p.village, p.unionId, p.upazilaId, p.districtId, p.divisionId]
     .map((part, i) => (i === 0 ? part : part ? places.get(part) : undefined))
     .filter(Boolean)
@@ -104,13 +148,63 @@ export function profileHtml(input: {
         t('exports.column.beneficiaries.name'),
         t('exports.pdf.record.relationship'),
         t('exports.column.beneficiaries.age'),
+        t('exports.pdf.record.income'),
+        t('exports.pdf.record.profile'),
       ],
       (p.familyMembers ?? []).map((m) => [
         m.name,
-        m.relationshipCode ?? '',
+        inWords(m.relationship) ?? m.relationshipCode ?? '',
         m.ageYears === null ? '' : String(m.ageYears),
+        m.monthlyIncome === null || m.monthlyIncome === undefined
+          ? ''
+          : formatTaka(m.monthlyIncome, locale),
+        probably(m.profile),
       ]),
     )}
+    ${factsHtml(
+      t('exports.pdf.record.member_of'),
+      (p.memberOf ?? []).map((f) => ({
+        label: probably(f.head),
+        value: f.relationships.map((r) => inWords(r.name) ?? r.code).join(', '),
+      })),
+    )}
+    ${
+      summed
+        ? html`${tableHtml(
+            t('exports.pdf.record.family_help'),
+            [
+              t('exports.pdf.record.year'),
+              t('exports.pdf.record.project'),
+              t('exports.pdf.record.times'),
+            ],
+            summed.years.flatMap((y) => [
+              ...y.projects.map((pr) => [
+                String(y.year),
+                locale === 'en' ? pr.nameEn : pr.nameBn,
+                formatCount(pr.count, locale),
+              ]),
+              ...(y.unnamed
+                ? [
+                    [
+                      String(y.year),
+                      t('exports.pdf.record.unnamed'),
+                      formatCount(y.unnamed, locale),
+                    ],
+                  ]
+                : []),
+            ]),
+          )}`
+        : html``
+    }
+    ${
+      notShown
+        ? html`<p class="meta">
+            ${translate(locale, 'exports.pdf.record.not_shown', {
+              count: formatCount(notShown, locale),
+            })}
+          </p>`
+        : html``
+    }
     ${tableHtml(
       t('exports.pdf.record.applications'),
       [

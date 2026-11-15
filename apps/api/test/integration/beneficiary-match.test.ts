@@ -218,6 +218,69 @@ describe('the name lookup', () => {
       expect(all).not.toContain(secret);
   });
 
+  it('counts a closed application as help only when it was approved and not left undelivered', async () => {
+    // no code closes applications yet, so the closed rows are written as the close will leave them
+    const p = person();
+    const id = await profile(p);
+    const delivered = await f.project(h.db, {
+      year: 2022,
+      name_bn: 'ত্রাণ 2022',
+      name_en: 'Relief 2022',
+    });
+    const undelivered = await f.project(h.db, { year: 2021 });
+    for (const [project, outcome] of [
+      [delivered, null],
+      [undelivered, 'not_distributed'],
+    ] as const) {
+      await assign(project.id, generalVolunteer);
+      await applicationRow(h.db, {
+        projectId: project.id,
+        versionId: project.formVersion,
+        loc: world.dhaka,
+        status: 'closed',
+        beneficiaryId: id,
+        over: { approved_at: new Date().toISOString(), outcome },
+      });
+    }
+    const res = await match(await as(world.users.general), p);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.data.people[0]).toMatchObject({
+      helpedYears: [2022],
+      projects: [{ name: { bn: 'ত্রাণ 2022', en: 'Relief 2022' }, year: 2022 }],
+    });
+  });
+
+  it('counts the help a merge left on a profile retired into the person, as the profile does', async () => {
+    const p = person();
+    const kept = await profile(p);
+    const retired = await f.beneficiary(h.db, world.dhaka);
+    // both applied in one project: the retired profile's approved application stays behind on it
+    const earlier = await f.project(h.db, { year: 2020 });
+    for (const [beneficiaryId, status] of [
+      [kept, 'rejected'],
+      [retired, 'approved'],
+    ] as const)
+      await applicationRow(h.db, {
+        projectId: earlier.id,
+        versionId: earlier.formVersion,
+        loc: world.dhaka,
+        status,
+        beneficiaryId,
+      });
+    const merged = await at(await as(world.users.head), 'post', '/beneficiary-merges/direct').send({
+      keptId: kept,
+      mergedId: retired,
+      reason: 'একই মানুষ',
+    });
+    expect(merged.status, JSON.stringify(merged.body)).toBe(201);
+    expect(merged.body.data.leftBehind).toBe(1);
+    const res = await match(await as(world.users.general), p);
+    expect(res.body.data.people).toEqual([expect.objectContaining({ helpedYears: [2020] })]);
+    const help = (await at(await as(world.users.head), 'get', `/beneficiaries/${kept}`)).body.data
+      .help as { years: { year: number }[] };
+    expect(help.years.map((y) => y.year)).toEqual([2020]);
+  });
+
   it('matches a title and a known spelling variant, and nobody in another village or for another father', async () => {
     const p = person({ name: `মোঃ সিরাজ হোসেন ${counter + 1}` });
     await profile(p);

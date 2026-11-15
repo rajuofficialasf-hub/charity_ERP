@@ -1,7 +1,7 @@
 import { MEDIA_PRIORITIES, REFERRAL_STATES } from '@css/shared/media';
 import { z } from 'zod';
 import { applicationSchema, applicationSummarySchema } from './applications';
-import { duplicateRuleSchema } from './beneficiaries';
+import { duplicateRuleSchema, helpSummarySchema } from './beneficiaries';
 import { bilingual, dateTime, recordOf } from './common';
 
 /** Another beneficiary profile a signal of the review names. */
@@ -114,6 +114,11 @@ export const officeApplicationSchema = applicationSchema.extend({
     .default([]),
   /** How many open probable pairs there are in all, also beyond the ones listed. */
   samePersonSignalsTotal: z.number().int().default(0),
+  /**
+   * How often the person was helped by their other applications; absent without the application
+   * history class, null before a person is bound.
+   */
+  helpedBefore: helpSummarySchema.nullable().optional(),
 });
 export type OfficeApplication = z.infer<typeof officeApplicationSchema>;
 

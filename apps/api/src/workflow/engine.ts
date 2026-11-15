@@ -14,6 +14,7 @@ import type { Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { ApplicationEvents } from '../notifications/application-events.js';
+import { lockPeople, recountAfterMove } from '../services/help-history.js';
 import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
 import { z } from 'zod';
 import { readEffects, type SideEffect, type SideEffectRunner } from './effects.js';
@@ -32,6 +33,9 @@ const APPLICATION_SELECT = {
   createdBy: true,
   submittedBy: true,
   status: true,
+  // what the counting of the person's help reads before the move
+  approvedAt: true,
+  outcome: true,
   zakatDecision: true,
   updatedAt: true,
   pendingPhotos: true,
@@ -90,8 +94,9 @@ function approvalOf(definition: WorkflowDefinition, permission: string) {
  * The workflow engine (docs/architecture/WORKFLOW_ENGINE.md): moves an application through a
  * transition of its project's snapshot and nothing else. The caller must hold the transition's
  * permission with a scope that reaches the application, every guard must pass, then the state is
- * written, the effects are applied, one audit entry records the move with its texts, and the
- * automatic moves the new state triggers follow in the same transaction.
+ * written, the effects are applied, one audit entry records the move with its texts, the
+ * automatic moves the new state triggers follow, and the person's kept count of help is written
+ * again where the move changed it, all in the same transaction.
  */
 export class WorkflowEngine {
   constructor(
@@ -113,6 +118,11 @@ export class WorkflowEngine {
   ): Promise<TransitionResult> {
     const spec = APPLICATION_ACTIONS[action];
     if ('later' in spec && spec.later) throw new ApiError('workflow.action_not_built', 409);
+    // the person before the application, as every writer of a person's applications takes them
+    // (`lockPeople` of services/help-history.ts): read without a lock, then the person, then the row
+    const [person] = await tx.$queryRaw<{ beneficiary_id: string | null }[]>`
+      SELECT beneficiary_id FROM applications WHERE id = ${applicationId}::uuid`;
+    if (person?.beneficiary_id) await lockPeople(tx, [person.beneficiary_id]);
     await tx.$queryRaw`SELECT id FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
     const row = await tx.application.findUnique({
       where: { id: applicationId },
@@ -176,6 +186,9 @@ export class WorkflowEngine {
     await this.runGuards(transition, ctx);
     const auditId = await this.apply(tx, principal, application, transition, action, input, hooks);
     await this.followAutomatic(tx, principal, application, transition.to, definition);
+    // the times the person was helped, kept on the profile, follow a move that changes whether the
+    // application counts (docs/database/DATABASE_SCHEMA.md, "beneficiaries")
+    await recountAfterMove(tx, applicationId, row);
     return { id: applicationId, from: application.status, to: transition.to, auditId };
   }
 

@@ -195,7 +195,13 @@ export class ProjectLifecycleService {
     });
   }
 
-  /** Closing to closed, once every close guard of the workflow passes; then read-only. */
+  /**
+   * Closing to closed, once every close guard of the workflow passes; then read-only. The close
+   * moves none of the project's applications yet (the `project.closed` trigger of
+   * docs/architecture/workflow-templates/_common.yaml is not built), so no person's kept count of
+   * help changes here; the move that builds it recounts the people it touches with `recountHelp`
+   * of services/help-history.ts in this transaction.
+   */
   async close(
     viewer: ProjectViewer,
     projectId: string,
@@ -244,7 +250,10 @@ export class ProjectLifecycleService {
     });
   }
 
-  /** A closing or closed project returns to active, with a reason. */
+  /**
+   * A closing or closed project returns to active, with a reason. Like the close, it moves no
+   * application yet (`applications.restore_prior_state` is not built), so no count of help changes.
+   */
   async reopen(
     viewer: ProjectViewer,
     projectId: string,
