@@ -104,21 +104,44 @@ describe('the profile banner', () => {
           name="Amina Khatun"
           status={<span>Approved</span>}
           facts={[
-            { id: 'nid', label: 'NID', value: '1990123456789', copy: true, icon: 'id-card' },
+            { id: 'nid', label: 'NID', value: '1990123456789', display: '1990 1234 5678 9', copy: true, icon: 'id-card' },
+            { id: 'area', label: 'Area', value: 'Mirpur, Dhaka', prominent: true },
             { id: 'district', label: 'District', value: 'Dhaka', showLabel: true },
+            { id: 'gender', label: 'Gender', value: 'Female' },
           ]}
-          actions={<button type="button">Block</button>}
+          actions={<button type="button">Download PDF</button>}
+          dangerAction={<button type="button">Block</button>}
         />
       </UiProvider>
     );
     expect(screen.getByRole('heading', { level: 1, name: 'Amina Khatun' })).toBeInTheDocument();
     expect(screen.getByText('Approved')).toBeInTheDocument();
-    const facts = within(screen.getByRole('list')).getAllByRole('listitem');
+    const [line, band] = screen.getAllByRole('list');
+    // the short line under the name: the label written only where asked, otherwise read out
+    const said = within(line!).getAllByRole('listitem');
+    expect(said[0]).toHaveTextContent('District: Dhaka');
+    expect(said[1]).toHaveTextContent('Gender: Female');
+    expect(within(said[1]!).getByText('Female')).toBeVisible();
+    // the band: each key fact under its label, a number shown in groups and copied whole
+    const facts = within(band!).getAllByRole('listitem');
     expect(facts[0]).toHaveTextContent('NID');
-    expect(facts[0]).toHaveTextContent('1990123456789');
+    expect(facts[0]).toHaveTextContent('1990 1234 5678 9');
     expect(within(facts[0]!).getByRole('button', { name: 'Copy NID' })).toBeInTheDocument();
-    expect(facts[1]).toHaveTextContent('District: Dhaka');
-    expect(within(screen.getByRole('region', { name: 'Actions' })).getByRole('button', { name: 'Block' })).toBeInTheDocument();
+    expect(facts[1]).toHaveTextContent('AreaMirpur, Dhaka');
+    expect(within(facts[1]!).queryByRole('button')).toBeNull();
+    const actions = within(screen.getByRole('region', { name: 'Actions' }));
+    expect(actions.getAllByRole('button').map((b) => b.textContent)).toEqual(['Download PDF', 'Block']);
+  });
+
+  it('copies the number itself, not the groups it shows', async () => {
+    const writeText = stubClipboard(true);
+    render(
+      <UiProvider>
+        <ProfileBanner name="Amina Khatun" facts={[{ id: 'nid', label: 'NID', value: '1990123456789', display: '1990 1234 5678 9', copy: true }]} />
+      </UiProvider>
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Copy NID' }));
+    expect(writeText).toHaveBeenCalledWith('1990123456789');
   });
 
   it('takes a lower heading under the page title', () => {

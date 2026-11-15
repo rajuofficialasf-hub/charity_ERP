@@ -484,6 +484,7 @@
       "call": "কল করুন",
       "age_value": "{age} বছর",
       "ben": "BEN নম্বর",
+      "registered": "নিবন্ধন",
       "actions_label": "কাজ",
       "edit_contact": "যোগাযোগের তথ্য বদলান",
       "request_correction": "সংশোধনের অনুরোধ করুন",
@@ -533,6 +534,7 @@
         "help_title": "এই পরিবার যা পেয়েছে",
         "help_total": "{people, plural, other {{peopleCount} জনের প্রোফাইল মিলিয়ে মোট {count} বার সাহায্য}}",
         "help_none": "এই পরিবার এখনো কোনো সাহায্য পায়নি।",
+        "none": "এই ব্যক্তির কোনো আবেদনে পরিবারের সদস্যদের তথ্য দেওয়া হয়নি।",
         "not_shown": "{n, plural, other {আরও {count} জন দেখানো হয়নি}}"
       },
       "fields": {

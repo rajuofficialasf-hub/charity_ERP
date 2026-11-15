@@ -9,6 +9,8 @@ import {
   formatDuration,
   formatFileSize,
   formatGps,
+  formatIdNumber,
+  formatMobile,
   formatPercent,
   formatRelative,
   formatTaka,
@@ -113,5 +115,13 @@ describe('isoDateInDhaka', () => {
   it('gives the Dhaka calendar date, six hours ahead of UTC', () => {
     expect(isoDateInDhaka(new Date('2026-10-17T17:59:00Z'))).toBe('2026-10-17');
     expect(isoDateInDhaka(new Date('2026-10-17T18:00:00Z'))).toBe('2026-10-18');
+  });
+
+  it('groups an identity number by four and splits a mobile after its operator part, for display only', () => {
+    expect(formatIdNumber('23654789654123654')).toBe('2365 4789 6541 2365 4');
+    expect(formatIdNumber('1000001053')).toBe('1000 0010 53');
+    expect(formatIdNumber('BEN-0000500')).toBe('BEN-0000500');
+    expect(formatMobile('01365478965')).toBe('01365-478965');
+    expect(formatMobile('+8801365478965')).toBe('+8801365478965');
   });
 });

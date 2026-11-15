@@ -116,6 +116,8 @@ const dated = { id: z.uuid(), at: dateTime };
 export const beneficiaryProfileSchema = z.object({
   id: z.uuid(),
   benNo: z.number().int(),
+  /** When the profile was made, shown as its registration date. */
+  createdAt: dateTime,
   /** The kept profile when this one was merged into it. */
   mergedInto: z.object({ id: z.uuid(), benNo: z.number().int() }).nullable(),
   actions: profileActionsSchema,
