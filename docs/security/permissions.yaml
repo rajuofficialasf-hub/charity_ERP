@@ -113,7 +113,7 @@ sensitive_fields:
   - key: beneficiary.application_history
     fields: [applications.app_no, applications.submitted_at, applications.reviewed_at, applications.approved_at]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee, procurement_team]
-    source: "O-67, D-094: the Procurement Team sees its own projects' applications, the Media Team none"
+    source: "O-67, D-094: the Procurement Team sees its own projects' applications, the Media Team none. D-172: how often a person was helped (the profile's help summary, BR-307) goes with this class; a project outside the caller's rows of the profile is counted there but not named"
   - key: beneficiary.care
     fields: [call_logs.*, followup_evaluations.*, class_attendance.*, learning_progress.*, exam_results.*, activities.*, beneficiaries.is_blocked]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee]

@@ -1,4 +1,9 @@
-import { APPLICATION_ACTIONS, APPLICATION_ACTION_NAMES } from '@css/shared';
+import {
+  APPLICATION_ACTIONS,
+  APPLICATION_ACTION_NAMES,
+  HELP_BY_STATE,
+  NOT_DELIVERED_OUTCOMES,
+} from '@css/shared';
 import { describe, expect, it } from 'vitest';
 import { loadAccessRegistry } from '../access/registry.js';
 import { assertWorkflowNamesKnown, DECLARED_GUARDS, isBuiltGuard } from './registry.js';
@@ -121,5 +126,30 @@ describe('the templates at their versions', () => {
       /unknown guard person\.is_nice[\s\S]*unknown effect teleport:home[\s\S]*unknown permission application\.wish/,
     );
     expect(DECLARED_GUARDS).toContain('photos.required_per_rule');
+  });
+});
+
+describe('the states that count as help', () => {
+  it('classify every state of every seeded workflow, so a new state must be classified', () => {
+    for (const d of definitions) {
+      const states = new Set([
+        ...(d.states ?? []).map((s) => s.key),
+        ...(d.transitions ?? []).flatMap((t) => [...froms(t.from), t.to]),
+      ]);
+      expect(states.size, d.template).toBeGreaterThan(0);
+      for (const state of states)
+        expect(Object.hasOwn(HELP_BY_STATE, state), `${d.template}: ${state}`).toBe(true);
+    }
+  });
+
+  it('know the not-delivered outcome of every template, and only those', () => {
+    const named = new Set<string>();
+    for (const d of definitions) {
+      if (d.template === '_common') continue;
+      const outcome = d.overrides?.not_delivered_outcome;
+      expect(typeof outcome, d.template).toBe('string');
+      named.add(outcome as string);
+    }
+    expect([...named].sort()).toEqual([...NOT_DELIVERED_OUTCOMES].sort());
   });
 });

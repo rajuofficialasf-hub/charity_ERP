@@ -453,7 +453,8 @@
         "contact_log": "যোগাযোগের তথ্যের পরিবর্তন",
         "blocks": "ব্লকের ইতিহাস",
         "merges": "মার্জের ইতিহাস",
-        "files": "ছবি ও ফাইল"
+        "files": "ছবি ও ফাইল",
+        "help": "সাহায্যের হিসাব"
       },
       "mother": "মাতার নাম",
       "gender": "লিঙ্গ",
@@ -547,6 +548,16 @@
         "nid_photo": "NID-এর ছবি",
         "media_asset": "মিডিয়া ফাইল",
         "issue_photo": "সমস্যার ছবি"
+      },
+      "help": {
+        "total": "{n, plural, other {মোট {count} বার সাহায্য পেয়েছেন}}",
+        "none": "এখনো কোনো সাহায্য পাননি।",
+        "since": "{year} সাল থেকে",
+        "this_year": "{n, plural, other {এই বছর {count} বার}}",
+        "times": "{n, plural, other {{count} বার}}",
+        "repeated_in_year": "এক বছরে একাধিকবার",
+        "repeated_in_project": "একই প্রকল্পে একাধিকবার",
+        "unnamed": "{n, plural, other {অন্য প্রকল্পে {count} বার, নাম আপনার জন্য দেখানো হয় না}}"
       }
     },
     "none": "নেই",

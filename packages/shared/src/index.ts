@@ -9,4 +9,5 @@ export * from './notifications/links.js';
 export * from './notifications/templates.js';
 export * from './testing/fake.js';
 export * from './workflow/actions.js';
+export * from './workflow/help.js';
 export { mergeWorkflowTemplates } from './workflow/merge.js';

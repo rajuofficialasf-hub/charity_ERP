@@ -345,6 +345,7 @@ describe('the 360° profile', () => {
       'occupationCode',
       'photoFileId',
       'applications',
+      'help',
     ])
       expect(data, key).not.toHaveProperty(key);
     expect(data).toMatchObject({

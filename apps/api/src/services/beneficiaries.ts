@@ -1,5 +1,4 @@
 import { type BeneficiaryFilter, parseBenNo } from '@css/shared/beneficiaries';
-import { APPROVED_STATES } from '@css/shared/volunteers';
 import type { AccessService } from '../access/service.js';
 import { beneficiaryRowsProjectWhere, beneficiaryWhere, type Scope } from '../access/scope.js';
 import type { Principal } from '../auth/principal.js';
@@ -22,6 +21,13 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import { publishedWorksOf } from './media-home.js';
 import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
+import {
+  HELPED_WHERE,
+  helpView,
+  personApplications,
+  personApplicationsWhere,
+  visibleProjects,
+} from './help-history.js';
 
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
 const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
@@ -34,6 +40,7 @@ const CONTACT_LOG_FIELDS = ['mobile', 'mobile_owner_code', 'mobile_owner_name'];
 const ADDRESS = 'beneficiary.address_detail';
 const CARE = 'beneficiary.care';
 const DETAIL = 'beneficiary.profile_detail';
+const HISTORY = 'beneficiary.application_history';
 
 /** The calendar year in Bangladesh (UTC+6). */
 const dhakaYear = (now: Date) => new Date(now.getTime() + 6 * 3_600_000).getUTCFullYear();
@@ -216,8 +223,7 @@ export class BeneficiariesService {
             {
               applicationsBeneficiary: {
                 some: {
-                  status: { in: [...APPROVED_STATES] },
-                  project: { AND: [{ year }, rowsProjects ?? {}] },
+                  AND: [HELPED_WHERE, { project: { AND: [{ year }, rowsProjects ?? {}] } }],
                 },
               },
             },
@@ -260,17 +266,22 @@ export class BeneficiariesService {
       this.access.denied(viewer.principal.userId, viewer.scope.permission, 'beneficiary');
       throw new ApiError('permission.not_found', 404);
     }
-    const { b, applications, activities, distributions, seesNid, history, media } = found;
+    const { b, applications, activities, distributions, seesNid, history, media, all, visible } =
+      found;
+    // the projects the caller sees in the profile, each with the state of the person's latest
+    // application there (the list is newest first)
     const years = new Map<number, { year: number; projects: Map<string, ProjectOfYear> }>();
-    for (const a of applications) {
+    for (const a of all) {
+      if (!visible.has(a.project.id)) continue;
       const year = years.get(a.project.year) ?? { year: a.project.year, projects: new Map() };
-      year.projects.set(a.project.id, {
-        id: a.project.id,
-        code: a.project.code,
-        nameBn: a.project.nameBn,
-        nameEn: a.project.nameEn,
-        status: a.status,
-      });
+      if (!year.projects.has(a.project.id))
+        year.projects.set(a.project.id, {
+          id: a.project.id,
+          code: a.project.code,
+          nameBn: a.project.nameBn,
+          nameEn: a.project.nameEn,
+          status: a.status,
+        });
       years.set(a.project.year, year);
     }
     return {
@@ -324,6 +335,11 @@ export class BeneficiariesService {
       projectsByYear: [...years.values()]
         .sort((x, y) => y.year - x.year)
         .map((y) => ({ year: y.year, projects: [...y.projects.values()] })),
+      // how often the person was helped, with the application history class: every counted
+      // application, a project the caller does not see counted but not named
+      ...(viewer.fieldClasses.has(HISTORY)
+        ? { help: helpView(all, visible, dhakaYear(this.clock.now())) }
+        : {}),
       applications: applications.map((a) => ({
         id: a.id,
         appNo: a.appNo,
@@ -688,18 +704,10 @@ export class BeneficiariesService {
       },
     });
     if (!b) return null;
-    const keptMerges = await tx.profileMerge.findMany({
-      where: { keptId: b.id, status: 'merged' },
-      select: { snapshot: true },
-    });
-    const leftBehind = keptMerges.flatMap((m) => {
-      const ids = (m.snapshot as { leftBehind?: unknown } | null)?.leftBehind;
-      return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : [];
-    });
+    // the person's own applications and the ones a merge left on a profile retired into them
+    const mine = await personApplicationsWhere(tx, b.id);
     const applications = await tx.application.findMany({
-      where: {
-        AND: [{ OR: [{ beneficiaryId: b.id }, { id: { in: leftBehind } }] }, inProjects],
-      },
+      where: { AND: [mine, inProjects] },
       ...latest,
       select: {
         id: true,
@@ -737,7 +745,10 @@ export class BeneficiariesService {
       take: SECTION_ROWS,
       select: activitySelect,
     });
-    return { b, applications, activities, distributions };
+    // every application of the person, never cut to a page: the projects by year and the help
+    const all = await personApplications(tx, mine);
+    const visible = await visibleProjects(tx, all, inProjects.project ?? null);
+    return { b, applications, activities, distributions, all, visible };
   }
 }
 

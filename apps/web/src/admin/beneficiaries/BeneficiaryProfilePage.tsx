@@ -39,6 +39,7 @@ import {
 } from './beneficiaries-api';
 import { BeneficiaryArea } from './BeneficiaryArea';
 import { FamilyMembers } from './FamilyMembers';
+import { HelpHistory } from './HelpHistory';
 import { ContactDialog } from './ContactDialog';
 import { CorrectionDialog } from './CorrectionDialog';
 import { IdentityDialog } from './IdentityDialog';
@@ -51,9 +52,9 @@ import { LoadError } from '../../components/LoadError';
 
 /**
  * The 360° profile of one beneficiary in the one profile layout: the header card with the key facts,
- * then the basic details and address, the family, the application history, distribution and
- * implementation, dawah and follow-ups beside the contact, the projects by year and the activity
- * history. Each section shows real data where it exists and an empty state otherwise; a section the
+ * then the basic details and address, the family, how often the person was helped, the application
+ * history, distribution and implementation, dawah and follow-ups beside the contact, the projects
+ * by year and the activity history. Each section shows real data where it exists and an empty state otherwise; a section the
  * server left out (the limited views of the Media and Procurement Teams) is not shown at all, and a
  * value it left out is never a chip of the header.
  */
@@ -357,6 +358,13 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           {p.familyMembers && p.familyMembers.length > 0 && (
             <ProfileSection title={tp('sections.family')} icon="users">
               <FamilyMembers members={p.familyMembers} />
+            </ProfileSection>
+          )}
+
+          {/* how often the person was helped, only with the application history class */}
+          {p.help && (
+            <ProfileSection title={tp('sections.help')} icon="hand-heart">
+              <HelpHistory help={p.help} />
             </ProfileSection>
           )}
 

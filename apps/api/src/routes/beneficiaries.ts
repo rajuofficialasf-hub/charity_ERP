@@ -203,6 +203,33 @@ export const beneficiaryProfile = z.object({
       ),
     }),
   ),
+  // how often the person was helped (docs/BUSINESS_RULES.md, BR-307)
+  help: history(
+    z.object({
+      total: z.number().int().min(0),
+      firstYear: z.number().int().nullable(),
+      thisYear: z.number().int().min(0),
+      repeatedInYear: z.boolean(),
+      repeatedInProject: z.boolean(),
+      years: z.array(
+        z.object({
+          year: z.number().int(),
+          count: z.number().int().min(1),
+          projects: z.array(
+            z.object({
+              id: z.uuid(),
+              code: z.string(),
+              nameBn: z.string(),
+              nameEn: z.string(),
+              count: z.number().int().min(1),
+            }),
+          ),
+          /** The times helped that year in projects the caller does not see. */
+          unnamed: z.number().int().min(0),
+        }),
+      ),
+    }),
+  ).optional(),
   applications: history(
     z.array(
       z.object({

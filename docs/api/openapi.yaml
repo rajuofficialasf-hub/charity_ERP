@@ -2211,7 +2211,48 @@ components:
                     code: { type: string }
                     nameBn: { type: string }
                     nameEn: { type: string }
-                    status: { type: string, description: The status of the beneficiary's application }
+                    status: { type: string, description: The status of the beneficiary's latest application in the project }
+          description: >-
+            Every project of the person's applications the caller sees in the profile (for a
+            project-scoped caller only its projects), never cut to a page of applications; a merge's
+            left-behind applications included
+        help:
+          type: object
+          x-sensitive-class: beneficiary.application_history
+          description: >-
+            How often the person was helped (BR-307): the counted applications are the approved ones
+            and the states after it, and a closed one only when it was approved before the close
+            and its outcome is not the template's not-delivered one. Every counted application of
+            the person and of a profile merged into them is counted; a project the caller does not
+            see in the profile is counted in its year's `unnamed`, never named
+          required: [total, firstYear, thisYear, repeatedInYear, repeatedInProject, years]
+          properties:
+            total: { type: integer, minimum: 0 }
+            firstYear: { type: [integer, 'null'], description: The year of the earliest help; null when never helped }
+            thisYear: { type: integer, minimum: 0, description: The times helped in the current year (Asia/Dhaka) }
+            repeatedInYear: { type: boolean, description: Helped more than once in one year }
+            repeatedInProject: { type: boolean, description: Helped more than once in one project }
+            years:
+              type: array
+              description: The years with help, newest first
+              items:
+                type: object
+                required: [year, count, projects, unnamed]
+                properties:
+                  year: { type: integer }
+                  count: { type: integer, minimum: 1 }
+                  projects:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, code, nameBn, nameEn, count]
+                      properties:
+                        id: { $ref: '#/components/schemas/Uuid' }
+                        code: { type: string }
+                        nameBn: { type: string }
+                        nameEn: { type: string }
+                        count: { type: integer, minimum: 1 }
+                  unnamed: { type: integer, minimum: 0, description: The times helped that year in projects the caller does not see }
         applications:
           type: array
           x-sensitive-class: beneficiary.application_history

@@ -453,7 +453,8 @@
         "contact_log": "Contact changes",
         "blocks": "Block history",
         "merges": "Merge history",
-        "files": "Photos and files"
+        "files": "Photos and files",
+        "help": "Help received"
       },
       "mother": "Mother's name",
       "gender": "Gender",
@@ -547,6 +548,16 @@
         "nid_photo": "NID photo",
         "media_asset": "Media file",
         "issue_photo": "Issue photo"
+      },
+      "help": {
+        "total": "{n, plural, one {Helped {count} time in all} other {Helped {count} times in all}}",
+        "none": "Not helped yet.",
+        "since": "Since {year}",
+        "this_year": "{n, plural, one {{count} time this year} other {{count} times this year}}",
+        "times": "{n, plural, one {{count} time} other {{count} times}}",
+        "repeated_in_year": "More than once in a year",
+        "repeated_in_project": "More than once in one project",
+        "unnamed": "{n, plural, one {{count} time in other projects, not named for you} other {{count} times in other projects, not named for you}}"
       }
     },
     "none": "None",

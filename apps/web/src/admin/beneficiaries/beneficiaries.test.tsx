@@ -365,6 +365,78 @@ describe('the 360° profile', () => {
     expect(screen.getAllByText(/শীতবস্ত্র 2026/).length).toBeGreaterThan(0);
   });
 
+  it('says how often the person was helped, with the marks and the number of a repeated year', async () => {
+    refreshAs(HEAD);
+    const winter = { id: PROJECT, code: 'WIN26', nameBn: 'শীতবস্ত্র 2026', nameEn: 'Winter 2026' };
+    const help = {
+      total: 5,
+      firstYear: 2023,
+      thisYear: 2,
+      repeatedInYear: true,
+      repeatedInProject: true,
+      years: [
+        { year: 2026, count: 2, projects: [{ ...winter, count: 2 }], unnamed: 0 },
+        {
+          year: 2024,
+          count: 2,
+          projects: [
+            {
+              id: '01900000-0000-7000-8000-0000000000b1',
+              code: 'IFT24',
+              nameBn: 'ইফতার 2024',
+              nameEn: 'Iftar 2024',
+              count: 1,
+            },
+          ],
+          unnamed: 1,
+        },
+        { year: 2023, count: 1, projects: [], unnamed: 1 },
+      ],
+    };
+    serve(fullRow, {}, { ...empty360, help });
+    const { container } = openProfile();
+    const section = (
+      await screen.findByRole('heading', { level: 2, name: 'সাহায্যের হিসাব' })
+    ).closest('section') as HTMLElement;
+    const card = within(section ?? container);
+    expect(card.getByText('মোট 5 বার সাহায্য পেয়েছেন')).toBeInTheDocument();
+    expect(card.getByText('2023 সাল থেকে')).toBeInTheDocument();
+    expect(card.getByText('এই বছর 2 বার')).toBeInTheDocument();
+    expect(card.getByText('এক বছরে একাধিকবার')).toBeInTheDocument();
+    expect(card.getByText('একই প্রকল্পে একাধিকবার')).toBeInTheDocument();
+    // a year with two shows its number; the project helped twice shows it too
+    expect(card.getAllByText('2 বার')).toHaveLength(3);
+    expect(card.getByText('শীতবস্ত্র 2026')).toBeInTheDocument();
+    expect(card.getByText('ইফতার 2024')).toBeInTheDocument();
+    expect(card.getAllByText('অন্য প্রকল্পে 1 বার, নাম আপনার জন্য দেখানো হয় না')).toHaveLength(2);
+    await expectNoAxeViolations(container);
+  });
+
+  it('says so for a person never helped, in English too', async () => {
+    refreshAs(HEAD);
+    const help = {
+      total: 0,
+      firstYear: null,
+      thisYear: 0,
+      repeatedInYear: false,
+      repeatedInProject: false,
+      years: [],
+    };
+    serve(fullRow, {}, { ...empty360, help });
+    const first = openProfile();
+    expect(await screen.findByText('এখনো কোনো সাহায্য পাননি।')).toBeInTheDocument();
+    expect(screen.queryByText('এক বছরে একাধিকবার')).not.toBeInTheDocument();
+    first.unmount();
+    renderApp(<BeneficiaryProfilePage />, 'en', {
+      path: '/admin/beneficiaries/:beneficiaryId',
+      initialPath: `/admin/beneficiaries/${ID}`,
+    });
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Help received' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Not helped yet.')).toBeInTheDocument();
+  });
+
   it('refuses a volunteer without asking the server', async () => {
     refreshAs({ ...ME, kind: 'volunteer', roles: ['volunteer_general'] });
     let asked = false;
@@ -544,6 +616,7 @@ describe('the 360° profile', () => {
     ).toBeInTheDocument();
     for (const section of [
       'পরিবারের সদস্য',
+      'সাহায্যের হিসাব',
       'আবেদনের ইতিহাস',
       'দাওয়াহ',
       'ফলো-আপ',

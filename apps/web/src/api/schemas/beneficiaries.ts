@@ -176,6 +176,35 @@ export const beneficiaryProfileSchema = z.object({
       ),
     }),
   ),
+  /** How often the person was helped; absent without the application history class. */
+  help: z
+    .object({
+      total: z.number().int(),
+      firstYear: z.number().int().nullable(),
+      thisYear: z.number().int(),
+      repeatedInYear: z.boolean(),
+      repeatedInProject: z.boolean(),
+      /** Newest first. */
+      years: z.array(
+        z.object({
+          year: z.number().int(),
+          count: z.number().int(),
+          /** The projects the viewer sees, each with its times helped. */
+          projects: z.array(
+            z.object({
+              id: z.uuid(),
+              code: z.string(),
+              nameBn: z.string(),
+              nameEn: z.string(),
+              count: z.number().int(),
+            }),
+          ),
+          /** The times helped that year in projects the viewer does not see. */
+          unnamed: z.number().int(),
+        }),
+      ),
+    })
+    .optional(),
   applications: z
     .array(
       z.object({
