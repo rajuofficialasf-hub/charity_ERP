@@ -153,6 +153,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | education_level | illiterate, primary, secondary, higher_secondary, graduate, postgraduate — O-38 | beneficiaries.education_code |
 | relationship | self, spouse, son, daughter, father, mother, brother, sister, grandfather, grandmother, grandson, granddaughter, son_in_law, daughter_in_law, other_relative, guardian, non_relative — O-38 | beneficiary_family_members.relationship_code |
 | mobile_owner | own (নিজের), family (পরিবারের সদস্যের), neighbour (প্রতিবেশীর), other (অন্য কারও) — D-172 | beneficiaries.mobile_owner_code |
+| guardian_relation | father (পিতা), husband (স্বামী) — D-174 | beneficiaries.guardian_relation_code |
 
 Bengali and English labels of these four lists are recorded in DECISION_LOG O-38 and seeded in T1.3.
 
@@ -374,7 +375,7 @@ Constraints: UNIQUE (list_key, code).
 ### settings
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
-| key | text | no | — | PK: `organisation`, `localization`, `monitoring.thresholds`, `sms.provider` (D-098; seed markers `seed.marker.*`); later keys such as photo defaults are added with their modules |
+| key | text | no | — | PK: `organisation`, `localization`, `monitoring.thresholds`, `sms.provider` (D-098; seed markers `seed.marker.*`), `lookup.match_daily_limit` (the name lookups a user may make in a day, default 60, D-172; no screen edits it yet); later keys such as photo defaults are added with their modules |
 | value | jsonb | no | — | validated per key by the zod schemas of `@css/shared/settings`, which also hold the defaults |
 | updated_by | uuid | yes | — | FK users |
 | updated_at | timestamptz | no | now() | every change audited |
@@ -665,6 +666,7 @@ Constraints: UNIQUE (form_field_id, code).
 | birth_reg | text | yes | — | CHECK `^[0-9]{17}$` |
 | name | text | no | — | locked after creation (BR-006) |
 | father_or_husband_name | text | no | — | locked |
+| guardian_relation_code | text | yes | — | whether `father_or_husband_name` is the father's or the husband's: reference list `guardian_relation` (`father`, `husband`; composite FK through the generated `guardian_relation_list`, constraint `beneficiaries_guardian_relation_fkey`, named by hand because the default name passes 63 characters; indexed; D-174, BR-310). Null where not known. Written from the form question of that column at a submission: on a new profile, and on a known profile only while it holds none (`guardianRelationToFill` of `@css/shared/beneficiaries`, the write conditioned on the column being null, audited `beneficiary.guardian_relation_set`); an application never changes a relation the profile holds. Migration `20261114180000_beneficiary_guardian_relation`; its `down.sql` drops the column with its values |
 | mother_name | text | yes | — | — |
 | mobile | text | yes | — | not unique (O-02); CHECK mobile format; null for a person who has no number and is reached through the volunteer of the application (D-172, BR-299): no number is stored in its place |
 | mobile_owner_code | text | yes | — | whose number the mobile is: reference list `mobile_owner` (composite FK through the generated `mobile_owner_list`; D-172, BR-300). Written from the form question of that column at a submission (a new profile) and through the contact service for a known person, with a change-log row; never kept without a mobile, and emptied when the number changes without a new owner (the service's rule, `mobileOwnerOf` of `@css/shared/beneficiaries`) |
@@ -693,9 +695,15 @@ Constraints: UNIQUE (form_field_id, code).
 | status | text | no | 'active' | L-beneficiary-status |
 | is_blocked | boolean | no | false | mirror of an active blocklist row (maintained by trigger) |
 | merged_into_id | uuid | yes | — | FK beneficiaries; retired profiles point to the kept one |
+| name_key | text | yes | — | the name key of `name` (D-174, BR-301): `matchKey` of `@css/shared/beneficiaries`, computed in TypeScript and stored; null until computed, and for a name with no letter |
+| guardian_key | text | yes | — | the name key of `father_or_husband_name` |
+| village_key | text | yes | — | the key of `village`: `placeKey`, the same as a name's but no title is dropped (a village may be called হাজী পাড়া) |
+| match_keys_version | integer | yes | — | the version of the spelling variants list (`name_variants_version`) the three keys were computed with; null until computed |
 | [A] | | | | |
 
 Constraints: UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. The database asks for no document and no mobile (D-172, BR-298, BR-299; migration `20261112160000_beneficiary_optional_identity` dropped the CHECK `beneficiaries_identity_check` and the NOT NULL of `mobile`): a profile without a document has neither number, and whether an application must carry a document or a mobile is its project's rule, held by the service (BR-001, BR-297). A number that is given keeps its format CHECK and its uniqueness; every comparison of a mobile (the format CHECK, the own-mobile triggers of section 18, the duplicate and family queries) uses `=` or `~`, which is never true for NULL, so a missing number is refused by none of them and pairs with nobody. Rollback of that migration (its `down.sql`): on a database where no profile lacks a document or a mobile and no application has the kind `none`, the earlier schema returns exactly; where such rows exist they stay, `mobile` stays nullable in its type (PostgreSQL cannot set NOT NULL on a column that holds a NULL) and the three rules return as CHECK constraints NOT VALID (`beneficiaries_mobile_required`, `beneficiaries_identity_check`, `applications_identity_kind_check`), which hold every new and every changed row and leave the existing ones. A kept row is therefore frozen: PostgreSQL holds a NOT VALID check against every new version of a row, so such a profile or application refuses every update (a block, a merge, an address change, a move to another state) until it is given its document and its mobile (the application: a kind of `nid` or `birth_reg`) or the check that holds it is dropped by hand; the script ends with a WARNING that counts the kept rows. It must be run in one transaction (`psql --single-transaction -f down.sql`), can be run again, and applying the migration again removes the stand-in checks. Adding the stored generated column `mobile_owner_list` rewrites the table once. Indexes: (mobile); (mobile_owner_code); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL; (id) WHERE merged_into_id IS NULL and (id) WHERE is_blocked AND merged_into_id IS NULL (the counts and the blocklist filter of the beneficiary tab, T1.10; docs/testing/PERFORMANCE.md). The duplicate suggestions (T2.2, D-113) read `beneficiaries_dup_name_father_mobile_idx` on (person_name_key(name), person_name_key(father_or_husband_name), mobile) and `beneficiaries_dup_name_dob_union_idx` on (person_name_key(name), dob, union_id), both WHERE merged_into_id IS NULL (the second also needs a dob); `person_name_key(text)` is an immutable SQL function (trimmed, inner spaces collapsed, lower case) that the queries use too, so a query and its index agree.
+
+The name keys (D-174, BR-301; migration `20261114120000_beneficiary_name_keys`): two spellings of one person's name compare equal through a key made from the name as written, which is always kept and shown. The key drops a known title only where it stands (at the start, any number in a row: মোঃ, মো., মোহাম্মদ, মুহাম্মদ and their short forms মোহাঃ, মোহা., মুহাঃ, মুহা., মোছাঃ, মোসাঃ, মোসাম্মৎ, হাজী, আলহাজ্ব, শ্রী, শ্রীমতি and their Latin forms; at the end: বেগম, খাতুন), keeps every word that can be a family name (শেখ, মুন্সী), removes spaces and punctuation, folds Unicode NFC, invisible joiners and Latin letter case, makes no letters equal (শ, ষ and স stay apart), and maps each word through the spelling variants of the groups switched on (`name_variant_groups`, `name_variants`; a group spelling that is itself a variant of another group is followed to the end of the chain, and a chain that comes back to itself ends at its smallest spelling). The keys are computed once, in TypeScript, and stored: an editable list cannot feed an immutable SQL function, so there is no SQL twin and no expression index (the older `person_name_key` stays for the search; the duplicate pairs, the family signals and the comparison with the block list read these columns). Every write of a name, a father's or husband's name or a village stores the keys with `match_keys_version` in the same transaction (`services/match-keys.ts`: a new profile, a decided correction of a name, a contact change of the village, a merge and its revert for both profiles). The migration computes nothing: on the field's table (2,000,000 rows in the measurement data set) that would hold the migration for minutes, so the columns arrive empty and the key job `jobs/name-keys.ts` on the `name-keys` queue fills them: queued when the worker starts and finds a row without current keys, queued in the transaction that raises the list's version, and nightly at 02:30 Dhaka time. One run at a time: the queue has the pg-boss policy `stately` (one job waiting, one running) and every place that queues it gives the singleton key `name-keys`. It walks each table by id in batches of 2,000 rows, each in its own transaction, locking its rows in id order as it reads them, writes a row only while its keys are older than the list and its names and village are still the ones the keys were computed from (so it never overwrites a newer write, and a second run writes nothing), and marks its transactions with `css.match_keys_only = on`: the update-stamp trigger of the two tables (`set_updated_at_unless_match_keys`) then keeps `updated_at` as it was, so a key write moves no profile's "last changed" and makes no official's open edit stale. A write that read the version just before the list changed stores the older version; the job queued by the change or the nightly one computes that row again. Indexes for the pair queries: (union_id, name_key, guardian_key) and (union_id, village_key), both WHERE merged_into_id IS NULL. Index of the keys to compute: (match_keys_version), which holds the NULLs too, so it serves both the missing and the older keys; the check at the worker's start asks each of the two in a probe of its own, so each is a condition of the index, with a statement time limit of a minute, and a failed or timed-out check is logged as an error and queues the job anyway. The migration builds its indexes with a plain CREATE INDEX, which holds the writes to the table while it builds (docs/ops/DEPLOYMENT.md, section 5). The rollback (`down.sql`) drops the columns, the three tables, the indexes and the trigger function and gives both tables the plain `set_updated_at` trigger again; the keys are derived, so nothing a person wrote is lost.
 
 ### beneficiary_family_members
 | Column | Type | Null | Default | Comment |
@@ -711,9 +719,14 @@ Constraints: UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_
 | monthly_income | numeric(14,2) | yes | — | — |
 | is_earner | boolean | no | false | B3 earners repeat group; from the group's `repeat.earner` setting, true unless set (D-124) |
 | active | boolean | no | true | left the household: false |
+| name_key | text | yes | — | the name key of `name` (see beneficiaries); null until computed |
+| match_keys_version | integer | yes | — | the version of the variants list it was computed with |
+| source_application_id | uuid | yes | — | FK applications: the submitted application whose list the row came from; NULL for a row of no application (migration `20261114200000_beneficiary_family_source`) |
 | [A] | | | | |
 
-Index: (beneficiary_id) WHERE active.
+Indexes: (beneficiary_id) WHERE active; (name_key); (match_keys_version); (source_application_id). The key job fills and recomputes `name_key` as it does the profiles' keys.
+
+Written at the submission of an application (BR-305; `BeneficiaryFamilyMembersService` in `apps/api/src/services/beneficiary-family-members.ts`, called by the binding of the person in `applications/submission.ts`, at a volunteer's or an official's send and at an official's verification alike): the rows of the form's family group (a repeat group whose standard column is `beneficiary_family_members`, its questions filling `name`, `relationship_code`, `age_years`, `occupation_code`, `monthly_income`; `is_earner` from the group's setting) replace the person's active members, which are kept with `active = false`, never deleted. The list of the latest submitted application stands: under a lock of the person's row, a list is taken only when its application's `submitted_at` (the send, or the receipt of an entry that waits for verification) is not earlier than the newest `submitted_at` among the live applications the active rows came from (the time the move itself stamps, for a draft), so an entry received earlier and verified later leaves a newer list as it is; a row of no application or of a deleted one gives no time, a rejected or withdrawn application still gives its own. An application whose answers hold no member changes nothing; a wholly blank row is skipped, and a row with an answer but no name is refused (422 `validation.required` on the name question of that row). Each new row stores its `name_key`; a relationship code outside the list `relationship`, an age that is not a whole number from 0 to 150, an income below 0 or beyond the column (422 `validation.out_of_range`) and an income given as text that is not written as an amount (422 `validation.amount_format`) are the form's refusal; the income is written as the checked number with two decimals. Each replacement is audited as `beneficiary.family_replaced` with the number of active members before and after, the application and the ids of the rows it set inactive (`deactivatedIds`), never the members' details. A merge keeps one list active: before the rows move, the list whose newest live application was submitted later stays (the kept profile's on a tie; a list of no application is the oldest; where only one profile has a list, it stays), the other's active rows are set inactive and their ids kept in the merge's snapshot (`familyDeactivated`), and the revert sets them active again once the rows are back, unless their profile holds a newer active list by then.
 
 ### profile_merges
 | Column | Type | Null | Default | Comment |
@@ -725,7 +738,7 @@ Index: (beneficiary_id) WHERE active.
 | reason | text | no | — | — |
 | proposed_by | uuid | no | — | FK users |
 | proposed_at | timestamptz | no | now() | — |
-| snapshot | jsonb | yes | — | set when merged: the ids of every row moved to the kept profile, per table, the applications left on the retired profile, and the blocklist rows moved or released (ids only, never a reason); the revert moves exactly these back (D-113) |
+| snapshot | jsonb | yes | — | set when merged: the ids of every row moved to the kept profile, per table, the applications left on the retired profile, and the blocklist rows moved or released (ids only, never a reason), the relation the kept profile took (`filled`) and the family members set inactive so the kept profile holds one list (`familyDeactivated`); the revert moves exactly these back (D-113) |
 | merged_by | uuid | yes | — | FK users |
 | merged_at | timestamptz | yes | — | — |
 | reverted_by | uuid | yes | — | FK users |
@@ -766,11 +779,43 @@ A suggested duplicate pair an official marked as not the same person (T2.2, D-11
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | low_id, high_id | uuid | no | — | PK (low_id, high_id); FK beneficiaries; CHECK low_id < high_id |
-| rules | text[] | no | — | at least one of name_dob_union, name_father_mobile, same_mobile |
+| rules | text[] | no | — | at least one of name_dob_union, name_father_mobile, name_father_village, same_mobile |
+| level | text | no | — | `probable` or `check` (D-174), following from the rules: CHECK level = 'check' exactly when the rules hold same_mobile alone |
 | active | boolean | no | true | false once the pair no longer holds |
 | computed_at | timestamptz | no | now() | — |
 
-The suggested duplicate pairs, kept instead of computed per request (T2.2, D-117): the write that changes a profile recomputes its own pairs, and the nightly job on the `duplicates` queue recomputes all of them and marks the pairs it did not find again as inactive. Derived data: rows are updated, never deleted, and the down migration drops the table (the job rebuilds it). Indexes (high_id) and (low_id, high_id) WHERE active.
+The suggested duplicate pairs, kept instead of computed per request (T2.2, D-117): the write that changes a profile recomputes its own pairs, and the nightly job on the `duplicates` queue recomputes all of them and marks the pairs it did not find again as inactive. The rules compare names and villages through the stored keys of `beneficiaries` (`name_key`, `guardian_key`, `village_key`; a NULL key pairs with nobody), and a father's name never pairs with a husband's (`guardian_relation_code`, where both say). `name_father_village` (D-172, BR-302) is the same name, father's or husband's name and village in one union. The level is `probable` for any rule that compares a name, or two rules together, and `check` for a shared mobile alone; no stored pair is `strong`, because two live profiles never share an identity or BEN number (the unique indexes), so that level belongs to the number lookup and the verification. Derived data: rows are updated, never deleted, and the down migration drops the table (the job rebuilds it); the down of `20261114220000_beneficiary_pair_levels` drops the level, takes the new rule out of the rules and removes the pairs that held by it alone. Indexes (high_id), (low_id, high_id) WHERE active, and (level DESC, low_id, high_id) WHERE active for the list, probable first.
+
+### name_variant_groups
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| canonical | text | no | — | the spelling of the group the keys use; CHECK 1 to 100 characters and no white space; a row of `name_variants` holds it too |
+| active | boolean | no | true | a group switched off is ignored by the keys and keeps its spellings; every change of the group writes this row, so its `updated_at` is the group's version (the ETag a change sends back in If-Match) |
+| [A] | | | | |
+
+The known spelling variants of names, by group (D-174): only the spellings of one group that is switched on are made equal by the name keys. The list starts with আক্তার, আকতার, আখতার; হোসেন, হোসাইন, হুসাইন; রহিমা, রাহিমা; রহমান, রাহমান (the base seed, which raises the version when it adds a spelling); the Department Head and the Monitoring Team keep it on the settings page (`services/name-variants.ts`, `settings.manage`): add a group, change its spellings, switch it off and on; never deleted. Each change is audited (`name_variants.change`) and, when it changes what the keys read, raises `name_variants_version` in its transaction. Indexes (created_by), (updated_by).
+
+### name_variants
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| group_id | uuid | no | — | FK name_variant_groups |
+| variant | text | no | — | one spelling of a word, the group's canonical included; CHECK 1 to 100 characters and no white space; partial UNIQUE (variant) WHERE active |
+| active | boolean | no | true | false once the spelling is taken out of its group: the row stays and the spelling is free for another group |
+| [A] | | | | |
+
+An active spelling belongs to one group, switched on or off; the service compares spellings in the key's form (letter case, encoding) and refuses one another group holds and one that would chain two groups (a group's canonical held as a spelling of another group). Indexes (group_id), (created_by), (updated_by). `css_app` has no DELETE on either table.
+
+### name_variants_version
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | smallint | no | 1 | PK; CHECK id = 1: one row, written by the migration |
+| version | integer | no | 1 | CHECK > 0; raised in the transaction of every change of the list that alters what the keys read (`raiseVariantsVersion`), which also queues the key job |
+| updated_at | timestamptz | no | now() | — |
+| updated_by | uuid | yes | — | FK users |
+
+The version of the spelling variants list, a table of its own rather than a key of `settings`: the raise is one atomic `version + 1` inside the list's own transaction, a stored value never falls back to a default, and it goes with the list in the same rollback.
 
 ### media_consents
 | Column | Type | Null | Default | Comment |
@@ -1810,6 +1855,8 @@ Rationale for triggers rather than a CHECK: the two values live in different tab
 | Mobile lookup and duplicate warning | (mobile) | beneficiaries |
 | Duplicate candidates and name search | GIN trigram (name), (father_or_husband_name) — pg_trgm, PROPOSAL | beneficiaries |
 | Family duplicate warning (union + village) | (union_id, village) | beneficiaries |
+| Same person by name keys: name with father's or husband's name, and village, inside a union (D-174) | (union_id, name_key, guardian_key), (union_id, village_key), both WHERE merged_into_id IS NULL | beneficiaries |
+| Family member by name key | (name_key) | beneficiary_family_members |
 | Audit by entity | (entity_type, entity_id, created_at desc) per partition | audit_log |
 | Audit by person | (actor_user_id, created_at desc) per partition | audit_log |
 | Today's distribution / class / construction for a worker | (project_id, done_by, done_on) | activities |

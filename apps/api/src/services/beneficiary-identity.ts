@@ -1,6 +1,7 @@
 import { uuidv7 } from '@css/shared';
 import {
   formatBenNo,
+  GUARDIAN_RELATION_COLUMN,
   isBirthRegNumber,
   isNidNumber,
   LOCKED_FIELDS,
@@ -14,9 +15,10 @@ import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
 import type { Clock } from '../core/clock.js';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
+import type { MatchKeysService, ProfileKeys } from './match-keys.js';
 import { isUniqueViolation } from '../core/db-errors.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
-import { type Prisma } from '../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 
 /** How far a chain of merges is followed (a kept profile can itself be merged later). */
@@ -30,7 +32,7 @@ const MOBILE_PATTERN = /^01[3-9][0-9]{8}$/;
 export const OUTSIDE_LOOKUPS_PER_DAY = 20;
 const HOUR_MS = 3_600_000;
 /** The start of the calendar day in Bangladesh (UTC+6) that `now` falls on. */
-const dhakaDayStart = (now: Date) => {
+export const dhakaDayStart = (now: Date) => {
   const local = now.getTime() + 6 * HOUR_MS;
   return new Date(local - (local % (24 * HOUR_MS)) - 6 * HOUR_MS);
 };
@@ -47,6 +49,8 @@ export interface NewProfile {
   birthReg?: string;
   name: string;
   fatherOrHusbandName: string;
+  /** Whether that name is the father's or the husband's (a code of the list `guardian_relation`). */
+  guardianRelationCode?: string | null;
   motherName?: string;
   /** None where the person has no number of their own: the volunteer is the contact. */
   mobile?: string;
@@ -80,6 +84,8 @@ export interface PersonKeys {
   fatherOrHusbandName: string;
   unionId: string;
   village: string;
+  /** Whether that name is the father's or the husband's, where the answers say. */
+  guardianRelationCode: string | null;
 }
 
 /**
@@ -97,8 +103,40 @@ export function personKeysOf(standard: Record<string, unknown>): PersonKeys | nu
   const unionId = text('union_id');
   const village = text('village');
   return name && fatherOrHusbandName && unionId && village
-    ? { name, fatherOrHusbandName, unionId, village }
+    ? {
+        name,
+        fatherOrHusbandName,
+        unionId,
+        village,
+        guardianRelationCode: text(GUARDIAN_RELATION_COLUMN),
+      }
     : null;
+}
+
+/**
+ * The condition that the beneficiary row `b` is the person: the same union, the same keys of the
+ * name, the father's or husband's name and the village (`keys`, computed with the current spelling
+ * variants), and no father's name against a husband's. A row whose stored keys are missing or older
+ * than those (the key job has not reached it yet) is compared as before the keys, through
+ * `person_name_key` of the three texts, so it is never missed while the job runs. A person whose key
+ * is empty matches no row by the keys.
+ */
+export function samePersonSql(person: PersonKeys, keys: ProfileKeys): Prisma.Sql {
+  const relation = person.guardianRelationCode;
+  const current =
+    keys.nameKey && keys.guardianKey && keys.villageKey
+      ? Prisma.sql`(b.name_key = ${keys.nameKey} AND b.guardian_key = ${keys.guardianKey}
+          AND b.village_key = ${keys.villageKey})`
+      : Prisma.sql`FALSE`;
+  return Prisma.sql`(b.union_id = ${person.unionId}::uuid
+    AND (b.guardian_relation_code IS NULL OR ${relation}::text IS NULL
+      OR b.guardian_relation_code = ${relation}::text)
+    AND (${current}
+      OR ((b.match_keys_version IS NULL OR b.match_keys_version < ${keys.matchKeysVersion})
+        AND person_name_key(b.name) = person_name_key(${person.name})
+        AND person_name_key(b.father_or_husband_name)
+          = person_name_key(${person.fatherOrHusbandName})
+        AND person_name_key(b.village) = person_name_key(${person.village}))))`;
 }
 
 export interface ProfileWarning {
@@ -146,6 +184,7 @@ export class BeneficiaryIdentityService {
     private readonly audit: AuditWriter,
     private readonly clock: Clock,
     private readonly candidates: BeneficiaryMergeCandidatesService,
+    private readonly matchKeys: MatchKeysService,
   ) {}
 
   /**
@@ -296,19 +335,18 @@ export class BeneficiaryIdentityService {
   }
 
   /**
-   * The blocked live profile a person without a document looks like: the same union, and the same
-   * name, father's or husband's name and village as `person_name_key` reads them. Such a person
-   * gets no new profile by themselves; an official compares the two first. Null when nobody on the
-   * block list matches. The one place this comparison is made.
+   * The blocked live profile a new person looks like (`samePersonSql`: the stored keys, so a title
+   * or a known spelling variant makes no difference, and the texts of a profile the key job has not
+   * reached yet, so no block slips through while it runs). Such a person gets no new profile by
+   * themselves; an official compares the two first. Null when nobody on the block list matches.
+   * The one place a new person is compared with the block list.
    */
   async blockedNamesake(db: Tx, person: PersonKeys): Promise<string | null> {
+    const keys = await this.matchKeys.ofProfile(db, person);
     const rows = await db.$queryRaw<{ id: string }[]>`
       SELECT b.id FROM beneficiaries b
       WHERE b.is_blocked AND b.merged_into_id IS NULL
-        AND b.union_id = ${person.unionId}::uuid
-        AND person_name_key(b.name) = person_name_key(${person.name})
-        AND person_name_key(b.father_or_husband_name) = person_name_key(${person.fatherOrHusbandName})
-        AND person_name_key(b.village) = person_name_key(${person.village})
+        AND ${samePersonSql(person, keys)}
       ORDER BY b.ben_no
       LIMIT 1`;
     return rows[0]?.id ?? null;
@@ -379,24 +417,37 @@ export class BeneficiaryIdentityService {
 
   /**
    * A refusal of an identity number another profile holds; it names that profile's BEN number only
-   * to a caller whose NID scope reaches it.
+   * to a caller whose NID scope reaches it. With `withId`, it also names the live profile behind
+   * the holder (`beneficiaryId`), so a screen can open the comparison of the two, and then names
+   * anything only when the caller's NID scope reaches the live profile too: a holder merged into a
+   * profile outside that scope gets the refusal without a name.
    */
   async identityTaken(
     db: Tx,
     actor: Principal,
     holderId: string,
-    path: 'nid' | 'birthReg' | 'newValue',
+    path: 'nid' | 'birthReg' | 'newValue' | 'number',
+    options: { withId?: boolean } = {},
   ): Promise<ApiError> {
     const holder = await db.beneficiary.findUnique({
       where: { id: holderId },
       select: { benNo: true },
     });
-    const sees = !!holder && (await this.seesHolder(db, actor, holderId));
+    let sees = !!holder && (await this.seesHolder(db, actor, holderId));
+    const live = sees && options.withId ? await this.liveOf(db, holderId) : null;
+    if (live && live !== holderId) sees = await this.seesHolder(db, actor, live);
     return new ApiError('beneficiary.identity_taken', 409, undefined, [
       {
         path,
         code: 'beneficiary.identity_taken',
-        ...(sees && holder ? { params: { benNo: formatBenNo(holder.benNo) } } : {}),
+        ...(sees && holder
+          ? {
+              params: {
+                benNo: formatBenNo(holder.benNo),
+                ...(live ? { beneficiaryId: live } : {}),
+              },
+            }
+          : {}),
       },
     ]);
   }
@@ -440,21 +491,24 @@ export class BeneficiaryIdentityService {
     const warnings = mobile !== undefined ? await this.sharedMobile(tx, actor, mobile) : [];
     // an owner without a number says nothing: neither is stored then
     const owner = mobileOwnerOf(mobile, input.mobileOwnerCode, input.mobileOwnerName);
+    const keys = await this.matchKeys.ofProfile(tx, input);
     try {
       // an explicit insert: the reference-list columns are generated by the database, and Prisma
       // would send their schema default
       const [created] = await tx.$queryRaw<{ id: string; ben_no: number }[]>`
-        INSERT INTO beneficiaries (id, nid, birth_reg, name, father_or_husband_name, mother_name,
-          mobile, mobile_owner_code, mobile_owner_name, gender_code, dob, age_years, division_id,
+        INSERT INTO beneficiaries (id, nid, birth_reg, name, father_or_husband_name,
+          guardian_relation_code, mother_name, mobile, mobile_owner_code, mobile_owner_name, gender_code, dob, age_years, division_id,
           district_id, upazila_id, union_id, village, post_office, post_code, landmark,
-          created_by, updated_by)
+          name_key, guardian_key, village_key, match_keys_version, created_by, updated_by)
         VALUES (${uuidv7()}::uuid, ${nid ?? null}, ${birthReg ?? null}, ${input.name},
-          ${input.fatherOrHusbandName}, ${input.motherName ?? null}, ${mobile ?? null},
+          ${input.fatherOrHusbandName}, ${input.guardianRelationCode || null},
+          ${input.motherName ?? null}, ${mobile ?? null},
           ${owner.code}, ${owner.name}, ${input.genderCode}, ${input.dob ?? null}::date, ${input.ageYears ?? null}::smallint,
           ${input.divisionId}::uuid, ${input.districtId}::uuid, ${input.upazilaId}::uuid,
           ${input.unionId}::uuid, ${input.village}, ${input.postOffice ?? null},
-          ${input.postCode ?? null}, ${input.landmark ?? null}, ${actor.userId}::uuid,
-          ${actor.userId}::uuid)
+          ${input.postCode ?? null}, ${input.landmark ?? null}, ${keys.nameKey},
+          ${keys.guardianKey}, ${keys.villageKey}, ${keys.matchKeysVersion}::integer,
+          ${actor.userId}::uuid, ${actor.userId}::uuid)
         RETURNING id, ben_no`;
       // a new profile can be a duplicate of an older one at once
       await this.candidates.refreshFor(tx, [created!.id]);

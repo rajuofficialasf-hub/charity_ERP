@@ -7,9 +7,13 @@ import {
   correctionRequestSchema,
   type DismissalRequest,
   dismissalRequestSchema,
+  type IdentityAdd,
+  identityAddSchema,
   type LookupRequest,
   LOCKED_FIELDS,
   lookupRequestSchema,
+  type MatchRequest,
+  matchRequestSchema,
   type MergeExecute,
   mergeExecuteSchema,
   type MergeRequest,
@@ -27,7 +31,7 @@ import { type PageQuery, pageNumberQuery, pageQuery } from '../core/pagination.j
 import { etagOf } from '../core/etag.js';
 import { ok, page } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
-import { DUPLICATE_RULES } from '../services/beneficiary-merge-candidates.js';
+import { DUPLICATE_RULES, PAIR_LEVELS } from '../services/beneficiary-merge-candidates.js';
 import { blocklistEntry } from './volunteers.js';
 
 // Each marked field gets a schema of its own: `sensitive` marks the instance it is given.
@@ -82,6 +86,8 @@ export const beneficiaryProfile = z.object({
     editContact: z.boolean(),
     requestCorrection: z.boolean(),
     decideCorrection: z.boolean(),
+    /** Add the identity document to a profile without one (an official who sees numbers). */
+    addIdentity: z.boolean(),
     proposeMerge: z.boolean(),
     merge: z.boolean(),
     revertMerge: z.boolean(),
@@ -140,6 +146,8 @@ export const beneficiaryProfile = z.object({
   files: detail(z.array(z.object({ fileId: z.uuid(), slot: z.string(), kind: z.string() }))),
   name: z.string(),
   fatherOrHusbandName: detail(z.string()),
+  // whether that name is the father's or the husband's (a code of the list guardian_relation)
+  guardianRelationCode: detail(z.string().nullable()),
   motherName: detail(z.string().nullable()),
   genderCode: detail(z.string()),
   ageYears: detail(z.number().int().nullable()),
@@ -161,13 +169,19 @@ export const beneficiaryProfile = z.object({
   mobileOwnerCode: contact(z.string().nullable()),
   mobileOwnerName: contact(z.string().nullable()),
   hasDocument: hasDocument(),
+  // the household's members, every detail with the contact class, their income among them
   familyMembers: contact(
     z.array(
       z.object({
         id: z.uuid(),
         name: z.string(),
         relationshipCode: z.string().nullable(),
+        // the relationship in the words of its list
+        relationship: z.object({ bn: z.string(), en: z.string() }).nullable(),
         ageYears: z.number().int().nullable(),
+        occupationCode: z.string().nullable(),
+        // taka, up to two decimals
+        monthlyIncome: z.number().nullable(),
       }),
     ),
   ),
@@ -258,6 +272,28 @@ export const beneficiaryProfile = z.object({
 });
 
 /**
+ * The name lookup's answer: at most five people and a count that stops one past them, each with
+ * only what a volunteer may see of someone already here, and a token to pick one who may be
+ * picked here.
+ */
+const matchAnswer = z.object({
+  total: z.number().int(),
+  people: z.array(
+    z.object({
+      name: z.string(),
+      fatherOrHusbandName: z.string(),
+      village: z.string(),
+      helpedYears: z.array(z.number().int()),
+      projects: z.array(
+        z.object({ name: z.object({ bn: z.string(), en: z.string() }), year: z.number().int() }),
+      ),
+      pickable: z.boolean(),
+      pickToken: z.string().nullable(),
+    }),
+  ),
+});
+
+/**
  * The lookup answer of the application form: the full auto-fill of a found profile wherever it
  * lives, the identity fields marked locked, never the other identity number or a block reason;
  * a blocked person is only named blocked.
@@ -317,6 +353,12 @@ const contactView = z.object({
   warnings: z.array(warning),
 });
 
+/** The profile after an official added its identity document: the kind, never the number. */
+const identityAddedView = z.object({
+  beneficiaryId: z.uuid(),
+  kind: z.enum(['nid', 'birth_reg']),
+});
+
 /** A correction request; the values of an identity number only inside the caller's NID scope. */
 const correctionView = z.object({
   id: z.uuid(),
@@ -332,7 +374,7 @@ const correctionView = z.object({
   decidedAt: z.iso.datetime({ offset: true }).nullable(),
 });
 
-/** A suggested duplicate pair: who, by which rules; never an identity number or a mobile. */
+/** A suggested duplicate pair: who, by which rules, how sure; never an identity number or a mobile. */
 const mergeCandidate = z.object({
   beneficiaryId: z.uuid(),
   otherBeneficiaryId: z.uuid(),
@@ -341,6 +383,12 @@ const mergeCandidate = z.object({
   name: z.string(),
   otherName: z.string(),
   matchedOn: z.array(z.enum(DUPLICATE_RULES)),
+  level: z.enum(PAIR_LEVELS),
+});
+/** The suggestions of one level, or of one profile (the comparison reads its own pair so). */
+const mergeCandidateQuery = pageQuery.omit({ sort: true, include: true }).extend({
+  level: z.enum(PAIR_LEVELS).optional(),
+  beneficiaryId: z.uuid().optional(),
 });
 
 /** A pair marked as two different people, with who marked it and why. */
@@ -404,6 +452,7 @@ export function beneficiariesRouter(
     Container,
     | 'beneficiaries'
     | 'beneficiaryIdentity'
+    | 'beneficiaryMatch'
     | 'beneficiaryContact'
     | 'beneficiaryCorrections'
     | 'beneficiaryMergeCandidates'
@@ -430,6 +479,24 @@ export function beneficiariesRouter(
     responses: { 200: lookupResult, 401: null, 403: null, 404: null, 422: null, 429: null },
     handler: ({ body, req }) =>
       c.beneficiaryIdentity.lookup({ principal: principalOf(req), scope: scopeOf(req) }, body),
+  });
+  defineRoute<MatchRequest>(router, deps, {
+    tag: 'beneficiaries',
+    method: 'post',
+    path: '/beneficiaries/match',
+    operationId: 'beneficiaries.beneficiary.match',
+    summary:
+      'The people already here under a name, father or husband and village, for an application without a document (exact keys, at most five, only where the project asks the document "if they have one", every call audited and counted)',
+    permission: 'beneficiary.match',
+    scope: 'project',
+    audit: 'beneficiary.matched',
+    idempotency: 'none',
+    rateLimit: 'lookup',
+    status: 200,
+    body: matchRequestSchema,
+    responses: { 200: matchAnswer, 401: null, 403: null, 422: null, 429: null },
+    handler: ({ body, req }) =>
+      c.beneficiaryMatch.match({ principal: principalOf(req), scope: scopeOf(req) }, body),
   });
   const tabOp = {
     tag: 'beneficiaries',
@@ -477,16 +544,16 @@ export function beneficiariesRouter(
   };
 
   // before /beneficiaries/:beneficiaryId, so the path is never read as an id
-  defineRoute<unknown, Omit<PageQuery, 'sort'>>(router, deps, {
+  defineRoute<unknown, z.infer<typeof mergeCandidateQuery>>(router, deps, {
     ...duplicatesOp,
     method: 'get',
     path: '/beneficiaries/merge-candidates',
     operationId: 'beneficiaries.merge.candidates',
     summary:
-      'Suggested duplicate profiles in the caller scope (name, father or husband and mobile; name, date of birth and union; one mobile)',
+      'Suggested duplicate profiles in the caller scope with their level (name, father or husband and mobile; name, date of birth and union; name, father or husband and village; one mobile)',
     audit: 'none',
     rateLimit: 'list',
-    query: pageQuery.omit({ sort: true, include: true }),
+    query: mergeCandidateQuery,
     responses: {
       200: z.array(mergeCandidate),
       401: null,
@@ -496,10 +563,12 @@ export function beneficiariesRouter(
       503: null,
     },
     handler: async ({ query, req }) => {
+      const { level, beneficiaryId, ...paging } = query;
       const { rows, meta } = await c.beneficiaryMergeCandidates.list(
         principalOf(req),
         scopeOf(req),
-        query,
+        paging,
+        { level, beneficiaryId },
       );
       return page(rows, meta);
     },
@@ -789,6 +858,41 @@ export function beneficiariesRouter(
     responses: { 200: correctionView, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: ({ body, params, req }) =>
       c.beneficiaryCorrections.decide(principalOf(req), scopeOf(req), params.requestId, body),
+  });
+
+  defineRoute<IdentityAdd, unknown, { beneficiaryId: string }>(router, deps, {
+    ...writeOp,
+    method: 'post',
+    path: '/beneficiaries/:beneficiaryId/identity',
+    operationId: 'beneficiaries.identity.add',
+    summary:
+      'Add the identity document to a profile that has none, after comparing the two (the profile keeps its history)',
+    permission: 'beneficiary.correction.approve',
+    audit: 'beneficiary.identity_added',
+    params: { beneficiaryId: z.uuid() },
+    headers: [{ name: 'If-Match', required: true }],
+    body: identityAddSchema,
+    responses: {
+      200: identityAddedView,
+      401: null,
+      403: null,
+      404: null,
+      409: null,
+      412: null,
+      422: null,
+    },
+    handler: async ({ body, params, req, res }) => {
+      const { updatedAt, ...added } = await c.beneficiaryCorrections.addIdentity(
+        principalOf(req),
+        scopeOf(req),
+        params.beneficiaryId,
+        body,
+        req.get('if-match'),
+      );
+      const etag = etagOf(updatedAt);
+      res.setHeader('ETag', etag);
+      return ok(added, { etag });
+    },
   });
 
   return router;

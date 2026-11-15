@@ -19,6 +19,7 @@ import {
 } from './support/auth-app.js';
 import { MIGRATIONS_DIR } from './support/db.js';
 import { beneficiary, fakeMobile, fakeNid, locationTree } from './support/fixtures.js';
+import { storeKeys } from './support/name-keys.js';
 
 // The public application link: a PM switches it on with one form, anyone with the link reads the
 // form and submits an entry that waits for verification, and nothing about anyone is revealed on
@@ -494,6 +495,8 @@ describe('reading the form', () => {
       village: 'পূর্ব পাড়া',
       is_blocked: true,
     });
+    // the comparison reads the stored name keys, as every service write stores them
+    await storeKeys(h.container, [blocked]);
     const person = (village: string) => ({
       clientUuid: randomUUID(),
       answers: answers()

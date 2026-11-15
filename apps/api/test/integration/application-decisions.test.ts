@@ -5,7 +5,7 @@ import { SeedContext } from '../../seed/context.js';
 import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
 import { seedWorkflows } from '../../seed/sets/base/workflows.js';
 import { accessWorld } from './support/access-fixtures.js';
-import { applicationProject, IDENTITY_ANSWERS } from './support/applications.js';
+import { applicationProject, IDENTITY_ANSWERS, setIdentityRules } from './support/applications.js';
 import {
   type Account,
   account,
@@ -24,7 +24,9 @@ import { option, question } from './support/forms.js';
 // while a lower-scored one of the area is approved, an approval in a full quota area, and a pull
 // from the waitlist that is not the next in order each ask for a comment; the next one is pulled
 // in one click, never the same person twice. The score only asks; it never decides. An approval of
-// a person with a family match in the project asks for a comment too, and is never refused.
+// a person who appears again in the project, probably as the same person under another profile or
+// as someone of the same family, asks for a comment too where the project holds that repeat, asks
+// nothing where it only tells, and is never refused.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -67,6 +69,7 @@ async function reviewed(
   kind: string,
   union = world.dhaka.union,
   mobile = fakeMobile(),
+  extra: Record<string, unknown> = {},
 ): Promise<string> {
   const s = await as(world.users.general);
   const loc = { ...world.dhaka, union };
@@ -77,6 +80,7 @@ async function reviewed(
     answers: toAnswers({
       ...IDENTITY_ANSWERS(fakeNid(), mobile, loc),
       q_kind: { t: 'radio', v: kind },
+      ...extra,
     }),
   });
   expect(made.status, JSON.stringify(made.body)).toBe(201);
@@ -243,6 +247,7 @@ describe('a full quota', () => {
 describe('a family match', () => {
   it('asks a comment to approve a person who shares a mobile with another applicant, and never refuses', async () => {
     await clearQueue();
+    await setIdentityRules(h.db, project, { repeatFamily: 'hold' });
     await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
     const mobile = fakeMobile();
     const first = await reviewed('widow', world.dhaka.union, mobile);
@@ -266,6 +271,171 @@ describe('a family match', () => {
     expect((await read(rpm, first)).body.data.decisionHints.approve).toEqual(['family_match']);
     expect((await read(rpm, apart)).body.data.decisionHints.approve ?? []).toEqual([]);
     await moved(rpm, apart, 'approve');
+  });
+});
+
+/** The person of an application, as the office reads it. */
+const personOf = async (id: string) =>
+  (await read(await as(world.users.rpmDhaka), id)).body.data.beneficiaryId as string;
+/** The answers of one person under a fixed father's name, so two profiles of them make a pair. */
+const samePerson = (father: string) => ({ q_father: { t: 'short_text', v: father } });
+/** Takes the project's rules on repeats away, so it reads as a project that never chose. */
+const forgetRepeatRules = () =>
+  h.db.query(
+    `UPDATE project_components SET settings = settings - 'repeat_person' - 'repeat_family'
+      WHERE project_id = $1 AND component_key = 'application_form'`,
+    [project],
+  );
+
+describe('a repeat the project holds or only tells', () => {
+  it('asks a reason to approve the same person under another profile where the project holds it', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    await setIdentityRules(h.db, project, { repeatPerson: 'hold', repeatFamily: 'tell' });
+    const father = `একই পিতা ${randomUUID().slice(0, 8)}`;
+    const first = await reviewed('widow', world.dhaka.union, fakeMobile(), samePerson(father));
+    const second = await reviewed('widow', world.dhaka.union, fakeMobile(), samePerson(father));
+    const rpm = await as(world.users.rpmDhaka);
+    const record = (await read(rpm, second)).body.data;
+    expect(record.samePersonSignals).toEqual([
+      expect.objectContaining({ level: 'probable', matchedOn: ['name_father_village'] }),
+    ]);
+    expect(record.decisionHints.approve).toEqual(['same_person']);
+    const refused = await act(rpm, second, 'approve');
+    expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+    expect(refused.body.error.code).toBe('workflow.comment_required');
+    expect(refused.body.error.details).toEqual([expect.objectContaining({ path: 'same_person' })]);
+    // the bulk approval passes through the same move: the row fails as the single one does
+    const bulk = await at(rpm, 'post', `/projects/${project}/bulk/review`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        action: 'approve',
+        rows: [
+          {
+            clientUuid: randomUUID(),
+            applicationId: second,
+            ifMatch: (await read(rpm, second)).headers.etag as string,
+          },
+        ],
+      });
+    expect(bulk.status, JSON.stringify(bulk.body)).toBe(200);
+    expect(bulk.body.data.results).toEqual([
+      expect.objectContaining({ result: 'failed', code: 'workflow.comment_required' }),
+    ]);
+    await moved(rpm, second, 'approve', { comment: 'যাচাই করেছি, পরে প্রোফাইল একত্র হবে' });
+    const entry = await h.db.query<{ new: { comment?: string } }>(
+      `SELECT "new" FROM audit_log WHERE entity_id = $1 AND action = 'application.approve'`,
+      [second],
+    );
+    expect(entry.rows[0]!.new.comment).toBe('যাচাই করেছি, পরে প্রোফাইল একত্র হবে');
+    // the other profile of the pair asks the same, until the project only tells
+    expect((await read(rpm, first)).body.data.decisionHints.approve).toEqual(['same_person']);
+    await setIdentityRules(h.db, project, { repeatPerson: 'tell' });
+    expect((await read(rpm, first)).body.data.decisionHints.approve ?? []).toEqual([]);
+    await moved(rpm, first, 'approve');
+  });
+
+  it('asks nothing for a pair an official marked as two people', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    // one father, union and village are a family match too, which this project only tells
+    await setIdentityRules(h.db, project, { repeatPerson: 'hold', repeatFamily: 'tell' });
+    const father = `একই পিতা ${randomUUID().slice(0, 8)}`;
+    const first = await reviewed('widow', world.dhaka.union, fakeMobile(), samePerson(father));
+    const second = await reviewed('widow', world.dhaka.union, fakeMobile(), samePerson(father));
+    const [a, b] = [await personOf(first), await personOf(second)];
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await read(rpm, second)).body.data.decisionHints.approve).toEqual(['same_person']);
+    const [low, high] = [a, b].map((id) => id.toLowerCase()).sort();
+    await h.db.query(
+      `INSERT INTO beneficiary_merge_dismissals (id, low_id, high_id, reason, dismissed_by)
+       VALUES ($1, $2, $3, 'আলাদা মানুষ, একই নাম', $4)`,
+      [randomUUID(), low, high, world.users.rpmDhaka],
+    );
+    expect((await read(rpm, second)).body.data.decisionHints.approve ?? []).toEqual([]);
+    await moved(rpm, second, 'approve');
+  });
+
+  it('holds the same person where the project never chose, and asks again once a mark of two people is lifted', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    await forgetRepeatRules();
+    const father = `একই পিতা ${randomUUID().slice(0, 8)}`;
+    const first = await reviewed('widow', world.dhaka.union, fakeMobile(), samePerson(father));
+    const second = await reviewed('widow', world.dhaka.union, fakeMobile(), samePerson(father));
+    const rpm = await as(world.users.rpmDhaka);
+    // the pair is a family match too, which the project also holds now
+    expect((await read(rpm, second)).body.data.decisionHints.approve).toContain('same_person');
+    const refused = await act(rpm, second, 'approve');
+    expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+    expect(refused.body.error.code).toBe('workflow.comment_required');
+    expect(refused.body.error.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'same_person' })]),
+    );
+    // a mark of two people that was lifted again counts for nothing
+    const [low, high] = [await personOf(first), await personOf(second)]
+      .map((id) => id.toLowerCase())
+      .sort();
+    await h.db.query(
+      `INSERT INTO beneficiary_merge_dismissals (id, low_id, high_id, reason, dismissed_by, lifted_at, lifted_by, lift_reason)
+       VALUES ($1, $2, $3, 'আলাদা মানুষ, একই নাম', $4, now(), $4, 'আবার দেখা দরকার')`,
+      [randomUUID(), low, high, world.users.rpmDhaka],
+    );
+    expect((await read(rpm, second)).body.data.decisionHints.approve).toContain('same_person');
+    const again = await act(rpm, second, 'approve');
+    expect(again.status, JSON.stringify(again.body)).toBe(422);
+    expect(again.body.error.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'same_person' })]),
+    );
+    await moved(rpm, second, 'approve', { comment: 'যাচাই করেছি, একই মানুষ নন' });
+  });
+
+  it('follows the project for a family match, in the hints and the move alike, and holds where it never chose', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    await setIdentityRules(h.db, project, { repeatPerson: 'hold', repeatFamily: 'tell' });
+    const mobile = fakeMobile();
+    const first = await reviewed('widow', world.dhaka.union, mobile);
+    const second = await reviewed('widow', world.dhaka.union, mobile);
+    const rpm = await as(world.users.rpmDhaka);
+    const told = (await read(rpm, second)).body.data;
+    expect(told.familyDuplicateWarnings).toHaveLength(1);
+    expect(told.decisionHints.approve ?? []).toEqual([]);
+    await moved(rpm, second, 'approve');
+    // a project that never chose holds, as before the projects chose
+    await forgetRepeatRules();
+    expect((await read(rpm, first)).body.data.decisionHints.approve).toEqual(['family_match']);
+    const refused = await act(rpm, first, 'approve');
+    expect(refused.status, JSON.stringify(refused.body)).toBe(422);
+    expect(refused.body.error.details).toEqual([expect.objectContaining({ path: 'family_match' })]);
+    await moved(rpm, first, 'approve', { comment: 'একই ফোন, আলাদা পরিবার' });
+  });
+
+  it('asks a reason for a person listed in the family of another applicant of the project', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    await setIdentityRules(h.db, project, { repeatPerson: 'tell', repeatFamily: 'hold' });
+    const head = await reviewed('widow');
+    const member = await reviewed('widow', world.dhaka.union, fakeMobile(), {
+      q_name: { t: 'short_text', v: `নমুনা সন্তান ${randomUUID().slice(0, 8)}` },
+      q_father: { t: 'short_text', v: 'নমুনা আবেদনকারী' },
+    });
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await read(rpm, member)).body.data.decisionHints.approve ?? []).toEqual([]);
+    // the head's family list holds the member under the member's own name key
+    const [headId, memberId] = [await personOf(head), await personOf(member)];
+    const memberRow = await h.db.query<{ name: string; name_key: string }>(
+      'SELECT name, name_key FROM beneficiaries WHERE id = $1',
+      [memberId],
+    );
+    await h.db.query(
+      `INSERT INTO beneficiary_family_members (id, beneficiary_id, name, name_key)
+       VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), headId, memberRow.rows[0]!.name, memberRow.rows[0]!.name_key],
+    );
+    expect((await read(rpm, member)).body.data.decisionHints.approve).toEqual(['family_match']);
+    expect((await act(rpm, member, 'approve')).status).toBe(422);
+    await moved(rpm, member, 'approve', { comment: 'ছেলে আলাদা সংসার করেন' });
   });
 });
 

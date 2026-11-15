@@ -686,3 +686,58 @@ describe('the revert', () => {
     expect((await revert(head, done.body.data.id)).status).toBe(409);
   });
 });
+
+describe("whether the name beside the person is the father's or the husband's", () => {
+  // the list the column points to, as the base seed holds it
+  beforeAll(async () => {
+    for (const [code, bn, en] of [
+      ['father', 'পিতা', 'Father'],
+      ['husband', 'স্বামী', 'Husband'],
+    ])
+      await h.db.query(
+        `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en)
+         VALUES ($1, 'guardian_relation', $2, $3, $4) ON CONFLICT DO NOTHING`,
+        [randomUUID(), code, bn, en],
+      );
+  });
+  const relationOf = async (id: string) =>
+    (
+      await h.db.query<{ guardian_relation_code: string | null }>(
+        'SELECT guardian_relation_code FROM beneficiaries WHERE id = $1',
+        [id],
+      )
+    ).rows[0]!.guardian_relation_code;
+
+  it('gives the kept profile the relation only the retired one knows, and the revert takes it back', async () => {
+    const kept = await person();
+    const retired = await person(world.dhaka, { guardian_relation_code: 'husband' });
+    await applyTo(world.a1, kept);
+    await applyTo(world.a2, retired);
+    const head = await as(world.users.head);
+    const done = await direct(head, { keptId: kept, mergedId: retired, reason: REASON });
+    expect(done.status, JSON.stringify(done.body)).toBe(201);
+    expect(await relationOf(kept)).toBe('husband');
+    const { rows } = await h.db.query(
+      `SELECT new->'filled' AS filled FROM audit_log WHERE action = 'beneficiary.merge' AND entity_id = $1`,
+      [kept],
+    );
+    expect(rows).toEqual([{ filled: { guardianRelationCode: 'husband' } }]);
+    await revert(await as(world.users.monitoring), done.body.data.id).expect(200);
+    // the kept profile is as empty as before the merge; the retired one kept its own
+    expect(await relationOf(kept)).toBeNull();
+    expect(await relationOf(retired)).toBe('husband');
+  });
+
+  it("never changes the kept profile's own relation, and the revert leaves it", async () => {
+    const kept = await person(world.dhaka, { guardian_relation_code: 'father' });
+    const retired = await person(world.dhaka, { guardian_relation_code: 'husband' });
+    await applyTo(world.a1, kept);
+    await applyTo(world.a2, retired);
+    const head = await as(world.users.head);
+    const done = await direct(head, { keptId: kept, mergedId: retired, reason: REASON });
+    expect(done.status, JSON.stringify(done.body)).toBe(201);
+    expect(await relationOf(kept)).toBe('father');
+    await revert(head, done.body.data.id).expect(200);
+    expect(await relationOf(kept)).toBe('father');
+  });
+});

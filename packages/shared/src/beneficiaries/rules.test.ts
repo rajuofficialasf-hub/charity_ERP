@@ -5,6 +5,7 @@ import {
   correctionRequestSchema,
   dismissalRequestSchema,
   formatBenNo,
+  identityAddSchema,
   isBirthRegNumber,
   isNidNumber,
   lookupRequestSchema,
@@ -106,6 +107,22 @@ describe('the request schemas', () => {
       }).success,
     ).toBe(true);
     expect(correctionRequestSchema.safeParse({ ...ok, field: 'mobile' }).success).toBe(false);
+  });
+
+  it('takes a document added to a profile without one in its kind’s format, with its application', () => {
+    const ok = { kind: 'nid', number: '1000000001', applicationId: A };
+    expect(identityAddSchema.safeParse(ok).success).toBe(true);
+    expect(
+      identityAddSchema.safeParse({ kind: 'birth_reg', number: '19901234567890123' }).success,
+    ).toBe(true);
+    expect(codes(identityAddSchema.safeParse({ ...ok, number: '123' }))).toContain(
+      'validation.nid_format',
+    );
+    expect(codes(identityAddSchema.safeParse({ ...ok, kind: 'birth_reg' }))).toContain(
+      'validation.birth_reg_format',
+    );
+    expect(identityAddSchema.safeParse({ ...ok, kind: 'mobile' }).success).toBe(false);
+    expect(identityAddSchema.safeParse({ ...ok, reason: 'বাড়তি' }).success).toBe(false);
   });
 
   it('refuses a missing reason, a reason of white space only and a reason over 1,000 characters', () => {

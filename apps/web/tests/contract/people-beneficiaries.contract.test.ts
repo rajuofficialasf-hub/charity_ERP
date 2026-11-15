@@ -7,6 +7,7 @@ import {
   contactSavedSchema,
   correctionRequestSchema,
   lookupResultSchema,
+  matchResultSchema,
   type MergeCandidate,
   type MergeCandidatePage,
   mergeCandidatePageSchema,
@@ -21,7 +22,9 @@ import {
   activeProject,
   assign,
   consent,
+  digits,
   HEAD,
+  identityRulesOn,
   MONITORING,
   must,
   newPerson,
@@ -32,13 +35,23 @@ import {
 // The beneficiary tab of the admin area: the list and its counts, the 360° profile with its
 // history, the lookup by NID, the contact edit, a locked field's correction, the block, and the
 // duplicate pairs with a merge proposed, carried out, reverted and done directly, and a pair
-// dismissed. The people are applied for on a project of this run by a volunteer of this run.
+// dismissed; on a project that asks the document only "if they have one", the name lookup of the
+// application form and the document added to a profile made without one. The people are applied
+// for on projects of this run by a volunteer of this run.
 const REASON = 'চুক্তি পরীক্ষার কারণ';
+
+/** What the app reads back after adding the document (`addIdentity` in beneficiaries-api.ts). */
+const identityAddedSchema = z.object({
+  beneficiaryId: z.uuid(),
+  kind: z.enum(['nid', 'birth_reg']),
+});
 
 describe.skipIf(!contractBase())('the beneficiary tab', () => {
   let project: ActiveProject;
   /** A second project, so the two profiles of a pair have no application on one project. */
   let otherProject: ActiveProject;
+  /** A project whose application asks the identity document only "if they have one". */
+  let openProject: ActiveProject;
   let volunteer: Caller;
   let head: Caller;
   let rpm: Caller;
@@ -46,10 +59,13 @@ describe.skipIf(!contractBase())('the beneficiary tab', () => {
   beforeAll(async () => {
     project = await activeProject();
     otherProject = await activeProject();
+    openProject = await activeProject();
+    await identityRulesOn(openProject.projectId, { identity_document: 'optional' });
     const person = await approvedVolunteer();
     volunteer = await assign(project.projectId, person.mobile);
     await assign(otherProject.projectId, person.mobile);
-    for (const { projectId } of [project, otherProject])
+    await assign(openProject.projectId, person.mobile);
+    for (const { projectId } of [project, otherProject, openProject])
       must(await consent(volunteer, projectId), 200, 'consent', myProjectSchema);
     head = await signIn(HEAD);
     rpm = await signIn(RPM_DHAKA);
@@ -95,6 +111,52 @@ describe.skipIf(!contractBase())('the beneficiary tab', () => {
       lookupResultSchema,
     );
     expect(looked.autofill?.beneficiaryId).toBe(beneficiaryId);
+  });
+
+  it('finds a person by the name in the project’s union where the document is optional', async () => {
+    const person = newPerson();
+    // applied for on another project, so the person may be picked on this one
+    await sentApplication(project, volunteer, person);
+    const found = expectContract(
+      await call(volunteer, 'POST', '/beneficiaries/match', {
+        projectId: openProject.projectId,
+        name: person.name,
+        fatherOrHusbandName: person.father,
+        unionId: openProject.places.union,
+        village: 'পূর্বপাড়া',
+      }),
+      200,
+      matchResultSchema,
+    );
+    expect(found.total).toBe(1);
+    const [shown] = found.people;
+    expect(shown?.name).toBe(person.name);
+    expect(shown?.pickable).toBe(true);
+    expect(shown?.pickToken).toEqual(expect.any(String));
+  });
+
+  it('adds the identity document to a profile made without one', async () => {
+    const { beneficiaryId } = await sentApplication(openProject, volunteer, newPerson(), {
+      document: false,
+    });
+    const { data, meta } = expectEnvelope(
+      await call(head, 'GET', `/beneficiaries/${beneficiaryId}`),
+      200,
+      beneficiaryRecordSchema,
+    );
+    expect(data.actions.addIdentity).toBe(true);
+    const added = expectContract(
+      await call(
+        head,
+        'POST',
+        `/beneficiaries/${beneficiaryId}/identity`,
+        { kind: 'nid', number: `3${digits(9)}` },
+        { 'If-Match': meta.etag },
+      ),
+      200,
+      identityAddedSchema,
+    );
+    expect(added).toEqual({ beneficiaryId, kind: 'nid' });
   });
 
   it('edits the contact, corrects the name, blocks and unblocks, and shows it in the history', async () => {

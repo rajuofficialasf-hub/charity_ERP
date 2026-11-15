@@ -6,6 +6,7 @@ import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
 import { seedWorkflows } from '../../seed/sets/base/workflows.js';
 import { accessWorld } from './support/access-fixtures.js';
 import { SubmissionWriter } from '../../src/applications/submission.js';
+import { BeneficiaryFamilyMembersService } from '../../src/services/beneficiary-family-members.js';
 import {
   applicationProject,
   applicationRow,
@@ -23,13 +24,15 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
-import { beneficiary, fakeMobile, fakeNid, volunteer } from './support/fixtures.js';
+import { beneficiary as row, fakeMobile, fakeNid, volunteer } from './support/fixtures.js';
+import { storeKeys } from './support/name-keys.js';
 
 // An application without an identity document, by the project's own rule: where the document is
 // asked "if they have one" the send makes a profile without a document (and without a mobile when
 // none was given); where it is required the send is refused as it always was. A new person who
 // looks like a blocked one, with a number or without, gets no profile by a send: the entry waits
 // for an official.
+
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -158,6 +161,12 @@ beforeAll(async () => {
   await setIdentityRules(h.db, strict.project, { document: 'required', mobile: 'required' });
 });
 afterAll(async () => h.close());
+/** A profile written directly, with its name keys stored as every service write stores them. */
+async function beneficiary(...args: Parameters<typeof row>): Promise<string> {
+  const id = await row(...args);
+  await storeKeys(h.container, [id]);
+  return id;
+}
 
 describe('a send without an identity number', () => {
   it('makes one profile without a document and without a mobile, bound to the application, and records who made it under which rule', async () => {
@@ -781,10 +790,11 @@ describe('a person who looks like a blocked one', () => {
       c.beneficiaryIdentity,
       c.beneficiaryContact,
       c.audit,
+      new BeneficiaryFamilyMembersService(c.audit, c.matchKeys),
     );
     const principal = await principalOf(h.db, world.users.general);
     await expect(
-      c.prisma.$transaction((tx) => writer.bindPerson(tx, principal, id)),
+      c.prisma.$transaction((tx) => writer.bindPerson(tx, principal, id, new Date())),
     ).rejects.toMatchObject({ name: 'BlockedNamesakeMatch', beneficiaryId: profile });
 
     const sent = await act(s, id, 'submit');

@@ -18,6 +18,8 @@ import {
   PROJECT_NAME_BN,
   VILLAGE_BN,
 } from '../seed/perf-data.js';
+import { NameKeysJob } from '../src/jobs/name-keys.js';
+import { MatchKeysService } from '../src/services/match-keys.js';
 import { perfDatabase } from './perf-db.js';
 
 const VOLUNTEERS = 50_000;
@@ -276,6 +278,23 @@ async function load(prisma: PrismaClient): Promise<void> {
     VALUES (${MARKER}, ${JSON.stringify({ volunteers: VOLUNTEERS, beneficiaries: BENEFICIARIES, at: new Date() })}::jsonb)`;
 }
 
+/**
+ * The name keys of every profile, computed the way the key job does it after a migration: the
+ * load writes the rows by SQL, and the keys are computed in TypeScript only. A data set that has
+ * them already is walked once and nothing is written.
+ */
+async function nameKeys(prisma: PrismaClient): Promise<void> {
+  const start = Date.now();
+  const logger = { info: () => undefined };
+  const result = await new NameKeysJob(prisma, new MatchKeysService(), logger).run();
+  // the plans of the pair queries read the statistics of the new keys
+  if (result.profiles || result.members)
+    await prisma.$executeRaw`ANALYZE beneficiaries, beneficiary_family_members`;
+  console.warn(
+    `perf:seed: name keys: ${result.profiles} profiles, ${result.members} members, ${Date.now() - start} ms`,
+  );
+}
+
 async function main(): Promise<void> {
   const created = await createDatabase();
   run('migrations', 'pnpm', ['exec', 'prisma', 'migrate', 'deploy']);
@@ -286,6 +305,7 @@ async function main(): Promise<void> {
       SELECT value FROM settings WHERE key = ${MARKER}`;
     if (!created && marker.length) {
       console.warn(`perf:seed: ${database} already holds the data set (--fresh rebuilds it).`);
+      await nameKeys(prisma);
       return;
     }
     const volunteers =
@@ -304,6 +324,7 @@ async function main(): Promise<void> {
     ]);
     const start = Date.now();
     await load(prisma);
+    await nameKeys(prisma);
     console.warn(`perf:seed: done in ${Math.round((Date.now() - start) / 1000)} s.`);
   } finally {
     await prisma.$disconnect();

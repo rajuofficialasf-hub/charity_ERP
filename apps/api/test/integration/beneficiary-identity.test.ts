@@ -13,6 +13,7 @@ import {
   type Session,
 } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
+import { addVariantGroup, storeKeys } from './support/name-keys.js';
 
 // The identity of a beneficiary: the lookup of the application form with its auto-fill and locked
 // fields, the search by BEN number and by a retired profile's numbers, and the creation of a
@@ -398,6 +399,7 @@ describe('the creation of a profile', () => {
       fatherOrHusbandName: 'ব্লক করা পিতা',
       unionId: world.dhaka.union,
       village: 'ব্লক গ্রাম',
+      guardianRelationCode: null as string | null,
     };
     const columns = {
       name: keys.name,
@@ -406,8 +408,10 @@ describe('the creation of a profile', () => {
     };
     const blocked = await person(world.dhaka, { ...columns, is_blocked: true });
     // the same person, not blocked, in the same village; a blocked namesake in another union
-    await person(world.dhaka, columns);
-    await person(world.rangpur, { ...columns, is_blocked: true });
+    const free = await person(world.dhaka, columns);
+    const elsewhere = await person(world.rangpur, { ...columns, is_blocked: true });
+    // the comparison reads the stored keys, as every write stores them
+    await storeKeys(h.container, [blocked, free, elsewhere]);
     const namesake = (over: Partial<typeof keys> = {}) =>
       h.container.beneficiaryIdentity.blockedNamesake(h.container.prisma, { ...keys, ...over });
     expect(await namesake()).toBe(blocked);
@@ -421,6 +425,84 @@ describe('the creation of a profile', () => {
     await retire(blocked, kept);
     expect(await namesake()).toBeNull();
     await h.db.query('UPDATE beneficiaries SET merged_into_id = NULL WHERE id = $1', [blocked]);
+  });
+
+  it('catches a blocked person written with another title or a known spelling, never a husband’s name for a father’s', async () => {
+    await f.referenceCode(h.db, 'guardian_relation', 'father');
+    await f.referenceCode(h.db, 'guardian_relation', 'husband');
+    const blocked = await person(world.dhaka, {
+      name: 'মোছাঃ আমিনা খাতুন',
+      father_or_husband_name: 'মোঃ সিরাজ হোসেন',
+      village: 'বাঁধ পাড়া',
+      guardian_relation_code: 'husband',
+      is_blocked: true,
+    });
+    await storeKeys(h.container, [blocked]);
+    const looks = (over: Record<string, unknown> = {}) =>
+      h.container.beneficiaryIdentity.blockedNamesake(h.container.prisma, {
+        name: 'আমিনা',
+        fatherOrHusbandName: 'সিরাজ হোসেন',
+        unionId: world.dhaka.union,
+        village: 'বাঁধপাড়া',
+        guardianRelationCode: null,
+        ...over,
+      });
+    // without the titles at the start and the end, and with the village's spaces
+    expect(await looks()).toBe(blocked);
+    expect(await looks({ guardianRelationCode: 'husband' })).toBe(blocked);
+    expect(await looks({ guardianRelationCode: 'father' })).toBeNull();
+    // a spelling the list does not join stays another person until the list joins it
+    expect(await looks({ fatherOrHusbandName: 'সিরাজ হোসাইন' })).toBeNull();
+    await addVariantGroup(h.db, h.container, ['হোসেন', 'হোসাইন'], world.users.head);
+    await storeKeys(h.container, [blocked]);
+    expect(await looks({ fatherOrHusbandName: 'সিরাজ হোসাইন' })).toBe(blocked);
+    // a name of marks alone has no key, so it matches nobody
+    expect(await looks({ name: '।।' })).toBeNull();
+  });
+
+  it('still catches a blocked profile whose keys the key job has not computed yet, or computed under an older list', async () => {
+    const texts = {
+      name: 'চাবিহীন ব্লক',
+      fatherOrHusbandName: 'চাবিহীন পিতা',
+      unionId: world.dhaka.union,
+      village: 'চাবিহীন গ্রাম',
+      guardianRelationCode: null as string | null,
+    };
+    // inserted straight, as a row the job has not reached: no keys at all
+    const blocked = await person(world.dhaka, {
+      name: texts.name,
+      father_or_husband_name: texts.fatherOrHusbandName,
+      village: texts.village,
+      is_blocked: true,
+    });
+    expect(
+      (
+        await h.db.query('SELECT name_key, match_keys_version FROM beneficiaries WHERE id = $1', [
+          blocked,
+        ])
+      ).rows[0],
+    ).toEqual({ name_key: null, match_keys_version: null });
+    const namesake = (over: Partial<typeof texts> = {}) =>
+      h.container.beneficiaryIdentity.blockedNamesake(h.container.prisma, { ...texts, ...over });
+    // compared as before the keys: the same texts up to spaces, in the union
+    expect(await namesake()).toBe(blocked);
+    expect(await namesake({ name: ' চাবিহীন  ব্লক ' })).toBe(blocked);
+    expect(await namesake({ village: 'অন্য গ্রাম' })).toBeNull();
+    expect(await namesake({ unionId: world.rangpur.union })).toBeNull();
+    // keys of an older list are stale too: the earlier rule still holds until the job runs
+    await storeKeys(h.container, [blocked]);
+    await addVariantGroup(h.db, h.container, ['চাবিহীন', 'চাবিহিন'], world.users.head);
+    const version = await h.db.query<{ match_keys_version: number }>(
+      'SELECT match_keys_version FROM beneficiaries WHERE id = $1',
+      [blocked],
+    );
+    const current = await h.container.matchKeys.list(h.container.prisma);
+    expect(version.rows[0]!.match_keys_version).toBeLessThan(current.version);
+    expect(await namesake()).toBe(blocked);
+    // once the keys are current, the keys decide
+    await storeKeys(h.container, [blocked]);
+    expect(await namesake({ name: 'চাবিহিন ব্লক' })).toBe(blocked);
+    expect(await namesake({ name: 'অন্য ব্লক' })).toBeNull();
   });
 
   it("refuses the caller's own mobile and the owner volunteer's mobile", async () => {

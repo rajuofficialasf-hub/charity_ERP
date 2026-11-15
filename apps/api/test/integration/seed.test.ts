@@ -167,7 +167,7 @@ describe('base set', () => {
         .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
     );
     expect(roles).toHaveLength(16);
-    expect(permissions).toHaveLength(157);
+    expect(permissions).toHaveLength(158);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
@@ -198,6 +198,7 @@ describe('base set', () => {
       education_level: 6,
       expense_category_default: 5,
       gender: 2,
+      guardian_relation: 2,
       issue_type_default: 6,
       marital_status: 6,
       media_platform: 4,
@@ -367,9 +368,9 @@ describe('demo set', () => {
   it('keeps two duplicate pairs the duplicate rules find, both people applied in program HUM', async () => {
     const pairs = (
       await db.query(
-        `SELECT x.nid AS low_nid, y.nid AS high_nid, c.rules, c.active,
-           person_name_key(x.name) = person_name_key(y.name)
-             AND person_name_key(x.father_or_husband_name) = person_name_key(y.father_or_husband_name)
+        `SELECT x.nid AS low_nid, y.nid AS high_nid, c.rules, c.level, c.active,
+           x.name_key = y.name_key AND x.guardian_key = y.guardian_key
+             AND x.village_key = y.village_key AND x.union_id = y.union_id
              AND x.mobile = y.mobile AS same_person_data
          FROM beneficiary_merge_candidates c
          JOIN beneficiaries x ON x.id = c.low_id
@@ -381,7 +382,8 @@ describe('demo set', () => {
     for (const [i, pair] of pairs.entries()) {
       expect([pair.low_nid, pair.high_nid].sort()).toEqual([...DEMO_DUPLICATE_PAIRS[i]!.nids]);
       expect(pair).toMatchObject({
-        rules: ['name_father_mobile', 'same_mobile'],
+        rules: ['name_father_mobile', 'name_father_village', 'same_mobile'],
+        level: 'probable',
         active: true,
         same_person_data: true,
       });

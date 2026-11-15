@@ -11,6 +11,7 @@ import type { JobRunner } from './job-runner.js';
 import type { FileProcessor } from './file-process.js';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup.js';
 import { DUPLICATES_CRON, DUPLICATES_QUEUE } from './duplicates.js';
+import { NAME_KEYS_CRON, NAME_KEYS_QUEUE, NAME_KEYS_SINGLETON } from './name-keys.js';
 import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats.js';
 import type { UploadSweep } from './upload-sweep.js';
 
@@ -162,5 +163,70 @@ describe('the nightly storage figures', () => {
     expect(bare.work.mock.calls.some((c) => (c as unknown[])[0] === STORAGE_STATS_QUEUE)).toBe(
       false,
     );
+  });
+});
+
+describe('the name keys', () => {
+  it('works and schedules the name-keys queue, and queues a run at the start when keys are stale', async () => {
+    const { runner, work, schedule } = fakeRunner();
+    const enqueue = vi.fn(async () => 'job-1');
+    (runner as unknown as { enqueue: typeof enqueue }).enqueue = enqueue;
+    const run = vi.fn(async () => ({ version: 2, profiles: 3, members: 0 }));
+    const hasStale = vi.fn(async () => true);
+    await new JobConsumers(runner, quiet, { nameKeys: { run, hasStale } }).register();
+    const call = (work.mock.calls as unknown as [string, () => Promise<unknown>][]).find(
+      (c) => c[0] === NAME_KEYS_QUEUE,
+    );
+    expect(call).toBeDefined();
+    expect(await call![1]()).toEqual({ version: 2, profiles: 3, members: 0 });
+    expect(schedule).toHaveBeenCalledWith(
+      NAME_KEYS_QUEUE,
+      NAME_KEYS_CRON,
+      {},
+      'name-keys',
+      NAME_KEYS_SINGLETON,
+    );
+    expect(enqueue).toHaveBeenCalledWith(
+      NAME_KEYS_QUEUE,
+      {},
+      { singletonKey: NAME_KEYS_SINGLETON },
+    );
+  });
+
+  it('queues a run at the start when the check fails or runs out of time, and logs it as an error', async () => {
+    const { runner } = fakeRunner();
+    const enqueue = vi.fn(async () => 'job-1');
+    (runner as unknown as { enqueue: typeof enqueue }).enqueue = enqueue;
+    const logged = pino({ level: 'error' });
+    const error = vi.spyOn(logged, 'error').mockImplementation(() => undefined);
+    const hasStale = vi.fn(async () => {
+      throw new Error('canceling statement due to statement timeout');
+    });
+    await new JobConsumers(runner, logged, {
+      nameKeys: { run: vi.fn(), hasStale } as never,
+    }).register();
+    expect(error).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      expect.stringContaining('ran out of time'),
+    );
+    expect(enqueue).toHaveBeenCalledWith(
+      NAME_KEYS_QUEUE,
+      {},
+      { singletonKey: NAME_KEYS_SINGLETON },
+    );
+  });
+
+  it('queues nothing at the start when every key is current, and nothing without the job', async () => {
+    const { runner } = fakeRunner();
+    const enqueue = vi.fn(async () => 'job-1');
+    (runner as unknown as { enqueue: typeof enqueue }).enqueue = enqueue;
+    const hasStale = vi.fn(async () => false);
+    await new JobConsumers(runner, quiet, {
+      nameKeys: { run: vi.fn(), hasStale } as never,
+    }).register();
+    expect(enqueue).not.toHaveBeenCalled();
+    const bare = fakeRunner();
+    await new JobConsumers(bare.runner, quiet).register();
+    expect(bare.work.mock.calls.some((c) => (c as unknown[])[0] === NAME_KEYS_QUEUE)).toBe(false);
   });
 });

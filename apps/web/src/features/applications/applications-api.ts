@@ -6,11 +6,34 @@ import type {
   ApplicationPage,
   ApplicationRecord,
   ApplicationSummary,
+  MatchPerson,
+  MatchResult,
   TimelineEntry,
   Unlock,
 } from '../../api/schemas';
 
-export type { Application, ApplicationForm, ApplicationSummary, TimelineEntry, Unlock };
+export type {
+  Application,
+  ApplicationForm,
+  ApplicationSummary,
+  MatchPerson,
+  MatchResult,
+  TimelineEntry,
+  Unlock,
+};
+
+/** What the name lookup is asked: the name, the father's or husband's name, the union and the village. */
+export interface MatchQuery {
+  projectId: string;
+  name: string;
+  fatherOrHusbandName: string;
+  unionId: string;
+  village: string;
+}
+
+/** The people already here under the name, in a union of the project (at most five, and their count). */
+export const matchPeople = (body: MatchQuery) =>
+  api<MatchResult>('/beneficiaries/match', { method: 'POST', body });
 
 /** The new value of an open answer; the server checks it like any answer of its question. */
 export const fillUnlock = (unlockId: string, value: unknown) =>
@@ -36,7 +59,15 @@ export const application = (id: string) =>
 
 export const createApplication = (
   projectId: string,
-  body: { clientUuid: string; formVersionId: string; answers: Answer[] },
+  body: {
+    clientUuid: string;
+    formVersionId: string;
+    answers: Answer[];
+    /** A person picked from the name lookup. */
+    pickToken?: string;
+    /** The name lookup was left out for want of network. */
+    nameLookupSkipped?: true;
+  },
 ) =>
   api<ApplicationRecord>(`/projects/${projectId}/applications`, {
     method: 'POST',

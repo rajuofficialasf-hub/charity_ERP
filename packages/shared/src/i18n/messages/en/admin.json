@@ -442,7 +442,7 @@
       "sections": {
         "basic": "Basic details",
         "address": "Address",
-        "family": "Family",
+        "family": "Family members",
         "projects": "Projects by year",
         "applications": "Application history",
         "distributions": "Distribution and implementation",
@@ -462,6 +462,8 @@
       "mobile": "Mobile",
       "mobile_owner": "Whose number",
       "mobile_owner_named": "{owner} ({name})",
+      "father_name": "Father's name",
+      "husband_name": "Husband's name",
       "nid": "NID or birth registration",
       "village": "Village",
       "post_office": "Post office",
@@ -480,6 +482,8 @@
       "request_correction": "Request a correction",
       "contact_saved": "Contact details saved",
       "correction_sent": "Correction request sent",
+      "add_identity": "Add identity document",
+      "identity_added": "The identity number was added to the profile",
       "correction_approved": "Correction approved; the new value is on the profile",
       "correction_rejected": "Correction request rejected",
       "correction_approve": "Approve",
@@ -507,6 +511,13 @@
       "change": "{old} to {new}",
       "place_changed": "Area changed",
       "empty_value": "empty",
+      "family": {
+        "name": "Name",
+        "relationship": "Relationship",
+        "age": "Age",
+        "income": "Monthly income",
+        "card": "Age {age} · monthly income {income}"
+      },
       "fields": {
         "mobile": "Mobile",
         "mobile_owner_code": "Whose number",
@@ -585,6 +596,14 @@
       "landmark": "Landmark",
       "save": "Save"
     },
+    "identity": {
+      "title": "Add identity document",
+      "help": "Add it once you have compared the two. The profile keeps all its history.",
+      "kind": "Document type",
+      "number": "Number",
+      "confirm": "Add",
+      "compare": "Compare the two profiles"
+    },
     "correction": {
       "title": "Request a correction",
       "field": "Detail to correct",
@@ -604,10 +623,12 @@
       "column": {
         "first": "First profile",
         "second": "Second profile",
-        "rules": "Matched on"
+        "rules": "Matched on",
+        "level": "Match level"
       },
       "rules": {
         "name_father_mobile": "Same name, father/husband and mobile",
+        "name_father_village": "Name, father's or husband's name and village match",
         "name_dob_union": "Same name, date of birth and union",
         "same_mobile": "Same mobile number"
       },
@@ -629,7 +650,13 @@
       },
       "eyebrow": "Data quality",
       "description": "Review the identities that match. Compare every detail and the help history before a merge.",
-      "back": "Back to beneficiaries"
+      "back": "Back to beneficiaries",
+      "level": {
+        "filter": "Match level",
+        "all": "All",
+        "probable": "Probable",
+        "check": "To check"
+      }
     },
     "merge": {
       "title": "Compare profiles",
@@ -1439,6 +1466,33 @@
         "youtube": "YouTube",
         "facebook": "Facebook",
         "other": "Other website"
+      }
+    },
+    "name_variants": {
+      "title": "Name spellings",
+      "intro": "Put different spellings of one name in one group. They are treated as one when profiles are compared for the same person; names stay as they were written.",
+      "add": "Add spellings",
+      "empty": "No spellings yet",
+      "edit": "Edit {name}",
+      "saved": "{name} is saved.",
+      "column": {
+        "canonical": "Main spelling",
+        "others": "Other spellings",
+        "state": "State"
+      },
+      "state": {
+        "active": "On",
+        "inactive": "Off"
+      },
+      "dialog": {
+        "create_title": "New spellings",
+        "edit_title": "Edit spellings: {name}",
+        "canonical": "Main spelling",
+        "canonical_hint": "When names are compared, every spelling of the group counts as this one",
+        "others": "Other spellings",
+        "others_hint": "One per line, or separated by commas",
+        "active": "On",
+        "word_error": "{word}: {message}"
       }
     },
     "channels": {

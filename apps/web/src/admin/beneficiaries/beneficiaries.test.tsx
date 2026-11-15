@@ -29,6 +29,7 @@ const NO_ACTIONS = {
   editContact: false,
   requestCorrection: false,
   decideCorrection: false,
+  addIdentity: false,
   proposeMerge: false,
   merge: false,
   revertMerge: false,
@@ -307,7 +308,6 @@ describe('the 360° profile', () => {
     for (const section of [
       'মূল তথ্য',
       'ঠিকানা',
-      'পরিবার',
       'বছরভিত্তিক প্রজেক্ট',
       'আবেদনের ইতিহাস',
       'বিতরণ ও বাস্তবায়ন',
@@ -542,7 +542,13 @@ describe('the 360° profile', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
     ).toBeInTheDocument();
-    for (const section of ['পরিবার', 'আবেদনের ইতিহাস', 'দাওয়াহ', 'ফলো-আপ', 'কার্যক্রমের ইতিহাস'])
+    for (const section of [
+      'পরিবারের সদস্য',
+      'আবেদনের ইতিহাস',
+      'দাওয়াহ',
+      'ফলো-আপ',
+      'কার্যক্রমের ইতিহাস',
+    ])
       expect(screen.queryByRole('heading', { level: 2, name: section })).not.toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 2, name: 'বিতরণ ও বাস্তবায়ন' }),
@@ -665,6 +671,101 @@ describe('the profile actions', () => {
     expect(await screen.findByRole('button', { name: 'ব্লক তুলুন' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'ব্লকলিস্টে দিন' })).not.toBeInTheDocument();
   });
+
+  it('offers the identity document only where the server allows it, on a profile without one', async () => {
+    refreshAs(RPM);
+    serve(fullRow, {}, { ...empty360, nid: '1234567890', actions: ALL_ACTIONS });
+    const first = openProfile();
+    await screen.findByRole('button', { name: 'সংশোধনের অনুরোধ করুন' });
+    expect(screen.queryByRole('button', { name: 'পরিচয়পত্র যোগ করুন' })).not.toBeInTheDocument();
+    first.unmount();
+    resetClientForTests();
+    serve(
+      fullRow,
+      {},
+      {
+        ...empty360,
+        nid: null,
+        birthReg: null,
+        hasDocument: false,
+        actions: { ...NO_ACTIONS, addIdentity: true },
+      },
+    );
+    openProfile();
+    expect(await screen.findByRole('button', { name: 'পরিচয়পত্র যোগ করুন' })).toBeInTheDocument();
+  });
+
+  it('adds the identity document with the version of the profile, and links the profile that holds a taken number', async () => {
+    refreshAs(RPM);
+    serve(
+      fullRow,
+      {},
+      {
+        ...empty360,
+        nid: null,
+        birthReg: null,
+        hasDocument: false,
+        actions: { ...NO_ACTIONS, addIdentity: true },
+      },
+    );
+    const sent: { ifMatch: string | null; body: unknown }[] = [];
+    server.use(
+      http.post('*/api/v1/beneficiaries/:id/identity', async ({ request }) => {
+        sent.push({ ifMatch: request.headers.get('If-Match'), body: await request.json() });
+        if (sent.length === 1)
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'beneficiary.identity_taken',
+                message: 'এই নম্বর অন্য একটি প্রোফাইলে আছে। একই মানুষ হলে মার্জের প্রস্তাব দিন।',
+                requestId: 'r',
+                details: [
+                  {
+                    path: 'number',
+                    code: 'beneficiary.identity_taken',
+                    message:
+                      'এই নম্বর অন্য একটি প্রোফাইলে আছে। একই মানুষ হলে মার্জের প্রস্তাব দিন।',
+                    params: { benNo: 'BEN-0000077', beneficiaryId: OTHER_ID },
+                  },
+                ],
+              },
+            },
+            { status: 409 },
+          );
+        return HttpResponse.json({
+          data: { beneficiaryId: ID, kind: 'nid' },
+          meta: { requestId: 'req_test', etag: ETAG },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    const view = openProfile();
+    await user.click(await screen.findByRole('button', { name: 'পরিচয়পত্র যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'পরিচয়পত্র যোগ করুন' });
+    const add = within(dialog).getByRole('button', { name: 'যোগ করুন' });
+    expect(add).toBeDisabled();
+    await user.click(within(dialog).getByRole('combobox', { name: /পরিচয়পত্রের ধরন/ }));
+    await user.click(await screen.findByRole('option', { name: 'NID' }));
+    const number = within(dialog).getByRole('textbox', { name: /নম্বর/ });
+    await user.type(number, '১২৩৪');
+    await user.click(add);
+    // a number of the wrong length is refused here, before any request
+    expect(number).toHaveAccessibleDescription('এনআইডি 10, 13 বা 17 অঙ্কের হতে হবে।');
+    expect(sent).toEqual([]);
+    await user.clear(number);
+    await user.type(number, '১২৩৪-৫৬৭ ৮৯০');
+    await user.click(add);
+    expect(
+      await within(dialog).findByRole('link', { name: 'দুটি প্রোফাইল মিলিয়ে দেখুন' }),
+    ).toHaveAttribute('href', expect.stringContaining(`b=${OTHER_ID}`));
+    await expectNoAxeViolations(view.container);
+    await user.clear(number);
+    await user.type(number, '1234567891');
+    await user.click(add);
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[1]).toEqual({ ifMatch: ETAG, body: { kind: 'nid', number: '1234567891' } });
+    expect(await screen.findByText('পরিচয়পত্রের নম্বর প্রোফাইলে যোগ হয়েছে')).toBeInTheDocument();
+  }, 15_000);
 
   it('saves a new mobile with the version of the profile and shows the shared-mobile warning', async () => {
     refreshAs(RPM);
@@ -1108,5 +1209,142 @@ describe('whose number the mobile is, on the profile', () => {
     await opened();
     expect(screen.queryByText(WHOSE)).not.toBeInTheDocument();
     expect(screen.queryByText(/করিম মিয়া/)).not.toBeInTheDocument();
+  });
+});
+
+describe('the father’s or husband’s name, on the profile', () => {
+  const full = { ...empty360, hasDocument: true, nid: '1234567890', birthReg: null };
+  /** The label beside the name in the details. */
+  const labelOf = () => screen.getByText('নমুনা স্বামী').closest('div')!;
+  const opened = async () => {
+    openProfile();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+  };
+
+  it.each([
+    ['husband', 'স্বামীর নাম'],
+    ['father', 'পিতার নাম'],
+  ])('is called by the relation the profile holds: %s', async (code, label) => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, guardianRelationCode: code });
+    await opened();
+    expect(within(labelOf()).getByText(label)).toBeInTheDocument();
+    expect(screen.queryByText('পিতা বা স্বামীর নাম')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['the relation is not known', { guardianRelationCode: null }],
+    ['the server left it out', {}],
+  ])('keeps the label of both when %s', async (_case, relation) => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, ...relation });
+    await opened();
+    expect(within(labelOf()).getByText('পিতা বা স্বামীর নাম')).toBeInTheDocument();
+  });
+
+  it('says it in English too', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...full, guardianRelationCode: 'husband' });
+    renderApp(<BeneficiaryProfilePage />, 'en', {
+      path: '/admin/beneficiaries/:beneficiaryId',
+      initialPath: `/admin/beneficiaries/${ID}`,
+    });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+    expect(within(labelOf()).getByText("Husband's name")).toBeInTheDocument();
+  });
+});
+
+describe('the family members on the profile', () => {
+  const MEMBERS = [
+    {
+      id: '0190a1b2-0000-7000-8000-00000000f001',
+      name: 'রহিমা খাতুন',
+      relationshipCode: 'spouse',
+      relationship: { bn: 'স্বামী/স্ত্রী', en: 'Spouse' },
+      ageYears: 34,
+      occupationCode: null,
+      monthlyIncome: 3000,
+    },
+    {
+      id: '0190a1b2-0000-7000-8000-00000000f002',
+      name: 'করিম',
+      relationshipCode: null,
+      relationship: null,
+      ageYears: null,
+      occupationCode: null,
+      monthlyIncome: null,
+    },
+  ];
+  /** The body of a section of the profile, by its title. */
+  const sectionOf = (name: string) => screen.getByRole('region', { name });
+  const opened = async (locale: 'bn' | 'en' = 'bn') => {
+    const view = renderApp(<BeneficiaryProfilePage />, locale, {
+      path: '/admin/beneficiaries/:beneficiaryId',
+      initialPath: `/admin/beneficiaries/${ID}`,
+    });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+    return view;
+  };
+
+  it('lists each member with the relationship in its list’s words, the age and the monthly income', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: MEMBERS });
+    const { container } = await opened();
+    const section = within(sectionOf('পরিবারের সদস্য'));
+    for (const header of ['নাম', 'সম্পর্ক', 'বয়স', 'মাসিক আয়'])
+      expect(section.getByRole('columnheader', { name: header })).toBeInTheDocument();
+    const [first, second] = section.getAllByRole('row').slice(1);
+    expect(within(first!).getByText('রহিমা খাতুন')).toBeInTheDocument();
+    expect(within(first!).getByText('স্বামী/স্ত্রী')).toBeInTheDocument();
+    expect(within(first!).getByText('34 বছর')).toBeInTheDocument();
+    expect(within(first!).getByText('৳ 3,000')).toBeInTheDocument();
+    // what is not known about a member reads as empty, never as a code or a zero
+    expect(within(second!).getByText('করিম')).toBeInTheDocument();
+    expect(within(second!).queryByText(/৳/)).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it('shows every member of a large household, none cut off', async () => {
+    refreshAs(HEAD);
+    const thirty = Array.from({ length: 30 }, (_, i) => ({
+      ...MEMBERS[1]!,
+      id: `0190a1b2-0000-7000-8000-0000000010${String(i).padStart(2, '0')}`,
+      name: `সদস্য ${i + 1}`,
+    }));
+    serve(fullRow, {}, { ...empty360, familyMembers: thirty });
+    await opened();
+    const rows = within(sectionOf('পরিবারের সদস্য')).getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(30);
+    expect(within(rows[29]!).getByText('সদস্য 30')).toBeInTheDocument();
+  });
+
+  it('says it in English too', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, { ...empty360, familyMembers: MEMBERS.slice(0, 1) });
+    await opened('en');
+    const section = within(sectionOf('Family members'));
+    expect(section.getByRole('columnheader', { name: 'Monthly income' })).toBeInTheDocument();
+    expect(section.getByText('Spouse')).toBeInTheDocument();
+    expect(section.getByText('34 years')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['no member is known', { familyMembers: [] }],
+    ['the server left the section out', {}],
+  ])('draws no family section when %s', async (_case, family) => {
+    refreshAs(HEAD);
+    const { familyMembers: _members, ...rest } = empty360;
+    serve(fullRow, {}, { ...rest, ...family });
+    await opened();
+    expect(screen.getByRole('heading', { level: 2, name: 'ঠিকানা' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'পরিবারের সদস্য' }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { sensitive } from '../access/field-mask.js';
 import { versionView } from '../routes/forms.js';
 import type { FormVersionView } from '../services/forms.js';
+import { DUPLICATE_RULES } from '../services/beneficiary-merge-candidates.js';
 import { applicationMediaView } from '../services/media-referrals.js';
 
 /** The class of the official section and of the office's own texts (permissions.yaml). */
@@ -13,6 +14,8 @@ export const OFFICIAL_SECTION = 'application.official_section';
 /** The person's identity number and their contact (permissions.yaml, the protected field classes). */
 export const BENEFICIARY_NID = 'beneficiary.nid';
 export const BENEFICIARY_CONTACT = 'beneficiary.contact';
+/** The person's details beside the name, among them the father's or husband's name. */
+export const BENEFICIARY_PROFILE_DETAIL = 'beneficiary.profile_detail';
 /**
  * The flag of an entry that waits because a person without a document looks like a blocked one
  * (the same name, father's or husband's name and village in the union): the office's to read.
@@ -66,6 +69,38 @@ const familyWarning = z.object({
   matchedOn: z.array(z.enum(['mobile', 'union_village_father'])),
 });
 
+/** Another profile a signal names, only where the viewer may open it. */
+const personRef = z.object({ beneficiaryId: uuid, benNo: z.string(), name: z.string() });
+
+/** How sure a person signal is; an entry the viewer may not open carries this alone. */
+const signalLevel = z.object({ level: z.enum(['probable']) });
+
+/**
+ * The applicant is probably a member an earlier beneficiary listed in their family: the head and
+ * every relationship its list gives, or the level alone where the viewer may not open the head.
+ */
+const familyMemberSignal = z.union([
+  signalLevel.extend({
+    relationships: z.array(
+      z.object({
+        code: z.string(),
+        name: z.object({ bn: z.string(), en: z.string() }).nullable(),
+      }),
+    ),
+    head: personRef,
+  }),
+  signalLevel,
+]);
+
+/**
+ * The applicant's profile and another one probably are one person (an open probable pair): the
+ * rules and the other profile, or the level alone where the viewer may not compare the two.
+ */
+const samePersonSignal = z.union([
+  signalLevel.extend({ matchedOn: z.array(z.enum(DUPLICATE_RULES)), other: personRef }),
+  signalLevel,
+]);
+
 /**
  * The record (contract `Application`): the answers of the caller's audience, the office's reason
  * and the zakat figures for the office only, the family warnings at review, and the actions the
@@ -78,6 +113,11 @@ export const applicationView = applicationSummary.extend({
   /** The device time the record was made, when it came from a phone; its late or stale flags say why it waits. */
   clientCreatedAt: z.string().nullable(),
   identityKind: z.enum(['nid', 'birth_reg', 'none']).nullable(),
+  /**
+   * Whether the father's or husband's name is the father's or the husband's: the profile's, else
+   * the application's own answer; null where neither says.
+   */
+  guardianRelationCode: sensitive(z.string().nullable(), BENEFICIARY_PROFILE_DETAIL),
   rejectionMessage: z.string().nullable(),
   answers: z.array(answerView),
   reviewedAt: z.string().nullable(),
@@ -105,6 +145,14 @@ export const applicationView = applicationSummary.extend({
     OFFICIAL_SECTION,
   ),
   familyDuplicateWarnings: z.array(familyWarning),
+  /** The earlier families that probably hold the person as a member; the office only. */
+  familyMemberSignals: z.array(familyMemberSignal),
+  /** How many such families there are in all, also beyond the ones listed. */
+  familyMemberSignalsTotal: z.number().int(),
+  /** The person's open probable pairs with another profile; the office only. */
+  samePersonSignals: z.array(samePersonSignal),
+  /** How many such pairs there are in all, also beyond the ones listed. */
+  samePersonSignalsTotal: z.number().int(),
   availableActions: z.array(z.string()),
   /** The comments the office's decisions would ask for now, by action; empty for a volunteer. */
   decisionHints: z.record(z.string(), z.array(z.enum(COMMENT_REASONS))),
@@ -116,6 +164,12 @@ export const applicationView = applicationSummary.extend({
   media: applicationMediaView.nullable(),
   /** Whether the caller may refer it to the Media Team now (or send a returned referral again). */
   mayReferToMedia: z.boolean(),
+  /**
+   * Whether the caller may add the identity number this application carries to the person's
+   * profile, which has none: an official who sees identity numbers and may approve a correction
+   * of the profile.
+   */
+  mayAddIdentity: z.boolean(),
   /** The form version the answers belong to, as the caller's audience sees it. */
   form: versionView,
 });
@@ -133,6 +187,10 @@ export const applicationCreateSchema = z.strictObject({
   projectId: uuid,
   formVersionId: uuid,
   beneficiaryId: uuid.optional(),
+  /** A person picked from the name lookup: the token that lookup gave this caller for this project. */
+  pickToken: z.string().min(1).max(512).optional(),
+  /** The phone left the name lookup out for want of network; the office compares at the send. */
+  nameLookupSkipped: z.literal(true).optional(),
   answers: z.array(z.unknown()).max(2000),
 });
 export type ApplicationCreate = z.infer<typeof applicationCreateSchema>;

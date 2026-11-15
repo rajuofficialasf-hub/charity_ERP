@@ -12,6 +12,7 @@ import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
 import { isAddressChain } from './locations.js';
+import type { MatchKeysService, ProfileKeys } from './match-keys.js';
 
 /**
  * The contact columns of a profile, in the order they are logged. An official edits them outside
@@ -64,6 +65,7 @@ export class BeneficiaryContactService {
     private readonly audit: AuditWriter,
     private readonly identity: BeneficiaryIdentityService,
     private readonly candidates: BeneficiaryMergeCandidatesService,
+    private readonly matchKeys: MatchKeysService,
   ) {}
 
   async update(
@@ -134,10 +136,18 @@ export class BeneficiaryContactService {
     const pick = (row: Record<ContactField, unknown>) =>
       // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
       Object.fromEntries(changed.map((field) => [field, row[field]]));
+    // a new village gives the profile new name keys, stored with the change
+    const keys = changed.includes('village')
+      ? await this.keysWithVillage(tx, before.id, body.village as string)
+      : {};
     const after = changed.length
       ? await tx.beneficiary.update({
           where: { id: before.id },
-          data: { ...pick(body as Record<ContactField, unknown>), updatedBy: actor.userId },
+          data: {
+            ...pick(body as Record<ContactField, unknown>),
+            ...keys,
+            updatedBy: actor.userId,
+          },
           select: SELECT,
         })
       : before;
@@ -169,6 +179,15 @@ export class BeneficiaryContactService {
       new: pick(after) as Prisma.InputJsonValue,
     });
     return { after, warnings, changed };
+  }
+
+  /** The name keys of a profile that moves to another village. */
+  private async keysWithVillage(tx: Tx, id: string, village: string): Promise<ProfileKeys> {
+    const person = await tx.beneficiary.findUniqueOrThrow({
+      where: { id },
+      select: { name: true, fatherOrHusbandName: true },
+    });
+    return this.matchKeys.ofProfile(tx, { ...person, village });
   }
 
   /** The four places of an address must be a division, a district in it, and so on down. */

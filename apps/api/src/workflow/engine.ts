@@ -54,12 +54,13 @@ const APPLICATION_SELECT = {
  * What a caller adds to a move once every check has passed: `beforeApply` runs after the
  * permission, the scope, the version and the guards, and its columns are written with the new
  * state in the same statement (the submission binds the person this way, since a submitted
- * application always has one).
+ * application always has one). It gets the move's time, the one the stamps of the move hold.
  */
 export interface TransitionHooks {
   beforeApply?: (
     tx: Tx,
     application: EngineApplication,
+    movedAt: Date,
   ) => Promise<Prisma.ApplicationUncheckedUpdateInput>;
 }
 
@@ -197,7 +198,7 @@ export class WorkflowEngine {
       if (!isBuiltGuard(name)) throw new ApiError('workflow.guard_not_built', 409);
       const result = await GUARDS[name](ctx);
       if (result === false) throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
-      if (result !== true) asked.push(result.comment);
+      if (result !== true) asked.push(...result.comment);
     }
     // a decision that asks for a comment goes on with one, and names why it asks without
     if (asked.length && !ctx.input.comment?.trim())
@@ -255,7 +256,7 @@ export class WorkflowEngine {
     await tx.application.update({
       where: { id: application.id },
       data: {
-        ...(hooks.beforeApply ? await hooks.beforeApply(tx, application) : {}),
+        ...(hooks.beforeApply ? await hooks.beforeApply(tx, application, now) : {}),
         status: transition.to,
         updatedBy: actor,
         updatedAt: now,

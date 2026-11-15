@@ -21,6 +21,20 @@ export const APPLICATION_STATES = [
 ] as const;
 export type ApplicationState = (typeof APPLICATION_STATES)[number];
 
+/**
+ * The states of an application whose person was helped: the approval and the states only an
+ * approved application reaches. Read today by the name lookup at entry, for the years of a
+ * person's help. `closed` is not among them: a project's close closes every unfinished
+ * application (drafts, waiting and approved ones alike), so in a closed project only the
+ * completed applications count here. The help history on the profile must decide how a closed
+ * project's approved applications count before it reads this list.
+ */
+export const HELPED_STATES = [
+  'approved',
+  'implementation',
+  'completed',
+] as const satisfies readonly ApplicationState[];
+
 export interface ApplicationActionSpec {
   from: readonly ApplicationState[];
   to: ApplicationState;

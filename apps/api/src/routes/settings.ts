@@ -10,6 +10,12 @@ import {
   referenceItemUpdateSchema,
   settingUpdateSchema,
 } from '@css/shared/settings';
+import {
+  type NameVariantGroupCreate,
+  nameVariantGroupCreateSchema,
+  type NameVariantGroupUpdate,
+  nameVariantGroupUpdateSchema,
+} from '@css/shared/beneficiaries';
 import { Router } from 'express';
 import { z } from 'zod';
 import { principalOf } from '../auth/principal.js';
@@ -27,12 +33,12 @@ const op = { tag: 'reference', idempotency: 'none' as const, rateLimit: 'default
 /**
  * Settings, the reference lists of the settings page and the nisab (openapi tag reference;
  * docs/DECISION_LOG.md, the admin and settings decision of 2026-10-17). The settings page and the
- * lists need `settings.manage` at global scope; the nisab is added and withdrawn by `nisab.set`
+ * lists, the spelling variants of names among them, need `settings.manage` at global scope; the nisab is added and withdrawn by `nisab.set`
  * (PM or above) and read by every signed-in user; the public settings carry no personal data.
  */
 export function settingsRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'settings' | 'referenceLists' | 'nisab'>,
+  c: Pick<Container, 'settings' | 'referenceLists' | 'nameVariants' | 'nisab'>,
 ): Router {
   const router = Router();
 
@@ -131,6 +137,54 @@ export function settingsRouter(
     responses: { 200: null, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: async ({ body, params, req }) =>
       ok(await c.referenceLists.update(principalOf(req), params.listKey, params.code, body)),
+  });
+
+  defineRoute(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/name-variants',
+    operationId: 'reference.nameVariants.list',
+    summary: 'The groups of spelling variants of names, switched off ones included; not paginated',
+    permission: 'settings.manage',
+    scope: 'global',
+    audit: 'none',
+    responses: { 200: null, 401: null, 403: null },
+    handler: async () => {
+      const groups = await c.nameVariants.list();
+      return ok(groups, { limit: groups.length, nextCursor: null, prevCursor: null });
+    },
+  });
+
+  defineRoute<NameVariantGroupCreate>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/name-variants',
+    status: 201,
+    operationId: 'reference.nameVariants.add',
+    summary: 'Add a group of spellings of one name; the name keys are computed again',
+    permission: 'settings.manage',
+    scope: 'global',
+    audit: 'name_variants.change',
+    body: nameVariantGroupCreateSchema,
+    responses: { 201: null, 401: null, 403: null, 422: null },
+    handler: async ({ body, req }) => ok(await c.nameVariants.add(principalOf(req), body)),
+  });
+
+  defineRoute<NameVariantGroupUpdate, unknown, { groupId: string }>(router, deps, {
+    ...op,
+    method: 'patch',
+    path: '/name-variants/:groupId',
+    operationId: 'reference.nameVariants.update',
+    summary: "Change a group's spellings, or switch it off or on; nothing is deleted",
+    permission: 'settings.manage',
+    scope: 'global',
+    audit: 'name_variants.change',
+    params: { groupId: uuid },
+    headers: [{ name: 'If-Match', required: true }],
+    body: nameVariantGroupUpdateSchema,
+    responses: { 200: null, 401: null, 403: null, 404: null, 412: null, 422: null },
+    handler: async ({ body, params, req }) =>
+      ok(await c.nameVariants.update(principalOf(req), params.groupId, body, req.get('if-match'))),
   });
 
   defineRoute(router, deps, {

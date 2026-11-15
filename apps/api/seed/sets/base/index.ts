@@ -7,6 +7,7 @@ import { type SeedContext, seedId } from '../../context.js';
 import { REPO_ROOT } from '../util.js';
 import { seedAccess } from './access.js';
 import { seedNotificationTemplates } from './notifications.js';
+import { seedNameVariants } from './name-variants.js';
 import { seedReferenceLists } from './reference-lists.js';
 import { seedSettings } from './settings.js';
 import { seedWorkflows } from './workflows.js';
@@ -40,6 +41,7 @@ export async function seedBase(ctx: SeedContext): Promise<void> {
   });
   await ctx.transaction(async () => {
     await seedReferenceLists(ctx);
+    await seedNameVariants(ctx);
     await seedSettings(ctx);
     await seedAccess(ctx);
     await seedWorkflows(ctx);

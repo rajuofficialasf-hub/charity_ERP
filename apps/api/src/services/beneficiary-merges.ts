@@ -10,7 +10,9 @@ import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
+import { keepOneFamilyList, restoreFamilyList } from './beneficiary-family-members.js';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
+import type { MatchKeysService } from './match-keys.js';
 
 /** A UUID may arrive in capitals; the pair map and the stored rows use lower case. */
 const lowerIds = (body: MergeRequest): MergeRequest => ({
@@ -61,6 +63,17 @@ const snapshotSchema = z.object({
   rejectedCorrections: z.array(z.uuid()),
   /** The block of the retired profile, released by the merge, and the copy it gave the kept one. */
   block: z.object({ released: z.uuid().nullable(), created: z.uuid().nullable() }),
+  /**
+   * The facts the kept profile lacked and took from the retired one, with the value given; the
+   * revert empties each again while it still holds that value. A merge made before the kept
+   * profile could take a fact has none.
+   */
+  filled: z.object({ guardianRelationCode: z.string() }).partial().optional(),
+  /**
+   * The family members the merge set inactive, so the kept profile holds one list: the revert sets
+   * them active again. Optional, so a snapshot written without it still reads.
+   */
+  familyDeactivated: z.array(z.uuid()).optional(),
 });
 type Snapshot = z.infer<typeof snapshotSchema>;
 
@@ -87,10 +100,11 @@ type MergeRow = Prisma.ProfileMergeGetPayload<{ select: typeof VIEW }>;
  * proposes, a PM or a global role merges from a proposal or directly, choosing the profile to keep;
  * the Monitoring Team or the Department Head reverts. A merge moves every row of the retired profile
  * to the kept one and lists the moved ids in the snapshot, which the revert moves back exactly; rows
- * added to the kept profile later stay. An application past pending in a project both profiles
- * applied to stays on the retired profile; a pending one stops the merge. A merge never lifts a
- * block, and never retires the only profile of the two that has an identity document. Both profiles
- * are locked in id order and must lie in the caller's scope.
+ * added to the kept profile later stay. Of the two family lists, only the later submitted one stays
+ * active, and the revert sets the other active again. An application past pending in a project both
+ * profiles applied to stays on the retired profile; a pending one stops the merge. A merge never
+ * lifts a block, and never retires the only profile of the two that has an identity document. Both
+ * profiles are locked in id order and must lie in the caller's scope.
  */
 export class BeneficiaryMergesService {
   constructor(
@@ -99,6 +113,7 @@ export class BeneficiaryMergesService {
     private readonly audit: AuditWriter,
     private readonly clock: Clock,
     private readonly candidates: BeneficiaryMergeCandidatesService,
+    private readonly matchKeys: MatchKeysService,
   ) {}
 
   private notFound(actor: Principal, scope: Scope): never {
@@ -113,7 +128,14 @@ export class BeneficiaryMergesService {
       await tx.$queryRaw`SELECT id FROM beneficiaries WHERE id = ${id}::uuid FOR UPDATE`;
     const found = await tx.beneficiary.findMany({
       where: { AND: [{ id: { in: ids } }, beneficiaryWhere(scope)] },
-      select: { id: true, benNo: true, mergedIntoId: true, nid: true, birthReg: true },
+      select: {
+        id: true,
+        benNo: true,
+        mergedIntoId: true,
+        nid: true,
+        birthReg: true,
+        guardianRelationCode: true,
+      },
     });
     if (found.length !== 2) this.notFound(actor, scope);
     return new Map(found.map((r) => [r.id, r]));
@@ -282,6 +304,8 @@ export class BeneficiaryMergesService {
       leftBehind,
       rejectedCorrections: [],
       block: { released: null, created: null },
+      // the kept profile ends with one family list, the later submitted one
+      familyDeactivated: await keepOneFamilyList(tx, actor.userId, keptId, retiredId),
     };
     for (const move of MOVES) {
       const extra = 'where' in move ? Prisma.raw(` AND ${move.where}`) : Prisma.empty;
@@ -307,6 +331,7 @@ export class BeneficiaryMergesService {
       WHERE beneficiary_id = ${retiredId}::uuid AND status = 'submitted' RETURNING id`;
     snapshot.rejectedCorrections = rejected.map((r) => r.id);
     snapshot.block = await this.carryBlock(tx, actor, keptId, retiredId, formatBenNo(kept.benNo));
+    snapshot.filled = await this.fillKept(tx, actor, pair, keptId, retiredId);
     await tx.beneficiary.update({
       where: { id: retiredId },
       data: { mergedIntoId: keptId, updatedBy: actor.userId },
@@ -324,12 +349,23 @@ export class BeneficiaryMergesService {
       },
       select: VIEW,
     });
+    // both profiles compare by their stored keys again: the pairs below read them
+    await this.matchKeys.refreshProfiles(tx, [keptId, retiredId]);
     await this.candidates.refreshFor(tx, [keptId, retiredId]);
     await this.audit.record(tx, {
       action: 'beneficiary.merge',
       entityType: 'beneficiary',
       entityId: keptId,
-      new: { mergeId, mergedId: retiredId, moved: counts(snapshot), leftBehind: leftBehind.length },
+      new: {
+        mergeId,
+        mergedId: retiredId,
+        moved: counts(snapshot),
+        leftBehind: leftBehind.length,
+        filled: snapshot.filled,
+        ...(snapshot.familyDeactivated?.length
+          ? { familyDeactivated: snapshot.familyDeactivated.length }
+          : {}),
+      },
       reason: row.reason,
     });
     return view(row);
@@ -398,6 +434,28 @@ export class BeneficiaryMergesService {
   }
 
   /**
+   * Whether the name beside the person is the father's or the husband's: where the kept profile
+   * does not know it and the retired one does, the kept profile takes it, so the merge loses no
+   * fact. A relation the kept profile holds is never changed, as an application never changes it.
+   */
+  private async fillKept(
+    tx: Tx,
+    actor: Principal,
+    pair: LockedPair,
+    keptId: string,
+    retiredId: string,
+  ): Promise<Snapshot['filled']> {
+    const given = pair.get(retiredId)!.guardianRelationCode;
+    if (pair.get(keptId)!.guardianRelationCode !== null || given === null) return {};
+    await tx.beneficiary.update({
+      where: { id: keptId },
+      data: { guardianRelationCode: given, updatedBy: actor.userId },
+      select: { id: true },
+    });
+    return { guardianRelationCode: given };
+  }
+
+  /**
    * A block of the retired profile is released by the merge; the kept profile gets a copy with the
    * same reason unless it is blocked already, so a merge never lifts a block. New rows instead of a
    * changed subject, so the flag of each profile follows its own rows.
@@ -463,6 +521,17 @@ export class BeneficiaryMergesService {
           if (back !== ids.length) throw new ApiError('beneficiary.merge_revert_order', 409);
         }
         await this.restoreBlock(tx, actor, found.mergedId, snapshot.block);
+        // the family list the merge set aside is the active one again, back on its own profile
+        await restoreFamilyList(tx, actor.userId, snapshot.familyDeactivated ?? []);
+        // the kept profile's own earlier empty value comes back, while it still holds the one given
+        if (snapshot.filled?.guardianRelationCode !== undefined)
+          await tx.beneficiary.updateMany({
+            where: {
+              id: found.keptId,
+              guardianRelationCode: snapshot.filled.guardianRelationCode,
+            },
+            data: { guardianRelationCode: null, updatedBy: actor.userId },
+          });
         await tx.beneficiary.update({
           where: { id: found.mergedId },
           data: { mergedIntoId: null, updatedBy: actor.userId },
@@ -477,6 +546,7 @@ export class BeneficiaryMergesService {
           },
           select: VIEW,
         });
+        await this.matchKeys.refreshProfiles(tx, [found.keptId, found.mergedId]);
         await this.candidates.refreshFor(tx, [found.keptId, found.mergedId]);
         await this.audit.record(tx, {
           action: 'beneficiary.merge_reverted',

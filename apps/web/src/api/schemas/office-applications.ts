@@ -1,7 +1,13 @@
 import { MEDIA_PRIORITIES, REFERRAL_STATES } from '@css/shared/media';
 import { z } from 'zod';
 import { applicationSchema, applicationSummarySchema } from './applications';
+import { duplicateRuleSchema } from './beneficiaries';
 import { bilingual, dateTime, recordOf } from './common';
+
+/** Another beneficiary profile a signal of the review names. */
+const personRefSchema = z.object({ beneficiaryId: z.uuid(), benNo: z.string(), name: z.string() });
+/** How sure a person signal is; an entry the viewer may not open carries this alone. */
+const signalLevel = z.object({ level: z.literal('probable') });
 
 /** The office's decisions on an application. */
 export const officeActionSchema = z.enum([
@@ -21,9 +27,15 @@ export type OfficeAction = z.infer<typeof officeActionSchema>;
 
 /**
  * Why a decision asks for a comment: it goes against the score order, the quota area is full, or
- * the person has a family match in the project.
+ * the person appears again in the project (probably the same person under another profile, or
+ * someone of the same family) where the project holds that repeat.
  */
-export const commentReasonSchema = z.enum(['against_score', 'quota_full', 'family_match']);
+export const commentReasonSchema = z.enum([
+  'against_score',
+  'quota_full',
+  'same_person',
+  'family_match',
+]);
 export type CommentReason = z.infer<typeof commentReasonSchema>;
 
 /** One part of the priority score, frozen with the score at the decision. */
@@ -64,6 +76,8 @@ export const officeApplicationSchema = applicationSchema.extend({
     .optional(),
   /** Whether the caller may send it to the Media Team now, or a returned referral again. */
   mayReferToMedia: z.boolean().optional(),
+  /** Whether the caller may add the number this application carries to the profile, which has none. */
+  mayAddIdentity: z.boolean().optional(),
   familyDuplicateWarnings: z.array(
     z.object({
       beneficiaryId: z.uuid(),
@@ -72,6 +86,34 @@ export const officeApplicationSchema = applicationSchema.extend({
       matchedOn: z.array(z.enum(['mobile', 'union_village_father'])),
     }),
   ),
+  /**
+   * The earlier families that probably hold the person: the head and the relationships only where
+   * the head may be opened, else the level alone.
+   */
+  familyMemberSignals: z
+    .array(
+      z.union([
+        signalLevel.extend({
+          relationships: z.array(z.object({ code: z.string(), name: bilingual.nullable() })),
+          head: personRefSchema,
+        }),
+        signalLevel,
+      ]),
+    )
+    .default([]),
+  /** How many earlier families there are in all, also beyond the ones listed. */
+  familyMemberSignalsTotal: z.number().int().default(0),
+  /** The person's open probable pairs: the rules and the other profile only where both may be compared. */
+  samePersonSignals: z
+    .array(
+      z.union([
+        signalLevel.extend({ matchedOn: z.array(duplicateRuleSchema), other: personRefSchema }),
+        signalLevel,
+      ]),
+    )
+    .default([]),
+  /** How many open probable pairs there are in all, also beyond the ones listed. */
+  samePersonSignalsTotal: z.number().int().default(0),
 });
 export type OfficeApplication = z.infer<typeof officeApplicationSchema>;
 

@@ -62,17 +62,25 @@ export async function applicationProject(
 }
 
 /**
- * What a project's application asks about the identity document and the mobile, written into the
- * settings of its application form component as the PM's setup stores them.
+ * What a project's application asks about the identity document and the mobile, and what a repeat
+ * of the same person or family does, written into the settings of its application form component
+ * as the PM's setup stores them.
  */
 export async function setIdentityRules(
   db: Client,
   projectId: string,
-  rules: { document?: 'required' | 'optional'; mobile?: 'required' | 'optional' },
+  rules: {
+    document?: 'required' | 'optional';
+    mobile?: 'required' | 'optional';
+    repeatPerson?: 'tell' | 'hold';
+    repeatFamily?: 'tell' | 'hold';
+  },
 ): Promise<void> {
   const settings = {
     ...(rules.document ? { identity_document: rules.document } : {}),
     ...(rules.mobile ? { mobile: rules.mobile } : {}),
+    ...(rules.repeatPerson ? { repeat_person: rules.repeatPerson } : {}),
+    ...(rules.repeatFamily ? { repeat_family: rules.repeatFamily } : {}),
   };
   const updated = await db.query(
     `UPDATE project_components SET settings = settings || $2::jsonb

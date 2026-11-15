@@ -31,7 +31,28 @@
     "upload_failed": "The photo could not be sent. Try again.",
     "team_note": "As a team member you can keep a draft; the main volunteer sends it to the office.",
     "edit_title": "Edit the draft",
-    "photos_need_network": "Adding photos needs network. The draft stays on this phone; add the photos when there is network."
+    "photos_need_network": "Adding photos needs network. The draft stays on this phone; add the photos when there is network.",
+    "match": {
+      "section": "Search by name",
+      "help": "To see whether the person was helped before, enter the name, the father's or husband's name, the union and the village, then search.",
+      "name": "Name",
+      "father": "Father's or husband's name",
+      "village": "Village",
+      "search": "Search",
+      "found_title": "Already here under this name",
+      "father_line": "Father or husband: {name}",
+      "village_line": "Village: {village}",
+      "helped": "Helped: {years}",
+      "projects": "Projects: {projects}",
+      "pick": "This is the person",
+      "none_of_them": "None of them: a new person",
+      "nobody": "Nobody is here under this name yet",
+      "start_new": "Start as a new person",
+      "more": "More people are here under this name",
+      "not_pickable": "This person cannot be chosen here; tell the office.",
+      "outside": "This union is outside the project's areas. Choose a union of the project's areas.",
+      "offline": "No connection, so the names already here cannot be checked; the office will check them later."
+    }
   },
   "list": {
     "title": "My applications",
@@ -84,7 +105,9 @@
     "action_failed": "That could not be done. Try again.",
     "stale": "The application has changed meanwhile. Reload it.",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "father_name": "Father's name",
+    "husband_name": "Husband's name"
   },
   "office": {
     "title": "Applications",
@@ -166,8 +189,14 @@
       "why": {
         "against_score": "Why does this decision go against the score order?",
         "quota_full": "The quota of this area is full. Why approve anyway?",
+        "same_person": "This person has probably applied to this project under another profile. Why approve anyway?",
         "family_match": "Someone from the same family is in this project. Why approve anyway?"
       }
+    },
+    "identity": {
+      "missing": "This application has an identity number; the profile does not.",
+      "add": "Add identity document",
+      "added": "The identity number was added to the profile."
     },
     "signals": {
       "flag": {
@@ -184,6 +213,24 @@
       "rule": {
         "mobile": "same mobile",
         "union_village_father": "same union, village and father's or husband's name"
+      },
+      "family_member": {
+        "named": "Probably {head}'s {relationship}",
+        "unnamed": "Probably a family member of another beneficiary",
+        "relative": "family member",
+        "open": "Open profile ({benNo})",
+        "or": "or",
+        "more": "{n} more"
+      },
+      "same_person": {
+        "named": "Probably the same person: {name} ({benNo}) — {rule}",
+        "unnamed": "Probably the same person as another profile",
+        "compare": "Compare",
+        "more": "{n} more"
+      },
+      "held": {
+        "same_person": "This project asks a reason before approving the same person again.",
+        "family_match": "This project asks a reason before approving the same family again."
       }
     },
     "changes": {

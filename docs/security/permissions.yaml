@@ -63,6 +63,7 @@ permission_sets:
       - application.view
       - application.update_unlocked_field
       - beneficiary.lookup
+      - beneficiary.match
       - stock.receive
       - distribution.update
       - site_verification.record
@@ -106,9 +107,9 @@ sensitive_fields:
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee, procurement_team]
     source: "O-67, D-094: the Media Team sees the area down to the upazila only"
   - key: beneficiary.profile_detail
-    fields: [beneficiaries.father_or_husband_name, beneficiaries.mother_name, beneficiaries.gender_code, beneficiaries.age_years, beneficiaries.class_code, beneficiaries.class_other_text, beneficiaries.occupation_code, beneficiaries.photo_file_id]
+    fields: [beneficiaries.father_or_husband_name, beneficiaries.guardian_relation_code, beneficiaries.mother_name, beneficiaries.gender_code, beneficiaries.age_years, beneficiaries.class_code, beneficiaries.class_other_text, beneficiaries.occupation_code, beneficiaries.photo_file_id]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
-    source: "O-67, D-094: the Media and Procurement Teams get only the name, the area, the projects and distribution"
+    source: "O-67, D-094: the Media and Procurement Teams get only the name, the area, the projects and distribution. D-174: whether the father's or husband's name is the father's or the husband's goes with that name, on the profile and on an application's record"
   - key: beneficiary.application_history
     fields: [applications.app_no, applications.submitted_at, applications.reviewed_at, applications.approved_at]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee, procurement_team]
@@ -439,6 +440,16 @@ permissions:
       - { role: volunteer_general, scope: PROJECT }
       - { role: volunteer_both, scope: PROJECT }
       - { role: volunteer_team_member, scope: PROJECT }
+  - name: beneficiary.match
+    description: Find the people already here by name, father's or husband's name and village for an application without a document, on a project that asks the document 'if they have one' (exact keys inside a union of an area of a project the caller works on; at most five; name, father's or husband's name, village, years of help, the names of the caller's own projects, whether the person may be picked here and a pick token; never a number, a contact, a document flag or why a person may not be picked; every call audited and counted per day)
+    module: M05
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_team_member, scope: SELF }
   - name: beneficiary.correction.request
     description: Request correction of a locked beneficiary field (name, father/husband name, identity number)
     module: M05
@@ -447,7 +458,7 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: beneficiary.correction.approve
-    description: Approve a profile correction request and change the locked field
+    description: Approve a profile correction request and change the locked field; add the identity document to a profile without one (D-172)
     module: M05
     sensitive: false
     default:

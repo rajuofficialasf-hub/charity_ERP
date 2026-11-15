@@ -1,6 +1,6 @@
 import type { BeneficiaryRow, BeneficiaryStatistics } from '@css/shared/beneficiaries';
 import { z } from 'zod';
-import { date, dateTime, tabPageOf, versionedOf } from './common';
+import { bilingual, date, dateTime, tabPageOf, versionedOf } from './common';
 import { publishedWorkSchema } from './media';
 
 /** A row of the beneficiary tab (`GET /beneficiaries`). */
@@ -41,6 +41,8 @@ export const profileActionsSchema = z.object({
   editContact: z.boolean(),
   requestCorrection: z.boolean(),
   decideCorrection: z.boolean(),
+  /** Add the identity document a live profile lacks; for an official who sees numbers. */
+  addIdentity: z.boolean(),
   proposeMerge: z.boolean(),
   merge: z.boolean(),
   revertMerge: z.boolean(),
@@ -115,6 +117,8 @@ export const beneficiaryProfileSchema = z.object({
   files: z.array(z.object({ fileId: z.uuid(), slot: z.string(), kind: z.string() })).optional(),
   name: z.string(),
   fatherOrHusbandName: z.string().optional(),
+  /** Whether that name is the father's or the husband's (`father`, `husband`); null where not known. */
+  guardianRelationCode: z.string().nullable().optional(),
   motherName: z.string().nullable().optional(),
   genderCode: z.string().optional(),
   ageYears: z.number().int().nullable().optional(),
@@ -139,13 +143,19 @@ export const beneficiaryProfileSchema = z.object({
   mobileOwnerName: z.string().nullable().optional(),
   /** Whether an identity document is on file; absent without the identity class. */
   hasDocument: z.boolean().optional(),
+  /** The household's active members; absent without the contact class. */
   familyMembers: z
     .array(
       z.object({
         id: z.uuid(),
         name: z.string(),
         relationshipCode: z.string().nullable(),
+        /** The relationship in the words of its list. */
+        relationship: z.object({ bn: z.string(), en: z.string() }).nullable(),
         ageYears: z.number().int().nullable(),
+        occupationCode: z.string().nullable(),
+        /** Taka, up to two decimals. */
+        monthlyIncome: z.number().nullable(),
       }),
     )
     .optional(),
@@ -255,6 +265,26 @@ export const lookupResultSchema = z.object({
 });
 export type LookupResult = z.infer<typeof lookupResultSchema>;
 
+/** One person of the name lookup: only what a volunteer may see of someone already here. */
+export const matchPersonSchema = z.object({
+  name: z.string(),
+  fatherOrHusbandName: z.string(),
+  village: z.string(),
+  helpedYears: z.array(z.number().int()),
+  projects: z.array(z.object({ name: bilingual, year: z.number().int() })),
+  /** Whether the person may be picked here; the reason is not said. */
+  pickable: z.boolean(),
+  pickToken: z.string().nullable(),
+});
+export type MatchPerson = z.infer<typeof matchPersonSchema>;
+
+/** `POST /beneficiaries/match`: at most five people, and a count above five when there are more. */
+export const matchResultSchema = z.object({
+  total: z.number().int(),
+  people: z.array(matchPersonSchema),
+});
+export type MatchResult = z.infer<typeof matchResultSchema>;
+
 /** The saved contact with the warning of a mobile other profiles share. */
 export const contactSavedSchema = z.object({
   id: z.uuid(),
@@ -270,9 +300,17 @@ export const contactSavedSchema = z.object({
 export type ContactSaved = z.infer<typeof contactSavedSchema>;
 
 /** Why two profiles look like one person. */
-export const duplicateRuleSchema = z.enum(['name_dob_union', 'name_father_mobile', 'same_mobile']);
+export const duplicateRuleSchema = z.enum([
+  'name_dob_union',
+  'name_father_mobile',
+  'name_father_village',
+  'same_mobile',
+]);
 
-/** A suggested pair: who and by which rules; never an identity number or a mobile. */
+/** How sure a suggested pair is: several facts agree, or one weaker fact for an official to check. */
+export const pairLevelSchema = z.enum(['probable', 'check']);
+
+/** A suggested pair: who, by which rules and how sure; never an identity number or a mobile. */
 export const mergeCandidateSchema = z.object({
   beneficiaryId: z.uuid(),
   otherBeneficiaryId: z.uuid(),
@@ -281,6 +319,7 @@ export const mergeCandidateSchema = z.object({
   name: z.string(),
   otherName: z.string(),
   matchedOn: z.array(duplicateRuleSchema),
+  level: pairLevelSchema,
 });
 export type MergeCandidate = z.infer<typeof mergeCandidateSchema>;
 

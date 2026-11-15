@@ -27,6 +27,33 @@ export const lookupRequestSchema = z
   });
 export type LookupRequest = z.infer<typeof lookupRequestSchema>;
 
+/** At most this many people the name lookup shows. */
+export const MATCH_ROWS_SHOWN = 5;
+/**
+ * The name lookup's count stops here, one past the people shown: it says that there are more,
+ * never how many, so the count gives away no more than the rows.
+ */
+export const MATCH_TOTAL_CAP = MATCH_ROWS_SHOWN + 1;
+
+/**
+ * The name lookup of an application without a document: the name, the father's or husband's name
+ * and the village as typed, in a union of an area of a project the caller works on; the server
+ * compares their keys. Whether the name beside the person is the father's or the husband's, where
+ * the volunteer says.
+ */
+export const matchRequestSchema = z.strictObject({
+  projectId: z.uuid(),
+  name: z.string().trim().min(1, { message: 'validation.required' }).max(200),
+  fatherOrHusbandName: z.string().trim().min(1, { message: 'validation.required' }).max(200),
+  guardianRelationCode: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,49}$/)
+    .optional(),
+  unionId: z.uuid(),
+  village: z.string().trim().min(1, { message: 'validation.required' }).max(200),
+});
+export type MatchRequest = z.infer<typeof matchRequestSchema>;
+
 /** A request to correct a locked field: the new value in that field's format and a reason. */
 export const correctionRequestSchema = z
   .strictObject({
@@ -41,6 +68,24 @@ export const correctionRequestSchema = z
       ctx.addIssue({ code: 'custom', path: ['newValue'], message: 'validation.birth_reg_format' });
   });
 export type CorrectionRequestCreate = z.infer<typeof correctionRequestSchema>;
+
+/**
+ * An identity document added by an official to a profile that has none, after comparing the two:
+ * the kind, the number in that kind's format, and the application the number came from, if any.
+ */
+export const identityAddSchema = z
+  .strictObject({
+    kind: z.enum(['nid', 'birth_reg']),
+    number: z.string().trim().min(1, { message: 'validation.required' }).max(20),
+    applicationId: z.uuid().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind === 'nid' && !NID_PATTERN.test(v.number))
+      ctx.addIssue({ code: 'custom', path: ['number'], message: 'validation.nid_format' });
+    if (v.kind === 'birth_reg' && !BIRTH_REG_PATTERN.test(v.number))
+      ctx.addIssue({ code: 'custom', path: ['number'], message: 'validation.birth_reg_format' });
+  });
+export type IdentityAdd = z.infer<typeof identityAddSchema>;
 
 /** A field that only a correction request changes; named so the answer says why, not "unknown". */
 const locked = z.never({ message: 'beneficiary.locked_field' }).optional();

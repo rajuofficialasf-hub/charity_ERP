@@ -9,6 +9,7 @@ import {
 import { hash } from '@node-rs/argon2';
 import { json, SEED_AT, type SeedContext, seedId } from '../../context.js';
 import { workflowVersionOf } from '../base/workflows.js';
+import { MatchKeysService, profileKeysWith } from '../../../src/services/match-keys.js';
 
 /**
  * Demo set: one account per official role, 20 volunteers, 50 beneficiaries in two divisions (one of
@@ -229,7 +230,7 @@ const DEMO_BLOCKED_BENEFICIARY = 3;
 
 /**
  * Two suggested duplicate pairs after the 50 beneficiaries (numbers n of `beneficiary:n`): each
- * pair has the same name, father's or husband's name and mobile, and both people applied to
+ * pair has the same name, father's or husband's name, mobile and village, and both people applied to
  * project WNT, so the PM of program HUM reaches them. The merge journey uses one pair per
  * Playwright project, since the projects share the database.
  */
@@ -303,6 +304,17 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
     const userId = (key: string) => seedId(`user:${key}`);
     const dhaka = await unionsOf(ctx, 'Dhaka', 25);
     const rangpur = await unionsOf(ctx, 'Rangpur', 25);
+    // the name keys of a profile, as the API stores them with every name it writes
+    const variants = await new MatchKeysService().list(ctx.db);
+    const nameKeys = (name: string, fatherOrHusbandName: string, village: string) => {
+      const k = profileKeysWith(variants, { name, fatherOrHusbandName, village });
+      return {
+        name_key: k.nameKey,
+        guardian_key: k.guardianKey,
+        village_key: k.villageKey,
+        match_keys_version: k.matchKeysVersion,
+      };
+    };
     const divisionIdOf = (key: string) =>
       key === 'rpm_rangpur' ? rangpur[0]!.division : dhaka[0]!.division;
 
@@ -401,12 +413,15 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       const place = (i < 25 ? dhaka : rangpur)[i % 25]!;
       const female = i % 2 === 0;
       const byBirthReg = i % 10 === 9;
+      const name = demoName((female ? FEMALE : MALE)[i % 10]!);
+      const father = demoName(FATHERS[i % 5]!);
+      const village = `নমুনা গ্রাম ${(i % 12) + 1}`;
       await ctx.upsert('beneficiaries', {
         id: seedId(`beneficiary:${i + 1}`),
         nid: byBirthReg ? null : fakeNid(1000 + i),
         birth_reg: byBirthReg ? fakeBirthReg(i + 1) : null,
-        name: demoName((female ? FEMALE : MALE)[i % 10]!),
-        father_or_husband_name: demoName(FATHERS[i % 5]!),
+        name,
+        father_or_husband_name: father,
         mobile: fakeMobile(1000 + i),
         gender_code: female ? 'female' : 'male',
         age_years: 25 + ((i * 7) % 50),
@@ -416,7 +431,8 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         district_id: place.district,
         upazila_id: place.upazila,
         union_id: place.union,
-        village: `নমুনা গ্রাম ${(i % 12) + 1}`,
+        village,
+        ...nameKeys(name, father, village),
         members_14_plus: 1 + (i % 4),
         children_under_14: i % 3,
         daily_income: String(200 + (i % 6) * 50),
@@ -542,6 +558,7 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
           birth_reg: null,
           name: demoName(pair.name),
           father_or_husband_name: demoName(pair.father),
+          ...nameKeys(demoName(pair.name), demoName(pair.father), 'নমুনা গ্রাম 3'),
           mobile: fakeMobile(pair.mobile),
           gender_code: 'female',
           age_years: 40 + i,
@@ -581,11 +598,13 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         {
           low_id: low,
           high_id: high,
-          rules: ['name_father_mobile', 'same_mobile'],
+          // the same name, father's or husband's name, mobile and village: every rule but the birth date
+          rules: ['name_father_mobile', 'name_father_village', 'same_mobile'],
+          level: 'probable',
           active: true,
           computed_at: SEED_AT,
         },
-        { key: ['low_id', 'high_id'], insertOnly: ['rules', 'active', 'computed_at'] },
+        { key: ['low_id', 'high_id'], insertOnly: ['rules', 'level', 'active', 'computed_at'] },
       );
     }
   });

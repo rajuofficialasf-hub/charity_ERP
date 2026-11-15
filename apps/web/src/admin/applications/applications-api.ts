@@ -1,3 +1,4 @@
+import { answerValueSchema } from '@css/shared';
 import type { Answer } from '@css/shared/forms';
 import { api, ApiFailure } from '../../api/client';
 import type {
@@ -33,6 +34,7 @@ export type {
 const COMMENT_REASONS = [
   'against_score',
   'quota_full',
+  'same_person',
   'family_match',
 ] as const satisfies readonly CommentReason[];
 // the list holds every reason the API may name: one missing from it fails the typecheck
@@ -40,6 +42,17 @@ const everyReasonListed: Exclude<CommentReason, (typeof COMMENT_REASONS)[number]
   ? true
   : never = true;
 void everyReasonListed;
+
+/** The identity number an application's answers give, read from its answer, or null. */
+export function identityNumberOf(a: OfficeApplication): string | null {
+  const field = a.form.sections
+    .flatMap((s) => s.fields)
+    .find((f) => f.standardColumn === 'nid_or_birth_reg');
+  const answer = field ? a.answers.find((x) => x.fieldKey === field.fieldKey) : undefined;
+  const parsed = answer ? answerValueSchema.safeParse(answer.value) : undefined;
+  const value = parsed?.success && 'v' in parsed.data ? parsed.data.v : undefined;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
 
 /** The filters kept in the address; the division and the upazila only lead to the district and the union. */
 export const FILTER_KEYS = [

@@ -6,6 +6,13 @@ import type { JobRunner } from './job-runner.js';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup.js';
 import type { BeneficiaryMergeCandidatesService } from '../services/beneficiary-merge-candidates.js';
 import { DUPLICATES_CRON, DUPLICATES_QUEUE } from './duplicates.js';
+import {
+  NAME_KEYS_CRON,
+  NAME_KEYS_QUEUE,
+  NAME_KEYS_SINGLETON,
+  type NameKeysJob,
+  queueNameKeys,
+} from './name-keys.js';
 import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats.js';
 import { UPLOAD_SWEEP_CRON, type UploadSweep } from './upload-sweep.js';
 import { LOCAL_KEY_CLEANUP_CRON, type LocalKeyCleanup } from './local-key-cleanup.js';
@@ -47,6 +54,7 @@ export interface ConsumerServices {
   localKeyCleanup?: LocalKeyCleanup;
   storageStats?: StorageStats;
   mergeCandidates?: Pick<BeneficiaryMergeCandidatesService, 'refreshAll'>;
+  nameKeys?: Pick<NameKeysJob, 'run' | 'hasStale'>;
   fileProcessor?: FileProcessor;
   delivery?: NotificationDelivery;
   exportRunner?: Pick<ExportRunner, 'run'>;
@@ -133,6 +141,38 @@ export class JobConsumers {
     if (storageStats) {
       await this.jobs.work(STORAGE_STATS_QUEUE, () => storageStats.run());
       await this.jobs.schedule(STORAGE_STATS_QUEUE, STORAGE_STATS_CRON, {}, 'storage-stats');
+    }
+    // the stored name keys: nightly, after a change of the spelling variants, and once now when a
+    // profile or a family member has none or old ones (after the migration that added them)
+    const { nameKeys } = this.services;
+    if (nameKeys) {
+      await this.jobs.work(NAME_KEYS_QUEUE, () => nameKeys.run());
+      await this.jobs.schedule(
+        NAME_KEYS_QUEUE,
+        NAME_KEYS_CRON,
+        {},
+        'name-keys',
+        NAME_KEYS_SINGLETON,
+      );
+      // a check that fails or runs out of time cannot say the keys are current: the job is queued
+      // anyway and finds out itself (it writes nothing when nothing is stale)
+      let stale = true;
+      try {
+        stale = await nameKeys.hasStale();
+      } catch (error) {
+        this.logger.error(
+          { err: error },
+          'name keys: the check for missing or stale keys failed or ran out of time; the key job is queued anyway',
+        );
+      }
+      try {
+        if (stale) {
+          await queueNameKeys(this.jobs);
+          this.logger.info('name keys missing or stale: the key job is queued');
+        }
+      } catch (error) {
+        this.logger.error({ err: error }, 'name keys: the key job could not be queued');
+      }
     }
     // the nightly recomputation of the suggested duplicate beneficiaries
     const { mergeCandidates } = this.services;

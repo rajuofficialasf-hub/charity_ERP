@@ -282,6 +282,8 @@ export class BeneficiariesService {
       ...history,
       name: b.name,
       fatherOrHusbandName: b.fatherOrHusbandName,
+      // whether that name is the father's or the husband's, with the same class as the name
+      guardianRelationCode: b.guardianRelationCode,
       motherName: b.motherName,
       genderCode: b.genderCode,
       ageYears: b.ageYears,
@@ -305,11 +307,17 @@ export class BeneficiariesService {
       // told with the identity class, wherever the profile lives: it says a document is on
       // file, never its number
       hasDocument: b.nid !== null || b.birthReg !== null,
+      // the members of the household now: the list of the latest application that carried one
       familyMembers: b.beneficiaryFamilyMembersBeneficiary.map((m) => ({
         id: m.id,
         name: m.name,
         relationshipCode: m.relationshipCode,
+        relationship: m.relationship
+          ? { bn: m.relationship.labelBn, en: m.relationship.labelEn }
+          : null,
         ageYears: m.ageYears,
+        occupationCode: m.occupationCode,
+        monthlyIncome: m.monthlyIncome === null ? null : m.monthlyIncome.toNumber(),
       })),
       ...(seesNid ? { nid: b.nid ?? null, birthReg: b.birthReg ?? null } : {}),
       isBlocked: b.isBlocked,
@@ -388,7 +396,8 @@ export class BeneficiariesService {
    * - the merges, naming the other profile's id only where the caller's scope reaches it;
    * - the files, an NID photo only inside the NID scope;
    * - the actions, each true only where its permission and scope reach the person and the
-   *   person's state allows it (a live profile, blocked or not, a merge to revert).
+   *   person's state allows it (a live profile, blocked or not, a merge to revert, a profile
+   *   without a document for a caller who sees identity numbers).
    */
   private async history(
     tx: Tx,
@@ -419,7 +428,7 @@ export class BeneficiariesService {
     const text = (value: unknown) => (value === null || value === undefined ? null : String(value));
     const state = await tx.beneficiary.findUniqueOrThrow({
       where: { id },
-      select: { isBlocked: true, mergedIntoId: true },
+      select: { isBlocked: true, mergedIntoId: true, nid: true, birthReg: true },
     });
     const contactLog =
       sees(CONTACT) || sees(ADDRESS)
@@ -525,6 +534,13 @@ export class BeneficiariesService {
         requestCorrection: allowed.requestCorrection && live,
         decideCorrection:
           allowed.decideCorrection && live && corrections.some((c) => c.status === 'submitted'),
+        // the one who may approve a correction adds the document a profile lacks, seeing numbers
+        addIdentity:
+          allowed.decideCorrection &&
+          live &&
+          seesNid &&
+          state.nid === null &&
+          state.birthReg === null,
         proposeMerge: allowed.proposeMerge && live,
         merge: allowed.merge && live,
         revertMerge: allowed.revertMerge && revertible,
@@ -604,6 +620,7 @@ export class BeneficiariesService {
         birthReg: true,
         name: true,
         fatherOrHusbandName: true,
+        guardianRelationCode: true,
         motherName: true,
         genderCode: true,
         ageYears: true,
@@ -624,11 +641,22 @@ export class BeneficiariesService {
         mobileOwnerCode: true,
         mobileOwnerName: true,
         isBlocked: true,
+        // the household's members, with the contact class (their income among them): every
+        // active member, never a cut list; the active rows are one application's family group,
+        // whose rows the form engine caps
         beneficiaryFamilyMembersBeneficiary: {
           where: { active: true },
-          ...latest,
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           ...(sees(CONTACT) ? {} : none),
-          select: { id: true, name: true, relationshipCode: true, ageYears: true },
+          select: {
+            id: true,
+            name: true,
+            relationshipCode: true,
+            relationship: { select: { labelBn: true, labelEn: true } },
+            ageYears: true,
+            occupationCode: true,
+            monthlyIncome: true,
+          },
         },
         classAttendanceBeneficiary: {
           ...latest,

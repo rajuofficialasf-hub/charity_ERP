@@ -88,6 +88,8 @@ export const applicationSchema = applicationSummarySchema.extend({
   /** The profile an entry is compared with at its verification, where the reader may know it. */
   candidateBeneficiaryId: z.uuid().nullable().optional(),
   identityKind: z.enum(['nid', 'birth_reg', 'none']).nullable(),
+  /** Whether the father's or husband's name is the father's or the husband's; absent outside the office. */
+  guardianRelationCode: z.string().nullable().optional(),
   rejectionMessage: z.string().nullable(),
   answers: z.array(answerSchema),
   reviewedAt: dateTime.nullable(),

@@ -67,6 +67,7 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 6. One serializer mask driven by the `sensitive_fields` catalogue protects JSON responses, CSV, XLSX and PDF alike; sensitive exports are audited with filter and row count.
 7. Jobs and sync processing re-check the originating user's permission and scope.
 8. The permission panel is limited to `permission.panel.manage`; every grant and revoke needs a reason and is audited; revoke beats grant; volunteers can never receive sensitive permissions.
+9. A locked identity field changes only through two officials, one who requests the correction and another who decides it. The one identity write a single official makes is adding the NID or birth registration number to a profile that has none (BR-308): the official compares the two first (the profile and, on the review page, the application that carries the number), the write needs both `beneficiary.correction.approve` and `beneficiary.view_nid` reaching the profile (anyone else gets the 404 of a profile out of scope, before any number is looked up), and it is audited as `beneficiary.identity_added` with the application it came from. A number another profile holds is refused; the refusal names that profile only when the caller's NID scope reaches both it and the live profile it was merged into.
 
 ## 6. Input validation and output encoding
 
@@ -139,7 +140,7 @@ Every entry stores the actor, the originating user for jobs and sync, the actor'
 | Constitution §13 event | Action codes |
 |---|---|
 | Permission and role changes | `permission_change`, `permission_change_refused` (refused panel and project-grant changes, including any change aimed at the Main Admin; T1.8), `auth.state_changed`, `auth.system_owner_transferred` |
-| Approvals and rejections | `application.approve`, `application.reject`, `application.waitlisted`, `auth.approved`, `auth.rejected`, `beneficiary.correction_decided`, `auth.edit_request_decided` |
+| Approvals and rejections | `application.approve`, `application.reject`, `application.waitlisted`, `auth.approved`, `auth.rejected`, `beneficiary.correction_decided`, `beneficiary.identity_added` (an identity document added by an official to a profile without one, the number masked to its last four digits, with the application it came from), `auth.edit_request_decided` |
 | Field unlock | `field.unlock`, `field.updated`, `field.relocked` |
 | Blocklist | `blocklist.set`, `blocklist.lift` |
 | Transfer | `application.transfer` |

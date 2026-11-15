@@ -146,6 +146,35 @@ describe('the field settings', () => {
     expect(screen.queryByRole('textbox', { name: /অপশন 1/ })).not.toBeInTheDocument();
   });
 
+  it('shows the question whether the name is the father’s or the husband’s its list’s options to read, with no way to edit them', async () => {
+    open(
+      definition(
+        section('extra', [
+          field('q_relation', 'single_select', {
+            label: T(
+              'এটি পিতার নাম নাকি স্বামীর নাম?',
+              "Is this the father's or the husband's name?",
+            ),
+            standardColumn: 'guardian_relation_code',
+            options: [
+              option('father', { label: T('পিতা', 'Father') }),
+              option('husband', { label: T('স্বামী', 'Husband') }),
+            ],
+          }),
+        ]),
+      ),
+      { section: 'extra', field: 'q_relation' },
+    );
+    expect(
+      await screen.findByText(
+        'এই প্রশ্নের বিকল্প সিস্টেমের তালিকা থেকে আসে, তাই এখানে বদলানো যায় না। খসড়া সংরক্ষণ হলে তালিকার বিকল্প নিজে থেকে বসে যায়।',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('পিতা, স্বামী')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'অপশন যোগ করুন' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /অপশন 1/ })).not.toBeInTheDocument();
+  });
+
   it('gives a new option a code no removed option had', async () => {
     const user = userEvent.setup();
     open(

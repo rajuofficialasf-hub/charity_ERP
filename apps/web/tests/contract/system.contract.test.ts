@@ -7,6 +7,7 @@ import {
   channelsSchema,
   deliveryPageSchema,
   handoverViewSchema,
+  nameVariantGroupSchema,
   nisabVersionViewSchema,
   notificationTemplateSchema,
   panelUserSchema,
@@ -23,12 +24,13 @@ import { at, call, contractBase, signIn } from './support/session';
 import { day, draftProject, HEAD, must, PM_HUM, RPM_DHAKA, savar, unread } from './support/world';
 
 // The system administration of the admin area, as the Department Head runs it: the settings and
-// the public settings, an editable reference list, the nisab versions, the audit log, the active
-// sessions, the system health, the message channels, the notification texts and the deliveries.
-// The settings, the SMS setting and the notification text are saved as they were read, so the
-// configuration stays as found; some rows stay behind: the reference-list entries the cases add
-// (one switched off), the nisab version added and withdrawn, the notification text's next version,
-// and the people, the project and the handover the cases make.
+// the public settings, an editable reference list, the spelling variants of names, the nisab
+// versions, the audit log, the active sessions, the system health, the message channels, the
+// notification texts and the deliveries. The settings, the SMS setting and the notification text
+// are saved as they were read, so the configuration stays as found; some rows stay behind: the
+// reference-list entries the cases add (one switched off), the group of name spellings the case
+// adds (switched off), the nisab version added and withdrawn, the notification text's next
+// version, and the people, the project and the handover the cases make.
 const REASON = 'চুক্তি পরীক্ষার কারণ';
 /** An editable list the case adds an entry of its own to. */
 const LIST = 'expense_category_default';
@@ -84,6 +86,40 @@ describe.skipIf(!contractBase())('the system administration', () => {
       await call(caller, 'PATCH', at`/reference-lists/${LIST}/items/${code}`, { active: false }),
       200,
       referenceItemSchema,
+    );
+    expect(off.active).toBe(false);
+  });
+
+  it('adds a group of name spellings, reads the groups and switches the group off', async () => {
+    const caller = await head();
+    // a spelling is one word of letters: the case's own, from a random id's letters
+    const letters = randomUUID().replace(/[^a-f]/g, '');
+    const canonical = `Contract${letters}`;
+    const added = expectContract(
+      await call(caller, 'POST', '/name-variants', {
+        canonical,
+        variants: [`Kontract${letters}`],
+      }),
+      201,
+      nameVariantGroupSchema,
+    );
+    expect(added).toMatchObject({ canonical, active: true });
+    const groups = expectContract(
+      await call(caller, 'GET', '/name-variants'),
+      200,
+      z.array(nameVariantGroupSchema),
+    );
+    expect(groups.map((g) => g.id)).toContain(added.id);
+    const off = expectContract(
+      await call(
+        caller,
+        'PATCH',
+        `/name-variants/${added.id}`,
+        { active: false },
+        { 'If-Match': added.etag },
+      ),
+      200,
+      nameVariantGroupSchema,
     );
     expect(off.active).toBe(false);
   });

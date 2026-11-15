@@ -18,8 +18,8 @@ import { NOT_COUNTED_STATES } from '../applications/limit.js';
 import {
   againstScore,
   type CommentReason,
-  familyMatch,
   quotaFull,
+  repeatReasons,
 } from '../applications/decision-rules.js';
 
 /** The application a transition is about, with what the guards read of its project. */
@@ -149,10 +149,11 @@ export class GuardContext {
 
 /**
  * What a guard answers: the move may go on (`true`), is refused (`false`), or may go on only with
- * a comment that says why (a decision against the score order, an approval in a full quota or of a
- * person with a family match).
+ * a comment that says why, for each reason the guard found (a decision against the score order, an
+ * approval in a full quota, of a person who appears again in the project under another profile or
+ * of someone of the same family).
  */
-export type GuardResult = boolean | { comment: CommentReason };
+export type GuardResult = boolean | { comment: readonly CommentReason[] };
 export type Guard = (ctx: GuardContext) => Promise<GuardResult>;
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
@@ -256,17 +257,22 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
   },
   // a decision against the score order inside the quota area asks for a comment; it is never refused
   'score.comment_if_against_order': async (ctx) =>
-    (await againstScore(ctx.tx, ctx.application.id, ctx.to)) ? { comment: 'against_score' } : true,
+    (await againstScore(ctx.tx, ctx.application.id, ctx.to))
+      ? { comment: ['against_score'] }
+      : true,
   // an approval in a full quota area asks for a comment; a quota never refuses a decision
   'quota.comment_if_full': async (ctx) =>
     ctx.to === 'approved' && (await quotaFull(ctx.tx, ctx.application.id))
-      ? { comment: 'quota_full' }
+      ? { comment: ['quota_full'] }
       : true,
-  // an approval of a person with a family match in the project asks for a comment; it never refuses
-  'family.comment_if_match': async (ctx) =>
-    ctx.to === 'approved' && (await familyMatch(ctx.tx, ctx.application.id))
-      ? { comment: 'family_match' }
-      : true,
+  // an approval of a person who appears again in the project, as probably the same person under
+  // another profile or as someone of the same family, asks for a comment where the project holds
+  // that repeat; it never refuses (docs/architecture/WORKFLOW_ENGINE.md, the guard catalogue)
+  'family.comment_if_match': async (ctx) => {
+    if (ctx.to !== 'approved') return true;
+    const reasons = await repeatReasons(ctx.tx, ctx.application.id);
+    return reasons.length ? { comment: reasons } : true;
+  },
   'zakat.eligible_if_zakat_fund': async (ctx) => {
     const zakat = await ctx.tx.fundSource.count({
       where: { projectId: ctx.application.projectId, source: 'zakat' },

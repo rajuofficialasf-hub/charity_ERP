@@ -1,16 +1,25 @@
 import { uuidv7 } from '@css/shared';
-import type { CorrectionRequestCreate, LockedField } from '@css/shared/beneficiaries';
+import type { CorrectionRequestCreate, IdentityAdd, LockedField } from '@css/shared/beneficiaries';
 import type { DecisionRequest } from '@css/shared/registration';
 import type { AccessService } from '../access/service.js';
 import { beneficiaryWhere, type Scope } from '../access/scope.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
 import { isUniqueViolation } from '../core/db-errors.js';
+import { assertIfMatch } from '../core/etag.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiaryIdentityService } from './beneficiary-identity.js';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates.js';
+import type { MatchKeysService } from './match-keys.js';
+
+/**
+ * An identity number as the audit keeps it: the last four digits, the rest hidden, so the entry
+ * tells which number was added without being a copy of it.
+ */
+export const maskedNumber = (number: string) =>
+  `${'•'.repeat(Math.max(0, number.length - 4))}${number.slice(-4)}`;
 
 /** The column of each locked field. */
 const COLUMN = {
@@ -48,6 +57,7 @@ export class BeneficiaryCorrectionsService {
     private readonly audit: AuditWriter,
     private readonly identity: BeneficiaryIdentityService,
     private readonly candidates: BeneficiaryMergeCandidatesService,
+    private readonly matchKeys: MatchKeysService,
   ) {}
 
   private async live(tx: Tx, actor: Principal, scope: Scope, beneficiaryId: string) {
@@ -60,6 +70,15 @@ export class BeneficiaryCorrectionsService {
       throw new ApiError('permission.not_found', 404);
     }
     return b;
+  }
+
+  /** The name keys of a profile once one of its names reads `value`. */
+  private async keysWith(tx: Tx, id: string, column: string, value: string) {
+    const person = await tx.beneficiary.findUniqueOrThrow({
+      where: { id },
+      select: { name: true, fatherOrHusbandName: true, village: true },
+    });
+    return this.matchKeys.ofProfile(tx, { ...person, [column]: value });
   }
 
   /**
@@ -168,10 +187,15 @@ export class BeneficiaryCorrectionsService {
           found.newValue,
           'approval',
         );
+        // a corrected name gives the profile new name keys, stored with it
+        const named = field === 'name' || field === 'father_or_husband_name';
+        const keys = named
+          ? await this.keysWith(tx, found.beneficiaryId, column, found.newValue)
+          : {};
         try {
           await tx.beneficiary.update({
             where: { id: found.beneficiaryId },
-            data: { [column]: found.newValue, updatedBy: actor.userId },
+            data: { [column]: found.newValue, ...keys, updatedBy: actor.userId },
           });
         } catch (error) {
           // another profile took the number in between
@@ -179,8 +203,7 @@ export class BeneficiaryCorrectionsService {
           throw error;
         }
         // a corrected name changes which profiles look like the same person
-        if (field === 'name' || field === 'father_or_husband_name')
-          await this.candidates.refreshFor(tx, [found.beneficiaryId]);
+        if (named) await this.candidates.refreshFor(tx, [found.beneficiaryId]);
         await tx.fieldChange.create({
           data: {
             id: uuidv7(),
@@ -220,6 +243,102 @@ export class BeneficiaryCorrectionsService {
         reason: body.reason ?? null,
       });
       return this.view(tx, actor, row);
+    });
+  }
+
+  /**
+   * An official adds an identity document to a profile that has none, after comparing the two
+   * (docs/BUSINESS_RULES.md, "Beneficiary identity and master"): the profile becomes a full one
+   * and keeps its history. Only an official whose `beneficiary.view_nid` scope reaches the profile
+   * writes a number onto it; anyone else gets the answer of a profile out of scope, before any
+   * number is looked up. A profile that has a document is refused (that is a correction); a number
+   * another profile holds is refused with the duplicate error, which names that profile only to a
+   * caller who may see its number, so the official can compare and merge the two. The application
+   * the number came from, when named, must be one of this person's. Every application of the person
+   * bound without a document is bound by the document from then on, as one bound at its send would
+   * be. The audit keeps the number masked, the actor, the application and how many applications
+   * were bound; the change log keeps it as a correction does.
+   */
+  async addIdentity(
+    actor: Principal,
+    scope: Scope,
+    beneficiaryId: string,
+    body: IdentityAdd,
+    ifMatch: string | undefined,
+  ): Promise<{ beneficiaryId: string; kind: IdentityAdd['kind']; updatedAt: Date }> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM beneficiaries WHERE id = ${beneficiaryId}::uuid FOR UPDATE`;
+      await this.live(tx, actor, scope, beneficiaryId);
+      // the number is written only by one who would see it on the profile afterwards
+      if (!(await this.identity.seesHolder(tx, actor, beneficiaryId))) {
+        this.access.denied(actor.userId, 'beneficiary.view_nid', 'beneficiary');
+        throw new ApiError('permission.not_found', 404);
+      }
+      const before = await tx.beneficiary.findUniqueOrThrow({
+        where: { id: beneficiaryId },
+        select: { nid: true, birthReg: true, updatedAt: true },
+      });
+      assertIfMatch(ifMatch, before.updatedAt);
+      if (before.nid !== null || before.birthReg !== null)
+        throw new ApiError('beneficiary.document_present', 409);
+      if (
+        body.applicationId &&
+        !(await tx.application.count({
+          where: { id: body.applicationId, beneficiaryId, status: { not: 'deleted' } },
+        }))
+      )
+        throw new ApiError('validation.failed', 422, undefined, [
+          { path: 'applicationId', code: 'validation.failed' },
+        ]);
+      const column = COLUMN[body.kind];
+      const holder = await tx.beneficiary.findFirst({
+        where: { [column]: body.number, id: { not: beneficiaryId } },
+        select: { id: true },
+      });
+      if (holder)
+        throw await this.identity.identityTaken(tx, actor, holder.id, 'number', { withId: true });
+      let after: { updatedAt: Date };
+      try {
+        after = await tx.beneficiary.update({
+          where: { id: beneficiaryId },
+          data: { [column]: body.number, updatedBy: actor.userId },
+          select: { updatedAt: true },
+        });
+      } catch (error) {
+        // another profile took the number in between
+        if (isUniqueViolation(error)) throw new ApiError('beneficiary.identity_taken', 409);
+        throw error;
+      }
+      // the person's applications follow the profile: none of them is "without a document" now
+      const bound = await tx.application.updateMany({
+        where: { beneficiaryId, identityKind: 'none', status: { not: 'deleted' } },
+        data: { identityKind: body.kind, updatedBy: actor.userId },
+      });
+      await tx.fieldChange.create({
+        data: {
+          id: uuidv7(),
+          entityType: 'beneficiary',
+          entityId: beneficiaryId,
+          field: body.kind,
+          newValue: body.number,
+          kind: 'correction',
+          requestedBy: actor.userId,
+          approvedBy: actor.userId,
+          createdBy: actor.userId,
+        },
+      });
+      await this.audit.record(tx, {
+        action: 'beneficiary.identity_added',
+        entityType: 'beneficiary',
+        entityId: beneficiaryId,
+        old: { [column]: null },
+        new: {
+          [column]: maskedNumber(body.number),
+          applicationId: body.applicationId ?? null,
+          applicationsBound: bound.count,
+        },
+      });
+      return { beneficiaryId, kind: body.kind, updatedAt: after.updatedAt };
     });
   }
 

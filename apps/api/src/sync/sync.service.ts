@@ -45,6 +45,14 @@ const clientAnswersOf = (answers: unknown[]): Prisma.InputJsonValue => {
 };
 
 const answersPayload = z.strictObject({ answers: z.array(z.unknown()).max(2000) });
+/**
+ * A new draft: its answers, and how its person was found without a document: the token of a person
+ * picked from the name lookup, or the mark that the lookup was left out for want of network.
+ */
+const draftPayload = answersPayload.extend({
+  pickToken: z.string().min(1).max(512).optional(),
+  nameLookupSkipped: z.literal(true).optional(),
+});
 const emptyPayload = z.strictObject({});
 const fillPayload = z.strictObject({
   unlockId: z.uuid(),
@@ -238,7 +246,7 @@ export class SyncService {
     record: SyncRecord,
     offsetMs: number,
   ): Promise<ApplicationRead> {
-    const payload = parsed(answersPayload, record.payload);
+    const payload = parsed(draftPayload, record.payload);
     const { answers, pending } = splitPendingPhotos(payload.answers);
     await this.assertPhotoSlots(pending, record.formVersionId);
     // the device time moved onto the server's clock, so the deadline is judged fairly
@@ -251,6 +259,8 @@ export class SyncService {
         clientCreatedAt: createdAt.toISOString(),
         projectId: record.projectId,
         formVersionId: record.formVersionId,
+        ...(payload.pickToken ? { pickToken: payload.pickToken } : {}),
+        ...(payload.nameLookupSkipped ? { nameLookupSkipped: true as const } : {}),
         answers,
       },
       { pendingPhotos: pending, sync: { createdAt } },

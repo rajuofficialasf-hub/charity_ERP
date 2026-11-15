@@ -56,11 +56,16 @@ import { VolunteerListService } from './services/volunteer-list.js';
 import { VolunteerProfileService } from './services/volunteer-profile.js';
 import { BeneficiariesService } from './services/beneficiaries.js';
 import { BeneficiaryIdentityService } from './services/beneficiary-identity.js';
+import { BeneficiaryMatchService } from './services/beneficiary-match.js';
 import { BeneficiaryContactService } from './services/beneficiary-contact.js';
 import { BeneficiaryCorrectionsService } from './services/beneficiary-corrections.js';
 import { BeneficiaryFamilyService } from './services/beneficiary-family.js';
+import { PersonSignals } from './applications/person-signals.js';
+import { BeneficiaryFamilyMembersService } from './services/beneficiary-family-members.js';
 import { BeneficiaryMergeCandidatesService } from './services/beneficiary-merge-candidates.js';
 import { BeneficiaryMergesService } from './services/beneficiary-merges.js';
+import { MatchKeysService } from './services/match-keys.js';
+import { NameKeysJob } from './jobs/name-keys.js';
 import { NotificationDelivery } from './notifications/delivery.js';
 import { NotificationService } from './notifications/service.js';
 import { RecipientResolver } from './notifications/recipients.js';
@@ -78,6 +83,7 @@ import { MediaHomeService } from './services/media-home.js';
 import { WaitlistService } from './applications/waitlist.js';
 import { ProgramsService } from './services/programs.js';
 import { ReferenceListsService } from './services/reference-lists.js';
+import { NameVariantsService } from './services/name-variants.js';
 import { SessionMonitorService } from './services/session-monitor.js';
 import { SettingsService } from './services/settings.js';
 import { SystemHealthService } from './services/system-health.js';
@@ -167,14 +173,18 @@ export interface Container {
   volunteerProfile: VolunteerProfileService;
   beneficiaries: BeneficiariesService;
   beneficiaryIdentity: BeneficiaryIdentityService;
+  beneficiaryMatch: BeneficiaryMatchService;
   beneficiaryContact: BeneficiaryContactService;
   beneficiaryCorrections: BeneficiaryCorrectionsService;
   beneficiaryFamily: BeneficiaryFamilyService;
   beneficiaryMergeCandidates: BeneficiaryMergeCandidatesService;
   beneficiaryMerges: BeneficiaryMergesService;
+  matchKeys: MatchKeysService;
+  nameKeys: NameKeysJob;
   programs: ProgramsService;
   settings: SettingsService;
   referenceLists: ReferenceListsService;
+  nameVariants: NameVariantsService;
   formLibrary: FormLibraryService;
   forms: FormsService;
   workflow: WorkflowEngine;
@@ -328,9 +338,21 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     o.beneficiaryMergeCandidates ??
     new BeneficiaryMergeCandidatesService(env, prisma, access, audit);
   const beneficiaryFamily = o.beneficiaryFamily ?? new BeneficiaryFamilyService();
+  // the stored name keys of every write of a name or a village, and the job that repairs them
+  const matchKeys = o.matchKeys ?? new MatchKeysService();
   const beneficiaryIdentity =
     o.beneficiaryIdentity ??
-    new BeneficiaryIdentityService(prisma, access, audit, clock, beneficiaryMergeCandidates);
+    new BeneficiaryIdentityService(
+      prisma,
+      access,
+      audit,
+      clock,
+      beneficiaryMergeCandidates,
+      matchKeys,
+    );
+  const beneficiaryMatch =
+    o.beneficiaryMatch ??
+    new BeneficiaryMatchService(env, prisma, access, audit, clock, settings, matchKeys);
   const beneficiaryContact =
     o.beneficiaryContact ??
     new BeneficiaryContactService(
@@ -339,6 +361,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       audit,
       beneficiaryIdentity,
       beneficiaryMergeCandidates,
+      matchKeys,
     );
   // the field unlock of approved applications; the record lists its waiting steps
   const unlocks =
@@ -367,10 +390,18 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       beneficiaryFamily,
       nisab,
       workflow,
-      new SubmissionWriter(access, beneficiaryIdentity, beneficiaryContact, audit),
+      new SubmissionWriter(
+        access,
+        beneficiaryIdentity,
+        beneficiaryContact,
+        audit,
+        new BeneficiaryFamilyMembersService(audit, matchKeys),
+      ),
       scoring,
       unlocks,
       mediaReferrals,
+      new PersonSignals(access, beneficiaryFamily, beneficiaryMergeCandidates),
+      beneficiaryMatch,
     );
   const built = {
     env,
@@ -462,12 +493,20 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     beneficiaries:
       o.beneficiaries ?? new BeneficiariesService(env, prisma, clock, access, beneficiaryIdentity),
     beneficiaryIdentity,
+    beneficiaryMatch,
     beneficiaryContact,
     beneficiaryFamily,
     beneficiaryMergeCandidates,
     beneficiaryMerges:
       o.beneficiaryMerges ??
-      new BeneficiaryMergesService(prisma, access, audit, clock, beneficiaryMergeCandidates),
+      new BeneficiaryMergesService(
+        prisma,
+        access,
+        audit,
+        clock,
+        beneficiaryMergeCandidates,
+        matchKeys,
+      ),
     beneficiaryCorrections:
       o.beneficiaryCorrections ??
       new BeneficiaryCorrectionsService(
@@ -476,10 +515,14 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         audit,
         beneficiaryIdentity,
         beneficiaryMergeCandidates,
+        matchKeys,
       ),
+    matchKeys,
+    nameKeys: o.nameKeys ?? new NameKeysJob(prisma, matchKeys, logger, { jobs }),
     programs: o.programs ?? new ProgramsService(prisma, audit),
     settings,
     referenceLists,
+    nameVariants: o.nameVariants ?? new NameVariantsService(prisma, audit, jobs),
     formLibrary,
     forms,
     workflow,

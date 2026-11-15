@@ -110,6 +110,21 @@ export const updateContact = (id: string, etag: string, body: ContactChange) =>
     headers: { 'If-Match': etag },
   });
 
+/** The kinds of identity document a profile holds. */
+export type IdentityKind = 'nid' | 'birth_reg';
+
+/** POST the identity document a profile lacks, with the profile's version read before. */
+export const addIdentity = (
+  id: string,
+  etag: string,
+  body: { kind: IdentityKind; number: string; applicationId?: string },
+) =>
+  api<{ beneficiaryId: string; kind: IdentityKind }>(`/beneficiaries/${id}/identity`, {
+    method: 'POST',
+    body,
+    headers: { 'If-Match': etag },
+  });
+
 export const requestCorrection = (
   id: string,
   body: { field: LockedField; newValue: string; reason: string },

@@ -34,6 +34,17 @@ export interface GeneralSettings {
   'monitoring.thresholds': z.infer<typeof thresholdsEntrySchema>;
 }
 
+/** A group of spelling variants of names: the spelling the keys use and the others. */
+export const nameVariantGroupSchema = z.object({
+  id: z.string(),
+  canonical: z.string(),
+  variants: z.array(z.string()),
+  active: z.boolean(),
+  /** The group's version, sent back in If-Match by its change. */
+  etag: z.string(),
+});
+export type NameVariantGroupView = z.infer<typeof nameVariantGroupSchema>;
+
 /** An item of an editable reference list (the same shape as the media lists). */
 export type ReferenceItem = z.infer<typeof referenceItemSchema>;
 

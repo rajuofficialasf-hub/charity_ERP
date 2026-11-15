@@ -33,6 +33,7 @@ import {
   askedComments,
   changeLog,
   type CommentReason,
+  identityNumberOf,
   type OfficeAction,
   officeAct,
   officeApplication,
@@ -40,6 +41,8 @@ import {
   openUnlock,
   saveAnswers,
 } from './applications-api';
+import { BENEFICIARIES_KEY } from '../beneficiaries/beneficiaries-api';
+import { IdentityDialog } from '../beneficiaries/IdentityDialog';
 import { ChangeLog } from './ChangeLog';
 import { MediaBadge } from './MediaBadge';
 import { ReferralDialog } from './ReferralDialog';
@@ -94,6 +97,7 @@ function Review() {
   const t = useTranslations('applications.office');
   const tu = useTranslations('applications.unlock');
   const tm = useTranslations('media');
+  const ti = useTranslations('applications.office.identity');
   const [opening, setOpening] = useState<FormField | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [referring, setReferring] = useState(false);
@@ -104,6 +108,7 @@ function Review() {
   const navigate = useNavigate();
   const [asking, setAsking] = useState<Asking | null>(null);
   const [editing, setEditing] = useState(false);
+  const [addingIdentity, setAddingIdentity] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const one = useQuery({
     queryKey: applicationKey(applicationId),
@@ -321,6 +326,34 @@ function Review() {
         />
       </Card>
       <Signals application={a} />
+      {a.mayAddIdentity && a.beneficiaryId ? (
+        <Alert
+          tone="info"
+          action={
+            <Button variant="secondary" size="small" onClick={() => setAddingIdentity(true)}>
+              {ti('add')}
+            </Button>
+          }
+        >
+          {ti('missing')}
+        </Alert>
+      ) : null}
+      {addingIdentity && a.beneficiaryId ? (
+        <IdentityDialog
+          beneficiaryId={a.beneficiaryId}
+          number={identityNumberOf(a) ?? ''}
+          applicationId={a.id}
+          onClose={() => setAddingIdentity(false)}
+          onDone={async () => {
+            setAddingIdentity(false);
+            setNotice({ tone: 'success', text: ti('added') });
+            await Promise.all([
+              refresh(),
+              queryClient.invalidateQueries({ queryKey: BENEFICIARIES_KEY }),
+            ]);
+          }}
+        />
+      ) : null}
       {a.unlocks?.length ? (
         <UnlockReview
           form={a.form}
@@ -353,6 +386,7 @@ function Review() {
             answers={a.answers}
             action={unlockAction}
             throughVolunteer={a.hasMobile === false}
+            guardianRelation={a.guardianRelationCode}
           />
         )}
       </Card>

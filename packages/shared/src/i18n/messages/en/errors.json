@@ -29,6 +29,13 @@
     "grant_refused": "This permission change is not allowed."
   },
   "validation": {
+    "name_variant_one_word": "Write one word, without a space.",
+    "name_variant_letters": "Use Bangla or English letters only.",
+    "name_variant_no_letter": "Marks alone are no spelling; write at least one letter.",
+    "name_variant_title": "This is a title (such as Md. or Begum); titles cannot be spelling variants.",
+    "name_variant_repeated": "This spelling is already in this group.",
+    "name_variant_taken": "This spelling is already in another group.",
+    "name_variant_chain": "This spelling ties into another group: one group's main spelling cannot be in another group.",
     "failed": "Some information is not valid.",
     "unknown_parameter": "The request has an unknown parameter.",
     "malformed": "The request could not be read.",
@@ -71,6 +78,7 @@
     "already_applied": "This beneficiary already has an application in this project.",
     "locked_field": "This information can be changed only through a correction request.",
     "identity_taken": "Another profile already has this number. If it is the same person, propose a merge.",
+    "document_present": "This profile already has an identity number. To change it, request a correction.",
     "correction_own": "Another official must decide on your own correction request.",
     "correction_pending": "A correction request for this field is already waiting for a decision.",
     "correction_stale": "The value changed after the request was made. Make a new request.",
@@ -80,6 +88,10 @@
     "mobile_shared": "This mobile number is also on another beneficiary profile.",
     "dismissed": "This pair is already marked as two different people.",
     "lookup_outside_limit": "Today's limit for finding profiles of other regions is used up. Try again tomorrow, or ask your RPM.",
+    "pick_invalid": "This choice no longer works: it belongs to another project or person, or the profile is gone. Search by name again.",
+    "match_limit": "Today's limit for searching by name is used up. Try again tomorrow, or start as a new person.",
+    "match_not_open": "This project needs an identity document, so people cannot be searched or chosen by name. Search by the NID or birth registration number.",
+    "pick_number_conflict": "This number belongs to another beneficiary. Correct the number, or leave it empty.",
     "merge_keep_document": "Keep the profile that has the identity document.",
     "merge_needs_global": "Applications of another program are involved, so the Monitoring Team or the Department Head carries out this merge."
   },

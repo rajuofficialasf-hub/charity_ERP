@@ -77,7 +77,7 @@ Error:
 
 Messages come from the Bengali or English catalogue; digits are always 0–9 in both languages (UX-05).
 
-- `params` appears only for the codes whose parameters section 8 documents (`permission.grant_refused` with `rule`; in a detail, `beneficiary.identity_taken` with `benNo` when the caller may see the holder, and `beneficiary.merge_conflict` with `projectId` and `applicationId`, or `ref`; `application.answer_not_in_list` with `question`, the label of the question in the request language, also in a sync row result, D-168; `form.label_language` with the text of a form that lacks a language, D-171); other codes keep their parameters inside the rendered message.
+- `params` appears only for the codes whose parameters section 8 documents (`permission.grant_refused` with `rule`; in a detail, `beneficiary.identity_taken` with `benNo` when the caller may see the holder, and on the addition of a document to a profile without one also `beneficiaryId`, the live profile behind the holder, for the comparison of the two, and `beneficiary.merge_conflict` with `projectId` and `applicationId`, or `ref`; `application.answer_not_in_list` with `question`, the label of the question in the request language, also in a sync row result, D-168; `form.label_language` with the text of a form that lacks a language, D-171); other codes keep their parameters inside the rendered message.
 - `requestId` is returned in every response and in the `X-Request-Id` header; it is the correlation key in logs (SYSTEM_ARCHITECTURE §10).
 - Timestamps are ISO 8601 UTC with `Z`; dates are `YYYY-MM-DD`; money is a decimal **string** (`"1000.00"`) in BDT; counts are integers; booleans are booleans; all digits are 0–9 (UX-05).
 - Fields the caller may not see are **absent**, not null (field-level protection by removal, RBAC.md §8).
@@ -207,12 +207,17 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | business | beneficiary.blocked | 422 | blocked beneficiary cannot apply (BR-010) |
 | business | beneficiary.already_applied | 409 | one application per beneficiary per project (BR-016) |
 | business | beneficiary.locked_field | 422 | locked field changes only through a correction request (BR-006) |
+| business | beneficiary.pick_invalid | 422 | a pick token of the name lookup that is forged, altered, another caller's or another project's, or names a profile that no longer exists; an expired token is not refused but sends the application to the office's verification (BR-303) |
+| business | beneficiary.match_not_open | 422 | the name lookup, or an application with a pick token, on a project that requires the identity document (BR-303) |
+| business | beneficiary.document_present | 409 | an identity document added to a profile that already has one; a change of the number is a correction request (BR-308) |
+| business | beneficiary.pick_number_conflict | 409 | an identity number typed beside a person picked by name (or bound without a document) that another live profile holds (BR-303) |
+| business | beneficiary.match_limit | 429 | the day's number of name lookups (setting `lookup.match_daily_limit`) is used up until the next day in Bangladesh (BR-303) |
 | business | payment.transaction_id_exists | 409 | unique transaction id (BR-134) |
 | business | payment.claim_already_paid | 409 | one payment per claim |
 | business | animal.already_allocated | 409 | allocated animal (BR-145) |
 | workflow | workflow.transition_not_allowed | 409 | no transition from the current state with this action |
 | workflow | workflow.guard.<guard_name> | 409 | a named guard failed; `<guard_name>` is any guard of WORKFLOW_ENGINE §6 with dots replaced by underscores, e.g. `workflow.guard.deadline_open`, `workflow.guard.limit_not_exceeded`, `workflow.guard.photos_required_per_rule`, `workflow.guard.photos_not_pending_sync`, `workflow.guard.stock_balanced`, `workflow.guard.exam_passed`, `workflow.guard.vouchers_verified`, `workflow.guard.project_not_closed`, `workflow.guard.score_comment_if_against_order` |
-| workflow | workflow.reason_required, workflow.comment_required | 422 | transition needs a reason or a comment against the score order |
+| workflow | workflow.reason_required, workflow.comment_required | 422 | transition needs a reason, or a comment against the score order, into a full quota, or for a repeat of the same person or family the project holds (the details name each reason) |
 | conflict | conflict.stale_version | 412 | `If-Match` mismatch |
 | conflict | conflict.locked_on_server | 409 | locked or approved data; server wins (OFFLINE_SYNC §6) |
 | sync | sync.batch_too_large | 413 | more than 50 records or over the payload limit (O-29) |

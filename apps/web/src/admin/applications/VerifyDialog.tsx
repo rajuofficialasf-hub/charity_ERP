@@ -1,4 +1,3 @@
-import { answerValueSchema } from '@css/shared';
 import { formatBenNo } from '@css/shared/beneficiaries';
 import { identityColumn } from '@css/shared/forms';
 import {
@@ -21,23 +20,12 @@ import { ApiFailure } from '../../api/client';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { lookupBeneficiary } from '../beneficiaries/beneficiaries-api';
 import { assignments, volunteersKey } from '../projects/volunteers/project-volunteers-api';
-import { type OfficeApplication, officeAct } from './applications-api';
+import { identityNumberOf, type OfficeApplication, officeAct } from './applications-api';
 import { LoadError } from '../../components/LoadError';
 
 /** The volunteer who takes the application, or none: it stays the office's. */
 const VERIFY_SCHEMA = z.object({ ownerVolunteerId: z.string() });
 type VerifyFields = z.infer<typeof VERIFY_SCHEMA>;
-
-/** The identity number the entry gave, read from its answer. */
-function numberOf(a: OfficeApplication): string | null {
-  const field = a.form.sections
-    .flatMap((s) => s.fields)
-    .find((f) => f.standardColumn === 'nid_or_birth_reg');
-  const answer = field ? a.answers.find((x) => x.fieldKey === field.fieldKey) : undefined;
-  const parsed = answer ? answerValueSchema.safeParse(answer.value) : undefined;
-  const value = parsed?.success && 'v' in parsed.data ? parsed.data.v : undefined;
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
 
 /** Every volunteer of the project, page by page. */
 async function allVolunteers(projectId: string) {
@@ -80,7 +68,7 @@ export function VerifyDialog({
   const t = useTranslations('applications.office.verify');
   const ts = useTranslations('applications.office.signals');
   const tc = useTranslations('common');
-  const number = numberOf(a);
+  const number = identityNumberOf(a);
   // the match the server found at this dialog's own press, until the record read again says so
   const [matched, setMatched] = useState(false);
   const blockedMatch = matched || a.flags.includes('blocked_name_match');

@@ -31,8 +31,8 @@ type DecisionFields = z.infer<ReturnType<typeof decisionSchema>>;
 /**
  * Asks for a decision's texts before it is sent: the office's reason, kept in the record for the
  * officials; for a rejection the message written for the volunteer, which is all they read; and
- * the comment a decision against the score order, into a full quota or for a person with a family
- * match asks for, which says why.
+ * the comment a decision against the score order, into a full quota or for a person who appears
+ * again in a project that holds the repeat asks for, which says why.
  */
 export function DecisionDialog({
   title,

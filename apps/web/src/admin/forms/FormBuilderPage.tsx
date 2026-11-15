@@ -35,6 +35,7 @@ import {
   lacksMobileOwnerQuestion,
   type LibraryFields,
   missingIdentityRoles,
+  type GuardianRelationWording,
   type MobileOwnerWording,
   missingTextCount,
   moveFieldTo,
@@ -458,7 +459,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     kind === 'beneficiary_application' &&
     lib.isSuccess &&
     missingIdentityRoles(draft).length > 0;
-  const startWording = (name: CoreFieldKey | MobileOwnerWording) => ({
+  const startWording = (name: CoreFieldKey | MobileOwnerWording | GuardianRelationWording) => ({
     bn: t(`identity.wording.${name}_bn`),
     en: t(`identity.wording.${name}_en`),
   });

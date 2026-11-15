@@ -147,11 +147,18 @@ export const smsProviderSettingSchema = z
   });
 export type SmsProviderSetting = z.infer<typeof smsProviderSettingSchema>;
 
+/**
+ * How many name lookups (`POST /beneficiaries/match`) one user may make in a day in Bangladesh,
+ * found or not; past it the lookup answers 429 until the next day.
+ */
+export const matchDailyLimitSchema = intInRange(1, 10_000);
+
 export const SETTING_SCHEMAS = {
   organisation: organisationSettingSchema,
   localization: localizationSettingSchema,
   'monitoring.thresholds': monitoringThresholdsSchema,
   'sms.provider': smsProviderSettingSchema,
+  'lookup.match_daily_limit': matchDailyLimitSchema,
 } as const;
 export type SettingKey = keyof typeof SETTING_SCHEMAS;
 export const SETTING_KEYS = Object.keys(SETTING_SCHEMAS) as SettingKey[];
@@ -194,6 +201,7 @@ export const SETTING_DEFAULTS: { [K in SettingKey]: SettingValue<K> } = {
     budgetAlertPercent: 90,
   },
   'sms.provider': { provider: null, senderId: null, enabled: false, endpoint: null },
+  'lookup.match_daily_limit': 60,
 };
 
 /** A setting change: the whole value of the key, validated by the key's schema. */

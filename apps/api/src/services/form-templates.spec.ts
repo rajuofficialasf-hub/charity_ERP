@@ -302,3 +302,46 @@ describe('whose number the mobile is, in the seeded forms', () => {
       ]);
   });
 });
+
+describe('whether the name is the father’s or the husband’s, in the seeded forms', () => {
+  const fieldsOf = (definition: FormDefinition) =>
+    definition.sections.flatMap((section) => section.fields);
+
+  it('stands right after the father’s or husband’s name in both forms, optional, with the list’s options and no identity mark', () => {
+    for (const definition of [distribution(), selfReliance()]) {
+      const keys = fieldsOf(definition).map((field) => field.fieldKey);
+      const at = keys.indexOf('father_or_husband_name');
+      expect(keys.slice(at, at + 2)).toEqual(['father_or_husband_name', 'guardian_relation']);
+      const relation = fieldsOf(definition).find((f) => f.fieldKey === 'guardian_relation')!;
+      expect(relation).toMatchObject({
+        type: 'single_select',
+        required: false,
+        standardColumn: 'guardian_relation_code',
+        label: {
+          bn: 'এটি পিতার নাম নাকি স্বামীর নাম?',
+          en: "Is this the father's or the husband's name?",
+        },
+      });
+      expect(relation.logic?.show_if).toBeUndefined();
+      expect(relation.options?.map((o) => o.code)).toEqual(['father', 'husband']);
+      expect(
+        checkDefinition(definition, { publishing: true, kind: 'beneficiary_application' }),
+      ).toEqual([]);
+    }
+  });
+
+  it('sends the answer to its profile column, and refuses a code the list does not hold', () => {
+    expect(
+      computedOf(distribution(), [...core, select('guardian_relation', 'husband')]).standard,
+    ).toMatchObject({ guardian_relation_code: 'husband' });
+    const result = validate(distribution(), [...core, select('guardian_relation', 'brother')], {
+      audience: 'official',
+      today: TODAY,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.errors.map((e) => [e.path, e.code])).toEqual([
+        ['guardian_relation', 'validation.option_unknown'],
+      ]);
+  });
+});

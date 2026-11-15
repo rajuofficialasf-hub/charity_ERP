@@ -376,10 +376,10 @@ components:
     Conflict:
       description: >-
         workflow.transition_not_allowed, workflow.guard.<guard_name>, conflict.locked_on_server,
-        beneficiary.already_applied, beneficiary.identity_taken, beneficiary.mobile_is_volunteer_mobile,
+        beneficiary.already_applied, beneficiary.identity_taken, beneficiary.document_present, beneficiary.mobile_is_volunteer_mobile,
         beneficiary.correction_pending, beneficiary.correction_stale, beneficiary.merge_conflict,
         beneficiary.merge_revert_order, beneficiary.merge_stale, beneficiary.dismissed,
-        payment.transaction_id_exists, payment.claim_already_paid,
+        beneficiary.pick_number_conflict, payment.transaction_id_exists, payment.claim_already_paid,
         animal.already_allocated, file.duplicate, export.not_ready, export.running_limit, session.use_logout,
         user.system_owner_protected, user.handover_required, user.transition_not_allowed, user.not_locked.
       content:
@@ -409,7 +409,7 @@ components:
       description: >-
         validation.failed with field details; business rules such as beneficiary.identity_missing,
         beneficiary.mobile_is_volunteer_mobile, beneficiary.blocked, beneficiary.locked_field,
-        beneficiary.merge_keep_document,
+        beneficiary.merge_keep_document, beneficiary.pick_invalid, beneficiary.match_not_open,
         workflow.reason_required, workflow.comment_required, otp.invalid, otp.expired, file.source_not_allowed,
         export.too_many_rows, export.pdf_too_many_rows;
         password details validation.password_too_short, validation.password_uppercase_digit,
@@ -430,7 +430,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
     TooManyRequests:
-      description: rate_limit.exceeded or otp.attempts_exceeded.
+      description: rate_limit.exceeded, otp.attempts_exceeded, beneficiary.lookup_outside_limit or beneficiary.match_limit.
       headers:
         Retry-After: { $ref: '#/components/headers/RetryAfter' }
       content:
@@ -2091,6 +2091,7 @@ components:
             editContact: { type: boolean }
             requestCorrection: { type: boolean }
             decideCorrection: { type: boolean }
+            addIdentity: { type: boolean, description: 'Add the identity document to a live profile without one: a caller who sees identity numbers and whose beneficiary.correction.approve scope reaches the person' }
             proposeMerge: { type: boolean }
             merge: { type: boolean }
             revertMerge: { type: boolean }
@@ -2149,6 +2150,7 @@ components:
               kind: { type: string }
         name: { type: string }
         fatherOrHusbandName: { type: string, x-sensitive-class: beneficiary.profile_detail }
+        guardianRelationCode: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail, description: "Whether fatherOrHusbandName is the father's or the husband's: a code of the reference list guardian_relation (father, husband), or null where it is not known; given by an application to a profile that holds none, never changed by one (D-174, BR-310)" }
         motherName: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
         genderCode: { type: string, x-sensitive-class: beneficiary.profile_detail }
         ageYears: { type: [integer, 'null'], x-sensitive-class: beneficiary.profile_detail }
@@ -2172,13 +2174,25 @@ components:
         familyMembers:
           type: array
           x-sensitive-class: beneficiary.contact
+          description: >-
+            The household's active members, every one, in the order they were written: the list
+            of the latest submitted application that carried the family group replaces the earlier
+            members, which stay stored as inactive (BR-305). The whole section, the income among
+            it, goes with the contact class: not to the Media or the Procurement Team.
           items:
             type: object
             properties:
               id: { $ref: '#/components/schemas/Uuid' }
               name: { type: string }
-              relationshipCode: { type: [string, 'null'] }
+              relationshipCode: { type: [string, 'null'], description: A code of the reference list relationship }
+              relationship:
+                description: The relationship in the words of its list, or null without one
+                oneOf:
+                  - { type: 'null' }
+                  - { $ref: '#/components/schemas/Bilingual' }
               ageYears: { type: [integer, 'null'], x-sensitive-class: beneficiary.profile_detail }
+              occupationCode: { type: [string, 'null'] }
+              monthlyIncome: { type: [number, 'null'], minimum: 0, description: 'Taka, up to two decimals' }
         nid: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
         birthReg: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
@@ -2311,6 +2325,78 @@ components:
                   type: array
                   items: { type: string, enum: [name, father_or_husband_name, nid, birth_reg] }
         meta: { $ref: '#/components/schemas/Meta' }
+    MatchRequest:
+      type: object
+      additionalProperties: false
+      description: >-
+        The name, the father's or husband's name and the village as typed, in a union of an area of
+        the project; the server compares their keys (the name key with the spelling variants)
+      required: [projectId, name, fatherOrHusbandName, unionId, village]
+      properties:
+        projectId: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        fatherOrHusbandName: { type: string, minLength: 1, maxLength: 200 }
+        guardianRelationCode:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,49}$'
+          description: Whether that name is the father's or the husband's (list guardian_relation); a father's name never matches a husband's
+        unionId: { $ref: '#/components/schemas/Uuid' }
+        village: { type: string, minLength: 1, maxLength: 200 }
+    MatchResult:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [total, people]
+          properties:
+            total:
+              type: integer
+              minimum: 0
+              maximum: 6
+              description: >-
+                How many live profiles match, counted up to one past the five shown: 6 says there
+                are more, never how many
+
+            people:
+              type: array
+              maxItems: 5
+              items:
+                type: object
+                additionalProperties: false
+                required: [name, fatherOrHusbandName, village, helpedYears, projects, pickable, pickToken]
+                properties:
+                  name: { type: string, description: As written on the profile }
+                  fatherOrHusbandName: { type: string, description: As written on the profile }
+                  village: { type: string, description: As written on the profile }
+                  helpedYears:
+                    type: array
+                    description: The project years of the person's applications in the approved state or after it (approved, implementation, completed), oldest first
+                    items: { type: integer }
+                  projects:
+                    type: array
+                    description: Those of the person's helped projects the caller works on; no other project is named
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [name, year]
+                      properties:
+                        name: { $ref: '#/components/schemas/Bilingual' }
+                        year: { type: integer }
+                  pickable:
+                    type: boolean
+                    description: >-
+                      Whether the person may be picked here; false for a person on the block list
+                      and for one who already has a live application in this project, without saying
+                      which
+                  pickToken:
+                    type: [string, 'null']
+                    description: >-
+                      Starts an application for this person (ApplicationCreate.pickToken), for this
+                      caller and project, for 7 days; sealed, it names nobody on the phone. Null for
+                      a person who may not be picked here
+        meta: { $ref: '#/components/schemas/Meta' }
     FamilyMember:
       type: object
       required: [id, name, isEarner, active]
@@ -2356,6 +2442,27 @@ components:
         requestedAt: { type: string, format: date-time }
         decidedBy: { type: [string, 'null'], format: uuid }
         decidedAt: { type: [string, 'null'], format: date-time }
+    IdentityAdd:
+      type: object
+      additionalProperties: false
+      description: An NID has 10, 13 or 17 digits and a birth registration 17 (validation.nid_format, validation.birth_reg_format); the application, when named, is one of this person's (validation.failed on applicationId otherwise)
+      required: [kind, number]
+      properties:
+        kind: { type: string, enum: [nid, birth_reg] }
+        number: { type: string, minLength: 1, maxLength: 20 }
+        applicationId: { $ref: '#/components/schemas/Uuid' }
+    IdentityAddedResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [beneficiaryId, kind]
+          description: The profile with its document; the number itself is read with the profile, under the NID class
+          properties:
+            beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+            kind: { type: string, enum: [nid, birth_reg] }
+        meta: { $ref: '#/components/schemas/Meta' }
     ContactUpdate:
       type: object
       additionalProperties: false
@@ -2412,8 +2519,11 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     MergeCandidate:
       type: object
-      description: The pair with the lower id first; every rule the pair meets
-      required: [beneficiaryId, otherBeneficiaryId, benNo, otherBenNo, name, otherName, matchedOn]
+      description: >-
+        The pair with the lower id first; every rule the pair meets, and its level (D-174): probable
+        where a rule compares a name (or two rules agree), check where a shared mobile is the only
+        fact. A stored pair is never strong: two live profiles never share an identity or BEN number.
+      required: [beneficiaryId, otherBeneficiaryId, benNo, otherBenNo, name, otherName, matchedOn, level]
       properties:
         beneficiaryId: { $ref: '#/components/schemas/Uuid' }
         otherBeneficiaryId: { $ref: '#/components/schemas/Uuid' }
@@ -2423,7 +2533,16 @@ components:
         otherName: { type: string }
         matchedOn:
           type: array
-          items: { type: string, enum: [name_dob_union, name_father_mobile, same_mobile] }
+          items: { type: string, enum: [name_dob_union, name_father_mobile, name_father_village, same_mobile] }
+        level: { type: string, enum: [probable, check] }
+    BeneficiaryRef:
+      type: object
+      description: Another beneficiary profile a signal names, only where the caller may open it
+      required: [beneficiaryId, benNo, name]
+      properties:
+        beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        benNo: { type: string, description: 'BEN- and 7 digits' }
+        name: { type: string }
     MergeDismissalRequest:
       type: object
       additionalProperties: false
@@ -3321,6 +3440,28 @@ components:
           description: >-
             From the lookup, for the client's own use; the server binds the person from the number
             in the identity answer and never from this id
+        pickToken:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: >-
+            A person picked from the name lookup (POST /beneficiaries/match): the application binds
+            that person at once, without a document, with the name and the father's or husband's
+            name locked to the profile's, or to the profile a merge kept since the pick. Taken only
+            where the project asks the document "if they have one" (422
+            `beneficiary.match_not_open`), and only from the caller and for the project it was given
+            for (422 `beneficiary.pick_invalid` for a forged, altered, another caller's or another
+            project's token). A token past its 7 days binds nobody: the application waits for the
+            office's verification (`needs_verification`, flag `existing_identity`) with the person
+            as `candidateBeneficiaryId`. A blocked person is refused (`beneficiary.blocked`). A
+            number the answers carry must be no other live profile's (409
+            `beneficiary.pick_number_conflict`); one nobody holds stays in them, is never written
+            onto the profile, and only one application of the project may carry it (409
+            `application.number_in_project`)
+        nameLookupSkipped:
+          type: boolean
+          const: true
+          description: The phone left the name lookup out for want of network; recorded in the audit row, the office compares the person at the send
         answers:
           type: array
           maxItems: 2000
@@ -3346,6 +3487,7 @@ components:
             clientCreatedAt: { type: [string, 'null'], format: date-time, description: "The device time the record was made, when it came from a phone; its late_sync, stale_form_version or existing_identity flag says why it waits" }
             createdByUserId: { type: [string, 'null'], format: uuid, description: The account that created it (a team member's own records) }
             identityKind: { type: [string, 'null'], enum: [nid, birth_reg, none, null], description: "Which number identifies the person; none for an application without an identity document (D-172), told only to a caller who may know whether the profile has a document" }
+            guardianRelationCode: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail, description: "Whether the father's or husband's name is the father's or the husband's (father, husband): the bound profile's, else the application's own answer; null where neither says (D-174, BR-310)" }
             rejectionMessage: { type: [string, 'null'], description: The words written for the volunteer at a rejection; the office's reason stays in decisionComment }
             answers:
               type: array
@@ -3389,13 +3531,77 @@ components:
                   matchedOn:
                     type: array
                     items: { type: string, enum: [mobile, union_village_father] }
+            familyMemberSignals:
+              type: array
+              description: >-
+                For the office (D-172, D-174, BR-305): the earlier beneficiaries, in any project, whose
+                active family list probably holds the applicant: a member with the applicant's name key,
+                in the family of a live profile whose name key is the applicant's father's or husband's
+                name key, in the applicant's union and village. Always "probably", never a refusal. Each
+                head once, with every relationship its list gives the member. A head the caller's
+                beneficiary.view_all scope reaches is named with its relationships; any other entry
+                carries its level alone. The scope is applied before the limit, so the named heads come
+                first; at most 10 (familyMemberSignalsTotal counts all). Empty for a volunteer.
+              items:
+                oneOf:
+                  - type: object
+                    additionalProperties: false
+                    required: [level, relationships, head]
+                    properties:
+                      level: { type: string, enum: [probable] }
+                      relationships:
+                        type: array
+                        description: The relationships the head's list gives the member (codes of the list relationship), by code
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required: [code, name]
+                          properties:
+                            code: { type: string }
+                            name:
+                              oneOf:
+                                - { $ref: '#/components/schemas/Bilingual' }
+                                - { type: 'null' }
+                      head: { $ref: '#/components/schemas/BeneficiaryRef' }
+                  - type: object
+                    additionalProperties: false
+                    required: [level]
+                    properties:
+                      level: { type: string, enum: [probable] }
+            familyMemberSignalsTotal: { type: integer, minimum: 0, description: 'How many earlier families there are in all, also beyond the ones listed; 0 for a volunteer' }
+            samePersonSignals:
+              type: array
+              description: >-
+                For the office (D-174, BR-302): the applicant's open probable duplicate pairs (active, not
+                marked as two people, the other profile live), with the rules they meet. The other profile
+                and the rules are given only where the caller's beneficiary.view_all and
+                beneficiary.merge.dismiss scopes both reach both profiles (the comparison page); any other
+                entry carries its level alone. The scopes are applied before the limit, so the named pairs
+                come first; at most 10 (samePersonSignalsTotal counts all). Empty for a volunteer.
+              items:
+                oneOf:
+                  - type: object
+                    additionalProperties: false
+                    required: [level, matchedOn, other]
+                    properties:
+                      level: { type: string, enum: [probable] }
+                      matchedOn:
+                        type: array
+                        items: { type: string, enum: [name_dob_union, name_father_mobile, name_father_village, same_mobile] }
+                      other: { $ref: '#/components/schemas/BeneficiaryRef' }
+                  - type: object
+                    additionalProperties: false
+                    required: [level]
+                    properties:
+                      level: { type: string, enum: [probable] }
+            samePersonSignalsTotal: { type: integer, minimum: 0, description: 'How many open probable pairs there are in all, also beyond the ones listed; 0 for a volunteer' }
             availableActions: { type: array, items: { type: string }, description: Actions the caller may perform now }
             decisionHints:
               type: object
-              description: 'For the office, the comments each decision would ask for now, by action (D-132): against_score when it goes against the score order of the quota area, quota_full when the area''s quota is full, family_match when an approval meets a family match in the project (D-157); empty for a volunteer and when nothing would be asked'
+              description: 'For the office, the comments each decision would ask for now, by action (D-132): against_score when it goes against the score order of the quota area, quota_full when the area''s quota is full, same_person when an approval meets an open probable pair of the person with another profile that has an application in the project, family_match when it meets a family match in the project or the person is probably listed in the family of another applicant of the project (D-157); same_person and family_match only where the project holds that repeat (D-172, BR-306); empty for a volunteer and when nothing would be asked'
               additionalProperties:
                 type: array
-                items: { type: string, enum: [against_score, quota_full, family_match] }
+                items: { type: string, enum: [against_score, quota_full, same_person, family_match] }
             unlocks:
               type: array
               description: The unlocks of the application waiting for a step, as the caller may see them (a volunteer never sees the office's reasons nor an answer of the official section)
@@ -3407,6 +3613,7 @@ components:
                 - $ref: '#/components/schemas/ApplicationMedia'
                 - type: 'null'
             mayReferToMedia: { type: boolean, description: 'Whether the caller may refer it to the Media Team now, or send a returned referral again' }
+            mayAddIdentity: { type: boolean, description: 'Whether the caller may add the identity number this application carries to the person''s profile, which has none (POST /beneficiaries/{beneficiaryId}/identity): an official who holds beneficiary.nid and whose beneficiary.correction.approve and beneficiary.view_nid scopes both reach the profile; false for a volunteer' }
             form: { $ref: '#/components/schemas/FormVersion', description: The form version the answers belong to, as the caller's audience sees it }
     ApplicationResponse:
       type: object
@@ -4383,6 +4590,61 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/ReferenceItem' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
+    NameVariantSpelling:
+      description: >-
+        One word of Bengali or Latin letters with at least one letter (marks alone are refused),
+        trimmed; not a title the name key drops.
+      type: string
+      minLength: 1
+      maxLength: 100
+    NameVariantGroupCreate:
+      description: A new group of spelling variants (D-174); a spelling given twice is refused.
+      type: object
+      additionalProperties: false
+      required: [canonical, variants]
+      properties:
+        canonical: { $ref: '#/components/schemas/NameVariantSpelling' }
+        variants:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items: { $ref: '#/components/schemas/NameVariantSpelling' }
+    NameVariantGroupUpdate:
+      description: >-
+        canonical and variants together (the group's spellings as they are to be), active, or both;
+        at least one of them.
+      type: object
+      additionalProperties: false
+      properties:
+        canonical: { $ref: '#/components/schemas/NameVariantSpelling' }
+        variants:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items: { $ref: '#/components/schemas/NameVariantSpelling' }
+        active: { type: boolean }
+    NameVariantGroup:
+      type: object
+      additionalProperties: false
+      required: [id, canonical, variants, active, etag]
+      properties:
+        id: { type: string, format: uuid }
+        canonical: { type: string }
+        variants: { type: array, items: { type: string } }
+        active: { type: boolean }
+        etag: { type: string, description: "The group's version, for the If-Match of its change" }
+    NameVariantGroupList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/NameVariantGroup' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+    NameVariantGroupResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/NameVariantGroup' }
+        meta: { $ref: '#/components/schemas/Meta' }
     ReferenceItemResponse:
       type: object
       required: [data, meta]
@@ -4671,7 +4933,7 @@ components:
           type: object
           propertyNames: { type: string }
           additionalProperties: {}
-          description: "Validated by the service of the record kind: { answers } for a draft and an update (a photo still on the phone travels as { pendingPhoto: true, slot }), {} for a submit, { unlockId, value } for a field update"
+          description: "Validated by the service of the record kind: { answers } for a draft and an update (a photo still on the phone travels as { pendingPhoto: true, slot }); a draft may add pickToken (a person picked from the name lookup, as ApplicationCreate) or nameLookupSkipped: true (the phone had no network for the name lookup); {} for a submit, { unlockId, value } for a field update"
         clientCreatedAt: { type: string, format: date-time }
         clientUpdatedAt: { type: string, format: date-time }
         dependencies: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/Uuid' }, description: "Client ids this record needs synced first; a failed one fails this record" }
@@ -6978,6 +7240,48 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+  /beneficiaries/match:
+    post:
+      tags: [beneficiaries]
+      operationId: beneficiaries.beneficiary.match
+      summary: The people already here under a name, father or husband and village, for an application without a document
+      description: >-
+        An exact comparison of keys, never a search (D-172, D-174, BR-303): the keys of the name, the
+        father's or husband's name and the village must all equal a live profile's, inside the given
+        union, which must lie in an area of the project (403 otherwise), on a project the caller works
+        on (403 otherwise; a union that is not one is 422), and only where the project asks the
+        identity document "if they have one" (422 `beneficiary.match_not_open` otherwise). At most
+        five people and a count that stops at six (more than five, never how many); per person only
+        the name, the father's or husband's name and the village as written, the years of help and the
+        names of the caller's own projects among them, whether the person may be picked here (not for
+        a blocked person or one already applied in this project, without saying which), and a pick
+        token. Never a number, a contact, the family, a document flag, a BEN number or an id. Every
+        call writes the audit row `beneficiary.matched` (the project, the union, a keyed digest of
+        the compared name and father's or husband's name keys, and the number found, never a name)
+        and is counted per caller and day in Bangladesh against the setting
+        `lookup.match_daily_limit` (default 60), found or not; past it the call answers 429
+        `beneficiary.match_limit`, audited as limited. The `lookup` rate limit counts it with the
+        number lookup.
+      x-permission: beneficiary.match
+      x-scope: project
+      x-audit: beneficiary.matched
+      x-idempotency: none
+      x-rate-limit: lookup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MatchRequest' }
+      responses:
+        '200':
+          description: The people found, at most five, and their count
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MatchResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /beneficiaries/{beneficiaryId}:
     parameters:
       - $ref: '#/components/parameters/BeneficiaryId'
@@ -7070,6 +7374,57 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /beneficiaries/{beneficiaryId}/identity:
+    parameters:
+      - $ref: '#/components/parameters/BeneficiaryId'
+    post:
+      tags: [beneficiaries]
+      operationId: beneficiaries.identity.add
+      summary: Add the identity document to a profile that has none, after comparing the two (the profile keeps its history)
+      description: >-
+        An official whose correction-approval scope reaches the profile adds the NID or the birth
+        registration number a profile without a document lacks, usually the number an application of
+        the person carries (D-172, BR-308); the profile is then a full one and keeps its BEN number and
+        history. A volunteer never writes a document onto an existing profile. The caller's
+        `beneficiary.view_nid` scope must reach the profile too, checked before any number is looked
+        up; without it the answer is the 404 of a profile out of scope. A profile that has a
+        document answers 409 `beneficiary.document_present` (a change is a correction request); a
+        number another profile holds answers 409 `beneficiary.identity_taken`, whose detail names
+        the holder's BEN number and the live profile behind it (`beneficiaryId`) only to a caller
+        whose NID scope reaches both the holder and the live profile (otherwise the detail carries
+        no params), so the two can be compared and merged. `applicationId`, when given, must be one
+        of this person's applications. Every application of the person bound without a document
+        (`identityKind` `none`, not deleted) is bound by the added document from then on, whichever
+        application the number came from; a later edit of one carries the profile's number like any
+        known person's. The write adds a change-log row of kind `correction`; the audit entry keeps
+        the number masked to its last four digits, the actor, the application and the count of
+        applications bound (`applicationsBound`). Out of scope or a retired profile 404.
+      x-permission: beneficiary.correction.approve
+      x-scope: beneficiary
+      x-audit: beneficiary.identity_added
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IdentityAdd' }
+      responses:
+        '200':
+          description: The document is on the profile; the ETag of its new version
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IdentityAddedResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiaries/{beneficiaryId}/correction-requests:
     parameters:
       - $ref: '#/components/parameters/BeneficiaryId'
@@ -7135,11 +7490,13 @@ paths:
     get:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.candidates
-      summary: Suggested duplicate profiles in the caller scope (name, father or husband and mobile; name, date of birth and union; one mobile)
+      summary: Suggested duplicate profiles in the caller scope with their level (name, father or husband and mobile; name, date of birth and union; name, father or husband and village; one mobile)
       description: >-
-        Pairs of live profiles both inside the caller's scope (D-113), in id order, paged forward
-        by cursor; a pair marked as two different people is left out until the mark is lifted.
-        Never an identity number or a mobile.
+        Pairs of live profiles both inside the caller's scope (D-113), probable first and then in
+        id order, paged forward by cursor (a cursor serves only the filters it was made for); a pair
+        marked as two different people is left out until the mark is lifted. Names and villages
+        compare through the stored name keys (D-174), and a father's name never pairs with a
+        husband's. Never an identity number or a mobile.
       x-permission: beneficiary.merge.dismiss
       x-scope: beneficiary
       x-audit: none
@@ -7148,6 +7505,16 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
+        - name: level
+          in: query
+          required: false
+          description: Only the pairs of this level
+          schema: { type: string, enum: [probable, check] }
+        - name: beneficiaryId
+          in: query
+          required: false
+          description: Only the pairs this profile is one of (the comparison page reads its own pair so)
+          schema: { $ref: '#/components/schemas/Uuid' }
       responses:
         '200':
           description: Candidates
@@ -7337,7 +7704,10 @@ paths:
         Everything that points to the retired profile moves to the kept one and is listed in the
         snapshot; a pending application of the retired profile in a project both applied to answers
         409 `beneficiary.merge_conflict` (details name the project), one past pending stays on the
-        retired profile (`leftBehind`); a block moves to the kept profile; a proposal whose profiles
+        retired profile (`leftBehind`); a block moves to the kept profile; where only the retired
+        profile knows whether the name beside the person is the father's or the husband's, the kept
+        profile takes it and a revert empties it again; of the two family lists only the later
+        submitted one stays active, and a revert sets the other active again; a proposal whose profiles
         are no longer both live answers 409 `beneficiary.merge_stale` (D-113); an application of
         another program than the caller reaches answers 403 `beneficiary.merge_needs_global` (D-118).
         A merge moves no identity number: where only one of the two profiles has an identity
@@ -9019,7 +9389,7 @@ paths:
       x-audit: application.create
       x-idempotency: clientUuid
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
       requestBody:
         required: true
         content:
@@ -9055,7 +9425,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
       responses:
         '200':
           description: Application
@@ -9147,7 +9517,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
       responses:
         '200':
           description: Application
@@ -9168,7 +9538,7 @@ paths:
       x-audit: application.update
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
       x-workflow: { scope: application, action: edit }
       parameters:
         - $ref: '#/components/parameters/IfMatch'
@@ -9204,7 +9574,7 @@ paths:
       x-audit: application.<action>
       x-idempotency: none
       x-rate-limit: default
-      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact]
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail]
       x-workflow: { scope: application, action: path }
       parameters:
         - $ref: '#/components/parameters/IfMatch'
@@ -11270,6 +11640,100 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /name-variants:
+    get:
+      tags: [reference]
+      operationId: reference.nameVariants.list
+      summary: The groups of spelling variants of names, switched off ones included; not paginated
+      description: >-
+        Each group is one spelling the name keys use (canonical) and its other spellings
+        (DECISION_LOG D-174, BR-301). The settings page reads it.
+      x-permission: settings.manage
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Every group, by its canonical
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NameVariantGroupList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [reference]
+      operationId: reference.nameVariants.add
+      summary: Add a group of spellings of one name; the name keys are computed again
+      description: >-
+        Each spelling is one word of Bengali or Latin letters with at least one letter, and not a
+        title the key drops (422 validation.name_variant_one_word, validation.name_variant_letters,
+        validation.name_variant_no_letter, validation.name_variant_title,
+        validation.name_variant_repeated on the field). A spelling
+        another group holds, switched on or off, is refused (422 validation.name_variant_taken),
+        and so is one that would chain two groups: the canonical held as another group's spelling
+        or another group's canonical given as a spelling (422 validation.name_variant_chain).
+        Audited; raises the version of the list and queues the key job in the same transaction.
+      x-permission: settings.manage
+      x-scope: global
+      x-audit: name_variants.change
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NameVariantGroupCreate' }
+      responses:
+        '201':
+          description: Added
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NameVariantGroupResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /name-variants/{groupId}:
+    parameters:
+      - name: groupId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [reference]
+      operationId: reference.nameVariants.update
+      summary: Change a group's spellings, or switch it off or on; nothing is deleted
+      description: >-
+        canonical and variants together give the group's spellings as they are to be: a spelling
+        left out stays stored, no longer active, and is free for another group. The rules of the
+        addition apply (422). A group switched off keeps its spellings and the keys ignore it.
+        Audited with the group before and after; when the change alters what the keys read, the
+        version of the list is raised and the key job queued in the same transaction. If-Match
+        carries the group's etag from the read; a group changed since that read answers 412
+        conflict.stale_version, so a second save from the same read never drops the first.
+      x-permission: settings.manage
+      x-scope: global
+      x-audit: name_variants.change
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NameVariantGroupUpdate' }
+      responses:
+        '200':
+          description: Changed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NameVariantGroupResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /settings:
     get:

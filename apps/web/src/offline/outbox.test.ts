@@ -65,6 +65,27 @@ describe('the outbox', () => {
     });
   });
 
+  it('keeps every row of the family group of a draft, sealed, each with its place in the group', async () => {
+    // three members of the household, as the form's repeat group answers them
+    const members = ['রহিমা', 'করিম', 'সালমা'].flatMap((name, repeatIndex) => [
+      { fieldKey: 'member_name', repeatIndex, value: { t: 'short_text', v: name } },
+      { fieldKey: 'member_relationship', repeatIndex, value: { t: 'single_select', v: 'son' } },
+      { fieldKey: 'member_income', repeatIndex, value: { t: 'money', v: `${repeatIndex}000.00` } },
+    ]);
+    const payload = { answers: [...answers('নমুনা গ্রাম').answers, ...members] };
+    const row = await draft({ payload });
+    // the names never stand in the clear columns of the store
+    expect(JSON.stringify({ ...row, data: undefined })).not.toContain('সালমা');
+    const secret = await readSecret(row);
+    expect(secret.payload).toEqual(payload);
+    // what the sync sends is the same list, row by row
+    expect(toSyncRecord(row, secret).payload).toEqual(payload);
+    const sent = (toSyncRecord(row, secret).payload as typeof payload).answers.filter(
+      (a) => a.fieldKey === 'member_name',
+    );
+    expect(sent.map((a) => ('repeatIndex' in a ? a.repeatIndex : null))).toEqual([0, 1, 2]);
+  });
+
   it('makes a new version of a waiting or failed record, with its retries started over', async () => {
     const row = await draft();
     await apply([row.clientUuid], { type: 'flush', at: at(1) });

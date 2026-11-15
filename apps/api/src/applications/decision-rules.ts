@@ -1,12 +1,20 @@
 import type { Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { BeneficiaryFamilyService } from '../services/beneficiary-family.js';
+import { openPairInProject } from '../services/beneficiary-merge-candidates.js';
+import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
 
 /**
  * Why a decision asks for a comment: it goes against the score order, the quota area is full, or
- * the person has a family match in the project.
+ * the person appears again in the project, as probably the same person under another profile or
+ * as someone of the same family, where the project holds that repeat.
  */
-export const COMMENT_REASONS = ['against_score', 'quota_full', 'family_match'] as const;
+export const COMMENT_REASONS = [
+  'against_score',
+  'quota_full',
+  'same_person',
+  'family_match',
+] as const;
 export type CommentReason = (typeof COMMENT_REASONS)[number];
 
 /** The states whose applications still wait for a decision in the review queue. */
@@ -144,19 +152,41 @@ export async function quotaFull(tx: Tx, applicationId: string): Promise<boolean>
 }
 
 /**
- * Whether the person of the application has a family match in its project: another applicant
- * with the same mobile, or the same union, village and father's or husband's name. An approval
- * then asks for a comment that says why; the match never refuses it. An entry not yet linked to a
- * profile has no person to compare; it reaches an approval only after its verification links one.
+ * The repeats of the person in the project that an approval asks a comment for, by the project's
+ * own rules (docs/BUSINESS_RULES.md, "Application workflow"): `same_person` when the person's
+ * profile has an open probable pair with another live profile that has an application in the
+ * project, `family_match`
+ * when the person has a family match in the project (another applicant with the same mobile, or
+ * the same union, village and father's or husband's name) or is probably a member listed in the
+ * family of another applicant of the project. Each is asked only where the project holds that
+ * repeat; where it only tells, the review shows the signal and the approval asks nothing. A pair
+ * an official marked as two people asks nothing. The guard of the move and the review's hints both
+ * read this one function, so the screen asks exactly what the move will. An entry not yet linked
+ * to a profile has no person to compare; it reaches an approval only after its verification links
+ * one. The rules are read from the project's stored settings, never from the request.
  */
-export async function familyMatch(tx: Tx, applicationId: string): Promise<boolean> {
+export async function repeatReasons(tx: Tx, applicationId: string): Promise<CommentReason[]> {
   const me = await tx.application.findUnique({
     where: { id: applicationId },
-    select: { projectId: true, beneficiaryId: true },
+    select: { projectId: true, beneficiaryId: true, project: { select: IDENTITY_RULES_SELECT } },
   });
-  if (!me?.beneficiaryId) return false;
-  const matches = await new BeneficiaryFamilyService().matches(tx, me.projectId, me.beneficiaryId);
-  return matches.length > 0;
+  if (!me?.beneficiaryId) return [];
+  const rules = identityRulesOf(me.project);
+  const reasons: CommentReason[] = [];
+  if (
+    rules.repeatPerson === 'hold' &&
+    (await openPairInProject(tx, me.projectId, me.beneficiaryId))
+  )
+    reasons.push('same_person');
+  if (rules.repeatFamily === 'hold') {
+    const family = new BeneficiaryFamilyService();
+    if (
+      (await family.matches(tx, me.projectId, me.beneficiaryId)).length > 0 ||
+      (await family.memberInProject(tx, me.projectId, me.beneficiaryId))
+    )
+      reasons.push('family_match');
+  }
+  return reasons;
 }
 
 /** The comments a move would ask for now, for the review screen to ask before it sends. */
@@ -168,6 +198,6 @@ export async function commentReasons(
   const reasons: CommentReason[] = [];
   if (await againstScore(tx, applicationId, to)) reasons.push('against_score');
   if (to === 'approved' && (await quotaFull(tx, applicationId))) reasons.push('quota_full');
-  if (to === 'approved' && (await familyMatch(tx, applicationId))) reasons.push('family_match');
+  if (to === 'approved') reasons.push(...(await repeatReasons(tx, applicationId)));
   return reasons;
 }

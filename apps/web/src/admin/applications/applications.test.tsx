@@ -10,6 +10,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { ApplicationReviewPage } from './ApplicationReviewPage';
 import { ApplicationsPage } from './ApplicationsPage';
+import type { CommentReason } from './applications-api';
 import { bn, type MessageKey } from '@css/shared/i18n';
 import { expectOnScreenColumns, serveExports, tickedColumns } from '../../../test/msw/exports';
 
@@ -95,6 +96,10 @@ const record = (over: Record<string, unknown> = {}) => ({
   reviewedAt: null,
   approvedAt: null,
   familyDuplicateWarnings: [],
+  familyMemberSignals: [],
+  familyMemberSignalsTotal: 0,
+  samePersonSignals: [],
+  samePersonSignalsTotal: 0,
   availableActions: ['review', 'delete'],
   decisionHints: {},
   totalScore: null,
@@ -103,7 +108,7 @@ const record = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 /** The comment the server asks for, naming why. */
-const commentAsked = (reason: 'against_score' | 'quota_full' | 'family_match') =>
+const commentAsked = (reason: CommentReason) =>
   HttpResponse.json(
     {
       error: {
@@ -508,6 +513,69 @@ describe('the review page', () => {
     await expectNoAxeViolations(view.container);
   });
 
+  it('names the earlier family and the same person with their level and links, tells only the level where they may not be opened, and counts the rest', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    const HEAD = '01900000-0000-7000-8000-0000000000c1';
+    const OTHER = '01900000-0000-7000-8000-0000000000c2';
+    const signals = {
+      familyMemberSignals: [
+        {
+          level: 'probable',
+          relationships: [
+            { code: 'nephew', name: { bn: 'ভাতিজা', en: 'nephew' } },
+            { code: 'son', name: { bn: 'ছেলে', en: 'son' } },
+          ],
+          head: { beneficiaryId: HEAD, benNo: 'BEN-0000011', name: 'মোঃ হাবিব' },
+        },
+        { level: 'probable' },
+      ],
+      familyMemberSignalsTotal: 5,
+      samePersonSignals: [
+        {
+          level: 'probable',
+          matchedOn: ['name_father_village'],
+          other: { beneficiaryId: OTHER, benNo: 'BEN-0000012', name: 'সোহেল মিয়া' },
+        },
+        { level: 'probable' },
+      ],
+      samePersonSignalsTotal: 2,
+    };
+    server.use(http.get(`*/api/v1/applications/${A1}`, () => envelope(record(signals))));
+    const view = openReview();
+    // one head once, every relationship its list gives joined by "or"
+    expect(await screen.findByText(/সম্ভবত মোঃ হাবিব-এর ভাতিজা বা ছেলে/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'প্রোফাইল দেখুন (BEN-0000011)' })).toHaveAttribute(
+      'href',
+      `/admin/beneficiaries/${HEAD}`,
+    );
+    expect(screen.getByText('সম্ভবত অন্য এক উপকারভোগীর পরিবারের সদস্য')).toBeInTheDocument();
+    // five families in all, two listed
+    expect(screen.getByText('আরও 3টি')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /সম্ভবত একই ব্যক্তি: সোহেল মিয়া \(BEN-0000012\) — নাম, পিতা\/স্বামীর নাম ও গ্রাম মিলেছে/,
+      ),
+    ).toBeInTheDocument();
+    const compare = screen.getByRole('link', { name: 'তুলনা করুন' });
+    expect(compare.getAttribute('href')).toContain(`a=${row(A1).beneficiaryId}`);
+    expect(compare.getAttribute('href')).toContain(`b=${OTHER}`);
+    // the pair the viewer may not compare says no rule, names nobody and links nowhere
+    expect(screen.getByText('অন্য একটি প্রোফাইলের সঙ্গে সম্ভবত একই ব্যক্তি')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'তুলনা করুন' })).toHaveLength(1);
+    // each of the four says its level, as the duplicates list does
+    expect(screen.getAllByText('সম্ভাব্য')).toHaveLength(4);
+    // both pairs are listed: nothing more to count
+    expect(screen.getAllByText(/^আরও \d+টি$/)).toHaveLength(1);
+    await expectNoAxeViolations(view.container);
+    view.unmount();
+    openReview('en');
+    expect(await screen.findByText(/Probably মোঃ হাবিব's nephew or son/)).toBeInTheDocument();
+    expect(screen.getByText('Probably a family member of another beneficiary')).toBeInTheDocument();
+    expect(screen.getByText('3 more')).toBeInTheDocument();
+    expect(screen.getAllByText('Probable')).toHaveLength(4);
+  });
+
   it('tells why a record from a phone waits, with the time it was taken', async () => {
     refreshAs(EXECUTIVE);
     serve();
@@ -746,6 +814,178 @@ describe('the review page', () => {
     await user.click(confirm);
     await waitFor(() => expect(acted).toHaveLength(1));
     expect(acted[0]).toEqual({ action: 'approve', body: { comment: 'আলাদা পরিবার' } });
+  });
+
+  it('says the project holds the same person, and asks why before an approval', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            availableActions: ['approve', 'reject', 'waitlist'],
+            samePersonSignals: [{ level: 'probable' }],
+            samePersonSignalsTotal: 1,
+            decisionHints: { approve: ['same_person'], waitlist: [], reject: [] },
+          }),
+        ),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json() });
+        return envelope(record({ status: String(params.action) }), '"v2"');
+      }),
+    );
+    openReview();
+    expect(
+      await screen.findByText('এই প্রকল্পে একই ব্যক্তি আবার এলে অনুমোদনের আগে কারণ লিখতে হবে।'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
+    const approve = await screen.findByRole('dialog', { name: 'আবেদন অনুমোদন করুন' });
+    expect(
+      within(approve).getByText(
+        'এই ব্যক্তি সম্ভবত অন্য একটি প্রোফাইলে এই প্রকল্পে আবেদন করেছেন। তবু কেন অনুমোদন দিচ্ছেন?',
+      ),
+    ).toBeInTheDocument();
+    const confirm = within(approve).getByRole('button', { name: 'অনুমোদন করুন' });
+    expect(confirm).toBeDisabled();
+    await user.type(within(approve).getByRole('textbox', { name: /মন্তব্য/ }), 'যাচাই করেছি');
+    await user.click(confirm);
+    await waitFor(() => expect(acted).toHaveLength(1));
+    expect(acted[0]).toEqual({ action: 'approve', body: { comment: 'যাচাই করেছি' } });
+  });
+
+  it('approves in one click where the project only tells of the same person', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            availableActions: ['approve', 'reject', 'waitlist'],
+            samePersonSignals: [{ level: 'probable' }],
+            samePersonSignalsTotal: 1,
+            decisionHints: {},
+          }),
+        ),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json().catch(() => ({})) });
+        return envelope(record({ status: String(params.action) }), '"v2"');
+      }),
+    );
+    openReview();
+    expect(
+      await screen.findByText('অন্য একটি প্রোফাইলের সঙ্গে সম্ভবত একই ব্যক্তি'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('এই প্রকল্পে একই ব্যক্তি আবার এলে অনুমোদনের আগে কারণ লিখতে হবে।'),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
+    await waitFor(() => expect(acted).toHaveLength(1));
+    expect(acted[0]?.action).toBe('approve');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('offers to add the number the application carries to a profile without one, from the answers', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    const sent: { ifMatch: string | null; body: unknown }[] = [];
+    let added = false;
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            hasDocument: added,
+            identityKind: added ? 'nid' : 'none',
+            mayAddIdentity: !added,
+          }),
+        ),
+      ),
+      http.get('*/api/v1/beneficiaries/:id', () =>
+        HttpResponse.json({ data: {}, meta: { requestId: 'r', etag: '"p1"' } }),
+      ),
+      http.post('*/api/v1/beneficiaries/:id/identity', async ({ request }) => {
+        sent.push({ ifMatch: request.headers.get('If-Match'), body: await request.json() });
+        added = true;
+        return HttpResponse.json({
+          data: { beneficiaryId: '01900000-0000-7000-8000-0000000000b1', kind: 'nid' },
+          meta: { requestId: 'r', etag: '"p2"' },
+        });
+      }),
+    );
+    openReview();
+    expect(
+      await screen.findByText('এই আবেদনে পরিচয়পত্রের নম্বর আছে, প্রোফাইলে নেই।'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'পরিচয়পত্র যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'পরিচয়পত্র যোগ করুন' });
+    expect(within(dialog).getByRole('textbox', { name: /নম্বর/ })).toHaveValue('1234567890');
+    await user.click(within(dialog).getByRole('button', { name: 'যোগ করুন' }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual({
+      ifMatch: '"p1"',
+      body: { kind: 'nid', number: '1234567890', applicationId: A1 },
+    });
+    expect(await screen.findByText('পরিচয়পত্রের নম্বর প্রোফাইলে যোগ হয়েছে।')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText('এই আবেদনে পরিচয়পত্রের নম্বর আছে, প্রোফাইলে নেই।'),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it('sends the profile version read as the dialog opened, so a change made meanwhile is refused as stale', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    // the profile's version on the server; another official changes it while the dialog is open
+    let current = '"p1"';
+    let reads = 0;
+    const sent: (string | null)[] = [];
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            hasDocument: false,
+            identityKind: 'none',
+            mayAddIdentity: true,
+          }),
+        ),
+      ),
+      http.get('*/api/v1/beneficiaries/:id', () => {
+        reads += 1;
+        return HttpResponse.json({ data: {}, meta: { requestId: 'r', etag: current } });
+      }),
+      http.post('*/api/v1/beneficiaries/:id/identity', ({ request }) => {
+        const ifMatch = request.headers.get('If-Match');
+        sent.push(ifMatch);
+        if (ifMatch !== current)
+          return apiError(412, 'conflict.stale_version', 'অন্য কেউ এর মধ্যে তথ্য বদলেছেন।');
+        return HttpResponse.json({
+          data: { beneficiaryId: '01900000-0000-7000-8000-0000000000b1', kind: 'nid' },
+          meta: { requestId: 'r', etag: '"p3"' },
+        });
+      }),
+    );
+    openReview();
+    await user.click(await screen.findByRole('button', { name: 'পরিচয়পত্র যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'পরিচয়পত্র যোগ করুন' });
+    const confirm = within(dialog).getByRole('button', { name: 'যোগ করুন' });
+    await waitFor(() => expect(confirm).toBeEnabled());
+    expect(reads).toBe(1);
+    current = '"p2"';
+    await user.click(confirm);
+    await waitFor(() => expect(sent).toEqual(['"p1"']));
+    expect(await within(dialog).findByText('অন্য কেউ এর মধ্যে তথ্য বদলেছেন।')).toBeInTheDocument();
+    expect(reads).toBe(1);
+    expect(screen.getByRole('dialog', { name: 'পরিচয়পত্র যোগ করুন' })).toBeInTheDocument();
   });
 
   it('opens the comment box when the server asks one the screen did not expect', async () => {
@@ -1121,6 +1361,40 @@ describe('the referral to the Media Team', () => {
       await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'মিডিয়া টিমে পাঠান' })).not.toBeInTheDocument();
+  });
+});
+
+describe('the father’s or husband’s name on the record', () => {
+  /** The label beside the father's or husband's name among the answers. */
+  const labelOf = async () => (await screen.findByText('নমুনা পিতা')).closest('div')!;
+
+  it.each([
+    ['husband', 'স্বামীর নাম'],
+    ['father', 'পিতার নাম'],
+  ])('is called by the relation the record carries: %s', async (code, label) => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(record({ guardianRelationCode: code })),
+      ),
+    );
+    openReview();
+    expect(within(await labelOf()).getByText(label)).toBeInTheDocument();
+  });
+
+  it('keeps the form’s own label where the relation is not known', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(record({ guardianRelationCode: null })),
+      ),
+    );
+    openReview();
+    const line = await labelOf();
+    expect(within(line).queryByText('স্বামীর নাম')).not.toBeInTheDocument();
+    expect(within(line).queryByText('পিতার নাম')).not.toBeInTheDocument();
   });
 });
 

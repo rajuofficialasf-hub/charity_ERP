@@ -38,8 +38,10 @@ import {
   MOBILE_OWNERS,
 } from './beneficiaries-api';
 import { BeneficiaryArea } from './BeneficiaryArea';
+import { FamilyMembers } from './FamilyMembers';
 import { ContactDialog } from './ContactDialog';
 import { CorrectionDialog } from './CorrectionDialog';
+import { IdentityDialog } from './IdentityDialog';
 import { RevertMergeAction } from './duplicates/RevertMergeAction';
 import { ContactLog, Corrections, useFileKind } from './ProfileHistory';
 import { MediaWorksSection } from '../../features/media/MediaWorksSection';
@@ -101,7 +103,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
   const { me } = useAuth();
   const printable = !!me && canPrintProfile(me);
   const fileKind = useFileKind();
-  const [dialog, setDialog] = useState<'contact' | 'correction' | null>(null);
+  const [dialog, setDialog] = useState<'contact' | 'correction' | 'identity' | null>(null);
   const { notice, setNotice, dismiss: dismissNotice } = useHandedNotice();
   const [shared, setShared] = useState<ContactSaved['warnings']>([]);
   const changed = (message: string) => {
@@ -137,6 +139,13 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
     owner && p.mobileOwnerName
       ? tp('mobile_owner_named', { owner, name: p.mobileOwnerName })
       : owner;
+  // the name beside the person is named the father's or the husband's where the profile knows it
+  const fatherLabel =
+    p.guardianRelationCode === 'father'
+      ? tp('father_name')
+      : p.guardianRelationCode === 'husband'
+        ? tp('husband_name')
+        : t('column.father');
   const none = <p className="admin-muted">{tp('no_rows')}</p>;
   // the NID or the birth registration number only for a caller who sees identity numbers
   const identity = 'nid' in p ? (p.nid ?? p.birthReg ?? null) : null;
@@ -206,6 +215,11 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           {tp('edit_contact')}
         </Button>
       )}
+      {a.addIdentity && (
+        <Button variant="secondary" startIcon="id-card" onClick={() => setDialog('identity')}>
+          {tp('add_identity')}
+        </Button>
+      )}
       {a.requestCorrection && (
         <Button variant="secondary" startIcon="file" onClick={() => setDialog('correction')}>
           {tp('request_correction')}
@@ -222,7 +236,8 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
       )}
     </>
   );
-  const hasActions = printable || a.editContact || a.requestCorrection || a.block || a.unblock;
+  const hasActions =
+    printable || a.editContact || a.addIdentity || a.requestCorrection || a.block || a.unblock;
   const showCorrections = p.corrections.length > 0 || a.requestCorrection || a.decideCorrection;
 
   return (
@@ -278,6 +293,14 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
           onDone={contactSaved}
         />
       )}
+      {dialog === 'identity' && (
+        <IdentityDialog
+          beneficiaryId={p.id}
+          etag={etag}
+          onClose={() => setDialog(null)}
+          onDone={() => changed(tp('identity_added'))}
+        />
+      )}
       {dialog === 'correction' && (
         <CorrectionDialog
           profile={p}
@@ -291,7 +314,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             <DescriptionList
               columns={2}
               items={[
-                ...optional('fatherOrHusbandName', t('column.father'), p.fatherOrHusbandName),
+                ...optional('fatherOrHusbandName', fatherLabel, p.fatherOrHusbandName),
                 ...optional('motherName', tp('mother'), p.motherName ?? empty),
                 ...optional(
                   'genderCode',
@@ -330,17 +353,10 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             />
           </ProfileSection>
 
-          {p.familyMembers && (
+          {/* the household's members, only where the profile knows one */}
+          {p.familyMembers && p.familyMembers.length > 0 && (
             <ProfileSection title={tp('sections.family')} icon="users">
-              {p.familyMembers.length === 0 ? (
-                none
-              ) : (
-                <ul className="admin-plain-list">
-                  {p.familyMembers.map((m) => (
-                    <li key={m.id}>{m.name}</li>
-                  ))}
-                </ul>
-              )}
+              <FamilyMembers members={p.familyMembers} />
             </ProfileSection>
           )}
 
