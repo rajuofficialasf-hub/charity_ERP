@@ -10,7 +10,8 @@ import { code } from './support/projects';
 // itself is checked by the owner against the prototype, and the journeys and the accessibility
 // sweep prove what the pages do. The files land in test-results/screens/<mode>/<width>/. The form
 // builder, a computer's screen, is taken with a question chosen at the widths its layout changes
-// at: three panes at 1280 and 1024 px, the settings in a drawer over the form at 768 px.
+// at: three panes at 1280 and 1024 px, the settings in a drawer over the form at 768 px; then, at
+// 1280 px, with a question on its way to another place and with both side panes folded away.
 const HEAD = 'head@example.org';
 const WIDTHS = [1280, 768, 360] as const;
 const BUILDER_WIDTHS = [1280, 1024, 768] as const;
@@ -121,8 +122,26 @@ for (const mode of MODES) {
         fullPage: true,
       });
     }
-    // both side panes folded away at a computer's width: the form with all the room
+    // a question on its way at a computer's width: its name beside the pointer, and the line
+    // where it would land, after the question whose lower half the pointer is in
     await page.setViewportSize({ width: 1280, height: 900 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const grip = (await page
+      .getByRole('button', { name: 'মোবাইল নম্বর টেনে সরান' })
+      .boundingBox())!;
+    const over = (await page.locator('[data-question="q_name"]').boundingBox())!;
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(over.x + over.width / 2, over.y + over.height * 0.75, { steps: 10 });
+    await expect(page.locator('[data-question="q_name"]')).toHaveClass(/is-land-after/);
+    await page.screenshot({
+      path: `test-results/screens/${mode}/1280/28-form-builder-drag.png`,
+    });
+    // given up, the question stays where it was
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator('.is-land-after')).toHaveCount(0);
+    // both side panes folded away: the form with all the room
     await page.getByRole('button', { name: 'প্রশ্ন যোগের তালিকা লুকান' }).click();
     await page.getByRole('button', { name: 'সেটিং লুকান' }).click();
     await expect(page.getByRole('button', { name: 'সেটিং দেখান' })).toBeVisible();

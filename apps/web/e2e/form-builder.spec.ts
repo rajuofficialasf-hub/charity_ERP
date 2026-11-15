@@ -138,20 +138,16 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
   await expect(page.getByText('মোট সদস্য = “পুরুষ সদস্য” + “নারী সদস্য”')).toBeVisible();
   // the keyboard drags too: the second number moves one place up by its handle
   const list = page.getByRole('list', { name: 'অংশ 2', exact: true });
-  // dnd-kit measures the rows after the pick-up, so each key waits for its announcement
+  // dnd-kit measures the rows after the pick-up, so each key waits for what the drag says, in
+  // Bengali here, with the question's text, its part and the place
   const announced = page.locator('[id^="DndLiveRegion"]');
   await page.getByRole('button', { name: 'নারী সদস্য টেনে সরান' }).focus();
-  // a question's key is random, never a word of its text: the one picked up is read from the
-  // announcement, and the move is over another question
   await page.keyboard.press('Space');
-  await expect(announced).toContainText(/draggable item q_[a-z0-9]{6}\b/i);
-  const dragged = /draggable item (q_[a-z0-9]{6})\b/i.exec(await announced.innerText())?.[1];
-  expect(dragged).toBeDefined();
+  await expect(announced).toHaveText('নারী সদস্য তুলেছেন।');
   await page.keyboard.press('ArrowUp');
-  await expect(announced).toContainText(
-    new RegExp(`moved over droppable area (?!${dragged})q_[a-z0-9]{6}\\b`),
-  );
+  await expect(announced).toHaveText('নারী সদস্য অংশ 2-এ প্রথম স্থানে বসবে।');
   await page.keyboard.press('Space');
+  await expect(announced).toHaveText('নারী সদস্য অংশ 2-এ প্রথম স্থানে বসেছে।');
   await expect
     .poll(async () => (await list.getByRole('listitem').allInnerTexts()).slice(-3).join('|'))
     // a field's label also sits in its border, so an item's text runs over lines
@@ -692,4 +688,90 @@ test('the form has the most room, a pane folds away, the bar of a question overl
     'aria-selected',
     'true',
   );
+});
+
+// A drag shows where it lands: a line before or after the question under the pointer, by the half
+// of it the pointer is in, or under a part's last question; the place is said aloud with the names
+// of the question and its part, and the drop puts the question exactly there.
+test('a dragged question shows the line of its landing, says the place, and lands there', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'the builders work on a computer');
+  test.setTimeout(120_000);
+  // tall enough for the whole first part, so no drag has to scroll
+  await page.setViewportSize({ width: 1280, height: 1700 });
+  await signIn(page, MONITORING);
+  const form = await demoReadyForm(page, MONITORING, `টানা ${code()}`, DEMO_FINISHED);
+  await page.goto(`/admin/ready-forms/${form}`);
+  const head = page.getByTestId('form-head');
+  await expect(head.getByText('5টি অংশ · 23টি প্রশ্ন')).toBeVisible();
+  const row = (key: string) => page.locator(`[data-question="${key}"]`);
+  const said = page.locator('[id^="DndLiveRegion"]');
+  const ghost = page.locator('.fb-drag-ghost');
+  const lines = page.locator('.is-land-before, .is-land-after, .is-land-end');
+  const firstPart = page.getByRole('list', { name: 'পরিচয়', exact: true });
+  const middle = async (target: ReturnType<typeof row>, share: number) => {
+    const box = (await target.boundingBox())!;
+    return { x: box.x + box.width / 2, y: box.y + box.height * share };
+  };
+
+  // the fourth question taken by its handle: it stays in its place, its name goes with the pointer
+  const grip = await middle(page.getByRole('button', { name: 'মোবাইল নম্বর টেনে সরান' }), 0.5);
+  await page.mouse.move(grip.x, grip.y);
+  await page.mouse.down();
+  // the lower half of the first question: after it
+  const lower = await middle(row('q_id'), 0.75);
+  await page.mouse.move(lower.x, lower.y, { steps: 10 });
+  await expect(ghost).toHaveText('মোবাইল নম্বর');
+  await expect(row('q_id')).toHaveClass(/is-land-after/);
+  await expect(lines).toHaveCount(1);
+  await expect(said).toHaveText('মোবাইল নম্বর পরিচয়-এ দ্বিতীয় স্থানে বসবে।');
+  // its upper half: before it
+  const upper = await middle(row('q_id'), 0.25);
+  await page.mouse.move(upper.x, upper.y, { steps: 5 });
+  await expect(row('q_id')).toHaveClass(/is-land-before/);
+  await expect(lines).toHaveCount(1);
+  await expect(said).toHaveText('মোবাইল নম্বর পরিচয়-এ প্রথম স্থানে বসবে।');
+  // over its own place nothing would change, and no line says otherwise
+  const own = await middle(row('q_mobile'), 0.5);
+  await page.mouse.move(own.x, own.y, { steps: 5 });
+  await expect(lines).toHaveCount(0);
+  await expect(said).toHaveText('এখানে ছাড়লে মোবাইল নম্বর আগের জায়গাতেই থাকবে।');
+  // dropped on the upper half of the first question, it is the first
+  await page.mouse.move(upper.x, upper.y, { steps: 5 });
+  await expect(row('q_id')).toHaveClass(/is-land-before/);
+  await page.mouse.up();
+  await expect(said).toHaveText('মোবাইল নম্বর পরিচয়-এ প্রথম স্থানে বসেছে।');
+  await expect(lines).toHaveCount(0);
+  await expect(ghost).toHaveCount(0);
+  await expect
+    .poll(async () =>
+      firstPart
+        .getByRole('button', { name: / বদলান$/ })
+        .evaluateAll((buttons) => buttons.slice(0, 3).map((b) => b.getAttribute('aria-label'))),
+    )
+    .toEqual(['মোবাইল নম্বর বদলান', 'জাতীয় পরিচয়পত্র নম্বর বদলান', 'উপকারভোগীর নাম বদলান']);
+  await saved(page);
+
+  // a type from the left pane, dropped under the last question of the part: a new question at its end
+  const type = await middle(
+    page.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন', exact: true }),
+    0.5,
+  );
+  await page.mouse.move(type.x, type.y);
+  await page.mouse.down();
+  const part = (await page.locator('[data-part="identity"]').boundingBox())!;
+  await page.mouse.move(part.x + part.width / 2, part.y + part.height - 16, { steps: 10 });
+  await expect(ghost).toHaveText('ছোট লেখা');
+  await expect(page.locator('[data-part="identity"]')).toHaveClass(/is-land-end/);
+  await expect(lines).toHaveCount(1);
+  await expect(said).toHaveText('নতুন ছোট লেখা প্রশ্ন পরিচয়-এ দশম স্থানে বসবে।');
+  await page.mouse.up();
+  await expect(said).toHaveText('নতুন ছোট লেখা প্রশ্ন পরিচয়-এ দশম স্থানে বসেছে।');
+  await expect(head.getByText('5টি অংশ · 24টি প্রশ্ন')).toBeVisible();
+  await expect(firstPart.getByRole('button', { name: / বদলান$/ }).last()).toHaveAttribute(
+    'aria-label',
+    'নাম ছাড়া প্রশ্ন বদলান',
+  );
+  await expect(questionTexts(page).bn).toBeFocused();
 });

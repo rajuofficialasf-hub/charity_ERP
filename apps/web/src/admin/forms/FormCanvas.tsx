@@ -1,10 +1,14 @@
 import {
+  type Announcements,
   closestCenter,
+  type CollisionDetection,
   DndContext,
   type DragEndEvent,
+  type DragMoveEvent,
   DragOverlay,
   type DragStartEvent,
   KeyboardSensor,
+  type Modifier,
   PointerSensor,
   useDroppable,
   useSensor,
@@ -13,8 +17,8 @@ import {
 import {
   SortableContext,
   sortableKeyboardCoordinates,
+  type SortingStrategy,
   useSortable,
-  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -38,11 +42,28 @@ import {
   Text,
   type ExtendedIconName,
 } from '@/ui';
-import { type ReactNode, useEffect, useEffectEvent, useId, useRef, useState } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useEffectEvent,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { FieldInput } from '../../features/forms/FieldInput';
 import { moveField, moveFieldTo, moveSection } from './draft';
-import { dropTarget, SECTION_DROP, typeFromDragId } from './drop-target';
+import {
+  dropTarget,
+  type Half,
+  halfByOrder,
+  type Landing,
+  pointed,
+  SECTION_DROP,
+  typeFromDragId,
+} from './drop-target';
 import type { PlaceProblems } from './publish-entries';
 import type { BuilderMode, Selection } from './selection';
 import { sitsInRows, TYPE_GROUPS, TYPE_META, typesOfGroup } from './type-meta';
@@ -85,9 +106,60 @@ type Messages = Record<string, string[]>;
 const NO_PROBLEMS: PlaceProblems = { fields: new Map(), sections: new Map() };
 
 /**
+ * Where the dragged question would land now, for the canvas to draw its line; nothing while no
+ * question is over a place it can go to.
+ */
+const LandingContext = createContext<Landing | null>(null);
+
+const sameLanding = (a: Landing | null, b: Landing | null) =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.sectionKey === b.sectionKey &&
+    a.index === b.index &&
+    a.at?.fieldKey === b.at?.fieldKey &&
+    a.at?.half === b.at?.half);
+
+/**
+ * What a dragged question is over. Under a pointer the place it points at decides, with the half
+ * of the question it is in; the keyboard has no pointer and goes by the closest centre.
+ */
+const underPointer: CollisionDetection = (args) => {
+  if (!args.pointerCoordinates) return closestCenter(args);
+  const boxes = new Map([...args.droppableRects].map(([id, rect]) => [String(id), rect]));
+  const hit = pointed(args.pointerCoordinates, boxes);
+  const droppableContainer = hit && args.droppableContainers.find((c) => c.id === hit.id);
+  return hit && droppableContainer
+    ? [{ id: hit.id, data: { droppableContainer, value: 0, half: hit.half } }]
+    : [];
+};
+
+/** The questions stay where they are while one is dragged: the line shows where it will land. */
+const stay: SortingStrategy = () => null;
+
+/** How far the dragged thing's name stands from the pointer, so it covers neither it nor the line. */
+const GHOST_OFFSET = 12;
+/**
+ * Keeps the name of what is dragged beside the pointer, wherever its handle was taken. A question
+ * moved by the keyboard has no pointer, and its name stands on the place it is over.
+ */
+const besidePointer: Modifier = ({ activatorEvent, draggingNodeRect, transform }) => {
+  if (!draggingNodeRect || !(activatorEvent instanceof MouseEvent)) return transform;
+  return {
+    ...transform,
+    x: transform.x + activatorEvent.clientX - draggingNodeRect.left + GHOST_OFFSET,
+    y: transform.y + activatorEvent.clientY - draggingNodeRect.top + GHOST_OFFSET,
+  };
+};
+
+/**
  * The drag context around the panes: a question moves by its handle inside or across sections,
  * and a type from the left pane drops at a place, where the page adds an empty question of it.
- * The keyboard moves a question with the buttons of its bar instead.
+ * The dragged question stays in its place, dimmed, while its name follows the pointer; a line on
+ * the canvas marks where it will land (before the question whose upper half the pointer is in,
+ * after the one whose lower half, at a section's end under its last question), and the same place
+ * is said aloud in the person's language, with the questions' and the section's names. The
+ * keyboard moves a question with the buttons of its bar instead.
  */
 export function CanvasDnd({
   definition,
@@ -104,42 +176,138 @@ export function CanvasDnd({
   onDragging?: (dragging: boolean) => void;
   children: ReactNode;
 }) {
+  const t = useTranslations('forms.builder');
   const tt = useTranslations('forms.types');
-  const [activeType, setActiveType] = useState<FieldType | null>(null);
+  const locale = useLocale();
+  const questionName = useQuestionName();
+  // the name of what is being dragged: a question's, or the type a new question will have
+  const [ghost, setGhost] = useState<string | null>(null);
+  const [landing, setLanding] = useState<Landing | null>(null);
+  // the landing of this moment, for the words said aloud, which are asked for outside a draw
+  const landingNow = useRef<Landing | null>(null);
+  // whether the dragged question has been over a place it can go to since it was picked up
+  const wandered = useRef(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  /**
+   * Where the dragged question would land if it were dropped now. A place that would leave the
+   * form as it is (its own, or a section an identity question may not go to) is no landing.
+   */
+  const landingOf = (event: DragMoveEvent | DragEndEvent): Landing | null => {
+    if (!event.over) return null;
+    const id = String(event.active.id);
+    const overId = String(event.over.id);
+    const pointedHalf = event.collisions?.[0]?.data?.half as Half | undefined;
+    const dragged = typeFromDragId(id) ? undefined : id;
+    const target = dropTarget(
+      definition,
+      overId,
+      pointedHalf ?? halfByOrder(definition, id, overId),
+      dragged,
+    );
+    if (!target) return null;
+    const stays =
+      dragged !== undefined &&
+      moveFieldTo(definition, dragged, target.sectionKey, target.index) === definition;
+    return stays ? null : target;
+  };
+  const show = (next: Landing | null) => {
+    landingNow.current = next;
+    if (next) wandered.current = true;
+    setLanding((shown) => (sameLanding(shown, next) ? shown : next));
+  };
   const started = (event: DragStartEvent) => {
     onDragging?.(true);
-    setActiveType(typeFromDragId(String(event.active.id)) ?? null);
+    wandered.current = false;
+    show(null);
+    const id = String(event.active.id);
+    const type = typeFromDragId(id);
+    setGhost(type ? tt(type) : nameOf(id));
   };
   const ended = () => {
     onDragging?.(false);
-    setActiveType(null);
+    setGhost(null);
+    setLanding(null);
   };
   const dropped = (event: DragEndEvent) => {
+    const target = landingOf(event);
+    // the words said after the drop name the place it went to
+    landingNow.current = target;
     ended();
-    const id = String(event.active.id);
-    const over = event.over ? String(event.over.id) : null;
-    if (!over || over === id) return;
-    const target = dropTarget(definition, over);
     if (!target) return;
+    const id = String(event.active.id);
     const type = typeFromDragId(id);
     if (type) onDropType(type, target.sectionKey, target.index);
     else onChange(moveFieldTo(definition, id, target.sectionKey, target.index));
   };
+  const cancelled = () => {
+    landingNow.current = null;
+    ended();
+  };
+
+  /** The dragged thing by its name: a question's text, or a new question of the dragged type. */
+  const nameOf = (id: string) => {
+    const type = typeFromDragId(id);
+    if (type) return t('dnd.new_question', { type: tt(type) });
+    const field = definition.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === id);
+    return field ? questionName(field).name : '';
+  };
+  /** A landing in words: the section by its name and the place in it as an ordinal. */
+  const placeOf = (at: Landing) => {
+    const section = definition.sections.find((s) => s.key === at.sectionKey);
+    const n = String(at.index + 1);
+    return {
+      part: (section && localized(section.title, locale)) || t('publish_list.unnamed_section'),
+      place: t('dnd.place', { order: n, n }),
+    };
+  };
+  const whileDragged = (id: string) => {
+    const at = landingNow.current;
+    if (at) return t('dnd.will_land', { label: nameOf(id), ...placeOf(at) });
+    // just picked up, the question is over its own place: the pick-up was said already
+    if (!wandered.current) return undefined;
+    return typeFromDragId(id) ? t('dnd.will_not_add') : t('dnd.will_stay', { label: nameOf(id) });
+  };
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => t('dnd.picked', { label: nameOf(String(active.id)) }),
+    // the half of a question changes without the question under the pointer changing
+    onDragMove: ({ active }) => whileDragged(String(active.id)),
+    onDragOver: ({ active }) => whileDragged(String(active.id)),
+    onDragEnd: ({ active }) => {
+      const id = String(active.id);
+      const at = landingNow.current;
+      if (at) return t('dnd.landed', { label: nameOf(id), ...placeOf(at) });
+      return typeFromDragId(id) ? t('dnd.not_added') : t('dnd.stayed', { label: nameOf(id) });
+    },
+    onDragCancel: ({ active }) => {
+      const id = String(active.id);
+      return typeFromDragId(id) ? t('dnd.not_added') : t('dnd.cancelled', { label: nameOf(id) });
+    },
+  };
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={underPointer}
+      accessibility={{
+        announcements,
+        screenReaderInstructions: { draggable: t('dnd.instructions') },
+      }}
       onDragStart={started}
+      onDragMove={(event) => show(landingOf(event))}
+      onDragOver={(event) => show(landingOf(event))}
       onDragEnd={dropped}
-      onDragCancel={ended}
+      onDragCancel={cancelled}
     >
-      {children}
-      <DragOverlay dropAnimation={null}>
-        {activeType ? <span className="fb-type-chip">{tt(activeType)}</span> : null}
+      <LandingContext value={landing}>{children}</LandingContext>
+      <DragOverlay dropAnimation={null} modifiers={[besidePointer]}>
+        {/* as large as the dragged question, so the keyboard's steps go by the question's place */}
+        {ghost === null ? null : (
+          <div className="fb-drag-ghost">
+            <span className="fb-type-chip">{ghost}</span>
+          </div>
+        )}
       </DragOverlay>
     </DndContext>
   );
@@ -333,6 +501,9 @@ function SectionCard({
       open: p.visibility !== 'official_only' && !p.condition,
     }));
   const heads = section.fields.filter((f) => groupOf(f) === undefined);
+  const landing = useContext(LandingContext);
+  // a dragged question that lands at this section's end shows its line under the last question
+  const landsAtEnd = landing?.sectionKey === section.key && !landing.at;
   const { setNodeRef, isOver } = useDroppable({
     id: `${SECTION_DROP}${section.key}`,
     disabled: !full,
@@ -365,7 +536,7 @@ function SectionCard({
   return (
     <section
       ref={setNodeRef}
-      className={`fb-sec${isOver ? ' is-over' : ''}${chosen ? ' is-selected' : ''}`}
+      className={`fb-sec${isOver ? ' is-over' : ''}${chosen ? ' is-selected' : ''}${landsAtEnd ? ' is-land-end' : ''}`}
       aria-label={title}
       data-part={section.key}
     >
@@ -442,10 +613,7 @@ function SectionCard({
       ) : null}
       <Refusals messages={errors[section.key]} />
       {full ? (
-        <SortableContext
-          items={heads.map((f) => f.fieldKey)}
-          strategy={verticalListSortingStrategy}
-        >
+        <SortableContext items={heads.map((f) => f.fieldKey)} strategy={stay}>
           <ul aria-label={title} className="fb-q-list">
             {rows}
           </ul>
@@ -527,11 +695,14 @@ function QuestionRow({
     isDragging,
   } = useSortable({ id: field.fieldKey, disabled: !full });
   const meta = TYPE_META[field.type];
+  // the line of a dragged question that lands before or after this one
+  const at = useContext(LandingContext)?.at;
+  const lands = at?.fieldKey === field.fieldKey ? ` is-land-${at.half}` : '';
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={`fb-q${isSelected ? ' is-selected' : ''}${isDragging ? ' is-dragging' : ''}${unnamed ? ' is-unnamed' : ''}`}
+      className={`fb-q${isSelected ? ' is-selected' : ''}${isDragging ? ' is-dragging' : ''}${unnamed ? ' is-unnamed' : ''}${lands}`}
       data-question={field.fieldKey}
     >
       {full ? (

@@ -1863,6 +1863,131 @@ describe('the room for the form', () => {
   }, 20_000);
 });
 
+describe('a question on its way to another place', () => {
+  const three = (): FormDefinition['sections'] => [
+    ...titled({ sections: coreSections() }).sections,
+    section(
+      'extra',
+      [
+        field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') }),
+        field('q_more', 'short_text', { label: T('আরও', 'More') }),
+        field('q_last', 'short_text', { label: T('শেষ', 'Last') }),
+      ],
+      { title: T('অতিরিক্ত', 'Extra') },
+    ),
+  ];
+  /**
+   * jsdom lays nothing out, so the questions are given places: one under the other, each in its
+   * section's card. The drag reads them as a browser's.
+   */
+  const layOut = () => {
+    const box = (top: number, height: number) =>
+      ({
+        top,
+        bottom: top + height,
+        left: 0,
+        right: 300,
+        width: 300,
+        height,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const rows = () => [...document.querySelectorAll('li[data-question]:not(.fb-q-member)')];
+    const rowBox = (row: Element) => box(100 + rows().indexOf(row) * 100, 80);
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function place(
+      this: Element,
+    ) {
+      if (this.matches('li[data-question]:not(.fb-q-member)')) return rowBox(this);
+      // what follows the drag starts on the question that is picked up, as large as it
+      const dragged = document.querySelector('li.is-dragging');
+      if (dragged && this.matches('.fb-drag-ghost')) return rowBox(dragged);
+      if (this.matches('section[data-part]')) {
+        const own = rows().filter((row) => this.contains(row));
+        const first = own.length ? rowBox(own[0]!).top : 0;
+        const last = own.length ? rowBox(own.at(-1)!).bottom : 0;
+        return box(first - 10, last - first + 20);
+      }
+      return box(0, 0);
+    });
+  };
+  /** What the drag says aloud. */
+  const said = () => document.querySelector('[id^="DndLiveRegion"]')?.textContent;
+  const rowOf = (name: string) => screen.getByRole('button', { name }).closest('li')!;
+
+  it('shows a line where it will land, and says the place by the names of the question and its part', async () => {
+    const user = userEvent.setup();
+    api({ sections: three() });
+    open();
+    await outlineOf('অতিরিক্ত');
+    layOut();
+    const grip = screen.getByRole('button', { name: 'মন্তব্য টেনে সরান' });
+    // how the keyboard moves a question is said in the person's language too
+    expect(grip).toHaveAccessibleDescription(
+      'প্রশ্নটি তুলতে স্পেস চাপুন। কিবোর্ডের তীর চিহ্ন দিয়ে সরান। বসাতে আবার স্পেস চাপুন, বাতিল করতে এস্কেপ।',
+    );
+    grip.focus();
+    await user.keyboard('[Space]');
+    await waitFor(() => expect(said()).toBe('মন্তব্য তুলেছেন।'));
+    expect(document.querySelector('[class*="is-land-"]')).toBeNull();
+
+    // a step down: it will stand after the question under it, and the line is drawn there
+    await user.keyboard('[ArrowDown]');
+    await waitFor(() => expect(said()).toBe('মন্তব্য অতিরিক্ত-এ দ্বিতীয় স্থানে বসবে।'));
+    expect(rowOf('আরও বদলান')).toHaveClass('is-land-after');
+    await user.keyboard('[ArrowDown]');
+    await waitFor(() => expect(said()).toBe('মন্তব্য অতিরিক্ত-এ তৃতীয় স্থানে বসবে।'));
+    expect(rowOf('শেষ বদলান')).toHaveClass('is-land-after');
+    expect(rowOf('আরও বদলান')).not.toHaveClass('is-land-after');
+
+    // put down, it stands where the line was, the line is gone and the place is said
+    await user.keyboard('[Space]');
+    await waitFor(() => expect(said()).toBe('মন্তব্য অতিরিক্ত-এ তৃতীয় স্থানে বসেছে।'));
+    expect(await questionsOf('অতিরিক্ত')).toEqual(['আরও বদলান', 'শেষ বদলান', 'মন্তব্য বদলান']);
+    expect(document.querySelector('[class*="is-land-"]')).toBeNull();
+    await waitFor(
+      () =>
+        expect(savedFields('extra').map((f) => f.fieldKey)).toEqual(['q_more', 'q_last', 'q_note']),
+      { timeout: 4000 },
+    );
+  }, 20_000);
+
+  it('lands before a question of another part, and stays where it was when the move is given up', async () => {
+    const user = userEvent.setup();
+    api({ sections: three() });
+    open();
+    await outlineOf('অতিরিক্ত');
+    layOut();
+    // a step up from the first question of its part reaches the last question of the part above
+    screen.getByRole('button', { name: 'মন্তব্য টেনে সরান' }).focus();
+    await user.keyboard('[Space]');
+    await user.keyboard('[ArrowUp]');
+    await waitFor(() => expect(said()).toBe('মন্তব্য ঠিকানা-এ দ্বিতীয় স্থানে বসবে।'));
+    expect(rowOf('village বদলান')).toHaveClass('is-land-before');
+    await user.keyboard('[Escape]');
+    await waitFor(() => expect(said()).toBe('সরানো হয়নি। মন্তব্য আগের জায়গাতেই আছে।'));
+    expect(document.querySelector('[class*="is-land-"]')).toBeNull();
+    expect(await questionsOf('অতিরিক্ত')).toEqual(['মন্তব্য বদলান', 'আরও বদলান', 'শেষ বদলান']);
+  }, 20_000);
+
+  it('says it in English to a person who reads English', async () => {
+    const user = userEvent.setup();
+    api({ sections: three() });
+    open('en');
+    await outlineOf('Extra');
+    layOut();
+    const grip = screen.getByRole('button', { name: 'Drag Note' });
+    expect(grip).toHaveAccessibleDescription(/^Press Space to pick the question up\./);
+    grip.focus();
+    await user.keyboard('[Space]');
+    await waitFor(() => expect(said()).toBe('Picked up Note.'));
+    await user.keyboard('[ArrowDown]');
+    await waitFor(() => expect(said()).toBe('Note will be second in Extra.'));
+    await user.keyboard('[Space]');
+    await waitFor(() => expect(said()).toBe('Note is now second in Extra.'));
+  }, 20_000);
+});
+
 describe('who may change what', () => {
   it('shows a published version read-only', async () => {
     api({ draft: false });

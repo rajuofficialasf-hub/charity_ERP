@@ -268,8 +268,37 @@
   background: var(--color-bg-surface);
   box-shadow: 0 0 0 3px var(--color-bg-brand-soft);
 }
+/* a dragged question stays in its place, dimmed, until it is dropped */
 .fb-q.is-dragging {
   opacity: 0.4;
+}
+/*
+ * where a dragged question will land: a line before or after the question it is over, or under a
+ * section's last question; the line sits in the gap between two questions and moves nothing
+ */
+.fb-sec > .fb-q-list {
+  position: relative;
+}
+.fb-q.is-land-before::before,
+.fb-q.is-land-after::after,
+.fb-sec.is-land-end > .fb-q-list::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--color-brand-primary);
+  pointer-events: none;
+}
+.fb-q.is-land-before::before {
+  top: -4px;
+}
+.fb-q.is-land-after::after {
+  bottom: -4px;
+}
+.fb-sec.is-land-end > .fb-q-list::after {
+  bottom: -6px;
 }
 .fb-q-grip {
   flex: none;
@@ -474,9 +503,17 @@
 .fb-type:hover:not(:disabled) .fb-type-plus {
   color: var(--color-brand-primary-dark);
 }
-/* the type while it is dragged over the canvas */
+/* the name of what is dragged, beside the pointer: a type from the left pane or a question */
+.fb-drag-ghost {
+  width: 100%;
+  height: 100%;
+}
 .fb-type-chip {
   display: inline-block;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
   background: var(--color-brand-ink);
