@@ -147,7 +147,10 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
   await page.keyboard.press('ArrowUp');
   await expect(announced).toHaveText('নারী সদস্য অংশ 2-এ প্রথম স্থানে বসবে।');
   // the line is drawn where it will land, so the screen has caught up with the move
-  await expect(list.locator('.is-land-before')).toHaveCount(1);
+  await expect(list.getByRole('listitem').filter({ hasText: 'পুরুষ সদস্য' })).toHaveAttribute(
+    'data-landing',
+    'before',
+  );
   await page.keyboard.press('Space');
   await expect(announced).toHaveText('নারী সদস্য অংশ 2-এ প্রথম স্থানে বসেছে।');
   await expect
@@ -657,7 +660,7 @@ test('the form has the most room, a pane folds away, the bar of a question overl
   expect(await type.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   const buttons = bar.getByRole('button');
   await expect(buttons).toHaveCount(5);
-  const question = (await page.locator('[data-question="q_gender"]').boundingBox())!;
+  const question = (await page.getByTestId('question-q_gender').boundingBox())!;
   for (const button of await buttons.all()) {
     const box = (await button.boundingBox())!;
     const apart =
@@ -694,6 +697,37 @@ test('the form has the most room, a pane folds away, the bar of a question overl
     'aria-selected',
     'true',
   );
+  await page.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
+
+  // a line of the list beside Publish opens the settings over its question: they keep the focus,
+  // and the question, in view behind them, takes it when they close
+  const fixes = await openFixList(page, 1);
+  await fixes.getByRole('button', { name: /^প্রতি আনার দাম:/ }).click();
+  await expect(fixes).toHaveCount(0);
+  await expect(drawer.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ })).toHaveValue(
+    'প্রতি আনার দাম',
+  );
+  const price = page.getByRole('button', { name: 'প্রতি আনার দাম বদলান', exact: true });
+  await settled(page);
+  await expect.poll(() => drawer.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
+  await expect(price).toBeFocused();
+  await expect(price).toBeInViewport();
+
+  // a question added from the left is typed at once in the settings that open, without a click
+  await page.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন', exact: true }).click();
+  const text = drawer.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ });
+  await expect(text).toBeFocused();
+  await page.keyboard.type('পেশা');
+  await expect(text).toHaveValue('পেশা');
+  await page.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'পেশা বদলান', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
 });
 
 // A drag shows where it lands: a line before or after the question under the pointer, by the half
@@ -711,10 +745,10 @@ test('a dragged question shows the line of its landing, says the place, and land
   await page.goto(`/admin/ready-forms/${form}`);
   const head = page.getByTestId('form-head');
   await expect(head.getByText('5টি অংশ · 23টি প্রশ্ন')).toBeVisible();
-  const row = (key: string) => page.locator(`[data-question="${key}"]`);
+  const row = (key: string) => page.getByTestId(`question-${key}`);
   const said = page.locator('[id^="DndLiveRegion"]');
-  const ghost = page.locator('.fb-drag-ghost');
-  const lines = page.locator('.is-land-before, .is-land-after, .is-land-end');
+  const ghost = page.getByTestId('drag-name');
+  const identity = page.getByTestId('part-identity');
   const firstPart = page.getByRole('list', { name: 'পরিচয়', exact: true });
   const middle = async (target: ReturnType<typeof row>, share: number) => {
     const box = (await target.boundingBox())!;
@@ -729,26 +763,27 @@ test('a dragged question shows the line of its landing, says the place, and land
   const lower = await middle(row('q_id'), 0.75);
   await page.mouse.move(lower.x, lower.y, { steps: 10 });
   await expect(ghost).toHaveText('মোবাইল নম্বর');
-  await expect(row('q_id')).toHaveClass(/is-land-after/);
-  await expect(lines).toHaveCount(1);
+  await expect(row('q_id')).toHaveAttribute('data-landing', 'after');
+  await expect(row('q_name')).not.toHaveAttribute('data-landing');
   await expect(said).toHaveText('মোবাইল নম্বর পরিচয়-এ দ্বিতীয় স্থানে বসবে।');
   // its upper half: before it
   const upper = await middle(row('q_id'), 0.25);
   await page.mouse.move(upper.x, upper.y, { steps: 5 });
-  await expect(row('q_id')).toHaveClass(/is-land-before/);
-  await expect(lines).toHaveCount(1);
+  await expect(row('q_id')).toHaveAttribute('data-landing', 'before');
   await expect(said).toHaveText('মোবাইল নম্বর পরিচয়-এ প্রথম স্থানে বসবে।');
   // over its own place nothing would change, and no line says otherwise
   const own = await middle(row('q_mobile'), 0.5);
   await page.mouse.move(own.x, own.y, { steps: 5 });
-  await expect(lines).toHaveCount(0);
+  await expect(row('q_id')).not.toHaveAttribute('data-landing');
+  await expect(row('q_father')).not.toHaveAttribute('data-landing');
+  await expect(row('q_mobile')).not.toHaveAttribute('data-landing');
   await expect(said).toHaveText('এখানে ছাড়লে মোবাইল নম্বর আগের জায়গাতেই থাকবে।');
   // dropped on the upper half of the first question, it is the first
   await page.mouse.move(upper.x, upper.y, { steps: 5 });
-  await expect(row('q_id')).toHaveClass(/is-land-before/);
+  await expect(row('q_id')).toHaveAttribute('data-landing', 'before');
   await page.mouse.up();
   await expect(said).toHaveText('মোবাইল নম্বর পরিচয়-এ প্রথম স্থানে বসেছে।');
-  await expect(lines).toHaveCount(0);
+  await expect(row('q_id')).not.toHaveAttribute('data-landing');
   await expect(ghost).toHaveCount(0);
   await expect
     .poll(async () =>
@@ -766,11 +801,10 @@ test('a dragged question shows the line of its landing, says the place, and land
   );
   await page.mouse.move(type.x, type.y);
   await page.mouse.down();
-  const part = (await page.locator('[data-part="identity"]').boundingBox())!;
+  const part = (await identity.boundingBox())!;
   await page.mouse.move(part.x + part.width / 2, part.y + part.height - 16, { steps: 10 });
   await expect(ghost).toHaveText('ছোট লেখা');
-  await expect(page.locator('[data-part="identity"]')).toHaveClass(/is-land-end/);
-  await expect(lines).toHaveCount(1);
+  await expect(identity).toHaveAttribute('data-landing', 'end');
   await expect(said).toHaveText('নতুন ছোট লেখা প্রশ্ন পরিচয়-এ দশম স্থানে বসবে।');
   await page.mouse.up();
   await expect(said).toHaveText('নতুন ছোট লেখা প্রশ্ন পরিচয়-এ দশম স্থানে বসেছে।');
@@ -780,4 +814,70 @@ test('a dragged question shows the line of its landing, says the place, and land
     'লেখা ছাড়া প্রশ্ন বদলান',
   );
   await expect(questionTexts(page).bn).toBeFocused();
+});
+
+// A drag that makes the page scroll: the question is taken at the top of a long form and held at
+// the lower edge of an ordinary screen until the page has scrolled to its end, then put on a
+// question of the last part. The line and the drop are at the question under the pointer.
+test('a question dragged down a long form, the page scrolling under it, lands at the question under the pointer', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'the builders work on a computer');
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, MONITORING);
+  const form = await demoReadyForm(page, MONITORING, `লম্বা টানা ${code()}`, DEMO_FINISHED);
+  await page.goto(`/admin/ready-forms/${form}`);
+  await expect(page.getByTestId('form-head').getByText('5টি অংশ · 23টি প্রশ্ন')).toBeVisible();
+  const row = (key: string) => page.getByTestId(`question-${key}`);
+  const said = page.locator('[id^="DndLiveRegion"]');
+  const lastPart = page.getByRole('list', { name: 'খামার', exact: true });
+  const target = row('q_farm');
+  await expect(target).not.toBeInViewport();
+  const scrolledBy = () => page.evaluate(() => window.scrollY);
+
+  // the first question taken by its handle and held at the lower edge: the page scrolls by itself
+  const grip = (await page
+    .getByRole('button', { name: 'জাতীয় পরিচয়পত্র নম্বর টেনে সরান' })
+    .boundingBox())!;
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + grip.width / 2, 780, { steps: 12 });
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            Math.ceil(window.scrollY + window.innerHeight) >=
+            document.documentElement.scrollHeight - 1,
+        ),
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+  expect(await scrolledBy()).toBeGreaterThan(1500);
+  await expect(target).toBeInViewport();
+
+  // the lower half of a question of the last part: after it
+  const box = (await target.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.75, { steps: 8 });
+  await expect(target).toHaveAttribute('data-landing', 'after');
+  await expect(said).toHaveText('জাতীয় পরিচয়পত্র নম্বর খামার-এ দ্বিতীয় স্থানে বসবে।');
+  // its upper half: before it
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.25, { steps: 4 });
+  await expect(target).toHaveAttribute('data-landing', 'before');
+  await expect(said).toHaveText('জাতীয় পরিচয়পত্র নম্বর খামার-এ প্রথম স্থানে বসবে।');
+  // dropped on the lower half, it is the second question of that part
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.75, { steps: 4 });
+  await expect(target).toHaveAttribute('data-landing', 'after');
+  await page.mouse.up();
+  await expect(said).toHaveText('জাতীয় পরিচয়পত্র নম্বর খামার-এ দ্বিতীয় স্থানে বসেছে।');
+  await expect(target).not.toHaveAttribute('data-landing');
+  await expect
+    .poll(async () =>
+      lastPart
+        .getByRole('button', { name: / বদলান$/ })
+        .evaluateAll((buttons) => buttons.slice(0, 2).map((b) => b.getAttribute('aria-label'))),
+    )
+    .toEqual(['কী পালন করতে চান? বদলান', 'জাতীয় পরিচয়পত্র নম্বর বদলান']);
+  await saved(page);
 });

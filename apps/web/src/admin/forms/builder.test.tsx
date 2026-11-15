@@ -1891,6 +1891,174 @@ describe('the room for the form', () => {
   }, 20_000);
 });
 
+describe('the settings over the form', () => {
+  const NAME = 'প্রশ্ন ও ফর্মের সেটিং';
+  const drawer = () => screen.queryByRole('dialog', { name: NAME });
+  const openDrawer = () => screen.findByRole('dialog', { name: NAME });
+  /** A tablet: narrower than a computer, wider than a phone. */
+  const tablet = () => stubMatchMedia((q) => q.includes('max-width: 1023px'));
+  /**
+   * A screen whose width the test changes: every query answers for the width of the moment, and
+   * is told when it changes, as a browser's window that is resized.
+   */
+  const screenOf = (width: number) => {
+    let now = width;
+    const listeners = new Set<() => void>();
+    const matches = (query: string) => {
+      if (query.includes('prefers-color-scheme')) return false;
+      const min = /min-width:\s*([\d.]+)px/.exec(query);
+      const max = /max-width:\s*([\d.]+)px/.exec(query);
+      return (!min || now >= Number(min[1])) && (!max || now <= Number(max[1]));
+    };
+    vi.stubGlobal(
+      'matchMedia',
+      (query: string) =>
+        ({
+          get matches() {
+            return matches(query);
+          },
+          media: query,
+          addEventListener: (_: string, heard: () => void) => listeners.add(heard),
+          removeEventListener: (_: string, heard: () => void) => listeners.delete(heard),
+          addListener: (heard: () => void) => listeners.add(heard),
+          removeListener: (heard: () => void) => listeners.delete(heard),
+        }) as unknown as MediaQueryList,
+    );
+    return (next: number) =>
+      act(() => {
+        now = next;
+        for (const heard of [...listeners]) heard();
+      });
+  };
+
+  it('stay closed once the screen is wide again, through a fold of their pane and a screen that narrows', async () => {
+    const user = userEvent.setup();
+    const resize = screenOf(900);
+    api({ sections: withNote() });
+    open();
+    await outlineOf('অতিরিক্ত');
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
+    await openDrawer();
+    // wide enough for the settings' own column: they are there, and nothing is over the form
+    resize(1280);
+    await waitFor(() => expect(drawer()).not.toBeInTheDocument());
+    const pane = () => screen.getByRole('complementary', { name: NAME });
+    expect(within(pane()).getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ })).toHaveValue(
+      'মন্তব্য',
+    );
+    // folding the column does not bring back what the narrow screen had open
+    await user.click(within(pane()).getByRole('button', { name: 'সেটিং লুকান' }));
+    expect(drawer()).not.toBeInTheDocument();
+    // nor does a screen that narrows again; choosing the question does
+    resize(900);
+    expect(drawer()).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
+    expect(await openDrawer()).toBeInTheDocument();
+  }, 20_000);
+
+  it('take the cursor into the text of a question added from the left, typed at once without a click', async () => {
+    const user = userEvent.setup();
+    tablet();
+    api({ sections: withNote() });
+    open();
+    await outlineOf('অতিরিক্ত');
+    await user.click(screen.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
+    const settings = await openDrawer();
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    expect(settings).toContainElement(bnText());
+    await user.keyboard('পেশা');
+    expect(bnText()).toHaveValue('পেশা');
+    expect(
+      await screen.findByRole('button', { name: 'পেশা বদলান', hidden: true }),
+    ).toBeInTheDocument();
+  }, 20_000);
+
+  it('take the cursor into the name of a part added on a narrow screen', async () => {
+    const user = userEvent.setup();
+    tablet();
+    api({ sections: withNote() });
+    open();
+    await outlineOf('অতিরিক্ত');
+    await user.click(screen.getByRole('button', { name: 'নতুন অংশ' }));
+    const settings = within(await openDrawer());
+    const name = settings.getByRole('textbox', { name: /^অংশের নাম \(বাংলা\)/ });
+    expect(name).toHaveValue('অংশ 4');
+    await waitFor(() => expect(name).toHaveFocus());
+  }, 20_000);
+
+  it('open on the question a line of the list beside Publish leads to, keep the focus, and hand it to the question when they close', async () => {
+    const user = userEvent.setup();
+    tablet();
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', '') })], {
+          title: T('অতিরিক্ত', 'Extra'),
+        }),
+      ],
+    });
+    open();
+    await outlineOf('অতিরিক্ত');
+    await user.click(await screen.findByRole('button', { name: /^প্রকাশের আগে ঠিক করুন/ }));
+    const list = within(await screen.findByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' }));
+    await user.click(list.getByRole('button', { name: 'মন্তব্য: প্রশ্নের ইংরেজি লেখা বাকি' }));
+    // the settings, where the missing text is written, open over the question and hold the focus
+    const settings = await openDrawer();
+    expect(
+      within(settings).getByRole('textbox', { name: /^প্রশ্নের লেখা \(ইংরেজি\)/ }),
+    ).toHaveValue('');
+    const question = screen.getByRole('button', { name: 'মন্তব্য বদলান', hidden: true });
+    const row = question.closest('li');
+    // the question is brought into view behind them, and does not take the focus from them
+    await waitFor(() => expect(scrolled).toEqual([row]));
+    await waitFor(() => expect(settings).toContainElement(document.activeElement as HTMLElement));
+    expect(question).not.toHaveFocus();
+    // closed, the question is in view and has the focus
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(drawer()).not.toBeInTheDocument());
+    await waitFor(() => expect(question).toHaveFocus());
+    expect(scrolled).toEqual([row, row]);
+  }, 20_000);
+
+  it('close when an undo takes away the question they showed and nothing is chosen in its place', async () => {
+    const user = userEvent.setup();
+    tablet();
+    api({ sections: withNote() });
+    open();
+    await outlineOf('অতিরিক্ত');
+    await user.click(screen.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
+    const settings = within(await openDrawer());
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    // from a switch, the undo keys are the draft's: the question just added goes
+    settings.getByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' }).focus();
+    await user.keyboard('{Control>}z{/Control}');
+    await waitFor(() => expect(drawer()).not.toBeInTheDocument());
+    expect(
+      screen.queryByRole('button', { name: 'লেখা ছাড়া প্রশ্ন বদলান' }),
+    ).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('show the question chosen before when an undo takes away the one they showed', async () => {
+    const user = userEvent.setup();
+    tablet();
+    api({ sections: withNote() });
+    open();
+    await outlineOf('অতিরিক্ত');
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য বদলান' }));
+    await openDrawer();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(drawer()).not.toBeInTheDocument());
+    // a question added after the chosen one; the undo leads back to the one chosen before it
+    await user.click(screen.getByRole('button', { name: 'ছোট লেখা প্রশ্ন যোগ করুন' }));
+    const settings = within(await openDrawer());
+    await waitFor(() => expect(bnText()).toHaveFocus());
+    settings.getByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' }).focus();
+    await user.keyboard('{Control>}z{/Control}');
+    await waitFor(() => expect(bnText()).toHaveValue('মন্তব্য'));
+    expect(drawer()).toBeInTheDocument();
+  }, 20_000);
+});
+
 describe('a question on its way to another place', () => {
   const three = (): FormDefinition['sections'] => [
     ...titled({ sections: coreSections() }).sections,
@@ -1929,7 +2097,7 @@ describe('a question on its way to another place', () => {
       if (this.matches('li[data-question]:not(.fb-q-member)')) return rowBox(this);
       // what follows the drag starts on the question that is picked up, as large as it
       const dragged = document.querySelector('li.is-dragging');
-      if (dragged && this.matches('.fb-drag-ghost')) return rowBox(dragged);
+      if (dragged && this.matches('[data-testid="drag-name"]')) return rowBox(dragged);
       if (this.matches('section[data-part]')) {
         const own = rows().filter((row) => this.contains(row));
         const first = own.length ? rowBox(own[0]!).top : 0;
@@ -1957,22 +2125,22 @@ describe('a question on its way to another place', () => {
     grip.focus();
     await user.keyboard('[Space]');
     await waitFor(() => expect(said()).toBe('মন্তব্য তুলেছেন।'));
-    expect(document.querySelector('[class*="is-land-"]')).toBeNull();
+    expect(document.querySelector('[data-landing]')).toBeNull();
 
     // a step down: it will stand after the question under it, and the line is drawn there
     await user.keyboard('[ArrowDown]');
     await waitFor(() => expect(said()).toBe('মন্তব্য অতিরিক্ত-এ দ্বিতীয় স্থানে বসবে।'));
-    expect(rowOf('আরও বদলান')).toHaveClass('is-land-after');
+    expect(rowOf('আরও বদলান')).toHaveAttribute('data-landing', 'after');
     await user.keyboard('[ArrowDown]');
     await waitFor(() => expect(said()).toBe('মন্তব্য অতিরিক্ত-এ তৃতীয় স্থানে বসবে।'));
-    expect(rowOf('শেষ বদলান')).toHaveClass('is-land-after');
-    expect(rowOf('আরও বদলান')).not.toHaveClass('is-land-after');
+    expect(rowOf('শেষ বদলান')).toHaveAttribute('data-landing', 'after');
+    expect(rowOf('আরও বদলান')).not.toHaveAttribute('data-landing');
 
     // put down, it stands where the line was, the line is gone and the place is said
     await user.keyboard('[Space]');
     await waitFor(() => expect(said()).toBe('মন্তব্য অতিরিক্ত-এ তৃতীয় স্থানে বসেছে।'));
     expect(await questionsOf('অতিরিক্ত')).toEqual(['আরও বদলান', 'শেষ বদলান', 'মন্তব্য বদলান']);
-    expect(document.querySelector('[class*="is-land-"]')).toBeNull();
+    expect(document.querySelector('[data-landing]')).toBeNull();
     await waitFor(
       () =>
         expect(savedFields('extra').map((f) => f.fieldKey)).toEqual(['q_more', 'q_last', 'q_note']),
@@ -1991,10 +2159,10 @@ describe('a question on its way to another place', () => {
     await user.keyboard('[Space]');
     await user.keyboard('[ArrowUp]');
     await waitFor(() => expect(said()).toBe('মন্তব্য ঠিকানা-এ দ্বিতীয় স্থানে বসবে।'));
-    expect(rowOf('village বদলান')).toHaveClass('is-land-before');
+    expect(rowOf('village বদলান')).toHaveAttribute('data-landing', 'before');
     await user.keyboard('[Escape]');
     await waitFor(() => expect(said()).toBe('সরানো হয়নি। মন্তব্য আগের জায়গাতেই আছে।'));
-    expect(document.querySelector('[class*="is-land-"]')).toBeNull();
+    expect(document.querySelector('[data-landing]')).toBeNull();
     expect(await questionsOf('অতিরিক্ত')).toEqual(['মন্তব্য বদলান', 'আরও বদলান', 'শেষ বদলান']);
   }, 20_000);
 
@@ -2009,9 +2177,9 @@ describe('a question on its way to another place', () => {
     await user.keyboard('[Space]');
     await waitFor(() => expect(said()).toBe('মন্তব্য তুলেছেন।'));
     await user.keyboard('[ArrowDown]');
-    await waitFor(() => expect(rowOf('আরও বদলান')).toHaveClass('is-land-after'));
+    await waitFor(() => expect(rowOf('আরও বদলান')).toHaveAttribute('data-landing', 'after'));
     await user.keyboard('[ArrowDown]');
-    await waitFor(() => expect(rowOf('শেষ বদলান')).toHaveClass('is-land-after'));
+    await waitFor(() => expect(rowOf('শেষ বদলান')).toHaveAttribute('data-landing', 'after'));
     // the dimmed question and the two that carried the line changed on the outside only
     expect([...drawn]).toEqual([]);
     await user.keyboard('[Space]');

@@ -359,7 +359,7 @@ export function CanvasDnd({
       <DragOverlay dropAnimation={null} modifiers={[besidePointer]}>
         {/* as large as the dragged question, so the keyboard's steps go by the question's place */}
         {ghost === null ? null : (
-          <div className="fb-drag-ghost">
+          <div className="fb-drag-ghost" data-testid="drag-name">
             <span className="fb-type-chip">{ghost}</span>
           </div>
         )}
@@ -635,9 +635,12 @@ const SectionCard = memo(function SectionCard({
   return (
     <section
       ref={setNodeRef}
-      className={`fb-sec${isOver ? ' is-over' : ''}${chosen ? ' is-selected' : ''}${landsAtEnd ? ' is-land-end' : ''}`}
+      className={`fb-sec${isOver ? ' is-over' : ''}${chosen ? ' is-selected' : ''}`}
       aria-label={title}
       data-part={section.key}
+      data-testid={`part-${section.key}`}
+      // where a dragged question will land, for the line and for whoever looks for it
+      data-landing={landsAtEnd ? 'end' : undefined}
     >
       <div className="fb-sec-head">
         <h2 className="fb-sec-title">
@@ -801,8 +804,11 @@ const QuestionRow = memo(
       <li
         ref={setNodeRef}
         style={{ transform: CSS.Translate.toString(transform), transition }}
-        className={`fb-q${isSelected ? ' is-selected' : ''}${isDragging ? ' is-dragging' : ''}${unnamed ? ' is-unnamed' : ''}${lands ? ` is-land-${lands}` : ''}`}
+        className={`fb-q${isSelected ? ' is-selected' : ''}${isDragging ? ' is-dragging' : ''}${unnamed ? ' is-unnamed' : ''}`}
         data-question={field.fieldKey}
+        data-testid={`question-${field.fieldKey}`}
+        // where a dragged question will land, for the line and for whoever looks for it
+        data-landing={lands ?? undefined}
       >
         {full ? (
           <button
@@ -980,6 +986,7 @@ function MemberRow({
     <li
       className={`fb-q fb-q-member${selected ? ' is-selected' : ''}${unnamed ? ' is-unnamed' : ''}`}
       data-question={field.fieldKey}
+      data-testid={`question-${field.fieldKey}`}
     >
       <div className="fb-q-main">
         {mode === 'read' ? null : (

@@ -131,18 +131,18 @@ for (const mode of MODES) {
     const grip = (await page
       .getByRole('button', { name: 'মোবাইল নম্বর টেনে সরান' })
       .boundingBox())!;
-    const over = (await page.locator('[data-question="q_name"]').boundingBox())!;
+    const over = (await page.getByTestId('question-q_name').boundingBox())!;
     await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
     await page.mouse.down();
     await page.mouse.move(over.x + over.width / 2, over.y + over.height * 0.75, { steps: 10 });
-    await expect(page.locator('[data-question="q_name"]')).toHaveClass(/is-land-after/);
+    await expect(page.getByTestId('question-q_name')).toHaveAttribute('data-landing', 'after');
     await page.screenshot({
       path: `test-results/screens/${mode}/1280/28-form-builder-drag.png`,
     });
     // given up, the question stays where it was
     await page.keyboard.press('Escape');
     await page.mouse.up();
-    await expect(page.locator('.is-land-after')).toHaveCount(0);
+    await expect(page.getByTestId('question-q_name')).not.toHaveAttribute('data-landing');
     // both side panes folded away: the form with all the room
     await page.getByRole('button', { name: 'প্রশ্ন যোগের তালিকা লুকান' }).click();
     await page.getByRole('button', { name: 'সেটিং লুকান' }).click();

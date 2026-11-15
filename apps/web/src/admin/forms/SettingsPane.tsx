@@ -52,7 +52,8 @@ function compact<T extends object>(value: T): T | undefined {
  * option texts in both languages); on a computer every setting does: the help text, required,
  * the named check of a text, the limits, the options and their branching, a repeat group's rows,
  * the conditions, the calculation, and a section's visibility, condition and own questions. A
- * question just added takes the focus in its Bengali text (`focusText`), so it is typed at once.
+ * question or a section just added takes the focus in its Bengali text (`focusText`), so it is
+ * typed at once.
  * On a computer the mobile question of a form that does not ask whose number it is offers the two
  * questions for it (`onAddMobileOwner`).
  */
@@ -71,8 +72,8 @@ export function SettingsPane({
   mode: 'full' | 'texts';
   /** Whether questions take identity marks: a beneficiary application form and the library. */
   identityMarks?: boolean;
-  /** The question whose Bengali text takes the focus, once. */
-  focusText?: string | null;
+  /** The question, or the section itself, whose Bengali text takes the focus, once. */
+  focusText?: Selection | null;
   /** The focus is there: the page forgets the request. */
   onTextFocused?: () => void;
   /**
@@ -93,6 +94,8 @@ export function SettingsPane({
         definition={definition}
         section={section}
         mode={mode}
+        focusText={focusText?.section === section.key && focusText.field === undefined}
+        onTextFocused={onTextFocused}
         onChange={onChange}
       />
     );
@@ -104,7 +107,7 @@ export function SettingsPane({
       field={field}
       mode={mode}
       identityMarks={identityMarks}
-      focusText={focusText === field.fieldKey}
+      focusText={focusText?.field === field.fieldKey}
       onTextFocused={onTextFocused}
       onAddMobileOwner={onAddMobileOwner}
       onChange={onChange}
@@ -116,11 +119,15 @@ function SectionSettings({
   definition,
   section,
   mode,
+  focusText,
+  onTextFocused,
   onChange,
 }: {
   definition: FormDefinition;
   section: FormSection;
   mode: 'full' | 'texts';
+  focusText: boolean;
+  onTextFocused?: () => void;
   onChange: (definition: FormDefinition, how?: Typed) => void;
 }) {
   const t = useTranslations('forms.builder');
@@ -131,7 +138,13 @@ function SectionSettings({
     <Stack gap={2}>
       <Disclosure title={t('group_basics')} headingLevel={2} defaultOpen>
         <Stack gap={3}>
-          <Texts of="section" value={section.title} onChange={setTitle} />
+          <Texts
+            of="section"
+            value={section.title}
+            onChange={setTitle}
+            focus={focusText}
+            onFocused={onTextFocused}
+          />
           {mode === 'full' ? (
             <SelectField
               label={t('visibility')}

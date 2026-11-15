@@ -64,7 +64,7 @@ import { AddPane } from './AddPane';
 import { BuildersOnly } from './BuildersOnly';
 import { type BuilderScope, useFormSummary } from './form-summary';
 import { CanvasDnd, FormCanvas, type Reveal } from './FormCanvas';
-import { HistoryButtons } from './HistoryButtons';
+import { HistoryButtons, LIVE_SETTINGS } from './HistoryButtons';
 import type { BuilderMode, Selection } from './selection';
 import { PreviewPane } from './PreviewPane';
 import { PublicLinkPanel } from './PublicLinkPanel';
@@ -159,8 +159,20 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const folds = usePaneFolds();
   // where the settings have no column (a narrow screen, or the column folded away) they come
   // over the form in a drawer
-  const settingsOver = narrow || folds.isFolded('settings');
+  const settingsWay = narrow ? 'narrow' : folds.isFolded('settings') ? 'folded' : 'column';
+  const settingsOver = settingsWay !== 'column';
   const [drawer, setDrawer] = useState(false);
+  // a drawer belongs to the way the settings were shown when it opened: once the screen widens or
+  // narrows, or the column is folded or unfolded, it is closed for good, not waiting to come back
+  const [drawerWay, setDrawerWay] = useState(settingsWay);
+  // the question a line of the list beside Publish led to: it takes the focus once its settings,
+  // which were opened over it, are closed
+  const [returnTo, setReturnTo] = useState<Selection | null>(null);
+  if (drawerWay !== settingsWay) {
+    setDrawerWay(settingsWay);
+    setDrawer(false);
+    setReturnTo(null);
+  }
   const online = useOnline();
   const queries = useQueryClient();
   // an earlier version opened from the list; otherwise the draft, else the published version
@@ -173,8 +185,9 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const [refusal, setRefusal] = useState(NO_REFUSAL);
   // the question or the part the canvas is asked to bring into view, until it has
   const [reveal, setReveal] = useState<Reveal | null>(null);
-  // the question just added, whose Bengali text takes the focus in the settings, until it has
-  const [typing, setTyping] = useState<string | null>(null);
+  // the question or the part just added, whose Bengali text takes the focus in the settings,
+  // until it has
+  const [typing, setTyping] = useState<Selection | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [scoring, setScoring] = useState(false);
   // the translations of the whole form, open on every text or on the incomplete ones alone
@@ -248,6 +261,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const [selected, setSelectedOnly] = useState<Selection | null>(null);
   const setSelected = (next: Selection | null) => {
     setSelectedOnly(next);
+    // whatever is chosen next, the question an earlier line of the list led to waits no longer
+    setReturnTo(null);
     if (!next) return;
     setPane('question');
     // choosing a question or a part is asking for its settings
@@ -391,6 +406,9 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const restore = (step: HistoryStep | null) => {
     if (!step) return;
     setSelectedOnly(step.selection);
+    // settings open over the form have nothing to show once what they showed is gone and
+    // nothing is chosen in its place
+    if (step.selection === null && pane === 'question') setDrawer(false);
     apply(step.definition);
   };
   const labelOf = (fieldKey: string) => {
@@ -463,7 +481,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     const chosen = { section: place.section, field: added.fieldKey };
     setSelected(chosen);
     setReveal({ ...chosen, quiet: true });
-    setTyping(added.fieldKey);
+    setTyping(chosen);
   };
   const newSectionTitle = (n: number) => ({
     bn: t('section_n_bn', { n: String(n) }),
@@ -581,7 +599,16 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       return;
     }
     setSelected(place);
-    setReveal(place);
+    // over the form the settings take the focus, since what is to mend is in them; the question
+    // comes into view behind them and takes the focus when they close
+    setReveal(settingsOver ? { ...place, quiet: true } : place);
+    if (settingsOver) setReturnTo(place);
+  };
+  const closeDrawer = () => {
+    setDrawer(false);
+    if (!returnTo) return;
+    setReveal(returnTo);
+    setReturnTo(null);
   };
   // a draft is published at the version it was saved at, so publishing waits for the save
   const publishWaits = save.state !== 'saved';
@@ -614,7 +641,11 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       onAddSection={() => {
         const made = addEmptySection(draft, newSectionTitle);
         change(made.definition);
-        setSelected({ section: made.key });
+        const chosen = { section: made.key };
+        setSelected(chosen);
+        // over the form its name is what the person writes next; beside the form the focus
+        // stays on the button, for a second part
+        if (settingsOver) setTyping(chosen);
       }}
       onAddIdentity={identityMissing ? addIdentity : undefined}
       onAddRow={(groupKey, type) => {
@@ -688,7 +719,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     />
   );
   const addFolded = folds.isFolded('add');
-  const settingsFolded = folds.isFolded('settings');
+  const settingsFolded = settingsWay === 'folded';
 
   const panes = (
     <div className="fb-panes">
@@ -755,8 +786,8 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
           {settingsFolded ? null : <div className="fb-side-body">{settingsTabs}</div>}
         </aside>
       )}
-      <Drawer open={settingsOver && drawer} onClose={() => setDrawer(false)} title={t('settings')}>
-        {settingsTabs}
+      <Drawer open={settingsOver && drawer} onClose={closeDrawer} title={t('settings')}>
+        <div {...{ [LIVE_SETTINGS]: '' }}>{settingsTabs}</div>
       </Drawer>
     </div>
   );
