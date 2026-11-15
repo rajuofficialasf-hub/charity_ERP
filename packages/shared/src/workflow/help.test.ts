@@ -56,6 +56,8 @@ describe('whether an application counts as help', () => {
 
   it('counts nothing for a state no workflow names', () => {
     expect(countsAsHelped(app({ status: 'archived' }))).toBe(false);
+    // nor for a name every object carries
+    expect(countsAsHelped(app({ status: 'constructor' }))).toBe(false);
   });
 });
 

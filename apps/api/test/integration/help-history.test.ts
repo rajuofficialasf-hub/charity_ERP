@@ -186,16 +186,28 @@ describe('the help on the profile', () => {
   });
 
   it('counts a closed application only when it was approved before the close and delivered', async () => {
+    // no code closes applications yet, so the closed rows are written as the close will leave them
     const someone = await person();
     const at = new Date().toISOString();
-    await applyTo(await projectOf(), someone, { status: 'closed', approved_at: at });
-    await applyTo(await projectOf(), someone, { status: 'closed' });
+    const delivered = await projectOf();
+    await applyTo(delivered, someone, { status: 'closed', approved_at: at, outcome: null });
+    await applyTo(await projectOf(), someone, { status: 'closed', approved_at: null });
     await applyTo(await projectOf(), someone, {
       status: 'closed',
       approved_at: at,
       outcome: 'not_distributed',
     });
-    expect((await helpOf(await head(), someone)).total).toBe(1);
+    const help = await helpOf(await head(), someone);
+    expect(help.total).toBe(1);
+    // the one counted is the approved one without an outcome
+    expect(help.years).toEqual([
+      {
+        year: THIS_YEAR,
+        count: 1,
+        projects: [expect.objectContaining({ id: delivered.id, count: 1 })],
+        unnamed: 0,
+      },
+    ]);
   });
 
   it('gives no help to a role outside the application history, and the projects still', async () => {
@@ -210,6 +222,7 @@ describe('the help on the profile', () => {
   it('counts a project the viewer does not see in the profile without naming it', async () => {
     const team = await account(h.db, { role: 'procurement_team' });
     const house = await projectOf();
+    // the fixture gives each project a workflow definition of its own, so no other project changes
     await h.db.query(`UPDATE workflow_definitions SET key = 'construction' WHERE id = $1`, [
       house.workflow,
     ]);
@@ -271,5 +284,37 @@ describe('the help on the profile', () => {
     const last = await person();
     await merge(last, kept);
     expect(await helpOf(await head(), last)).toMatchObject({ total: 3, repeatedInProject: true });
+  });
+
+  it('gives each profile back its own help when the merge is reverted', async () => {
+    const kept = await person();
+    const retired = await person();
+    const shared = await projectOf();
+    await applyTo(shared, kept);
+    // one application left behind in the shared project, one moved with the merge
+    await applyTo(shared, retired);
+    await applyTo(await projectOf(2025), retired);
+    const s = await head();
+    const merged = await api()
+      .post('/api/v1/beneficiary-merges/direct')
+      .set(bearer(s))
+      .send({ keptId: kept, mergedId: retired, reason: 'একই মানুষ' })
+      .expect(201);
+    expect((await helpOf(s, kept)).total).toBe(3);
+    await api()
+      .post(`/api/v1/beneficiary-merges/${merged.body.data.id}/revert`)
+      .set(bearer(s))
+      .send({ reason: 'ভুল করে মার্জ হয়েছিল' })
+      .expect(200);
+    expect(await helpOf(s, kept)).toMatchObject({
+      total: 1,
+      firstYear: THIS_YEAR,
+      repeatedInProject: false,
+    });
+    expect(await helpOf(s, retired)).toMatchObject({
+      total: 2,
+      firstYear: 2025,
+      repeatedInProject: false,
+    });
   });
 });

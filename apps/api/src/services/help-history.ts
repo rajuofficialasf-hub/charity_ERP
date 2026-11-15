@@ -35,28 +35,35 @@ export const HELPED_WHERE: Prisma.ApplicationWhereInput = {
 };
 
 /**
- * The applications of a person: their own and the ones a merge left on a profile retired into
- * them (an application in a project where the kept profile has one stays on the retired profile;
- * docs/BUSINESS_RULES.md, BR-013), following a chain of merges, so a profile retired into one
- * that was later retired too still hands its applications on. A reverted merge hands nothing.
+ * The applications a merge left on a profile retired into each of these people (an application in
+ * a project where the kept profile has one stays on the retired profile; docs/BUSINESS_RULES.md,
+ * BR-013), following a chain of merges, so a profile retired into one that was later retired too
+ * still hands its applications on. A reverted merge hands nothing. A subquery of the rows
+ * `(person_id, application_id)`; the people's own applications are not among them.
  */
+export function leftBehindSql(beneficiaryIds: readonly string[]): Prisma.Sql {
+  return Prisma.sql`
+    WITH RECURSIVE into_person(person_id, id) AS (
+      SELECT p, p FROM unnest(${[...beneficiaryIds]}::uuid[]) AS p
+      UNION
+      SELECT i.person_id, r.id FROM beneficiaries r JOIN into_person i ON r.merged_into_id = i.id
+    )
+    SELECT DISTINCT i.person_id, x.id::uuid AS application_id
+    FROM into_person i
+      JOIN profile_merges m ON m.kept_id = i.id AND m.status = 'merged',
+      jsonb_array_elements_text(
+        CASE WHEN jsonb_typeof(m.snapshot -> 'leftBehind') = 'array'
+             THEN m.snapshot -> 'leftBehind' ELSE '[]'::jsonb END) AS x(id)`;
+}
+
+/** The applications of a person: their own and the ones a merge left behind (`leftBehindSql`). */
 export async function personApplicationsWhere(
   tx: Tx,
   beneficiaryId: string,
 ): Promise<Prisma.ApplicationWhereInput> {
-  const left = await tx.$queryRaw<{ id: string }[]>`
-    WITH RECURSIVE into_person(id) AS (
-      SELECT ${beneficiaryId}::uuid
-      UNION
-      SELECT r.id FROM beneficiaries r JOIN into_person i ON r.merged_into_id = i.id
-    )
-    SELECT DISTINCT x.id
-    FROM profile_merges m,
-      jsonb_array_elements_text(
-        CASE WHEN jsonb_typeof(m.snapshot -> 'leftBehind') = 'array'
-             THEN m.snapshot -> 'leftBehind' ELSE '[]'::jsonb END) AS x(id)
-    WHERE m.status = 'merged' AND m.kept_id IN (SELECT id FROM into_person)`;
-  const leftBehind = left.map((r) => r.id);
+  const left = await tx.$queryRaw<{ application_id: string }[]>`
+    SELECT application_id FROM (${leftBehindSql([beneficiaryId])}) AS l`;
+  const leftBehind = left.map((r) => r.application_id);
   return leftBehind.length
     ? { OR: [{ beneficiaryId }, { id: { in: leftBehind } }] }
     : { beneficiaryId };
@@ -64,13 +71,21 @@ export async function personApplicationsWhere(
 
 const PROJECT_SELECT = { id: true, code: true, nameBn: true, nameEn: true, year: true } as const;
 
-/** Every application of a person (never cut to a page), newest first, with its project. */
+/**
+ * Every application of a person (never cut to a page), newest first, with its project: what the
+ * help counts and what the profile's page of applications shows.
+ */
 export async function personApplications(tx: Tx, where: Prisma.ApplicationWhereInput) {
   return tx.application.findMany({
     where,
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     select: {
+      id: true,
+      appNo: true,
+      beneficiaryId: true,
       status: true,
+      submittedAt: true,
+      reviewedAt: true,
       approvedAt: true,
       outcome: true,
       project: { select: PROJECT_SELECT },

@@ -704,22 +704,12 @@ export class BeneficiariesService {
       },
     });
     if (!b) return null;
-    // the person's own applications and the ones a merge left on a profile retired into them
-    const mine = await personApplicationsWhere(tx, b.id);
-    const applications = await tx.application.findMany({
-      where: { AND: [mine, inProjects] },
-      ...latest,
-      select: {
-        id: true,
-        appNo: true,
-        beneficiaryId: true,
-        status: true,
-        submittedAt: true,
-        reviewedAt: true,
-        approvedAt: true,
-        project: { select: { id: true, code: true, nameBn: true, nameEn: true, year: true } },
-      },
-    });
+    // every application of the person, never cut to a page: their own and the ones a merge left
+    // on a profile retired into them, for the projects by year and the help
+    const all = await personApplications(tx, await personApplicationsWhere(tx, b.id));
+    const visible = await visibleProjects(tx, all, inProjects.project ?? null);
+    // the page of the newest the caller sees, from the same read in the same order
+    const applications = all.filter((a) => visible.has(a.project.id)).slice(0, SECTION_ROWS);
     const activitySelect = {
       id: true,
       applicationId: true,
@@ -745,9 +735,6 @@ export class BeneficiariesService {
       take: SECTION_ROWS,
       select: activitySelect,
     });
-    // every application of the person, never cut to a page: the projects by year and the help
-    const all = await personApplications(tx, mine);
-    const visible = await visibleProjects(tx, all, inProjects.project ?? null);
     return { b, applications, activities, distributions, all, visible };
   }
 }

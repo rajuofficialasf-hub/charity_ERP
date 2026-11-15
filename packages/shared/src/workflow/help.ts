@@ -58,9 +58,14 @@ export interface HelpFacts {
   outcome: string | null;
 }
 
+/** Whether the text is a state the counting knows; any other state counts nothing. */
+const isCountedState = (status: string): status is keyof typeof HELP_BY_STATE =>
+  Object.hasOwn(HELP_BY_STATE, status);
+
 /** Whether the application counts as one time its person was helped. */
 export function countsAsHelped(a: HelpFacts): boolean {
-  const kind = (HELP_BY_STATE as Record<string, string>)[a.status];
+  if (!isCountedState(a.status)) return false;
+  const kind = HELP_BY_STATE[a.status];
   if (kind === 'always') return true;
   if (kind !== 'if_delivered') return false;
   return (
@@ -116,7 +121,7 @@ export function helpSummary(
   const list = [...years.values()].sort((a, b) => b.year - a.year);
   return {
     total: list.reduce((sum, y) => sum + y.count, 0),
-    firstYear: list.length ? list[list.length - 1]!.year : null,
+    firstYear: list.at(-1)?.year ?? null,
     thisYear: years.get(thisYear)?.count ?? 0,
     years: list,
     repeatedInYear: list.some((y) => y.count > 1),
