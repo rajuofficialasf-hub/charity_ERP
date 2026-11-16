@@ -646,6 +646,14 @@ permissions:
       - { role: volunteer_both, scope: PROJECT }
       - { role: volunteer_team_member, scope: PROJECT }
       - { role: volunteer_paid, scope: PROJECT }
+  - name: project.overview.view
+    description: See every program and every project as cards with counts only (no person but the PM and the RPMs by name, no identity number, no budget); opening a session stays with project.view (D-176)
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: GLOBAL }
+      - { role: regional_program_manager, scope: GLOBAL }
+      - { role: project_executive, scope: GLOBAL }
 
   # ---- M07 Form Platform ---------------------------------------------------------------------------
   - name: form.build

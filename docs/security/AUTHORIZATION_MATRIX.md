@@ -245,7 +245,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | GET /admin/deliveries | notification.delivery.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /openapi.json | public | system | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-## Permissions no endpoint uses yet (77)
+## Permissions no endpoint uses yet (78)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -306,6 +306,7 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `monitoring.view`
 - `payment.record`
 - `progress.update`
+- `project.overview.view`
 - `site_verification.decide`
 - `site_verification.record`
 - `stock.dispatch`
