@@ -6,6 +6,7 @@ export * from './workflow-defaults.js';
 export * from './identity-rules.js';
 export * from './programs.js';
 export * from './requests.js';
+export * from './session.js';
 export * from './setup.js';
 export * from './rules.js';
 export * from './templates.js';

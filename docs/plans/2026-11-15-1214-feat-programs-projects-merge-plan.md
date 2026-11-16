@@ -160,7 +160,7 @@ An official opens one tab, "প্রোগ্রাম ও প্রকল্�
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. Migration: project series, session period, program description, backfill
 - **Goal:** The database holds the three levels, and every existing project is a session of its own series.
@@ -518,3 +518,11 @@ An official opens one tab, "প্রোগ্রাম ও প্রকল্�
 - The verification commands pass.
 - `ae-review` has run, with no open P0 or P1.
 - Code from abandoned attempts is removed.
+
+## Progress
+- **Branch:** `feat/programs-projects-sessions`
+- **Updated:** 2026-11-16
+- **Next:** the checkpoints C1 to C3, then U4
+- **Reviewed through:** none yet
+- **Uncommitted:** none
+- **Notes:** U1: the spec is `packages/shared/src/projects/session.test.ts`, because the shared package runs `*.test.ts` only and a `.spec.ts` would never run. A request carries the period as two months (`periodFrom`, `periodTo`, each `yyyy-mm`); `sessionDates` gives the stored days, `sessionMonths` the months covered (both counted, at most `MAX_SESSION_MONTHS`), `sessionYear` the start year, which stays within 2020 to 2100 as a project's year always did. `sessionLabel` takes months or stored dates; a period that ends two years after it starts (possible within 24 months) is labelled the same way, "2026-28". Two schemas the running API reads were left as they are, so the contract does not move before the unit that serves it: the body of `POST /projects` is added beside the old one as `seriesSessionCreateSchema` (U5 puts it in the old one's place), and it keeps the field name `source` for the starting point, which this plan calls `start`; the program's description is ready as `shortDescription` (a pair, each language at most 500 characters) and joins `programCreateSchema` and `programUpdateSchema` in U4, with the service that stores it. The rule of the period and the label is BR-311, with its register line.
