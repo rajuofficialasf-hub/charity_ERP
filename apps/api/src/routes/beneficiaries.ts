@@ -470,8 +470,9 @@ const mergeView = z.object({
   moved: z.record(z.string(), z.number().int().min(0)),
   leftBehind: z.number().int().min(0),
 });
-const mergeListQuery = z.strictObject({
+const mergeListQuery = pageQuery.omit({ sort: true, include: true }).extend({
   status: z.enum(['proposed', 'merged', 'reverted']).optional(),
+  mergeId: z.uuid().optional(),
 });
 
 const listQuery = pageQuery
@@ -785,7 +786,7 @@ export function beneficiariesRouter(
     handler: ({ body, req }) => c.beneficiaryMerges.propose(principalOf(req), scopeOf(req), body),
   });
 
-  defineRoute<unknown, { status?: 'proposed' | 'merged' | 'reverted' }>(router, deps, {
+  defineRoute<unknown, z.infer<typeof mergeListQuery>>(router, deps, {
     ...mergeOp,
     method: 'get',
     path: '/beneficiary-merges',
@@ -796,8 +797,16 @@ export function beneficiariesRouter(
     rateLimit: 'list',
     query: mergeListQuery,
     responses: { 200: z.array(mergeView), 401: null, 403: null, 422: null, 429: null },
-    handler: async ({ query, req }) =>
-      ok(await c.beneficiaryMerges.list(scopeOf(req), query.status, 100)),
+    handler: async ({ query, req }) => {
+      const { status, mergeId, ...paging } = query;
+      const { rows, meta } = await c.beneficiaryMerges.list(
+        principalOf(req),
+        scopeOf(req),
+        { status, mergeId },
+        paging,
+      );
+      return page(rows, meta);
+    },
   });
 
   defineRoute<MergeRequest>(router, deps, {

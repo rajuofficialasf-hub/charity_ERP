@@ -514,6 +514,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         clock,
         beneficiaryMergeCandidates,
         matchKeys,
+        env,
       ),
     beneficiaryCorrections:
       o.beneficiaryCorrections ??

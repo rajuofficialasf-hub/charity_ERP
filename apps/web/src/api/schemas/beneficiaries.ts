@@ -416,3 +416,10 @@ export const mergeViewSchema = z.object({
   leftBehind: z.number().int(),
 });
 export type MergeView = z.infer<typeof mergeViewSchema>;
+
+/** A page of the merges with its cursor. */
+export const mergePageSchema = z.object({
+  data: z.array(mergeViewSchema),
+  meta: z.object({ nextCursor: z.string().nullable() }),
+});
+export type MergePage = z.infer<typeof mergePageSchema>;

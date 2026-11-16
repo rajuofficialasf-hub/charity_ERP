@@ -132,5 +132,6 @@ export const transferResultSchema = z.object({
   moved: z.array(z.uuid()),
   teamMoved: z.number().int(),
   overLimit: z.boolean(),
+  consentPending: z.boolean(),
 });
 export type TransferResult = z.infer<typeof transferResultSchema>;

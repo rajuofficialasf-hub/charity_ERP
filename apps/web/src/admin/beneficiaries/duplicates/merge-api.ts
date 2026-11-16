@@ -1,5 +1,10 @@
 import { api } from '../../../api/client';
-import type { MergeCandidate, MergeCandidatePage, MergeView } from '../../../api/schemas';
+import type {
+  MergeCandidate,
+  MergeCandidatePage,
+  MergePage,
+  MergeView,
+} from '../../../api/schemas';
 import { PAGE_SIZE } from '../../list-paging';
 import { listQuery } from '../../list-query';
 import { BENEFICIARIES_KEY } from '../beneficiaries-api';
@@ -75,7 +80,22 @@ export const dismissPair = (body: {
   reason: string;
 }) => api<unknown>('/beneficiaries/merge-dismissals', { method: 'POST', body });
 
-export const mergeProposals = () => api<MergeView[]>('/beneficiary-merges?status=proposed');
+/** A page of the open proposals, newest first. */
+export const proposalPage = (cursor: string | null) =>
+  api<MergePage>(
+    `/beneficiary-merges${listQuery({
+      status: 'proposed',
+      cursor: cursor ?? undefined,
+      limit: String(PAGE_SIZE),
+    })}`,
+    { envelope: true },
+  );
+
+/** One open proposal by its id, or none when it is no longer open or out of reach. */
+export const mergeProposal = async (id: string) =>
+  (
+    await api<MergeView[]>(`/beneficiary-merges${listQuery({ status: 'proposed', mergeId: id })}`)
+  ).find((m) => m.id === id) ?? null;
 
 interface MergeRequest {
   keptId: string;

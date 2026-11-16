@@ -2011,12 +2011,13 @@ components:
       properties:
         data:
           type: object
-          required: [batchId, moved, teamMoved, overLimit]
+          required: [batchId, moved, teamMoved, overLimit, consentPending]
           properties:
             batchId: { $ref: '#/components/schemas/Uuid' }
             moved: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
             teamMoved: { type: integer }
             overLimit: { type: boolean, description: "The new volunteer now holds more applications than the project's limit; a warning, never a refusal (D-132)" }
+            consentPending: { type: boolean, description: "The new volunteer has not yet accepted the project's rules, so sees the moved applications only after that; a notice, never a refusal (D-179)" }
         meta: { $ref: '#/components/schemas/Meta' }
     TransferCandidateList:
       type: object
@@ -8050,16 +8051,26 @@ paths:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.list
       summary: The merge proposals and merges of profiles in the caller scope, newest first
+      description: >-
+        Paged forward by cursor (a cursor serves only the filters it was made for); `mergeId` reads
+        one proposal or merge, as the comparison page does (D-179).
       x-permission: beneficiary.merge.dismiss
       x-scope: beneficiary
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
       parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
         - { name: status, in: query, required: false, schema: { type: string, enum: [proposed, merged, reverted] } }
+        - name: mergeId
+          in: query
+          required: false
+          description: Only this proposal or merge
+          schema: { $ref: '#/components/schemas/Uuid' }
       responses:
         '200':
-          description: At most 100 merges
+          description: A page of merges
           content:
             application/json:
               schema:

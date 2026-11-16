@@ -229,8 +229,13 @@ export class BeneficiaryIdentityService {
     return [...new Set(live.filter((id): id is string => id !== null))];
   }
 
-  /** The lookup of the application form, inside a project the caller works on. */
-  async lookup(viewer: LookupViewer, body: LookupRequest) {
+  /**
+   * The lookup of the application form, inside a project the caller works on. On the lookup
+   * screen a caller past the day's limit outside their area is refused for an unknown number too;
+   * an application's own gate (`forApplication`) lets an unknown number through, since that is how
+   * a new person is entered, and the draft it makes stays on record under its creator.
+   */
+  async lookup(viewer: LookupViewer, body: LookupRequest, forApplication = false) {
     const project = await this.access.findProject(viewer.scope, body.projectId, { id: true });
     const access = await this.access.load(viewer.principal.userId);
     const nearScope = await this.access.sensitiveScope(
@@ -251,12 +256,26 @@ export class BeneficiaryIdentityService {
       const b = liveId
         ? await tx.beneficiary.findUnique({ where: { id: liveId }, select: AUTOFILL })
         : null;
+      // the day's lookups outside the caller's area, counted before the answer
+      const outsideToday = () =>
+        tx.auditLog.count({
+          where: {
+            actorUserId: viewer.principal.userId,
+            action: 'beneficiary.looked_up',
+            createdAt: { gte: dhakaDayStart(this.clock.now()) },
+            new: { path: ['outsideScope'], equals: true },
+          },
+        });
       if (!b) {
+        // past the day's limit an unknown number is refused like one held outside the area, so
+        // the refusal tells nothing about whether a number is known
+        const limited = !forApplication && (await outsideToday()) >= OUTSIDE_LOOKUPS_PER_DAY;
         await this.audit.record(tx, {
           action: 'beneficiary.looked_up',
           entityType: 'beneficiary',
-          new: { found: false, projectId: project.id },
+          new: { found: false, projectId: project.id, ...(limited ? { limited: true } : {}) },
         });
+        if (limited) return null;
         return { found: false as const };
       }
       const [applied, caller, inScope] = await Promise.all([
@@ -266,16 +285,7 @@ export class BeneficiaryIdentityService {
         tx.user.findUnique({ where: { id: viewer.principal.userId }, select: { mobile: true } }),
         nearScope ? this.access.reaches(nearScope, { beneficiaryId: b.id }, tx) : false,
       ]);
-      const limited =
-        !inScope &&
-        (await tx.auditLog.count({
-          where: {
-            actorUserId: viewer.principal.userId,
-            action: 'beneficiary.looked_up',
-            createdAt: { gte: dhakaDayStart(this.clock.now()) },
-            new: { path: ['outsideScope'], equals: true },
-          },
-        })) >= OUTSIDE_LOOKUPS_PER_DAY;
+      const limited = !inScope && (await outsideToday()) >= OUTSIDE_LOOKUPS_PER_DAY;
       await this.audit.record(tx, {
         action: 'beneficiary.looked_up',
         entityType: 'beneficiary',
