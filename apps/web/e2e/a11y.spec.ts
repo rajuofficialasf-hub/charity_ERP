@@ -335,7 +335,7 @@ test.describe('accessibility of the Phase 1 screens', () => {
         .getByRole('button', { name: bn ? 'মোট সম্পদ বদলান' : 'Change Total assets', exact: true })
         .click();
       await page
-        .getByRole('button', { name: bn ? 'হিসাব বদলান' : 'Change the calculation' })
+        .getByRole('button', { name: bn ? 'হিসাবের নিয়ম বদলান' : 'Change the calculation' })
         .click();
       const calc = page.getByRole('dialog');
       await calc.getByText(bn ? 'সূত্র লিখুন' : 'Type a formula', { exact: true }).click();

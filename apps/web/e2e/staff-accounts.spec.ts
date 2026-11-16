@@ -48,7 +48,10 @@ test.describe('officials created by the admin', () => {
     // the name opens the official's profile with the Job ID and the new-link action
     await page.getByRole('link', { name }).filter({ visible: true }).click();
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
-    await expect(page.getByText(new RegExp(`^Job ID: ${jobId}$`, 'i'))).toBeVisible();
+    // the banner's band: the Job ID under its label
+    await expect(
+      page.getByRole('listitem').filter({ hasText: 'Job ID' }).getByText(jobId, { exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'নতুন পাসওয়ার্ড লিঙ্ক' })).toBeVisible();
     expect((await scan(page)).violations).toEqual([]);
     expect(await noSideways()).toBe(true);

@@ -1,8 +1,24 @@
 /*
- * The form builder (docs/ui/SCREENS.md, "Form builder"): the form drawn in the middle, the
- * questions to add on the left and the chosen question's settings on the right, side by side
- * from 1024 px with the side panes in view while the form scrolls. Tokens only.
+ * The form builder (docs/ui/SCREENS.md, "Form builder"): the form drawn in the middle with the
+ * most room, the questions to add on its left and, from 1024 px, the chosen question's settings on
+ * its right; the side panes stay in view while the form scrolls and fold away to a strip. Under
+ * 1024 px the settings have no column and come over the form in a drawer. Tokens only.
  */
+/*
+ * the builder is a workspace: from a tablet's width it runs to the edges of the admin area, over
+ * the padding that area keeps around its other pages (admin.css), so the form gets that room
+ */
+.fb-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  min-width: 0;
+}
+@media (min-width: 768px) {
+  .fb-page {
+    margin-inline: calc(-1 * var(--space-5));
+  }
+}
 /* the form's kind, version, counts and save state in the page header's description line */
 .fb-head-meta {
   display: flex;
@@ -72,27 +88,36 @@
   padding: var(--space-1) 0;
 }
 .fb-panes {
-  display: grid;
-  gap: var(--space-4);
-  align-items: start;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
 }
-@media (min-width: 1024px) {
-  .fb-panes {
-    grid-template-columns: 236px minmax(0, 1fr) 300px;
-  }
-  .fb-side {
-    position: sticky;
-    top: var(--space-4);
-    max-height: calc(100dvh - var(--space-6));
-    overflow-y: auto;
-  }
+/* the form takes what the side panes leave, and they are sized to leave it the most */
+.fb-canvas {
+  flex: 1 1 0;
+}
+.fb-side {
+  /* under the asf shell's header, which is 72px high */
+  position: sticky;
+  top: calc(72px + var(--space-2));
+  flex: none;
+}
+.fb-add {
+  width: 208px;
+}
+.fb-settings {
+  width: 288px;
 }
 @media (min-width: 1440px) {
-  .fb-panes {
-    grid-template-columns: 260px minmax(0, 1fr) 340px;
+  .fb-add {
+    width: 232px;
+  }
+  .fb-settings {
+    width: 320px;
   }
 }
-.fb-side,
+.fb-side-body,
+.fb-side.is-folded,
 .fb-canvas {
   min-width: 0;
   border: 1px solid var(--color-border-default);
@@ -100,11 +125,41 @@
   background: var(--color-bg-surface);
   box-shadow: var(--elevation-1);
 }
-.fb-side {
-  padding: var(--space-3) var(--space-4) var(--space-4);
+.fb-side-body {
+  max-height: calc(100dvh - 72px - var(--space-5));
+  padding: var(--space-2) var(--space-3) var(--space-4);
+  overflow-y: auto;
 }
 .fb-canvas {
   padding: var(--space-4) var(--space-4) var(--space-5);
+}
+/*
+ * the fold button rides the pane's edge that faces the form, as the shell's own sidebar button
+ * does, so it takes no room from the pane; a folded pane is a strip that holds the button alone
+ */
+.fb-fold {
+  position: absolute;
+  top: var(--space-2);
+  z-index: 3;
+  display: grid;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface);
+}
+.fb-add > .fb-fold {
+  right: -18px;
+}
+.fb-settings > .fb-fold {
+  left: -18px;
+}
+.fb-side.is-folded {
+  width: auto;
+  padding: var(--space-1);
+}
+.fb-side.is-folded > .fb-fold {
+  position: static;
+  border: 0;
+  background: none;
 }
 .fb-form-sub {
   margin: var(--space-1) 0 var(--space-4);
@@ -213,8 +268,37 @@
   background: var(--color-bg-surface);
   box-shadow: 0 0 0 3px var(--color-bg-brand-soft);
 }
+/* a dragged question stays in its place, dimmed, until it is dropped */
 .fb-q.is-dragging {
   opacity: 0.4;
+}
+/*
+ * where a dragged question will land: a line before or after the question it is over, or under a
+ * section's last question; the line sits in the gap between two questions and moves nothing
+ */
+.fb-sec > .fb-q-list {
+  position: relative;
+}
+.fb-q[data-landing='before']::before,
+.fb-q[data-landing='after']::after,
+.fb-sec[data-landing='end'] > .fb-q-list::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--color-brand-primary);
+  pointer-events: none;
+}
+.fb-q[data-landing='before']::before {
+  top: -4px;
+}
+.fb-q[data-landing='after']::after {
+  bottom: -4px;
+}
+.fb-sec[data-landing='end'] > .fb-q-list::after {
+  bottom: -6px;
 }
 .fb-q-grip {
   flex: none;
@@ -306,6 +390,10 @@
   z-index: 1;
   margin-top: var(--space-1);
 }
+/*
+ * the chosen question's bar: its type, then its buttons, which keep their size; where the
+ * question is too narrow for both, the type's name gives way and is cut short
+ */
 .fb-q-bar {
   position: absolute;
   right: var(--space-2);
@@ -314,6 +402,8 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  max-width: calc(100% - var(--space-2));
+  border: 1px solid var(--color-border-default);
   padding: 2px var(--space-1) 2px var(--space-2);
   border-radius: var(--radius-full);
   background: var(--color-brand-ink);
@@ -321,8 +411,25 @@
   font-size: var(--text-caption);
   box-shadow: var(--elevation-2);
 }
-.fb-q-bar-type {
+.fb-q-bar > * {
+  flex: none;
+}
+/* the buttons take the bar's own ink, light on its dark ground, and stay small */
+.fb-q-bar > button {
+  padding: 5px;
+  color: inherit;
+}
+.fb-q-bar > button:disabled {
+  color: inherit;
+  opacity: 0.4;
+}
+.fb-q-bar > .fb-q-bar-type {
+  flex: 0 1 auto;
+  min-width: 0;
   margin-right: var(--space-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* the left pane: the types in groups, the library by section */
 .fb-type-group {
@@ -396,9 +503,17 @@
 .fb-type:hover:not(:disabled) .fb-type-plus {
   color: var(--color-brand-primary-dark);
 }
-/* the type while it is dragged over the canvas */
+/* the name of what is dragged, beside the pointer: a type from the left pane or a question */
+.fb-drag-ghost {
+  width: 100%;
+  height: 100%;
+}
 .fb-type-chip {
   display: inline-block;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
   background: var(--color-brand-ink);
