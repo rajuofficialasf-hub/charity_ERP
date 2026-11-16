@@ -46,6 +46,7 @@ export function ProjectOverviewPage() {
   // applications from here
   const allowed = Boolean(me && canListProjects(me));
   const manager = Boolean(me && canSeeProjects(me));
+  const overview = Boolean(me && canSeeProjectOverview(me));
   const one = useQuery({
     queryKey: [...PROJECTS_KEY, 'one', projectId],
     queryFn: () => projectWithEtag(projectId),
@@ -55,7 +56,7 @@ export function ProjectOverviewPage() {
   const cards = useQuery({
     queryKey: [...CARDS_KEY, 'programs'],
     queryFn: programCards,
-    enabled: Boolean(me && canSeeProjectOverview(me)),
+    enabled: overview,
   });
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
@@ -91,8 +92,13 @@ export function ProjectOverviewPage() {
                 },
               ]
             : []),
+          // the project's page belongs to the overview; the Procurement Team sees its name only
           ...(p.seriesId
-            ? [{ id: 'series', label: name, href: `/admin/projects/series/${p.seriesId}` }]
+            ? [
+                overview
+                  ? { id: 'series', label: name, href: `/admin/projects/series/${p.seriesId}` }
+                  : { id: 'series', label: name },
+              ]
             : []),
           { id: 'session', label: t('list.session', { label: p.sessionLabel }) },
         ]}

@@ -84,6 +84,16 @@ describe('the Procurement Team on a house-construction project', () => {
     expect(one.body.data.availableActions ?? []).toEqual([]);
   });
 
+  it('reads its house-construction session and no other project', async () => {
+    const s = await login(h, procurement);
+    expect((await get(s, `/projects/${house.id}`)).status).toBe(200);
+    for (const project of [distribution, unattached])
+      expect((await get(s, `/projects/${project.id}`)).status).toBe(404);
+    const list = await get(s, '/projects');
+    expect(list.status).toBe(200);
+    expect(list.body.data.map((p: { id: string }) => p.id)).toEqual([house.id]);
+  });
+
   it('reaches no application of another project, attached or not', async () => {
     const s = await login(h, procurement);
     for (const key of ['distribution', 'unattached'] as const) {

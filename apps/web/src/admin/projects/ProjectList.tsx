@@ -45,7 +45,10 @@ export function ProjectList({ overview = true }: { overview?: boolean }) {
   const change = (patch: Parameters<typeof changeView>[0]) =>
     changeView({ ...patch, view: 'list' });
   // the view is not a filter of the list
-  const listFilters = listFiltersOf(filters);
+  // without the overview the program and project filters do not exist, also when a link names them
+  const listFilters = overview
+    ? listFiltersOf(filters)
+    : { ...listFiltersOf(filters), programId: undefined, seriesId: undefined };
   const page = useQuery({
     queryKey: [...PROJECTS_KEY, 'page', listFilters, cursor],
     queryFn: () => projectPage(listFilters, cursor),
