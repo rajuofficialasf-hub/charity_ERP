@@ -235,7 +235,11 @@ export class BeneficiaryIdentityService {
    * an application's own gate (`forApplication`) lets an unknown number through, since that is how
    * a new person is entered, and the draft it makes stays on record under its creator.
    */
-  async lookup(viewer: LookupViewer, body: LookupRequest, forApplication = false) {
+  async lookup(
+    viewer: LookupViewer,
+    body: LookupRequest,
+    { forApplication = false }: { forApplication?: boolean } = {},
+  ) {
     const project = await this.access.findProject(viewer.scope, body.projectId, { id: true });
     const access = await this.access.load(viewer.principal.userId);
     const nearScope = await this.access.sensitiveScope(

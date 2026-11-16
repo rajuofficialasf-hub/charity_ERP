@@ -95,7 +95,7 @@ export const proposalPage = (cursor: string | null) =>
 export const mergeProposal = async (id: string) =>
   (
     await api<MergeView[]>(`/beneficiary-merges${listQuery({ status: 'proposed', mergeId: id })}`)
-  ).find((m) => m.id === id) ?? null;
+  )[0] ?? null;
 
 interface MergeRequest {
   keptId: string;

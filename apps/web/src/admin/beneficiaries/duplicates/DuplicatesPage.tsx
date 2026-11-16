@@ -11,7 +11,7 @@ import {
   Tabs,
   type DataTableExtendedColumn,
 } from '@/ui';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';

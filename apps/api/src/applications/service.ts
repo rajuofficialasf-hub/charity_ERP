@@ -1403,7 +1403,7 @@ export class ApplicationsService {
     const found = await this.identity.lookup(
       { principal, scope },
       { projectId, ...(kind === 'nid' ? { nid: number } : { birthReg: number }) },
-      true,
+      { forApplication: true },
     );
     if (found.found && found.blocked) throw new ApiError('beneficiary.blocked', 409);
   }

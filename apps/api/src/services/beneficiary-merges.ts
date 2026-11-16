@@ -7,7 +7,7 @@ import type { Principal } from '../auth/principal.js';
 import type { Env } from '../config/env.js';
 import type { Clock } from '../core/clock.js';
 import { isUniqueViolation, isVolunteerMobileRefusal } from '../core/db-errors.js';
-import { decodeCursor, encodeCursor } from '../core/pagination.js';
+import { buildPage, decodeCursor } from '../core/pagination.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client.js';
@@ -615,18 +615,14 @@ export class BeneficiaryMergesService {
     const { status, mergeId } = filter;
     const binding = `beneficiaries.merges|${actor.userId}|${status ?? ''}|${mergeId ?? ''}`;
     const after = page.cursor ? decodeCursor(this.env.CURSOR_SECRET, binding, page.cursor) : null;
-    const position = after ? z.tuple([z.iso.datetime(), z.uuid()]).safeParse(after.v) : null;
+    // the ids are time-ordered, so newest first is the id order, kept exactly in the cursor
+    const position = after ? z.tuple([z.uuid()]).safeParse(after.v) : null;
     if (position && !position.success)
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'cursor', code: 'validation.failed' },
       ]);
     const before: Prisma.ProfileMergeWhereInput = position?.success
-      ? {
-          OR: [
-            { proposedAt: { lt: new Date(position.data[0]) } },
-            { proposedAt: new Date(position.data[0]), id: { lt: position.data[1] } },
-          ],
-        }
+      ? { id: { lt: position.data[0] } }
       : {};
     const inScope = beneficiaryWhere(scope);
     const stillOpen: Prisma.ProfileMergeWhereInput = {
@@ -645,27 +641,19 @@ export class BeneficiaryMergesService {
           before,
         ],
       },
-      orderBy: [{ proposedAt: 'desc' }, { id: 'desc' }],
+      orderBy: { id: 'desc' },
       take: page.limit + 1,
       select: VIEW,
     });
-    const more = rows.length > page.limit;
-    const kept = rows.slice(0, page.limit);
-    const last = kept.at(-1);
-    return {
-      rows: kept.map(view),
-      meta: {
-        nextCursor:
-          more && last
-            ? encodeCursor(this.env.CURSOR_SECRET, binding, {
-                v: [last.proposedAt.toISOString(), last.id],
-                d: 'next',
-              })
-            : null,
-        prevCursor: null,
-        limit: page.limit,
-      },
-    };
+    const built = buildPage(rows, {
+      limit: page.limit,
+      sort: [{ field: 'id', direction: 'desc' }],
+      direction: 'next',
+      hadCursor: after !== null,
+      secret: this.env.CURSOR_SECRET,
+      binding,
+    });
+    return { rows: built.rows.map(view), meta: built.meta };
   }
 }
 
