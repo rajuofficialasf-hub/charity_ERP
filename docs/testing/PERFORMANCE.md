@@ -212,7 +212,8 @@ cards and `GET /project-series?programId=` (one program); a project's page `GET
 /project-series/{seriesId}`; the list of the sessions `GET /projects` as before. Only the tab's own
 read and the series cards of every program (read by the list's project filter when no program is
 chosen) go through every application, and their p95 of about 285 to 400 ms against the 300 ms
-target is kept as it is for the owner's decision (below); they were not measured again.
+target is kept as it is by the owner's decision (D-178): they are measured again before the field
+rollout, and only then is a kept count or a covering index weighed.
 
 The two reads of one program and one series are well inside the 300 ms target. The two that read
 every application are not: about 250 to 280 ms at p50 when the machine is not busy, and a p95 on
@@ -221,7 +222,7 @@ biggest plan node is the grouped count over the parallel scan of all 500,000 app
 249 ms in the plan of a program cards call: the scan about 80 ms in each of three processes, the
 five filtered counts the rest). The rewrite of the area match does not touch it. Bringing these two
 reads under the target needs either a count kept per session by the writes or an index that covers
-the five conditions; neither was added, both need the owner's decision. What the measurement
+the five conditions; neither was added (D-178: measured again before the field rollout first). What the measurement
 changed:
 
 - **One read of the applications.** The first version counted the people helped with

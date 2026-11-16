@@ -358,7 +358,7 @@ describe('the program cards', () => {
     expect(work.getByText('21')).toBeInTheDocument();
   });
 
-  it('marks an inactive program on its cover, and shows its description and its missing RPMs on the back', async () => {
+  it('marks an inactive program on its cover, shows its description on the front and its missing RPMs on the back', async () => {
     refreshAs(RPM);
     serve();
     cards = [
@@ -372,9 +372,17 @@ describe('the program cards', () => {
     open('/admin/projects');
     const program = within(await screen.findByRole('article', { name: 'মানবিক সহায়তা' }));
     expect(program.getByText('নিষ্ক্রিয়')).toBeInTheDocument();
+    const front = screen
+      .getByRole('article', { name: 'মানবিক সহায়তা' })
+      .querySelector('[data-face="front"]') as HTMLElement;
+    expect(within(front).getByText('আগের বছরের কাজ, এখন বন্ধ।')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'মানবিক সহায়তা: বিস্তারিত দেখুন' }));
+    const backFace = screen
+      .getByRole('article', { name: 'মানবিক সহায়তা' })
+      .querySelector('[data-face="back"]') as HTMLElement;
+    // the back no longer repeats the description
+    expect(within(backFace).queryByText('আগের বছরের কাজ, এখন বন্ধ।')).not.toBeInTheDocument();
     const back = within(screen.getByRole('article', { name: 'মানবিক সহায়তা' }));
-    expect(back.getByText('আগের বছরের কাজ, এখন বন্ধ।')).toBeInTheDocument();
     expect(back.getByText('এখনো কোনো RPM দেওয়া হয়নি')).toBeInTheDocument();
     expect(back.queryByText(/জন RPM/)).not.toBeInTheDocument();
   });

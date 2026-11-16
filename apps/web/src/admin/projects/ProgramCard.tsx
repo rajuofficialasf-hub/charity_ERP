@@ -9,10 +9,10 @@ import { type ProgramCard as Card, PROGRAM_CARD_HEIGHT } from './cards-api';
 
 /**
  * One program as a card of the programs and projects tab (docs/ui/SCREENS.md, "Project list and
- * project page"). The front: its cover, its name and three figures (its projects, the running
- * ones, the people helped). The back: its manager, the RPMs of its current sessions, the
- * applications and volunteers of its running sessions, the caller's own work only where the read
- * gives it, its description, and the way to its projects; "Edit program" for those who manage
+ * project page"). The front: its cover, its name, its short description in at most two lines,
+ * and three figures (its projects, the running ones, the people helped). The back: its manager,
+ * the RPMs of its current sessions, the applications and volunteers of its running sessions, the
+ * caller's own work only where the read gives it, and the way to its projects; "Edit program" for those who manage
  * the programs.
  */
 export function ProgramCard({
@@ -39,20 +39,27 @@ export function ProgramCard({
       media={<CardCover fileId={program.coverFileId} seed={program.id} />}
       mediaFoot={program.active ? undefined : <Chip tone="neutral">{t('inactive')}</Chip>}
       front={
-        <dl className="card-figures">
-          <div className="card-figure">
-            <dt>{t('projects')}</dt>
-            <dd>{number(program.projects)}</dd>
-          </div>
-          <div className="card-figure">
-            <dt>{t('running')}</dt>
-            <dd>{number(program.runningProjects)}</dd>
-          </div>
-          <div className="card-figure">
-            <dt>{t('people')}</dt>
-            <dd>{number(program.beneficiaries)}</dd>
-          </div>
-        </dl>
+        <>
+          {program.description && (
+            <p className="card-description card-description-short">
+              {localized(program.description, locale)}
+            </p>
+          )}
+          <dl className="card-figures">
+            <div className="card-figure">
+              <dt>{t('projects')}</dt>
+              <dd>{number(program.projects)}</dd>
+            </div>
+            <div className="card-figure">
+              <dt>{t('running')}</dt>
+              <dd>{number(program.runningProjects)}</dd>
+            </div>
+            <div className="card-figure">
+              <dt>{t('people')}</dt>
+              <dd>{number(program.beneficiaries)}</dd>
+            </div>
+          </dl>
+        </>
       }
       backEyebrow={t('program_eyebrow')}
       back={
@@ -82,9 +89,6 @@ export function ProgramCard({
             </div>
           </dl>
           {program.todo && <CardTodo todo={program.todo} />}
-          {program.description && (
-            <p className="card-description">{localized(program.description, locale)}</p>
-          )}
           <div className="card-actions">
             <LinkButton to={projects} endIcon="arrow-right" fullWidth>
               {t('open_program')}
