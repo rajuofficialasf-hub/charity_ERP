@@ -819,6 +819,63 @@ describe('a new session of a project series', () => {
     ).toBe(3);
   });
 
+  it('starts a year again once its session was cancelled, takes one live session of it, and answers a repeat with the session its request made', async () => {
+    const pm = await as(world.users.pm);
+    const source = await fullSource();
+    const seriesId = await seriesOf(source);
+    const cancel = async (id: string) =>
+      expect(
+        (await at(pm, 'post', `/projects/${id}/cancel`).send({ reason: 'Started by mistake' }))
+          .status,
+      ).toBe(200);
+    const live = async () =>
+      (
+        await h.db.query<{ id: string }>(
+          `SELECT id FROM projects WHERE series_id = $1 AND year = 2027 AND status <> 'cancelled'`,
+          [seriesId],
+        )
+      ).rows.map((r) => r.id);
+    const wrong = await newSession(pm, seriesId, NEXT);
+    expect(wrong.status).toBe(201);
+    await cancel(wrong.body.data.id as string);
+    // the year of the cancelled draft is free again
+    const key = randomUUID();
+    const right = await newSession(pm, seriesId, NEXT, key);
+    expect(right.status, JSON.stringify(right.body)).toBe(201);
+    expect(right.body.data).toMatchObject({ year: 2027, status: 'draft', sessionLabel: '2027-28' });
+    expect(right.body.data.id).not.toBe(wrong.body.data.id);
+    // one live session of the year, whatever its months
+    const second = await newSession(pm, seriesId, { periodFrom: '2027-01', periodTo: '2027-12' });
+    expect(second.status).toBe(409);
+    expect(second.body.error.code).toBe('project.session_year_taken');
+    // a repeat finds the session its own request made, never the cancelled one of that year
+    const repeat = await newSession(pm, seriesId, NEXT, key);
+    expect(repeat.status).toBe(200);
+    expect(repeat.headers['idempotent-replay']).toBe('true');
+    expect(repeat.body.data).toMatchObject({ id: right.body.data.id, status: 'draft' });
+    expect(await live()).toEqual([right.body.data.id]);
+    // the series lists its live sessions: the cancelled draft is no session of it
+    const listed = (await at(pm, 'get', `/project-series/${seriesId}`)).body.data.sessions as {
+      id: string;
+    }[];
+    expect(listed.map((x) => x.id)).toEqual([right.body.data.id, source]);
+    // two requests for the freed year at the same moment end in one session
+    await cancel(right.body.data.id as string);
+    const both = await Promise.all([
+      newSession(pm, seriesId, NEXT),
+      newSession(pm, seriesId, NEXT),
+    ]);
+    expect(both.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect(both.find((r) => r.status === 409)?.body.error.code).toBe('project.session_year_taken');
+    expect(await live()).toEqual([both.find((r) => r.status === 201)?.body.data.id]);
+    expect(
+      await count(
+        'SELECT count(*)::int AS n FROM projects WHERE series_id = $1 AND year = 2027',
+        seriesId,
+      ),
+    ).toBe(3);
+  });
+
   it('refuses a second session that starts in the same year', async () => {
     const pm = await as(world.users.pm);
     const source = await fullSource();

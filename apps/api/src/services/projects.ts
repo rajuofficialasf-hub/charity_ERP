@@ -155,7 +155,10 @@ const REQUIRED_ONCE_ACTIVE: readonly (keyof ProjectUpdate)[] = [
   'targetBeneficiaries',
 ];
 
-/** The two unique indexes that give a series one session per start year. */
+/**
+ * The two unique indexes that give a series one session per start year among its sessions that
+ * are not cancelled.
+ */
 const SESSION_YEAR_INDEXES = ['projects_series_id_year_key', 'projects_code_year_key'];
 
 /**
@@ -330,7 +333,7 @@ export class ProjectsService {
   /**
    * Writes a draft session of a series inside the caller's transaction. The code, the program and
    * the names are the series', the year is the year the period starts in, and a series takes one
-   * session per start year (409 otherwise). The program is the one the series is stored with: for
+   * session per start year, cancelled ones not counted (409 otherwise). The program is the one the series is stored with: for
    * a caller who may not create projects there the series is not found (404), as a series that
    * does not exist, and nothing is locked for that caller; an inactive program takes no session
    * (409). The locks follow the one order: the series, the session the new one starts from (read
@@ -361,9 +364,13 @@ export class ProjectsService {
     const start = await startOf(tx);
     await this.lockedProgram(tx, viewer, series.programId);
     const year = sessionYear(period.periodFrom);
-    // a cancelled session keeps its year, as it keeps its row
-    if (await tx.project.findFirst({ where: { seriesId, year }, select: { id: true } }))
-      throw new ApiError('project.session_year_taken', 409);
+    // a cancelled session no longer holds its year: it was cancelled as a draft, so it never
+    // took an application, and it never comes back
+    const taken = await tx.project.findFirst({
+      where: { seriesId, year, status: { not: 'cancelled' } },
+      select: { id: true },
+    });
+    if (taken) throw new ApiError('project.session_year_taken', 409);
     const workflow = await this.workflow(tx, start.workflowKey);
     const id = uuidv7();
     const components = await this.components(tx, start.workflowKey, workflow.definition);
@@ -521,7 +528,7 @@ export class ProjectsService {
       if (changing.includes('costPerBeneficiary') || changing.includes('targetBeneficiaries'))
         await this.checkBudget(tx, projectId, status, cost, target);
       // a draft's period, its two months together; the year is the year it starts in, and a
-      // series takes one session per start year
+      // series takes one session per start year, cancelled ones not counted
       const period =
         (changing.includes('periodFrom') || changing.includes('periodTo')) &&
         body.periodFrom !== undefined &&
@@ -531,7 +538,12 @@ export class ProjectsService {
       const year = period ? sessionYear(period.periodFrom) : before.year;
       if (year !== before.year) {
         const taken = await tx.project.findFirst({
-          where: { seriesId: before.seriesId, year, id: { not: projectId } },
+          where: {
+            seriesId: before.seriesId,
+            year,
+            id: { not: projectId },
+            status: { not: 'cancelled' },
+          },
           select: { id: true },
         });
         if (taken) throw new ApiError('project.session_year_taken', 409);

@@ -866,8 +866,9 @@ model Project {
   projectRulesVersionsProject   ProjectRulesVersion[] @relation("project_rules_versions_project_id")
   projectConsentsProject        ProjectConsent[]      @relation("project_consents_project_id")
 
-  @@unique([code, year], map: "projects_code_year_key")
-  @@unique([seriesId, year], map: "projects_series_id_year_key")
+  @@unique([code, year], where: raw("status <> 'cancelled'"), map: "projects_code_year_key")
+  @@unique([seriesId, year], where: raw("status <> 'cancelled'"), map: "projects_series_id_year_key")
+  @@index([seriesId, year], map: "projects_series_id_year_idx")
   @@index([programId, year], map: "projects_program_id_year_idx")
   @@index([status], map: "projects_status_idx")
   @@index([workflowDefinitionId], map: "projects_workflow_definition_id_idx")

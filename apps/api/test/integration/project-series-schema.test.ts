@@ -178,15 +178,43 @@ describe('a project series and its sessions', () => {
       { id: s.first, code: s.code, year: 2026 },
       { id: next, code: s.code, year: 2027 },
     ]);
-    // a cancelled session keeps its year: the year is not free again
-    await db.query(`UPDATE projects SET status = 'cancelled', cancelled_at = now() WHERE id = $1`, [
-      next,
-    ]);
+  });
+
+  it('lets a year be started again once its session is cancelled, and never by two live sessions', async () => {
+    const s = await series();
+    const cancel = (id: string) =>
+      db.query(`UPDATE projects SET status = 'cancelled', cancelled_at = now() WHERE id = $1`, [
+        id,
+      ]);
+    const first = await session(s, 2027);
+    await cancel(first);
+    // the cancelled session no longer holds 2027: one live session takes it
+    const second = await session(s, 2027);
+    await expectSqlError(
+      session(s, 2027),
+      SQLSTATE.uniqueViolation,
+      /projects_(series_id|code)_year_key/,
+    );
     await expectSqlError(
       session(s, 2027, { code: 'DRIFTED' }),
       SQLSTATE.uniqueViolation,
       /projects_series_id_year_key/,
     );
+    // a cancelled session cannot come back onto a year a live one holds
+    await expectSqlError(
+      db.query(`UPDATE projects SET status = 'draft', cancelled_at = NULL WHERE id = $1`, [first]),
+      SQLSTATE.uniqueViolation,
+      /projects_(series_id|code)_year_key/,
+    );
+    // any number of cancelled sessions share the year with the one live session
+    await cancel(second);
+    const third = await session(s, 2027);
+    const { rows } = await db.query(
+      'SELECT id, status FROM projects WHERE series_id = $1 AND year = 2027 ORDER BY created_at, id',
+      [s.id],
+    );
+    expect(rows.map((r) => r.status).sort()).toEqual(['cancelled', 'cancelled', 'draft']);
+    expect(rows.find((r) => r.status === 'draft')?.id).toBe(third);
   });
 
   it('never lets two sessions carry one code in one year, whatever their series', async () => {

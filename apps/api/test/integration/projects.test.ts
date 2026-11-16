@@ -229,10 +229,18 @@ describe('creating a project from a workflow', () => {
     });
     expect(again.status).toBe(409);
     expect(again.body.error.code).toBe('project.session_year_taken');
-    // a cancelled session keeps its year
+    // a cancelled session no longer holds its year: the year takes one session again
     await setStatus(id, 'cancelled');
+    const reopened = await create(pm, {
+      seriesId,
+      periodFrom: '2027-03',
+      periodTo: '2027-09',
+      source: WORKFLOW,
+    });
+    expect(reopened.status, JSON.stringify(reopened.body)).toBe(201);
+    expect(reopened.body.data).toMatchObject({ year: 2027, sessionLabel: '2027', status: 'draft' });
     expect(
-      (await create(pm, { seriesId, periodFrom: '2027-03', periodTo: '2027-09', source: WORKFLOW }))
+      (await create(pm, { seriesId, periodFrom: '2027-05', periodTo: '2027-06', source: WORKFLOW }))
         .body.error.code,
     ).toBe('project.session_year_taken');
     const other = await create(pm, {
@@ -605,6 +613,26 @@ describe('a session beside its series', () => {
       period_from: '2025-04-01',
       period_to: '2026-03-31',
     });
+  });
+
+  it('moves a draft onto a year that only a cancelled session of the series holds', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    const next = await sibling(id, 2027);
+    await setStatus(next, 'cancelled');
+    const moved = await patch(pm, id, (await get(pm, id)).headers.etag, {
+      periodFrom: '2027-06',
+      periodTo: '2028-05',
+    });
+    expect(moved.status, JSON.stringify(moved.body)).toBe(200);
+    expect(moved.body.data).toMatchObject({ year: 2027, sessionLabel: '2027-28' });
+    expect(await stored(id)).toMatchObject({
+      year: 2027,
+      status: 'draft',
+      period_from: '2027-06-01',
+      period_to: '2028-05-31',
+    });
+    expect(await stored(next)).toMatchObject({ year: 2027, status: 'cancelled' });
   });
 
   it('keeps the period of a session once it is active, and takes it back unchanged when closed', async () => {

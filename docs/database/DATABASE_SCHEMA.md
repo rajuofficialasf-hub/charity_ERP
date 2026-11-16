@@ -462,11 +462,13 @@ One yearly session of a project series (D-176). The table, its name and every ta
 | cancelled_by | uuid | yes | — | FK users; indexed |
 | [A] | | | | |
 
-Constraints: FK (series_id, program_id) → project_series (id, program_id), so a session cannot sit in another program than its series; UNIQUE (series_id, year): one session of a series per start year, a cancelled one included (BR-312); UNIQUE (code, year): the database's own guard that `{code}-{year}` names one session even if a code ever drifted from its series'; CHECK `period_to >= period_from` and `period_to < period_from + 24 months`; CHECK `year = extract(year from period_from)`.
+Constraints: FK (series_id, program_id) → project_series (id, program_id), so a session cannot sit in another program than its series; partial UNIQUE (series_id, year) WHERE status <> 'cancelled': one session of a series per start year among those that are not cancelled (BR-312, D-177: a cancelled session was a draft, holds no application, and its year may be started again); partial UNIQUE (code, year) WHERE status <> 'cancelled': the database's own guard that `{code}-{year}` names one live session even if a code ever drifted from its series'; CHECK `period_to >= period_from` and `period_to < period_from + 24 months`; CHECK `year = extract(year from period_from)`.
 
-Indexes: (program_id, year); (status); the unique (series_id, year) serves the reads of a series' sessions.
+Indexes: (program_id, year); (status); (series_id, year) for the reads of every session of a series, cancelled ones too (the partial unique serves only the reads that leave them out).
 
 Migration `20261116120000_project_series` (D-176): every project that existed became the one session of its own new series, which took the project's id, program, code, names and audit columns; the session runs 1 January to 31 December of its year; the project's own columns and its update stamp stayed as they were. Its `down.sql` gives each session back as the project it was (the unique code across all projects, no series, no period, no program description) and loses the series' names and descriptions and the programs' descriptions. It stops before changing anything while two sessions carry one code, which is so as soon as a series has a second session; cancelling the later session frees nothing, since a cancelled session keeps its code, so each later session must first be given a code of its own, by the owner's decision.
+
+Migration `20261116130000_cancelled_session_year` (D-177): the two unique indexes of a session's year become partial (`WHERE status <> 'cancelled'`) under their old names, and the plain index (series_id, year) is added, since the full unique was the only index on the series column. No row changes. Its `down.sql` restores the full uniques and stops before changing anything, with `cancelled_session_year_in_use` and the code and year, while a cancelled session shares its year with another session of its series; no row is removed to make room.
 
 ### project_components
 | Column | Type | Null | Default | Comment |

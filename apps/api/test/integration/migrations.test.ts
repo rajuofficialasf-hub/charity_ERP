@@ -492,6 +492,86 @@ describe('migrations', () => {
     }
   });
 
+  it('the cancelled session year migration frees the year of a cancelled session, and down refuses while such a year is shared', async () => {
+    const dirs = migrationDirs();
+    const at = dirs.indexOf('20261116130000_cancelled_session_year');
+    expect(at).toBeGreaterThan(0);
+    const db = await freshDatabase('cancelyear');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const apply = (dir: string, file: 'migration.sql' | 'down.sql' = 'migration.sql') =>
+        client.query(readFileSync(join(MIGRATIONS_DIR, dir, file), 'utf8'));
+      for (const dir of dirs.slice(0, at)) await apply(dir);
+      const first = await project(client, { year: 2027 });
+      const { rows } = await client.query('SELECT series_id, code FROM projects WHERE id = $1', [
+        first.id,
+      ]);
+      const { series_id: seriesId, code } = rows[0] as { series_id: string; code: string };
+      const session = (year: number) =>
+        projectRow(client, {
+          id: randomUUID(),
+          program_id: first.program,
+          series_id: seriesId,
+          code,
+          year,
+          name_bn: 'প্রকল্প',
+          name_en: 'Project',
+          workflow_definition_id: first.workflow,
+          workflow_version: 1,
+        });
+      const indexes = async () =>
+        (
+          await client.query<{ indexdef: string }>(
+            `SELECT indexdef FROM pg_indexes
+              WHERE indexname IN ('projects_series_id_year_key', 'projects_code_year_key')
+              ORDER BY indexname`,
+          )
+        ).rows.map((r) => /WHERE/.test(r.indexdef));
+      await client.query(
+        `UPDATE projects SET status = 'cancelled', cancelled_at = now() WHERE id = $1`,
+        [first.id],
+      );
+      // before the migration a cancelled session holds its year
+      expect(await indexes()).toEqual([false, false]);
+      await expectSqlError(session(2027), SQLSTATE.uniqueViolation);
+
+      await apply(dirs[at]!);
+      expect(await indexes()).toEqual([true, true]);
+      const live = await session(2027);
+      await expectSqlError(session(2027), SQLSTATE.uniqueViolation);
+
+      // a cancelled session shares its year with a live one: down stops, whole
+      await expectSqlError(
+        apply(dirs[at]!, 'down.sql'),
+        SQLSTATE.uniqueViolation,
+        new RegExp(`cancelled_session_year_in_use.*${code} 2027`),
+      );
+      expect(await indexes()).toEqual([true, true]);
+      // once the two no longer share a year, the full uniques come back
+      await client.query(
+        `UPDATE projects SET year = 2031, period_from = '2031-01-01', period_to = '2031-12-31' WHERE id = $1`,
+        [first.id],
+      );
+      await apply(dirs[at]!, 'down.sql');
+      expect(await indexes()).toEqual([false, false]);
+      await expectSqlError(session(2031), SQLSTATE.uniqueViolation, /projects_.*_year_key/);
+      expect(
+        (
+          await client.query('SELECT id FROM projects WHERE id = ANY($1::uuid[])', [
+            [first.id, live],
+          ])
+        ).rows,
+      ).toHaveLength(2);
+      // and the migration applies again on what the reverse left
+      await apply(dirs[at]!);
+      expect(await indexes()).toEqual([true, true]);
+      await session(2031);
+    } finally {
+      await client.end();
+    }
+  });
+
   it('the draft channels migration keeps existing verified and submitted drafts (backfill)', async () => {
     const dirs = migrationDirs();
     const at = dirs.indexOf('20261013000000_registration_draft_channels');

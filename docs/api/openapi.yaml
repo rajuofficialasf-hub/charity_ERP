@@ -8574,7 +8574,8 @@ paths:
         that is no session of this series, or one the caller may not view, answers 422
         project.session_source_foreign; a series with no session the caller may copy answers 422
         project.session_source_none; a year another session of the series starts in answers 409
-        project.session_year_taken. The program is the one the series is stored with: a series
+        project.session_year_taken, and the year of a cancelled session may be started again
+        (D-177). The program is the one the series is stored with: a series
         outside the caller's `project.create` scope answers 404 permission.not_found, as a series
         that does not exist does; a caller without the permission answers 403; an inactive program
         409 program.inactive. The request runs once per Idempotency-Key: a repeat by the same
@@ -8664,9 +8665,9 @@ paths:
         view. The program is the one the series is stored with: a series outside the caller's
         `project.create` scope answers 404 permission.not_found, as a series that does not exist
         does (a caller without the permission answers 403), and the program must be active (409
-        program.inactive); a year another session of the series starts in, a cancelled one
-        included, answers 409 project.session_year_taken (BR-312). The audit entry of the creation
-        carries the four identity rules the project starts with (BR-309).
+        program.inactive); a year another session of the series starts in answers 409
+        project.session_year_taken, a cancelled session holding no year (BR-312, D-177). The audit
+        entry of the creation carries the four identity rules the project starts with (BR-309).
       x-permission: project.create
       x-scope: program
       x-audit: project.create
@@ -8721,7 +8722,8 @@ paths:
         read-only (409 project.read_only, BR-257). The program and the code belong to the series: a
         body that names `programId`, `code` or `year` answers 422 (validation.unknown_parameter).
         The period is its two months together; the year follows the month it starts in, and a year
-        another session of the series starts in answers 409 project.session_year_taken (BR-312). A
+        another session of the series starts in answers 409 project.session_year_taken, a cancelled
+        session holding no year (BR-312, D-177). A
         rename renames the series with its one session; beside another session of the series it is
         refused (409 project.read_only), since the sessions are renamed together through the series.
       x-permission: project.configure

@@ -190,7 +190,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | program | program.inactive | 409 | a new project, or a project moved, into an inactive program (BR-256) |
 | program | program.has_open_projects | 409 | deactivation of a program with a draft, active or closing project (BR-256) |
 | program | program.pm_role_required | 422 | the assigned PM does not hold the Program Manager role |
-| project | project.session_year_taken | 409 | a session of a project series, new or with a new period, in a year another session of that series already starts in, a cancelled one included (BR-312) |
+| project | project.session_year_taken | 409 | a session of a project series, new or with a new period, in a year another session of that series already starts in; a cancelled session holds no year (BR-312, D-177) |
 | project | project.series_code_taken | 409 | a project series with a code another series already holds (O-03, BR-312) |
 | project | project.session_source_foreign | 422 | a new session whose named source is not a session of the same series, or is one the caller may not view (BR-315) |
 | project | project.session_source_none | 422 | a new session with no source named, of a series that has no session the caller may copy: none yet, only cancelled ones, or none the caller may view (BR-315) |
