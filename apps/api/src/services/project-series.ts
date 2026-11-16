@@ -18,9 +18,10 @@ import type { Clock } from '../core/clock.js';
 import { assertIfMatch } from '../core/etag.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
+import { isUniqueViolationOf } from '../core/db-errors.js';
 import { ApiError } from '../i18n/api-error.js';
 import { helpedSql } from './help-history.js';
-import { WAITING } from './projects-work.js';
+import { inWorkAreasSql, WAITING } from './projects-work.js';
 import type { ProjectsService } from './projects.js';
 import { staffPhotos } from './staff-photos.js';
 
@@ -114,7 +115,11 @@ export interface SessionFigures {
   approved: number;
   waiting: number;
   waitlisted: number;
-  /** The people the session helped: a person has one application in a session, so each once. */
+  /**
+   * The helped applications of the session. A profile has one application in a session, so this
+   * is the profiles helped; a person whose merge left an application on the retired profile is
+   * two profiles here.
+   */
   helped: number;
 }
 const NO_FIGURES: SessionFigures = {
@@ -172,13 +177,15 @@ export const figuresOf = (figures: Map<string, SessionFigures>, projectId: strin
   figures.get(projectId) ?? NO_FIGURES;
 
 /**
- * The people helped in any session of each series or program, each person once however many
- * sessions helped them. A session's own count is already each person once, so the sessions are
- * added up and the people helped in more than one session of the group are taken off again.
- * Counting distinct people over every application takes longer than a card may
- * (docs/testing/PERFORMANCE.md, "The cards of programs and projects"), so only the people whose
- * kept counter says they were helped more than once are looked at one by one. A profile retired
- * by a merge keeps the applications left on it and counts as itself.
+ * The profiles helped in any session of each series or program, each profile once however many
+ * sessions helped it. A session's own count is already each profile once, so the sessions are
+ * added up and the profiles helped in more than one session of the group are taken off again.
+ * Counting distinct profiles over every application takes longer than a card may
+ * (docs/testing/PERFORMANCE.md, "The cards of programs and projects"), so only the live profiles
+ * whose kept counter says they were helped more than once are looked at one by one. The count is
+ * by profile, not by person: a profile retired by a merge keeps the applications left on it and
+ * counts beside the profile it was merged into, and is never looked at again, so two helped
+ * applications left on one retired profile count twice.
  */
 export async function helpedPeople(
   tx: Tx,
@@ -279,18 +286,21 @@ export async function sessionRpms(
 
 /** The first few of the people by name, each once, and how many there are. */
 export function namedPeople(people: readonly CardPerson[]): CardPeople {
-  // code-point order, the same on every machine
-  const key = (p: CardPerson) => `${p.name} ${p.id}`;
-  const unique = [...new Map(people.map((p) => [p.id, p])).values()].sort((a, b) =>
-    key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0,
+  // code-point order, the same on every machine: by name, then by id
+  const order = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  const unique = [...new Map(people.map((p) => [p.id, p])).values()].sort(
+    (a, b) => order(a.name, b.name) || order(a.id, b.id),
   );
   return { people: unique.slice(0, NAMED_PEOPLE), total: unique.length };
 }
 
+/** How much of a session a caller reaches: all of it, or the named areas of it (location ids). */
+export type SessionReach = 'whole' | readonly string[];
+
 /** What the caller's own permissions reach among the sessions and programs on the screen. */
 export interface Reach {
-  /** The sessions the caller may open (`project.view`). */
-  open: ReadonlySet<string>;
+  /** The sessions the caller may open (`project.view`), each whole or by the caller's areas. */
+  open: ReadonlyMap<string, SessionReach>;
   /** The sessions whose budget the caller may see (`budget.view`). */
   budget: ReadonlySet<string>;
   /** The programs the caller may create a project in (`project.create`); inactive ones take none. */
@@ -305,19 +315,37 @@ export async function reachOf(
   access: AccessService,
   tx: Tx,
   principal: Principal,
-  sessionIds: readonly string[],
+  sessions: readonly { id: string; programId: string }[],
   programIds: readonly string[],
 ): Promise<Reach> {
   const loaded = await access.load(principal.userId, tx);
-  const sessions = async (permission: string): Promise<Set<string>> => {
-    if (!sessionIds.length || !holdsPermission(permission, loaded.grants)) return new Set();
+  const within = async (permission: string): Promise<{ ids: Set<string>; scope: Scope | null }> => {
+    if (!sessions.length || !holdsPermission(permission, loaded.grants))
+      return { ids: new Set(), scope: null };
     const scope = await access.scopeFor(principal, loaded, permission, 'project', tx);
     const rows = await tx.project.findMany({
-      where: { AND: [{ id: { in: [...sessionIds] } }, projectWhere(scope)] },
+      where: { AND: [{ id: { in: sessions.map((s) => s.id) } }, projectWhere(scope)] },
       select: { id: true },
     });
-    return new Set(rows.map((r) => r.id));
+    return { ids: new Set(rows.map((r) => r.id)), scope };
   };
+  const view = await within('project.view');
+  const open = new Map<string, SessionReach>();
+  for (const s of sessions) {
+    if (!view.scope || !view.ids.has(s.id)) continue;
+    const i = view.scope.instances;
+    // the whole session through GLOBAL, its program or the project itself; else the caller's areas
+    // of it (an area without a project is a location the caller holds in every project)
+    const whole = i.global || i.programIds.includes(s.programId) || i.projectIds.includes(s.id);
+    open.set(
+      s.id,
+      whole
+        ? 'whole'
+        : i.areas
+            .filter((a) => a.projectId === s.id || a.projectId === null)
+            .map((a) => a.locationId),
+    );
+  }
   const programs = async (): Promise<Set<string>> => {
     if (!programIds.length || !holdsPermission('project.create', loaded.grants)) return new Set();
     const scope = await access.scopeFor(principal, loaded, 'project.create', 'program', tx);
@@ -327,11 +355,57 @@ export async function reachOf(
     });
     return new Set(rows.map((r) => r.id));
   };
-  return {
-    open: await sessions('project.view'),
-    budget: await sessions('budget.view'),
-    create: await programs(),
-  };
+  return { open, budget: (await within('budget.view')).ids, create: await programs() };
+}
+
+/** The work that waits for a caller in a session. */
+export interface OwnWork {
+  reviewsWaiting: number;
+  waitlisted: number;
+}
+
+/**
+ * The work that waits for the caller in each session the caller may open: the whole session's
+ * where the caller reaches it whole, and only the applications placed in the caller's areas where
+ * the caller reaches it by areas, as an official's own work figures count them
+ * (docs/BUSINESS_RULES.md, "The work figures"). One grouped read for every session held by areas.
+ */
+export async function ownWork(
+  tx: Tx,
+  open: ReadonlyMap<string, SessionReach>,
+  figures: Map<string, SessionFigures>,
+): Promise<Map<string, OwnWork>> {
+  const work = new Map<string, OwnWork>();
+  const areaProjects: string[] = [];
+  const areaLocations: string[] = [];
+  for (const [id, reach] of open) {
+    if (reach === 'whole') {
+      const counted = figuresOf(figures, id);
+      work.set(id, { reviewsWaiting: counted.waiting, waitlisted: counted.waitlisted });
+      continue;
+    }
+    work.set(id, { reviewsWaiting: 0, waitlisted: 0 });
+    for (const locationId of reach) {
+      areaProjects.push(id);
+      areaLocations.push(locationId);
+    }
+  }
+  if (!areaProjects.length) return work;
+  const rows = await tx.$queryRaw<{ project_id: string; waiting: Count; waitlisted: Count }[]>`
+    SELECT a.project_id,
+      count(*) FILTER (WHERE a.status = ANY(${WAITING})) AS waiting,
+      count(*) FILTER (WHERE a.status = 'waitlisted') AS waitlisted
+    FROM applications a
+    WHERE a.project_id = ANY(${[...new Set(areaProjects)]}::uuid[])
+      AND a.status = ANY(${[...WAITING, 'waitlisted']}) AND a.deleted_at IS NULL
+      AND ${inWorkAreasSql([], areaProjects, areaLocations)}
+    GROUP BY a.project_id`;
+  for (const r of rows)
+    work.set(r.project_id, {
+      reviewsWaiting: Number(r.waiting),
+      waitlisted: Number(r.waitlisted),
+    });
+  return work;
 }
 
 const month = (d: Date) => d.toISOString().slice(0, 7);
@@ -375,9 +449,6 @@ const base = (s: Row) => ({
   name: { bn: s.nameBn, en: s.nameEn },
   description: descriptionOf(s),
 });
-
-const isUniqueViolation = (error: unknown) =>
-  error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 
 /** The caller of a series route: who it is and what the route's scope reaches. */
 export interface SeriesViewer {
@@ -424,9 +495,14 @@ export class ProjectSeriesService {
     const volunteers = await volunteerCounts(tx, currentIds, currentIds);
     const districts = await districtCounts(tx, currentIds);
     const rpms = await sessionRpms(tx, currentIds);
-    const reach = await reachOf(this.access, tx, principal, currentIds, [
-      ...new Set(rows.map((s) => s.programId)),
-    ]);
+    const reach = await reachOf(
+      this.access,
+      tx,
+      principal,
+      [...current.values()],
+      [...new Set(rows.map((s) => s.programId))],
+    );
+    const work = await ownWork(tx, reach.open, figures);
     return rows.map((s) => {
       const session = current.get(s.id);
       const counted = session ? figuresOf(figures, session.id) : NO_FIGURES;
@@ -451,12 +527,12 @@ export class ProjectSeriesService {
               districts: districts.get(session.id) ?? 0,
             }
           : null,
-        // the caller's own work on the current session, only where the caller may open it
-        ...(session && reach.open.has(session.id)
+        // the caller's own work on the current session, only where the caller may open it and
+        // within what the caller reaches of it
+        ...(session && work.has(session.id)
           ? {
               todo: {
-                reviewsWaiting: counted.waiting,
-                waitlisted: counted.waitlisted,
+                ...work.get(session.id)!,
                 ...(reach.budget.has(session.id)
                   ? { budgetPlanned: session.budgetPlanned?.toFixed(2) ?? null }
                   : {}),
@@ -502,7 +578,13 @@ export class ProjectSeriesService {
       });
       const ids = sessions.map((s) => s.id);
       const figures = await sessionFigures(tx, ids);
-      const reach = await reachOf(this.access, tx, viewer.principal, ids, []);
+      const reach = await reachOf(
+        this.access,
+        tx,
+        viewer.principal,
+        ids.map((id) => ({ id, programId: row.programId })),
+        [],
+      );
       return {
         series: {
           ...card!,
@@ -562,7 +644,8 @@ export class ProjectSeriesService {
       });
     } catch (error) {
       // two creations with one code at the same moment: the unique index decides
-      if (isUniqueViolation(error)) throw new ApiError('project.series_code_taken', 409);
+      if (isUniqueViolationOf(error, 'project_series_code_key'))
+        throw new ApiError('project.series_code_taken', 409);
       throw error;
     }
     return this.get(viewer, id);
@@ -570,9 +653,11 @@ export class ProjectSeriesService {
 
   /**
    * Renames a series or changes its description. The program is the one the series is stored
-   * with, never one the request names: a caller who may not create projects there is refused. A
-   * session carries the names of its series, so a rename renames every session in the same
-   * transaction, under one audit entry.
+   * with, never one the request names: for a caller who may not create projects there the series
+   * is not found. A session carries the names of its series, so a rename renames every session,
+   * whatever its state, in the same transaction and under one audit entry. The series row is
+   * locked before its sessions are written, the order every write of a session's name, year or
+   * program takes too.
    */
   async update(
     viewer: SeriesViewer,
@@ -583,14 +668,14 @@ export class ProjectSeriesService {
     const actor = viewer.principal.userId;
     await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM project_series WHERE id = ${seriesId}::uuid FOR UPDATE`;
-      const before = await tx.projectSeries.findUnique({ where: { id: seriesId }, select: SELECT });
-      if (!before) throw new ApiError('permission.not_found', 404);
-      const reached = await tx.program.count({
-        where: { AND: [{ id: before.programId }, programWhere(viewer.scope)] },
+      // a series outside the caller's programs answers as one that does not exist
+      const before = await tx.projectSeries.findFirst({
+        where: { id: seriesId, program: programWhere(viewer.scope) },
+        select: SELECT,
       });
-      if (!reached) {
+      if (!before) {
         this.access.denied(actor, viewer.scope.permission, viewer.scope.entity);
-        throw new ApiError('permission.denied', 403);
+        throw new ApiError('permission.not_found', 404);
       }
       assertIfMatch(ifMatch, before.updatedAt);
       const row = await tx.projectSeries.update({

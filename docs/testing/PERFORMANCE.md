@@ -193,18 +193,21 @@ one session, all but the demo draft active, and every one of the 500,000 applica
 current session, about 100 series and 167,000 applications per program. That is heavier than the
 real shape, where a few projects per program each have one running session.
 
-Run of 2026-11-16, same machine and server settings as section 2. Times in milliseconds, p50 / p95
-of 20 runs:
+Runs of 2026-11-16, same machine and server settings as section 2. Times in milliseconds, p50 / p95.
+The two reads of every application were measured five times (four of 20 runs, one of 40); their
+p50 held within a few milliseconds and their p95 moved between the two values given:
 
 | Case | Head | RPM |
 |---|---|---|
-| program cards (3 programs) | 254 / 286 | 245 / 285 |
-| series cards, every program (301 series) | 256 / 268 | 248 / 268 |
-| series cards, one program (about 100 series) | 107 / 123 | 113 / 122 |
-| series with its sessions | 39 / 44 | 46 / 77 |
+| program cards (3 programs) | 249 to 259 / 266 to 318 | 245 to 257 / 285 to 308 |
+| series cards, every program (301 series) | 251 to 264 / 268 to 312 | 247 to 254 / 268 to 304 |
+| series cards, one program (about 100 series) | 106 / 115 | 112 / 130 |
+| series with its sessions | 38 / 42 | 45 / 49 |
 
-All four are inside the 300 ms target, the two that read every application with little room. What
-the measurement changed:
+The two reads of one program and one series are well inside the 300 ms target. The two that read
+every application stand at the target: about 250 ms at p50, and a p95 on either side of 300 from
+run to run. About 200 ms of each is the one read of the applications below. What the measurement
+changed:
 
 - **One read of the applications.** The first version counted the people helped with
   `count(DISTINCT beneficiary_id)` over every helped application (187,500 rows), in a second read
@@ -223,14 +226,29 @@ the measurement changed:
   application is in a session on the screen; an index that covered its five conditions would repeat
   most of the row.
 
-Not exercised by this data set: nobody in it was helped twice, so the look at the repeat people
-reads nothing (4 ms). Measured on its own, with one helped person in ten taken as a repeat by a
-sample (19,270 people, the share of the run above): 60 to 80 ms by program and about 60 by series.
-With that share of repeats the program cards would stand at about 320 ms at p50, over the target.
-When the real share of people helped in several sessions is known, or the applications pass about
-500,000, measure again; the next step would be a count of the people helped kept per series and
-program by the writes, as the times helped are kept per person, which needs the owner's decision
-first.
+Not exercised by this data set:
+
+- **People helped twice.** Nobody in it was, so the look at the repeat people reads nothing (4 ms).
+  Measured on its own, with one helped person in ten taken as a repeat by a sample (19,270 people,
+  the share of the run above): 60 to 80 ms by program and about 60 by series. With that share of
+  repeats the program cards would stand at about 320 ms at p50, over the target.
+- **A caller who holds a session by areas.** The reviews waiting and the waitlist of "আপনার করণীয়"
+  are counted within the caller's areas (BR-314) in one grouped read with the area filter of an
+  official's work figures (`inWorkAreasSql` of `services/projects-work.ts`). The data set's RPM
+  holds one area, of the empty demo draft, so the cases above show it at nothing. Measured on its
+  own with the largest division (103,481 applications) held as the area of the first 5, the first
+  30 and all 300 sessions: 13 ms, about 135 ms and 4.2 to 7 seconds. The filter looks every
+  application up in the caller's list of areas, so its time grows with the square of the sessions
+  held by areas; an RPM holds a region in a handful of running sessions, not in thirty. A hashed
+  form of the same filter read the 300-session case in about 1.1 s; it would change the shared
+  filter and was not adopted.
+
+The read of the applications grows with every application ever taken, since the people helped are
+added up over every session of a series. When the applications pass about 500,000, when the real
+share of people helped in several sessions is known, or when a caller holds areas in more than
+about twenty running sessions, measure again; the next step would be a count of the people helped
+kept per session by the writes, as the times helped are kept per person, which needs the owner's
+decision first.
 
 ## 5. When to measure again
 

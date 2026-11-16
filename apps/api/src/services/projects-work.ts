@@ -5,6 +5,7 @@ import type { Scope } from '../access/scope.js';
 import type { Principal } from '../auth/principal.js';
 import { boundedRead } from '../core/bounded-read.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 
 /** The states in which an application waits for an official's decision. */
@@ -17,6 +18,23 @@ interface Tie {
 }
 
 type Count = bigint | number;
+
+/**
+ * The applications `a` a person reaches in their work: every application of a project held whole
+ * (`whole`), and in a project held by areas the ones placed in such an area at any level, as the
+ * area scope reads it. `areaProjects[i]` with `areaLocations[i]` is one area of one project.
+ */
+export function inWorkAreasSql(
+  whole: readonly string[],
+  areaProjects: readonly string[],
+  areaLocations: readonly string[],
+): Prisma.Sql {
+  return Prisma.sql`(a.project_id = ANY(${[...whole]}::uuid[]) OR EXISTS (
+    SELECT 1 FROM unnest(${[...areaProjects]}::uuid[], ${[...areaLocations]}::uuid[]) AS ar(p, l)
+    JOIN locations u ON u.id = a.union_id
+    WHERE ar.p = a.project_id
+      AND ar.l IN (a.region_location_id, a.district_id, a.union_id, u.parent_id)))`;
+}
 
 /**
  * The projects an official works on and the figures of their work there (docs/BUSINESS_RULES.md,
@@ -199,7 +217,6 @@ export class ProjectsWorkService {
     );
     if (!ids.length) return result;
     const [area, volunteers, stamps, audited, median] = await Promise.all([
-      // an application is in an area when it is placed there at any level, as the area scope reads it
       tx.$queryRaw<
         {
           project_id: string;
@@ -219,11 +236,7 @@ export class ProjectsWorkService {
         FROM applications a
         WHERE a.project_id = ANY(${ids}::uuid[])
           AND a.status NOT IN ('draft', 'deleted') AND a.deleted_at IS NULL
-          AND (a.project_id = ANY(${whole}::uuid[]) OR EXISTS (
-            SELECT 1 FROM unnest(${areaProjects}::uuid[], ${areaLocations}::uuid[]) AS ar(p, l)
-            JOIN locations u ON u.id = a.union_id
-            WHERE ar.p = a.project_id
-              AND ar.l IN (a.region_location_id, a.district_id, a.union_id, u.parent_id)))
+          AND ${inWorkAreasSql(whole, areaProjects, areaLocations)}
         GROUP BY a.project_id`,
       tx.$queryRaw<{ project_id: string; volunteers: Count }[]>`
         SELECT pv.project_id, count(DISTINCT pv.volunteer_id) AS volunteers

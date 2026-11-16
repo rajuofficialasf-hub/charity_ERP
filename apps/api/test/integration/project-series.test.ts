@@ -89,16 +89,17 @@ const area = (projectId: string, locationId: string, rpmUserId: string) =>
     location_id: locationId,
     rpm_user_id: rpmUserId,
   });
-/** An application of a new person in a session, placed in the Dhaka-like division. */
+/** An application of a new person in a session, placed in the Dhaka-like division unless told. */
 async function apply(
   projectId: string,
   status: string,
   over: Record<string, unknown> = {},
+  loc: Awaited<ReturnType<typeof f.locationTree>> = world.dhaka,
 ): Promise<string> {
-  const person = (over.beneficiary_id as string) ?? (await f.beneficiary(h.db, world.dhaka));
+  const person = (over.beneficiary_id as string) ?? (await f.beneficiary(h.db, loc));
   await f.application(
     h.db,
-    { project: { ...world.a1, id: projectId }, loc: world.dhaka },
+    { project: { ...world.a1, id: projectId }, loc },
     { status, ...over, beneficiary_id: person },
   );
   return person;
@@ -182,6 +183,8 @@ beforeAll(async () => {
   await apply(y2026, 'waitlisted');
   await apply(y2026, 'submitted');
   await apply(y2026, 'under_review');
+  // one more waits in the other region of the session
+  await apply(y2026, 'reviewed', {}, world.rangpur);
   await apply(y2026, 'draft');
   const both = await volunteerOn(y2026);
   await volunteerOn(y2026);
@@ -191,7 +194,7 @@ beforeAll(async () => {
   const wtr = await seriesRow(program, { name_bn: 'নিরাপদ পানি', name_en: 'Safe water' });
   const wtr2026 = await sessionRow(wtr, 2026);
   await area(wtr2026, world.rangpur.division, world.users.rpmRangpur);
-  await apply(wtr2026, 'submitted');
+  await apply(wtr2026, 'submitted', {}, world.rangpur);
   await f.insert(h.db, 'project_volunteers', {
     id: randomUUID(),
     project_id: wtr2026,
@@ -241,6 +244,19 @@ const patch = (s: Session, id: string, etag: string | undefined, body: Record<st
     .set('If-Match', etag ?? '')
     .send(body);
 
+/** The three RPMs of the running session a card names: the first by name, then by id. */
+async function firstThreeRpms() {
+  const { rows } = await h.db.query<{ id: string; name: string }>(
+    `SELECT id, display_name AS name FROM users WHERE id = ANY($1::uuid[])`,
+    [[world.users.rpmDhaka, world.users.rpmRangpur, x.rpmThree, x.rpmFour, x.rpmNoBudget]],
+  );
+  const order = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  return rows
+    .sort((a, b) => order(a.name, b.name) || order(a.id, b.id))
+    .slice(0, 3)
+    .map((r) => ({ ...r, photoFileId: null }));
+}
+
 type Card = Record<string, unknown> & { id: string };
 const cardOf = (res: { body: { data: Card[] } }, id: string) =>
   res.body.data.find((c) => c.id === id)!;
@@ -282,22 +298,12 @@ describe('the program cards', () => {
       // waiting
       beneficiaries: 2,
       // the applications and the volunteers of the running session only
-      applications: 6,
+      applications: 7,
       volunteers: 2,
       canCreate: false,
     });
-    // the RPMs of the current sessions, three by name and the number of all
-    const rpms = card.rpms as { people: { id: string; name: string }[]; total: number };
-    expect(rpms.total).toBe(5);
-    expect(rpms.people).toHaveLength(3);
-    for (const person of rpms.people)
-      expect([
-        world.users.rpmDhaka,
-        world.users.rpmRangpur,
-        x.rpmThree,
-        x.rpmFour,
-        x.rpmNoBudget,
-      ]).toContain(person.id);
+    // the RPMs of the current sessions: the first three by name, and the number of all five
+    expect(card.rpms).toEqual({ people: await firstThreeRpms(), total: 5 });
     // a card holds counts and these names only
     expect(Object.keys(card).sort()).toEqual(
       [
@@ -319,15 +325,17 @@ describe('the program cards', () => {
     );
   });
 
-  it('sums the caller’s work over the current sessions the caller reaches, and leaves it out when there is none', async () => {
+  it('sums the caller’s work over the current sessions the caller reaches, within the caller’s areas, and leaves it out when there is none', async () => {
     const todoOf = async (userId: string) =>
       cardOf(await programCards(await as(userId)), x.program).todo;
-    // the whole program: two waiting in the running session and one in the draft, one waitlisted
-    expect(await todoOf(world.users.head)).toEqual({ reviewsWaiting: 3, waitlisted: 1 });
-    expect(await todoOf(x.pm)).toEqual({ reviewsWaiting: 3, waitlisted: 1 });
-    // the Dhaka RPM has an area in the running session only
+    // the whole program: three waiting in the running session and one in the draft, one waitlisted
+    expect(await todoOf(world.users.head)).toEqual({ reviewsWaiting: 4, waitlisted: 1 });
+    expect(await todoOf(x.pm)).toEqual({ reviewsWaiting: 4, waitlisted: 1 });
+    // the Dhaka RPM holds one of the running session's regions: what waits there, and nothing of
+    // the other region or of the draft
     expect(await todoOf(world.users.rpmDhaka)).toEqual({ reviewsWaiting: 2, waitlisted: 1 });
-    expect(await todoOf(world.users.rpmRangpur)).toEqual({ reviewsWaiting: 3, waitlisted: 1 });
+    // the Rangpur RPM: the other region of the running session and the draft's one region
+    expect(await todoOf(world.users.rpmRangpur)).toEqual({ reviewsWaiting: 2, waitlisted: 0 });
     // an Executive and a PM of other work reach no session of this program
     expect(await todoOf(world.users.executive)).toBeUndefined();
     expect(await todoOf(world.users.pm)).toBeUndefined();
@@ -379,14 +387,13 @@ describe('the cards of a program’s project series', () => {
       daysLeft: 45,
       target: 600,
       approved: 2,
-      applications: 6,
+      applications: 7,
       volunteers: 2,
       // two divisions of one district each, a district of the first again, and a third division
       districts: 3,
     });
-    const rpms = current.rpms as { people: { id: string }[]; total: number };
-    expect(rpms.total).toBe(5);
-    expect(rpms.people).toHaveLength(3);
+    // five RPMs hold areas of the session: the first three by name, and the number of all
+    expect(current.rpms).toEqual({ people: await firstThreeRpms(), total: 5 });
     expect(Object.keys(current).sort()).toEqual(
       [
         'applications',
@@ -459,10 +466,28 @@ describe('the cards of a program’s project series', () => {
     const todoOf = async (userId: string, seriesId: string) =>
       cardOf(await seriesList(await as(userId), x.program), seriesId).todo;
     // the Dhaka RPM: an area in the running session, with the budget of the region's RPM
+    // an RPM of one of the session's two regions: what waits in that region only
     expect(await todoOf(world.users.rpmDhaka, x.swb.id)).toEqual({
       reviewsWaiting: 2,
       waitlisted: 1,
       budgetPlanned: '900000.00',
+    });
+    expect(await todoOf(world.users.rpmRangpur, x.swb.id)).toEqual({
+      reviewsWaiting: 1,
+      waitlisted: 0,
+      budgetPlanned: '900000.00',
+    });
+    // an RPM of a district inside the first region sees that district's
+    expect(await todoOf(x.rpmThree, x.swb.id)).toMatchObject({ reviewsWaiting: 2, waitlisted: 1 });
+    // the PM and the Head reach the whole session
+    expect(await todoOf(x.pm, x.swb.id)).toEqual({
+      reviewsWaiting: 3,
+      waitlisted: 1,
+      budgetPlanned: '900000.00',
+    });
+    expect(await todoOf(world.users.head, x.swb.id)).toMatchObject({
+      reviewsWaiting: 3,
+      waitlisted: 1,
     });
     // and no area in the other project
     expect(await todoOf(world.users.rpmDhaka, x.wtr.id)).toBeUndefined();
@@ -471,8 +496,9 @@ describe('the cards of a program’s project series', () => {
       waitlisted: 0,
       budgetPlanned: null,
     });
-    // an RPM of the session whose budget permission was taken away
-    expect(await todoOf(x.rpmNoBudget, x.swb.id)).toEqual({ reviewsWaiting: 2, waitlisted: 1 });
+    // an RPM of the session whose budget permission was taken away, in a district where nothing
+    // waits
+    expect(await todoOf(x.rpmNoBudget, x.swb.id)).toEqual({ reviewsWaiting: 0, waitlisted: 0 });
     // the last session of a project that no longer runs: nothing waits, and the PM may open it
     expect(await todoOf(x.pm, x.old.id)).toEqual({
       reviewsWaiting: 0,
@@ -492,7 +518,38 @@ describe('the cards of a program’s project series', () => {
     expect(one.body.data.map((c: { programId: string }) => c.programId)).toEqual([
       world.b1.program,
     ]);
-    expect((await seriesList(head, 'not-a-uuid')).status).toBe(422);
+  });
+
+  it('answers 422 to a program that is no id', async () => {
+    const res = await seriesList(await as(world.users.head), 'not-a-uuid');
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('validation.failed');
+    expect(res.body.error.details).toEqual([expect.objectContaining({ path: 'programId' })]);
+  });
+
+  it('counts by profile: a profile retired by a merge and the profile it went into, both helped in one session, are two', async () => {
+    const series = await seriesRow(x.program);
+    const session = await sessionRow(series, 2026, { status: 'active' });
+    const approvedAt = new Date().toISOString();
+    const kept = await apply(session, 'approved', { approved_at: approvedAt });
+    const retired = await f.beneficiary(h.db, world.dhaka);
+    // the merge left the retired profile's application of this session where it was
+    const left = await f.application(
+      h.db,
+      { project: { ...world.a1, id: session }, loc: world.dhaka },
+      { status: 'approved', approved_at: approvedAt, beneficiary_id: retired },
+    );
+    await h.db.query(
+      `INSERT INTO profile_merges (id, kept_id, merged_id, status, reason, proposed_by, merged_by, merged_at, snapshot)
+       VALUES (gen_random_uuid(), $1, $2, 'merged', 'একই মানুষ', $3, $3, now(), $4)`,
+      [kept, retired, world.users.head, JSON.stringify({ moved: {}, leftBehind: [left] })],
+    );
+    await h.db.query('UPDATE beneficiaries SET merged_into_id = $1 WHERE id = $2', [kept, retired]);
+    await h.container.prisma.$transaction((tx) => writeHelpCounts(tx, [kept, retired]));
+    const { rows } = await h.db.query('SELECT help_count FROM beneficiaries WHERE id = $1', [kept]);
+    expect(rows).toEqual([{ help_count: 2 }]);
+    const card = cardOf(await seriesList(await as(world.users.head), x.program), series);
+    expect(card.beneficiaries).toBe(2);
   });
 });
 
@@ -528,7 +585,7 @@ describe('one project series with its sessions', () => {
         periodFrom: '2026-06',
         periodTo: '2027-07',
         status: 'active',
-        applications: 6,
+        applications: 7,
         approved: 2,
         canOpen: true,
       },
@@ -742,14 +799,42 @@ describe('creating and renaming a project series', () => {
     expect(await audit(series, 'project_series.update')).toEqual([]);
   });
 
+  it('lets the unique index decide between two creations of one code at the same moment', async () => {
+    const head = await as(world.users.head);
+    const taken = code();
+    // two programs, so neither request waits for the other's lock on its program
+    const results = await Promise.all([
+      create(head, { programId: x.program, code: taken, name }),
+      create(head, { programId: world.b1.program, code: taken, name }),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect(results.find((r) => r.status === 409)?.body.error.code).toBe(
+      'project.series_code_taken',
+    );
+    const { rows } = await h.db.query(
+      'SELECT count(*)::int AS n FROM project_series WHERE code = $1',
+      [taken],
+    );
+    expect(rows).toEqual([{ n: 1 }]);
+  });
+
   it('checks the program the series is stored with: a PM of another program and an RPM are refused', async () => {
     const series = await seriesRow(x.program);
     const read = await seriesGet(await as(world.users.pm), series);
     expect(read.status).toBe(200);
+    // a series of a program that is not the caller's answers as a series that does not exist
     const other = await patch(await as(world.users.pm), series, read.headers.etag, {
       name: { bn: 'অন্যের', en: 'Someone else’s' },
     });
-    expect(other.status).toBe(403);
+    expect(other.status).toBe(404);
+    expect(other.body.error.code).toBe('permission.not_found');
+    const missing = await patch(await as(world.users.pm), randomUUID(), read.headers.etag, {
+      name: { bn: 'অন্যের', en: 'Someone else’s' },
+    });
+    expect([missing.status, missing.body.error.code]).toEqual([
+      other.status,
+      other.body.error.code,
+    ]);
     const rpm = await patch(await as(world.users.rpmDhaka), series, read.headers.etag, {
       name: { bn: 'অন্যের', en: 'Someone else’s' },
     });

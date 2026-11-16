@@ -194,7 +194,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | project | project.session_year_taken | 409 | a session of a project series in a year another session of that series already starts in (BR-312) |
 | project | project.series_code_taken | 409 | a project series with a code another series already holds (BR-312) |
 | project | project.session_source_foreign | 422 | a new session whose source is not a session of the same series (D-176) |
-| project | project.read_only | 409 | a setup change the project's state does not allow: identity or window while active, anything while closing, closed or cancelled (BR-257); also a draft's move to another program while its series holds another session, and a new year for a session that does not run the whole calendar year of its year (BR-312) |
+| project | project.read_only | 409 | a setup change the project's state does not allow: identity or window while active, anything while closing, closed or cancelled (BR-257); also a draft's move to another program or a rename of one session while its series holds another session, and a new year for a session that does not run the whole calendar year of its year (BR-312) |
 | project | project.deadline_not_later | 409 | a deadline extension to a date not after the current end date (BR-058) |
 | project | project.rpm_role_required | 422 | an area's RPM does not hold the RPM role (BR-060) |
 | project | project.staff_role_required | 422 | staff access for someone who is not a Project Executive or Official দায়ী (D-095; the Implementer is retired, D-162) |

@@ -488,7 +488,7 @@ describe('a session beside its series', () => {
     expect(await audit(id, 'project.configure')).toEqual([]);
   });
 
-  it('renames the series with its one session, and leaves it alone beside another session', async () => {
+  it('renames the series with its one session, and refuses a rename of one session beside another', async () => {
     const pm = await as(world.users.pm);
     const id = (await draft(pm, world.a1.program)).body.data.id as string;
     const first = await patch(pm, id, (await get(pm, id)).headers.etag, {
@@ -501,11 +501,18 @@ describe('a session beside its series', () => {
     const second = await patch(pm, id, first.headers.etag, {
       name: { bn: 'দুইয়ের একটি', en: 'One of two' },
     });
-    expect(second.status).toBe(200);
-    expect(second.body.data.name).toEqual({ bn: 'দুইয়ের একটি', en: 'One of two' });
-    // the series and its other session keep the names they had
+    // a session carries the names of its series: it is renamed through the series, with the others
+    expect(second.status).toBe(409);
+    expect(second.body.error.code).toBe('project.read_only');
+    expect(await stored(id)).toMatchObject({ name_bn: 'একাই' });
     expect(await seriesOf(id)).toMatchObject({ name_bn: 'একাই', name_en: 'Alone' });
     expect(await stored(next)).toMatchObject({ name_bn: 'একাই' });
+    // the name sent back as it is changes nothing and is no rename
+    const same = await patch(pm, id, first.headers.etag, {
+      name: { bn: 'একাই', en: 'Alone' },
+      perVolunteerLimit: 25,
+    });
+    expect(same.status).toBe(200);
   });
 });
 

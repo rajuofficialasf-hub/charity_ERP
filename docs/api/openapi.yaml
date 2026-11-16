@@ -2874,13 +2874,21 @@ components:
         rpms: { $ref: '#/components/schemas/CardPeople' }
         projects: { type: integer, description: The project series of the program }
         runningProjects: { type: integer, description: The series whose current session is active or closing }
-        beneficiaries: { type: integer, description: 'People helped in any session of the program, each once (BR-307)' }
+        beneficiaries:
+          type: integer
+          description: >-
+            Profiles helped in any session of the program, each once (BR-307, BR-314). Counted by
+            profile: after a merge, an application left on the retired profile counts beside the
+            profile it was merged into.
         applications: { type: integer, description: The applications of the running sessions }
         volunteers: { type: integer, description: 'The volunteers of the running sessions, each once' }
         todo:
           description: >-
-            The caller's own work, summed over the current sessions the caller's project.view scope
-            reaches; absent when it reaches none.
+            The caller's own work, summed over the current session of each series the caller's
+            project.view scope reaches; absent when it reaches none. A caller who reaches a session
+            whole (GLOBAL, its program or the project itself) counts all of it; a caller who
+            reaches it by areas (an RPM) counts only the applications placed in those areas
+            (BR-314).
           type: object
           required: [reviewsWaiting, waitlisted]
           properties:
@@ -2930,7 +2938,12 @@ components:
             - { $ref: '#/components/schemas/Bilingual' }
             - { type: 'null' }
         sessionCount: { type: integer, description: 'The sessions of the series, cancelled ones left out' }
-        beneficiaries: { type: integer, description: 'People helped in any session of the series, each once (BR-307)' }
+        beneficiaries:
+          type: integer
+          description: >-
+            Profiles helped in any session of the series, each once (BR-307, BR-314). Counted by
+            profile: after a merge, an application left on the retired profile counts beside the
+            profile it was merged into.
         current:
           description: The current session, or null for a series without a session
           anyOf:
@@ -2943,7 +2956,12 @@ components:
                 periodTo: { type: string, description: 'The end month, yyyy-mm' }
                 status: { type: string, enum: [draft, active, closing, closed, cancelled] }
                 applyTo: { type: [string, 'null'], format: date }
-                daysLeft: { type: [integer, 'null'], description: 'Whole days until the application window ends (Dhaka date), 0 on its last day; null without an end date or after it' }
+                daysLeft:
+                  type: [integer, 'null']
+                  description: >-
+                    Whole days until the application window ends (Dhaka date), 0 on its last day;
+                    null without an end date or after it. Given whatever the session's state, so
+                    also for a session that is not running yet when its end date lies ahead.
                 target: { type: [integer, 'null'], description: The target number of beneficiaries }
                 approved: { type: integer }
                 applications: { type: integer }
@@ -2954,7 +2972,10 @@ components:
         todo:
           description: >-
             The caller's own work on the current session; absent unless the caller's project.view
-            scope reaches it. The budget is present only within the caller's budget.view scope.
+            scope reaches it. A caller who reaches the session whole (GLOBAL, its program or the
+            project itself) counts all of it; a caller who reaches it by areas (an RPM) counts only
+            the applications placed in those areas (BR-314). The budget is the session's planned
+            budget, present only within the caller's budget.view scope.
           type: object
           required: [reviewsWaiting, waitlisted]
           properties:
@@ -8471,10 +8492,12 @@ paths:
       operationId: projectSeries.series.update
       summary: Rename a project series or change its description; its sessions are renamed with it
       description: >-
-        The program is the one the series is stored with: a caller without project.create there
-        answers 403. The program and the code never change, so a body that names either answers 422
-        (validation.unknown_parameter) and changes nothing.
-        A rename renames every session of the series in the same transaction, under one audit entry.
+        The program is the one the series is stored with: for a caller without project.create
+        there the series answers 404 permission.not_found, as a series that does not exist does
+        (403 is the answer of a caller who holds project.create nowhere). The program and the code
+        never change, so a body that names either answers 422 (validation.unknown_parameter) and
+        changes nothing. A rename renames every session of the series, whatever its state, in the
+        same transaction and under one audit entry.
       x-permission: project.create
       x-scope: program
       x-audit: project_series.update
@@ -8601,8 +8624,9 @@ paths:
         projects are read-only (409 project.read_only, BR-257). Moving a draft to another program
         needs project.configure there and an active program; the draft's series moves with it and
         is audited (project_series.update), and the move is refused (409 project.read_only) while
-        the series holds another session. A rename renames the series only while the draft is its
-        one session. A new year gives the session the whole of that calendar year; it is refused
+        the series holds another session. A rename renames the series with its one session; beside
+        another session of the series it is refused (409 project.read_only), since the sessions are
+        renamed together through the series. A new year gives the session the whole of that calendar year; it is refused
         for a session that does not run the whole of its year (409 project.read_only) and for a
         year another session of the series starts in (409 project.session_year_taken). A year
         sent back unchanged changes nothing.

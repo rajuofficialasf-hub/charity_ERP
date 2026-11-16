@@ -11,7 +11,9 @@ import {
   helpedPeople,
   isRunning,
   namedPeople,
+  ownWork,
   reachOf,
+  type SessionFigures,
   sessionFigures,
   sessionRpms,
   sessionsOf,
@@ -25,7 +27,8 @@ import {
  * names of its PM and of the RPMs of its projects' current sessions only. The applications and
  * the volunteers are those of the running sessions. The reads are grouped, a fixed number of them
  * however many programs there are. The caller's own work (reviews waiting, the waitlist) is summed
- * over the current sessions the caller may open, and left out when there is none.
+ * over the current session of each series the caller may open, within what the caller reaches of
+ * it, and left out when the caller may open none.
  */
 export class ProgramCardsService {
   constructor(
@@ -73,14 +76,15 @@ export class ProgramCardsService {
         runningSessions.map((s) => s.programId),
       );
       const rpms = await sessionRpms(tx, sessionIds);
-      const reach = await reachOf(this.access, tx, viewer.principal, sessionIds, programIds);
+      const reach = await reachOf(this.access, tx, viewer.principal, sessions, programIds);
+      const work = await ownWork(tx, reach.open, figures);
+      const applications = (f: SessionFigures) => f.applications;
       return programs.map((p) => {
         const own = sessions.filter((s) => s.programId === p.id);
         const running = own.filter((s) => isRunning(s.status));
-        const opened = own.filter((s) => reach.open.has(s.id));
-        const sum = (list: typeof own, pick: 'applications' | 'waiting' | 'waitlisted') =>
-          // eslint-disable-next-line security/detect-object-injection -- one of three fixed keys
-          list.reduce((total, s) => total + figuresOf(figures, s.id)[pick], 0);
+        const opened = own.flatMap((s) => work.get(s.id) ?? []);
+        const sum = (list: typeof own, pick: (f: SessionFigures) => number) =>
+          list.reduce((total, s) => total + pick(figuresOf(figures, s.id)), 0);
         const named: CardPerson[] = own.flatMap((s) => rpms.get(s.id) ?? []);
         return {
           id: p.id,
@@ -93,13 +97,13 @@ export class ProgramCardsService {
           projects: series.filter((s) => s.programId === p.id).length,
           runningProjects: running.length,
           beneficiaries: people.get(p.id) ?? 0,
-          applications: sum(running, 'applications'),
+          applications: sum(running, applications),
           volunteers: volunteers.get(p.id) ?? 0,
           ...(opened.length
             ? {
                 todo: {
-                  reviewsWaiting: sum(opened, 'waiting'),
-                  waitlisted: sum(opened, 'waitlisted'),
+                  reviewsWaiting: opened.reduce((total, w) => total + w.reviewsWaiting, 0),
+                  waitlisted: opened.reduce((total, w) => total + w.waitlisted, 0),
                 },
               }
             : {}),

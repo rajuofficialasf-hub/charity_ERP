@@ -23,6 +23,7 @@ import { holdsPermission, programWhere, projectWhere, type Scope } from '../acce
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
 import type { Clock } from '../core/clock.js';
+import { isUniqueViolationOf } from '../core/db-errors.js';
 import { assertIfMatch } from '../core/etag.js';
 import {
   buildPage,
@@ -34,7 +35,7 @@ import {
 } from '../core/pagination.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Env } from '../config/env.js';
-import { Prisma } from '../generated/prisma/client.js';
+import { type Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import { applyDefinition, projectDefinition } from './project-definition.js';
 import { auditIdentityRulesChange, IDENTITY_RULES_COMPONENT } from './project-identity-rules.js';
@@ -157,8 +158,8 @@ const REQUIRED_ONCE_ACTIVE: readonly (keyof ProjectUpdate)[] = [
   'targetBeneficiaries',
 ];
 
-const isUniqueViolation = (error: unknown) =>
-  error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+/** The two unique indexes that give a series one session per start year. */
+const SESSION_YEAR_INDEXES = ['projects_series_id_year_key', 'projects_code_year_key'];
 
 /** The request fields as the setup fields `editableIn` knows. */
 const FIELDS: Record<keyof ProjectUpdate, SetupField> = {
@@ -378,7 +379,8 @@ export class ProjectsService {
       });
     } catch (error) {
       // two creations with one code at the same moment: the unique index decides
-      if (isUniqueViolation(error)) throw new ApiError('project.code_taken', 409);
+      if (isUniqueViolationOf(error, 'project_series_code_key'))
+        throw new ApiError('project.code_taken', 409);
       throw error;
     }
   }
@@ -393,7 +395,8 @@ export class ProjectsService {
       return await this.updateLocked(viewer, projectId, body, ifMatch);
     } catch (error) {
       // a year another session of the series took at the same moment: the unique index decides
-      if (isUniqueViolation(error)) throw new ApiError('project.session_year_taken', 409);
+      if (SESSION_YEAR_INDEXES.some((index) => isUniqueViolationOf(error, index)))
+        throw new ApiError('project.session_year_taken', 409);
       throw error;
     }
   }
@@ -406,6 +409,11 @@ export class ProjectsService {
   ) {
     const actor = viewer.principal.userId;
     return this.prisma.$transaction(async (tx) => {
+      // what a session shares with its series (the names, the program, the year among its
+      // sessions) is written under the series' lock, taken before the session's as a rename of
+      // the series takes them, so the two never wait on each other
+      if (body.name !== undefined || body.programId !== undefined || body.year !== undefined)
+        await this.lockSeriesOf(tx, projectId);
       const before = await this.locked(tx, viewer, projectId);
       assertIfMatch(ifMatch, before.updatedAt);
       const status = before.status as ProjectStatus;
@@ -470,11 +478,15 @@ export class ProjectsService {
           new: { programId: body.programId },
         });
       }
-      if (body.name && changing.includes('name') && alone)
+      if (body.name && changing.includes('name')) {
+        // a session carries the names of its series: beside other sessions it is renamed with
+        // them, through the series
+        if (!alone) throw new ApiError('project.read_only', 409);
         await tx.projectSeries.update({
           where: { id: before.seriesId },
           data: { nameBn: body.name.bn, nameEn: body.name.en, updatedBy: actor },
         });
+      }
       const from = body.applyFrom === undefined ? day(before.applyFrom) : body.applyFrom;
       const to = body.applyTo === undefined ? day(before.applyTo) : body.applyTo;
       if (from && to && from > to) throw new ApiError('validation.out_of_range', 422);
@@ -618,6 +630,18 @@ export class ProjectsService {
   async writeState(tx: Tx, projectId: string, data: Prisma.ProjectUncheckedUpdateInput) {
     const row = await tx.project.update({ where: { id: projectId }, select: SELECT, data });
     return { project: view(row, EDITOR), updatedAt: row.updatedAt };
+  }
+
+  /**
+   * Locks the series a project is a session of. Every write of what the sessions of a series
+   * share takes this lock first and the session's row after it.
+   */
+  async lockSeriesOf(tx: Tx, projectId: string): Promise<void> {
+    await tx.$queryRaw`
+      SELECT s.id FROM project_series s
+      JOIN projects p ON p.series_id = s.id
+      WHERE p.id = ${projectId}::uuid
+      FOR UPDATE OF s`;
   }
 
   /** The project inside the caller's scope (404 outside), with its row locked for the write. */
