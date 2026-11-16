@@ -52,8 +52,8 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 ## Progress
 - **Branch:** `fix/known-issues`
 - **Updated:** 2026-11-17
-- **Next:** checkpoint C3 (review of U3), then U4: the lookup's daily cap answer, the merges list paging, the profile's years, the transfer's consent gate
-- **Reviewed through:** C2 at 1975d59f
+- **Next:** U4: the lookup's daily cap also for an unknown number (`beneficiary-identity.ts` `lookup`), the merges list paged past 100 (`routes/beneficiaries.ts` passes 100), the transfer's consent gate (`transfers.ts` after `transfer_target_not_assigned`); the profile's years already come from every application (`personApplications`, never cut), so that item needs only a test
+- **Reviewed through:** C3 at a27370bf
 - **Uncommitted:** none
 - **Notes:** the owner said not to wait for a command between units or checkpoints. U1: a blocked person's draft is refused at the send by the workflow guard `workflow.guard.beneficiary_not_blocked` (409), not by `beneficiary.blocked`. C1 review: a draft not yet tied to anyone whose number later names a blocked person stays refused at its edit (409 `beneficiary.blocked`), because tying it would fill in the blocked person's names, which the lookup never reveals; BR-010 says so. U2: the cause was the scope builder (`resolveInstances` in `apps/api/src/access/scope.ts`) honouring the house-construction condition only for beneficiaries; the web gives the Procurement Team the tab's list only and a session's "আবেদন". The planned e2e journey is covered by `procurement-applications.test.ts` and the tab's component test instead, because the demo seed has no house-construction project
 
