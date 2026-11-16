@@ -26,6 +26,7 @@ import {
 } from './support/auth-app.js';
 import { beneficiary as row, fakeMobile, fakeNid, volunteer } from './support/fixtures.js';
 import { storeKeys } from './support/name-keys.js';
+import { draftProject } from './support/projects.js';
 
 // An application without an identity document, by the project's own rule: where the document is
 // asked "if they have one" the send makes a profile without a document (and without a mobile when
@@ -109,7 +110,7 @@ const answerOf = (
 ) => body.data.answers.find((a) => a.fieldKey === key)?.value;
 
 async function projectOf(code: string): Promise<Target> {
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code,
     year: 2026,

@@ -21,6 +21,7 @@ import {
   type Session,
 } from './support/auth-app.js';
 import { beneficiary, fakeMobile, fakeNid } from './support/fixtures.js';
+import { draftProject } from './support/projects.js';
 
 // The application through the common cycle on the API: the submission gives the number and the
 // person, the office reviews, edits, sends for approval and decides, a rejection can be returned,
@@ -87,7 +88,7 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: 'CYC',
     year: 2026,
@@ -401,5 +402,74 @@ describe('the timeline and the change log', () => {
     expect((await at(away, 'get', `/applications/${id}/timeline`)).status).toBe(404);
     const other = await as(world.users.rangpurVolunteer);
     expect((await at(other, 'get', `/applications/${id}/timeline`)).status).toBe(404);
+  });
+});
+
+describe('the numbers of a new session', () => {
+  it('counts from one again under the session’s own year, beside the numbers of the year before', async () => {
+    const pm = await as(world.users.pm);
+    const { rows: before } = await h.db.query<{ series_id: string; taken: number }>(
+      `SELECT p.series_id, (SELECT count(*)::int FROM applications a WHERE a.project_id = p.id AND a.app_no LIKE 'CYC-2026-%') AS taken
+         FROM projects p WHERE p.id = $1`,
+      [project],
+    );
+    expect(before[0]!.taken).toBeGreaterThan(0);
+    // next year's session of the same project, a copy of this one
+    const made = await at(pm, 'post', `/project-series/${before[0]!.series_id}/sessions`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ periodFrom: '2027-01', periodTo: '2027-12' });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    expect(made.body.data).toMatchObject({ code: 'CYC', year: 2027, sessionLabel: '2027' });
+    const session = made.body.data.id as string;
+    // its form came as a draft: published, then the session opened as the first one was
+    const draft = (
+      await h.db.query<{ id: string }>(
+        `SELECT v.id FROM form_versions v JOIN forms f ON f.id = v.form_id WHERE f.project_id = $1`,
+        [session],
+      )
+    ).rows[0]!.id;
+    const builder = await as(world.users.monitoring);
+    const version = await at(builder, 'get', `/form-versions/${draft}`);
+    const published = await at(builder, 'post', `/form-versions/${draft}/publish`).set(
+      'If-Match',
+      String(version.headers.etag),
+    );
+    expect(published.status, JSON.stringify(published.body)).toBe(200);
+    await h.db.query(
+      `UPDATE projects n SET status = 'active', apply_from = o.apply_from, apply_to = o.apply_to,
+              per_volunteer_limit = o.per_volunteer_limit, workflow_snapshot = o.workflow_snapshot,
+              activated_at = now()
+         FROM projects o WHERE n.id = $1 AND o.id = $2`,
+      [session, project],
+    );
+    await h.db.query(
+      `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), session, world.dhaka.division, world.users.rpmDhaka],
+    );
+    await h.db.query(
+      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, extra_permissions, assigned_by, consent_status)
+       VALUES ($1, $2, $3, $4, 'application_distribution', '{}', $5, 'accepted')`,
+      [randomUUID(), session, generalVolunteer, world.dhaka.division, world.users.rpmDhaka],
+    );
+    const s = await as(world.users.general);
+    const entry = await at(s, 'post', `/projects/${session}/applications`).send({
+      clientUuid: randomUUID(),
+      projectId: session,
+      formVersionId: draft,
+      answers: identity(),
+    });
+    expect(entry.status, JSON.stringify(entry.body)).toBe(201);
+    const read = await at(s, 'get', `/applications/${entry.body.data.id}`);
+    const submitted = await at(s, 'post', `/applications/${entry.body.data.id}/actions/submit`)
+      .set('If-Match', String(read.headers.etag))
+      .send({});
+    expect(submitted.status, JSON.stringify(submitted.body)).toBe(200);
+    expect(submitted.body.data.appNo).toBe('CYC-2027-00001');
+    // the numbers of the first session stay as they were
+    const { rows: after } = await h.db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM applications WHERE project_id = $1 AND app_no LIKE 'CYC-2026-%'`,
+      [project],
+    );
+    expect(after[0]!.n).toBe(before[0]!.taken);
   });
 });

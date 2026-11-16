@@ -45,8 +45,44 @@ export const pickerProjects = () => api<Project[]>(`/projects${listQuery({ limit
 
 export const project = (projectId: string) => api<Project>(`/projects/${projectId}`);
 
-export const createProject = (body: ProjectCreate) =>
-  api<Project>('/projects', { method: 'POST', body });
+/** What the setup's first step asks for a new project. */
+export interface NewProject {
+  programId: string;
+  code: string;
+  year: number;
+  name: { bn: string; en: string };
+  source: ProjectCreate['source'];
+}
+
+/** The series made for a first step whose session was then refused, by program and code. */
+const madeSeries = new Map<string, string>();
+
+/**
+ * Creates a project as the setup's first step asks for it: the project series (program, code and
+ * names), then its first session for the whole of the year. A series whose session was refused is
+ * kept for the next try of the same step, so the code is not taken by the try before.
+ */
+export async function createProject(body: NewProject): Promise<Project> {
+  const key = `${body.programId}:${body.code}`;
+  const seriesId =
+    madeSeries.get(key) ??
+    (
+      await api<{ id: string }>('/project-series', {
+        method: 'POST',
+        body: { programId: body.programId, code: body.code, name: body.name },
+      })
+    ).id;
+  madeSeries.set(key, seriesId);
+  const session: ProjectCreate = {
+    seriesId,
+    periodFrom: `${body.year}-01`,
+    periodTo: `${body.year}-12`,
+    source: body.source,
+  };
+  const project = await api<Project>('/projects', { method: 'POST', body: session });
+  madeSeries.delete(key);
+  return project;
+}
 
 /** The project with its version, for the If-Match of a write. */
 export const projectWithEtag = (projectId: string) =>

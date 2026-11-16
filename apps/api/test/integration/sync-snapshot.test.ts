@@ -16,6 +16,7 @@ import {
   type Session,
 } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
+import { draftProject } from './support/projects.js';
 
 // The offline data set a volunteer's phone pulls (docs/architecture/OFFLINE_SYNC.md "What is
 // cached on the device"): the consented projects, their published forms as the volunteer sees
@@ -46,16 +47,13 @@ beforeAll(async () => {
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   await f.volunteer(h.db, world.dhaka, world.users.team, { type: 'team_member' });
-  const made = await api()
-    .post('/api/v1/projects')
-    .set(bearer(await as(world.users.pm)))
-    .send({
-      programId: world.a1.program,
-      code: 'SNAP',
-      year: 2026,
-      name: { bn: 'স্ন্যাপশট', en: 'Snapshot' },
-      source: { kind: 'workflow', workflowKey: 'distribution' },
-    });
+  const made = await draftProject(h, await as(world.users.pm), {
+    programId: world.a1.program,
+    code: 'SNAP',
+    year: 2026,
+    name: { bn: 'স্ন্যাপশট', en: 'Snapshot' },
+    source: { kind: 'workflow', workflowKey: 'distribution' },
+  });
   expect(made.status, JSON.stringify(made.body)).toBe(201);
   project = made.body.data.id as string;
   ({ versionId } = await applicationProject(h, await as(world.users.monitoring), project));
@@ -265,16 +263,13 @@ describe('GET /sync/snapshot', () => {
   });
 
   it('keeps a consented project without a published form out of the forms, the rest unchanged', async () => {
-    const made = await api()
-      .post('/api/v1/projects')
-      .set(bearer(await as(world.users.pm)))
-      .send({
-        programId: world.a1.program,
-        code: 'NOFORM',
-        year: 2026,
-        name: { bn: 'ফর্ম ছাড়া', en: 'No form' },
-        source: { kind: 'workflow', workflowKey: 'distribution' },
-      });
+    const made = await draftProject(h, await as(world.users.pm), {
+      programId: world.a1.program,
+      code: 'NOFORM',
+      year: 2026,
+      name: { bn: 'ফর্ম ছাড়া', en: 'No form' },
+      source: { kind: 'workflow', workflowKey: 'distribution' },
+    });
     expect(made.status).toBe(201);
     const bare = made.body.data.id as string;
     await h.db.query(`UPDATE projects SET status = 'active' WHERE id = $1`, [bare]);

@@ -6,6 +6,7 @@ import {
   type ProjectSeriesUpdate,
   type ProjectStatus,
   projectStatusOf,
+  type SessionCreate,
   sessionLabel,
   type ShortDescription,
 } from '@css/shared/projects';
@@ -20,9 +21,10 @@ import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { isUniqueViolationOf } from '../core/db-errors.js';
 import { ApiError } from '../i18n/api-error.js';
+import type { IdempotencyService } from '../idempotency/idempotency.service.js';
 import { helpedSql } from './help-history.js';
 import { inWorkAreasSql, WAITING } from './projects-work.js';
-import type { ProjectsService } from './projects.js';
+import { type ProjectsService, yearTakenOr } from './projects.js';
 import { staffPhotos } from './staff-photos.js';
 
 /**
@@ -463,6 +465,7 @@ export class ProjectSeriesService {
     private readonly access: AccessService,
     private readonly projects: ProjectsService,
     private readonly clock: Clock,
+    private readonly idempotency: IdempotencyService,
   ) {}
 
   /** The whole days until the application window ends, today counted as none; null once it has. */
@@ -708,5 +711,46 @@ export class ProjectSeriesService {
       });
     });
     return this.get(viewer, seriesId);
+  }
+
+  /**
+   * A new session of a series as a draft that copies the setup of an earlier session: the one
+   * named, or the newest (docs/BUSINESS_RULES.md, "Programs and projects (M06)", what a new
+   * session copies). The request runs once per Idempotency-Key: a repeat by the same caller with
+   * the same request answers the session the first one made, and writes nothing.
+   */
+  async newSession(
+    viewer: SeriesViewer,
+    seriesId: string,
+    key: string | undefined,
+    body: SessionCreate,
+  ) {
+    const { principal } = viewer;
+    let outcome: { replay: boolean; results: { id: string }[] };
+    try {
+      outcome = await this.idempotency.runWithKey<{ id: string }>(
+        key,
+        { userId: principal.userId, deviceSessionId: principal.sessionId },
+        1,
+        async (tx) => {
+          const made = await this.projects.createSession(tx, viewer, seriesId, body, (t) =>
+            this.projects.sessionToCopy(t, seriesId, body.sourceProjectId),
+          );
+          return [{ id: made.project.id }];
+        },
+        {
+          requestHash: JSON.stringify([
+            seriesId,
+            body.periodFrom,
+            body.periodTo,
+            body.sourceProjectId ?? null,
+          ]),
+        },
+      );
+    } catch (error) {
+      throw yearTakenOr(error);
+    }
+    const session = await this.projects.get(viewer, outcome.results[0]!.id);
+    return { replay: outcome.replay, ...session };
   }
 }

@@ -10,6 +10,10 @@ import {
   type ProjectFilter,
   type ProjectStatus,
   type ProjectUpdate,
+  sessionDates,
+  sessionLabel,
+  type SessionPeriod,
+  sessionYear,
   type SetupField,
   startingComponents,
   type TemplateDefinition,
@@ -84,23 +88,11 @@ const money = (d: Prisma.Decimal | null) => (d === null ? null : d.toFixed(2));
 const toDate = (s: string | null | undefined) =>
   s === undefined ? undefined : s === null ? null : new Date(`${s}T00:00:00Z`);
 
-/**
- * The whole calendar year of a session's year, 1 January to 31 December. A body that names a year
- * names no months, and the year of a session is the year its period starts in
- * (docs/database/DATABASE_SCHEMA.md, "projects"), so a session given by its year alone runs that
- * whole year.
- */
-function wholeYear(year: number): { periodFrom: Date; periodTo: Date } {
-  return { periodFrom: new Date(Date.UTC(year, 0, 1)), periodTo: new Date(Date.UTC(year, 11, 31)) };
-}
-
-/** Whether a session runs exactly the whole calendar year of its year. */
-function runsWholeYear(p: { year: number; periodFrom: Date; periodTo: Date }): boolean {
-  const whole = wholeYear(p.year);
-  return (
-    p.periodFrom.getTime() === whole.periodFrom.getTime() &&
-    p.periodTo.getTime() === whole.periodTo.getTime()
-  );
+const month = (d: Date) => d.toISOString().slice(0, 7);
+/** The stored days of a period of months. */
+function periodDates(period: SessionPeriod): { periodFrom: Date; periodTo: Date } {
+  const { from, to } = sessionDates(period);
+  return { periodFrom: new Date(`${from}T00:00:00Z`), periodTo: new Date(`${to}T00:00:00Z`) };
 }
 
 /** What a reader of a project sees: a volunteer the work facts only, an official the rest. */
@@ -115,7 +107,7 @@ const EDITOR: ViewOf = { forVolunteer: false, budget: true };
 
 /**
  * What a project shows. A volunteer gets only the work facts of an active project it is on: never
- * the budget, the program, or anything the officials keep (fund sources, staff and areas have their
+ * the budget, the program, the series, or anything the officials keep (fund sources, staff and areas have their
  * own official-only routes). An official without `budget.view` on the project gets no amounts.
  */
 function view(p: Row, { forVolunteer, budget }: ViewOf) {
@@ -130,11 +122,16 @@ function view(p: Row, { forVolunteer, budget }: ViewOf) {
     applyTo: day(p.applyTo),
     perVolunteerLimit: p.perVolunteerLimit,
     dawahEnabled: p.dawahEnabled,
+    // which session of its project this is: the months it runs and the label read from them
+    periodFrom: month(p.periodFrom),
+    periodTo: month(p.periodTo),
+    sessionLabel: sessionLabel(month(p.periodFrom), month(p.periodTo)),
   };
   if (forVolunteer) return work;
   return {
     ...work,
     programId: p.programId,
+    seriesId: p.seriesId,
     description: p.description,
     workflowVersion: p.workflowVersion,
     ...(budget
@@ -161,12 +158,30 @@ const REQUIRED_ONCE_ACTIVE: readonly (keyof ProjectUpdate)[] = [
 /** The two unique indexes that give a series one session per start year. */
 const SESSION_YEAR_INDEXES = ['projects_series_id_year_key', 'projects_code_year_key'];
 
+/**
+ * The error to answer with: 409 when a session of the series took the year at the same moment
+ * and the unique index decided, else the error as it came.
+ */
+export function yearTakenOr(error: unknown): unknown {
+  return SESSION_YEAR_INDEXES.some((index) => isUniqueViolationOf(error, index))
+    ? new ApiError('project.session_year_taken', 409)
+    : error;
+}
+
+/** Where a new session's setup starts, and what it records of its source. */
+export interface StartingPoint {
+  workflowKey: WorkflowKey;
+  definition?: TemplateDefinition;
+  sourceTemplateId?: string;
+  copiedFromProjectId?: string;
+}
+
 /** The request fields as the setup fields `editableIn` knows. */
 const FIELDS: Record<keyof ProjectUpdate, SetupField> = {
   name: 'name',
   description: 'description',
-  programId: 'programId',
-  year: 'year',
+  periodFrom: 'period',
+  periodTo: 'period',
   workflowKey: 'workflowKey',
   applyFrom: 'applyFrom',
   applyTo: 'applyTo',
@@ -183,10 +198,11 @@ function sameValue(key: keyof ProjectUpdate, value: unknown, current: unknown): 
 }
 
 /**
- * Projects (docs/MASTER_SPEC.md, "Program and project setup (project configuration)"): a PM creates
- * a draft from a workflow in its program; the setup changes as the project's state allows; a draft
- * that was never activated can be cancelled. Every write locks the project (or, on creation, the
- * program) and is audited in its transaction.
+ * Projects (docs/MASTER_SPEC.md, "Program and project setup (project configuration)"), each one
+ * session of a project series (docs/database/DATABASE_SCHEMA.md, "projects"): a PM creates a draft
+ * session of a series of its program; the setup changes as the session's state allows; a draft
+ * that was never activated can be cancelled. Every write locks the project (on creation, the
+ * series and its program) and is audited in its transaction.
  */
 export class ProjectsService {
   constructor(
@@ -224,6 +240,7 @@ export class ProjectsService {
         // a cancelled draft leaves the lists unless asked for
         { status: query.status ?? { not: 'cancelled' } },
         query.programId ? { programId: query.programId } : {},
+        query.seriesId ? { seriesId: query.seriesId } : {},
         query.year ? { year: query.year } : {},
         query.endingSoon ? this.endingSoonWhere() : {},
       ],
@@ -292,97 +309,133 @@ export class ProjectsService {
     };
   }
 
+  /**
+   * A draft session of a series, created in the setup's first step, starting from a workflow, a
+   * master template or a copy of a project the caller may view.
+   */
   async create(viewer: ProjectViewer, body: ProjectCreate) {
-    const actor = viewer.principal.userId;
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        // the program row is locked, so a deactivation running at the same moment waits
-        await this.lockedProgram(tx, viewer, body.programId);
-        // a code belongs to one series; a project created by its code starts a series of its own
-        if (await tx.projectSeries.findUnique({ where: { code: body.code }, select: { id: true } }))
-          throw new ApiError('project.code_taken', 409);
-        const start = await this.startingPoint(tx, viewer, body.source);
-        const workflow = await this.workflow(tx, start.workflowKey);
-        const id = uuidv7();
-        const components = await this.components(tx, start.workflowKey, workflow.definition);
-        // the dawah flag follows the dawah component the project starts with
-        const dawah = (start.definition?.components ?? components).some(
-          (c) => c.componentKey === 'dawah' && c.enabled,
-        );
-        const seriesId = uuidv7();
-        await tx.projectSeries.create({
-          data: {
-            id: seriesId,
-            programId: body.programId,
-            code: body.code,
-            nameBn: body.name.bn,
-            nameEn: body.name.en,
-            createdBy: actor,
-            updatedBy: actor,
-          },
-        });
-        const row = await tx.project.create({
-          select: SELECT,
-          data: {
-            id,
-            programId: body.programId,
-            seriesId,
-            code: body.code,
-            year: body.year,
-            ...wholeYear(body.year),
-            nameBn: body.name.bn,
-            nameEn: body.name.en,
-            description: body.description ?? null,
-            status: 'draft',
-            workflowDefinitionId: workflow.id,
-            workflowVersion: workflow.version,
-            dawahEnabled: dawah,
-            sourceTemplateId: start.sourceTemplateId ?? null,
-            copiedFromProjectId: start.copiedFromProjectId ?? null,
-            createdBy: actor,
-            updatedBy: actor,
-          },
-        });
-        await tx.projectComponent.createMany({
-          data: components.map((c) => ({
-            id: uuidv7(),
-            projectId: id,
-            componentKey: c.componentKey,
-            enabled: c.enabled,
-            settings: c.settings as Prisma.InputJsonValue,
-            createdBy: actor,
-            updatedBy: actor,
-          })),
-        });
-        // a template or a copy brings its components, syllabus and rules
-        if (start.definition) await applyDefinition(tx, id, start.definition, actor);
-        // the application numbers of this project count from here
-        await tx.idSequence.create({ data: { scopeKey: `app:${id}`, lastValue: 0 } });
-        // what the project's application asks from its first day, whichever source set it
-        const asked = await tx.projectComponent.findUnique({
-          where: {
-            projectId_componentKey: { projectId: id, componentKey: IDENTITY_RULES_COMPONENT },
-          },
-          select: { settings: true },
-        });
-        await this.audit.record(tx, {
-          action: 'project.create',
-          entityType: 'project',
-          entityId: id,
-          new: {
-            ...view(row, EDITOR),
-            source: body.source,
-            identityRules: identityRules(asked?.settings),
-          },
-        });
-        return { project: view(row, EDITOR), updatedAt: row.updatedAt };
-      });
+      return await this.prisma.$transaction((tx) =>
+        this.createSession(tx, viewer, body.seriesId, body, (t) =>
+          this.startingPoint(t, viewer, body.source),
+        ),
+      );
     } catch (error) {
-      // two creations with one code at the same moment: the unique index decides
-      if (isUniqueViolationOf(error, 'project_series_code_key'))
-        throw new ApiError('project.code_taken', 409);
-      throw error;
+      throw yearTakenOr(error);
     }
+  }
+
+  /**
+   * Writes a draft session of a series inside the caller's transaction. The code, the program and
+   * the names are the series', the year is the year the period starts in, and a series takes one
+   * session per start year (409 otherwise). The program is the one the series is stored with: a
+   * caller who may not create projects there is refused (403), and an inactive program takes no
+   * session (409). The series is locked first, then its program, the order every write of what the
+   * sessions of a series share takes.
+   */
+  async createSession(
+    tx: Tx,
+    viewer: ProjectViewer,
+    seriesId: string,
+    period: SessionPeriod,
+    startOf: (tx: Tx) => Promise<StartingPoint>,
+  ) {
+    const actor = viewer.principal.userId;
+    await tx.$queryRaw`SELECT id FROM project_series WHERE id = ${seriesId}::uuid FOR UPDATE`;
+    const series = await tx.projectSeries.findUnique({
+      where: { id: seriesId },
+      select: { id: true, programId: true, code: true, nameBn: true, nameEn: true },
+    });
+    if (!series) throw new ApiError('permission.not_found', 404);
+    await this.lockedProgram(tx, viewer, series.programId);
+    const year = sessionYear(period.periodFrom);
+    // a cancelled session keeps its year, as it keeps its row
+    if (await tx.project.findFirst({ where: { seriesId, year }, select: { id: true } }))
+      throw new ApiError('project.session_year_taken', 409);
+    const start = await startOf(tx);
+    const workflow = await this.workflow(tx, start.workflowKey);
+    const id = uuidv7();
+    const components = await this.components(tx, start.workflowKey, workflow.definition);
+    // the dawah flag follows the dawah component the project starts with
+    const dawah = (start.definition?.components ?? components).some(
+      (c) => c.componentKey === 'dawah' && c.enabled,
+    );
+    const row = await tx.project.create({
+      select: SELECT,
+      data: {
+        id,
+        programId: series.programId,
+        seriesId,
+        code: series.code,
+        year,
+        ...periodDates(period),
+        nameBn: series.nameBn,
+        nameEn: series.nameEn,
+        status: 'draft',
+        workflowDefinitionId: workflow.id,
+        workflowVersion: workflow.version,
+        dawahEnabled: dawah,
+        sourceTemplateId: start.sourceTemplateId ?? null,
+        copiedFromProjectId: start.copiedFromProjectId ?? null,
+        createdBy: actor,
+        updatedBy: actor,
+      },
+    });
+    await tx.projectComponent.createMany({
+      data: components.map((c) => ({
+        id: uuidv7(),
+        projectId: id,
+        componentKey: c.componentKey,
+        enabled: c.enabled,
+        settings: c.settings as Prisma.InputJsonValue,
+        createdBy: actor,
+        updatedBy: actor,
+      })),
+    });
+    // a template or a copy brings its components, syllabus and rules
+    if (start.definition) await applyDefinition(tx, id, start.definition, actor);
+    // the application numbers of this project count from here
+    await tx.idSequence.create({ data: { scopeKey: `app:${id}`, lastValue: 0 } });
+    // what the project's application asks from its first day, whichever source set it
+    const asked = await tx.projectComponent.findUnique({
+      where: {
+        projectId_componentKey: { projectId: id, componentKey: IDENTITY_RULES_COMPONENT },
+      },
+      select: { settings: true },
+    });
+    const source = start.sourceTemplateId
+      ? { kind: 'template', templateId: start.sourceTemplateId }
+      : start.copiedFromProjectId
+        ? { kind: 'copy', projectId: start.copiedFromProjectId }
+        : { kind: 'workflow', workflowKey: start.workflowKey };
+    await this.audit.record(tx, {
+      action: 'project.create',
+      entityType: 'project',
+      entityId: id,
+      new: { ...view(row, EDITOR), source, identityRules: identityRules(asked?.settings) },
+    });
+    return { project: view(row, EDITOR), updatedAt: row.updatedAt };
+  }
+
+  /**
+   * The session a new session of a series copies: the one named, which must be a session of that
+   * series, or its newest session that is not cancelled (422 when there is none to copy).
+   */
+  async sessionToCopy(
+    tx: Tx,
+    seriesId: string,
+    sourceProjectId: string | undefined,
+  ): Promise<StartingPoint> {
+    const source = await tx.project.findFirst({
+      where: sourceProjectId
+        ? { id: sourceProjectId, seriesId }
+        : { seriesId, status: { not: 'cancelled' } },
+      orderBy: { year: 'desc' },
+      select: { id: true },
+    });
+    if (!source) throw new ApiError('project.session_source_foreign', 422);
+    const definition = await projectDefinition(tx, source.id);
+    return { workflowKey: definition.workflowKey, definition, copiedFromProjectId: source.id };
   }
 
   async update(
@@ -394,10 +447,7 @@ export class ProjectsService {
     try {
       return await this.updateLocked(viewer, projectId, body, ifMatch);
     } catch (error) {
-      // a year another session of the series took at the same moment: the unique index decides
-      if (SESSION_YEAR_INDEXES.some((index) => isUniqueViolationOf(error, index)))
-        throw new ApiError('project.session_year_taken', 409);
-      throw error;
+      throw yearTakenOr(error);
     }
   }
 
@@ -409,10 +459,10 @@ export class ProjectsService {
   ) {
     const actor = viewer.principal.userId;
     return this.prisma.$transaction(async (tx) => {
-      // what a session shares with its series (the names, the program, the year among its
-      // sessions) is written under the series' lock, taken before the session's as a rename of
-      // the series takes them, so the two never wait on each other
-      if (body.name !== undefined || body.programId !== undefined || body.year !== undefined)
+      // what a session shares with its series (the names, the year among its sessions) is
+      // written under the series' lock, taken before the session's as a rename of the series
+      // takes them, so the two never wait on each other
+      if (body.name !== undefined || body.periodFrom !== undefined)
         await this.lockSeriesOf(tx, projectId);
       const before = await this.locked(tx, viewer, projectId);
       assertIfMatch(ifMatch, before.updatedAt);
@@ -440,48 +490,30 @@ export class ProjectsService {
           : body.targetBeneficiaries;
       if (changing.includes('costPerBeneficiary') || changing.includes('targetBeneficiaries'))
         await this.checkBudget(tx, projectId, status, cost, target);
-      // the program, the names and the code belong to the series: a session changes them for its
-      // series only while it is the series' one session
-      const alone =
-        changing.includes('programId') || changing.includes('name')
-          ? (await tx.project.count({
-              where: { seriesId: before.seriesId, id: { not: projectId } },
-            })) === 0
-          : true;
-      if (body.year !== undefined && changing.includes('year')) {
-        // only a session that runs the whole of its year can be told its period by a year alone
-        if (!runsWholeYear(before)) throw new ApiError('project.read_only', 409);
+      // a draft's period, its two months together; the year is the year it starts in, and a
+      // series takes one session per start year
+      const period =
+        (changing.includes('periodFrom') || changing.includes('periodTo')) &&
+        body.periodFrom !== undefined &&
+        body.periodTo !== undefined
+          ? { periodFrom: body.periodFrom, periodTo: body.periodTo }
+          : undefined;
+      const year = period ? sessionYear(period.periodFrom) : before.year;
+      if (year !== before.year) {
         const taken = await tx.project.findFirst({
-          where: { seriesId: before.seriesId, year: body.year, id: { not: projectId } },
+          where: { seriesId: before.seriesId, year, id: { not: projectId } },
           select: { id: true },
         });
         if (taken) throw new ApiError('project.session_year_taken', 409);
       }
-      if (body.programId && changing.includes('programId')) {
-        // moving the series would move its other sessions, which may be running
-        if (!alone) throw new ApiError('project.read_only', 409);
-        await this.lockedProgram(tx, viewer, body.programId);
-        // a session sits in the program of its series, held by one foreign key over the pair, so
-        // the two rows move in one statement
-        await tx.$executeRaw`
-          WITH moved AS (
-            UPDATE project_series SET program_id = ${body.programId}::uuid, updated_by = ${actor}::uuid
-            WHERE id = ${before.seriesId}::uuid RETURNING id
-          )
-          UPDATE projects SET program_id = ${body.programId}::uuid
-          FROM moved WHERE projects.id = ${projectId}::uuid AND projects.series_id = moved.id`;
-        await this.audit.record(tx, {
-          action: 'project_series.update',
-          entityType: 'project_series',
-          entityId: before.seriesId,
-          old: { programId: before.programId },
-          new: { programId: body.programId },
-        });
-      }
       if (body.name && changing.includes('name')) {
-        // a session carries the names of its series: beside other sessions it is renamed with
-        // them, through the series
-        if (!alone) throw new ApiError('project.read_only', 409);
+        // a session carries the names of its series: while it is the series' one session its
+        // rename renames the series; beside other sessions it is renamed with them, through the
+        // series
+        const others = await tx.project.count({
+          where: { seriesId: before.seriesId, id: { not: projectId } },
+        });
+        if (others) throw new ApiError('project.read_only', 409);
         await tx.projectSeries.update({
           where: { id: before.seriesId },
           data: { nameBn: body.name.bn, nameEn: body.name.en, updatedBy: actor },
@@ -532,11 +564,7 @@ export class ProjectsService {
           nameBn: body.name?.bn,
           nameEn: body.name?.en,
           description: body.description,
-          programId: body.programId,
-          year: body.year,
-          // the period follows the year only when the year changes: a year sent back as it is
-          // leaves the months of the session alone
-          ...(body.year !== undefined && changing.includes('year') ? wholeYear(body.year) : {}),
+          ...(period ? { year, ...periodDates(period) } : {}),
           workflowDefinitionId: workflow?.id,
           workflowVersion: workflow?.version,
           dawahEnabled: workflow?.dawahEnabled,
@@ -656,8 +684,8 @@ export class ProjectsService {
   }
 
   /**
-   * A program the caller may put a project in: inside its scope (403 otherwise, the program comes
-   * from the body) and active (409). The row is locked against a deactivation at the same moment.
+   * A program the caller may put a project or a series in: inside its scope (403 otherwise) and
+   * active (409). The row is locked against a deactivation at the same moment.
    */
   async lockedProgram(tx: Tx, viewer: ProjectViewer, programId: string): Promise<void> {
     await tx.$queryRaw`SELECT id FROM programs WHERE id = ${programId}::uuid FOR UPDATE`;
@@ -681,12 +709,7 @@ export class ProjectsService {
     tx: Tx,
     viewer: ProjectViewer,
     source: ProjectCreate['source'],
-  ): Promise<{
-    workflowKey: WorkflowKey;
-    definition?: TemplateDefinition;
-    sourceTemplateId?: string;
-    copiedFromProjectId?: string;
-  }> {
+  ): Promise<StartingPoint> {
     if (source.kind === 'workflow') return { workflowKey: source.workflowKey };
     if (source.kind === 'template') {
       const template = await tx.projectTemplate.findUnique({

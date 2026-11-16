@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context.js';
 import { seedWorkflows } from '../../seed/sets/base/workflows.js';
@@ -15,15 +14,9 @@ import {
   principalOf,
   statusOf,
 } from './support/applications.js';
-import {
-  type Account,
-  account,
-  type AuthHarness,
-  authHarness,
-  bearer,
-  login,
-} from './support/auth-app.js';
+import { type Account, account, type AuthHarness, authHarness, login } from './support/auth-app.js';
 import { beneficiary, fakeMobile, fakeNid } from './support/fixtures.js';
+import { draftProject } from './support/projects.js';
 
 // The workflow engine on the common cycle: a move happens only through a transition of the
 // project's snapshot, for a caller whose permission reaches the application, past every guard,
@@ -31,7 +24,6 @@ import { beneficiary, fakeMobile, fakeNid } from './support/fixtures.js';
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
-const api = () => request(h.server());
 const as = (userId: string) => login(h, accounts.get(userId)!);
 
 let project: string;
@@ -49,16 +41,13 @@ beforeAll(async () => {
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
   await seedWorkflows(new SeedContext(h.container.prisma));
   // a project of this file's own, in the PM's program, with the form placed and the snapshot
-  const made = await api()
-    .post('/api/v1/projects')
-    .set(bearer(await as(world.users.pm)))
-    .send({
-      programId: world.a1.program,
-      code: 'WFE',
-      year: 2026,
-      name: { bn: 'ইঞ্জিন', en: 'Engine' },
-      source: { kind: 'workflow', workflowKey: 'distribution' },
-    });
+  const made = await draftProject(h, await as(world.users.pm), {
+    programId: world.a1.program,
+    code: 'WFE',
+    year: 2026,
+    name: { bn: 'ইঞ্জিন', en: 'Engine' },
+    source: { kind: 'workflow', workflowKey: 'distribution' },
+  });
   expect(made.status, JSON.stringify(made.body)).toBe(201);
   project = made.body.data.id as string;
   ({ versionId } = await applicationProject(h, await as(world.users.monitoring), project));
@@ -91,16 +80,13 @@ async function joinProject(projectId: string) {
 
 /** A project of the PM's program on the given workflow, with the form placed and the people on it. */
 async function projectOn(workflowKey: string, code: string) {
-  const made = await api()
-    .post('/api/v1/projects')
-    .set(bearer(await as(world.users.pm)))
-    .send({
-      programId: world.a1.program,
-      code,
-      year: 2026,
-      name: { bn: 'ইঞ্জিন', en: 'Engine' },
-      source: { kind: 'workflow', workflowKey },
-    });
+  const made = await draftProject(h, await as(world.users.pm), {
+    programId: world.a1.program,
+    code,
+    year: 2026,
+    name: { bn: 'ইঞ্জিন', en: 'Engine' },
+    source: { kind: 'workflow', workflowKey },
+  });
   expect(made.status, JSON.stringify(made.body)).toBe(201);
   const id = made.body.data.id as string;
   const form = await applicationProject(h, await as(world.users.monitoring), id, {

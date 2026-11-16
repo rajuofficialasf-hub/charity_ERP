@@ -15,6 +15,7 @@ import {
 } from './support/auth-app.js';
 import { insert } from './support/fixtures.js';
 import { IDENTITY, question, section } from './support/forms.js';
+import { draftProject as newProject } from './support/projects.js';
 
 // The texts of a form (docs/BUSINESS_RULES.md, the rule on bilingual configuration texts): a draft
 // saves with a text missing in one language or in both, the publish refuses it naming each text,
@@ -62,7 +63,7 @@ async function staff(role: string) {
 }
 /** A draft project of the PM's program, with no form yet. */
 async function draftProject() {
-  const res = await at(await as(world.users.pm), 'post', '/projects').send({
+  const res = await newProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: `D${next()}`,
     year: 2026,

@@ -231,7 +231,6 @@
   },
   "project": {
     "read_only": "This part of the project setup cannot change in its current state.",
-    "code_taken": "This project code is already in use.",
     "session_year_taken": "This project already has a session that starts in this year.",
     "series_code_taken": "A project with this code already exists.",
     "session_source_foreign": "The session to copy from must be a session of this project.",

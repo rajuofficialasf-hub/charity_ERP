@@ -529,7 +529,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     programs: o.programs ?? new ProgramsService(prisma, audit),
     programCards: o.programCards ?? new ProgramCardsService(prisma, access),
     projectSeries:
-      o.projectSeries ?? new ProjectSeriesService(prisma, audit, access, projects, clock),
+      o.projectSeries ??
+      new ProjectSeriesService(prisma, audit, access, projects, clock, idempotency),
     settings,
     referenceLists,
     nameVariants: o.nameVariants ?? new NameVariantsService(prisma, audit, jobs),

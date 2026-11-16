@@ -18,6 +18,7 @@ import {
   type Session,
 } from './support/auth-app.js';
 import { fakeMobile, fakeNid, locationTree } from './support/fixtures.js';
+import { draftProject } from './support/projects.js';
 
 // The photos of a public application: uploaded one by one against the link before the submission,
 // bound to the applicant's client id, claimed by the submission, swept when nothing claims them
@@ -57,7 +58,7 @@ const code = () => {
 /** An active project with a published distribution form that also holds a photo field, and its open link. */
 async function linkedProject() {
   const pm = await as(world.users.pm);
-  const created = await at(pm, 'post', '/projects').send({
+  const created = await draftProject(h, pm, {
     programId: world.a1.program,
     code: code(),
     year: 2026,

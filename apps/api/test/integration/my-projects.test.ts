@@ -17,6 +17,7 @@ import {
 import { applicationRow } from './support/applications.js';
 import { notificationsOf } from './support/notifications.js';
 import * as f from './support/fixtures.js';
+import { draftProject } from './support/projects.js';
 
 // A volunteer's own projects and the consent to their rules: no project access without accepting
 // the current rules, a rules change asks again, and a team member consents on their own.
@@ -440,7 +441,7 @@ describe('what an application of the project asks', () => {
 
   it('gives the choices of the project as its PM saved them, and each project its own', async () => {
     const pm = await as(world.users.pm);
-    const made = await at(pm, 'post', '/projects').send({
+    const made = await draftProject(h, pm, {
       programId: world.a1.program,
       code: 'ASKS',
       year: 2026,

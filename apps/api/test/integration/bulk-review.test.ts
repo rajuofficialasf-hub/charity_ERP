@@ -17,6 +17,7 @@ import {
 } from './support/auth-app.js';
 import { beneficiary, fakeMobile, fakeNid, insert } from './support/fixtures.js';
 import { uuidv7 } from '@css/shared';
+import { draftProject } from './support/projects.js';
 
 // The review screen in bulk: several applications start their review or take their approval in
 // one request, each row on its own, the whole request once per Idempotency-Key.
@@ -73,7 +74,7 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: 'BLK',
     year: 2026,

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context.js';
@@ -15,6 +16,7 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
+import { draftProject } from './support/projects.js';
 
 // Master templates and copies of a project: a new project takes exactly the copied parts of its
 // source as an independent snapshot (templates and copies).
@@ -55,10 +57,10 @@ const code = () => {
   return `T${letter(n / 676)}${letter(n / 26)}${letter(n)}`;
 };
 const create = (s: Session, source: Record<string, unknown>, programId = world.a1.program) =>
-  at(s, 'post', '/projects').send({
+  draftProject(h, s, {
     programId,
     code: code(),
-    year: 2027,
+    year: 2026,
     name: { bn: 'নতুন', en: 'New' },
     source,
   });
@@ -541,5 +543,262 @@ describe('master templates', () => {
         })
       ).status,
     ).toBe(404);
+  });
+});
+
+describe('a new session of a project series', () => {
+  const seriesOf = async (projectId: string) =>
+    (
+      await h.db.query<{ series_id: string }>('SELECT series_id FROM projects WHERE id = $1', [
+        projectId,
+      ])
+    ).rows[0]!.series_id;
+  const newSession = (
+    s: Session,
+    seriesId: string,
+    body: Record<string, unknown>,
+    key: string = randomUUID(),
+  ) => at(s, 'post', `/project-series/${seriesId}/sessions`).set('Idempotency-Key', key).send(body);
+  const NEXT = { periodFrom: '2027-06', periodTo: '2028-07' };
+  const ruleOf = async (s: Session, id: string) =>
+    (await componentsOf(s, id)).find((c) => c.componentKey === 'distribution')!.settings;
+
+  it('is a draft with the code and names of its series, the year its period starts in and its label', async () => {
+    const pm = await as(world.users.pm);
+    const source = await fullSource();
+    const seriesId = await seriesOf(source);
+    const series = (await at(pm, 'get', `/project-series/${seriesId}`)).body.data as {
+      code: string;
+      name: unknown;
+    };
+    const res = await newSession(pm, seriesId, NEXT);
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.headers.etag).toBeTruthy();
+    expect(res.headers['idempotent-replay']).toBeUndefined();
+    expect(res.body.data).toMatchObject({
+      status: 'draft',
+      seriesId,
+      programId: world.a1.program,
+      code: series.code,
+      name: series.name,
+      year: 2027,
+      periodFrom: '2027-06',
+      periodTo: '2028-07',
+      sessionLabel: '2027-28',
+    });
+    // the series now lists both, the new draft first
+    const listed = (await at(pm, 'get', `/project-series/${seriesId}`)).body.data.sessions as {
+      id: string;
+      sessionLabel: string;
+    }[];
+    expect(listed.map((x) => [x.id, x.sessionLabel])).toEqual([
+      [res.body.data.id, '2027-28'],
+      [source, '2026'],
+    ]);
+  });
+
+  it('carries the components, the form, the rules and the syllabus of the newest session, and no areas, volunteers, dates, budget or quota targets', async () => {
+    const pm = await as(world.users.pm);
+    const source = await fullSource();
+    // a quota target and a volunteer on the source, which belong to that year alone
+    await h.db.query(
+      `INSERT INTO project_quotas (id, project_id, level, location_id, target) VALUES ($1, $2, 'district', $3, 25)`,
+      [randomUUID(), source, world.dhaka.district],
+    );
+    await h.db.query(
+      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, assigned_by)
+       SELECT $1, $2, v.id, $3, 'application_distribution', $4 FROM volunteers v WHERE v.user_id = $5`,
+      [randomUUID(), source, world.dhaka.division, world.users.rpmDhaka, world.users.general],
+    );
+    const res = await newSession(pm, await seriesOf(source), NEXT);
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    const session = res.body.data;
+    // given again each year: the dates and the application window, the limit, the budget amounts
+    expect(session).toMatchObject({
+      status: 'draft',
+      applyFrom: null,
+      applyTo: null,
+      perVolunteerLimit: null,
+      costPerBeneficiary: null,
+      targetBeneficiaries: null,
+      budgetPlanned: null,
+      dawahEnabled: true,
+    });
+    // copied: every component with its settings, the syllabus, the rules
+    expect((await componentsOf(pm, session.id)).map(COPIED_COMPONENT_VIEW)).toEqual(
+      (await componentsOf(pm, source)).map(COPIED_COMPONENT_VIEW),
+    );
+    const syllabus = await at(pm, 'get', `/projects/${session.id}/syllabus`);
+    expect(syllabus.body.data.map((t: { title: unknown }) => t.title)).toEqual([
+      text('তাওহীদ'),
+      text('সালাত'),
+    ]);
+    expect((await at(pm, 'get', `/projects/${session.id}/rules`)).body.data).toEqual({
+      version: 1,
+      rules: RULES,
+    });
+    // copied: the published form, as draft 1 of the session's own form, named on its component
+    const copied = await formFieldKeys(pm, session.id);
+    const original = await formFieldKeys(pm, source);
+    expect(copied).toMatchObject({ versionNo: 1, status: 'draft', keys: original!.keys });
+    expect(copied!.form.id).not.toBe(original!.form.id);
+    // never copied: fund sources, areas with their RPMs, staff access, volunteers, quota targets,
+    // applications
+    for (const table of [
+      'fund_sources',
+      'project_areas',
+      'project_staff',
+      'project_volunteers',
+      'project_quotas',
+      'applications',
+    ])
+      expect(
+        await count(`SELECT count(*)::int AS n FROM ${table} WHERE project_id = $1`, session.id),
+        table,
+      ).toBe(0);
+    // the source keeps what it had
+    expect(
+      await count('SELECT count(*)::int AS n FROM project_quotas WHERE project_id = $1', source),
+    ).toBe(1);
+    const { rows } = await h.db.query(
+      'SELECT copied_from_project_id, source_template_id FROM projects WHERE id = $1',
+      [session.id],
+    );
+    expect(rows[0]).toEqual({ copied_from_project_id: source, source_template_id: null });
+    const audit = await h.db.query<{ new: { source: unknown; seriesId: string } }>(
+      `SELECT new FROM audit_log WHERE entity_id = $1 AND action = 'project.create'`,
+      [session.id],
+    );
+    expect(audit.rows).toHaveLength(1);
+    expect(audit.rows[0]!.new.source).toEqual({ kind: 'copy', projectId: source });
+  });
+
+  it('copies the newest session when told none, and the session it is told to', async () => {
+    const pm = await as(world.users.pm);
+    const first = await fullSource();
+    const seriesId = await seriesOf(first);
+    const second = (await newSession(pm, seriesId, NEXT)).body.data.id as string;
+    await patchComponent(pm, second, 'distribution', { settings: { rule: 'group' } });
+    // none named: the newest session, which is the second
+    const third = await newSession(pm, seriesId, { periodFrom: '2028-08', periodTo: '2029-07' });
+    expect(third.status).toBe(201);
+    expect(await ruleOf(pm, third.body.data.id)).toEqual({ rule: 'group' });
+    // an older one named: that one
+    const fourth = await newSession(pm, seriesId, {
+      periodFrom: '2029-08',
+      periodTo: '2030-07',
+      sourceProjectId: first,
+    });
+    expect(fourth.status).toBe(201);
+    expect(await ruleOf(pm, fourth.body.data.id)).toEqual({ rule: 'individual' });
+    const { rows } = await h.db.query(
+      'SELECT id, copied_from_project_id FROM projects WHERE id = ANY($1::uuid[])',
+      [[third.body.data.id, fourth.body.data.id]],
+    );
+    expect(Object.fromEntries(rows.map((r) => [r.id, r.copied_from_project_id]))).toEqual({
+      [third.body.data.id]: second,
+      [fourth.body.data.id]: first,
+    });
+  });
+
+  it('refuses a source that is no session of the series, and a series with no session to copy', async () => {
+    const pm = await as(world.users.pm);
+    const source = await fullSource();
+    const other = await fullSource();
+    const foreign = await newSession(pm, await seriesOf(source), {
+      ...NEXT,
+      sourceProjectId: other,
+    });
+    expect(foreign.status).toBe(422);
+    expect(foreign.body.error.code).toBe('project.session_source_foreign');
+    const empty = await at(pm, 'post', '/project-series').send({
+      programId: world.a1.program,
+      code: code(),
+      name: { bn: 'খালি', en: 'Empty' },
+    });
+    expect(empty.status).toBe(201);
+    const none = await newSession(pm, empty.body.data.id as string, NEXT);
+    expect(none.status).toBe(422);
+    expect(none.body.error.code).toBe('project.session_source_foreign');
+    expect(
+      await count(
+        'SELECT count(*)::int AS n FROM projects WHERE series_id = $1',
+        await seriesOf(source),
+      ),
+    ).toBe(1);
+  });
+
+  it('refuses a second session that starts in the same year', async () => {
+    const pm = await as(world.users.pm);
+    const source = await fullSource();
+    const seriesId = await seriesOf(source);
+    expect((await newSession(pm, seriesId, NEXT)).status).toBe(201);
+    const again = await newSession(pm, seriesId, { periodFrom: '2027-01', periodTo: '2027-12' });
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe('project.session_year_taken');
+    // the year of the first session too
+    const first = await newSession(pm, seriesId, { periodFrom: '2026-03', periodTo: '2026-09' });
+    expect(first.body.error.code).toBe('project.session_year_taken');
+    expect(
+      await count('SELECT count(*)::int AS n FROM projects WHERE series_id = $1', seriesId),
+    ).toBe(2);
+  });
+
+  it('answers a repeat with the same Idempotency-Key with the session it made, and makes one session', async () => {
+    const pm = await as(world.users.pm);
+    const source = await fullSource();
+    const seriesId = await seriesOf(source);
+    const key = randomUUID();
+    const first = await newSession(pm, seriesId, NEXT, key);
+    expect(first.status).toBe(201);
+    const repeat = await newSession(pm, seriesId, NEXT, key);
+    expect(repeat.status).toBe(200);
+    expect(repeat.headers['idempotent-replay']).toBe('true');
+    expect(repeat.body.data.id).toBe(first.body.data.id);
+    expect(repeat.headers.etag).toBeTruthy();
+    expect(
+      await count('SELECT count(*)::int AS n FROM projects WHERE series_id = $1', seriesId),
+    ).toBe(2);
+    expect(
+      await count(
+        `SELECT count(*)::int AS n FROM audit_log WHERE entity_id = $1 AND action = 'project.create'`,
+        first.body.data.id,
+      ),
+    ).toBe(1);
+    // the key belongs to the request it carried: another period under it is refused
+    const other = await newSession(
+      pm,
+      seriesId,
+      { periodFrom: '2029-01', periodTo: '2029-12' },
+      key,
+    );
+    expect(other.status).toBe(422);
+    // and a request without a key is no request
+    const bare = await at(pm, 'post', `/project-series/${seriesId}/sessions`).send(NEXT);
+    expect(bare.status).toBe(422);
+  });
+
+  it('is for whoever may create a project in the series’ program: an RPM and a PM of another program are refused', async () => {
+    const source = await fullSource();
+    const seriesId = await seriesOf(source);
+    expect((await newSession(await as(world.users.rpmDhaka), seriesId, NEXT)).status).toBe(403);
+    expect((await newSession(await as(world.users.executive), seriesId, NEXT)).status).toBe(403);
+    // a PM whose program is another one
+    const otherPm = await account(h.db, { role: 'program_manager' });
+    accounts.set(otherPm.id, otherPm);
+    await h.db.query('UPDATE programs SET pm_user_id = $1 WHERE id = $2', [
+      otherPm.id,
+      world.b1.program,
+    ]);
+    const refused = await newSession(await as(otherPm.id), seriesId, NEXT);
+    expect(refused.status).toBe(403);
+    expect(
+      await count('SELECT count(*)::int AS n FROM projects WHERE series_id = $1', seriesId),
+    ).toBe(1);
+    const head = await as(world.users.head);
+    expect((await newSession(head, randomUUID(), NEXT)).status).toBe(404);
+    expect((await newSession(head, seriesId, { periodFrom: '2027-06' })).status).toBe(422);
+    expect((await newSession(head, seriesId, { ...NEXT, code: 'OTHER' })).status).toBe(422);
+    expect((await newSession(head, seriesId, NEXT)).status).toBe(201);
   });
 });

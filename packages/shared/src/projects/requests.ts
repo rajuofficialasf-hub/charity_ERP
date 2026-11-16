@@ -1,12 +1,17 @@
 import { z } from 'zod';
 import { boundedLabel } from '../jsonb/common.js';
 import { PROJECT_STATUSES } from './lifecycle.js';
-import { SESSION_YEAR_MAX, SESSION_YEAR_MIN, sessionPeriod } from './session.js';
+import {
+  checkSessionPeriod,
+  SESSION_YEAR_MAX,
+  SESSION_YEAR_MIN,
+  sessionMonth,
+  sessionPeriod,
+} from './session.js';
 import { WORKFLOW_KEYS } from './workflow-defaults.js';
 
 /** A project code: 2 to 8 capital letters, also the prefix of the application ids. */
 export const projectCode = z.string().regex(/^[A-Z]{2,8}$/);
-const year = z.number().int().min(SESSION_YEAR_MIN).max(SESSION_YEAR_MAX);
 /** A calendar date, yyyy-mm-dd. */
 const date = z.iso.date();
 /** Taka with up to two decimals, as a string so no amount passes through floating point. */
@@ -19,16 +24,6 @@ const startingSource = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('template'), templateId: z.uuid() }),
   z.strictObject({ kind: z.literal('copy'), projectId: z.uuid() }),
 ]);
-
-export const projectCreateSchema = z.strictObject({
-  programId: z.uuid(),
-  code: projectCode,
-  year,
-  name: boundedLabel,
-  description: z.string().max(2000).optional(),
-  source: startingSource,
-});
-export type ProjectCreate = z.infer<typeof projectCreateSchema>;
 
 /** The most characters of a short description, per language. */
 export const SHORT_DESCRIPTION_MAX = 500;
@@ -81,26 +76,28 @@ export const sessionCreateSchema = sessionPeriod.safeExtend({
 export type SessionCreate = z.infer<typeof sessionCreateSchema>;
 
 /**
- * A session created in the setup's first step: the series it belongs to, its period and where
- * its setup starts. The code, the program, the names and the year come from the series and the
- * period, never from the body.
+ * A project, one session of a series, created in the setup's first step: the series it belongs
+ * to, its period and where its setup starts. The code, the program, the names and the year come
+ * from the series and the period, never from the body.
  */
-export const seriesSessionCreateSchema = sessionPeriod.safeExtend({
+export const projectCreateSchema = sessionPeriod.safeExtend({
   seriesId: z.uuid(),
   source: startingSource,
 });
-export type SeriesSessionCreate = z.infer<typeof seriesSessionCreateSchema>;
+export type ProjectCreate = z.infer<typeof projectCreateSchema>;
 
 /**
  * Setup fields of the project row. Which of them may change depends on the project's state
- * (`editableIn`); the server refuses the others. At least one field.
+ * (`editableIn`); the server refuses the others. At least one field. The program and the code
+ * belong to the series and have no place here; the year follows the period, whose two months come
+ * together.
  */
 export const projectUpdateSchema = z
   .strictObject({
     name: boundedLabel.optional(),
     description: z.string().max(2000).nullable().optional(),
-    programId: z.uuid().optional(),
-    year: year.optional(),
+    periodFrom: sessionMonth.optional(),
+    periodTo: sessionMonth.optional(),
     workflowKey: z.enum(WORKFLOW_KEYS).optional(),
     applyFrom: date.nullable().optional(),
     applyTo: date.nullable().optional(),
@@ -108,7 +105,17 @@ export const projectUpdateSchema = z
     costPerBeneficiary: money.nullable().optional(),
     targetBeneficiaries: z.number().int().min(1).max(10_000_000).nullable().optional(),
   })
-  .refine((b) => Object.keys(b).length > 0, 'at least one field is required');
+  .refine((b) => Object.keys(b).length > 0, 'at least one field is required')
+  .superRefine((b, ctx) => {
+    if (b.periodFrom !== undefined && b.periodTo !== undefined)
+      checkSessionPeriod({ periodFrom: b.periodFrom, periodTo: b.periodTo }, ctx);
+    else if (b.periodFrom !== undefined || b.periodTo !== undefined)
+      ctx.addIssue({
+        code: 'custom',
+        path: [b.periodFrom === undefined ? 'periodFrom' : 'periodTo'],
+        message: 'validation.required',
+      });
+  });
 export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
 
 /** A later end date for the application window of an active project, with the reason. */
@@ -120,7 +127,9 @@ export type ExtendDeadline = z.infer<typeof extendDeadlineSchema>;
 
 export const projectFilterSchema = z.strictObject({
   programId: z.uuid().optional(),
-  year: z.coerce.number().int().min(2020).max(2100).optional(),
+  /** Only the sessions of one project series. */
+  seriesId: z.uuid().optional(),
+  year: z.coerce.number().int().min(SESSION_YEAR_MIN).max(SESSION_YEAR_MAX).optional(),
   status: z.enum(PROJECT_STATUSES).optional(),
   /** Only the projects whose application window ends within the next few days. */
   endingSoon: z.enum(['true']).optional(),

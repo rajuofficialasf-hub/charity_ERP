@@ -3023,16 +3023,34 @@ components:
       properties:
         data: { $ref: '#/components/schemas/ProjectSeries' }
         meta: { $ref: '#/components/schemas/Meta' }
+    SessionMonth:
+      type: string
+      pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+      description: A calendar month, yyyy-mm
+    SessionCreate:
+      type: object
+      description: >-
+        A new session of a project series (D-176): its period, the end not before the start, at
+        most 24 months, the start year 2020 to 2100 (BR-311), and the session it copies, the newest
+        one when left out.
+      additionalProperties: false
+      required: [periodFrom, periodTo]
+      properties:
+        periodFrom: { $ref: '#/components/schemas/SessionMonth' }
+        periodTo: { $ref: '#/components/schemas/SessionMonth' }
+        sourceProjectId: { type: string, format: uuid }
     ProjectCreate:
       type: object
+      description: >-
+        A project, one session of a project series (D-176): the series, the period (BR-311) and
+        where the setup starts. The code, the program, the names and the year come from the series
+        and the period.
       additionalProperties: false
-      required: [programId, code, year, name, source]
+      required: [seriesId, periodFrom, periodTo, source]
       properties:
-        programId: { type: string, format: uuid }
-        code: { type: string, pattern: '^[A-Z]{2,8}$', description: Unique project code (O-03) }
-        year: { type: integer, minimum: 2020, maximum: 2100 }
-        name: { $ref: '#/components/schemas/BoundedLabel' }
-        description: { type: string, maxLength: 2000 }
+        seriesId: { type: string, format: uuid }
+        periodFrom: { $ref: '#/components/schemas/SessionMonth' }
+        periodTo: { $ref: '#/components/schemas/SessionMonth' }
         source:
           description: >-
             Where the project starts (BD-10, D-096): a workflow's starting setup, an active master
@@ -3059,7 +3077,10 @@ components:
                 projectId: { type: string, format: uuid }
     ProjectUpdate:
       type: object
-      description: Setup fields of the project row; at least one. Which may change depends on the project state.
+      description: >-
+        Setup fields of the project row; at least one. Which may change depends on the project
+        state. The program and the code belong to the series and have no place here; the two months
+        of the period come together, and the year follows them.
       additionalProperties: false
       properties:
         name: { $ref: '#/components/schemas/BoundedLabel' }
@@ -3067,8 +3088,8 @@ components:
           anyOf:
             - { type: string, maxLength: 2000 }
             - { type: 'null' }
-        programId: { type: string, format: uuid }
-        year: { type: integer, minimum: 2020, maximum: 2100 }
+        periodFrom: { $ref: '#/components/schemas/SessionMonth' }
+        periodTo: { $ref: '#/components/schemas/SessionMonth' }
         workflowKey:
           type: string
           enum:
@@ -3102,8 +3123,11 @@ components:
             - { type: 'null' }
     Project:
       type: object
-      description: The official view; a volunteer receives only id, code, year, name, status, workflowKey, the window, the limit and dawahEnabled
-      required: [id, code, year, name, status, workflowKey, applyFrom, applyTo, perVolunteerLimit, dawahEnabled]
+      description: >-
+        A project, one session of a project series (D-176). The official view; a volunteer receives
+        only id, code, year, name, status, workflowKey, the window, the limit, dawahEnabled, the
+        period and the session label.
+      required: [id, code, year, name, status, workflowKey, applyFrom, applyTo, perVolunteerLimit, dawahEnabled, periodFrom, periodTo, sessionLabel]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         code: { type: string }
@@ -3115,7 +3139,11 @@ components:
         applyTo: { type: [string, 'null'], format: date }
         perVolunteerLimit: { type: [integer, 'null'] }
         dawahEnabled: { type: boolean }
+        periodFrom: { type: string, description: 'The start month of the session, yyyy-mm' }
+        periodTo: { type: string, description: 'The end month of the session, yyyy-mm' }
+        sessionLabel: { type: string, description: '"2026", or "2026-27" for a session that ends in a later year; read from the period, never stored (BR-311)' }
         programId: { $ref: '#/components/schemas/Uuid' }
+        seriesId: { $ref: '#/components/schemas/Uuid' }
         description: { type: [string, 'null'] }
         workflowVersion: { type: integer }
         costPerBeneficiary: { type: [string, 'null'] }
@@ -8522,6 +8550,55 @@ paths:
         '412': { $ref: '#/components/responses/PreconditionFailed' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /project-series/{seriesId}/sessions:
+    parameters:
+      - $ref: '#/components/parameters/SeriesId'
+    post:
+      tags: [project-series]
+      operationId: projectSeries.session.create
+      summary: Start a new session of a project series as a draft that copies the setup of an earlier session
+      description: >-
+        "নতুন সেশন শুরু করুন" (D-176, BR-315). The draft takes the code, the program and the names of
+        the series and copies the setup of the session named in `sourceProjectId`, or of the newest
+        session that is not cancelled: the components with their settings, the published
+        application form with its scoring points, the rules texts and the dawah syllabus. It never
+        copies the dates and the application window, the budget amounts and fund sources, the areas
+        and RPMs, the staff access, the volunteers or the quota targets (BD-10). A source that is no
+        session of this series, or a series with no session to copy, answers 422
+        project.session_source_foreign; a year another session of the series starts in answers 409
+        project.session_year_taken; a program outside the caller's scope 403, an inactive one 409
+        program.inactive, an unknown series 404. The request runs once per Idempotency-Key: a
+        repeat by the same caller with the same request answers 200 with `Idempotent-Replay: true`
+        and the session the first one made.
+      x-permission: project.create
+      x-scope: program
+      x-audit: project.create
+      x-idempotency: header
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionCreate' }
+      responses:
+        '200':
+          description: The session an earlier request with this key made
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '201':
+          description: Draft session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   # ======================= projects =======================
   /projects:
     get:
@@ -8542,6 +8619,10 @@ paths:
         - $ref: '#/components/parameters/IncludeTotal'
         - name: programId
           in: query
+          schema: { type: string, format: uuid }
+        - name: seriesId
+          in: query
+          description: Only the sessions of one project series
           schema: { type: string, format: uuid }
         - name: year
           in: query
@@ -8565,12 +8646,16 @@ paths:
     post:
       tags: [projects]
       operationId: projects.project.create
-      summary: Create a draft project from a workflow in a program of the caller
+      summary: Create a draft session of a project series in a program of the caller
       description: >-
-        The project starts with the components and settings of its workflow (D-095). The program
-        must be in the caller's scope (403) and active (409 program.inactive); a taken code answers
-        409 project.code_taken. A master template and a copy of a project come with T1.12. The audit
-        entry of the creation carries the four identity rules the project starts with (BR-309).
+        The first step of the setup (D-176). The session takes the code, the program and the names
+        of its series, and its year is the year its period starts in. It starts with the components
+        and settings of its workflow (D-095), of a master template or of a project the caller may
+        view. The program is the one the series is stored with: it must be in the caller's scope
+        (403) and active (409 program.inactive); an unknown series answers 404; a year another
+        session of the series starts in, a cancelled one included, answers 409
+        project.session_year_taken (BR-312). The audit entry of the creation carries the four
+        identity rules the project starts with (BR-309).
       x-permission: project.create
       x-scope: program
       x-audit: project.create
@@ -8589,6 +8674,7 @@ paths:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}:
@@ -8619,17 +8705,14 @@ paths:
       operationId: projects.project.update
       summary: Update setup fields as the project state allows
       description: >-
-        A draft changes every field; an active project everything but its code, program, year and
-        workflow, and its end date only through extend-deadline; closing, closed and cancelled
-        projects are read-only (409 project.read_only, BR-257). Moving a draft to another program
-        needs project.configure there and an active program; the draft's series moves with it and
-        is audited (project_series.update), and the move is refused (409 project.read_only) while
-        the series holds another session. A rename renames the series with its one session; beside
-        another session of the series it is refused (409 project.read_only), since the sessions are
-        renamed together through the series. A new year gives the session the whole of that calendar year; it is refused
-        for a session that does not run the whole of its year (409 project.read_only) and for a
-        year another session of the series starts in (409 project.session_year_taken). A year
-        sent back unchanged changes nothing.
+        A draft changes every field; an active project everything but its period and its workflow,
+        and its end date only through extend-deadline; closing, closed and cancelled projects are
+        read-only (409 project.read_only, BR-257). The program and the code belong to the series: a
+        body that names `programId`, `code` or `year` answers 422 (validation.unknown_parameter).
+        The period is its two months together; the year follows the month it starts in, and a year
+        another session of the series starts in answers 409 project.session_year_taken (BR-312). A
+        rename renames the series with its one session; beside another session of the series it is
+        refused (409 project.read_only), since the sessions are renamed together through the series.
       x-permission: project.configure
       x-scope: project
       x-audit: project.configure

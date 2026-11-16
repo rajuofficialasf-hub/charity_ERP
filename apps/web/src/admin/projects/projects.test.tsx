@@ -61,9 +61,9 @@ function serve(rows: unknown[] = [project(), project({ id: 'c2', code: 'IF', sta
         return HttpResponse.json(
           {
             error: {
-              code: 'project.code_taken',
-              messageKey: 'errors.project.code_taken',
-              message: 'এই প্রকল্প কোড আগেই ব্যবহার করা হয়েছে।',
+              code: 'project.session_year_taken',
+              messageKey: 'errors.project.session_year_taken',
+              message: 'এই বছরে এই প্রকল্পের একটি সেশন আগে থেকেই আছে।',
               requestId: 'req_x',
             },
           },

@@ -37,14 +37,15 @@ function bodyOf(project: Project, v: BasicsFields): ProjectUpdate {
   if (name.bn !== project.name.bn || name.en !== project.name.en) out.name = name;
   const text = v.description.trim();
   if (text !== (project.description ?? '')) out.description = text || null;
-  if (Number(v.year) !== project.year) out.year = Number(v.year);
-  if (v.programId && v.programId !== project.programId) out.programId = v.programId;
   if (v.workflowKey && v.workflowKey !== project.workflowKey)
     out.workflowKey = v.workflowKey as WorkflowKey;
   return out;
 }
 
-/** Name, description, year, program and workflow; the last three only while a draft. */
+/**
+ * Name, description and workflow, the workflow only while a draft; the year and the program are
+ * shown and never sent: they belong to the session's period and to its series.
+ */
 export function BasicsSection() {
   return <Reseed>{(state) => <BasicsForm {...state} />}</Reseed>;
 }
@@ -114,17 +115,11 @@ function BasicsForm({ stale, onStale }: { stale: boolean; onStale: () => void })
             lang="en"
             readOnly={!editable('name')}
           />
-          <FormTextField
-            name="year"
-            type="integer"
-            label={td('year')}
-            required
-            readOnly={!editable('year')}
-          />
+          <FormTextField name="year" type="integer" label={td('year')} required readOnly />
           <FormSelectField
             name="programId"
             label={td('program')}
-            disabled={!editable('programId')}
+            disabled
             options={(list.data ?? [])
               .filter((p) => p.active || p.id === project.programId)
               .map((p) => ({ value: p.id, label: localized(p.name, locale) }))}

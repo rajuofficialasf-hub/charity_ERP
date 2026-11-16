@@ -16,6 +16,7 @@ import { stubMatchMedia } from '../../../../test/match-media';
 const PM: Me = { ...ME, roles: ['program_manager'] };
 const ID = '01900000-0000-7000-8000-0000000000c1';
 const PROGRAM = '01900000-0000-7000-8000-0000000000b1';
+const SERIES = '01900000-0000-7000-8000-0000000000d1';
 
 let project: Record<string, unknown>;
 let writes: { path: string; body: unknown }[];
@@ -194,23 +195,29 @@ function serve(status = 'draft') {
       }),
     ),
     http.get('*/api/v1/locations', () => HttpResponse.json({ data: [], meta: {} })),
-    http.post('*/api/v1/projects', async ({ request }) => {
+    // the first step makes the project series, then its first session
+    http.post('*/api/v1/project-series', async ({ request }) => {
       const body = (await request.json()) as { code: string };
-      writes.push({ path: 'create', body });
+      writes.push({ path: 'series', body });
       if (body.code === 'WC')
         return HttpResponse.json(
           {
             error: {
-              code: 'project.code_taken',
-              messageKey: 'errors.project.code_taken',
-              message: 'এই প্রকল্প কোড আগেই ব্যবহার করা হয়েছে।',
+              code: 'project.series_code_taken',
+              messageKey: 'errors.project.series_code_taken',
+              message: 'এই কোডের একটি প্রকল্প আগে থেকেই আছে।',
               requestId: 'req_x',
             },
           },
           { status: 409 },
         );
+      return HttpResponse.json({ data: { ...body, id: SERIES }, meta: {} }, { status: 201 });
+    }),
+    http.post('*/api/v1/projects', async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      writes.push({ path: 'create', body });
       return HttpResponse.json(
-        { data: { ...project, ...body, id: 'new-id' }, meta: {} },
+        { data: { ...project, id: 'new-id', seriesId: body.seriesId }, meta: {} },
         { status: 201 },
       );
     }),
@@ -762,7 +769,7 @@ describe('a new project', () => {
     await user.clear(code);
     await user.type(code, 'WC');
     await user.click(next());
-    expect(await screen.findByText('এই প্রকল্প কোড আগেই ব্যবহার করা হয়েছে।')).toBeInTheDocument();
+    expect(await screen.findByText('এই কোডের একটি প্রকল্প আগে থেকেই আছে।')).toBeInTheDocument();
     await user.clear(code);
     await user.type(code, 'WCB');
     await user.click(next());
@@ -770,16 +777,23 @@ describe('a new project', () => {
       expect(router.state.location.pathname).toBe('/admin/projects/new-id/setup'),
     );
     expect(router.state.location.search).toBe('?step=components');
-    expect(writes.at(-1)).toEqual({
-      path: 'create',
-      body: {
-        programId: PROGRAM,
-        code: 'WCB',
-        year: new Date().getFullYear(),
-        name: { bn: 'শীতবস্ত্র', en: 'Winter' },
-        source: { kind: 'workflow', workflowKey: 'distribution' },
+    // the series with the code, the program and the names, then its session for the whole year
+    const year = new Date().getFullYear();
+    expect(writes.slice(-2)).toEqual([
+      {
+        path: 'series',
+        body: { programId: PROGRAM, code: 'WCB', name: { bn: 'শীতবস্ত্র', en: 'Winter' } },
       },
-    });
+      {
+        path: 'create',
+        body: {
+          seriesId: SERIES,
+          periodFrom: `${year}-01`,
+          periodTo: `${year}-12`,
+          source: { kind: 'workflow', workflowKey: 'distribution' },
+        },
+      },
+    ]);
     await expectNoAxeViolations(container);
   }, 20_000);
 

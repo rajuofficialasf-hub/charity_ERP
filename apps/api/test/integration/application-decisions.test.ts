@@ -30,6 +30,7 @@ import {
 } from './support/fixtures.js';
 import { notificationsOf } from './support/notifications.js';
 import { option, question } from './support/forms.js';
+import { draftProject } from './support/projects.js';
 
 // The decisions of the review against the score and the quotas: an approval while a
 // higher-scored application of the same quota area still waits, a waitlisting or a rejection
@@ -134,7 +135,7 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: 'DEC',
     year: 2026,

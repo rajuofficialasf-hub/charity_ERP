@@ -17,6 +17,7 @@ import {
 } from './support/auth-app.js';
 import { fakeMobile, fakeNid, volunteer } from './support/fixtures.js';
 import { notificationsOf } from './support/notifications.js';
+import { draftProject } from './support/projects.js';
 
 // The application transfer: the RPM hands all or chosen applications of one volunteer to another
 // on the project, with a reason. The new volunteer takes the owner's place and the old one, with
@@ -90,7 +91,7 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: 'TRF',
     year: 2026,

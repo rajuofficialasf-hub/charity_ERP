@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   projectSeriesCreateSchema,
   projectSeriesUpdateSchema,
-  seriesSessionCreateSchema,
+  projectCreateSchema,
+  projectUpdateSchema,
   sessionCreateSchema,
   SHORT_DESCRIPTION_MAX,
 } from './requests.js';
@@ -206,6 +207,29 @@ describe('the requests of a project series and its sessions', () => {
     ).toBe(false);
   });
 
+  it('changes the period of a session by its two months together, and never its program, code or year', () => {
+    expect(
+      projectUpdateSchema.safeParse({ periodFrom: '2027-06', periodTo: '2028-07' }).success,
+    ).toBe(true);
+    // one month alone says no period
+    for (const body of [{ periodFrom: '2027-06' }, { periodTo: '2028-07' }]) {
+      const result = projectUpdateSchema.safeParse(body);
+      expect(result.success).toBe(false);
+      expect(issuesOf(result)[0]?.message).toBe('validation.required');
+    }
+    // the rules of a period hold
+    expect(
+      projectUpdateSchema.safeParse({ periodFrom: '2027-06', periodTo: '2027-05' }).success,
+    ).toBe(false);
+    expect(
+      projectUpdateSchema.safeParse({ periodFrom: '2027-06', periodTo: '2029-06' }).success,
+    ).toBe(false);
+    // what the series holds, and the year the period gives, have no place in the body
+    for (const body of [{ programId: uuid }, { code: 'SWB' }, { year: 2027 }])
+      expect(projectUpdateSchema.safeParse(body).success, Object.keys(body)[0]).toBe(false);
+    expect(projectUpdateSchema.safeParse({ name }).success).toBe(true);
+  });
+
   it('creates a session in the setup from its series, a period and a starting point', () => {
     const base = { seriesId: uuid, periodFrom: '2027-01', periodTo: '2027-12' };
     for (const source of [
@@ -213,18 +237,16 @@ describe('the requests of a project series and its sessions', () => {
       { kind: 'template', templateId: uuid },
       { kind: 'copy', projectId: uuid },
     ])
-      expect(seriesSessionCreateSchema.safeParse({ ...base, source }).success, source.kind).toBe(
-        true,
-      );
+      expect(projectCreateSchema.safeParse({ ...base, source }).success, source.kind).toBe(true);
     const source = { kind: 'workflow', workflowKey: 'distribution' };
-    expect(seriesSessionCreateSchema.safeParse(base).success).toBe(false);
-    expect(
-      seriesSessionCreateSchema.safeParse({ ...base, periodTo: '2026-12', source }).success,
-    ).toBe(false);
+    expect(projectCreateSchema.safeParse(base).success).toBe(false);
+    expect(projectCreateSchema.safeParse({ ...base, periodTo: '2026-12', source }).success).toBe(
+      false,
+    );
     // what the series holds is not taken from the body
     for (const extra of [{ code: 'SWB' }, { programId: uuid }, { year: 2027 }, { name }])
       expect(
-        seriesSessionCreateSchema.safeParse({ ...base, source, ...extra }).success,
+        projectCreateSchema.safeParse({ ...base, source, ...extra }).success,
         Object.keys(extra)[0],
       ).toBe(false);
   });

@@ -17,6 +17,7 @@ import {
 } from './support/auth-app.js';
 import { beneficiary, fakeMobile, fakeNid, insert, projectRow } from './support/fixtures.js';
 import { option, question } from './support/forms.js';
+import { draftProject } from './support/projects.js';
 
 // The priority score on the application: computed when it reaches the office and on every
 // answer change until the decision, frozen at the decision, sorting the office's list, and never
@@ -103,7 +104,7 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: 'SCO',
     year: 2026,
@@ -472,7 +473,7 @@ describe('the score of an application', () => {
 
 describe('a form without points', () => {
   it('gives no score, keeps no breakdown, and leaves the list in arrival order', async () => {
-    const made = await at(await as(world.users.pm), 'post', '/projects').send({
+    const made = await draftProject(h, await as(world.users.pm), {
       programId: world.a1.program,
       code: 'SCN',
       year: 2026,

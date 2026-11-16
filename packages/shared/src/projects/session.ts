@@ -73,14 +73,20 @@ export function sessionDates(period: { periodFrom: string; periodTo: string }): 
  */
 export const sessionPeriod = z
   .strictObject({ periodFrom: sessionMonth, periodTo: sessionMonth })
-  .superRefine((period, ctx) => {
-    // a month that is not a month has its own issue; nothing to compare then
-    if (!MONTH.test(period.periodFrom) || !MONTH.test(period.periodTo)) return;
-    const year = sessionYear(period.periodFrom);
-    if (year < SESSION_YEAR_MIN || year > SESSION_YEAR_MAX)
-      ctx.addIssue({ code: 'custom', path: ['periodFrom'], message: 'validation.out_of_range' });
-    const months = sessionMonths(period.periodFrom, period.periodTo);
-    if (months < 1 || months > MAX_SESSION_MONTHS)
-      ctx.addIssue({ code: 'custom', path: ['periodTo'], message: 'validation.out_of_range' });
-  });
+  .superRefine((period, ctx) => checkSessionPeriod(period, ctx));
 export type SessionPeriod = z.infer<typeof sessionPeriod>;
+
+/** The checks of a period, for every request that carries its two months. */
+export function checkSessionPeriod(
+  period: { periodFrom: string; periodTo: string },
+  ctx: z.RefinementCtx,
+): void {
+  // a month that is not a month has its own issue; nothing to compare then
+  if (!MONTH.test(period.periodFrom) || !MONTH.test(period.periodTo)) return;
+  const year = sessionYear(period.periodFrom);
+  if (year < SESSION_YEAR_MIN || year > SESSION_YEAR_MAX)
+    ctx.addIssue({ code: 'custom', path: ['periodFrom'], message: 'validation.out_of_range' });
+  const months = sessionMonths(period.periodFrom, period.periodTo);
+  if (months < 1 || months > MAX_SESSION_MONTHS)
+    ctx.addIssue({ code: 'custom', path: ['periodTo'], message: 'validation.out_of_range' });
+}

@@ -18,6 +18,7 @@ import {
 } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
 import { publishedReadyForm, question } from './support/forms.js';
+import { draftProject } from './support/projects.js';
 
 // The form questions of a project's application list as export columns: one per question key
 // across every version, under the newest version's words, filled from each application's own
@@ -109,16 +110,13 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
-  const made = await api()
-    .post('/api/v1/projects')
-    .set(bearer(await login(h, accounts.get(world.users.pm)!)))
-    .send({
-      programId: world.a1.program,
-      code: 'EXQ',
-      year: 2026,
-      name: { bn: 'এক্সপোর্ট', en: 'Export' },
-      source: { kind: 'workflow', workflowKey: 'distribution' },
-    });
+  const made = await draftProject(h, await login(h, accounts.get(world.users.pm)!), {
+    programId: world.a1.program,
+    code: 'EXQ',
+    year: 2026,
+    name: { bn: 'এক্সপোর্ট', en: 'Export' },
+    source: { kind: 'workflow', workflowKey: 'distribution' },
+  });
   expect(made.status, JSON.stringify(made.body)).toBe(201);
   projectId = made.body.data.id as string;
   // the project's form is placed from a ready form; its version 2 is made on the ready form and

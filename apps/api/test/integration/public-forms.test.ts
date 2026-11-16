@@ -20,6 +20,7 @@ import {
 import { MIGRATIONS_DIR } from './support/db.js';
 import { beneficiary, fakeMobile, fakeNid, locationTree } from './support/fixtures.js';
 import { storeKeys } from './support/name-keys.js';
+import { draftProject } from './support/projects.js';
 
 // The public application link: a PM switches it on with one form, anyone with the link reads the
 // form and submits an entry that waits for verification, and nothing about anyone is revealed on
@@ -83,7 +84,7 @@ async function publishedForm(projectId: string, key = 'default', change?: DraftC
 /** An active project of the PM's program, open until the end of the century, with a published form. */
 async function project(change?: DraftChange) {
   const pm = await as(world.users.pm);
-  const res = await at(pm, 'post', '/projects').send({
+  const res = await draftProject(h, pm, {
     programId: world.a1.program,
     code: code(),
     year: 2026,

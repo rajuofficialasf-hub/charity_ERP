@@ -6,6 +6,8 @@ import {
   projectSeriesFilterSchema,
   type ProjectSeriesUpdate,
   projectSeriesUpdateSchema,
+  type SessionCreate,
+  sessionCreateSchema,
 } from '@css/shared/projects';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -14,6 +16,7 @@ import type { Container } from '../container.js';
 import { etagOf } from '../core/etag.js';
 import { ok } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import { projectView } from './projects.js';
 
 const uuid = z.uuid();
 const count = z.number().int();
@@ -94,7 +97,10 @@ const withEtag = (
  * projects as cards and one project with its sessions; whoever may create a project in a program
  * creates and renames its series.
  */
-export function projectSeriesRouter(deps: RouteDeps, c: Pick<Container, 'projectSeries'>): Router {
+export function projectSeriesRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'projectSeries' | 'idempotency'>,
+): Router {
   const router = Router();
   const op = { tag: 'project-series', scope: 'program', idempotency: 'none' as const };
   // the cards count across every session of every series: the budget of the nationwide lists
@@ -170,6 +176,43 @@ export function projectSeriesRouter(deps: RouteDeps, c: Pick<Container, 'project
         res,
         await c.projectSeries.update(viewerOf(req), params.seriesId, body, req.get('if-match')),
       ),
+  });
+
+  defineRoute<SessionCreate, unknown, { seriesId: string }>(router, deps, {
+    ...write,
+    method: 'post',
+    path: '/project-series/:seriesId/sessions',
+    status: 201,
+    operationId: 'projectSeries.session.create',
+    summary:
+      'Start a new session of a project series as a draft that copies the setup of an earlier session',
+    audit: 'project.create',
+    idempotency: 'header',
+    headers: [{ name: 'Idempotency-Key', required: true }],
+    params: { seriesId: uuid },
+    body: sessionCreateSchema,
+    responses: {
+      200: projectView,
+      201: projectView,
+      401: null,
+      403: null,
+      404: null,
+      409: null,
+      422: null,
+    },
+    handler: async ({ body, params, req, res }) => {
+      const made = await c.projectSeries.newSession(
+        viewerOf(req),
+        params.seriesId,
+        req.get('idempotency-key'),
+        body,
+      );
+      // a repeat of the request answers the session it made the first time
+      if (made.replay) c.idempotency.markReplay(res);
+      const etag = etagOf(made.updatedAt);
+      res.setHeader('ETag', etag);
+      return ok(made.project, { etag });
+    },
   });
 
   return router;

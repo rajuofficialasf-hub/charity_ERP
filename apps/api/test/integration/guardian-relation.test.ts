@@ -17,6 +17,7 @@ import {
 } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
 import { question } from './support/forms.js';
+import { draftProject } from './support/projects.js';
 
 // Whether the name beside a beneficiary is the father's or the husband's: an optional question of
 // a form, its options from the reference list, fills one column of the profile. A submit writes it
@@ -94,7 +95,7 @@ const RELATION_QUESTION = [
 ];
 
 async function projectOf(code: string, fields?: unknown[]): Promise<Target> {
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code,
     year: 2026,
