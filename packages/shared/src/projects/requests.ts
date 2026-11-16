@@ -67,6 +67,10 @@ export const projectSeriesUpdateSchema = z
   );
 export type ProjectSeriesUpdate = z.infer<typeof projectSeriesUpdateSchema>;
 
+/** The series of one program, or of every program when none is named. */
+export const projectSeriesFilterSchema = z.strictObject({ programId: z.uuid().optional() });
+export type ProjectSeriesFilter = z.infer<typeof projectSeriesFilterSchema>;
+
 /**
  * A new session of a series: its period and the session it copies (the newest one when left
  * out). The code, the program and the names come from the series.

@@ -181,6 +181,57 @@ district at 295 / 339 and 294 / 318, over the 300 ms target, and the profile at 
 shared rule (U13) came after the measurement of section 3; their plans read the table rather than an
 index. They need their own measurement and a proposal.
 
+### The cards of programs and projects (D-176, BR-313, BR-314; 2026-11-16)
+
+The merged tab opens on the program cards (`GET /program-cards`) and a program on its project
+series (`GET /project-series`, `GET /project-series/{seriesId}`). `perf:lists` gained the cases
+"program cards", "series cards, every program", "series cards, one program" and "series with its
+sessions", which call `ProgramCardsService` and `ProjectSeriesService` as the routes do. The
+migration `20261116120000_project_series` was applied to the data set first (`perf:seed` without
+`--fresh`): each of the 301 projects became the one session of its own series, so every series has
+one session, all but the demo draft active, and every one of the 500,000 applications belongs to a
+current session, about 100 series and 167,000 applications per program. That is heavier than the
+real shape, where a few projects per program each have one running session.
+
+Run of 2026-11-16, same machine and server settings as section 2. Times in milliseconds, p50 / p95
+of 20 runs:
+
+| Case | Head | RPM |
+|---|---|---|
+| program cards (3 programs) | 254 / 286 | 245 / 285 |
+| series cards, every program (301 series) | 256 / 268 | 248 / 268 |
+| series cards, one program (about 100 series) | 107 / 123 | 113 / 122 |
+| series with its sessions | 39 / 44 | 46 / 77 |
+
+All four are inside the 300 ms target, the two that read every application with little room. What
+the measurement changed:
+
+- **One read of the applications.** The first version counted the people helped with
+  `count(DISTINCT beneficiary_id)` over every helped application (187,500 rows), in a second read
+  beside the one for the session counts: 485 / 575 ms for the program cards and 364 / 407 for every
+  series. The distinct count alone took about 300 ms, sorted or hashed, with `work_mem` at 4 MB or
+  at 64 MB; the read of the table is about 150 ms of it. A person has one application in a session
+  (the unique index on project and beneficiary), so a session's helped applications are its helped
+  people. `sessionFigures` now counts them with the other figures in one read (about 180 ms for all
+  500,000 applications, a parallel scan), and `helpedPeople` adds the sessions up and takes off
+  again the people helped in more than one session of the series or the program. Only the profiles
+  whose kept counter says so (`help_count > 1`, the index of "The times helped" above) are looked at
+  for that.
+- **The volunteers** of a program are counted with a hashed DISTINCT inside a subquery instead of
+  `count(DISTINCT …)`: 34 ms instead of 70.
+- **No index was added.** The read of the applications is a scan of the whole table when every
+  application is in a session on the screen; an index that covered its five conditions would repeat
+  most of the row.
+
+Not exercised by this data set: nobody in it was helped twice, so the look at the repeat people
+reads nothing (4 ms). Measured on its own, with one helped person in ten taken as a repeat by a
+sample (19,270 people, the share of the run above): 60 to 80 ms by program and about 60 by series.
+With that share of repeats the program cards would stand at about 320 ms at p50, over the target.
+When the real share of people helped in several sessions is known, or the applications pass about
+500,000, measure again; the next step would be a count of the people helped kept per series and
+program by the writes, as the times helped are kept per person, which needs the owner's decision
+first.
+
 ## 5. When to measure again
 
 - when a nationwide list gains a filter, a sort or a column read from another table;

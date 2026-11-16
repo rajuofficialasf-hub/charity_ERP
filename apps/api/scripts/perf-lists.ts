@@ -152,7 +152,9 @@ async function main(): Promise<void> {
   const union = await one<{ id: string }>(
     Prisma.sql`SELECT union_id AS id FROM beneficiaries WHERE upazila_id = ${upazila.id}::uuid LIMIT 1`,
   );
-  const project = await one<{ id: string }>(Prisma.sql`SELECT id FROM projects WHERE code = 'QAK'`);
+  const project = await one<{ id: string; series_id: string; program_id: string }>(
+    Prisma.sql`SELECT id, series_id, program_id FROM projects WHERE code = 'QAK'`,
+  );
   const ben = await one<{ id: string; mobile: string; nid: string }>(
     Prisma.sql`SELECT b.id, b.mobile, b.nid FROM beneficiaries b JOIN applications a ON a.beneficiary_id = b.id
      WHERE b.nid IS NOT NULL ORDER BY b.id LIMIT 1 OFFSET 1000`,
@@ -185,6 +187,7 @@ async function main(): Promise<void> {
     const vv = await viewerOf(email, 'volunteer.view_all', 'global');
     const bv: BeneficiaryViewer = await viewerOf(email, 'beneficiary.view_all', 'beneficiary');
     const mv = await viewerOf(email, 'beneficiary.merge.dismiss', 'beneficiary');
+    const ov = await viewerOf(email, 'project.overview.view', 'program');
     const v = (name: string, filter: Record<string, string>) =>
       measure(`${who} volunteers.list ${name}`, () =>
         c.volunteerList.list({ ...page, ...filter } as VolunteerQuery, vv),
@@ -263,6 +266,16 @@ async function main(): Promise<void> {
         c.beneficiaries.statistics({ districtId: dhaka.id }, bv),
       ),
       await measure(`${who} beneficiaries.profile`, () => c.beneficiaries.profile(bv, ben.id)),
+      // the cards of programs and projects (docs/testing/PERFORMANCE.md, "The cards of programs
+      // and projects")
+      await measure(`${who} program cards`, () => c.programCards.list(ov)),
+      await measure(`${who} series cards, every program`, () => c.projectSeries.list(ov, {})),
+      await measure(`${who} series cards, one program`, () =>
+        c.projectSeries.list(ov, { programId: project.program_id }),
+      ),
+      await measure(`${who} series with its sessions`, () =>
+        c.projectSeries.get(ov, project.series_id),
+      ),
     );
     out();
   }

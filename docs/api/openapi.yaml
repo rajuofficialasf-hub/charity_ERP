@@ -35,7 +35,9 @@ tags:
   - name: beneficiaries
     description: Beneficiary tab, identity lookup, 360 profile, corrections, merge, blocklist, consent (A7, B3)
   - name: programs
-    description: Programs (A2, A6)
+    description: Programs and their cards (A2, A6, D-176)
+  - name: project-series
+    description: Project series, the permanent projects their yearly sessions belong to (D-176)
   - name: projects
     description: Projects, components, areas, staff, quotas, fund sources, lifecycle (A6)
   - name: templates
@@ -210,6 +212,11 @@ components:
       schema: { type: string, format: uuid }
     ProgramId:
       name: programId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SeriesId:
+      name: seriesId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -2769,6 +2776,14 @@ components:
       properties:
         bn: { type: string, maxLength: 200 }
         en: { type: string, maxLength: 200 }
+    ShortDescription:
+      type: object
+      description: A short description in both languages, at most 500 characters each; a language left empty is an empty text
+      additionalProperties: false
+      required: [bn, en]
+      properties:
+        bn: { type: string, maxLength: 500 }
+        en: { type: string, maxLength: 500 }
     ProgramCreate:
       type: object
       additionalProperties: false
@@ -2776,21 +2791,31 @@ components:
       properties:
         code: { type: string, pattern: '^[A-Z]{2,12}$' }
         name: { $ref: '#/components/schemas/BoundedLabel' }
+        description: { $ref: '#/components/schemas/ShortDescription' }
         pmUserId: { type: string, format: uuid }
     ProgramUpdate:
       type: object
-      description: At least one of name and active
+      description: At least one of name, description (null removes it) and active
       additionalProperties: false
       properties:
         name: { $ref: '#/components/schemas/BoundedLabel' }
+        description:
+          anyOf:
+            - { $ref: '#/components/schemas/ShortDescription' }
+            - { type: 'null' }
         active: { type: boolean }
     Program:
       type: object
-      required: [id, code, name, pmUserId, pmName, active]
+      required: [id, code, name, description, pmUserId, pmName, active]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         code: { type: string }
         name: { $ref: '#/components/schemas/Bilingual' }
+        description:
+          description: The short description on the program's card; null until one is written (D-176)
+          anyOf:
+            - { $ref: '#/components/schemas/Bilingual' }
+            - { type: 'null' }
         pmUserId: { type: [string, 'null'], format: uuid }
         pmName: { type: [string, 'null'] }
         active: { type: boolean }
@@ -2806,6 +2831,177 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Program' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
+    CardPeople:
+      type: object
+      description: The officials a card names, by name, at most three, and how many there are (D-176)
+      required: [people, total]
+      properties:
+        people:
+          type: array
+          maxItems: 3
+          items:
+            type: object
+            required: [id, name, photoFileId]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              name: { type: string }
+              photoFileId: { type: [string, 'null'], format: uuid, description: 'The official''s uploaded photo, streamed by the file routes' }
+        total: { type: integer }
+    ProgramCard:
+      type: object
+      description: >-
+        A program as a card (D-176, BR-313): counts and the names of its PM and of the RPMs of its
+        projects' current sessions only. No other person, no identity number, no budget.
+      required: [id, code, name, description, active, pm, rpms, projects, runningProjects, beneficiaries, applications, volunteers, canCreate]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        code: { type: string }
+        name: { $ref: '#/components/schemas/Bilingual' }
+        description:
+          anyOf:
+            - { $ref: '#/components/schemas/Bilingual' }
+            - { type: 'null' }
+        active: { type: boolean }
+        pm:
+          description: The program's PM, or null while none is assigned
+          anyOf:
+            - type: object
+              required: [id, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                name: { type: string }
+            - { type: 'null' }
+        rpms: { $ref: '#/components/schemas/CardPeople' }
+        projects: { type: integer, description: The project series of the program }
+        runningProjects: { type: integer, description: The series whose current session is active or closing }
+        beneficiaries: { type: integer, description: 'People helped in any session of the program, each once (BR-307)' }
+        applications: { type: integer, description: The applications of the running sessions }
+        volunteers: { type: integer, description: 'The volunteers of the running sessions, each once' }
+        todo:
+          description: >-
+            The caller's own work, summed over the current sessions the caller's project.view scope
+            reaches; absent when it reaches none.
+          type: object
+          required: [reviewsWaiting, waitlisted]
+          properties:
+            reviewsWaiting: { type: integer }
+            waitlisted: { type: integer }
+        canCreate: { type: boolean, description: 'The caller may create a project in this program (project.create there, and the program is active)' }
+    ProgramCardList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ProgramCard' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+    ProjectSeriesCreate:
+      type: object
+      description: A project series, the permanent project its yearly sessions belong to (D-176)
+      additionalProperties: false
+      required: [programId, code, name]
+      properties:
+        programId: { type: string, format: uuid }
+        code: { type: string, pattern: '^[A-Z]{2,8}$', description: 'Unique among the series; every session carries it (O-03)' }
+        name: { $ref: '#/components/schemas/BoundedLabel' }
+        description: { $ref: '#/components/schemas/ShortDescription' }
+    ProjectSeriesUpdate:
+      type: object
+      description: At least one of name and description (null removes it); the program and the code never change
+      additionalProperties: false
+      properties:
+        name: { $ref: '#/components/schemas/BoundedLabel' }
+        description:
+          anyOf:
+            - { $ref: '#/components/schemas/ShortDescription' }
+            - { type: 'null' }
+    ProjectSeriesCard:
+      type: object
+      description: >-
+        A project series as a card (D-176, BR-313): counts and the names of the current session's
+        RPMs only. The current session is the newest active or closing session, else the newest
+        session that is not cancelled.
+      required: [id, programId, code, name, description, sessionCount, beneficiaries, current, canCreate]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        programId: { $ref: '#/components/schemas/Uuid' }
+        code: { type: string }
+        name: { $ref: '#/components/schemas/Bilingual' }
+        description:
+          anyOf:
+            - { $ref: '#/components/schemas/Bilingual' }
+            - { type: 'null' }
+        sessionCount: { type: integer, description: 'The sessions of the series, cancelled ones left out' }
+        beneficiaries: { type: integer, description: 'People helped in any session of the series, each once (BR-307)' }
+        current:
+          description: The current session, or null for a series without a session
+          anyOf:
+            - type: object
+              required: [id, sessionLabel, periodFrom, periodTo, status, applyTo, daysLeft, target, approved, applications, rpms, volunteers, districts]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                sessionLabel: { type: string, description: '"2026", or "2026-27" for a session that ends in a later year (BR-311)' }
+                periodFrom: { type: string, description: 'The start month, yyyy-mm' }
+                periodTo: { type: string, description: 'The end month, yyyy-mm' }
+                status: { type: string, enum: [draft, active, closing, closed, cancelled] }
+                applyTo: { type: [string, 'null'], format: date }
+                daysLeft: { type: [integer, 'null'], description: 'Whole days until the application window ends (Dhaka date), 0 on its last day; null without an end date or after it' }
+                target: { type: [integer, 'null'], description: The target number of beneficiaries }
+                approved: { type: integer }
+                applications: { type: integer }
+                rpms: { $ref: '#/components/schemas/CardPeople' }
+                volunteers: { type: integer }
+                districts: { type: integer, description: The districts of the session's areas }
+            - { type: 'null' }
+        todo:
+          description: >-
+            The caller's own work on the current session; absent unless the caller's project.view
+            scope reaches it. The budget is present only within the caller's budget.view scope.
+          type: object
+          required: [reviewsWaiting, waitlisted]
+          properties:
+            reviewsWaiting: { type: integer }
+            waitlisted: { type: integer }
+            budgetPlanned: { type: [string, 'null'] }
+        canCreate: { type: boolean, description: The caller may create a project and a session in the series' program }
+    ProjectSeriesList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ProjectSeriesCard' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+    ProjectSeries:
+      description: A project series with its program and its sessions, newest first, cancelled ones left out
+      allOf:
+        - { $ref: '#/components/schemas/ProjectSeriesCard' }
+        - type: object
+          required: [program, sessions]
+          properties:
+            program:
+              type: object
+              required: [id, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                name: { $ref: '#/components/schemas/Bilingual' }
+            sessions:
+              type: array
+              items:
+                type: object
+                required: [id, year, sessionLabel, periodFrom, periodTo, status, applications, approved, canOpen]
+                properties:
+                  id: { $ref: '#/components/schemas/Uuid' }
+                  year: { type: integer }
+                  sessionLabel: { type: string }
+                  periodFrom: { type: string }
+                  periodTo: { type: string }
+                  status: { type: string, enum: [draft, active, closing, closed, cancelled] }
+                  applications: { type: integer }
+                  approved: { type: integer }
+                  canOpen: { type: boolean, description: The caller's project.view scope reaches the session }
+    ProjectSeriesResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/ProjectSeries' }
+        meta: { $ref: '#/components/schemas/Meta' }
     ProjectCreate:
       type: object
       additionalProperties: false
@@ -8093,10 +8289,11 @@ paths:
     patch:
       tags: [programs]
       operationId: programs.program.update
-      summary: Rename a program, deactivate it or activate it again (never deleted)
+      summary: Rename a program, describe it, deactivate it or activate it again (never deleted)
       description: >-
         Deactivation is refused with 409 program.has_open_projects while the program has a draft,
-        active or closing project (BR-256); a deactivated program takes no new project.
+        active or closing project (BR-256); a deactivated program takes no new project. The short
+        description is a pair in both languages; null removes it.
       x-permission: program.update
       x-scope: global
       x-audit: program.update
@@ -8153,6 +8350,153 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /program-cards:
+    get:
+      tags: [programs]
+      operationId: programs.program.cards
+      summary: Every program as a card with counts only (officials who hold the overview)
+      description: >-
+        The programs the caller's project.overview.view scope reaches (every program for the
+        Department Head, the Monitoring Team, the PM, the RPM and the Project Executive; D-176,
+        BR-313), by code, not paginated. A card carries counts and the names of the PM and of the
+        RPMs only. `todo` is summed over the current sessions the caller's own project.view scope
+        reaches and is absent when it reaches none; `canCreate` follows the caller's project.create
+        scope. A read over its time limit answers 503 server.busy.
+      x-permission: project.overview.view
+      x-scope: program
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      responses:
+        '200':
+          description: Program cards
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgramCardList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
+
+  # ======================= project series =======================
+  /project-series:
+    get:
+      tags: [project-series]
+      operationId: projectSeries.series.list
+      summary: Project series as cards with counts, of one program or of all; not paginated
+      description: >-
+        The series of the programs the caller's project.overview.view scope reaches, by code
+        (D-176, BR-313). `todo` is present only where the caller's own project.view scope reaches
+        the current session, its budget only within the caller's budget.view scope; `canCreate`
+        follows the caller's project.create scope. A read over its time limit answers 503
+        server.busy.
+      x-permission: project.overview.view
+      x-scope: program
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      parameters:
+        - name: programId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Project series
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectSeriesList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [project-series]
+      operationId: projectSeries.series.create
+      summary: Create a project series in a program of the caller
+      description: >-
+        The PM of the program and the two global roles (project.create at the program). Another
+        program answers 403, an inactive one 409 program.inactive, a code another series holds 409
+        project.series_code_taken. The first session is created on its own.
+      x-permission: project.create
+      x-scope: program
+      x-audit: project_series.create
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectSeriesCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectSeriesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /project-series/{seriesId}:
+    parameters:
+      - $ref: '#/components/parameters/SeriesId'
+    get:
+      tags: [project-series]
+      operationId: projectSeries.series.get
+      summary: A project series with its sessions, newest first
+      description: >-
+        The card of the series, its program and its sessions; each session's `canOpen` follows the
+        caller's own project.view scope. The ETag is the one PATCH takes in If-Match.
+      x-permission: project.overview.view
+      x-scope: program
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      responses:
+        '200':
+          description: Project series
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectSeriesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [project-series]
+      operationId: projectSeries.series.update
+      summary: Rename a project series or change its description; its sessions are renamed with it
+      description: >-
+        The program is the one the series is stored with: a caller without project.create there
+        answers 403. The program and the code never change, so a body that names either answers 422
+        (validation.unknown_parameter) and changes nothing.
+        A rename renames every session of the series in the same transaction, under one audit entry.
+      x-permission: project.create
+      x-scope: program
+      x-audit: project_series.update
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectSeriesUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectSeriesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= projects =======================

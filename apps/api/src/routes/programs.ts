@@ -8,20 +8,40 @@ import {
 } from '@css/shared/projects';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf, scopeOf } from '../auth/principal.js';
+import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal.js';
 import type { Container } from '../container.js';
 import { etagOf } from '../core/etag.js';
 import { ok } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
+import { cardPeople } from './project-series.js';
 
 const uuid = z.uuid();
 const programView = z.object({
   id: uuid,
   code: z.string(),
   name: z.object({ bn: z.string(), en: z.string() }),
+  description: z.object({ bn: z.string(), en: z.string() }).nullable(),
   pmUserId: uuid.nullable(),
   pmName: z.string().nullable(),
   active: z.boolean(),
+});
+const count = z.number().int();
+/** A program as a card: counts, and the caller's own work only where the caller has any. */
+const programCard = z.object({
+  id: uuid,
+  code: z.string(),
+  name: z.object({ bn: z.string(), en: z.string() }),
+  description: z.object({ bn: z.string(), en: z.string() }).nullable(),
+  active: z.boolean(),
+  pm: z.object({ id: uuid, name: z.string() }).nullable(),
+  rpms: cardPeople,
+  projects: count,
+  runningProjects: count,
+  beneficiaries: count,
+  applications: count,
+  volunteers: count,
+  todo: z.object({ reviewsWaiting: count, waitlisted: count }).optional(),
+  canCreate: z.boolean(),
 });
 const programOp = {
   tag: 'programs',
@@ -33,7 +53,10 @@ const programOp = {
  * Programs (openapi tag programs): officials read the programs in their scope;
  * the Department Head creates, renames, deactivates and activates them and assigns their PM.
  */
-export function programsRouter(deps: RouteDeps, c: Pick<Container, 'programs'>): Router {
+export function programsRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'programs' | 'programCards'>,
+): Router {
   const router = Router();
   const withEtag = (
     res: { setHeader: (k: string, v: string) => void },
@@ -57,6 +80,29 @@ export function programsRouter(deps: RouteDeps, c: Pick<Container, 'programs'>):
     handler: async ({ req }) => {
       // the whole list at once, in the list envelope every list answers with
       const rows = await c.programs.list(scopeOf(req));
+      return ok(rows, { limit: rows.length, nextCursor: null, prevCursor: null });
+    },
+  });
+
+  defineRoute(router, deps, {
+    ...programOp,
+    method: 'get',
+    path: '/program-cards',
+    operationId: 'programs.program.cards',
+    summary: 'Every program as a card with counts only (officials who hold the overview)',
+    permission: 'project.overview.view',
+    scope: 'program',
+    audit: 'none',
+    // the cards count across every session of every program: the budget of the nationwide lists
+    rateLimit: 'list',
+    responses: { 200: z.array(programCard), 401: null, 403: null, 429: null, 503: null },
+    handler: async ({ req }) => {
+      const authed = req as AuthedRequest;
+      const rows = await c.programCards.list({
+        principal: principalOf(authed),
+        scope: scopeOf(authed),
+      });
+      // the whole list at once, in the list envelope every list answers with
       return ok(rows, { limit: rows.length, nextCursor: null, prevCursor: null });
     },
   });
@@ -97,7 +143,7 @@ export function programsRouter(deps: RouteDeps, c: Pick<Container, 'programs'>):
     method: 'patch',
     path: '/programs/:programId',
     operationId: 'programs.program.update',
-    summary: 'Rename a program, deactivate it or activate it again (never deleted)',
+    summary: 'Rename a program, describe it, deactivate it or activate it again (never deleted)',
     permission: 'program.update',
     scope: 'global',
     audit: 'program.update',

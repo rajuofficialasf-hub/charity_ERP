@@ -8,7 +8,7 @@ import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { ApiError } from '../i18n/api-error.js';
 
 /** The states in which an application waits for an official's decision. */
-const WAITING = ['needs_verification', 'submitted', 'under_review', 'reviewed'];
+export const WAITING = ['needs_verification', 'submitted', 'under_review', 'reviewed'];
 
 interface Tie {
   roles: Set<string>;

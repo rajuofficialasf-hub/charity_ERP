@@ -7,12 +7,15 @@ import { assertIfMatch } from '../core/etag.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
+import { descriptionColumns, descriptionOf } from './project-series.js';
 
 const SELECT = {
   id: true,
   code: true,
   nameBn: true,
   nameEn: true,
+  descriptionBn: true,
+  descriptionEn: true,
   pmUserId: true,
   active: true,
   updatedAt: true,
@@ -25,6 +28,8 @@ export interface ProgramView {
   id: string;
   code: string;
   name: { bn: string; en: string };
+  /** The short description on the program's card; null until one is written. */
+  description: { bn: string; en: string } | null;
   pmUserId: string | null;
   pmName: string | null;
   active: boolean;
@@ -34,6 +39,7 @@ const view = (p: Row): ProgramView => ({
   id: p.id,
   code: p.code,
   name: { bn: p.nameBn, en: p.nameEn },
+  description: descriptionOf(p),
   pmUserId: p.pmUserId,
   pmName: p.pmUser?.displayName ?? null,
   active: p.active,
@@ -83,6 +89,7 @@ export class ProgramsService {
             code: body.code,
             nameBn: body.name.bn,
             nameEn: body.name.en,
+            ...descriptionColumns(body.description),
             pmUserId: body.pmUserId ?? null,
             createdBy: actor.userId,
             updatedBy: actor.userId,
@@ -104,7 +111,10 @@ export class ProgramsService {
     }
   }
 
-  /** Rename, deactivate or activate; deactivation waits until no project is draft, active or closing. */
+  /**
+   * Rename, describe, deactivate or activate; deactivation waits until no project is draft, active
+   * or closing.
+   */
   async update(
     actor: Principal,
     scope: Scope,
@@ -127,6 +137,7 @@ export class ProgramsService {
         data: {
           nameBn: body.name?.bn,
           nameEn: body.name?.en,
+          ...descriptionColumns(body.description),
           active: body.active,
           updatedBy: actor.userId,
         },

@@ -635,7 +635,7 @@ export class ProjectsService {
    * A program the caller may put a project in: inside its scope (403 otherwise, the program comes
    * from the body) and active (409). The row is locked against a deactivation at the same moment.
    */
-  private async lockedProgram(tx: Tx, viewer: ProjectViewer, programId: string): Promise<void> {
+  async lockedProgram(tx: Tx, viewer: ProjectViewer, programId: string): Promise<void> {
     await tx.$queryRaw`SELECT id FROM programs WHERE id = ${programId}::uuid FOR UPDATE`;
     const program = await tx.program.findFirst({
       where: { AND: [{ id: programId }, programWhere(viewer.scope)] },

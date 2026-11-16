@@ -82,7 +82,9 @@ import { MediaReferralsService } from './services/media-referrals.js';
 import { MediaWorksService } from './services/media-works.js';
 import { MediaHomeService } from './services/media-home.js';
 import { WaitlistService } from './applications/waitlist.js';
+import { ProgramCardsService } from './services/program-cards.js';
 import { ProgramsService } from './services/programs.js';
+import { ProjectSeriesService } from './services/project-series.js';
 import { ReferenceListsService } from './services/reference-lists.js';
 import { NameVariantsService } from './services/name-variants.js';
 import { SessionMonitorService } from './services/session-monitor.js';
@@ -184,6 +186,8 @@ export interface Container {
   nameKeys: NameKeysJob;
   helpCounters: HelpCountersJob;
   programs: ProgramsService;
+  programCards: ProgramCardsService;
+  projectSeries: ProjectSeriesService;
   settings: SettingsService;
   referenceLists: ReferenceListsService;
   nameVariants: NameVariantsService;
@@ -523,6 +527,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     nameKeys: o.nameKeys ?? new NameKeysJob(prisma, matchKeys, logger, { jobs }),
     helpCounters: o.helpCounters ?? new HelpCountersJob(prisma, logger),
     programs: o.programs ?? new ProgramsService(prisma, audit),
+    programCards: o.programCards ?? new ProgramCardsService(prisma, access),
+    projectSeries:
+      o.projectSeries ?? new ProjectSeriesService(prisma, audit, access, projects, clock),
     settings,
     referenceLists,
     nameVariants: o.nameVariants ?? new NameVariantsService(prisma, audit, jobs),
