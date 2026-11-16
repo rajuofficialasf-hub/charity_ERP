@@ -3038,7 +3038,14 @@ components:
       properties:
         periodFrom: { $ref: '#/components/schemas/SessionMonth' }
         periodTo: { $ref: '#/components/schemas/SessionMonth' }
-        sourceProjectId: { type: string, format: uuid }
+        sourceProjectId:
+          type: string
+          format: uuid
+          description: >-
+            The session to copy (BR-315): a session of this series the caller may view
+            (`project.view`). A cancelled session may be named, and its setup is copied as it was
+            left. Left out, the newest session that is not cancelled, among those the caller may
+            view, is copied; a cancelled one is never taken that way.
     ProjectCreate:
       type: object
       description: >-
@@ -8563,13 +8570,16 @@ paths:
         session that is not cancelled: the components with their settings, the published
         application form with its scoring points, the rules texts and the dawah syllabus. It never
         copies the dates and the application window, the budget amounts and fund sources, the areas
-        and RPMs, the staff access, the volunteers or the quota targets (BD-10). A source that is no
-        session of this series, or a series with no session to copy, answers 422
-        project.session_source_foreign; a year another session of the series starts in answers 409
-        project.session_year_taken; a program outside the caller's scope 403, an inactive one 409
-        program.inactive, an unknown series 404. The request runs once per Idempotency-Key: a
-        repeat by the same caller with the same request answers 200 with `Idempotent-Replay: true`
-        and the session the first one made.
+        and RPMs, the staff access, the volunteers or the quota targets (BD-10). A named source
+        that is no session of this series, or one the caller may not view, answers 422
+        project.session_source_foreign; a series with no session the caller may copy answers 422
+        project.session_source_none; a year another session of the series starts in answers 409
+        project.session_year_taken. The program is the one the series is stored with: a series
+        outside the caller's `project.create` scope answers 404 permission.not_found, as a series
+        that does not exist does; a caller without the permission answers 403; an inactive program
+        409 program.inactive. The request runs once per Idempotency-Key: a repeat by the same
+        caller with the same request answers 200 with `Idempotent-Replay: true` and the session the
+        first one made.
       x-permission: project.create
       x-scope: program
       x-audit: project.create
@@ -8651,11 +8661,12 @@ paths:
         The first step of the setup (D-176). The session takes the code, the program and the names
         of its series, and its year is the year its period starts in. It starts with the components
         and settings of its workflow (D-095), of a master template or of a project the caller may
-        view. The program is the one the series is stored with: it must be in the caller's scope
-        (403) and active (409 program.inactive); an unknown series answers 404; a year another
-        session of the series starts in, a cancelled one included, answers 409
-        project.session_year_taken (BR-312). The audit entry of the creation carries the four
-        identity rules the project starts with (BR-309).
+        view. The program is the one the series is stored with: a series outside the caller's
+        `project.create` scope answers 404 permission.not_found, as a series that does not exist
+        does (a caller without the permission answers 403), and the program must be active (409
+        program.inactive); a year another session of the series starts in, a cancelled one
+        included, answers 409 project.session_year_taken (BR-312). The audit entry of the creation
+        carries the four identity rules the project starts with (BR-309).
       x-permission: project.create
       x-scope: program
       x-audit: project.create

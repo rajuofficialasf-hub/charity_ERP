@@ -23,7 +23,7 @@ import { isUniqueViolationOf } from '../core/db-errors.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { IdempotencyService } from '../idempotency/idempotency.service.js';
 import { helpedSql } from './help-history.js';
-import { inWorkAreasSql, WAITING } from './projects-work.js';
+import { WAITING, workReachSql } from './projects-work.js';
 import { type ProjectsService, yearTakenOr } from './projects.js';
 import { staffPhotos } from './staff-photos.js';
 
@@ -296,13 +296,18 @@ export function namedPeople(people: readonly CardPerson[]): CardPeople {
   return { people: unique.slice(0, NAMED_PEOPLE), total: unique.length };
 }
 
-/** How much of a session a caller reaches: all of it, or the named areas of it (location ids). */
+/**
+ * How much of a session a caller reaches: all of it, or the caller's areas of it. The locations
+ * are the areas that name the session; the areas held in every project stand once in the reach.
+ */
 export type SessionReach = 'whole' | readonly string[];
 
 /** What the caller's own permissions reach among the sessions and programs on the screen. */
 export interface Reach {
   /** The sessions the caller may open (`project.view`), each whole or by the caller's areas. */
   open: ReadonlyMap<string, SessionReach>;
+  /** The caller's areas that name no project: held in every session not reached whole. */
+  areasOfEveryProject: readonly string[];
   /** The sessions whose budget the caller may see (`budget.view`). */
   budget: ReadonlySet<string>;
   /** The programs the caller may create a project in (`project.create`); inactive ones take none. */
@@ -337,17 +342,21 @@ export async function reachOf(
     if (!view.scope || !view.ids.has(s.id)) continue;
     const i = view.scope.instances;
     // the whole session through GLOBAL, its program or the project itself; else the caller's areas
-    // of it (an area without a project is a location the caller holds in every project)
+    // of it
     const whole = i.global || i.programIds.includes(s.programId) || i.projectIds.includes(s.id);
     open.set(
       s.id,
-      whole
-        ? 'whole'
-        : i.areas
-            .filter((a) => a.projectId === s.id || a.projectId === null)
-            .map((a) => a.locationId),
+      whole ? 'whole' : i.areas.filter((a) => a.projectId === s.id).map((a) => a.locationId),
     );
   }
+  // an area without a project is a location the caller holds in every project
+  const areasOfEveryProject = [
+    ...new Set(
+      (view.scope?.instances.areas ?? [])
+        .filter((a) => a.projectId === null)
+        .map((a) => a.locationId),
+    ),
+  ];
   const programs = async (): Promise<Set<string>> => {
     if (!programIds.length || !holdsPermission('project.create', loaded.grants)) return new Set();
     const scope = await access.scopeFor(principal, loaded, 'project.create', 'program', tx);
@@ -357,7 +366,12 @@ export async function reachOf(
     });
     return new Set(rows.map((r) => r.id));
   };
-  return { open, budget: (await within('budget.view')).ids, create: await programs() };
+  return {
+    open,
+    areasOfEveryProject,
+    budget: (await within('budget.view')).ids,
+    create: await programs(),
+  };
 }
 
 /** The work that waits for a caller in a session. */
@@ -374,33 +388,42 @@ export interface OwnWork {
  */
 export async function ownWork(
   tx: Tx,
-  open: ReadonlyMap<string, SessionReach>,
+  reach: Pick<Reach, 'open' | 'areasOfEveryProject'>,
   figures: Map<string, SessionFigures>,
 ): Promise<Map<string, OwnWork>> {
   const work = new Map<string, OwnWork>();
+  const byAreas: string[] = [];
   const areaProjects: string[] = [];
   const areaLocations: string[] = [];
-  for (const [id, reach] of open) {
-    if (reach === 'whole') {
+  for (const [id, held] of reach.open) {
+    if (held === 'whole') {
       const counted = figuresOf(figures, id);
       work.set(id, { reviewsWaiting: counted.waiting, waitlisted: counted.waitlisted });
       continue;
     }
     work.set(id, { reviewsWaiting: 0, waitlisted: 0 });
-    for (const locationId of reach) {
+    byAreas.push(id);
+    for (const locationId of held) {
       areaProjects.push(id);
       areaLocations.push(locationId);
     }
   }
-  if (!areaProjects.length) return work;
+  if (!byAreas.length) return work;
+  const within = workReachSql([], {
+    projects: areaProjects,
+    locations: areaLocations,
+    everyProject: { projects: byAreas, locations: reach.areasOfEveryProject },
+  });
   const rows = await tx.$queryRaw<{ project_id: string; waiting: Count; waitlisted: Count }[]>`
+    ${within.with}
     SELECT a.project_id,
       count(*) FILTER (WHERE a.status = ANY(${WAITING})) AS waiting,
       count(*) FILTER (WHERE a.status = 'waitlisted') AS waitlisted
     FROM applications a
-    WHERE a.project_id = ANY(${[...new Set(areaProjects)]}::uuid[])
+    ${within.join}
+    WHERE a.project_id = ANY(${byAreas}::uuid[])
       AND a.status = ANY(${[...WAITING, 'waitlisted']}) AND a.deleted_at IS NULL
-      AND ${inWorkAreasSql([], areaProjects, areaLocations)}
+      AND ${within.where}
     GROUP BY a.project_id`;
   for (const r of rows)
     work.set(r.project_id, {
@@ -476,7 +499,10 @@ export class ProjectSeriesService {
     return left < 0 ? null : left;
   }
 
-  /** The cards of the given series, with a fixed number of grouped reads whatever their number. */
+  /**
+   * The cards of the given series, with a fixed number of grouped reads whatever their number,
+   * and the counts of every session of those series the cards were read from.
+   */
   private async cards(tx: Tx, principal: Principal, rows: readonly Row[]) {
     const sessions = await sessionsOf(
       tx,
@@ -505,8 +531,8 @@ export class ProjectSeriesService {
       [...current.values()],
       [...new Set(rows.map((s) => s.programId))],
     );
-    const work = await ownWork(tx, reach.open, figures);
-    return rows.map((s) => {
+    const work = await ownWork(tx, reach, figures);
+    const cards = rows.map((s) => {
       const session = current.get(s.id);
       const counted = session ? figuresOf(figures, session.id) : NO_FIGURES;
       return {
@@ -545,6 +571,7 @@ export class ProjectSeriesService {
         canCreate: reach.create.has(s.programId),
       };
     });
+    return { cards, figures };
   }
 
   /** The series the route's scope reaches, of one program when asked, by code. */
@@ -558,7 +585,7 @@ export class ProjectSeriesService {
         orderBy: { code: 'asc' },
         select: SELECT,
       });
-      return this.cards(tx, viewer.principal, rows);
+      return (await this.cards(tx, viewer.principal, rows)).cards;
     });
   }
 
@@ -573,14 +600,13 @@ export class ProjectSeriesService {
         select: { ...SELECT, program: { select: { id: true, nameBn: true, nameEn: true } } },
       });
       if (!row) throw new ApiError('permission.not_found', 404);
-      const [card] = await this.cards(tx, viewer.principal, [row]);
+      const { cards, figures } = await this.cards(tx, viewer.principal, [row]);
       const sessions = await tx.project.findMany({
         where: { seriesId, status: { not: 'cancelled' } },
         orderBy: { year: 'desc' },
         select: { id: true, year: true, status: true, periodFrom: true, periodTo: true },
       });
       const ids = sessions.map((s) => s.id);
-      const figures = await sessionFigures(tx, ids);
       const reach = await reachOf(
         this.access,
         tx,
@@ -590,7 +616,7 @@ export class ProjectSeriesService {
       );
       return {
         series: {
-          ...card!,
+          ...cards[0]!,
           program: {
             id: row.program.id,
             name: { bn: row.program.nameBn, en: row.program.nameEn },
@@ -715,8 +741,8 @@ export class ProjectSeriesService {
 
   /**
    * A new session of a series as a draft that copies the setup of an earlier session: the one
-   * named, or the newest (docs/BUSINESS_RULES.md, "Programs and projects (M06)", what a new
-   * session copies). The request runs once per Idempotency-Key: a repeat by the same caller with
+   * named, or the newest (docs/BUSINESS_RULES.md, "Programs and projects", what a new session
+   * copies). The request runs once per Idempotency-Key: a repeat by the same caller with
    * the same request answers the session the first one made, and writes nothing.
    */
   async newSession(
@@ -734,7 +760,7 @@ export class ProjectSeriesService {
         1,
         async (tx) => {
           const made = await this.projects.createSession(tx, viewer, seriesId, body, (t) =>
-            this.projects.sessionToCopy(t, seriesId, body.sourceProjectId),
+            this.projects.sessionToCopy(t, viewer, seriesId, body.sourceProjectId),
           );
           return [{ id: made.project.id }];
         },

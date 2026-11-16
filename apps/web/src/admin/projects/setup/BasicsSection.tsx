@@ -58,17 +58,17 @@ function BasicsForm({ stale, onStale }: { stale: boolean; onStale: () => void })
   const tw = useTranslations('admin.projects.workflow');
   const locale = useLocale() as Locale;
   const invalidText = tz('basics_invalid');
-  // a name in both languages and a year of four digits, as the step's own notice says
+  // a name in both languages; the year is shown only, so it is never checked
   const schema = useMemo(
     () =>
       z.object({
         name: z.object({ bn: z.string().trim().min(1), en: z.string().trim().min(1) }),
         description: z.string(),
-        year: z.string().regex(/^\d{4}$/, { message: invalidText }),
+        year: z.string(),
         programId: z.string(),
         workflowKey: z.string(),
       }),
-    [invalidText],
+    [],
   );
   const form = useForm<BasicsFields>({
     resolver: useSchemaResolver(schema),

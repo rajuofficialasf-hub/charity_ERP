@@ -234,6 +234,7 @@
     "session_year_taken": "This project already has a session that starts in this year.",
     "series_code_taken": "A project with this code already exists.",
     "session_source_foreign": "The session to copy from must be a session of this project.",
+    "session_source_none": "This project has no session to copy from.",
     "deadline_not_later": "The new end date must be after the current end date.",
     "rpm_role_required": "Choose a Regional Program Manager for the area.",
     "staff_role_required": "This access goes only to a Project Executive or an Official দায়ী.",

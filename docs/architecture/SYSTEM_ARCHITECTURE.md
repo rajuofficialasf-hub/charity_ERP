@@ -104,6 +104,15 @@ Rules:
 - Application services own transactions. One use case = one transaction = one audit entry (or several in the same transaction). Jobs are enqueued inside the transaction through pg-boss's PostgreSQL tables, so a job never exists for a write that rolled back.
 - Repositories apply the resolved data scope as query conditions (section 6), never the controllers.
 
+### 3.1 The order of the row locks
+
+A transaction that locks more than one of these rows takes them in this order, so two of them never wait on each other: the project series (`project_series`), then a session (`projects`), then the program (`programs`).
+
+- A new session (`ProjectsService.createSession`, behind `POST /projects` and `POST /project-series/{seriesId}/sessions`) reads the series within the caller's reach without a lock and answers 404 before any lock is taken. It then locks the series, shares the lock of the session it copies while its parts are read (`projectDefinition`: a setup change of that session waits, so the copied parts belong together), and locks the program last, against a deactivation at the same moment.
+- A change of what the sessions of a series share (a session's name or period, the rename of a series) locks the series, then the session or sessions.
+- A lifecycle move (`ProjectLifecycleService`) locks its session, then, for an activation, the program.
+- A person and their applications have their own order, the person first (`lockPeople` of `services/help-history.ts`).
+
 ## 4. Module map
 
 ### 4.1 Blueprint B1 core modules → API modules

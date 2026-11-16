@@ -719,13 +719,104 @@ describe('a new session of a project series', () => {
     expect(empty.status).toBe(201);
     const none = await newSession(pm, empty.body.data.id as string, NEXT);
     expect(none.status).toBe(422);
-    expect(none.body.error.code).toBe('project.session_source_foreign');
+    expect(none.body.error.code).toBe('project.session_source_none');
     expect(
       await count(
         'SELECT count(*)::int AS n FROM projects WHERE series_id = $1',
         await seriesOf(source),
       ),
     ).toBe(1);
+  });
+
+  it('copies a cancelled session only when it is named: with none named the newest one that is not cancelled', async () => {
+    const pm = await as(world.users.pm);
+    const first = await fullSource();
+    const seriesId = await seriesOf(first);
+    const second = await newSession(pm, seriesId, NEXT);
+    expect(second.status).toBe(201);
+    const cancelled = second.body.data.id as string;
+    await patchComponent(pm, cancelled, 'distribution', { settings: { rule: 'group' } });
+    expect(
+      (await at(pm, 'post', `/projects/${cancelled}/cancel`).send({ reason: 'Started by mistake' }))
+        .status,
+    ).toBe(200);
+    // none named: the cancelled draft is passed over
+    const third = await newSession(pm, seriesId, { periodFrom: '2028-08', periodTo: '2029-07' });
+    expect(third.status, JSON.stringify(third.body)).toBe(201);
+    expect(await ruleOf(pm, third.body.data.id)).toEqual({ rule: 'individual' });
+    // named: its setup is copied as it was left
+    const fourth = await newSession(pm, seriesId, {
+      periodFrom: '2029-08',
+      periodTo: '2030-07',
+      sourceProjectId: cancelled,
+    });
+    expect(fourth.status, JSON.stringify(fourth.body)).toBe(201);
+    expect(await ruleOf(pm, fourth.body.data.id)).toEqual({ rule: 'group' });
+    const { rows } = await h.db.query(
+      'SELECT id, copied_from_project_id FROM projects WHERE id = ANY($1::uuid[])',
+      [[third.body.data.id, fourth.body.data.id]],
+    );
+    expect(Object.fromEntries(rows.map((r) => [r.id, r.copied_from_project_id]))).toEqual({
+      [third.body.data.id]: first,
+      [fourth.body.data.id]: cancelled,
+    });
+  });
+
+  it('copies only a session the caller may view: one taken from the caller is refused by name and passed over', async () => {
+    // an official who may create and view everywhere, with one session taken away at a time
+    const official = await account(h.db, { role: 'monitoring_team' });
+    accounts.set(official.id, official);
+    const hide = async (projectId: string) => {
+      await h.db.query(
+        `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+         VALUES ($1, $2, 'project.view', 'revoke', 'PROJECT', $3, 'Test override', $4)`,
+        [randomUUID(), official.id, projectId, world.users.head],
+      );
+      await h.db.query(
+        'UPDATE users SET permission_version = permission_version + 1 WHERE id = $1',
+        [official.id],
+      );
+      h.container.sessions.evictUser(official.id);
+    };
+    const pm = await as(world.users.pm);
+    const first = await fullSource();
+    const seriesId = await seriesOf(first);
+    const second = (await newSession(pm, seriesId, NEXT)).body.data.id as string;
+    await patchComponent(pm, second, 'distribution', { settings: { rule: 'group' } });
+    await hide(second);
+    const named = await newSession(await as(official.id), seriesId, {
+      periodFrom: '2028-08',
+      periodTo: '2029-07',
+      sourceProjectId: second,
+    });
+    expect(named.status).toBe(422);
+    expect(named.body.error.code).toBe('project.session_source_foreign');
+    // none named: the newest session the caller may view, which is the first
+    const third = await newSession(await as(official.id), seriesId, {
+      periodFrom: '2028-08',
+      periodTo: '2029-07',
+    });
+    expect(third.status, JSON.stringify(third.body)).toBe(201);
+    expect(await ruleOf(pm, third.body.data.id)).toEqual({ rule: 'individual' });
+    expect(
+      (
+        await h.db.query('SELECT copied_from_project_id FROM projects WHERE id = $1', [
+          third.body.data.id,
+        ])
+      ).rows[0],
+    ).toEqual({ copied_from_project_id: first });
+    // every session taken away: nothing to copy
+    await hide(first);
+    await hide(third.body.data.id as string);
+    const none = await newSession(await as(official.id), seriesId, {
+      periodFrom: '2030-01',
+      periodTo: '2030-12',
+    });
+    expect(none.status).toBe(422);
+    expect(none.body.error.code).toBe('project.session_source_none');
+    expect(
+      await count('SELECT count(*)::int AS n FROM projects WHERE series_id = $1', seriesId),
+    ).toBe(3);
   });
 
   it('refuses a second session that starts in the same year', async () => {
@@ -778,7 +869,7 @@ describe('a new session of a project series', () => {
     expect(bare.status).toBe(422);
   });
 
-  it('is for whoever may create a project in the series’ program: an RPM and a PM of another program are refused', async () => {
+  it('is for whoever may create a project in the series’ program: an RPM is refused, and for a PM of another program the series is not found', async () => {
     const source = await fullSource();
     const seriesId = await seriesOf(source);
     expect((await newSession(await as(world.users.rpmDhaka), seriesId, NEXT)).status).toBe(403);
@@ -790,8 +881,13 @@ describe('a new session of a project series', () => {
       otherPm.id,
       world.b1.program,
     ]);
+    // as a series that does not exist answers
     const refused = await newSession(await as(otherPm.id), seriesId, NEXT);
-    expect(refused.status).toBe(403);
+    expect(refused.status).toBe(404);
+    expect(refused.body.error.code).toBe('permission.not_found');
+    const missing = await newSession(await as(otherPm.id), randomUUID(), NEXT);
+    expect(missing.status).toBe(404);
+    expect(missing.body.error.code).toBe('permission.not_found');
     expect(
       await count('SELECT count(*)::int AS n FROM projects WHERE series_id = $1', seriesId),
     ).toBe(1);

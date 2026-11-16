@@ -192,7 +192,8 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | program | program.pm_role_required | 422 | the assigned PM does not hold the Program Manager role |
 | project | project.session_year_taken | 409 | a session of a project series, new or with a new period, in a year another session of that series already starts in, a cancelled one included (BR-312) |
 | project | project.series_code_taken | 409 | a project series with a code another series already holds (O-03, BR-312) |
-| project | project.session_source_foreign | 422 | a new session whose source is not a session of the same series, or a series with no session to copy (BR-315) |
+| project | project.session_source_foreign | 422 | a new session whose named source is not a session of the same series, or is one the caller may not view (BR-315) |
+| project | project.session_source_none | 422 | a new session with no source named, of a series that has no session the caller may copy: none yet, only cancelled ones, or none the caller may view (BR-315) |
 | project | project.read_only | 409 | a setup change the project's state does not allow: the period, the workflow or the window while active, anything while closing, closed or cancelled (BR-257); also a rename of one session while its series holds another session (BR-312) |
 | project | project.deadline_not_later | 409 | a deadline extension to a date not after the current end date (BR-058) |
 | project | project.rpm_role_required | 422 | an area's RPM does not hold the RPM role (BR-060) |

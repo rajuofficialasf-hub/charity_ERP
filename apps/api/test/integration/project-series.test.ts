@@ -508,6 +508,33 @@ describe('the cards of a program’s project series', () => {
     expect(await todoOf(world.users.executive, x.swb.id)).toBeUndefined();
   });
 
+  it('counts an application once for a caller who holds its division and its district in every project', async () => {
+    // an official with no project of their own, given two areas that name no project
+    const official = await account(h.db, { role: 'project_executive' });
+    accounts.set(official.id, official);
+    for (const [scope, location] of [
+      ['REGION', world.rangpur.division],
+      ['DISTRICT', world.rangpur.district],
+    ] as const)
+      await h.db.query(
+        `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+         VALUES ($1, $2, 'project.view', 'grant', $3, $4, 'Test override', $5)`,
+        [randomUUID(), official.id, scope, location, world.users.head],
+      );
+    const cards = await seriesList(await as(official.id), x.program);
+    expect(cards.status).toBe(200);
+    // both sessions with an area in the division, each with what waits there, counted once
+    expect(cardOf(cards, x.swb.id).todo).toEqual({ reviewsWaiting: 1, waitlisted: 0 });
+    expect(cardOf(cards, x.wtr.id).todo).toEqual({ reviewsWaiting: 1, waitlisted: 0 });
+    // a project without an area there is not theirs to open
+    expect(cardOf(cards, x.old.id).todo).toBeUndefined();
+    const programs = await programCards(await as(official.id));
+    expect(
+      (programs.body.data as { id: string; todo?: unknown }[]).find((p) => p.id === x.program)
+        ?.todo,
+    ).toEqual({ reviewsWaiting: 2, waitlisted: 0 });
+  });
+
   it('lists every series the overview reaches without a program, and only the program’s with one', async () => {
     const head = await as(world.users.head);
     const all = await seriesList(head);

@@ -19,21 +19,61 @@ interface Tie {
 
 type Count = bigint | number;
 
+/** The areas a person holds in projects. */
+export interface HeldAreas {
+  /** `projects[i]` with `locations[i]` is one area of one project. */
+  projects: readonly string[];
+  locations: readonly string[];
+  /**
+   * The areas held in every project (an area that names no project), given once with the
+   * projects they are matched in, instead of once per project.
+   */
+  everyProject?: { projects: readonly string[]; locations: readonly string[] };
+}
+
+/** The held areas as one set of project and location, each pair once. */
+export function heldAreasSql(held: HeldAreas): Prisma.Sql {
+  return Prisma.sql`SELECT DISTINCT p, l FROM (
+      SELECT p, l FROM unnest(${[...held.projects]}::uuid[], ${[...held.locations]}::uuid[]) AS own(p, l)
+      UNION ALL
+      SELECT s.p, e.l
+      FROM unnest(${[...(held.everyProject?.projects ?? [])]}::uuid[]) AS s(p)
+      CROSS JOIN unnest(${[...(held.everyProject?.locations ?? [])]}::uuid[]) AS e(l)
+    ) pairs`;
+}
+
+/** The parts a read of the applications `a` takes to keep what a person reaches in their work. */
+export interface WorkReachSql {
+  /** Before the `SELECT`. */
+  with: Prisma.Sql;
+  /** After `FROM applications a`. */
+  join: Prisma.Sql;
+  /** A condition of the `WHERE`. */
+  where: Prisma.Sql;
+}
+
 /**
  * The applications `a` a person reaches in their work: every application of a project held whole
- * (`whole`), and in a project held by areas the ones placed in such an area at any level, as the
- * area scope reads it. `areaProjects[i]` with `areaLocations[i]` is one area of one project.
+ * (`whole`), and in a project held by areas the ones placed in such an area at any level (the
+ * region, the district, the union or the union's parent), as the area scope reads it. The areas
+ * are one set, read once; each of an application's four places is looked up in it by hash, so the
+ * time follows the applications read and not the number of areas, and an application under two
+ * held areas is kept once (docs/testing/PERFORMANCE.md, "The cards of programs and projects").
  */
-export function inWorkAreasSql(
-  whole: readonly string[],
-  areaProjects: readonly string[],
-  areaLocations: readonly string[],
-): Prisma.Sql {
-  return Prisma.sql`(a.project_id = ANY(${[...whole]}::uuid[]) OR EXISTS (
-    SELECT 1 FROM unnest(${[...areaProjects]}::uuid[], ${[...areaLocations]}::uuid[]) AS ar(p, l)
-    JOIN locations u ON u.id = a.union_id
-    WHERE ar.p = a.project_id
-      AND ar.l IN (a.region_location_id, a.district_id, a.union_id, u.parent_id)))`;
+export function workReachSql(whole: readonly string[], held: HeldAreas): WorkReachSql {
+  const all = Prisma.sql`a.project_id = ANY(${[...whole]}::uuid[])`;
+  const areas = held.projects.length > 0 || (held.everyProject?.locations.length ?? 0) > 0;
+  if (!areas) return { with: Prisma.empty, join: Prisma.empty, where: all };
+  const within = Prisma.sql`IN (SELECT p, l FROM held_areas)`;
+  return {
+    with: Prisma.sql`WITH held_areas AS MATERIALIZED (${heldAreasSql(held)})`,
+    join: Prisma.sql`JOIN locations u ON u.id = a.union_id`,
+    where: Prisma.sql`(${all}
+      OR (a.project_id, a.region_location_id) ${within}
+      OR (a.project_id, a.district_id) ${within}
+      OR (a.project_id, a.union_id) ${within}
+      OR (a.project_id, u.parent_id) ${within})`,
+  };
 }
 
 /**
@@ -204,8 +244,11 @@ export class ProjectsWorkService {
     const pairs = projects
       .filter((p) => !p.tie.wholeProject)
       .flatMap((p) => [...p.tie.areas.keys()].map((locationId) => [p.id, locationId] as const));
-    const areaProjects = pairs.map(([p]) => p);
-    const areaLocations = pairs.map(([, l]) => l);
+    const held: HeldAreas = {
+      projects: pairs.map(([p]) => p),
+      locations: pairs.map(([, l]) => l),
+    };
+    const reach = workReachSql(whole, held);
     const result = new Map<string, ProjectWorkFigures>(
       ids.map((id) => [
         id,
@@ -227,6 +270,7 @@ export class ProjectsWorkService {
           waitlisted: Count;
         }[]
       >`
+        ${reach.with}
         SELECT a.project_id,
           count(*) AS received,
           count(*) FILTER (WHERE a.status = ANY(${WAITING})) AS waiting,
@@ -234,17 +278,17 @@ export class ProjectsWorkService {
           count(*) FILTER (WHERE a.status = 'rejected') AS rejected,
           count(*) FILTER (WHERE a.status = 'waitlisted') AS waitlisted
         FROM applications a
+        ${reach.join}
         WHERE a.project_id = ANY(${ids}::uuid[])
           AND a.status NOT IN ('draft', 'deleted') AND a.deleted_at IS NULL
-          AND ${inWorkAreasSql(whole, areaProjects, areaLocations)}
+          AND ${reach.where}
         GROUP BY a.project_id`,
       tx.$queryRaw<{ project_id: string; volunteers: Count }[]>`
         SELECT pv.project_id, count(DISTINCT pv.volunteer_id) AS volunteers
         FROM project_volunteers pv
         WHERE pv.project_id = ANY(${ids}::uuid[]) AND pv.ended_at IS NULL
-          AND (pv.project_id = ANY(${whole}::uuid[]) OR EXISTS (
-            SELECT 1 FROM unnest(${areaProjects}::uuid[], ${areaLocations}::uuid[]) AS ar(p, l)
-            WHERE ar.p = pv.project_id AND ar.l = pv.region_location_id))
+          AND (pv.project_id = ANY(${whole}::uuid[])
+            OR (pv.project_id, pv.region_location_id) IN (${heldAreasSql(held)}))
         GROUP BY pv.project_id`,
       tx.$queryRaw<{ project_id: string; reviewed: Count; approved: Count }[]>`
         SELECT a.project_id,

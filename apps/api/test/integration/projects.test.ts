@@ -252,7 +252,7 @@ describe('creating a project from a workflow', () => {
     expect(missing.status).toBe(404);
   });
 
-  it('checks the program the series is stored with: a PM of another program and an RPM are refused', async () => {
+  it('checks the program the series is stored with: for a PM of another program the series is not found, and an RPM is refused', async () => {
     const head = await as(world.users.head);
     // a program of nobody's, with a series the Head made
     const { program } = await f.project(h.db);
@@ -263,7 +263,13 @@ describe('creating a project from a workflow', () => {
       periodTo: '2027-12',
       source: WORKFLOW,
     };
-    expect((await create(await as(world.users.pm), body)).status).toBe(403);
+    // as a series that does not exist answers
+    const outside = await create(await as(world.users.pm), body);
+    expect(outside.status).toBe(404);
+    expect(outside.body.error.code).toBe('permission.not_found');
+    const missing = await create(await as(world.users.pm), { ...body, seriesId: randomUUID() });
+    expect(missing.status).toBe(404);
+    expect(missing.body.error.code).toBe('permission.not_found');
     expect((await create(await as(world.users.rpmDhaka), body)).status).toBe(403);
     const { rows } = await h.db.query(
       'SELECT count(*)::int AS n FROM projects WHERE series_id = $1',

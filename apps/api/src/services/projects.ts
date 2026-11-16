@@ -202,7 +202,9 @@ function sameValue(key: keyof ProjectUpdate, value: unknown, current: unknown): 
  * session of a project series (docs/database/DATABASE_SCHEMA.md, "projects"): a PM creates a draft
  * session of a series of its program; the setup changes as the session's state allows; a draft
  * that was never activated can be cancelled. Every write locks the project (on creation, the
- * series and its program) and is audited in its transaction.
+ * series, the session it copies and the program) and is audited in its transaction. The rows are
+ * locked in one order everywhere: the series, then a session, then the program
+ * (docs/architecture/SYSTEM_ARCHITECTURE.md, "The order of the row locks").
  */
 export class ProjectsService {
   constructor(
@@ -328,10 +330,11 @@ export class ProjectsService {
   /**
    * Writes a draft session of a series inside the caller's transaction. The code, the program and
    * the names are the series', the year is the year the period starts in, and a series takes one
-   * session per start year (409 otherwise). The program is the one the series is stored with: a
-   * caller who may not create projects there is refused (403), and an inactive program takes no
-   * session (409). The series is locked first, then its program, the order every write of what the
-   * sessions of a series share takes.
+   * session per start year (409 otherwise). The program is the one the series is stored with: for
+   * a caller who may not create projects there the series is not found (404), as a series that
+   * does not exist, and nothing is locked for that caller; an inactive program takes no session
+   * (409). The locks follow the one order: the series, the session the new one starts from (read
+   * by `startOf`), then the program.
    */
   async createSession(
     tx: Tx,
@@ -341,18 +344,26 @@ export class ProjectsService {
     startOf: (tx: Tx) => Promise<StartingPoint>,
   ) {
     const actor = viewer.principal.userId;
+    const reached = await tx.projectSeries.findFirst({
+      where: { id: seriesId, program: programWhere(viewer.scope) },
+      select: { id: true },
+    });
+    if (!reached) {
+      this.access.denied(actor, viewer.scope.permission, viewer.scope.entity);
+      throw new ApiError('permission.not_found', 404);
+    }
     await tx.$queryRaw`SELECT id FROM project_series WHERE id = ${seriesId}::uuid FOR UPDATE`;
-    const series = await tx.projectSeries.findUnique({
+    const series = await tx.projectSeries.findUniqueOrThrow({
       where: { id: seriesId },
       select: { id: true, programId: true, code: true, nameBn: true, nameEn: true },
     });
-    if (!series) throw new ApiError('permission.not_found', 404);
+    // the starting point locks the session it copies, so it is read before the program is locked
+    const start = await startOf(tx);
     await this.lockedProgram(tx, viewer, series.programId);
     const year = sessionYear(period.periodFrom);
     // a cancelled session keeps its year, as it keeps its row
     if (await tx.project.findFirst({ where: { seriesId, year }, select: { id: true } }))
       throw new ApiError('project.session_year_taken', 409);
-    const start = await startOf(tx);
     const workflow = await this.workflow(tx, start.workflowKey);
     const id = uuidv7();
     const components = await this.components(tx, start.workflowKey, workflow.definition);
@@ -418,22 +429,41 @@ export class ProjectsService {
   }
 
   /**
-   * The session a new session of a series copies: the one named, which must be a session of that
-   * series, or its newest session that is not cancelled (422 when there is none to copy).
+   * The session a new session of a series copies, among the sessions the caller may view
+   * (`project.view`, as a copy of a project asks): the one named, which must be a session of that
+   * series and may be a cancelled one, or with none named the newest session that is not
+   * cancelled. A named session of another series and one the caller may not view answer alike
+   * (422); so do a series without a session and one whose sessions the caller may not view (422).
    */
   async sessionToCopy(
     tx: Tx,
+    viewer: ProjectViewer,
     seriesId: string,
     sourceProjectId: string | undefined,
   ): Promise<StartingPoint> {
-    const source = await tx.project.findFirst({
-      where: sourceProjectId
-        ? { id: sourceProjectId, seriesId }
-        : { seriesId, status: { not: 'cancelled' } },
-      orderBy: { year: 'desc' },
-      select: { id: true },
-    });
-    if (!source) throw new ApiError('project.session_source_foreign', 422);
+    const { principal } = viewer;
+    const access = await this.access.load(principal.userId, tx);
+    const source = holdsPermission('project.view', access.grants)
+      ? await tx.project.findFirst({
+          where: {
+            AND: [
+              sourceProjectId
+                ? { id: sourceProjectId, seriesId }
+                : { seriesId, status: { not: 'cancelled' } },
+              projectWhere(
+                await this.access.scopeFor(principal, access, 'project.view', 'project', tx),
+              ),
+            ],
+          },
+          orderBy: { year: 'desc' },
+          select: { id: true },
+        })
+      : null;
+    if (!source) {
+      if (!sourceProjectId) throw new ApiError('project.session_source_none', 422);
+      this.access.denied(principal.userId, 'project.view', 'project');
+      throw new ApiError('project.session_source_foreign', 422);
+    }
     const definition = await projectDefinition(tx, source.id);
     return { workflowKey: definition.workflowKey, definition, copiedFromProjectId: source.id };
   }

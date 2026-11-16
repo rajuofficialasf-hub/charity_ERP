@@ -77,7 +77,7 @@ export class ProgramCardsService {
       );
       const rpms = await sessionRpms(tx, sessionIds);
       const reach = await reachOf(this.access, tx, viewer.principal, sessions, programIds);
-      const work = await ownWork(tx, reach.open, figures);
+      const work = await ownWork(tx, reach, figures);
       const applications = (f: SessionFigures) => f.applications;
       return programs.map((p) => {
         const own = sessions.filter((s) => s.programId === p.id);

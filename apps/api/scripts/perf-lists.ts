@@ -12,6 +12,7 @@ import { createContainer } from '../src/container.js';
 import type { PrismaService } from '../src/core/prisma.service.js';
 import { Prisma, PrismaClient } from '../src/generated/prisma/client.js';
 import type { BeneficiaryViewer } from '../src/services/beneficiaries.js';
+import { ownWork, type SessionReach } from '../src/services/project-series.js';
 import { SEARCH_TERMS } from '../seed/perf-data.js';
 import { perfDatabase } from './perf-db.js';
 
@@ -106,7 +107,7 @@ async function measure(name: string, call: () => Promise<unknown>): Promise<Resu
     await call();
     times.push(performance.now() - start);
     for (const s of captured)
-      if (/^\s*SELECT/i.test(s.query) && s.duration > slowest.duration) slowest = s;
+      if (/^\s*(SELECT|WITH)\b/i.test(s.query) && s.duration > slowest.duration) slowest = s;
     captured = null;
   }
   times.sort((a, b) => a - b);
@@ -279,6 +280,34 @@ async function main(): Promise<void> {
     );
     out();
   }
+
+  // a caller who holds sessions by areas: the data set's RPM holds one area of an empty draft, so
+  // the largest division and its largest district are held here in the first n running sessions,
+  // once as areas of each session and once as areas of every project
+  const division = await one<{ id: string }>(Prisma.sql`
+    SELECT region_location_id AS id FROM applications GROUP BY 1 ORDER BY count(*) DESC LIMIT 1`);
+  const district = await one<{ id: string }>(Prisma.sql`
+    SELECT district_id AS id FROM applications WHERE region_location_id = ${division.id}::uuid
+    GROUP BY 1 ORDER BY count(*) DESC LIMIT 1`);
+  const running = (
+    await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM projects WHERE status = 'active' ORDER BY id`
+  ).map((r) => r.id);
+  const held = [division.id, district.id];
+  for (const n of [5, 30, 300]) {
+    const sessions = running.slice(0, n);
+    const reach = (own: readonly string[]) =>
+      new Map<string, SessionReach>(sessions.map((id) => [id, own]));
+    results.push(
+      await measure(`own work, ${n} sessions held by their own areas`, () =>
+        ownWork(prisma, { open: reach(held), areasOfEveryProject: [] }, new Map()),
+      ),
+      await measure(`own work, ${n} sessions held by areas of every project`, () =>
+        ownWork(prisma, { open: reach([]), areasOfEveryProject: held }, new Map()),
+      ),
+    );
+  }
+  out();
 
   const over = results.filter((r) => r.p95 > EXPLAIN_OVER);
   out(
