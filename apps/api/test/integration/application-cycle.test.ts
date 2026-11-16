@@ -301,6 +301,18 @@ describe('the review and the decision', () => {
       code: 'workflow.guard.beneficiary_not_blocked',
     });
 
+    // a draft not yet tied to anyone whose number then names a blocked person is refused as a
+    // new application, since tying it would show the volunteer that person's names
+    const laterNid = fakeNid();
+    const later = await create(s, identity(laterNid));
+    await beneficiary(h.db, world.dhaka, { nid: laterNid, is_blocked: true });
+    const laterRead = await at(s, 'get', `/applications/${later}`);
+    const laterEdit = await at(s, 'patch', `/applications/${later}`)
+      .set('If-Match', laterRead.headers.etag as string)
+      .send({ answers: identity(laterNid) });
+    expect(laterEdit.status).toBe(409);
+    expect(laterEdit.body.error.code).toBe('beneficiary.blocked');
+
     // the application sent before the block goes on: the office edits, reviews and decides it
     await moved(executive, sent, 'review');
     const before = await at(executive, 'get', `/applications/${sent}`);

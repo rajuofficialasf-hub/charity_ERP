@@ -52,10 +52,10 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 ## Progress
 - **Branch:** `fix/known-issues`
 - **Updated:** 2026-11-17
-- **Next:** checkpoint C1 (review of U1), then U2: reproduce the procurement refusal with the demo account
-- **Reviewed through:** none
+- **Next:** U2: the scope builder (`apps/api/src/access/scope.ts`, `resolveInstances`) honours the `house_construction_project` condition only for the beneficiary entity; extend it to applications and projects, then the web path for the Procurement Team
+- **Reviewed through:** C1 at (this commit)
 - **Uncommitted:** none
-- **Notes:** the owner said not to wait for a command between units or checkpoints. U1: a blocked person's draft is refused at the send by the workflow guard `workflow.guard.beneficiary_not_blocked` (409), not by `beneficiary.blocked`
+- **Notes:** the owner said not to wait for a command between units or checkpoints. U1: a blocked person's draft is refused at the send by the workflow guard `workflow.guard.beneficiary_not_blocked` (409), not by `beneficiary.blocked`. C1 review: a draft not yet tied to anyone whose number later names a blocked person stays refused at its edit (409 `beneficiary.blocked`), because tying it would fill in the blocked person's names, which the lookup never reveals; BR-010 says so
 
 ## Implementation units
 
