@@ -8440,7 +8440,7 @@ paths:
         The cover of a program (D-176, BR-316). The file is uploaded first through the upload
         sessions (kind cover_photo, entityType program, slot cover_upload: JPEG, PNG or WebP up to
         5 MB, the type read from its bytes) and becomes the cover here. Only a finished upload of
-        that kind which the caller made for this program is taken; anything else answers 422
+        that kind which the caller made for this program, cleared by the scan, is taken; anything else answers 422
         file.cover_invalid, whichever of these fails. The earlier cover keeps its file. The cards
         name the cover in `coverFileId`, and `GET /files/{fileId}/content` streams it to whoever
         holds project.overview.view.
@@ -8627,7 +8627,7 @@ paths:
         permission.not_found, as one that does not exist. The file is uploaded first through the
         upload sessions (kind cover_photo, entityType project_series, slot cover_upload: JPEG, PNG
         or WebP up to 5 MB, the type read from its bytes) and becomes the cover here. Only a
-        finished upload of that kind which the caller made for this series is taken; anything else
+        finished upload of that kind which the caller made for this series, cleared by the scan, is taken; anything else
         answers 422 file.cover_invalid, whichever of these fails. The earlier cover keeps its file.
       x-permission: project.create
       x-scope: program
@@ -8817,8 +8817,9 @@ paths:
         The period is its two months together; the year follows the month it starts in, and a year
         another session of the series starts in answers 409 project.session_year_taken, a cancelled
         session holding no year (BR-312, D-177). A
-        rename renames the series with its one session; beside another session of the series it is
-        refused (409 project.read_only), since the sessions are renamed together through the series.
+        rename renames the series with its one live session (and its cancelled ones); beside another
+        session of the series that is not cancelled it is refused (409 project.read_only), since the
+        sessions are renamed together through the series.
       x-permission: project.configure
       x-scope: project
       x-audit: project.configure

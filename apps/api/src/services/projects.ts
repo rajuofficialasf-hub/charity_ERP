@@ -549,15 +549,24 @@ export class ProjectsService {
         if (taken) throw new ApiError('project.session_year_taken', 409);
       }
       if (body.name && changing.includes('name')) {
-        // a session carries the names of its series: while it is the series' one session its
-        // rename renames the series; beside other sessions it is renamed with them, through the
-        // series
+        // a session carries the names of its series: while it is the series' one live session
+        // its rename renames the series (and with it a cancelled session's names); beside other
+        // live sessions it is renamed with them, through the series
         const others = await tx.project.count({
-          where: { seriesId: before.seriesId, id: { not: projectId } },
+          where: {
+            seriesId: before.seriesId,
+            id: { not: projectId },
+            status: { not: 'cancelled' },
+          },
         });
         if (others) throw new ApiError('project.read_only', 409);
         await tx.projectSeries.update({
           where: { id: before.seriesId },
+          data: { nameBn: body.name.bn, nameEn: body.name.en, updatedBy: actor },
+        });
+        // a cancelled session keeps carrying the names of its series
+        await tx.project.updateMany({
+          where: { seriesId: before.seriesId, id: { not: projectId } },
           data: { nameBn: body.name.bn, nameEn: body.name.en, updatedBy: actor },
         });
       }

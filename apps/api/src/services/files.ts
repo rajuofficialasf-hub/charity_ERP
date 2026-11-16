@@ -66,6 +66,23 @@ function viewPermissions(kind: string): string[] {
 
 export type FileVariant = 'small' | 'medium';
 
+/**
+ * Whether the scan state lets a file be streamed: cleared, or skipped (no scanner) outside
+ * production (docs/architecture/FILES_AND_DOCUMENTS.md, "Validation table", the scan policy).
+ * The one reading of it: what is streamed and what may become a cover.
+ */
+export function scanCleared(virusScan: string, nodeEnv: string): boolean {
+  return virusScan === 'clean' || (virusScan === 'skipped' && nodeEnv !== 'production');
+}
+
+/**
+ * How long a browser may keep a cover photo (docs/architecture/FILES_AND_DOCUMENTS.md, "Cover
+ * photos"): the bytes behind a file id never change and a new cover is a new file id, so the
+ * cards never show a stale cover; the hour bounds how long a person whose overview was taken
+ * away can still see a cover already in their own browser. Private: never in a shared cache.
+ */
+export const COVER_CACHE = 'private, max-age=3600';
+
 /** The rows of a file list and its CSV, with the slot of the link to the record listed. */
 const rowSelect = (entityType: string, entityId: string) =>
   ({
@@ -230,7 +247,7 @@ export class FilesService {
     res.setHeader('Content-Type', type);
     res.setHeader('Content-Length', String(size));
     res.setHeader('Content-Disposition', disposition(type, file.id));
-    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Cache-Control', file.kind === 'cover_photo' ? COVER_CACHE : 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     await pipeline(body, res);
   }
@@ -527,8 +544,7 @@ export class FilesService {
 
   /** 423 while the scan has not cleared the file, 410 once it found a threat. */
   private refuseQuarantined(file: StoredFile): void {
-    if (file.virusScan === 'clean') return;
-    if (file.virusScan === 'skipped' && this.env.NODE_ENV !== 'production') return;
+    if (scanCleared(file.virusScan, this.env.NODE_ENV)) return;
     if (file.virusScan === 'infected') throw new ApiError('file.infected', 410);
     throw new ApiError('file.quarantined', 423);
   }

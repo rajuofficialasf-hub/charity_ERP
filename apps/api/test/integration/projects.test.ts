@@ -14,6 +14,9 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
+import { isUniqueViolationOf } from '../../src/core/db-errors.js';
+import { ApiError } from '../../src/i18n/api-error.js';
+import { yearTakenOr } from '../../src/services/projects.js';
 import * as f from './support/fixtures.js';
 import { draftProject } from './support/projects.js';
 
@@ -686,6 +689,60 @@ describe('a session beside its series', () => {
       perVolunteerLimit: 25,
     });
     expect(same.status).toBe(200);
+  });
+
+  it('renames the series with its one live session, a cancelled draft beside it not counted', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    const cancelled = await sibling(id, 2027);
+    await setStatus(cancelled, 'cancelled');
+    const renamed = await patch(pm, id, (await get(pm, id)).headers.etag, {
+      name: { bn: 'নতুন নাম', en: 'New name' },
+    });
+    expect(renamed.status, JSON.stringify(renamed.body)).toBe(200);
+    expect(renamed.body.data.name).toEqual({ bn: 'নতুন নাম', en: 'New name' });
+    expect(await seriesOf(id)).toMatchObject({ name_bn: 'নতুন নাম', name_en: 'New name' });
+    // the cancelled session keeps carrying the names of its series
+    expect(await stored(cancelled)).toMatchObject({ name_bn: 'নতুন নাম', status: 'cancelled' });
+  });
+
+  it('reads a clash on either partial unique of a session year as a taken year', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    const next = await sibling(id, 2027);
+    // the service's own check would refuse first: write past it, as two writers at once would;
+    // a code of its own, so only the series' index can refuse it
+    const sameSeries = await h.container.prisma.project
+      .update({
+        where: { id },
+        data: {
+          code: 'DRIFTED',
+          year: 2027,
+          periodFrom: new Date('2027-01-01T00:00:00Z'),
+          periodTo: new Date('2027-12-31T00:00:00Z'),
+        },
+      })
+      .catch((error: unknown) => error);
+    expect(isUniqueViolationOf(sameSeries, 'projects_series_id_year_key')).toBe(true);
+    // the same code and year in another series
+    const { code } = (await h.db.query('SELECT code FROM projects WHERE id = $1', [next])).rows[0];
+    const elsewhere = (await draft(pm, world.a1.program)).body.data.id as string;
+    await h.db.query(
+      `UPDATE projects SET year = 2027, period_from = '2027-01-01', period_to = '2027-12-31' WHERE id = $1`,
+      [elsewhere],
+    );
+    const sameCode = await h.container.prisma.project
+      .update({ where: { id: elsewhere }, data: { code } })
+      .catch((error: unknown) => error);
+    expect(isUniqueViolationOf(sameCode, 'projects_code_year_key')).toBe(true);
+    for (const error of [sameSeries, sameCode]) {
+      const read = yearTakenOr(error);
+      expect(read).toBeInstanceOf(ApiError);
+      expect(read).toMatchObject({ code: 'project.session_year_taken', status: 409 });
+    }
+    // a cancelled session takes part in neither
+    await setStatus(next, 'cancelled');
+    await h.container.prisma.project.update({ where: { id: elsewhere }, data: { code } });
   });
 });
 

@@ -530,7 +530,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     helpCounters: o.helpCounters ?? new HelpCountersJob(prisma, logger),
     programs: o.programs ?? new ProgramsService(prisma, audit),
     programCards: o.programCards ?? new ProgramCardsService(prisma, access),
-    covers: o.covers ?? new CoversService(prisma, audit, access),
+    covers: o.covers ?? new CoversService(env, prisma, audit, access),
     projectSeries:
       o.projectSeries ??
       new ProjectSeriesService(prisma, audit, access, projects, clock, idempotency),

@@ -89,8 +89,17 @@ const sendParts = async (who: string, sessionId: string, bytes: Buffer) => {
 const finalize = (who: string, sessionId: string) =>
   request(h.server()).post(`/api/v1/upload-sessions/${sessionId}/finalize`).set(as(who));
 
-/** Uploads a cover photo for a record as `who` and answers the new file's id. */
-async function upload(who: string, type: Covered, id: string, bytes?: Buffer): Promise<string> {
+/**
+ * Uploads a cover photo for a record as `who` and answers the new file's id, scanned and
+ * processed as the worker does it, unless `scanned` is false.
+ */
+async function upload(
+  who: string,
+  type: Covered,
+  id: string,
+  bytes?: Buffer,
+  scanned = true,
+): Promise<string> {
   const body = bytes ?? (await photo());
   const created = await start(who, type, id, body);
   expect(created.status, JSON.stringify(created.body)).toBe(201);
@@ -98,7 +107,9 @@ async function upload(who: string, type: Covered, id: string, bytes?: Buffer): P
   const done = await finalize(who, created.body.data.id as string);
   expect(done.status, JSON.stringify(done.body)).toBe(201);
   expect(done.body.data).toMatchObject({ kind: 'cover_photo', flags: [] });
-  return done.body.data.id as string;
+  const fileId = done.body.data.id as string;
+  if (scanned) await h.container.fileProcessor.process(fileId);
+  return fileId;
 }
 
 const path = (type: Covered, id: string) =>
@@ -123,6 +134,9 @@ const links = async (type: Covered, id: string) =>
       [type, id],
     )
   ).rows;
+const fileScan = async (id: string) =>
+  (await h.db.query<{ virus_scan: string }>('SELECT virus_scan FROM files WHERE id = $1', [id]))
+    .rows[0]!;
 const coverOf = async (type: Covered, id: string) =>
   (await links(type, id)).filter((l) => l.slot === COVER_SLOT).map((l) => l.file_id);
 const auditOf = async (action: string, id: string) =>
@@ -247,7 +261,6 @@ describe('reading a cover', () => {
   it('streams the cover and its thumbnails to an RPM and an Executive, and never to a volunteer or the Finance Team', async () => {
     const bytes = await photo();
     const file = await upload('pm', 'project_series', own.second, bytes);
-    await h.container.fileProcessor.process(file);
     // before it is set, it is its uploader's alone
     expect((await content('pm', file)).status).toBe(200);
     expect((await content('rpmDhaka', file)).status).toBe(404);
@@ -258,7 +271,8 @@ describe('reading a cover', () => {
       expect(whole.headers).toMatchObject({
         'content-type': 'image/jpeg',
         'content-disposition': 'inline',
-        'cache-control': 'no-store',
+        // a cover's bytes never change under its id: the browser keeps it, for itself only
+        'cache-control': 'private, max-age=3600',
         'x-content-type-options': 'nosniff',
       });
       expect((whole.body as Buffer).equals(bytes)).toBe(true);
@@ -289,11 +303,38 @@ describe('reading a cover', () => {
   it('keeps a cover that the scan has not cleared from every reader', async () => {
     const file = await upload('head', 'program', own.program);
     expect((await setCover('head', 'program', own.program, file)).status).toBe(200);
-    // the processing job has not run yet
+    // the scan state changes after the photo became the cover
     await h.db.query(`UPDATE files SET virus_scan = 'pending' WHERE id = $1`, [file]);
     expect((await content('rpmDhaka', file)).status).toBe(423);
     await h.db.query(`UPDATE files SET virus_scan = 'infected' WHERE id = $1`, [file]);
     expect((await content('rpmDhaka', file)).status).toBe(410);
+  });
+
+  it('never names a deleted file as a cover on the cards', async () => {
+    const file = await upload('head', 'program', other.program);
+    expect((await setCover('head', 'program', other.program, file)).status).toBe(200);
+    const coverOnCard = async () =>
+      (
+        (await request(h.server()).get('/api/v1/program-cards').set(as('rpmDhaka'))).body.data as {
+          id: string;
+          coverFileId: string | null;
+        }[]
+      ).find((p) => p.id === other.program)?.coverFileId;
+    expect(await coverOnCard()).toBe(file);
+    // only an export may be marked deleted today; the check is lifted in this database alone, to
+    // prove the card would never name such a file
+    await h.db.query('ALTER TABLE files DROP CONSTRAINT files_deleted_export_check');
+    try {
+      await h.db.query('UPDATE files SET deleted_at = now() WHERE id = $1', [file]);
+      expect(await coverOnCard()).toBeNull();
+      expect((await content('rpmDhaka', file)).status).toBe(404);
+    } finally {
+      await h.db.query('UPDATE files SET deleted_at = NULL WHERE id = $1', [file]);
+      await h.db.query(
+        `ALTER TABLE files ADD CONSTRAINT files_deleted_export_check CHECK (deleted_at IS NULL OR kind = 'export')`,
+      );
+    }
+    expect(await coverOnCard()).toBe(file);
   });
 });
 
@@ -351,12 +392,38 @@ describe('which file may become a cover', () => {
     await refused(await upload('pm', 'project_series', own.second));
     expect(await coverOf('project_series', own.series)).toEqual(before);
     expect(await auditOf('project_series.cover_changed', own.series)).toHaveLength(audited);
-    // the upload that was open finishes, and then it may be set
+    // the upload that was open finishes, and once the scan cleared it, it may be set
     await sendParts('pm', open.body.data.id as string, bytes);
     const done = await finalize('pm', open.body.data.id as string);
     expect(done.status).toBe(201);
     expect(done.body.data.id).toBe(declared);
+    await h.container.fileProcessor.process(declared);
     expect((await setCover('pm', 'project_series', own.series, declared)).status).toBe(200);
+  });
+
+  it('refuses a photo the scan has not cleared, and the cover in place stays', async () => {
+    const good = await upload('pm', 'project_series', own.second);
+    expect((await setCover('pm', 'project_series', own.second, good)).status).toBe(200);
+    const audited = (await auditOf('project_series.cover_changed', own.second)).length;
+    // still waiting for its scan
+    const pending = await upload('pm', 'project_series', own.second, undefined, false);
+    expect((await fileScan(pending)).virus_scan).toBe('pending');
+    // and one the scan blocked, or could not finish
+    const infected = await upload('pm', 'project_series', own.second);
+    await h.db.query(`UPDATE files SET virus_scan = 'infected' WHERE id = $1`, [infected]);
+    const failed = await upload('pm', 'project_series', own.second);
+    await h.db.query(`UPDATE files SET virus_scan = 'failed' WHERE id = $1`, [failed]);
+    for (const fileId of [pending, infected, failed]) {
+      const res = await setCover('pm', 'project_series', own.second, fileId);
+      expect(res.status, fileId).toBe(422);
+      expect(res.body.error.code).toBe('file.cover_invalid');
+    }
+    expect(await coverOf('project_series', own.second)).toEqual([good]);
+    expect(await auditOf('project_series.cover_changed', own.second)).toHaveLength(audited);
+    // once the scan clears it, it may be set
+    await h.container.fileProcessor.process(pending);
+    expect((await setCover('pm', 'project_series', own.second, pending)).status).toBe(200);
+    expect(await coverOf('project_series', own.second)).toEqual([pending]);
   });
 });
 

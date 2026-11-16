@@ -4,9 +4,11 @@ import type { Scope } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { loadCoverRecord, scopeReachesCover } from '../files/records.js';
 import { ApiError } from '../i18n/api-error.js';
+import { scanCleared } from './files.js';
 
 /**
  * The cover photos of programs and project series (docs/architecture/FILES_AND_DOCUMENTS.md,
@@ -16,7 +18,10 @@ import { ApiError } from '../i18n/api-error.js';
  * `cover` link to it; the earlier photo keeps its file and the link it was uploaded under.
  */
 
-/** The file ids of the covers of the given records, by record; a record without one is left out. */
+/**
+ * The file ids of the covers of the given records, by record; a record without one, or whose
+ * cover file was deleted, is left out.
+ */
 export async function coverFileIds(
   db: PrismaService | Tx,
   type: CoverRecordType,
@@ -24,7 +29,12 @@ export async function coverFileIds(
 ): Promise<Map<string, string>> {
   if (!ids.length) return new Map();
   const links = await db.fileLink.findMany({
-    where: { entityType: type, slot: COVER_SLOT, entityId: { in: [...ids] } },
+    where: {
+      entityType: type,
+      slot: COVER_SLOT,
+      entityId: { in: [...ids] },
+      file: { deletedAt: null },
+    },
     select: { entityId: true, fileId: true },
   });
   return new Map(links.map((l) => [l.entityId, l.fileId]));
@@ -38,6 +48,7 @@ export interface CoverViewer {
 
 export class CoversService {
   constructor(
+    private readonly env: Pick<Env, 'NODE_ENV'>,
     private readonly prisma: PrismaService,
     private readonly audit: AuditWriter,
     private readonly access: AccessService,
@@ -46,9 +57,11 @@ export class CoversService {
   /**
    * Sets the cover of a program or a project series the route's scope reaches (404 otherwise, as
    * a record that does not exist). The program of a series is the one it is stored with. The file
-   * must be a finished cover upload of the caller for this very record, linked to nothing else
-   * (422 otherwise, whichever of these fails, so the answer tells nothing of another person's
-   * file). The change is audited with the earlier and the new file.
+   * must be a finished cover upload of the caller for this very record, linked to nothing else,
+   * and cleared by the scan as the file routes stream it (422 otherwise, whichever of these
+   * fails, so the answer tells nothing of another person's file): a cover the cards cannot show
+   * never takes the place of one they can. The change is audited with the earlier and the new
+   * file.
    */
   async set(
     viewer: CoverViewer,
@@ -72,6 +85,7 @@ export class CoversService {
         select: {
           kind: true,
           uploadedBy: true,
+          virusScan: true,
           fileLinksFile: { select: { entityType: true, entityId: true, slot: true } },
         },
       });
@@ -81,6 +95,7 @@ export class CoversService {
         file !== null &&
         file.kind === 'cover_photo' &&
         file.uploadedBy === actor &&
+        scanCleared(file.virusScan, this.env.NODE_ENV) &&
         file.fileLinksFile.some((l) => ofRecord(l) && l.slot === COVER_UPLOAD_SLOT) &&
         file.fileLinksFile.every(ofRecord);
       if (!usable) throw new ApiError('file.cover_invalid', 422);
