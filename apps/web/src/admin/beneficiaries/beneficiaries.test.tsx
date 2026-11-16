@@ -84,6 +84,7 @@ function serve(row: unknown, stats: unknown, profile?: unknown) {
             id: PROJECT_ID,
             code: 'WC',
             year: 2026,
+            sessionLabel: '2026',
             name: { bn: 'শীতবস্ত্র বিতরণ', en: 'Winter clothing' },
             status: 'active',
           },
@@ -771,7 +772,7 @@ describe('BEN numbers and the lookup', () => {
     // nothing is asked before a project is chosen
     expect(within(dialog).getByRole('button', { name: 'খুঁজুন' })).toBeDisabled();
     await user.click(await within(dialog).findByRole('combobox', { name: /প্রকল্প/ }));
-    await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ 2026 (WC)' }));
+    await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ · 2026 (WC)' }));
     // a new project starts a new lookup, so the field is drawn afresh
     await user.type(within(dialog).getByRole('textbox', { name: /NID নম্বর/ }), '1000001000');
     await user.click(within(dialog).getByRole('button', { name: 'খুঁজুন' }));

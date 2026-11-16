@@ -1,14 +1,14 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { type ProjectCreate, projectCode, WORKFLOW_KEYS } from '@css/shared/projects';
-import { Form, FormSelectField, FormTextField, RadioGroup, TextField } from '@/ui';
+import { type ProjectCreate, sessionPeriod, WORKFLOW_KEYS } from '@css/shared/projects';
+import { DescriptionList, Form, FormSelectField, MonthField, RadioGroup } from '@/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { useSchemaResolver } from '../../../lib/form-schema';
-import { PROGRAMS_KEY, programs } from '../../programs/programs-api';
 import { templates, TEMPLATES_KEY } from '../../templates/templates-api';
-import { createProject, pickerProjects, type Project, PROJECTS_KEY } from '../projects-api';
+import type { ProjectSeries } from '../cards-api';
+import { createSession, pickerProjects, type Project, PROJECTS_KEY } from '../projects-api';
 import { SaveNotice, SetupSection, useStepSave } from './setup-context';
 
 type SourceKind = ProjectCreate['source']['kind'];
@@ -16,10 +16,8 @@ const SOURCE_KINDS: readonly SourceKind[] = ['workflow', 'template', 'copy'];
 
 /** The new draft's fields as typed; the starting point names the one choice of its kind. */
 const CREATE_SCHEMA = z.object({
-  code: projectCode,
-  name: z.object({ bn: z.string().trim().min(1), en: z.string().trim().min(1) }),
-  year: z.string().regex(/^\d{4}$/),
-  programId: z.string().min(1),
+  periodFrom: z.string(),
+  periodTo: z.string(),
   kind: z.enum(['workflow', 'template', 'copy']),
   workflowKey: z.string(),
   templateId: z.string(),
@@ -36,14 +34,25 @@ function sourceOf(v: CreateFields): ProjectCreate['source'] | null {
   return workflowKey ? { kind: v.kind, workflowKey } : null;
 }
 
+/** Whether two months make a period a session may have. */
+const periodOk = (v: { periodFrom: string; periodTo: string }) =>
+  sessionPeriod.safeParse({ periodFrom: v.periodFrom, periodTo: v.periodTo }).success;
+
 /**
- * The first step of a new project: its code (capital letters, the prefix of its application ids),
- * name, year, program, and where it starts: a workflow, a master template, or a copy of a previous
- * project (a template or a copy brings the components, settings, syllabus and rules). Next
- * creates the draft.
+ * The first step of a session of a project series: the series' code, name and program are shown,
+ * never typed; the step asks for the session's start and end month, and where its setup starts: a
+ * workflow, a master template, or a copy of a previous project (a template or a copy brings the
+ * components, settings, syllabus and rules). Next creates the draft.
  */
-export function CreateStep({ onCreated }: { onCreated: (project: Project) => void }) {
+export function CreateStep({
+  series,
+  onCreated,
+}: {
+  series: ProjectSeries;
+  onCreated: (project: Project) => void;
+}) {
   const t = useTranslations('admin.projects.dialog');
+  const tp = useTranslations('admin.projects');
   const ts = useTranslations('admin.projects.setup');
   const tz = useTranslations('admin.projects.wizard');
   const tw = useTranslations('admin.projects.workflow');
@@ -52,10 +61,9 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
   const form = useForm<CreateFields>({
     resolver: useSchemaResolver(CREATE_SCHEMA),
     defaultValues: {
-      code: '',
-      name: { bn: '', en: '' },
-      year: String(new Date().getFullYear()),
-      programId: '',
+      // the whole of this year until changed
+      periodFrom: `${new Date().getFullYear()}-01`,
+      periodTo: `${new Date().getFullYear()}-12`,
       kind: 'workflow',
       workflowKey: '',
       templateId: '',
@@ -65,7 +73,6 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
   });
   const values = useWatch({ control: form.control }) as CreateFields;
   const kind = values.kind;
-  const list = useQuery({ queryKey: PROGRAMS_KEY, queryFn: programs });
   const library = useQuery({
     queryKey: [...TEMPLATES_KEY, false],
     queryFn: () => templates(),
@@ -78,20 +85,24 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
   });
   const save = useMutation({
     mutationFn: (v: CreateFields) =>
-      createProject({
-        programId: v.programId,
-        code: v.code,
-        year: Number(v.year),
-        name: { bn: v.name.bn.trim(), en: v.name.en.trim() },
+      createSession({
+        seriesId: series.id,
+        periodFrom: v.periodFrom,
+        periodTo: v.periodTo,
         source: sourceOf(v)!,
       }),
   });
-  const codeOk = projectCode.safeParse(values.code).success;
+  const filled = Boolean(values.periodFrom && values.periodTo);
+  const wrongPeriod = filled && !periodOk(values);
   const complete = CREATE_SCHEMA.safeParse(values).success && sourceOf(values) !== null;
   const problem = useStepSave({
-    // a new project is always saved: Next creates it
+    // a new session is always saved: Next creates it
     changed: true,
-    invalid: !codeOk ? t('code_invalid') : !complete ? tz('create_invalid') : undefined,
+    invalid: wrongPeriod
+      ? tz('period_invalid')
+      : !filled || !complete
+        ? tz('create_invalid')
+        : undefined,
     save: async () => onCreated(await save.mutateAsync(form.getValues())),
   });
   // the wizard's Next creates the draft; Enter in a field only checks it, as before
@@ -100,38 +111,35 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
   return (
     <SetupSection id="basics" title={ts('section.basics')}>
       <Form form={form} onSubmit={submit} label={ts('section.basics')}>
+        <DescriptionList
+          layout="grid"
+          columns={3}
+          items={[
+            { label: t('code'), value: series.code },
+            { label: tp('column.name'), value: localized(series.name, locale) },
+            { label: t('program'), value: localized(series.program.name, locale) },
+          ]}
+        />
         <div className="admin-setup-grid">
-          <Controller
-            control={form.control}
-            name="code"
-            render={({ field }) => (
-              <TextField
-                label={t('code')}
-                hint={t('code_hint')}
-                required
-                maxLength={8}
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                // the step's notice of a wrong code is said at the code itself
-                error={!codeOk ? problem : undefined}
-              />
-            )}
-          />
-          <FormTextField name="year" type="integer" label={t('year')} required />
-          <FormTextField name="name.bn" label={t('name_bn')} required maxLength={200} />
-          <FormTextField name="name.en" label={t('name_en')} required maxLength={200} lang="en" />
-          <FormSelectField
-            name="programId"
-            label={t('program')}
-            required
-            // a list still loading cannot be opened empty
-            disabled={!list.data}
-            // only an active program takes a new project
-            options={(list.data ?? [])
-              .filter((p) => p.active)
-              .map((p) => ({ value: p.id, label: `${localized(p.name, locale)} (${p.code})` }))}
-          />
+          {(['periodFrom', 'periodTo'] as const).map((name) => (
+            <Controller
+              key={name}
+              control={form.control}
+              name={name}
+              render={({ field }) => (
+                <MonthField
+                  label={name === 'periodFrom' ? t('period_from') : t('period_to')}
+                  hint={name === 'periodTo' ? t('period_hint') : undefined}
+                  required
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  // a wrong period is said at its end month
+                  error={name === 'periodTo' && wrongPeriod ? problem : undefined}
+                />
+              )}
+            />
+          ))}
         </div>
         <Controller
           control={form.control}
@@ -181,13 +189,13 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
                 label: tsrc('project_option', {
                   name: localized(p.name, locale),
                   code: p.code,
-                  year: String(p.year),
+                  label: p.sessionLabel,
                 }),
               }))}
             />
           )}
         </div>
-        <SaveNotice mutation={save} problem={codeOk ? problem : undefined} />
+        <SaveNotice mutation={save} problem={wrongPeriod ? undefined : problem} />
       </Form>
     </SetupSection>
   );

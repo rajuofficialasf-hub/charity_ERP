@@ -7,7 +7,7 @@ import { canSeeProjects } from '../roles';
 import { pickerProjects, PROJECTS_KEY } from './projects-api';
 
 /**
- * Picks a project by its name and year (the project filter of the volunteer and the beneficiary
+ * Picks a session by its project's name and the session's label (the project filter of the volunteer and the beneficiary
  * tab); the value is the project id. Shows nothing to a role without the project list, or when the
  * caller reaches no project.
  */
@@ -44,7 +44,7 @@ export function ProjectPicker({
           value: p.id,
           label: t('picker_option', {
             name: localized(p.name, locale),
-            year: String(p.year),
+            label: p.sessionLabel,
             code: p.code,
           }),
         })),

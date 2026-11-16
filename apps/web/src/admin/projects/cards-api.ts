@@ -1,9 +1,9 @@
 import { api } from '../../api/client';
-import type { ProgramCard, ProjectSeriesCard } from '../../api/schemas';
+import type { ProgramCard, ProjectSeries, ProjectSeriesCard } from '../../api/schemas';
 import { listQuery } from '../list-query';
 import { PROJECTS_KEY } from './projects-api';
 
-export type { ProgramCard, ProjectSeriesCard };
+export type { ProgramCard, ProjectSeries, ProjectSeriesCard };
 
 /**
  * The cards of the programs and projects tab (docs/ui/SCREENS.md, "Project list and project
@@ -20,6 +20,9 @@ export const programCards = () => api<ProgramCard[]>('/program-cards');
 /** GET /project-series: the project series as cards, of one program or of all (not paginated). */
 export const seriesCards = (programId?: string) =>
   api<ProjectSeriesCard[]>(`/project-series${listQuery({ programId })}`);
+
+/** GET /project-series/{seriesId}: one project series with its program and its sessions. */
+export const seriesDetail = (seriesId: string) => api<ProjectSeries>(`/project-series/${seriesId}`);
 
 /**
  * The height of each kind of card, both faces alike (docs/ui/DESIGN_SYSTEM.md, "Card / Stat", the

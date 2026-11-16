@@ -2,14 +2,16 @@ import { type Locale, localized } from '@css/shared/i18n';
 import { Alert, Button, Card, LinkButton, Page, Skeleton } from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { PageCrumbs } from '../../components/shell/breadcrumb';
 import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canCreateProjects, canSeeProjects } from '../roles';
 import { SaveTemplateDialog } from '../templates/SaveTemplateDialog';
+import { CARDS_KEY, programCards } from './cards-api';
 import { LifecycleActions } from './LifecycleActions';
 import { ProjectFacts } from './ProjectFacts';
 import { ProjectStatusBadge } from './ProjectStatusBadge';
@@ -17,9 +19,10 @@ import { projectWithEtag, PROJECTS_KEY } from './projects-api';
 import { LoadError } from '../../components/LoadError';
 
 /**
- * A project at a glance: its state, program, workflow, application window, limit and budget, the
- * way to its setup, and the lifecycle buttons for the PM and the global roles. The progress
- * figures come with the dashboards.
+ * A session at a glance: its name with the session's label, the trail up to its program and its
+ * project, its state, program, workflow, application window, limit and budget, the way to its
+ * setup, and the lifecycle buttons for the PM and the global roles. The progress figures come
+ * with the dashboards.
  */
 export function ProjectOverviewPage() {
   const { me } = useAuth();
@@ -40,15 +43,20 @@ export function ProjectOverviewPage() {
     queryFn: () => projectWithEtag(projectId),
     enabled: allowed,
   });
+  // the program's name for the trail, from the cards every official of a session may read
+  const cards = useQuery({
+    queryKey: [...CARDS_KEY, 'programs'],
+    queryFn: programCards,
+    enabled: allowed,
+  });
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
-  // back to the list of the sessions of the programs and projects tab
-  const back = <Link to="/admin/projects?view=list">{t('detail.back')}</Link>;
+  const tab = { id: 'tab', label: t('tab.title'), href: '/admin/projects' };
   if (one.isPending) return <Skeleton shape="card" />;
   if (one.error)
     return (
       <>
-        {back}
+        <PageCrumbs items={[tab]} />
         {one.error instanceof ApiFailure && one.error.status === 404 ? (
           <p>{t('detail.not_found')}</p>
         ) : (
@@ -57,11 +65,31 @@ export function ProjectOverviewPage() {
       </>
     );
   const { data: p, meta } = one.data;
+  const name = localized(p.name, locale);
+  const heading = t('detail.heading', { name, label: p.sessionLabel });
+  const program = cards.data?.find((g) => g.id === p.programId);
   return (
     <>
-      <DocumentTitle title={localized(p.name, locale)} />
-      {back}
-      <Page title={localized(p.name, locale)} documentTitle={false} />
+      <DocumentTitle title={heading} />
+      <PageCrumbs
+        items={[
+          tab,
+          ...(program
+            ? [
+                {
+                  id: 'program',
+                  label: localized(program.name, locale),
+                  href: `/admin/projects/programs/${program.id}`,
+                },
+              ]
+            : []),
+          ...(p.seriesId
+            ? [{ id: 'series', label: name, href: `/admin/projects/series/${p.seriesId}` }]
+            : []),
+          { id: 'session', label: t('list.session', { label: p.sessionLabel }) },
+        ]}
+      />
+      <Page title={heading} documentTitle={false} />
       <div data-testid="project-state">
         <ProjectStatusBadge status={p.status} />
       </div>

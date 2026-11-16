@@ -185,6 +185,19 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   ),
                 },
                 {
+                  path: 'projects/programs/:programId',
+                  handle: { phoneReady: true } satisfies AdminRouteHandle,
+                  lazy: page(() => import('../admin/projects/ProgramPage'), 'ProgramPage'),
+                },
+                {
+                  path: 'projects/series/:seriesId',
+                  handle: { phoneReady: true } satisfies AdminRouteHandle,
+                  lazy: page(
+                    () => import('../admin/projects/ProjectSeriesPage'),
+                    'ProjectSeriesPage',
+                  ),
+                },
+                {
                   path: 'projects/new',
                   lazy: page(
                     () => import('../admin/projects/setup/ProjectSetupPage'),

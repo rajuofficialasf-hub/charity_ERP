@@ -46,7 +46,8 @@
     "all_notifications": "All notifications",
     "media_work": "Media work",
     "open_media": "Open media work",
-    "media_counts": "{new} new · {progress} in progress · {published} published"
+    "media_counts": "{new} new · {progress} in progress · {published} published",
+    "session_name": "{name} · session {label}"
   },
   "later": {
     "badge": "Coming later",

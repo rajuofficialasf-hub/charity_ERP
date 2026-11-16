@@ -54,6 +54,10 @@ function serve(status = 'draft') {
     id: ID,
     code: 'WC',
     year: 2026,
+    periodFrom: '2026-01',
+    periodTo: '2026-12',
+    sessionLabel: '2026',
+    seriesId: SERIES,
     name: { bn: 'শীতবস্ত্র বিতরণ', en: 'Winter clothing' },
     status,
     workflowKey: 'distribution',
@@ -195,24 +199,50 @@ function serve(status = 'draft') {
       }),
     ),
     http.get('*/api/v1/locations', () => HttpResponse.json({ data: [], meta: {} })),
-    // the first step makes the project series, then its first session
-    http.post('*/api/v1/project-series', async ({ request }) => {
-      const body = (await request.json()) as { code: string };
-      writes.push({ path: 'series', body });
-      if (body.code === 'WC')
-        return HttpResponse.json(
+    // the program's name, from the cards
+    http.get('*/api/v1/program-cards', () =>
+      HttpResponse.json({
+        data: [
           {
-            error: {
-              code: 'project.series_code_taken',
-              messageKey: 'errors.project.series_code_taken',
-              message: 'এই কোডের একটি প্রকল্প আগে থেকেই আছে।',
-              requestId: 'req_x',
-            },
+            id: PROGRAM,
+            code: 'HUM',
+            name: { bn: 'মানবিক সহায়তা', en: 'Humanitarian' },
+            description: null,
+            coverFileId: null,
+            active: true,
+            pm: null,
+            rpms: { people: [], total: 0 },
+            projects: 1,
+            runningProjects: 1,
+            beneficiaries: 0,
+            applications: 0,
+            volunteers: 0,
+            canCreate: true,
           },
-          { status: 409 },
-        );
-      return HttpResponse.json({ data: { ...body, id: SERIES }, meta: {} }, { status: 201 });
-    }),
+        ],
+        meta: {},
+      }),
+    ),
+    // the series the first step starts a session of
+    http.get(`*/api/v1/project-series/${SERIES}`, () =>
+      HttpResponse.json({
+        data: {
+          id: SERIES,
+          programId: PROGRAM,
+          code: 'WC',
+          name: { bn: 'শীতবস্ত্র বিতরণ', en: 'Winter clothing' },
+          description: null,
+          coverFileId: null,
+          sessionCount: 0,
+          beneficiaries: 0,
+          current: null,
+          canCreate: true,
+          program: { id: PROGRAM, name: { bn: 'মানবিক সহায়তা', en: 'Humanitarian' } },
+          sessions: [],
+        },
+        meta: {},
+      }),
+    ),
     http.post('*/api/v1/projects', async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       writes.push({ path: 'create', body });
@@ -236,6 +266,13 @@ const open = (step?: string) =>
 const section = async (name: string) => screen.findByRole('region', { name });
 const steps = () => screen.getByRole('list', { name: 'সেটআপের ধাপ' });
 const next = () => screen.getByRole('button', { name: 'পরের ধাপ' });
+const heading = () => screen.getByRole('heading', { level: 1 });
+/** The first step of a new session of the series. */
+const openNew = (search = `?seriesId=${SERIES}`) =>
+  renderApp(<ProjectSetupPage />, 'bn', {
+    path: '/admin/projects/new',
+    initialPath: `/admin/projects/new${search}`,
+  });
 
 beforeEach(() => {
   resetClientForTests();
@@ -342,7 +379,7 @@ describe('the setup wizard', () => {
     await user.clear(within(basics).getByRole('textbox', { name: /ইংরেজিতে নাম/ }));
     const before = writes.length;
     await user.click(next());
-    expect(await screen.findByText('দুই ভাষায় নাম আর চার অঙ্কের বছর দিন।')).toBeInTheDocument();
+    expect(await screen.findByText('দুই ভাষায় নাম আর ঠিক সময়কাল দিন।')).toBeInTheDocument();
     expect(writes).toHaveLength(before);
     expect(router.state.location.search).toBe('?step=basics');
   });
@@ -693,11 +730,18 @@ describe('the setup wizard', () => {
     });
   });
 
-  it('keeps the year read-only while active and every field on a closed project', async () => {
+  it('shows the code, the program and the session, and keeps the period fixed while active and every field on a closed project', async () => {
     serve('active');
     const { unmount } = open('basics');
     const basics = await section('মৌলিক তথ্য');
-    expect(within(basics).getByRole('textbox', { name: /বছর/ })).toHaveAttribute('readonly');
+    expect(within(basics).getByText('WC')).toBeInTheDocument();
+    expect(await within(basics).findByText('মানবিক সহায়তা')).toBeInTheDocument();
+    for (const month of ['শুরুর মাস', 'শেষের মাস'])
+      for (const part of within(
+        within(basics).getByRole('group', { name: new RegExp(month) }),
+      ).getAllByRole('spinbutton'))
+        expect(part).toHaveAttribute('aria-disabled', 'true');
+    expect(heading()).toHaveTextContent('সেটআপ: শীতবস্ত্র বিতরণ · সেশন 2026');
     expect(within(basics).getByRole('textbox', { name: /বাংলায় নাম/ })).not.toHaveAttribute(
       'readonly',
     );
@@ -739,51 +783,38 @@ describe('the setup wizard', () => {
     expect(within(basics).getByRole('textbox', { name: /বাংলায় নাম/ })).not.toHaveAttribute(
       'readonly',
     );
-    expect(within(basics).getByRole('textbox', { name: /বছর/ })).toHaveAttribute('readonly');
+    // the period is set on a computer, as the year was
+    for (const part of within(
+      within(basics).getByRole('group', { name: /শুরুর মাস/ }),
+    ).getAllByRole('spinbutton'))
+      expect(part).toHaveAttribute('aria-disabled', 'true');
   });
 });
 
 describe('a new project', () => {
-  it('refuses a lower-case code before sending, shows a taken code, and opens the next step of the new draft', async () => {
+  it('shows the series read-only, asks for the start and end month, and opens the next step of the new draft', async () => {
     serve();
     const user = userEvent.setup();
-    const { router, container } = renderApp(<ProjectSetupPage />, 'bn', {
-      path: '/admin/projects/new',
-      initialPath: '/admin/projects/new',
-    });
+    const { router, container } = openNew();
     const basics = await section('মৌলিক তথ্য');
     expect(screen.getByRole('heading', { level: 1, name: 'নতুন প্রকল্প' })).toBeInTheDocument();
-    const code = within(basics).getByRole('textbox', { name: /প্রকল্প কোড/ });
-    await user.type(code, 'wc');
-    await user.type(within(basics).getByRole('textbox', { name: /বাংলায় নাম/ }), 'শীতবস্ত্র');
-    await user.type(within(basics).getByRole('textbox', { name: /ইংরেজিতে নাম/ }), 'Winter');
-    await user.click(within(basics).getByRole('combobox', { name: /প্রোগ্রাম/ }));
-    await user.click(await screen.findByRole('option', { name: /মানবিক সহায়তা/ }));
+    // the code, the name and the program come from the series and are never typed
+    expect(within(basics).getByText('WC')).toBeInTheDocument();
+    expect(within(basics).getByText('শীতবস্ত্র বিতরণ')).toBeInTheDocument();
+    expect(within(basics).getByText('মানবিক সহায়তা')).toBeInTheDocument();
+    expect(within(basics).queryByRole('textbox', { name: /প্রকল্প কোড/ })).not.toBeInTheDocument();
+    expect(within(basics).getByRole('group', { name: /শুরুর মাস/ })).toBeInTheDocument();
+    expect(within(basics).getByRole('group', { name: /শেষের মাস/ })).toBeInTheDocument();
     await user.click(within(basics).getByRole('combobox', { name: /ওয়ার্কফ্লো/ }));
     await user.click(await screen.findByRole('option', { name: 'বিতরণ' }));
-    await user.click(next());
-    expect(
-      await within(basics).findByText('2 থেকে 8টি ইংরেজি বড় হাতের অক্ষর (A-Z) দিন।'),
-    ).toBeInTheDocument();
-    expect(writes).toEqual([]);
-    await user.clear(code);
-    await user.type(code, 'WC');
-    await user.click(next());
-    expect(await screen.findByText('এই কোডের একটি প্রকল্প আগে থেকেই আছে।')).toBeInTheDocument();
-    await user.clear(code);
-    await user.type(code, 'WCB');
     await user.click(next());
     await waitFor(() =>
       expect(router.state.location.pathname).toBe('/admin/projects/new-id/setup'),
     );
     expect(router.state.location.search).toBe('?step=components');
-    // the series with the code, the program and the names, then its session for the whole year
+    // one session of the series, for the whole of this year unless changed
     const year = new Date().getFullYear();
-    expect(writes.slice(-2)).toEqual([
-      {
-        path: 'series',
-        body: { programId: PROGRAM, code: 'WCB', name: { bn: 'শীতবস্ত্র', en: 'Winter' } },
-      },
+    expect(writes).toEqual([
       {
         path: 'create',
         body: {
@@ -797,13 +828,21 @@ describe('a new project', () => {
     await expectNoAxeViolations(container);
   }, 20_000);
 
+  it('says where a new project starts when the address names no series', async () => {
+    serve();
+    openNew('');
+    expect(await screen.findByText(/আগে প্রকল্পটি বেছে নিন/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'প্রোগ্রাম ও প্রকল্পে যান' })).toHaveAttribute(
+      'href',
+      '/admin/projects',
+    );
+    expect(screen.queryByRole('button', { name: 'পরের ধাপ' })).not.toBeInTheDocument();
+  });
+
   it('is refused to a role that sees projects but cannot create them', async () => {
     refreshAs({ ...ME, roles: ['regional_program_manager'] });
     serve();
-    renderApp(<ProjectSetupPage />, 'bn', {
-      path: '/admin/projects/new',
-      initialPath: '/admin/projects/new',
-    });
+    openNew();
     expect(
       await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
     ).toBeInTheDocument();
@@ -943,16 +982,8 @@ describe('where a new project starts', () => {
   const OLD = '01900000-0000-7000-8000-0000000000e1';
   const startNew = async () => {
     const user = userEvent.setup();
-    renderApp(<ProjectSetupPage />, 'bn', {
-      path: '/admin/projects/new',
-      initialPath: '/admin/projects/new',
-    });
+    openNew();
     const basics = await section('মৌলিক তথ্য');
-    await user.type(within(basics).getByRole('textbox', { name: /প্রকল্প কোড/ }), 'NEW');
-    await user.type(within(basics).getByRole('textbox', { name: /বাংলায় নাম/ }), 'নতুন');
-    await user.type(within(basics).getByRole('textbox', { name: /ইংরেজিতে নাম/ }), 'New');
-    await user.click(within(basics).getByRole('combobox', { name: /প্রোগ্রাম/ }));
-    await user.click(await screen.findByRole('option', { name: /মানবিক সহায়তা/ }));
     return { user, basics };
   };
 
@@ -995,7 +1026,7 @@ describe('where a new project starts', () => {
     server.use(
       http.get('*/api/v1/projects', () =>
         HttpResponse.json({
-          data: [{ ...project, id: OLD, code: 'OLD', year: 2025 }],
+          data: [{ ...project, id: OLD, code: 'OLD', year: 2025, sessionLabel: '2025' }],
           meta: { nextCursor: null, prevCursor: null },
         }),
       ),
@@ -1003,7 +1034,7 @@ describe('where a new project starts', () => {
     const { user, basics } = await startNew();
     await user.click(within(basics).getByText('আগের প্রকল্প থেকে কপি'));
     await user.click(within(basics).getByRole('combobox', { name: /যে প্রকল্প কপি হবে/ }));
-    await user.click(await screen.findByRole('option', { name: /OLD, 2025/ }));
+    await user.click(await screen.findByRole('option', { name: /সেশন 2025 \(OLD\)/ }));
     await user.click(next());
     await waitFor(() => expect(writes.find((w) => w.path === 'create')).toBeDefined());
     expect((writes.find((w) => w.path === 'create')!.body as { source: unknown }).source).toEqual({

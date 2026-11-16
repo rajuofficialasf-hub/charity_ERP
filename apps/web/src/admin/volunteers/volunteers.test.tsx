@@ -81,6 +81,7 @@ function serve(
             id: PROJECT_ID,
             code: 'WC',
             year: 2026,
+            sessionLabel: '2026',
             name: { bn: 'শীতবস্ত্র বিতরণ', en: 'Winter clothing' },
             status: 'active',
           },
@@ -202,7 +203,7 @@ describe('the volunteer tab', () => {
     await openFilters(user);
     const [picker] = await screen.findAllByRole('combobox', { name: /প্রকল্প/ });
     await user.click(picker!);
-    await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ 2026 (WC)' }));
+    await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ · 2026 (WC)' }));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('projectId')).toBe(PROJECT_ID));
     expect(router.state.location.search).toBe(`?projectId=${PROJECT_ID}`);
     // the active filter shows as a chip that removes it

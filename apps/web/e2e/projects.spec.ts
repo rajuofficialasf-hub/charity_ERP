@@ -12,6 +12,7 @@ import {
   code,
   ERR,
   newDraft,
+  newSeries,
   next,
   projectIdOf,
   placeReadyForm,
@@ -127,16 +128,18 @@ test.describe('programs and project setup', () => {
     await expect(page.getByText('প্রকল্প সক্রিয় হয়েছে।')).toBeVisible();
     await expect(state(page, 'সক্রিয়')).toBeVisible();
 
-    // the year is fixed from now on
+    // the period is fixed from now on
     await page.getByRole('link', { name: 'সেটআপ' }).click();
     await page
       .getByRole('list', { name: 'সেটআপের ধাপ' })
       .getByRole('button', { name: 'মৌলিক তথ্য' })
       .click();
-    await expect(section(page, 'মৌলিক তথ্য').getByRole('textbox', { name: /বছর/ })).toHaveAttribute(
-      'readonly',
-      '',
-    );
+    await expect(
+      section(page, 'মৌলিক তথ্য')
+        .getByRole('group', { name: /শুরুর মাস/ })
+        .getByRole('spinbutton')
+        .first(),
+    ).toHaveAttribute('aria-disabled', 'true');
     await page.getByRole('link', { name: 'প্রকল্পে ফিরে যান' }).click();
 
     // close in two steps, then every field is read-only
@@ -168,7 +171,7 @@ test.describe('programs and project setup', () => {
     await page.getByRole('button', { name: 'খসড়া সেভ করে বের হন' }).click();
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
     await move(page, 'বাতিল করুন', 'বাতিল');
-    await page.getByRole('link', { name: 'সব প্রকল্প' }).click();
+    await page.goto('/admin/projects?view=list');
     // the list has loaded before the cancelled one is looked for
     await expect(listRows(page, LIST)).toBeVisible();
     await expect(page.getByText(/^\d+টির মধ্যে \d+টি$/).first()).toBeVisible();
@@ -184,7 +187,7 @@ test.describe('programs and project setup', () => {
     // a PM of its own: the PM of the journey above already holds sessions on other devices
     await signIn(page, COPY_PM);
     await openProjectsTab(page);
-    await newDraft(page, code(), name, ERR);
+    await newDraft(page, code(), name, ERR, COPY_PM);
     await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();
     const drawer = page.getByRole('dialog');
     await drawer.getByText('শুধু দলের ছবি', { exact: true }).click();
@@ -197,19 +200,15 @@ test.describe('programs and project setup', () => {
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
 
     // a new project from a copy of that draft
-    await page.getByRole('link', { name: 'সব প্রকল্প' }).click();
-    await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
-    const basics = section(page, 'মৌলিক তথ্য');
     const copyName = `কপি ${code()}`;
-    await basics.getByRole('textbox', { name: /প্রকল্প কোড/ }).fill(code());
-    await basics.getByRole('textbox', { name: /বাংলায় নাম/ }).fill(copyName);
-    await basics.getByRole('textbox', { name: /ইংরেজিতে নাম/ }).fill(`${copyName} EN`);
-    await chooseIn(page, basics, 'প্রোগ্রাম', ERR);
+    const copySeries = await newSeries(page, COPY_PM, code(), copyName, ERR);
+    await page.goto(`/admin/projects/new?seriesId=${copySeries}`);
+    const basics = section(page, 'মৌলিক তথ্য');
     await basics.getByText('আগের প্রকল্প থেকে কপি', { exact: true }).click();
     await basics.getByRole('combobox', { name: /যে প্রকল্প কপি হবে/ }).click();
     await page
       .getByRole('listbox')
-      .getByRole('option', { name: new RegExp(`^${name} \\(`) })
+      .getByRole('option', { name: new RegExp(`^${name} · সেশন`) })
       .click();
     await next(page).click();
     await expect(page.getByRole('heading', { level: 1, name: `সেটআপ: ${copyName}` })).toBeVisible();
@@ -251,7 +250,8 @@ test.describe('programs and project setup', () => {
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
     expect((await scan(page)).violations).toEqual([]);
-    await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
+    const seriesId = await newSeries(page, 'pm.err@example.org', code(), `ফোন ${code()}`, ERR);
+    await page.goto(`/admin/projects/new?seriesId=${seriesId}`);
     await expect(page.getByRole('heading', { level: 1, name: 'নতুন প্রকল্প' })).toBeVisible();
     // the setup is desktop first and says so
     await expect(page.getByText(PHONE_NOTICE)).toBeVisible();
