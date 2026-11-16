@@ -7,9 +7,9 @@ import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { ProgramDialog } from '../programs/ProgramDialog';
+import { ProgramDialog, type ProgramLook } from '../programs/ProgramDialog';
 import type { Program } from '../programs/programs-api';
-import { canCreateProjects, canManagePrograms, canSeeProjectOverview } from '../roles';
+import { canManagePrograms, canSeeProjectOverview } from '../roles';
 import { CARDS_KEY, type ProgramCard as Card, programCards } from './cards-api';
 import { ProgramCard } from './ProgramCard';
 import { ProjectList } from './ProjectList';
@@ -30,36 +30,29 @@ const programOf = (card: Card): Program => ({
  * The programs and projects tab (docs/ui/SCREENS.md, "Project list and project page"): every
  * program as a card for everyone who holds the overview, and the second view "তালিকা", the list of
  * every session in the caller's scope. The view lives in the address: `view=list`, or any filter
- * of the list. The global roles create and edit the programs here; whoever may create a project
- * starts one in the setup wizard.
+ * of the list. The global roles create and edit the programs here; a new project starts on its
+ * program's page.
  */
 export function ProgramsProjectsPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.projects');
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [dialog, setDialog] = useState<{ program?: Program } | null>(null);
-  const [notice, setNotice] = useState<string>();
-  const overview = Boolean(me && canSeeProjectOverview(me));
-  // both views read the cards: the list names the programs from them, and the header offers a new
-  // project by their answer
-  const cards = useQuery({
-    queryKey: [...CARDS_KEY, 'programs'],
-    queryFn: programCards,
-    enabled: overview,
-  });
+  const [dialog, setDialog] = useState<{ program?: Program; look?: ProgramLook } | null>(null);
+  const [notice, setNotice] = useState<{ text: string; warning: boolean }>();
   if (!me) return null;
-  if (!overview) return <ForbiddenContent />;
+  if (!canSeeProjectOverview(me)) return <ForbiddenContent />;
   const list = opensList(params);
   const manage = canManagePrograms(me);
-  // the role opens the wizard; the server's answer says whether any program takes a new project
-  // from this caller (an inactive one, or one outside the caller's scope, does not)
-  const mayCreate = canCreateProjects(me) && (cards.data ?? []).some((card) => card.canCreate);
 
   // the dialog has refreshed the program reads after its write, also after one that failed halfway
-  const done = (program: Program, key: 'created' | 'saved') => {
+  const done = (program: Program, key: 'created' | 'saved', coverProblem?: string) => {
     setDialog(null);
-    setNotice(t(`cards.notice.${key}`, { code: program.code }));
+    setNotice(
+      coverProblem
+        ? { text: coverProblem, warning: true }
+        : { text: t(`cards.notice.${key}`, { code: program.code }), warning: false },
+    );
   };
 
   return (
@@ -85,38 +78,38 @@ export function ProgramsProjectsPage() {
                 {t('cards.new_program')}
               </Button>
             )}
-            {mayCreate && (
-              <Button
-                variant={manage && !list ? 'secondary' : 'primary'}
-                startIcon="add"
-                onClick={() => void navigate('/admin/projects/new')}
-              >
-                {t('new')}
-              </Button>
-            )}
           </>
         }
         documentTitle={false}
       />
       {notice && (
-        <Alert tone="success" onDismiss={() => setNotice(undefined)}>
-          {notice}
+        <Alert tone={notice.warning ? 'warning' : 'success'} onDismiss={() => setNotice(undefined)}>
+          {notice.text}
         </Alert>
       )}
       {list ? (
         <ProjectList />
       ) : (
         <ProgramCards
-          onEdit={manage ? (card) => setDialog({ program: programOf(card) }) : undefined}
+          onEdit={
+            manage
+              ? (card) =>
+                  setDialog({
+                    program: programOf(card),
+                    look: { description: card.description, coverFileId: card.coverFileId },
+                  })
+              : undefined
+          }
         />
       )}
       {dialog && (
         <ProgramDialog
           key={dialog.program?.id ?? 'new'}
           program={dialog.program}
+          look={dialog.look}
           open
           onClose={() => setDialog(null)}
-          onDone={(p) => done(p, dialog.program ? 'saved' : 'created')}
+          onDone={(p, coverProblem) => done(p, dialog.program ? 'saved' : 'created', coverProblem)}
         />
       )}
     </>

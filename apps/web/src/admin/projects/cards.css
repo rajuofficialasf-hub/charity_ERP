@@ -45,6 +45,29 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* a project card's front: the approved bar over the three figures, at the foot of the front */
+.card-front-foot {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: auto;
+}
+.card-front-foot .card-figures {
+  margin: 0;
+}
+.card-progress {
+  display: grid;
+  gap: var(--space-1);
+}
+.card-progress-value {
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+/* a date is longer than a count: it keeps to the body size */
+.card-figure dd.card-figure-date {
+  font-size: var(--text-body);
+}
+
 /* the back: the program's manager, its RPMs, two figures, the own work, the actions */
 .card-person {
   display: flex;
@@ -128,6 +151,11 @@
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
 }
+.card-locked {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+}
 .card-description {
   margin: 0;
   color: var(--color-text-secondary);
@@ -140,4 +168,67 @@
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--space-2);
   margin-top: auto;
+}
+
+/* the cover field of a program's or a project's dialog: the cover it has now over the upload */
+.cover-field {
+  display: grid;
+  gap: var(--space-3);
+}
+.cover-field-current {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+}
+.cover-field-picture {
+  height: 96px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+.cover-field-picture svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* a project's page: a session it cannot open, and a session as a card on a phone */
+.series-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+}
+.series-session-card {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+}
+.series-session-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text-primary);
+  font-size: var(--text-body);
+}
+
+/* the new session's dialog: the two months side by side, and what is copied beside what is not */
+.session-dialog-months,
+.session-dialog-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: var(--space-3);
+}
+.session-dialog-lists h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-bold);
+}
+.session-dialog-lists ul {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  color: var(--color-text-secondary);
 }

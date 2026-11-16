@@ -256,30 +256,24 @@ describe('the project list', () => {
 });
 
 describe('a new project', () => {
-  it('opens the setup wizard at its first step', async () => {
+  it('starts on its program’s page, which the program card opens', async () => {
     refreshAs(PM);
     serve();
     cards = [card({ canCreate: true })];
     const user = userEvent.setup();
-    const { router } = open();
-    await user.click(await screen.findByRole('button', { name: 'নতুন প্রকল্প' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/projects/new'));
-  });
-
-  it('is offered only when the server says a program takes a new project from the caller', async () => {
-    refreshAs(PM);
-    serve();
-    // the role may create, but no program is open to this caller (inactive or out of scope)
-    cards = [card({ canCreate: false }), card({ id: 'b9', code: 'OLD', active: false })];
-    const first = open('/admin/projects');
+    open('/admin/projects');
     expect(await screen.findByRole('region', { name: 'প্রোগ্রাম' })).toBeInTheDocument();
+    // the tab's header offers no new project of its own
     expect(screen.queryByRole('button', { name: 'নতুন প্রকল্প' })).not.toBeInTheDocument();
-    first.unmount();
-    resetClientForTests();
-    serve();
-    cards = [card({ canCreate: false }), card({ id: 'b9', code: 'UCD', canCreate: true })];
-    open('/admin/projects?view=list');
-    expect(await screen.findByRole('button', { name: 'নতুন প্রকল্প' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'মানবিক সহায়তা' })).toHaveAttribute(
+      'href',
+      `/admin/projects/programs/${PROGRAM.id}`,
+    );
+    await user.click(screen.getByRole('button', { name: 'মানবিক সহায়তা: বিস্তারিত দেখুন' }));
+    expect(screen.getByRole('link', { name: /সব প্রকল্প দেখুন/ })).toHaveAttribute(
+      'href',
+      `/admin/projects/programs/${PROGRAM.id}`,
+    );
   });
 });
 
@@ -317,7 +311,7 @@ describe('the program cards', () => {
     expect(screen.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /সব প্রকল্প দেখুন/ })).toHaveAttribute(
       'href',
-      `/admin/projects?view=list&programId=${PROGRAM.id}`,
+      `/admin/projects/programs/${PROGRAM.id}`,
     );
   });
 

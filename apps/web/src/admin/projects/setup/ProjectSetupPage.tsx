@@ -2,7 +2,7 @@ import { localized, type Locale } from '@css/shared/i18n';
 import { Alert, EmptyState, LinkButton, Page, Skeleton, Stepper, type StepMark } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
 import { ApiFailure } from '../../../api/client';
@@ -157,6 +157,9 @@ function WizardHead({
 function NewProjectWizard() {
   const t = useTranslations('admin.projects.wizard');
   const navigate = useNavigate();
+  const location = useLocation();
+  // a new project's dialog says here what it could not do (its cover)
+  const notice = (location.state as { notice?: string } | null)?.notice;
   const [params] = useSearchParams();
   const seriesId = params.get('seriesId');
   const series = useQuery({
@@ -211,6 +214,7 @@ function NewProjectWizard() {
         steps={steps}
         current={0}
       />
+      {notice && <Alert tone="warning">{notice}</Alert>}
       <StepSaveProvider value={register}>
         <CreateStep series={series.data} onCreated={created} />
       </StepSaveProvider>

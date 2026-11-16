@@ -734,7 +734,9 @@
       "name_en": "Name in English",
       "pm": "Program Manager",
       "pm_hint": "Pick from the list or search by name; the list holds Program Managers only.",
-      "active": "Active (takes new projects)"
+      "active": "Active (takes new projects)",
+      "description_bn": "Short description (Bangla)",
+      "description_en": "Short description (English)"
     }
   },
   "projects": {
@@ -1227,10 +1229,96 @@
       "session": "Session {label}"
     },
     "program_page": {
-      "not_found": "This program was not found."
+      "not_found": "This program was not found.",
+      "new_project": "New project",
+      "label": "Projects",
+      "empty": "This program has no project yet."
     },
     "series_page": {
-      "not_found": "This project was not found."
+      "not_found": "This project was not found.",
+      "edit": "Edit project",
+      "facts": "Project facts",
+      "code": "Code",
+      "program": "Program",
+      "people": "People helped in all sessions",
+      "sessions": "Sessions",
+      "empty": "No session yet.",
+      "column": {
+        "session": "Session",
+        "period": "Period",
+        "status": "State",
+        "applications": "Applications",
+        "approved": "Approved",
+        "open": "Open"
+      },
+      "open": "Open",
+      "open_of": "Open session {label}",
+      "no_access": "No permission",
+      "counts": "Applications {applications} · approved {approved}",
+      "saved": "Project {code} was saved."
+    },
+    "series_card": {
+      "badge": "Project",
+      "eyebrow": "Project details · {code}",
+      "state_session": "Session {label} · {state}",
+      "state_ended": "No running session · last {label}",
+      "state_none": "No session yet",
+      "days_left": "{days} days left to apply",
+      "days_soon": "Ending soon · {days} days left to apply",
+      "progress": "Progress to the target",
+      "progress_value": "{approved} / {target} approved",
+      "approved_only": "{approved} approved",
+      "applications": "Applications this session",
+      "target_met": "Target met",
+      "apply_to": "Last day to apply",
+      "rpms_current": "RPMs of the running session",
+      "volunteers": "Volunteers",
+      "districts": "Districts at work",
+      "sessions": "Sessions",
+      "people": "People helped in all sessions",
+      "budget": "Budget",
+      "open": "Open project",
+      "locked": "The session details are outside your permission",
+      "new_session": "Start a new session"
+    },
+    "series_dialog": {
+      "create_title": "New project",
+      "edit_title": "Edit project: {code}",
+      "program": "Program",
+      "description_bn": "Short description (Bangla)",
+      "description_en": "Short description (English)",
+      "first_session": "Once the new project is saved, the setup of its first session opens.",
+      "save": "Save"
+    },
+    "session_dialog": {
+      "title": "Start a new session",
+      "source": "Copied from",
+      "source_option": "Session {label}",
+      "no_source": "No session of this project is within your reach, so there is nothing to copy.",
+      "copied": "Copied",
+      "copied_items": {
+        "components": "Components and their settings",
+        "form": "Application form",
+        "rules": "Rules",
+        "syllabus": "Dawah syllabus",
+        "scoring": "Scoring rules"
+      },
+      "again": "Given again",
+      "again_items": {
+        "dates": "Dates and the application window",
+        "budget": "Budget amounts",
+        "areas": "Areas and RPMs",
+        "volunteers": "Volunteers",
+        "quotas": "Quota targets"
+      },
+      "create": "Create draft"
+    },
+    "cover": {
+      "label": "Cover photo",
+      "hint": "JPEG, PNG or WebP, up to 5 MB. Without one, an illustration shows.",
+      "current": "Current cover",
+      "failed": "The details were saved, but the cover photo could not be set: {reason}",
+      "max_size": "5 MB"
     }
   },
   "templates": {

@@ -1,6 +1,6 @@
 import { PROJECT_STATUSES } from '@css/shared/projects';
 import { z } from 'zod';
-import { bilingual, date } from './common';
+import { bilingual, date, versionedOf } from './common';
 
 const count = z.number().int();
 
@@ -91,3 +91,10 @@ export const projectSeriesSchema = projectSeriesCardSchema.extend({
   ),
 });
 export type ProjectSeries = z.infer<typeof projectSeriesSchema>;
+
+/** One project series with its version, read when its edit opens (If-Match). */
+export const projectSeriesRecordSchema = versionedOf(projectSeriesSchema);
+export type ProjectSeriesRecord = z.infer<typeof projectSeriesRecordSchema>;
+
+/** A cover just set (`PUT /programs/{id}/cover`, `PUT /project-series/{id}/cover`). */
+export const coverSchema = z.object({ fileId: z.uuid() });

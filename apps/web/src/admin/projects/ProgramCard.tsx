@@ -4,6 +4,7 @@ import { Button, Chip, FlipCard, LinkButton } from '@/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { PersonAvatar } from '../../components/PersonPhoto';
 import { CardCover } from './CardCover';
+import { CardTeam, CardTodo } from './CardParts';
 import { type ProgramCard as Card, PROGRAM_CARD_HEIGHT } from './cards-api';
 
 /**
@@ -26,8 +27,8 @@ export function ProgramCard({
   const locale = useLocale() as Locale;
   const name = localized(program.name, locale);
   const number = (n: number) => formatCount(n, locale);
-  // the program's projects, until the program has its own page
-  const projects = `/admin/projects?view=list&programId=${program.id}`;
+  // the program's page with its projects as cards
+  const projects = `/admin/projects/programs/${program.id}`;
 
   return (
     <FlipCard
@@ -69,25 +70,7 @@ export function ProgramCard({
               <Chip tone="warning">{t('no_pm')}</Chip>
             </div>
           )}
-          <div className="card-team">
-            {program.rpms.total > 0 ? (
-              <>
-                <span className="card-team-photos">
-                  {program.rpms.people.map((person) => (
-                    <PersonAvatar
-                      key={person.id}
-                      fileId={person.photoFileId}
-                      name={person.name}
-                      size="sm"
-                    />
-                  ))}
-                </span>
-                <span>{t('rpms', { count: number(program.rpms.total) })}</span>
-              </>
-            ) : (
-              <span>{t('no_rpms')}</span>
-            )}
-          </div>
+          <CardTeam rpms={program.rpms} />
           <dl className="card-blocks">
             <div className="card-block">
               <dt>{t('applications')}</dt>
@@ -98,21 +81,7 @@ export function ProgramCard({
               <dd>{number(program.volunteers)}</dd>
             </div>
           </dl>
-          {program.todo && (
-            <section className="card-todo" aria-label={t('todo')}>
-              <span className="card-todo-title">{t('todo')}</span>
-              <dl className="card-todo-items">
-                <div>
-                  <dt>{t('reviews_waiting')}</dt>
-                  <dd>{number(program.todo.reviewsWaiting)}</dd>
-                </div>
-                <div>
-                  <dt>{t('waitlisted')}</dt>
-                  <dd>{number(program.todo.waitlisted)}</dd>
-                </div>
-              </dl>
-            </section>
-          )}
+          {program.todo && <CardTodo todo={program.todo} />}
           {program.description && (
             <p className="card-description">{localized(program.description, locale)}</p>
           )}

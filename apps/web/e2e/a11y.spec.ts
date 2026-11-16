@@ -85,6 +85,16 @@ async function firstRecord(page: Page, prefix: string): Promise<string> {
   return href!;
 }
 
+/** A program's page and a project's page of the demo seed, read through the API as the Head. */
+async function cardPages(request: APIRequestContext): Promise<string[]> {
+  const head = await apiAs(request, HEAD);
+  const series = await head.get('/project-series');
+  expect(series.ok(), await series.text()).toBe(true);
+  const [first] = ((await series.json()) as { data: { id: string; programId: string }[] }).data;
+  expect(first, 'a project series of the demo seed').toBeDefined();
+  return [`/admin/projects/programs/${first!.programId}`, `/admin/projects/series/${first!.id}`];
+}
+
 /** An active project of this run (the ERR PM, the Dhaka division) with volunteer 3 assigned. */
 async function projectWithVolunteer(browser: Browser, request: APIRequestContext): Promise<string> {
   const officials = await browser.newContext({ ...devices['Desktop Chrome'] });
@@ -178,11 +188,13 @@ test.describe('accessibility of the Phase 1 screens', () => {
       await sweep(page, '/admin/beneficiaries/duplicates', lang);
     });
 
-    test(`the project pages in dark mode, in ${lang}`, async ({ page }) => {
+    test(`the project pages in dark mode, in ${lang}`, async ({ page, request }) => {
       test.setTimeout(90_000);
       await page.emulateMedia({ colorScheme: 'dark' });
       await signInAs(page, HEAD, lang);
       await sweep(page, '/admin/projects', lang);
+      // a program's page with its project cards, and a project's page with its sessions
+      for (const path of await cardPages(request)) await sweep(page, path, lang);
       await sweep(page, '/admin/projects?view=list', lang);
       const project = await firstRecord(page, '/admin/projects');
       for (const path of [project, `${project}/setup`, `${project}/volunteers`])
@@ -252,6 +264,7 @@ test.describe('accessibility of the Phase 1 screens', () => {
       expect(found.ok(), await found.text()).toBe(true);
       const [volunteer] = ((await found.json()) as { data: { id: string }[] }).data;
       expect(volunteer, 'the demo volunteer').toBeDefined();
+      const [programPage, seriesPage] = await cardPages(request);
       await signInAs(page, HEAD, lang);
       for (const path of [
         '/',
@@ -264,6 +277,8 @@ test.describe('accessibility of the Phase 1 screens', () => {
         '/admin/templates',
         '/admin/projects',
         '/admin/projects?view=list',
+        programPage!,
+        seriesPage!,
         '/admin/projects/new',
         `/admin/projects/${projectId}`,
         `/admin/projects/${projectId}/setup`,

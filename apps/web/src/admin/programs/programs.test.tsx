@@ -211,6 +211,39 @@ describe('the program dialog of the programs and projects tab', () => {
     expect(await screen.findByText('প্রোগ্রাম HUM সংরক্ষিত হয়েছে।')).toBeInTheDocument();
   });
 
+  it('saves the program’s short description, shown as it is on its card', async () => {
+    refreshAs(HEAD);
+    serve([{ ...CARD, description: { bn: 'আগের কথা', en: 'Before' } }]);
+    const user = userEvent.setup();
+    open();
+    await turn(user, 'মানবিক সহায়তা');
+    await user.click(screen.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' }));
+    const dialog = await screen.findByRole('dialog');
+    const bn = within(dialog).getByRole('textbox', { name: /ছোট বিবরণ \(বাংলা\)/ });
+    expect(bn).toHaveValue('আগের কথা');
+    await user.clear(bn);
+    await user.type(bn, 'নতুন কথা');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() =>
+      expect(patched).toEqual([
+        { body: { description: { bn: 'নতুন কথা', en: 'Before' } }, ifMatch: '"v1"' },
+      ]),
+    );
+    expect(await screen.findByText('প্রোগ্রাম HUM সংরক্ষিত হয়েছে।')).toBeInTheDocument();
+  });
+
+  it('offers the cover photo in the dialog with the cover the program has now', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    open();
+    await turn(user, 'মানবিক সহায়তা');
+    await user.click(screen.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.getByText('কভার ছবি')).toBeInTheDocument();
+    expect(dialog.getByText('এখনকার কভার')).toBeInTheDocument();
+  });
+
   it('says the new program was created', async () => {
     refreshAs(HEAD);
     serve();
