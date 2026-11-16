@@ -52,10 +52,10 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 ## Progress
 - **Branch:** `fix/known-issues`
 - **Updated:** 2026-11-17
-- **Next:** U1, record D-179 in the decision log, then the block gate tests
+- **Next:** checkpoint C1 (review of U1), then U2: reproduce the procurement refusal with the demo account
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner said not to wait for a command between units or checkpoints
+- **Notes:** the owner said not to wait for a command between units or checkpoints. U1: a blocked person's draft is refused at the send by the workflow guard `workflow.guard.beneficiary_not_blocked` (409), not by `beneficiary.blocked`
 
 ## Implementation units
 
@@ -71,7 +71,7 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U2. The Procurement Team's applications
 - **Goal:** the Procurement Team opens the list and the record of the applications of its own house-construction project.

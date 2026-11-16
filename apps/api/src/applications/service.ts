@@ -1532,7 +1532,10 @@ export class ApplicationsService {
     const live = await this.liveHolderOf(tx, number);
     if (boundTo && live !== boundTo) throw locked(field!.fieldKey);
     if (!live) return { beneficiaryId: null, identityKind: kind, number, answers };
-    await this.identity.assertMayApply(tx, live);
+    // the block refuses a new application only: an edit of one already bound to this person goes
+    // on, and a draft of a blocked person is still refused when it is sent
+    // (docs/BUSINESS_RULES.md, the blocklist rules)
+    if (live !== boundTo) await this.identity.assertMayApply(tx, live);
     const profile = await tx.beneficiary.findUniqueOrThrow({
       where: { id: live },
       select: { nid: true, birthReg: true, name: true, fatherOrHusbandName: true },
