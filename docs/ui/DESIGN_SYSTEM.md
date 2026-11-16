@@ -273,7 +273,7 @@ The shell is the asf `AppShell` with the app's additions (`compactNav`, counts, 
 - **Rail:** the same destinations as icons with labels, from 600 px to 1199 px and for a person without sidebar groups at any width above the tabs. Volunteers have no sidebar; from 600 px their four destinations sit in the rail (D-100).
 - **Sidebar** (from 1200 px): the asf sidebar, folding to a rail, in the asf colours of the current mode. At the top the Foundation's mark and the system name; then the destinations in their groups (`apps/web/src/admin/navigation.ts`), each group under a small heading, each item an icon and a label; the current page is the app's own (`aria-current="page"`), in the folded rail too. A destination shows a count only where the home's "needs your attention" list already counts it (English digits, in the darker shade of its tone). The sidebar is a named landmark, so a page's own side column stays a landmark of its own. The ink sidebar of D-145 with its help card and amber bar is superseded by D-150.
 - **Banners** sit between the app bar and the content: offline, update available, iOS storage warning, install guidance (§7, §8).
-- Navigation is built from the user's effective permissions; a destination the user cannot use is not shown. The server still denies by default.
+- Navigation is built from the user's effective permissions; a destination the user cannot use is not shown. The server still denies by default. The officials' destination "প্রোগ্রাম ও প্রকল্প" (the phone tab "প্রকল্প") replaces the separate programs and projects destinations (D-176), for the five roles of `project.overview.view`.
 
 ### 4.2 Page structure
 
@@ -304,7 +304,7 @@ The management screens and admin settings live under `/admin` (`apps/web/src/adm
 
 - The admin pages use the app bar and the sidebar of §4.1; the separate admin top bar and admin sidebar of UX-15 are gone.
 - Content: the page header of §4.2, then cards; maximum width `--content-max`.
-- Phones: the "best on a larger screen" Alert of §4.4 is shown under 768 px; the pages stay readable.
+- Phones: the "best on a larger screen" Alert of §4.4 is shown under 768 px; the pages stay readable. A page officials use on a phone as much as on a computer carries `handle: { phoneReady: true }` on its route (`AdminRouteHandle` of `admin/AdminLayout.tsx`) and shows no notice: the programs and projects tab, a program's page and a project's page (D-176).
 - Audience: Department Head, Monitoring Team and Program Managers; any other signed-in user sees a "no access" page. Navigation only hides; the server enforces every admin permission.
 
 ## 5. Component inventory

@@ -207,6 +207,13 @@ under the lighter load gave 252 to 282 / 284 to 327 for the two reads of every a
 | series cards, one program (about 100 series) | 106 to 135 / 115 to 166 | 107 to 156 / 130 to 264 |
 | series with its sessions | 38 to 40 / 42 to 61 | 41 to 45 / 48 to 49 |
 
+What each screen reads (D-176): the tab's cards `GET /program-cards`; a program's page the program
+cards and `GET /project-series?programId=` (one program); a project's page `GET
+/project-series/{seriesId}`; the list of the sessions `GET /projects` as before. Only the tab's own
+read and the series cards of every program (read by the list's project filter when no program is
+chosen) go through every application, and their p95 of about 285 to 400 ms against the 300 ms
+target is kept as it is for the owner's decision (below); they were not measured again.
+
 The two reads of one program and one series are well inside the 300 ms target. The two that read
 every application are not: about 250 to 280 ms at p50 when the machine is not busy, and a p95 on
 either side of 300 ms from run to run, over it in most. About 200 to 250 ms of each is the one read of the applications below; its
