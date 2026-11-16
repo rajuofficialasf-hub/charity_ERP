@@ -1,7 +1,7 @@
 import type { FlipCardProps } from '@/ui/contract';
 
 import { Link as RouterLink } from 'react-router';
-import { useId, useRef, useState, useEffect } from 'react';
+import { useId, useRef, useState, useEffect, useSyncExternalStore } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -21,6 +21,30 @@ import { srOnly, appPath } from './shared';
  */
 const HOVER = '(hover: hover) and (pointer: fine)';
 const REDUCED = '(prefers-reduced-motion: reduce)';
+
+/**
+ * Whether the last press on the page was a finger's. A computer with a touch screen matches the
+ * hover query, so its cards would offer a finger no way to the back; once a finger touches the
+ * page, every card shows its turn button, until a mouse or a pen presses again.
+ */
+let lastPressTouch = false;
+const pressListeners = new Set<() => void>();
+const notePress = (event: PointerEvent) => {
+  const touch = event.pointerType === 'touch';
+  if (touch === lastPressTouch) return;
+  lastPressTouch = touch;
+  pressListeners.forEach((listener) => listener());
+};
+const subscribePress = (listener: () => void) => {
+  if (!pressListeners.size) window.addEventListener('pointerdown', notePress, true);
+  pressListeners.add(listener);
+  return () => {
+    pressListeners.delete(listener);
+    if (!pressListeners.size) window.removeEventListener('pointerdown', notePress, true);
+  };
+};
+const readPress = () => lastPressTouch;
+const serverPress = () => false;
 
 /** The turn of the approved design: slow enough to be seen as a card turning over. */
 const TURN = 'transform 0.7s ease-in-out';
@@ -66,8 +90,8 @@ const turnButton = (hiddenUntilFocus: boolean) => ({
 
 /**
  * A card with a front and a back of one size (docs/ui/DESIGN_SYSTEM.md, "Card / Stat"). On a
- * computer it turns over while the pointer rests on it; on a touch screen "Details" turns it and
- * "Back" turns it back, and the keyboard uses the same two buttons on every device (the one on a
+ * computer it turns over while the pointer rests on it; on a touch screen, and on a computer once a
+ * finger has touched the page, "Details" turns it and "Back" turns it back, and the keyboard uses the same two buttons on every device (the one on a
  * computer's front shows when the keyboard reaches it). The hidden face is out of the tab order
  * and of the accessibility tree. People who ask for less motion see the faces change without the
  * turn. The title opens `to` from anywhere on the front.
@@ -88,17 +112,23 @@ export function FlipCard({
   const labels = useLabels();
   const titleId = useId();
   const hover = useMediaQuery(HOVER, { noSsr: true });
-  const touch = !hover;
+  const fingerPressed = useSyncExternalStore(subscribePress, readPress, serverPress);
+  // the turn buttons stand in for the pointer wherever no pointer rests on the card
+  const touch = !hover || fingerPressed;
   const reduced = useMediaQuery(REDUCED, { noSsr: true });
   const [turned, setTurned] = useState(false);
   const pointerOn = useRef(false);
   // a press inside the card (a finger or a mouse) moves the focus off a button without leaving it
   const pressed = useRef(false);
+  // the press ends wherever the pointer is let go: outside the card too, or in a context menu
+  const endPress = useRef<(() => void) | null>(null);
   const root = useRef<HTMLElement>(null);
   const detailsButton = useRef<HTMLButtonElement>(null);
   const backButton = useRef<HTMLButtonElement>(null);
   // a press of a turn button moves the focus to the other face's button, once that face is shown
   const focusTo = useRef<'front' | 'back' | null>(null);
+
+  useEffect(() => () => endPress.current?.(), []);
 
   useEffect(() => {
     const target = focusTo.current;
@@ -152,14 +182,22 @@ export function FlipCard({
       }}
       onPointerDown={() => {
         pressed.current = true;
-      }}
-      onPointerUp={() => {
-        window.setTimeout(() => {
-          pressed.current = false;
-        }, 0);
-      }}
-      onPointerCancel={() => {
-        pressed.current = false;
+        if (endPress.current) return;
+        const release = () => {
+          stop();
+          // the click that follows the release still lands while the press counts
+          window.setTimeout(() => {
+            pressed.current = false;
+          }, 0);
+        };
+        const stop = () => {
+          window.removeEventListener('pointerup', release);
+          window.removeEventListener('pointercancel', release);
+          endPress.current = null;
+        };
+        window.addEventListener('pointerup', release);
+        window.addEventListener('pointercancel', release);
+        endPress.current = stop;
       }}
       onBlur={() => {
         // the focus leaving the card turns it back for the keyboard; a press inside it (a tap on

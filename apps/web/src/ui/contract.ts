@@ -1454,12 +1454,7 @@ export type AccountMenuProps = {
 // ---------------------------------------------------------------------------------------------
 // Public pages
 
-export type LanguageSwitchProps = {
-  label: string;
-  value: string;
-  options: readonly SelectOption[];
-  onChange: (value: string) => void;
-};
+export type LanguageSwitchProps = SegmentedControlProps;
 
 export type FooterColumn = { title: string; links: readonly { label: string; to: string }[] };
 
@@ -1530,6 +1525,18 @@ export type CalloutBandProps = { title: string; description?: string; children?:
 
 /** The light and dark switch; until the person picks, the device's mode applies. */
 export type ColorModeButtonProps = Record<string, never>;
+
+/**
+ * Two to four choices side by side, one chosen: a button per choice that says whether it is
+ * pressed, in a group named by `label`. For a switch between views of the same content (the cards
+ * and the list of a tab); the language switch is this control with the languages.
+ */
+export type SegmentedControlProps = {
+  label: string;
+  value: string;
+  options: readonly SelectOption[];
+  onChange: (value: string) => void;
+};
 
 /**
  * A card with a front and a back of one size, for example a program with its figures in front and
@@ -1642,4 +1649,5 @@ export type UiTemplateExtended = Omit<
   CalloutBand: ComponentType<CalloutBandProps>;
   ColorModeButton: ComponentType<ColorModeButtonProps>;
   FlipCard: ComponentType<FlipCardProps>;
+  SegmentedControl: ComponentType<SegmentedControlProps>;
 };

@@ -55,11 +55,12 @@ export function FileImage({ fileId, alt }: { fileId: string; alt: string }) {
 export function useFileDataUrl(fileId: string | null, variant?: 'small' | 'medium') {
   return useQuery({
     queryKey: ['files', fileId, variant ?? 'file'],
-    queryFn: async () =>
+    // a card scrolled away or a screen left cancels its download
+    queryFn: async ({ signal }) =>
       dataUrl(
         await (variant
-          ? api<Blob>(`/files/${fileId}/content?variant=${variant}`, { blob: true })
-          : api<Blob>(`/files/${fileId}/content`, { blob: true })),
+          ? api<Blob>(`/files/${fileId}/content?variant=${variant}`, { blob: true, signal })
+          : api<Blob>(`/files/${fileId}/content`, { blob: true, signal })),
       ),
     enabled: fileId !== null,
     // a photo leaves the cache with its screen: opening it again asks the API (and audits an

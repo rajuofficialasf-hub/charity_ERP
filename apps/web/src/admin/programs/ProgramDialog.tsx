@@ -13,6 +13,7 @@ import {
   type Program,
   PROGRAMS_KEY,
   programWithEtag,
+  refreshProgramReads,
   updateProgram,
 } from './programs-api';
 
@@ -108,8 +109,9 @@ export function ProgramDialog({
       showFailure(form, failure, ts('text'));
       return;
     } finally {
-      // a save that stopped halfway still changed the program: the list shows what is stored
-      void queryClient.invalidateQueries({ queryKey: PROGRAMS_KEY });
+      // a save that stopped halfway still changed the program: the list and the cards show what
+      // is stored
+      void refreshProgramReads(queryClient);
     }
     onDone(saved);
   };

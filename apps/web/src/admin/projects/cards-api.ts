@@ -1,15 +1,18 @@
 import { api } from '../../api/client';
 import type { ProgramCard, ProjectSeriesCard } from '../../api/schemas';
 import { listQuery } from '../list-query';
+import { PROJECTS_KEY } from './projects-api';
 
 export type { ProgramCard, ProjectSeriesCard };
 
 /**
  * The cards of the programs and projects tab (docs/ui/SCREENS.md, "Project list and project
  * page"): every program and every project series with counts, read by everyone who holds the
- * overview of programs and projects.
+ * overview of programs and projects. The cards live under the projects' key, so every write that
+ * refreshes the projects (a new session, a move of its lifecycle, a transfer) refreshes their
+ * counts too.
  */
-export const CARDS_KEY = ['admin', 'project-cards'] as const;
+export const CARDS_KEY = [...PROJECTS_KEY, 'cards'] as const;
 
 /** GET /program-cards: every program as a card (not paginated). */
 export const programCards = () => api<ProgramCard[]>('/program-cards');

@@ -259,10 +259,27 @@ describe('a new project', () => {
   it('opens the setup wizard at its first step', async () => {
     refreshAs(PM);
     serve();
+    cards = [card({ canCreate: true })];
     const user = userEvent.setup();
     const { router } = open();
     await user.click(await screen.findByRole('button', { name: 'নতুন প্রকল্প' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/projects/new'));
+  });
+
+  it('is offered only when the server says a program takes a new project from the caller', async () => {
+    refreshAs(PM);
+    serve();
+    // the role may create, but no program is open to this caller (inactive or out of scope)
+    cards = [card({ canCreate: false }), card({ id: 'b9', code: 'OLD', active: false })];
+    const first = open('/admin/projects');
+    expect(await screen.findByRole('region', { name: 'প্রোগ্রাম' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'নতুন প্রকল্প' })).not.toBeInTheDocument();
+    first.unmount();
+    resetClientForTests();
+    serve();
+    cards = [card({ canCreate: false }), card({ id: 'b9', code: 'UCD', canCreate: true })];
+    open('/admin/projects?view=list');
+    expect(await screen.findByRole('button', { name: 'নতুন প্রকল্প' })).toBeInTheDocument();
   });
 });
 
@@ -347,6 +364,40 @@ describe('the program cards', () => {
     expect(work.getByText('21')).toBeInTheDocument();
   });
 
+  it('marks an inactive program on its cover, and shows its description and its missing RPMs on the back', async () => {
+    refreshAs(RPM);
+    serve();
+    cards = [
+      card({
+        active: false,
+        rpms: { people: [], total: 0 },
+        description: { bn: 'আগের বছরের কাজ, এখন বন্ধ।', en: 'Earlier work, now stopped.' },
+      }),
+    ];
+    const user = userEvent.setup();
+    open('/admin/projects');
+    const program = within(await screen.findByRole('article', { name: 'মানবিক সহায়তা' }));
+    expect(program.getByText('নিষ্ক্রিয়')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'মানবিক সহায়তা: বিস্তারিত দেখুন' }));
+    const back = within(screen.getByRole('article', { name: 'মানবিক সহায়তা' }));
+    expect(back.getByText('আগের বছরের কাজ, এখন বন্ধ।')).toBeInTheDocument();
+    expect(back.getByText('এখনো কোনো RPM দেওয়া হয়নি')).toBeInTheDocument();
+    expect(back.queryByText(/জন RPM/)).not.toBeInTheDocument();
+  });
+
+  it('offers "নতুন প্রোগ্রাম" on the cards only, not in the list', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    open('/admin/projects');
+    expect(await screen.findByRole('button', { name: 'নতুন প্রোগ্রাম' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'তালিকা' }));
+    expect(
+      await screen.findByRole('group', { name: 'অবস্থা অনুযায়ী প্রকল্প' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'নতুন প্রোগ্রাম' })).not.toBeInTheDocument();
+  });
+
   it('offers a retry when the cards cannot be read, then says there is no program', async () => {
     refreshAs(RPM);
     serve();
@@ -389,6 +440,18 @@ describe('the program cards', () => {
 });
 
 describe('the view of the tab', () => {
+  it('keeps the list when the only filter of the address is cleared', async () => {
+    refreshAs(PM);
+    serve();
+    const user = userEvent.setup();
+    const { router } = open('/admin/projects?status=draft');
+    const states = within(await screen.findByRole('group', { name: 'অবস্থা অনুযায়ী প্রকল্প' }));
+    await user.click(await states.findByRole('button', { name: /^সব প্রকল্প/ }));
+    await waitFor(() => expect(router.state.location.search).toBe('?view=list'));
+    expect(screen.getByRole('group', { name: 'অবস্থা অনুযায়ী প্রকল্প' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'প্রোগ্রাম' })).not.toBeInTheDocument();
+  });
+
   it('opens the list with the draft chip chosen for `?status=draft`', async () => {
     refreshAs(PM);
     serve();

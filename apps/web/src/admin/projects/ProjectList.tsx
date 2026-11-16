@@ -38,7 +38,11 @@ const FIRST_YEAR = 2020;
 export function ProjectList() {
   const t = useTranslations('admin.projects');
   const locale = useLocale() as Locale;
-  const { filters, setFilters, change, cursor, setCursor } = useTabView(LIST_KEYS);
+  const { filters, setFilters, change: changeView, cursor, setCursor } = useTabView(LIST_KEYS);
+  // every change of a filter keeps the list: an address opened by a filter alone has no view yet,
+  // and clearing that filter must not turn the page into the cards
+  const change = (patch: Parameters<typeof changeView>[0]) =>
+    changeView({ ...patch, view: 'list' });
   // the view is not a filter of the list
   const listFilters = listFiltersOf(filters);
   const page = useQuery({

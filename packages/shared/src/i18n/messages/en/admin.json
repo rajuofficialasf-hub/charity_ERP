@@ -724,26 +724,6 @@
     "description": "Registration, verification, support and service history in one place."
   },
   "programs": {
-    "title": "Programs",
-    "table": "Programs",
-    "new": "New program",
-    "edit": "Edit {name}",
-    "empty": "No program yet.",
-    "no_pm": "No PM yet",
-    "column": {
-      "code": "Code",
-      "name": "Name",
-      "pm": "Program Manager",
-      "state": "State"
-    },
-    "state": {
-      "active": "Active",
-      "inactive": "Inactive"
-    },
-    "notice": {
-      "created": "Program {code} was created.",
-      "saved": "Program {code} was saved."
-    },
     "dialog": {
       "create_title": "New program",
       "edit_title": "Edit program {code}",
@@ -755,14 +735,6 @@
       "pm": "Program Manager",
       "pm_hint": "Pick from the list or search by name; the list holds Program Managers only.",
       "active": "Active (takes new projects)"
-    },
-    "eyebrow": "Program management",
-    "description": "Manage the Foundation's programs and the Program Manager of each.",
-    "stats": {
-      "label": "Program counts",
-      "active": "Active programs",
-      "inactive": "Inactive programs",
-      "no_pm": "Programs without a PM"
     }
   },
   "projects": {

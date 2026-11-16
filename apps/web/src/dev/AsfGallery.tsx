@@ -35,6 +35,7 @@ import {
   ProfileSection,
   ProgressBar,
   RadioGroup,
+  SegmentedControl,
   SelectField,
   Skeleton,
   StatCard,
@@ -662,6 +663,17 @@ export function AsfGallery() {
               { label: t('card.statApproved'), value: '860', icon: 'verified', tone: 'success' },
             ]}
           />
+          <div className="asf-gallery-row">
+            <SegmentedControl
+              label={t('segmented.label')}
+              value="cards"
+              options={[
+                { value: 'cards', label: t('segmented.cards') },
+                { value: 'list', label: t('segmented.list') },
+              ]}
+              onChange={() => {}}
+            />
+          </div>
           <div className="asf-gallery-row">
             <StatCard label={t('card.statDistributed')} value="20,00,000" icon="package" to="/" />
             <StatFilterBar

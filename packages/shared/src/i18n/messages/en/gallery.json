@@ -229,5 +229,10 @@
     "daysLeft": "45 days left to apply",
     "approved": "approved",
     "sessions": "Sessions"
+  },
+  "segmented": {
+    "label": "View",
+    "cards": "Cards",
+    "list": "List"
   }
 }

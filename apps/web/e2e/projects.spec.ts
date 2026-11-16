@@ -45,6 +45,9 @@ async function move(page: Page, button: string, badge: string) {
   await expect(state(page, badge)).toBeVisible();
 }
 
+/** The notice of a setup screen on a phone. */
+const PHONE_NOTICE = 'এই পর্দা বড় স্ক্রিনে ভালো চলে।';
+
 test.describe('programs and project setup', () => {
   test('a PM walks the setup wizard, activates, closes and reopens a project', async ({
     page,
@@ -241,12 +244,17 @@ test.describe('programs and project setup', () => {
     test.skip(info.project.name !== 'mobile', 'the phone layout');
     await signIn(page, 'pm.err@example.org');
     await openProjectsTab(page);
+    // officials use the tab on a phone as on a computer: no "larger screen" notice
+    await expect(page.getByRole('region', { name: 'প্রোগ্রাম' })).toBeVisible();
+    await expect(page.getByText(PHONE_NOTICE)).toHaveCount(0);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
     expect((await scan(page)).violations).toEqual([]);
     await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'নতুন প্রকল্প' })).toBeVisible();
+    // the setup is desktop first and says so
+    await expect(page.getByText(PHONE_NOTICE)).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
@@ -299,7 +307,8 @@ test.describe('programs and project setup', () => {
       await page.mouse.move(0, 0);
       await shot('tab-1280-dark.png');
     } else {
-      // a PM on a phone: the tab "প্রকল্প" opens the cards, which turn by their buttons
+      // a PM on a phone 360 px wide: the tab "প্রকল্প" opens the cards, which turn by their buttons
+      await page.setViewportSize({ width: 360, height: 780 });
       await signIn(page, PM);
       await openProjectsTab(page);
       const card = page.getByRole('article', { name: UCD_NAME });

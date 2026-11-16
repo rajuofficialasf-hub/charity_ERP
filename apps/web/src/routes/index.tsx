@@ -1,5 +1,6 @@
 import { type ComponentType, lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
+import type { AdminRouteHandle } from '../admin/AdminLayout';
 import { RouteError } from '../components/RouteError';
 import { LoginPage } from '../features/auth/LoginPage';
 import { withRest } from '../i18n/locale';
@@ -176,6 +177,8 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 },
                 {
                   path: 'projects',
+                  // officials use the tab on a phone as on a computer: no "larger screen" notice
+                  handle: { phoneReady: true } satisfies AdminRouteHandle,
                   lazy: page(
                     () => import('../admin/projects/ProgramsProjectsPage'),
                     'ProgramsProjectsPage',

@@ -1,12 +1,14 @@
 import type { Me } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
+import { useQuery } from '@tanstack/react-query';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
+import { CARDS_KEY, programCards } from './cards-api';
 import { ProjectOverviewPage } from './ProjectOverviewPage';
 
 // The project overview with its lifecycle buttons. Test data only.
@@ -118,6 +120,39 @@ describe('the project overview', () => {
         { action: 'start-closing', body: { reason: 'কাজ শেষ' }, ifMatch: '"p1"' },
       ]),
     );
+  });
+
+  it('refreshes the program cards after a move, so their counts are current', async () => {
+    refreshAs(PM);
+    serve('active');
+    let cardReads = 0;
+    server.use(
+      http.get('*/api/v1/program-cards', () => {
+        cardReads += 1;
+        return HttpResponse.json({ data: [], meta: {} });
+      }),
+    );
+    // a cards read kept by another screen of the session
+    function Cards() {
+      useQuery({ queryKey: [...CARDS_KEY, 'programs'], queryFn: programCards });
+      return null;
+    }
+    const user = userEvent.setup();
+    renderApp(
+      <>
+        <ProjectOverviewPage />
+        <Cards />
+      </>,
+      'bn',
+      { path: '/admin/projects/:projectId', initialPath: `/admin/projects/${ID}` },
+    );
+    await waitFor(() => expect(cardReads).toBe(1));
+    await user.click(await screen.findByRole('button', { name: 'বন্ধ শুরু করুন' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'কাজ শেষ');
+    await user.click(within(dialog).getByRole('button', { name: 'বন্ধ শুরু করুন' }));
+    await waitFor(() => expect(moves).toHaveLength(1));
+    await waitFor(() => expect(cardReads).toBe(2));
   });
 
   it('lists what is missing when the server refuses the activation', async () => {

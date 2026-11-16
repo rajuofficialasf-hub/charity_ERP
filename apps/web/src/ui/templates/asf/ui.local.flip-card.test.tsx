@@ -307,4 +307,42 @@ describe('the review of the card', () => {
     expect(rules).toMatch(/:focus-visible::after\{[^}]*outline:2px solid/);
     expect(rules).toMatch(/:focus-visible::after\{[^}]*outline-offset:-2px/);
   });
+
+  it('forgets a press let go outside the card, so the keyboard leaving still turns it back', async () => {
+    device('touch');
+    const user = userEvent.setup();
+    render(
+      <UiProvider labels={BN}>
+        <FlipCard title="শীতবস্ত্র" front={<p>সামনে</p>} back={<p>পিছনের লেখা</p>} />
+        <button type="button">পরের কার্ড</button>
+      </UiProvider>
+    );
+    await user.tab();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('article')).toHaveAttribute('data-turned', 'true');
+    // a mouse pressed on the back's text and let go outside the card
+    fireEvent.pointerDown(screen.getByText('পিছনের লেখা'), { pointerType: 'mouse' });
+    fireEvent.pointerUp(document.body, { pointerType: 'mouse' });
+    await settle();
+    expect(screen.getByRole('button', { name: 'সামনের দিকে ফিরুন' })).toHaveFocus();
+    await user.tab();
+    await settle();
+    expect(screen.getByRole('button', { name: 'পরের কার্ড' })).toHaveFocus();
+    expect(screen.getByRole('article')).toHaveAttribute('data-turned', 'false');
+  });
+
+  it('shows "বিস্তারিত" on a computer once a finger has touched the page, and the hint again after a mouse press', () => {
+    device('computer');
+    renderCard(sample());
+    expect(screen.getByText('কার্সর রাখলে বিস্তারিত')).toBeInTheDocument();
+    fireEvent.pointerDown(document.body, { pointerType: 'touch' });
+    expect(screen.queryByText('কার্সর রাখলে বিস্তারিত')).not.toBeInTheDocument();
+    const details = screen.getByRole('button', { name: 'স্বাবলম্বী প্রকল্প: বিস্তারিত দেখুন' });
+    expect(getComputedStyle(details).position).toBe('relative');
+    expect(getComputedStyle(details).clip).not.toBe('rect(0 0 0 0)');
+    fireEvent.click(details);
+    expect(screen.getByRole('article')).toHaveAttribute('data-turned', 'true');
+    fireEvent.pointerDown(document.body, { pointerType: 'mouse' });
+    expect(screen.getByText('কার্সর রাখলে বিস্তারিত')).toBeInTheDocument();
+  });
 });

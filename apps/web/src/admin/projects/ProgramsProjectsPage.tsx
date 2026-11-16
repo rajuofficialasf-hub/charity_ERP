@@ -1,5 +1,5 @@
-import { Alert, Button, EmptyState, LanguageSwitch, Page, Skeleton } from '@/ui';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, Button, EmptyState, Page, SegmentedControl, Skeleton } from '@/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslations } from 'use-intl';
@@ -8,7 +8,7 @@ import { LoadError } from '../../components/LoadError';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { ProgramDialog } from '../programs/ProgramDialog';
-import { type Program, PROGRAMS_KEY } from '../programs/programs-api';
+import type { Program } from '../programs/programs-api';
 import { canCreateProjects, canManagePrograms, canSeeProjectOverview } from '../roles';
 import { CARDS_KEY, type ProgramCard as Card, programCards } from './cards-api';
 import { ProgramCard } from './ProgramCard';
@@ -38,19 +38,28 @@ export function ProgramsProjectsPage() {
   const t = useTranslations('admin.projects');
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<{ program?: Program } | null>(null);
   const [notice, setNotice] = useState<string>();
+  const overview = Boolean(me && canSeeProjectOverview(me));
+  // both views read the cards: the list names the programs from them, and the header offers a new
+  // project by their answer
+  const cards = useQuery({
+    queryKey: [...CARDS_KEY, 'programs'],
+    queryFn: programCards,
+    enabled: overview,
+  });
   if (!me) return null;
-  if (!canSeeProjectOverview(me)) return <ForbiddenContent />;
+  if (!overview) return <ForbiddenContent />;
   const list = opensList(params);
   const manage = canManagePrograms(me);
+  // the role opens the wizard; the server's answer says whether any program takes a new project
+  // from this caller (an inactive one, or one outside the caller's scope, does not)
+  const mayCreate = canCreateProjects(me) && (cards.data ?? []).some((card) => card.canCreate);
 
+  // the dialog has refreshed the program reads after its write, also after one that failed halfway
   const done = (program: Program, key: 'created' | 'saved') => {
     setDialog(null);
     setNotice(t(`cards.notice.${key}`, { code: program.code }));
-    void queryClient.invalidateQueries({ queryKey: CARDS_KEY });
-    void queryClient.invalidateQueries({ queryKey: PROGRAMS_KEY });
   };
 
   return (
@@ -62,7 +71,7 @@ export function ProgramsProjectsPage() {
         description={t('tab.description')}
         actions={
           <>
-            <LanguageSwitch
+            <SegmentedControl
               label={t('tab.view')}
               value={list ? 'list' : 'cards'}
               options={[
@@ -76,7 +85,7 @@ export function ProgramsProjectsPage() {
                 {t('cards.new_program')}
               </Button>
             )}
-            {canCreateProjects(me) && (
+            {mayCreate && (
               <Button
                 variant={manage && !list ? 'secondary' : 'primary'}
                 startIcon="add"
