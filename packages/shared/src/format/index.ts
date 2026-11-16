@@ -125,6 +125,14 @@ export function formatDate(input: Date | string): string {
   return `${pad(d)}-${pad(m)}-${y}`;
 }
 
+/**
+ * A calendar month as mm-yyyy, the month part of `formatDate`: a session's start or end month.
+ * Takes a month (yyyy-mm) or a date that starts with one.
+ */
+export function formatMonth(yyyymm: string): string {
+  return `${yyyymm.slice(5, 7)}-${yyyymm.slice(0, 4)}`;
+}
+
 /** Headings of letters and PDF reports: 10 অক্টোবর 2026 / 10 October 2026. */
 export function formatDateLong(input: Date | string, locale: Locale = 'bn'): string {
   const { d, date } = parts(input);

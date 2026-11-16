@@ -50,7 +50,7 @@ export function ProgramPage() {
   if (!program)
     return (
       <>
-        <PageCrumbs items={[tab]} />
+        <PageCrumbs items={[tab, { id: 'missing', label: t('program_page.unknown') }]} />
         <p>{t('program_page.not_found')}</p>
       </>
     );

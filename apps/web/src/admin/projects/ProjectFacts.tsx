@@ -1,5 +1,5 @@
 import { DescriptionList } from '@/ui';
-import { formatCount, formatDate, formatTaka } from '@css/shared/format';
+import { formatCount, formatDate, formatMonth, formatTaka } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -25,14 +25,16 @@ export function ProjectFacts({ project: p }: { project: Project }) {
     enabled: Boolean(me && canSeeProjectOverview(me)),
   });
   const program = cards.data?.find((g) => g.id === p.programId);
-  const month = (yyyymm: string) => `${yyyymm.slice(5, 7)}-${yyyymm.slice(0, 4)}`;
   const none = t('detail.none');
   const day = (iso: string | null | undefined) => (iso ? formatDate(iso) : none);
   // the optional facts are left out when they are not there
   const facts: { label: string; value: ReactNode; shown?: boolean }[] = [
     { label: t('column.code'), value: p.code },
     { label: t('column.session'), value: p.sessionLabel },
-    { label: t('dialog.period'), value: `${month(p.periodFrom)} – ${month(p.periodTo)}` },
+    {
+      label: t('dialog.period'),
+      value: t('period_value', { from: formatMonth(p.periodFrom), to: formatMonth(p.periodTo) }),
+    },
     {
       label: t('column.program'),
       value: program ? localized(program.name, locale) : '',

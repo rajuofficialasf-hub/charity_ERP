@@ -1,4 +1,4 @@
-import { formatCount } from '@css/shared/format';
+import { formatCount, formatMonth } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
@@ -8,6 +8,7 @@ import {
   type DataTableExtendedColumn,
   DescriptionList,
   Icon,
+  LinkButton,
   Page,
   Skeleton,
 } from '@/ui';
@@ -23,16 +24,12 @@ import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canCreateProjects, canSeeProjectOverview } from '../roles';
 import { CARDS_KEY, type ProjectSeries, seriesDetail } from './cards-api';
-import { NewSessionDialog } from './NewSessionDialog';
+import { NewSessionDialog, sessionSources } from './NewSessionDialog';
 import { ProjectStatusBadge } from './ProjectStatusBadge';
 import { SeriesDialog } from './SeriesDialog';
 import './cards.css';
 
 type Session = ProjectSeries['sessions'][number];
-
-/** A period of two months as "06-2026 – 07-2027". */
-const periodText = (from: string, to: string) =>
-  `${from.slice(5, 7)}-${from.slice(0, 4)} – ${to.slice(5, 7)}-${to.slice(0, 4)}`;
 
 /**
  * A project's page, one project series, inside the programs and projects tab
@@ -63,7 +60,7 @@ export function ProjectSeriesPage() {
   if (series.error)
     return (
       <>
-        <PageCrumbs items={[tab]} />
+        <PageCrumbs items={[tab, { id: 'missing', label: t('series_page.unknown') }]} />
         {series.error instanceof ApiFailure && series.error.status === 404 ? (
           <p>{ts('not_found')}</p>
         ) : (
@@ -76,6 +73,10 @@ export function ProjectSeriesPage() {
   const name = localized(s.name, locale);
   const number = (n: number) => formatCount(n, locale);
   const manage = canCreateProjects(me) && s.canCreate;
+  const periodText = (from: string, to: string) =>
+    t('period_value', { from: formatMonth(from), to: formatMonth(to) });
+  // a session's start may be made again on the wizard when no session is left to copy from
+  const sources = sessionSources(s);
   const sessionName = (row: Session) => t('list.session', { label: row.sessionLabel });
   const open = (row: Session) =>
     row.canOpen ? (
@@ -149,9 +150,15 @@ export function ProjectSeriesPage() {
               <Button variant="secondary" onClick={() => setEditing(true)}>
                 {ts('edit')}
               </Button>
-              <Button startIcon="add" onClick={() => setStarting(true)}>
-                {t('series_card.new_session')}
-              </Button>
+              {sources.length ? (
+                <Button startIcon="add" onClick={() => setStarting(true)}>
+                  {t('series_card.new_session')}
+                </Button>
+              ) : (
+                <LinkButton startIcon="add" to={`/admin/projects/new?seriesId=${s.id}`}>
+                  {t('series_card.new_session')}
+                </LinkButton>
+              )}
             </>
           )
         }

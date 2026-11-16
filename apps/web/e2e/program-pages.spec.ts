@@ -80,11 +80,13 @@ test.describe('a program’s page and a project’s page', () => {
     const seriesId = new URL(page.url()).searchParams.get('seriesId');
     expect(seriesId).toBeTruthy();
     const basics = section(page, 'মৌলিক তথ্য');
+    // the first session's months, a far year of the test's own
+    await chooseMonth(page, basics, 'শুরুর মাস', '012090');
+    await chooseMonth(page, basics, 'শেষের মাস', '122090');
     await chooseIn(page, basics, 'ওয়ার্কফ্লো', 'বিতরণ');
     await next(page).click();
-    const year = new Date().getFullYear();
     await expect(
-      page.getByRole('heading', { level: 1, name: `সেটআপ: ${name} · সেশন ${year}` }),
+      page.getByRole('heading', { level: 1, name: `সেটআপ: ${name} · সেশন 2090` }),
     ).toBeVisible();
     await expect(state(page, 'খসড়া')).toBeVisible();
 
@@ -137,11 +139,11 @@ test.describe('a program’s page and a project’s page', () => {
       });
       expect(made.ok(), await made.text()).toBe(true);
       seriesId = ((await made.json()) as { data: { id: string } }).data.id;
-      const year = new Date().getFullYear();
+      // a far year of the test's own, the same on every run date
       const session = await pm.post('/projects', {
         seriesId,
-        periodFrom: `${year}-01`,
-        periodTo: `${year}-12`,
+        periodFrom: '2090-01',
+        periodTo: '2090-12',
         source: { kind: 'workflow', workflowKey: 'distribution' },
       });
       expect(session.ok(), await session.text()).toBe(true);
@@ -171,7 +173,7 @@ test.describe('a program’s page and a project’s page', () => {
     await expect(page.getByRole('heading', { level: 1, name: HUM_NAME })).toBeVisible();
     await expect(page.getByText(PHONE_NOTICE)).toHaveCount(0);
     const card = page.getByRole('region', { name: 'প্রকল্প' }).getByRole('article').first();
-    const title = (await card.locator('[data-flip-title]').innerText()).trim();
+    const title = (await card.getByRole('heading').first().innerText()).trim();
     await card.getByRole('button', { name: /বিস্তারিত দেখুন$/ }).click();
     await expect(card).toHaveAttribute('data-turned', 'true');
     await expect(card.getByRole('link', { name: 'প্রকল্প খুলুন' })).toBeVisible();

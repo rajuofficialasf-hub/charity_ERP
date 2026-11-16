@@ -1232,7 +1232,8 @@
       "not_found": "This program was not found.",
       "new_project": "New project",
       "label": "Projects",
-      "empty": "This program has no project yet."
+      "empty": "This program has no project yet.",
+      "unknown": "Unknown program"
     },
     "series_page": {
       "not_found": "This project was not found.",
@@ -1255,7 +1256,8 @@
       "open_of": "Open session {label}",
       "no_access": "No permission",
       "counts": "Applications {applications} · approved {approved}",
-      "saved": "Project {code} was saved."
+      "saved": "Project {code} was saved.",
+      "unknown": "Unknown project"
     },
     "series_card": {
       "badge": "Project",
@@ -1294,7 +1296,6 @@
       "title": "Start a new session",
       "source": "Copied from",
       "source_option": "Session {label}",
-      "no_source": "No session of this project is within your reach, so there is nothing to copy.",
       "copied": "Copied",
       "copied_items": {
         "components": "Components and their settings",
@@ -1319,7 +1320,8 @@
       "current": "Current cover",
       "failed": "The details were saved, but the cover photo could not be set: {reason}",
       "max_size": "5 MB"
-    }
+    },
+    "period_value": "{from} to {to}"
   },
   "templates": {
     "title": "Project templates",

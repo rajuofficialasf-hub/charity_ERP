@@ -14,7 +14,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { useNavigate } from 'react-router';
+import { Navigate, useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { LoadError } from '../../components/LoadError';
@@ -26,6 +26,17 @@ type SessionFields = { periodFrom: string; periodTo: string; sourceProjectId: st
 
 const COPIED = ['components', 'form', 'rules', 'syllabus', 'scoring'] as const;
 const AGAIN = ['dates', 'budget', 'areas', 'volunteers', 'quotas'] as const;
+
+/**
+ * The sessions of a series newest first by their start month (the read lists them so; this keeps
+ * the dialog's defaults right whatever the order), and the ones a copy may start from: those the
+ * caller's scope reaches, never a cancelled one. With none, a new session starts on the wizard.
+ */
+export function sessionSources(series: ProjectSeries) {
+  return newestFirst(series).filter((s) => s.canOpen && s.status !== 'cancelled');
+}
+const newestFirst = (series: ProjectSeries) =>
+  [...series.sessions].sort((a, b) => b.periodFrom.localeCompare(a.periodFrom));
 
 /** The same months a year later: a new session follows the newest one by a year. */
 const yearLater = (month: string) => `${Number(month.slice(0, 4)) + 1}${month.slice(4)}`;
@@ -42,6 +53,9 @@ export function NewSessionDialog({ seriesId, onClose }: { seriesId: string; onCl
     queryKey: [...CARDS_KEY, 'series-detail', seriesId],
     queryFn: () => seriesDetail(seriesId),
   });
+  // nothing to copy from: the wizard starts the session blank, from a workflow or a template
+  if (series.data && !sessionSources(series.data).length)
+    return <Navigate to={`/admin/projects/new?seriesId=${series.data.id}`} />;
   if (series.data) return <SessionForm series={series.data} onClose={onClose} />;
   return (
     <Dialog title={t('title')} open onClose={onClose}>
@@ -65,13 +79,17 @@ function SessionForm({ series, onClose }: { series: ProjectSeries; onClose: () =
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // the sessions a copy may start from: those the caller's scope reaches, newest first
-  const sources = series.sessions.filter((s) => s.canOpen && s.status !== 'cancelled');
-  const newest = series.sessions.find((s) => s.status !== 'cancelled');
+  const sources = sessionSources(series);
+  const newest = newestFirst(series).find((s) => s.status !== 'cancelled');
   const thisYear = new Date().getFullYear();
   const schema = useMemo(
     () =>
       z
-        .object({ periodFrom: z.string(), periodTo: z.string(), sourceProjectId: z.string() })
+        .object({
+          periodFrom: z.string(),
+          periodTo: z.string(),
+          sourceProjectId: z.string().min(1),
+        })
         .refine(
           (v) =>
             sessionPeriod.safeParse({ periodFrom: v.periodFrom, periodTo: v.periodTo }).success,
@@ -84,7 +102,7 @@ function SessionForm({ series, onClose }: { series: ProjectSeries; onClose: () =
     defaultValues: {
       periodFrom: newest ? yearLater(newest.periodFrom) : `${thisYear}-01`,
       periodTo: newest ? yearLater(newest.periodTo) : `${thisYear}-12`,
-      sourceProjectId: sources[0]?.id ?? '',
+      sourceProjectId: sources[0]!.id,
     },
     reValidateMode: 'onSubmit',
   });
@@ -96,8 +114,12 @@ function SessionForm({ series, onClose }: { series: ProjectSeries; onClose: () =
   }).success;
   // one key per request: the same request sent again is the same session, a changed one is new
   const sent = useRef<{ body: string; key: string } | null>(null);
+  // Enter in a field and the button both submit: one request at a time
+  const running = useRef(false);
 
   const create = async (v: SessionFields) => {
+    if (running.current) return;
+    running.current = true;
     const body = {
       periodFrom: v.periodFrom,
       periodTo: v.periodTo,
@@ -111,6 +133,8 @@ function SessionForm({ series, onClose }: { series: ProjectSeries; onClose: () =
       await navigate(`/admin/projects/${made.id}/setup`);
     } catch (failure) {
       showFailure(form, failure, te('text'));
+    } finally {
+      running.current = false;
     }
   };
 
@@ -125,11 +149,7 @@ function SessionForm({ series, onClose }: { series: ProjectSeries; onClose: () =
           <Button variant="secondary" onClick={onClose} disabled={pending}>
             {tc('cancel')}
           </Button>
-          <Button
-            onClick={() => void form.handleSubmit(create)()}
-            disabled={!sources.length}
-            loading={pending}
-          >
+          <Button onClick={() => void form.handleSubmit(create)()} loading={pending}>
             {t('create')}
           </Button>
         </>
@@ -170,20 +190,16 @@ function SessionForm({ series, onClose }: { series: ProjectSeries; onClose: () =
             },
           ]}
         />
-        {sources.length ? (
-          <FormSelectField
-            name="sourceProjectId"
-            label={t('source')}
-            required
-            searchable={false}
-            options={sources.map((s) => ({
-              value: s.id,
-              label: t('source_option', { label: s.sessionLabel }),
-            }))}
-          />
-        ) : (
-          <Text tone="muted">{t('no_source')}</Text>
-        )}
+        <FormSelectField
+          name="sourceProjectId"
+          label={t('source')}
+          required
+          searchable={false}
+          options={sources.map((s) => ({
+            value: s.id,
+            label: t('source_option', { label: s.sessionLabel }),
+          }))}
+        />
         <div className="session-dialog-lists">
           <section aria-label={t('copied')}>
             <h3>{t('copied')}</h3>

@@ -2,7 +2,7 @@ import { type Locale, localized } from '@css/shared/i18n';
 import { projectCode, SHORT_DESCRIPTION_MAX } from '@css/shared/projects';
 import { Button, DescriptionList, Dialog, Form, FormTextField, Text } from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
@@ -23,6 +23,13 @@ type SeriesFields = {
   name: { bn: string; en: string };
   description: { bn: string; en: string };
 };
+
+/** The fields as a stored series fills them. */
+const fieldsOf = (record: ProjectSeries): SeriesFields => ({
+  code: record.code,
+  name: { bn: record.name.bn, en: record.name.en },
+  description: { bn: record.description?.bn ?? '', en: record.description?.en ?? '' },
+});
 
 /** What the dialog saved, and why its cover could not be set, if it could not. */
 export type SeriesSaved = { series: ProjectSeries; coverProblem?: string };
@@ -56,14 +63,18 @@ export function SeriesDialog({
   const queryClient = useQueryClient();
   const creating = !seriesId;
   const [cover, setCover] = useState<File | null>(null);
-  // the version this edit started from: a change by someone else meanwhile answers 412
+  // the version this edit starts from, read afresh at every opening (never a cached one, so an
+  // edit refused as stale is opened again on what is stored now); a change by someone else
+  // meanwhile answers 412
   const current = useQuery({
     queryKey: [...CARDS_KEY, 'series-record', seriesId],
     queryFn: () => seriesWithEtag(seriesId!),
     enabled: !creating,
-    staleTime: Infinity,
+    refetchOnMount: 'always',
+    gcTime: 0,
   });
-  const record = current.data?.data;
+  const fresh = current.isFetchedAfterMount ? current.data : undefined;
+  const record = fresh?.data;
   const codeInvalid = td('code_invalid');
   const schema = useMemo(
     () =>
@@ -84,21 +95,22 @@ export function SeriesDialog({
   );
   const form = useForm<SeriesFields>({
     resolver: useSchemaResolver(schema),
-    values: record
-      ? {
-          code: record.code,
-          name: { bn: record.name.bn, en: record.name.en },
-          description: {
-            bn: record.description?.bn ?? '',
-            en: record.description?.en ?? '',
-          },
-        }
-      : undefined,
     defaultValues: { code: '', name: { bn: '', en: '' }, description: { bn: '', en: '' } },
     reValidateMode: 'onSubmit',
   });
+  // the record fills the fields once, when the dialog opens: a read in the background never
+  // replaces what is being typed
+  const filled = useRef(false);
+  useEffect(() => {
+    if (record && !filled.current) {
+      filled.current = true;
+      form.reset(fieldsOf(record));
+    }
+  }, [record, form]);
   const values = useWatch({ control: form.control });
   const pending = form.formState.isSubmitting;
+  // Enter in a field and the button both submit: one save at a time
+  const running = useRef(false);
 
   const store = async (v: SeriesFields): Promise<ProjectSeries> => {
     const name = { bn: v.name.bn.trim(), en: v.name.en.trim() };
@@ -116,12 +128,21 @@ export function SeriesDialog({
     const before = { bn: was.description?.bn ?? '', en: was.description?.en ?? '' };
     const redescribed = text.bn !== before.bn || text.en !== before.en;
     if (!renamed && !redescribed) return was;
-    return updateSeries(was.id, current.data!.meta.etag, {
+    return updateSeries(was.id, fresh!.meta.etag, {
       ...(renamed ? { name } : {}),
       ...(redescribed ? { description: described ? text : null } : {}),
     });
   };
   const save = async (v: SeriesFields) => {
+    if (running.current) return;
+    running.current = true;
+    try {
+      await saveOnce(v);
+    } finally {
+      running.current = false;
+    }
+  };
+  const saveOnce = async (v: SeriesFields) => {
     let saved: ProjectSeries;
     try {
       saved = await store(v);

@@ -133,7 +133,7 @@ describe('the project overview', () => {
     );
     // the facts name the program and the period
     expect(screen.getAllByText('স্বাবলম্বী প্রোগ্রাম').length).toBeGreaterThan(1);
-    expect(screen.getByText('06-2026 – 07-2027')).toBeInTheDocument();
+    expect(screen.getByText('06-2026 থেকে 07-2027')).toBeInTheDocument();
   });
 
   it.each([
