@@ -25,11 +25,15 @@ function random(seed: string): () => number {
 
 const WIDTH = 320;
 const HEIGHT = 150;
-/** From the back hill to the front one: lighter to darker, as the approved design draws them. */
+/**
+ * From the back hill to the front one: lighter to darker, as the approved design draws them, in
+ * both modes. The fills take the art tokens, which keep their asf shade in dark mode (the text
+ * token `--color-brand-primary-dark` turns light there).
+ */
 const HILLS = [
-  'var(--color-brand-primary)',
-  'var(--color-brand-primary-dark)',
-  'var(--color-brand-primary-darker)',
+  'var(--color-art-primary-main)',
+  'var(--color-art-primary-dark)',
+  'var(--color-art-primary-darker)',
 ];
 
 /** The outline of one hill: a gentle wave across the width, closed along the bottom edge. */
@@ -59,12 +63,12 @@ export function CoverArt({ seed }: { seed: string }) {
       focusable="false"
       data-cover-seed={seed}
     >
-      <rect width={WIDTH} height={HEIGHT} fill="var(--color-brand-primary-lighter)" />
+      <rect width={WIDTH} height={HEIGHT} fill="var(--color-art-primary-lighter)" />
       <circle
         cx={sun.x.toFixed(1)}
         cy={sun.y.toFixed(1)}
         r={sun.r.toFixed(1)}
-        fill="var(--color-text-on-brand)"
+        fill="var(--color-art-sun)"
         opacity="0.7"
       />
       {hills.map((h) => (

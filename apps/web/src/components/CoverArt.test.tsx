@@ -20,6 +20,14 @@ describe('the drawn cover', () => {
     expect(svg).toHaveAttribute('aria-hidden', 'true');
     const fills = [...svg.querySelectorAll('[fill]')].map((node) => node.getAttribute('fill'));
     expect(fills.length).toBeGreaterThanOrEqual(5);
-    for (const fill of fills) expect(fill).toMatch(/^var\(--color-(brand-primary|text-on-brand)/);
+    for (const fill of fills) expect(fill).toMatch(/^var\(--color-art-/);
+    // lighter to darker from the sky to the front hill, by the tokens of one scale
+    expect(fills).toEqual([
+      'var(--color-art-primary-lighter)',
+      'var(--color-art-sun)',
+      'var(--color-art-primary-main)',
+      'var(--color-art-primary-dark)',
+      'var(--color-art-primary-darker)',
+    ]);
   });
 });

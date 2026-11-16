@@ -7,9 +7,9 @@ import '@testing-library/jest-dom/vitest';
 import type { ReactNode } from 'react';
 
 import userEvent from '@testing-library/user-event';
-import { createMemoryRouter, RouterProvider } from 'react-router';
+import { Link, createMemoryRouter, RouterProvider } from 'react-router';
 import { it, expect, describe, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { act, render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 import { FlipCard, UiProvider } from './index';
 import { resetPage, stubMatchMedia, expectNoAxeViolations } from './local-test-support';
@@ -19,15 +19,21 @@ afterEach(() => {
   resetPage();
 });
 
-/** The device: a computer's pointer, a touch screen, and whether less motion is asked for. */
-function device(kind: 'computer' | 'touch', reducedMotion = false) {
+/**
+ * The device: a computer's pointer, a touch screen, a device whose pointer can hover but is coarse
+ * (neither of the two), and whether less motion is asked for.
+ */
+function device(kind: 'computer' | 'touch' | 'coarse', reducedMotion = false) {
   stubMatchMedia((query) => {
     if (query.includes('prefers-reduced-motion')) return reducedMotion;
     if (query.includes('hover: none')) return kind === 'touch';
-    if (query.includes('hover: hover')) return kind === 'computer';
+    if (query.includes('hover: hover')) return kind === 'computer' && query.includes('pointer: fine');
     return false;
   });
 }
+
+/** Lets the card's own timers run: it decides on a lost focus once the focus has landed. */
+const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 
 const BN = {
   flipDetails: 'বিস্তারিত',
@@ -63,7 +69,7 @@ const sample = (title = 'স্বাবলম্বী প্রকল্প') 
     back={
       <>
         <p>প্রোগ্রাম ম্যানেজার</p>
-        <a href="/programs/1">সব প্রকল্প দেখুন</a>
+        <Link to="/programs/1">সব প্রকল্প দেখুন</Link>
       </>
     }
   />
@@ -193,5 +199,112 @@ describe('the flip card in both modes', () => {
     await expectNoAxeViolations(container);
     await user.click(screen.getByRole('button', { name: 'স্বাবলম্বী প্রকল্প: বিস্তারিত দেখুন' }));
     await expectNoAxeViolations(container);
+  });
+});
+
+describe('the review of the card', () => {
+  it('keeps the back after a tap on its text, and its link still opens', async () => {
+    device('touch');
+    const user = userEvent.setup();
+    const { container } = renderCard(sample());
+    await user.click(screen.getByRole('button', { name: 'স্বাবলম্বী প্রকল্প: বিস্তারিত দেখুন' }));
+    const back = screen.getByRole('button', { name: 'সামনের দিকে ফিরুন' });
+    expect(back).toHaveFocus();
+    // a finger on the back's text: the focus goes to the page, the card stays turned
+    const text = screen.getByText('প্রোগ্রাম ম্যানেজার');
+    fireEvent.pointerDown(text, { pointerType: 'touch' });
+    act(() => back.blur());
+    await settle();
+    fireEvent.pointerUp(text, { pointerType: 'touch' });
+    await settle();
+    expect(screen.getByRole('article')).toHaveAttribute('data-turned', 'true');
+    expect(faceOf(container, 'back')).not.toHaveAttribute('inert');
+    // a tap on the back's link, which Safari does not focus, lands on the link and opens it
+    const link = screen.getByRole('link', { name: 'সব প্রকল্প দেখুন' });
+    fireEvent.pointerDown(link, { pointerType: 'touch' });
+    await settle();
+    await user.click(link);
+    expect(await screen.findByRole('heading', { name: 'Program page' })).toBeInTheDocument();
+  });
+
+  it('turns back when the keyboard leaves the card, on a touch screen too', async () => {
+    device('touch');
+    const user = userEvent.setup();
+    render(
+      <UiProvider labels={BN}>
+        <FlipCard title="শীতবস্ত্র" front={<p>সামনে</p>} back={<p>পিছনে</p>} />
+        <button type="button">পরের কার্ড</button>
+      </UiProvider>
+    );
+    await user.tab();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('article')).toHaveAttribute('data-turned', 'true');
+    await user.tab();
+    await settle();
+    expect(screen.getByRole('button', { name: 'পরের কার্ড' })).toHaveFocus();
+    expect(screen.getByRole('article')).toHaveAttribute('data-turned', 'false');
+  });
+
+  it('shows the button and no hint on a device whose pointer can hover but is coarse', () => {
+    device('coarse');
+    renderCard(sample());
+    expect(screen.queryByText('কার্সর রাখলে বিস্তারিত')).not.toBeInTheDocument();
+    const details = screen.getByRole('button', { name: 'স্বাবলম্বী প্রকল্প: বিস্তারিত দেখুন' });
+    // not the computer's hidden-until-focused button: shown as it is
+    expect(getComputedStyle(details).position).toBe('relative');
+    expect(getComputedStyle(details).clip).not.toBe('rect(0 0 0 0)');
+    fireEvent.pointerEnter(screen.getByRole('article'), { pointerType: 'mouse' });
+    expect(screen.getByRole('article')).toHaveAttribute('data-turned', 'false');
+  });
+
+  it('lets a finger on a computer\u2019s touch screen tap, while a mouse turns the card', () => {
+    device('computer');
+    renderCard(sample());
+    const card = screen.getByRole('article');
+    fireEvent.pointerEnter(card, { pointerType: 'touch' });
+    expect(card).toHaveAttribute('data-turned', 'false');
+    fireEvent.pointerEnter(card, { pointerType: 'mouse' });
+    expect(card).toHaveAttribute('data-turned', 'true');
+    // a finger leaving does not turn it back; the mouse leaving does
+    fireEvent.pointerLeave(card, { pointerType: 'touch' });
+    expect(card).toHaveAttribute('data-turned', 'true');
+    fireEvent.pointerLeave(card, { pointerType: 'mouse' });
+    expect(card).toHaveAttribute('data-turned', 'false');
+  });
+
+  it('scrolls a back taller than the card inside it, with its last link in reach of the keyboard', async () => {
+    device('touch');
+    const user = userEvent.setup();
+    const { container } = render(
+      <UiProvider labels={BN}>
+        <FlipCard
+          title="শীতবস্ত্র"
+          height={240}
+          front={<p>সামনে</p>}
+          back={Array.from({ length: 30 }, (_, i) => (
+            <a key={i} href={`#line-${i + 1}`}>
+              {`লাইন ${i + 1}`}
+            </a>
+          ))}
+        />
+      </UiProvider>
+    );
+    for (const side of ['front', 'back'] as const) {
+      const box = container.querySelector<HTMLElement>(`[data-face-content="${side}"]`)!;
+      expect(getComputedStyle(box).overflowY).toBe('auto');
+      expect(getComputedStyle(box).minHeight).toBe('0px');
+    }
+    await user.click(screen.getByRole('button', { name: 'শীতবস্ত্র: বিস্তারিত দেখুন' }));
+    for (let i = 0; i < 30; i += 1) await user.tab();
+    expect(screen.getByRole('link', { name: 'লাইন 30' })).toHaveFocus();
+    expect(screen.getByRole('article')).toHaveAttribute('data-turned', 'true');
+  });
+
+  it('draws the title link\u2019s focus ring on its overlay, inside the card', () => {
+    device('computer');
+    renderCard(sample());
+    const rules = [...document.querySelectorAll('style')].map((style) => style.textContent ?? '').join('\n');
+    expect(rules).toMatch(/:focus-visible::after\{[^}]*outline:2px solid/);
+    expect(rules).toMatch(/:focus-visible::after\{[^}]*outline-offset:-2px/);
   });
 });

@@ -110,6 +110,13 @@ for (const lang of ['bn', 'en'] as const) {
             .getByTestId(`piece-${id}`)
             .screenshot({ path: info.outputPath(`asf-${id}.png`) });
       }
+      // the drawn covers in dark mode
+      if (info.project.name === 'desktop' && lang === 'bn' && mode === 'dark') {
+        await page.mouse.move(0, 0);
+        await page
+          .getByTestId('piece-cards')
+          .screenshot({ path: info.outputPath('asf-cards-dark.png') });
+      }
     });
   }
 }

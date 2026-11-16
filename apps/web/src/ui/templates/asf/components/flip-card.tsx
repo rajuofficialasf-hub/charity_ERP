@@ -4,25 +4,39 @@ import { Link as RouterLink } from 'react-router';
 import { useId, useRef, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
 import Link from '@mui/material/Link';
 import ButtonBase from '@mui/material/ButtonBase';
-import type { Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { Icon } from './icon';
-import { shadows } from '../theme/shadows';
 import { fill, useLabels } from './labels';
 import { srOnly, appPath } from './shared';
 
 // ----------------------------------------------------------------------
 
-/** A computer's pointer, which may rest on the card; a finger cannot. */
+/**
+ * A computer's pointer, which may rest on the card. Every other device (a finger, a stylus, a
+ * pointer that cannot rest) turns the card by its buttons.
+ */
 const HOVER = '(hover: hover) and (pointer: fine)';
-const TOUCH = '(hover: none)';
 const REDUCED = '(prefers-reduced-motion: reduce)';
 
 /** The turn of the approved design: slow enough to be seen as a card turning over. */
 const TURN = 'transform 0.7s ease-in-out';
+
+/**
+ * A face's content box: what does not fit scrolls inside the card, so a long back keeps its last
+ * link in reach, and the page does not scroll on with it.
+ */
+const content = {
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
+  minHeight: 0,
+  overflowY: 'auto',
+  overscrollBehavior: 'contain',
+} as const;
 
 /** A chip over the picture stands on the paper, so its soft tone reads on any part of the picture. */
 const onPicture = {
@@ -74,10 +88,12 @@ export function FlipCard({
   const labels = useLabels();
   const titleId = useId();
   const hover = useMediaQuery(HOVER, { noSsr: true });
-  const touch = useMediaQuery(TOUCH, { noSsr: true });
+  const touch = !hover;
   const reduced = useMediaQuery(REDUCED, { noSsr: true });
   const [turned, setTurned] = useState(false);
   const pointerOn = useRef(false);
+  // a press inside the card (a finger or a mouse) moves the focus off a button without leaving it
+  const pressed = useRef(false);
   const root = useRef<HTMLElement>(null);
   const detailsButton = useRef<HTMLButtonElement>(null);
   const backButton = useRef<HTMLButtonElement>(null);
@@ -104,20 +120,17 @@ export function FlipCard({
     }
   };
 
-  // a face is the asf card: radius 16, the card's hairline and soft drop
-  const face = (theme: Theme) => ({
+  // a face is the asf card itself (its radius, hairline and soft drop in both modes), laid on the
+  // other face
+  const face = {
     position: 'absolute',
     inset: 0,
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
-    borderRadius: 2,
-    bgcolor: 'background.paper',
-    boxShadow: shadows.card(theme.palette.grey[500]),
     backfaceVisibility: 'hidden',
     WebkitBackfaceVisibility: 'hidden',
-    ...theme.applyStyles('dark', { boxShadow: shadows.card('#000000') }),
-  }) as const;
+  } as const;
 
   return (
     <Box
@@ -125,20 +138,36 @@ export function FlipCard({
       ref={root}
       aria-labelledby={titleId}
       data-turned={turned ? 'true' : 'false'}
-      onMouseEnter={() => {
+      // a finger on a computer's touch screen taps; only a pointer that can rest turns the card
+      onPointerEnter={(event) => {
+        if (event.pointerType === 'touch') return;
         pointerOn.current = true;
         if (hover) setTurned(true);
       }}
-      onMouseLeave={() => {
+      onPointerLeave={(event) => {
+        if (event.pointerType === 'touch') return;
         pointerOn.current = false;
         // the keyboard keeps the card turned while it works on the back
         if (hover && !keyboardInside()) setTurned(false);
       }}
-      onBlur={() => {
-        // a face that becomes inert drops its focus before the other face takes it: decide once
-        // the focus has landed
+      onPointerDown={() => {
+        pressed.current = true;
+      }}
+      onPointerUp={() => {
         window.setTimeout(() => {
-          if (root.current?.contains(document.activeElement)) return;
+          pressed.current = false;
+        }, 0);
+      }}
+      onPointerCancel={() => {
+        pressed.current = false;
+      }}
+      onBlur={() => {
+        // the focus leaving the card turns it back for the keyboard; a press inside it (a tap on
+        // the back's text, or a link Safari does not focus) never does. A face that becomes inert
+        // drops its focus before the other face takes it, so decide once the focus has landed.
+        if (pressed.current) return;
+        window.setTimeout(() => {
+          if (pressed.current || root.current?.contains(document.activeElement)) return;
           if (!pointerOn.current) setTurned(false);
         }, 0);
       }}
@@ -152,10 +181,9 @@ export function FlipCard({
           transformStyle: 'preserve-3d',
           transition: reduced ? 'none' : TURN,
           transform: turned ? 'rotateY(180deg)' : 'none',
-          '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
         }}
       >
-        <Box sx={(theme) => face(theme)} inert={turned} aria-hidden={turned ? true : undefined} data-face="front">
+        <Card sx={face} inert={turned} aria-hidden={turned ? true : undefined} data-face="front">
           <Box sx={{ position: 'relative', height: 150, flexShrink: 0, overflow: 'hidden', bgcolor: 'action.hover' }}>
             {media}
             {badge && (
@@ -206,8 +234,18 @@ export function FlipCard({
                   to={path}
                   color="inherit"
                   underline="hover"
-                  // the whole front opens it; the turn button stays above
-                  sx={{ '&::after': { content: '""', position: 'absolute', inset: 0, zIndex: 0 } }}
+                  // the whole front opens it; the turn button stays above. The heading clips its
+                  // own overflow for the two-line clamp, so the focus ring is drawn on the overlay,
+                  // inside the card's edge, as the asf focus ring
+                  sx={(theme) => ({
+                    '&::after': { content: '""', position: 'absolute', inset: 0, zIndex: 0, borderRadius: 'inherit' },
+                    '&:focus-visible': { outline: 'none' },
+                    '&:focus-visible::after': {
+                      outline: `2px solid ${theme.vars.palette.primary.main}`,
+                      outlineOffset: -2,
+                      borderRadius: 2,
+                    },
+                  })}
                 >
                   {title}
                 </Link>
@@ -215,7 +253,9 @@ export function FlipCard({
                 title
               )}
             </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>{front}</Box>
+            <Box data-face-content="front" sx={{ ...content, gap: 1.5 }}>
+              {front}
+            </Box>
             <Box
               sx={{
                 display: 'flex',
@@ -244,9 +284,9 @@ export function FlipCard({
               </ButtonBase>
             </Box>
           </Box>
-        </Box>
-        <Box
-          sx={(theme) => ({ ...face(theme), transform: 'rotateY(180deg)', p: 2.5, gap: 1.75 })}
+        </Card>
+        <Card
+          sx={{ ...face, transform: 'rotateY(180deg)', p: 2.5, gap: 1.75 }}
           inert={!turned}
           aria-hidden={turned ? undefined : true}
           data-face="back"
@@ -285,8 +325,10 @@ export function FlipCard({
               <span>{labels.flipBack}</span>
             </ButtonBase>
           </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, flex: 1, minHeight: 0 }}>{back}</Box>
-        </Box>
+          <Box data-face-content="back" sx={{ ...content, gap: 1.75 }}>
+            {back}
+          </Box>
+        </Card>
       </Box>
     </Box>
   );

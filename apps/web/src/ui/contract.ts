@@ -1552,7 +1552,10 @@ export type FlipCardProps = {
   mediaCorner?: ReactNode;
   /** Over the picture's bottom left, for example the state of the current session. */
   mediaFoot?: ReactNode;
-  /** Under the title on the front: its figures. */
+  /**
+   * Under the title on the front: its figures, never a control. The title's link covers the whole
+   * front, so a button or a link here could not be pressed; the actions belong on the back.
+   */
   front: ReactNode;
   /** A short word above the title on the back, for example "Program details". */
   backEyebrow?: string;
