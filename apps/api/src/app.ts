@@ -31,6 +31,7 @@ import { mediaRouter } from './routes/media.js';
 import { syncRouter } from './routes/sync.js';
 import { beneficiariesRouter } from './routes/beneficiaries.js';
 import { programsRouter } from './routes/programs.js';
+import { projectSeriesRouter } from './routes/project-series.js';
 import { settingsRouter } from './routes/settings.js';
 import { auditRouter } from './routes/audit.js';
 import { adminSystemRouter } from './routes/admin-system.js';
@@ -126,6 +127,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   api.use(mediaRouter(deps, c));
   api.use(syncRouter(deps, c));
   api.use(programsRouter(deps, c));
+  api.use(projectSeriesRouter(deps, c));
   api.use(projectsRouter(deps, c));
   api.use(projectSetupRouter(deps, c));
   api.use(myProjectsRouter(deps, c));

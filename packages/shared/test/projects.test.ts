@@ -206,7 +206,7 @@ describe('the project lifecycle', () => {
   });
 
   it('keeps the identity and the end date fixed once active, and everything once closing', () => {
-    expect(IDENTITY_FIELDS).toEqual(['code', 'programId', 'year', 'workflowKey']);
+    expect(IDENTITY_FIELDS).toEqual(['period', 'workflowKey']);
     for (const field of [...IDENTITY_FIELDS, 'applyFrom', 'applyTo', 'name'] as const)
       expect(editableIn('draft', field), field).toBe(true);
     for (const field of IDENTITY_FIELDS) expect(editableIn('active', field), field).toBe(false);

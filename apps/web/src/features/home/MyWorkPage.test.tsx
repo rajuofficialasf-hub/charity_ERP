@@ -161,6 +161,28 @@ describe('My Work home', () => {
     expect(screen.getByRole('heading', { name: 'পর্যালোচনার তালিকা' })).toBeInTheDocument();
   });
 
+  it('names the session of each running project an RPM works on', async () => {
+    attentionIs([]);
+    server.use(
+      http.get('*/api/v1/projects', () =>
+        ok([
+          {
+            id: PROJECT.projectId,
+            code: 'WC',
+            name: PROJECT.name,
+            sessionLabel: '2026-27',
+            status: 'active',
+            applyTo: '2026-12-31',
+          },
+        ]),
+      ),
+    );
+    openHome({ ...ME, roles: ['regional_program_manager'] });
+    expect(
+      await screen.findByRole('link', { name: 'শীতবস্ত্র বিতরণ · সেশন 2026-27' }),
+    ).toHaveAttribute('href', `/admin/projects/${PROJECT.projectId}`);
+  });
+
   it('shows a PM the projects by state and the templates', async () => {
     server.use(
       http.get('*/api/v1/projects', ({ request }) => {

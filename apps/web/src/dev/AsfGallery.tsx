@@ -22,6 +22,7 @@ import {
   ErrorSummary,
   FileUpload,
   FilterBar,
+  FlipCard,
   FormSection,
   IconButton,
   IconTile,
@@ -34,6 +35,7 @@ import {
   ProfileSection,
   ProgressBar,
   RadioGroup,
+  SegmentedControl,
   SelectField,
   Skeleton,
   StatCard,
@@ -49,6 +51,7 @@ import {
 } from '@/ui';
 import { useState, type ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
+import { CoverArt } from '../components/CoverArt';
 import { LanguageSwitch } from '../components/LanguageSwitch';
 
 const STATUSES: StatusKey[] = [
@@ -597,6 +600,60 @@ export function AsfGallery() {
         </Section>
 
         {/* the pieces the app added to the asf contract after the gallery's first sections (local.json) */}
+        <Section id="cards" title={t('asf.sections.cards')}>
+          <div className="asf-gallery-cards">
+            <FlipCard
+              title={t('flip.programTitle')}
+              to="/dev/asf"
+              badge={t('flip.programBadge')}
+              media={<CoverArt seed="program-upcd" />}
+              front={
+                <DescriptionList
+                  layout="grid"
+                  columns={3}
+                  items={[
+                    { label: t('flip.projects'), value: '4' },
+                    { label: t('flip.running'), value: '3' },
+                    { label: t('flip.people'), value: '1,240' },
+                  ]}
+                />
+              }
+              backEyebrow={t('flip.programEyebrow')}
+              back={
+                <>
+                  <PersonCell name={t('flip.pmName')} secondary={t('flip.pm')} />
+                  <DescriptionList
+                    items={[
+                      { label: t('flip.applications'), value: '412' },
+                      { label: t('flip.sessions'), value: '6' },
+                    ]}
+                  />
+                  <LinkButton variant="secondary" to="/dev/asf" fullWidth>
+                    {t('flip.open')}
+                  </LinkButton>
+                </>
+              }
+            />
+            <FlipCard
+              title={t('flip.projectTitle')}
+              to="/dev/asf"
+              badge={t('flip.projectBadge')}
+              media={<CoverArt seed="series-swb" />}
+              mediaCorner={<Chip tone="warning">{t('flip.daysLeft')}</Chip>}
+              mediaFoot={<Chip tone="success">{t('flip.session')}</Chip>}
+              front={<ProgressBar label={t('flip.approved')} value={412} max={600} showValue />}
+              backEyebrow={t('flip.projectEyebrow')}
+              back={
+                <DescriptionList
+                  items={[
+                    { label: t('flip.applications'), value: '980' },
+                    { label: t('flip.people'), value: '2,310' },
+                  ]}
+                />
+              }
+            />
+          </div>
+        </Section>
         <Section id="additions" title={t('asf.sections.additions')}>
           <SummaryBanner
             title={t('card.projectTitle')}
@@ -606,6 +663,17 @@ export function AsfGallery() {
               { label: t('card.statApproved'), value: '860', icon: 'verified', tone: 'success' },
             ]}
           />
+          <div className="asf-gallery-row">
+            <SegmentedControl
+              label={t('segmented.label')}
+              value="cards"
+              options={[
+                { value: 'cards', label: t('segmented.cards') },
+                { value: 'list', label: t('segmented.list') },
+              ]}
+              onChange={() => {}}
+            />
+          </div>
           <div className="asf-gallery-row">
             <StatCard label={t('card.statDistributed')} value="20,00,000" icon="package" to="/" />
             <StatFilterBar

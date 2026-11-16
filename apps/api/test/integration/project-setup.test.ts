@@ -14,6 +14,7 @@ import {
   type Session,
 } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
+import { draftProject } from './support/projects.js';
 
 // The setup parts of a project, each saved on its own: components, fund sources, areas, staff
 // access and the syllabus.
@@ -50,16 +51,13 @@ async function staff(role: string) {
 }
 /** A draft of the PM's program, made through the API. */
 async function draft(workflowKey = 'distribution') {
-  const res = await api()
-    .post('/api/v1/projects')
-    .set(bearer(await as(world.users.pm)))
-    .send({
-      programId: world.a1.program,
-      code: code(),
-      year: 2026,
-      name: { bn: 'নমুনা', en: 'Sample' },
-      source: { kind: 'workflow', workflowKey },
-    });
+  const res = await draftProject(h, await as(world.users.pm), {
+    programId: world.a1.program,
+    code: code(),
+    year: 2026,
+    name: { bn: 'নমুনা', en: 'Sample' },
+    source: { kind: 'workflow', workflowKey },
+  });
   expect(res.status).toBe(201);
   return res.body.data.id as string;
 }

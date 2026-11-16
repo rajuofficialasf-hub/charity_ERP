@@ -17,6 +17,7 @@ import {
 } from './auth-app.js';
 import { question } from './forms.js';
 import { fakeMobile, fakeNid } from './fixtures.js';
+import { draftProject } from './projects.js';
 
 /**
  * The world of the Media Team tests: the access fixtures' people with a PM of another program, the
@@ -55,7 +56,7 @@ export async function mediaWorld() {
     media.otherPm,
     world.b1.program,
   ]);
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: 'MED',
     year: 2026,

@@ -17,6 +17,7 @@ const PIECES = [
   'people',
   'overlays',
   'lists',
+  'cards',
   'additions',
 ];
 
@@ -101,11 +102,21 @@ for (const lang of ['bn', 'en'] as const) {
         await expect(panel).toBeHidden();
       }
 
-      if (info.project.name === 'desktop' && lang === 'bn' && mode === 'light')
+      if (info.project.name === 'desktop' && lang === 'bn' && mode === 'light') {
+        // the pointer away from the pieces, so no flip card is caught turning in its picture
+        await page.mouse.move(0, 0);
         for (const id of PIECES)
           await page
             .getByTestId(`piece-${id}`)
             .screenshot({ path: info.outputPath(`asf-${id}.png`) });
+      }
+      // the drawn covers in dark mode
+      if (info.project.name === 'desktop' && lang === 'bn' && mode === 'dark') {
+        await page.mouse.move(0, 0);
+        await page
+          .getByTestId('piece-cards')
+          .screenshot({ path: info.outputPath('asf-cards-dark.png') });
+      }
     });
   }
 }
@@ -126,4 +137,38 @@ test('opens the confirm dialog and asks for the reason before it confirms', asyn
   await expect(dialog.getByRole('button', { name: 'Reject application' })).toBeEnabled();
   const results = await new AxeBuilder({ page }).include('[role="alertdialog"]').analyze();
   expect(results.violations.map((v) => v.id)).toEqual([]);
+});
+
+test('turns the flip card by the pointer on a computer and by its buttons on a phone', async ({
+  page,
+  baseURL,
+}, info) => {
+  test.skip(info.project.name === 'iphone', 'the phone is checked on the mobile project');
+  await page.context().addCookies([{ name: 'css_locale', value: 'bn', url: baseURL! }]);
+  await page.goto('/dev/asf');
+  const cards = page.getByTestId('piece-cards');
+  await expect(cards).toBeVisible();
+  const card = cards.getByRole('article', { name: 'স্বাবলম্বী প্রকল্প' });
+  const back = card.getByRole('link', { name: 'সব প্রকল্প দেখুন' });
+  await card.scrollIntoViewIfNeeded();
+  await expect(back).toBeHidden();
+  if (info.project.name === 'desktop') {
+    // a computer: resting the pointer turns it, leaving turns it back
+    await card.hover();
+    await expect(card).toHaveAttribute('data-turned', 'true');
+    await expect(back).toBeVisible();
+    await page.mouse.move(0, 0);
+    await expect(card).toHaveAttribute('data-turned', 'false');
+    await expect(back).toBeHidden();
+  } else {
+    // a phone at 360 px: the buttons turn it, and nothing runs past the screen's edge
+    await card.getByRole('button', { name: 'স্বাবলম্বী প্রকল্প: বিস্তারিত দেখুন' }).click();
+    await expect(card).toHaveAttribute('data-turned', 'true');
+    await expect(back).toBeVisible();
+    await card.getByRole('button', { name: 'সামনের দিকে ফিরুন' }).click();
+    await expect(card).toHaveAttribute('data-turned', 'false');
+    await expect(back).toBeHidden();
+    const box = await card.boundingBox();
+    expect(box && box.x + box.width).toBeLessThanOrEqual(360);
+  }
 });

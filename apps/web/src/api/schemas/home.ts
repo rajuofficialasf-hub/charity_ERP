@@ -10,6 +10,7 @@ export const homeProjectSchema = z.object({
   id: z.uuid(),
   code: z.string(),
   name: bilingual,
+  sessionLabel: z.string(),
   status: z.string(),
   applyTo: date.nullable(),
 });

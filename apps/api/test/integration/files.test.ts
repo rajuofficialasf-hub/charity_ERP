@@ -130,6 +130,7 @@ describe('streaming a file linked to a record', () => {
     expect(whole.headers).toMatchObject({
       'content-type': 'image/jpeg',
       'content-disposition': 'inline',
+      // every kind but a cover photo is kept by no cache
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
     });

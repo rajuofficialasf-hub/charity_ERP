@@ -4,7 +4,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderInShell } from '../../test/auth';
 import { resetClientForTests } from '../api/client';
-import { AdminLayout } from './AdminLayout';
+import { AdminLayout, type AdminRouteHandle } from './AdminLayout';
 import { stubScreen } from '../../test/match-media';
 
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
@@ -15,16 +15,23 @@ const VOLUNTEER: Me = {
   roles: ['volunteer_general'],
 };
 
-const renderAdmin = (locale: 'bn' | 'en' = 'bn') =>
+const renderAdmin = (locale: 'bn' | 'en' = 'bn', path = '/admin/page') =>
   renderInShell(
     [
       {
         path: 'admin',
         element: <AdminLayout />,
-        children: [{ path: 'page', element: <h1>অ্যাডমিন পাতা</h1> }],
+        children: [
+          { path: 'page', element: <h1>অ্যাডমিন পাতা</h1> },
+          {
+            path: 'everywhere',
+            handle: { phoneReady: true } satisfies AdminRouteHandle,
+            element: <h1>ফোনেও কাজের পাতা</h1>,
+          },
+        ],
       },
     ],
-    '/admin/page',
+    path,
     locale,
   );
 
@@ -106,5 +113,21 @@ describe('admin area', () => {
     refreshAs(null);
     const { router } = renderAdmin();
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+  });
+
+  it('says on a phone that a setup page is best on a larger screen, and not on a page used on a phone as much', async () => {
+    stubScreen(360);
+    refreshAs(HEAD);
+    const first = renderAdmin('bn', '/admin/page');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'অ্যাডমিন পাতা' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('এই পর্দা বড় স্ক্রিনে ভালো চলে।')).toBeInTheDocument();
+    first.unmount();
+    renderAdmin('bn', '/admin/everywhere');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'ফোনেও কাজের পাতা' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('এই পর্দা বড় স্ক্রিনে ভালো চলে।')).not.toBeInTheDocument();
   });
 });

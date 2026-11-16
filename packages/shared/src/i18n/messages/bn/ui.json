@@ -99,6 +99,11 @@
     "datePartMonth": "মাস",
     "datePartYear": "বছর",
     "datePartEmpty": "খালি",
-    "tableEmpty": "এখনো কিছু নেই।"
+    "tableEmpty": "এখনো কিছু নেই।",
+    "flipDetails": "বিস্তারিত",
+    "flipDetailsOf": "{title}: বিস্তারিত দেখুন",
+    "flipBack": "ফিরুন",
+    "flipBackOf": "সামনের দিকে ফিরুন",
+    "flipHint": "কার্সর রাখলে বিস্তারিত"
   }
 }

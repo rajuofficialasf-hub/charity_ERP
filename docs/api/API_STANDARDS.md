@@ -190,8 +190,11 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | program | program.inactive | 409 | a new project, or a project moved, into an inactive program (BR-256) |
 | program | program.has_open_projects | 409 | deactivation of a program with a draft, active or closing project (BR-256) |
 | program | program.pm_role_required | 422 | the assigned PM does not hold the Program Manager role |
-| project | project.code_taken | 409 | a project code already in use (O-03) |
-| project | project.read_only | 409 | a setup change the project's state does not allow: identity or window while active, anything while closing, closed or cancelled (BR-257) |
+| project | project.session_year_taken | 409 | a session of a project series, new or with a new period, in a year another session of that series already starts in; a cancelled session holds no year (BR-312, D-177) |
+| project | project.series_code_taken | 409 | a project series with a code another series already holds (O-03, BR-312) |
+| project | project.session_source_foreign | 422 | a new session whose named source is not a session of the same series, or is one the caller may not view (BR-315) |
+| project | project.session_source_none | 422 | a new session with no source named, of a series that has no session the caller may copy: none yet, only cancelled ones, or none the caller may view (BR-315) |
+| project | project.read_only | 409 | a setup change the project's state does not allow: the period, the workflow or the window while active, anything while closing, closed or cancelled (BR-257); also a rename of one session while its series holds another session (BR-312) |
 | project | project.deadline_not_later | 409 | a deadline extension to a date not after the current end date (BR-058) |
 | project | project.rpm_role_required | 422 | an area's RPM does not hold the RPM role (BR-060) |
 | project | project.staff_role_required | 422 | staff access for someone who is not a Project Executive or Official দায়ী (D-095; the Implementer is retired, D-162) |
@@ -240,6 +243,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | file | file.parts_missing | 409 | finalize before every part of the declared size arrived (D-108) |
 | file | file.sessions_limit | 429 | more than 20 open upload sessions (D-108) |
 | file | file.session_mismatch | 409 | a create repeats a client id of an earlier session with other file details (kind, record, slot, type, size or SHA-256) |
+| file | file.cover_invalid | 422 | the file named as a cover is not a finished upload of kind cover_photo that the caller made for this very program or project series and that the scan has cleared; one answer for every such reason, so it tells nothing of another person's file (BR-316) |
 | rate_limit | rate_limit.exceeded | 429 | with `Retry-After` |
 | export | export.not_ready, export.expired | 409, 410 | job still running; file removed after 30 days |
 | client | client.upgrade_required | 426 | PWA version below the minimum supported version; sync the outbox, then update (section 17) |

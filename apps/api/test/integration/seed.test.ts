@@ -46,6 +46,7 @@ const SEEDED_TABLES = [
   'volunteers',
   'beneficiaries',
   'blocklist',
+  'project_series',
   'projects',
   'id_sequences',
   'project_areas',
@@ -167,7 +168,7 @@ describe('base set', () => {
         .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
     );
     expect(roles).toHaveLength(16);
-    expect(permissions).toHaveLength(158);
+    expect(permissions).toHaveLength(159);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {

@@ -13,6 +13,7 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
+import { draftProject } from './support/projects.js';
 
 // The four rules texts of a project, saved as versions, and the activation that needs them.
 let h: AuthHarness;
@@ -51,7 +52,7 @@ const three = {
 };
 
 async function draft() {
-  const res = await at(await as(world.users.pm), 'post', '/projects').send({
+  const res = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: code(),
     year: 2026,

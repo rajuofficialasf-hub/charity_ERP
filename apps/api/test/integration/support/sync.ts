@@ -16,6 +16,7 @@ import {
 } from './auth-app.js';
 import { fakeMobile, fakeNid } from './fixtures.js';
 import type { FormExtras } from './forms.js';
+import { draftProject } from './projects.js';
 
 /** One offline record as the phone sends it. */
 export type SyncKind =
@@ -74,7 +75,7 @@ export async function syncWorld(
   const as = (userId: string) => login(h, accounts.get(userId)!);
   const at = (s: Session, method: 'get' | 'post' | 'put' | 'patch', path: string) =>
     api()[method](`/api/v1${path}`).set(bearer(s));
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: 'SYNCR',
     year: 2026,

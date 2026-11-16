@@ -1,6 +1,13 @@
 import { fakeEmail, fakeMobile, fakeNid } from '@css/shared';
 import { devices, expect, type Page, test, type TestInfo } from '@playwright/test';
-import { fromProfileMenu, isPhone, mainMenu, openTab, scan } from './support/admin';
+import {
+  openProjectsTab,
+  fromProfileMenu,
+  isPhone,
+  mainMenu,
+  openTab,
+  scan,
+} from './support/admin';
 import { activeProject, code, ERR } from './support/projects';
 import { pickFrom } from './support/select';
 
@@ -152,7 +159,7 @@ async function register(page: Page, person: Person) {
 async function projectOfThisRun(desk: Page, name: string): Promise<string> {
   await desk.context().clearCookies();
   await signIn(desk, PM, DEMO_PASSWORD);
-  await openTab(desk, 'প্রকল্প');
+  await openProjectsTab(desk);
   return activeProject(desk, name, ERR, PM);
 }
 

@@ -380,7 +380,7 @@ describe('template and creation requests', () => {
   });
 
   it('starts a project from a workflow, a template or a copy', () => {
-    const base = { programId: uuid, code: 'WC', year: 2027, name: text('শীত') };
+    const base = { seriesId: uuid, periodFrom: '2027-01', periodTo: '2027-12' };
     for (const source of [
       { kind: 'workflow', workflowKey: 'distribution' },
       { kind: 'template', templateId: uuid },

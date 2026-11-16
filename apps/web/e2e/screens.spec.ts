@@ -20,7 +20,7 @@ type Mode = (typeof MODES)[number];
 const PAGES: [string, string][] = [
   ['01-my-work', '/'],
   ['02-projects', '/admin/projects'],
-  ['03-programs', '/admin/programs'],
+  ['03-projects-list', '/admin/projects?view=list'],
   ['04-templates', '/admin/templates'],
   ['05-ready-forms', '/admin/ready-forms'],
   ['06-registrations', '/admin/registrations'],
@@ -49,6 +49,22 @@ async function firstVolunteer(page: Page): Promise<string> {
   const link = page.locator('main a[href^="/admin/volunteers/"]').first();
   await expect(link).toBeAttached();
   return (await link.getAttribute('href'))!;
+}
+
+/**
+ * A program's page and a project's page: the Humanitarian Program, the program of the demo seed's
+ * one project, read from the link of its card, and its first project read from that page.
+ */
+async function cardPages(page: Page): Promise<[string, string]> {
+  await page.goto('/admin/projects');
+  const program = page.getByRole('article', { name: 'হিউম্যানিটেরিয়ান প্রোগ্রাম' });
+  const programPage = (await program
+    .getByRole('link', { name: 'হিউম্যানিটেরিয়ান প্রোগ্রাম', exact: true })
+    .getAttribute('href'))!;
+  await page.goto(programPage);
+  const project = page.locator('main a[href^="/admin/projects/series/"]').first();
+  await expect(project).toBeAttached();
+  return [programPage, (await project.getAttribute('href'))!];
 }
 
 /** Opens the page at each width, waits for its heading and its data, and keeps a full shot. */
@@ -80,6 +96,9 @@ for (const mode of MODES) {
     await signIn(page, HEAD);
     for (const [name, path] of PAGES) await shoot(page, mode, name, path);
     await shoot(page, mode, '24-volunteer-profile', await firstVolunteer(page));
+    const [programPage, projectPage] = await cardPages(page);
+    await shoot(page, mode, '25-program', programPage);
+    await shoot(page, mode, '26-project', projectPage);
   });
 }
 

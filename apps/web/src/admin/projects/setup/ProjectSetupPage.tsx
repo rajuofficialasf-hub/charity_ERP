@@ -1,14 +1,15 @@
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, Page, Skeleton, Stepper, type StepMark } from '@/ui';
+import { Alert, EmptyState, LinkButton, Page, Skeleton, Stepper, type StepMark } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
 import { ApiFailure } from '../../../api/client';
 import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
 import { canCreateProjects, canSeeProjects } from '../../roles';
+import { CARDS_KEY, seriesDetail } from '../cards-api';
 import { ProjectStatusBadge } from '../ProjectStatusBadge';
 import { moveProject, type Project, PROJECTS_KEY } from '../projects-api';
 import { AreasSection } from './AreasSection';
@@ -94,8 +95,9 @@ function useStepRunner() {
 }
 
 /**
- * The project setup as a wizard (docs/ui/SCREENS.md "Project setup with component toggles"): `/admin/projects/new` starts with the first
- * step, which creates the draft; `/admin/projects/:projectId/setup` walks the steps one at a time,
+ * The project setup as a wizard (docs/ui/SCREENS.md "Project setup with component toggles"):
+ * `/admin/projects/new?seriesId=` starts a session of that project series with the first step,
+ * which creates the draft; `/admin/projects/:projectId/setup` walks the steps one at a time,
  * the current one kept in the address (`?step=`), a return opening the first step with something
  * missing. Back and Next save the step on screen; "save and exit" saves and opens the project; the
  * review step activates a complete draft.
@@ -147,33 +149,74 @@ function WizardHead({
   );
 }
 
-/** The first step of a new project, before it exists: Next creates the draft. */
+/**
+ * The first step of a new session, before it exists: Next creates the draft. The session belongs
+ * to the project series of the address; without one there is nothing to start, and the page says
+ * where a new project or a new session begins.
+ */
 function NewProjectWizard() {
   const t = useTranslations('admin.projects.wizard');
-  const tp = useTranslations('admin.projects');
   const navigate = useNavigate();
+  const location = useLocation();
+  // a new project's dialog says here what it could not do (its cover)
+  const notice = (location.state as { notice?: string } | null)?.notice;
+  const [params] = useSearchParams();
+  const seriesId = params.get('seriesId');
+  const series = useQuery({
+    queryKey: [...CARDS_KEY, 'series-detail', seriesId],
+    queryFn: () => seriesDetail(seriesId!),
+    enabled: seriesId !== null,
+  });
+  const locale = useLocale() as Locale;
   const { register, busy, run } = useStepRunner();
   // where the created draft opens: the next step, or the project after "save and exit"
   const exit = useRef(false);
+  const queryClient = useQueryClient();
   const steps = STEP_IDS.filter((s) => s !== 'syllabus');
-  const created = (project: Project) =>
+  const created = (project: Project) => {
+    // the list and the cards count the new session
+    void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
     void navigate(
       exit.current
         ? `/admin/projects/${project.id}`
         : `/admin/projects/${project.id}/setup?step=components`,
       exit.current ? { state: { notice: t('saved_notice') } } : { replace: true },
     );
+  };
+  if (!seriesId)
+    return (
+      <>
+        <DocumentTitle title={t('new_title')} />
+        <Page title={t('new_title')} documentTitle={false} />
+        <EmptyState
+          title={t('no_series')}
+          icon="folder"
+          action={
+            <LinkButton variant="secondary" to="/admin/projects">
+              {t('to_tab')}
+            </LinkButton>
+          }
+        />
+      </>
+    );
+  if (series.error) return <LoadError error={series.error} onRetry={() => void series.refetch()} />;
+  if (!series.data) return <Skeleton shape="card" count={2} />;
   return (
     <div className="admin-wizard">
       <DocumentTitle title={t('new_title')} />
       <WizardHead
         title={t('new_title')}
-        back={<Link to="/admin/projects">{tp('detail.back')}</Link>}
+        back={
+          <Link to={`/admin/projects/series/${series.data.id}`}>
+            {localized(series.data.name, locale)}
+          </Link>
+        }
         steps={steps}
         current={0}
       />
+      {notice && <Alert tone="warning">{notice}</Alert>}
       <StepSaveProvider value={register}>
-        <CreateStep onCreated={created} />
+        <CreateStep series={series.data} onCreated={created} />
       </StepSaveProvider>
       <WizardActions
         busy={busy}
@@ -373,9 +416,17 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   return (
     <SetupProvider value={{ project, etag: meta.etag, phone, configure, refresh }}>
       <div className="admin-wizard">
-        <DocumentTitle title={ts('title', { name: localized(project.name, locale) })} />
+        <DocumentTitle
+          title={ts('title', {
+            name: localized(project.name, locale),
+            label: project.sessionLabel,
+          })}
+        />
         <WizardHead
-          title={ts('title', { name: localized(project.name, locale) })}
+          title={ts('title', {
+            name: localized(project.name, locale),
+            label: project.sessionLabel,
+          })}
           badge={<ProjectStatusBadge status={project.status} />}
           back={back}
           steps={steps}

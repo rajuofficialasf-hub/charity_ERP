@@ -15,8 +15,9 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
-import { beneficiary, fakeMobile, fakeNid, insert } from './support/fixtures.js';
+import { beneficiary, fakeMobile, fakeNid, insert, projectRow } from './support/fixtures.js';
 import { option, question } from './support/forms.js';
+import { draftProject } from './support/projects.js';
 
 // The priority score on the application: computed when it reaches the office and on every
 // answer change until the decision, frozen at the decision, sorting the office's list, and never
@@ -103,7 +104,7 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: 'SCO',
     year: 2026,
@@ -218,7 +219,7 @@ describe('the score of an application', () => {
   it('drops "not previously assisted" after an approval in the same program, and keeps it after one in another', async () => {
     const samePerson = fakeNid();
     const known = await beneficiary(h.db, world.dhaka, { nid: samePerson });
-    const earlier = await insert(h.db, 'projects', {
+    const earlier = await projectRow(h.db, {
       id: randomUUID(),
       program_id: world.a1.program,
       code: 'SCP',
@@ -380,7 +381,7 @@ describe('the score of an application', () => {
         [id],
       )
     ).rows[0]!.beneficiary_id;
-    const earlier = await insert(h.db, 'projects', {
+    const earlier = await projectRow(h.db, {
       id: randomUUID(),
       program_id: world.a1.program,
       code: 'SCQ',
@@ -417,7 +418,7 @@ describe('the score of an application', () => {
   it('keeps "not previously assisted" when the approval is in a later project of the program', async () => {
     const nid = fakeNid();
     const later = await beneficiary(h.db, world.dhaka, { nid });
-    const next = await insert(h.db, 'projects', {
+    const next = await projectRow(h.db, {
       id: randomUUID(),
       program_id: world.a1.program,
       code: 'SCL',
@@ -472,7 +473,7 @@ describe('the score of an application', () => {
 
 describe('a form without points', () => {
   it('gives no score, keeps no breakdown, and leaves the list in arrival order', async () => {
-    const made = await at(await as(world.users.pm), 'post', '/projects').send({
+    const made = await draftProject(h, await as(world.users.pm), {
       programId: world.a1.program,
       code: 'SCN',
       year: 2026,

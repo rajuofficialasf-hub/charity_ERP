@@ -173,17 +173,27 @@ async function load(prisma: PrismaClient): Promise<void> {
       db,
       'projects',
       Prisma.sql`CREATE TEMP TABLE perf_projects AS
-       SELECT i, pg_temp.uuid7(now()) AS id, gen_random_uuid() AS form_id,
-              gen_random_uuid() AS form_version_id,
+       SELECT i, pg_temp.uuid7(now()) AS id, pg_temp.uuid7(now()) AS series_id,
+              gen_random_uuid() AS form_id, gen_random_uuid() AS form_version_id,
               (SELECT id FROM programs ORDER BY code OFFSET i % 3 LIMIT 1) AS program_id
        FROM generate_series(0, ${PROJECTS}::int - 1) i`,
+    );
+    // each project is the one session of a series of its own, running the whole of its year
+    await timed(
+      db,
+      'project series',
+      Prisma.sql`INSERT INTO project_series (id, program_id, code, name_bn, name_en)
+       SELECT series_id, program_id, 'Q' || chr(65 + (i / 26) % 26) || chr(65 + i % 26),
+              ${PROJECT_NAME_BN}::text || ' ' || i, 'Perf project ' || i
+       FROM perf_projects`,
     );
     await timed(
       db,
       'project rows',
-      Prisma.sql`INSERT INTO projects (id, program_id, code, year, name_bn, name_en, status,
-         workflow_definition_id, workflow_version)
-       SELECT id, program_id, 'Q' || chr(65 + (i / 26) % 26) || chr(65 + i % 26), 2022 + i % 5,
+      Prisma.sql`INSERT INTO projects (id, program_id, series_id, code, year, period_from,
+         period_to, name_bn, name_en, status, workflow_definition_id, workflow_version)
+       SELECT id, program_id, series_id, 'Q' || chr(65 + (i / 26) % 26) || chr(65 + i % 26),
+              2022 + i % 5, make_date(2022 + i % 5, 1, 1), make_date(2022 + i % 5, 12, 31),
               ${PROJECT_NAME_BN}::text || ' ' || i, 'Perf project ' || i, 'active',
               ${workflow}::uuid, 1
        FROM perf_projects`,

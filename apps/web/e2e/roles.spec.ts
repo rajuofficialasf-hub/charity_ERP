@@ -9,6 +9,8 @@ import { apiAs, signIn } from './support/admin';
 // row. The accounts are only read here; both projects sign in with the same ones, chosen among
 // those whose sessions and passwords no other spec depends on (docs/testing/DEMO_ACCOUNTS.md).
 const DENIED = 'এই পাতায় আপনার প্রবেশাধিকার নেই।';
+/** An id no record has. */
+const NO_RECORD = '01900000-0000-7000-8000-000000000000';
 
 const ROLES: { role: string; loginId: string; page: string; api: string }[] = [
   {
@@ -70,6 +72,32 @@ const ROLES: { role: string; loginId: string; page: string; api: string }[] = [
     loginId: 'rpm.rangpur@example.org',
     page: '/admin/settings',
     api: '/settings',
+  },
+  {
+    role: 'the Finance Team',
+    loginId: 'finance@example.org',
+    page: '/admin/projects',
+    api: '/program-cards',
+  },
+  {
+    role: 'the Official দায়ী',
+    loginId: 'daee@example.org',
+    page: '/admin/projects',
+    api: '/project-series',
+  },
+  // a program's page and a project's page: the forbidden screen comes before any read, so an id of
+  // no record is enough
+  {
+    role: 'the Media Team',
+    loginId: 'media@example.org',
+    page: `/admin/projects/programs/${NO_RECORD}`,
+    api: '/program-cards',
+  },
+  {
+    role: 'the Procurement Team',
+    loginId: 'procurement@example.org',
+    page: `/admin/projects/series/${NO_RECORD}`,
+    api: `/project-series/${NO_RECORD}`,
   },
   {
     role: 'the HUM Program Manager',

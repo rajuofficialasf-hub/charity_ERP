@@ -35,7 +35,9 @@ tags:
   - name: beneficiaries
     description: Beneficiary tab, identity lookup, 360 profile, corrections, merge, blocklist, consent (A7, B3)
   - name: programs
-    description: Programs (A2, A6)
+    description: Programs and their cards (A2, A6, D-176)
+  - name: project-series
+    description: Project series, the permanent projects their yearly sessions belong to (D-176)
   - name: projects
     description: Projects, components, areas, staff, quotas, fund sources, lifecycle (A6)
   - name: templates
@@ -210,6 +212,11 @@ components:
       schema: { type: string, format: uuid }
     ProgramId:
       name: programId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SeriesId:
+      name: seriesId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -2769,6 +2776,14 @@ components:
       properties:
         bn: { type: string, maxLength: 200 }
         en: { type: string, maxLength: 200 }
+    ShortDescription:
+      type: object
+      description: A short description in both languages, at most 500 characters each; a language left empty is an empty text
+      additionalProperties: false
+      required: [bn, en]
+      properties:
+        bn: { type: string, maxLength: 500 }
+        en: { type: string, maxLength: 500 }
     ProgramCreate:
       type: object
       additionalProperties: false
@@ -2776,21 +2791,31 @@ components:
       properties:
         code: { type: string, pattern: '^[A-Z]{2,12}$' }
         name: { $ref: '#/components/schemas/BoundedLabel' }
+        description: { $ref: '#/components/schemas/ShortDescription' }
         pmUserId: { type: string, format: uuid }
     ProgramUpdate:
       type: object
-      description: At least one of name and active
+      description: At least one of name, description (null removes it) and active
       additionalProperties: false
       properties:
         name: { $ref: '#/components/schemas/BoundedLabel' }
+        description:
+          anyOf:
+            - { $ref: '#/components/schemas/ShortDescription' }
+            - { type: 'null' }
         active: { type: boolean }
     Program:
       type: object
-      required: [id, code, name, pmUserId, pmName, active]
+      required: [id, code, name, description, pmUserId, pmName, active]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         code: { type: string }
         name: { $ref: '#/components/schemas/Bilingual' }
+        description:
+          description: The short description on the program's card; null until one is written (D-176)
+          anyOf:
+            - { $ref: '#/components/schemas/Bilingual' }
+            - { type: 'null' }
         pmUserId: { type: [string, 'null'], format: uuid }
         pmName: { type: [string, 'null'] }
         active: { type: boolean }
@@ -2806,16 +2831,254 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Program' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
-    ProjectCreate:
+    CardPeople:
       type: object
+      description: The officials a card names, by name, at most three, and how many there are (D-176)
+      required: [people, total]
+      properties:
+        people:
+          type: array
+          maxItems: 3
+          items:
+            type: object
+            required: [id, name, photoFileId]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              name: { type: string }
+              photoFileId: { type: [string, 'null'], format: uuid, description: 'The official''s uploaded photo, streamed by the file routes' }
+        total: { type: integer }
+    ProgramCard:
+      type: object
+      description: >-
+        A program as a card (D-176, BR-313): counts and the names of its PM and of the RPMs of its
+        projects' current sessions only. No other person, no identity number, no budget.
+      required: [id, code, name, description, coverFileId, active, pm, rpms, projects, runningProjects, beneficiaries, applications, volunteers, canCreate]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        code: { type: string }
+        name: { $ref: '#/components/schemas/Bilingual' }
+        description:
+          anyOf:
+            - { $ref: '#/components/schemas/Bilingual' }
+            - { type: 'null' }
+        coverFileId: { type: [string, 'null'], format: uuid, description: 'The cover photo, streamed by the file routes to every reader of the cards; null without one (BR-316)' }
+        active: { type: boolean }
+        pm:
+          description: The program's PM, or null while none is assigned
+          anyOf:
+            - type: object
+              required: [id, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                name: { type: string }
+            - { type: 'null' }
+        rpms: { $ref: '#/components/schemas/CardPeople' }
+        projects: { type: integer, description: The project series of the program }
+        runningProjects: { type: integer, description: The series whose current session is active or closing }
+        beneficiaries:
+          type: integer
+          description: >-
+            Profiles helped in any session of the program, each once (BR-307, BR-314). Counted by
+            profile: after a merge, an application left on the retired profile counts beside the
+            profile it was merged into.
+        applications: { type: integer, description: The applications of the running sessions }
+        volunteers: { type: integer, description: 'The volunteers of the running sessions, each once' }
+        todo:
+          description: >-
+            The caller's own work, summed over the current session of each series the caller's
+            project.view scope reaches; absent when it reaches none. A caller who reaches a session
+            whole (GLOBAL, its program or the project itself) counts all of it; a caller who
+            reaches it by areas (an RPM) counts only the applications placed in those areas
+            (BR-314).
+          type: object
+          required: [reviewsWaiting, waitlisted]
+          properties:
+            reviewsWaiting: { type: integer }
+            waitlisted: { type: integer }
+        canCreate: { type: boolean, description: 'The caller may create a project in this program (project.create there, and the program is active)' }
+    CoverSet:
+      type: object
+      description: >-
+        The file to set as a cover (BR-316): a finished upload of kind cover_photo that the caller
+        made for this very program or project series.
       additionalProperties: false
-      required: [programId, code, year, name, source]
+      required: [fileId]
+      properties:
+        fileId: { type: string, format: uuid }
+    CoverResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [coverFileId]
+          properties:
+            coverFileId: { $ref: '#/components/schemas/Uuid' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ProgramCardList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ProgramCard' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+    ProjectSeriesCreate:
+      type: object
+      description: A project series, the permanent project its yearly sessions belong to (D-176)
+      additionalProperties: false
+      required: [programId, code, name]
       properties:
         programId: { type: string, format: uuid }
-        code: { type: string, pattern: '^[A-Z]{2,8}$', description: Unique project code (O-03) }
-        year: { type: integer, minimum: 2020, maximum: 2100 }
+        code: { type: string, pattern: '^[A-Z]{2,8}$', description: 'Unique among the series; every session carries it (O-03)' }
         name: { $ref: '#/components/schemas/BoundedLabel' }
-        description: { type: string, maxLength: 2000 }
+        description: { $ref: '#/components/schemas/ShortDescription' }
+    ProjectSeriesUpdate:
+      type: object
+      description: At least one of name and description (null removes it); the program and the code never change
+      additionalProperties: false
+      properties:
+        name: { $ref: '#/components/schemas/BoundedLabel' }
+        description:
+          anyOf:
+            - { $ref: '#/components/schemas/ShortDescription' }
+            - { type: 'null' }
+    ProjectSeriesCard:
+      type: object
+      description: >-
+        A project series as a card (D-176, BR-313): counts and the names of the current session's
+        RPMs only. The current session is the newest active or closing session, else the newest
+        session that is not cancelled.
+      required: [id, programId, code, name, description, coverFileId, sessionCount, beneficiaries, current, canCreate]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        programId: { $ref: '#/components/schemas/Uuid' }
+        code: { type: string }
+        name: { $ref: '#/components/schemas/Bilingual' }
+        description:
+          anyOf:
+            - { $ref: '#/components/schemas/Bilingual' }
+            - { type: 'null' }
+        coverFileId: { type: [string, 'null'], format: uuid, description: 'The cover photo, streamed by the file routes to every reader of the cards; null without one (BR-316)' }
+        sessionCount: { type: integer, description: 'The sessions of the series, cancelled ones left out' }
+        beneficiaries:
+          type: integer
+          description: >-
+            Profiles helped in any session of the series, each once (BR-307, BR-314). Counted by
+            profile: after a merge, an application left on the retired profile counts beside the
+            profile it was merged into.
+        current:
+          description: The current session, or null for a series without a session
+          anyOf:
+            - type: object
+              required: [id, sessionLabel, periodFrom, periodTo, status, applyTo, daysLeft, target, approved, applications, rpms, volunteers, districts]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                sessionLabel: { type: string, description: '"2026", or "2026-27" for a session that ends in a later year (BR-311)' }
+                periodFrom: { type: string, description: 'The start month, yyyy-mm' }
+                periodTo: { type: string, description: 'The end month, yyyy-mm' }
+                status: { type: string, enum: [draft, active, closing, closed, cancelled] }
+                applyTo: { type: [string, 'null'], format: date }
+                daysLeft:
+                  type: [integer, 'null']
+                  description: >-
+                    Whole days until the application window ends (Dhaka date), 0 on its last day;
+                    null without an end date or after it. Given whatever the session's state, so
+                    also for a session that is not running yet when its end date lies ahead.
+                target: { type: [integer, 'null'], description: The target number of beneficiaries }
+                approved: { type: integer }
+                applications: { type: integer }
+                rpms: { $ref: '#/components/schemas/CardPeople' }
+                volunteers: { type: integer }
+                districts: { type: integer, description: The districts of the session's areas }
+            - { type: 'null' }
+        todo:
+          description: >-
+            The caller's own work on the current session; absent unless the caller's project.view
+            scope reaches it. A caller who reaches the session whole (GLOBAL, its program or the
+            project itself) counts all of it; a caller who reaches it by areas (an RPM) counts only
+            the applications placed in those areas (BR-314). The budget is the session's planned
+            budget, present only within the caller's budget.view scope.
+          type: object
+          required: [reviewsWaiting, waitlisted]
+          properties:
+            reviewsWaiting: { type: integer }
+            waitlisted: { type: integer }
+            budgetPlanned: { type: [string, 'null'] }
+        canCreate: { type: boolean, description: The caller may create a project and a session in the series' program }
+    ProjectSeriesList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ProjectSeriesCard' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+    ProjectSeries:
+      description: A project series with its program and its sessions, newest first, cancelled ones left out
+      allOf:
+        - { $ref: '#/components/schemas/ProjectSeriesCard' }
+        - type: object
+          required: [program, sessions]
+          properties:
+            program:
+              type: object
+              required: [id, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                name: { $ref: '#/components/schemas/Bilingual' }
+            sessions:
+              type: array
+              items:
+                type: object
+                required: [id, year, sessionLabel, periodFrom, periodTo, status, applications, approved, canOpen]
+                properties:
+                  id: { $ref: '#/components/schemas/Uuid' }
+                  year: { type: integer }
+                  sessionLabel: { type: string }
+                  periodFrom: { type: string }
+                  periodTo: { type: string }
+                  status: { type: string, enum: [draft, active, closing, closed, cancelled] }
+                  applications: { type: integer }
+                  approved: { type: integer }
+                  canOpen: { type: boolean, description: The caller's project.view scope reaches the session }
+    ProjectSeriesResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/ProjectSeries' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    SessionMonth:
+      type: string
+      pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+      description: A calendar month, yyyy-mm
+    SessionCreate:
+      type: object
+      description: >-
+        A new session of a project series (D-176): its period, the end not before the start, at
+        most 24 months, the start year 2020 to 2100 (BR-311), and the session it copies, the newest
+        one when left out.
+      additionalProperties: false
+      required: [periodFrom, periodTo]
+      properties:
+        periodFrom: { $ref: '#/components/schemas/SessionMonth' }
+        periodTo: { $ref: '#/components/schemas/SessionMonth' }
+        sourceProjectId:
+          type: string
+          format: uuid
+          description: >-
+            The session to copy (BR-315): a session of this series the caller may view
+            (`project.view`). A cancelled session may be named, and its setup is copied as it was
+            left. Left out, the newest session that is not cancelled, among those the caller may
+            view, is copied; a cancelled one is never taken that way.
+    ProjectCreate:
+      type: object
+      description: >-
+        A project, one session of a project series (D-176): the series, the period (BR-311) and
+        where the setup starts. The code, the program, the names and the year come from the series
+        and the period.
+      additionalProperties: false
+      required: [seriesId, periodFrom, periodTo, source]
+      properties:
+        seriesId: { type: string, format: uuid }
+        periodFrom: { $ref: '#/components/schemas/SessionMonth' }
+        periodTo: { $ref: '#/components/schemas/SessionMonth' }
         source:
           description: >-
             Where the project starts (BD-10, D-096): a workflow's starting setup, an active master
@@ -2842,7 +3105,10 @@ components:
                 projectId: { type: string, format: uuid }
     ProjectUpdate:
       type: object
-      description: Setup fields of the project row; at least one. Which may change depends on the project state.
+      description: >-
+        Setup fields of the project row; at least one. Which may change depends on the project
+        state. The program and the code belong to the series and have no place here; the two months
+        of the period come together, and the year follows them.
       additionalProperties: false
       properties:
         name: { $ref: '#/components/schemas/BoundedLabel' }
@@ -2850,8 +3116,8 @@ components:
           anyOf:
             - { type: string, maxLength: 2000 }
             - { type: 'null' }
-        programId: { type: string, format: uuid }
-        year: { type: integer, minimum: 2020, maximum: 2100 }
+        periodFrom: { $ref: '#/components/schemas/SessionMonth' }
+        periodTo: { $ref: '#/components/schemas/SessionMonth' }
         workflowKey:
           type: string
           enum:
@@ -2885,8 +3151,11 @@ components:
             - { type: 'null' }
     Project:
       type: object
-      description: The official view; a volunteer receives only id, code, year, name, status, workflowKey, the window, the limit and dawahEnabled
-      required: [id, code, year, name, status, workflowKey, applyFrom, applyTo, perVolunteerLimit, dawahEnabled]
+      description: >-
+        A project, one session of a project series (D-176). The official view; a volunteer receives
+        only id, code, year, name, status, workflowKey, the window, the limit, dawahEnabled, the
+        period and the session label.
+      required: [id, code, year, name, status, workflowKey, applyFrom, applyTo, perVolunteerLimit, dawahEnabled, periodFrom, periodTo, sessionLabel]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         code: { type: string }
@@ -2898,7 +3167,11 @@ components:
         applyTo: { type: [string, 'null'], format: date }
         perVolunteerLimit: { type: [integer, 'null'] }
         dawahEnabled: { type: boolean }
+        periodFrom: { type: string, description: 'The start month of the session, yyyy-mm' }
+        periodTo: { type: string, description: 'The end month of the session, yyyy-mm' }
+        sessionLabel: { type: string, description: '"2026", or "2026-27" for a session that ends in a later year; read from the period, never stored (BR-311)' }
         programId: { $ref: '#/components/schemas/Uuid' }
+        seriesId: { $ref: '#/components/schemas/Uuid' }
         description: { type: [string, 'null'] }
         workflowVersion: { type: integer }
         costPerBeneficiary: { type: [string, 'null'] }
@@ -4343,8 +4616,8 @@ components:
       required: [clientUuid, kind, entityType, entityId, slot, mime, sizeBytes, sha256, source]
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
-        kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo, form_photo] }
-        entityType: { type: string, minLength: 1, maxLength: 40, description: 'The record type the file links to: application, activity, issue, voucher, expense_claim, payment, animal or document; each takes its own kinds (D-108)' }
+        kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo, form_photo, cover_photo] }
+        entityType: { type: string, minLength: 1, maxLength: 40, description: 'The record type the file links to: application, activity, issue, voucher, expense_claim, payment, animal or document, each with its own kinds (D-108); program or project_series for a cover_photo, under the slot cover_upload, only for a caller who may change that cover (BR-316)' }
         entityId: { type: string, format: uuid, description: The record the file links to; its scope is checked at create and at finalize }
         slot: { type: string, pattern: '^[a-z][a-z0-9_]{0,39}$' }
         mime: { type: string, minLength: 1, maxLength: 100 }
@@ -8093,10 +8366,11 @@ paths:
     patch:
       tags: [programs]
       operationId: programs.program.update
-      summary: Rename a program, deactivate it or activate it again (never deleted)
+      summary: Rename a program, describe it, deactivate it or activate it again (never deleted)
       description: >-
         Deactivation is refused with 409 program.has_open_projects while the program has a draft,
-        active or closing project (BR-256); a deactivated program takes no new project.
+        active or closing project (BR-256); a deactivated program takes no new project. The short
+        description is a pair in both languages; null removes it.
       x-permission: program.update
       x-scope: global
       x-audit: program.update
@@ -8155,6 +8429,280 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /programs/{programId}/cover:
+    parameters:
+      - $ref: '#/components/parameters/ProgramId'
+    put:
+      tags: [programs]
+      operationId: programs.program.setCover
+      summary: Set a program's cover photo from the caller's own finished cover upload; the earlier cover's file is kept
+      description: >-
+        The cover of a program (D-176, BR-316). The file is uploaded first through the upload
+        sessions (kind cover_photo, entityType program, slot cover_upload: JPEG, PNG or WebP up to
+        5 MB, the type read from its bytes) and becomes the cover here. Only a finished upload of
+        that kind which the caller made for this program, cleared by the scan, is taken; anything else answers 422
+        file.cover_invalid, whichever of these fails. The earlier cover keeps its file. The cards
+        name the cover in `coverFileId`, and `GET /files/{fileId}/content` streams it to whoever
+        holds project.overview.view.
+      x-permission: program.update
+      x-scope: global
+      x-audit: program.cover_changed
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CoverSet' }
+      responses:
+        '200':
+          description: The cover was set
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CoverResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /program-cards:
+    get:
+      tags: [programs]
+      operationId: programs.program.cards
+      summary: Every program as a card with counts only (officials who hold the overview)
+      description: >-
+        The programs the caller's project.overview.view scope reaches (every program for the
+        Department Head, the Monitoring Team, the PM, the RPM and the Project Executive; D-176,
+        BR-313), by code, not paginated. A card carries counts and the names of the PM and of the
+        RPMs only. `todo` is summed over the current sessions the caller's own project.view scope
+        reaches and is absent when it reaches none; `canCreate` follows the caller's project.create
+        scope. A read over its time limit answers 503 server.busy.
+      x-permission: project.overview.view
+      x-scope: program
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      responses:
+        '200':
+          description: Program cards
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgramCardList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
+
+  # ======================= project series =======================
+  /project-series:
+    get:
+      tags: [project-series]
+      operationId: projectSeries.series.list
+      summary: Project series as cards with counts, of one program or of all; not paginated
+      description: >-
+        The series of the programs the caller's project.overview.view scope reaches, by code
+        (D-176, BR-313). `todo` is present only where the caller's own project.view scope reaches
+        the current session, its budget only within the caller's budget.view scope; `canCreate`
+        follows the caller's project.create scope. A read over its time limit answers 503
+        server.busy.
+      x-permission: project.overview.view
+      x-scope: program
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      parameters:
+        - name: programId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Project series
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectSeriesList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [project-series]
+      operationId: projectSeries.series.create
+      summary: Create a project series in a program of the caller
+      description: >-
+        The PM of the program and the two global roles (project.create at the program). Another
+        program answers 403, an inactive one 409 program.inactive, a code another series holds 409
+        project.series_code_taken. The first session is created on its own.
+      x-permission: project.create
+      x-scope: program
+      x-audit: project_series.create
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectSeriesCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectSeriesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /project-series/{seriesId}:
+    parameters:
+      - $ref: '#/components/parameters/SeriesId'
+    get:
+      tags: [project-series]
+      operationId: projectSeries.series.get
+      summary: A project series with its sessions, newest first
+      description: >-
+        The card of the series, its program and its sessions; each session's `canOpen` follows the
+        caller's own project.view scope. The ETag is the one PATCH takes in If-Match.
+      x-permission: project.overview.view
+      x-scope: program
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      responses:
+        '200':
+          description: Project series
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectSeriesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [project-series]
+      operationId: projectSeries.series.update
+      summary: Rename a project series or change its description; its sessions are renamed with it
+      description: >-
+        The program is the one the series is stored with: for a caller without project.create
+        there the series answers 404 permission.not_found, as a series that does not exist does
+        (403 is the answer of a caller who holds project.create nowhere). The program and the code
+        never change, so a body that names either answers 422 (validation.unknown_parameter) and
+        changes nothing. A rename renames every session of the series, whatever its state, in the
+        same transaction and under one audit entry.
+      x-permission: project.create
+      x-scope: program
+      x-audit: project_series.update
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectSeriesUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectSeriesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /project-series/{seriesId}/cover:
+    parameters:
+      - $ref: '#/components/parameters/SeriesId'
+    put:
+      tags: [project-series]
+      operationId: projectSeries.series.setCover
+      summary: Set the cover photo of a project series from the caller's own finished cover upload; the earlier cover's file is kept
+      description: >-
+        The cover of a project series (D-176, BR-316), for whoever may create a project in the
+        program the series is stored with; a series outside that scope answers 404
+        permission.not_found, as one that does not exist. The file is uploaded first through the
+        upload sessions (kind cover_photo, entityType project_series, slot cover_upload: JPEG, PNG
+        or WebP up to 5 MB, the type read from its bytes) and becomes the cover here. Only a
+        finished upload of that kind which the caller made for this series, cleared by the scan, is taken; anything else
+        answers 422 file.cover_invalid, whichever of these fails. The earlier cover keeps its file.
+      x-permission: project.create
+      x-scope: program
+      x-audit: project_series.cover_changed
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CoverSet' }
+      responses:
+        '200':
+          description: The cover was set
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CoverResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /project-series/{seriesId}/sessions:
+    parameters:
+      - $ref: '#/components/parameters/SeriesId'
+    post:
+      tags: [project-series]
+      operationId: projectSeries.session.create
+      summary: Start a new session of a project series as a draft that copies the setup of an earlier session
+      description: >-
+        "নতুন সেশন শুরু করুন" (D-176, BR-315). The draft takes the code, the program and the names of
+        the series and copies the setup of the session named in `sourceProjectId`, or of the newest
+        session that is not cancelled: the components with their settings, the published
+        application form with its scoring points, the rules texts and the dawah syllabus. It never
+        copies the dates and the application window, the budget amounts and fund sources, the areas
+        and RPMs, the staff access, the volunteers or the quota targets (BD-10). A named source
+        that is no session of this series, or one the caller may not view, answers 422
+        project.session_source_foreign; a series with no session the caller may copy answers 422
+        project.session_source_none; a year another session of the series starts in answers 409
+        project.session_year_taken, and the year of a cancelled session may be started again
+        (D-177). The program is the one the series is stored with: a series
+        outside the caller's `project.create` scope answers 404 permission.not_found, as a series
+        that does not exist does; a caller without the permission answers 403; an inactive program
+        409 program.inactive. The request runs once per Idempotency-Key: a repeat by the same
+        caller with the same request answers 200 with `Idempotent-Replay: true` and the session the
+        first one made.
+      x-permission: project.create
+      x-scope: program
+      x-audit: project.create
+      x-idempotency: header
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionCreate' }
+      responses:
+        '200':
+          description: The session an earlier request with this key made
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '201':
+          description: Draft session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   # ======================= projects =======================
   /projects:
     get:
@@ -8175,6 +8723,10 @@ paths:
         - $ref: '#/components/parameters/IncludeTotal'
         - name: programId
           in: query
+          schema: { type: string, format: uuid }
+        - name: seriesId
+          in: query
+          description: Only the sessions of one project series
           schema: { type: string, format: uuid }
         - name: year
           in: query
@@ -8198,11 +8750,16 @@ paths:
     post:
       tags: [projects]
       operationId: projects.project.create
-      summary: Create a draft project from a workflow in a program of the caller
+      summary: Create a draft session of a project series in a program of the caller
       description: >-
-        The project starts with the components and settings of its workflow (D-095). The program
-        must be in the caller's scope (403) and active (409 program.inactive); a taken code answers
-        409 project.code_taken. A master template and a copy of a project come with T1.12. The audit
+        The first step of the setup (D-176). The session takes the code, the program and the names
+        of its series, and its year is the year its period starts in. It starts with the components
+        and settings of its workflow (D-095), of a master template or of a project the caller may
+        view. The program is the one the series is stored with: a series outside the caller's
+        `project.create` scope answers 404 permission.not_found, as a series that does not exist
+        does (a caller without the permission answers 403), and the program must be active (409
+        program.inactive); a year another session of the series starts in answers 409
+        project.session_year_taken, a cancelled session holding no year (BR-312, D-177). The audit
         entry of the creation carries the four identity rules the project starts with (BR-309).
       x-permission: project.create
       x-scope: program
@@ -8222,6 +8779,7 @@ paths:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}:
@@ -8252,10 +8810,16 @@ paths:
       operationId: projects.project.update
       summary: Update setup fields as the project state allows
       description: >-
-        A draft changes every field; an active project everything but its code, program, year and
-        workflow, and its end date only through extend-deadline; closing, closed and cancelled
-        projects are read-only (409 project.read_only, BR-257). Moving a draft to another program
-        needs project.configure there and an active program.
+        A draft changes every field; an active project everything but its period and its workflow,
+        and its end date only through extend-deadline; closing, closed and cancelled projects are
+        read-only (409 project.read_only, BR-257). The program and the code belong to the series: a
+        body that names `programId`, `code` or `year` answers 422 (validation.unknown_parameter).
+        The period is its two months together; the year follows the month it starts in, and a year
+        another session of the series starts in answers 409 project.session_year_taken, a cancelled
+        session holding no year (BR-312, D-177). A
+        rename renames the series with its one live session (and its cancelled ones); beside another
+        session of the series that is not cancelled it is refused (409 project.read_only), since the
+        sessions are renamed together through the series.
       x-permission: project.configure
       x-scope: project
       x-audit: project.configure

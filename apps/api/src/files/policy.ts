@@ -1,4 +1,4 @@
-import type { FileKind, FileType } from '@css/shared/files';
+import type { CoverRecordType, FileKind, FileType } from '@css/shared/files';
 import type { Bucket } from '../storage/index.js';
 
 /** Enough of the start of a file to tell every allowed type. */
@@ -88,6 +88,19 @@ export function objectKeyOf(p: KeyParts): string {
       if (p.applicationId) return `${p.projectCode}/${p.applicationId}/${p.kind}/${file}`;
       return `${p.projectCode}/${p.entityType}/${p.entityId}/${p.kind}/${file}`;
   }
+}
+
+/**
+ * The storage key of a cover photo, in the `photos` bucket: the type and the id of its program or
+ * project series, which never change, and the file's id. No code and no name reach it.
+ */
+export function coverKeyOf(p: {
+  fileId: string;
+  type: FileType;
+  entityType: CoverRecordType;
+  entityId: string;
+}): string {
+  return `covers/${p.entityType}/${p.entityId}/${p.fileId}.${EXTENSION[p.type]}`;
 }
 
 function voucherFolder(entityType: string): string {

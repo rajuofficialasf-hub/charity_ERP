@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { attentionCounts, placeOf } from './navigation';
+import { attentionCounts, moreFor, placeOf, sidebarFor, tabsFor } from './navigation';
 
 const HEAD = { kind: 'staff' as const, roles: ['department_head'] };
 const PM = { kind: 'staff' as const, roles: ['program_manager'] };
+const ROLES = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+  'regional_program_manager',
+  'project_executive',
+  'official_daee',
+  'finance_team',
+  'media_team',
+  'procurement_team',
+];
 
 describe('placeOf', () => {
   it('finds the destination of a page and its group, also for a page under it', () => {
@@ -17,6 +28,48 @@ describe('placeOf', () => {
   it('finds nothing for a page outside the sidebar or a destination the person does not have', () => {
     expect(placeOf(HEAD, '/account/profile')).toBeNull();
     expect(placeOf(PM, '/admin/audit')).toBeNull();
+  });
+});
+
+describe('the programs and projects tab', () => {
+  it('is one destination: no role has the programs of their own in the sidebar or "more"', () => {
+    for (const role of ROLES) {
+      const me = { kind: 'staff' as const, roles: [role] };
+      const keys = [...sidebarFor(me).flatMap((g) => g.items), ...moreFor(me)].map((i) => i.key);
+      expect(keys, role).not.toContain('programs');
+      expect(
+        sidebarFor(me)
+          .flatMap((g) => g.items)
+          .filter((i) => i.href.startsWith('/admin/projects')),
+        role,
+      ).toHaveLength(
+        [
+          'department_head',
+          'monitoring_team',
+          'program_manager',
+          'regional_program_manager',
+          'project_executive',
+        ].includes(role)
+          ? 1
+          : 0,
+      );
+    }
+    // the phone's tab opens the same tab under its short name
+    expect(tabsFor(PM).find((t) => t.href === '/admin/projects')?.key).toBe('projects_tab');
+  });
+
+  it('is the place of the program and project pages under it', () => {
+    for (const path of ['/admin/projects/series/x', '/admin/projects/programs/x'])
+      expect(placeOf(PM, path)).toMatchObject({ group: 'work', item: { key: 'projects' } });
+  });
+
+  it('counts the attention of the list in it', () => {
+    expect(
+      attentionCounts(PM, [
+        { href: '/admin/projects?view=list', count: 2 },
+        { href: '/admin/projects?status=draft', count: 1 },
+      ]),
+    ).toEqual({ projects: 3 });
   });
 });
 

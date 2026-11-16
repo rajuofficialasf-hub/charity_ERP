@@ -33,19 +33,65 @@ export async function chooseIn(page: Page, scope: Locator, label: string, option
   await pickFrom(page, trigger, option);
 }
 
-/** The first step of the wizard: Next creates the draft and opens the components step. */
-export async function newDraft(page: Page, projectCode: string, name: string, program = UCD) {
-  await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
+/**
+ * A project series made through the API by `loginId` in the program the label names by its code
+ * ("… (UCD)"); returns its id.
+ */
+export async function newSeries(
+  page: Page,
+  loginId: string,
+  projectCode: string,
+  name: string,
+  program = UCD,
+): Promise<string> {
+  const origin = new URL(page.url()).origin;
+  const context = await apiRequest.newContext({
+    baseURL: origin,
+    extraHTTPHeaders: { Origin: origin },
+  });
+  try {
+    const pm = await apiAs(context, loginId);
+    const programCode = /\(([A-Z]+)\)$/.exec(program)?.[1];
+    const cards = (await (await pm.get('/program-cards')).json()) as {
+      data: { id: string; code: string }[];
+    };
+    const programId = cards.data.find((g) => g.code === programCode)?.id;
+    expect(programId, `program ${programCode}`).toBeTruthy();
+    const made = await pm.post('/project-series', {
+      programId,
+      code: projectCode,
+      name: { bn: name, en: `${name} EN` },
+    });
+    expect(made.ok(), await made.text()).toBe(true);
+    return ((await made.json()) as { data: { id: string } }).data.id;
+  } finally {
+    await context.dispose();
+  }
+}
+
+/**
+ * A new project with its first session as a draft: the series through the API, then the
+ * wizard's first step on it, whose Next creates the session of this year and opens the
+ * components step.
+ */
+export async function newDraft(
+  page: Page,
+  projectCode: string,
+  name: string,
+  program = UCD,
+  loginId = 'pm.ucd@example.org',
+) {
+  const seriesId = await newSeries(page, loginId, projectCode, name, program);
+  await page.goto(`/admin/projects/new?seriesId=${seriesId}`);
   await expect(page.getByRole('heading', { level: 1, name: 'নতুন প্রকল্প' })).toBeVisible();
   const basics = section(page, 'মৌলিক তথ্য');
-  await basics.getByRole('textbox', { name: /প্রকল্প কোড/ }).fill(projectCode);
-  await basics.getByRole('textbox', { name: /বাংলায় নাম/ }).fill(name);
-  await basics.getByRole('textbox', { name: /ইংরেজিতে নাম/ }).fill(`${name} EN`);
-  await basics.getByRole('textbox', { name: /বছর/ }).fill('2026');
-  await chooseIn(page, basics, 'প্রোগ্রাম', program);
+  await expect(basics.getByText(projectCode, { exact: true })).toBeVisible();
   await chooseIn(page, basics, 'ওয়ার্কফ্লো', 'বিতরণ');
   await next(page).click();
-  await expect(page.getByRole('heading', { level: 1, name: `সেটআপ: ${name}` })).toBeVisible();
+  const year = new Date().getFullYear();
+  await expect(
+    page.getByRole('heading', { level: 1, name: `সেটআপ: ${name} · সেশন ${year}` }),
+  ).toBeVisible();
   await expect(page).toHaveURL(/step=components/);
   await expect(state(page, 'খসড়া')).toBeVisible();
 }
@@ -197,7 +243,7 @@ export async function activeProject(
   sections?: unknown[],
   setup?: SetupOptions,
 ): Promise<string> {
-  await newDraft(page, code(), name, program);
+  await newDraft(page, code(), name, program, loginId);
   await placeReadyForm(page, loginId, projectIdOf(page), sections);
   return finishSetup(page, setup);
 }

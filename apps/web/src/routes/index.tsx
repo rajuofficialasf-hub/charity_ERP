@@ -1,5 +1,6 @@
 import { type ComponentType, lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
+import type { AdminRouteHandle } from '../admin/AdminLayout';
 import { RouteError } from '../components/RouteError';
 import { LoginPage } from '../features/auth/LoginPage';
 import { withRest } from '../i18n/locale';
@@ -153,10 +154,8 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               children: [
                 // My Work is the home of the officials too
                 { index: true, element: <Navigate to="/" replace /> },
-                {
-                  path: 'programs',
-                  lazy: page(() => import('../admin/programs/ProgramsPage'), 'ProgramsPage'),
-                },
+                // the programs moved into the programs and projects tab
+                { path: 'programs', element: <Navigate to="/admin/projects" replace /> },
                 {
                   path: 'templates',
                   lazy: page(() => import('../admin/templates/TemplatesPage'), 'TemplatesPage'),
@@ -178,7 +177,25 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 },
                 {
                   path: 'projects',
-                  lazy: page(() => import('../admin/projects/ProjectsPage'), 'ProjectsPage'),
+                  // officials use the tab on a phone as on a computer: no "larger screen" notice
+                  handle: { phoneReady: true } satisfies AdminRouteHandle,
+                  lazy: page(
+                    () => import('../admin/projects/ProgramsProjectsPage'),
+                    'ProgramsProjectsPage',
+                  ),
+                },
+                {
+                  path: 'projects/programs/:programId',
+                  handle: { phoneReady: true } satisfies AdminRouteHandle,
+                  lazy: page(() => import('../admin/projects/ProgramPage'), 'ProgramPage'),
+                },
+                {
+                  path: 'projects/series/:seriesId',
+                  handle: { phoneReady: true } satisfies AdminRouteHandle,
+                  lazy: page(
+                    () => import('../admin/projects/ProjectSeriesPage'),
+                    'ProjectSeriesPage',
+                  ),
                 },
                 {
                   path: 'projects/new',

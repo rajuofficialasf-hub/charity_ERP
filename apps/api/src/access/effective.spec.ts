@@ -32,12 +32,12 @@ describe('effective permissions', () => {
   it('gives GLOBAL roles every permission at GLOBAL, except system.owner.transfer for the Monitoring Team', () => {
     const head = effectivePermissions(registry, facts({ roles: ['department_head'] }), NOW);
     const monitoring = effectivePermissions(registry, facts({ roles: ['monitoring_team'] }), NOW);
-    expect(names(head).size).toBe(158);
+    expect(names(head).size).toBe(159);
     const globalOnes = head.filter((g) => g.scopeType === 'GLOBAL' && g.source === 'global_role');
-    expect(new Set(globalOnes.map((g) => g.permission)).size).toBe(158);
+    expect(new Set(globalOnes.map((g) => g.permission)).size).toBe(159);
     expect(names(head)).toContain('system.owner.transfer');
     expect(names(monitoring)).not.toContain('system.owner.transfer');
-    expect(names(monitoring).size).toBe(157);
+    expect(names(monitoring).size).toBe(158);
   });
 
   it('keeps role defaults with their scope and condition, and leaves out if_rpm_grants defaults', () => {
@@ -74,6 +74,39 @@ describe('effective permissions', () => {
       expect(names(of(role)), role).not.toContain('beneficiary.merge.revert');
     expect(names(of('monitoring_team'))).toContain('beneficiary.merge.revert');
     expect(names(of('department_head'))).toContain('beneficiary.merge.revert');
+  });
+
+  it('lets the five project roles see every program and project as cards, and nobody else', () => {
+    const of = (role: string) => effectivePermissions(registry, facts({ roles: [role] }), NOW);
+    const overview = (role: string) =>
+      of(role)
+        .filter((g) => g.permission === 'project.overview.view')
+        .map((g) => [g.scopeType, g.source, g.condition ?? null]);
+    for (const role of ['program_manager', 'regional_program_manager', 'project_executive'])
+      expect(overview(role), role).toEqual([['GLOBAL', 'role_default', null]]);
+    for (const role of ['department_head', 'monitoring_team'])
+      expect(overview(role), role).toEqual([['GLOBAL', 'global_role', null]]);
+    // default deny for every other role, official or volunteer
+    for (const role of registry.roles.keys())
+      if (
+        ![
+          'department_head',
+          'monitoring_team',
+          'program_manager',
+          'regional_program_manager',
+          'project_executive',
+        ].includes(role)
+      )
+        expect(overview(role), role).toEqual([]);
+    // seeing the cards opens no session: the RPM's and the Executive's own reach stays as it was
+    const scopeOf = (role: string, permission: string) =>
+      of(role)
+        .filter((g) => g.permission === permission)
+        .map((g) => g.scopeType);
+    expect(scopeOf('regional_program_manager', 'project.view')).toEqual(['REGION']);
+    expect(scopeOf('project_executive', 'project.view')).toEqual(['REGION']);
+    expect(scopeOf('program_manager', 'project.view')).toEqual(['PROGRAM']);
+    expect(scopeOf('regional_program_manager', 'project.create')).toEqual([]);
   });
 
   it('gives a volunteer without a project only its account permissions, nothing a set governs', () => {

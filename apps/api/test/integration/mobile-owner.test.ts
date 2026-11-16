@@ -23,6 +23,7 @@ import {
 } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
 import { question } from './support/forms.js';
+import { draftProject } from './support/projects.js';
 
 // Whose number a beneficiary's mobile is: two optional questions of a form (the owner, from the
 // reference list, and the owner's name) fill two columns of the profile. A submit writes them to
@@ -117,7 +118,7 @@ const OWNER_QUESTIONS = [
 ];
 
 async function projectOf(code: string, fields?: unknown[]): Promise<Target> {
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code,
     year: 2026,

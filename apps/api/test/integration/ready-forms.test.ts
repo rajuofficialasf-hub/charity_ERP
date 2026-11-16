@@ -15,6 +15,7 @@ import {
 } from './support/auth-app.js';
 import { insert } from './support/fixtures.js';
 import { IDENTITY, question, section } from './support/forms.js';
+import { draftProject as newProject } from './support/projects.js';
 
 // The ready forms the Monitoring Team builds outside the projects, the one question library, the
 // placement of a ready form on a project by its PM, and the take of a newer version.
@@ -55,7 +56,7 @@ async function staff(role: string) {
 }
 /** A draft project of the PM's program, with no form yet. */
 async function draftProject() {
-  const res = await at(await as(world.users.pm), 'post', '/projects').send({
+  const res = await newProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: `R${next()}`,
     year: 2026,

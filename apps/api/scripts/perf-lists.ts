@@ -12,6 +12,7 @@ import { createContainer } from '../src/container.js';
 import type { PrismaService } from '../src/core/prisma.service.js';
 import { Prisma, PrismaClient } from '../src/generated/prisma/client.js';
 import type { BeneficiaryViewer } from '../src/services/beneficiaries.js';
+import { ownWork, type SessionReach } from '../src/services/project-series.js';
 import { SEARCH_TERMS } from '../seed/perf-data.js';
 import { perfDatabase } from './perf-db.js';
 
@@ -106,7 +107,7 @@ async function measure(name: string, call: () => Promise<unknown>): Promise<Resu
     await call();
     times.push(performance.now() - start);
     for (const s of captured)
-      if (/^\s*SELECT/i.test(s.query) && s.duration > slowest.duration) slowest = s;
+      if (/^\s*(SELECT|WITH)\b/i.test(s.query) && s.duration > slowest.duration) slowest = s;
     captured = null;
   }
   times.sort((a, b) => a - b);
@@ -152,7 +153,9 @@ async function main(): Promise<void> {
   const union = await one<{ id: string }>(
     Prisma.sql`SELECT union_id AS id FROM beneficiaries WHERE upazila_id = ${upazila.id}::uuid LIMIT 1`,
   );
-  const project = await one<{ id: string }>(Prisma.sql`SELECT id FROM projects WHERE code = 'QAK'`);
+  const project = await one<{ id: string; series_id: string; program_id: string }>(
+    Prisma.sql`SELECT id, series_id, program_id FROM projects WHERE code = 'QAK'`,
+  );
   const ben = await one<{ id: string; mobile: string; nid: string }>(
     Prisma.sql`SELECT b.id, b.mobile, b.nid FROM beneficiaries b JOIN applications a ON a.beneficiary_id = b.id
      WHERE b.nid IS NOT NULL ORDER BY b.id LIMIT 1 OFFSET 1000`,
@@ -185,6 +188,7 @@ async function main(): Promise<void> {
     const vv = await viewerOf(email, 'volunteer.view_all', 'global');
     const bv: BeneficiaryViewer = await viewerOf(email, 'beneficiary.view_all', 'beneficiary');
     const mv = await viewerOf(email, 'beneficiary.merge.dismiss', 'beneficiary');
+    const ov = await viewerOf(email, 'project.overview.view', 'program');
     const v = (name: string, filter: Record<string, string>) =>
       measure(`${who} volunteers.list ${name}`, () =>
         c.volunteerList.list({ ...page, ...filter } as VolunteerQuery, vv),
@@ -263,9 +267,47 @@ async function main(): Promise<void> {
         c.beneficiaries.statistics({ districtId: dhaka.id }, bv),
       ),
       await measure(`${who} beneficiaries.profile`, () => c.beneficiaries.profile(bv, ben.id)),
+      // the cards of programs and projects (docs/testing/PERFORMANCE.md, "The cards of programs
+      // and projects")
+      await measure(`${who} program cards`, () => c.programCards.list(ov)),
+      await measure(`${who} series cards, every program`, () => c.projectSeries.list(ov, {})),
+      await measure(`${who} series cards, one program`, () =>
+        c.projectSeries.list(ov, { programId: project.program_id }),
+      ),
+      await measure(`${who} series with its sessions`, () =>
+        c.projectSeries.get(ov, project.series_id),
+      ),
     );
     out();
   }
+
+  // a caller who holds sessions by areas: the data set's RPM holds one area of an empty draft, so
+  // the largest division and its largest district are held here in the first n running sessions,
+  // once as areas of each session and once as areas of every project
+  const division = await one<{ id: string }>(Prisma.sql`
+    SELECT region_location_id AS id FROM applications GROUP BY 1 ORDER BY count(*) DESC LIMIT 1`);
+  const district = await one<{ id: string }>(Prisma.sql`
+    SELECT district_id AS id FROM applications WHERE region_location_id = ${division.id}::uuid
+    GROUP BY 1 ORDER BY count(*) DESC LIMIT 1`);
+  const running = (
+    await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM projects WHERE status = 'active' ORDER BY id`
+  ).map((r) => r.id);
+  const held = [division.id, district.id];
+  for (const n of [5, 30, 300]) {
+    const sessions = running.slice(0, n);
+    const reach = (own: readonly string[]) =>
+      new Map<string, SessionReach>(sessions.map((id) => [id, own]));
+    results.push(
+      await measure(`own work, ${n} sessions held by their own areas`, () =>
+        ownWork(prisma, { open: reach(held), areasOfEveryProject: [] }, new Map()),
+      ),
+      await measure(`own work, ${n} sessions held by areas of every project`, () =>
+        ownWork(prisma, { open: reach([]), areasOfEveryProject: held }, new Map()),
+      ),
+    );
+  }
+  out();
 
   const over = results.filter((r) => r.p95 > EXPLAIN_OVER);
   out(

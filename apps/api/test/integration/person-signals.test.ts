@@ -17,6 +17,7 @@ import {
 } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
 import { storeKeys } from './support/name-keys.js';
+import { draftProject } from './support/projects.js';
 
 // What the review tells about the applicant's person beyond the project: the earlier family that
 // probably holds them as a member, and an open probable pair with another profile. Both only tell;
@@ -35,16 +36,13 @@ let distribution: { id: string; versionId: string };
 let withoutProfiles: string;
 
 async function projectOf(code: string, workflowKey: string) {
-  const made = await api()
-    .post('/api/v1/projects')
-    .set(bearer(await as(world.users.pm)))
-    .send({
-      programId: world.a1.program,
-      code,
-      year: 2026,
-      name: { bn: code, en: code },
-      source: { kind: 'workflow', workflowKey },
-    });
+  const made = await draftProject(h, await as(world.users.pm), {
+    programId: world.a1.program,
+    code,
+    year: 2026,
+    name: { bn: code, en: code },
+    source: { kind: 'workflow', workflowKey },
+  });
   expect(made.status, JSON.stringify(made.body)).toBe(201);
   const id = made.body.data.id as string;
   const { versionId } = await applicationProject(h, await as(world.users.monitoring), id, {

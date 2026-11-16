@@ -18,6 +18,7 @@ import {
 } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
 import { addVariantGroup, removeVariantGroup, storeKeys } from './support/name-keys.js';
+import { draftProject } from './support/projects.js';
 
 // The name lookup of an application without a document: an exact comparison of the keys of the
 // name, the father's or husband's name and the village inside a union of an area of a project the
@@ -44,7 +45,7 @@ let generalVolunteer: string;
 let mediaUser: string;
 
 async function projectOf(code: string): Promise<Target> {
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code,
     year: 2026,

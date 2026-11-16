@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatMonth,
   isoDateInDhaka,
   formatCount,
   formatDate,
@@ -123,5 +124,12 @@ describe('isoDateInDhaka', () => {
     expect(formatIdNumber('BEN-0000500')).toBe('BEN-0000500');
     expect(formatMobile('01365478965')).toBe('01365-478965');
     expect(formatMobile('+8801365478965')).toBe('+8801365478965');
+  });
+});
+
+describe('formatMonth', () => {
+  it('writes a month as mm-yyyy, from a month or a date', () => {
+    expect(formatMonth('2027-06')).toBe('06-2027');
+    expect(formatMonth('2028-07-31')).toBe('07-2028');
   });
 });

@@ -6,7 +6,7 @@ import {
   type Page,
   test,
 } from '@playwright/test';
-import { apiAs, isPhone, openTab, scan, signIn } from './support/admin';
+import { openProjectsTab, apiAs, isPhone, scan, signIn } from './support/admin';
 import { activeProject, choice, code, ERR, identityRulesOn, question } from './support/projects';
 import { pickByLabel, sendToOffice } from './support/forms';
 import { act, savar } from './support/applications';
@@ -127,7 +127,7 @@ async function projectOfTheJourney(
 ) {
   const projectId = await onDesk(browser, async (desk) => {
     await signIn(desk, PM);
-    await openTab(desk, 'প্রকল্প');
+    await openProjectsTab(desk);
     return activeProject(desk, `আবেদনের যাত্রা ${code()}`, ERR, PM, FORM, {
       window: windowAroundToday(),
       fundSource: 'সাধারণ দান',

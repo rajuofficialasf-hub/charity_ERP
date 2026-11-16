@@ -1155,7 +1155,9 @@ Timeline and budget are not in the blueprint; the duration of Phases 1 and 2 can
 | Term | Meaning |
 |---|---|
 | Program | Umbrella of several projects of the same kind, e.g. Humanitarian Program |
-| Project | A specific activity in a specific year, e.g. Iftar Project 2026; the centre of the system |
+| Project (permanent project) | A lasting activity of a program, e.g. Iftar Project, with its code, names, short description and cover; in code and the API a **project series** (`project_series`, `/project-series`); it holds one session per start year (D-176) |
+| Session (সেশন) | One period of a project's work, a start month to an end month of at most 24 months, labelled "2026" or "2026-27"; what the blueprint calls a project of a year, and in code still the `projects` row and `/projects`: its applications, budget, quotas, volunteers, forms, rules and lifecycle (D-176) |
+| Program → project → session | The three levels of the programs and projects tab: a program's projects as cards, a project's sessions as a list, a session's own page |
 | Beneficiary | The person who receives support; identified by NID or birth registration; one profile with all years' history |
 | BEN-ID | The beneficiary's permanent system id (e.g. BEN-000123); the profile is based on NID or birth registration |
 | Beneficiary 360° / journey | Full history on one profile: applications, support, dawah, call log, follow-up, photos and documents |

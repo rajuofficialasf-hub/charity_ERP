@@ -17,6 +17,7 @@ import {
 import { volunteer } from './support/fixtures.js';
 import { publishedForm, publishedReadyForm } from './support/forms.js';
 import { notificationsOf } from './support/notifications.js';
+import { draftProject } from './support/projects.js';
 
 // The life of a project: activation of a complete draft, the deadline extension, the two-step
 // close with the workflow's close guards, and the reopen.
@@ -61,7 +62,7 @@ async function audit(entityId: string, action: string) {
 /** A draft of the PM's program, made through the API; `complete` fills every activation item. */
 async function draft(complete: boolean, fundTotal = '100000.00') {
   const pm = await as(world.users.pm);
-  const created = await at(pm, '/projects').send({
+  const created = await draftProject(h, pm, {
     programId: world.a1.program,
     code: code(),
     year: 2026,

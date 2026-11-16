@@ -60,6 +60,7 @@ Resolution rules:
 - The resolver computes, per request, the set of scope instances the user holds for the target entity type (for example `{REGION: [projectA/divisionX], PROJECT: [projectB]}`) and the repository turns it into a mandatory `WHERE` clause (SYSTEM_ARCHITECTURE §6 step 7). A user with no instance for the entity type gets an empty result, never an error that reveals existence.
 - Several scopes add up: an RPM who is also assigned as Official দায়ী on another project holds REGION for the first and the Official দায়ী grants for the second.
 - GLOBAL read of the volunteer and beneficiary tabs does not imply write: writing still needs the specific permission at its scope (BR-185).
+- The overview of programs and projects (D-176): `project.overview.view` is held at GLOBAL by the PM, the RPM and the Project Executive (the two global roles hold it as they hold every permission). It shows every program and every project as cards with counts and the names of the program's PM and of the RPMs, and nothing else about a person, no identity number and no budget; the cover photos of the cards are read with it, through the file routes, while they are the covers (FILES_AND_DOCUMENTS, "Cover photos"). It opens no session: a session's page, its applications, its to-do figures and its budget stay with `project.view`, `application.view` and `budget.view` at the caller's own scope, and creating or changing anything stays with its own permission. The Official দায়ী, the Finance, Media and Procurement Teams and the volunteers do not hold it (default deny) and keep the reads they had.
 - District split (Q-08, O-09): when `project_areas` names districts for an RPM, REGION for that RPM means those districts only; until then every RPM of the division sees the whole division.
 - Scope instances are cached per request only; permission changes bump `permission_version` and force a token refresh (AUTH.md §9).
 
@@ -73,6 +74,7 @@ Legend: ✓ default · G = if RPM grants · H = house construction only · W = s
 |---|---|---|---|---|---|---|---|
 | project.create, project.configure, project.activate, project.quota.manage, project.template.manage, fund_source.manage | ✓ | — | — | — | — | — | — |
 | project.deadline.extend / close / reopen / cancel | ✓ | — | — | — | — | — | — |
+| project.overview.view (every program and project as cards, counts only; D-176) | ✓ [GLOBAL] | ✓ [GLOBAL] | ✓ [GLOBAL] | — | — | — | — |
 | project.area.assign | ✓ | — | — | — | — | — | — |
 | form.place / public_link.manage | ✓ | — | — | — | — | — | — |
 | form.build / publish / library.view / library.manage (the two global roles only, D-125) | — | — | — | — | — | — | — |
@@ -167,6 +169,7 @@ Rows of the blueprint's first table and the permissions that implement them: row
 | issue.resolve | — | — | ✓ (own or paid-volunteer issues) |
 | volunteer.rating.view, volunteer.category.set, beneficiary.view_nid, volunteer.view_sensitive, donor.* | — | — | — |
 | program.view, project.view (read) | ✓ | ✓ | ✓ [house construction] |
+| project.overview.view (the cards of every program and project; D-176) | — | — | — |
 
 Finance stays a viewer (BD-31, O-24). Media changes only its own works, scripts and publications (A4, D-101). Procurement never edits or deletes applications (Q-46).
 
@@ -317,9 +320,9 @@ Generated on 2026-10-18 from `permissions.yaml` (last regenerated for D-101); re
 | `beneficiary.status.change` | M05 | no | Change a beneficiary profile status (active, deceased, relocated) with reason | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION |
 | `program.create` | M06 | no | Create a program | — |
 | `program.assign_pm` | M06 | no | Assign the Program Manager of a program | — |
-| `program.update` | M06 | no | Rename a program, deactivate it and activate it again | — |
+| `program.update` | M06 | no | Rename a program, describe it, set its cover photo, deactivate it and activate it again | — |
 | `program.view` | M06 | no | View the program list and program details | program_manager@PROGRAM; regional_program_manager@PROGRAM; project_executive@PROGRAM; official_daee@PROGRAM; finance_team@GLOBAL; media_team@GLOBAL; media_director@GLOBAL; media_assistant_director@GLOBAL |
-| `project.create` | M06 | no | Create a project in own program (from a workflow; from a template or a copy with T1.12) | program_manager@PROGRAM |
+| `project.create` | M06 | no | Create a project in own program (from a workflow, a template or a copy); also rename a permanent project of that program, set its cover photo and start its new session | program_manager@PROGRAM |
 | `project.configure` | M06 | no | Configure components, form, budget, deadlines, rules, syllabus, rating criteria, photo rule, limits, stages, settings | program_manager@PROGRAM |
 | `project.activate` | M06 | no | Move a project from Draft to Active | program_manager@PROGRAM |
 | `project.deadline.extend` | M06 | no | Extend the application deadline with reason | program_manager@PROGRAM |
@@ -330,6 +333,7 @@ Generated on 2026-10-18 from `permissions.yaml` (last regenerated for D-101); re
 | `project.template.manage` | M06 | no | Create and edit master project templates (organisation-wide, D-096); save a project the holder may view as template | program_manager@GLOBAL |
 | `project.quota.manage` | M06 | no | Set district and union quotas and scoring criteria | program_manager@PROGRAM |
 | `project.view` | M06 | no | View project configuration and status | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; official_daee@REGION; procurement_team@PROJECT (house_construction_project); finance_team@GLOBAL; media_team@GLOBAL; media_director@GLOBAL; media_assistant_director@GLOBAL; volunteer_general@PROJECT; volunteer_local_daee@PROJECT; volunteer_both@PROJECT; volunteer_team_member@PROJECT; volunteer_paid@PROJECT |
+| `project.overview.view` | M06 | no | See every program and every project as cards with counts only (no person but the PM and the RPMs by name, no identity number, no budget) and their cover photos; opening a session stays with project.view | program_manager@GLOBAL; regional_program_manager@GLOBAL; project_executive@GLOBAL |
 | `form.build` | M07 | no | Build a form draft (sections, questions, logic) — the ready forms and the question library; the two global roles only (D-125) | — |
 | `form.publish` | M07 | no | Publish a form version; the two global roles only | — |
 | `form.place` | M07 | no | Place a published ready form on a project and take its newer versions, changing nothing in it (D-129) | program_manager@PROGRAM |

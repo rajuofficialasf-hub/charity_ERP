@@ -53,7 +53,7 @@ The **system actor** is a fixed `users` row (`kind = 'system'`, state `active`, 
 | Beneficiary (BEN-ID) | the UUID v7 `beneficiaries.id` | application-generated; shown in full where an id is required (profile, merge pointer, exports); a short display form needs a new decision (O-03); search uses NID/birth number and name |
 | Application number | `{project.code}-{year}-{5-digit sequence}`, e.g. `WNT-2026-00125` | server-side, inside the transaction that creates the server row: `UPDATE id_sequences SET last_value = last_value + 1 WHERE scope_key = 'app:'||project_id RETURNING last_value` (row lock serializes concurrent creations; a rollback undoes the increment, so committed numbers have no gaps); the row is created with `last_value = 0` when the project is created |
 | Offline records | no `app_no` until synced | the device shows a short client reference (last 6 characters of `client_uuid`); the server assigns `app_no` at sync |
-| Project code | 2–8 uppercase letters, unique (`WNT`, `IFT`, `MEAT`, `QRB`, `SBL`, `HSE`, `SWT`, `TRP`, …) | entered by the PM in project setup (O-03) |
+| Project code | 2–8 uppercase letters, unique among the project series (`WNT`, `IFT`, `MEAT`, `QRB`, `SBL`, `HSE`, `SWT`, `TRP`, …) | entered by the PM when the permanent project is created (O-03, D-176); every yearly session of the series carries it, one session per start year, so `{code}-{year}` still names one session and an application number stays unique |
 
 ### id_sequences
 
@@ -130,7 +130,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-media-content | video, photo, both | media_works.content_type |
 | L-script-state | draft, in_review, final | media_works.script_state |
 | L-publication-state | waiting, published, taken_down | media_publications.state |
-| L-file-kind | distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, export, issue_photo, form_photo | files.kind |
+| L-file-kind | distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, export, issue_photo, form_photo, cover_photo | files.kind |
 | L-file-source | camera, gallery, scan, system | files.source |
 | L-file-flag | no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect | files.flags (data-quality flags, O-30) |
 | L-scan | pending, clean, infected, failed, skipped | files.virus_scan |
@@ -412,15 +412,34 @@ Constraints: CHECK value > 0; CHECK the three withdrawal columns are set togethe
 | name_bn, name_en | text | no | — | — |
 | pm_user_id | uuid | yes | — | FK users |
 | active | boolean | no | true | — |
+| description_bn, description_en | text | yes | — | the short description on the program's card, at most 500 characters per language (`shortDescription`, `@css/shared/projects`); null until written (D-176) |
 | [A] | | | | |
 
+### project_series
+The permanent project (D-176): what stays the same from year to year. The screens call it "প্রকল্প"; each year's work is a row of `projects`, a session of it.
+
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK; a series made by the backfill carries the id of the project it was made from |
+| program_id | uuid | no | — | FK programs; fixed once the series exists |
+| code | text | no | — | UNIQUE; CHECK `^[A-Z]{2,8}$`; the code of every session and the prefix of the application numbers (O-03) |
+| name_bn, name_en | text | no | — | the names its sessions carry |
+| description_bn, description_en | text | yes | — | the short description on the project's card, at most 500 characters per language |
+| [A] | | | | |
+
+Constraints: UNIQUE (code); UNIQUE (id, program_id), the target of the foreign key that keeps a session in the program of its series. Indexes: (program_id). A cover photo is a row of `file_links` (entity_type `project_series`, slot `cover`), never a column; a program's is the same with entity_type `program`. No row is deleted: `projects` points at it with ON DELETE RESTRICT.
+
 ### projects
+One yearly session of a project series (D-176). The table, its name and every table that points at it are as they were before the series existed; in the screens a row is a "সেশন".
+
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
-| program_id | uuid | no | — | FK programs |
-| code | text | no | — | UNIQUE; CHECK `^[A-Z]{2,8}$` (O-03) |
-| year | smallint | no | — | CHECK 2020–2100 |
+| program_id | uuid | no | — | FK programs; with series_id, FK project_series (id, program_id): the program of its series |
+| series_id | uuid | no | — | FK project_series, together with program_id |
+| code | text | no | — | the code of its series, written by the service; CHECK `^[A-Z]{2,8}$` (O-03); UNIQUE with year |
+| year | smallint | no | — | CHECK 2020–2100; the year the period starts in (CHECK), which numbers the applications |
+| period_from, period_to | date | no | — | the first day of the start month and the last day of the end month; the label ("2026", "2026-27") is read from them by `sessionLabel` (`@css/shared/projects`) and never stored (BR-311) |
 | name_bn, name_en | text | no | — | — |
 | description | text | yes | — | — |
 | status | text | no | 'draft' | L-project-status |
@@ -443,7 +462,13 @@ Constraints: CHECK value > 0; CHECK the three withdrawal columns are set togethe
 | cancelled_by | uuid | yes | — | FK users; indexed |
 | [A] | | | | |
 
-Indexes: (program_id, year); (status).
+Constraints: FK (series_id, program_id) → project_series (id, program_id), so a session cannot sit in another program than its series; partial UNIQUE (series_id, year) WHERE status <> 'cancelled': one session of a series per start year among those that are not cancelled (BR-312, D-177: a cancelled session was a draft, holds no application, and its year may be started again); partial UNIQUE (code, year) WHERE status <> 'cancelled': the database's own guard that `{code}-{year}` names one live session even if a code ever drifted from its series'; CHECK `period_to >= period_from` and `period_to < period_from + 24 months`; CHECK `year = extract(year from period_from)`.
+
+Indexes: (program_id, year); (status); (series_id, year) for the reads of every session of a series, cancelled ones too (the partial unique serves only the reads that leave them out).
+
+Migration `20261116120000_project_series` (D-176): every project that existed became the one session of its own new series, which took the project's id, program, code, names and audit columns; the session runs 1 January to 31 December of its year; the project's own columns and its update stamp stayed as they were. Its `down.sql` gives each session back as the project it was (the unique code across all projects, no series, no period, no program description) and loses the series' names and descriptions and the programs' descriptions. It stops before changing anything while two sessions carry one code, which is so as soon as a series has a second session; cancelling the later session frees nothing, since a cancelled session keeps its code, so each later session must first be given a code of its own, by the owner's decision.
+
+Migration `20261116130000_cancelled_session_year` (D-177): the two unique indexes of a session's year become partial (`WHERE status <> 'cancelled'`) under their old names, and the plain index (series_id, year) is added, since the full unique was the only index on the series column. No row changes. Its `down.sql` restores the full uniques and stops before changing anything, with `cancelled_session_year_in_use` and the code and year, while a cancelled session shares its year with another session of its series; no row is removed to make room.
 
 ### project_components
 | Column | Type | Null | Default | Comment |
@@ -1651,12 +1676,14 @@ The early `media_subjects` and `media_stories` were never written and are droppe
 
 Constraints: UNIQUE (bucket, object_key); partial UNIQUE (project_id, sha256) WHERE kind NOT IN ('export') (relaxable per project policy, O-30); CHECK deleted_at IS NULL OR kind = 'export'. Indexes: (storage_driver, id) for the copy between drivers; (project_id, phash); (virus_scan) WHERE virus_scan IN ('pending','failed').
 
+Migration `20261116140000_cover_photos` (D-176): `files_kind_check` takes `cover_photo` and `file_links_entity_type_check` takes `program` and `project_series`; no column and no table is added. Its `down.sql` removes the links of the covers (the older checks have no place for them; who set which cover stays in the audit log) and keeps the photos as rows of `files` under the kind `evidence` with no link, read by nobody but their uploader.
+
 ### file_links
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | file_id | uuid | no | — | FK files |
-| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation, user (staff photo, D-082), public_submission (a public form photo before its submission claims it, keyed by the applicant's client id; never resolved by the file routes) |
+| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation, user (staff photo, D-082), public_submission (a public form photo before its submission claims it, keyed by the applicant's client id; never resolved by the file routes), program and project_series (the cover photo: the slot `cover` is the cover, `cover_upload` the link a cover photo was uploaded under; FILES_AND_DOCUMENTS, "Cover photos") |
 | entity_id | uuid | no | — | — |
 | slot | text | no | — | e.g. distribution_proof, final_photo |
 | position | smallint | no | 0 | — |

@@ -60,6 +60,8 @@ The app's colour names (`tokens.css`) and the asf values they read. A name with 
 | ---------------------------- | --------------------------------------- | --------------------------- |
 | `--color-brand-primary`      | primary main #00A76F                    | follows asf                 |
 | `--color-brand-primary-dark` | primary dark #007867                    | primary light #5BE49B       |
+| `--color-art-primary-lighter`, `--color-art-primary-main`, `--color-art-primary-dark`, `--color-art-primary-darker` | the primary scale #C8FAD6, #00A76F, #007867, #004B50, as fills of the drawn cover only | the same shades (the asf dark scheme keeps the scales) |
+| `--color-art-sun`            | common white #FFFFFF, the drawn cover's sun only | the same                    |
 | `--color-brand-ink`          | neutral 800 #1C252E (a dark surface or the darkest text) | follows asf  |
 | `--color-brand-accent`       | warning main #FFAB00                    | follows asf                 |
 | `--color-brand-accent-ink`   | warning dark #B76E00                    | warning light #FFD666       |
@@ -271,7 +273,7 @@ The shell is the asf `AppShell` with the app's additions (`compactNav`, counts, 
 - **Rail:** the same destinations as icons with labels, from 600 px to 1199 px and for a person without sidebar groups at any width above the tabs. Volunteers have no sidebar; from 600 px their four destinations sit in the rail (D-100).
 - **Sidebar** (from 1200 px): the asf sidebar, folding to a rail, in the asf colours of the current mode. At the top the Foundation's mark and the system name; then the destinations in their groups (`apps/web/src/admin/navigation.ts`), each group under a small heading, each item an icon and a label; the current page is the app's own (`aria-current="page"`), in the folded rail too. A destination shows a count only where the home's "needs your attention" list already counts it (English digits, in the darker shade of its tone). The sidebar is a named landmark, so a page's own side column stays a landmark of its own. The ink sidebar of D-145 with its help card and amber bar is superseded by D-150.
 - **Banners** sit between the app bar and the content: offline, update available, iOS storage warning, install guidance (§7, §8).
-- Navigation is built from the user's effective permissions; a destination the user cannot use is not shown. The server still denies by default.
+- Navigation is built from the user's effective permissions; a destination the user cannot use is not shown. The server still denies by default. The officials' destination "প্রোগ্রাম ও প্রকল্প" (the phone tab "প্রকল্প") replaces the separate programs and projects destinations (D-176), for the five roles of `project.overview.view`.
 
 ### 4.2 Page structure
 
@@ -302,7 +304,7 @@ The management screens and admin settings live under `/admin` (`apps/web/src/adm
 
 - The admin pages use the app bar and the sidebar of §4.1; the separate admin top bar and admin sidebar of UX-15 are gone.
 - Content: the page header of §4.2, then cards; maximum width `--content-max`.
-- Phones: the "best on a larger screen" Alert of §4.4 is shown under 768 px; the pages stay readable.
+- Phones: the "best on a larger screen" Alert of §4.4 is shown under 768 px; the pages stay readable. A page officials use on a phone as much as on a computer carries `handle: { phoneReady: true }` on its route (`AdminRouteHandle` of `admin/AdminLayout.tsx`) and shows no notice: the programs and projects tab, a program's page and a project's page (D-176).
 - Audience: Department Head, Monitoring Team and Program Managers; any other signed-in user sees a "no access" page. Navigation only hides; the server enforces every admin permission.
 
 ## 5. Component inventory
@@ -317,7 +319,7 @@ Where each section of this chapter lives in the contract:
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | 5.1 Button                   | `Button`, `LinkButton`, `IconButton`                                                                          |
 | 5.2 Badge / Status           | `StatusChip`, `Chip`                                                                                          |
-| 5.3 Card / Stat              | `Card`, `StatCard`, `ProgressStat`, `SummaryBanner`, `AttentionCard`, `IconTile`                              |
+| 5.3 Card / Stat              | `Card`, `StatCard`, `ProgressStat`, `SummaryBanner`, `AttentionCard`, `IconTile`, `FlipCard`; the app's `CoverArt` in `components/CoverArt.tsx` |
 | 5.3a Page header             | `Page` (`eyebrow`, title, description, actions)                                                               |
 | 5.4 Field                    | `TextField`, `SelectField`, `Combobox`, `Checkbox`, `CheckboxGroup`, `RadioGroup`, `DateField`, `TimeField`, `MonthField`, `Form` and its form fields, `FormSection`, `ErrorSummary` |
 | 5.5 Nav / Item               | `AppShell` (`NavGroup`, `NavItem`), `BottomNav`                                                               |
@@ -424,6 +426,13 @@ Supporting pieces used by several components: **Icon** (`<Icon name="..." />` fr
 - A `default` card's head (D-145): the title (Title), an optional one-line description (Caption, secondary), and an optional link or action on the right of the title.
 - `attention` (`AttentionCard`): a "needs your attention" item: icon, one-line reason, due or waiting time, and a link to its list. Used on every My Work home.
 - `accent`: the amber highlight of the earlier set is not an asf piece; an announcement takes the asf `Alert` until a screen needs more.
+- **Flip card** (`FlipCard`, the cards of programs and projects, D-176): two faces of one size (460 px by default), each the asf card. The front: a 150 px picture (a cover photo, or the app's `CoverArt` drawing: green hills under a pale sun, lighter to darker from the sky to the front hill in both modes through the `--color-art-*` tokens, the same picture for the same record, solid fills only; no text sits on it, the badge and the chips stand on paper) with a short badge, a corner chip and a foot chip over it, the title (`h6`, two lines at most, a long word broken anywhere) as the link the whole front opens, the figures, and a hint row. The back: an eyebrow, the title again, the "Back" button, then the people, more figures and the actions.
+  - Turning: on a computer (`(hover: hover) and (pointer: fine)`) the card turns while a pointer that can rest is on it (a finger on a laptop's touch screen taps instead) and the row shows the hint "Rest the pointer here for details"; on every other device the row shows the "Details" button instead. From the keyboard, on every device, "Details" turns it and puts the focus on "Back", which turns it back and returns the focus; on a computer "Details" shows when the keyboard reaches it. The keyboard's focus leaving the card turns it back; a tap or a click inside the card never does. Each button's name says which card ("<title>: show details").
+  - Content: the front holds figures only, never a control (the title's link covers it); the actions are on the back.
+  - Heights per card kind (`cards-api.ts`): a program card is 380 px, which its back (the manager, the RPMs, two figures, the two actions side by side) fits; the figures sit at the foot of the front, so the room a short name leaves stays under the name, not under the figures. A back that also carries the caller's work and a long description scrolls inside the card. A project card is 440 px (measured on the demo data: the back needs 326 px of 346 px on a computer, and on a 360 px phone the fullest back, the own work with the budget and both actions stacked, needs 374 px and scrolls inside the card): its back holds the current session's RPMs, four figures in two rows, the caller's work (with the budget for whoever may see it) and the two actions side by side; its front the approved bar and three figures at its foot. The shared back parts are `CardTeam` and `CardTodo` (`CardParts.tsx`).
+  - The view switch of a tab with cards and a list ("কার্ড | তালিকা") is the `SegmentedControl`, the app's addition to the asf set (local.json): the two-button pressed group of the language switch under a name of its own, named by its label; the view lives in the address. What does not fit scrolls inside its face. The title link's focus ring is drawn inside the card's edge, since the title clips its own overflow.
+  - The hidden face is `inert` and `aria-hidden`: out of the tab order and the accessibility tree.
+  - Motion: a 3D turn (`perspective: 1200px`, `preserve-3d`, `backface-visibility: hidden`) of 0.7 s, the one asf movement longer than the 150 to 250 ms of "Focus, motion and layers", because a turn of a whole card must be seen as one (the owner's approved design, D-176); none under `prefers-reduced-motion: reduce`, where the faces change at once.
 - Accessibility: a linked card is one `<a>` with the title as its name; nested interactive controls are not allowed inside a linked card. Stat values are announced with their label ("approved: 1,240 of 2,000").
 - Do not: nest cards; give cards heavy shadows; colour a whole card with a status colour.
 
@@ -610,7 +619,7 @@ Props: `steps` (state or stage name, actor, time, comment, status `done`, `curre
 
 **Stepper (UX-16):** the steps of a form split into small parts: numbered 28 px circles in a wrapping row, the current one in the dark green with white digits and `aria-current="step"`, done steps soft green with a check, upcoming steps in the quiet grey; each step keeps its name for a screen reader (found by the T1.16 axe sweep). Props `steps`, `current`, `label`. A wizard (UX-20) adds `marks` (per step `complete`, `missing` or none; a missing step shows a warning sign on the soft warning tone and hidden words saying it is still needed, never colour alone) and `onSelect` (each step becomes a button of at least 44 px height that opens it); on phones the gaps shrink so eight dots fit 360 px. The wizard's action bar under the step (Back, save and exit, the main action) stays in view at the bottom and fills the width on phones.
 
-**Language switch (UX-19):** the asf `LanguageSwitch`, a group of two pressed buttons (বাংলা | English), in the header (`components/LanguageSwitch.tsx`); a choice of two or three short options elsewhere is a `RadioGroup` or the segmented `Tabs`. `TopBar` (apps/web) is the slim bar above the pages without a sidebar, with the system name at the start and the switch at the end. The earlier `SegmentedControl` piece is gone.
+**Language switch (UX-19):** the asf `LanguageSwitch`, a group of two pressed buttons (বাংলা | English), in the header (`components/LanguageSwitch.tsx`); a choice of two or three short options elsewhere is a `RadioGroup` or the segmented `Tabs`. `TopBar` (apps/web) is the slim bar above the pages without a sidebar, with the system name at the start and the switch at the end. The `LanguageSwitch` is drawn by the `SegmentedControl` (the app's addition, local.json), the same pressed group under a neutral name, which a tab uses to switch between its views (the cards and the list of the programs and projects tab); a choice inside a form stays a `RadioGroup`.
 
 **Page band (UX-16):** the title band at the head of the registration's card: the h1 and one short line, drawn by the registration page itself on the asf palette (white text only on the dark and darker greens, §2.1 rule 2); not a piece of its own.
 

@@ -85,6 +85,34 @@ export async function referenceCode(db: Client, listKey: string, code: string) {
   );
 }
 
+/**
+ * A project row as the one session of a series of its own, running January to December of its
+ * year, unless the row names its series or its period. A migration test seeds rows on an earlier
+ * schema, before the series existed: there the project is inserted alone.
+ */
+export async function projectRow(db: Client, row: Record<string, unknown>): Promise<string> {
+  const known = await db.query<{ series: boolean }>(
+    `SELECT to_regclass('public.project_series') IS NOT NULL AS series`,
+  );
+  if (!known.rows[0]?.series) return insert(db, 'projects', row);
+  const year = Number(row.year);
+  const series =
+    row.series_id ??
+    (await insert(db, 'project_series', {
+      id: randomUUID(),
+      program_id: row.program_id,
+      code: row.code,
+      name_bn: row.name_bn,
+      name_en: row.name_en,
+    }));
+  return insert(db, 'projects', {
+    series_id: series,
+    period_from: `${year}-01-01`,
+    period_to: `${year}-12-31`,
+    ...row,
+  });
+}
+
 export async function project(db: Client, over: Record<string, unknown> = {}) {
   const n = next();
   const program = await insert(db, 'programs', {
@@ -109,7 +137,7 @@ export async function project(db: Client, over: Record<string, unknown> = {}) {
     String.fromCharCode(65 + (n % 26)) +
     String.fromCharCode(65 + (Math.floor(n / 26) % 26)) +
     String.fromCharCode(65 + (Math.floor(n / 676) % 26));
-  const id = await insert(db, 'projects', {
+  const id = await projectRow(db, {
     id: randomUUID(),
     program_id: program,
     code,

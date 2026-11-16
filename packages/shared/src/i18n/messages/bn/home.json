@@ -46,7 +46,8 @@
     "all_notifications": "সব নোটিফিকেশন",
     "media_work": "মিডিয়ার কাজ",
     "open_media": "মিডিয়ার কাজ দেখুন",
-    "media_counts": "{new} নতুন · {progress} চলমান · {published} প্রকাশিত"
+    "media_counts": "{new} নতুন · {progress} চলমান · {published} প্রকাশিত",
+    "session_name": "{name} · সেশন {label}"
   },
   "later": {
     "badge": "শিগগিরই আসছে",

@@ -37,8 +37,11 @@ export function transitionFor(action: ProjectAction, status: ProjectStatus): Pro
   return move.from.includes(status) ? move.to : null;
 }
 
-/** What makes a project this project: fixed once it has been active. */
-export const IDENTITY_FIELDS = ['code', 'programId', 'year', 'workflowKey'] as const;
+/**
+ * What makes a session this session, fixed once it has been active: its period (its year with
+ * it) and its workflow. The code and the program belong to its series and never change here.
+ */
+export const IDENTITY_FIELDS = ['period', 'workflowKey'] as const;
 
 /** A setup field, or a setup part saved on its own (components, areas, staff, ...). */
 export type SetupField =

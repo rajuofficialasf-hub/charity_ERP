@@ -19,10 +19,11 @@ export const ATTENTION_ROUTES = {
   handovers_open: '/admin/handover',
   // the volunteer's open answers are on their applications
   unlocks_to_fill: '/my-applications',
-  // the item opens the oldest waiting application; this is the place when none is named
-  unlocks_to_verify: '/admin/projects',
+  // the item opens the oldest waiting application; this is the place when none is named, the
+  // list of the sessions
+  unlocks_to_verify: '/admin/projects?view=list',
   // the item opens the entry that has waited longest; this is the place when none is named
-  verifications_pending: '/admin/projects',
+  verifications_pending: '/admin/projects?view=list',
   // the Media Team's home, filtered to what waits
   media_referrals_new: '/media?state=pending',
   media_review_waiting: '/media?stage=ready_to_publish',

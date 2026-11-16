@@ -1,10 +1,18 @@
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
-import { mainMenu, openTab, rows as listRows, scan, signIn } from './support/admin';
+import {
+  mainMenu,
+  openProjectsTab,
+  PROJECTS_TAB,
+  rows as listRows,
+  scan,
+  signIn,
+} from './support/admin';
 import {
   chooseIn,
   code,
   ERR,
   newDraft,
+  newSeries,
   next,
   projectIdOf,
   placeReadyForm,
@@ -23,7 +31,10 @@ import {
 const PM = 'pm.ucd@example.org';
 const COPY_PM = 'pm.err@example.org';
 const VOLUNTEER = { desktop: '01700000101', mobile: '01700000103' } as const;
-const TAB = 'প্রকল্প';
+/** The name of the list of the sessions, the tab's second view. */
+const LIST = 'প্রকল্প';
+const RPM = 'rpm.dhaka@example.org';
+const UCD_NAME = 'আন্ডারপ্রিভিলেজড কমিউনিটি ডেভেলপমেন্ট প্রোগ্রাম';
 
 /** A lifecycle move with its reason, then the new state badge. */
 async function move(page: Page, button: string, badge: string) {
@@ -35,6 +46,9 @@ async function move(page: Page, button: string, badge: string) {
   await expect(state(page, badge)).toBeVisible();
 }
 
+/** The notice of a setup screen on a phone. */
+const PHONE_NOTICE = 'এই পর্দা বড় স্ক্রিনে ভালো চলে।';
+
 test.describe('programs and project setup', () => {
   test('a PM walks the setup wizard, activates, closes and reopens a project', async ({
     page,
@@ -43,7 +57,7 @@ test.describe('programs and project setup', () => {
     test.setTimeout(180_000);
     const name = `শীতবস্ত্র পরীক্ষা ${code()}`;
     await signIn(page, PM);
-    await openTab(page, TAB);
+    await openProjectsTab(page);
     await newDraft(page, code(), name);
 
     // the application form: a ready form the Monitoring Team builds and publishes through the API,
@@ -114,16 +128,18 @@ test.describe('programs and project setup', () => {
     await expect(page.getByText('প্রকল্প সক্রিয় হয়েছে।')).toBeVisible();
     await expect(state(page, 'সক্রিয়')).toBeVisible();
 
-    // the year is fixed from now on
+    // the period is fixed from now on
     await page.getByRole('link', { name: 'সেটআপ' }).click();
     await page
       .getByRole('list', { name: 'সেটআপের ধাপ' })
       .getByRole('button', { name: 'মৌলিক তথ্য' })
       .click();
-    await expect(section(page, 'মৌলিক তথ্য').getByRole('textbox', { name: /বছর/ })).toHaveAttribute(
-      'readonly',
-      '',
-    );
+    await expect(
+      section(page, 'মৌলিক তথ্য')
+        .getByRole('group', { name: /শুরুর মাস/ })
+        .getByRole('spinbutton')
+        .first(),
+    ).toHaveAttribute('aria-disabled', 'true');
     await page.getByRole('link', { name: 'প্রকল্পে ফিরে যান' }).click();
 
     // close in two steps, then every field is read-only
@@ -150,16 +166,16 @@ test.describe('programs and project setup', () => {
     test.skip(info.project.name !== 'desktop', 'one PM, one project');
     const name = `বাতিলের পরীক্ষা ${code()}`;
     await signIn(page, PM);
-    await openTab(page, TAB);
+    await openProjectsTab(page);
     await newDraft(page, code(), name);
     await page.getByRole('button', { name: 'খসড়া সেভ করে বের হন' }).click();
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
     await move(page, 'বাতিল করুন', 'বাতিল');
-    await page.getByRole('link', { name: 'সব প্রকল্প' }).click();
+    await page.goto('/admin/projects?view=list');
     // the list has loaded before the cancelled one is looked for
-    await expect(listRows(page, TAB)).toBeVisible();
+    await expect(listRows(page, LIST)).toBeVisible();
     await expect(page.getByText(/^\d+টির মধ্যে \d+টি$/).first()).toBeVisible();
-    await expect(listRows(page, TAB).getByRole('link', { name })).toHaveCount(0);
+    await expect(listRows(page, LIST).getByRole('link', { name })).toHaveCount(0);
   });
 
   test('a PM copies a previous project: its photo rule comes, its budget does not', async ({
@@ -170,8 +186,8 @@ test.describe('programs and project setup', () => {
     const name = `কপির উৎস ${code()}`;
     // a PM of its own: the PM of the journey above already holds sessions on other devices
     await signIn(page, COPY_PM);
-    await openTab(page, TAB);
-    await newDraft(page, code(), name, ERR);
+    await openProjectsTab(page);
+    await newDraft(page, code(), name, ERR, COPY_PM);
     await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();
     const drawer = page.getByRole('dialog');
     await drawer.getByText('শুধু দলের ছবি', { exact: true }).click();
@@ -184,19 +200,15 @@ test.describe('programs and project setup', () => {
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
 
     // a new project from a copy of that draft
-    await page.getByRole('link', { name: 'সব প্রকল্প' }).click();
-    await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
-    const basics = section(page, 'মৌলিক তথ্য');
     const copyName = `কপি ${code()}`;
-    await basics.getByRole('textbox', { name: /প্রকল্প কোড/ }).fill(code());
-    await basics.getByRole('textbox', { name: /বাংলায় নাম/ }).fill(copyName);
-    await basics.getByRole('textbox', { name: /ইংরেজিতে নাম/ }).fill(`${copyName} EN`);
-    await chooseIn(page, basics, 'প্রোগ্রাম', ERR);
+    const copySeries = await newSeries(page, COPY_PM, code(), copyName, ERR);
+    await page.goto(`/admin/projects/new?seriesId=${copySeries}`);
+    const basics = section(page, 'মৌলিক তথ্য');
     await basics.getByText('আগের প্রকল্প থেকে কপি', { exact: true }).click();
     await basics.getByRole('combobox', { name: /যে প্রকল্প কপি হবে/ }).click();
     await page
       .getByRole('listbox')
-      .getByRole('option', { name: new RegExp(`^${name} \\(`) })
+      .getByRole('option', { name: new RegExp(`^${name} · সেশন`) })
       .click();
     await next(page).click();
     await expect(page.getByRole('heading', { level: 1, name: `সেটআপ: ${copyName}` })).toBeVisible();
@@ -230,16 +242,98 @@ test.describe('programs and project setup', () => {
   }, info) => {
     test.skip(info.project.name !== 'mobile', 'the phone layout');
     await signIn(page, 'pm.err@example.org');
-    await openTab(page, TAB);
+    await openProjectsTab(page);
+    // officials use the tab on a phone as on a computer: no "larger screen" notice
+    await expect(page.getByRole('region', { name: 'প্রোগ্রাম' })).toBeVisible();
+    await expect(page.getByText(PHONE_NOTICE)).toHaveCount(0);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
     expect((await scan(page)).violations).toEqual([]);
-    await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
+    const seriesId = await newSeries(page, 'pm.err@example.org', code(), `ফোন ${code()}`, ERR);
+    await page.goto(`/admin/projects/new?seriesId=${seriesId}`);
     await expect(page.getByRole('heading', { level: 1, name: 'নতুন প্রকল্প' })).toBeVisible();
+    // the setup is desktop first and says so
+    await expect(page.getByText(PHONE_NOTICE)).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
     expect((await scan(page)).violations).toEqual([]);
+  });
+
+  test('the programs and projects tab: one destination, the cards and the list', async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name === 'iphone', 'the phone is checked on the mobile project');
+    /** A picture of the screen once every turn of a card has ended. */
+    const shot = async (name: string) => {
+      await page.evaluate(() =>
+        Promise.all(
+          document
+            .getAnimations()
+            .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+            // a turn the page itself cancelled ends too
+            .map((animation) => animation.finished.catch(() => undefined)),
+        ),
+      );
+      await page.screenshot({ path: info.outputPath(name) });
+    };
+    if (info.project.name === 'desktop') {
+      // an RPM: the earlier address of the programs leads to the tab
+      await signIn(page, RPM);
+      await page.goto('/admin/programs');
+      await expect(page).toHaveURL(/\/admin\/projects$/);
+      await expect(page.getByRole('heading', { level: 1, name: PROJECTS_TAB })).toBeVisible();
+      const card = page.getByRole('article', { name: UCD_NAME });
+      const open = card.getByRole('link', { name: 'সব প্রকল্প দেখুন' });
+      await expect(open).toBeHidden();
+      await shot('tab-1280-light.png');
+      await card.hover();
+      await expect(open).toBeVisible();
+      await shot('tab-1280-light-back.png');
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await shot('tab-1280-dark-back.png');
+      await page.emulateMedia({ colorScheme: 'light' });
+      await page.mouse.move(0, 0);
+      await page.getByRole('button', { name: 'তালিকা' }).click();
+      await expect(page).toHaveURL(/view=list/);
+      await expect(page.getByRole('columnheader', { name: 'সেশন' })).toBeVisible();
+      // the rows have come
+      await expect(page.getByText(/^\d+টির মধ্যে \d+টি$/).first()).toBeVisible();
+      await shot('tab-1280-list-light.png');
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await page.getByRole('button', { name: 'কার্ড' }).click();
+      await expect(page.getByRole('article', { name: UCD_NAME })).toBeVisible();
+      await page.mouse.move(0, 0);
+      await shot('tab-1280-dark.png');
+    } else {
+      // a PM on a phone 360 px wide: the tab "প্রকল্প" opens the cards, which turn by their buttons
+      await page.setViewportSize({ width: 360, height: 780 });
+      await signIn(page, PM);
+      await openProjectsTab(page);
+      const card = page.getByRole('article', { name: UCD_NAME });
+      await card.getByRole('button', { name: `${UCD_NAME}: বিস্তারিত দেখুন` }).click();
+      await expect(card.getByRole('link', { name: 'সব প্রকল্প দেখুন' })).toBeVisible();
+      await card.scrollIntoViewIfNeeded();
+      await shot('tab-360-light-back.png');
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await shot('tab-360-dark-back.png');
+      await page.emulateMedia({ colorScheme: 'light' });
+      await card.getByRole('button', { name: 'সামনের দিকে ফিরুন' }).click();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      expect((await scan(page)).violations).toEqual([]);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await shot('tab-360-light.png');
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await shot('tab-360-dark.png');
+      await page.emulateMedia({ colorScheme: 'light' });
+      // "আরও" offers no programs of their own
+      await mainMenu(page).getByRole('button', { name: 'আরও' }).click();
+      const sheet = page.getByRole('dialog', { name: 'আরও' });
+      await expect(sheet).toBeVisible();
+      await expect(sheet.getByRole('link', { name: 'প্রোগ্রাম', exact: true })).toHaveCount(0);
+    }
   });
 });

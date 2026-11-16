@@ -15,6 +15,7 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
+import { draftProject } from './support/projects.js';
 
 // The forms of a project: the library the builder picks from, the first draft from a template,
 // blank or a copy, the versions, and the version read that keeps official-only sections from those
@@ -79,7 +80,7 @@ async function staff(role: string) {
 }
 /** A draft project of the PM's program, made through the API, with no form yet. */
 async function draft() {
-  const res = await at(await as(world.users.pm), 'post', '/projects').send({
+  const res = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: code(),
     year: 2026,

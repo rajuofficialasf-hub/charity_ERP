@@ -175,6 +175,7 @@
     "checksum_mismatch": "The file did not arrive whole or has changed. Upload it again.",
     "parts_missing": "Not every part of the file has arrived yet.",
     "sessions_limit": "Too many uploads are open at once. Try again when the earlier ones finish.",
+    "cover_invalid": "Choose a photo you uploaded for this cover.",
     "session_mismatch": "This upload was already started for a different file. Start it again."
   },
   "rate_limit": {
@@ -231,7 +232,10 @@
   },
   "project": {
     "read_only": "This part of the project setup cannot change in its current state.",
-    "code_taken": "This project code is already in use.",
+    "session_year_taken": "This project already has a session that starts in this year.",
+    "series_code_taken": "A project with this code already exists.",
+    "session_source_foreign": "The session to copy from must be a session of this project.",
+    "session_source_none": "This project has no session to copy from.",
     "deadline_not_later": "The new end date must be after the current end date.",
     "rpm_role_required": "Choose a Regional Program Manager for the area.",
     "staff_role_required": "This access goes only to a Project Executive or an Official দায়ী.",

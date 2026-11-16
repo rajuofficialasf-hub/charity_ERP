@@ -24,7 +24,7 @@ describe('access registry', () => {
     // the Implementer is retired
     expect(registry.roles.size).toBe(16);
     expect(registry.roles.has('implementer')).toBe(false);
-    expect(registry.permissions.size).toBe(158);
+    expect(registry.permissions.size).toBe(159);
     expect(registry.roles.get('department_head')?.globalScope).toBe(true);
     expect(registry.permissions.get('system.owner.transfer')?.globalRolesExcluded).toEqual([
       'monitoring_team',
@@ -33,6 +33,17 @@ describe('access registry', () => {
     expect(registry.isKnownPermission('session.revoke_own')).toBe(true);
     expect(registry.isKnownPermission('authenticated')).toBe(true);
     expect(registry.isKnownPermission('no.such_permission')).toBe(false);
+  });
+
+  it('holds the overview of every program and project for the PM, the RPM and the Executive at GLOBAL, and for no other role', () => {
+    const overview =
+      loadAccessRegistry(DEFAULT_PERMISSIONS_FILE).permissions.get('project.overview.view');
+    expect(overview).toMatchObject({ module: 'M06', sensitive: false, globalRolesExcluded: [] });
+    expect(overview?.defaults).toEqual([
+      { role: 'program_manager', scope: 'GLOBAL' },
+      { role: 'regional_program_manager', scope: 'GLOBAL' },
+      { role: 'project_executive', scope: 'GLOBAL' },
+    ]);
   });
 
   it('gives a permission set the permissions of the set it extends', () => {

@@ -230,6 +230,28 @@
       ],
       "note": "the form-bound text and select fields take the extended field's props (a password with its show button, an identity number, inputMode, maxLength, an action inside the field's end, the locked state; a select's placeholder), and a text field takes `normalize`, which turns what is typed into the value the form keeps (the six digits of a code); built for the CSS ERP, so the sign-in, registration and account forms move onto the contract's Form; their look is the text and select fields'",
       "screenshot": "docs/ui/asf-pieces/gallery-fields.png"
+    },
+    {
+      "name": "FlipCard",
+      "files": [
+        "components/flip-card.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "a card with a front and a back of one size, for the cards of programs and projects: it turns over in 3D while a computer's pointer rests on it, and by its \"Details\" and \"Back\" buttons on a touch screen and from the keyboard; the hidden face is out of the tab order and the accessibility tree, the focus follows a turn, the title opens the card's page from the whole front, and with reduced motion the faces change without the turn; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/flip-card.png"
+    },
+    {
+      "name": "SegmentedControl",
+      "files": [
+        "components/segmented-control.tsx",
+        "components/public/blocks.tsx",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "two to four choices side by side, one chosen, each a button that says whether it is pressed, in a group named for a screen reader: the language switch's look under a name of its own, for a switch between views of the same content (the cards and the list of the programs and projects tab); the language switch is now this control with the languages; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
     }
   ]
 }

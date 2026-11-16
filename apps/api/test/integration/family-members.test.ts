@@ -18,6 +18,7 @@ import {
 } from './support/auth-app.js';
 import * as f from './support/fixtures.js';
 import { question } from './support/forms.js';
+import { draftProject } from './support/projects.js';
 
 // The family members on a beneficiary's profile: the rows of the family group a submitted
 // application carries replace the person's active members, the earlier ones kept as inactive; the
@@ -199,7 +200,7 @@ const TWO: Member[] = [
 ];
 
 async function projectOf(code: string, fields?: unknown[]): Promise<Target> {
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code,
     year: 2026,

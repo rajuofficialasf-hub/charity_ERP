@@ -724,26 +724,6 @@
     "description": "Registration, verification, support and service history in one place."
   },
   "programs": {
-    "title": "Programs",
-    "table": "Programs",
-    "new": "New program",
-    "edit": "Edit {name}",
-    "empty": "No program yet.",
-    "no_pm": "No PM yet",
-    "column": {
-      "code": "Code",
-      "name": "Name",
-      "pm": "Program Manager",
-      "state": "State"
-    },
-    "state": {
-      "active": "Active",
-      "inactive": "Inactive"
-    },
-    "notice": {
-      "created": "Program {code} was created.",
-      "saved": "Program {code} was saved."
-    },
     "dialog": {
       "create_title": "New program",
       "edit_title": "Edit program {code}",
@@ -754,15 +734,9 @@
       "name_en": "Name in English",
       "pm": "Program Manager",
       "pm_hint": "Pick from the list or search by name; the list holds Program Managers only.",
-      "active": "Active (takes new projects)"
-    },
-    "eyebrow": "Program management",
-    "description": "Manage the Foundation's programs and the Program Manager of each.",
-    "stats": {
-      "label": "Program counts",
-      "active": "Active programs",
-      "inactive": "Inactive programs",
-      "no_pm": "Programs without a PM"
+      "active": "Active (takes new projects)",
+      "description_bn": "Short description (Bangla)",
+      "description_en": "Short description (English)"
     }
   },
   "projects": {
@@ -775,7 +749,8 @@
       "name": "Name",
       "program": "Program",
       "year": "Year",
-      "status": "State"
+      "status": "State",
+      "session": "Session"
     },
     "chips": {
       "all": "All"
@@ -791,7 +766,8 @@
       "program": "Program",
       "year": "Year",
       "window": "Application window",
-      "ending_soon": "Ends within 7 days"
+      "ending_soon": "Ends within 7 days",
+      "series": "Project"
     },
     "workflow": {
       "distribution": "Distribution",
@@ -812,7 +788,12 @@
       "program": "Program",
       "workflow": "Workflow",
       "workflow_hint": "The project starts with this workflow’s components; you can change them in the setup.",
-      "submit": "Create draft"
+      "submit": "Create draft",
+      "period_from": "Start month",
+      "period_to": "End month",
+      "period_hint": "A session runs 24 months at most.",
+      "period": "Period",
+      "session_label": "Session name"
     },
     "detail": {
       "back": "All projects",
@@ -824,10 +805,11 @@
       "activated": "Activated",
       "closed": "Closed",
       "none": "Not set",
-      "applications": "Applications"
+      "applications": "Applications",
+      "heading": "{name} · session {label}"
     },
     "picker": "Project",
-    "picker_option": "{name} {year} ({code})",
+    "picker_option": "{name} · {label} ({code})",
     "component": {
       "application_form": "Application form",
       "public_link": "Public link",
@@ -849,7 +831,7 @@
       "document_checklist": "Document checklist"
     },
     "setup": {
-      "title": "Setup: {name}",
+      "title": "Setup: {name} · session {label}",
       "back": "Back to the project",
       "index": "Setup sections",
       "section": {
@@ -1071,7 +1053,7 @@
       "create": "Create the draft",
       "to_project": "Back to the project",
       "activate": "Activate",
-      "basics_invalid": "Give the name in both languages and a four-digit year.",
+      "basics_invalid": "Give the name in both languages and a valid period.",
       "budget_invalid": "Give every fund source an amount, and a specific donor its name.",
       "topics_invalid": "Give every topic its title in both languages.",
       "saved_notice": "The draft is saved.",
@@ -1082,7 +1064,10 @@
       "open_step": "Open the step",
       "create_invalid": "Fill in every field of this step.",
       "area_incomplete": "To add an area, choose its division or district and its RPM.",
-      "staff_incomplete": "To give access, choose the role and the official (and the area, for an RPM)."
+      "staff_incomplete": "To give access, choose the role and the official (and the area, for an RPM).",
+      "period_invalid": "The end month cannot come before the start month, and a session runs 24 months at most.",
+      "no_series": "Choose the project first. Start with \"New project\" on its program's page, or \"Start a new session\" on the project's page.",
+      "to_tab": "Go to programs and projects"
     },
     "rules_part": {
       "volunteer_duties": "Volunteer duties",
@@ -1098,7 +1083,7 @@
       "template_field": "Template",
       "copy_field": "Project to copy",
       "copy_hint": "Components, settings, syllabus and rules are copied; budget, dates, areas and volunteers are not.",
-      "project_option": "{name} ({code}, {year})"
+      "project_option": "{name} · session {label} ({code})"
     },
     "rules": {
       "field_bn": "{part} (Bangla)",
@@ -1205,7 +1190,138 @@
     "stats": {
       "label": "Projects by state",
       "all": "All projects"
-    }
+    },
+    "tab": {
+      "title": "Programs and projects",
+      "eyebrow": "Project management",
+      "description": "See the figures of each program and its projects; find and open every session in the list.",
+      "view": "View",
+      "cards": "Cards",
+      "list": "List"
+    },
+    "cards": {
+      "label": "Programs",
+      "empty": "There is no program yet.",
+      "new_program": "New program",
+      "program_badge": "Program",
+      "program_eyebrow": "Program details",
+      "inactive": "Inactive",
+      "projects": "Projects",
+      "running": "Running projects",
+      "people": "People helped",
+      "pm": "Program Manager",
+      "no_pm": "No PM yet",
+      "rpms": "{count} RPMs",
+      "no_rpms": "No RPM yet",
+      "applications": "Applications in running sessions",
+      "volunteers": "Volunteers",
+      "todo": "Your work",
+      "reviews_waiting": "Waiting for review",
+      "waitlisted": "On the waitlist",
+      "open_program": "See all projects",
+      "edit_program": "Edit program",
+      "notice": {
+        "created": "Program {code} was created.",
+        "saved": "Program {code} was saved."
+      }
+    },
+    "list": {
+      "session": "Session {label}"
+    },
+    "program_page": {
+      "not_found": "This program was not found.",
+      "new_project": "New project",
+      "label": "Projects",
+      "empty": "This program has no project yet.",
+      "unknown": "Unknown program"
+    },
+    "series_page": {
+      "not_found": "This project was not found.",
+      "edit": "Edit project",
+      "facts": "Project facts",
+      "code": "Code",
+      "program": "Program",
+      "people": "People helped in all sessions",
+      "sessions": "Sessions",
+      "empty": "No session yet.",
+      "column": {
+        "session": "Session",
+        "period": "Period",
+        "status": "State",
+        "applications": "Applications",
+        "approved": "Approved",
+        "open": "Open"
+      },
+      "open": "Open",
+      "open_of": "Open session {label}",
+      "no_access": "No permission",
+      "counts": "Applications {applications} · approved {approved}",
+      "saved": "Project {code} was saved.",
+      "unknown": "Unknown project"
+    },
+    "series_card": {
+      "badge": "Project",
+      "eyebrow": "Project details · {code}",
+      "state_session": "Session {label} · {state}",
+      "state_ended": "No running session · last {label}",
+      "state_none": "No session yet",
+      "days_left": "{days} days left to apply",
+      "days_soon": "Ending soon · {days} days left to apply",
+      "progress": "Progress to the target",
+      "progress_value": "{approved} / {target} approved",
+      "approved_only": "{approved} approved",
+      "applications": "Applications this session",
+      "target_met": "Target met",
+      "apply_to": "Last day to apply",
+      "rpms_current": "RPMs of the running session",
+      "volunteers": "Volunteers",
+      "districts": "Districts at work",
+      "sessions": "Sessions",
+      "people": "People helped in all sessions",
+      "budget": "Budget",
+      "open": "Open project",
+      "locked": "The session details are outside your permission",
+      "new_session": "Start a new session"
+    },
+    "series_dialog": {
+      "create_title": "New project",
+      "edit_title": "Edit project: {code}",
+      "program": "Program",
+      "description_bn": "Short description (Bangla)",
+      "description_en": "Short description (English)",
+      "first_session": "Once the new project is saved, the setup of its first session opens.",
+      "save": "Save"
+    },
+    "session_dialog": {
+      "title": "Start a new session",
+      "source": "Copied from",
+      "source_option": "Session {label}",
+      "copied": "Copied",
+      "copied_items": {
+        "components": "Components and their settings",
+        "form": "Application form",
+        "rules": "Rules",
+        "syllabus": "Dawah syllabus",
+        "scoring": "Scoring rules"
+      },
+      "again": "Given again",
+      "again_items": {
+        "dates": "Dates and the application window",
+        "budget": "Budget amounts",
+        "areas": "Areas and RPMs",
+        "volunteers": "Volunteers",
+        "quotas": "Quota targets"
+      },
+      "create": "Create draft"
+    },
+    "cover": {
+      "label": "Cover photo",
+      "hint": "JPEG, PNG or WebP, up to 5 MB. Without one, an illustration shows.",
+      "current": "Current cover",
+      "failed": "The details were saved, but the cover photo could not be set: {reason}",
+      "max_size": "5 MB"
+    },
+    "period_value": "{from} to {to}"
   },
   "templates": {
     "title": "Project templates",

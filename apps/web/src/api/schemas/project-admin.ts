@@ -15,6 +15,12 @@ export const projectSchema = z.object({
   perVolunteerLimit: z.number().int().nullable(),
   dawahEnabled: z.boolean(),
   programId: z.uuid().optional(),
+  /** The project series this session belongs to (officials only). */
+  seriesId: z.uuid().optional(),
+  /** The months the session runs, `yyyy-mm`, and its label read from them ("2026", "2026-27"). */
+  periodFrom: z.string(),
+  periodTo: z.string(),
+  sessionLabel: z.string(),
   description: z.string().nullable().optional(),
   costPerBeneficiary: z.string().nullable().optional(),
   targetBeneficiaries: z.number().int().nullable().optional(),

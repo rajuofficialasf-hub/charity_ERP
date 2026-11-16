@@ -21,7 +21,16 @@ import {
 import { expectContract, expectEnvelope, expectStatus } from './support/expect';
 import { newOfficial } from './support/people';
 import { at, type Caller, call, contractBase, signIn } from './support/session';
-import { activeProject, day, draftProject, HEAD, MONITORING, PM_HUM, savar } from './support/world';
+import {
+  activeProject,
+  day,
+  draftProject,
+  firstSessionBody,
+  HEAD,
+  MONITORING,
+  PM_HUM,
+  savar,
+} from './support/world';
 
 // The programs and the projects of the admin area: a program made, edited and given a PM; a draft
 // project read and set up through every section of the setup and cancelled; a project saved as a
@@ -89,19 +98,14 @@ describe.skipIf(!contractBase())('the programs', () => {
 describe.skipIf(!contractBase())('the projects', () => {
   it('sets a draft up through every section, lists it and cancels it', async () => {
     const monitoring = await signIn(MONITORING);
-    const programs = expectContract(
-      await call(monitoring, 'GET', '/programs'),
-      200,
-      z.array(programSchema),
-    );
+    expectContract(await call(monitoring, 'GET', '/programs'), 200, z.array(programSchema));
     const made = expectContract(
-      await call(monitoring, 'POST', '/projects', {
-        programId: programs.find((p) => p.code === 'HUM')!.id,
-        code: `C${letters(7)}`,
-        year: new Date().getFullYear(),
-        name: text('চুক্তি সেটআপ'),
-        source: { kind: 'workflow', workflowKey: 'distribution' },
-      }),
+      await call(
+        monitoring,
+        'POST',
+        '/projects',
+        await firstSessionBody(monitoring, text('চুক্তি সেটআপ')),
+      ),
       201,
       projectSchema,
     );

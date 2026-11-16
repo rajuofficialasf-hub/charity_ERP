@@ -120,7 +120,9 @@ function OfficialProjects() {
           <ul className="my-work-list">
             {projects.map((p) => (
               <li key={p.id} className="my-work-row">
-                <Link to={`/admin/projects/${p.id}`}>{localized(p.name, locale)}</Link>
+                <Link to={`/admin/projects/${p.id}`}>
+                  {t('session_name', { name: localized(p.name, locale), label: p.sessionLabel })}
+                </Link>
                 {p.applyTo && (
                   <span className="my-work-muted">
                     {t('deadline', { date: formatDate(p.applyTo) })}

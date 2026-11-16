@@ -1,12 +1,14 @@
 import type { Me } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
+import { useQuery } from '@tanstack/react-query';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
+import { CARDS_KEY, programCards } from './cards-api';
 import { ProjectOverviewPage } from './ProjectOverviewPage';
 
 // The project overview with its lifecycle buttons. Test data only.
@@ -35,6 +37,10 @@ function serve(status: string) {
           perVolunteerLimit: 50,
           dawahEnabled: false,
           programId: '01900000-0000-7000-8000-0000000000b1',
+          seriesId: '01900000-0000-7000-8000-0000000000d1',
+          periodFrom: '2026-06',
+          periodTo: '2027-07',
+          sessionLabel: '2026-27',
           costPerBeneficiary: '1000.00',
           targetBeneficiaries: 100,
           budgetPlanned: '100000.00',
@@ -74,7 +80,7 @@ describe('the project overview', () => {
     serve('draft');
     const { container } = open();
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ' }),
+      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ · সেশন 2026-27' }),
     ).toBeInTheDocument();
     expect(screen.getByText('01-11-2026 – 31-12-2026')).toBeInTheDocument();
     expect(screen.getByText('৳ 1,00,000')).toBeInTheDocument();
@@ -83,6 +89,51 @@ describe('the project overview', () => {
       `/admin/projects/${ID}/setup`,
     );
     await expectNoAxeViolations(container);
+  });
+
+  it('names the session in its heading, the program for an RPM, and leads up to the program and the project', async () => {
+    refreshAs(RPM);
+    serve('active');
+    server.use(
+      http.get('*/api/v1/program-cards', () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: '01900000-0000-7000-8000-0000000000b1',
+              code: 'UCD',
+              name: { bn: 'স্বাবলম্বী প্রোগ্রাম', en: 'Self-reliance' },
+              description: null,
+              coverFileId: null,
+              active: true,
+              pm: null,
+              rpms: { people: [], total: 0 },
+              projects: 1,
+              runningProjects: 1,
+              beneficiaries: 0,
+              applications: 0,
+              volunteers: 0,
+              canCreate: false,
+            },
+          ],
+          meta: {},
+        }),
+      ),
+    );
+    open();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ · সেশন 2026-27' }),
+    ).toBeInTheDocument();
+    const trail = await screen.findByRole('navigation', { name: /অবস্থান|Breadcrumb|পথ/ });
+    expect(
+      await within(trail).findByRole('link', { name: 'স্বাবলম্বী প্রোগ্রাম' }),
+    ).toHaveAttribute('href', '/admin/projects/programs/01900000-0000-7000-8000-0000000000b1');
+    expect(within(trail).getByRole('link', { name: 'শীতবস্ত্র বিতরণ' })).toHaveAttribute(
+      'href',
+      '/admin/projects/series/01900000-0000-7000-8000-0000000000d1',
+    );
+    // the facts name the program and the period
+    expect(screen.getAllByText('স্বাবলম্বী প্রোগ্রাম').length).toBeGreaterThan(1);
+    expect(screen.getByText('06-2026 থেকে 07-2027')).toBeInTheDocument();
   });
 
   it.each([
@@ -120,6 +171,39 @@ describe('the project overview', () => {
     );
   });
 
+  it('refreshes the program cards after a move, so their counts are current', async () => {
+    refreshAs(PM);
+    serve('active');
+    let cardReads = 0;
+    server.use(
+      http.get('*/api/v1/program-cards', () => {
+        cardReads += 1;
+        return HttpResponse.json({ data: [], meta: {} });
+      }),
+    );
+    // a cards read kept by another screen of the session
+    function Cards() {
+      useQuery({ queryKey: [...CARDS_KEY, 'programs'], queryFn: programCards });
+      return null;
+    }
+    const user = userEvent.setup();
+    renderApp(
+      <>
+        <ProjectOverviewPage />
+        <Cards />
+      </>,
+      'bn',
+      { path: '/admin/projects/:projectId', initialPath: `/admin/projects/${ID}` },
+    );
+    await waitFor(() => expect(cardReads).toBe(1));
+    await user.click(await screen.findByRole('button', { name: 'বন্ধ শুরু করুন' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'কাজ শেষ');
+    await user.click(within(dialog).getByRole('button', { name: 'বন্ধ শুরু করুন' }));
+    await waitFor(() => expect(moves).toHaveLength(1));
+    await waitFor(() => expect(cardReads).toBe(2));
+  });
+
   it('lists what is missing when the server refuses the activation', async () => {
     refreshAs(PM);
     serve('draft');
@@ -150,7 +234,7 @@ describe('the project overview', () => {
     serve('active');
     open();
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ' }),
+      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ · সেশন 2026-27' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'বন্ধ শুরু করুন' })).not.toBeInTheDocument();
   });

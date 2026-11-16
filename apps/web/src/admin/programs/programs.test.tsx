@@ -7,10 +7,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
-import { ProgramsPage } from './ProgramsPage';
+import { ProgramsProjectsPage } from '../projects/ProgramsProjectsPage';
 
-// The programs page: officials see the programs in their scope; the global roles create and edit
-// them. Test data only.
+// The program dialog of the programs and projects tab: the global roles create a program from the
+// tab and edit one from its card; the others never see either. Test data only.
 const HEAD: Me = { ...ME, roles: ['department_head'] };
 const PM: Me = { ...ME, roles: ['program_manager'] };
 const VOLUNTEER: Me = { ...ME, kind: 'volunteer', roles: ['volunteer_general'] };
@@ -28,12 +28,30 @@ let created: unknown[];
 let patched: unknown[];
 let listed: number;
 
-function serve(rows: unknown[] = [PROGRAM]) {
+/** The program as its card reads it. */
+const CARD = {
+  id: PROGRAM.id,
+  code: PROGRAM.code,
+  name: PROGRAM.name,
+  description: null,
+  coverFileId: null,
+  active: true,
+  pm: { id: PROGRAM.pmUserId, name: PROGRAM.pmName },
+  rpms: { people: [], total: 0 },
+  projects: 2,
+  runningProjects: 1,
+  beneficiaries: 40,
+  applications: 12,
+  volunteers: 3,
+  canCreate: true,
+};
+
+function serve(rows: unknown[] = [CARD]) {
   created = [];
   patched = [];
   listed = 0;
   server.use(
-    http.get('*/api/v1/programs', () => {
+    http.get('*/api/v1/program-cards', () => {
       listed += 1;
       return HttpResponse.json({ data: rows, meta: {} });
     }),
@@ -67,49 +85,43 @@ function serve(rows: unknown[] = [PROGRAM]) {
   );
 }
 
-const open = () => renderApp(<ProgramsPage />, 'bn', { path: '/admin/programs' });
+const open = () => renderApp(<ProgramsProjectsPage />, 'bn', { path: '/admin/projects' });
+
+/** Turns a program's card to its back, where "প্রোগ্রাম এডিট করুন" is. */
+async function turn(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(await screen.findByRole('button', { name: `${name}: বিস্তারিত দেখুন` }));
+}
 
 beforeEach(() => {
   resetClientForTests();
 });
 
-describe('the programs page', () => {
-  it('shows code, name, PM and state without accessibility violations', async () => {
+describe('the program dialog of the programs and projects tab', () => {
+  it('opens on the program\u2019s card without accessibility violations', async () => {
     refreshAs(HEAD);
     serve();
+    const user = userEvent.setup();
     const { container } = open();
-    expect(await screen.findByRole('heading', { level: 1, name: 'প্রোগ্রাম' })).toBeInTheDocument();
-    expect((await screen.findAllByText('মানবিক সহায়তা')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('HUM').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('নমুনা পিএম').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('সক্রিয়').length).toBeGreaterThan(0);
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'প্রোগ্রাম ও প্রকল্প' }),
+    ).toBeInTheDocument();
+    await turn(user, 'মানবিক সহায়তা');
+    await user.click(screen.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('textbox', { name: /বাংলায় নাম/ })).toHaveValue(
+      'মানবিক সহায়তা',
+    );
     await expectNoAxeViolations(container);
-  });
-
-  it('counts the active and inactive programs and those without a PM', async () => {
-    refreshAs(HEAD);
-    serve([
-      PROGRAM,
-      { ...PROGRAM, id: 'p2', code: 'ERR', pmUserId: null, pmName: null },
-      { ...PROGRAM, id: 'p3', code: 'OLD', active: false },
-    ]);
-    open();
-    expect(await screen.findByText('কর্মসূচি পরিচালনা')).toBeInTheDocument();
-    const counts = within(await screen.findByRole('region', { name: 'প্রোগ্রামের হিসাব' }));
-    // a figure's name sits under its value in its card
-    const card = (label: string) => counts.getByText(label).parentElement!;
-    await waitFor(() => expect(card('সক্রিয় প্রোগ্রাম')).toHaveTextContent('2'));
-    expect(card('নিষ্ক্রিয় প্রোগ্রাম')).toHaveTextContent('1');
-    expect(card('পিএম ছাড়া প্রোগ্রাম')).toHaveTextContent('1');
   });
 
   it('offers the new program and the edit only to the global roles', async () => {
     refreshAs(PM);
     serve();
+    const user = userEvent.setup();
     open();
-    expect((await screen.findAllByText('মানবিক সহায়তা')).length).toBeGreaterThan(0);
+    await turn(user, 'মানবিক সহায়তা');
     expect(screen.queryByRole('button', { name: 'নতুন প্রোগ্রাম' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /সম্পাদনা/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'প্রোগ্রাম এডিট করুন' })).not.toBeInTheDocument();
   });
 
   it('refuses a lower-case code before sending and shows the server message for a taken code', async () => {
@@ -190,13 +202,121 @@ describe('the programs page', () => {
     serve();
     const user = userEvent.setup();
     open();
-    const [edit] = await screen.findAllByRole('button', { name: 'মানবিক সহায়তা সম্পাদনা' });
-    await user.click(edit!);
+    await turn(user, 'মানবিক সহায়তা');
+    await user.click(screen.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' }));
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('switch', { name: /সক্রিয়/ }));
     await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
     await waitFor(() => expect(patched).toEqual([{ body: { active: false }, ifMatch: '"v1"' }]));
     expect(await screen.findByText('প্রোগ্রাম HUM সংরক্ষিত হয়েছে।')).toBeInTheDocument();
+  });
+
+  it('saves the program’s short description, shown as it is on its card', async () => {
+    refreshAs(HEAD);
+    serve([{ ...CARD, description: { bn: 'আগের কথা', en: 'Before' } }]);
+    const user = userEvent.setup();
+    open();
+    await turn(user, 'মানবিক সহায়তা');
+    await user.click(screen.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' }));
+    const dialog = await screen.findByRole('dialog');
+    const bn = within(dialog).getByRole('textbox', { name: /ছোট বিবরণ \(বাংলা\)/ });
+    expect(bn).toHaveValue('আগের কথা');
+    await user.clear(bn);
+    await user.type(bn, 'নতুন কথা');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() =>
+      expect(patched).toEqual([
+        { body: { description: { bn: 'নতুন কথা', en: 'Before' } }, ifMatch: '"v1"' },
+      ]),
+    );
+    expect(await screen.findByText('প্রোগ্রাম HUM সংরক্ষিত হয়েছে।')).toBeInTheDocument();
+  });
+
+  it('offers the cover photo in the dialog with the cover the program has now', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    open();
+    await turn(user, 'মানবিক সহায়তা');
+    await user.click(screen.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.getByText('কভার ছবি')).toBeInTheDocument();
+    expect(dialog.getByText('এখনকার কভার')).toBeInTheDocument();
+  });
+
+  it('says the new program was created', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole('button', { name: 'নতুন প্রোগ্রাম' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /প্রোগ্রাম কোড/ }), 'NEW');
+    await user.type(within(dialog).getByRole('textbox', { name: /বাংলায় নাম/ }), 'নতুন');
+    await user.type(within(dialog).getByRole('textbox', { name: /ইংরেজিতে নাম/ }), 'New');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    expect(await screen.findByText('প্রোগ্রাম NEW তৈরি হয়েছে।')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows a rename on the card at once when the PM assignment after it fails', async () => {
+    refreshAs(HEAD);
+    serve();
+    let renamed = false;
+    server.use(
+      http.get('*/api/v1/program-cards', () => {
+        listed += 1;
+        return HttpResponse.json({
+          data: [renamed ? { ...CARD, name: { bn: 'নতুন নাম', en: 'New name' } } : CARD],
+          meta: {},
+        });
+      }),
+      http.patch('*/api/v1/programs/:id', async ({ request }) => {
+        patched.push({ body: await request.json(), ifMatch: request.headers.get('if-match') });
+        renamed = true;
+        return HttpResponse.json({
+          data: { ...PROGRAM, name: { bn: 'নতুন নাম', en: 'New name' } },
+          meta: {},
+        });
+      }),
+      http.post('*/api/v1/programs/:id/pm', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'program.pm_role_missing',
+              message: 'এই ব্যক্তির প্রোগ্রাম ম্যানেজারের ভূমিকা নেই।',
+              requestId: 'req_pm',
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+      http.get('*/api/v1/users', () =>
+        HttpResponse.json({
+          data: [{ id: 'u-pm2', displayName: 'নমুনা পিএম দুই', designation: null, roles: [] }],
+          meta: {},
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    open();
+    await turn(user, 'মানবিক সহায়তা');
+    await user.click(screen.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' }));
+    const dialog = await screen.findByRole('dialog');
+    const bn = within(dialog).getByRole('textbox', { name: /বাংলায় নাম/ });
+    await user.clear(bn);
+    await user.type(bn, 'নতুন নাম');
+    await user.click(within(dialog).getByRole('combobox', { name: /প্রোগ্রাম ম্যানেজার/ }));
+    await user.click(await screen.findByRole('option', { name: 'নমুনা পিএম দুই' }));
+    const before = listed;
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    // the dialog stays with the refusal, and the card behind it already has the new name
+    expect(await within(dialog).findByText(/প্রোগ্রাম ম্যানেজারের ভূমিকা নেই/)).toBeInTheDocument();
+    await waitFor(() => expect(listed).toBeGreaterThan(before));
+    // (behind the modal dialog, so hidden from the accessibility tree for now)
+    expect(
+      await screen.findByRole('article', { name: 'নতুন নাম', hidden: true }),
+    ).toBeInTheDocument();
   });
 
   it('shows the forbidden content to a volunteer', async () => {

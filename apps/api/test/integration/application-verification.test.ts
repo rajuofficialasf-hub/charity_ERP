@@ -16,6 +16,7 @@ import {
   type Session,
 } from './support/auth-app.js';
 import { beneficiary, fakeMobile, fakeNid } from './support/fixtures.js';
+import { draftProject } from './support/projects.js';
 
 // The verification queue: the entries of the public link wait as needs verification; an official
 // of the region links an entry to the profile its number already has, or creates the profile when
@@ -69,7 +70,7 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.container.prisma);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: 'VER',
     year: 2026,

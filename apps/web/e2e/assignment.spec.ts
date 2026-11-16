@@ -1,5 +1,5 @@
 import { devices, expect, test } from '@playwright/test';
-import { isPhone, mainMenu, openTab, scan, signIn } from './support/admin';
+import { openProjectsTab, isPhone, mainMenu, scan, signIn } from './support/admin';
 import { activeProject, code, ERR } from './support/projects';
 
 // Assign → consent → the project appears (the end-to-end journey): the Monitoring Team activates a
@@ -30,7 +30,7 @@ test.describe('assigning volunteers and their consent', () => {
 
     // a project with rules in the Dhaka division, made active
     await signIn(desk, CREATOR);
-    await openTab(desk, 'প্রকল্প');
+    await openProjectsTab(desk);
     const projectId = await activeProject(desk, name, ERR, CREATOR);
 
     // the Dhaka RPM assigns the volunteer found by mobile number

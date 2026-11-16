@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { assertKey } from '../storage/index.js';
-import { bucketOf, detectType, objectKeyOf } from './policy.js';
+import { maxSizeOf } from '@css/shared/files';
+import { bucketOf, coverKeyOf, detectType, objectKeyOf } from './policy.js';
 
 // The type of an upload by its first bytes, and the bucket and key of each kind.
 const bytes = (...parts: (string | number[])[]) =>
@@ -81,6 +82,25 @@ describe('the bucket and key of an upload', () => {
         districtCode: '3026',
       }),
     ).toBe(`HUM/WC26/2026/3026/${base.entityId}-${base.fileId}.pdf`);
+  });
+
+  it('puts a cover photo in the photos bucket under its record, and takes it as JPEG, PNG or WebP up to 5 MB, never a PDF', () => {
+    expect(bucketOf('cover_photo')).toBe('photos');
+    const record = randomUUID();
+    for (const entityType of ['program', 'project_series'] as const) {
+      const key = coverKeyOf({
+        fileId: base.fileId,
+        type: 'image/webp',
+        entityType,
+        entityId: record,
+      });
+      expect(key).toBe(`covers/${entityType}/${record}/${base.fileId}.webp`);
+      expect(() => assertKey(key)).not.toThrow();
+    }
+    for (const type of ['image/jpeg', 'image/png', 'image/webp'])
+      expect(maxSizeOf('cover_photo', type)).toBe(5 * 1024 * 1024);
+    for (const type of ['application/pdf', 'image/heic', 'image/heif'])
+      expect(maxSizeOf('cover_photo', type)).toBeNull();
   });
 
   it('builds keys of ids and codes only, which the storage accepts', () => {

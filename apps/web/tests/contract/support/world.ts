@@ -193,22 +193,43 @@ const projectCode = () =>
     .map((hex) => String.fromCharCode(65 + parseInt(hex, 16)))
     .join('')}`;
 
-/** A draft Humanitarian project of this year, made by its PM through the API; answers its id. */
-export async function draftProject(pm: Caller): Promise<string> {
+/**
+ * The first step of the setup for a new Humanitarian project: its series is made here, and the
+ * body of its first session, for the whole of this year, is answered for `POST /projects`.
+ */
+export async function firstSessionBody(
+  caller: Caller,
+  name: { bn: string; en: string } = { bn: 'চুক্তি পরীক্ষা', en: 'Contract test' },
+): Promise<Record<string, unknown>> {
   const programs = must(
-    await call(pm, 'GET', '/programs'),
+    await call(caller, 'GET', '/programs'),
     200,
     'programs',
     z.array(z.object({ id: z.uuid(), code: z.string() })),
   ).data;
-  return must(
-    await call(pm, 'POST', '/projects', {
+  const seriesId = must(
+    await call(caller, 'POST', '/project-series', {
       programId: programs.find((p) => p.code === 'HUM')!.id,
       code: projectCode(),
-      year: new Date().getFullYear(),
-      name: { bn: 'চুক্তি পরীক্ষা', en: 'Contract test' },
-      source: { kind: 'workflow', workflowKey: 'distribution' },
+      name,
     }),
+    201,
+    'project series',
+    withId,
+  ).data.id;
+  const year = new Date().getFullYear();
+  return {
+    seriesId,
+    periodFrom: `${year}-01`,
+    periodTo: `${year}-12`,
+    source: { kind: 'workflow', workflowKey: 'distribution' },
+  };
+}
+
+/** A draft Humanitarian project of this year, made by its PM through the API; answers its id. */
+export async function draftProject(pm: Caller): Promise<string> {
+  return must(
+    await call(pm, 'POST', '/projects', await firstSessionBody(pm)),
     201,
     'project',
     withId,

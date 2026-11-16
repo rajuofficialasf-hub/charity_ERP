@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 
 import { Icon } from '../icon';
 import { toneVars } from '../tone';
+import { SegmentedControl } from '../segmented-control';
 
 // ----------------------------------------------------------------------
 
@@ -110,37 +111,7 @@ export function CalloutBand({ title, description, children }: CalloutBandProps) 
   );
 }
 
-/** Two or three language choices as one segmented control. */
-export function LanguageSwitch({ label, value, options, onChange }: LanguageSwitchProps) {
-  return (
-    <Box role="group" aria-label={label} sx={{ display: 'inline-flex', p: 0.25, borderRadius: 1, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
-      {options.map((option) => {
-        const selected = option.value === value;
-        return (
-          <Box
-            component="button"
-            type="button"
-            key={option.value}
-            aria-pressed={selected}
-            onClick={() => onChange(option.value)}
-            sx={(t) => ({
-              all: 'unset',
-              cursor: 'pointer',
-              px: 1.25,
-              py: 0.5,
-              borderRadius: 0.75,
-              typography: 'caption',
-              fontWeight: 700,
-              color: selected ? t.vars.palette.primary.dark : 'text.secondary',
-              bgcolor: selected ? 'rgba(var(--asf-palette-primary-mainChannel) / 0.16)' : 'transparent',
-              '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
-              ...t.applyStyles('dark', { color: selected ? t.vars.palette.primary.light : t.vars.palette.text.secondary }),
-            })}
-          >
-            {option.label}
-          </Box>
-        );
-      })}
-    </Box>
-  );
+/** The language switch of a public page: the segmented control with the languages as its options. */
+export function LanguageSwitch(props: LanguageSwitchProps) {
+  return <SegmentedControl {...props} />;
 }

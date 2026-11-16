@@ -59,6 +59,18 @@ Neutral: 50 #FCFDFD, 100 #F9FAFB, 200 #F4F6F8, 300 #DFE3E8, 400 #C4CDD5, 500 #91
 
 The app's page CSS reads these through its own names in `apps/web/src/styles/tokens.css` (the table in DESIGN_SYSTEM §2.1).
 
+The drawn cover of a card without a photo (`apps/web/src/components/CoverArt.tsx`) paints with its own art tokens, so its hills stay lighter to darker from the sky to the front in both modes (the text token `--color-brand-primary-dark` turns light in dark mode):
+
+| Token | Light | Dark | Text on it |
+|---|---|---|---|
+| `--color-art-primary-lighter` | primary lighter #C8FAD6 (the sky) | the same | none |
+| `--color-art-primary-main` | primary main #00A76F (the back hill) | the same | none |
+| `--color-art-primary-dark` | primary dark #007867 (the middle hill) | the same | none |
+| `--color-art-primary-darker` | primary darker #004B50 (the front hill) | the same | none |
+| `--color-art-sun` | white #FFFFFF at 70 % (the sun) | the same | none |
+
+No text sits on the drawing: the card's badge and its chips stand on the paper (white, or neutral 800 in dark mode), so their contrast is that of the chips on paper in the table below.
+
 ## 3. Contrast (WCAG 2.x)
 
 Normal text needs 4.5:1 for AA. Large text (24 px, or 18.66 px bold), focus indicators and the boundaries of controls need 3:1. Ratios of the asf values, computed with the WCAG 2.x formula on 2026-11-05; the soft tones are the tone's main at 16 % (8 % for a tint) flattened on white or on the dark paper.

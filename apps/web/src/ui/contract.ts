@@ -576,6 +576,16 @@ export type UiLabels = {
   countName: string;
   /** A phone's trail, for example "Back to Staff". */
   backTo: string;
+  /** The flip card's button that turns it to its back, for example "Details". */
+  flipDetails: string;
+  /** That button's name for a screen reader, with the card's title, for example "{title}: show details". */
+  flipDetailsOf: string;
+  /** The button on the back that turns it to its front, for example "Back". */
+  flipBack: string;
+  /** That button's name for a screen reader, for example "Back to the front". */
+  flipBackOf: string;
+  /** On a computer, in place of the button, for example "Rest the pointer here for details". */
+  flipHint: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -1444,12 +1454,7 @@ export type AccountMenuProps = {
 // ---------------------------------------------------------------------------------------------
 // Public pages
 
-export type LanguageSwitchProps = {
-  label: string;
-  value: string;
-  options: readonly SelectOption[];
-  onChange: (value: string) => void;
-};
+export type LanguageSwitchProps = SegmentedControlProps;
 
 export type FooterColumn = { title: string; links: readonly { label: string; to: string }[] };
 
@@ -1520,6 +1525,52 @@ export type CalloutBandProps = { title: string; description?: string; children?:
 
 /** The light and dark switch; until the person picks, the device's mode applies. */
 export type ColorModeButtonProps = Record<string, never>;
+
+/**
+ * Two to four choices side by side, one chosen: a button per choice that says whether it is
+ * pressed, in a group named by `label`. For a switch between views of the same content (the cards
+ * and the list of a tab); the language switch is this control with the languages.
+ */
+export type SegmentedControlProps = {
+  label: string;
+  value: string;
+  options: readonly SelectOption[];
+  onChange: (value: string) => void;
+};
+
+/**
+ * A card with a front and a back of one size, for example a program with its figures in front and
+ * its people behind. On a computer it turns over while the pointer rests on it; on a touch screen,
+ * and from the keyboard everywhere, "Details" turns it and "Back" turns it back. The hidden face is
+ * out of the tab order and of the accessibility tree; with reduced motion the faces change
+ * without the turn.
+ */
+export type FlipCardProps = {
+  /** The card's name: its heading on the front, and the name of the card and of its turn button. */
+  title: string;
+  /** The app path the title opens; the whole front leads there. */
+  to?: string;
+  headingLevel?: 2 | 3;
+  /** The picture across the top of the front, 150 px high: a cover photo or a drawing, decorative. */
+  media?: ReactNode;
+  /** A short word over the picture's top left, for example "Program". */
+  badge?: string;
+  /** Over the picture's top right, for example a chip with the days left. */
+  mediaCorner?: ReactNode;
+  /** Over the picture's bottom left, for example the state of the current session. */
+  mediaFoot?: ReactNode;
+  /**
+   * Under the title on the front: its figures, never a control. The title's link covers the whole
+   * front, so a button or a link here could not be pressed; the actions belong on the back.
+   */
+  front: ReactNode;
+  /** A short word above the title on the back, for example "Program details". */
+  backEyebrow?: string;
+  /** The back, under its title and the turn button: the people, more figures, the actions. */
+  back: ReactNode;
+  /** The height of both faces in pixels; 460 by default. */
+  height?: number;
+};
 
 // ---------------------------------------------------------------------------------------------
 
@@ -1597,4 +1648,6 @@ export type UiTemplateExtended = Omit<
   LinkTile: ComponentType<LinkTileProps>;
   CalloutBand: ComponentType<CalloutBandProps>;
   ColorModeButton: ComponentType<ColorModeButtonProps>;
+  FlipCard: ComponentType<FlipCardProps>;
+  SegmentedControl: ComponentType<SegmentedControlProps>;
 };

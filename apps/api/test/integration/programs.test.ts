@@ -93,6 +93,57 @@ describe('keeping programs', () => {
     expect(await audit(id, 'program.assign_pm')).toHaveLength(1);
   });
 
+  it('keeps a short description in both languages, changed and removed with an audit entry each', async () => {
+    const head = await as(world.users.head);
+    const description = { bn: 'দুর্যোগে মানুষের পাশে', en: 'Beside people in a disaster' };
+    const created = await create(head, { code: code(), name, description });
+    expect(created.status).toBe(201);
+    expect(created.body.data.description).toEqual(description);
+    const id = created.body.data.id as string;
+    const [made] = await audit(id, 'program.create');
+    expect(made?.new).toMatchObject({ description });
+
+    // one language alone: the other is an empty text, and the column stays empty
+    const bangla = await patch(head, id, created.headers.etag, {
+      description: { bn: 'শুধু বাংলায়', en: '' },
+    });
+    expect(bangla.status).toBe(200);
+    expect(bangla.body.data).toMatchObject({ name, description: { bn: 'শুধু বাংলায়', en: '' } });
+    const { rows } = await h.db.query(
+      'SELECT description_bn, description_en FROM programs WHERE id = $1',
+      [id],
+    );
+    expect(rows).toEqual([{ description_bn: 'শুধু বাংলায়', description_en: null }]);
+
+    const removed = await patch(head, id, bangla.headers.etag, { description: null });
+    expect(removed.status).toBe(200);
+    expect(removed.body.data.description).toBeNull();
+    const changes = await audit(id, 'program.update');
+    expect(
+      changes.map((e) => [
+        (e.old as { description: unknown }).description,
+        (e.new as { description: unknown }).description,
+      ]),
+    ).toEqual([
+      [description, { bn: 'শুধু বাংলায়', en: '' }],
+      [{ bn: 'শুধু বাংলায়', en: '' }, null],
+    ]);
+    // a rename leaves the description as it is, and a program made without one has none
+    const plain = await create(head, { code: code(), name });
+    expect(plain.body.data.description).toBeNull();
+    const list = await api().get('/api/v1/programs').set(bearer(head));
+    expect(list.body.data.find((p: { id: string }) => p.id === id).description).toBeNull();
+
+    const long = 'ক'.repeat(501);
+    const tooLong = await patch(head, id, removed.headers.etag, {
+      description: { bn: long, en: '' },
+    });
+    expect(tooLong.status).toBe(422);
+    // the description stays with the Department Head and the Monitoring Team
+    const pm = await as(world.users.pm);
+    expect((await patch(pm, id, removed.headers.etag, { description })).status).toBe(403);
+  });
+
   it('refuses a duplicate code, a bad code and an unknown key', async () => {
     const head = await as(world.users.head);
     const taken = code();

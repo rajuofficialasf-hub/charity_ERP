@@ -14,7 +14,11 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
+import { isUniqueViolationOf } from '../../src/core/db-errors.js';
+import { ApiError } from '../../src/i18n/api-error.js';
+import { yearTakenOr } from '../../src/services/projects.js';
 import * as f from './support/fixtures.js';
+import { draftProject } from './support/projects.js';
 
 // Projects: created from a workflow as drafts, read in scope, updated as their state allows and
 // cancelled while never activated.
@@ -48,13 +52,18 @@ const code = () => {
 };
 const name = { bn: 'শীতবস্ত্র নমুনা', en: 'Winter sample' };
 
+const WORKFLOW = { kind: 'workflow', workflowKey: 'distribution' };
+/** The setup's first step as it is sent: a session of a series. */
 const create = (s: Session, body: Record<string, unknown>) =>
   api().post('/api/v1/projects').set(bearer(s)).send(body);
+/** A project series of a program, with a code of its own. */
+const newSeries = (s: Session, programId: string) =>
+  api().post('/api/v1/project-series').set(bearer(s)).send({ programId, code: code(), name });
+/** A draft as the setup makes one: a new series and its first session, the whole of 2026. */
 const draft = (s: Session, programId: string, workflowKey = 'distribution') =>
-  create(s, {
+  draftProject(h, s, {
     programId,
     code: code(),
-    year: 2026,
     name,
     source: { kind: 'workflow', workflowKey },
   });
@@ -67,6 +76,24 @@ const patch = (s: Session, id: string, etag: string | undefined, body: Record<st
     .send(body);
 const setStatus = (id: string, status: string) =>
   h.db.query('UPDATE projects SET status = $1 WHERE id = $2', [status, id]);
+
+const seriesIdOf = async (projectId: string) =>
+  (
+    await h.db.query<{ series_id: string }>('SELECT series_id FROM projects WHERE id = $1', [
+      projectId,
+    ])
+  ).rows[0]!.series_id;
+
+/** The series a project is a session of, and the days the session runs. */
+async function seriesOf(projectId: string) {
+  const { rows } = await h.db.query(
+    `SELECT s.program_id, s.code, s.name_bn, s.name_en, s.created_by, s.updated_by,
+            p.period_from::text, p.period_to::text
+       FROM projects p JOIN project_series s ON s.id = p.series_id WHERE p.id = $1`,
+    [projectId],
+  );
+  return rows[0];
+}
 
 async function audit(entityId: string, action: string) {
   const { rows } = await h.db.query<{ old: unknown; new: unknown; reason: string | null }>(
@@ -82,7 +109,17 @@ describe('creating a project from a workflow', () => {
     const res = await draft(pm, world.a1.program);
     expect(res.status).toBe(201);
     const p = res.body.data;
-    expect(p).toMatchObject({ status: 'draft', workflowKey: 'distribution', year: 2026, name });
+    expect(p).toMatchObject({
+      status: 'draft',
+      workflowKey: 'distribution',
+      year: 2026,
+      name,
+      programId: world.a1.program,
+      seriesId: await seriesIdOf(p.id),
+      periodFrom: '2026-01',
+      periodTo: '2026-12',
+      sessionLabel: '2026',
+    });
     const { rows } = await h.db.query<{
       component_key: string;
       enabled: boolean;
@@ -115,6 +152,17 @@ describe('creating a project from a workflow', () => {
     ]);
     expect(seq.rows[0]).toEqual({ last_value: 0 });
     expect(await audit(p.id, 'project.create')).toHaveLength(1);
+    // the project is a session of its series, with the series' program, code and names
+    expect(await seriesOf(p.id)).toEqual({
+      program_id: world.a1.program,
+      code: p.code,
+      name_bn: name.bn,
+      name_en: name.en,
+      created_by: world.users.pm,
+      updated_by: world.users.pm,
+      period_from: '2026-01-01',
+      period_to: '2026-12-31',
+    });
   });
 
   it('refuses another program, an RPM, a taken code, an unknown workflow and an inactive program', async () => {
@@ -124,15 +172,14 @@ describe('creating a project from a workflow', () => {
     expect((await draft(rpm, world.a1.program)).status).toBe(403);
 
     const first = await draft(pm, world.a1.program);
-    const taken = await create(pm, {
+    const taken = await draftProject(h, pm, {
       programId: world.a1.program,
       code: first.body.data.code,
-      year: 2026,
       name,
-      source: { kind: 'workflow', workflowKey: 'distribution' },
+      source: WORKFLOW,
     });
     expect(taken.status).toBe(409);
-    expect(taken.body.error.code).toBe('project.code_taken');
+    expect(taken.body.error.code).toBe('project.series_code_taken');
     expect((await draft(pm, world.a1.program, 'unknown_flow')).status).toBe(422);
 
     const head = await as(world.users.head);
@@ -141,6 +188,152 @@ describe('creating a project from a workflow', () => {
     const inactive = await draft(head, program.program);
     expect(inactive.status).toBe(409);
     expect(inactive.body.error.code).toBe('program.inactive');
+  });
+
+  it('creates the first session of a series from the series and a period, and one session per start year', async () => {
+    const pm = await as(world.users.pm);
+    const series = await newSeries(pm, world.a1.program);
+    expect(series.status).toBe(201);
+    const seriesId = series.body.data.id as string;
+    const res = await create(pm, {
+      seriesId,
+      periodFrom: '2027-06',
+      periodTo: '2028-07',
+      source: WORKFLOW,
+    });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.headers.etag).toBeTruthy();
+    expect(res.body.data).toMatchObject({
+      seriesId,
+      programId: world.a1.program,
+      code: series.body.data.code,
+      name,
+      status: 'draft',
+      // the year is the year the period starts in
+      year: 2027,
+      periodFrom: '2027-06',
+      periodTo: '2028-07',
+      sessionLabel: '2027-28',
+    });
+    const id = res.body.data.id as string;
+    expect(await seriesOf(id)).toMatchObject({
+      period_from: '2027-06-01',
+      period_to: '2028-07-31',
+    });
+    const [entry] = await audit(id, 'project.create');
+    expect(entry?.new).toMatchObject({ seriesId, year: 2027, source: WORKFLOW });
+
+    // a series takes one session per start year, whatever its months
+    const again = await create(pm, {
+      seriesId,
+      periodFrom: '2027-01',
+      periodTo: '2027-12',
+      source: WORKFLOW,
+    });
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe('project.session_year_taken');
+    // a cancelled session no longer holds its year: the year takes one session again
+    await setStatus(id, 'cancelled');
+    const reopened = await create(pm, {
+      seriesId,
+      periodFrom: '2027-03',
+      periodTo: '2027-09',
+      source: WORKFLOW,
+    });
+    expect(reopened.status, JSON.stringify(reopened.body)).toBe(201);
+    expect(reopened.body.data).toMatchObject({ year: 2027, sessionLabel: '2027', status: 'draft' });
+    expect(
+      (await create(pm, { seriesId, periodFrom: '2027-05', periodTo: '2027-06', source: WORKFLOW }))
+        .body.error.code,
+    ).toBe('project.session_year_taken');
+    const other = await create(pm, {
+      seriesId,
+      periodFrom: '2028-08',
+      periodTo: '2029-07',
+      source: WORKFLOW,
+    });
+    expect(other.status).toBe(201);
+    expect(other.body.data).toMatchObject({ year: 2028, sessionLabel: '2028-29' });
+    const missing = await create(pm, {
+      seriesId: randomUUID(),
+      periodFrom: '2027-01',
+      periodTo: '2027-12',
+      source: WORKFLOW,
+    });
+    expect(missing.status).toBe(404);
+  });
+
+  it('checks the program the series is stored with: for a PM of another program the series is not found, and an RPM is refused', async () => {
+    const head = await as(world.users.head);
+    // a program of nobody's, with a series the Head made
+    const { program } = await f.project(h.db);
+    const foreign = await newSeries(head, program);
+    const body = {
+      seriesId: foreign.body.data.id as string,
+      periodFrom: '2027-01',
+      periodTo: '2027-12',
+      source: WORKFLOW,
+    };
+    // as a series that does not exist answers
+    const outside = await create(await as(world.users.pm), body);
+    expect(outside.status).toBe(404);
+    expect(outside.body.error.code).toBe('permission.not_found');
+    const missing = await create(await as(world.users.pm), { ...body, seriesId: randomUUID() });
+    expect(missing.status).toBe(404);
+    expect(missing.body.error.code).toBe('permission.not_found');
+    expect((await create(await as(world.users.rpmDhaka), body)).status).toBe(403);
+    const { rows } = await h.db.query(
+      'SELECT count(*)::int AS n FROM projects WHERE series_id = $1',
+      [body.seriesId],
+    );
+    expect(rows).toEqual([{ n: 0 }]);
+    // the Head creates it, and an inactive program takes no session
+    expect((await create(head, body)).status).toBe(201);
+    await h.db.query('UPDATE programs SET active = false WHERE id = $1', [program]);
+    try {
+      const inactive = await create(head, { ...body, periodFrom: '2028-01', periodTo: '2028-12' });
+      expect(inactive.status).toBe(409);
+      expect(inactive.body.error.code).toBe('program.inactive');
+    } finally {
+      await h.db.query('UPDATE programs SET active = true WHERE id = $1', [program]);
+    }
+  });
+
+  it('takes nothing of the series from the body: the earlier body, a code, a program and a year are refused', async () => {
+    const pm = await as(world.users.pm);
+    const earlier = await create(pm, {
+      programId: world.a1.program,
+      code: code(),
+      year: 2026,
+      name,
+      source: WORKFLOW,
+    });
+    expect(earlier.status).toBe(422);
+    expect(
+      (earlier.body.error.details as { path: string; code: string }[])
+        .filter((d) => d.code === 'validation.unknown_parameter')
+        .map((d) => d.path)
+        .sort(),
+    ).toEqual(['code', 'name', 'programId', 'year']);
+    const series = await newSeries(pm, world.a1.program);
+    const body = {
+      seriesId: series.body.data.id as string,
+      periodFrom: '2027-01',
+      periodTo: '2027-12',
+      source: WORKFLOW,
+    };
+    for (const extra of [{ code: 'OTHER' }, { programId: world.b1.program }, { year: 2030 }]) {
+      const res = await create(pm, { ...body, ...extra });
+      expect(res.status, Object.keys(extra)[0]).toBe(422);
+    }
+    // a period whose end is before its start, and one of more than 24 months
+    expect((await create(pm, { ...body, periodTo: '2026-12' })).status).toBe(422);
+    expect((await create(pm, { ...body, periodTo: '2029-01' })).status).toBe(422);
+    const { rows } = await h.db.query(
+      'SELECT count(*)::int AS n FROM projects WHERE series_id = $1',
+      [body.seriesId],
+    );
+    expect(rows).toEqual([{ n: 0 }]);
   });
 
   it('starts a tree-planting project with its application kinds', async () => {
@@ -164,7 +357,8 @@ describe('updating a project', () => {
     const id = created.body.data.id as string;
     const res = await patch(pm, id, created.headers.etag, {
       name: { bn: 'নতুন', en: 'New' },
-      year: 2027,
+      periodFrom: '2027-06',
+      periodTo: '2028-07',
       perVolunteerLimit: 40,
       costPerBeneficiary: '1000.50',
       targetBeneficiaries: 100,
@@ -172,13 +366,29 @@ describe('updating a project', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({
       year: 2027,
+      periodFrom: '2027-06',
+      periodTo: '2028-07',
+      sessionLabel: '2027-28',
       perVolunteerLimit: 40,
       costPerBeneficiary: '1000.50',
       budgetPlanned: '100050.00',
     });
     const [entry] = await audit(id, 'project.configure');
-    expect(entry?.old).toMatchObject({ year: 2026 });
-    expect(entry?.new).toMatchObject({ year: 2027, perVolunteerLimit: 40 });
+    expect(entry?.old).toMatchObject({ year: 2026, periodFrom: '2026-01', sessionLabel: '2026' });
+    expect(entry?.new).toMatchObject({
+      year: 2027,
+      periodFrom: '2027-06',
+      periodTo: '2028-07',
+      sessionLabel: '2027-28',
+      perVolunteerLimit: 40,
+    });
+    // the series carries the new names, and the session runs its new months
+    expect(await seriesOf(id)).toMatchObject({
+      name_bn: 'নতুন',
+      name_en: 'New',
+      period_from: '2027-06-01',
+      period_to: '2028-07-31',
+    });
   });
 
   it('keeps the identity and the end date of an active project, and everything once closing', async () => {
@@ -187,9 +397,12 @@ describe('updating a project', () => {
     const id = created.body.data.id as string;
     await setStatus(id, 'active');
     let current = await get(pm, id);
-    const year = await patch(pm, id, current.headers.etag, { year: 2027 });
-    expect(year.status).toBe(409);
-    expect(year.body.error.code).toBe('project.read_only');
+    const period = await patch(pm, id, current.headers.etag, {
+      periodFrom: '2027-01',
+      periodTo: '2027-12',
+    });
+    expect(period.status).toBe(409);
+    expect(period.body.error.code).toBe('project.read_only');
     expect((await patch(pm, id, current.headers.etag, { applyTo: '2026-12-31' })).status).toBe(409);
     const renamed = await patch(pm, id, current.headers.etag, {
       name: { bn: 'চলমান', en: 'Running' },
@@ -200,8 +413,8 @@ describe('updating a project', () => {
     current = await get(pm, id);
     const resent = await patch(pm, id, current.headers.etag, {
       name: current.body.data.name,
-      year: current.body.data.year,
-      programId: current.body.data.programId,
+      periodFrom: current.body.data.periodFrom,
+      periodTo: current.body.data.periodTo,
       workflowKey: current.body.data.workflowKey,
       applyTo: current.body.data.applyTo,
       description: 'নতুন বর্ণনা',
@@ -301,29 +514,235 @@ describe('updating a project', () => {
     expect(backwards.status).toBe(422);
   });
 
-  it('moves a draft only into an active program the PM may configure', async () => {
+  it('never gives a session another program, code or year: a body that names one is refused and changes nothing', async () => {
     const pm = await as(world.users.pm);
     const created = await draft(pm, world.a1.program);
     const id = created.body.data.id as string;
-    expect(
-      (await patch(pm, id, created.headers.etag, { programId: world.b1.program })).status,
-    ).toBe(403);
-    const second = await f.project(h.db);
-    await h.db.query('UPDATE programs SET pm_user_id = $1, active = false WHERE id = $2', [
-      world.users.pm,
-      second.program,
-    ]);
-    const res = await patch(pm, id, created.headers.etag, { programId: second.program });
-    expect(res.status).toBe(409);
-    expect(res.body.error.code).toBe('program.inactive');
+    const before = (await h.db.query('SELECT * FROM projects WHERE id = $1', [id])).rows;
+    for (const extra of [{ programId: world.b1.program }, { code: 'OTHER' }, { year: 2027 }]) {
+      const res = await patch(pm, id, created.headers.etag, { description: 'নতুন', ...extra });
+      expect(res.status, Object.keys(extra)[0]).toBe(422);
+      expect(res.body.error.details).toEqual([
+        expect.objectContaining({
+          path: Object.keys(extra)[0],
+          code: 'validation.unknown_parameter',
+        }),
+      ]);
+    }
+    expect((await h.db.query('SELECT * FROM projects WHERE id = $1', [id])).rows).toEqual(before);
+    expect(await seriesOf(id)).toMatchObject({ program_id: world.a1.program });
+    expect(await audit(id, 'project.configure')).toEqual([]);
+  });
+});
 
-    await h.db.query('UPDATE programs SET active = true WHERE id = $1', [second.program]);
-    const moved = await patch(pm, id, created.headers.etag, { programId: second.program });
+describe('a session beside its series', () => {
+  /** One more session of the project's series, as a later year of the same project. */
+  async function sibling(projectId: string, year: number, over: Record<string, unknown> = {}) {
+    const { rows } = await h.db.query(
+      `SELECT program_id, series_id, code, name_bn, name_en, workflow_definition_id FROM projects WHERE id = $1`,
+      [projectId],
+    );
+    return f.projectRow(h.db, {
+      id: randomUUID(),
+      ...rows[0],
+      year,
+      workflow_version: 1,
+      ...over,
+    });
+  }
+  const stored = async (id: string) =>
+    (
+      await h.db.query(
+        `SELECT program_id, year, name_bn, status, period_from::text, period_to::text FROM projects WHERE id = $1`,
+        [id],
+      )
+    ).rows[0];
+
+  it('changes the period of a draft by its two months, and leaves it alone when they come back unchanged', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    // July to June of the next year: the year stays the year it starts in
+    const moved = await patch(pm, id, (await get(pm, id)).headers.etag, {
+      periodFrom: '2026-07',
+      periodTo: '2027-06',
+    });
     expect(moved.status).toBe(200);
-    expect(moved.body.data.programId).toBe(second.program);
-    const [entry] = await audit(id, 'project.configure');
-    expect(entry?.old).toEqual({ programId: world.a1.program });
-    expect(entry?.new).toEqual({ programId: second.program });
+    expect(moved.body.data).toMatchObject({
+      year: 2026,
+      periodFrom: '2026-07',
+      periodTo: '2027-06',
+      sessionLabel: '2026-27',
+    });
+    const months = { period_from: '2026-07-01', period_to: '2027-06-30', year: 2026 };
+    expect(await stored(id)).toMatchObject(months);
+    // the same months with another change: no change of the period
+    const same = await patch(pm, id, moved.headers.etag, {
+      periodFrom: '2026-07',
+      periodTo: '2027-06',
+      perVolunteerLimit: 30,
+    });
+    expect(same.status).toBe(200);
+    expect(await stored(id)).toMatchObject(months);
+    const entries = await audit(id, 'project.configure');
+    expect(entries.at(-1)?.new).toEqual({ perVolunteerLimit: 30 });
+    // one month alone says no period, and the rules of a period hold
+    expect((await patch(pm, id, same.headers.etag, { periodFrom: '2026-08' })).status).toBe(422);
+    expect(
+      (await patch(pm, id, same.headers.etag, { periodFrom: '2026-08', periodTo: '2026-07' }))
+        .status,
+    ).toBe(422);
+    expect(await stored(id)).toMatchObject(months);
+  });
+
+  it('refuses a period that starts in a year another session of the series starts in', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    const next = await sibling(id, 2027);
+    const etag = (await get(pm, id)).headers.etag;
+    const taken = await patch(pm, id, etag, { periodFrom: '2027-06', periodTo: '2028-05' });
+    expect(taken.status).toBe(409);
+    expect(taken.body.error.code).toBe('project.session_year_taken');
+    expect(await stored(id)).toMatchObject({
+      year: 2026,
+      period_from: '2026-01-01',
+      period_to: '2026-12-31',
+    });
+    expect(await stored(next)).toMatchObject({ year: 2027 });
+    // a year no session of the series holds is free
+    const free = await patch(pm, id, etag, { periodFrom: '2025-04', periodTo: '2026-03' });
+    expect(free.status).toBe(200);
+    expect(await stored(id)).toMatchObject({
+      year: 2025,
+      period_from: '2025-04-01',
+      period_to: '2026-03-31',
+    });
+  });
+
+  it('moves a draft onto a year that only a cancelled session of the series holds', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    const next = await sibling(id, 2027);
+    await setStatus(next, 'cancelled');
+    const moved = await patch(pm, id, (await get(pm, id)).headers.etag, {
+      periodFrom: '2027-06',
+      periodTo: '2028-05',
+    });
+    expect(moved.status, JSON.stringify(moved.body)).toBe(200);
+    expect(moved.body.data).toMatchObject({ year: 2027, sessionLabel: '2027-28' });
+    expect(await stored(id)).toMatchObject({
+      year: 2027,
+      status: 'draft',
+      period_from: '2027-06-01',
+      period_to: '2028-05-31',
+    });
+    expect(await stored(next)).toMatchObject({ year: 2027, status: 'cancelled' });
+  });
+
+  it('keeps the period of a session once it is active, and takes it back unchanged when closed', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    await setStatus(id, 'active');
+    const active = await patch(pm, id, (await get(pm, id)).headers.etag, {
+      periodFrom: '2026-07',
+      periodTo: '2027-06',
+    });
+    expect(active.status).toBe(409);
+    expect(active.body.error.code).toBe('project.read_only');
+    await setStatus(id, 'closed');
+    const current = await get(pm, id);
+    const resent = await patch(pm, id, current.headers.etag, {
+      periodFrom: current.body.data.periodFrom,
+      periodTo: current.body.data.periodTo,
+      name: current.body.data.name,
+    });
+    expect(resent.status).toBe(200);
+    expect(await stored(id)).toMatchObject({
+      year: 2026,
+      period_from: '2026-01-01',
+      period_to: '2026-12-31',
+      status: 'closed',
+    });
+  });
+
+  it('renames the series with its one session, and refuses a rename of one session beside another', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    const first = await patch(pm, id, (await get(pm, id)).headers.etag, {
+      name: { bn: 'একাই', en: 'Alone' },
+    });
+    expect(first.status).toBe(200);
+    expect(await seriesOf(id)).toMatchObject({ name_bn: 'একাই', name_en: 'Alone' });
+
+    const next = await sibling(id, 2027);
+    const second = await patch(pm, id, first.headers.etag, {
+      name: { bn: 'দুইয়ের একটি', en: 'One of two' },
+    });
+    // a session carries the names of its series: it is renamed through the series, with the others
+    expect(second.status).toBe(409);
+    expect(second.body.error.code).toBe('project.read_only');
+    expect(await stored(id)).toMatchObject({ name_bn: 'একাই' });
+    expect(await seriesOf(id)).toMatchObject({ name_bn: 'একাই', name_en: 'Alone' });
+    expect(await stored(next)).toMatchObject({ name_bn: 'একাই' });
+    // the name sent back as it is changes nothing and is no rename
+    const same = await patch(pm, id, first.headers.etag, {
+      name: { bn: 'একাই', en: 'Alone' },
+      perVolunteerLimit: 25,
+    });
+    expect(same.status).toBe(200);
+  });
+
+  it('renames the series with its one live session, a cancelled draft beside it not counted', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    const cancelled = await sibling(id, 2027);
+    await setStatus(cancelled, 'cancelled');
+    const renamed = await patch(pm, id, (await get(pm, id)).headers.etag, {
+      name: { bn: 'নতুন নাম', en: 'New name' },
+    });
+    expect(renamed.status, JSON.stringify(renamed.body)).toBe(200);
+    expect(renamed.body.data.name).toEqual({ bn: 'নতুন নাম', en: 'New name' });
+    expect(await seriesOf(id)).toMatchObject({ name_bn: 'নতুন নাম', name_en: 'New name' });
+    // the cancelled session keeps carrying the names of its series
+    expect(await stored(cancelled)).toMatchObject({ name_bn: 'নতুন নাম', status: 'cancelled' });
+  });
+
+  it('reads a clash on either partial unique of a session year as a taken year', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    const next = await sibling(id, 2027);
+    // the service's own check would refuse first: write past it, as two writers at once would;
+    // a code of its own, so only the series' index can refuse it
+    const sameSeries = await h.container.prisma.project
+      .update({
+        where: { id },
+        data: {
+          code: 'DRIFTED',
+          year: 2027,
+          periodFrom: new Date('2027-01-01T00:00:00Z'),
+          periodTo: new Date('2027-12-31T00:00:00Z'),
+        },
+      })
+      .catch((error: unknown) => error);
+    expect(isUniqueViolationOf(sameSeries, 'projects_series_id_year_key')).toBe(true);
+    // the same code and year in another series
+    const { code } = (await h.db.query('SELECT code FROM projects WHERE id = $1', [next])).rows[0];
+    const elsewhere = (await draft(pm, world.a1.program)).body.data.id as string;
+    await h.db.query(
+      `UPDATE projects SET year = 2027, period_from = '2027-01-01', period_to = '2027-12-31' WHERE id = $1`,
+      [elsewhere],
+    );
+    const sameCode = await h.container.prisma.project
+      .update({ where: { id: elsewhere }, data: { code } })
+      .catch((error: unknown) => error);
+    expect(isUniqueViolationOf(sameCode, 'projects_code_year_key')).toBe(true);
+    for (const error of [sameSeries, sameCode]) {
+      const read = yearTakenOr(error);
+      expect(read).toBeInstanceOf(ApiError);
+      expect(read).toMatchObject({ code: 'project.session_year_taken', status: 409 });
+    }
+    // a cancelled session takes part in neither
+    await setStatus(next, 'cancelled');
+    await h.container.prisma.project.update({ where: { id: elsewhere }, data: { code } });
   });
 });
 
@@ -417,8 +836,20 @@ describe('who sees which project', () => {
       expect((await get(volunteer, world.b1.id)).status).toBe(404);
       const one = await get(volunteer, world.a1.id);
       expect(one.status).toBe(200);
-      for (const key of ['costPerBeneficiary', 'targetBeneficiaries', 'budgetPlanned', 'programId'])
+      for (const key of [
+        'costPerBeneficiary',
+        'targetBeneficiaries',
+        'budgetPlanned',
+        'programId',
+        'seriesId',
+      ])
         expect(one.body.data, key).not.toHaveProperty(key);
+      // which session it is, is a work fact
+      expect(one.body.data).toMatchObject({
+        periodFrom: '2026-01',
+        periodTo: '2026-12',
+        sessionLabel: '2026',
+      });
     } finally {
       await setStatus(world.a1.id, 'draft');
       await setStatus(world.b1.id, 'draft');
@@ -457,6 +888,45 @@ describe('who sees which project', () => {
     // the RPM of Dhaka sees them on its own project, not on another program's
     const rpm = await as(world.users.rpmDhaka);
     for (const key of amounts) expect((await get(rpm, world.a1.id)).body.data).toHaveProperty(key);
+  });
+
+  it('lists the sessions of one series, each with its label', async () => {
+    const pm = await as(world.users.pm);
+    const first = await draft(pm, world.a1.program);
+    const seriesId = first.body.data.seriesId as string;
+    const second = await create(pm, {
+      seriesId,
+      periodFrom: '2027-06',
+      periodTo: '2028-07',
+      source: WORKFLOW,
+    });
+    expect(second.status).toBe(201);
+    await draft(pm, world.a1.program);
+    const list = await api()
+      .get('/api/v1/projects')
+      .set(bearer(pm))
+      .query({ seriesId, limit: 100 });
+    expect(list.status).toBe(200);
+    // newest first
+    expect(
+      list.body.data.map((p: { id: string; sessionLabel: string; seriesId: string }) => [
+        p.id,
+        p.sessionLabel,
+        p.seriesId,
+      ]),
+    ).toEqual([
+      [second.body.data.id, '2027-28', seriesId],
+      [first.body.data.id, '2026', seriesId],
+    ]);
+    // a series the caller's scope holds nothing of gives an empty list, and a bad id is refused
+    const rpm = await api()
+      .get('/api/v1/projects')
+      .set(bearer(await as(world.users.rpmRangpur)))
+      .query({ seriesId });
+    expect(rpm.body.data).toEqual([]);
+    expect(
+      (await api().get('/api/v1/projects').set(bearer(pm)).query({ seriesId: 'x' })).status,
+    ).toBe(422);
   });
 
   it('answers 401 without a sign-in and 404 for a project that does not exist', async () => {

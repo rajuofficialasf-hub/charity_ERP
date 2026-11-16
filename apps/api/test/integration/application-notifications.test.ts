@@ -17,6 +17,7 @@ import {
   type Session,
 } from './support/auth-app.js';
 import { beneficiary, fakeMobile, fakeNid, volunteer } from './support/fixtures.js';
+import { draftProject } from './support/projects.js';
 
 // The application events of the notification matrix (docs/architecture/NOTIFICATIONS.md,
 // "Applications and workflow (Phase 2)"): the region's reviewers hear of a submission, the
@@ -76,7 +77,7 @@ beforeAll(async () => {
   await seedReferenceLists(ctx);
   await seedNotificationTemplates(ctx);
   await volunteer(h.db, world.dhaka, world.users.team, { type: 'team_member' });
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: 'NTF',
     year: 2026,

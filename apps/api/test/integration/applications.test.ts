@@ -22,6 +22,7 @@ import {
   type Session,
 } from './support/auth-app.js';
 import { beneficiary, fakeMobile, fakeNid, insert, volunteer } from './support/fixtures.js';
+import { draftProject } from './support/projects.js';
 
 // The application service: a volunteer, a team member or an official creates a draft on the
 // project's form with the person resolved from the identity number, edits it with If-Match,
@@ -85,7 +86,7 @@ beforeAll(async () => {
     [randomUUID()],
   );
   await volunteer(h.db, world.dhaka, world.users.team, { type: 'team_member' });
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
+  const made = await draftProject(h, await as(world.users.pm), {
     programId: world.a1.program,
     code: 'APP',
     year: 2026,
