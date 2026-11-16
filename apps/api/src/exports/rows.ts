@@ -88,7 +88,7 @@ export interface FreezeInput {
 }
 
 /** The read permission of each list: an export reaches only the rows its list shows. */
-const READ_PERMISSION: Readonly<Record<ExportList, string>> = {
+export const READ_PERMISSION: Readonly<Record<ExportList, string>> = {
   volunteers: 'volunteer.view_all',
   beneficiaries: 'beneficiary.view_all',
   applications: 'application.view',
@@ -145,14 +145,14 @@ const REACHED: Readonly<
   ],
 };
 
-const ENTITY: Readonly<Record<ExportList, 'volunteer' | 'beneficiary' | 'application'>> = {
+export const ENTITY: Readonly<Record<ExportList, 'volunteer' | 'beneficiary' | 'application'>> = {
   volunteers: 'volunteer',
   beneficiaries: 'beneficiary',
   applications: 'application',
 };
 
 /** The records of a list a scope reaches, as a filter of that list. */
-function whereOf(list: ExportList, scope: Scope): unknown {
+export function whereOf(list: ExportList, scope: Scope): unknown {
   if (list === 'volunteers') return volunteerWhere(scope);
   if (list === 'beneficiaries') return beneficiaryWhere(scope);
   return applicationWhere(scope);

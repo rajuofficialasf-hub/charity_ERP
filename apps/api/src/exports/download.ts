@@ -4,6 +4,7 @@ import type { AccessService } from '../access/service.js';
 import type { Principal } from '../auth/principal.js';
 import type { PrismaService } from '../core/prisma.service.js';
 import { ApiError } from '../i18n/api-error.js';
+import { stillHeld } from './reach.js';
 import { readFrozenRecord, RECORD_PERMISSION } from './records.js';
 import { readFrozenExport, sensitiveClasses } from './service.js';
 
@@ -29,7 +30,8 @@ export interface ExportDownload {
  * Whether the caller may download an export file, checked again at every download (docs/api/
  * API_STANDARDS.md, "Export job pattern"): only the job's requester, only while their account is
  * active and their live access still holds `export.list` (a record's PDF: its own export
- * permission) and, for a file with protected fields, the export permissions of those fields. Anyone else, and the requester who lost one of them, gets
+ * permission), for a file with protected fields the export permissions of those fields, every
+ * protected class it holds and the reach of every record in it. Anyone else, and the requester who lost one of them, gets
  * 404; the requester gets 410 once the file has expired. Null for a file that is not an export.
  */
 export async function exportDownload(
@@ -86,6 +88,7 @@ export async function exportDownload(
         needed.add(EXPORT_PERMISSION_OF_CLASS[cls]!);
   }
   if ([...needed].some((p) => !holdsPermission(p, live.grants))) throw refused();
+  if (!(await stillHeld(prisma, access, principal, live, job))) throw refused();
   if (file.deletedAt) throw new ApiError('export.expired', 410);
   return {
     file,
