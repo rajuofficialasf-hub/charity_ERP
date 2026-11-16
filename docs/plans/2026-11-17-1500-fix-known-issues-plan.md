@@ -52,8 +52,8 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 ## Progress
 - **Branch:** `fix/known-issues`
 - **Updated:** 2026-11-17
-- **Next:** checkpoint C2 (review of U2), then U3: a failing test of the export download after a lost class or scope
-- **Reviewed through:** C1 at de61aca6
+- **Next:** U3: a failing test of the export download after the view right of a class is lost (export right kept) and after the list's scope is lost; check by counting the frozen query with and without the requester's live scope
+- **Reviewed through:** C2 at 1975d59f
 - **Uncommitted:** none
 - **Notes:** the owner said not to wait for a command between units or checkpoints. U1: a blocked person's draft is refused at the send by the workflow guard `workflow.guard.beneficiary_not_blocked` (409), not by `beneficiary.blocked`. C1 review: a draft not yet tied to anyone whose number later names a blocked person stays refused at its edit (409 `beneficiary.blocked`), because tying it would fill in the blocked person's names, which the lookup never reveals; BR-010 says so. U2: the cause was the scope builder (`resolveInstances` in `apps/api/src/access/scope.ts`) honouring the house-construction condition only for beneficiaries; the web gives the Procurement Team the tab's list only and a session's "আবেদন". The planned e2e journey is covered by `procurement-applications.test.ts` and the tab's component test instead, because the demo seed has no house-construction project
 
