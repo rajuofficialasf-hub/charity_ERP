@@ -159,6 +159,43 @@ test.describe('a program’s page and a project’s page', () => {
     expect((await scan(page)).violations).toEqual([]);
   });
 
+  test('a program card shows its short description on the front in two lines', async ({
+    page,
+  }, info) => {
+    // the demo seed's programs have no description: the cards' read gets a long one
+    const long =
+      'প্রতি বছর শীতবস্ত্র, ইফতার, কুরবানির গোশত, নিরাপদ পানি ও বৃক্ষরোপণের মাধ্যমে দেশের নানা প্রান্তের অসহায় মানুষের পাশে দাঁড়ানো হয়।';
+    await page.route('**/api/v1/program-cards', async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as { data: { name: { bn: string } }[] };
+      for (const card of body.data) {
+        if (card.name.bn === HUM_NAME) Object.assign(card, { description: { bn: long, en: '' } });
+      }
+      await route.fulfill({ response, json: body });
+    });
+    if (info.project.name === 'mobile') await page.setViewportSize({ width: 360, height: 780 });
+    await signIn(page, HEAD);
+    await openProjectsTab(page);
+    const program = page.getByRole('article', { name: HUM_NAME });
+    const front = program.locator('[data-face="front"]');
+    const text = front.getByText(long);
+    await expect(text).toBeVisible();
+    // two lines at most, and the figures stay inside the front, under the description
+    const lines = await text.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return el.getBoundingClientRect().height / parseFloat(style.lineHeight);
+    });
+    expect(Math.round(lines)).toBeLessThanOrEqual(2);
+    const figures = await front.locator('.card-figures').boundingBox();
+    const face = await front.boundingBox();
+    const said = await text.boundingBox();
+    expect(figures && face && said).toBeTruthy();
+    expect(figures!.y).toBeGreaterThanOrEqual(said!.y + said!.height);
+    expect(figures!.y + figures!.height).toBeLessThanOrEqual(face!.y + face!.height);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await pictures(page, (n) => info.outputPath(n), `program-description-${info.project.name}`);
+  });
+
   test('the Head turns a project card on a phone and reads the sessions as cards', async ({
     page,
   }, info) => {
