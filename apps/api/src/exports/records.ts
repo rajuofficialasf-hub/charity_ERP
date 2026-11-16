@@ -32,7 +32,10 @@ export interface FrozenRecord {
   kind: ExportRecord;
   recordId: string;
   view: ProfileForPdf | ApplicationForPdf | null;
+  /** The classes an export permission stands for, which make the PDF sensitive. */
   classes: string[];
+  /** Every protected class the PDF may hold, checked again at each download. */
+  held?: string[];
   locale: 'bn' | 'en';
 }
 
@@ -42,6 +45,7 @@ const frozenRecordSchema = z.object({
     recordId: z.string(),
     view: z.record(z.string(), z.unknown()).nullable(),
     classes: z.array(z.string()),
+    held: z.array(z.string()).optional(),
     locale: z.enum(['bn', 'en']),
   }),
 });
@@ -154,6 +158,7 @@ export class ExportRecords {
       recordId: id,
       view,
       classes: holdsNid ? [IDENTITY_NUMBER] : [],
+      held: [...allowed].sort(),
       locale,
     };
   }
@@ -230,6 +235,13 @@ export class ExportRecords {
       answers,
       form: { sections },
     };
-    return { kind: 'application', recordId: id, view, classes: [...classes].sort(), locale };
+    return {
+      kind: 'application',
+      recordId: id,
+      view,
+      classes: [...classes].sort(),
+      held: [...allowed].sort(),
+      locale,
+    };
   }
 }

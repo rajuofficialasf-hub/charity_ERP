@@ -119,7 +119,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * The classes a row carries only inside a scope, by list: the permission that shows them on
  * screen, and the export permission that lets them leave in a file.
  */
-const REACHED: Readonly<
+export const REACHED: Readonly<
   Record<ExportList, { classes: string[]; view: string | null; exported: string }[]>
 > = {
   volunteers: [

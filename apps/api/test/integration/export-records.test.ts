@@ -278,6 +278,32 @@ describe('the download of a record PDF', () => {
     expect(await downloads(fileId)).toBe(1);
   });
 
+  it('refuses a profile to the requester whose journey report no longer reaches the person', async () => {
+    const me = await official();
+    const { job, s } = await printed(me, `/beneficiaries/${person.id}/pdf`);
+    const fileId = job.fileId as string;
+    expect((await at(s, 'get', `/files/${fileId}/content`)).status).toBe(200);
+    // the region goes; the beneficiary tab still reaches the person nationwide, the report does not
+    await h.db.query('DELETE FROM project_areas WHERE rpm_user_id = $1', [me]);
+    expect((await at(s, 'get', `/files/${fileId}/content`)).status).toBe(404);
+  });
+
+  it('refuses an application to the requester who no longer reaches it', async () => {
+    const me = await official();
+    await h.db.query(
+      `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), world.a1.id, world.dhaka.division, me],
+    );
+    const { job, s } = await printed(me, `/applications/${firstApp}/pdf`);
+    const fileId = job.fileId as string;
+    expect((await at(s, 'get', `/files/${fileId}/content`)).status).toBe(200);
+    await h.db.query('DELETE FROM project_areas WHERE rpm_user_id = $1 AND project_id = $2', [
+      me,
+      world.a1.id,
+    ]);
+    expect((await at(s, 'get', `/files/${fileId}/content`)).status).toBe(404);
+  });
+
   it('downloads a record PDF without protected fields with no trace of its own', async () => {
     const { job, s } = await printed(world.users.executive, `/applications/${firstApp}/pdf`);
     expect(job.sensitive).toBe(false);

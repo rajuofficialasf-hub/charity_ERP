@@ -88,8 +88,8 @@ export async function exportDownload(
         needed.add(EXPORT_PERMISSION_OF_CLASS[cls]!);
   }
   if ([...needed].some((p) => !holdsPermission(p, live.grants))) throw refused();
-  if (!(await stillHeld(prisma, access, principal, live, job))) throw refused();
   if (file.deletedAt) throw new ApiError('export.expired', 410);
+  if (!(await stillHeld(prisma, access, principal, live, job))) throw refused();
   return {
     file,
     job: {
