@@ -46,6 +46,7 @@ const SEEDED_TABLES = [
   'volunteers',
   'beneficiaries',
   'blocklist',
+  'project_series',
   'projects',
   'id_sequences',
   'project_areas',

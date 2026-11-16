@@ -13,7 +13,7 @@ Sources: blueprint B2 (entity tables, key rules) and B3 (hybrid storage); BD-01�
 | Topic | Rule |
 |---|---|
 | Primary keys | `id uuid` generated as UUID version 7 by the application (time-ordered, O-03). The beneficiary's `id` is the BEN-ID. Seeded configuration tables keyed by a natural key (roles, permissions, settings, holiday dates) use that key. |
-| Human-readable ids | `applications.app_no` = project code + year + 5-digit sequence (O-03), unique; `projects.code`, `programs.code`, `locations.code` unique. |
+| Human-readable ids | `applications.app_no` = project code + year + 5-digit sequence (O-03), unique; `project_series.code`, `programs.code`, `locations.code` unique; a session (`projects`) carries the code of its series and is unique by (code, year). |
 | Audit columns | Every business table has `created_at`, `created_by`, `updated_at`, `updated_by` (constitution §13). Append-only log tables have only `created_at`, `created_by`. |
 | Deletion | No hard delete of business data (§2, BR-207). Soft delete (`deleted_at`) only where approved: draft/pending applications (state `deleted`), export files. Deactivation flags (`active`, `revoked_at`, `released_at`) elsewhere. |
 | Bilingual data | Labels, names of configuration items, statuses and stages carry `_bn` and `_en` columns or a JSONB `{bn, en}` (§11, BR-220). Personal names are stored as entered (one column). |
@@ -27,7 +27,7 @@ Sources: blueprint B2 (entity tables, key rules) and B3 (hybrid storage); BD-01�
 
 | Class | Meaning | Entities |
 |---|---|---|
-| Permanent master | Long-lived records that outlive projects; never deleted | users, volunteers, beneficiaries, beneficiary_family_members, locations, programs, media_consents |
+| Permanent master | Long-lived records that outlive projects; never deleted | users, volunteers, beneficiaries, beneficiary_family_members, locations, programs, project_series, media_consents |
 | Configuration | Set up by officials or seeded; versioned or audited; read by many transactions | roles, permissions, user_roles, user_permissions, reference_lists, settings, holiday_calendar, nisab_versions, project_templates, workflow_definitions, workflow_transitions, form_library_sections, form_library_fields, notification_templates, document_templates |
 | Project configuration | Belongs to one project, set during setup, snapshotted at activation | projects, project_components, project_areas, project_staff, project_quotas, fund_sources, forms, form_versions, form_sections, form_fields, field_options, dawah_syllabus_topics, project_volunteers, volunteer_teams, work_assignments |
 | Project transaction | Operational records created during a project | applications, application_answers, application_scores, application_transfers, activities, distributions, stock_movements, construction_stages, issues, site_verifications, payments, expense_claims, expense_items, vouchers, budget_ledger, donors, animals, animal_shares, animal_photos, donor_messages, dawah_classes, class_attendance, learning_progress, exams, exam_results, documents, deficiency_reports, volunteer_ratings |
@@ -88,8 +88,9 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 
 | Entity | Key columns | Relationships | Requirement |
 |---|---|---|---|
-| programs | id; code; name_bn/en; pm_user_id | 1 — n projects; users 1 — n (PM) | B2; A2 |
-| projects | id; program_id; code (unique); year; name_bn/en; status draft/active/closing/closed/cancelled; cancelled_at, cancelled_by (a draft is cancelled, never deleted); workflow_definition_id, workflow_version, workflow_snapshot (JSONB); apply_from, apply_to; per_volunteer_limit; cost_per_beneficiary; target_beneficiaries; rules (JSONB, four bilingual texts); rules_version (number of the current version, 0 until rules are saved; T1.12); dawah_enabled; source template or copied-from project | programs 1 — n; 1 — n everything project-scoped | B2; A6; BD-09, BD-10, BD-16, BD-20; O-03, O-12 |
+| programs | id; code; name_bn/en; description_bn/en (short, optional); pm_user_id | 1 — n project_series; 1 — n projects; users 1 — n (PM) | B2; A2; D-176 |
+| project_series | id; program_id; code (unique); name_bn/en; description_bn/en (short, optional). The permanent project (the screens' "প্রকল্প"): what stays the same from year to year | programs 1 — n; 1 — n projects (its yearly sessions); unique (id, program_id) | D-176 |
+| projects | id; program_id; series_id (with program_id: the program of its series); code (its series' code; unique with year); year (the year the period starts in; one session per series and year); period_from, period_to (the first day of the start month, the last day of the end month; the label "2026" or "2026-27" is read from them, never stored). name_bn/en; status draft/active/closing/closed/cancelled; cancelled_at, cancelled_by (a draft is cancelled, never deleted); workflow_definition_id, workflow_version, workflow_snapshot (JSONB); apply_from, apply_to; per_volunteer_limit; cost_per_beneficiary; target_beneficiaries; rules (JSONB, four bilingual texts); rules_version (number of the current version, 0 until rules are saved; T1.12); dawah_enabled; source template or copied-from project | programs 1 — n; project_series 1 — n; 1 — n everything project-scoped | B2; A6; BD-09, BD-10, BD-16, BD-20; O-03, O-12; D-176 |
 | project_components | id; project_id; component_key; enabled; settings (JSONB) | projects 1 — n; unique (project, component) | B2 additions; BD-09; BR-062 |
 | project_areas | id; project_id; location_id (division, or district when split); rpm_user_id | projects 1 — n; users 1 — n (RPM) | B2; A6; Q-08; BR-060 |
 | project_staff | id; project_id; user_id; role_key; area location_id; access view/edit/delete; extra_permissions (list) | projects n — m users (staff) | A6 staff assignment; BR-061, BR-234; RBAC.md §6 |
@@ -262,6 +263,9 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 | Unique | payments.transaction_id | BR-134 |
 | Unique | animals (project, type, number); animal_photos (animal, kind) | BR-145, BR-148 |
 | Check/trigger | an animal has one assigned volunteer; reassignment only after deallocation | BR-145 |
+| Unique | project_series.code; projects (series_id, year): one session of a series per start year; projects (code, year) | D-176; BR-312 |
+| Foreign key | projects (series_id, program_id) → project_series (id, program_id): a session sits in the program of its series | D-176; BR-312 |
+| Check | projects: period_to not before period_from and at most 24 months; year = the year of period_from | BR-311 |
 | Unique | project_volunteers (project, volunteer); volunteer_teams (project, member); project_staff (project, user); project_components (project, component); project_quotas (project, location); form_versions (form, version_no); volunteer_ratings (project, volunteer, work_kind) | data integrity |
 | Partial unique | one active blocklist row per (subject_type, subject_id) | BR-047 |
 | Unique | outbound_messages.idempotency_key | D-054 |
@@ -276,6 +280,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 | project_activities (B2) | activities | T0.15 prompt |
 | workflow_templates (B2, T0.11) | workflow_definitions | T0.15 prompt; the YAML files stay "workflow templates" |
 | project_settings (B2) | folded into projects columns and project_components.settings | section 20 |
+| project, "প্রকল্প" as one year's work (B2) | projects, one yearly session; the permanent project above it is project_series | D-176: the blueprint's meaning stays true of the data, and the screens say "প্রকল্প" for the series and "সেশন" for the row of projects |
 | project_staff_access (T0.10) | project_staff | T0.15 prompt |
 | ratings, rating_criteria (B2, T0.10) | volunteer_ratings; criteria in project_components.settings | T0.15 prompt |
 | category_changes (T0.4) | volunteer_categories_log | T0.15 prompt |

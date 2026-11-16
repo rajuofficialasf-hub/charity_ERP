@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -13,6 +14,7 @@ import {
   fakeNid,
   locationTree,
   project,
+  projectRow,
   user,
   volunteer,
 } from './support/fixtures.js';
@@ -314,6 +316,177 @@ describe('migrations', () => {
       ).rows[0].updated_at as Date;
       const old = before.find((r) => r.id === never)!.updated_at as Date;
       expect(after.getTime()).toBeGreaterThan(old.getTime());
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('the project series migration makes every existing project the one session of its own series, and down gives the projects back', async () => {
+    const dirs = migrationDirs();
+    const at = dirs.indexOf('20261116120000_project_series');
+    expect(at).toBeGreaterThan(0);
+    const db = await freshDatabase('series');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const apply = (dir: string, file: 'migration.sql' | 'down.sql' = 'migration.sql') =>
+        client.query(readFileSync(join(MIGRATIONS_DIR, dir, file), 'utf8'));
+      for (const dir of dirs.slice(0, at)) await apply(dir);
+      const maker = await user(client);
+      // every state a project can be in, three years, and two projects of one program
+      const draft = await project(client, { year: 2027, created_by: maker, updated_by: maker });
+      const active = await project(client, {
+        year: 2026,
+        status: 'active',
+        name_bn: 'শীতবস্ত্র বিতরণ 2026',
+        name_en: 'Winter Clothing 2026',
+        created_at: '2026-01-05T00:00:00Z',
+      });
+      const closing = await project(client, { year: 2026, status: 'closing' });
+      const closed = await project(client, {
+        year: 2025,
+        status: 'closed',
+        program_id: active.program,
+      });
+      const cancelled = await project(client, {
+        year: 2026,
+        status: 'cancelled',
+        cancelled_at: '2026-02-01T00:00:00Z',
+      });
+      const all = [draft, active, closing, closed, cancelled].map((p) => p.id);
+      // an application keeps its project and its number
+      const loc = await locationTree(client);
+      const entry = await application(
+        client,
+        { project: active, loc },
+        { app_no: 'TST-2026-00001', beneficiary_id: await beneficiary(client, loc) },
+      );
+      const PROJECT =
+        'id, program_id, code, year, name_bn, name_en, status, created_at, created_by, updated_at, updated_by';
+      const projects = async () =>
+        (await client.query(`SELECT ${PROJECT} FROM projects ORDER BY id`)).rows;
+      const seriesCount = async () =>
+        (await client.query('SELECT count(*)::int AS n FROM project_series')).rows[0].n as number;
+      const before = await projects();
+      expect(before).toHaveLength(5);
+
+      await apply(dirs[at]!);
+      // nothing a project held has changed, its update stamp included
+      expect(await projects()).toEqual(before);
+      const sessions = (
+        await client.query(
+          `SELECT p.id, p.series_id, p.period_from::text, p.period_to::text,
+                  s.description_bn, s.description_en
+             FROM projects p JOIN project_series s ON s.id = p.series_id ORDER BY p.id`,
+        )
+      ).rows;
+      expect(sessions).toHaveLength(5);
+      for (const row of sessions) {
+        const p = before.find((b) => b.id === row.id)!;
+        // the series is the project's own: its id, program, code, names and audit columns
+        expect(row.series_id).toBe(p.id);
+        expect(row.period_from).toBe(`${p.year}-01-01`);
+        expect(row.period_to).toBe(`${p.year}-12-31`);
+        expect([row.description_bn, row.description_en]).toEqual([null, null]);
+        const series = (
+          await client.query(
+            `SELECT id, program_id, code, name_bn, name_en, created_at, created_by, updated_at, updated_by FROM project_series WHERE id = $1`,
+            [row.series_id],
+          )
+        ).rows[0];
+        expect(series).toEqual({
+          id: p.id,
+          program_id: p.program_id,
+          code: p.code,
+          name_bn: p.name_bn,
+          name_en: p.name_en,
+          created_at: p.created_at,
+          created_by: p.created_by,
+          updated_at: p.updated_at,
+          updated_by: p.updated_by,
+        });
+      }
+      expect(await seriesCount()).toBe(5);
+      expect(
+        (await client.query('SELECT project_id, app_no FROM applications WHERE id = $1', [entry]))
+          .rows,
+      ).toEqual([{ project_id: active.id, app_no: 'TST-2026-00001' }]);
+      expect(
+        (await client.query('SELECT description_bn, description_en FROM programs')).rows.every(
+          (r) => r.description_bn === null && r.description_en === null,
+        ),
+      ).toBe(true);
+
+      // the next year of the same project: a second session of the series, with its code
+      const code = before.find((b) => b.id === active.id)!.code as string;
+      const next = await projectRow(client, {
+        id: randomUUID(),
+        program_id: active.program,
+        series_id: active.id,
+        code,
+        year: 2027,
+        period_from: '2027-06-01',
+        period_to: '2028-07-31',
+        name_bn: 'শীতবস্ত্র বিতরণ 2026',
+        name_en: 'Winter Clothing 2026',
+        workflow_definition_id: active.workflow,
+        workflow_version: 1,
+      });
+
+      // two sessions now share a code, which no two projects could before: down stops, whole
+      await expectSqlError(
+        apply(dirs[at]!, 'down.sql'),
+        SQLSTATE.uniqueViolation,
+        new RegExp(`project_series_in_use.*${code}`),
+      );
+      expect(await seriesCount()).toBe(5);
+      expect(
+        (await client.query('SELECT series_id FROM projects WHERE id = $1', [next])).rows,
+      ).toEqual([{ series_id: active.id }]);
+      // cancelling the later session frees nothing, since a cancelled session keeps its code
+      await client.query(
+        `UPDATE projects SET status = 'cancelled', cancelled_at = now() WHERE id = $1`,
+        [next],
+      );
+      await expectSqlError(apply(dirs[at]!, 'down.sql'), SQLSTATE.uniqueViolation);
+      // with a code of its own it is a project like the others again
+      await client.query(`UPDATE projects SET code = 'TSTNEXT' WHERE id = $1`, [next]);
+      const stamps = async () =>
+        (await client.query('SELECT id, updated_at FROM projects ORDER BY id')).rows;
+      const stamped = await stamps();
+      await apply(dirs[at]!, 'down.sql');
+      expect(
+        (await client.query(`SELECT to_regclass('project_series') AS t`)).rows[0].t,
+      ).toBeNull();
+      const columns = await client.query(
+        `SELECT table_name, column_name FROM information_schema.columns
+          WHERE (table_name = 'projects' AND column_name IN ('series_id', 'period_from', 'period_to'))
+             OR (table_name = 'programs' AND column_name IN ('description_bn', 'description_en'))`,
+      );
+      expect(columns.rows).toEqual([]);
+      // the five projects are as they were before the migration, and the sixth stays a project
+      expect((await projects()).filter((p) => all.includes(p.id as string))).toEqual(before);
+      expect(await stamps()).toEqual(stamped);
+      expect((await projects()).map((p) => p.id)).toContain(next);
+      // a code is unique across all projects again
+      await expectSqlError(
+        client.query(`UPDATE projects SET code = $1 WHERE id = $2`, [code, next]),
+        SQLSTATE.uniqueViolation,
+        /projects_code_key/,
+      );
+
+      // the migration applies again on what the reverse left: six projects, six series
+      await apply(dirs[at]!);
+      expect(
+        (
+          await client.query(
+            `SELECT count(*)::int AS n,
+                    count(*) FILTER (WHERE p.series_id = p.id AND s.code = p.code AND s.program_id = p.program_id)::int AS own
+               FROM projects p JOIN project_series s ON s.id = p.series_id`,
+          )
+        ).rows,
+      ).toEqual([{ n: 6, own: 6 }]);
+      expect(await stamps()).toEqual(stamped);
     } finally {
       await client.end();
     }

@@ -15,7 +15,7 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
-import { beneficiary, fakeMobile, fakeNid, insert } from './support/fixtures.js';
+import { beneficiary, fakeMobile, fakeNid, insert, projectRow } from './support/fixtures.js';
 import { option, question } from './support/forms.js';
 
 // The priority score on the application: computed when it reaches the office and on every
@@ -218,7 +218,7 @@ describe('the score of an application', () => {
   it('drops "not previously assisted" after an approval in the same program, and keeps it after one in another', async () => {
     const samePerson = fakeNid();
     const known = await beneficiary(h.db, world.dhaka, { nid: samePerson });
-    const earlier = await insert(h.db, 'projects', {
+    const earlier = await projectRow(h.db, {
       id: randomUUID(),
       program_id: world.a1.program,
       code: 'SCP',
@@ -380,7 +380,7 @@ describe('the score of an application', () => {
         [id],
       )
     ).rows[0]!.beneficiary_id;
-    const earlier = await insert(h.db, 'projects', {
+    const earlier = await projectRow(h.db, {
       id: randomUUID(),
       program_id: world.a1.program,
       code: 'SCQ',
@@ -417,7 +417,7 @@ describe('the score of an application', () => {
   it('keeps "not previously assisted" when the approval is in a later project of the program', async () => {
     const nid = fakeNid();
     const later = await beneficiary(h.db, world.dhaka, { nid });
-    const next = await insert(h.db, 'projects', {
+    const next = await projectRow(h.db, {
       id: randomUUID(),
       program_id: world.a1.program,
       code: 'SCL',

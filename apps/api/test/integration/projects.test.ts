@@ -68,6 +68,17 @@ const patch = (s: Session, id: string, etag: string | undefined, body: Record<st
 const setStatus = (id: string, status: string) =>
   h.db.query('UPDATE projects SET status = $1 WHERE id = $2', [status, id]);
 
+/** The series a project is a session of, and the days the session runs. */
+async function seriesOf(projectId: string) {
+  const { rows } = await h.db.query(
+    `SELECT s.program_id, s.code, s.name_bn, s.name_en, s.created_by, s.updated_by,
+            p.period_from::text, p.period_to::text
+       FROM projects p JOIN project_series s ON s.id = p.series_id WHERE p.id = $1`,
+    [projectId],
+  );
+  return rows[0];
+}
+
 async function audit(entityId: string, action: string) {
   const { rows } = await h.db.query<{ old: unknown; new: unknown; reason: string | null }>(
     'SELECT old, new, reason FROM audit_log WHERE entity_id = $1 AND action = $2 ORDER BY created_at',
@@ -115,6 +126,17 @@ describe('creating a project from a workflow', () => {
     ]);
     expect(seq.rows[0]).toEqual({ last_value: 0 });
     expect(await audit(p.id, 'project.create')).toHaveLength(1);
+    // the project is the one session of a series of its own, for the whole of its year
+    expect(await seriesOf(p.id)).toEqual({
+      program_id: world.a1.program,
+      code: p.code,
+      name_bn: name.bn,
+      name_en: name.en,
+      created_by: world.users.pm,
+      updated_by: world.users.pm,
+      period_from: '2026-01-01',
+      period_to: '2026-12-31',
+    });
   });
 
   it('refuses another program, an RPM, a taken code, an unknown workflow and an inactive program', async () => {
@@ -179,6 +201,13 @@ describe('updating a project', () => {
     const [entry] = await audit(id, 'project.configure');
     expect(entry?.old).toMatchObject({ year: 2026 });
     expect(entry?.new).toMatchObject({ year: 2027, perVolunteerLimit: 40 });
+    // the series carries the new names, and the session runs the whole of its new year
+    expect(await seriesOf(id)).toMatchObject({
+      name_bn: 'নতুন',
+      name_en: 'New',
+      period_from: '2027-01-01',
+      period_to: '2027-12-31',
+    });
   });
 
   it('keeps the identity and the end date of an active project, and everything once closing', async () => {
@@ -324,6 +353,11 @@ describe('updating a project', () => {
     const [entry] = await audit(id, 'project.configure');
     expect(entry?.old).toEqual({ programId: world.a1.program });
     expect(entry?.new).toEqual({ programId: second.program });
+    // the series moved with its session
+    expect(await seriesOf(id)).toMatchObject({
+      program_id: second.program,
+      updated_by: world.users.pm,
+    });
   });
 });
 

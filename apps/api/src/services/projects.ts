@@ -10,6 +10,7 @@ import {
   type ProjectFilter,
   type ProjectStatus,
   type ProjectUpdate,
+  sessionDates,
   type SetupField,
   startingComponents,
   type TemplateDefinition,
@@ -46,6 +47,7 @@ const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
 const SELECT = {
   id: true,
   programId: true,
+  seriesId: true,
   code: true,
   year: true,
   nameBn: true,
@@ -79,6 +81,16 @@ const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 const money = (d: Prisma.Decimal | null) => (d === null ? null : d.toFixed(2));
 const toDate = (s: string | null | undefined) =>
   s === undefined ? undefined : s === null ? null : new Date(`${s}T00:00:00Z`);
+
+/**
+ * The days a project runs when only its year is given: January to December of that year, as the
+ * projects that existed before the sessions were given theirs (docs/database/DATABASE_SCHEMA.md,
+ * "projects").
+ */
+function wholeYear(year: number): { periodFrom: Date; periodTo: Date } {
+  const { from, to } = sessionDates({ periodFrom: `${year}-01`, periodTo: `${year}-12` });
+  return { periodFrom: new Date(`${from}T00:00:00Z`), periodTo: new Date(`${to}T00:00:00Z`) };
+}
 
 /** What a reader of a project sees: a volunteer the work facts only, an official the rest. */
 interface ViewOf {
@@ -275,7 +287,8 @@ export class ProjectsService {
       return await this.prisma.$transaction(async (tx) => {
         // the program row is locked, so a deactivation running at the same moment waits
         await this.lockedProgram(tx, viewer, body.programId);
-        if (await tx.project.findUnique({ where: { code: body.code }, select: { id: true } }))
+        // a code belongs to one series; a project created by its code starts a series of its own
+        if (await tx.projectSeries.findUnique({ where: { code: body.code }, select: { id: true } }))
           throw new ApiError('project.code_taken', 409);
         const start = await this.startingPoint(tx, viewer, body.source);
         const workflow = await this.workflow(tx, start.workflowKey);
@@ -285,13 +298,27 @@ export class ProjectsService {
         const dawah = (start.definition?.components ?? components).some(
           (c) => c.componentKey === 'dawah' && c.enabled,
         );
+        const seriesId = uuidv7();
+        await tx.projectSeries.create({
+          data: {
+            id: seriesId,
+            programId: body.programId,
+            code: body.code,
+            nameBn: body.name.bn,
+            nameEn: body.name.en,
+            createdBy: actor,
+            updatedBy: actor,
+          },
+        });
         const row = await tx.project.create({
           select: SELECT,
           data: {
             id,
             programId: body.programId,
+            seriesId,
             code: body.code,
             year: body.year,
+            ...wholeYear(body.year),
             nameBn: body.name.bn,
             nameEn: body.name.en,
             description: body.description ?? null,
@@ -380,8 +407,24 @@ export class ProjectsService {
           : body.targetBeneficiaries;
       if (changing.includes('costPerBeneficiary') || changing.includes('targetBeneficiaries'))
         await this.checkBudget(tx, projectId, status, cost, target);
-      if (body.programId && body.programId !== before.programId)
+      if (body.programId && body.programId !== before.programId) {
         await this.lockedProgram(tx, viewer, body.programId);
+        // a session sits in the program of its series, held by one foreign key over the pair, so
+        // the two rows move in one statement
+        await tx.$executeRaw`
+          WITH moved AS (
+            UPDATE project_series SET program_id = ${body.programId}::uuid, updated_by = ${actor}::uuid
+            WHERE id = ${before.seriesId}::uuid RETURNING id
+          )
+          UPDATE projects SET program_id = ${body.programId}::uuid
+          FROM moved WHERE projects.series_id = moved.id`;
+      }
+      // the series carries the names of its session
+      if (body.name && changing.includes('name'))
+        await tx.projectSeries.update({
+          where: { id: before.seriesId },
+          data: { nameBn: body.name.bn, nameEn: body.name.en, updatedBy: actor },
+        });
       const from = body.applyFrom === undefined ? day(before.applyFrom) : body.applyFrom;
       const to = body.applyTo === undefined ? day(before.applyTo) : body.applyTo;
       if (from && to && from > to) throw new ApiError('validation.out_of_range', 422);
@@ -429,6 +472,8 @@ export class ProjectsService {
           description: body.description,
           programId: body.programId,
           year: body.year,
+          // the year of a session is the year its period starts in
+          ...(body.year === undefined ? {} : wholeYear(body.year)),
           workflowDefinitionId: workflow?.id,
           workflowVersion: workflow?.version,
           dawahEnabled: workflow?.dawahEnabled,

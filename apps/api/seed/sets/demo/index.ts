@@ -452,12 +452,25 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
     });
 
     // one draft winter project (distribution workflow) with its components
+    // the project it is the 2026 session of, with the same code and names
+    const seriesId = seedId('project-series:WNT');
+    await ctx.upsert('project_series', {
+      id: seriesId,
+      program_id: seedId('program:HUM'),
+      code: 'WNT',
+      name_bn: 'শীতবস্ত্র বিতরণ 2026',
+      name_en: 'Winter Clothing 2026',
+      ...ctx.audit(),
+    });
     const projectId = seedId('project:WNT:2026');
     await ctx.upsert('projects', {
       id: projectId,
       program_id: seedId('program:HUM'),
+      series_id: seriesId,
       code: 'WNT',
       year: 2026,
+      period_from: '2026-01-01',
+      period_to: '2026-12-31',
       name_bn: 'শীতবস্ত্র বিতরণ 2026',
       name_en: 'Winter Clothing 2026',
       description: demoName('খসড়া প্রকল্প, ডেমো ডেটা'),

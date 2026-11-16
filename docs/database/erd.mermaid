@@ -113,11 +113,19 @@ erDiagram
     text code UK
     uuid pm_user_id FK
   }
-  projects {
+  project_series {
     uuid id PK
     uuid program_id FK
     text code UK
+  }
+  projects {
+    uuid id PK
+    uuid program_id FK
+    uuid series_id FK
+    text code
     int year
+    date period_from
+    date period_to
     text status
     uuid workflow_definition_id FK
     jsonb workflow_snapshot
@@ -659,6 +667,8 @@ erDiagram
 
   locations ||--o{ locations : contains
   programs ||--o{ projects : contains
+  programs ||--o{ project_series : holds
+  project_series ||--o{ projects : "yearly sessions"
   users ||--o{ programs : "manages (PM)"
   projects ||--o{ project_components : enables
   projects ||--o{ project_areas : covers
