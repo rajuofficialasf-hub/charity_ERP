@@ -32,13 +32,16 @@ export function sessionMonths(periodFrom: string, periodTo: string): number {
 
 /**
  * The label of a session: its start year alone when it ends in that year ("2026"), else the start
- * year with the last two digits of the end year ("2026-27"). Takes months (yyyy-mm) or dates
- * (yyyy-mm-dd), so the stored dates and a form's months give the same label.
+ * year with the last two digits of the end year ("2026-27"), or with the whole end year when the
+ * century turns between them ("2099-2100"), since "2099-00" would read as an earlier year. Takes
+ * months (yyyy-mm) or dates (yyyy-mm-dd), so the stored dates and a form's months give the same
+ * label.
  */
 export function sessionLabel(periodFrom: string, periodTo: string): string {
   const from = periodFrom.slice(0, 4);
   const to = periodTo.slice(0, 4);
-  return from === to ? from : `${from}-${to.slice(2)}`;
+  if (from === to) return from;
+  return from.slice(0, 2) === to.slice(0, 2) ? `${from}-${to.slice(2)}` : `${from}-${to}`;
 }
 
 /** The year a session starts in, which numbers its applications. */

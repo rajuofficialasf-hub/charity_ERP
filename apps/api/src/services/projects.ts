@@ -10,7 +10,6 @@ import {
   type ProjectFilter,
   type ProjectStatus,
   type ProjectUpdate,
-  sessionDates,
   type SetupField,
   startingComponents,
   type TemplateDefinition,
@@ -50,6 +49,8 @@ const SELECT = {
   seriesId: true,
   code: true,
   year: true,
+  periodFrom: true,
+  periodTo: true,
   nameBn: true,
   nameEn: true,
   description: true,
@@ -83,13 +84,22 @@ const toDate = (s: string | null | undefined) =>
   s === undefined ? undefined : s === null ? null : new Date(`${s}T00:00:00Z`);
 
 /**
- * The days a project runs when only its year is given: January to December of that year, as the
- * projects that existed before the sessions were given theirs (docs/database/DATABASE_SCHEMA.md,
- * "projects").
+ * The whole calendar year of a session's year, 1 January to 31 December. A body that names a year
+ * names no months, and the year of a session is the year its period starts in
+ * (docs/database/DATABASE_SCHEMA.md, "projects"), so a session given by its year alone runs that
+ * whole year.
  */
 function wholeYear(year: number): { periodFrom: Date; periodTo: Date } {
-  const { from, to } = sessionDates({ periodFrom: `${year}-01`, periodTo: `${year}-12` });
-  return { periodFrom: new Date(`${from}T00:00:00Z`), periodTo: new Date(`${to}T00:00:00Z`) };
+  return { periodFrom: new Date(Date.UTC(year, 0, 1)), periodTo: new Date(Date.UTC(year, 11, 31)) };
+}
+
+/** Whether a session runs exactly the whole calendar year of its year. */
+function runsWholeYear(p: { year: number; periodFrom: Date; periodTo: Date }): boolean {
+  const whole = wholeYear(p.year);
+  return (
+    p.periodFrom.getTime() === whole.periodFrom.getTime() &&
+    p.periodTo.getTime() === whole.periodTo.getTime()
+  );
 }
 
 /** What a reader of a project sees: a volunteer the work facts only, an official the rest. */
@@ -379,6 +389,21 @@ export class ProjectsService {
     body: ProjectUpdate,
     ifMatch: string | undefined,
   ) {
+    try {
+      return await this.updateLocked(viewer, projectId, body, ifMatch);
+    } catch (error) {
+      // a year another session of the series took at the same moment: the unique index decides
+      if (isUniqueViolation(error)) throw new ApiError('project.session_year_taken', 409);
+      throw error;
+    }
+  }
+
+  private async updateLocked(
+    viewer: ProjectViewer,
+    projectId: string,
+    body: ProjectUpdate,
+    ifMatch: string | undefined,
+  ) {
     const actor = viewer.principal.userId;
     return this.prisma.$transaction(async (tx) => {
       const before = await this.locked(tx, viewer, projectId);
@@ -407,7 +432,26 @@ export class ProjectsService {
           : body.targetBeneficiaries;
       if (changing.includes('costPerBeneficiary') || changing.includes('targetBeneficiaries'))
         await this.checkBudget(tx, projectId, status, cost, target);
-      if (body.programId && body.programId !== before.programId) {
+      // the program, the names and the code belong to the series: a session changes them for its
+      // series only while it is the series' one session
+      const alone =
+        changing.includes('programId') || changing.includes('name')
+          ? (await tx.project.count({
+              where: { seriesId: before.seriesId, id: { not: projectId } },
+            })) === 0
+          : true;
+      if (body.year !== undefined && changing.includes('year')) {
+        // only a session that runs the whole of its year can be told its period by a year alone
+        if (!runsWholeYear(before)) throw new ApiError('project.read_only', 409);
+        const taken = await tx.project.findFirst({
+          where: { seriesId: before.seriesId, year: body.year, id: { not: projectId } },
+          select: { id: true },
+        });
+        if (taken) throw new ApiError('project.session_year_taken', 409);
+      }
+      if (body.programId && changing.includes('programId')) {
+        // moving the series would move its other sessions, which may be running
+        if (!alone) throw new ApiError('project.read_only', 409);
         await this.lockedProgram(tx, viewer, body.programId);
         // a session sits in the program of its series, held by one foreign key over the pair, so
         // the two rows move in one statement
@@ -417,10 +461,16 @@ export class ProjectsService {
             WHERE id = ${before.seriesId}::uuid RETURNING id
           )
           UPDATE projects SET program_id = ${body.programId}::uuid
-          FROM moved WHERE projects.series_id = moved.id`;
+          FROM moved WHERE projects.id = ${projectId}::uuid AND projects.series_id = moved.id`;
+        await this.audit.record(tx, {
+          action: 'project_series.update',
+          entityType: 'project_series',
+          entityId: before.seriesId,
+          old: { programId: before.programId },
+          new: { programId: body.programId },
+        });
       }
-      // the series carries the names of its session
-      if (body.name && changing.includes('name'))
+      if (body.name && changing.includes('name') && alone)
         await tx.projectSeries.update({
           where: { id: before.seriesId },
           data: { nameBn: body.name.bn, nameEn: body.name.en, updatedBy: actor },
@@ -472,8 +522,9 @@ export class ProjectsService {
           description: body.description,
           programId: body.programId,
           year: body.year,
-          // the year of a session is the year its period starts in
-          ...(body.year === undefined ? {} : wholeYear(body.year)),
+          // the period follows the year only when the year changes: a year sent back as it is
+          // leaves the months of the session alone
+          ...(body.year !== undefined && changing.includes('year') ? wholeYear(body.year) : {}),
           workflowDefinitionId: workflow?.id,
           workflowVersion: workflow?.version,
           dawahEnabled: workflow?.dawahEnabled,

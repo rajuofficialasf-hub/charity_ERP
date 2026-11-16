@@ -68,6 +68,13 @@ const patch = (s: Session, id: string, etag: string | undefined, body: Record<st
 const setStatus = (id: string, status: string) =>
   h.db.query('UPDATE projects SET status = $1 WHERE id = $2', [status, id]);
 
+const seriesIdOf = async (projectId: string) =>
+  (
+    await h.db.query<{ series_id: string }>('SELECT series_id FROM projects WHERE id = $1', [
+      projectId,
+    ])
+  ).rows[0]!.series_id;
+
 /** The series a project is a session of, and the days the session runs. */
 async function seriesOf(projectId: string) {
   const { rows } = await h.db.query(
@@ -353,11 +360,152 @@ describe('updating a project', () => {
     const [entry] = await audit(id, 'project.configure');
     expect(entry?.old).toEqual({ programId: world.a1.program });
     expect(entry?.new).toEqual({ programId: second.program });
-    // the series moved with its session
+    // the series moved with its session, audited as its own change
     expect(await seriesOf(id)).toMatchObject({
       program_id: second.program,
       updated_by: world.users.pm,
     });
+    const seriesId = await seriesIdOf(id);
+    const { rows } = await h.db.query(
+      `SELECT entity_type, old, new, actor_user_id FROM audit_log WHERE entity_id = $1 AND action = 'project_series.update'`,
+      [seriesId],
+    );
+    expect(rows).toEqual([
+      {
+        entity_type: 'project_series',
+        old: { programId: world.a1.program },
+        new: { programId: second.program },
+        actor_user_id: world.users.pm,
+      },
+    ]);
+  });
+});
+
+describe('a session beside its series', () => {
+  /** One more session of the project's series, as a later year of the same project. */
+  async function sibling(projectId: string, year: number, over: Record<string, unknown> = {}) {
+    const { rows } = await h.db.query(
+      `SELECT program_id, series_id, code, name_bn, name_en, workflow_definition_id FROM projects WHERE id = $1`,
+      [projectId],
+    );
+    return f.projectRow(h.db, {
+      id: randomUUID(),
+      ...rows[0],
+      year,
+      workflow_version: 1,
+      ...over,
+    });
+  }
+  const stored = async (id: string) =>
+    (
+      await h.db.query(
+        `SELECT program_id, year, name_bn, status, period_from::text, period_to::text FROM projects WHERE id = $1`,
+        [id],
+      )
+    ).rows[0];
+  /** A program the PM may configure, beside the one the drafts start in. */
+  async function ownProgram() {
+    const { program } = await f.project(h.db);
+    await h.db.query('UPDATE programs SET pm_user_id = $1 WHERE id = $2', [
+      world.users.pm,
+      program,
+    ]);
+    return program;
+  }
+
+  it('leaves the months of a session alone when its year comes back unchanged, as a draft and once closed', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    // July to June of the next year
+    await h.db.query(
+      `UPDATE projects SET period_from = '2026-07-01', period_to = '2027-06-30' WHERE id = $1`,
+      [id],
+    );
+    const months = { period_from: '2026-07-01', period_to: '2027-06-30', year: 2026 };
+    const asDraft = await patch(pm, id, (await get(pm, id)).headers.etag, {
+      year: 2026,
+      perVolunteerLimit: 30,
+    });
+    expect(asDraft.status).toBe(200);
+    expect(asDraft.body.data).toMatchObject({ year: 2026, perVolunteerLimit: 30 });
+    expect(await stored(id)).toMatchObject(months);
+
+    // a year alone cannot say which months a session of other months moves to
+    const other = await patch(pm, id, asDraft.headers.etag, { year: 2027 });
+    expect(other.status).toBe(409);
+    expect(other.body.error.code).toBe('project.read_only');
+    expect(await stored(id)).toMatchObject(months);
+
+    await setStatus(id, 'closed');
+    const current = await get(pm, id);
+    const asClosed = await patch(pm, id, current.headers.etag, {
+      year: current.body.data.year,
+      name: current.body.data.name,
+    });
+    expect(asClosed.status).toBe(200);
+    expect(await stored(id)).toMatchObject({ ...months, status: 'closed' });
+  });
+
+  it('gives a draft the whole of its new year, and refuses a year another session of the series starts in', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    const next = await sibling(id, 2027);
+    const etag = (await get(pm, id)).headers.etag;
+    const taken = await patch(pm, id, etag, { year: 2027 });
+    expect(taken.status).toBe(409);
+    expect(taken.body.error.code).toBe('project.session_year_taken');
+    expect(await stored(id)).toMatchObject({
+      year: 2026,
+      period_from: '2026-01-01',
+      period_to: '2026-12-31',
+    });
+    expect(await stored(next)).toMatchObject({ year: 2027 });
+    const free = await patch(pm, id, etag, { year: 2025 });
+    expect(free.status).toBe(200);
+    expect(await stored(id)).toMatchObject({
+      year: 2025,
+      period_from: '2025-01-01',
+      period_to: '2025-12-31',
+    });
+  });
+
+  it('refuses to move a draft to another program while its series holds another session, and changes nothing', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    const next = await sibling(id, 2027, { status: 'active' });
+    const target = await ownProgram();
+    const res = await patch(pm, id, (await get(pm, id)).headers.etag, { programId: target });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('project.read_only');
+    expect(await stored(id)).toMatchObject({ program_id: world.a1.program });
+    expect(await stored(next)).toMatchObject({ program_id: world.a1.program, status: 'active' });
+    expect(await seriesOf(id)).toMatchObject({ program_id: world.a1.program });
+    const { rows } = await h.db.query(
+      `SELECT count(*)::int AS n FROM audit_log WHERE entity_id = $1 AND action = 'project_series.update'`,
+      [await seriesIdOf(id)],
+    );
+    expect(rows).toEqual([{ n: 0 }]);
+    expect(await audit(id, 'project.configure')).toEqual([]);
+  });
+
+  it('renames the series with its one session, and leaves it alone beside another session', async () => {
+    const pm = await as(world.users.pm);
+    const id = (await draft(pm, world.a1.program)).body.data.id as string;
+    const first = await patch(pm, id, (await get(pm, id)).headers.etag, {
+      name: { bn: 'একাই', en: 'Alone' },
+    });
+    expect(first.status).toBe(200);
+    expect(await seriesOf(id)).toMatchObject({ name_bn: 'একাই', name_en: 'Alone' });
+
+    const next = await sibling(id, 2027);
+    const second = await patch(pm, id, first.headers.etag, {
+      name: { bn: 'দুইয়ের একটি', en: 'One of two' },
+    });
+    expect(second.status).toBe(200);
+    expect(second.body.data.name).toEqual({ bn: 'দুইয়ের একটি', en: 'One of two' });
+    // the series and its other session keep the names they had
+    expect(await seriesOf(id)).toMatchObject({ name_bn: 'একাই', name_en: 'Alone' });
+    expect(await stored(next)).toMatchObject({ name_bn: 'একাই' });
   });
 });
 

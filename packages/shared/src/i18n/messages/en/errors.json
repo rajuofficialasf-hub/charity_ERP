@@ -232,6 +232,7 @@
   "project": {
     "read_only": "This part of the project setup cannot change in its current state.",
     "code_taken": "This project code is already in use.",
+    "session_year_taken": "This project already has a session that starts in this year.",
     "deadline_not_later": "The new end date must be after the current end date.",
     "rpm_role_required": "Choose a Regional Program Manager for the area.",
     "staff_role_required": "This access goes only to a Project Executive or an Official দায়ী.",

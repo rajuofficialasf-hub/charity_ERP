@@ -191,7 +191,8 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | program | program.has_open_projects | 409 | deactivation of a program with a draft, active or closing project (BR-256) |
 | program | program.pm_role_required | 422 | the assigned PM does not hold the Program Manager role |
 | project | project.code_taken | 409 | a project code already in use (O-03) |
-| project | project.read_only | 409 | a setup change the project's state does not allow: identity or window while active, anything while closing, closed or cancelled (BR-257) |
+| project | project.session_year_taken | 409 | a session of a project series in a year another session of that series already starts in (BR-312) |
+| project | project.read_only | 409 | a setup change the project's state does not allow: identity or window while active, anything while closing, closed or cancelled (BR-257); also a draft's move to another program while its series holds another session, and a new year for a session that does not run the whole calendar year of its year (BR-312) |
 | project | project.deadline_not_later | 409 | a deadline extension to a date not after the current end date (BR-058) |
 | project | project.rpm_role_required | 422 | an area's RPM does not hold the RPM role (BR-060) |
 | project | project.staff_role_required | 422 | staff access for someone who is not a Project Executive or Official দায়ী (D-095; the Implementer is retired, D-162) |

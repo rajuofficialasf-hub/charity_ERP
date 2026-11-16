@@ -28,9 +28,15 @@ describe('the label of a session', () => {
 
   it('adds the last two digits of the end year when the session ends in a later year', () => {
     expect(sessionLabel('2026-06', '2027-07')).toBe('2026-27');
-    expect(sessionLabel('2099-06', '2100-05')).toBe('2099-00');
     // the longest period may end two years after it starts
     expect(sessionLabel('2026-06', '2028-05')).toBe('2026-28');
+  });
+
+  it('writes the whole end year when the century turns inside the session', () => {
+    expect(sessionLabel('2099-06', '2100-05')).toBe('2099-2100');
+    expect(sessionLabel('2099-01', '2100-12')).toBe('2099-2100');
+    expect(sessionLabel('2098-06', '2099-05')).toBe('2098-99');
+    expect(sessionLabel('2100-06', '2101-05')).toBe('2100-01');
   });
 
   it('reads the stored dates as it reads the months of a form', () => {

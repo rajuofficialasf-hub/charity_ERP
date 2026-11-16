@@ -8255,7 +8255,13 @@ paths:
         A draft changes every field; an active project everything but its code, program, year and
         workflow, and its end date only through extend-deadline; closing, closed and cancelled
         projects are read-only (409 project.read_only, BR-257). Moving a draft to another program
-        needs project.configure there and an active program.
+        needs project.configure there and an active program; the draft's series moves with it and
+        is audited (project_series.update), and the move is refused (409 project.read_only) while
+        the series holds another session. A rename renames the series only while the draft is its
+        one session. A new year gives the session the whole of that calendar year; it is refused
+        for a session that does not run the whole of its year (409 project.read_only) and for a
+        year another session of the series starts in (409 project.session_year_taken). A year
+        sent back unchanged changes nothing.
       x-permission: project.configure
       x-scope: project
       x-audit: project.configure
