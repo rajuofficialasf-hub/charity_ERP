@@ -15,6 +15,7 @@ const HEAD: Me = { ...ME, roles: ['department_head'] };
 const PM: Me = { ...ME, roles: ['program_manager'] };
 const RPM: Me = { ...ME, roles: ['regional_program_manager'] };
 const VOLUNTEER: Me = { ...ME, kind: 'volunteer', roles: ['volunteer_general'] };
+const PROCUREMENT: Me = { ...ME, roles: ['procurement_team'] };
 const PROGRAM = {
   id: '01900000-0000-7000-8000-0000000000b1',
   code: 'HUM',
@@ -162,6 +163,24 @@ describe('the project list', () => {
     // the count line under the list: the rows shown of the total
     expect(await screen.findByText(/^\d+টির মধ্যে \d+টি$/)).toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
+
+  it('shows the Procurement Team only the list, without the cards and the program filters', async () => {
+    refreshAs(PROCUREMENT);
+    serve();
+    let cardReads = 0;
+    server.use(
+      http.get('*/api/v1/program-cards', () => {
+        cardReads += 1;
+        return HttpResponse.json({ data: [], meta: {} });
+      }),
+    );
+    open('/admin/projects');
+    expect((await screen.findAllByText('খসড়া')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('group', { name: 'দেখার ধরন' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'প্রোগ্রাম' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'নতুন প্রোগ্রাম' })).not.toBeInTheDocument();
+    expect(cardReads).toBe(0);
   });
 
   it('keeps the state, program and year filters in the URL and asks the server with them', async () => {

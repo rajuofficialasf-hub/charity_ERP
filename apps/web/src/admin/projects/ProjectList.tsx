@@ -33,9 +33,10 @@ const FIRST_YEAR = 2020;
  * The second view of the programs and projects tab: every session in the caller's scope, a count
  * card per state that is also the state filter, then the list with the program, project, year and
  * window filters, all in the page URL with the view itself. The program and project names come
- * from the cards, which everyone of the tab reads.
+ * from the cards, which the overview roles read; a caller without the overview (the Procurement
+ * Team) gets the list without the program column and the program and project filters.
  */
-export function ProjectList() {
+export function ProjectList({ overview = true }: { overview?: boolean }) {
   const t = useTranslations('admin.projects');
   const locale = useLocale() as Locale;
   const { filters, setFilters, change: changeView, cursor, setCursor } = useTabView(LIST_KEYS);
@@ -55,10 +56,15 @@ export function ProjectList() {
     queryKey: [...PROJECTS_KEY, 'counts', countFilters],
     queryFn: () => projectCounts(countFilters),
   });
-  const programs = useQuery({ queryKey: [...CARDS_KEY, 'programs'], queryFn: programCards });
+  const programs = useQuery({
+    queryKey: [...CARDS_KEY, 'programs'],
+    queryFn: programCards,
+    enabled: overview,
+  });
   const series = useQuery({
     queryKey: [...CARDS_KEY, 'series', listFilters.programId ?? null],
     queryFn: () => seriesCards(listFilters.programId),
+    enabled: overview,
   });
   const programName = (id: string | undefined) => {
     const program = programs.data?.find((p) => p.id === id);
@@ -75,7 +81,7 @@ export function ProjectList() {
       secondary={`${p.code} · ${session(p)}`}
     />
   );
-  const columns: DataTableExtendedColumn<Project>[] = [
+  const allColumns: DataTableExtendedColumn<Project>[] = [
     { id: 'name', header: t('column.name'), cell: name, isRowHeader: true },
     { id: 'session', header: t('column.session'), cell: (p) => p.sessionLabel, priority: 2 },
     {
@@ -90,6 +96,8 @@ export function ProjectList() {
       cell: (p) => <ProjectStatusBadge status={p.status} />,
     },
   ];
+  // the program's name comes from the cards, which only the overview roles read
+  const columns = overview ? allColumns : allColumns.filter((column) => column.id !== 'program');
   const statItems: StatFilterItem[] = (counts.data ?? []).map(({ key, total }) => ({
     id: key,
     label: key === 'all' ? t('stats.all') : t(`status.${key}`),
@@ -137,25 +145,29 @@ export function ProjectList() {
             }
           >
             <>
-              <SelectField
-                label={t('filter.program')}
-                value={filters.programId ?? ''}
-                options={(programs.data ?? []).map((p) => ({
-                  value: p.id,
-                  label: localized(p.name, locale),
-                }))}
-                // another program's project no longer fits
-                onChange={(id) => change({ programId: id || undefined, seriesId: undefined })}
-              />
-              <SelectField
-                label={t('filter.series')}
-                value={filters.seriesId ?? ''}
-                options={(series.data ?? []).map((s) => ({
-                  value: s.id,
-                  label: `${localized(s.name, locale)} (${s.code})`,
-                }))}
-                onChange={(id) => change({ seriesId: id || undefined })}
-              />
+              {overview && (
+                <SelectField
+                  label={t('filter.program')}
+                  value={filters.programId ?? ''}
+                  options={(programs.data ?? []).map((p) => ({
+                    value: p.id,
+                    label: localized(p.name, locale),
+                  }))}
+                  // another program's project no longer fits
+                  onChange={(id) => change({ programId: id || undefined, seriesId: undefined })}
+                />
+              )}
+              {overview && (
+                <SelectField
+                  label={t('filter.series')}
+                  value={filters.seriesId ?? ''}
+                  options={(series.data ?? []).map((s) => ({
+                    value: s.id,
+                    label: `${localized(s.name, locale)} (${s.code})`,
+                  }))}
+                  onChange={(id) => change({ seriesId: id || undefined })}
+                />
+              )}
               <SelectField
                 label={t('filter.year')}
                 value={filters.year ?? ''}

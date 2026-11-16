@@ -5,7 +5,7 @@ import {
   HANDOVER_ROLES,
   PERMISSION_PANEL_ROLES,
   PROJECT_CREATE_ROLES,
-  PROJECT_OVERVIEW_ROLES,
+  PROJECT_LIST_ROLES,
   EDIT_REQUEST_ROLES,
   FORM_BUILDER_ROLES,
   MEDIA_ROLES,
@@ -71,7 +71,7 @@ export const SIDEBAR: readonly { group: NavGroup; items: readonly NavDestination
         key: 'projects',
         href: '/admin/projects',
         icon: 'project',
-        roles: PROJECT_OVERVIEW_ROLES,
+        roles: PROJECT_LIST_ROLES,
       },
       {
         key: 'templates',
@@ -196,7 +196,7 @@ export function tabsFor(me: Pick<Me, 'kind' | 'roles'>): NavDestination[] {
         ]
       : []),
     // the phone's tab says "projects" only; it opens the same tab
-    ...(holds(PROJECT_OVERVIEW_ROLES)
+    ...(holds(PROJECT_LIST_ROLES)
       ? [{ key: 'projects_tab' as const, href: '/admin/projects', icon: 'project' as const }]
       : []),
     // the Media Team's own work is a tab of its own
