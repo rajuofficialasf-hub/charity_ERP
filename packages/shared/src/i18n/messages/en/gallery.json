@@ -193,7 +193,8 @@
       "people": "People and profiles",
       "overlays": "Dialogs, panels and menus",
       "lists": "The day's work, attention and uploads",
-      "additions": "Pieces the app added"
+      "additions": "Pieces the app added",
+      "cards": "Flip card"
     },
     "tiles": {
       "blank": "Start blank",
@@ -209,5 +210,24 @@
     "date": "Distribution date",
     "pagesNote": "Pages past the counted ones go by next and previous",
     "longLabel": "The area where you would like to serve"
+  },
+  "flip": {
+    "programTitle": "Self-reliance program",
+    "programBadge": "Program",
+    "programEyebrow": "Program details",
+    "projects": "Projects",
+    "running": "Running projects",
+    "people": "People helped",
+    "pm": "Program Manager",
+    "pmName": "Abdul Karim",
+    "applications": "Applications in running sessions",
+    "open": "See all projects",
+    "projectTitle": "Livelihood and self-reliance of the poorest families, char areas of the north",
+    "projectBadge": "Project",
+    "projectEyebrow": "Project details",
+    "session": "Session 2026-27 · Active",
+    "daysLeft": "45 days left to apply",
+    "approved": "approved",
+    "sessions": "Sessions"
   }
 }

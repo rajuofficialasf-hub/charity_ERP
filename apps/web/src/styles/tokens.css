@@ -11,6 +11,9 @@
   /* colour: the asf palette (apps/web/src/ui/tokens.ts) */
   --color-brand-primary: var(--asf-palette-primary-main, #00a76f);
   --color-brand-primary-dark: var(--asf-palette-primary-dark, #007867);
+  /* the two ends of the green scale, for the drawn cover of a card (components/CoverArt.tsx) */
+  --color-brand-primary-lighter: var(--asf-palette-primary-lighter, #c8fad6);
+  --color-brand-primary-darker: var(--asf-palette-primary-darker, #004b50);
   /* a dark surface or the darkest text: the asf grey 800 */
   --color-brand-ink: var(--asf-palette-grey-800, #1c252e);
   --color-brand-accent: var(--asf-palette-warning-main, #ffab00);

@@ -60,6 +60,8 @@ The app's colour names (`tokens.css`) and the asf values they read. A name with 
 | ---------------------------- | --------------------------------------- | --------------------------- |
 | `--color-brand-primary`      | primary main #00A76F                    | follows asf                 |
 | `--color-brand-primary-dark` | primary dark #007867                    | primary light #5BE49B       |
+| `--color-brand-primary-lighter` | primary lighter #C8FAD6 (the drawn cover only) | follows asf          |
+| `--color-brand-primary-darker` | primary darker #004B50 (the drawn cover only)  | follows asf          |
 | `--color-brand-ink`          | neutral 800 #1C252E (a dark surface or the darkest text) | follows asf  |
 | `--color-brand-accent`       | warning main #FFAB00                    | follows asf                 |
 | `--color-brand-accent-ink`   | warning dark #B76E00                    | warning light #FFD666       |
@@ -317,7 +319,7 @@ Where each section of this chapter lives in the contract:
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | 5.1 Button                   | `Button`, `LinkButton`, `IconButton`                                                                          |
 | 5.2 Badge / Status           | `StatusChip`, `Chip`                                                                                          |
-| 5.3 Card / Stat              | `Card`, `StatCard`, `ProgressStat`, `SummaryBanner`, `AttentionCard`, `IconTile`                              |
+| 5.3 Card / Stat              | `Card`, `StatCard`, `ProgressStat`, `SummaryBanner`, `AttentionCard`, `IconTile`, `FlipCard`; the app's `CoverArt` in `components/CoverArt.tsx` |
 | 5.3a Page header             | `Page` (`eyebrow`, title, description, actions)                                                               |
 | 5.4 Field                    | `TextField`, `SelectField`, `Combobox`, `Checkbox`, `CheckboxGroup`, `RadioGroup`, `DateField`, `TimeField`, `MonthField`, `Form` and its form fields, `FormSection`, `ErrorSummary` |
 | 5.5 Nav / Item               | `AppShell` (`NavGroup`, `NavItem`), `BottomNav`                                                               |
@@ -424,6 +426,10 @@ Supporting pieces used by several components: **Icon** (`<Icon name="..." />` fr
 - A `default` card's head (D-145): the title (Title), an optional one-line description (Caption, secondary), and an optional link or action on the right of the title.
 - `attention` (`AttentionCard`): a "needs your attention" item: icon, one-line reason, due or waiting time, and a link to its list. Used on every My Work home.
 - `accent`: the amber highlight of the earlier set is not an asf piece; an announcement takes the asf `Alert` until a screen needs more.
+- **Flip card** (`FlipCard`, the cards of programs and projects, D-176): two faces of one size (460 px by default), each the asf card. The front: a 150 px picture (a cover photo, or the app's `CoverArt` drawing: green hills under a pale sun in the green scale, the same picture for the same record, solid fills only) with a short badge, a corner chip and a foot chip over it, the title (`h6`, two lines at most, a long word broken anywhere) as the link the whole front opens, the figures, and a hint row. The back: an eyebrow, the title again, the "Back" button, then the people, more figures and the actions.
+  - Turning: on a computer (`(hover: hover) and (pointer: fine)`) the card turns while the pointer rests on it and the row shows the hint "Rest the pointer here for details"; on a touch screen (`(hover: none)`) the row shows the "Details" button instead. From the keyboard, on every device, "Details" turns it and puts the focus on "Back", which turns it back and returns the focus; on a computer "Details" shows when the keyboard reaches it. The focus leaving the card turns it back. Each button's name says which card ("<title>: show details").
+  - The hidden face is `inert` and `aria-hidden`: out of the tab order and the accessibility tree.
+  - Motion: a 3D turn (`perspective: 1200px`, `preserve-3d`, `backface-visibility: hidden`) of 0.7 s, the one asf movement longer than the 150 to 250 ms of §2.7, because a turn of a whole card must be seen as one (the owner's approved design, D-176); none under `prefers-reduced-motion: reduce`, where the faces change at once.
 - Accessibility: a linked card is one `<a>` with the title as its name; nested interactive controls are not allowed inside a linked card. Stat values are announced with their label ("approved: 1,240 of 2,000").
 - Do not: nest cards; give cards heavy shadows; colour a whole card with a status colour.
 

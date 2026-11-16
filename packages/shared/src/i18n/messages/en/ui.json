@@ -99,6 +99,11 @@
     "datePartMonth": "Month",
     "datePartYear": "Year",
     "datePartEmpty": "Empty",
-    "tableEmpty": "Nothing here yet"
+    "tableEmpty": "Nothing here yet",
+    "flipDetails": "Details",
+    "flipDetailsOf": "{title}: show details",
+    "flipBack": "Back",
+    "flipBackOf": "Back to the front",
+    "flipHint": "Rest the pointer here for details"
   }
 }
