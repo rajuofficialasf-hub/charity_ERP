@@ -153,10 +153,8 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               children: [
                 // My Work is the home of the officials too
                 { index: true, element: <Navigate to="/" replace /> },
-                {
-                  path: 'programs',
-                  lazy: page(() => import('../admin/programs/ProgramsPage'), 'ProgramsPage'),
-                },
+                // the programs moved into the programs and projects tab
+                { path: 'programs', element: <Navigate to="/admin/projects" replace /> },
                 {
                   path: 'templates',
                   lazy: page(() => import('../admin/templates/TemplatesPage'), 'TemplatesPage'),
@@ -178,7 +176,10 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 },
                 {
                   path: 'projects',
-                  lazy: page(() => import('../admin/projects/ProjectsPage'), 'ProjectsPage'),
+                  lazy: page(
+                    () => import('../admin/projects/ProgramsProjectsPage'),
+                    'ProgramsProjectsPage',
+                  ),
                 },
                 {
                   path: 'projects/new',

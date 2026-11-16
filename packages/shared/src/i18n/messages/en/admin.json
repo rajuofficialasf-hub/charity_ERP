@@ -775,7 +775,8 @@
       "name": "Name",
       "program": "Program",
       "year": "Year",
-      "status": "State"
+      "status": "State",
+      "session": "Session"
     },
     "chips": {
       "all": "All"
@@ -791,7 +792,8 @@
       "program": "Program",
       "year": "Year",
       "window": "Application window",
-      "ending_soon": "Ends within 7 days"
+      "ending_soon": "Ends within 7 days",
+      "series": "Project"
     },
     "workflow": {
       "distribution": "Distribution",
@@ -1205,6 +1207,43 @@
     "stats": {
       "label": "Projects by state",
       "all": "All projects"
+    },
+    "tab": {
+      "title": "Programs and projects",
+      "eyebrow": "Project management",
+      "description": "See the figures of each program and its projects; find and open every session in the list.",
+      "view": "View",
+      "cards": "Cards",
+      "list": "List"
+    },
+    "cards": {
+      "label": "Programs",
+      "empty": "There is no program yet.",
+      "new_program": "New program",
+      "program_badge": "Program",
+      "program_eyebrow": "Program details",
+      "inactive": "Inactive",
+      "projects": "Projects",
+      "running": "Running projects",
+      "people": "People helped",
+      "pm": "Program Manager",
+      "no_pm": "No PM yet",
+      "rpms": "{count} RPMs",
+      "no_rpms": "No RPM yet",
+      "applications": "Applications in running sessions",
+      "volunteers": "Volunteers",
+      "todo": "Your work",
+      "reviews_waiting": "Waiting for review",
+      "waitlisted": "On the waitlist",
+      "open_program": "See all projects",
+      "edit_program": "Edit program",
+      "notice": {
+        "created": "Program {code} was created.",
+        "saved": "Program {code} was saved."
+      }
+    },
+    "list": {
+      "session": "Session {label}"
     }
   },
   "templates": {

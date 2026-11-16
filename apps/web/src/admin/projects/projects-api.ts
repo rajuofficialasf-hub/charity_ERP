@@ -6,8 +6,23 @@ export type { Project };
 import { listQuery } from '../list-query';
 
 /** The keys of the filters the project list keeps in the page URL. */
-export const FILTER_KEYS = ['programId', 'year', 'status', 'endingSoon'] as const;
+export const FILTER_KEYS = ['programId', 'seriesId', 'year', 'status', 'endingSoon'] as const;
 export type FilterValues = Partial<Record<(typeof FILTER_KEYS)[number], string>>;
+
+/**
+ * What the programs and projects tab keeps in its address: the view (`view=list`) and the
+ * filters of the list. An address with any list filter opens the list, as the links of the home's
+ * attention items and of the notifications carry one.
+ */
+export const LIST_KEYS = [...FILTER_KEYS, 'view'] as const;
+export const opensList = (params: URLSearchParams) =>
+  params.get('view') === 'list' || FILTER_KEYS.some((key) => params.has(key));
+
+/** The list filters of the tab's address, the view left out. */
+export const listFiltersOf = (
+  values: Partial<Record<(typeof LIST_KEYS)[number], string>>,
+): FilterValues =>
+  Object.fromEntries(FILTER_KEYS.flatMap((key) => (values[key] ? [[key, values[key]]] : [])));
 
 export const PROJECTS_KEY = ['admin', 'projects'] as const;
 

@@ -3,7 +3,7 @@
   "home": "Home",
   "review": "Review",
   "people": "People",
-  "projects": "Projects",
+  "projects": "Programs and projects",
   "more": "More",
   "my_work": "My Work",
   "my_projects": "My projects",
@@ -23,7 +23,6 @@
   "permissions": "Permissions",
   "registrations": "Registrations",
   "handover": "Handover",
-  "programs": "Programs",
   "templates": "Templates",
   "ready_forms": "Ready forms",
   "staff": "Officials",
@@ -41,5 +40,6 @@
     "title": "Need help?",
     "text": "If something in the system gets in your way, contact the admin team."
   },
-  "sidebar": "Sidebar"
+  "sidebar": "Sidebar",
+  "projects_tab": "Projects"
 }

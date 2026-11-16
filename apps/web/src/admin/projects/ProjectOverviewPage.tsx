@@ -42,7 +42,8 @@ export function ProjectOverviewPage() {
   });
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
-  const back = <Link to="/admin/projects">{t('detail.back')}</Link>;
+  // back to the list of the sessions of the programs and projects tab
+  const back = <Link to="/admin/projects?view=list">{t('detail.back')}</Link>;
   if (one.isPending) return <Skeleton shape="card" />;
   if (one.error)
     return (

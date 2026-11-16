@@ -174,7 +174,9 @@ describe('app shell', () => {
     refreshAs(PM);
     renderShell();
     const nav = await mainMenu();
-    expect(within(nav).getByRole('link', { name: 'প্রকল্প' })).toBeInTheDocument();
+    // the programs and their projects are one destination
+    expect(within(nav).getByRole('link', { name: 'প্রোগ্রাম ও প্রকল্প' })).toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'প্রোগ্রাম' })).not.toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'অডিট লগ' })).not.toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'সেটিংস' })).not.toBeInTheDocument();
   });
@@ -339,9 +341,9 @@ describe('app shell', () => {
     await user.click(await screen.findByRole('button', { name: 'আরও' }));
     const sheet = await screen.findByRole('dialog', { name: 'আরও' });
     const names = linkNames(within(sheet).getByRole('navigation', { name: 'আরও' }));
-    // what the tabs already open (projects, volunteers) is not repeated
+    // what the tabs already open (programs and projects, volunteers) is not repeated, and the
+    // programs have no destination of their own
     expect(names).toEqual([
-      'প্রোগ্রাম',
       'টেমপ্লেট',
       'মিডিয়ার কাজ',
       'উপকারভোগী',

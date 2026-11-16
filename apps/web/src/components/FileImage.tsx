@@ -48,11 +48,19 @@ export function FileImage({ fileId, alt }: { fileId: string; alt: string }) {
   return <img src={file.data} alt={alt} className="file-image" />;
 }
 
-/** The photo as a data URL for a place that draws it itself (the avatar); idle without a file. */
-export function useFileDataUrl(fileId: string | null) {
+/**
+ * The photo as a data URL for a place that draws it itself (the avatar, a card's cover); idle
+ * without a file. `variant` asks for a thumbnail (320 or 1,024 px) instead of the photo.
+ */
+export function useFileDataUrl(fileId: string | null, variant?: 'small' | 'medium') {
   return useQuery({
-    queryKey: ['files', fileId],
-    queryFn: async () => dataUrl(await api<Blob>(`/files/${fileId}/content`, { blob: true })),
+    queryKey: ['files', fileId, variant ?? 'file'],
+    queryFn: async () =>
+      dataUrl(
+        await (variant
+          ? api<Blob>(`/files/${fileId}/content?variant=${variant}`, { blob: true })
+          : api<Blob>(`/files/${fileId}/content`, { blob: true })),
+      ),
     enabled: fileId !== null,
     // a photo leaves the cache with its screen: opening it again asks the API (and audits an
     // NID photo view) again

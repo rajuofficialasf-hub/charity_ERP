@@ -85,6 +85,12 @@ export const PROGRAM_ADMIN_ROLES: readonly string[] = ['department_head', 'monit
 /** Who sees projects in the admin area (`project.view`: the PM, the RPM and the Executive). */
 export const PROJECT_ROLES: readonly string[] = ADMIN_ROLES;
 
+/**
+ * Who opens the programs and projects tab (`project.overview.view`: every program and project as
+ * cards with counts; the PM, the RPM and the Executive, and the global roles).
+ */
+export const PROJECT_OVERVIEW_ROLES: readonly string[] = ADMIN_ROLES;
+
 /** Who creates a draft project (`project.create`: the PM in its program, and the global roles). */
 export const PROJECT_CREATE_ROLES: readonly string[] = PROGRAM_ROLES;
 
@@ -252,6 +258,7 @@ export const canEndStaffSessions = (me: Pick<Me, 'roles'>) => holds(me, PERMISSI
 export const canSeePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ROLES);
 export const canManagePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ADMIN_ROLES);
 export const canSeeProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_ROLES);
+export const canSeeProjectOverview = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_OVERVIEW_ROLES);
 export const canCreateProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_CREATE_ROLES);
 export const canAssignVolunteers = (me: Pick<Me, 'roles'>) => holds(me, ASSIGN_ROLES);
 

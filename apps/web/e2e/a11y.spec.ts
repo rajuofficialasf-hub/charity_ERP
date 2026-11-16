@@ -6,7 +6,15 @@ import {
   type Page,
   test,
 } from '@playwright/test';
-import { apiAs, isPhone, openTab, PASSWORD, scan, signIn, switchLanguage } from './support/admin';
+import {
+  openProjectsTab,
+  apiAs,
+  isPhone,
+  PASSWORD,
+  scan,
+  signIn,
+  switchLanguage,
+} from './support/admin';
 import { DEMO_FINISHED, demoReadyForm } from './support/demo-form';
 import { settled } from './support/forms';
 import { activeProject, code, ERR } from './support/projects';
@@ -82,7 +90,7 @@ async function projectWithVolunteer(browser: Browser, request: APIRequestContext
   const officials = await browser.newContext({ ...devices['Desktop Chrome'] });
   const desk = await officials.newPage();
   await signIn(desk, PM);
-  await openTab(desk, 'প্রকল্প');
+  await openProjectsTab(desk);
   const projectId = await activeProject(desk, `অ্যাক্সেসিবিলিটির পরীক্ষা ${code()}`, ERR, PM);
   await officials.close();
   const head = await apiAs(request, HEAD);
@@ -150,7 +158,6 @@ test.describe('accessibility of the Phase 1 screens', () => {
       for (const path of [
         '/admin/permissions',
         '/admin/nisab',
-        '/admin/programs',
         '/admin/audit',
         '/admin/sessions',
         '/admin/health',
@@ -176,6 +183,7 @@ test.describe('accessibility of the Phase 1 screens', () => {
       await page.emulateMedia({ colorScheme: 'dark' });
       await signInAs(page, HEAD, lang);
       await sweep(page, '/admin/projects', lang);
+      await sweep(page, '/admin/projects?view=list', lang);
       const project = await firstRecord(page, '/admin/projects');
       for (const path of [project, `${project}/setup`, `${project}/volunteers`])
         await sweep(page, path, lang);
@@ -253,9 +261,9 @@ test.describe('accessibility of the Phase 1 screens', () => {
         '/admin/staff',
         '/admin/staff/organogram',
         '/admin/handover',
-        '/admin/programs',
         '/admin/templates',
         '/admin/projects',
+        '/admin/projects?view=list',
         '/admin/projects/new',
         `/admin/projects/${projectId}`,
         `/admin/projects/${projectId}/setup`,

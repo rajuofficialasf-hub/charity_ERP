@@ -7,9 +7,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
-import { ProjectsPage } from './ProjectsPage';
+import { ProgramsProjectsPage } from './ProgramsProjectsPage';
 
-// The project list, the new-project dialog and the project page. Test data only.
+// The programs and projects tab: the program cards for the five roles of the overview, and the
+// list of the sessions as its second view. Test data only.
+const HEAD: Me = { ...ME, roles: ['department_head'] };
 const PM: Me = { ...ME, roles: ['program_manager'] };
 const RPM: Me = { ...ME, roles: ['regional_program_manager'] };
 const VOLUNTEER: Me = { ...ME, kind: 'volunteer', roles: ['volunteer_general'] };
@@ -33,16 +35,74 @@ const project = (over: Record<string, unknown> = {}) => ({
   perVolunteerLimit: null,
   dawahEnabled: false,
   programId: PROGRAM.id,
+  seriesId: SERIES,
+  periodFrom: '2026-06',
+  periodTo: '2027-07',
+  sessionLabel: '2026-27',
   ...over,
 });
+const SERIES = '01900000-0000-7000-8000-0000000000d1';
+
+/** A program as its card reads it. */
+const card = (over: Record<string, unknown> = {}) => ({
+  id: PROGRAM.id,
+  code: PROGRAM.code,
+  name: PROGRAM.name,
+  description: { bn: 'প্রতি বছরের মানবিক সহায়তা।', en: 'Humanitarian help every year.' },
+  coverFileId: null,
+  active: true,
+  pm: { id: '01900000-0000-7000-8000-0000000000b2', name: 'নমুনা পিএম' },
+  rpms: {
+    people: [{ id: '01900000-0000-7000-8000-0000000000e1', name: 'আরপিএম এক', photoFileId: null }],
+    total: 1,
+  },
+  projects: 4,
+  runningProjects: 3,
+  beneficiaries: 1240,
+  applications: 980,
+  volunteers: 21,
+  canCreate: false,
+  ...over,
+});
+const THREE = [
+  card(),
+  card({
+    id: '01900000-0000-7000-8000-0000000000b3',
+    code: 'UCD',
+    name: { bn: 'কমিউনিটি উন্নয়ন', en: 'Community development' },
+    pm: null,
+  }),
+  card({
+    id: '01900000-0000-7000-8000-0000000000b4',
+    code: 'ERR',
+    name: { bn: 'জরুরি সাড়া', en: 'Emergency response' },
+  }),
+];
+/** A project series as its card reads it, for the project filter of the list. */
+const SERIES_CARD = {
+  id: SERIES,
+  programId: PROGRAM.id,
+  code: 'WC',
+  name: { bn: 'শীতবস্ত্র বিতরণ', en: 'Winter clothing' },
+  description: null,
+  coverFileId: null,
+  sessionCount: 2,
+  beneficiaries: 10,
+  current: null,
+  canCreate: false,
+};
 
 let listUrls: URL[];
 let created: unknown[];
+let cards: unknown[];
 
 function serve(rows: unknown[] = [project(), project({ id: 'c2', code: 'IF', status: 'active' })]) {
   listUrls = [];
   created = [];
+  cards = [card()];
   server.use(
+    http.get('*/api/v1/program-cards', () => HttpResponse.json({ data: cards, meta: {} })),
+    http.get('*/api/v1/project-series', () => HttpResponse.json({ data: [SERIES_CARD], meta: {} })),
     http.get('*/api/v1/projects', ({ request }) => {
       listUrls.push(new URL(request.url));
       return HttpResponse.json({
@@ -80,8 +140,8 @@ function serve(rows: unknown[] = [project(), project({ id: 'c2', code: 'IF', sta
 // the list pages, not the counts of the state cards (one row each)
 const pages = () => listUrls.filter((u) => u.searchParams.get('limit') !== '1');
 
-const open = (initialPath = '/admin/projects') =>
-  renderApp(<ProjectsPage />, 'bn', { path: '/admin/projects', initialPath });
+const open = (initialPath = '/admin/projects?view=list') =>
+  renderApp(<ProgramsProjectsPage />, 'bn', { path: '/admin/projects', initialPath });
 
 beforeEach(() => {
   resetClientForTests();
@@ -92,9 +152,10 @@ describe('the project list', () => {
     refreshAs(PM);
     serve();
     const { container } = open();
-    expect(await screen.findByRole('heading', { level: 1, name: 'প্রকল্প' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'প্রোগ্রাম ও প্রকল্প' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('প্রকল্প ব্যবস্থাপনা')).toBeInTheDocument();
-    expect(screen.getByText(/প্রকল্পের অবস্থা দেখুন/)).toBeInTheDocument();
     expect((await screen.findAllByText('খসড়া')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('সক্রিয়').length).toBeGreaterThan(0);
     expect((await screen.findAllByText('মানবিক সহায়তা')).length).toBeGreaterThan(0);
@@ -107,7 +168,7 @@ describe('the project list', () => {
     refreshAs(PM);
     serve();
     const user = userEvent.setup();
-    const { router } = open(`/admin/projects?programId=${PROGRAM.id}&year=2026`);
+    const { router } = open(`/admin/projects?view=list&programId=${PROGRAM.id}&year=2026`);
     await waitFor(() => expect(pages().length).toBeGreaterThan(0));
     expect(pages()[0]!.searchParams.get('programId')).toBe(PROGRAM.id);
     expect(pages()[0]!.searchParams.get('year')).toBe('2026');
@@ -115,6 +176,8 @@ describe('the project list', () => {
     await user.click(await states.findByRole('button', { name: /^বন্ধ হচ্ছে/, pressed: false }));
     await waitFor(() => expect(router.state.location.search).toContain('status=closing'));
     expect(router.state.location.search).toContain('year=2026');
+    // the view stays the list
+    expect(router.state.location.search).toContain('view=list');
     await waitFor(() => expect(pages().at(-1)?.searchParams.get('status')).toBe('closing'));
     expect(states.getByRole('button', { name: /^বন্ধ হচ্ছে/ })).toHaveAttribute(
       'aria-pressed',
@@ -200,5 +263,168 @@ describe('a new project', () => {
     const { router } = open();
     await user.click(await screen.findByRole('button', { name: 'নতুন প্রকল্প' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/projects/new'));
+  });
+});
+
+describe('the program cards', () => {
+  it('shows an RPM three program cards with their figures, and no new program', async () => {
+    refreshAs(RPM);
+    serve();
+    cards = THREE;
+    const { container } = open('/admin/projects');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'প্রোগ্রাম ও প্রকল্প' }),
+    ).toBeInTheDocument();
+    const grid = within(await screen.findByRole('region', { name: 'প্রোগ্রাম' }));
+    expect(grid.getAllByRole('article')).toHaveLength(3);
+    const first = within(grid.getByRole('article', { name: 'মানবিক সহায়তা' }));
+    for (const label of ['মোট প্রকল্প', 'চলমান প্রকল্প', 'মোট উপকারভোগী'])
+      expect(first.getByText(label)).toBeInTheDocument();
+    expect(first.getByText('1,240')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'নতুন প্রোগ্রাম' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'নতুন প্রকল্প' })).not.toBeInTheDocument();
+    // the list of the sessions is not read until it is asked for
+    expect(listUrls).toEqual([]);
+    await expectNoAxeViolations(container);
+  });
+
+  it('gives the Head "নতুন প্রোগ্রাম" and "প্রোগ্রাম এডিট করুন"', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    open('/admin/projects');
+    expect(await screen.findByRole('button', { name: 'নতুন প্রোগ্রাম' })).toBeInTheDocument();
+    await user.click(
+      await screen.findByRole('button', { name: 'মানবিক সহায়তা: বিস্তারিত দেখুন' }),
+    );
+    expect(screen.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /সব প্রকল্প দেখুন/ })).toHaveAttribute(
+      'href',
+      `/admin/projects?view=list&programId=${PROGRAM.id}`,
+    );
+  });
+
+  it('says "PM দেওয়া হয়নি" for a program without its manager', async () => {
+    refreshAs(RPM);
+    serve();
+    cards = THREE;
+    const user = userEvent.setup();
+    open('/admin/projects');
+    await user.click(
+      await screen.findByRole('button', { name: 'কমিউনিটি উন্নয়ন: বিস্তারিত দেখুন' }),
+    );
+    const back = within(screen.getByRole('article', { name: 'কমিউনিটি উন্নয়ন' }));
+    expect(back.getByText('PM দেওয়া হয়নি')).toBeInTheDocument();
+    expect(back.getByText('1 জন RPM')).toBeInTheDocument();
+  });
+
+  it('shows "আপনার করণীয়" only when the read gives the caller\u2019s own work', async () => {
+    refreshAs(RPM);
+    serve();
+    cards = [
+      card(),
+      card({
+        id: '01900000-0000-7000-8000-0000000000b3',
+        name: { bn: 'কমিউনিটি উন্নয়ন', en: 'Community development' },
+        todo: { reviewsWaiting: 38, waitlisted: 21 },
+      }),
+    ];
+    const user = userEvent.setup();
+    open('/admin/projects');
+    await user.click(
+      await screen.findByRole('button', { name: 'মানবিক সহায়তা: বিস্তারিত দেখুন' }),
+    );
+    expect(
+      within(screen.getByRole('article', { name: 'মানবিক সহায়তা' })).queryByText('আপনার করণীয়'),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'কমিউনিটি উন্নয়ন: বিস্তারিত দেখুন' }));
+    const work = within(
+      within(screen.getByRole('article', { name: 'কমিউনিটি উন্নয়ন' })).getByRole('region', {
+        name: 'আপনার করণীয়',
+      }),
+    );
+    expect(work.getByText('38')).toBeInTheDocument();
+    expect(work.getByText('21')).toBeInTheDocument();
+  });
+
+  it('offers a retry when the cards cannot be read, then says there is no program', async () => {
+    refreshAs(RPM);
+    serve();
+    cards = [];
+    let failing = true;
+    server.use(
+      http.get('*/api/v1/program-cards', () =>
+        failing
+          ? HttpResponse.json(
+              { error: { code: 'rate_limited', message: 'অনেক অনুরোধ', requestId: 'req_b' } },
+              { status: 429 },
+            )
+          : HttpResponse.json({ data: [], meta: {} }),
+      ),
+    );
+    const user = userEvent.setup();
+    open('/admin/projects');
+    const retry = await screen.findByRole('button', { name: 'আবার চেষ্টা করুন' });
+    failing = false;
+    await user.click(retry);
+    expect(await screen.findByText('এখনো কোনো প্রোগ্রাম নেই।')).toBeInTheDocument();
+  });
+
+  it('shows the forbidden content to a volunteer, who reads no card', async () => {
+    refreshAs(VOLUNTEER);
+    let read = 0;
+    serve();
+    server.use(
+      http.get('*/api/v1/program-cards', () => {
+        read += 1;
+        return HttpResponse.json({ data: [], meta: {} });
+      }),
+    );
+    open('/admin/projects');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
+    ).toBeInTheDocument();
+    expect(read).toBe(0);
+  });
+});
+
+describe('the view of the tab', () => {
+  it('opens the list with the draft chip chosen for `?status=draft`', async () => {
+    refreshAs(PM);
+    serve();
+    open('/admin/projects?status=draft');
+    const states = within(await screen.findByRole('group', { name: 'অবস্থা অনুযায়ী প্রকল্প' }));
+    expect(await states.findByRole('button', { name: /^খসড়া/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'তালিকা' })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(pages()[0]?.searchParams.get('status')).toBe('draft'));
+  });
+
+  it('switches to the list and back to the cards, the list\u2019s filters in the address', async () => {
+    refreshAs(PM);
+    serve();
+    const user = userEvent.setup();
+    const { router } = open('/admin/projects');
+    await user.click(await screen.findByRole('button', { name: 'তালিকা' }));
+    await waitFor(() => expect(router.state.location.search).toBe('?view=list'));
+    const states = within(await screen.findByRole('group', { name: 'অবস্থা অনুযায়ী প্রকল্প' }));
+    await user.click(await states.findByRole('button', { name: /^সক্রিয়/ }));
+    await waitFor(() => expect(router.state.location.search).toContain('status=active'));
+    expect(router.state.location.search).toContain('view=list');
+    await user.click(screen.getByRole('button', { name: 'কার্ড' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    expect(await screen.findByRole('region', { name: 'প্রোগ্রাম' })).toBeInTheDocument();
+  });
+
+  it('shows "সেশন 2026-27" beside the name, and filters by project', async () => {
+    refreshAs(PM);
+    serve();
+    const { router } = open(`/admin/projects?view=list&seriesId=${SERIES}`);
+    expect((await screen.findAllByText(/WC · সেশন 2026-27/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('columnheader', { name: 'সেশন' }).length).toBeGreaterThan(0);
+    await waitFor(() => expect(pages()[0]?.searchParams.get('seriesId')).toBe(SERIES));
+    expect(router.state.location.search).toContain(`seriesId=${SERIES}`);
   });
 });

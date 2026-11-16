@@ -109,6 +109,23 @@ export async function openDestination(page: Page, name: string): Promise<void> {
   }
 }
 
+/** The programs and projects tab: its sidebar name, and the phone tab's short one. */
+export const PROJECTS_TAB = 'প্রোগ্রাম ও প্রকল্প';
+
+/**
+ * Opens the programs and projects tab from the app shell: the sidebar names it in full, the
+ * phone's tab "প্রকল্প"; the heading is the full name.
+ */
+export async function openProjectsTab(page: Page): Promise<void> {
+  const nav = mainMenu(page);
+  await expect(nav).toBeVisible();
+  await nav
+    .getByRole('link', { name: new RegExp(`^(${PROJECTS_TAB}|প্রকল্প)(, .*)?$`) })
+    .first()
+    .click();
+  await expect(page.getByRole('heading', { level: 1, name: PROJECTS_TAB })).toBeVisible();
+}
+
 /** Opens a destination from the app shell and waits for its heading of the same name. */
 export async function openTab(page: Page, name: string): Promise<void> {
   await openDestination(page, name);

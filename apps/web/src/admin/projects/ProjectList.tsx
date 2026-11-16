@@ -1,10 +1,8 @@
 import { formatCount } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
-  Button,
   DataTable,
   FilterBar,
-  Page,
   PersonCell,
   SelectField,
   type StatFilterItem,
@@ -12,103 +10,76 @@ import {
   StatFilterBar,
 } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
-import { DocumentTitle } from '../../components/DocumentTitle';
-import { useAuth } from '../../lib/auth';
-import { ForbiddenContent } from '../AdminLayout';
-import { PROGRAMS_KEY, programs } from '../programs/programs-api';
-import { canCreateProjects, canSeePrograms, canSeeProjects } from '../roles';
+import { LoadError } from '../../components/LoadError';
+import { useCountLine } from '../list-paging';
 import { useTabView } from '../use-tab-view';
+import { CARDS_KEY, programCards, seriesCards } from './cards-api';
 import { ProjectStatusBadge } from './ProjectStatusBadge';
 import {
-  FILTER_KEYS,
+  LIST_KEYS,
+  listFiltersOf,
   type Project,
   projectCounts,
   projectPage,
   PROJECTS_KEY,
 } from './projects-api';
 import { PROJECT_COUNT_LOOK } from './state-look';
-import { LoadError } from '../../components/LoadError';
-import { useCountLine } from '../list-paging';
 
 /** The years a project list filters by: from the first year a project may have to next year. */
 const FIRST_YEAR = 2020;
 
 /**
- * The projects in the caller's scope: a count card per state that is also the state filter, then
- * the list with the program, year and window filters, all in the page URL. A PM (and a global
- * role) starts a new project here, in the setup wizard.
+ * The second view of the programs and projects tab: every session in the caller's scope, a count
+ * card per state that is also the state filter, then the list with the program, project, year and
+ * window filters, all in the page URL with the view itself. The program and project names come
+ * from the cards, which everyone of the tab reads.
  */
-export function ProjectsPage() {
-  const { me } = useAuth();
-  const t = useTranslations('admin.projects');
-  const navigate = useNavigate();
-  if (!me) return null;
-  if (!canSeeProjects(me)) return <ForbiddenContent />;
-  return (
-    <>
-      <DocumentTitle title={t('title')} />
-      <Page
-        eyebrow={t('eyebrow')}
-        title={t('title')}
-        description={t('description')}
-        actions={
-          canCreateProjects(me) && (
-            <Button startIcon="add" onClick={() => void navigate('/admin/projects/new')}>
-              {t('new')}
-            </Button>
-          )
-        }
-        documentTitle={false}
-      />
-      <ProjectList programNames={canSeePrograms(me)} />
-    </>
-  );
-}
-
-function ProjectList({ programNames }: { programNames: boolean }) {
+export function ProjectList() {
   const t = useTranslations('admin.projects');
   const locale = useLocale() as Locale;
-  const { filters, setFilters, change, cursor, setCursor } = useTabView(FILTER_KEYS);
+  const { filters, setFilters, change, cursor, setCursor } = useTabView(LIST_KEYS);
+  // the view is not a filter of the list
+  const listFilters = listFiltersOf(filters);
   const page = useQuery({
-    queryKey: [...PROJECTS_KEY, 'page', filters, cursor],
-    queryFn: () => projectPage(filters, cursor),
+    queryKey: [...PROJECTS_KEY, 'page', listFilters, cursor],
+    queryFn: () => projectPage(listFilters, cursor),
   });
   // a count card filters the list, not the counts: every card keeps its number when one is chosen
-  const countFilters = { ...filters, status: undefined };
+  const countFilters = { ...listFilters, status: undefined };
   const counts = useQuery({
     queryKey: [...PROJECTS_KEY, 'counts', countFilters],
     queryFn: () => projectCounts(countFilters),
   });
-  const programList = useQuery({
-    queryKey: PROGRAMS_KEY,
-    queryFn: programs,
-    enabled: programNames,
+  const programs = useQuery({ queryKey: [...CARDS_KEY, 'programs'], queryFn: programCards });
+  const series = useQuery({
+    queryKey: [...CARDS_KEY, 'series', listFilters.programId ?? null],
+    queryFn: () => seriesCards(listFilters.programId),
   });
   const programName = (id: string | undefined) => {
-    const program = programList.data?.find((p) => p.id === id);
+    const program = programs.data?.find((p) => p.id === id);
     return program ? localized(program.name, locale) : '';
   };
   const rows = page.data?.data ?? [];
   const meta = page.data?.meta;
   const countLine = useCountLine();
+  const session = (p: Project) => t('list.session', { label: p.sessionLabel });
   const name = (p: Project) => (
     <PersonCell
       name={localized(p.name, locale)}
       to={`/admin/projects/${p.id}`}
-      secondary={p.code}
+      secondary={`${p.code} · ${session(p)}`}
     />
   );
   const columns: DataTableExtendedColumn<Project>[] = [
     { id: 'name', header: t('column.name'), cell: name, isRowHeader: true },
+    { id: 'session', header: t('column.session'), cell: (p) => p.sessionLabel, priority: 2 },
     {
       id: 'program',
       header: t('column.program'),
       cell: (p) => programName(p.programId),
       priority: 3,
     },
-    { id: 'year', header: t('column.year'), cell: (p) => String(p.year), priority: 2 },
     {
       id: 'status',
       header: t('column.status'),
@@ -146,7 +117,7 @@ function ProjectList({ programNames }: { programNames: boolean }) {
         columns={columns}
         rows={rows}
         getRowId={(p) => p.id}
-        rowLabel={(p) => localized(p.name, locale)}
+        rowLabel={(p) => `${localized(p.name, locale)} ${session(p)}`}
         loading={page.isPending}
         error={
           page.error ? (
@@ -156,20 +127,31 @@ function ProjectList({ programNames }: { programNames: boolean }) {
         emptyTitle={t('empty')}
         toolbar={
           <FilterBar
-            onClearFilters={() => setFilters(filters.status ? { status: filters.status } : {})}
+            // the view and the chosen state stay; the other filters go
+            onClearFilters={() =>
+              setFilters({ view: 'list', ...(filters.status ? { status: filters.status } : {}) })
+            }
           >
             <>
-              {programNames && (
-                <SelectField
-                  label={t('filter.program')}
-                  value={filters.programId ?? ''}
-                  options={(programList.data ?? []).map((p) => ({
-                    value: p.id,
-                    label: localized(p.name, locale),
-                  }))}
-                  onChange={(id) => change({ programId: id || undefined })}
-                />
-              )}
+              <SelectField
+                label={t('filter.program')}
+                value={filters.programId ?? ''}
+                options={(programs.data ?? []).map((p) => ({
+                  value: p.id,
+                  label: localized(p.name, locale),
+                }))}
+                // another program's project no longer fits
+                onChange={(id) => change({ programId: id || undefined, seriesId: undefined })}
+              />
+              <SelectField
+                label={t('filter.series')}
+                value={filters.seriesId ?? ''}
+                options={(series.data ?? []).map((s) => ({
+                  value: s.id,
+                  label: `${localized(s.name, locale)} (${s.code})`,
+                }))}
+                onChange={(id) => change({ seriesId: id || undefined })}
+              />
               <SelectField
                 label={t('filter.year')}
                 value={filters.year ?? ''}
@@ -201,7 +183,7 @@ function ProjectList({ programNames }: { programNames: boolean }) {
         cardRenderer={(p) => (
           <div className="admin-permission-card">
             {name(p)}
-            <span>{[programName(p.programId), String(p.year)].filter(Boolean).join(' · ')}</span>
+            <span>{programName(p.programId)}</span>
             <ProjectStatusBadge status={p.status} />
           </div>
         )}

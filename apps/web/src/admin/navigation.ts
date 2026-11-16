@@ -4,9 +4,8 @@ import {
   BENEFICIARY_TAB_ROLES,
   HANDOVER_ROLES,
   PERMISSION_PANEL_ROLES,
-  PROGRAM_ROLES,
   PROJECT_CREATE_ROLES,
-  PROJECT_ROLES,
+  PROJECT_OVERVIEW_ROLES,
   EDIT_REQUEST_ROLES,
   FORM_BUILDER_ROLES,
   MEDIA_ROLES,
@@ -28,7 +27,7 @@ export interface NavDestination {
     | 'notifications'
     | 'people'
     | 'projects'
-    | 'programs'
+    | 'projects_tab'
     | 'templates'
     | 'ready_forms'
     | 'media'
@@ -67,8 +66,13 @@ export const SIDEBAR: readonly { group: NavGroup; items: readonly NavDestination
     group: 'work',
     items: [
       { key: 'my_work', href: '/', icon: 'home' },
-      { key: 'projects', href: '/admin/projects', icon: 'project', roles: PROJECT_ROLES },
-      { key: 'programs', href: '/admin/programs', icon: 'layers', roles: PROGRAM_ROLES },
+      // the programs and their projects in one tab
+      {
+        key: 'projects',
+        href: '/admin/projects',
+        icon: 'project',
+        roles: PROJECT_OVERVIEW_ROLES,
+      },
       {
         key: 'templates',
         href: '/admin/templates',
@@ -191,8 +195,9 @@ export function tabsFor(me: Pick<Me, 'kind' | 'roles'>): NavDestination[] {
           },
         ]
       : []),
-    ...(holds(PROJECT_ROLES)
-      ? [{ key: 'projects' as const, href: '/admin/projects', icon: 'project' as const }]
+    // the phone's tab says "projects" only; it opens the same tab
+    ...(holds(PROJECT_OVERVIEW_ROLES)
+      ? [{ key: 'projects_tab' as const, href: '/admin/projects', icon: 'project' as const }]
       : []),
     // the Media Team's own work is a tab of its own
     ...(holds(MEDIA_ROLES)

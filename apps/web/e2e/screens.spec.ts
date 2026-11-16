@@ -20,7 +20,7 @@ type Mode = (typeof MODES)[number];
 const PAGES: [string, string][] = [
   ['01-my-work', '/'],
   ['02-projects', '/admin/projects'],
-  ['03-programs', '/admin/programs'],
+  ['03-projects-list', '/admin/projects?view=list'],
   ['04-templates', '/admin/templates'],
   ['05-ready-forms', '/admin/ready-forms'],
   ['06-registrations', '/admin/registrations'],

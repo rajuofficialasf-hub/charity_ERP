@@ -72,6 +72,18 @@ const ROLES: { role: string; loginId: string; page: string; api: string }[] = [
     api: '/settings',
   },
   {
+    role: 'the Finance Team',
+    loginId: 'finance@example.org',
+    page: '/admin/projects',
+    api: '/program-cards',
+  },
+  {
+    role: 'the Official দায়ী',
+    loginId: 'daee@example.org',
+    page: '/admin/projects',
+    api: '/project-series',
+  },
+  {
     role: 'the HUM Program Manager',
     loginId: 'pm.hum@example.org',
     page: '/admin/permissions',

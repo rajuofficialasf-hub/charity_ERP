@@ -168,7 +168,7 @@ function NewProjectWizard() {
       <DocumentTitle title={t('new_title')} />
       <WizardHead
         title={t('new_title')}
-        back={<Link to="/admin/projects">{tp('detail.back')}</Link>}
+        back={<Link to="/admin/projects?view=list">{tp('detail.back')}</Link>}
         steps={steps}
         current={0}
       />
