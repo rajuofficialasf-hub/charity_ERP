@@ -130,7 +130,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-media-content | video, photo, both | media_works.content_type |
 | L-script-state | draft, in_review, final | media_works.script_state |
 | L-publication-state | waiting, published, taken_down | media_publications.state |
-| L-file-kind | distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, export, issue_photo, form_photo | files.kind |
+| L-file-kind | distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, export, issue_photo, form_photo, cover_photo | files.kind |
 | L-file-source | camera, gallery, scan, system | files.source |
 | L-file-flag | no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect | files.flags (data-quality flags, O-30) |
 | L-scan | pending, clean, infected, failed, skipped | files.virus_scan |
@@ -427,7 +427,7 @@ The permanent project (D-176): what stays the same from year to year. The screen
 | description_bn, description_en | text | yes | — | the short description on the project's card, at most 500 characters per language |
 | [A] | | | | |
 
-Constraints: UNIQUE (code); UNIQUE (id, program_id), the target of the foreign key that keeps a session in the program of its series. Indexes: (program_id). A cover photo is a row of `file_links`, never a column. No row is deleted: `projects` points at it with ON DELETE RESTRICT.
+Constraints: UNIQUE (code); UNIQUE (id, program_id), the target of the foreign key that keeps a session in the program of its series. Indexes: (program_id). A cover photo is a row of `file_links` (entity_type `project_series`, slot `cover`), never a column; a program's is the same with entity_type `program`. No row is deleted: `projects` points at it with ON DELETE RESTRICT.
 
 ### projects
 One yearly session of a project series (D-176). The table, its name and every table that points at it are as they were before the series existed; in the screens a row is a "সেশন".
@@ -1676,12 +1676,14 @@ The early `media_subjects` and `media_stories` were never written and are droppe
 
 Constraints: UNIQUE (bucket, object_key); partial UNIQUE (project_id, sha256) WHERE kind NOT IN ('export') (relaxable per project policy, O-30); CHECK deleted_at IS NULL OR kind = 'export'. Indexes: (storage_driver, id) for the copy between drivers; (project_id, phash); (virus_scan) WHERE virus_scan IN ('pending','failed').
 
+Migration `20261116140000_cover_photos` (D-176): `files_kind_check` takes `cover_photo` and `file_links_entity_type_check` takes `program` and `project_series`; no column and no table is added. Its `down.sql` removes the links of the covers (the older checks have no place for them; who set which cover stays in the audit log) and keeps the photos as rows of `files` under the kind `evidence` with no link, read by nobody but their uploader.
+
 ### file_links
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | file_id | uuid | no | — | FK files |
-| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation, user (staff photo, D-082), public_submission (a public form photo before its submission claims it, keyed by the applicant's client id; never resolved by the file routes) |
+| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation, user (staff photo, D-082), public_submission (a public form photo before its submission claims it, keyed by the applicant's client id; never resolved by the file routes), program and project_series (the cover photo: the slot `cover` is the cover, `cover_upload` the link a cover photo was uploaded under; FILES_AND_DOCUMENTS, "Cover photos") |
 | entity_id | uuid | no | — | — |
 | slot | text | no | — | e.g. distribution_proof, final_photo |
 | position | smallint | no | 0 | — |

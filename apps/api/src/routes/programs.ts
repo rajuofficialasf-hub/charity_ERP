@@ -6,6 +6,7 @@ import {
   type ProgramUpdate,
   programUpdateSchema,
 } from '@css/shared/projects';
+import { type CoverSet, coverSetSchema } from '@css/shared/files';
 import { Router } from 'express';
 import { z } from 'zod';
 import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal.js';
@@ -13,7 +14,7 @@ import type { Container } from '../container.js';
 import { etagOf } from '../core/etag.js';
 import { ok } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
-import { cardPeople } from './project-series.js';
+import { cardPeople, coverView } from './project-series.js';
 
 const uuid = z.uuid();
 const programView = z.object({
@@ -32,6 +33,7 @@ const programCard = z.object({
   code: z.string(),
   name: z.object({ bn: z.string(), en: z.string() }),
   description: z.object({ bn: z.string(), en: z.string() }).nullable(),
+  coverFileId: uuid.nullable(),
   active: z.boolean(),
   pm: z.object({ id: uuid, name: z.string() }).nullable(),
   rpms: cardPeople,
@@ -51,11 +53,12 @@ const programOp = {
 
 /**
  * Programs (openapi tag programs): officials read the programs in their scope;
- * the Department Head creates, renames, deactivates and activates them and assigns their PM.
+ * the Department Head creates, renames, deactivates and activates them, assigns their PM and sets
+ * their cover photo.
  */
 export function programsRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'programs' | 'programCards'>,
+  c: Pick<Container, 'programs' | 'programCards' | 'covers'>,
 ): Router {
   const router = Router();
   const withEtag = (
@@ -169,6 +172,28 @@ export function programsRouter(
           body,
           req.get('if-match'),
         ),
+      ),
+  });
+
+  defineRoute<CoverSet, unknown, { programId: string }>(router, deps, {
+    ...programOp,
+    method: 'put',
+    path: '/programs/:programId/cover',
+    operationId: 'programs.program.setCover',
+    summary:
+      "Set a program's cover photo from the caller's own finished cover upload; the earlier cover's file is kept",
+    permission: 'program.update',
+    scope: 'global',
+    audit: 'program.cover_changed',
+    params: { programId: uuid },
+    body: coverSetSchema,
+    responses: { 200: coverView, 401: null, 403: null, 404: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.covers.set(
+        { principal: principalOf(req), scope: scopeOf(req) },
+        'program',
+        params.programId,
+        body.fileId,
       ),
   });
 

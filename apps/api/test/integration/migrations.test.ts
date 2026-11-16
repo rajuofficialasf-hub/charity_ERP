@@ -572,6 +572,58 @@ describe('migrations', () => {
     }
   });
 
+  it('the cover photos down.sql removes the cover links and keeps the photos as files', async () => {
+    const db = await freshDatabase('coverdown');
+    await runMigrations(db, 'up');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const made = await project(client);
+      const { rows } = await client.query('SELECT series_id FROM projects WHERE id = $1', [
+        made.id,
+      ]);
+      const seriesId = rows[0].series_id as string;
+      const file = async (kind: string, key: string) =>
+        (
+          await client.query(
+            `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, source)
+             VALUES (gen_random_uuid(), 'photos', 'nas', $2, $1, 'image/jpeg', 10, $3, 'gallery') RETURNING id`,
+            [kind, key, 'c'.repeat(64)],
+          )
+        ).rows[0].id as string;
+      const link = (fileId: string, entity: string, id: string, slot: string) =>
+        client.query(
+          `INSERT INTO file_links (id, file_id, entity_type, entity_id, slot) VALUES (gen_random_uuid(), $1, $2, $3, $4)`,
+          [fileId, entity, id, slot],
+        );
+      const cover = await file('cover_photo', 'covers/program/a/1.jpg');
+      await link(cover, 'program', made.program, 'cover_upload');
+      await link(cover, 'program', made.program, 'cover');
+      const second = await file('cover_photo', 'covers/project_series/b/2.jpg');
+      await link(second, 'project_series', seriesId, 'cover_upload');
+      const other = await file('profile_photo', 'k/3.jpg');
+      await link(other, 'user', made.program, 'photo');
+      const dir = '20261116140000_cover_photos';
+      await client.query(readFileSync(join(MIGRATIONS_DIR, dir, 'down.sql'), 'utf8'));
+      const list = async (sql: string) => (await client.query(sql)).rows.map((r) => r.v as string);
+      // the links of the covers are gone, every other link stays, and no file row is removed
+      expect(await list('SELECT entity_type AS v FROM file_links')).toEqual(['user']);
+      expect(await list('SELECT kind AS v FROM files ORDER BY object_key')).toEqual([
+        'evidence',
+        'evidence',
+        'profile_photo',
+      ]);
+      // the older schema takes neither the kind nor the two record types
+      await expectSqlError(file('cover_photo', 'covers/program/a/4.jpg'), SQLSTATE.checkViolation);
+      await expectSqlError(link(other, 'program', made.program, 'cover'), SQLSTATE.checkViolation);
+      // and the migration applies again on what the reverse left
+      await client.query(readFileSync(join(MIGRATIONS_DIR, dir, 'migration.sql'), 'utf8'));
+      await link(cover, 'program', made.program, 'cover');
+    } finally {
+      await client.end();
+    }
+  });
+
   it('the draft channels migration keeps existing verified and submitted drafts (backfill)', async () => {
     const dirs = migrationDirs();
     const at = dirs.indexOf('20261013000000_registration_draft_channels');

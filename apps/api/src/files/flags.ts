@@ -11,8 +11,11 @@ export type PhotoFlag =
   | 'gallery_under_camera_only'
   | 'duplicate_suspect';
 
-/** Documents and identity photos are no field evidence: they carry no data-quality flags. */
-const NO_FLAGS = new Set(['document', 'profile_photo', 'nid_photo']);
+/**
+ * Documents, identity photos and cover photos are no field evidence: they carry no data-quality
+ * flags.
+ */
+const NO_FLAGS = new Set(['document', 'profile_photo', 'nid_photo', 'cover_photo']);
 
 export interface PhotoFacts {
   kind: string;

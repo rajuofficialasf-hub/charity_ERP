@@ -304,7 +304,7 @@ describe('the program cards', () => {
     });
     // the RPMs of the current sessions: the first three by name, and the number of all five
     expect(card.rpms).toEqual({ people: await firstThreeRpms(), total: 5 });
-    // a card holds counts and these names only
+    // a card holds counts, these names and its cover only
     expect(Object.keys(card).sort()).toEqual(
       [
         'active',
@@ -312,6 +312,7 @@ describe('the program cards', () => {
         'beneficiaries',
         'canCreate',
         'code',
+        'coverFileId',
         'description',
         'id',
         'name',

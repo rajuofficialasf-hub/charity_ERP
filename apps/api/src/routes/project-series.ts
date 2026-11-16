@@ -9,6 +9,7 @@ import {
   type SessionCreate,
   sessionCreateSchema,
 } from '@css/shared/projects';
+import { type CoverSet, coverSetSchema } from '@css/shared/files';
 import { Router } from 'express';
 import { z } from 'zod';
 import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal.js';
@@ -28,6 +29,9 @@ export const cardPeople = z.object({
   total: count,
 });
 
+/** The cover of a program or a project series after it was set. */
+export const coverView = z.object({ coverFileId: uuid });
+
 /** A project series as a card: counts, and the caller's own work only where the caller has any. */
 const seriesCard = z.object({
   id: uuid,
@@ -35,6 +39,7 @@ const seriesCard = z.object({
   code: z.string(),
   name: label,
   description: label.nullable(),
+  coverFileId: uuid.nullable(),
   sessionCount: count,
   beneficiaries: count,
   current: z
@@ -95,11 +100,11 @@ const withEtag = (
 /**
  * Project series (openapi tag project-series): every official who holds the overview reads the
  * projects as cards and one project with its sessions; whoever may create a project in a program
- * creates and renames its series.
+ * creates and renames its series and sets its cover photo.
  */
 export function projectSeriesRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'projectSeries' | 'idempotency'>,
+  c: Pick<Container, 'projectSeries' | 'covers' | 'idempotency'>,
 ): Router {
   const router = Router();
   const op = { tag: 'project-series', scope: 'program', idempotency: 'none' as const };
@@ -176,6 +181,21 @@ export function projectSeriesRouter(
         res,
         await c.projectSeries.update(viewerOf(req), params.seriesId, body, req.get('if-match')),
       ),
+  });
+
+  defineRoute<CoverSet, unknown, { seriesId: string }>(router, deps, {
+    ...write,
+    method: 'put',
+    path: '/project-series/:seriesId/cover',
+    operationId: 'projectSeries.series.setCover',
+    summary:
+      "Set the cover photo of a project series from the caller's own finished cover upload; the earlier cover's file is kept",
+    audit: 'project_series.cover_changed',
+    params: { seriesId: uuid },
+    body: coverSetSchema,
+    responses: { 200: coverView, 401: null, 403: null, 404: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.covers.set(viewerOf(req), 'project_series', params.seriesId, body.fileId),
   });
 
   defineRoute<SessionCreate, unknown, { seriesId: string }>(router, deps, {

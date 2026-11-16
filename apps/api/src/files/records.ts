@@ -1,7 +1,7 @@
-import type { UploadRecordType } from '@css/shared/files';
+import type { CoverRecordType, ProjectRecordType } from '@css/shared/files';
 import { Prisma } from '../generated/prisma/client.js';
 import { WORKING_ASSIGNMENT } from '../access/effective.js';
-import { projectWhere, type Scope } from '../access/scope.js';
+import { programWhere, projectWhere, type Scope } from '../access/scope.js';
 import type { Tx } from '../core/prisma.service.js';
 
 /** What an upload needs of the record a file links to. */
@@ -40,7 +40,7 @@ const APPLICATION_JOIN = Prisma.sql`
   LEFT JOIN locations u ON u.id = a.union_id`;
 
 /** One query per record type: its project, the people it belongs to and its places. */
-function recordQuery(type: UploadRecordType, id: string): Prisma.Sql {
+function recordQuery(type: ProjectRecordType, id: string): Prisma.Sql {
   switch (type) {
     case 'application':
       return Prisma.sql`
@@ -125,7 +125,7 @@ function recordQuery(type: UploadRecordType, id: string): Prisma.Sql {
 /** The record a file is to link to, or null when it does not exist. */
 export async function loadUploadRecord(
   db: Tx,
-  type: UploadRecordType,
+  type: ProjectRecordType,
   id: string,
 ): Promise<UploadRecord | null> {
   const [row] = await db.$queryRaw<Row[]>(recordQuery(type, id));
@@ -206,4 +206,51 @@ export async function scopeReachesRecord(
     }),
   ]);
   return assignment + staff > 0;
+}
+
+/**
+ * The record a cover photo belongs to (docs/architecture/FILES_AND_DOCUMENTS.md, "Cover
+ * photos"): a program, or a project series with the program it is stored with. It belongs to no
+ * project, so a cover is reached through its program.
+ */
+export interface CoverRecord {
+  type: CoverRecordType;
+  id: string;
+  programId: string;
+}
+
+/** The record a cover is for, or null when it does not exist. */
+export async function loadCoverRecord(
+  db: Tx,
+  type: CoverRecordType,
+  id: string,
+): Promise<CoverRecord | null> {
+  if (type === 'program') {
+    const program = await db.program.findUnique({ where: { id }, select: { id: true } });
+    return program ? { type, id, programId: program.id } : null;
+  }
+  const series = await db.projectSeries.findUnique({ where: { id }, select: { programId: true } });
+  return series ? { type, id, programId: series.programId } : null;
+}
+
+/**
+ * The permission that changes a cover, and so uploads one: the program's own for a program, the
+ * creation of projects in its program for a project series.
+ */
+export const coverWritePermission = (type: CoverRecordType): string =>
+  type === 'program' ? 'program.update' : 'project.create';
+
+/** The permission whose holders read a cover: the overview of programs and projects. */
+export const COVER_VIEW_PERMISSION = 'project.overview.view';
+
+/** Whether a scope of the entity `program` reaches the program of a cover's record. */
+export async function scopeReachesCover(
+  db: Tx,
+  scope: Scope,
+  record: CoverRecord,
+): Promise<boolean> {
+  const reached = await db.program.count({
+    where: { AND: [{ id: record.programId }, programWhere(scope)] },
+  });
+  return reached > 0;
 }

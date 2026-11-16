@@ -550,7 +550,7 @@ permissions:
     sensitive: false
     default: []
   - name: program.update
-    description: Rename a program, deactivate it and activate it again
+    description: Rename a program, describe it, set its cover photo, deactivate it and activate it again
     module: M06
     sensitive: false
     default: []
@@ -568,7 +568,7 @@ permissions:
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }
   - name: project.create
-    description: Create a project in own program (from a workflow; from a template or a copy with T1.12)
+    description: Create a project in own program (from a workflow, a template or a copy); also rename a permanent project of that program, set its cover photo and start its new session
     module: M06
     sensitive: false
     default:
@@ -647,7 +647,7 @@ permissions:
       - { role: volunteer_team_member, scope: PROJECT }
       - { role: volunteer_paid, scope: PROJECT }
   - name: project.overview.view
-    description: See every program and every project as cards with counts only (no person but the PM and the RPMs by name, no identity number, no budget); opening a session stays with project.view
+    description: See every program and every project as cards with counts only (no person but the PM and the RPMs by name, no identity number, no budget) and their cover photos; opening a session stays with project.view
     module: M06
     sensitive: false
     default:

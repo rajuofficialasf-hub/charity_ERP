@@ -2852,7 +2852,7 @@ components:
       description: >-
         A program as a card (D-176, BR-313): counts and the names of its PM and of the RPMs of its
         projects' current sessions only. No other person, no identity number, no budget.
-      required: [id, code, name, description, active, pm, rpms, projects, runningProjects, beneficiaries, applications, volunteers, canCreate]
+      required: [id, code, name, description, coverFileId, active, pm, rpms, projects, runningProjects, beneficiaries, applications, volunteers, canCreate]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         code: { type: string }
@@ -2861,6 +2861,7 @@ components:
           anyOf:
             - { $ref: '#/components/schemas/Bilingual' }
             - { type: 'null' }
+        coverFileId: { type: [string, 'null'], format: uuid, description: 'The cover photo, streamed by the file routes to every reader of the cards; null without one (BR-316)' }
         active: { type: boolean }
         pm:
           description: The program's PM, or null while none is assigned
@@ -2895,6 +2896,25 @@ components:
             reviewsWaiting: { type: integer }
             waitlisted: { type: integer }
         canCreate: { type: boolean, description: 'The caller may create a project in this program (project.create there, and the program is active)' }
+    CoverSet:
+      type: object
+      description: >-
+        The file to set as a cover (BR-316): a finished upload of kind cover_photo that the caller
+        made for this very program or project series.
+      additionalProperties: false
+      required: [fileId]
+      properties:
+        fileId: { type: string, format: uuid }
+    CoverResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [coverFileId]
+          properties:
+            coverFileId: { $ref: '#/components/schemas/Uuid' }
+        meta: { $ref: '#/components/schemas/Meta' }
     ProgramCardList:
       type: object
       required: [data, meta]
@@ -2927,7 +2947,7 @@ components:
         A project series as a card (D-176, BR-313): counts and the names of the current session's
         RPMs only. The current session is the newest active or closing session, else the newest
         session that is not cancelled.
-      required: [id, programId, code, name, description, sessionCount, beneficiaries, current, canCreate]
+      required: [id, programId, code, name, description, coverFileId, sessionCount, beneficiaries, current, canCreate]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         programId: { $ref: '#/components/schemas/Uuid' }
@@ -2937,6 +2957,7 @@ components:
           anyOf:
             - { $ref: '#/components/schemas/Bilingual' }
             - { type: 'null' }
+        coverFileId: { type: [string, 'null'], format: uuid, description: 'The cover photo, streamed by the file routes to every reader of the cards; null without one (BR-316)' }
         sessionCount: { type: integer, description: 'The sessions of the series, cancelled ones left out' }
         beneficiaries:
           type: integer
@@ -4595,8 +4616,8 @@ components:
       required: [clientUuid, kind, entityType, entityId, slot, mime, sizeBytes, sha256, source]
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
-        kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo, form_photo] }
-        entityType: { type: string, minLength: 1, maxLength: 40, description: 'The record type the file links to: application, activity, issue, voucher, expense_claim, payment, animal or document; each takes its own kinds (D-108)' }
+        kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo, form_photo, cover_photo] }
+        entityType: { type: string, minLength: 1, maxLength: 40, description: 'The record type the file links to: application, activity, issue, voucher, expense_claim, payment, animal or document, each with its own kinds (D-108); program or project_series for a cover_photo, under the slot cover_upload, only for a caller who may change that cover (BR-316)' }
         entityId: { type: string, format: uuid, description: The record the file links to; its scope is checked at create and at finalize }
         slot: { type: string, pattern: '^[a-z][a-z0-9_]{0,39}$' }
         mime: { type: string, minLength: 1, maxLength: 100 }
@@ -8408,6 +8429,42 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
+  /programs/{programId}/cover:
+    parameters:
+      - $ref: '#/components/parameters/ProgramId'
+    put:
+      tags: [programs]
+      operationId: programs.program.setCover
+      summary: Set a program's cover photo from the caller's own finished cover upload; the earlier cover's file is kept
+      description: >-
+        The cover of a program (D-176, BR-316). The file is uploaded first through the upload
+        sessions (kind cover_photo, entityType program, slot cover_upload: JPEG, PNG or WebP up to
+        5 MB, the type read from its bytes) and becomes the cover here. Only a finished upload of
+        that kind which the caller made for this program is taken; anything else answers 422
+        file.cover_invalid, whichever of these fails. The earlier cover keeps its file. The cards
+        name the cover in `coverFileId`, and `GET /files/{fileId}/content` streams it to whoever
+        holds project.overview.view.
+      x-permission: program.update
+      x-scope: global
+      x-audit: program.cover_changed
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CoverSet' }
+      responses:
+        '200':
+          description: The cover was set
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CoverResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   /program-cards:
     get:
       tags: [programs]
@@ -8555,6 +8612,42 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /project-series/{seriesId}/cover:
+    parameters:
+      - $ref: '#/components/parameters/SeriesId'
+    put:
+      tags: [project-series]
+      operationId: projectSeries.series.setCover
+      summary: Set the cover photo of a project series from the caller's own finished cover upload; the earlier cover's file is kept
+      description: >-
+        The cover of a project series (D-176, BR-316), for whoever may create a project in the
+        program the series is stored with; a series outside that scope answers 404
+        permission.not_found, as one that does not exist. The file is uploaded first through the
+        upload sessions (kind cover_photo, entityType project_series, slot cover_upload: JPEG, PNG
+        or WebP up to 5 MB, the type read from its bytes) and becomes the cover here. Only a
+        finished upload of that kind which the caller made for this series is taken; anything else
+        answers 422 file.cover_invalid, whichever of these fails. The earlier cover keeps its file.
+      x-permission: project.create
+      x-scope: program
+      x-audit: project_series.cover_changed
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CoverSet' }
+      responses:
+        '200':
+          description: The cover was set
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CoverResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
   /project-series/{seriesId}/sessions:

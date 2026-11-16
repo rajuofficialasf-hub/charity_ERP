@@ -2,6 +2,7 @@ import type { AccessService } from '../access/service.js';
 import { programWhere } from '../access/scope.js';
 import { boundedRead } from '../core/bounded-read.js';
 import type { PrismaService } from '../core/prisma.service.js';
+import { coverFileIds } from './covers.js';
 import {
   bySeries,
   type CardPerson,
@@ -24,7 +25,7 @@ import {
 /**
  * The program cards (docs/DECISION_LOG.md, "Programs and projects in one tab, with permanent
  * projects and yearly sessions"): every program the route's scope reaches, with counts and the
- * names of its PM and of the RPMs of its projects' current sessions only. The applications and
+ * names of its PM and of the RPMs of its projects' current sessions only, and its cover photo. The applications and
  * the volunteers are those of the running sessions. The reads are grouped, a fixed number of them
  * however many programs there are. The caller's own work (reviews waiting, the waitlist) is summed
  * over the current session of each series the caller may open, within what the caller reaches of
@@ -78,6 +79,7 @@ export class ProgramCardsService {
       const rpms = await sessionRpms(tx, sessionIds);
       const reach = await reachOf(this.access, tx, viewer.principal, sessions, programIds);
       const work = await ownWork(tx, reach, figures);
+      const covers = await coverFileIds(tx, 'program', programIds);
       const applications = (f: SessionFigures) => f.applications;
       return programs.map((p) => {
         const own = sessions.filter((s) => s.programId === p.id);
@@ -91,6 +93,7 @@ export class ProgramCardsService {
           code: p.code,
           name: { bn: p.nameBn, en: p.nameEn },
           description: descriptionOf(p),
+          coverFileId: covers.get(p.id) ?? null,
           active: p.active,
           pm: p.pmUser ? { id: p.pmUser.id, name: p.pmUser.displayName } : null,
           rpms: namedPeople(named),

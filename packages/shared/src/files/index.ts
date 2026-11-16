@@ -32,15 +32,20 @@ export const FILE_KINDS = [
   'media_asset',
   'issue_photo',
   'form_photo',
+  'cover_photo',
 ] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 
 /**
  * The kinds only an official uploads (docs/architecture/FILES_AND_DOCUMENTS.md, who uploads):
- * the copy of a payment is finance evidence and a document belongs to the register; a volunteer's
- * file on the same record never takes their place.
+ * the copy of a payment is finance evidence, a document belongs to the register and a cover is
+ * chosen by the office; a volunteer's file on the same record never takes their place.
  */
-export const OFFICIAL_UPLOAD_KINDS: readonly FileKind[] = ['payment_copy', 'document'];
+export const OFFICIAL_UPLOAD_KINDS: readonly FileKind[] = [
+  'payment_copy',
+  'document',
+  'cover_photo',
+];
 export const officialOnlyKind = (kind: string): boolean =>
   (OFFICIAL_UPLOAD_KINDS as readonly string[]).includes(kind);
 
@@ -75,6 +80,7 @@ export const KIND_TYPES: Record<FileKind, Partial<Record<FileType, number>>> = {
   profile_photo: PHOTO,
   nid_photo: PHOTO,
   form_photo: PHOTO,
+  cover_photo: PHOTO,
   voucher: { ...PHOTO, 'application/pdf': 10 * MB },
   payment_copy: { ...PHOTO, 'application/pdf': 10 * MB },
   document: { 'application/pdf': 20 * MB, 'image/jpeg': 20 * MB, 'image/png': 20 * MB },
@@ -83,7 +89,8 @@ export const KIND_TYPES: Record<FileKind, Partial<Record<FileType, number>>> = {
 
 /**
  * The records a chunked upload may link to, and the kinds each takes. Profile and NID photos keep
- * their own registration upload; beneficiary photos and media assets come with their modules.
+ * their own registration upload; beneficiary photos and media assets come with their modules. A
+ * program and a project series take their cover photo and nothing else.
  */
 export const UPLOAD_RECORD_KINDS = {
   application: [
@@ -101,9 +108,38 @@ export const UPLOAD_RECORD_KINDS = {
   payment: ['payment_copy'],
   animal: ['animal_photo'],
   document: ['document'],
+  program: ['cover_photo'],
+  project_series: ['cover_photo'],
 } as const satisfies Record<string, readonly FileKind[]>;
 export type UploadRecordType = keyof typeof UPLOAD_RECORD_KINDS;
 export const UPLOAD_RECORD_TYPES = Object.keys(UPLOAD_RECORD_KINDS) as UploadRecordType[];
+
+/**
+ * The records that carry a cover photo (docs/architecture/FILES_AND_DOCUMENTS.md, "Cover
+ * photos"): a program and a project series. They belong to no project, so the rules of a
+ * project's files (its scope, its duplicates, its photo source) do not apply to them.
+ */
+export const COVER_RECORD_TYPES = [
+  'program',
+  'project_series',
+] as const satisfies readonly UploadRecordType[];
+export type CoverRecordType = (typeof COVER_RECORD_TYPES)[number];
+export const isCoverRecord = (entityType: string): entityType is CoverRecordType =>
+  (COVER_RECORD_TYPES as readonly string[]).includes(entityType);
+/** The record types whose files belong to a project: every one but the cover's. */
+export type ProjectRecordType = Exclude<UploadRecordType, CoverRecordType>;
+
+/** The slot of the one link that makes a file the cover of its record. */
+export const COVER_SLOT = 'cover';
+/**
+ * The slot a cover photo is uploaded under. An uploaded photo is no cover yet: it becomes one
+ * when it is set, which is audited, and it keeps this link when a later cover replaces it.
+ */
+export const COVER_UPLOAD_SLOT = 'cover_upload';
+
+/** The file to set as the cover of a program or a project series. */
+export const coverSetSchema = z.strictObject({ fileId: z.uuid() });
+export type CoverSet = z.infer<typeof coverSetSchema>;
 
 /**
  * The photos of a public application (an applicant with no login): how many one submission may

@@ -1,7 +1,12 @@
 import { slotParts } from '../applications/pending-photos.js';
 import { pipeline } from 'node:stream/promises';
 import type { Response } from 'express';
-import { UPLOAD_RECORD_KINDS, type UploadRecordType } from '@css/shared/files';
+import {
+  COVER_SLOT,
+  isCoverRecord,
+  type ProjectRecordType,
+  UPLOAD_RECORD_KINDS,
+} from '@css/shared/files';
 import { volunteerWhere } from '../access/scope.js';
 import type { AccessService, RequestAccess } from '../access/service.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
@@ -18,7 +23,13 @@ import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { PageMeta } from '../http/send.js';
 import { NEAR_DUPLICATE_BITS } from '../files/images-process.js';
-import { loadUploadRecord, scopeReachesRecord } from '../files/records.js';
+import {
+  COVER_VIEW_PERMISSION,
+  loadCoverRecord,
+  loadUploadRecord,
+  scopeReachesCover,
+  scopeReachesRecord,
+} from '../files/records.js';
 import { type ExportDownload, exportDownload, exportFileName } from '../exports/download.js';
 import { ApiError } from '../i18n/api-error.js';
 import { knownBucket, NotFoundError, type StorageDriver } from '../storage/index.js';
@@ -156,7 +167,9 @@ interface StoredFile {
  * their owner, and an official whose reaching permission covers the owner; the NID photo only with
  * the `volunteer.identity` class and a `volunteer.view_sensitive` scope that reaches the volunteer.
  * A file linked to a record: its uploader, and whoever holds a view permission of its kind whose
- * scope reaches the record. Everyone else gets 404 without telling which. A file the scan has not
+ * scope reaches the record. A cover photo: its uploader, and while it is the cover of its program
+ * or project series whoever holds the overview of programs and projects. Everyone else gets 404
+ * without telling which. A file the scan has not
  * cleared answers 423 (pending or failed) or 410 (infected) to those who may see it; `skipped`
  * (no scanner) is viewable outside production only. An official's view of an NID photo is audited.
  */
@@ -392,8 +405,10 @@ export class FilesService {
       this.access.denied(principal.userId, 'entity', 'file');
       return new ApiError('permission.not_found', 404);
     };
-    if (!Object.hasOwn(UPLOAD_RECORD_KINDS, entityType)) throw refuse();
-    const type = entityType as UploadRecordType;
+    // a cover's record has no file list: its cover is named by its card
+    if (!Object.hasOwn(UPLOAD_RECORD_KINDS, entityType) || isCoverRecord(entityType))
+      throw refuse();
+    const type = entityType as ProjectRecordType;
     const record = await loadUploadRecord(this.prisma, type, entityId);
     if (!record) throw refuse();
     const access = await this.access.load(principal.userId);
@@ -529,10 +544,11 @@ export class FilesService {
     });
     const records = [];
     for (const link of links) {
-      if (!Object.hasOwn(UPLOAD_RECORD_KINDS, link.entityType)) continue;
+      if (!Object.hasOwn(UPLOAD_RECORD_KINDS, link.entityType) || isCoverRecord(link.entityType))
+        continue;
       const record = await loadUploadRecord(
         this.prisma,
-        link.entityType as UploadRecordType,
+        link.entityType as ProjectRecordType,
         link.entityId,
       );
       if (record) records.push(record);
@@ -545,6 +561,7 @@ export class FilesService {
         records.some((r) => r.applicationId && r.owners.includes(principal.userId)))
     )
       return true;
+    if (file.kind === 'cover_photo') return this.mayViewCover(principal, links, loaded);
     if (!records.length) return false;
     const access = loaded ?? (await this.access.load(principal.userId));
     // a photo answering a question of an official-only section is read as that section is: only
@@ -557,6 +574,27 @@ export class FilesService {
       const scope = await this.access.scopeFor(principal, access, permission, 'project');
       for (const record of records)
         if (await scopeReachesRecord(this.prisma, scope, record)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * A cover photo is read by whoever holds the overview of programs and projects, within that
+   * scope, and only while it is the cover of its record: an upload that was never set, or a cover
+   * a later one replaced, stays with its uploader.
+   */
+  private async mayViewCover(
+    principal: Principal,
+    links: readonly { entityType: string; entityId: string; slot: string }[],
+    loaded?: RequestAccess,
+  ): Promise<boolean> {
+    const access = loaded ?? (await this.access.load(principal.userId));
+    if (!access.grants.some((g) => g.permission === COVER_VIEW_PERMISSION)) return false;
+    const scope = await this.access.scopeFor(principal, access, COVER_VIEW_PERMISSION, 'program');
+    for (const link of links) {
+      if (link.slot !== COVER_SLOT || !isCoverRecord(link.entityType)) continue;
+      const record = await loadCoverRecord(this.prisma, link.entityType, link.entityId);
+      if (record && (await scopeReachesCover(this.prisma, scope, record))) return true;
     }
     return false;
   }

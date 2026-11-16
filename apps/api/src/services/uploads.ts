@@ -3,27 +3,37 @@ import { attachPendingPhoto } from '../applications/pending-photos.js';
 import { z } from 'zod';
 import { uuidv7 } from '@css/shared';
 import {
+  COVER_UPLOAD_SLOT,
+  type CoverRecordType,
   type FileType,
+  isCoverRecord,
   kindAllowedOn,
   officialOnlyKind,
   maxSizeOf,
+  type ProjectRecordType,
   sameFileType,
   UPLOAD_RECORD_KINDS,
   UPLOAD_RULES,
-  type UploadRecordType,
   type UploadSessionCreate,
   uploadSessionCreateSchema,
 } from '@css/shared/files';
 import type { AccessService } from '../access/service.js';
-import type { Scope } from '../access/scope.js';
+import { holdsPermission, type Scope } from '../access/scope.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
 import type { Clock } from '../core/clock.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { dropParts, joinParts, partCount, storePart } from '../files/parts.js';
-import { bucketOf, detectType, MAGIC_LENGTH, objectKeyOf } from '../files/policy.js';
+import { bucketOf, coverKeyOf, detectType, MAGIC_LENGTH, objectKeyOf } from '../files/policy.js';
 import { photoFlags, projectPhotoSource } from '../files/flags.js';
-import { loadUploadRecord, scopeReachesRecord, type UploadRecord } from '../files/records.js';
+import {
+  coverWritePermission,
+  loadCoverRecord,
+  loadUploadRecord,
+  scopeReachesCover,
+  scopeReachesRecord,
+  type UploadRecord,
+} from '../files/records.js';
 import { enqueueFileProcess } from '../jobs/file-process.js';
 import type { JobRunner } from '../jobs/job-runner.js';
 import { Prisma } from '../generated/prisma/client.js';
@@ -74,6 +84,21 @@ interface SessionRow {
   finalizedFileId: string | null;
 }
 
+/** What an upload needs of the record its file links to, whichever kind of record it is. */
+interface UploadTarget {
+  /** The project of the record; none for a cover, whose record is a program or a series. */
+  projectId: string | null;
+  /** The application the record belongs to, which takes a photo it still waits for. */
+  applicationId: string | null;
+  /** The device time the record was made, where the record keeps one. */
+  clientCreatedAt: Date | null;
+  /** The storage key of the file, from ids and codes of the record only. */
+  keyOf(fileId: string, type: FileType): string;
+}
+
+/** What a create or a stored session says of the record its file is for. */
+type Declaration = Pick<UploadSessionCreate, 'kind' | 'entityType' | 'entityId' | 'slot'>;
+
 /** Projects that still take files: running, or closing while the last documents arrive. */
 const OPEN_PROJECT = new Set(['active', 'closing']);
 /** A finalize waits this long for another finalize of the session, and may run this long. */
@@ -85,7 +110,8 @@ const FINALIZE_TIMEOUT_MS = 120_000;
  * pipeline"): a session checked against the record the file links to, the parts with a status for
  * resuming, and a finalize that checks the record again, the size, the SHA-256 and the type of the
  * joined bytes, refuses the same bytes twice in a project, and writes the file, its link and the
- * audit entry in one transaction. The file stays quarantined until the scan clears it.
+ * audit entry in one transaction. The file stays quarantined until the scan clears it. A cover
+ * photo goes the same way to its program or project series, for whoever may change that cover.
  */
 export class UploadsService {
   constructor(
@@ -117,25 +143,10 @@ export class UploadsService {
     const limit = maxSizeOf(body.kind, body.mime);
     if (limit === null) throw new ApiError('file.type_not_allowed', 415);
     if (body.sizeBytes > limit) throw new ApiError('file.too_large', 413);
-    const record = await this.recordInReach(
-      scope,
-      body.entityType as UploadRecordType,
-      body.entityId,
-    );
+    const target = await this.targetInReach(principal, scope, body);
     const fileId = uuidv7();
     const declared: Declared = { ...body, sha256: body.sha256.toLowerCase(), fileId };
-    const objectKey = objectKeyOf({
-      fileId,
-      kind: body.kind,
-      type: body.mime as FileType,
-      entityType: body.entityType,
-      entityId: body.entityId,
-      projectCode: record.projectCode,
-      programCode: record.programCode,
-      year: record.year,
-      applicationId: record.applicationId,
-      districtCode: record.districtCode,
-    });
+    const objectKey = target.keyOf(fileId, body.mime as FileType);
     try {
       const created = await this.prisma.$transaction(async (tx) => {
         // one create of a user at a time, so the count of open sessions holds
@@ -228,14 +239,11 @@ export class UploadsService {
     const declared = declaredOf(session);
     if (officialOnlyKind(declared.kind) && principal.kind !== 'staff')
       throw new ApiError('permission.denied', 403);
-    const record = await this.recordInReach(
-      scope,
-      declared.entityType as UploadRecordType,
-      declared.entityId,
-    );
+    const target = await this.targetInReach(principal, scope, declared);
     if (session.partsReceived.length < session.partCount)
       throw new ApiError('file.parts_missing', 409);
-    await this.refuseDuplicate(scope, record.projectId, declared);
+    // the same bytes twice are refused inside a project; a cover belongs to none
+    if (target.projectId) await this.refuseDuplicate(scope, target.projectId, declared);
     const bucket = session.bucket as Bucket;
     let wrote = false;
     try {
@@ -258,7 +266,7 @@ export class UploadsService {
             accept: (head) => acceptedType(head, declared),
           })) as FileType;
           wrote = true;
-          await this.writeFile(tx, principal, session, declared, record, type);
+          await this.writeFile(tx, principal, session, declared, target, type);
           return { fileId: declared.fileId, replay: false };
         },
         { maxWait: FINALIZE_WAIT_MS, timeout: FINALIZE_TIMEOUT_MS },
@@ -279,12 +287,12 @@ export class UploadsService {
     principal: Principal,
     session: SessionRow & { objectKey: string; bucket: string },
     declared: Declared,
-    record: UploadRecord,
+    target: UploadTarget,
     type: FileType,
   ): Promise<void> {
     // the record's own device time where it keeps one, else what the phone declared
     const recordCreatedAt =
-      record.clientCreatedAt ??
+      target.clientCreatedAt ??
       (declared.recordCreatedAt ? new Date(declared.recordCreatedAt) : null);
     const capturedAt = declared.capturedAt ? new Date(declared.capturedAt) : null;
     const flags = photoFlags({
@@ -295,7 +303,9 @@ export class UploadsService {
       recordCreatedAt,
       receivedAt: this.clock.now(),
       source: declared.source,
-      projectSource: await projectPhotoSource(tx, record.projectId, declared.kind),
+      projectSource: target.projectId
+        ? await projectPhotoSource(tx, target.projectId, declared.kind)
+        : null,
     });
     await tx.file.create({
       data: {
@@ -307,7 +317,7 @@ export class UploadsService {
         mime: type,
         sizeBytes: BigInt(declared.sizeBytes),
         sha256: declared.sha256,
-        projectId: record.projectId,
+        projectId: target.projectId,
         uploadedBy: principal.userId,
         capturedAt,
         recordCreatedAt,
@@ -336,9 +346,9 @@ export class UploadsService {
       data: { finalizedFileId: declared.fileId },
     });
     // an application that synced with this photo still on the phone takes it into its answer now
-    if (declared.entityType === 'application' && record.applicationId)
+    if (declared.entityType === 'application' && target.applicationId)
       await attachPendingPhoto(tx, this.audit, {
-        applicationId: record.applicationId,
+        applicationId: target.applicationId,
         slot: declared.slot,
         fileId: declared.fileId,
         uploader: principal,
@@ -383,10 +393,11 @@ export class UploadsService {
     });
     if (!other) return;
     for (const link of other.fileLinksFile) {
-      if (!Object.hasOwn(UPLOAD_RECORD_KINDS, link.entityType)) continue;
+      if (!Object.hasOwn(UPLOAD_RECORD_KINDS, link.entityType) || isCoverRecord(link.entityType))
+        continue;
       const linked = await loadUploadRecord(
         this.prisma,
-        link.entityType as UploadRecordType,
+        link.entityType as ProjectRecordType,
         link.entityId,
       );
       if (linked && (await scopeReachesRecord(this.prisma, scope, linked)))
@@ -395,10 +406,78 @@ export class UploadsService {
     throw new ApiError('file.duplicate', 409);
   }
 
+  /** The record an upload is for, within what the caller may upload to, and where its file goes. */
+  private async targetInReach(
+    principal: Principal,
+    scope: Scope,
+    upload: Declaration,
+  ): Promise<UploadTarget> {
+    const { kind, entityType, entityId } = upload;
+    if (isCoverRecord(entityType))
+      return this.coverInReach(principal, entityType, entityId, upload.slot);
+    const record = await this.recordInReach(scope, entityType as ProjectRecordType, entityId);
+    return {
+      projectId: record.projectId,
+      applicationId: record.applicationId,
+      clientCreatedAt: record.clientCreatedAt,
+      keyOf: (fileId, type) =>
+        objectKeyOf({
+          fileId,
+          kind,
+          type,
+          entityType,
+          entityId,
+          projectCode: record.projectCode,
+          programCode: record.programCode,
+          year: record.year,
+          applicationId: record.applicationId,
+          districtCode: record.districtCode,
+        }),
+    };
+  }
+
+  /**
+   * The program or project series a cover photo is uploaded for
+   * (docs/architecture/FILES_AND_DOCUMENTS.md, "Cover photos"). The upload permission alone
+   * reaches no cover: only a caller who may change that cover uploads one. A caller without that
+   * permission is refused (403); a record outside its scope, or none, is not found (404). The
+   * photo arrives under the upload slot, never under the cover's own.
+   */
+  private async coverInReach(
+    principal: Principal,
+    type: CoverRecordType,
+    id: string,
+    slot: string,
+  ): Promise<UploadTarget> {
+    if (slot !== COVER_UPLOAD_SLOT)
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'slot', code: 'validation.failed' },
+      ]);
+    const permission = coverWritePermission(type);
+    const access = await this.access.load(principal.userId);
+    if (!holdsPermission(permission, access.grants)) {
+      this.access.denied(principal.userId, permission, type);
+      throw new ApiError('permission.denied', 403);
+    }
+    const record = await loadCoverRecord(this.prisma, type, id);
+    const scope = await this.access.scopeFor(principal, access, permission, 'program');
+    if (!record || !(await scopeReachesCover(this.prisma, scope, record))) {
+      this.access.denied(principal.userId, permission, type);
+      throw new ApiError('permission.not_found', 404);
+    }
+    return {
+      projectId: null,
+      applicationId: null,
+      clientCreatedAt: null,
+      keyOf: (fileId, fileType) =>
+        coverKeyOf({ fileId, type: fileType, entityType: type, entityId: id }),
+    };
+  }
+
   /** The record a file is to link to, inside the caller's scope and on a project that takes files. */
   private async recordInReach(
     scope: Scope,
-    entityType: UploadRecordType,
+    entityType: ProjectRecordType,
     entityId: string,
   ): Promise<UploadRecord> {
     const record = await loadUploadRecord(this.prisma, entityType, entityId);

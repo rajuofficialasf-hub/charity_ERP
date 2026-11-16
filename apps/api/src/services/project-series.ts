@@ -20,6 +20,7 @@ import { assertIfMatch } from '../core/etag.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { isUniqueViolationOf } from '../core/db-errors.js';
+import { coverFileIds } from './covers.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { IdempotencyService } from '../idempotency/idempotency.service.js';
 import { helpedSql } from './help-history.js';
@@ -532,11 +533,17 @@ export class ProjectSeriesService {
       [...new Set(rows.map((s) => s.programId))],
     );
     const work = await ownWork(tx, reach, figures);
+    const covers = await coverFileIds(
+      tx,
+      'project_series',
+      rows.map((s) => s.id),
+    );
     const cards = rows.map((s) => {
       const session = current.get(s.id);
       const counted = session ? figuresOf(figures, session.id) : NO_FIGURES;
       return {
         ...base(s),
+        coverFileId: covers.get(s.id) ?? null,
         sessionCount: ofSeries.get(s.id)?.length ?? 0,
         beneficiaries: people.get(s.id) ?? 0,
         current: session
