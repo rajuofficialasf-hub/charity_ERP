@@ -82,8 +82,24 @@ export function useAuth(): AuthValue {
 }
 
 /** Login path with the reason a session ended, so the login screen can say why. */
-export function loginPath(ended?: SessionEnd): string {
-  return ended && ended !== 'expired' ? `/login?ended=${ended}` : '/login';
+export function loginPath(ended?: SessionEnd, next?: string): string {
+  const query = new URLSearchParams();
+  if (ended && ended !== 'expired') query.set('ended', ended);
+  if (next && returnPath(next)) query.set('next', next);
+  const search = query.toString();
+  return search ? `/login?${search}` : '/login';
+}
+
+/**
+ * The pages the sign-in returns to: the app's own address of a photo, which a copied link opens.
+ * Anything else, another host or a scheme among it, leads home, so the sign-in never sends a
+ * person away from the app.
+ */
+const RETURN_PATHS = [/^\/photos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/];
+
+/** The path the sign-in may return to, or null. */
+export function returnPath(next: string | null | undefined): string | null {
+  return next && RETURN_PATHS.some((path) => path.test(next)) ? next : null;
 }
 
 /** The screen a signed-in user with a new password due is kept on. */
@@ -96,8 +112,8 @@ export function RequireAuth({ children }: { children: (me: Me) => ReactNode }) {
   const t = useTranslations('common.state');
   const { pathname } = useLocation();
   useEffect(() => {
-    if (status === 'signed-out') void navigate(loginPath(ended), { replace: true });
-  }, [status, ended, navigate]);
+    if (status === 'signed-out') void navigate(loginPath(ended, pathname), { replace: true });
+  }, [status, ended, navigate, pathname]);
   const content = useMemo(() => (me ? children(me) : null), [me, children]);
   // a new password is due before anything else (a global role was approved)
   if (me?.passwordChangeRequired && pathname !== PASSWORD_PATH)

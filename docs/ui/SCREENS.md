@@ -1341,6 +1341,15 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Components.** Card, Badge, ProgressBar, Button, EmptyState, ErrorState.
 - **Phase · task.** 2 · T2.8. **API.** `GET /exports`, `GET /files/{fileId}/content`
 
+### SCR-116 Photo viewer and a photo's page
+
+- **Purpose.** A photo of a record seen large, with its details, saved with its time and place, and found again by the app's own link (D-181).
+- **Built.** The asf `PhotoViewer` (docs/ui/DESIGN_SYSTEM.md, "Photo viewer") through `PhotoViewerDialog` and `OpenablePhoto` in `apps/web/src/features/photos/`, opened from every photo shown large: a registration's photos, a volunteer's documents, one's own profile photo, an answer's photos and a requested photo. The photo's page `/photos/:fileId` (`PhotoPage.tsx`) opens the viewer on the photo for a signed-in person the API lets see it, offers "ছবিটি দেখুন" again and "রেকর্ডে যান" for an application, and says "ছবিটি পাওয়া যায়নি, অথবা এটি দেখার অনুমতি আপনার নেই।" to anyone else; a signed-out visitor signs in first and comes back to it.
+- **Roles.** Whoever may see the photo (FILES_AND_DOCUMENTS.md, "Download of a photo").
+- **Data shown.** The photo; when it was taken, where with the accuracy and "মানচিত্রে দেখুন" (to an official and the uploader only), file size, resolution, who uploaded it (to an official and the uploader only) and when.
+- **Actions.** "ডাউনলোড" (`GET /files/{fileId}/download`, audited), "লিংক কপি করুন" (the app's own address), previous and next, zoom, full screen; no delete.
+- **States.** A photo still being checked or blocked says so in place of the picture; a failed download says "ছবিটি ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।"; at 360 px the details open as a sheet.
+
 ### SCR-062 Permission panel
 
 - **Purpose.** The Department Head or Monitoring Team grants or revokes any permission for anyone at any scope. Every change is audited (blueprint A4 "permission panel").

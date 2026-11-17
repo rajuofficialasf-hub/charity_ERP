@@ -3,13 +3,13 @@ import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import { Alert, Button, Form, FormTextField, LinkButton, Text } from '@/ui';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import type { z } from 'zod';
 import { useLocaleSwitch } from '../../i18n/LocaleProvider';
 import { useEffect, useState } from 'react';
 import { ApiFailure, login } from '../../api/client';
-import { useAuth } from '../../lib/auth';
+import { returnPath, useAuth } from '../../lib/auth';
 import { useSchemaResolver } from '../../lib/form-schema';
 
 /** The two fields of the login request: each only has to be filled before the server answers. */
@@ -38,6 +38,9 @@ export function LoginForm({ ended }: { ended?: string }) {
   const t = useTranslations('auth.login');
   const tr = useTranslations('registration');
   const locale = useLocale();
+  const [params] = useSearchParams();
+  // a copied link of a photo opened before signing in is where the sign-in leads back to
+  const home = returnPath(params.get('next')) ?? '/';
   const navigate = useNavigate();
   const { setLocale } = useLocaleSwitch();
   const { status } = useAuth();
@@ -65,8 +68,8 @@ export function LoginForm({ ended }: { ended?: string }) {
   }, []);
 
   useEffect(() => {
-    if (status === 'signed-in' && !pending) void navigate('/', { replace: true });
-  }, [status, pending, navigate]);
+    if (status === 'signed-in' && !pending) void navigate(home, { replace: true });
+  }, [status, pending, navigate, home]);
 
   const submit = async ({ loginId, password }: LoginFields) => {
     try {
@@ -74,7 +77,7 @@ export function LoginForm({ ended }: { ended?: string }) {
       // The interface follows the user's stored language (docs/ui/I18N.md, "Languages and locale
       // resolution").
       if (me.language !== locale) setLocale(me.language);
-      void navigate('/', { replace: true });
+      void navigate(home, { replace: true });
     } catch (failure) {
       // a refusal is a form error, so the submit does not count as a success
       form.setError('root.server', { message: failureText(failure) });

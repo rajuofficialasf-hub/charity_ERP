@@ -16,5 +16,7 @@
     "uploadedAt": "Uploaded",
     "unknown": "Not known"
   },
-  "open": "View {name} larger"
+  "open": "View {name} larger",
+  "show": "View the photo",
+  "loadFailed": "The photo could not be opened now. Try again in a moment."
 }
