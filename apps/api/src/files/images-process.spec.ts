@@ -48,7 +48,7 @@ describe('thumbnails and the difference hash', () => {
 
   it('refuses a header that claims over 40 megapixels before any pixel is decoded', async () => {
     await expect(checkImage(oversizedPng())).rejects.toBeInstanceOf(ImageRefused);
-    await expect(checkImage(await picture())).resolves.toBeUndefined();
+    await expect(checkImage(await picture())).resolves.toEqual({ width: 640, height: 480 });
   });
 
   it('refuses a format it does not decode and damaged bytes, as a refusal of the format', async () => {

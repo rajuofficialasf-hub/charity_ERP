@@ -52,7 +52,7 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 ## Progress
 - **Branch:** `feat/photo-viewer`
 - **Updated:** 2026-11-17
-- **Next:** U1, the migration of the two columns
+- **Next:** checkpoint C1 (U1), then U2, the details read
 - **Reviewed through:** none
 - **Uncommitted:** none
 - **Notes:** the owner said "শুরু করো" and not to wait for a command between units or checkpoints. The branch starts from the tip of `fix/known-issues` (PR #64 still in CI); once #64 is squash-merged into `develop`, `origin/develop` is merged into this branch (never a rebase). The owner added every hardening of the plan's security review ("সব যোগ করো").
@@ -71,7 +71,7 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** migration
-- **Status:** todo
+- **Status:** done
 
 ### U2. The details of a photo
 - **Goal:** `GET /files/{fileId}` answers everything the details panel shows.

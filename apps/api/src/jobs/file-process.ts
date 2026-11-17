@@ -192,6 +192,8 @@ export class FileProcessor {
             ...(gps ? { latitude: gps.lat, longitude: gps.lng } : {}),
             flags,
             phash: photo.hash,
+            width: photo.size.width,
+            height: photo.size.height,
             thumbnailSmallKey: small,
             thumbnailMediumKey: medium,
           },
@@ -218,12 +220,12 @@ export class FileProcessor {
    */
   private async photoParts(fileId: string, bytes: Buffer) {
     try {
-      await checkImage(bytes);
+      const size = await checkImage(bytes);
       const medium = await thumbnail(bytes, THUMBNAILS.medium);
       const small = await thumbnail(medium, THUMBNAILS.small);
       const hash = await differenceHash(medium);
       const metadata = await readPhotoMetadata(bytes);
-      return { small, medium, hash, metadata };
+      return { small, medium, hash, metadata, size };
     } catch (error) {
       const reason = error instanceof ImageRefused ? error.reason : 'damaged';
       this.logger.warn({ fileId, reason }, 'photo not processed; it stays quarantined');

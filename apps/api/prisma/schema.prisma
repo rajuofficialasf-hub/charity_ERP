@@ -2944,6 +2944,8 @@ model File {
   source                             String
   flags                              String[]            @default([])
   phash                              BigInt?
+  width                              Int?
+  height                             Int?
   thumbnailSmallKey                  String?             @map("thumbnail_small_key")
   thumbnailMediumKey                 String?             @map("thumbnail_medium_key")
   virusScan                          String              @default("pending") @map("virus_scan")
