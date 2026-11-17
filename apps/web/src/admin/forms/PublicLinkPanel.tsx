@@ -55,6 +55,8 @@ export function PublicLinkPanel({
     onError: (error) => {
       if (error instanceof ApiFailure && error.code === 'public_link.replaces_live')
         setMoving(error.params?.form ?? '');
+      // any other refusal closes the dialog so the panel's alert says why
+      else setMoving(null);
     },
   });
   const failed =

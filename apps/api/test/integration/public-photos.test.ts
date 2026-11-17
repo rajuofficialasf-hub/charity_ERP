@@ -329,6 +329,25 @@ describe('uploading', () => {
     expect(other.status, JSON.stringify(other.body)).toBe(201);
   });
 
+  it('counts the addresses of one IPv6 network as one sender', async () => {
+    const { projectId, token } = await linkedProject();
+    const first = await upload(token, randomUUID(), jpeg({ pad: 23 }), {
+      forwardedFor: '2001:db8:5:5::1',
+    });
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    const folder = (await fileRow(first.body.data.fileId)).object_key.split('/', 3).join('/');
+    await plantUnclaimed(projectId, folder, 19);
+    const sameNetwork = await upload(token, randomUUID(), jpeg({ pad: 24 }), {
+      forwardedFor: '2001:db8:5:5:abcd::9',
+    });
+    expect(sameNetwork.status).toBe(429);
+    expect(sameNetwork.body.error.code).toBe('public.sender_full');
+    const otherNetwork = await upload(token, randomUUID(), jpeg({ pad: 25 }), {
+      forwardedFor: '2001:db8:6:6::1',
+    });
+    expect(otherNetwork.status, JSON.stringify(otherNetwork.body)).toBe(201);
+  });
+
   it('holds at most 50 MB of unclaimed photos per sender', async () => {
     const { projectId, token } = await linkedProject();
     const sender = '203.0.113.7';

@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { z } from 'zod';
 import { uuidv7 } from '@css/shared';
 import type { PublicLinkConfig } from '@css/shared/forms';
 import { editableIn, projectStatusOf } from '@css/shared/projects';
@@ -11,6 +12,9 @@ import { ApiError } from '../i18n/api-error.js';
 import { type FormsService, readDefinition } from './forms.js';
 import type { ProjectViewer, ProjectsService } from './projects.js';
 import { asksForFiles } from './public-link-rules.js';
+
+/** The part of a live link's stored settings the move check reads: the form it opens. */
+const LIVE_SETTINGS = z.object({ form_ids: z.array(z.string()).optional() });
 
 export interface PublicLinkView {
   enabled: boolean;
@@ -103,8 +107,7 @@ export class PublicLinkService {
       select: { enabled: true, settings: true },
     });
     if (!live?.enabled) return;
-    const ids = (live.settings as { form_ids?: unknown } | null)?.form_ids;
-    const liveId = Array.isArray(ids) && typeof ids[0] === 'string' ? ids[0] : null;
+    const liveId = LIVE_SETTINGS.safeParse(live.settings).data?.form_ids?.[0] ?? null;
     if (liveId === null || liveId === formId) return;
     const form = await tx.form.findUnique({
       where: { id: liveId },

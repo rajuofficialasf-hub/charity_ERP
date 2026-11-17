@@ -53,7 +53,8 @@ const field = (req: Request, ...names: string[]) => {
   return 'none';
 };
 /** The client address through `trust proxy`, IPv6 grouped by /56 so a /64 is one client. */
-const ip = (req: Request) => (req.ip ? ipKeyGenerator(req.ip) : 'unknown');
+export const clientKey = (req: Request) => (req.ip ? ipKeyGenerator(req.ip) : 'unknown');
+const ip = clientKey;
 /**
  * A login id is counted in its normalized form (docs/architecture/AUTH.md, "Identities and
  * accounts": spaces, dashes and the country prefix removed, English digits), so spellings of one id

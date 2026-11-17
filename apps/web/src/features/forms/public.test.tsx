@@ -180,6 +180,39 @@ describe('the link panel', () => {
     expect(bodies).toHaveLength(1);
   });
 
+  it('closes the dialog and says why when the confirmed move is refused', async () => {
+    const user = userEvent.setup();
+    let calls = 0;
+    links({
+      toggle: () => {
+        calls += 1;
+        return calls === 1
+          ? HttpResponse.json(
+              {
+                error: {
+                  code: 'public_link.replaces_live',
+                  message: 'x',
+                  params: {
+                    formId: '01900000-0000-7000-8000-000000000a09',
+                    form: 'শীতের প্রথম ফর্ম',
+                  },
+                  requestId: 'r',
+                },
+              },
+              { status: 409 },
+            )
+          : apiError(403, 'permission.denied', 'এই কাজের অনুমতি আপনার নেই।');
+      },
+    });
+    panel();
+    await user.click(await screen.findByRole('switch'));
+    await screen.findByRole('alertdialog', { name: 'লিংক বদলাবেন?' });
+    await user.click(screen.getByRole('button', { name: 'হ্যাঁ, লিংক বদলান' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(await screen.findByRole('alert')).toHaveTextContent('এই কাজের অনুমতি আপনার নেই।');
+    expect(screen.getByText('লিংক বন্ধ।')).toBeInTheDocument();
+  });
+
   it('shows a refused switch and changes nothing', async () => {
     const user = userEvent.setup();
     links({ toggle: () => apiError(403, 'permission.denied', 'এই কাজের অনুমতি আপনার নেই।') });

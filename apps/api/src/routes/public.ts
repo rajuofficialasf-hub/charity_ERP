@@ -7,6 +7,7 @@ import { formPhotoBody } from '../files/photo-body.js';
 import { ok } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 import { versionView } from './forms.js';
+import { clientKey } from '../rate-limit/rate-limit.js';
 
 const bilingual = z.object({ bn: z.string(), en: z.string() });
 const publicFormView = z.object({
@@ -101,8 +102,9 @@ export function publicRouter(
         token: params.token,
         clientUuid: query.clientUuid,
         fieldKey: query.fieldKey,
-        // the app's trust proxy setting decides which forwarded address counts
-        sender: req.ip ?? req.socket.remoteAddress ?? 'unknown',
+        // the address through the app's trust proxy setting, IPv6 grouped as the limiter groups
+        // it, so the addresses of one network are one sender
+        sender: clientKey(req),
         body: req.body,
       }),
   });
