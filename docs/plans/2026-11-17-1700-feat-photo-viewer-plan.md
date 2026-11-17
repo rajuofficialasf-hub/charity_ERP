@@ -1,7 +1,7 @@
 ---
 title: The photo viewer
 type: feat
-status: in-progress
+status: done
 source: plan
 date: 2026-11-17
 doc_review: 2026-11-17
@@ -48,14 +48,6 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 - **The plan's ids stay in the plan** (ORG-CMT-10, ORG-CMT-50): code, comments and test names carry the meaning in words, never an R, U, D or rule id.
 - **The map link** opens Google Maps in a new tab (`https://www.google.com/maps/search/?api=1&query=<lat>,<lng>`, `rel="noopener noreferrer"`); nothing is sent until the person presses it.
 - **The viewer is a piece of the asf kit** (RE-UI-01 to RE-UI-05): `PhotoViewer` in `src/ui/templates/asf/components/`, typed in `contract.ts`, exported from `@/ui`, listed in `local.json` with its test and picture, following `FlipCard`; MUI stays in the template. The zoom is a CSS transform with pointer events (wheel, two-finger pinch, double press, drag to move); the full screen is the browser's Fullscreen API, with the dialog's own full size where it is refused.
-
-## Progress
-- **Branch:** `feat/photo-viewer`
-- **Updated:** 2026-11-17
-- **Next:** checkpoint C6 (U7 and U8, the end), then the finish
-- **Reviewed through:** C5 at c616e3f1
-- **Uncommitted:** none
-- **Notes:** the owner said "শুরু করো" and not to wait for a command between units or checkpoints. The branch starts from the tip of `fix/known-issues` (PR #64 still in CI); once #64 is squash-merged into `develop`, `origin/develop` is merged into this branch (never a rebase). U3: `images.ts` only exports its strip's rules for the writer, which strips a WebP itself; exifr reads no WebP, so the spec reads a WebP's EXIF chunk as the raw TIFF block the WebP container holds (libvips reads it too); the Dhaka wall clock is `dhakaClock` in `core/dhaka-day.ts`. C3: the writer refuses before any byte only what it finds in the head; a JPEG or PNG cut inside its image data, or a WebP changed between its two reads, fails after the headers are out, so the download route pipes with `pipeline` and destroys the response on an error (the client sees a failed download, never a short photo) and logs the abort. U6: the texts are a namespace of their own, `photos`, in the rest part of the catalogue; the client's `file: true` answers a download's Blob with the server's name (`SavedFile`), and `lib/save-file.ts` saves it for the exports too; the strip shares the thumbnails' query key with `useFileDataUrl`. U7: one `OpenablePhoto` (`features/photos/`) opens the viewer at its own photo of its group, used by the registration's photos, the volunteer's documents tab, one's own profile photo, an answer's photos and the requested photos; the profile banner's avatar stays as it is (it opens nothing large today). The viewer's arrows and zoom buttons stay focusable at their limits (`aria-disabled`), since a disabled button drops the focus out of the dialog. U8: the photo's page shows the one photo and leads to its record ("রেকর্ডে যান"), rather than listing the record's photos, which would have needed a new call of the file list; the sign-in returns only to a photo's page (`returnPath` in `lib/auth.tsx`); the E2E photo is a requested photo of the Project Executive (desktop) and the Official দায়ী (mobile), the Head approving it at the end, and the app sends a photo as a JPEG. The owner added every hardening of the plan's security review ("সব যোগ করো").
 
 ## Implementation units
 
