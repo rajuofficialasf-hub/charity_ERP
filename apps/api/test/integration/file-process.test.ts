@@ -222,6 +222,20 @@ describe('the processing job', () => {
     expect([row.width, row.height]).toEqual([null, null]);
   });
 
+  it('keeps no width and height for a file that is not a photo', async () => {
+    const pdf = Buffer.from('%PDF-1.7\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n');
+    const id = await upload(pdf, {
+      kind: 'voucher',
+      slot: 'voucher',
+      mime: 'application/pdf',
+      source: 'gallery',
+    });
+    await processFile(id);
+    const row = await fileRow(id);
+    expect(row.virus_scan).not.toBe('pending');
+    expect([row.width, row.height]).toEqual([null, null]);
+  });
+
   it('keeps the width and height of a PNG, and of a turned photo as it stands upright', async () => {
     const png = await upload(
       await sharp(await picture({ width: 200 }))
@@ -232,7 +246,8 @@ describe('the processing job', () => {
       },
     );
     await processFile(png);
-    expect([(await fileRow(png)).width, (await fileRow(png)).height]).toEqual([200, 150]);
+    const pngRow = await fileRow(png);
+    expect([pngRow.width, pngRow.height]).toEqual([200, 150]);
     // a phone held upright stores a wide picture with the orientation that turns it
     const turned = await upload(
       await sharp(await picture({ width: 160, variant: 7 }))
