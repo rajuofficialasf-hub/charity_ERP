@@ -76,9 +76,9 @@ for (const lang of ['bn', 'en'] as const) {
         ),
       ).toEqual([]);
 
-      // the dialog and the drawer open, each checked on its own
+      // the dialog, the drawer and the photo viewer open, each checked on its own
       const overlays = page.getByTestId('piece-overlays').getByRole('button');
-      for (const index of [0, 2]) {
+      for (const index of [0, 2, 3]) {
         await overlays.nth(index).click();
         const panel = page.getByRole('dialog');
         await expect(panel).toBeVisible();

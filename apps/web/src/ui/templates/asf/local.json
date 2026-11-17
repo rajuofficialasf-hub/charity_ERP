@@ -243,6 +243,17 @@
       "screenshot": "docs/ui/asf-pieces/flip-card.png"
     },
     {
+      "name": "PhotoViewer",
+      "files": [
+        "components/photo-viewer.tsx",
+        "components/labels.ts",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "a photo seen large, over the whole screen on a dark stage: zoom by its buttons, the wheel, two fingers, a double press and the + and - keys, moved by dragging, the browser's full screen where it has one, the record's other photos by the arrows and a strip, and the photo's details beside it from 1024 px and in a sheet below; the page passes its own actions (a download, a copied link), and the viewer deletes nothing; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/photo-viewer.png"
+    },
+    {
       "name": "SegmentedControl",
       "files": [
         "components/segmented-control.tsx",

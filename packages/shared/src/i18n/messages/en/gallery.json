@@ -103,7 +103,13 @@
     "confirmTitle": "Reject the application of Rahima Khatun?",
     "confirmMessage": "The volunteer will see the reason.",
     "confirmConsequence": "The application moves to \"rejected\"",
-    "confirmLabel": "Reject application"
+    "confirmLabel": "Reject application",
+    "openPhotos": "Photos (viewer)",
+    "photosTitle": "Application: photos of the house",
+    "photoAlt1": "The front of the house",
+    "photoAlt2": "The side of the house",
+    "photoAlt3": "The back of the house",
+    "photoDetails": "Taken: 2 November 2026, 10:30 am"
   },
   "alert": {
     "infoText": "This setup page is made for the desktop.",
