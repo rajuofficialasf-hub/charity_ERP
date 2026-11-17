@@ -11619,7 +11619,7 @@ paths:
         class. JPEG, PNG and WebP only (any other file answers 404 and keeps its content route). The
         stored photo is never changed: the bytes sent drop the metadata the photo still held and carry
         the capture time and, under the class file.location or for the uploader, the position with
-        its accuracy. The download is audited as file.downloaded with the record it was reached
+        its accuracy. The download is audited as file.downloaded with the records it was reached
         through, derived on the server. A stored photo whose container cannot be walked answers 422
         file.unreadable before any byte; one that breaks inside its image data ends the connection.
       x-permission: entity

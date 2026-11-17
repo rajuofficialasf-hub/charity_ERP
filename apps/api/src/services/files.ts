@@ -1,4 +1,5 @@
 import { slotParts } from '../applications/pending-photos.js';
+import type { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { Response } from 'express';
 import {
@@ -204,11 +205,11 @@ interface StoredFile {
 }
 
 /** The photo types a download writes its metadata into, and the name each is saved under. */
-const DOWNLOAD_EXTENSIONS: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
+const DOWNLOAD_EXTENSIONS = new Map([
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/webp', 'webp'],
+]);
 
 /**
  * Streams stored files to the people allowed to see them, never through a storage address
@@ -295,9 +296,7 @@ export class FilesService {
   async streamDownload(principal: Principal, fileId: string, res: Response): Promise<void> {
     const file = await this.findFile(fileId);
     const { owner, records } = await this.viewer(principal, file);
-    const extension = Object.hasOwn(DOWNLOAD_EXTENSIONS, file.mime)
-      ? DOWNLOAD_EXTENSIONS[file.mime]
-      : undefined;
+    const extension = DOWNLOAD_EXTENSIONS.get(file.mime);
     if (file.kind === 'export' || !extension) throw new ApiError('permission.not_found', 404);
     this.refuseQuarantined(file);
     const access = await this.access.load(principal.userId);
@@ -317,54 +316,66 @@ export class FilesService {
     };
     const bucket = knownBucket(file.bucket);
     const size = Number(file.sizeBytes);
-    let photo: AsyncIterator<Buffer>;
-    let first: IteratorResult<Buffer>;
+    // the stored photo and its writer are let go on every way out: a refusal, a failed audit, a
+    // client that leaves part way, or the end
+    let body: Readable | undefined;
+    let writer: Transform | undefined;
+    const release = () => {
+      body?.destroy();
+      writer?.destroy();
+    };
     try {
-      // a WebP's RIFF length depends on all its chunks: a first read lists them
-      const layout =
-        file.mime === 'image/webp'
-          ? await webpLayout(await this.storage.get(bucket, file.objectKey), size)
-          : undefined;
-      const writer = metadataWriter(file.mime, meta, layout);
-      const body = await this.storage.get(bucket, file.objectKey);
-      body.on('error', (error) => writer.destroy(error));
-      body.pipe(writer);
-      photo = writer[Symbol.asyncIterator]() as AsyncIterator<Buffer>;
-      first = await photo.next();
-    } catch (error) {
-      if (error instanceof NotFoundError) throw new ApiError('permission.not_found', 404);
-      if (error instanceof UnreadablePhoto) throw new ApiError('file.unreadable', 422);
-      throw error;
+      let photo: AsyncIterator<Buffer>;
+      let first: IteratorResult<Buffer>;
+      try {
+        // a WebP's RIFF length depends on all its chunks: a first read lists them
+        const layout =
+          file.mime === 'image/webp'
+            ? await webpLayout(await this.storage.get(bucket, file.objectKey), size)
+            : undefined;
+        writer = metadataWriter(file.mime, meta, layout);
+        body = await this.storage.get(bucket, file.objectKey);
+        // a failure on either side ends the other; the reader below sees it
+        void pipeline(body, writer).catch(() => undefined);
+        photo = writer[Symbol.asyncIterator]() as AsyncIterator<Buffer>;
+        first = await photo.next();
+      } catch (error) {
+        if (error instanceof NotFoundError) throw new ApiError('permission.not_found', 404);
+        if (error instanceof UnreadablePhoto) throw new ApiError('file.unreadable', 422);
+        throw error;
+      }
+      // the trace of a download that is about to happen, never of one that could not
+      await this.prisma.$transaction((tx) =>
+        this.audit.record(tx, {
+          action: 'file.downloaded',
+          entityType: 'file',
+          entityId: file.id,
+          new: {
+            kind: file.kind,
+            records: records.map((r) => ({ ...r })),
+            ...(owner ? { ownerUserId: owner } : {}),
+            position: meta.gps !== null,
+          },
+        }),
+      );
+      const taken = file.capturedAt
+        ? `${dhakaClock(file.capturedAt).replace(/[-:]/g, '').replace('T', '-')}-`
+        : '';
+      res.status(200);
+      res.setHeader('Content-Type', file.mime);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="photo-${taken}${file.id.slice(0, 8)}.${extension}"`,
+      );
+      res.setHeader('Cache-Control', 'private, no-store');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      // the rest of the photo as it comes; an error past this point ends the connection
+      await pipeline(async function* () {
+        for (let next = first; !next.done; next = await photo.next()) yield next.value;
+      }, res);
+    } finally {
+      release();
     }
-    // the trace of a download that is about to happen, never of one that could not
-    await this.prisma.$transaction((tx) =>
-      this.audit.record(tx, {
-        action: 'file.downloaded',
-        entityType: 'file',
-        entityId: file.id,
-        new: {
-          kind: file.kind,
-          record: records[0] ? { ...records[0] } : null,
-          ...(owner ? { ownerUserId: owner } : {}),
-          position: meta.gps !== null,
-        },
-      }),
-    );
-    const taken = file.capturedAt
-      ? `${dhakaClock(file.capturedAt).replace(/[-:]/g, '').replace('T', '-')}-`
-      : '';
-    res.status(200);
-    res.setHeader('Content-Type', file.mime);
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="photo-${taken}${file.id.slice(0, 8)}.${extension}"`,
-    );
-    res.setHeader('Cache-Control', 'private, no-store');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    // the rest of the photo as it comes; an error past this point ends the connection
-    await pipeline(async function* () {
-      for (let next = first; !next.done; next = await photo.next()) yield next.value;
-    }, res);
   }
 
   /** An export file to its requester, as an attachment; a sensitive one's download is audited. */

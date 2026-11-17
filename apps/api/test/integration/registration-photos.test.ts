@@ -316,13 +316,16 @@ describe('GET /files/{fileId}/content', () => {
       .get(`/api/v1/files/${nidPhoto}/download`)
       .set(bearer(rpm));
     expect(res.status).toBe(200);
-    expect(res.headers['content-disposition']).toMatch(/^attachment; filename="photo-/);
+    // a registration photo keeps no capture time, so it is named by its id alone
+    expect(res.headers['content-disposition']).toMatch(
+      new RegExp(`^attachment; filename="photo-${nidPhoto.slice(0, 8)}\\.(jpg|png)"$`),
+    );
     const audits = await h.db.query(
       `SELECT new FROM audit_log WHERE action = 'file.downloaded' AND entity_id = $1`,
       [nidPhoto],
     );
     expect(audits.rows).toEqual([
-      { new: { kind: 'nid_photo', record: null, ownerUserId: owner.id, position: false } },
+      { new: { kind: 'nid_photo', records: [], ownerUserId: owner.id, position: false } },
     ]);
     const daee = await login(h, await account(h.db, { role: 'official_daee' }));
     expect(

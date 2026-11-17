@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import { Readable, Writable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -133,6 +134,14 @@ const downloads = async (fileId: string) =>
       [fileId],
     )
   ).rows as { actor_user_id: string; new: Record<string, unknown> }[];
+const objectKey = async (id: string) =>
+  (await h.db.query('SELECT object_key FROM files WHERE id = $1', [id])).rows[0]
+    .object_key as string;
+const collect = async (stream: AsyncIterable<Buffer>) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return Buffer.concat(chunks);
+};
 const fileRowScan = async (id: string) =>
   (await h.db.query('SELECT virus_scan FROM files WHERE id = $1', [id])).rows[0];
 const info = (who: string, fileId: string) =>
@@ -390,7 +399,7 @@ describe('the download of a photo', () => {
         actor_user_id: world.users.rpmDhaka,
         new: {
           kind: 'distribution_proof',
-          record: { entityType: 'application', entityId: dhakaApplication },
+          records: [{ entityType: 'application', entityId: dhakaApplication }],
           position: true,
         },
       },
@@ -419,6 +428,40 @@ describe('the download of a photo', () => {
       gps: null,
     });
     expect((await downloads(office))[0]!.new).toMatchObject({ position: false });
+  });
+
+  it('saves a WebP with its time and place, and names a photo without a capture time by its id', async () => {
+    const webp = await upload(
+      'general',
+      await sharp(await picture({ variant: 18 }))
+        .webp()
+        .toBuffer(),
+      { mime: 'image/webp', capturedAt: TAKEN, gps: { lat: 23.6, lng: 90.2, accuracyM: 4 } },
+    );
+    await h.container.fileProcessor.process(webp);
+    const res = await download('rpmDhaka', webp);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('image/webp');
+    expect(res.headers['content-disposition']).toBe(
+      `attachment; filename="photo-20261102-103015-${webp.slice(0, 8)}.webp"`,
+    );
+    expect((await sharp(res.body as Buffer).metadata()).exif).toBeDefined();
+    // the pixels are the stored photo's
+    const stored: Buffer = await collect(
+      await h.container.storage.get('photos', await objectKey(webp)),
+    );
+    expect(
+      await sharp(res.body as Buffer)
+        .raw()
+        .toBuffer(),
+    ).toEqual(await sharp(stored).raw().toBuffer());
+
+    const untimed = await upload('general', await picture({ variant: 19 }));
+    await h.container.fileProcessor.process(untimed);
+    await h.db.query('UPDATE files SET captured_at = NULL WHERE id = $1', [untimed]);
+    expect((await download('rpmDhaka', untimed)).headers['content-disposition']).toBe(
+      `attachment; filename="photo-${untimed.slice(0, 8)}.jpg"`,
+    );
   });
 
   it('refuses who may not see it, a photo not yet cleared, and a caller without a session', async () => {
