@@ -10,7 +10,7 @@ import {
 } from '@css/shared/forms';
 import { describe, expect, it } from 'vitest';
 import { FORM_TEMPLATES, LIBRARY_FIELDS, SECTIONS } from '../../seed/sets/base/forms.js';
-import { REFERENCE_LISTS } from '../../seed/sets/base/reference-lists.js';
+import { REFERENCE_LISTS } from './reference-lists-sync.js';
 
 // The two seeded application forms of the current forms (docs/MASTER_SPEC.md, "Appendix B — Current
 // form fields and mapping to the new system"), built through the engine with the seeded reference

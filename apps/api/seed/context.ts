@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import type { Tx } from '../src/core/prisma.service.js';
+import { STABLE_ID_TIME, stableId } from '../src/core/stable-id.js';
 import { Prisma, type PrismaClient } from '../src/generated/prisma/client.js';
 
 /**
@@ -8,22 +8,11 @@ import { Prisma, type PrismaClient } from '../src/generated/prisma/client.js';
  * nothing (not even updated_at). Development and test only (see run.ts).
  */
 
-/** Fixed time part of seed ids: 2026-10-11T00:00:00Z. */
-const SEED_TIME = Date.UTC(2026, 9, 11);
 /** Fixed timestamp written where a business timestamp is required (approvals, grants). */
-export const SEED_AT = new Date(SEED_TIME).toISOString();
+export const SEED_AT = new Date(STABLE_ID_TIME).toISOString();
 
-/** A stable UUID (version 7 layout) for a seed key: fixed time, the rest from SHA-256 of the key. */
-export function seedId(key: string): string {
-  const hash = createHash('sha256').update(`css-erp-seed:${key}`).digest();
-  const bytes = Buffer.alloc(16);
-  bytes.writeUIntBE(SEED_TIME, 0, 6);
-  hash.copy(bytes, 6, 0, 10);
-  bytes[6] = 0x70 | (bytes[6]! & 0x0f);
-  bytes[8] = 0x80 | (bytes[8]! & 0x3f);
-  const hex = bytes.toString('hex');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
+/** A stable UUID for a seed key, the one the production sync gives the same row. */
+export const seedId = stableId;
 
 /** Marks a value that must be written as jsonb. */
 export class Json {
