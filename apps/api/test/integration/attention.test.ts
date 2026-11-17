@@ -261,6 +261,8 @@ describe('GET /me/attention', () => {
       (i) => i.kind === 'applications_waiting',
     );
     expect(item?.href).toBe(`/admin/applications/${oldest}`);
+    // a volunteer of the project is never given the office's waiting applications
+    expect(countOf(await attention(world.users.general), 'applications_waiting')).toBe(0);
   });
 
   it('answers 401 without a session', async () => {

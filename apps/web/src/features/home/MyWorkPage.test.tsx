@@ -250,6 +250,21 @@ describe('My Work home', () => {
     expect(screen.queryByText(/0টি সক্রিয় টেমপ্লেট/)).toBeNull();
   });
 
+  it('never shows the own applications as zero when they could not be read', async () => {
+    server.use(
+      http.get('*/api/v1/me/projects', () => ok([])),
+      http.get('*/api/v1/me/applications', () =>
+        apiError(500, 'server.error', 'Something went wrong'),
+      ),
+    );
+    openHome(VOLUNTEER);
+    const own = (await screen.findByRole('heading', { name: 'আমার আবেদন' })).closest('section')!;
+    expect(
+      await within(own).findByRole('button', { name: /আবার চেষ্টা/ }, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    expect(within(own).queryByRole('link', { name: 'পেন্ডিং' })).toBeNull();
+  });
+
   it('gives the Department Head the shortcuts', async () => {
     openHome({ ...ME, roles: ['department_head'] });
     const main = await screen.findByRole('main');

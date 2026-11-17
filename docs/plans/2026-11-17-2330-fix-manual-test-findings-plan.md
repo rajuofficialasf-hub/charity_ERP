@@ -58,7 +58,7 @@ Out: the bank, reference and previous-project fields (removed by O-64 and O-65, 
 
 ## Progress
 - **Branch:** fix/manual-test-findings
-- **Next:** C1 (test and review U1–U3), then U4
-- **Reviewed through:** —
+- **Next:** U4 (U5 built)
+- **Reviewed through:** C1 at d5dc9a11 (T2: logic and security found nothing; the standards review asked for the widget's failure test, added with a volunteer check of the waiting count; E2E 130 passed)
 - **Uncommitted:** —
 - **Notes:** The E2E width checks compared with `window.innerWidth`, which grows with the content under a phone emulation (Pixel 7 is `isMobile`), so they could not fail; they now compare with the root element's `clientWidth`. Run every spec with such a check at C1 on the mobile project.
