@@ -83,7 +83,7 @@
     "offline": "You are offline; your work is saved on this phone",
     "backOnline": "Back online",
     "syncing": "Syncing",
-    "syncFailed": "Sync failed",
+    "syncFailed": "Some records were not sent; fix and send them again",
     "pendingSync": "{count} waiting to sync",
     "openOutbox": "See details",
     "connectionStatus": "Connection and sync",

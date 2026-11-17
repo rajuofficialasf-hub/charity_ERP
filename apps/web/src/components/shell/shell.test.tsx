@@ -482,7 +482,7 @@ describe('app shell', () => {
     expect(within(bar).getByText('3')).toBeInTheDocument();
     // a sync that failed: the banner under the bar leads to the centre too
     const status = screen.getByRole('status');
-    expect(status).toHaveTextContent('সিঙ্ক হয়নি');
+    expect(status).toHaveTextContent('কিছু রেকর্ড পাঠানো যায়নি; ঠিক করে আবার পাঠান');
     expect(screen.getByText('3টি সিঙ্কের অপেক্ষায়')).toBeInTheDocument();
     await expectNoAxeViolations(container);
     await user.click(screen.getByRole('button', { name: 'বিস্তারিত দেখুন' }));
