@@ -300,14 +300,13 @@ export function FlipCard({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 1,
-                pt: 1.25,
-                borderTop: 1,
-                borderColor: 'divider',
                 color: 'text.secondary',
                 typography: 'caption',
+                // on a computer the row holds only the button the keyboard reaches, so it draws
+                // no line of its own (the owner asked for no hint there)
+                ...(touch ? { pt: 1.25, borderTop: 1, borderColor: 'divider' } : {}),
               }}
             >
-              {!touch && <span>{labels.flipHint}</span>}
               <ButtonBase
                 ref={detailsButton}
                 aria-label={fill(labels.flipDetailsOf, { title })}
