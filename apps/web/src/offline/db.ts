@@ -143,10 +143,12 @@ class OfflineDb extends Dexie {
     this.version(2)
       .stores({ photoSizes: 'id, clientUuid' })
       .upgrade(async (tx) => {
-        const photos = await tx.table<PhotoRow, string>('photos').toArray();
+        // one photo at a time: a full queue holds up to the budget in sealed bytes
+        const sizes: PhotoSizeRow[] = [];
         await tx
-          .table<PhotoSizeRow, string>('photoSizes')
-          .bulkPut(photos.map((p) => ({ id: p.id, clientUuid: p.clientUuid, size: p.size })));
+          .table<PhotoRow, string>('photos')
+          .each((p) => sizes.push({ id: p.id, clientUuid: p.clientUuid, size: p.size }));
+        await tx.table<PhotoSizeRow, string>('photoSizes').bulkPut(sizes);
       });
   }
 }

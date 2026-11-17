@@ -218,10 +218,19 @@ describe('the photo queue', () => {
     const photo = (size: number) => new Blob([new Uint8Array(size)], { type: 'image/jpeg' });
     await add({ clientUuid: RECORD, slot: 'a', blob: photo(4_000), facts, budget });
     await add({ clientUuid: RECORD, slot: 'b', blob: photo(1_000), facts, budget });
-    const read = vi.spyOn(offlineDb().photos, 'toArray');
-    expect((await usage(budget)).usedBytes).toBe(5_000);
-    await add({ clientUuid: RECORD, slot: 'c', blob: photo(1_000), facts, budget });
-    expect(read).not.toHaveBeenCalled();
+    // every read of a photo row passes this hook, whichever way the table is read
+    let reads = 0;
+    const count = () => {
+      reads += 1;
+    };
+    offlineDb().photos.hook('reading', count);
+    try {
+      expect((await usage(budget)).usedBytes).toBe(5_000);
+      await add({ clientUuid: RECORD, slot: 'c', blob: photo(1_000), facts, budget });
+    } finally {
+      offlineDb().photos.hook('reading').unsubscribe(count);
+    }
+    expect(reads).toBe(0);
     expect((await offlineDb().photoSizes.toArray()).map((r) => r.size).sort()).toEqual([
       1_000, 1_000, 4_000,
     ]);

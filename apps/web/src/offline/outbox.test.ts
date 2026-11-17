@@ -281,6 +281,8 @@ describe('the outbox', () => {
     expect(await purge(at(7 * 86_400 + 10))).toBe(1);
     expect(await db.photos.where('clientUuid').equals(old.clientUuid).count()).toBe(0);
     expect(await db.photos.where('clientUuid').equals(withPhoto.clientUuid).count()).toBe(1);
+    // and its size goes with it, so the queue's budget counts it no more
+    expect(await db.photoSizes.where('clientUuid').equals(old.clientUuid).count()).toBe(0);
     const left = (await db.outbox.toArray()).map((r) => r.clientUuid).sort();
     expect(left).not.toContain(old.clientUuid);
     expect(left).toEqual(
