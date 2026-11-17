@@ -15,7 +15,8 @@ import type { ApplicationsService } from '../applications/service.js';
 import { applicationFilterSchema } from '../applications/view.js';
 import type { Principal } from '../auth/principal.js';
 import type { Clock } from '../core/clock.js';
-import type { PrismaService } from '../core/prisma.service.js';
+import { boundedRead } from '../core/bounded-read.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiariesService } from '../services/beneficiaries.js';
@@ -265,13 +266,8 @@ export class ExportRows {
 
   /** How many rows the frozen query selects now. */
   async count(frozen: FrozenList): Promise<number> {
-    if (frozen.kind === 'volunteers')
-      return this.prisma.volunteer.count({ where: frozen.where as Prisma.VolunteerWhereInput });
-    if (frozen.kind === 'beneficiaries')
-      return this.prisma.beneficiary.count({
-        where: frozen.where as Prisma.BeneficiaryWhereInput,
-      });
-    return this.prisma.application.count({ where: frozen.where as Prisma.ApplicationWhereInput });
+    // under the time limit of the list reads: a heavy filter answers 503, never holds the database
+    return boundedRead(this.prisma, (tx) => countOf(tx, frozen.kind, frozen.where));
   }
 
   /** The next rows after a cursor (the first ones without), masked, and where the next batch starts. */
@@ -579,4 +575,13 @@ function parsed<T>(schema: z.ZodType<T>, filters: Record<string, unknown>): T {
  */
 function asJson(where: unknown): unknown {
   return JSON.parse(JSON.stringify(where)) as unknown;
+}
+
+/** The rows a frozen query of a list selects, counted in the caller's transaction. */
+export function countOf(tx: Tx, list: ExportList, where: unknown): Promise<number> {
+  if (list === 'volunteers')
+    return tx.volunteer.count({ where: where as Prisma.VolunteerWhereInput });
+  if (list === 'beneficiaries')
+    return tx.beneficiary.count({ where: where as Prisma.BeneficiaryWhereInput });
+  return tx.application.count({ where: where as Prisma.ApplicationWhereInput });
 }

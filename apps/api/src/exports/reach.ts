@@ -3,10 +3,9 @@ import { holdsPermission } from '../access/scope.js';
 import type { AccessService, RequestAccess } from '../access/service.js';
 import type { Principal } from '../auth/principal.js';
 import { boundedRead } from '../core/bounded-read.js';
-import type { PrismaService, Tx } from '../core/prisma.service.js';
-import type { Prisma } from '../generated/prisma/client.js';
+import type { PrismaService } from '../core/prisma.service.js';
 import { readFrozenRecord, RECORD_PERMISSION } from './records.js';
-import { ENTITY, READ_PERMISSION, REACHED, whereOf } from './rows.js';
+import { countOf, ENTITY, READ_PERMISSION, REACHED, whereOf } from './rows.js';
 import { type FrozenExport, readFrozenExport } from './service.js';
 
 /**
@@ -98,12 +97,4 @@ function sameRows(
     const all = await countOf(tx, list, where);
     return all === (await countOf(tx, list, { AND: [where, reach] }));
   });
-}
-
-function countOf(tx: Tx, list: ExportList, where: unknown): Promise<number> {
-  if (list === 'volunteers')
-    return tx.volunteer.count({ where: where as Prisma.VolunteerWhereInput });
-  if (list === 'beneficiaries')
-    return tx.beneficiary.count({ where: where as Prisma.BeneficiaryWhereInput });
-  return tx.application.count({ where: where as Prisma.ApplicationWhereInput });
 }
