@@ -34,6 +34,9 @@ export const applicationSummarySchema = z.object({
   clientCreatedAt: dateTime.nullable().optional(),
   districtId: z.uuid(),
   unionId: z.uuid(),
+  /** The area's names; absent on a record the phone holds on its own. */
+  districtName: z.object({ bn: z.string(), en: z.string() }).optional(),
+  unionName: z.object({ bn: z.string(), en: z.string() }).optional(),
   submittedAt: dateTime.nullable(),
   waitingDays: z.number().int().nullable(),
   /** The priority score, for the office only; none when the form gives no points. */

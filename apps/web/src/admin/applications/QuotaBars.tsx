@@ -14,8 +14,10 @@ import { APPLICATIONS_KEY, askedComments, type CommentReason, pullNext } from '.
 import { DecisionDialog } from './DecisionDialog';
 import { LoadError } from '../../components/LoadError';
 
-/** The union and the district the list is filtered to, from the address. */
+/** The union and the district the list is filtered to, from the address, with their parents. */
 export interface AreaFilter {
+  divisionId?: string;
+  upazilaId?: string;
   unionId?: string;
   districtId?: string;
 }
@@ -78,6 +80,8 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
     filtered && !rows.some((q) => q.level === level && q.locationId === filtered)
       ? filtered
       : undefined;
+  // the list of locations that names the area is its parent's
+  const untargetedParent = level === 'union' ? area.upazilaId : area.divisionId;
   const start = (areaId?: string) => {
     setNotice(null);
     pull.mutate({ areaId });
@@ -150,6 +154,7 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
         {decide && untargeted ? (
           <UntargetedPull
             areaId={untargeted}
+            parentId={untargetedParent}
             pending={pull.isPending}
             onPull={() => start(untargeted)}
           />
@@ -202,16 +207,18 @@ function QuotaRow({
 /** The pull of the area the list is filtered to, when that area has no target of its own. */
 function UntargetedPull({
   areaId,
+  parentId,
   pending,
   onPull,
 }: {
   areaId: string;
+  parentId: string | undefined;
   pending: boolean;
   onPull: () => void;
 }) {
   const t = useTranslations('applications.office.pull');
   const locale = useLocale() as Locale;
-  const name = useLocationName(undefined, areaId)?.[locale] ?? '';
+  const name = useLocationName(parentId ?? null, areaId)?.[locale] ?? '';
   return (
     <div>
       <Button variant="secondary" size="small" loading={pending} onClick={onPull}>

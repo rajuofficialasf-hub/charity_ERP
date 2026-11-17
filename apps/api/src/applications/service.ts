@@ -296,6 +296,9 @@ const LIST_ROW_SELECT = {
   clientCreatedAt: true,
   districtId: true,
   unionId: true,
+  // the names of the area a list shows, read with the row
+  district: { select: { nameBn: true, nameEn: true } },
+  union: { select: { nameBn: true, nameEn: true } },
   submittedAt: true,
   reviewedAt: true,
   approvedAt: true,
@@ -1322,6 +1325,8 @@ export class ApplicationsService {
       totalScore: r.totalScore === null ? null : Number(r.totalScore),
       districtId: r.districtId,
       unionId: r.unionId,
+      districtName: { bn: r.district.nameBn, en: r.district.nameEn },
+      unionName: { bn: r.union.nameBn, en: r.union.nameEn },
       submittedAt: iso(r.submittedAt),
       waitingDays: Math.max(0, Math.floor((now.getTime() - r.updatedAt.getTime()) / DAY_MS)),
       pendingPhotos: pendingSlotsOf(r.pendingPhotos).length,

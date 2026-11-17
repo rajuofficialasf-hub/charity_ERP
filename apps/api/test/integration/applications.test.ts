@@ -673,6 +673,16 @@ describe('the list', () => {
         flags: ['public_entry', 'existing_identity'],
       }),
     ]);
+    // the row names its area, so the list needs no location reads
+    const names = await h.db.query<{ district: string; union: string }>(
+      `SELECT d.name_bn AS district, u.name_bn AS "union" FROM applications a
+         JOIN locations d ON d.id = a.district_id JOIN locations u ON u.id = a.union_id
+        WHERE a.id = $1`,
+      [entry],
+    );
+    expect(office.body.data[0].districtName.bn).toBe(names.rows[0]!.district);
+    expect(office.body.data[0].unionName.bn).toBe(names.rows[0]!.union);
+    expect(office.body.data[0].unionName.en).toEqual(expect.any(String));
     await h.db.query(
       `INSERT INTO blocklist (id, subject_type, subject_id, reason, blocked_by) VALUES ($1, 'volunteer', $2, 'test', $3)`,
       [randomUUID(), generalVolunteer, world.users.rpmDhaka],

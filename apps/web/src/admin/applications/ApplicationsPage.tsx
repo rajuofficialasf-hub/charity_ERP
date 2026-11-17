@@ -18,7 +18,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
-import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { NoDocumentChip, ThroughVolunteerChip } from '../../components/PersonMarks';
 import { stateLabel as labelOf, stateTone } from '../../features/applications/status';
@@ -261,7 +260,12 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       />
       <QuotaBars
         projectId={projectId}
-        area={{ unionId: filters.unionId, districtId: filters.districtId }}
+        area={{
+          divisionId: filters.divisionId,
+          districtId: filters.districtId,
+          upazilaId: filters.upazilaId,
+          unionId: filters.unionId,
+        }}
       />
       <ExportButton
         list="applications"
@@ -399,8 +403,6 @@ function ApplicationTab({ projectId }: { projectId: string }) {
 /** The union and the district of the application's address, by name. */
 function Area({ row }: { row: ApplicationSummary }) {
   const locale = useLocale() as Locale;
-  const union = useLocationName(undefined, row.unionId);
-  const district = useLocationName(undefined, row.districtId);
-  const text = [union?.[locale], district?.[locale]].filter(Boolean).join(', ');
+  const text = [row.unionName?.[locale], row.districtName?.[locale]].filter(Boolean).join(', ');
   return text ? <>{text}</> : <EmptyValue label="—" />;
 }

@@ -56,6 +56,9 @@ export const applicationSummary = z.object({
   totalScore: sensitive(z.number().nullable(), OFFICIAL_SECTION),
   districtId: uuid,
   unionId: uuid,
+  /** The area's names, so a list names it without reading the locations. */
+  districtName: z.object({ bn: z.string(), en: z.string() }),
+  unionName: z.object({ bn: z.string(), en: z.string() }),
   submittedAt: z.string().nullable(),
   waitingDays: z.int().nullable(),
   /** Photo slots an offline record still waits for; the office sees the record without them. */

@@ -57,6 +57,8 @@ const row = (id: string, over: Record<string, unknown> = {}) => ({
   flags: [],
   districtId: DISTRICT,
   unionId: UNION,
+  districtName: { bn: 'নমুনা জেলা', en: 'Sample district' },
+  unionName: { bn: 'নমুনা ইউনিয়ন', en: 'Sample union' },
   submittedAt: '2026-11-02T10:00:00Z',
   waitingDays: 3,
   etag: '"v1"',
@@ -325,6 +327,10 @@ describe('the list', () => {
     expect((await screen.findAllByText('WC-2026-00012')).length).toBeGreaterThan(0);
     await waitFor(() => expect(listCalls[0]).toContain('status=submitted'));
     expect(listCalls[0]).toContain('include=total');
+    // the area is named from the row, in the reader's language
+    expect(
+      within(await screen.findByRole('table')).getAllByText('নমুনা ইউনিয়ন, নমুনা জেলা').length,
+    ).toBeGreaterThan(0);
     // the ticked rows take one request; the outcome counts the rows that moved and the ones that did not
     const grid = await screen.findByRole('table');
     await user.click(await within(grid).findByRole('checkbox', { name: /নমুনা উপকারভোগী/ }));
@@ -414,6 +420,41 @@ describe('the list', () => {
     expect(pulls[0]?.body).toEqual({ areaId: UNION });
     expect(pulls[0]?.key).toBeTruthy();
     await expectNoAxeViolations(view.container);
+  });
+
+  it('names the area the list is filtered to when it has no target of its own, from its parent', async () => {
+    refreshAs(EXECUTIVE);
+    serve(
+      [row(A1, { status: 'waitlisted' })],
+      [
+        {
+          level: 'union',
+          locationId: '01900000-0000-7000-8000-0000000000a9',
+          locationName: { bn: 'অন্য ইউনিয়ন', en: 'Another union' },
+          target: 10,
+          received: 3,
+          approved: 1,
+          full: false,
+        },
+      ],
+    );
+    server.use(
+      http.get('*/api/v1/locations', ({ request }) =>
+        HttpResponse.json({
+          data:
+            new URL(request.url).searchParams.get('parentId') === 'u1'
+              ? [{ id: UNION, name: { bn: 'নমুনা ইউনিয়ন', en: 'Sample union' } }]
+              : [],
+          meta: { requestId: 'r' },
+        }),
+      ),
+    );
+    openList(
+      `/admin/projects/${PROJECT}/applications?divisionId=d1&districtId=${DISTRICT}&upazilaId=u1&unionId=${UNION}`,
+    );
+    expect(
+      await screen.findByRole('button', { name: 'পরেরজনকে আনুন (নমুনা ইউনিয়ন)' }),
+    ).toBeInTheDocument();
   });
 
   it('shows no score for a form without points, and pulls for the whole project without quotas', async () => {
