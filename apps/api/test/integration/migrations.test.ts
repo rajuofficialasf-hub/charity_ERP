@@ -109,6 +109,16 @@ describe('migrations', () => {
     } finally {
       await prisma.$disconnect();
     }
+    // the demo's winter series has a second session, and the series' reverse stops while two
+    // sessions share a code (docs/database/DATABASE_SCHEMA.md, the project series migration):
+    // the earlier session is first given a code of its own, the step that reverse names
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      await client.query(`UPDATE projects SET code = 'WNTA' WHERE code = 'WNT' AND year = 2025`);
+    } finally {
+      await client.end();
+    }
     await runMigrations(db, 'down');
     expect(await snapshot(db)).toEqual(empty);
     await runMigrations(db, 'up');

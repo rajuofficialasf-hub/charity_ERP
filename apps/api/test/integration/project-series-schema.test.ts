@@ -73,16 +73,28 @@ const program = () =>
   });
 
 describe('a project series and its sessions', () => {
-  it('gives the seeded project a series with its code, names and program, for the whole of its year', async () => {
+  it('gives the seeded project a series with its code, names and program, for the whole of its year, and the closed session of 2025 the same series', async () => {
     const { rows } = await db.query(
       `SELECT p.code, p.year, p.period_from::text, p.period_to::text,
               s.code AS series_code, s.name_bn = p.name_bn AND s.name_en = p.name_en AS same_names,
               s.program_id = p.program_id AS same_program, g.code AS program_code
          FROM projects p
          JOIN project_series s ON s.id = p.series_id
-         JOIN programs g ON g.id = s.program_id`,
+         JOIN programs g ON g.id = s.program_id
+        ORDER BY p.year`,
     );
+    // the demo seed's earlier session (docs/testing/DEMO_ACCOUNTS.md) carries a name of its own year
     expect(rows).toEqual([
+      {
+        code: 'WNT',
+        year: 2025,
+        period_from: '2025-01-01',
+        period_to: '2025-12-31',
+        series_code: 'WNT',
+        same_names: false,
+        same_program: true,
+        program_code: 'HUM',
+      },
       {
         code: 'WNT',
         year: 2026,
