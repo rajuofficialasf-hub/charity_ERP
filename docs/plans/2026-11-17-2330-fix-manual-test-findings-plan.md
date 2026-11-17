@@ -22,7 +22,7 @@ On 2026-11-17 the owner asked for a hand walk-through of the whole path ("ভল
 - **R5** The date and month pickers show Bengali month and weekday names and Bengali screen-reader texts in Bengali, English ones in English, digits English in both (UX-05).
 - **R6** Activating a project, approving an application and approving one from the waitlist each ask a confirmation first (D-182 (1)).
 - **R7** A range error of a form answer names its bounds ("1 থেকে 20-এর মধ্যে").
-- **R8** A send the server refuses for an answer (a validation error) leaves no "সিঙ্ক হয়নি" mark: the error stands at the form, the record is not a failed sync.
+- **R8** A send the server refuses for an answer (a validation error) tells the person what to do. The record stays on the phone as refused until it is fixed (docs/architecture/OFFLINE_SYNC.md, the record lifecycle; dropping it would lose the draft), so the mark stays; its words change from "সিঙ্ক হয়নি" to "কিছু রেকর্ড পাঠানো যায়নি; ঠিক করে আবার পাঠান", beside the error at the form.
 - **R9** After the identity questions are added in one press, the next question added from the pane lands after them, not after the first.
 - **R10** Registration: a field's error goes when its value changes; a Facebook link without `https://` is taken with it added; a registration photo's uploader is the registrant; every page's browser tab title has the same form.
 
@@ -44,7 +44,7 @@ Out: the bank, reference and previous-project fields (removed by O-64 and O-65, 
 - **U5** Bengali calendar (R5). Files: `apps/web/src/ui/templates/asf/components/{pickers,labels}.tsx`, `ui.json` bn/en, the kit's test. Size S. Status: done
 - **U6** Confirmations (R6). Files: `apps/web/src/admin/applications/ApplicationReviewPage.tsx`, `apps/web/src/admin/projects/LifecycleActions.tsx`, i18n, E2E specs that approve or activate. Size M. Status: done
 - **U7** Range message (R7). Files: the web's field error rendering, i18n `errors`. Size S. Status: done
-- **U8** No failed-sync mark after a refused send (R8). Files: `apps/web/src/offline/applications-store.ts` or the form page. Size S. Status: todo
+- **U8** No failed-sync mark after a refused send (R8). Files: `packages/shared/src/i18n/messages/{bn,en}/ui.json`, the shell test. Size S. Status: done
 - **U9** Question placement after the identity questions (R9). Files: `apps/web/src/admin/forms/{FormBuilderPage,draft}.ts*`. Size S. Status: todo
 - **U10** Registration and titles (R10). Files: `apps/web/src/features/registration/form-state.ts`, `packages/shared/src/registration/details.ts`, `apps/api/src/services/files.ts`, the seven pages that let the kit write the title. Size M. Status: todo
 
@@ -58,7 +58,7 @@ Out: the bank, reference and previous-project fields (removed by O-64 and O-65, 
 
 ## Progress
 - **Branch:** fix/manual-test-findings
-- **Next:** U8
+- **Next:** U9
 - **Reviewed through:** C2 at e74bd1d4 (T2: security found nothing; standards asked for the reasons in words instead of the decision id and a single typed cast; logic asked for the English locale's lower-case name and the bound messages only on number and amount questions; all applied; E2E 30 passed). C1 at d5dc9a11 (T2: logic and security found nothing; the standards review asked for the widget's failure test, added with a volunteer check of the waiting count; E2E 130 passed)
 - **Uncommitted:** —
 - **Notes:** The E2E width checks compared with `window.innerWidth`, which grows with the content under a phone emulation (Pixel 7 is `isMobile`), so they could not fail; they now compare with the root element's `clientWidth`. Run every spec with such a check at C1 on the mobile project.
