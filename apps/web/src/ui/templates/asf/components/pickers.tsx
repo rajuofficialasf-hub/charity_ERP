@@ -1,10 +1,14 @@
 import type { Dayjs } from 'dayjs';
 import type { DateFieldProps, TimeFieldProps, MonthFieldProps } from '@/ui/contract';
 
+import type { ReactNode } from 'react';
+
 import dayjs from 'dayjs';
 
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 
 import { Icon } from './icon';
 import { useLabels } from './labels';
@@ -37,7 +41,50 @@ function useLocaleText() {
     month: labels.datePartMonth,
     year: labels.datePartYear,
     empty: labels.datePartEmpty,
+    calendarViewSwitchingButtonAriaLabel: (view: string) =>
+      view === 'year' ? labels.switchToDayView : labels.switchToYearView,
   };
+}
+
+const LOCALIZED_FORMATS = {
+  LT: 'HH:mm',
+  LTS: 'HH:mm:ss',
+  L: 'DD-MM-YYYY',
+  LL: 'D MMMM YYYY',
+  LLL: 'D MMMM YYYY HH:mm',
+  LLLL: 'dddd, D MMMM YYYY HH:mm',
+};
+
+/**
+ * The calendar's month and day names from the labels, as a dayjs locale of their own: the page's
+ * language names them, and the dates keep the English digits the app writes everywhere.
+ */
+function CalendarWords({ children }: { children: ReactNode }) {
+  const labels = useLabels();
+  const months = labels.monthNames.split(',');
+  const days = labels.weekdayNames.split(',');
+  const name = `asf-${months[0]}-${days[0]}`;
+  dayjs.locale(
+    {
+      name,
+      months,
+      monthsShort: months,
+      weekdays: days,
+      weekdaysShort: days,
+      weekdaysMin: days,
+      weekStart: 0,
+      // the picker reads the localized formats; the app writes its own, so these only fill them
+      formats: LOCALIZED_FORMATS,
+      ordinal: (n: number) => String(n),
+    } as unknown as ILocale,
+    undefined,
+    true
+  );
+  return (
+    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={name}>
+      {children}
+    </LocalizationProvider>
+  );
 }
 const ClockIcon = () => <Icon name="clock" size={22} />;
 
@@ -48,39 +95,45 @@ function fieldSlot({ name, error, hint, required, onBlur }: Pick<DateFieldProps,
 export function DateField({ label, value, onChange, disabled, min, max, ...field }: DateFieldProps) {
   const localeText = useLocaleText();
   return (
-    <DatePicker
-      localeText={localeText}
-      label={label}
-      value={parse(value, DATE)}
-      onChange={(next) => onChange(write(next, DATE))}
-      disabled={disabled}
-      minDate={min ? dayjs(min) : undefined}
-      maxDate={max ? dayjs(max) : undefined}
-      // the app writes every date day-month-year in English digits
-      format="DD-MM-YYYY"
-      slots={{ openPickerIcon: CalendarIcon }}
-      slotProps={fieldSlot(field)}
-    />
+    <CalendarWords>
+      <DatePicker
+        localeText={localeText}
+        label={label}
+        value={parse(value, DATE)}
+        onChange={(next) => onChange(write(next, DATE))}
+        disabled={disabled}
+        minDate={min ? dayjs(min) : undefined}
+        maxDate={max ? dayjs(max) : undefined}
+        // the app writes every date day-month-year in English digits
+        format="DD-MM-YYYY"
+        // the day's short name as the labels give it, not its first letter
+        dayOfWeekFormatter={(day) => day.format('dd')}
+        slots={{ openPickerIcon: CalendarIcon }}
+        slotProps={fieldSlot(field)}
+      />
+    </CalendarWords>
   );
 }
 
 export function MonthField({ label, value, onChange, disabled, min, max, ...field }: MonthFieldProps) {
   const localeText = useLocaleText();
   return (
-    <DatePicker
-      localeText={localeText}
-      label={label}
-      views={['year', 'month']}
-      openTo="month"
-      value={parse(value, MONTH)}
-      onChange={(next) => onChange(write(next, MONTH))}
-      disabled={disabled}
-      minDate={min ? dayjs(min) : undefined}
-      maxDate={max ? dayjs(max) : undefined}
-      format="MMMM YYYY"
-      slots={{ openPickerIcon: CalendarIcon }}
-      slotProps={fieldSlot(field)}
-    />
+    <CalendarWords>
+      <DatePicker
+        localeText={localeText}
+        label={label}
+        views={['year', 'month']}
+        openTo="month"
+        value={parse(value, MONTH)}
+        onChange={(next) => onChange(write(next, MONTH))}
+        disabled={disabled}
+        minDate={min ? dayjs(min) : undefined}
+        maxDate={max ? dayjs(max) : undefined}
+        format="MMMM YYYY"
+        slots={{ openPickerIcon: CalendarIcon }}
+        slotProps={fieldSlot(field)}
+      />
+    </CalendarWords>
   );
 }
 

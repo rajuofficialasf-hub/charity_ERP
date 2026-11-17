@@ -172,7 +172,7 @@
         "components/labels.ts",
         "../../contract.ts"
       ],
-      "note": "a date shows day-month-year in English digits (DD-MM-YYYY, as the app writes every date) instead of the kit's \"DD MMM YYYY\", and the picker's own words (the parts of a date, the calendar's buttons) come from the labels, so a Bengali page reads them in Bengali; built for the CSS ERP",
+      "note": "a date shows day-month-year in English digits (DD-MM-YYYY, as the app writes every date) instead of the kit's \"DD MMM YYYY\", and the picker's own words (the parts of a date, the calendar's buttons, the month and day names) come from the labels as a dayjs locale of their own, so a Bengali page reads them in Bengali while the digits stay English; built for the CSS ERP",
       "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
     },
     {

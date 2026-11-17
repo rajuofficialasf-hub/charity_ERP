@@ -17,6 +17,7 @@ import { render, screen, within, cleanup, waitFor } from '@testing-library/react
 import {
   Form,
   DateField,
+  MonthField,
   TextField,
   UiProvider,
   FormSection,
@@ -235,6 +236,33 @@ describe('the date field', () => {
     expect(within(field).getByRole('spinbutton', { name: 'বছর' })).toHaveTextContent('2026');
     await user.click(screen.getByRole('button', { name: /ক্যালেন্ডার খুলুন/ }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
+  it("names the calendar's months and days in the words the app gives, with English digits", async () => {
+    const user = userEvent.setup();
+    const months = 'জানুয়ারি,ফেব্রুয়ারি,মার্চ,এপ্রিল,মে,জুন,জুলাই,আগস্ট,সেপ্টেম্বর,অক্টোবর,নভেম্বর,ডিসেম্বর';
+    render(
+      <UiProvider
+        labels={{
+          openCalendar: 'ক্যালেন্ডার খুলুন',
+          monthNames: months,
+          weekdayNames: 'রবি,সোম,মঙ্গল,বুধ,বৃহ,শুক্র,শনি',
+          switchToYearView: 'বছর বেছে নিন',
+        }}
+      >
+        <DateField label="আবেদনের তারিখ" value="2026-11-04" onChange={() => {}} />
+        <MonthField label="শুরুর মাস" value="2026-01" onChange={() => {}} />
+      </UiProvider>
+    );
+    // the month field writes the month's name, and the year in English digits
+    expect(screen.getByRole('group', { name: 'শুরুর মাস' })).toHaveTextContent('জানুয়ারি 2026');
+    await user.click(screen.getAllByRole('button', { name: /ক্যালেন্ডার খুলুন/ })[0]!);
+    const calendar = await screen.findByRole('dialog');
+    expect(calendar).toHaveTextContent('নভেম্বর 2026');
+    expect(calendar).not.toHaveTextContent('November');
+    expect(within(calendar).getByText('রবি')).toBeInTheDocument();
+    expect(within(calendar).getByRole('button', { name: /বছর বেছে নিন/ })).toBeInTheDocument();
+    expect(within(calendar).getByRole('gridcell', { name: '4' })).toBeInTheDocument();
   });
 });
 
