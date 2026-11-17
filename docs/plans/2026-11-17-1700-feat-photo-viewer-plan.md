@@ -52,8 +52,8 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 ## Progress
 - **Branch:** `feat/photo-viewer`
 - **Updated:** 2026-11-17
-- **Next:** checkpoint C1 (U1), then U2, the details read
-- **Reviewed through:** none
+- **Next:** U2, the details read: tests in `apps/api/test/integration/files.test.ts` ("the metadata of a file")
+- **Reviewed through:** C1 at 5f8b4ef3
 - **Uncommitted:** none
 - **Notes:** the owner said "শুরু করো" and not to wait for a command between units or checkpoints. The branch starts from the tip of `fix/known-issues` (PR #64 still in CI); once #64 is squash-merged into `develop`, `origin/develop` is merged into this branch (never a rebase). The owner added every hardening of the plan's security review ("সব যোগ করো").
 
