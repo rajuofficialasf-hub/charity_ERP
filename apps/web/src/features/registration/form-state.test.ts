@@ -44,7 +44,10 @@ describe('the volunteer steps', () => {
     expect(
       checkStep('identity', 'volunteer', { ...v, facebookId: 'https://www.facebook.com/nomuna' }),
     ).toEqual({});
-    for (const bad of ['nomuna', 'http://facebook.com/x', 'https://evil.example/facebook.com'])
+    // an address typed without https, or with http, is taken as the https link
+    for (const typed of ['facebook.com/nomuna', 'www.facebook.com/nomuna', 'http://facebook.com/x'])
+      expect(checkStep('identity', 'volunteer', { ...v, facebookId: typed }), typed).toEqual({});
+    for (const bad of ['nomuna', 'evil.example/facebook.com', 'https://evil.example/facebook.com'])
       expect(checkStep('identity', 'volunteer', { ...v, facebookId: bad }), bad).toEqual({
         facebookId: 'errors.validation.facebook_link',
       });

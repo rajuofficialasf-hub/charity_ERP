@@ -373,6 +373,10 @@ describe('the steps after the contacts', () => {
     );
     await user.type(screen.getByRole('textbox', { name: /Mother's name/ }), 'Mother');
     await user.type(screen.getByRole('textbox', { name: /NID number/ }), '1000000000555');
+    // the error of a field goes as soon as its value is right, without another press
+    expect(screen.getByRole('textbox', { name: /NID number/ })).not.toHaveAccessibleDescription(
+      /10, 13 or 17 digits/,
+    );
     // the Facebook account is a link
     await user.type(screen.getByRole('textbox', { name: /Facebook account link/ }), 'nomuna.name');
     await next(user);
@@ -380,9 +384,10 @@ describe('the steps after the contacts', () => {
       screen.getByRole('textbox', { name: /Facebook account link/ }),
     ).toHaveAccessibleDescription(/https link to your Facebook account/);
     await user.clear(screen.getByRole('textbox', { name: /Facebook account link/ }));
+    // typed without https, it is taken with https added
     await user.type(
       screen.getByRole('textbox', { name: /Facebook account link/ }),
-      'https://www.facebook.com/nomuna.name',
+      'www.facebook.com/nomuna.name',
     );
     await next(user);
     expect(stepName()).toBe('3Address');

@@ -88,7 +88,8 @@ export function RegisterPage() {
   const form = useForm<RegistrationForm>({
     resolver: useSchemaResolver(useStepSchema(key, kind, key === 'contact' && !verified)),
     defaultValues: EMPTY_FORM,
-    reValidateMode: 'onSubmit',
+    // once a step was checked, a field's error goes as soon as its value is right
+    reValidateMode: 'onChange',
   });
   const errors = flatErrors(form.formState.errors);
   const pending = form.formState.isSubmitting;

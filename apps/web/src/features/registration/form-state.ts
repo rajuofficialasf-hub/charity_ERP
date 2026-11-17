@@ -1,6 +1,7 @@
 import { checkPassword, minPasswordLength } from '@css/shared/auth';
 import {
   dateOfBirthSchema,
+  facebookLink,
   isFacebookLink,
   type PhotoSlot,
   type RegistrationChannel,
@@ -157,7 +158,7 @@ export function checkStep(
       const bad = dateProblem(v.dateOfBirth);
       if (bad) problems.dateOfBirth = bad;
     }
-    if (v.facebookId.trim() && !isFacebookLink(v.facebookId.trim()))
+    if (v.facebookId.trim() && !isFacebookLink(facebookLink(v.facebookId)))
       problems.facebookId = 'errors.validation.facebook_link';
   }
   if (step === 'address') {
@@ -283,7 +284,7 @@ export function submitBody(
     dateOfBirth: optional(v.dateOfBirth),
     bloodGroup: optional(v.bloodGroup) as VolunteerSubmit['bloodGroup'],
     tshirtSize: optional(v.tshirtSize) as VolunteerSubmit['tshirtSize'],
-    facebookId: optional(v.facebookId),
+    facebookId: optional(facebookLink(v.facebookId)),
     ...permanentField(v),
     ...(Object.keys(educationValue(v.education)).length
       ? { educationDetails: educationValue(v.education) as VolunteerSubmit['educationDetails'] }

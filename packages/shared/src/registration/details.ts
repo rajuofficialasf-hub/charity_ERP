@@ -119,6 +119,19 @@ export function isFacebookLink(value: string): boolean {
   );
 }
 
+/**
+ * A Facebook address as a person types it, made a link: without a scheme ("facebook.com/name",
+ * "www.facebook.com/name") it takes `https://`, and `http://` becomes `https://`; anything else
+ * stays as typed, for `isFacebookLink` to judge.
+ */
+export function facebookLink(value: string): string {
+  const typed = value.trim();
+  if (!typed) return typed;
+  if (/^http:\/\//i.test(typed)) return `https://${typed.slice('http://'.length)}`;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(typed)) return typed;
+  return `https://${typed.replace(/^\/\//, '')}`;
+}
+
 /** The Facebook account as a link: https, a Facebook host, no credentials, at most 300 characters. */
 export const facebookLinkSchema = z
   .string()
