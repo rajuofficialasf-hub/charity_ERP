@@ -382,15 +382,42 @@ describe('replays and races', () => {
     expect(after.finalizing_until).toBeNull();
   });
 
+  it('answers busy while another finalize holds the session past the wait, and changes nothing', async () => {
+    const bytes = photo(18);
+    const created = await start('general', bytes);
+    const id = created.body.data.id as string;
+    for (const [i, part] of partsOf(bytes).entries()) await put('general', id, i + 1, part);
+    await h.db.query(
+      `UPDATE upload_sessions SET finalizing_until = now() + interval '1 minute' WHERE id = $1`,
+      [id],
+    );
+    const held = await sessionRow(id);
+    const uploads = h.container.uploads;
+    const waited = uploads.finalizeWaitMs;
+    uploads.finalizeWaitMs = 300;
+    try {
+      const res = await finalize('general', id);
+      expect(res.status).toBe(503);
+      expect(res.body.error.code).toBe('server.busy');
+      expect(res.headers['retry-after']).toBe('5');
+    } finally {
+      uploads.finalizeWaitMs = waited;
+    }
+    const after = await sessionRow(id);
+    expect(after.finalizing_until).toEqual(held.finalizing_until);
+    expect(after.finalized_file_id).toBeNull();
+    expect(await h.container.storage.stat('uploads', `${id}/1`)).not.toBeNull();
+  });
+
   it('takes over a session whose finalize died, once its lease ran out', async () => {
     const bytes = photo(16);
     const created = await start('general', bytes);
     const id = created.body.data.id as string;
     for (const [i, part] of partsOf(bytes).entries()) await put('general', id, i + 1, part);
-    await h.db.query(`UPDATE upload_sessions SET finalizing_until = $2 WHERE id = $1`, [
-      id,
-      new Date(h.clock.now().getTime() - 1000),
-    ]);
+    await h.db.query(
+      `UPDATE upload_sessions SET finalizing_until = now() - interval '1 second' WHERE id = $1`,
+      [id],
+    );
     const res = await finalize('general', id);
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     expect((await sessionRow(id)).finalizing_until).toBeNull();

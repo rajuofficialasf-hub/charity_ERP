@@ -99,6 +99,9 @@ interface UploadTarget {
 /** What a create or a stored session says of the record its file is for. */
 type Declaration = Pick<UploadSessionCreate, 'kind' | 'entityType' | 'entityId' | 'slot'>;
 
+/** A finalize whose session another finalize took over once its lease ran out. */
+class LeaseLost extends Error {}
+
 /** Projects that still take files: running, or closing while the last documents arrive. */
 const OPEN_PROJECT = new Set(['active', 'closing']);
 /** A finalize waits this long for another finalize of the session, looking this often. */
@@ -118,6 +121,9 @@ const FINALIZE_ROWS_TIMEOUT_MS = 15_000;
  * photo goes the same way to its program or project series, for whoever may change that cover.
  */
 export class UploadsService {
+  /** How long a finalize waits for another finalize of its session; a test shortens it. */
+  finalizeWaitMs = FINALIZE_WAIT_MS;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageDriver,
@@ -251,7 +257,8 @@ export class UploadsService {
     const bucket = session.bucket as Bucket;
     // the session is this finalize's until its lease runs out; another one waits for its answer
     const claimed = await this.claim(session.id);
-    if (claimed !== 'claimed') return { value: await this.fileView(claimed), replay: true };
+    if ('fileId' in claimed) return { value: await this.fileView(claimed.fileId), replay: true };
+    const { lease } = claimed;
     let wrote = false;
     try {
       // the parts are joined outside any transaction: the size, the SHA-256 and the type are
@@ -270,11 +277,16 @@ export class UploadsService {
       const outcome = await this.prisma.$transaction(
         async (tx) => {
           // the row lock also keeps the nightly sweep away until the rows are written
-          const [locked] = await tx.$queryRaw<{ finalized_file_id: string | null }[]>`
-            SELECT finalized_file_id FROM upload_sessions WHERE id = ${session.id}::uuid FOR UPDATE`;
+          const [locked] = await tx.$queryRaw<
+            { finalized_file_id: string | null; held: boolean }[]
+          >`
+            SELECT finalized_file_id, finalizing_until = ${lease} AS held
+              FROM upload_sessions WHERE id = ${session.id}::uuid FOR UPDATE`;
           if (!locked) throw new ApiError('file.session_expired', 410);
           // a finalize that took over a lapsed lease finished first: its object is this one's key
           if (locked.finalized_file_id) return { fileId: locked.finalized_file_id, replay: true };
+          // another finalize took the session over while this one joined: the object is its now
+          if (!locked.held) throw new LeaseLost();
           await this.writeFile(tx, principal, session, declared, target, type);
           return { fileId: declared.fileId, replay: false };
         },
@@ -284,51 +296,65 @@ export class UploadsService {
       else await this.dropPartsQuietly(session.id);
       return { value: await this.fileView(outcome.fileId), replay: outcome.replay };
     } catch (error) {
-      // only the finalize that wrote the object and no file row names removes it
-      if (wrote) await this.removeQuietly(bucket, session.objectKey);
-      await this.release(session.id);
+      // the object at the session's key is this finalize's only while it still holds the lease:
+      // one that took the session over writes the same key
+      if (await this.release(session.id, lease)) {
+        if (wrote) await this.removeQuietly(bucket, session.objectKey);
+      }
+      if (error instanceof LeaseLost)
+        throw new ApiError('server.busy', 503, undefined, undefined, 5);
       if (isUniqueViolation(error)) throw new ApiError('file.duplicate', 409);
       throw error;
     }
   }
 
   /**
-   * Takes the session for this finalize until its lease runs out: `claimed`, or the id of the file
-   * another finalize made of it meanwhile, waited for up to `FINALIZE_WAIT_MS`; a finalize that
-   * died leaves a lease that runs out, and the next one takes the session over. A session that
+   * Takes the session for this finalize until its lease runs out, stamped by the database's clock,
+   * as the nightly sweep reads it, to the millisecond, so the moment read back is the token itself: the lease, which is this finalize's token, or the id of the file
+   * another finalize made of the session meanwhile, waited for up to `finalizeWaitMs`. A finalize
+   * that died leaves a lease that runs out, and the next one takes the session over; a session that
    * stays held past the wait answers 503, to be tried again.
    */
-  private async claim(sessionId: string): Promise<'claimed' | string> {
-    // the wait is real time, whatever the clock the leases are stamped with
-    const until = Date.now() + FINALIZE_WAIT_MS;
+  private async claim(sessionId: string): Promise<{ lease: Date } | { fileId: string }> {
+    // the wait is real time
+    const until = Date.now() + this.finalizeWaitMs;
     for (;;) {
-      const now = this.clock.now();
-      const lease = new Date(now.getTime() + FINALIZE_LEASE_MS);
-      const taken = await this.prisma.$executeRaw`
-        UPDATE upload_sessions SET finalizing_until = ${lease}
+      const [taken] = await this.prisma.$queryRaw<{ lease: Date }[]>`
+        UPDATE upload_sessions
+           SET finalizing_until = date_trunc(
+               'milliseconds',
+               clock_timestamp() + make_interval(secs => ${FINALIZE_LEASE_MS / 1000})
+             )
          WHERE id = ${sessionId}::uuid AND finalized_file_id IS NULL
-           AND (finalizing_until IS NULL OR finalizing_until < ${now})`;
-      if (taken) return 'claimed';
+           AND (finalizing_until IS NULL OR finalizing_until < now())
+        RETURNING finalizing_until AS lease`;
+      if (taken) return { lease: taken.lease };
       const row = await this.prisma.uploadSession.findUnique({
         where: { id: sessionId },
         select: { finalizedFileId: true },
       });
       if (!row) throw new ApiError('file.session_expired', 410);
-      if (row.finalizedFileId) return row.finalizedFileId;
+      if (row.finalizedFileId) return { fileId: row.finalizedFileId };
       if (Date.now() > until) throw new ApiError('server.busy', 503, undefined, undefined, 5);
       await new Promise((resolve) => setTimeout(resolve, FINALIZE_POLL_MS));
     }
   }
 
-  /** Gives the session back after a finalize that failed, so the next one need not wait. */
-  private async release(sessionId: string): Promise<void> {
+  /**
+   * Gives the session back after a finalize that failed, so the next one need not wait; only the
+   * lease this finalize took, never one another finalize took over. Whether it was still held.
+   */
+  private async release(sessionId: string, lease: Date): Promise<boolean> {
     try {
-      await this.prisma.$executeRaw`
+      const released = await this.prisma.$executeRaw`
         UPDATE upload_sessions SET finalizing_until = NULL
-         WHERE id = ${sessionId}::uuid AND finalized_file_id IS NULL`;
+         WHERE id = ${sessionId}::uuid AND finalized_file_id IS NULL
+           AND finalizing_until = ${lease}`;
+      return released > 0;
     } catch (error) {
-      // the lease runs out by itself
+      // the lease runs out by itself; the object is left, since another may hold the key now
       this.logger.warn({ err: error }, 'upload session lease not released');
+      return false;
     }
   }
 

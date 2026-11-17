@@ -89,7 +89,6 @@ export const saveRules = (projectId: string, body: ProjectRules) =>
 export const saveSyllabus = (projectId: string, body: Syllabus) =>
   api<Topic[]>(`/projects/${projectId}/syllabus`, { method: 'PUT', body });
 
-/** The query keys of one project's setup parts. */
 /**
  * Puts a component the server answered a save with into the project's list at once, so a dialog
  * reopened before the list is read again shows what was saved and carries its new version.
@@ -104,6 +103,7 @@ export function keepSavedComponent(
   );
 }
 
+/** The query keys of one project's setup parts. */
 export const setupKey = (projectId: string, part: string) => [
   ...PROJECTS_KEY,
   'setup',
