@@ -298,7 +298,9 @@ describe('a transfer', () => {
     });
     expect(opened.status, JSON.stringify(opened.body)).toBe(201);
     const unlockId = opened.body.data.id as string;
-    expect((await transfer(rpm, { applicationIds: [id] })).status).toBe(200);
+    const moved = await transfer(rpm, { applicationIds: [id] });
+    expect(moved.status).toBe(200);
+    expect(moved.body.data.consentPending).toBe(false);
     const value = { value: { t: 'short_text', v: 'নতুন গ্রাম' } };
     expect((await at(a, 'put', `/application-unlocks/${unlockId}/value`).send(value)).status).toBe(
       404,
@@ -338,6 +340,8 @@ describe('a transfer', () => {
       assign: true,
     });
     expect(res.status, JSON.stringify(res.body)).toBe(200);
+    // the newcomer has not yet accepted the project's rules: the office is told so
+    expect(res.body.data.consentPending).toBe(true);
     const onProject = await h.db.query(
       'SELECT 1 FROM project_volunteers WHERE project_id = $1 AND volunteer_id = $2 AND ended_at IS NULL',
       [project, newcomer],

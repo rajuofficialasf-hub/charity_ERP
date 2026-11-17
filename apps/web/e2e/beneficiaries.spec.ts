@@ -59,6 +59,19 @@ test.describe('the beneficiary tab', () => {
     expect((await scan(page)).violations).toEqual([]);
   });
 
+  test('the person helped by the closed session of 2025 shows the times helped on the profile', async ({
+    page,
+  }, info) => {
+    await signIn(page, official(info));
+    await openTab(page, TAB);
+    // the demo seed's person helped once (docs/testing/DEMO_ACCOUNTS.md), found by the NID
+    await page.getByRole('searchbox').fill('1000001054');
+    await expect(rows(page).getByRole('link')).toHaveCount(1);
+    await rows(page).getByRole('link').click();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByText('মোট 1 বার সাহায্য পেয়েছেন')).toBeVisible();
+  });
+
   test('the Media Team gets the limited view: no mobile, no family, no follow-ups', async ({
     page,
   }, info) => {

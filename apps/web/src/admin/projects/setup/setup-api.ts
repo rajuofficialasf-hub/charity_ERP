@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import type {
   AreaCreate,
   ComponentPatch,
@@ -87,6 +88,20 @@ export const saveRules = (projectId: string, body: ProjectRules) =>
   api<RulesVersion>(`/projects/${projectId}/rules`, { method: 'PUT', body });
 export const saveSyllabus = (projectId: string, body: Syllabus) =>
   api<Topic[]>(`/projects/${projectId}/syllabus`, { method: 'PUT', body });
+
+/**
+ * Puts a component the server answered a save with into the project's list at once, so a dialog
+ * reopened before the list is read again shows what was saved and carries its new version.
+ */
+export function keepSavedComponent(
+  queries: QueryClient,
+  projectId: string,
+  saved: ProjectComponent,
+): void {
+  queries.setQueryData<ProjectComponent[]>(setupKey(projectId, 'components'), (list) =>
+    list?.map((c) => (c.componentKey === saved.componentKey ? saved : c)),
+  );
+}
 
 /** The query keys of one project's setup parts. */
 export const setupKey = (projectId: string, part: string) => [

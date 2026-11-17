@@ -361,6 +361,68 @@ describe('replays and races', () => {
     expect(entries).toHaveLength(1);
   });
 
+  it('joins the parts outside a transaction and leaves no stored object when the rows fail', async () => {
+    const bytes = photo(15);
+    const created = await start('general', bytes);
+    const id = created.body.data.id as string;
+    for (const [i, part] of partsOf(bytes).entries()) await put('general', id, i + 1, part);
+    const session = await sessionRow(id);
+    // a file row that already holds the declared id: the finalize's own row write fails
+    await h.db.query(
+      `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, source)
+       VALUES ($1, 'photos', 'nas', 'other/key.jpg', 'form_photo', 'image/jpeg', 1, $2, 'gallery')`,
+      [session.declared.fileId, 'b'.repeat(64)],
+    );
+    const res = await finalize('general', id);
+    expect(res.status).toBe(409);
+    expect(await h.container.storage.stat(session.bucket, session.object_key)).toBeNull();
+    const after = await sessionRow(id);
+    expect(after.finalized_file_id).toBeNull();
+    // the lease is given back, so the next finalize need not wait for it to run out
+    expect(after.finalizing_until).toBeNull();
+  });
+
+  it('answers busy while another finalize holds the session past the wait, and changes nothing', async () => {
+    const bytes = photo(18);
+    const created = await start('general', bytes);
+    const id = created.body.data.id as string;
+    for (const [i, part] of partsOf(bytes).entries()) await put('general', id, i + 1, part);
+    await h.db.query(
+      `UPDATE upload_sessions SET finalizing_until = now() + interval '1 minute' WHERE id = $1`,
+      [id],
+    );
+    const held = await sessionRow(id);
+    const uploads = h.container.uploads;
+    const waited = uploads.finalizeWaitMs;
+    uploads.finalizeWaitMs = 300;
+    try {
+      const res = await finalize('general', id);
+      expect(res.status).toBe(503);
+      expect(res.body.error.code).toBe('server.busy');
+      expect(res.headers['retry-after']).toBe('5');
+    } finally {
+      uploads.finalizeWaitMs = waited;
+    }
+    const after = await sessionRow(id);
+    expect(after.finalizing_until).toEqual(held.finalizing_until);
+    expect(after.finalized_file_id).toBeNull();
+    expect(await h.container.storage.stat('uploads', `${id}/1`)).not.toBeNull();
+  });
+
+  it('takes over a session whose finalize died, once its lease ran out', async () => {
+    const bytes = photo(16);
+    const created = await start('general', bytes);
+    const id = created.body.data.id as string;
+    for (const [i, part] of partsOf(bytes).entries()) await put('general', id, i + 1, part);
+    await h.db.query(
+      `UPDATE upload_sessions SET finalizing_until = now() - interval '1 second' WHERE id = $1`,
+      [id],
+    );
+    const res = await finalize('general', id);
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect((await sessionRow(id)).finalizing_until).toBeNull();
+  });
+
   it('refuses a resent create once its session expired, and one that describes another file', async () => {
     const bytes = photo(11);
     const clientUuid = randomUUID();
@@ -418,6 +480,18 @@ describe('the nightly sweep', () => {
     expect(await sessionRowOrNull(id)).toBeNull();
     expect(await h.container.storage.stat('uploads', `${id}/1`)).toBeNull();
     expect(await sessionRowOrNull(kept.body.data.id)).not.toBeNull();
+  });
+
+  it('leaves an expired session alone while a finalize holds it', async () => {
+    const created = await start('general', photo(17));
+    const id = created.body.data.id as string;
+    await h.db.query(
+      `UPDATE upload_sessions SET expires_at = now() - interval '1 minute',
+              finalizing_until = now() + interval '1 minute' WHERE id = $1`,
+      [id],
+    );
+    await h.container.uploadSweep.run();
+    expect(await sessionRowOrNull(id)).not.toBeNull();
   });
 });
 

@@ -675,7 +675,8 @@
         "reason": "Reason",
         "proposed_at": "Proposed on",
         "open": "Review and merge",
-        "empty": "No merge proposal is waiting."
+        "empty": "No merge proposal is waiting.",
+        "summary": "Showing {count} proposals"
       },
       "eyebrow": "Data quality",
       "description": "Review the identities that match. Compare every detail and the help history before a merge.",
@@ -1183,7 +1184,8 @@
       "selected": "{count} selected",
       "done": "{count} applications are handed over.",
       "done_team": "{count} applications are handed over, and {team} team members moved under the new volunteer.",
-      "done_over_limit": "The new volunteer is now over the project's application limit."
+      "done_over_limit": "The new volunteer is now over the project's application limit.",
+      "done_consent_pending": "They will see the applications once they accept the project's rules."
     },
     "eyebrow": "Project management",
     "description": "See each project's state, find projects by program and year, and open one to manage its setup and applications.",
@@ -1319,7 +1321,8 @@
       "hint": "JPEG, PNG or WebP, up to 5 MB. Without one, an illustration shows.",
       "current": "Current cover",
       "failed": "The details were saved, but the cover photo could not be set: {reason}",
-      "max_size": "5 MB"
+      "max_size": "5 MB",
+      "not_cleared": "The photo has not cleared the safety check yet. Set the cover again a little later."
     },
     "period_value": "{from} to {to}"
   },

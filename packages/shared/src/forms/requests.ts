@@ -43,6 +43,8 @@ export type FormPlace = z.infer<typeof formPlaceSchema>;
 export const publicLinkConfigSchema = z.strictObject({
   enabled: z.boolean(),
   formId: z.uuid().optional(),
+  /** Moves a link that is live on another form of the project, once the caller has seen its name. */
+  confirm: z.boolean().optional(),
 });
 export type PublicLinkConfig = z.infer<typeof publicLinkConfigSchema>;
 

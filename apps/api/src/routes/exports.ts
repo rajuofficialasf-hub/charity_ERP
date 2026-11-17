@@ -104,6 +104,7 @@ export function exportsRouter(deps: RouteDeps, c: Pick<Container, 'exports'>): R
       409: null,
       422: null,
       429: null,
+      503: null,
     },
     handler: ({ body, req }) => c.exports.request(principalOf(req), body, locale()),
   });

@@ -376,6 +376,42 @@ describe('a merge proposed by an RPM and carried out by the PM', () => {
   });
 });
 
+describe('the list of merges', () => {
+  it('pages past its first rows by cursor, and reads one proposal by its id', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const made: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const { kept, retired } = await duplicate();
+      const proposed = await propose(rpm, { keptId: kept, mergedId: retired, reason: REASON });
+      made.push(proposed.body.data.id as string);
+    }
+    const pm = await as(world.users.pm);
+    const read = (query: Record<string, string>) =>
+      api().get('/api/v1/beneficiary-merges').query(query).set(bearer(pm));
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const page = await read({
+        status: 'proposed',
+        limit: '1',
+        ...(cursor ? { cursor } : {}),
+      });
+      expect(page.status, JSON.stringify(page.body)).toBe(200);
+      expect(page.body.data.length).toBeLessThanOrEqual(1);
+      seen.push(...(page.body.data as { id: string }[]).map((m) => m.id));
+      cursor = page.body.meta.nextCursor as string | null;
+    } while (cursor);
+    for (const id of made) expect(seen).toContain(id);
+    expect(new Set(seen).size).toBe(seen.length);
+    const one = await read({ mergeId: made[1]! });
+    expect((one.body.data as { id: string }[]).map((m) => m.id)).toEqual([made[1]]);
+    // a cursor serves only the filters it was made for
+    const first = await read({ status: 'proposed', limit: '1' });
+    const foreign = await read({ status: 'merged', cursor: first.body.meta.nextCursor as string });
+    expect(foreign.status).toBe(422);
+  });
+});
+
 describe('what stops a merge', () => {
   it("stops at the retired profile's pending application in a project both applied to", async () => {
     const { kept, retired } = await duplicate();

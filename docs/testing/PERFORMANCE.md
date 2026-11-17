@@ -181,6 +181,35 @@ district at 295 / 339 and 294 / 318, over the 300 ms target, and the profile at 
 shared rule (U13) came after the measurement of section 3; their plans read the table rather than an
 index. They need their own measurement and a proposal.
 
+### The beneficiary statistics (D-179; 2026-11-17)
+
+Measured again before the change, `beneficiaries.statistics` all ran over the 5-second limit of the
+list reads (503) and district at 194 / 210 ms. Three changes bring every statistics call under the
+300 ms target (`beneficiaries.ts` `statistics`, migration
+`20261117200000_beneficiary_statistics_indexes`):
+
+- The total, the blocked and the two genders, four counts over the table, are one count grouped by
+  `is_blocked` and `gender_code`, read from the new partial index
+  `beneficiaries_live_block_gender_idx` (those two columns of the live profiles) as an index-only
+  scan: 167 ms in place of a 612 ms parallel scan of the table.
+- "Assisted this year" reads the applications of the year's projects from the new index
+  `applications_project_help_idx` (project, state, person, approval time, outcome), which holds
+  everything the shared rule of the people helped reads, so the count needs no table read of the
+  500,000 applications.
+- The two reads run side by side, each under its own time limit (figures of a moment, which need not
+  share one snapshot).
+
+| Case (ms, p50 / p95) | Head | RPM |
+|---|---|---|
+| `beneficiaries.statistics` all | 241 / 288 | 230 / 287 |
+| `beneficiaries.statistics` district | 94 / 117 | 93 / 106 |
+| `volunteers.statistics` all | 125 / 143 | 159 / 168 |
+| `volunteers.statistics` district | 31 / 37 | 60 / 74 |
+
+The call over everyone is near the target; when the profiles pass about 2.5 million, measure again,
+and the next step would be the counts kept by the writes, as the times helped are kept per person,
+which needs the owner's decision first.
+
 ### The cards of programs and projects (D-176, BR-313, BR-314; 2026-11-16)
 
 The merged tab opens on the program cards (`GET /program-cards`) and a program on its project
@@ -282,6 +311,30 @@ added up over every session of a series. When the applications pass about 500,00
 share of people helped in several sessions is known, measure again; the next step would be a count of the people helped
 kept per session by the writes, as the times helped are kept per person, which needs the owner's
 decision first.
+
+### The application lists (D-179; 2026-11-17)
+
+The office's list of one project's applications and the volunteer's own list read each row with
+its project, and with it the project's two workflow definitions (the snapshot and the stored
+definition, the largest JSON of a project), though no list row shows anything of them. The lists
+now read their rows without the project (`LIST_ROW_SELECT` in `apps/api/src/applications/service.ts`);
+one application's read and its writes keep it. Measured by `perf:lists --only applications`, as the
+Department Head on the project with the most applications of the data set, 20 runs each, in ms:
+
+| Case | p50 before | p95 before | p50 after | p95 after |
+|---|---|---|---|---|
+| first page (25 rows) | 28 | 42 | 21 | 30 |
+| 100 rows | 48 | 57 | 37 | 44 |
+
+The other slow paths of the same list were changed by reading the code, not measured on the data
+set, since none of them is a list call `perf:lists` makes: an upload's finalize joins its parts
+outside a transaction under a two-minute lease of its session and writes the file's rows in a short
+one (FILES_AND_DOCUMENTS, "Upload pipeline"); a draft's save writes only the parts and questions that
+changed, so a save of one changed question writes that question's row (the integration test of
+`forms.test.ts` counts the rows it touches); the public form keeps the definition of a published
+version in memory by its id after the link's checks of each request; an export's count runs under
+the time limit of the list reads; the Media Team's home counts its referrals grouped by project and
+state and its works grouped by stage once per program, in place of reading every referral.
 
 ## 5. When to measure again
 

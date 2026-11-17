@@ -222,7 +222,15 @@ export function FlipCard({
         }}
       >
         <Card sx={face} inert={turned} aria-hidden={turned ? true : undefined} data-face="front">
-          <Box sx={{ position: 'relative', height: 150, flexShrink: 0, overflow: 'hidden', bgcolor: 'action.hover' }}>
+          <Box
+            sx={{
+              position: 'relative',
+              height: 150,
+              flexShrink: 0,
+              overflow: 'hidden',
+              bgcolor: 'action.hover',
+            }}
+          >
             {media}
             {badge && (
               <Box
@@ -248,7 +256,18 @@ export function FlipCard({
             {mediaCorner && <Box sx={{ ...onPicture, right: 16, top: 14 }}>{mediaCorner}</Box>}
             {mediaFoot && <Box sx={{ ...onPicture, left: 16, bottom: 12 }}>{mediaFoot}</Box>}
           </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, flex: 1, minHeight: 0, px: 2.5, pt: 2, pb: 1.75 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1.75,
+              flex: 1,
+              minHeight: 0,
+              px: 2.5,
+              pt: 2,
+              pb: 1.75,
+            }}
+          >
             <Box
               component={heading}
               id={titleId}
@@ -276,7 +295,13 @@ export function FlipCard({
                   // own overflow for the two-line clamp, so the focus ring is drawn on the overlay,
                   // inside the card's edge, as the asf focus ring
                   sx={(theme) => ({
-                    '&::after': { content: '""', position: 'absolute', inset: 0, zIndex: 0, borderRadius: 'inherit' },
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      inset: 0,
+                      zIndex: 0,
+                      borderRadius: 'inherit',
+                    },
                     '&:focus-visible': { outline: 'none' },
                     '&:focus-visible::after': {
                       outline: `2px solid ${theme.vars.palette.primary.main}`,
@@ -300,14 +325,13 @@ export function FlipCard({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 1,
-                pt: 1.25,
-                borderTop: 1,
-                borderColor: 'divider',
                 color: 'text.secondary',
                 typography: 'caption',
+                // on a computer the row holds only the button the keyboard reaches, so it draws
+                // no line of its own
+                ...(touch ? { pt: 1.25, borderTop: 1, borderColor: 'divider' } : {}),
               }}
             >
-              {!touch && <span>{labels.flipHint}</span>}
               <ButtonBase
                 ref={detailsButton}
                 aria-label={fill(labels.flipDetailsOf, { title })}
@@ -329,10 +353,26 @@ export function FlipCard({
           aria-hidden={turned ? undefined : true}
           data-face="back"
         >
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: 1,
+            }}
+          >
             <Box sx={{ minWidth: 0 }}>
               {backEyebrow && (
-                <Box sx={{ typography: 'caption', fontWeight: 700, letterSpacing: '0.06em', color: 'primary.dark' }}>{backEyebrow}</Box>
+                <Box
+                  sx={{
+                    typography: 'caption',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    color: 'primary.dark',
+                  }}
+                >
+                  {backEyebrow}
+                </Box>
               )}
               <Box
                 aria-hidden="true"

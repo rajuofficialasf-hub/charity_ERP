@@ -182,6 +182,11 @@ describe('the lookup of the application form', () => {
     const allowed = await lookup(rpm, { nid: (await row(inside)).nid, projectId: world.a1.id });
     expect(allowed.status).toBe(200);
     expect(allowed.body.data.autofill.beneficiaryId).toBe(inside);
+    // a number nobody holds gets the same answer as one held outside the region, so the limit
+    // tells nothing about whether a number is known
+    const unknown = await lookup(rpm, { nid: f.fakeNid(), projectId: world.a1.id });
+    expect(unknown.status).toBe(429);
+    expect(unknown.body.error.code).toBe('beneficiary.lookup_outside_limit');
   });
 
   it('refuses a project the caller does not work on, a caller without the permission, and no token', async () => {

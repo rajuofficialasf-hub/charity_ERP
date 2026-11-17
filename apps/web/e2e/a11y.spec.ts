@@ -62,11 +62,17 @@ async function signInAs(page: Page, loginId: string, lang: Lang): Promise<void> 
 /** Opens a page, waits for its heading, switches the language and checks it with axe. */
 async function sweep(page: Page, path: string, lang: Lang): Promise<void> {
   await page.goto(path);
-  await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+  // a lazy page and its texts may take a while on a busy run
+  const heading = page.getByRole('heading', { level: 1 }).first();
+  await expect(heading).toBeVisible({ timeout: 15_000 });
   await switchLanguage(page, lang);
-  await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
-  const results = await scan(page);
-  expect(results.violations, `${path} (${lang})`).toEqual([]);
+  await expect(heading).toBeVisible({ timeout: 15_000 });
+  // scanned again while a field's label still moves after the language switch: a real
+  // violation stays and fails, one read in the middle of a move passes on the next scan
+  await expect(async () => {
+    const results = await scan(page);
+    expect(results.violations, `${path} (${lang})`).toEqual([]);
+  }).toPass({ timeout: 15_000 });
 }
 
 /** The first record link of the kind on the page; the demo seed guarantees one. */

@@ -1,7 +1,8 @@
 // i18n check (docs/ui/I18N.md, "No hard-coded strings: rule and enforcement"), run by
 // `pnpm i18n:check` and `pnpm lint` in CI:
 // 1. the catalogue check of packages/shared (parity, ICU, parameters, digits, error codes, unused keys);
-// 2. no Bengali script in code outside the catalogue, notification templates, seed data and tests.
+// 2. no Bengali script in code outside the catalogue, notification templates, seed data, the shipped
+//    reference lists and tests.
 // Node 24 runs the TypeScript check module directly (type stripping).
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -85,6 +86,9 @@ const allowed = [
   /^packages\/shared\/src\/notifications\/templates\.ts$/,
   /^packages\/shared\/src\/testing\//,
   /^apps\/api\/seed\//,
+  // the shipped reference lists: data that db:migrate inserts, as the seed does, never text the
+  // app writes on a screen
+  /^apps\/api\/src\/services\/reference-lists-sync\.ts$/,
   /\.(test|spec)\.(ts|tsx)$/,
   // test data: the unit, E2E and contract tests' own names and labels
   /\/(test|tests|e2e)\//,

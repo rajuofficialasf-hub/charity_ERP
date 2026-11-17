@@ -271,6 +271,65 @@ describe('the review and the decision', () => {
     ]);
   });
 
+  it('lets a blocked person’s draft be edited but not sent, and the submitted application go on', async () => {
+    const s = await as(world.users.general);
+    const executive = await as(world.users.executive);
+    const rpm = await as(world.users.rpmDhaka);
+    const draftNid = fakeNid();
+    await beneficiary(h.db, world.dhaka, { nid: draftNid });
+    const draft = await create(s, identity(draftNid));
+    const sentNid = fakeNid();
+    const sent = await create(s, identity(sentNid));
+    await moved(s, sent, 'submit');
+    await h.db.query(`UPDATE beneficiaries SET is_blocked = true WHERE nid = ANY($1::text[])`, [
+      [draftNid, sentNid],
+    ]);
+
+    // the draft is a new application: it may still be put right, never sent
+    const read = await at(s, 'get', `/applications/${draft}`);
+    const edited = await at(s, 'patch', `/applications/${draft}`)
+      .set('If-Match', read.headers.etag as string)
+      .send({
+        answers: toAnswers({
+          ...IDENTITY_ANSWERS(draftNid, fakeMobile(), world.dhaka),
+          q_village: { t: 'short_text', v: 'নতুন গ্রাম' },
+        }),
+      });
+    expect(edited.status, JSON.stringify(edited.body)).toBe(200);
+    expect(await refused(s, draft, 'submit')).toEqual({
+      status: 409,
+      code: 'workflow.guard.beneficiary_not_blocked',
+    });
+
+    // a draft not yet tied to anyone whose number then names a blocked person is refused as a
+    // new application, since tying it would show the volunteer that person's names
+    const laterNid = fakeNid();
+    const later = await create(s, identity(laterNid));
+    await beneficiary(h.db, world.dhaka, { nid: laterNid, is_blocked: true });
+    const laterRead = await at(s, 'get', `/applications/${later}`);
+    const laterEdit = await at(s, 'patch', `/applications/${later}`)
+      .set('If-Match', laterRead.headers.etag as string)
+      .send({ answers: identity(laterNid) });
+    expect(laterEdit.status).toBe(409);
+    expect(laterEdit.body.error.code).toBe('beneficiary.blocked');
+
+    // the application sent before the block goes on: the office edits, reviews and decides it
+    await moved(executive, sent, 'review');
+    const before = await at(executive, 'get', `/applications/${sent}`);
+    const changed = await at(executive, 'patch', `/applications/${sent}`)
+      .set('If-Match', before.headers.etag as string)
+      .send({
+        answers: [
+          ...identity(sentNid),
+          { fieldKey: 'q_note', value: { t: 'long_text', v: 'যাচাই করা হয়েছে' } },
+        ],
+      });
+    expect(changed.status, JSON.stringify(changed.body)).toBe(200);
+    await moved(executive, sent, 'send_for_approval');
+    const approved = await moved(rpm, sent, 'approve');
+    expect(approved.body.data.status).toBe('implementation');
+  });
+
   it('keeps the decision away from the official who brought the application, also after a return', async () => {
     const rpm = await as(world.users.rpmDhaka);
     const monitoring = await as(world.users.monitoring);

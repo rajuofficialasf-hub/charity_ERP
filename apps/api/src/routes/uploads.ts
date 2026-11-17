@@ -148,6 +148,7 @@ export function uploadsRouter(
       410: null,
       415: null,
       422: null,
+      503: null,
     },
     handler: async ({ params, req, res }) =>
       answer(res, await c.uploads.finalize(principalOf(req), scopeOf(req), params.uploadSessionId)),

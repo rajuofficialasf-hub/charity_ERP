@@ -1,15 +1,20 @@
 import { randomBytes } from 'node:crypto';
+import { z } from 'zod';
 import { uuidv7 } from '@css/shared';
 import type { PublicLinkConfig } from '@css/shared/forms';
 import { editableIn, projectStatusOf } from '@css/shared/projects';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Env } from '../config/env.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
+import { currentContext } from '../core/request-context.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
-import { readDefinition } from './forms.js';
+import { type FormsService, readDefinition } from './forms.js';
 import type { ProjectViewer, ProjectsService } from './projects.js';
 import { asksForFiles } from './public-link-rules.js';
+
+/** The part of a live link's stored settings the move check reads: the form it opens. */
+const LIVE_SETTINGS = z.object({ form_ids: z.array(z.string()).optional() });
 
 export interface PublicLinkView {
   enabled: boolean;
@@ -29,6 +34,7 @@ export class PublicLinkService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditWriter,
     private readonly projects: ProjectsService,
+    private readonly forms: FormsService,
   ) {}
 
   async configure(
@@ -49,7 +55,12 @@ export class PublicLinkService {
           throw new ApiError('validation.failed', 422, undefined, [
             { path: 'formId', code: 'validation.required' },
           ]);
+        // the link may open or move only for a caller who may edit the project's forms, the
+        // live one included, so nobody without that right learns the live form's name
+        if (!(await this.forms.editsFormsOf(viewer, projectId, tx)))
+          throw new ApiError('permission.denied', 403);
         formKey = await this.linkableForm(tx, projectId, body.formId);
+        if (!body.confirm) await this.assertNotMoving(tx, projectId, body.formId);
         token = randomBytes(32).toString('base64url');
         settings = { enabled: true, token, form_ids: [body.formId] };
       }
@@ -83,6 +94,30 @@ export class PublicLinkService {
         formId: body.enabled ? (body.formId ?? null) : null,
         url: token ? this.urlOf(token) : null,
       };
+    });
+  }
+
+  /**
+   * Refuses to move a link that is live on another form of the project until the caller confirms:
+   * 409 naming that form in the request's language, whose applicants lose the link they hold.
+   */
+  private async assertNotMoving(tx: Tx, projectId: string, formId: string): Promise<void> {
+    const live = await tx.projectComponent.findUnique({
+      where: { projectId_componentKey: { projectId, componentKey: 'public_link' } },
+      select: { enabled: true, settings: true },
+    });
+    if (!live?.enabled) return;
+    const liveId = LIVE_SETTINGS.safeParse(live.settings).data?.form_ids?.[0] ?? null;
+    if (liveId === null || liveId === formId) return;
+    const form = await tx.form.findUnique({
+      where: { id: liveId },
+      select: { id: true, titleBn: true, titleEn: true },
+    });
+    if (!form) return;
+    const locale = currentContext()?.locale ?? 'bn';
+    throw new ApiError('public_link.replaces_live', 409, {
+      formId: form.id,
+      form: locale === 'en' ? form.titleEn : form.titleBn,
     });
   }
 

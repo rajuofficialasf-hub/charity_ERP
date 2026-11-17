@@ -384,6 +384,42 @@ describe('the setup wizard', () => {
     expect(router.state.location.search).toBe('?step=basics');
   });
 
+  it('shows the saved settings when the dialog opens again before the list is read anew', async () => {
+    serve();
+    const saved = {
+      ...COMPONENTS[1]!,
+      settings: { criteria: criteria(4) },
+      etag: '"r2"',
+    };
+    // the list's second read never answers: the dialog opens again while it is on its way
+    let reads = 0;
+    const versions: (string | null)[] = [];
+    server.use(
+      http.patch(`*/api/v1/projects/${ID}/components/:key`, ({ request }) => {
+        versions.push(request.headers.get('If-Match'));
+        return HttpResponse.json({ data: saved, meta: {} });
+      }),
+      http.get(`*/api/v1/projects/${ID}/components`, async () => {
+        reads += 1;
+        if (reads > 1) await new Promise(() => undefined);
+        return HttpResponse.json({ data: COMPONENTS, meta: {} });
+      }),
+    );
+    const user = userEvent.setup();
+    open('components');
+    const settingsOf = 'রেটিংয়ের মানদণ্ড-এর সেটিংস';
+    await user.click(await screen.findByRole('button', { name: settingsOf }));
+    let dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: settingsOf }));
+    dialog = await screen.findByRole('dialog');
+    // four criteria now, so a fifth may be added, and the next save carries the new version
+    expect(within(dialog).getByRole('button', { name: 'যোগ করুন (সর্বোচ্চ 5)' })).toBeEnabled();
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() => expect(versions).toEqual(['"r1"', '"r2"']));
+  });
+
   it('refuses a sixth rating criterion and shows the server field error', async () => {
     serve();
     componentAnswer = {

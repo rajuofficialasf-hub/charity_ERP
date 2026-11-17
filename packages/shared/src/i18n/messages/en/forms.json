@@ -292,7 +292,10 @@
       "publish_first": "Publish the form before switching the link on.",
       "url": "Application link",
       "renew_note": "Switching the link off and on again makes a new link; the old one stops working.",
-      "load_failed": "The state of the link could not be loaded. Try again."
+      "load_failed": "The state of the link could not be loaded. Try again.",
+      "move_title": "Move the link?",
+      "move_message": "The public link is live on the form \"{form}\". Switching it to this form stops that link; anyone holding it can no longer apply.",
+      "move_confirm": "Yes, move the link"
     },
     "published_by": "Published by {name}, {when}",
     "changed_by": "Last changed by {name}, {when}",

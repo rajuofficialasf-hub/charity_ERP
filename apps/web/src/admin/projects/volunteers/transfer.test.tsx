@@ -84,7 +84,13 @@ function serve() {
     http.post(`*/api/v1/projects/${ID}/transfers`, async ({ request }) => {
       sent.push({ key: request.headers.get('Idempotency-Key'), body: await request.json() });
       return HttpResponse.json({
-        data: { batchId: id(70), moved: [id(31), id(32)], teamMoved: 0, overLimit: true },
+        data: {
+          batchId: id(70),
+          moved: [id(31), id(32)],
+          teamMoved: 0,
+          overLimit: true,
+          consentPending: true,
+        },
         meta: {},
       });
     }),
@@ -139,6 +145,8 @@ describe('the transfer', () => {
     await expectNoAxeViolations(view.container);
     await user.click(confirm);
     expect(await screen.findByText(/2টি আবেদন হস্তান্তর হয়েছে।/)).toBeInTheDocument();
+    // the new volunteer still has to accept the project's rules
+    expect(screen.getByText(/সম্মতি দেওয়ার পর আবেদনগুলো দেখতে পাবেন।/)).toBeInTheDocument();
     expect(sent).toHaveLength(1);
     expect(sent[0]!.key).toBeTruthy();
     expect(sent[0]!.body).toEqual({

@@ -514,6 +514,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         clock,
         beneficiaryMergeCandidates,
         matchKeys,
+        env,
       ),
     beneficiaryCorrections:
       o.beneficiaryCorrections ??
@@ -552,7 +553,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     mediaWorks,
     mediaHome: o.mediaHome ?? new MediaHomeService(env, prisma, access),
     readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
-    publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
+    publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects, forms),
     publicPhotos,
     publicForms:
       o.publicForms ??

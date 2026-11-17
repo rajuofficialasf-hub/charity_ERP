@@ -1,6 +1,6 @@
 import { expect, request as apiRequest, type Page } from '@playwright/test';
 import { apiAs } from './admin';
-import { choice, code, question } from './projects';
+import { choice, question, uniqueKey } from './projects';
 
 /**
  * The body of the self-reliance demo form, the part a journey does not build on the screen: the
@@ -152,7 +152,7 @@ export async function demoReadyForm(
   try {
     const builder = await apiAs(context, loginId);
     const made = await builder.post('/ready-forms', {
-      key: `e2e_${code().toLowerCase()}`,
+      key: uniqueKey('e2e'),
       title: { bn: title, en: 'Self-reliance application' },
       kind: 'beneficiary_application',
       source: { kind: 'blank' },

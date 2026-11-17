@@ -2011,12 +2011,13 @@ components:
       properties:
         data:
           type: object
-          required: [batchId, moved, teamMoved, overLimit]
+          required: [batchId, moved, teamMoved, overLimit, consentPending]
           properties:
             batchId: { $ref: '#/components/schemas/Uuid' }
             moved: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
             teamMoved: { type: integer }
             overLimit: { type: boolean, description: "The new volunteer now holds more applications than the project's limit; a warning, never a refusal (D-132)" }
+            consentPending: { type: boolean, description: "The new volunteer has not yet accepted the project's rules, so sees the moved applications only after that; a notice, never a refusal (D-179)" }
         meta: { $ref: '#/components/schemas/Meta' }
     TransferCandidateList:
       type: object
@@ -3715,6 +3716,9 @@ components:
           type: string
           format: uuid
           description: 'The one form the link opens: required while enabled; a form of this project with a published version and no file or signature field'
+        confirm:
+          type: boolean
+          description: 'Moves a link that is live on another form of the project; without it such an enable answers 409 public_link.replaces_live naming that form'
     PublicLinkView:
       type: object
       required: [enabled, formId, url]
@@ -8050,16 +8054,26 @@ paths:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.list
       summary: The merge proposals and merges of profiles in the caller scope, newest first
+      description: >-
+        Paged forward by cursor (a cursor serves only the filters it was made for); `mergeId` reads
+        one proposal or merge, as the comparison page does (D-179).
       x-permission: beneficiary.merge.dismiss
       x-scope: beneficiary
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
       parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
         - { name: status, in: query, required: false, schema: { type: string, enum: [proposed, merged, reverted] } }
+        - name: mergeId
+          in: query
+          required: false
+          description: Only this proposal or merge
+          schema: { $ref: '#/components/schemas/Uuid' }
       responses:
         '200':
-          description: At most 100 merges
+          description: A page of merges
           content:
             application/json:
               schema:
@@ -9722,7 +9736,7 @@ paths:
     get:
       tags: [forms]
       operationId: forms.version.get
-      summary: Get a form version (official-only sections absent without application.view_official_section)
+      summary: "Get a form version (official-only sections absent without application.view_official_section; an unpublished draft only for those who may edit the project's forms)"
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -9737,6 +9751,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FormVersionResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [forms]
@@ -9906,7 +9921,7 @@ paths:
     patch:
       tags: [forms]
       operationId: forms.publicLink.configure
-      summary: Enable or disable the public application link; every enable issues a fresh token
+      summary: Enable or disable the public application link; every enable issues a fresh token, and moving a live link to another form needs confirm
       x-permission: form.public_link.manage
       x-scope: project
       x-audit: form.public_link_change
@@ -9928,6 +9943,7 @@ paths:
                 properties:
                   data: { $ref: '#/components/schemas/PublicLinkView' }
                   meta: { $ref: '#/components/schemas/Meta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
@@ -9996,7 +10012,7 @@ paths:
     post:
       tags: [public]
       operationId: public.photo.upload
-      summary: Upload one photo of a public application before it is submitted (JPEG or PNG, at most 5 MB, metadata stripped; five per submission, a bounded number per link; swept after a day unless a submission claims it)
+      summary: Upload one photo of a public application before it is submitted (JPEG or PNG, at most 5 MB, metadata stripped; five per submission, a bounded share per sender and number per link; swept after a day unless a submission claims it)
       security: []
       x-permission: public
       x-scope: none
@@ -11517,6 +11533,7 @@ paths:
         '410': { $ref: '#/components/responses/Gone' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /files/{fileId}:
     parameters:
       - $ref: '#/components/parameters/FileId'
@@ -12046,6 +12063,7 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
     get:
       tags: [exports]
       operationId: exports.job.list

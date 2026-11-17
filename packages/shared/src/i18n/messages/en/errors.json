@@ -297,6 +297,9 @@
     "pipe_order": "The text repeats the answer of a question that comes later. Use an earlier question.",
     "table_invalid": "A number table needs at least one row and one column, each key once, at most 200 cells, and cannot sit inside a list."
   },
+  "public_link": {
+    "replaces_live": "The public link of this project is live on the form \"{form}\". Switching it to this form closes that link."
+  },
   "public": {
     "link_closed": "This link is not open for applications.",
     "form_unpublished": "The form of the link has no published version yet.",
@@ -304,6 +307,7 @@
     "configure_through_link": "The public link is switched on, and its form chosen, through its own setting.",
     "photo_limit": "At most 5 photos can be added to one application.",
     "link_full": "This link is holding too many photos right now. Try again later.",
+    "sender_full": "Too many photos are waiting from this connection. Try again later.",
     "photo_unknown": "This photo was not uploaded for this application.",
     "form_not_application": "Only a beneficiary application form can open through the public link."
   },

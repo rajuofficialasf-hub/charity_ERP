@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
-import { ApiFailure } from '../../api/client';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import {
   CARDS_KEY,
@@ -15,7 +14,7 @@ import {
   seriesWithEtag,
   updateSeries,
 } from './cards-api';
-import { CoverField, saveCover } from './CoverField';
+import { CoverField, coverProblemReason, saveCover } from './CoverField';
 import { PROJECTS_KEY } from './projects-api';
 
 type SeriesFields = {
@@ -156,7 +155,7 @@ export function SeriesDialog({
         await saveCover('project_series', saved.id, cover);
       } catch (failure) {
         coverProblem = tcover('failed', {
-          reason: failure instanceof ApiFailure ? failure.message : te('text'),
+          reason: coverProblemReason(failure, tcover('not_cleared'), te('text')),
         });
       }
     // the cards, the program's projects and this series show what is stored

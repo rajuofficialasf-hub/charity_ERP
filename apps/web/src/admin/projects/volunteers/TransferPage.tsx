@@ -203,6 +203,7 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
               })
             : t('done', { count: formatCount(result.moved.length, locale) })}
           {result.overLimit ? ` ${t('done_over_limit')}` : ''}
+          {result.consentPending ? ` ${t('done_consent_pending')}` : ''}
         </Alert>
       ) : null}
       <Card title={t('from_title')} headingLevel={2}>

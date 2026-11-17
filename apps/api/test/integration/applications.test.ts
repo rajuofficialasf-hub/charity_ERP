@@ -206,6 +206,25 @@ describe('creating a draft', () => {
     expect(twice.body.error.code).toBe('application.number_in_project');
   });
 
+  it('takes a new person past the day’s limit of lookups outside the area', async () => {
+    const official = await account(h.db, { kind: 'staff', role: 'regional_program_manager' });
+    accounts.set(official.id, official);
+    await h.db.query(
+      `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), project, world.dhaka.division, official.id],
+    );
+    const today = h.container.clock.now();
+    for (let i = 0; i < 20; i++)
+      await h.db.query(
+        `INSERT INTO audit_log (id, created_at, actor_user_id, action, entity_type, new)
+         VALUES (gen_random_uuid(), $1, $2, 'beneficiary.looked_up', 'beneficiary', '{"found": true, "outsideScope": true}')`,
+        [today, official.id],
+      );
+    // a number nobody holds is how a new person is entered, so the limit never stops it here
+    const made = await create(await as(official.id), createBody(identity()));
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+  });
+
   it('refuses a draft without the address, beyond the limit and outside the window', async () => {
     const s = await as(world.users.general);
     const answers = identity().filter((a) => a.fieldKey !== 'q_address');

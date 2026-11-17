@@ -40,7 +40,6 @@ const BN = {
   flipDetailsOf: '{title}: বিস্তারিত দেখুন',
   flipBack: 'ফিরুন',
   flipBackOf: 'সামনের দিকে ফিরুন',
-  flipHint: 'কার্সর রাখলে বিস্তারিত',
 };
 
 function renderCard(card: ReactNode) {
@@ -128,8 +127,7 @@ describe('turning on a touch screen and from the keyboard', () => {
     device('touch');
     const user = userEvent.setup();
     const { container } = renderCard(sample());
-    // a touch screen has no pointer to rest: no hint, the button instead
-    expect(screen.queryByText('কার্সর রাখলে বিস্তারিত')).not.toBeInTheDocument();
+    // a touch screen has no pointer to rest: the button
     const details = screen.getByRole('button', { name: 'স্বাবলম্বী প্রকল্প: বিস্তারিত দেখুন' });
     expect(details).toHaveTextContent('বিস্তারিত');
     await user.click(details);
@@ -153,8 +151,8 @@ describe('turning on a touch screen and from the keyboard', () => {
         <button type="button">পরের কার্ড</button>
       </UiProvider>
     );
-    // on a computer the hint stands in its place, and the button shows when the keyboard reaches it
-    expect(screen.getByText('কার্সর রাখলে বিস্তারিত')).toBeInTheDocument();
+    // on a computer no hint is written, and the button shows when the keyboard reaches it
+    expect(screen.queryByText('কার্সর রাখলে বিস্তারিত')).not.toBeInTheDocument();
     await user.tab();
     expect(screen.getByRole('button', { name: 'শীতবস্ত্র: বিস্তারিত দেখুন' })).toHaveFocus();
     await user.keyboard('{Enter}');
@@ -331,18 +329,21 @@ describe('the review of the card', () => {
     expect(screen.getByRole('article')).toHaveAttribute('data-turned', 'false');
   });
 
-  it('shows "বিস্তারিত" on a computer once a finger has touched the page, and the hint again after a mouse press', () => {
+  it('shows "বিস্তারিত" on a computer once a finger has touched the page, and hides it again after a mouse press', () => {
     device('computer');
     renderCard(sample());
-    expect(screen.getByText('কার্সর রাখলে বিস্তারিত')).toBeInTheDocument();
     fireEvent.pointerDown(document.body, { pointerType: 'touch' });
-    expect(screen.queryByText('কার্সর রাখলে বিস্তারিত')).not.toBeInTheDocument();
     const details = screen.getByRole('button', { name: 'স্বাবলম্বী প্রকল্প: বিস্তারিত দেখুন' });
     expect(getComputedStyle(details).position).toBe('relative');
     expect(getComputedStyle(details).clip).not.toBe('rect(0 0 0 0)');
     fireEvent.click(details);
     expect(screen.getByRole('article')).toHaveAttribute('data-turned', 'true');
     fireEvent.pointerDown(document.body, { pointerType: 'mouse' });
-    expect(screen.getByText('কার্সর রাখলে বিস্তারিত')).toBeInTheDocument();
+    // the front is behind the turned card now, so the button is read with the hidden elements
+    const hidden = screen.getByRole('button', {
+      name: 'স্বাবলম্বী প্রকল্প: বিস্তারিত দেখুন',
+      hidden: true,
+    });
+    expect(getComputedStyle(hidden).position).toBe('absolute');
   });
 });

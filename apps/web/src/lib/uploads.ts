@@ -1,7 +1,7 @@
 import { UPLOAD_RULES, type FileKind, type FileSource } from '@css/shared/files';
 import { isTransientStatus } from '@css/shared/sync';
 import { api, ApiFailure } from '../api/client';
-import type { UploadedFile, UploadSession } from '../api/schemas';
+import { type UploadedFile, uploadedFileSchema, type UploadSession } from '../api/schemas';
 
 export type { UploadedFile, UploadSession };
 
@@ -139,5 +139,40 @@ async function withRetries<T>(
       const asked = error instanceof ApiFailure ? error.retryAfter : undefined;
       await sleep(asked ? asked * 1000 : delay);
     }
+  }
+}
+
+/** How long a caller waits for the server's scan of a file it just stored, and how often it looks. */
+const SCAN_WAIT_MS = 30_000;
+const SCAN_POLL_MS = 1_000;
+
+/** The scan state a file's read answers, parsed at the boundary. */
+const scanStateSchema = uploadedFileSchema.pick({ virusScan: true });
+
+/** The scan of a stored file did not clear it: refused for good, or not done within the wait. */
+export class ScanNotCleared extends Error {
+  constructor(readonly state: UploadedFile['virusScan']) {
+    super(`file.scan_${state}`);
+    this.name = 'ScanNotCleared';
+  }
+}
+
+/**
+ * Waits until the server's scan of a file just stored has cleared it, reading the file's state
+ * every second, for a step that may take only a cleared file (a cover); throws `ScanNotCleared`
+ * when the scan refused the file or did not end within `SCAN_WAIT_MS`.
+ */
+export async function waitForScan(
+  stored: Pick<UploadedFile, 'id' | 'virusScan'>,
+  waitMs = SCAN_WAIT_MS,
+): Promise<void> {
+  const until = Date.now() + waitMs;
+  let state = stored.virusScan;
+  for (;;) {
+    if (state === 'clean' || state === 'skipped') return;
+    if (state === 'infected' || state === 'failed' || Date.now() >= until)
+      throw new ScanNotCleared(state);
+    await new Promise((resolve) => setTimeout(resolve, SCAN_POLL_MS));
+    state = scanStateSchema.parse(await api<unknown>(`/files/${stored.id}`)).virusScan;
   }
 }

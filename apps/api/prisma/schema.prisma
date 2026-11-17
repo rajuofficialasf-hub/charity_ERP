@@ -1343,6 +1343,7 @@ model Beneficiary {
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "beneficiaries_name_trgm_idx")
   @@index([fatherOrHusbandName(ops: raw("gin_trgm_ops"))], type: Gin, map: "beneficiaries_father_or_husband_name_trgm_idx")
   @@index([id], where: raw("merged_into_id IS NULL"), map: "beneficiaries_live_id_idx")
+  @@index([isBlocked, genderCode], where: raw("merged_into_id IS NULL"), map: "beneficiaries_live_block_gender_idx")
   @@index([id], where: raw("is_blocked AND merged_into_id IS NULL"), map: "beneficiaries_blocked_idx")
   @@index([unionId, nameKey, guardianKey], where: raw("merged_into_id IS NULL"), map: "beneficiaries_union_id_name_key_guardian_key_idx")
   @@index([unionId, villageKey], where: raw("merged_into_id IS NULL"), map: "beneficiaries_union_id_village_key_idx")
@@ -1906,6 +1907,9 @@ model Application {
   rejectionMessage                String?                   @map("rejection_message")
   /// which number identifies the person, written by the application service when it resolves the profile at submission
   identityKind                    String?                   @map("identity_kind")
+  /// the state and the outcome the application had when its project's close closed it; the reopen puts them back
+  closedFromStatus                String?                   @map("closed_from_status")
+  closedFromOutcome               String?                   @map("closed_from_outcome")
   deletedAt                       DateTime?                 @map("deleted_at") @db.Timestamptz(6)
   createdAt                       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy                       String?                   @map("created_by") @db.Uuid
@@ -1967,6 +1971,7 @@ model Application {
   @@index([updatedBy], map: "applications_updated_by_idx")
   @@index([projectId, totalScore(sort: Desc), id(sort: Desc)], map: "applications_project_id_total_score_id_idx")
   @@index([projectId, waitlistedAt], map: "applications_project_id_waitlisted_at_idx", where: raw("status = 'waitlisted'"))
+  @@index([projectId, status, beneficiaryId, approvedAt, outcome], map: "applications_project_help_idx")
   @@map("applications")
 }
 
@@ -3017,6 +3022,8 @@ model UploadSession {
   bytesReceived   BigInt   @default(0) @map("bytes_received")
   expiresAt       DateTime @map("expires_at") @db.Timestamptz(6)
   finalizedFileId String?  @map("finalized_file_id") @db.Uuid
+  /// a finalize holds the session until this moment, so a second one waits and the sweep leaves it
+  finalizingUntil DateTime? @map("finalizing_until") @db.Timestamptz(6)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy       String?  @map("created_by") @db.Uuid
   user            User     @relation("upload_sessions_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)

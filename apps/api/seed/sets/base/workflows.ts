@@ -1,59 +1,22 @@
-import { mergeWorkflowTemplates, type WorkflowDefinition } from '@css/shared';
-import { loadAccessRegistry } from '../../../src/access/registry.js';
-import { assertWorkflowNamesKnown } from '../../../src/workflow/registry.js';
+import {
+  deriveTransitions,
+  shippedWorkflowDefinitions,
+  workflowDefinitionId,
+  workflowTransitionId,
+} from '../../../src/workflow/template-sync.js';
 import { readWorkflowTemplates } from '../../../src/workflow/templates.js';
-import { json, type SeedContext, seedId } from '../../context.js';
+import { json, type SeedContext } from '../../context.js';
 
-export { readWorkflowTemplates };
+export { deriveTransitions, readWorkflowTemplates };
 
 /**
  * Workflow definitions from docs/architecture/workflow-templates/
  * (docs/architecture/WORKFLOW_ENGINE.md, "Versioning and snapshots"): each template merged with its
  * extends chain and validated, stored in workflow_definitions, and its transitions derived into
  * workflow_transitions for querying. A template change needs a new version: workflow_transitions is
- * append-only, so a changed row of the same version fails.
+ * append-only, so a changed row of the same version fails. The production sync of
+ * `src/workflow/template-sync.ts` gives the rows the same ids.
  */
-interface TransitionRow {
-  scope: 'application' | 'stage' | 'project' | 'donor_flow' | 'field_unlock';
-  from: string | null;
-  to: string;
-  permission: string | null;
-  guards: string[];
-  effects: string[];
-}
-
-type AnyTransition = {
-  from?: string | string[] | null;
-  to: string;
-  permission?: string;
-  guards?: string[];
-  effects?: string[];
-};
-
-function rows(scope: TransitionRow['scope'], list: AnyTransition[] | undefined): TransitionRow[] {
-  return (list ?? []).flatMap((t) => {
-    const froms = Array.isArray(t.from) ? t.from : [t.from ?? null];
-    return froms.map((from) => ({
-      scope,
-      from,
-      to: t.to,
-      permission: t.permission ?? null,
-      guards: t.guards ?? [],
-      effects: t.effects ?? [],
-    }));
-  });
-}
-
-export function deriveTransitions(def: WorkflowDefinition): TransitionRow[] {
-  return [
-    ...rows('application', def.transitions),
-    ...rows('stage', def.stage_transitions),
-    ...rows('project', def.project_lifecycle?.transitions),
-    ...rows('donor_flow', def.donor_flow?.transitions),
-    ...Object.values(def.sub_workflows ?? {}).flatMap((s) => rows('field_unlock', s.transitions)),
-  ];
-}
-
 /** The version the seed stores for a template, so a project of the demo binds the current one. */
 export function workflowVersionOf(key: string): number {
   const template = readWorkflowTemplates().find((t) => t.template === key);
@@ -62,12 +25,8 @@ export function workflowVersionOf(key: string): number {
 }
 
 export async function seedWorkflows(ctx: SeedContext): Promise<void> {
-  const templates = readWorkflowTemplates();
-  const definitions = templates.map((t) => mergeWorkflowTemplates(t.template, templates));
-  // a template may name only guards, effects and permissions that exist
-  assertWorkflowNamesKnown(definitions, loadAccessRegistry().isKnownPermission);
-  for (const def of definitions) {
-    const definitionId = seedId(`workflow:${def.template}:${def.version}`);
+  for (const def of shippedWorkflowDefinitions()) {
+    const definitionId = workflowDefinitionId(def.template, def.version);
     await ctx.upsert('workflow_definitions', {
       id: definitionId,
       key: def.template,
@@ -80,9 +39,7 @@ export async function seedWorkflows(ctx: SeedContext): Promise<void> {
     });
     for (const [index, r] of deriveTransitions(def).entries()) {
       await ctx.upsert('workflow_transitions', {
-        id: seedId(
-          `workflow-transition:${def.template}:${def.version}:${index}:${r.scope}:${r.from ?? '-'}:${r.to}`,
-        ),
+        id: workflowTransitionId(def, index, r),
         workflow_definition_id: definitionId,
         scope: r.scope,
         from_state: r.from,

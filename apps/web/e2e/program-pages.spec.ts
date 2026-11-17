@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, request as apiRequest, test } from '@playwright/test';
 import { apiAs, openProjectsTab, scan, signIn } from './support/admin';
+import { TINY_PNG } from './support/offline';
 import { chooseIn, code, next, section, state } from './support/projects';
 
 // A program's page with its permanent projects as cards and a project's page with its sessions,
@@ -14,6 +15,7 @@ const HEAD = 'head@example.org';
 const UCD_NAME = 'আন্ডারপ্রিভিলেজড কমিউনিটি ডেভেলপমেন্ট প্রোগ্রাম';
 /** The program of the demo seed's one project (WNT). */
 const HUM_NAME = 'হিউম্যানিটেরিয়ান প্রোগ্রাম';
+const ERR_NAME = 'ইমার্জেন্সি রেসপন্স অ্যান্ড রিহ্যাবিলিটেশন প্রোগ্রাম';
 const PHONE_NOTICE = 'এই পর্দা বড় স্ক্রিনে ভালো চলে।';
 
 /** Types a month into a month field (mm then yyyy). */
@@ -159,41 +161,73 @@ test.describe('a program’s page and a project’s page', () => {
     expect((await scan(page)).violations).toEqual([]);
   });
 
-  test('a program card shows its short description on the front in two lines', async ({
+  test('a program cover chosen in the program dialog shows on its card once processed', async ({
     page,
   }, info) => {
-    // the demo seed's programs have no description: the cards' read gets a long one
-    const long =
-      'প্রতি বছর শীতবস্ত্র, ইফতার, কুরবানির গোশত, নিরাপদ পানি ও বৃক্ষরোপণের মাধ্যমে দেশের নানা প্রান্তের অসহায় মানুষের পাশে দাঁড়ানো হয়।';
-    await page.route('**/api/v1/program-cards', async (route) => {
-      const response = await route.fetch();
-      const body = (await response.json()) as { data: { name: { bn: string } }[] };
-      for (const card of body.data) {
-        if (card.name.bn === HUM_NAME) Object.assign(card, { description: { bn: long, en: '' } });
-      }
-      await route.fulfill({ response, json: body });
-    });
-    if (info.project.name === 'mobile') await page.setViewportSize({ width: 360, height: 780 });
+    test.skip(info.project.name !== 'desktop', 'one program, one cover');
+    test.setTimeout(120_000);
     await signIn(page, HEAD);
     await openProjectsTab(page);
-    const program = page.getByRole('article', { name: HUM_NAME });
-    const front = program.locator('[data-face="front"]');
-    const text = front.getByText(long);
-    await expect(text).toBeVisible();
-    // two lines at most, and the figures stay inside the front, under the description
-    const lines = await text.evaluate((el) => {
-      const style = getComputedStyle(el);
-      return el.getBoundingClientRect().height / parseFloat(style.lineHeight);
+    // the ERR program: the other journeys of this file read the cards of HUM and UCD
+    const card = page.getByRole('article', { name: ERR_NAME });
+    await card.hover();
+    await card.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog
+      .getByLabel('গ্যালারি থেকে নিন')
+      .setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: TINY_PNG });
+    await dialog.getByRole('button', { name: 'সংরক্ষণ' }).click();
+    await expect(dialog).toHaveCount(0);
+    // the worker scans the file and makes its thumbnail; the card shows it once both are done
+    await expect(async () => {
+      await page.reload();
+      await expect(
+        page.getByRole('article', { name: ERR_NAME }).getByTestId('card-cover-photo'),
+      ).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
+  });
+
+  test.describe('with the cards read changed', () => {
+    // a request the app's service worker makes is not seen by the page's routes, so these pages
+    // run without it
+    test.use({ serviceWorkers: 'block' });
+
+    test('a program card shows its short description on the front in two lines', async ({
+      page,
+    }, info) => {
+      // the demo seed's programs have no description: the cards' read gets a long one
+      const long =
+        'প্রতি বছর শীতবস্ত্র, ইফতার, কুরবানির গোশত, নিরাপদ পানি ও বৃক্ষরোপণের মাধ্যমে দেশের নানা প্রান্তের অসহায় মানুষের পাশে দাঁড়ানো হয়।';
+      await page.route('**/api/v1/program-cards', async (route) => {
+        const response = await route.fetch();
+        const body = (await response.json()) as { data: { name: { bn: string } }[] };
+        for (const card of body.data) {
+          if (card.name.bn === HUM_NAME) Object.assign(card, { description: { bn: long, en: '' } });
+        }
+        await route.fulfill({ response, json: body });
+      });
+      if (info.project.name === 'mobile') await page.setViewportSize({ width: 360, height: 780 });
+      await signIn(page, HEAD);
+      await openProjectsTab(page);
+      const program = page.getByRole('article', { name: HUM_NAME });
+      const front = program.locator('[data-face="front"]');
+      const text = front.getByText(long);
+      await expect(text).toBeVisible();
+      // two lines at most, and the figures stay inside the front, under the description
+      const lines = await text.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return el.getBoundingClientRect().height / parseFloat(style.lineHeight);
+      });
+      expect(Math.round(lines)).toBeLessThanOrEqual(2);
+      const figures = await front.locator('.card-figures').boundingBox();
+      const face = await front.boundingBox();
+      const said = await text.boundingBox();
+      expect(figures && face && said).toBeTruthy();
+      expect(figures!.y).toBeGreaterThanOrEqual(said!.y + said!.height);
+      expect(figures!.y + figures!.height).toBeLessThanOrEqual(face!.y + face!.height);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await pictures(page, (n) => info.outputPath(n), `program-description-${info.project.name}`);
     });
-    expect(Math.round(lines)).toBeLessThanOrEqual(2);
-    const figures = await front.locator('.card-figures').boundingBox();
-    const face = await front.boundingBox();
-    const said = await text.boundingBox();
-    expect(figures && face && said).toBeTruthy();
-    expect(figures!.y).toBeGreaterThanOrEqual(said!.y + said!.height);
-    expect(figures!.y + figures!.height).toBeLessThanOrEqual(face!.y + face!.height);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await pictures(page, (n) => info.outputPath(n), `program-description-${info.project.name}`);
   });
 
   test('the Head turns a project card on a phone and reads the sessions as cards', async ({
@@ -214,6 +248,14 @@ test.describe('a program’s page and a project’s page', () => {
     await card.getByRole('button', { name: /বিস্তারিত দেখুন$/ }).click();
     await expect(card).toHaveAttribute('data-turned', 'true');
     await expect(card.getByRole('link', { name: 'প্রকল্প খুলুন' })).toBeVisible();
+    // the back holds what it says without a scroll of its own, at 360 px too
+    const scrolling = await card.locator('[data-face="back"]').evaluate((back) =>
+      [back, ...back.querySelectorAll('*')]
+        .filter((el) => el.scrollHeight > el.clientHeight + 1)
+        .filter((el) => ['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+        .map((el) => `${el.tagName}.${el.className}:${el.scrollHeight}/${el.clientHeight}`),
+    );
+    expect(scrolling).toEqual([]);
     await card.scrollIntoViewIfNeeded();
     await pictures(page, (n) => info.outputPath(n), 'program-360-back');
     await card.getByRole('button', { name: 'সামনের দিকে ফিরুন' }).click();

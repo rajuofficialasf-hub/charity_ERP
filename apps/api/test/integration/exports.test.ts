@@ -662,6 +662,47 @@ describe('the download of an export', () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 
+  it('is refused once the requester no longer sees a protected field the file holds', async () => {
+    const me = await official();
+    const job = await finished(me.s, ['name', 'father']);
+    expect((await at(me.s, 'get', `/files/${job.fileId}/content`)).status).toBe(200);
+    // the finance team still exports lists, but never sees a beneficiary's personal details
+    await h.db.query(`UPDATE user_roles SET role_key = 'finance_team' WHERE user_id = $1`, [me.id]);
+    const principal = await principalOf(h.db, me.id);
+    await expect(
+      exportDownload(h.container.prisma, h.container.access, principal, job.fileId),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('is refused once the requester no longer reaches the records the file holds', async () => {
+    const rpm = await account(h.db, { role: 'regional_program_manager' });
+    accounts.set(rpm.id, rpm);
+    const area = randomUUID();
+    await h.db.query(
+      `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+      [area, world.a1.id, world.dhaka.division, rpm.id],
+    );
+    const s = await login(h, rpm);
+    const made = await at(s, 'post', '/exports').send({
+      kind: 'applications',
+      format: 'csv',
+      columns: ['app_no'],
+      filters: {},
+      projectId: world.a1.id,
+    });
+    expect(made.status, JSON.stringify(made.body)).toBe(202);
+    await runner().run(made.body.data.id, 0);
+    const done = (await at(s, 'get', `/exports/${made.body.data.id}`)).body.data;
+    expect(done).toMatchObject({ status: 'done', rowCount: 3 });
+    expect((await at(s, 'get', `/files/${done.fileId}/content`)).status).toBe(200);
+    // the region is taken from the RPM: the applications of the file are out of their reach
+    await h.db.query('DELETE FROM project_areas WHERE id = $1', [area]);
+    const principal = await principalOf(h.db, rpm.id);
+    await expect(
+      exportDownload(h.container.prisma, h.container.access, principal, done.fileId),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
   it('has no thumbnail, and answers 404 without a trace when its object is missing', async () => {
     const me = await official();
     const job = await finished(me.s, ['name', 'nid']);

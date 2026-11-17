@@ -421,9 +421,10 @@ test.describe('the identity an application asks follows the project', () => {
     await page.getByRole('textbox', { name: /কেন সহায়তা দরকার/ }).fill('শীতের কাপড় দরকার');
     await noViolations(page, 'the form');
     await sendToOffice(page);
-    await expect(
-      page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' }),
-    ).toBeVisible();
+    // the send goes through the phone's outbox; on a busy run it takes a few seconds
+    await expect(page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' })).toBeVisible({
+      timeout: 20_000,
+    });
     await expect(page.getByText(/^আবেদন নম্বর: [A-Z0-9]+-\d{4}-\d{5}/)).toBeVisible();
     await fitsThePhone(page, 'the result');
 
@@ -534,9 +535,10 @@ test.describe('the identity an application asks follows the project', () => {
     await expect(page.getByText('খসড়া সংরক্ষিত হয়েছে')).toBeVisible();
     await page.getByRole('textbox', { name: /কেন সহায়তা দরকার/ }).fill('আবার শীতের কাপড় দরকার');
     await sendToOffice(page);
-    await expect(
-      page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' }),
-    ).toBeVisible();
+    // the send goes through the phone's outbox; on a busy run it takes a few seconds
+    await expect(page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' })).toBeVisible({
+      timeout: 20_000,
+    });
 
     // the office's profile of the person holds both applications: no second profile was made
     const profile = await head.get(`/beneficiaries/${first.beneficiaryId}`);

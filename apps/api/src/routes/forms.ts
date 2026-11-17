@@ -243,13 +243,13 @@ export function formsRouter(
     path: '/form-versions/:versionId',
     operationId: 'forms.version.get',
     summary:
-      'Get a form version (official-only sections absent without application.view_official_section)',
+      "Get a form version (official-only sections absent without application.view_official_section; an unpublished draft only for those who may edit the project's forms)",
     permission: 'project.view',
     scope: 'project',
     audit: 'none',
     sensitiveFields: ['application.official_section'],
     params: versionParams,
-    responses: { 200: versionView, 404: null },
+    responses: { 200: versionView, 403: null, 404: null },
     handler: async ({ params, req, res }) =>
       withEtag(await c.forms.read(viewerOf(req), params.versionId), res),
   });
@@ -372,13 +372,14 @@ export function formsRouter(
     method: 'patch',
     path: '/projects/:projectId/public-link',
     operationId: 'forms.publicLink.configure',
-    summary: 'Enable or disable the public application link; every enable issues a fresh token',
+    summary:
+      'Enable or disable the public application link; every enable issues a fresh token, and moving a live link to another form needs confirm',
     permission: 'form.public_link.manage',
     scope: 'project',
     audit: 'form.public_link_change',
     params: { projectId: uuid },
     body: publicLinkConfigSchema,
-    responses: { 200: publicLinkView, 404: null, 409: null, 422: null },
+    responses: { 200: publicLinkView, 403: null, 404: null, 409: null, 422: null },
     handler: async ({ params, body, req }) =>
       ok(await c.publicLink.configure(viewerOf(req), params.projectId, body)),
   });

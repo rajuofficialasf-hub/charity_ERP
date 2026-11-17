@@ -15,7 +15,8 @@ import type { ApplicationsService } from '../applications/service.js';
 import { applicationFilterSchema } from '../applications/view.js';
 import type { Principal } from '../auth/principal.js';
 import type { Clock } from '../core/clock.js';
-import type { PrismaService } from '../core/prisma.service.js';
+import { boundedRead } from '../core/bounded-read.js';
+import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { BeneficiariesService } from '../services/beneficiaries.js';
@@ -88,7 +89,7 @@ export interface FreezeInput {
 }
 
 /** The read permission of each list: an export reaches only the rows its list shows. */
-const READ_PERMISSION: Readonly<Record<ExportList, string>> = {
+export const READ_PERMISSION: Readonly<Record<ExportList, string>> = {
   volunteers: 'volunteer.view_all',
   beneficiaries: 'beneficiary.view_all',
   applications: 'application.view',
@@ -119,7 +120,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * The classes a row carries only inside a scope, by list: the permission that shows them on
  * screen, and the export permission that lets them leave in a file.
  */
-const REACHED: Readonly<
+export const REACHED: Readonly<
   Record<ExportList, { classes: string[]; view: string | null; exported: string }[]>
 > = {
   volunteers: [
@@ -145,14 +146,14 @@ const REACHED: Readonly<
   ],
 };
 
-const ENTITY: Readonly<Record<ExportList, 'volunteer' | 'beneficiary' | 'application'>> = {
+export const ENTITY: Readonly<Record<ExportList, 'volunteer' | 'beneficiary' | 'application'>> = {
   volunteers: 'volunteer',
   beneficiaries: 'beneficiary',
   applications: 'application',
 };
 
 /** The records of a list a scope reaches, as a filter of that list. */
-function whereOf(list: ExportList, scope: Scope): unknown {
+export function whereOf(list: ExportList, scope: Scope): unknown {
   if (list === 'volunteers') return volunteerWhere(scope);
   if (list === 'beneficiaries') return beneficiaryWhere(scope);
   return applicationWhere(scope);
@@ -265,13 +266,8 @@ export class ExportRows {
 
   /** How many rows the frozen query selects now. */
   async count(frozen: FrozenList): Promise<number> {
-    if (frozen.kind === 'volunteers')
-      return this.prisma.volunteer.count({ where: frozen.where as Prisma.VolunteerWhereInput });
-    if (frozen.kind === 'beneficiaries')
-      return this.prisma.beneficiary.count({
-        where: frozen.where as Prisma.BeneficiaryWhereInput,
-      });
-    return this.prisma.application.count({ where: frozen.where as Prisma.ApplicationWhereInput });
+    // under the time limit of the list reads: a heavy filter answers 503, never holds the database
+    return boundedRead(this.prisma, (tx) => countOf(tx, frozen.kind, frozen.where));
   }
 
   /** The next rows after a cursor (the first ones without), masked, and where the next batch starts. */
@@ -579,4 +575,13 @@ function parsed<T>(schema: z.ZodType<T>, filters: Record<string, unknown>): T {
  */
 function asJson(where: unknown): unknown {
   return JSON.parse(JSON.stringify(where)) as unknown;
+}
+
+/** The rows a frozen query of a list selects, counted in the caller's transaction. */
+export function countOf(tx: Tx, list: ExportList, where: unknown): Promise<number> {
+  if (list === 'volunteers')
+    return tx.volunteer.count({ where: where as Prisma.VolunteerWhereInput });
+  if (list === 'beneficiaries')
+    return tx.beneficiary.count({ where: where as Prisma.BeneficiaryWhereInput });
+  return tx.application.count({ where: where as Prisma.ApplicationWhereInput });
 }

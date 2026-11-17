@@ -112,7 +112,7 @@ transitions:
     auto: true
     trigger: project.closed
     effects: [outcome.set:per_template_default, lock:fields, lock:photos, lock:vouchers, audit:application.closed]
-    note: "O-49: every unfinished application is closed with its prior state recorded in workflow_transitions; applications still in implementation receive the template's not-delivered outcome and no cost (BD-23); project reopen restores the prior states"
+    note: "O-49: every unfinished application is closed with its prior state kept on its row (closed_from_status, closed_from_outcome); applications still in implementation receive the template's not-delivered outcome and no cost (BD-23); project reopen restores the prior states"
 
 sub_workflows:
   field_unlock:

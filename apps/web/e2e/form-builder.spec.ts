@@ -99,8 +99,18 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     await ownQuestion(page, 'অংশ 1', type, label, options);
     await mark(page, role);
   }
-  // Publish does not ask while something is left: it opens the list, which names the role
   await saved(page);
+  // the save state stays in view while the form scrolls under it, the page title gone above
+  // (from the top, a short way: the shell's menu makes the page longer than the form)
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.mouse.move(640, 500);
+  await page.mouse.wheel(0, 600);
+  await expect(page.getByRole('heading', { level: 1 })).not.toBeInViewport();
+  await expect(
+    page.getByTestId('form-head').getByText('সংরক্ষিত', { exact: true }),
+  ).toBeInViewport();
+  await page.mouse.wheel(0, -600);
+  // Publish does not ask while something is left: it opens the list, which names the role
   await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
   const fixes = page.getByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' });
   await expect(fixes.getByText('পরিচয়ের প্রশ্ন বাকি: গ্রাম', { exact: true })).toBeVisible();
@@ -324,12 +334,14 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
       await expect(rpm.getByText('হ্যাঁ', { exact: true }).first()).toBeVisible();
       await expect(rpm.getByText('না, ভাড়া থাকি')).toHaveCount(0);
       await rpm.getByRole('button', { name: 'যাচাই করুন' }).click();
-      // a new number: the dialog offers a new profile from the entry. The creation itself is
-      // left out here: the gender of this builder-made form carries codes of its own that the
-      // profile refuses (docs/STATUS.md, "Known issues / risks"); the API tests create from an entry.
+      // a new number: the dialog offers a new profile from the entry, which the profile takes,
+      // since the form's gender question carries the gender list's own codes
       const verify = rpm.getByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
       await expect(verify.getByText('এন্ট্রির তথ্য দিয়ে নতুন প্রোফাইল তৈরি হবে।')).toBeVisible();
-      await expect(verify.getByRole('button', { name: 'তৈরি করুন' })).toBeEnabled();
+      await verify.getByRole('button', { name: 'তৈরি করুন' }).click();
+      await expect(verify).toBeHidden();
+      await expect(rpm.getByRole('button', { name: 'যাচাই করুন' })).toHaveCount(0);
+      await expect(rpm.getByRole('alert')).toHaveCount(0);
     } finally {
       await office.close();
     }

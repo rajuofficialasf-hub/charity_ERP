@@ -14,7 +14,8 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
-import { volunteer } from './support/fixtures.js';
+import { recountHelp } from '../../src/services/help-history.js';
+import { application, beneficiary, volunteer } from './support/fixtures.js';
 import { publishedForm, publishedReadyForm } from './support/forms.js';
 import { notificationsOf } from './support/notifications.js';
 import { draftProject } from './support/projects.js';
@@ -390,6 +391,125 @@ describe('closing and reopening', () => {
     ]);
     expect(await audit(id, 'project.closing')).toHaveLength(2);
     expect(await audit(id, 'project.close')).toHaveLength(1);
+  });
+
+  it("closes the project's unfinished applications and gives them back their states at the reopen", async () => {
+    const pm = await as(world.users.pm);
+    const id = await activated();
+    const {
+      rows: [version],
+    } = await h.db.query<{ id: string }>(
+      `SELECT v.id FROM form_versions v JOIN forms f ON f.id = v.form_id
+        WHERE f.project_id = $1 AND v.status = 'published'`,
+      [id],
+    );
+    const ctx = { project: { id, formVersion: version!.id }, loc: world.dhaka } as Parameters<
+      typeof application
+    >[1];
+    const approvedAt = new Date('2026-11-01T06:00:00Z');
+    const person = () => beneficiary(h.db, world.dhaka);
+    const people = {
+      submitted: await person(),
+      approved: await person(),
+      implementation: await person(),
+      rejected: await person(),
+    };
+    const apps = {
+      draft: await application(h.db, ctx, { status: 'draft' }),
+      submitted: await application(h.db, ctx, { beneficiary_id: people.submitted }),
+      approved: await application(h.db, ctx, {
+        beneficiary_id: people.approved,
+        status: 'approved',
+        approved_at: approvedAt,
+      }),
+      implementation: await application(h.db, ctx, {
+        beneficiary_id: people.implementation,
+        status: 'implementation',
+        approved_at: approvedAt,
+      }),
+      rejected: await application(h.db, ctx, {
+        beneficiary_id: people.rejected,
+        status: 'rejected',
+      }),
+    };
+    await h.container.prisma.$transaction((tx) => recountHelp(tx, Object.values(people)));
+    const helped = async () => {
+      const { rows } = await h.db.query<{ id: string; help_count: number }>(
+        'SELECT id, help_count FROM beneficiaries WHERE id = ANY($1::uuid[])',
+        [Object.values(people)],
+      );
+      return Object.fromEntries(
+        Object.entries(people).map(([k, pid]) => [k, rows.find((r) => r.id === pid)!.help_count]),
+      );
+    };
+    const states = async () => {
+      const { rows } = await h.db.query<{ id: string; status: string; outcome: string | null }>(
+        'SELECT id, status, outcome FROM applications WHERE id = ANY($1::uuid[])',
+        [Object.values(apps)],
+      );
+      return Object.fromEntries(
+        Object.entries(apps).map(([k, aid]) => {
+          const r = rows.find((x) => x.id === aid)!;
+          return [k, { status: r.status, outcome: r.outcome }];
+        }),
+      );
+    };
+    const before = await states();
+    const helpedBefore = await helped();
+    expect(helpedBefore).toEqual({ submitted: 0, approved: 1, implementation: 1, rejected: 0 });
+
+    const act = async (path: string, reason: string) =>
+      at(pm, `/projects/${id}/${path}`)
+        .set('If-Match', await etag(pm, id))
+        .send({ reason });
+    expect((await act('start-closing', 'কাজ শেষ')).status).toBe(200);
+    // the closing step moves no application yet
+    expect(await states()).toEqual(before);
+    const closedRes = await act('close', 'কাজ শেষ');
+    expect(closedRes.status, JSON.stringify(closedRes.body)).toBe(200);
+    expect(await states()).toEqual({
+      draft: { status: 'closed', outcome: null },
+      submitted: { status: 'closed', outcome: null },
+      approved: { status: 'closed', outcome: null },
+      // never delivered: the distribution template's not-delivered outcome
+      implementation: { status: 'closed', outcome: 'not_distributed' },
+      rejected: { status: 'rejected', outcome: null },
+    });
+    // an application approved before the close still counts; one never delivered does not
+    expect(await helped()).toEqual({ submitted: 0, approved: 1, implementation: 0, rejected: 0 });
+    const closedAudit = await audit(apps.implementation, 'application.closed');
+    expect(closedAudit).toHaveLength(1);
+    expect(closedAudit[0]!.old).toEqual({ status: 'implementation', outcome: null });
+    expect(closedAudit[0]!.new).toMatchObject({
+      status: 'closed',
+      outcome: 'not_distributed',
+      automatic: true,
+      locked: true,
+    });
+    expect(await audit(apps.rejected, 'application.closed')).toEqual([]);
+
+    expect((await act('reopen', 'আরও বিতরণ')).status).toBe(200);
+    expect(await states()).toEqual(before);
+    expect(await helped()).toEqual(helpedBefore);
+    const reopenedAudit = await audit(apps.implementation, 'application.reopened');
+    expect(reopenedAudit).toHaveLength(1);
+    expect(reopenedAudit[0]!.old).toEqual({ status: 'closed', outcome: 'not_distributed' });
+    expect(reopenedAudit[0]!.new).toEqual({
+      status: 'implementation',
+      outcome: null,
+      automatic: true,
+    });
+    const { rows: kept } = await h.db.query(
+      `SELECT count(*)::int AS n FROM applications
+        WHERE project_id = $1 AND (closed_from_status IS NOT NULL OR closed_from_outcome IS NOT NULL)`,
+      [id],
+    );
+    expect(kept[0]).toEqual({ n: 0 });
+
+    // a reopen from the closing step finds nothing closed and moves nothing
+    expect((await act('start-closing', 'আবার শেষ')).status).toBe(200);
+    expect((await act('reopen', 'আরও কাজ')).status).toBe(200);
+    expect(await states()).toEqual(before);
   });
 
   it('refuses to reopen a draft', async () => {

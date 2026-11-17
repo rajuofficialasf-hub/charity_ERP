@@ -91,6 +91,16 @@ export const PROJECT_ROLES: readonly string[] = ADMIN_ROLES;
  */
 export const PROJECT_OVERVIEW_ROLES: readonly string[] = ADMIN_ROLES;
 
+/**
+ * Who opens the tab at all: the overview roles, and the Procurement Team, which sees only the list
+ * of the house-construction sessions it is attached to (`project.view` with that condition), and
+ * from a session only its applications.
+ */
+export const PROJECT_LIST_ROLES: readonly string[] = [
+  ...PROJECT_OVERVIEW_ROLES,
+  'procurement_team',
+];
+
 /** Who creates a draft project (`project.create`: the PM in its program, and the global roles). */
 export const PROJECT_CREATE_ROLES: readonly string[] = PROGRAM_ROLES;
 
@@ -259,6 +269,7 @@ export const canSeePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ROLES
 export const canManagePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ADMIN_ROLES);
 export const canSeeProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_ROLES);
 export const canSeeProjectOverview = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_OVERVIEW_ROLES);
+export const canListProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_LIST_ROLES);
 export const canCreateProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_CREATE_ROLES);
 export const canAssignVolunteers = (me: Pick<Me, 'roles'>) => holds(me, ASSIGN_ROLES);
 
@@ -315,7 +326,7 @@ export const FORM_PLACE_ROLES: readonly string[] = [
 export const canPlaceForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_PLACE_ROLES);
 
 /** Who opens a project's applications: every official holding `application.view` (the server scopes the rows). */
-export const APPLICATION_ROLES: readonly string[] = ADMIN_ROLES;
+export const APPLICATION_ROLES: readonly string[] = [...ADMIN_ROLES, 'procurement_team'];
 export const canSeeApplications = (me: Pick<Me, 'roles'>) => holds(me, APPLICATION_ROLES);
 
 /**

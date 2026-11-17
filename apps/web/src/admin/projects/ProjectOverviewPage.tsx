@@ -9,7 +9,12 @@ import { PageCrumbs } from '../../components/shell/breadcrumb';
 import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { canCreateProjects, canSeeProjects } from '../roles';
+import {
+  canCreateProjects,
+  canListProjects,
+  canSeeProjectOverview,
+  canSeeProjects,
+} from '../roles';
 import { SaveTemplateDialog } from '../templates/SaveTemplateDialog';
 import { CARDS_KEY, programCards } from './cards-api';
 import { LifecycleActions } from './LifecycleActions';
@@ -37,7 +42,11 @@ export function ProjectOverviewPage() {
   const notice = (location.state as { notice?: string } | null)?.notice;
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<string>();
-  const allowed = Boolean(me && canSeeProjects(me));
+  // the Procurement Team reads its house-construction sessions too, and opens only their
+  // applications from here
+  const allowed = Boolean(me && canListProjects(me));
+  const manager = Boolean(me && canSeeProjects(me));
+  const overview = Boolean(me && canSeeProjectOverview(me));
   const one = useQuery({
     queryKey: [...PROJECTS_KEY, 'one', projectId],
     queryFn: () => projectWithEtag(projectId),
@@ -47,7 +56,7 @@ export function ProjectOverviewPage() {
   const cards = useQuery({
     queryKey: [...CARDS_KEY, 'programs'],
     queryFn: programCards,
-    enabled: allowed,
+    enabled: overview,
   });
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
@@ -83,8 +92,13 @@ export function ProjectOverviewPage() {
                 },
               ]
             : []),
+          // the project's page belongs to the overview; the Procurement Team sees its name only
           ...(p.seriesId
-            ? [{ id: 'series', label: name, href: `/admin/projects/series/${p.seriesId}` }]
+            ? [
+                overview
+                  ? { id: 'series', label: name, href: `/admin/projects/series/${p.seriesId}` }
+                  : { id: 'series', label: name },
+              ]
             : []),
           { id: 'session', label: t('list.session', { label: p.sessionLabel }) },
         ]}
@@ -118,12 +132,16 @@ export function ProjectOverviewPage() {
         headingLevel={2}
         action={
           <>
-            <LinkButton variant="secondary" to={`/admin/projects/${p.id}/setup`}>
-              {t('detail.setup')}
-            </LinkButton>
-            <LinkButton variant="secondary" to={`/admin/projects/${p.id}/volunteers`}>
-              {t('volunteers.open')}
-            </LinkButton>
+            {manager && (
+              <>
+                <LinkButton variant="secondary" to={`/admin/projects/${p.id}/setup`}>
+                  {t('detail.setup')}
+                </LinkButton>
+                <LinkButton variant="secondary" to={`/admin/projects/${p.id}/volunteers`}>
+                  {t('volunteers.open')}
+                </LinkButton>
+              </>
+            )}
             <LinkButton variant="secondary" to={`/admin/projects/${p.id}/applications`}>
               {t('detail.applications')}
             </LinkButton>

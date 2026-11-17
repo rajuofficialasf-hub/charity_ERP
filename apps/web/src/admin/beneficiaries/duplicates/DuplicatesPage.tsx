@@ -11,7 +11,7 @@ import {
   Tabs,
   type DataTableExtendedColumn,
 } from '@/ui';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -29,7 +29,7 @@ import {
   dismissPair,
   DUPLICATES_KEY,
   type MergeCandidate,
-  mergeProposals,
+  proposalPage,
   type MergeView,
   PAIR_LEVELS,
   pairLevelOf,
@@ -239,8 +239,15 @@ function Pairs({ onNotice }: { onNotice: (message: string) => void }) {
 
 function Proposals() {
   const t = useTranslations('admin.beneficiaries.duplicates.proposals');
-  const list = useQuery({ queryKey: [...DUPLICATES_KEY, 'proposals'], queryFn: mergeProposals });
-  const rows = list.data ?? [];
+  const locale = useLocale() as Locale;
+  const list = useInfiniteQuery({
+    queryKey: [...DUPLICATES_KEY, 'proposals'],
+    queryFn: ({ pageParam }) => proposalPage(pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.meta.nextCursor,
+  });
+  const rows = list.data?.pages.flatMap((p) => p.data) ?? [];
+  const fetchMore = () => void list.fetchNextPage();
   const person = (id: string, name: string, benNo: string) => (
     <span className="admin-person-text">
       <Link to={`/admin/beneficiaries/${id}`} className="admin-person-name">
@@ -289,6 +296,17 @@ function Proposals() {
         ) : undefined
       }
       emptyTitle={t('empty')}
+      cursorPagination={
+        rows.length
+          ? {
+              hasPrevious: false,
+              hasNext: list.hasNextPage,
+              onNext: fetchMore,
+              onLoadMore: fetchMore,
+              summary: t('summary', { count: formatCount(rows.length, locale) }),
+            }
+          : undefined
+      }
       cardRenderer={(r) => (
         <div className="admin-person-card">
           {person(r.keptId, r.keptName, r.keptBenNo)}

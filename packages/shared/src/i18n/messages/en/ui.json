@@ -103,7 +103,6 @@
     "flipDetails": "Details",
     "flipDetailsOf": "{title}: show details",
     "flipBack": "Back",
-    "flipBackOf": "Back to the front",
-    "flipHint": "Rest the pointer here for details"
+    "flipBackOf": "Back to the front"
   }
 }

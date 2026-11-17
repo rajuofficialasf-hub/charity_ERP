@@ -49,6 +49,8 @@ describe('the programs and projects tab', () => {
           'program_manager',
           'regional_program_manager',
           'project_executive',
+          // the list of its house-construction sessions only
+          'procurement_team',
         ].includes(role)
           ? 1
           : 0,

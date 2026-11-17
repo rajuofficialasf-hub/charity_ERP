@@ -198,6 +198,13 @@ async function ownAreas(db: Tx, actorId: string, inProjects: Set<string | null>)
   ];
 }
 
+/** The entities a grant limited to the attached house-construction projects reaches. */
+const HOUSE_PROJECT_ENTITIES: ReadonlySet<string> = new Set([
+  'beneficiary',
+  'application',
+  'project',
+]);
+
 /**
  * Resolves the instances of the grants of one permission from the assignment tables: PROGRAM from
  * `programs.pm_user_id`, PROJECT from the caller's project assignments, REGION and the area scopes
@@ -254,10 +261,11 @@ export async function resolveInstances(
           inst.volunteerAreas.push({ projectId: g.projectId, locationId: g.scopeRef });
         else volunteerRegionProjects.add(g.projectId);
       }
-      // the Procurement Team reaches beneficiaries only through the house-construction projects
-      // it is attached to (the Procurement Team); the projects are checked below
+      // the Procurement Team reaches the beneficiaries, the applications and the projects of the
+      // house-construction projects it is attached to, and nothing else; the projects are
+      // checked below
       if (
-        entity === 'beneficiary' &&
+        HOUSE_PROJECT_ENTITIES.has(entity) &&
         g.condition === 'house_construction_project' &&
         g.scopeType === 'PROJECT'
       ) {

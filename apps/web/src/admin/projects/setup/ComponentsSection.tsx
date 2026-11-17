@@ -1,11 +1,11 @@
 import { COMPONENT_SETTINGS_DEFINITION, type ComponentKey, isComponentKey } from '@css/shared';
 import { Alert, IconButton, LinkButton, Switch } from '@/ui';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../api/client';
 import { ComponentDrawer } from './ComponentDrawer';
-import { type ProjectComponent, updateComponent } from './setup-api';
+import { keepSavedComponent, type ProjectComponent, updateComponent } from './setup-api';
 import { SetupSection, useSetup } from './setup-context';
 
 /** 'settings' the scoring of applications reads; they are configured with the quotas (Phase 2). */
@@ -37,9 +37,11 @@ export function ComponentsSection({
   const tk = useTranslations('admin.projects.component');
   const [open, setOpen] = useState<ProjectComponent | null>(null);
   const can = editable('components');
+  const queries = useQueryClient();
   const toggle = useMutation({
     mutationFn: (c: ProjectComponent) =>
       updateComponent(project.id, c.componentKey, c.etag ?? '', { enabled: !c.enabled }),
+    onSuccess: (saved) => keepSavedComponent(queries, project.id, saved),
     onSettled: refresh,
   });
   const on = components.filter((c) => c.enabled).length;

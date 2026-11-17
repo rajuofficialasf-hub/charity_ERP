@@ -228,6 +228,13 @@ export class FormsService {
     });
     if (!row) throw new ApiError('permission.not_found', 404);
     await this.reach(viewer, row.form);
+    // an unpublished draft is read only by those who may edit the project's forms
+    if (
+      row.status === 'draft' &&
+      row.form.projectId !== null &&
+      !(await this.editsFormsOf(viewer, row.form.projectId))
+    )
+      throw new ApiError('permission.denied', 403);
     const audience = await this.formAudience(viewer, row.form);
     return {
       version: versionView(row, await readDefinition(this.prisma, row.id, audience)),
@@ -562,6 +569,15 @@ export class FormsService {
     return form.projectId === null ? 'official' : this.audienceOf(viewer, form.projectId);
   }
 
+  /** Whether the caller may edit a project's forms: builds forms, or places them on this project. */
+  async editsFormsOf(viewer: ProjectViewer, projectId: string, db?: Tx): Promise<boolean> {
+    if (viewer.principal.kind === 'volunteer') return false;
+    for (const permission of ['form.build', 'form.place'])
+      if (await this.access.holdsOnProject(viewer.principal.userId, permission, projectId, db))
+        return true;
+    return false;
+  }
+
   /**
    * The audience of a form outside the projects for a caller who is not its builder: official
    * only when the caller holds `application.view_official_section` at some scope.
@@ -791,25 +807,198 @@ export async function withListOptions(tx: Tx, definition: FormDefinition): Promi
   return changed ? { ...definition, sections } : definition;
 }
 
-/** Writes a draft's definition again in place of its rows, keeping each question's row id. */
+type DefinitionSection = FormDefinition['sections'][number];
+type DefinitionField = DefinitionSection['fields'][number];
+
+/** What a part's own row holds, for telling a changed part from one left as it was. */
+const sectionRowOf = (s: DefinitionSection) =>
+  JSON.stringify([s.key, s.title, s.visibility, s.condition ?? null, s.librarySectionKey ?? null]);
+
+/** What a question's row holds, its options apart. */
+const fieldRowOf = (f: DefinitionField) =>
+  JSON.stringify([
+    f.type,
+    f.label,
+    f.required,
+    f.standardColumn ?? null,
+    f.settings ?? {},
+    f.logic ?? null,
+    f.calculation ?? null,
+    f.libraryFieldKey ?? null,
+  ]);
+
+/** What a question's option rows hold. */
+const optionRowsOf = (f: DefinitionField) =>
+  JSON.stringify(
+    (f.options ?? []).map((o) => [
+      o.code,
+      o.label,
+      o.allowsOtherText ?? false,
+      o.dependsOnOptionCode ?? null,
+    ]),
+  );
+
+/**
+ * Writes a draft's definition over its rows, touching only what changed: a part or a question
+ * whose content, place and order are as stored is left alone, a changed one is updated in place by
+ * its id (its options written again only when they changed), a new one is created and one that is
+ * gone is deleted. An autosave of one changed question so writes that question's row; each
+ * question keeps its row id, so nothing that points at it is orphaned.
+ */
 async function replaceDefinitionRows(
   tx: Tx,
   versionId: string,
-  definition: FormDefinition,
+  next: FormDefinition,
   actor: string,
 ): Promise<void> {
-  const kept = new Map(
-    (
-      await tx.formField.findMany({
-        where: { formVersionId: versionId },
-        select: { id: true, fieldKey: true },
-      })
-    ).map((x) => [x.fieldKey, x.id]),
+  // a coded column's question always carries its list's options, whichever way the rows are written
+  next = await withListOptions(tx, next);
+  const [stored, sectionRows, fieldRows, sectionIds, fieldIds, version] = await Promise.all([
+    readDefinition(tx, versionId, 'official'),
+    tx.formSection.findMany({
+      where: { formVersionId: versionId },
+      select: { id: true, key: true, sortOrder: true },
+    }),
+    tx.formField.findMany({
+      where: { formVersionId: versionId },
+      select: { id: true, fieldKey: true, formSectionId: true, sortOrder: true },
+    }),
+    libraryIds(tx, 'section'),
+    libraryIds(tx, 'field'),
+    tx.formVersion.findUniqueOrThrow({ where: { id: versionId }, select: { scoring: true } }),
+  ]);
+  const scoring = next.scoring ?? null;
+  if (JSON.stringify(version.scoring ?? null) !== JSON.stringify(scoring))
+    await tx.formVersion.update({
+      where: { id: versionId },
+      data: { scoring: next.scoring ? json(next.scoring) : Prisma.DbNull },
+    });
+  const storedSections = new Map(stored.sections.map((x) => [x.key, x]));
+  const storedFields = new Map(
+    stored.sections.flatMap((x) => x.fields).map((f) => [f.fieldKey, f]),
   );
-  await tx.fieldOption.deleteMany({ where: { formField: { formVersionId: versionId } } });
-  await tx.formField.deleteMany({ where: { formVersionId: versionId } });
-  await tx.formSection.deleteMany({ where: { formVersionId: versionId } });
-  await writeDefinitionRows(tx, versionId, definition, actor, kept);
+  const sectionRowByKey = new Map(sectionRows.map((r) => [r.key, r]));
+  const fieldRowByKey = new Map(fieldRows.map((r) => [r.fieldKey, r]));
+  const libraryOf = (key: string | null | undefined, ids: Map<string, string>) =>
+    key ? (ids.get(key) ?? null) : null;
+
+  const nextSectionKeys = new Set(next.sections.map((x) => x.key));
+  const nextFieldKeys = new Set(next.sections.flatMap((x) => x.fields).map((f) => f.fieldKey));
+  // what is gone goes first: the options and rows of questions no longer in the draft
+  const goneFields = fieldRows.filter((r) => !nextFieldKeys.has(r.fieldKey)).map((r) => r.id);
+  if (goneFields.length) {
+    await tx.fieldOption.deleteMany({ where: { formFieldId: { in: goneFields } } });
+    await tx.formField.deleteMany({ where: { id: { in: goneFields } } });
+  }
+
+  for (const [sectionIndex, section] of next.sections.entries()) {
+    const sortOrder = sectionIndex + 1;
+    const data = {
+      librarySectionId: libraryOf(section.librarySectionKey, sectionIds),
+      key: section.key,
+      titleBn: section.title.bn,
+      titleEn: section.title.en,
+      sortOrder,
+      visibility: section.visibility,
+      condition:
+        section.condition === null || section.condition === undefined
+          ? Prisma.DbNull
+          : json(section.condition),
+      updatedBy: actor,
+    };
+    const row = sectionRowByKey.get(section.key);
+    const before = storedSections.get(section.key);
+    let sectionId: string;
+    if (!row) {
+      sectionId = uuidv7();
+      await tx.formSection.create({
+        data: { ...data, id: sectionId, formVersionId: versionId, createdBy: actor },
+      });
+    } else {
+      sectionId = row.id;
+      if (!before || row.sortOrder !== sortOrder || sectionRowOf(before) !== sectionRowOf(section))
+        await tx.formSection.update({ where: { id: sectionId }, data });
+    }
+    for (const [fieldIndex, field] of section.fields.entries()) {
+      const fieldOrder = fieldIndex + 1;
+      const fieldData = {
+        formSectionId: sectionId,
+        libraryFieldId: libraryOf(field.libraryFieldKey, fieldIds),
+        fieldKey: field.fieldKey,
+        type: field.type,
+        labelBn: field.label.bn,
+        labelEn: field.label.en,
+        required: field.required,
+        standardColumn: field.standardColumn,
+        settings: json(field.settings ?? {}),
+        logic:
+          field.logic === undefined || field.logic === null ? Prisma.DbNull : json(field.logic),
+        calculation:
+          field.calculation === undefined || field.calculation === null
+            ? Prisma.DbNull
+            : json(field.calculation),
+        sortOrder: fieldOrder,
+        updatedBy: actor,
+      };
+      const fieldRow = fieldRowByKey.get(field.fieldKey);
+      const old = storedFields.get(field.fieldKey);
+      if (!fieldRow) {
+        const fieldId = uuidv7();
+        await tx.formField.create({
+          data: { ...fieldData, id: fieldId, formVersionId: versionId, createdBy: actor },
+        });
+        await writeOptions(tx, fieldId, field, actor);
+        continue;
+      }
+      const moved = fieldRow.formSectionId !== sectionId || fieldRow.sortOrder !== fieldOrder;
+      if (!old || moved || fieldRowOf(old) !== fieldRowOf(field))
+        await tx.formField.update({ where: { id: fieldRow.id }, data: fieldData });
+      if (!old || optionRowsOf(old) !== optionRowsOf(field)) {
+        await tx.fieldOption.deleteMany({ where: { formFieldId: fieldRow.id } });
+        await writeOptions(tx, fieldRow.id, field, actor);
+      }
+    }
+  }
+  // the parts that are gone, once no question is left in them
+  const goneSections = sectionRows.filter((r) => !nextSectionKeys.has(r.key)).map((r) => r.id);
+  if (goneSections.length) await tx.formSection.deleteMany({ where: { id: { in: goneSections } } });
+}
+
+/** A question's options in their order, then the branching links by code. */
+async function writeOptions(
+  tx: Tx,
+  fieldId: string,
+  field: DefinitionField,
+  actor: string,
+): Promise<void> {
+  // options first, then the branching links by code, so a link never points at a later row
+  const optionIds = new Map<string, string>();
+  for (const [index, option] of (field.options ?? []).entries()) {
+    const optionId = uuidv7();
+    optionIds.set(option.code, optionId);
+    await tx.fieldOption.create({
+      data: {
+        id: optionId,
+        formFieldId: fieldId,
+        code: option.code,
+        labelBn: option.label.bn,
+        labelEn: option.label.en,
+        allowsOtherText: option.allowsOtherText ?? false,
+        sortOrder: index + 1,
+        createdBy: actor,
+        updatedBy: actor,
+      },
+    });
+  }
+  for (const option of field.options ?? []) {
+    if (!option.dependsOnOptionCode) continue;
+    const dependsOnOptionId = optionIds.get(option.dependsOnOptionCode);
+    if (!dependsOnOptionId) continue;
+    await tx.fieldOption.update({
+      where: { id: optionIds.get(option.code)! },
+      data: { dependsOnOptionId },
+    });
+  }
 }
 
 export async function writeDefinitionRows(
@@ -817,7 +1006,6 @@ export async function writeDefinitionRows(
   versionId: string,
   definition: FormDefinition,
   actor: string,
-  keptFieldIds: Map<string, string> = new Map(),
 ): Promise<void> {
   // a coded column's question always carries its list's options, whichever way the rows are written
   definition = await withListOptions(tx, definition);
@@ -857,7 +1045,7 @@ export async function writeDefinitionRows(
     let fieldOrder = 0;
     for (const field of section.fields) {
       fieldOrder += 1;
-      const fieldId = keptFieldIds.get(field.fieldKey) ?? uuidv7();
+      const fieldId = uuidv7();
       await tx.formField.create({
         data: {
           id: fieldId,
@@ -880,36 +1068,7 @@ export async function writeDefinitionRows(
           updatedBy: actor,
         },
       });
-      // options first, then the branching links by code, so a link never points at a later row
-      const optionIds = new Map<string, string>();
-      let optionOrder = 0;
-      for (const option of field.options ?? []) {
-        optionOrder += 1;
-        const optionId = uuidv7();
-        optionIds.set(option.code, optionId);
-        await tx.fieldOption.create({
-          data: {
-            id: optionId,
-            formFieldId: fieldId,
-            code: option.code,
-            labelBn: option.label.bn,
-            labelEn: option.label.en,
-            allowsOtherText: option.allowsOtherText ?? false,
-            sortOrder: optionOrder,
-            createdBy: actor,
-            updatedBy: actor,
-          },
-        });
-      }
-      for (const option of field.options ?? []) {
-        if (!option.dependsOnOptionCode) continue;
-        const dependsOnOptionId = optionIds.get(option.dependsOnOptionCode);
-        if (!dependsOnOptionId) continue;
-        await tx.fieldOption.update({
-          where: { id: optionIds.get(option.code)! },
-          data: { dependsOnOptionId },
-        });
-      }
+      await writeOptions(tx, fieldId, field, actor);
     }
   }
 }

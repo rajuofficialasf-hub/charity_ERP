@@ -11,7 +11,7 @@ import { ApiError } from '../i18n/api-error.js';
 import { enqueueFileProcess, thumbnailKey } from '../jobs/file-process.js';
 import type { JobRunner } from '../jobs/job-runner.js';
 import type { StorageDriver } from '../storage/index.js';
-import { readDefinition } from './forms.js';
+import { publishedDefinition } from './published-definitions.js';
 import { type OpenLink, resolveOpenLink } from './public-link-rules.js';
 
 const BUCKET = 'photos' as const;
@@ -27,10 +27,27 @@ function linkFolder(token: string): string {
 }
 
 /**
+ * The folder of one sender's photos under the link's folder: the sender's address (`req.ip`, read
+ * through the trusted proxies only) hashed with the token, so a key never carries the address and
+ * the same address on two links shares nothing.
+ */
+function senderFolder(token: string, sender: string): string {
+  const hash = createHash('sha256')
+    .update(
+      `${token}
+${sender}`,
+    )
+    .digest('hex')
+    .slice(0, 32);
+  return `${linkFolder(token)}/${hash}`;
+}
+
+/**
  * The photos of a public application before and after its submission (docs/architecture/
  * FILES_AND_DOCUMENTS.md, "Upload pipeline", the public path): one request per photo bound to the
  * link and the applicant's client id, cleaned of its metadata, scanned like every file; at most
- * five per submission and a bounded number per link until the submission claims them; whatever no
+ * five per submission, a bounded share per sender and a bounded number per link until the
+ * submission claims them; whatever no
  * submission claims within a day is swept away. The applicant learns the file id and nothing else.
  */
 export class PublicPhotosService {
@@ -47,10 +64,12 @@ export class PublicPhotosService {
     token: string;
     clientUuid: string;
     fieldKey: string;
+    /** The sender's address as the trusted proxies report it. */
+    sender: string;
     body: unknown;
   }): Promise<{ fileId: string }> {
     const link = await resolveOpenLink(this.prisma, this.clock.now(), input.token);
-    const definition = await readDefinition(this.prisma, link.version.id, 'volunteer');
+    const definition = await publishedDefinition(this.prisma, link.version.id);
     const field = definition.sections
       .flatMap((s) => s.fields)
       .find((f) => f.fieldKey === input.fieldKey && f.type === 'photo');
@@ -60,7 +79,8 @@ export class PublicPhotosService {
       ]);
     const image = imageOf(input.body);
     const id = uuidv7();
-    const key = `${linkFolder(input.token)}/${input.clientUuid}/${id}.${EXTENSION[image.mime]}`;
+    const folder = senderFolder(input.token, input.sender);
+    const key = `${folder}/${input.clientUuid}/${id}.${EXTENSION[image.mime]}`;
     await this.storage.put(BUCKET, key, Readable.from(image.bytes), {
       contentType: image.mime,
       size: image.bytes.length,
@@ -71,7 +91,7 @@ export class PublicPhotosService {
         // uploads cannot pass the ceilings together or take the same position
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-photo:' + input.clientUuid}))`;
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-link:' + linkFolder(input.token)}))`;
-        await this.assertRoom(tx, input.token, input.clientUuid);
+        await this.assertRoom(tx, input.token, folder, input.clientUuid);
         await tx.file.create({
           data: {
             id,
@@ -163,14 +183,26 @@ export class PublicPhotosService {
     });
   }
 
-  /** Room for one more photo: five per client id, and the link's unclaimed ceiling. */
-  private async assertRoom(tx: Tx, token: string, clientUuid: string): Promise<void> {
+  /**
+   * Room for one more photo: five per client id, the sender's share of the link and the link's
+   * unclaimed ceiling (the sender's lock is the link's, taken by the caller).
+   */
+  private async assertRoom(
+    tx: Tx,
+    token: string,
+    folder: string,
+    clientUuid: string,
+  ): Promise<void> {
     const [mine, [unclaimed]] = await Promise.all([
       tx.fileLink.count({
         where: { entityType: PENDING_CLAIM, entityId: clientUuid, file: { deletedAt: null } },
       }),
-      tx.$queryRaw<{ files: bigint; bytes: bigint | null }[]>`
-        SELECT count(*) AS files, sum(f.size_bytes) AS bytes
+      tx.$queryRaw<
+        { files: bigint; bytes: bigint | null; sender_files: bigint; sender_bytes: bigint | null }[]
+      >`
+        SELECT count(*) AS files, sum(f.size_bytes) AS bytes,
+               count(*) FILTER (WHERE f.object_key LIKE ${`${folder}/%`}) AS sender_files,
+               sum(f.size_bytes) FILTER (WHERE f.object_key LIKE ${`${folder}/%`}) AS sender_bytes
           FROM files f
           JOIN file_links l ON l.file_id = f.id AND l.entity_type = ${PENDING_CLAIM}
          WHERE f.deleted_at IS NULL AND f.object_key LIKE ${`${linkFolder(token)}/%`}`,
@@ -182,6 +214,11 @@ export class PublicPhotosService {
       Number(unclaimed?.bytes ?? 0) >= PUBLIC_PHOTO_LIMITS.perLinkBytes
     )
       throw new ApiError('public.link_full', 429, undefined, undefined, HOUR_SECONDS);
+    if (
+      Number(unclaimed?.sender_files ?? 0) >= PUBLIC_PHOTO_LIMITS.perSenderFiles ||
+      Number(unclaimed?.sender_bytes ?? 0) >= PUBLIC_PHOTO_LIMITS.perSenderBytes
+    )
+      throw new ApiError('public.sender_full', 429, undefined, undefined, HOUR_SECONDS);
   }
 
   private async removeQuietly(key: string): Promise<void> {

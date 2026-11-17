@@ -80,3 +80,45 @@ describe('the phone store', () => {
     expect(await Dexie.exists(OFFLINE_DB_NAME)).toBe(false);
   });
 });
+
+describe('the store of an earlier version', () => {
+  it('keeps every queued photo and writes the size of each on the upgrade', async () => {
+    // the store as the earlier release made it, with two photos waiting
+    const earlier = new Dexie(OFFLINE_DB_NAME);
+    earlier.version(1).stores({
+      outbox: 'clientUuid, state, projectId, nextRetryAt, createdAt, [state+nextRetryAt]',
+      photos: 'id, clientUuid, state, [clientUuid+slot]',
+      applications: 'id, projectId, status, updatedAt',
+      projects: 'id',
+      forms: 'id, projectId',
+      locations: 'id, parentId',
+      meta: 'key',
+      keys: 'id',
+    });
+    const photo = (id: string, size: number) => ({
+      id,
+      clientUuid: 'record-1',
+      slot: id,
+      state: 'pending',
+      size,
+      attempts: 0,
+      nextRetryAt: null,
+      failureCode: null,
+      fileId: null,
+      createdAt: new Date('2026-11-01T00:00:00Z'),
+      iv: new Uint8Array(12),
+      data: new Uint8Array(size),
+    });
+    await earlier.table('photos').bulkPut([photo('a', 3_000), photo('b', 2_000)]);
+    earlier.close();
+
+    const db = offlineDb();
+    expect((await db.photos.toArray()).map((p) => p.id).sort()).toEqual(['a', 'b']);
+    expect((await db.photoSizes.toArray()).map((r) => [r.id, r.clientUuid, r.size]).sort()).toEqual(
+      [
+        ['a', 'record-1', 3_000],
+        ['b', 'record-1', 2_000],
+      ],
+    );
+  });
+});

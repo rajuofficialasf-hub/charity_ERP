@@ -177,6 +177,19 @@
   gap: var(--space-2);
   margin-top: auto;
 }
+/* a phone's card is a little over 300px wide: the back keeps everything it says within its face,
+   with tighter boxes and the two actions side by side */
+@media (max-width: 420px) {
+  .card-blocks {
+    gap: var(--space-1);
+  }
+  .card-block {
+    padding: var(--space-1) var(--space-2);
+  }
+  .card-actions {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}
 
 /* the cover field of a program's or a project's dialog: the cover it has now over the upload */
 .cover-field {

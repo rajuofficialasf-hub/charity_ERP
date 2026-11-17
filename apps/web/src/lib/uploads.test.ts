@@ -1,16 +1,18 @@
 import { createHash } from 'node:crypto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeUploadServer } from '../../test/upload-server';
 import { resetClientForTests } from '../api/client';
 import { server } from '../../test/msw/server';
 import { apiError } from '../../test/auth';
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import {
   PART_RETRY_DELAYS_MS,
+  ScanNotCleared,
   sha256Hex,
   uploadFile,
   UploadStopped,
   type UploadTarget,
+  waitForScan,
 } from './uploads';
 
 // The client of the chunked upload: the parts in order with progress, a retried part, the resume.
@@ -123,5 +125,58 @@ describe('uploadFile', () => {
       }),
     ).rejects.toBeInstanceOf(UploadStopped);
     expect(fake.creates).toHaveLength(0);
+  });
+});
+
+describe('waitForScan', () => {
+  const FILE = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4f01';
+  // the waits between the reads run on a fake clock, so the tests take no real seconds
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  /** The file's state as the server answers it, one answer per read, the last repeated. */
+  function states(...answers: string[]) {
+    let read = 0;
+    server.use(
+      http.get(`*/api/v1/files/${FILE}`, () => {
+        const virusScan = answers[Math.min(read, answers.length - 1)];
+        read += 1;
+        return HttpResponse.json({ data: { id: FILE, virusScan }, meta: {} });
+      }),
+    );
+    return () => read;
+  }
+  /** Runs the wait to its end on the fake clock, one second at a time. */
+  async function settle<T>(wait: Promise<T>): Promise<T> {
+    let done = false;
+    const outcome = wait.finally(() => {
+      done = true;
+    });
+    outcome.catch(() => undefined);
+    for (let i = 0; i < 60 && !done; i += 1) await vi.advanceTimersByTimeAsync(1_000);
+    return outcome;
+  }
+
+  it('returns at once for a file the scan cleared, and after the scan clears a waiting one', async () => {
+    const reads = states('pending', 'clean');
+    await waitForScan({ id: FILE, virusScan: 'skipped' });
+    expect(reads()).toBe(0);
+    await settle(waitForScan({ id: FILE, virusScan: 'pending' }, 10_000));
+    expect(reads()).toBe(2);
+  });
+
+  it('gives up on a file the scan refused, infected or failed, and on one still waiting when the time is up', async () => {
+    states('infected');
+    await expect(
+      settle(waitForScan({ id: FILE, virusScan: 'pending' }, 10_000)),
+    ).rejects.toMatchObject({ state: 'infected' });
+    states('failed');
+    await expect(
+      settle(waitForScan({ id: FILE, virusScan: 'pending' }, 10_000)),
+    ).rejects.toBeInstanceOf(ScanNotCleared);
+    states('pending');
+    await expect(
+      settle(waitForScan({ id: FILE, virusScan: 'pending' }, 3_000)),
+    ).rejects.toMatchObject({ state: 'pending' });
   });
 });

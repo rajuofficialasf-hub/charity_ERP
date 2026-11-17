@@ -36,7 +36,7 @@ import {
   DUPLICATES_KEY,
   DUPLICATES_PATH,
   type MergeView,
-  mergeProposals,
+  mergeProposal,
 } from './merge-api';
 import { PairLevelChip } from './PairLevelChip';
 import { PageCrumbs } from '../../../components/shell/breadcrumb';
@@ -80,8 +80,8 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
   const first = useQuery(profileQuery(a));
   const second = useQuery(profileQuery(b));
   const proposals = useQuery({
-    queryKey: [...DUPLICATES_KEY, 'proposals'],
-    queryFn: mergeProposals,
+    queryKey: [...DUPLICATES_KEY, 'proposals', proposalId],
+    queryFn: () => mergeProposal(proposalId!),
     enabled: proposalId !== null,
   });
   // the suggested pair of the two, if any: a proposal may join two profiles no rule paired
@@ -147,7 +147,7 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
         <LoadError error={proposals.error} onRetry={() => void proposals.refetch()} />
       </>
     );
-  const proposal: MergeView | undefined = proposals.data?.find((m) => m.id === proposalId);
+  const proposal: MergeView | undefined = proposals.data ?? undefined;
   if (proposalId !== null && !proposal)
     return (
       <>

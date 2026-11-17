@@ -132,5 +132,7 @@ export const transferResultSchema = z.object({
   moved: z.array(z.uuid()),
   teamMoved: z.number().int(),
   overLimit: z.boolean(),
+  // a transfer answered again from before the field existed carries none
+  consentPending: z.boolean().default(false),
 });
 export type TransferResult = z.infer<typeof transferResultSchema>;

@@ -62,6 +62,16 @@ export interface PhotoRow extends SealedRow {
   createdAt: Date;
 }
 
+/**
+ * The size of a queued photo, kept beside it: the queue's budget adds these up without reading the
+ * photos, whose rows carry their sealed bytes. Nothing in it is personal.
+ */
+export interface PhotoSizeRow {
+  id: string;
+  clientUuid: string;
+  size: number;
+}
+
 /** An own application as the last snapshot gave it; the summary is sealed. */
 export interface ApplicationRow extends SealedRow {
   id: string;
@@ -107,6 +117,7 @@ export interface KeysRow {
 class OfflineDb extends Dexie {
   outbox!: EntityTable<OutboxRow, 'clientUuid'>;
   photos!: EntityTable<PhotoRow, 'id'>;
+  photoSizes!: EntityTable<PhotoSizeRow, 'id'>;
   applications!: EntityTable<ApplicationRow, 'id'>;
   projects!: EntityTable<ProjectRow, 'id'>;
   forms!: EntityTable<FormRow, 'id'>;
@@ -127,6 +138,18 @@ class OfflineDb extends Dexie {
       meta: 'key',
       keys: 'id',
     });
+    // the sizes of the queued photos in a table of their own; a phone that queued photos before
+    // gets the size row of each, read once from the photos here
+    this.version(2)
+      .stores({ photoSizes: 'id, clientUuid' })
+      .upgrade(async (tx) => {
+        // one photo at a time: a full queue holds up to the budget in sealed bytes
+        const sizes: PhotoSizeRow[] = [];
+        await tx
+          .table<PhotoRow, string>('photos')
+          .each((p) => sizes.push({ id: p.id, clientUuid: p.clientUuid, size: p.size }));
+        await tx.table<PhotoSizeRow, string>('photoSizes').bulkPut(sizes);
+      });
   }
 }
 

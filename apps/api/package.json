@@ -11,7 +11,7 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate deploy && pnpm jobs:install && pnpm notifications:sync",
+    "db:migrate": "prisma migrate deploy && pnpm jobs:install && pnpm notifications:sync && pnpm reference:sync",
     "db:seed": "tsx --env-file-if-exists=.env --conditions=@css/source seed/run.ts",
     "db:reset": "tsx scripts/db-reset.ts",
     "db:migrate:dev": "prisma migrate dev --create-only",
@@ -26,6 +26,7 @@
     "e2e:server": "tsx --conditions=@css/source scripts/e2e-server.ts",
     "jobs:install": "tsx --env-file-if-exists=.env --conditions=@css/source scripts/jobs-install.ts",
     "notifications:sync": "tsx --env-file-if-exists=.env --conditions=@css/source scripts/notifications-sync.ts",
+    "reference:sync": "tsx --env-file-if-exists=.env --conditions=@css/source scripts/reference-sync.ts",
     "worker": "node dist/worker.js",
     "dev:worker": "tsx watch --env-file-if-exists=.env --conditions=@css/source src/worker.ts",
     "contract:coverage": "tsx --conditions=@css/source scripts/contract-coverage.ts"

@@ -6,9 +6,9 @@ import { fromProfileMenu, scan, signIn } from './support/admin';
 // that the supervisor is not asked for) against the API on its E2E database: the RPM sees their
 // projects with the figures of their work, asks for a new designation and photo, the Department
 // Head decides in the officials' requests tab, and the staff list and the RPM's own chip then ask
-// for the new photo. The E2E run processes no uploads, so the photo stays unscanned and the API
-// answers it with 423; the component tests show the image once the API serves it. The projects
-// share the database, so each signs in with its own RPM; every repeat asks for another
+// for the new photo. The E2E worker scans each upload, so the API answers the photo with 200 once
+// it is scanned and with 423 while the scan waits; either answer proves it was asked for. The
+// projects share the database, so each signs in with its own RPM; every repeat asks for another
 // designation.
 const RPM = { desktop: 'rpm.dhaka@example.org', mobile: 'rpm.rangpur@example.org' } as const;
 const HEAD = 'head@example.org';
@@ -76,10 +76,13 @@ test.describe("an official's own profile", () => {
     await (await chooser).setFiles({ name: 'photo.png', mimeType: 'image/png', buffer: PNG });
     const { fileId } = ((await (await uploaded).json()) as { data: { fileId: string } }).data;
     const photoUrl = new RegExp(`/api/v1/files/${fileId}/content`);
-    // the unscanned photo is asked for and answered 423 (see the note at the top)
+    // the photo is asked for: served once scanned, or 423 while the scan waits (the note at the top)
     const photoAsked = (p: Page) =>
       p.waitForResponse(
-        (r) => photoUrl.test(r.url()) && r.request().method() === 'GET' && r.status() === 423,
+        (r) =>
+          photoUrl.test(r.url()) &&
+          r.request().method() === 'GET' &&
+          [200, 423].includes(r.status()),
       );
     await noSidewaysScroll(page);
 

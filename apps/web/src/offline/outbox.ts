@@ -316,8 +316,9 @@ export function retryNow(clientUuid: string, at: Date): Promise<void> {
 /** The person drops a record the server never accepted, with its photos. */
 export async function remove(clientUuid: string): Promise<void> {
   const db = offlineDb();
-  await db.transaction('rw', [db.outbox, db.photos], async () => {
+  await db.transaction('rw', [db.outbox, db.photos, db.photoSizes], async () => {
     await db.photos.where('clientUuid').equals(clientUuid).delete();
+    await db.photoSizes.where('clientUuid').equals(clientUuid).delete();
     await db.outbox.delete(clientUuid);
   });
 }
@@ -363,6 +364,7 @@ export async function purge(now: Date): Promise<number> {
       )
     ) {
       await db.photos.where('clientUuid').equals(row.clientUuid).delete();
+      await db.photoSizes.where('clientUuid').equals(row.clientUuid).delete();
       await db.outbox.delete(row.clientUuid);
       removed += 1;
     }

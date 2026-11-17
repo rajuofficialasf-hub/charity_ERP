@@ -4,7 +4,8 @@ import { FileUpload } from '@/ui';
 import { useEffect, useMemo } from 'react';
 import { useTranslations } from 'use-intl';
 import { compressImage } from '../../lib/compress';
-import { uploadFile } from '../../lib/uploads';
+import { ApiFailure } from '../../api/client';
+import { ScanNotCleared, uploadFile, waitForScan } from '../../lib/uploads';
 import { CardCover } from './CardCover';
 import { setProgramCover, setSeriesCover } from './cards-api';
 
@@ -34,7 +35,18 @@ export async function saveCover(record: CoverRecord, id: string, file: File): Pr
     },
     { clientUuid: uuidv7() },
   );
+  // the server sets only a cover its scan has cleared, which runs a moment after the upload
+  await waitForScan(stored);
   await (record === 'program' ? setProgramCover(id, stored.id) : setSeriesCover(id, stored.id));
+}
+
+/**
+ * The reason a dialog names when its record was saved and its cover was not: a photo the scan did
+ * not clear, the server's words, or the general failure.
+ */
+export function coverProblemReason(failure: unknown, notCleared: string, general: string): string {
+  if (failure instanceof ScanNotCleared) return notCleared;
+  return failure instanceof ApiFailure ? failure.message : general;
 }
 
 /**

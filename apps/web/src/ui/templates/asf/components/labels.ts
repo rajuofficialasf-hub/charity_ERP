@@ -111,7 +111,6 @@ export const DEFAULT_LABELS: UiLabels = {
   flipDetailsOf: '{title}: show details',
   flipBack: 'Back',
   flipBackOf: 'Back to the front',
-  flipHint: 'Rest the pointer here for details',
 };
 
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);

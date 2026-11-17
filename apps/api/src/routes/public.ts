@@ -7,6 +7,7 @@ import { formPhotoBody } from '../files/photo-body.js';
 import { ok } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 import { versionView } from './forms.js';
+import { clientKey } from '../rate-limit/rate-limit.js';
 
 const bilingual = z.object({ bn: z.string(), en: z.string() });
 const publicFormView = z.object({
@@ -82,7 +83,7 @@ export function publicRouter(
     status: 201,
     operationId: 'public.photo.upload',
     summary:
-      'Upload one photo of a public application before it is submitted (JPEG or PNG, at most 5 MB, metadata stripped; five per submission, a bounded number per link; swept after a day unless a submission claims it)',
+      'Upload one photo of a public application before it is submitted (JPEG or PNG, at most 5 MB, metadata stripped; five per submission, a bounded share per sender and number per link; swept after a day unless a submission claims it)',
     audit: 'file.uploaded',
     idempotency: 'none',
     params: tokenParams,
@@ -101,6 +102,9 @@ export function publicRouter(
         token: params.token,
         clientUuid: query.clientUuid,
         fieldKey: query.fieldKey,
+        // the address through the app's trust proxy setting, IPv6 grouped as the limiter groups
+        // it, so the addresses of one network are one sender
+        sender: clientKey(req),
         body: req.body,
       }),
   });

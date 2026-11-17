@@ -9,7 +9,7 @@ import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { ProgramDialog, type ProgramLook } from '../programs/ProgramDialog';
 import type { Program } from '../programs/programs-api';
-import { canManagePrograms, canSeeProjectOverview } from '../roles';
+import { canListProjects, canManagePrograms, canSeeProjectOverview } from '../roles';
 import { CARDS_KEY, type ProgramCard as Card, programCards } from './cards-api';
 import { ProgramCard } from './ProgramCard';
 import { ProjectList } from './ProjectList';
@@ -41,8 +41,10 @@ export function ProgramsProjectsPage() {
   const [dialog, setDialog] = useState<{ program?: Program; look?: ProgramLook } | null>(null);
   const [notice, setNotice] = useState<{ text: string; warning: boolean }>();
   if (!me) return null;
-  if (!canSeeProjectOverview(me)) return <ForbiddenContent />;
-  const list = opensList(params);
+  if (!canListProjects(me)) return <ForbiddenContent />;
+  // without the overview there are no cards: the list is the whole tab
+  const overview = canSeeProjectOverview(me);
+  const list = !overview || opensList(params);
   const manage = canManagePrograms(me);
 
   // the dialog has refreshed the program reads after its write, also after one that failed halfway
@@ -64,15 +66,19 @@ export function ProgramsProjectsPage() {
         description={t('tab.description')}
         actions={
           <>
-            <SegmentedControl
-              label={t('tab.view')}
-              value={list ? 'list' : 'cards'}
-              options={[
-                { value: 'cards', label: t('tab.cards') },
-                { value: 'list', label: t('tab.list') },
-              ]}
-              onChange={(view) => void navigate(view === 'list' ? '?view=list' : '/admin/projects')}
-            />
+            {overview && (
+              <SegmentedControl
+                label={t('tab.view')}
+                value={list ? 'list' : 'cards'}
+                options={[
+                  { value: 'cards', label: t('tab.cards') },
+                  { value: 'list', label: t('tab.list') },
+                ]}
+                onChange={(view) =>
+                  void navigate(view === 'list' ? '?view=list' : '/admin/projects')
+                }
+              />
+            )}
             {manage && !list && (
               <Button startIcon="add" onClick={() => setDialog({})}>
                 {t('cards.new_program')}
@@ -88,7 +94,7 @@ export function ProgramsProjectsPage() {
         </Alert>
       )}
       {list ? (
-        <ProjectList />
+        <ProjectList overview={overview} />
       ) : (
         <ProgramCards
           onEdit={

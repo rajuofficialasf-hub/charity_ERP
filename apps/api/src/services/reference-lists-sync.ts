@@ -1,0 +1,196 @@
+import type { Tx } from '../core/prisma.service.js';
+import { stableId } from '../core/stable-id.js';
+
+/**
+ * The shipped reference lists: the system-wide lists and the per-project list defaults, with the
+ * labels the owner decided (docs/database/DATABASE_SCHEMA.md, "System-wide configurable lists
+ * (reference_lists, FK enforced)" and "Per-project lists (validated by the service against the
+ * project snapshot)"). The development seed writes them as they are; a database with real data gets
+ * the missing ones from `syncReferenceLists`, part of `pnpm db:migrate`.
+ */
+export type Entry = [code: string, bn: string, en: string, extra?: EntryExtra];
+/** A system entry the rules need (kept active, never renamed), and a list's own attributes. */
+export interface EntryExtra {
+  system?: boolean;
+  attributes?: Record<string, string>;
+}
+
+/** The media stages the rules need; the others are the owner's ordinary stages. */
+const SYSTEM: EntryExtra = { system: true };
+
+export const REFERENCE_LISTS: Record<string, Entry[]> = {
+  payment_method: [
+    ['bkash', 'বিকাশ', 'bKash'],
+    ['nagad', 'নগদ', 'Nagad'],
+    ['rocket', 'রকেট', 'Rocket'],
+    ['bank_transfer', 'ব্যাংক ট্রান্সফার', 'Bank transfer'],
+  ],
+  consent_channel: [
+    ['website', 'ওয়েবসাইট', 'Website'],
+    ['facebook', 'ফেসবুক', 'Facebook'],
+    ['print', 'প্রিন্ট', 'Print'],
+    ['video', 'ভিডিও', 'Video'],
+    ['donor_report', 'ডোনার রিপোর্ট', 'Donor report'],
+  ],
+  gender: [
+    ['male', 'পুরুষ', 'Male'],
+    ['female', 'মহিলা', 'Female'],
+  ],
+  marital_status: [
+    ['never_married', 'অবিবাহিত', 'Never married'],
+    ['married', 'বিবাহিত', 'Married'],
+    ['widowed', 'বিধবা/বিপত্নীক', 'Widowed'],
+    ['divorced', 'তালাকপ্রাপ্ত', 'Divorced'],
+    ['separated', 'পৃথক বসবাসকারী', 'Separated'],
+    ['other', 'অন্যান্য', 'Other'],
+  ],
+  education_level: [
+    ['illiterate', 'নিরক্ষর', 'Illiterate'],
+    ['primary', 'প্রাথমিক বা সমমান', 'Primary or equivalent'],
+    ['secondary', 'মাধ্যমিক বা সমমান', 'Secondary or equivalent'],
+    ['higher_secondary', 'উচ্চ মাধ্যমিক বা সমমান', 'Higher secondary or equivalent'],
+    ['graduate', 'স্নাতক বা সমমান', 'Graduate or equivalent'],
+    ['postgraduate', 'স্নাতকোত্তর বা সমমান', 'Postgraduate or equivalent'],
+  ],
+  relationship: [
+    ['self', 'নিজে/পরিবারের প্রধান', 'Self / head of household'],
+    ['spouse', 'স্বামী/স্ত্রী', 'Spouse'],
+    ['son', 'ছেলে', 'Son'],
+    ['daughter', 'মেয়ে', 'Daughter'],
+    ['father', 'পিতা', 'Father'],
+    ['mother', 'মাতা', 'Mother'],
+    ['brother', 'ভাই', 'Brother'],
+    ['sister', 'বোন', 'Sister'],
+    ['grandfather', 'দাদা/নানা', 'Grandfather'],
+    ['grandmother', 'দাদি/নানি', 'Grandmother'],
+    ['grandson', 'নাতি', 'Grandson'],
+    ['granddaughter', 'নাতনি', 'Granddaughter'],
+    ['son_in_law', 'জামাতা', 'Son-in-law'],
+    ['daughter_in_law', 'পুত্রবধূ', 'Daughter-in-law'],
+    ['other_relative', 'অন্যান্য আত্মীয়', 'Other relative'],
+    ['guardian', 'অভিভাবক', 'Guardian'],
+    ['non_relative', 'অনাত্মীয়', 'Not a relative'],
+  ],
+  // whose number the mobile on a beneficiary's profile is
+  mobile_owner: [
+    ['own', 'নিজের', 'Own'],
+    ['family', 'পরিবারের সদস্যের', "A family member's"],
+    ['neighbour', 'প্রতিবেশীর', "A neighbour's"],
+    ['other', 'অন্য কারও', "Someone else's"],
+  ],
+  // whether the name beside a beneficiary is the father's or the husband's
+  guardian_relation: [
+    ['father', 'পিতা', 'Father'],
+    ['husband', 'স্বামী', 'Husband'],
+  ],
+  beneficiary_class_default: [
+    ['elderly', 'বৃদ্ধ', 'Elderly'],
+    ['widow', 'বিধবা', 'Widow'],
+    ['orphan', 'এতিম', 'Orphan'],
+    ['disabled', 'প্রতিবন্ধী', 'Person with disability'],
+    ['ill', 'অসুস্থ', 'Ill'],
+    ['labourer', 'শ্রমজীবী', 'Labourer'],
+    ['extreme_poor', 'অতিদরিদ্র', 'Extremely poor'],
+    ['other', 'অন্যান্য', 'Other'],
+  ],
+  application_kind_default: [
+    ['educational_institution', 'শিক্ষাপ্রতিষ্ঠান', 'Educational institution'],
+    ['personal_garden', 'ব্যক্তিগত বাগান', 'Personal garden'],
+  ],
+  expense_category_default: [
+    ['decoration', 'সাজসজ্জা', 'Decoration'],
+    ['vehicle_hire', 'গাড়ি ভাড়া', 'Vehicle hire'],
+    ['food', 'খাবার', 'Food'],
+    ['photocopy', 'ফটোকপি', 'Photocopy'],
+    ['banner', 'ব্যানার', 'Banner'],
+  ],
+  issue_type_default: [
+    ['material_shortage', 'মালামালের ঘাটতি', 'Material shortage'],
+    ['poor_workmanship', 'কাজের মান খারাপ', 'Poor workmanship'],
+    ['mason_absent', 'মিস্ত্রী অনুপস্থিত', 'Mason absent'],
+    ['land_problem', 'জমির সমস্যা', 'Land problem'],
+    ['weather', 'আবহাওয়া', 'Weather'],
+    ['material_theft', 'মালামাল চুরি', 'Material theft'],
+  ],
+  media_stage: [
+    ['accepted', 'গ্রহণ', 'Accepted', SYSTEM],
+    ['planning', 'পরিকল্পনা ও দল', 'Planning and assignment'],
+    ['script', 'স্ক্রিপ্ট', 'Script'],
+    ['shooting_preparation', 'শুটিং প্রস্তুতি', 'Shooting preparation'],
+    ['shooting_done', 'শুটিং সম্পন্ন', 'Shooting done'],
+    ['editing', 'সম্পাদনা', 'Editing'],
+    ['internal_review', 'অভ্যন্তরীণ পর্যালোচনা', 'Internal review'],
+    ['ready_to_publish', 'প্রকাশের জন্য প্রস্তুত', 'Ready to publish', SYSTEM],
+    ['published', 'প্রকাশিত', 'Published', SYSTEM],
+    ['done', 'সম্পন্ন', 'Done', SYSTEM],
+    ['in_review', 'সংশোধনে ফেরত', 'Sent back for changes', SYSTEM],
+    ['on_hold', 'স্থগিত', 'On hold', SYSTEM],
+    ['cancelled', 'বাতিল', 'Cancelled', SYSTEM],
+  ],
+  media_role: [
+    ['production_manager', 'প্রোডাকশন ম্যানেজার', 'Production Manager'],
+    ['director', 'পরিচালক', 'Director'],
+    ['scriptwriter', 'স্ক্রিপ্ট লেখা', 'Scriptwriter'],
+    ['cinematographer', 'ক্যামেরা', 'Cinematographer'],
+    ['video_editor', 'ভিডিও সম্পাদনা', 'Video Editor'],
+    ['production_assistant', 'প্রোডাকশন সহকারী', 'Production Assistant'],
+  ],
+  // a platform's kind decides the host its links must have
+  media_platform: [
+    [
+      'asf_facebook',
+      'As-Sunnah Foundation Facebook',
+      'As-Sunnah Foundation Facebook',
+      { attributes: { kind: 'facebook' } },
+    ],
+    [
+      'ahmadullah_facebook',
+      'আহমাদুল্লাহ Facebook',
+      'Ahmadullah Facebook',
+      { attributes: { kind: 'facebook' } },
+    ],
+    [
+      'asf_youtube',
+      'As-Sunnah Foundation YouTube',
+      'As-Sunnah Foundation YouTube',
+      { attributes: { kind: 'youtube' } },
+    ],
+    [
+      'ahmadullah_youtube',
+      'আহমাদুল্লাহ YouTube',
+      'Ahmadullah YouTube',
+      { attributes: { kind: 'youtube' } },
+    ],
+  ],
+};
+
+/** The stable id of a shipped list entry, the same in the seed and in the sync. */
+export const referenceEntryId = (listKey: string, code: string) =>
+  stableId(`reference:${listKey}:${code}`);
+
+/**
+ * Inserts every shipped list entry whose list and code have no row yet, after the list's last
+ * entry, under the list's lock that an administrator's edit of the list takes too
+ * (docs/ops/DEPLOYMENT.md, the start-up order). An entry already present, edited by an
+ * administrator or not, is left as it is, and so is its place. Idempotent; answers the number of
+ * entries inserted and the number already present.
+ */
+export async function syncReferenceLists(db: Tx): Promise<{ inserted: number; present: number }> {
+  let inserted = 0;
+  let present = 0;
+  for (const [listKey, entries] of Object.entries(REFERENCE_LISTS)) {
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'reference_lists:' + listKey}))`;
+    for (const [code, bn, en, extra] of entries) {
+      const written = await db.$executeRaw`
+        INSERT INTO reference_lists
+          (id, list_key, code, label_bn, label_en, active, sort_order, is_system, attributes)
+        VALUES (${referenceEntryId(listKey, code)}::uuid, ${listKey}, ${code}, ${bn}, ${en}, true,
+                (SELECT coalesce(max(sort_order), 0) + 1 FROM reference_lists WHERE list_key = ${listKey}),
+                ${extra?.system ?? false}, ${JSON.stringify(extra?.attributes ?? {})}::jsonb)
+        ON CONFLICT (list_key, code) DO NOTHING`;
+      if (written) inserted += 1;
+      else present += 1;
+    }
+  }
+  return { inserted, present };
+}

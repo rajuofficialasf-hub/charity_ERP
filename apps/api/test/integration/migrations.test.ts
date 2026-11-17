@@ -109,6 +109,16 @@ describe('migrations', () => {
     } finally {
       await prisma.$disconnect();
     }
+    // the demo's winter series has a second session, and the series' reverse stops while two
+    // sessions share a code (docs/database/DATABASE_SCHEMA.md, the project series migration):
+    // the earlier session is first given a code of its own, the step that reverse names
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      await client.query(`UPDATE projects SET code = 'WNTA' WHERE code = 'WNT' AND year = 2025`);
+    } finally {
+      await client.end();
+    }
     await runMigrations(db, 'down');
     expect(await snapshot(db)).toEqual(empty);
     await runMigrations(db, 'up');
@@ -177,6 +187,43 @@ describe('migrations', () => {
       expect(await rows('SELECT purpose AS v FROM otp_codes')).toEqual(['registration']);
       expect(await rows('SELECT entity_type AS v FROM file_links')).toEqual(['volunteer']);
       expect(await rows('SELECT id AS v FROM files')).toEqual([file]);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('the down.sql of the kept prior state gives the applications a project close closed their states back', async () => {
+    const db = await freshDatabase('closedfrom');
+    await runMigrations(db, 'up');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const loc = await locationTree(client);
+      const ctx = { project: await project(client), loc };
+      const draft = await application(client, ctx, {
+        status: 'closed',
+        closed_from_status: 'draft',
+      });
+      const running = await application(client, ctx, {
+        beneficiary_id: await beneficiary(client, loc),
+        status: 'closed',
+        outcome: 'not_distributed',
+        closed_from_status: 'implementation',
+      });
+      await client.query(
+        readFileSync(
+          join(MIGRATIONS_DIR, '20261117160000_application_closed_from', 'down.sql'),
+          'utf8',
+        ),
+      );
+      const { rows } = await client.query<{ id: string; status: string; outcome: string | null }>(
+        'SELECT id, status, outcome FROM applications WHERE id = ANY($1::uuid[]) ORDER BY id',
+        [[draft, running]],
+      );
+      expect(Object.fromEntries(rows.map((r) => [r.id, [r.status, r.outcome]]))).toEqual({
+        [draft]: ['draft', null],
+        [running]: ['implementation', null],
+      });
     } finally {
       await client.end();
     }

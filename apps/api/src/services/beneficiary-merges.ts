@@ -4,8 +4,10 @@ import type { AccessService } from '../access/service.js';
 import { beneficiaryWhere, projectWhere, type Scope } from '../access/scope.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
+import type { Env } from '../config/env.js';
 import type { Clock } from '../core/clock.js';
 import { isUniqueViolation, isVolunteerMobileRefusal } from '../core/db-errors.js';
+import { buildPage, decodeCursor } from '../core/pagination.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client.js';
@@ -115,6 +117,7 @@ export class BeneficiaryMergesService {
     private readonly clock: Clock,
     private readonly candidates: BeneficiaryMergeCandidatesService,
     private readonly matchKeys: MatchKeysService,
+    private readonly env: Env,
   ) {}
 
   private notFound(actor: Principal, scope: Scope): never {
@@ -600,9 +603,27 @@ export class BeneficiaryMergesService {
   /**
    * The merges with a profile in the caller's scope, newest first: one side is enough, because a
    * merge moves the retired profile's applications and with them a program's reach. An open proposal
-   * whose profiles are no longer both live is left out; carrying it out would be refused.
+   * whose profiles are no longer both live is left out; carrying it out would be refused. Paged
+   * forward by cursor, which serves only the filters it was made for.
    */
-  async list(scope: Scope, status: 'proposed' | 'merged' | 'reverted' | undefined, limit: number) {
+  async list(
+    actor: Principal,
+    scope: Scope,
+    filter: { status?: 'proposed' | 'merged' | 'reverted'; mergeId?: string },
+    page: { limit: number; cursor?: string },
+  ) {
+    const { status, mergeId } = filter;
+    const binding = `beneficiaries.merges|${actor.userId}|${status ?? ''}|${mergeId ?? ''}`;
+    const after = page.cursor ? decodeCursor(this.env.CURSOR_SECRET, binding, page.cursor) : null;
+    // the ids are time-ordered, so newest first is the id order, kept exactly in the cursor
+    const position = after ? z.tuple([z.uuid()]).safeParse(after.v) : null;
+    if (position && !position.success)
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'cursor', code: 'validation.failed' },
+      ]);
+    const before: Prisma.ProfileMergeWhereInput = position?.success
+      ? { id: { lt: position.data[0] } }
+      : {};
     const inScope = beneficiaryWhere(scope);
     const stillOpen: Prisma.ProfileMergeWhereInput = {
       OR: [
@@ -614,15 +635,25 @@ export class BeneficiaryMergesService {
       where: {
         AND: [
           status ? { status } : {},
+          mergeId ? { id: mergeId } : {},
           { OR: [{ kept: inScope }, { merged: inScope }] },
           stillOpen,
+          before,
         ],
       },
-      orderBy: { proposedAt: 'desc' },
-      take: limit,
+      orderBy: { id: 'desc' },
+      take: page.limit + 1,
       select: VIEW,
     });
-    return rows.map(view);
+    const built = buildPage(rows, {
+      limit: page.limit,
+      sort: [{ field: 'id', direction: 'desc' }],
+      direction: 'next',
+      hadCursor: after !== null,
+      secret: this.env.CURSOR_SECRET,
+      binding,
+    });
+    return { rows: built.rows.map(view), meta: built.meta };
   }
 }
 

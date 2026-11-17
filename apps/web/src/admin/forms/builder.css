@@ -9,9 +9,14 @@
  * the padding that area keeps around its other pages (admin.css), so the form gets that room
  */
 .fb-page {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  /* a column of flex items, not a grid: a grid item sticks only inside its own row, and the
+     line of facts below has to stay in view over the whole form */
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
+  min-width: 0;
+}
+.fb-page > * {
   min-width: 0;
 }
 @media (min-width: 768px) {
@@ -25,6 +30,34 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+}
+/* the head's box gives way, so its line of facts can stay in view while the form scrolls; the
+   line then stands in the page's column on its own, so it takes back the column's gap to the
+   title */
+.fb-head {
+  display: contents;
+}
+.fb-head > .fb-head-meta {
+  margin-top: calc(var(--space-1) - var(--space-4));
+}
+/* on a computer the line with the save state stays under the asf shell's 72px header while the
+   form scrolls, the panes beside it scrolling under it */
+.fb-page {
+  --fb-head-line: 0px;
+}
+@media (min-width: 768px) {
+  .fb-page {
+    /* the line's height on a computer, where its chips and buttons fit on one line */
+    --fb-head-line: 52px;
+  }
+  .fb-head-meta {
+    position: sticky;
+    top: 72px;
+    z-index: 2;
+    min-height: var(--fb-head-line);
+    padding-block: var(--space-1);
+    background: var(--color-bg-canvas);
+  }
 }
 /* the save state: quiet while it saves, in the error tone with its reason when it did not */
 .fb-save {
@@ -97,9 +130,9 @@
   flex: 1 1 0;
 }
 .fb-side {
-  /* under the asf shell's header, which is 72px high */
+  /* under the asf shell's header, which is 72px high, and the form's line of facts under it */
   position: sticky;
-  top: calc(72px + var(--space-2));
+  top: calc(72px + var(--fb-head-line) + var(--space-2));
   flex: none;
 }
 .fb-add {

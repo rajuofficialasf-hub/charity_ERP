@@ -52,12 +52,15 @@ export const transferResult = z.object({
   teamMoved: z.number().int(),
   /** The new volunteer now holds more applications than the project's limit; a warning. */
   overLimit: z.boolean(),
+  /** The new volunteer has not yet accepted the project's rules, so sees the applications only then. */
+  consentPending: z.boolean(),
 });
 interface TransferResult extends Prisma.JsonObject {
   batchId: string;
   moved: string[];
   teamMoved: number;
   overLimit: boolean;
+  consentPending: boolean;
 }
 
 /** An application a transfer may pick, as the picker lists it. */
@@ -309,7 +312,12 @@ export class TransfersService {
     const counts = await liveApplicationCounts(tx, [{ projectId, ownerVolunteerId: to.id }]);
     const overLimit =
       project.perVolunteerLimit !== null && counts(projectId, to.id) > project.perVolunteerLimit;
-    return { batchId, moved: ids, teamMoved, overLimit };
+    // the move goes through; the new volunteer works on the applications once they accept the
+    // project's rules, and the office is told that this is still pending
+    const accepted = await tx.projectVolunteer.count({
+      where: { projectId, volunteerId: to.id, endedAt: null, consentStatus: 'accepted' },
+    });
+    return { batchId, moved: ids, teamMoved, overLimit, consentPending: accepted === 0 };
   }
 
   /**

@@ -302,6 +302,12 @@ describe('creating a project form', () => {
 });
 
 describe('reading a version', () => {
+  /** Marks a version published directly; the publish route is proven below. */
+  const publish = (versionId: string) =>
+    h.db.query(
+      `UPDATE form_versions SET status = 'published', published_at = now(), published_by = $2 WHERE id = $1`,
+      [versionId, world.users.monitoring],
+    );
   async function selfRelianceOn(projectId: string) {
     const made = await createForm(projectId, {
       kind: 'template',
@@ -320,22 +326,32 @@ describe('reading a version', () => {
     expect(pm.headers.etag).toMatch(/^"[0-9a-z]+"$/);
     const keys = (pm.body.data.sections as SectionView[]).map((s) => s.key);
     expect(keys).toContain('official');
-    const finance = await readVersion((await staff('finance_team')).session, target);
-    expect(finance.status).toBe(200);
-    expect((finance.body.data.sections as SectionView[]).map((s) => s.key)).not.toContain(
+    const finance = (await staff('finance_team')).session;
+    // an unpublished draft is read only by those who may edit the project's forms
+    const draftRead = await readVersion(finance, target);
+    expect(draftRead.status).toBe(403);
+    expect(draftRead.body.error.code).toBe('permission.denied');
+    await publish(target);
+    const published = await readVersion(finance, target);
+    expect(published.status).toBe(200);
+    expect((published.body.data.sections as SectionView[]).map((s) => s.key)).not.toContain(
       'official',
     );
-    expect(JSON.stringify(finance.body)).not.toContain('official_comment');
+    expect(JSON.stringify(published.body)).not.toContain('official_comment');
   });
 
   it('gives an assigned volunteer the volunteer-visible sections only, and an unassigned one nothing', async () => {
     const versionId = world.a1.formVersion;
+    expect((await readVersion(await as(world.users.general), versionId)).status).toBe(403);
+    expect((await readVersion(await as(world.users.rpmDhaka), versionId)).status).toBe(403);
     await h.db.query(
       `INSERT INTO form_sections (id, form_version_id, key, title_bn, title_en, sort_order, visibility)
        VALUES (gen_random_uuid(), $1, 'official', 'অফিসিয়াল', 'Official', 1, 'official_only'),
               (gen_random_uuid(), $1, 'basic_info', 'মূল তথ্য', 'Basic information', 2, 'volunteer')`,
       [versionId],
     );
+    await publish(versionId);
+    expect((await readVersion(await as(world.users.rpmDhaka), versionId)).status).toBe(200);
     const volunteer = await readVersion(await as(world.users.general), versionId);
     expect(volunteer.status).toBe(200);
     expect((volunteer.body.data.sections as SectionView[]).map((s) => s.key)).toEqual([
@@ -492,6 +508,44 @@ describe('drafts, publishing and the field map', () => {
     expect((await update(pm, versionId, etag, next)).status).toBe(412);
     expect((await update(pm, versionId, '"nope"', next)).status).toBe(412);
     expect((await auditRows(versionId, 'form.draft_changed')).length).toBe(1);
+  });
+
+  it('writes only the question that changed, keeping every other row as it was', async () => {
+    const pm = await as(world.users.monitoring);
+    const { versionId } = await distributionDraft();
+    const rowsOf = async () =>
+      (
+        await h.db.query<{ field_key: string; id: string; updated_at: Date; options: string[] }>(
+          `SELECT f.field_key, f.id, f.updated_at,
+                  coalesce(array_agg(o.id ORDER BY o.sort_order) FILTER (WHERE o.id IS NOT NULL), '{}') AS options
+             FROM form_fields f LEFT JOIN field_options o ON o.form_field_id = f.id
+            WHERE f.form_version_id = $1 GROUP BY f.id`,
+          [versionId],
+        )
+      ).rows;
+    const { etag, sections } = await current(pm, versionId);
+    const before = await rowsOf();
+    // one question's label changed, nothing else
+    const changed = structuredClone(sections) as {
+      fields: { fieldKey: string; label: { bn: string } }[];
+    }[];
+    const target = changed[0]!.fields[0]!;
+    target.label.bn = `${target.label.bn} (বদলানো)`;
+    const saved = await update(pm, versionId, etag, changed);
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    const after = await rowsOf();
+    const touched = after.filter((row) => {
+      const was = before.find((b) => b.field_key === row.field_key)!;
+      return (
+        was.id !== row.id ||
+        was.updated_at.getTime() !== row.updated_at.getTime() ||
+        was.options.join() !== row.options.join()
+      );
+    });
+    expect(touched.map((row) => row.field_key)).toEqual([target.fieldKey]);
+    expect(after).toHaveLength(before.length);
+    // and the read gives back what was sent
+    expect((await current(pm, versionId)).sections).toEqual(changed);
   });
 
   it('saves and publishes a number table with a calculation over its cells, and reads it back', async () => {

@@ -19,12 +19,12 @@ import {
   Text,
   TextField,
 } from '@/ui';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { ApiFailure } from '../../../api/client';
-import { type ProjectComponent, updateComponent } from './setup-api';
+import { keepSavedComponent, type ProjectComponent, updateComponent } from './setup-api';
 import { useSetup } from './setup-context';
 import { useSchemaResolver } from '../../../lib/form-schema';
 
@@ -113,6 +113,7 @@ export function ComponentDrawer({
   const tk = useTranslations('admin.projects.component');
   const tc = useTranslations('common.action');
   const key = component.componentKey as ComponentKey;
+  const queries = useQueryClient();
   const form = useForm<DrawerFields>({
     resolver: useSchemaResolver(DRAWER_SCHEMA),
     defaultValues: { settings: { ...(component.settings ?? {}) } },
@@ -123,7 +124,10 @@ export function ComponentDrawer({
   const save = useMutation({
     mutationFn: (v: DrawerFields) =>
       updateComponent(project.id, key, component.etag ?? '', { settings: v.settings }),
-    onSuccess: onSaved,
+    onSuccess: (saved) => {
+      keepSavedComponent(queries, project.id, saved);
+      onSaved();
+    },
   });
   // Enter in a field submits too; a save already on its way is not sent again
   const submit = (v: DrawerFields) => {

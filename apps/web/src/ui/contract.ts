@@ -584,8 +584,6 @@ export type UiLabels = {
   flipBack: string;
   /** That button's name for a screen reader, for example "Back to the front". */
   flipBackOf: string;
-  /** On a computer, in place of the button, for example "Rest the pointer here for details". */
-  flipHint: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };

@@ -14,7 +14,11 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { json, SeedContext } from '../../seed/context.js';
 import { readPermissionsFile } from '../../seed/sets/base/access.js';
 import { deriveTransitions, readWorkflowTemplates } from '../../seed/sets/base/workflows.js';
-import { DEMO_DUPLICATE_PAIRS, DEMO_STAFF } from '../../seed/sets/demo/index.js';
+import {
+  DEMO_DUPLICATE_PAIRS,
+  DEMO_HELPED_BENEFICIARY,
+  DEMO_STAFF,
+} from '../../seed/sets/demo/index.js';
 import { runSeed, type SeedReport } from '../../seed/run.js';
 import { prismaClientFor } from '../../src/core/prisma.service.js';
 import type { PrismaClient } from '../../src/generated/prisma/client.js';
@@ -333,15 +337,15 @@ describe('demo set', () => {
     expect(team[0].reference_nid).toBe(team[0].nid);
   });
 
-  it('has 54 beneficiaries in exactly two divisions and a draft winter project with components', async () => {
+  it('has 55 beneficiaries in exactly two divisions, a draft winter project with components and its closed session of 2025', async () => {
     const divisions = (
       await db.query(
         `SELECT l.name_en, count(*)::int AS n FROM beneficiaries b JOIN locations l ON l.id = b.division_id GROUP BY l.name_en ORDER BY l.name_en`,
       )
     ).rows;
-    // 25 per division, and the four profiles of the duplicate pairs in Dhaka
+    // 25 per division, and in Dhaka the four profiles of the duplicate pairs and the person helped
     expect(divisions).toEqual([
-      { name_en: 'Dhaka', n: 29 },
+      { name_en: 'Dhaka', n: 30 },
       { name_en: 'Rangpur', n: 25 },
     ]);
     const project = (
@@ -362,6 +366,33 @@ describe('demo set', () => {
           'volunteer_assignment',
           'volunteer_expenses',
         ],
+      },
+    ]);
+    const sessions = (
+      await db.query(`SELECT year, status FROM projects WHERE code = 'WNT' ORDER BY year`)
+    ).rows;
+    expect(sessions).toEqual([
+      { year: 2025, status: 'closed' },
+      { year: 2026, status: 'draft' },
+    ]);
+  });
+
+  it('keeps one person helped once, by the closed session of 2025, with the times helped kept', async () => {
+    const { rows } = await db.query(
+      `SELECT b.nid, b.help_count, a.status, a.closed_from_status, p.year
+         FROM beneficiaries b
+         JOIN applications a ON a.beneficiary_id = b.id
+         JOIN projects p ON p.id = a.project_id
+        WHERE b.nid = $1`,
+      [DEMO_HELPED_BENEFICIARY.nid],
+    );
+    expect(rows).toEqual([
+      {
+        nid: DEMO_HELPED_BENEFICIARY.nid,
+        help_count: 1,
+        status: 'closed',
+        closed_from_status: 'approved',
+        year: 2025,
       },
     ]);
   });
@@ -396,7 +427,9 @@ describe('demo set', () => {
          JOIN beneficiaries b ON b.id = a.beneficiary_id
          JOIN projects p ON p.id = a.project_id
          JOIN programs g ON g.id = p.program_id
+         WHERE b.nid = ANY($1::text[])
          ORDER BY b.nid`,
+        [DEMO_DUPLICATE_PAIRS.flatMap((pair) => pair.nids)],
       )
     ).rows;
     expect(applications).toEqual(
@@ -459,4 +492,39 @@ describe('demo set', () => {
     expect(rows[0].argon).toBe(rows[0].n);
     expect(rows[0].n).toBe(35);
   });
+});
+
+describe('a database seeded before the project series', () => {
+  it('runs the demo set again on the series the migration gave the winter project, its own id', async () => {
+    const { rows } = await db.query<{ id: string; series_id: string }>(
+      `SELECT id, series_id FROM projects WHERE code = 'WNT' AND year = 2026`,
+    );
+    const project = rows[0]!;
+    /** Moves the winter project onto a series of the given id, the old series left behind. */
+    const moveSeries = async (from: string, to: string) => {
+      await db.query(`UPDATE project_series SET code = 'WNTOLD' WHERE id = $1`, [from]);
+      await db.query(
+        `INSERT INTO project_series (id, program_id, code, name_bn, name_en, created_at, created_by, updated_at, updated_by)
+         SELECT $1, program_id, 'WNT', name_bn, name_en, created_at, created_by, updated_at, updated_by
+           FROM project_series WHERE id = $2`,
+        [to, from],
+      );
+      await db.query(`UPDATE projects SET series_id = $1 WHERE series_id = $2`, [to, from]);
+      await db.query(`DELETE FROM project_series WHERE id = $1`, [from]);
+    };
+    await moveSeries(project.series_id, project.id);
+    try {
+      await runSeed(prisma, ['base', 'demo'], { NODE_ENV: 'test', DATABASE_URL: url });
+      const after = await db.query<{ series_id: string }>(
+        `SELECT series_id FROM projects WHERE id = $1`,
+        [project.id],
+      );
+      expect(after.rows[0]!.series_id).toBe(project.id);
+      const series = await db.query(`SELECT id FROM project_series WHERE code = 'WNT'`);
+      expect(series.rows).toEqual([{ id: project.id }]);
+    } finally {
+      // the other tests read the seed's own series again, whatever order they run in
+      await moveSeries(project.id, project.series_id);
+    }
+  }, 180_000);
 });
