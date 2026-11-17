@@ -100,8 +100,7 @@ function unpack(block: Uint8Array<ArrayBuffer>): { facts: PhotoFacts; bytes: Uin
 
 /** What the queue holds against its budget; `budget` is for the tests. */
 export async function usage(budget = budgetBytes()): Promise<QueueUsage> {
-  const rows = await offlineDb().photos.toArray();
-  const usedBytes = rows.reduce((sum, r) => sum + r.size, 0);
+  const usedBytes = await usedOf(offlineDb());
   const level =
     usedBytes >= budget ? 'full' : usedBytes >= budget * PHOTO_WARN_RATIO ? 'warn' : 'ok';
   return { usedBytes, budgetBytes: budget, level };
@@ -134,13 +133,18 @@ export async function add(input: {
   };
   const db = offlineDb();
   // the check and the write in one transaction, so two photos chosen together cannot both slip in
-  await db.transaction('rw', db.photos, async () => {
+  await db.transaction('rw', [db.photos, db.photoSizes], async () => {
     const budget = input.budget ?? budgetBytes();
-    const used = (await db.photos.toArray()).reduce((sum, r) => sum + r.size, 0);
-    if (used + row.size > budget) throw new Error(PHOTO_BUDGET_FULL);
+    if ((await usedOf(db)) + row.size > budget) throw new Error(PHOTO_BUDGET_FULL);
     await db.photos.put(row);
+    await db.photoSizes.put({ id: row.id, clientUuid: row.clientUuid, size: row.size });
   });
   return row.id;
+}
+
+/** The bytes the queue holds, added up from the size table alone, never from the photos. */
+async function usedOf(db: ReturnType<typeof offlineDb>): Promise<number> {
+  return (await db.photoSizes.toArray()).reduce((sum, r) => sum + r.size, 0);
 }
 
 /** The photo's bytes and facts, opened with the data key. */
@@ -326,8 +330,13 @@ export async function uploadDue(
 
 /** Drops the photos the server holds already; the waiting ones never go by themselves. */
 export async function freeSpace(): Promise<number> {
-  const rows = await offlineDb().photos.where('state').equals('uploaded').toArray();
-  await offlineDb().photos.bulkDelete(rows.map((r) => r.id));
+  const db = offlineDb();
+  const rows = await db.photos.where('state').equals('uploaded').toArray();
+  const ids = rows.map((r) => r.id);
+  await db.transaction('rw', [db.photos, db.photoSizes], async () => {
+    await db.photos.bulkDelete(ids);
+    await db.photoSizes.bulkDelete(ids);
+  });
   return rows.reduce((sum, r) => sum + r.size, 0);
 }
 
