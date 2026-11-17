@@ -181,6 +181,35 @@ district at 295 / 339 and 294 / 318, over the 300 ms target, and the profile at 
 shared rule (U13) came after the measurement of section 3; their plans read the table rather than an
 index. They need their own measurement and a proposal.
 
+### The beneficiary statistics (D-179; 2026-11-17)
+
+Measured again before the change, `beneficiaries.statistics` all ran over the 5-second limit of the
+list reads (503) and district at 194 / 210 ms. Three changes bring every statistics call under the
+300 ms target (`beneficiaries.ts` `statistics`, migration
+`20261117200000_beneficiary_statistics_indexes`):
+
+- The total, the blocked and the two genders, four counts over the table, are one count grouped by
+  `is_blocked` and `gender_code`, read from the new partial index
+  `beneficiaries_live_block_gender_idx` (those two columns of the live profiles) as an index-only
+  scan: 167 ms in place of a 612 ms parallel scan of the table.
+- "Assisted this year" reads the applications of the year's projects from the new index
+  `applications_project_help_idx` (project, state, person, approval time, outcome), which holds
+  everything the shared rule of the people helped reads, so the count needs no table read of the
+  500,000 applications.
+- The two reads run side by side, each under its own time limit (figures of a moment, which need not
+  share one snapshot).
+
+| Case (ms, p50 / p95) | Head | RPM |
+|---|---|---|
+| `beneficiaries.statistics` all | 241 / 288 | 230 / 287 |
+| `beneficiaries.statistics` district | 94 / 117 | 93 / 106 |
+| `volunteers.statistics` all | 125 / 143 | 159 / 168 |
+| `volunteers.statistics` district | 31 / 37 | 60 / 74 |
+
+The call over everyone is near the target; when the profiles pass about 2.5 million, measure again,
+and the next step would be the counts kept by the writes, as the times helped are kept per person,
+which needs the owner's decision first.
+
 ### The cards of programs and projects (D-176, BR-313, BR-314; 2026-11-16)
 
 The merged tab opens on the program cards (`GET /program-cards`) and a program on its project

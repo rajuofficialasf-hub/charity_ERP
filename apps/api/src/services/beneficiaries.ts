@@ -238,26 +238,39 @@ export class BeneficiariesService {
     const where = await this.where(filter, viewer);
     const year = dhakaYear(this.clock.now());
     const rowsProjects = beneficiaryRowsProjectWhere(viewer.scope);
-    return boundedRead(this.prisma, async (tx) => ({
-      total: await tx.beneficiary.count({ where }),
-      assistedThisYear: await tx.beneficiary.count({
-        where: {
-          AND: [
-            where,
-            {
-              applicationsBeneficiary: {
-                some: {
-                  AND: [HELPED_WHERE, { project: { AND: [{ year }, rowsProjects ?? {}] } }],
+    // the two reads run side by side, each under its own time limit: figures of a moment, which
+    // need not share one snapshot
+    const [groups, assistedThisYear] = await Promise.all([
+      // the total, the blocked and the two genders in one pass over the live rows' index
+      boundedRead(this.prisma, (tx) =>
+        tx.beneficiary.groupBy({ by: ['isBlocked', 'genderCode'], where, _count: { _all: true } }),
+      ),
+      boundedRead(this.prisma, (tx) =>
+        tx.beneficiary.count({
+          where: {
+            AND: [
+              where,
+              {
+                applicationsBeneficiary: {
+                  some: {
+                    AND: [HELPED_WHERE, { project: { AND: [{ year }, rowsProjects ?? {}] } }],
+                  },
                 },
               },
-            },
-          ],
-        },
-      }),
-      blocked: await tx.beneficiary.count({ where: { AND: [where, { isBlocked: true }] } }),
-      male: await tx.beneficiary.count({ where: { AND: [where, { genderCode: 'male' }] } }),
-      female: await tx.beneficiary.count({ where: { AND: [where, { genderCode: 'female' }] } }),
-    }));
+            ],
+          },
+        }),
+      ),
+    ]);
+    const sum = (pick: (g: (typeof groups)[number]) => boolean) =>
+      groups.filter(pick).reduce((n, g) => n + g._count._all, 0);
+    return {
+      total: sum(() => true),
+      assistedThisYear,
+      blocked: sum((g) => g.isBlocked),
+      male: sum((g) => g.genderCode === 'male'),
+      female: sum((g) => g.genderCode === 'female'),
+    };
   }
 
   /** The 360° profile of one beneficiary in the caller's scope, or 404. */
