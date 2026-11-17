@@ -10,5 +10,7 @@ import { useFileDataUrl } from '../../components/FileImage';
 export function CardCover({ fileId, seed }: { fileId: string | null; seed: string }) {
   const photo = useFileDataUrl(fileId, 'medium');
   if (!photo.data) return <CoverArt seed={seed} />;
-  return <img src={photo.data} alt="" className="card-cover-photo" />;
+  return (
+    <img src={photo.data} alt="" className="card-cover-photo" data-testid="card-cover-photo" />
+  );
 }

@@ -49,8 +49,6 @@ const CARE = 'beneficiary.care';
 const DETAIL = 'beneficiary.profile_detail';
 const HISTORY = 'beneficiary.application_history';
 
-/** The calendar year in Bangladesh (UTC+6). */
-
 export interface BeneficiaryViewer {
   principal: Principal;
   /** The route's scope (`beneficiary.view_all` for the entity `beneficiary`). */

@@ -5,10 +5,8 @@ import { useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
-import { ApiFailure } from '../../api/client';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
-import { ScanNotCleared } from '../../lib/uploads';
-import { CoverField, saveCover } from '../projects/CoverField';
+import { CoverField, coverProblemReason, saveCover } from '../projects/CoverField';
 import { type PanelUser, UserSearch, usersWithRole } from '../UserSearch';
 import {
   assignPm,
@@ -153,12 +151,7 @@ export function ProgramDialog({
         await refreshProgramReads(queryClient);
       } catch (failure) {
         coverProblem = tcover('failed', {
-          reason:
-            failure instanceof ScanNotCleared
-              ? tcover('not_cleared')
-              : failure instanceof ApiFailure
-                ? failure.message
-                : ts('text'),
+          reason: coverProblemReason(failure, tcover('not_cleared'), ts('text')),
         });
       }
     onDone(saved, coverProblem);

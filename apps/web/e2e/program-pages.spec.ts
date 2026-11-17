@@ -174,7 +174,7 @@ test.describe('a program’s page and a project’s page', () => {
     await card.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' }).click();
     const dialog = page.getByRole('dialog');
     await dialog
-      .locator('input[type="file"]')
+      .getByLabel('গ্যালারি থেকে নিন')
       .setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: TINY_PNG });
     await dialog.getByRole('button', { name: 'সংরক্ষণ' }).click();
     await expect(dialog).toHaveCount(0);
@@ -182,7 +182,7 @@ test.describe('a program’s page and a project’s page', () => {
     await expect(async () => {
       await page.reload();
       await expect(
-        page.getByRole('article', { name: ERR_NAME }).locator('[data-face="front"] img'),
+        page.getByRole('article', { name: ERR_NAME }).getByTestId('card-cover-photo'),
       ).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: 60_000 });
   });

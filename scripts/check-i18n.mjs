@@ -86,8 +86,8 @@ const allowed = [
   /^packages\/shared\/src\/notifications\/templates\.ts$/,
   /^packages\/shared\/src\/testing\//,
   /^apps\/api\/seed\//,
-  // the shipped reference lists with the labels the owner decided: data that db:migrate inserts,
-  // as the seed does, never text the app writes on a screen
+  // the shipped reference lists: data that db:migrate inserts, as the seed does, never text the
+  // app writes on a screen
   /^apps\/api\/src\/services\/reference-lists-sync\.ts$/,
   /\.(test|spec)\.(ts|tsx)$/,
   // test data: the unit, E2E and contract tests' own names and labels

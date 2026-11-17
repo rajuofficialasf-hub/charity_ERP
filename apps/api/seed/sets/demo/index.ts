@@ -703,22 +703,27 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       daily_income: '200',
       ...ctx.audit(),
     });
-    await ctx.upsert('applications', {
-      id: seedId(`application:WNT:2025:${helped.n}`),
-      project_id: pastId,
-      form_version_id: pastVersionId,
-      beneficiary_id: helpedId,
-      // closed with its session, approved before the close: it counts as help
-      status: 'closed',
-      closed_from_status: 'approved',
-      region_location_id: place.division,
-      district_id: place.district,
-      union_id: place.union,
-      submitted_at: SEED_AT,
-      approved_at: SEED_AT,
-      approved_by: userId('rpm_dhaka'),
-      ...ctx.audit(),
-    });
+    // a merge or its revert moves the row, as for the pairs above; a later seed run leaves it
+    await ctx.upsert(
+      'applications',
+      {
+        id: seedId(`application:WNT:2025:${helped.n}`),
+        project_id: pastId,
+        form_version_id: pastVersionId,
+        beneficiary_id: helpedId,
+        // closed with its session, approved before the close: it counts as help
+        status: 'closed',
+        closed_from_status: 'approved',
+        region_location_id: place.division,
+        district_id: place.district,
+        union_id: place.union,
+        submitted_at: SEED_AT,
+        approved_at: SEED_AT,
+        approved_by: userId('rpm_dhaka'),
+        ...ctx.audit(),
+      },
+      { insertOnly: ['beneficiary_id', 'status', 'closed_from_status'] },
+    );
     // the kept times helped, written only where they differ
     await writeHelpCounts(ctx.db, [helpedId]);
   });

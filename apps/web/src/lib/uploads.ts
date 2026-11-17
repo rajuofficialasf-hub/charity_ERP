@@ -1,7 +1,7 @@
 import { UPLOAD_RULES, type FileKind, type FileSource } from '@css/shared/files';
 import { isTransientStatus } from '@css/shared/sync';
 import { api, ApiFailure } from '../api/client';
-import type { UploadedFile, UploadSession } from '../api/schemas';
+import { type UploadedFile, uploadedFileSchema, type UploadSession } from '../api/schemas';
 
 export type { UploadedFile, UploadSession };
 
@@ -143,8 +143,11 @@ async function withRetries<T>(
 }
 
 /** How long a caller waits for the server's scan of a file it just stored, and how often it looks. */
-export const SCAN_WAIT_MS = 30_000;
+const SCAN_WAIT_MS = 30_000;
 const SCAN_POLL_MS = 1_000;
+
+/** The scan state a file's read answers, parsed at the boundary. */
+const scanStateSchema = uploadedFileSchema.pick({ virusScan: true });
 
 /** The scan of a stored file did not clear it: refused for good, or not done within the wait. */
 export class ScanNotCleared extends Error {
@@ -170,6 +173,6 @@ export async function waitForScan(
     if (state === 'infected' || state === 'failed' || Date.now() >= until)
       throw new ScanNotCleared(state);
     await new Promise((resolve) => setTimeout(resolve, SCAN_POLL_MS));
-    state = (await api<{ virusScan: UploadedFile['virusScan'] }>(`/files/${stored.id}`)).virusScan;
+    state = scanStateSchema.parse(await api<unknown>(`/files/${stored.id}`)).virusScan;
   }
 }
