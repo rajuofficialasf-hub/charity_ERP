@@ -78,7 +78,9 @@ test.describe('own profile', () => {
 
     // the page never scrolls sideways, on a phone as on a desktop
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
   });
 });

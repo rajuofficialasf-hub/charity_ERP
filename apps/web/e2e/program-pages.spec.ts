@@ -261,7 +261,9 @@ test.describe('a program’s page and a project’s page', () => {
     await card.getByRole('button', { name: 'সামনের দিকে ফিরুন' }).click();
     await expect(card).toHaveAttribute('data-turned', 'false');
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
     expect((await scan(page)).violations).toEqual([]);
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -273,7 +275,9 @@ test.describe('a program’s page and a project’s page', () => {
     await expect(page.getByText(/^আবেদন \d[\d,]* · অনুমোদিত \d[\d,]*$/).first()).toBeVisible();
     await expect(page.getByText(PHONE_NOTICE)).toHaveCount(0);
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
     expect((await scan(page)).violations).toEqual([]);
     await pictures(page, (n) => info.outputPath(n), 'series-360');

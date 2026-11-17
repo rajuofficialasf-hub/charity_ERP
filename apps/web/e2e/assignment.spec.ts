@@ -67,7 +67,9 @@ test.describe('assigning volunteers and their consent', () => {
     }
     await page.getByText('আমি রাজি এবং এই প্রকল্পে কাজ করতে আগ্রহী').click();
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
     expect((await scan(page)).violations).toEqual([]);
     await page.getByRole('button', { name: 'সম্মতি দিন' }).click();

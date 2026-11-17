@@ -27,7 +27,9 @@ test.describe('app shell', () => {
       'page',
     );
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
     expect((await scan(page)).violations).toEqual([]);
   });

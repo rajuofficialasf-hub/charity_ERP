@@ -139,7 +139,9 @@ test.describe('My Work home per role', () => {
       await page.waitForLoadState('networkidle');
       if (isPhone(info))
         expect(
-          await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          ),
         ).toBe(true);
       expect((await scan(page)).violations).toEqual([]);
     });

@@ -59,7 +59,10 @@ for (const lang of ['bn', 'en'] as const) {
       // the widest piece wider than the screen, named, when anything scrolls sideways
       const wide = await page.evaluate(() =>
         [...document.querySelectorAll<HTMLElement>('[data-testid^="piece-"] *')]
-          .filter((element) => element.getBoundingClientRect().right > window.innerWidth + 1)
+          .filter(
+            (element) =>
+              element.getBoundingClientRect().right > document.documentElement.clientWidth + 1,
+          )
           .slice(0, 3)
           .map(
             (element) =>

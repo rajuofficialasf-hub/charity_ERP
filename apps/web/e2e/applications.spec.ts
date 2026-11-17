@@ -280,6 +280,12 @@ test.describe('the application cycle', () => {
     // the volunteer reads the outcome without the office's names
     await page.goto('/my-applications?tab=approved');
     await expect(page.getByText(appNo!)).toBeVisible();
+    // the four tabs scroll inside themselves; the page never scrolls sideways on a phone
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
     await openOwn(page, appNo!);
     const own = page.getByRole('list', { name: 'আবেদনের ধাপ' });
     await expect(own.getByRole('listitem')).toHaveCount(6);

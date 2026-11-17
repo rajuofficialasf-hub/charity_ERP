@@ -38,7 +38,7 @@ Out: the bank, reference and previous-project fields (removed by O-64 and O-65, 
 
 ## Implementation units
 - **U1** Area names in the office list (R1). Files: `apps/api/src/applications/{service,view}.ts`, `routes/applications.ts` schema, `docs/api/openapi.yaml`, `apps/web/src/admin/applications/{ApplicationsPage,QuotaBars}.tsx`, web schema. Tests: API integration (the names come in the list), web component test. Size M. Risk: API contract. Status: done
-- **U2** Own pages at 360 px (R2). Files: `apps/web/src/components/auth-shell.css`; E2E check on `/my-applications` in the mobile project. Size S. Status: todo
+- **U2** Own pages at 360 px (R2). Files: `apps/web/src/components/auth-shell.css`; E2E check on `/my-applications` in the mobile project. Size S. Status: done
 - **U3** Homes (R3). Files: `packages/shared/src/attention.ts`, `apps/api/src/services/attention.ts`, i18n `home`, `apps/web/src/features/home/*`, SCREENS. Tests: API integration of the count and scope, web tests of the widget and item. Size M. Risk: permissions scope. Status: todo
 - **U4** Demo seed (R4). Files: `apps/api/seed/sets/demo/index.ts`, `docs/testing/DEMO_ACCOUNTS.md`. Tests: seed test, E2E untouched. Size S. Status: todo
 - **U5** Bengali calendar (R5). Files: `apps/web/src/ui/templates/asf/components/{pickers,labels}.tsx`, `ui.json` bn/en, the kit's test. Size S. Status: todo
@@ -58,7 +58,7 @@ Out: the bank, reference and previous-project fields (removed by O-64 and O-65, 
 
 ## Progress
 - **Branch:** fix/manual-test-findings
-- **Next:** U2
+- **Next:** U3
 - **Reviewed through:** —
 - **Uncommitted:** —
-- **Notes:** —
+- **Notes:** The E2E width checks compared with `window.innerWidth`, which grows with the content under a phone emulation (Pixel 7 is `isMobile`), so they could not fail; they now compare with the root element's `clientWidth`. Run every spec with such a check at C1 on the mobile project.

@@ -70,7 +70,9 @@ test.describe('admin area', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'উপকারভোগী' })).toBeVisible();
     // the page never scrolls sideways
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
 
     expect((await scan(page)).violations).toEqual([]);
