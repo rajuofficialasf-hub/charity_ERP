@@ -299,6 +299,51 @@ describe('the metadata of a file', () => {
       .set(bearer(await login(h, pm)));
     expect(pmInfo.body.data.duplicateOf).toBe(first);
   });
+
+  it('gives an official the size, the uploader and the record, and the uploader their own name', async () => {
+    const id = await upload('general', await picture({ variant: 8, width: 320 }), {
+      gps: { lat: 23.81, lng: 90.41, accuracyM: 9 },
+    });
+    await h.container.fileProcessor.process(id);
+    const name = (
+      await h.db.query('SELECT display_name FROM users WHERE id = $1', [world.users.general])
+    ).rows[0].display_name as string;
+    const official = (await info('rpmDhaka', id)).body.data;
+    expect(official).toMatchObject({
+      width: 320,
+      height: 240,
+      uploadedBy: { name },
+      records: [{ entityType: 'application', entityId: dhakaApplication }],
+      gps: { lat: 23.81, lng: 90.41, accuracyM: 9 },
+    });
+    const own = (await info('general', id)).body.data;
+    expect(own.uploadedBy).toEqual({ name });
+    expect(own.records).toEqual([{ entityType: 'application', entityId: dhakaApplication }]);
+  });
+
+  it("tells a volunteer neither another person's name nor the position of a photo on their application", async () => {
+    const id = await upload('rpmDhaka', await picture({ variant: 9 }), {
+      gps: { lat: 23.8, lng: 90.4, accuracyM: 5 },
+    });
+    await h.container.fileProcessor.process(id);
+    const owner = await info('general', id);
+    expect(owner.status).toBe(200);
+    expect(owner.body.data.uploadedBy).toBeNull();
+    expect(owner.body.data.gps).toBeUndefined();
+    expect(owner.body.data.records).toEqual([
+      { entityType: 'application', entityId: dhakaApplication },
+    ]);
+    // the Rangpur official does not reach the Dhaka application
+    expect((await info('rpmRangpur', id)).status).toBe(404);
+  });
+
+  it('names no size for a file processed before its size was kept', async () => {
+    const id = await upload('general', await picture({ variant: 11 }));
+    await h.container.fileProcessor.process(id);
+    await h.db.query('UPDATE files SET width = NULL, height = NULL WHERE id = $1', [id]);
+    const res = await info('rpmDhaka', id);
+    expect(res.body.data).toMatchObject({ width: null, height: null });
+  });
 });
 
 describe('the files of a record', () => {
@@ -468,6 +513,20 @@ describe('the files of a record', () => {
       [listApplication],
     );
     expect(both.rows[1].new).toMatchObject({ fileIds: [nid], format: 'csv' });
+    // an official who did not upload it lists the record without the NID photo, and leaves no
+    // trace of its view
+    const before = await h.db.query(
+      `SELECT count(*)::int AS n FROM audit_log WHERE action = 'file.nid_viewed' AND entity_id = $1`,
+      [listApplication],
+    );
+    const office = await list('rpmDhaka', {});
+    expect(office.status).toBe(200);
+    expect(office.body.data.map((r: { id: string }) => r.id)).not.toContain(nid);
+    const after = await h.db.query(
+      `SELECT count(*)::int AS n FROM audit_log WHERE action = 'file.nid_viewed' AND entity_id = $1`,
+      [listApplication],
+    );
+    expect(after.rows[0].n).toBe(before.rows[0].n);
   });
 
   it('shows the slot of the link to the record listed when a file links to two records', async () => {

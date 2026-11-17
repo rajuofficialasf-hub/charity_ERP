@@ -30,6 +30,10 @@ const fileInfoSchema = z.object({
     virusScan: z.enum(['pending', 'clean', 'infected', 'failed', 'skipped']),
     flags: z.array(z.string()),
     duplicateOf: z.uuid().nullable(),
+    width: z.int().nullable(),
+    height: z.int().nullable(),
+    uploadedBy: z.object({ name: z.string() }).nullable(),
+    records: z.array(z.object({ entityType: z.string(), entityId: z.uuid() })),
   }),
 });
 

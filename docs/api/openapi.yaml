@@ -4669,6 +4669,23 @@ components:
         virusScan: { type: string, enum: [pending, clean, infected, failed, skipped] }
         flags: { type: array, items: { type: string, enum: [no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect] } }
         duplicateOf: { type: [string, 'null'], format: uuid, description: 'The near or exact duplicate, named only to a caller whose scope reaches it' }
+        width: { type: [integer, 'null'], description: 'The width in pixels as the photo stands upright; null for a file that is not a photo or one processed before the size was kept' }
+        height: { type: [integer, 'null'] }
+        uploadedBy:
+          type: [object, 'null']
+          description: The uploader's name, given to an official and to the uploader only; a volunteer is never told who else uploaded a photo
+          required: [name]
+          properties:
+            name: { type: string }
+        records:
+          type: array
+          description: The records the file belongs to that the caller reaches (never a cover's record or a registration photo's person), for the photo's own page in the app
+          items:
+            type: object
+            required: [entityType, entityId]
+            properties:
+              entityType: { type: string }
+              entityId: { $ref: '#/components/schemas/Uuid' }
     FileListRow:
       type: object
       required: [id, kind, slot, mime, sizeBytes, capturedAt, uploadedAt, gps, virusScan, flags]

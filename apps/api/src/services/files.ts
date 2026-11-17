@@ -163,6 +163,13 @@ export interface FileView {
   virusScan: string;
   flags: string[];
   duplicateOf: string | null;
+  /** The size as the photo stands upright; null for a file that is not a photo or not yet read. */
+  width: number | null;
+  height: number | null;
+  /** Who uploaded it, named to an official and to the uploader only. */
+  uploadedBy: { name: string } | null;
+  /** The records the file belongs to that the caller reaches, for the photo's own page. */
+  records: { entityType: string; entityId: string }[];
 }
 
 interface StoredFile {
@@ -308,6 +315,14 @@ export class FilesService {
           new: { ownerUserId: owner, metadata: true },
         }),
       );
+    // a volunteer is never told who else uploaded a photo they see
+    const uploader =
+      row.uploadedBy && (principal.kind === 'staff' || row.uploadedBy === principal.userId)
+        ? await this.prisma.user.findUnique({
+            where: { id: row.uploadedBy },
+            select: { displayName: true },
+          })
+        : null;
     return {
       view: {
         id: row.id,
@@ -329,6 +344,10 @@ export class FilesService {
         duplicateOf: row.flags.includes('duplicate_suspect')
           ? await this.nearDuplicateInReach(principal, row)
           : null,
+        width: row.width,
+        height: row.height,
+        uploadedBy: uploader ? { name: uploader.displayName } : null,
+        records: await this.reachedRecords(principal, row),
       },
       fieldClasses: row.uploadedBy === principal.userId ? ['file.location'] : [],
     };
@@ -592,6 +611,48 @@ export class FilesService {
         if (await scopeReachesRecord(this.prisma, scope, record)) return true;
     }
     return false;
+  }
+
+  /**
+   * The records a file belongs to that the caller reaches, in the order of its links: through the
+   * view permission of its kind as `mayViewLinked` decides, or as the uploader (of an application
+   * only while they still own it). A cover's record and a registration photo's person are never
+   * listed: neither has a list of photos to open.
+   */
+  private async reachedRecords(
+    principal: Principal,
+    file: StoredFile,
+  ): Promise<{ entityType: string; entityId: string }[]> {
+    const links = await this.prisma.fileLink.findMany({
+      where: { fileId: file.id },
+      select: { entityType: true, entityId: true },
+      orderBy: { id: 'asc' },
+    });
+    const access = await this.access.load(principal.userId);
+    const permissions = viewPermissions(file.kind).filter((permission) =>
+      access.grants.some((g) => g.permission === permission),
+    );
+    const reached: { entityType: string; entityId: string }[] = [];
+    for (const link of links) {
+      if (!Object.hasOwn(UPLOAD_RECORD_KINDS, link.entityType) || isCoverRecord(link.entityType))
+        continue;
+      const record = await loadUploadRecord(
+        this.prisma,
+        link.entityType as ProjectRecordType,
+        link.entityId,
+      );
+      if (!record) continue;
+      let reaches =
+        file.uploadedBy === principal.userId &&
+        (link.entityType !== 'application' || record.owners.includes(principal.userId));
+      for (const permission of permissions) {
+        if (reaches) break;
+        const scope = await this.access.scopeFor(principal, access, permission, 'project');
+        reaches = await scopeReachesRecord(this.prisma, scope, record);
+      }
+      if (reaches) reached.push({ entityType: link.entityType, entityId: link.entityId });
+    }
+    return reached;
   }
 
   /**

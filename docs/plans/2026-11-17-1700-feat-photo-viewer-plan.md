@@ -52,7 +52,7 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 ## Progress
 - **Branch:** `feat/photo-viewer`
 - **Updated:** 2026-11-17
-- **Next:** U2, the details read: tests in `apps/api/test/integration/files.test.ts` ("the metadata of a file")
+- **Next:** checkpoint C2 (U2), then U3, the EXIF writer
 - **Reviewed through:** C1 at 5f8b4ef3
 - **Uncommitted:** none
 - **Notes:** the owner said "শুরু করো" and not to wait for a command between units or checkpoints. The branch starts from the tip of `fix/known-issues` (PR #64 still in CI); once #64 is squash-merged into `develop`, `origin/develop` is merged into this branch (never a rebase). The owner added every hardening of the plan's security review ("সব যোগ করো").
@@ -85,7 +85,7 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 - **Depends on:** U1
 - **Size:** M
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U3. The EXIF writer
 - **Goal:** the capture time and the position written into a JPEG, a PNG and a WebP without touching their pixels.
