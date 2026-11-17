@@ -30,6 +30,10 @@ const fileInfoSchema = z.object({
     virusScan: z.enum(['pending', 'clean', 'infected', 'failed', 'skipped']),
     flags: z.array(z.string()),
     duplicateOf: z.uuid().nullable(),
+    width: z.int().nullable(),
+    height: z.int().nullable(),
+    uploadedBy: z.object({ name: z.string() }).nullable(),
+    records: z.array(z.object({ entityType: z.string(), entityId: z.uuid() })),
   }),
 });
 
@@ -102,6 +106,24 @@ export function filesRouter(
     responses: { 200: null, 401: null, 404: null, 410: null, 422: null, 423: null },
     handler: ({ params, query, req, res }) =>
       c.files.streamContent(principalOf(req), params.fileId, res, query.variant),
+  });
+
+  defineRoute<unknown, unknown, { fileId: string }>(router, deps, {
+    tag: 'files',
+    method: 'get',
+    path: '/files/:fileId/download',
+    operationId: 'files.file.download',
+    summary:
+      'Save a photo with its capture time and, for a caller who may see the position, its place written into the file as EXIF; whoever may see the photo may save it, every download audited (attachment, Cache-Control private no-store, nosniff)',
+    permission: 'entity',
+    scope: 'file',
+    audit: 'none',
+    idempotency: 'none',
+    rateLimit: 'file-download',
+    params: { fileId: z.uuid() },
+    streams: true,
+    responses: { 200: null, 401: null, 404: null, 410: null, 422: null, 423: null, 429: null },
+    handler: ({ params, req, res }) => c.files.streamDownload(principalOf(req), params.fileId, res),
   });
 
   defineRoute<unknown, unknown, { fileId: string }>(router, deps, {

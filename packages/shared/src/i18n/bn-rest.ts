@@ -11,6 +11,7 @@ import bn_gallery from './messages/bn/gallery.json' with { type: 'json' };
 import bn_home from './messages/bn/home.json' with { type: 'json' };
 import bn_media from './messages/bn/media.json' with { type: 'json' };
 import bn_nav from './messages/bn/nav.json' with { type: 'json' };
+import bn_photos from './messages/bn/photos.json' with { type: 'json' };
 import bn_projects from './messages/bn/projects.json' with { type: 'json' };
 import bn_sync from './messages/bn/sync.json' with { type: 'json' };
 
@@ -24,6 +25,7 @@ export const bnRest = {
   home: bn_home,
   media: bn_media,
   nav: bn_nav,
+  photos: bn_photos,
   projects: bn_projects,
   sync: bn_sync,
 } satisfies Record<RestNamespace, object>;

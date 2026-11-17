@@ -27,9 +27,10 @@ const open = (bytes: Buffer) =>
 
 /**
  * Checks the header only: the declared size of the canvas and the format, so an oversized or
- * unexpected image is refused before it is decoded.
+ * unexpected image is refused before it is decoded. Answers the size as the photo stands upright:
+ * an orientation that turns it by a quarter (5 to 8) swaps the stored width and height.
  */
-export async function checkImage(bytes: Buffer): Promise<void> {
+export async function checkImage(bytes: Buffer): Promise<{ width: number; height: number }> {
   let meta: Metadata;
   try {
     meta = await open(bytes).metadata();
@@ -40,6 +41,10 @@ export async function checkImage(bytes: Buffer): Promise<void> {
   if (!meta.format || !DECODED.has(meta.format)) throw new ImageRefused('format');
   if (!meta.width || !meta.height || meta.width * meta.height > MAX_INPUT_PIXELS)
     throw new ImageRefused('too_large');
+  const turned = (meta.orientation ?? 1) >= 5;
+  return turned
+    ? { width: meta.height, height: meta.width }
+    : { width: meta.width, height: meta.height };
 }
 
 /** A JPEG thumbnail whose longest edge is at most `edge` pixels, turned upright, without metadata. */

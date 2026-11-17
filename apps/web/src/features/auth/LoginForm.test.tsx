@@ -69,6 +69,29 @@ describe('LoginForm', () => {
     expect(window.localStorage.getItem('css_locale')).toBe('en');
   });
 
+  it("goes back to a photo's page it was sent from, and never to another address", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(ME), meta: {} })),
+    );
+    const photo = '/photos/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c01';
+    const first = renderApp(<LoginForm />, 'bn', {
+      path: '/login',
+      initialPath: `/login?next=${encodeURIComponent(photo)}`,
+    });
+    await fill(user, 'pm.hum@example.org', 'Nadi kul 2026');
+    await waitFor(() => expect(first.router.state.location.pathname).toBe(photo));
+    first.unmount();
+    resetClientForTests();
+    refreshAs(null);
+    const second = renderApp(<LoginForm />, 'bn', {
+      path: '/login',
+      initialPath: `/login?next=${encodeURIComponent('//evil.example')}`,
+    });
+    await fill(user, 'pm.hum@example.org', 'Nadi kul 2026');
+    await waitFor(() => expect(second.router.state.location.pathname).toBe('/'));
+  });
+
   it('shows the generic server message for wrong credentials', async () => {
     const user = userEvent.setup();
     server.use(

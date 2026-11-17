@@ -309,6 +309,49 @@ describe('GET /files/{fileId}/content', () => {
     expect(await views()).toEqual([{ new: { ownerUserId: owner.id } }]);
   });
 
+  it('lets only an official with the identity class download an NID photo, audited', async () => {
+    const { owner, nidPhoto } = await volunteerWithPhotos();
+    const rpm = await login(h, await rpmOf(loc));
+    const res = await request(h.server())
+      .get(`/api/v1/files/${nidPhoto}/download`)
+      .set(bearer(rpm));
+    expect(res.status).toBe(200);
+    // a registration photo keeps no capture time, so it is named by its id alone
+    expect(res.headers['content-disposition']).toMatch(
+      new RegExp(`^attachment; filename="photo-${nidPhoto.slice(0, 8)}\\.(jpg|png)"$`),
+    );
+    const audits = await h.db.query(
+      `SELECT new FROM audit_log WHERE action = 'file.downloaded' AND entity_id = $1`,
+      [nidPhoto],
+    );
+    expect(audits.rows).toEqual([
+      { new: { kind: 'nid_photo', records: [], ownerUserId: owner.id, position: false } },
+    ]);
+    const daee = await login(h, await account(h.db, { role: 'official_daee' }));
+    expect(
+      (await request(h.server()).get(`/api/v1/files/${nidPhoto}/download`).set(bearer(daee)))
+        .status,
+    ).toBe(404);
+  });
+
+  it("audits an official's read of an NID photo's details, which name no record to open", async () => {
+    const { owner, nidPhoto } = await volunteerWithPhotos();
+    const rpm = await login(h, await rpmOf(loc));
+    const details = await request(h.server()).get(`/api/v1/files/${nidPhoto}`).set(bearer(rpm));
+    expect(details.status).toBe(200);
+    expect(details.body.data.records).toEqual([]);
+    const audits = await h.db.query(
+      `SELECT new FROM audit_log WHERE action = 'file.nid_viewed' AND entity_id = $1`,
+      [nidPhoto],
+    );
+    expect(audits.rows).toEqual([{ new: { ownerUserId: owner.id, metadata: true } }]);
+    // an official without the identity class learns nothing of it
+    const daee = await login(h, await account(h.db, { role: 'official_daee' }));
+    expect(
+      (await request(h.server()).get(`/api/v1/files/${nidPhoto}`).set(bearer(daee))).status,
+    ).toBe(404);
+  });
+
   it('serves no photo of an unsubmitted draft', async () => {
     const d = await verifiedDraft(h);
     const photo = (await upload(d, 'photo', jpeg())).body.data.fileId as string;

@@ -247,13 +247,11 @@ test.describe('the offline journeys', () => {
       await expect(desk.getByRole('heading', { level: 1, name })).toBeVisible();
       await expect(desk.getByText('অফলাইনে নেওয়া মন্তব্য')).toBeVisible();
       await expect(desk.getByText('ফোনে নেওয়া হয়েছে')).toBeVisible();
-      // the photo answer is there; the E2E API runs no scan job, so the picture itself may still
-      // read as waiting for its check
-      await expect(
-        desk
-          .getByRole('img', { name: 'আবেদনের ছবি' })
-          .or(desk.getByText('ফাইলটি যাচাই হচ্ছে; শেষ হলে দেখা যাবে।')),
-      ).toBeVisible({ timeout: 30_000 });
+      // the photo answer is there, a press away from the photo viewer (its picture may still read
+      // as waiting for its scan, which the E2E worker runs a moment after the upload)
+      await expect(desk.getByRole('button', { name: 'আবেদনের ছবি বড় করে দেখুন' })).toBeVisible({
+        timeout: 30_000,
+      });
       const id = /\/admin\/applications\/([0-9a-f-]{36})/.exec(desk.url())?.[1];
       expect(id, desk.url()).toBeTruthy();
       const rpm = await apiAs(request, RPM);

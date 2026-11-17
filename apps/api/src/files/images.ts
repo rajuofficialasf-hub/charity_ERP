@@ -11,15 +11,15 @@ export interface CleanImage {
   bytes: Buffer;
 }
 
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const PNG_DROPPED = new Set(['tEXt', 'zTXt', 'iTXt', 'eXIf', 'tIME']);
+export const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+export const PNG_DROPPED = new Set(['tEXt', 'zTXt', 'iTXt', 'eXIf', 'tIME']);
 const JPEG_SOS = 0xda;
 const JPEG_EOI = 0xd9;
 /** APP1 to APP15 (Exif, XMP, ICC, multi-picture, IPTC, ...) and COM, except JFIF APP0 and Adobe APP14. */
-const jpegDropped = (marker: number) =>
+export const jpegDropped = (marker: number) =>
   marker === 0xfe || (marker >= 0xe1 && marker <= 0xef && marker !== 0xee);
 /** Inside scan data, FF 00 is a stuffed byte and FF D0 to FF D7 are restart markers. */
-const scanByte = (next: number) => next === 0 || (next >= 0xd0 && next <= 0xd7);
+export const scanByte = (next: number) => next === 0 || (next >= 0xd0 && next <= 0xd7);
 
 /** The cleaned image, or null when the bytes are not a well-formed JPEG or PNG container. */
 export function cleanImage(input: Buffer): CleanImage | null {

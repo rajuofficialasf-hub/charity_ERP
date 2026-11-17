@@ -29,7 +29,7 @@ export function corsAllowlist(origins: readonly string[]): RequestHandler {
   return cors({
     origin: [...origins],
     credentials: true,
-    exposedHeaders: ['Retry-After', 'X-Request-Id', 'Idempotent-Replay'],
+    exposedHeaders: ['Retry-After', 'X-Request-Id', 'Idempotent-Replay', 'Content-Disposition'],
   });
 }
 

@@ -77,6 +77,11 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 'NotificationsPage',
               ),
             },
+            // a photo's own address, which the photo viewer copies
+            {
+              path: '/photos/:fileId',
+              lazy: page(() => import('../features/photos/PhotoPage'), 'PhotoPage'),
+            },
             // the volunteer's own projects load with their own chunk, like the admin pages
             {
               path: '/my-projects',

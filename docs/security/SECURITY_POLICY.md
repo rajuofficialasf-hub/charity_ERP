@@ -155,6 +155,7 @@ Every entry stores the actor, the originating user for jobs and sync, the actor'
 | Deficiency reports | `deficiency.report` (documentation module, O-34) |
 | Media consent | `media_consent` |
 | Exports of sensitive data | `export.requested` with `sensitive = true`, `file.download_sensitive` |
+| Downloads of photos | `file.downloaded` (every download, with the records it was reached through and whether the position was written; D-181) |
 | Moving stored files between drivers | `storage.copied` (one entry per batch of the copy to the NAS, with the counts, by the system actor; D-168) |
 
 The audit viewer (SCR-096) is available to the roles with `audit.view`; old and new values are a sensitive class (`audit.detail`). The Phase 5 gate checks that every event above produces an entry (TEST_STRATEGY §9).

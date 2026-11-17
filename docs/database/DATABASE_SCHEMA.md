@@ -1668,6 +1668,7 @@ The early `media_subjects` and `media_stories` were never written and are droppe
 | source | text | no | — | L-file-source |
 | flags | text[] | no | '{}' | L-file-flag elements |
 | phash | bigint | yes | — | 64-bit perceptual hash |
+| width, height | integer | yes | — | the photo's size in pixels as it stands upright (an EXIF orientation of 5 to 8 swaps the stored two), written by the processing job with the thumbnails; both set or both null, each above 0 (CHECK `files_dimensions_check`); null for a file that is not a photo or was processed before migration `20261118100000_file_dimensions`, whose `down.sql` drops both with their values (the job read them from the photo and can read them again) |
 | thumbnail_small_key, thumbnail_medium_key | text | yes | — | — |
 | virus_scan | text | no | 'pending' | L-scan |
 | locked_at | timestamptz | yes | — | — |

@@ -572,14 +572,36 @@ describe('volunteer registration detail', () => {
           headers: { 'Content-Type': 'image/png' },
         }),
       ),
+      http.get(`*/api/v1/files/${PHOTO}`, () =>
+        HttpResponse.json({
+          data: {
+            id: PHOTO,
+            kind: 'profile_photo',
+            mime: 'image/png',
+            sizeBytes: 4,
+            capturedAt: null,
+            uploadedAt: '2026-11-02T05:00:00.000Z',
+            virusScan: 'clean',
+            flags: [],
+            duplicateOf: null,
+            width: null,
+            height: null,
+            uploadedBy: null,
+            records: [],
+          },
+          meta: {},
+        }),
+      ),
     );
     const user = userEvent.setup();
     renderPage(RPM, 'bn', REVIEW);
     await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
-    // the documents beside the header open larger in a dialog
+    // the documents beside the header open large in the photo viewer
     await user.click(await screen.findByRole('button', { name: 'ছবি বড় করে দেখুন' }));
-    const img = await within(await screen.findByRole('dialog')).findByRole('img', { name: 'ছবি' });
+    const viewer = await screen.findByRole('dialog', { name: 'ছবি' });
+    const img = await within(viewer).findByRole('img', { name: 'ছবি' });
     expect(img.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
+    expect(within(viewer).getByRole('button', { name: 'ডাউনলোড' })).toBeInTheDocument();
   });
 
   it('a correction request names the checked fields and a note', async () => {

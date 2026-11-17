@@ -14,7 +14,6 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { FileImage } from '../../components/FileImage';
 import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import {
@@ -24,6 +23,7 @@ import {
   staffEditRequests,
 } from './registrations-api';
 import { LoadError } from '../../components/LoadError';
+import { OpenablePhoto } from '../../features/photos/OpenablePhoto';
 
 /**
  * The officials' own change requests for the Department Head and the Monitoring Team
@@ -61,7 +61,7 @@ export function StaffEditRequests() {
   const show = (r: StaffEditRequestRow, value: unknown, alt: string): ReactNode => {
     if (value === null || value === undefined || value === '') return t('none');
     if (r.field === 'photo' && typeof value === 'string')
-      return <FileImage fileId={value} alt={alt} />;
+      return <OpenablePhoto photos={[{ fileId: value, alt }]} index={0} />;
     if (r.field === 'workplace' && typeof value === 'object') {
       const w = value as { affiliation: Affiliation | null; affiliationUnit: string | null };
       return w.affiliation

@@ -29,7 +29,6 @@ import { ForbiddenContent } from '../AdminLayout';
 import { canApproveStaff, canBlock, canApproveRegistrations } from '../roles';
 import { AddressNames } from '../../components/AddressNames';
 import { BlocklistAction } from './Blocklist';
-import { FileImage } from '../../components/FileImage';
 import {
   detailKey,
   LIST_KEY,
@@ -41,6 +40,7 @@ import { StaffDecisionDialog } from './StaffDecisionDialog';
 import { VolunteerDecisions } from './VolunteerDecisions';
 import { VOLUNTEERS_KEY } from '../volunteers/volunteers-api';
 import { LoadError } from '../../components/LoadError';
+import { OpenablePhoto } from '../../features/photos/OpenablePhoto';
 
 /**
  * The page of one pending staff registration (docs/ui/SCREENS.md "Registration approval queue"). A volunteer's registration is reviewed in
@@ -301,6 +301,10 @@ function Photos({ registration: r }: { registration: RegistrationDetailView }) {
       [tf('nid_photo'), r.volunteer.nidPhotoFileId, 'nidPhotoFileId' in r.volunteer],
       [tf('nid_photo_back'), r.volunteer.nidPhotoBackFileId, 'nidPhotoBackFileId' in r.volunteer],
     );
+  // the photos the viewer moves between: those the reader may see, in their order
+  const photos = slots.flatMap(([label, fileId, visible]) =>
+    visible && fileId ? [{ fileId, alt: label }] : [],
+  );
   return (
     <Section title={t('photos')}>
       <div className="admin-photos">
@@ -310,7 +314,11 @@ function Photos({ registration: r }: { registration: RegistrationDetailView }) {
             {!visible ? (
               <span>{t('hidden')}</span>
             ) : fileId ? (
-              <FileImage fileId={fileId} alt={label} />
+              <OpenablePhoto
+                photos={photos}
+                index={photos.findIndex((p) => p.fileId === fileId)}
+                title={t('photos')}
+              />
             ) : (
               <span>{t('no_photo')}</span>
             )}

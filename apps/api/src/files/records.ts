@@ -1,4 +1,9 @@
-import type { CoverRecordType, ProjectRecordType } from '@css/shared/files';
+import {
+  type CoverRecordType,
+  isCoverRecord,
+  type ProjectRecordType,
+  UPLOAD_RECORD_KINDS,
+} from '@css/shared/files';
 import { Prisma } from '../generated/prisma/client.js';
 import { WORKING_ASSIGNMENT } from '../access/effective.js';
 import { programWhere, projectWhere, type Scope } from '../access/scope.js';
@@ -120,6 +125,24 @@ function recordQuery(type: ProjectRecordType, id: string): Prisma.Sql {
           LEFT JOIN locations l ON l.id = d.district_id
          WHERE d.id = ${id}::uuid`;
   }
+}
+
+/**
+ * The project records a file's links point at, in the links' order, each with its link: a cover's
+ * record and a record type without files are left out, as is a record that no longer exists.
+ */
+export async function loadLinkedRecords<L extends { entityType: string; entityId: string }>(
+  db: Tx,
+  links: readonly L[],
+): Promise<{ link: L; record: UploadRecord }[]> {
+  const loaded: { link: L; record: UploadRecord }[] = [];
+  for (const link of links) {
+    if (!Object.hasOwn(UPLOAD_RECORD_KINDS, link.entityType) || isCoverRecord(link.entityType))
+      continue;
+    const record = await loadUploadRecord(db, link.entityType as ProjectRecordType, link.entityId);
+    if (record) loaded.push({ link, record });
+  }
+  return loaded;
 }
 
 /** The record a file is to link to, or null when it does not exist. */

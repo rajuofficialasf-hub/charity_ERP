@@ -242,6 +242,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | file | file.kind_not_allowed | 422 | the kind cannot be linked to that record type (D-108) |
 | file | file.part_out_of_range | 422 | a part number outside the declared size (D-108) |
 | file | file.checksum_mismatch | 422 | the joined bytes do not match the declared SHA-256 or size (D-108) |
+| file | file.unreadable | 422 | a stored photo whose container cannot be walked for its download (damaged or not its stored type); nothing is sent and nothing audited (D-181) |
 | file | file.parts_missing | 409 | finalize before every part of the declared size arrived (D-108) |
 | file | file.sessions_limit | 429 | more than 20 open upload sessions (D-108) |
 | file | file.session_mismatch | 409 | a create repeats a client id of an earlier session with other file details (kind, record, slot, type, size or SHA-256) |
@@ -293,6 +294,7 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | upload | 600 parts per hour per user (a photo of 1.6 MB is 7 parts; D-108) | user |
 | lookup | the beneficiary lookup by NID or birth registration: 60 per minute and 600 per day per user, and 120 per minute per address; every lookup is audited without the number (D-114) | user, IP |
 | export | 30 export requests per hour per user; each reads up to 100,000 rows in the worker (D-143) | user |
+| file-download | 120 photo downloads per hour per user; each carries the photo's place and is audited (D-181) | user |
 
 Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a 429 carries `Retry-After`, which the PWA honours (O-29). Limits are enforced in the API (not only in Caddy) so they apply per account.
 

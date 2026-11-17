@@ -48,6 +48,8 @@ import {
   TextField,
   Timeline,
   type StatusKey,
+  PhotoViewer,
+  tokens,
 } from '@/ui';
 import { useState, type ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
@@ -100,6 +102,30 @@ interface Row {
   status: StatusKey;
 }
 
+/** A drawn photo in the theme's colours, for the gallery's photo viewer. */
+const drawn = (sky: string, sun: string, hill: string) =>
+  `data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600"><rect width="800" height="600" fill="${sky}"/><circle cx="600" cy="150" r="70" fill="${sun}"/><path d="M0 430 Q200 330 400 420 T800 390 V600 H0Z" fill="${hill}"/></svg>`,
+  )}`;
+const { colors } = tokens;
+const SAMPLE_PHOTOS = [
+  {
+    id: 'one',
+    alt: 'overlay.photoAlt1',
+    src: drawn(colors.info.lighter, colors.warning.light, colors.primary.main),
+  },
+  {
+    id: 'two',
+    alt: 'overlay.photoAlt2',
+    src: drawn(colors.neutral['300'], colors.warning.main, colors.primary.dark),
+  },
+  {
+    id: 'three',
+    alt: 'overlay.photoAlt3',
+    src: drawn(colors.primary.lighter, colors.warning.lighter, colors.success.dark),
+  },
+] as const;
+
 /**
  * The asf pieces built for the app, each in a section, for a look in both languages and both
  * modes and for the axe check of the gallery spec. Development and the E2E build only.
@@ -116,7 +142,8 @@ export function AsfGallery() {
   const [district, setDistrict] = useState('');
   const [union, setUnion] = useState<string | null>(null);
   const [money, setMoney] = useState('1250');
-  const [open, setOpen] = useState<'dialog' | 'confirm' | 'drawer' | null>(null);
+  const [open, setOpen] = useState<'dialog' | 'confirm' | 'drawer' | 'photos' | null>(null);
+  const [photo, setPhoto] = useState(0);
 
   const rows: Row[] = [
     {
@@ -489,6 +516,9 @@ export function AsfGallery() {
             <Button variant="secondary" onClick={() => setOpen('drawer')}>
               {t('overlay.openDrawer')}
             </Button>
+            <Button variant="secondary" onClick={() => setOpen('photos')}>
+              {t('overlay.openPhotos')}
+            </Button>
             <Menu
               label={t('menu.label')}
               items={[
@@ -543,6 +573,15 @@ export function AsfGallery() {
               onChange={setDistrict}
             />
           </Drawer>
+          <PhotoViewer
+            open={open === 'photos'}
+            onClose={() => setOpen(null)}
+            photos={SAMPLE_PHOTOS.map((p) => ({ id: p.id, src: p.src, alt: t(p.alt) }))}
+            index={photo}
+            onIndexChange={setPhoto}
+            title={t('overlay.photosTitle')}
+            details={<p>{t('overlay.photoDetails')}</p>}
+          />
         </Section>
 
         <Section id="lists" title={t('asf.sections.lists')}>

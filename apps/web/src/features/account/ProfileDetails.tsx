@@ -4,10 +4,10 @@ import { isFacebookLink } from '@css/shared/registration';
 import { Chip, Icon } from '@/ui';
 import { useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
-import { FileImage } from '../../components/FileImage';
 import { RequestState } from './ChangeRequests';
 import { EducationText, PermanentAddressText, ProfessionText, SkillsText } from './DetailValues';
 import { type ChangeRequest, FIELD_LABEL, type OwnProfile, type RequestField } from './profile-api';
+import { OpenablePhoto } from '../photos/OpenablePhoto';
 
 /** A detail of the profile: the editable fields of a request, and the type (no request). */
 export type ProfileField = RequestField | 'type';
@@ -145,7 +145,7 @@ export function Value({
     case 'nid_photo':
     case 'nid_photo_back': {
       const id = me[PHOTO_ID[field]];
-      return id ? <FileImage fileId={id} alt={label} /> : empty;
+      return id ? <OpenablePhoto photos={[{ fileId: id, alt: label }]} index={0} /> : empty;
     }
     default: {
       const value = me[field];

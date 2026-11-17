@@ -1,0 +1,21 @@
+/* A photo that opens large: the picture itself is the button, marked by the zoom pointer. */
+.openable-photo {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+  cursor: zoom-in;
+  max-width: 100%;
+}
+
+.openable-photo:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.photo-details-place {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+}

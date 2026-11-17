@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dhakaDayStart, dhakaYear } from './dhaka-day.js';
+import { dhakaClock, dhakaDayStart, dhakaYear } from './dhaka-day.js';
 
 // The day and the year as Dhaka counts them (UTC+6): midnight there is 18:00 UTC of the day before.
 describe('the Dhaka day', () => {
@@ -22,5 +22,9 @@ describe('the Dhaka day', () => {
     expect(dhakaYear(new Date('2026-12-31T17:59:59.999Z'))).toBe(2026);
     expect(dhakaYear(new Date('2026-12-31T18:00:00.000Z'))).toBe(2027);
     expect(dhakaYear(new Date('2027-01-01T00:00:00.000Z'))).toBe(2027);
+  });
+
+  it('shows the wall clock in Dhaka, six hours after UTC', () => {
+    expect(dhakaClock(new Date('2026-12-31T18:05:30.900Z'))).toBe('2027-01-01T00:05:30');
   });
 });

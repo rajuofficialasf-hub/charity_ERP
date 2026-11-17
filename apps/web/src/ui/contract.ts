@@ -584,6 +584,22 @@ export type UiLabels = {
   flipBack: string;
   /** That button's name for a screen reader, for example "Back to the front". */
   flipBackOf: string;
+  /** The photo viewer's name, for example "Photo". */
+  photoViewer: string;
+  /** Which photo of how many, for example "{index} of {count}". */
+  photoPosition: string;
+  previousPhoto: string;
+  nextPhoto: string;
+  zoomIn: string;
+  zoomOut: string;
+  /** Back to the whole photo, for example "Fit to screen". */
+  zoomReset: string;
+  fullScreen: string;
+  leaveFullScreen: string;
+  /** The button and the panel of the photo's details, for example "Details". */
+  photoDetails: string;
+  /** The strip of the record's photos, for example "Photos". */
+  photoStrip: string;
 };
 
 export type UiProviderExtendedProps = UiProviderProps & { labels?: Partial<UiLabels> };
@@ -1536,6 +1552,41 @@ export type SegmentedControlProps = {
   onChange: (value: string) => void;
 };
 
+/** One photo of a viewer, as the page has it. */
+export type ViewerPhoto = {
+  id: string;
+  /** The photo to show, an address the page made (a data or object address); none while loading. */
+  src?: string;
+  /** A small picture for the strip; the photo itself when none is given. */
+  thumbSrc?: string;
+  /** What the photo shows, read out for it. */
+  alt: string;
+  /** Said in place of the photo when it cannot be shown, for example while its scan runs. */
+  message?: string;
+};
+
+/**
+ * A photo seen large: the photo as big as the screen allows, zoomed by its buttons, the wheel, two
+ * fingers or a double press and moved by dragging, a full screen, the record's other photos one
+ * press away and in a strip, and the photo's details beside it from 1024 px and in a sheet under
+ * it below. Arrows move between the photos, + and - zoom, 0 shows the whole photo again, Escape
+ * closes. It deletes nothing; the page adds its own actions, such as a download.
+ */
+export type PhotoViewerProps = {
+  open: boolean;
+  onClose: () => void;
+  photos: ViewerPhoto[];
+  /** The photo shown, an index into `photos`. */
+  index: number;
+  onIndexChange: (index: number) => void;
+  /** Over the photo, for example the record or the question it answers. */
+  title?: string;
+  /** The details of the photo shown. */
+  details?: ReactNode;
+  /** The page's actions for the photo shown, in the toolbar. */
+  actions?: ReactNode;
+};
+
 /**
  * A card with a front and a back of one size, for example a program with its figures in front and
  * its people behind. On a computer it turns over while the pointer rests on it; on a touch screen,
@@ -1648,4 +1699,5 @@ export type UiTemplateExtended = Omit<
   ColorModeButton: ComponentType<ColorModeButtonProps>;
   FlipCard: ComponentType<FlipCardProps>;
   SegmentedControl: ComponentType<SegmentedControlProps>;
+  PhotoViewer: ComponentType<PhotoViewerProps>;
 };

@@ -103,6 +103,17 @@
     "flipDetails": "বিস্তারিত",
     "flipDetailsOf": "{title}: বিস্তারিত দেখুন",
     "flipBack": "ফিরুন",
-    "flipBackOf": "সামনের দিকে ফিরুন"
+    "flipBackOf": "সামনের দিকে ফিরুন",
+    "photoViewer": "ছবি",
+    "photoPosition": "{count}টির মধ্যে {index}",
+    "previousPhoto": "আগের ছবি",
+    "nextPhoto": "পরের ছবি",
+    "zoomIn": "বড় করে দেখুন",
+    "zoomOut": "ছোট করে দেখুন",
+    "zoomReset": "পুরো ছবি দেখুন",
+    "fullScreen": "পুরো পর্দায় দেখুন",
+    "leaveFullScreen": "পুরো পর্দা থেকে বের হোন",
+    "photoDetails": "বিস্তারিত",
+    "photoStrip": "ছবিগুলো"
   }
 }

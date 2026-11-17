@@ -1,0 +1,22 @@
+{
+  "title": "Photo",
+  "download": "Download",
+  "downloadFailed": "The photo could not be downloaded. Try again.",
+  "link": "Link",
+  "notFound": "The photo was not found, or you may not see it.",
+  "openRecord": "Go to the record",
+  "details": {
+    "taken": "Taken",
+    "place": "Place",
+    "map": "See on the map",
+    "size": "File size",
+    "resolution": "Resolution",
+    "resolutionValue": "{width} × {height} pixels",
+    "uploadedBy": "Uploaded by",
+    "uploadedAt": "Uploaded",
+    "unknown": "Not known"
+  },
+  "open": "View {name} larger",
+  "show": "View the photo",
+  "loadFailed": "The photo could not be opened now. Try again in a moment."
+}

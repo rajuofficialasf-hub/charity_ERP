@@ -38,3 +38,4 @@ export { ColorModeButton } from './shell/color-mode-button';
 export { BottomNav } from './shell/bottom-nav';
 export { FlipCard } from './flip-card';
 export { SegmentedControl } from './segmented-control';
+export { PhotoViewer } from './photo-viewer';

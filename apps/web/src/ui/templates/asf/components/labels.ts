@@ -111,6 +111,17 @@ export const DEFAULT_LABELS: UiLabels = {
   flipDetailsOf: '{title}: show details',
   flipBack: 'Back',
   flipBackOf: 'Back to the front',
+  photoViewer: 'Photo',
+  photoPosition: '{index} of {count}',
+  previousPhoto: 'Previous photo',
+  nextPhoto: 'Next photo',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  zoomReset: 'Fit to screen',
+  fullScreen: 'Full screen',
+  leaveFullScreen: 'Leave full screen',
+  photoDetails: 'Details',
+  photoStrip: 'Photos',
 };
 
 export const LabelsContext = createContext<UiLabels>(DEFAULT_LABELS);

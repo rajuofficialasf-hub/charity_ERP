@@ -327,6 +327,7 @@ Where each section of this chapter lives in the contract:
 | 5.7 Table                    | `DataTable`, `FilterBar`, `StatFilterBar`, `PersonCell`                                                       |
 | 5.8 Modal                    | `Dialog`                                                                                                      |
 | 5.9 Drawer                   | `Drawer` (a bottom sheet on phones)                                                                           |
+| 5.9a Photo viewer            | `PhotoViewer` (a photo seen large, with the record's photos, zoom, full screen and the details; D-181)         |
 | 5.10 Confirm dialog          | `ConfirmDialog`                                                                                               |
 | 5.11 Alert                   | `Alert`, `useToast`                                                                                           |
 | 5.12 File upload             | `FileUpload`                                                                                                  |
@@ -530,6 +531,10 @@ Switch: the asf `Switch` (`label` or `ariaLabel`, `checked`, `onChange`, `disabl
 - Pagination follows the API: 25 per page; a cursor list shows its counted page numbers between previous and next (the volunteer tab counts its first 10000 rows and goes by cursor past them), "load more" on phones.
 - Accessibility: a real `<table>` on tablet and desktop with `<th scope>`; sortable headers are buttons with `aria-sort`; the phone card list is a `<ul>`; the result count is announced politely after filtering.
 - Do not: horizontal-scroll a table on phones; load all rows; put more than one primary action in a row.
+
+### 5.7a Photo viewer
+
+`PhotoViewer` (D-181) shows a photo large wherever the app enlarges one: the whole screen on a dark stage (the `grey.900` of the palette in both modes, so a photo's colours read the same), the photo as large as fits, zoomed by the buttons under it (out, whole photo, in), the wheel, two fingers, a double press and the + and - keys, and moved by dragging once zoomed; the browser's full screen where it offers one. The record's other photos come by the arrows at the stage's sides, the arrow keys and a strip of small pictures under the stage, the one shown marked. The details of the photo (when and where it was taken, its size, who uploaded it) stand in a 340 px panel beside the stage from 1024 px, opened and closed by "Details", and below that open as a sheet from the bottom. The page passes its own actions to the top bar (a download, a copied in-app link); the viewer has no delete. A photo still being checked shows its message in place of the picture.
 
 ### 5.8 Modal
 

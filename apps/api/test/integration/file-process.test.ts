@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import pino from 'pino';
+import sharp from 'sharp';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { UPLOAD_RULES } from '@css/shared/files';
@@ -100,6 +101,7 @@ describe('the processing job', () => {
     expect(row.flags).not.toContain('no_capture_time');
     expect(row.flags).not.toContain('no_gps');
     expect(row.phash).not.toBeNull();
+    expect([row.width, row.height]).toEqual([96, 72]);
     for (const key of [row.thumbnail_small_key, row.thumbnail_medium_key]) {
       expect(key).toMatch(new RegExp(`/thumb/${id}-[sm]\\.jpg$`));
       expect(await h.container.storage.stat('photos', key)).not.toBeNull();
@@ -217,6 +219,45 @@ describe('the processing job', () => {
     const row = await fileRow(id);
     expect(row.thumbnail_small_key).toBeNull();
     expect(row.phash).toBeNull();
+    expect([row.width, row.height]).toEqual([null, null]);
+  });
+
+  it('keeps no width and height for a file that is not a photo', async () => {
+    const pdf = Buffer.from('%PDF-1.7\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n');
+    const id = await upload(pdf, {
+      kind: 'voucher',
+      slot: 'voucher',
+      mime: 'application/pdf',
+      source: 'gallery',
+    });
+    await processFile(id);
+    const row = await fileRow(id);
+    expect(row.virus_scan).not.toBe('pending');
+    expect([row.width, row.height]).toEqual([null, null]);
+  });
+
+  it('keeps the width and height of a PNG, and of a turned photo as it stands upright', async () => {
+    const png = await upload(
+      await sharp(await picture({ width: 200 }))
+        .png()
+        .toBuffer(),
+      {
+        mime: 'image/png',
+      },
+    );
+    await processFile(png);
+    const pngRow = await fileRow(png);
+    expect([pngRow.width, pngRow.height]).toEqual([200, 150]);
+    // a phone held upright stores a wide picture with the orientation that turns it
+    const turned = await upload(
+      await sharp(await picture({ width: 160, variant: 7 }))
+        .jpeg()
+        .withMetadata({ orientation: 6 })
+        .toBuffer(),
+    );
+    await processFile(turned);
+    const row = await fileRow(turned);
+    expect([row.width, row.height]).toEqual([120, 160]);
   });
 
   it('changes nothing when it runs twice', async () => {
