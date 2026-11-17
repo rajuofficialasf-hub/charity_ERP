@@ -462,27 +462,36 @@ describe('demo set', () => {
 });
 
 describe('a database seeded before the project series', () => {
-  // runs last: it gives the winter project the series its migration made for an existing project
   it('runs the demo set again on the series the migration gave the winter project, its own id', async () => {
     const { rows } = await db.query<{ id: string; series_id: string }>(
       `SELECT id, series_id FROM projects WHERE code = 'WNT' AND year = 2026`,
     );
     const project = rows[0]!;
-    await db.query(`UPDATE project_series SET code = 'WNTOLD' WHERE id = $1`, [project.series_id]);
-    await db.query(
-      `INSERT INTO project_series (id, program_id, code, name_bn, name_en)
-       SELECT $1, program_id, 'WNT', name_bn, name_en FROM project_series WHERE id = $2`,
-      [project.id, project.series_id],
-    );
-    await db.query(`UPDATE projects SET series_id = $1 WHERE id = $1`, [project.id]);
-    await db.query(`DELETE FROM project_series WHERE id = $1`, [project.series_id]);
-    await runSeed(prisma, ['base', 'demo'], { NODE_ENV: 'test', DATABASE_URL: url });
-    const after = await db.query<{ series_id: string }>(
-      `SELECT series_id FROM projects WHERE id = $1`,
-      [project.id],
-    );
-    expect(after.rows[0]!.series_id).toBe(project.id);
-    const series = await db.query(`SELECT id FROM project_series WHERE code = 'WNT'`);
-    expect(series.rows).toEqual([{ id: project.id }]);
+    /** Moves the winter project onto a series of the given id, the old series left behind. */
+    const moveSeries = async (from: string, to: string) => {
+      await db.query(`UPDATE project_series SET code = 'WNTOLD' WHERE id = $1`, [from]);
+      await db.query(
+        `INSERT INTO project_series (id, program_id, code, name_bn, name_en, created_at, created_by, updated_at, updated_by)
+         SELECT $1, program_id, 'WNT', name_bn, name_en, created_at, created_by, updated_at, updated_by
+           FROM project_series WHERE id = $2`,
+        [to, from],
+      );
+      await db.query(`UPDATE projects SET series_id = $1 WHERE id = $2`, [to, project.id]);
+      await db.query(`DELETE FROM project_series WHERE id = $1`, [from]);
+    };
+    await moveSeries(project.series_id, project.id);
+    try {
+      await runSeed(prisma, ['base', 'demo'], { NODE_ENV: 'test', DATABASE_URL: url });
+      const after = await db.query<{ series_id: string }>(
+        `SELECT series_id FROM projects WHERE id = $1`,
+        [project.id],
+      );
+      expect(after.rows[0]!.series_id).toBe(project.id);
+      const series = await db.query(`SELECT id FROM project_series WHERE code = 'WNT'`);
+      expect(series.rows).toEqual([{ id: project.id }]);
+    } finally {
+      // the other tests read the seed's own series again, whatever order they run in
+      await moveSeries(project.id, project.series_id);
+    }
   }, 180_000);
 });

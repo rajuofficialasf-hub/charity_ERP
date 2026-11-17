@@ -2,6 +2,7 @@ import type { WorkflowDefinition } from '@css/shared';
 import { z } from 'zod';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import { lockPeople, writeHelpCounts } from '../services/help-history.js';
 
 /** The trigger of the common cycle's move that a project's close runs on its applications. */
@@ -52,11 +53,15 @@ export async function closeProjectApplications(
     (e) => !e.startsWith('audit:') && !e.startsWith('outcome.set') && e !== 'lock:fields',
   );
   const notDelivered = notDeliveredOf(definition);
-  const people = await lockPeople(tx, await peopleOf(tx, move.projectId, from));
+  const people = await lockPeople(
+    tx,
+    await peopleOf(tx, { projectId: move.projectId, status: { in: [...from] } }),
+  );
   // every expression of the SET reads the row as it was before the statement
   const rows = await tx.$queryRaw<
     {
       id: string;
+      beneficiary_id: string | null;
       closed_from_status: string;
       closed_from_outcome: string | null;
       outcome: string | null;
@@ -71,7 +76,7 @@ export async function closeProjectApplications(
            updated_by = ${move.actor}::uuid,
            updated_at = ${move.now}
      WHERE project_id = ${move.projectId}::uuid AND status = ANY(${from}::text[])
-    RETURNING id, closed_from_status, closed_from_outcome, outcome`;
+    RETURNING id, beneficiary_id, closed_from_status, closed_from_outcome, outcome`;
   for (const row of rows)
     await audit.record(tx, {
       action: action ?? 'application.closed',
@@ -87,8 +92,24 @@ export async function closeProjectApplications(
       },
       actorUserId: move.actor,
     });
-  await writeHelpCounts(tx, people);
+  await writeHelpCounts(tx, await withLate(tx, people, rows));
   return rows.length;
+}
+
+/**
+ * The people taken before the move, with any person an application gained between that read and
+ * the move (a draft submitted meanwhile), taken now so the count of every moved person is written.
+ */
+async function withLate(
+  tx: Tx,
+  people: string[],
+  rows: readonly { beneficiary_id: string | null }[],
+): Promise<string[]> {
+  const known = new Set(people);
+  const late = rows
+    .map((r) => r.beneficiary_id)
+    .filter((id): id is string => id !== null && !known.has(id));
+  return late.length ? [...people, ...(await lockPeople(tx, late))] : people;
 }
 
 /**
@@ -102,9 +123,22 @@ export async function reopenProjectApplications(
   audit: AuditWriter,
   move: ProjectMove,
 ): Promise<number> {
-  const people = await lockPeople(tx, await peopleOf(tx, move.projectId, ['closed'], true));
+  const people = await lockPeople(
+    tx,
+    await peopleOf(tx, {
+      projectId: move.projectId,
+      status: 'closed',
+      closedFromStatus: { not: null },
+    }),
+  );
   const rows = await tx.$queryRaw<
-    { id: string; status: string; outcome: string | null; closed_outcome: string | null }[]
+    {
+      id: string;
+      beneficiary_id: string | null;
+      status: string;
+      outcome: string | null;
+      closed_outcome: string | null;
+    }[]
   >`
     WITH closed AS (
       SELECT id, outcome FROM applications
@@ -121,7 +155,7 @@ export async function reopenProjectApplications(
            updated_at = ${move.now}
       FROM closed c
      WHERE a.id = c.id
-    RETURNING a.id, a.status, a.outcome, c.outcome AS closed_outcome`;
+    RETURNING a.id, a.beneficiary_id, a.status, a.outcome, c.outcome AS closed_outcome`;
   for (const row of rows)
     await audit.record(tx, {
       action: REOPENED,
@@ -131,24 +165,14 @@ export async function reopenProjectApplications(
       new: { status: row.status, outcome: row.outcome, automatic: true },
       actorUserId: move.actor,
     });
-  await writeHelpCounts(tx, people);
+  await writeHelpCounts(tx, await withLate(tx, people, rows));
   return rows.length;
 }
 
-/** The people of a project's applications in these states, before any application row is taken. */
-async function peopleOf(
-  tx: Tx,
-  projectId: string,
-  states: readonly string[],
-  closedByProject = false,
-): Promise<string[]> {
+/** The people of the applications a move will take, read before any application row is taken. */
+async function peopleOf(tx: Tx, where: Prisma.ApplicationWhereInput): Promise<string[]> {
   const rows = await tx.application.findMany({
-    where: {
-      projectId,
-      status: { in: [...states] },
-      beneficiaryId: { not: null },
-      ...(closedByProject ? { closedFromStatus: { not: null } } : {}),
-    },
+    where: { ...where, beneficiaryId: { not: null } },
     select: { beneficiaryId: true },
   });
   return [...new Set(rows.map((r) => r.beneficiaryId!))];

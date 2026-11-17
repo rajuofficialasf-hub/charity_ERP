@@ -182,6 +182,43 @@ describe('migrations', () => {
     }
   });
 
+  it('the down.sql of the kept prior state gives the applications a project close closed their states back', async () => {
+    const db = await freshDatabase('closedfrom');
+    await runMigrations(db, 'up');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const loc = await locationTree(client);
+      const ctx = { project: await project(client), loc };
+      const draft = await application(client, ctx, {
+        status: 'closed',
+        closed_from_status: 'draft',
+      });
+      const running = await application(client, ctx, {
+        beneficiary_id: await beneficiary(client, loc),
+        status: 'closed',
+        outcome: 'not_distributed',
+        closed_from_status: 'implementation',
+      });
+      await client.query(
+        readFileSync(
+          join(MIGRATIONS_DIR, '20261117160000_application_closed_from', 'down.sql'),
+          'utf8',
+        ),
+      );
+      const { rows } = await client.query<{ id: string; status: string; outcome: string | null }>(
+        'SELECT id, status, outcome FROM applications WHERE id = ANY($1::uuid[]) ORDER BY id',
+        [[draft, running]],
+      );
+      expect(Object.fromEntries(rows.map((r) => [r.id, [r.status, r.outcome]]))).toEqual({
+        [draft]: ['draft', null],
+        [running]: ['implementation', null],
+      });
+    } finally {
+      await client.end();
+    }
+  });
+
   it('the beneficiary master migration numbers existing profiles in the order they were created', async () => {
     const dirs = migrationDirs();
     const at = dirs.indexOf('20261020160000_beneficiary_master');

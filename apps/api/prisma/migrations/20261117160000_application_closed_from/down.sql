@@ -2,8 +2,11 @@
 -- back to the states and outcomes they were closed from first, since the kept prior state goes with
 -- the columns (a closed application without a person would also break the earlier check).
 UPDATE "applications"
-   SET "status" = "closed_from_status", "outcome" = "closed_from_outcome"
+   SET "status" = "closed_from_status", "outcome" = "closed_from_outcome",
+       "closed_from_status" = NULL, "closed_from_outcome" = NULL
  WHERE "status" = 'closed' AND "closed_from_status" IS NOT NULL;
+-- the deferred checks of those rows run now, so the table can be altered in the same transaction
+SET CONSTRAINTS ALL IMMEDIATE;
 ALTER TABLE "applications" DROP CONSTRAINT "applications_beneficiary_check";
 ALTER TABLE "applications" ADD CONSTRAINT "applications_beneficiary_check"
   CHECK ("beneficiary_id" IS NOT NULL OR "status" IN ('draft', 'needs_verification', 'rejected', 'deleted'));
