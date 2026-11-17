@@ -10,6 +10,7 @@ import {
   parseBenNo,
 } from '@css/shared/beneficiaries';
 import type { AccessService } from '../access/service.js';
+import { dhakaDayStart } from '../core/dhaka-day.js';
 import { beneficiaryWhere, type Scope } from '../access/scope.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
@@ -30,12 +31,6 @@ const MOBILE_PATTERN = /^01[3-9][0-9]{8}$/;
  * owner's limit on top of the rate limit); inside the scope the rate limit alone applies.
  */
 export const OUTSIDE_LOOKUPS_PER_DAY = 20;
-const HOUR_MS = 3_600_000;
-/** The start of the calendar day in Bangladesh (UTC+6) that `now` falls on. */
-export const dhakaDayStart = (now: Date) => {
-  const local = now.getTime() + 6 * HOUR_MS;
-  return new Date(local - (local % (24 * HOUR_MS)) - 6 * HOUR_MS);
-};
 
 export interface LookupViewer {
   principal: Principal;

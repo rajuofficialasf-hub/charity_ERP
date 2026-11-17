@@ -8,6 +8,7 @@ import { beneficiaryRowsProjectWhere, beneficiaryWhere, type Scope } from '../ac
 import type { Principal } from '../auth/principal.js';
 import type { Env } from '../config/env.js';
 import { boundedRead } from '../core/bounded-read.js';
+import { dhakaYear } from '../core/dhaka-day.js';
 import { isNumberTerm, literalContains, mobileOf } from '../core/search.js';
 import type { Clock } from '../core/clock.js';
 import {
@@ -49,7 +50,6 @@ const DETAIL = 'beneficiary.profile_detail';
 const HISTORY = 'beneficiary.application_history';
 
 /** The calendar year in Bangladesh (UTC+6). */
-const dhakaYear = (now: Date) => new Date(now.getTime() + 6 * 3_600_000).getUTCFullYear();
 
 export interface BeneficiaryViewer {
   principal: Principal;
