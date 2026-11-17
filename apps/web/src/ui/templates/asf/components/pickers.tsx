@@ -26,7 +26,8 @@ const parse = (value: string, format: string): Dayjs | null => {
   return parsed.isValid() ? parsed : null;
 };
 
-const write = (value: Dayjs | null, format: string) => (value && value.isValid() ? value.format(format) : '');
+const write = (value: Dayjs | null, format: string) =>
+  value && value.isValid() ? value.format(format) : '';
 
 const CalendarIcon = () => <Icon name="calendar" size={22} />;
 
@@ -63,7 +64,8 @@ function CalendarWords({ children }: { children: ReactNode }) {
   const labels = useLabels();
   const months = labels.monthNames.split(',');
   const days = labels.weekdayNames.split(',');
-  const name = `asf-${months[0]}-${days[0]}`;
+  // dayjs finds a locale again by its name in lower case
+  const name = `asf-${months[0]}-${days[0]}`.toLowerCase();
   dayjs.locale(
     {
       name,
@@ -76,9 +78,10 @@ function CalendarWords({ children }: { children: ReactNode }) {
       // the picker reads the localized formats; the app writes its own, so these only fill them
       formats: LOCALIZED_FORMATS,
       ordinal: (n: number) => String(n),
-    } as unknown as ILocale,
+      // the calendar never writes a relative time, the one part of a locale it leaves out
+    } as ILocale,
     undefined,
-    true
+    true,
   );
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={name}>
@@ -88,11 +91,34 @@ function CalendarWords({ children }: { children: ReactNode }) {
 }
 const ClockIcon = () => <Icon name="clock" size={22} />;
 
-function fieldSlot({ name, error, hint, required, onBlur }: Pick<DateFieldProps, 'name' | 'error' | 'hint' | 'required' | 'onBlur'>) {
-  return { textField: { name, required, fullWidth: true, error: Boolean(error), helperText: error ?? hint, onBlur } };
+function fieldSlot({
+  name,
+  error,
+  hint,
+  required,
+  onBlur,
+}: Pick<DateFieldProps, 'name' | 'error' | 'hint' | 'required' | 'onBlur'>) {
+  return {
+    textField: {
+      name,
+      required,
+      fullWidth: true,
+      error: Boolean(error),
+      helperText: error ?? hint,
+      onBlur,
+    },
+  };
 }
 
-export function DateField({ label, value, onChange, disabled, min, max, ...field }: DateFieldProps) {
+export function DateField({
+  label,
+  value,
+  onChange,
+  disabled,
+  min,
+  max,
+  ...field
+}: DateFieldProps) {
   const localeText = useLocaleText();
   return (
     <CalendarWords>
@@ -115,7 +141,15 @@ export function DateField({ label, value, onChange, disabled, min, max, ...field
   );
 }
 
-export function MonthField({ label, value, onChange, disabled, min, max, ...field }: MonthFieldProps) {
+export function MonthField({
+  label,
+  value,
+  onChange,
+  disabled,
+  min,
+  max,
+  ...field
+}: MonthFieldProps) {
   const localeText = useLocaleText();
   return (
     <CalendarWords>

@@ -72,7 +72,7 @@ const ACTIONS: OfficeAction[] = [
 const VERIFY: OfficeAction[] = ['verify_link', 'verify_create'];
 /** The actions that ask for the office's reason, and the one that asks for the volunteer's message too. */
 const WITH_REASON: OfficeAction[] = ['reject', 'return_to_review', 'reject_unverified', 'waitlist'];
-/** The approvals, asked once more before they are sent (docs/DECISION_LOG.md D-182). */
+/** The approvals, asked once more before they are sent: an approval locks the answers. */
 const CONFIRMED: OfficeAction[] = ['approve', 'pull_from_waitlist'];
 /** The decisions that end an application's hopes in this project, drawn in the danger tone. */
 const DANGER: OfficeAction[] = ['reject', 'reject_unverified', 'delete'];

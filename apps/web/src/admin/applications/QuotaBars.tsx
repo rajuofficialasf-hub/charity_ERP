@@ -82,7 +82,7 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
       : undefined;
   // the list of locations that names the area is its parent's
   const untargetedParent = level === 'union' ? area.upazilaId : area.divisionId;
-  // the pull approves the next person, so it asks first (docs/DECISION_LOG.md D-182)
+  // the pull approves the next person and locks their answers, so it asks first
   const start = (areaId?: string) => {
     setNotice(null);
     pull.reset();

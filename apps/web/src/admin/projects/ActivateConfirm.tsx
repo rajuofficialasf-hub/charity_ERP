@@ -2,9 +2,8 @@ import { ConfirmDialog } from '@/ui';
 import { useTranslations } from 'use-intl';
 
 /**
- * The question before a project is activated, with what follows from it (docs/DECISION_LOG.md
- * D-182): once active, volunteers take applications in the window and the project's code,
- * program, year and workflow are fixed.
+ * The question before a project is activated, with what follows from it: once active, volunteers
+ * take applications in the window and the project's code, program, year and workflow are fixed.
  */
 export function ActivateConfirm({
   open,
