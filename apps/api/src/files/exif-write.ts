@@ -123,7 +123,7 @@ function exifBlock(meta: WrittenMetadata): Buffer | null {
       ? meta.gps
       : null;
   const accuracy =
-    place?.accuracyM != null &&
+    typeof place?.accuracyM === 'number' &&
     Number.isFinite(place.accuracyM) &&
     place.accuracyM >= 0 &&
     place.accuracyM <= MAX_ACCURACY_M
