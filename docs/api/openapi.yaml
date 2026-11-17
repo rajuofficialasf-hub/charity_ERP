@@ -11813,7 +11813,7 @@ paths:
                       properties:
                         kind:
                           type: string
-                          enum: [unread_notifications, consent_pending, corrections, edit_answered, registrations_pending, staff_registrations_pending, edit_requests_pending, projects_draft, deadlines_soon, handovers_open, unlocks_to_fill, unlocks_to_verify, verifications_pending, media_referrals_new, media_review_waiting, media_sent_back, media_on_hold, sync_failed, sync_verifying, photos_pending]
+                          enum: [unread_notifications, consent_pending, corrections, edit_answered, registrations_pending, staff_registrations_pending, edit_requests_pending, projects_draft, deadlines_soon, handovers_open, unlocks_to_fill, unlocks_to_verify, verifications_pending, applications_waiting, media_referrals_new, media_review_waiting, media_sent_back, media_on_hold, sync_failed, sync_verifying, photos_pending]
                         count: { type: integer, minimum: 1 }
                         href: { type: string, description: A fixed route of the PWA }
                   meta: { $ref: '#/components/schemas/Meta' }

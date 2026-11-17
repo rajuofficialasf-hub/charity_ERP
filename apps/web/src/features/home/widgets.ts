@@ -3,6 +3,7 @@ import type { Me } from '@css/shared/auth';
 /** A widget whose module exists by now, below "needs your attention". */
 export type LiveWidget =
   | 'my_projects'
+  | 'my_applications'
   | 'my_team'
   | 'official_projects'
   | 'project_states'
@@ -13,13 +14,11 @@ export type LiveWidget =
 
 /** A widget whose module comes in a later phase: a quiet "coming later" card. */
 export type LaterWidget =
-  | 'my_applications'
   | 'today_distribution'
   | 'today_class'
   | 'today_work'
   | 'daee_tracking'
   | 'exam_schedule'
-  | 'review_queue'
   | 'program_dashboard'
   | 'work_progress'
   | 'alerts'
@@ -40,7 +39,6 @@ const ORDER: readonly Widget[] = [
   'today_class',
   'today_work',
   'my_applications',
-  'review_queue',
   'daee_tracking',
   'exam_schedule',
   'program_dashboard',
@@ -68,8 +66,9 @@ export const ROLE_WIDGETS: Readonly<Record<string, readonly Widget[]>> = {
   volunteer_local_daee: ['my_projects', 'today_class', 'notifications'],
   volunteer_paid: ['my_projects', 'today_work', 'notifications'],
   official_daee: ['daee_tracking', 'exam_schedule', 'notifications'],
-  project_executive: ['official_projects', 'review_queue', 'notifications'],
-  regional_program_manager: ['official_projects', 'review_queue', 'notifications'],
+  // the applications waiting for an official are counted among "এখন আপনার কাজ"
+  project_executive: ['official_projects', 'notifications'],
+  regional_program_manager: ['official_projects', 'notifications'],
   program_manager: ['project_states', 'templates', 'program_dashboard', 'notifications'],
   department_head: ['shortcuts', 'work_progress', 'alerts', 'notifications'],
   monitoring_team: ['shortcuts', 'work_progress', 'alerts', 'notifications'],
@@ -81,7 +80,12 @@ export const ROLE_WIDGETS: Readonly<Record<string, readonly Widget[]>> = {
 };
 
 /** The data of these widgets is closed to a registration still waiting for approval. */
-const ACTIVE_ONLY: readonly Widget[] = ['my_projects', 'my_team', 'notifications'];
+const ACTIVE_ONLY: readonly Widget[] = [
+  'my_projects',
+  'my_team',
+  'my_applications',
+  'notifications',
+];
 
 /** The widgets of a person's home in the fixed order, without repeats. */
 export function widgetsFor(me: Pick<Me, 'roles' | 'state'>): Widget[] {
@@ -92,6 +96,7 @@ export function widgetsFor(me: Pick<Me, 'roles' | 'state'>): Widget[] {
 
 const LIVE: readonly Widget[] = [
   'my_projects',
+  'my_applications',
   'my_team',
   'official_projects',
   'project_states',

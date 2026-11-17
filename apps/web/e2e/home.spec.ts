@@ -107,7 +107,7 @@ const HOMES: { role: string; loginId: string; widgets: string[]; volunteer?: boo
   {
     role: 'an RPM',
     loginId: 'rpm.dhaka@example.org',
-    widgets: ['আমার প্রকল্প', 'পর্যালোচনার তালিকা'],
+    widgets: ['আমার প্রকল্প', 'সাম্প্রতিক নোটিফিকেশন'],
   },
   {
     role: 'a PM',

@@ -22,6 +22,7 @@ const LOOK: Record<AttentionKind, { icon: ExtendedIconName; tone: 'info' | 'warn
   unlocks_to_fill: { icon: 'unlock', tone: 'warning' },
   unlocks_to_verify: { icon: 'unlock', tone: 'info' },
   verifications_pending: { icon: 'user-check', tone: 'info' },
+  applications_waiting: { icon: 'checklist', tone: 'info' },
   media_referrals_new: { icon: 'video', tone: 'info' },
   media_review_waiting: { icon: 'video', tone: 'info' },
   media_sent_back: { icon: 'video', tone: 'warning' },

@@ -11,13 +11,12 @@ import { ApiFailure } from '../../api/client';
 import { orCached } from '../../lib/or-cached';
 import type { SyncInfo } from '../../offline/applications-store';
 import { MY_PROJECTS_KEY, myProjects } from '../projects/my-projects-api';
-import { type ApplicationSummary, MY_APPLICATIONS_KEY, myApplications } from './applications-api';
-import { stateTone, type Tab, TABS } from './status';
+import { type ApplicationSummary, MY_APPLICATIONS_KEY } from './applications-api';
+import { ownListOf, TAB_IDS } from './own-lists';
+import { stateTone, type Tab } from './status';
 import { SyncBadge } from './SyncBadge';
 import { loadStore, useLocalRecords } from './use-local-records';
 import './applications.css';
-
-const TAB_IDS = Object.keys(TABS) as Tab[];
 
 /**
  * The volunteer's own applications by state (docs/ui/SCREENS.md, "My applications and application detail"): drafts, the ones
@@ -29,16 +28,6 @@ export function MyApplicationsPage() {
   const t = useTranslations('applications.list');
   return <AccountPage title={() => t('title')}>{() => <Lists />}</AccountPage>;
 }
-
-/** The server's list, or the phone's when the network is away. */
-const listOf = (tab: Tab) =>
-  orCached(
-    () => myApplications(TABS[tab].join(',')),
-    async () => {
-      const cached = await (await loadStore()).cachedList(TABS[tab]);
-      return cached ? { data: cached, meta: { total: cached.length } } : null;
-    },
-  );
 
 const projectsOf = () => orCached(myProjects, async () => (await loadStore()).cachedProjects());
 
@@ -53,7 +42,7 @@ function Lists() {
   const queries = useQueries({
     queries: TAB_IDS.map((id) => ({
       queryKey: [...MY_APPLICATIONS_KEY, id],
-      queryFn: () => listOf(id),
+      queryFn: () => ownListOf(id),
     })),
   });
   const lists = TAB_IDS.map((id, i) => ({ id, query: queries[i]! }));

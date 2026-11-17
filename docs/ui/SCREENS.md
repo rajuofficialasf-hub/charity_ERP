@@ -340,7 +340,7 @@ Blueprint A4: my projects, my applications (draft, pending, approved), today's d
 |---|---|---|---|
 | Needs your attention | Correction requests, returned applications, pending consent, failed sync, deadline in 3 days | Open record; `application.edit_pending`, `volunteer.consent.accept`, `sync.batch` | 1 (grows) |
 | My projects | Assigned projects with deadline and my limit used ("18 of 25") | Open project; `project.view` | 1 |
-| My applications | Counts by status (draft, pending, approved), linked to SCR-032 | `application.view` (SELF) | 2 |
+| My applications | **Built (D-182):** the four tabs of SCR-032 (খসড়া, পেন্ডিং, অনুমোদিত, বাতিল) with their counts, each opening its tab, and "সব আবেদন"; the same queries as the own list, also offline | `application.view` (SELF) | 2 |
 | New application | Primary button | `application.create` | 2 |
 | Today's distribution | Today's assigned beneficiaries, done or remaining, stock summary | Open SCR-033; `distribution.update` | 3 |
 | My team | Team members and their draft applications awaiting submission | Open SCR-035; `volunteer.team.manage` | 1 |
@@ -419,7 +419,7 @@ Blueprint A4: applications waiting for review and approval, volunteer assignment
 | Widget | Data | Action and permission | From phase |
 |---|---|---|---|
 | Needs your attention | Waiting applications, with the oldest first and the waiting time (UX-07); pending registrations; edit requests; correction requests from volunteers; needs-verification records | Open SCR-041 or SCR-040; `application.review`, `application.approve`, `registration.approve`, `edit_request.approve`, `application.verify_needs_verification` | 1 (grows) |
-| Review queue counts | Submitted, under review, reviewed, waitlisted, per project | `application.view` | 2 |
+| Review queue counts | **Built (D-182)** as the attention item "N টি আবেদন আপনার পর্যালোচনা বা অনুমোদনের অপেক্ষায়" (`applications_waiting`): the submitted and under-review applications for a holder of `application.review`, the reviewed ones for a holder of `application.approve`, each in its own scope, on running projects; the item opens the one that has waited longest. No separate card | `application.review`, `application.approve` | 2 |
 | Volunteer assignment | Unassigned areas, volunteers without a project, recent assignments | Open SCR-043; `volunteer.assign_project` (Executive: if_rpm_grants) | 1 |
 | Regional progress | Stat cards: applications, approved, distributed or completed against target for my region | `dashboard.project.view` (REGION) | 3 |
 | Payments and expenses to verify | Expense claims waiting; payment records to enter (O-24) | `expense.claim.verify`, `payment.record` | 3 |

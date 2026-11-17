@@ -58,9 +58,15 @@ beforeEach(() => {
 });
 
 describe('My Work home', () => {
-  it('shows a volunteer what waits, the projects with the deadline and limit, and what comes later', async () => {
+  it('shows a volunteer what waits, the projects with the deadline and limit, the own applications by state, and what comes later', async () => {
     attentionIs([{ kind: 'consent_pending', count: 1, href: '/my-projects' }]);
-    server.use(http.get('*/api/v1/me/projects', () => ok([PROJECT])));
+    server.use(
+      http.get('*/api/v1/me/projects', () => ok([PROJECT])),
+      http.get('*/api/v1/me/applications', ({ request }) => {
+        const status = new URL(request.url).searchParams.get('status') ?? '';
+        return ok([], { total: status.startsWith('submitted') ? 3 : 0 });
+      }),
+    );
     const { container } = openHome(VOLUNTEER);
     expect(
       // the page is named for what it holds, without a greeting
@@ -83,9 +89,22 @@ describe('My Work home', () => {
       'href',
       `/my-projects/${PROJECT.projectId}/team`,
     );
-    const later = screen.getByRole('heading', { name: 'আমার আবেদন' }).closest('section');
+    // the own applications are counted by tab, each count opening its tab
+    const own = screen.getByRole('heading', { name: 'আমার আবেদন' }).closest('section')!;
+    expect(own).not.toHaveTextContent('শিগগিরই আসছে');
+    const pending = (await within(own).findByRole('link', { name: 'পেন্ডিং' })).closest('li')!;
+    expect(pending).toHaveTextContent('3');
+    expect(within(own).getByRole('link', { name: 'পেন্ডিং' })).toHaveAttribute(
+      'href',
+      '/my-applications?tab=pending',
+    );
+    expect(within(own).getByRole('link', { name: 'সব আবেদন' })).toHaveAttribute(
+      'href',
+      '/my-applications',
+    );
+    // today's distribution comes in a later phase: a quiet card without an action
+    const later = screen.getByRole('heading', { name: 'আজকের বিতরণ' }).closest('section');
     expect(later).toHaveTextContent('শিগগিরই আসছে');
-    expect(within(later as HTMLElement).queryByRole('button')).toBeNull();
     expect(within(later as HTMLElement).queryByRole('link')).toBeNull();
     // ratings and categories are never shown to volunteers
     expect(document.body).not.toHaveTextContent(/রেটিং|ক্যাটাগরি/);
@@ -148,17 +167,27 @@ describe('My Work home', () => {
     expect(screen.queryByRole('heading', { name: 'আজকের বিতরণ' })).toBeNull();
   });
 
-  it('shows the Dhaka RPM the registrations waiting, linked to the list', async () => {
+  it('shows the Dhaka RPM the registrations and the applications waiting, linked to where they are', async () => {
     attentionIs([
       { kind: 'registrations_pending', count: 2, href: '/admin/volunteers?state=pending' },
+      {
+        kind: 'applications_waiting',
+        count: 4,
+        href: '/admin/applications/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c60',
+      },
     ]);
     server.use(http.get('*/api/v1/projects', () => ok([])));
     openHome({ ...ME, roles: ['regional_program_manager'] });
     expect(
       await screen.findByRole('link', { name: /2টি স্বেচ্ছাসেবক নিবন্ধন অনুমোদনের অপেক্ষায়/ }),
     ).toHaveAttribute('href', '/admin/volunteers?state=pending');
+    expect(
+      screen.getByRole('link', { name: /4টি আবেদন আপনার পর্যালোচনা বা অনুমোদনের অপেক্ষায়/ }),
+    ).toHaveAttribute('href', '/admin/applications/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c60');
     expect(await screen.findByText('এখন কোনো চলমান প্রকল্প নেই')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'পর্যালোচনার তালিকা' })).toBeInTheDocument();
+    // the waiting applications are an item above, not a card that comes later
+    expect(screen.queryByRole('heading', { name: 'পর্যালোচনার তালিকা' })).toBeNull();
+    expect(screen.queryByText('শিগগিরই আসছে')).toBeNull();
   });
 
   it('names the session of each running project an RPM works on', async () => {
