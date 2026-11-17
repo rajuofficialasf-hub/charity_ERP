@@ -23,3 +23,11 @@ overrides:
   # patch release of the same line; remove when @serwist moves past it.
   '@serwist/build>zod': 4.6.7
   '@serwist/vite>zod': 4.6.7
+
+# The one advisory the audit leaves out, approved by the owner with an expiry: picomatch's ReDoS
+# (picomatch <= 4.0.7, no patched release yet), reached only through the build and dev tools
+# (vite, tinyglobby, fdir); no production dependency tree holds it (docs/DECISION_LOG.md, the
+# exceptions table). Remove it as soon as a patched picomatch is released.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-fc5q-39xc-vjpf
