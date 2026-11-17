@@ -141,3 +141,35 @@ async function withRetries<T>(
     }
   }
 }
+
+/** How long a caller waits for the server's scan of a file it just stored, and how often it looks. */
+export const SCAN_WAIT_MS = 30_000;
+const SCAN_POLL_MS = 1_000;
+
+/** The scan of a stored file did not clear it: refused for good, or not done within the wait. */
+export class ScanNotCleared extends Error {
+  constructor(readonly state: UploadedFile['virusScan']) {
+    super(`file.scan_${state}`);
+    this.name = 'ScanNotCleared';
+  }
+}
+
+/**
+ * Waits until the server's scan of a file just stored has cleared it, reading the file's state
+ * every second, for a step that may take only a cleared file (a cover); throws `ScanNotCleared`
+ * when the scan refused the file or did not end within `SCAN_WAIT_MS`.
+ */
+export async function waitForScan(
+  stored: Pick<UploadedFile, 'id' | 'virusScan'>,
+  waitMs = SCAN_WAIT_MS,
+): Promise<void> {
+  const until = Date.now() + waitMs;
+  let state = stored.virusScan;
+  for (;;) {
+    if (state === 'clean' || state === 'skipped') return;
+    if (state === 'infected' || state === 'failed' || Date.now() >= until)
+      throw new ScanNotCleared(state);
+    await new Promise((resolve) => setTimeout(resolve, SCAN_POLL_MS));
+    state = (await api<{ virusScan: UploadedFile['virusScan'] }>(`/files/${stored.id}`)).virusScan;
+  }
+}

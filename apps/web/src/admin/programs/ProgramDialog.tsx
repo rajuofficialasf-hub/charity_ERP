@@ -7,6 +7,7 @@ import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { ApiFailure } from '../../api/client';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
+import { ScanNotCleared } from '../../lib/uploads';
 import { CoverField, saveCover } from '../projects/CoverField';
 import { type PanelUser, UserSearch, usersWithRole } from '../UserSearch';
 import {
@@ -152,7 +153,12 @@ export function ProgramDialog({
         await refreshProgramReads(queryClient);
       } catch (failure) {
         coverProblem = tcover('failed', {
-          reason: failure instanceof ApiFailure ? failure.message : ts('text'),
+          reason:
+            failure instanceof ScanNotCleared
+              ? tcover('not_cleared')
+              : failure instanceof ApiFailure
+                ? failure.message
+                : ts('text'),
         });
       }
     onDone(saved, coverProblem);

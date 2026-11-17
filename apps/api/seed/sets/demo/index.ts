@@ -9,6 +9,7 @@ import {
 import { hash } from '@node-rs/argon2';
 import { json, SEED_AT, type SeedContext, seedId } from '../../context.js';
 import { workflowVersionOf } from '../base/workflows.js';
+import { writeHelpCounts } from '../../../src/services/help-history.js';
 import { MatchKeysService, profileKeysWith } from '../../../src/services/match-keys.js';
 
 /**
@@ -227,6 +228,19 @@ export const DEMO_VOLUNTEERS: { n: number; type: VolunteerType }[] = Array.from(
 
 /** The demo beneficiary (number n of `beneficiary:n`, Dhaka division) that stands on the blocklist. */
 const DEMO_BLOCKED_BENEFICIARY = 3;
+
+/**
+ * The demo person helped once (number n of `beneficiary:n`, after the duplicate pairs): an
+ * application of the closed 2025 session of WNT, approved before the close, so the profile shows the
+ * times helped (docs/testing/DEMO_ACCOUNTS.md).
+ */
+export const DEMO_HELPED_BENEFICIARY = {
+  n: 55,
+  nid: '1000001054',
+  name: 'সালেহা বেগম',
+  father: 'মৃত আবুল কাশেম',
+  mobile: 1054,
+} as const;
 
 /**
  * Two suggested duplicate pairs after the 50 beneficiaries (numbers n of `beneficiary:n`): each
@@ -624,5 +638,88 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         { key: ['low_id', 'high_id'], insertOnly: ['rules', 'level', 'active', 'computed_at'] },
       );
     }
+
+    // one person helped once: the 2025 session of the same series, closed, with the application
+    // approved before its close, so the profile shows the times helped and the family's help
+    const pastId = seedId('project:WNT:2025');
+    await ctx.upsert('projects', {
+      id: pastId,
+      program_id: seedId('program:HUM'),
+      series_id: seriesId,
+      code: 'WNT',
+      year: 2025,
+      period_from: '2025-01-01',
+      period_to: '2025-12-31',
+      name_bn: 'শীতবস্ত্র বিতরণ 2025',
+      name_en: 'Winter Clothing 2025',
+      description: demoName('গত বছরের বন্ধ প্রকল্প, ডেমো ডেটা'),
+      status: 'closed',
+      closed_at: SEED_AT,
+      closed_by: userId('pm_hum'),
+      workflow_definition_id: seedId(`workflow:distribution:${workflowVersionOf('distribution')}`),
+      workflow_version: workflowVersionOf('distribution'),
+      per_volunteer_limit: 50,
+      cost_per_beneficiary: '1500.00',
+      target_beneficiaries: 2000,
+      ...ctx.audit(),
+    });
+    const pastFormId = seedId('form:WNT:2025');
+    await ctx.upsert('forms', {
+      id: pastFormId,
+      project_id: pastId,
+      key: 'helped_person',
+      title_bn: 'আবেদন ফর্ম',
+      title_en: 'Application form',
+      ...ctx.audit(),
+    });
+    const pastVersionId = seedId('form-version:WNT:2025:1');
+    await ctx.upsert('form_versions', {
+      id: pastVersionId,
+      form_id: pastFormId,
+      version_no: 1,
+      ...ctx.audit(),
+    });
+    const helpedId = seedId(`beneficiary:${DEMO_HELPED_BENEFICIARY.n}`);
+    const helped = DEMO_HELPED_BENEFICIARY;
+    await ctx.upsert('beneficiaries', {
+      id: helpedId,
+      nid: helped.nid,
+      birth_reg: null,
+      name: demoName(helped.name),
+      father_or_husband_name: demoName(helped.father),
+      ...nameKeys(demoName(helped.name), demoName(helped.father), 'নমুনা গ্রাম 4'),
+      mobile: fakeMobile(helped.mobile),
+      gender_code: 'female',
+      age_years: 52,
+      marital_status_code: 'widowed',
+      education_code: 'primary',
+      division_id: place.division,
+      district_id: place.district,
+      upazila_id: place.upazila,
+      union_id: place.union,
+      village: 'নমুনা গ্রাম 4',
+      members_14_plus: 1,
+      children_under_14: 2,
+      daily_income: '200',
+      ...ctx.audit(),
+    });
+    await ctx.upsert('applications', {
+      id: seedId(`application:WNT:2025:${helped.n}`),
+      project_id: pastId,
+      form_version_id: pastVersionId,
+      beneficiary_id: helpedId,
+      // closed with its session, approved before the close: it counts as help
+      status: 'closed',
+      closed_from_status: 'approved',
+      region_location_id: place.division,
+      district_id: place.district,
+      union_id: place.union,
+      submitted_at: SEED_AT,
+      approved_at: SEED_AT,
+      approved_by: userId('rpm_dhaka'),
+      ...ctx.audit(),
+    });
+    // the kept times helped, written only where they differ
+    await writeHelpCounts(ctx.db, [helpedId]);
   });
 }

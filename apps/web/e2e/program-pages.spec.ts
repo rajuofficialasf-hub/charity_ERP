@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, request as apiRequest, test } from '@playwright/test';
 import { apiAs, openProjectsTab, scan, signIn } from './support/admin';
+import { TINY_PNG } from './support/offline';
 import { chooseIn, code, next, section, state } from './support/projects';
 
 // A program's page with its permanent projects as cards and a project's page with its sessions,
@@ -14,6 +15,7 @@ const HEAD = 'head@example.org';
 const UCD_NAME = 'আন্ডারপ্রিভিলেজড কমিউনিটি ডেভেলপমেন্ট প্রোগ্রাম';
 /** The program of the demo seed's one project (WNT). */
 const HUM_NAME = 'হিউম্যানিটেরিয়ান প্রোগ্রাম';
+const ERR_NAME = 'ইমার্জেন্সি রেসপন্স অ্যান্ড রিহ্যাবিলিটেশন প্রোগ্রাম';
 const PHONE_NOTICE = 'এই পর্দা বড় স্ক্রিনে ভালো চলে।';
 
 /** Types a month into a month field (mm then yyyy). */
@@ -159,6 +161,32 @@ test.describe('a program’s page and a project’s page', () => {
     expect((await scan(page)).violations).toEqual([]);
   });
 
+  test('a program cover chosen in the program dialog shows on its card once processed', async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== 'desktop', 'one program, one cover');
+    test.setTimeout(120_000);
+    await signIn(page, HEAD);
+    await openProjectsTab(page);
+    // the ERR program: the other journeys of this file read the cards of HUM and UCD
+    const card = page.getByRole('article', { name: ERR_NAME });
+    await card.hover();
+    await card.getByRole('button', { name: 'প্রোগ্রাম এডিট করুন' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog
+      .locator('input[type="file"]')
+      .setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: TINY_PNG });
+    await dialog.getByRole('button', { name: 'সংরক্ষণ' }).click();
+    await expect(dialog).toHaveCount(0);
+    // the worker scans the file and makes its thumbnail; the card shows it once both are done
+    await expect(async () => {
+      await page.reload();
+      await expect(
+        page.getByRole('article', { name: ERR_NAME }).locator('[data-face="front"] img'),
+      ).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
+  });
+
   test.describe('with the cards read changed', () => {
     // a request the app's service worker makes is not seen by the page's routes, so these pages
     // run without it
@@ -220,6 +248,14 @@ test.describe('a program’s page and a project’s page', () => {
     await card.getByRole('button', { name: /বিস্তারিত দেখুন$/ }).click();
     await expect(card).toHaveAttribute('data-turned', 'true');
     await expect(card.getByRole('link', { name: 'প্রকল্প খুলুন' })).toBeVisible();
+    // the back holds what it says without a scroll of its own, at 360 px too
+    const scrolling = await card.locator('[data-face="back"]').evaluate((back) =>
+      [back, ...back.querySelectorAll('*')]
+        .filter((el) => el.scrollHeight > el.clientHeight + 1)
+        .filter((el) => ['auto', 'scroll'].includes(getComputedStyle(el).overflowY))
+        .map((el) => `${el.tagName}.${el.className}:${el.scrollHeight}/${el.clientHeight}`),
+    );
+    expect(scrolling).toEqual([]);
     await card.scrollIntoViewIfNeeded();
     await pictures(page, (n) => info.outputPath(n), 'program-360-back');
     await card.getByRole('button', { name: 'সামনের দিকে ফিরুন' }).click();

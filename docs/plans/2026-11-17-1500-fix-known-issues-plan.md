@@ -52,10 +52,11 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 ## Progress
 - **Branch:** `fix/known-issues`
 - **Updated:** 2026-11-17
-- **Next:** U13: the demo seed, the E2E uploads, the project card back
+- **Next:** U14: the flaky tests and the date helpers, then checkpoint C11 (U13 and U14) and the finish
 - **Reviewed through:** C10 (the review fixes after a586752a)
 - **Uncommitted:** none
 - **Notes:** the owner said not to wait for a command between units or checkpoints. U1: a blocked person's draft is refused at the send by the workflow guard `workflow.guard.beneficiary_not_blocked` (409), not by `beneficiary.blocked`. C1 review: a draft not yet tied to anyone whose number later names a blocked person stays refused at its edit (409 `beneficiary.blocked`), because tying it would fill in the blocked person's names, which the lookup never reveals; BR-010 says so. U2: the cause was the scope builder (`resolveInstances` in `apps/api/src/access/scope.ts`) honouring the house-construction condition only for beneficiaries; the web gives the Procurement Team the tab's list only and a session's "আবেদন". The planned e2e journey is covered by `procurement-applications.test.ts` and the tab's component test instead, because the demo seed has no house-construction project. U4: the lookup's uniform refusal past the day's limit holds on the lookup screen only; an application's own gate lets an unknown number through, since that is how a new person is entered (each draft stays on record under its creator). The profile's years already came from every application (`personApplications`), so nothing changed there. The transfer is not refused for a pending consent (the owner's second answer); it answers `consentPending`. C4 left one item for the owner, to go into STATUS's known issues at the end: past the day's limit the application form still tells a known number outside the area (429) from an unknown one (201); counting unknown numbers against the limit would stop new people being entered, so it is recorded, not changed
+  - U13: the cover E2E found a product bug, not only a test gap: the server sets only a cover its scan cleared, and the dialog set it right after the upload, before the worker's scan, so a cover failed nearly every time once a real scanner runs; `saveCover` now waits for the scan (`waitForScan` in `lib/uploads.ts`, up to 30 s). The owner asked meanwhile for a photo viewer with download and the photo's details (D-181): a task of its own after this plan.
   - U11: the finalize keeps its contract (a second finalize at once answers the first one's file, 200) by waiting on a lease (`upload_sessions.finalizing_until`, migration `20261117180000_upload_finalize_lease`) instead of a transaction around the join; the lists needed no definition at all (no list row shows it), so they read none rather than one per key; `perf:lists` gained the application lists and was run with a copy of `.env.example` (the worktree's `.env` still has the old `MINIO_*` names) after the migrations were applied to css_erp_perf.
   - U10: the builder page is a flex column now (a grid item sticks only inside its own row), the head's box `display: contents`, so the line with the save state sticks under the shell's 72px header while the form scrolls; the page can scroll past the form, since the shell's menu is longer, and there the line leaves with the form. The setup dialog's old values came from the list read before the save: the saved component goes into the list at once.
   - The web suite run whole on this machine (CPU about 70 % busy before it starts) times out 3 to 18 tests at the 5-second default, a different set each run; each passes alone. For U14: the tests near the limit are the builder's keyboard moves, the transfer's tick-all, the permission panel's effective view, the applications' retry and others.
@@ -244,7 +245,7 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U14. The flaky tests and the date helpers
 - **Goal:** R14.

@@ -4,7 +4,7 @@ import { FileUpload } from '@/ui';
 import { useEffect, useMemo } from 'react';
 import { useTranslations } from 'use-intl';
 import { compressImage } from '../../lib/compress';
-import { uploadFile } from '../../lib/uploads';
+import { uploadFile, waitForScan } from '../../lib/uploads';
 import { CardCover } from './CardCover';
 import { setProgramCover, setSeriesCover } from './cards-api';
 
@@ -34,6 +34,8 @@ export async function saveCover(record: CoverRecord, id: string, file: File): Pr
     },
     { clientUuid: uuidv7() },
   );
+  // the server sets only a cover its scan has cleared, which runs a moment after the upload
+  await waitForScan(stored);
   await (record === 'program' ? setProgramCover(id, stored.id) : setSeriesCover(id, stored.id));
 }
 

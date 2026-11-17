@@ -1321,7 +1321,8 @@
       "hint": "JPEG, PNG or WebP, up to 5 MB. Without one, an illustration shows.",
       "current": "Current cover",
       "failed": "The details were saved, but the cover photo could not be set: {reason}",
-      "max_size": "5 MB"
+      "max_size": "5 MB",
+      "not_cleared": "The photo has not cleared the safety check yet. Set the cover again a little later."
     },
     "period_value": "{from} to {to}"
   },

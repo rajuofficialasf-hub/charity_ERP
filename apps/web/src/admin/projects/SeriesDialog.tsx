@@ -15,6 +15,7 @@ import {
   seriesWithEtag,
   updateSeries,
 } from './cards-api';
+import { ScanNotCleared } from '../../lib/uploads';
 import { CoverField, saveCover } from './CoverField';
 import { PROJECTS_KEY } from './projects-api';
 
@@ -156,7 +157,12 @@ export function SeriesDialog({
         await saveCover('project_series', saved.id, cover);
       } catch (failure) {
         coverProblem = tcover('failed', {
-          reason: failure instanceof ApiFailure ? failure.message : te('text'),
+          reason:
+            failure instanceof ScanNotCleared
+              ? tcover('not_cleared')
+              : failure instanceof ApiFailure
+                ? failure.message
+                : te('text'),
         });
       }
     // the cards, the program's projects and this series show what is stored

@@ -2,9 +2,11 @@ import { loadEnv } from '../src/config/env.js';
 import { closeContainer, createContainer } from '../src/container.js';
 import { JobConsumers } from '../src/jobs/consumers.js';
 
-// The export jobs of the Playwright run: the E2E API starts no job consumers (its other journeys
-// rely on files and messages staying as the API left them), so this process consumes the exports
-// queue alone, with the same configuration as the E2E API. Development and test only.
+// The export jobs and the processing of uploaded files of the Playwright run: the E2E API starts
+// no job consumers (its other journeys rely on messages staying as the API left them), so this
+// process consumes the exports queue and the photos queue (each file scanned with the E2E
+// scanner and given its thumbnails, so an uploaded cover or photo shows), with the same
+// configuration as the E2E API. Development and test only.
 async function main(): Promise<void> {
   const env = loadEnv(process.env);
   if (env.NODE_ENV === 'production')
@@ -12,6 +14,7 @@ async function main(): Promise<void> {
   const container = createContainer(env);
   await new JobConsumers(container.jobs, container.logger, {
     exportRunner: container.exportRunner,
+    fileProcessor: container.fileProcessor,
   }).register();
   container.logger.info('e2e export worker started');
   const stop = (): void => {
