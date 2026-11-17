@@ -24,6 +24,8 @@ Status: complete, task T0.12 (2026-10-10). Design only; no code. Sources: bluepr
 
 Never cached: NID photos, bank details, ratings, categories, donor data, official sections, audit detail, other volunteers' data (field-level protection applies to the snapshot endpoint exactly as to every other endpoint, BR-183). NID and birth-registration numbers are never part of the cached data set either (constitution §5, BR-183): the volunteer recognizes beneficiaries by name, father or husband name and village. Only the number the volunteer typed into an unsynced draft stays in the encrypted outbox until that record is synced (section 7).
 
+Reading the copy (D-179): a page that has a cached copy reads the server first and falls back to the phone's copy when the read fails on the way (`apps/web/src/lib/or-cached.ts`). Every read runs once even while the phone is offline (TanStack Query's `offlineFirst`, `apps/web/src/lib/query-client.ts`), so a page not read before the network went shows the copy instead of waiting; only the retries wait for the network. A route whose chunk or texts failed to load gets a page that loads it again once the network returns or from its button, without a reload (`apps/web/src/routes/page-loader.tsx`; React Router keeps what a route's `lazy` answered). The copy is sealed per signed-in person and wiped at logout and on revocation (section 7), so the next person on the same phone reads none of it.
+
 ## 3. Outbox pattern and record lifecycle
 
 Every offline write is an **outbox record** in Dexie (IndexedDB), never a direct call. Online, the same path is used with immediate flush, so there is one code path.

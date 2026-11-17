@@ -30,6 +30,8 @@ const PM = 'pm.err@example.org';
 const HEAD = 'head@example.org';
 const RPM = 'rpm.dhaka@example.org';
 const VOLUNTEER = '01700000111';
+/** Signed in read-only on the same phone after the first volunteer (docs/testing/DEMO_ACCOUNTS.md). */
+const NEXT_VOLUNTEER = '01700000116';
 /** The first demo beneficiary (a woman of Dhaka): her number is known, her name is not the typed one. */
 const KNOWN_NID = '1000001000';
 
@@ -126,9 +128,9 @@ async function offlineProject(browser: Browser, request: APIRequestContext) {
 }
 
 /** The phone signed in with its data set and the locations on it, and the worker in control. */
-async function phoneReady(page: Page): Promise<void> {
+async function phoneReady(page: Page, loginId = VOLUNTEER): Promise<void> {
   const arrives = dataSetArrives(page);
-  await signIn(page, VOLUNTEER);
+  await signIn(page, loginId);
   await arrives;
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
@@ -434,6 +436,53 @@ test.describe('the offline journeys', () => {
     });
     await goOnline(context);
     await batch;
+  });
+
+  test('a page not read before the network went shows the phone’s copy, not a wait', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120_000);
+    await phoneReady(page);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await goOffline(context);
+    // the list is read by the home already; the project's own page is not
+    await page.getByRole('link', { name: 'আমার প্রকল্প' }).first().click();
+    const list = page.getByRole('list', { name: 'আমার প্রকল্পের তালিকা' });
+    await list.getByRole('link').first().click();
+    await expect(page).toHaveURL(/\/my-projects\/[0-9a-f-]{36}$/);
+    // drawn from the phone's copy: the page past its placeholder, with no load error
+    await expect(page.getByRole('link', { name: 'আমার প্রকল্পে ফিরে যান' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await goOnline(context);
+  });
+
+  test('the next volunteer on the same phone sees none of the first one’s records offline', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(180_000);
+    await phoneReady(page);
+    await page.goto('/my-applications');
+    const first = page.getByRole('main').getByRole('listitem').first();
+    await expect(first).toBeVisible();
+    const theirs = (await first.innerText()).split('\n')[0]!.trim();
+    expect(theirs.length).toBeGreaterThan(0);
+    await page.getByRole('button', { name: 'প্রোফাইল মেনু' }).click();
+    await page.getByRole('menuitem', { name: 'লগআউট' }).click();
+    await expect(page).toHaveURL(/\/login/, { timeout: 30_000 });
+
+    // the next volunteer reads their own list once online, then the phone loses the network
+    await signIn(page, NEXT_VOLUNTEER);
+    await page.goto('/my-applications');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await goOffline(context);
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByText(theirs)).toHaveCount(0);
+    await goOnline(context);
   });
 
   test('a device the office signs out wipes the phone at its next step', async ({

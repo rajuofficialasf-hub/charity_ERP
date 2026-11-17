@@ -249,12 +249,14 @@ describe('the new application', () => {
       path: '/my-projects/:projectId/apply',
       initialPath: `/my-projects/${PROJECT}/apply`,
     });
-    const alert = await screen.findByRole('alert', {}, { timeout: 5000 });
+    // the alert comes after the query's two retries (a second, then two), so a busy machine
+    // needs more than five seconds
+    const alert = await screen.findByRole('alert', {}, { timeout: 10_000 });
     expect(alert).toHaveTextContent('req_project');
     failing = false;
     await user.click(within(alert).getByRole('button', { name: 'আবার চেষ্টা করুন' }));
     expect(await screen.findByRole('textbox', { name: /NID নম্বর/ })).toBeInTheDocument();
-  });
+  }, 20_000);
 
   it('locks a found person’s identity, saves the draft through the outbox when the first part is done and sends it with the number', async () => {
     const user = userEvent.setup();

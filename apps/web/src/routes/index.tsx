@@ -1,9 +1,10 @@
-import { type ComponentType, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import type { AdminRouteHandle } from '../admin/AdminLayout';
 import { RouteError } from '../components/RouteError';
 import { LoginPage } from '../features/auth/LoginPage';
 import { withRest } from '../i18n/locale';
+import { page } from './page-loader';
 
 /** The asf component gallery exists in `vite dev` and in the E2E build only. */
 export const GALLERY_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEV_GALLERY === '1';
@@ -12,19 +13,6 @@ export const GALLERY_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEV_G
 const AsfGalleryPage = GALLERY_ENABLED
   ? lazy(() => withRest(import('../dev/AsfGalleryPage')))
   : null;
-
-/**
- * A lazy route's page: the named export of its module, loaded together with the rest of the
- * catalogue (`withRest`), so the page renders only once its texts are in. A name the module does
- * not export as a component fails the typecheck.
- */
-function page<K extends string, M extends Record<K, ComponentType>>(
-  load: () => Promise<M>,
-  name: K,
-): () => Promise<{ Component: ComponentType }> {
-  // eslint-disable-next-line security/detect-object-injection -- an export name the type checks
-  return async () => ({ Component: (await withRest(load()))[name] });
-}
 
 /**
  * Every screen of the PWA: the sign-in pages alone, every signed-in page inside the app shell.
