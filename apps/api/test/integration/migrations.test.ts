@@ -116,6 +116,23 @@ describe('migrations', () => {
     await client.connect();
     try {
       await client.query(`UPDATE projects SET code = 'WNTA' WHERE code = 'WNT' AND year = 2025`);
+      // the demo's ready form: the ready forms' reverse stops while one exists, so it is taken
+      // away first, the step it names; its published rows are guarded against change, so the
+      // guards rest for the delete only
+      const guarded = ['form_versions', 'form_sections', 'form_fields', 'field_options'];
+      const ready = `SELECT id FROM forms WHERE project_id IS NULL AND kind <> 'library'`;
+      const versions = `SELECT id FROM form_versions WHERE form_id IN (${ready})`;
+      const sections = `SELECT id FROM form_sections WHERE form_version_id IN (${versions})`;
+      for (const table of guarded) await client.query(`ALTER TABLE ${table} DISABLE TRIGGER USER`);
+      await client.query(
+        `DELETE FROM field_options WHERE form_field_id IN
+           (SELECT id FROM form_fields WHERE form_section_id IN (${sections}))`,
+      );
+      await client.query(`DELETE FROM form_fields WHERE form_section_id IN (${sections})`);
+      await client.query(`DELETE FROM form_sections WHERE form_version_id IN (${versions})`);
+      await client.query(`DELETE FROM form_versions WHERE form_id IN (${ready})`);
+      await client.query(`DELETE FROM forms WHERE id IN (${ready})`);
+      for (const table of guarded) await client.query(`ALTER TABLE ${table} ENABLE TRIGGER USER`);
     } finally {
       await client.end();
     }
