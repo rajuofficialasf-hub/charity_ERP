@@ -63,9 +63,8 @@ describe('the photo viewer of the app', () => {
     open();
     const dialog = await screen.findByRole('dialog', { name: 'ছবি' });
     expect(await within(dialog).findByRole('img', { name: 'বাড়ির সামনে' })).toBeInTheDocument();
-    // the details stand beside the photo or in the sheet the button opens
-    const button = within(dialog).queryByRole('button', { name: 'বিস্তারিত', expanded: false });
-    if (button) await userEvent.click(button);
+    // the test's screen is narrow, so the details open as a sheet
+    await userEvent.click(within(dialog).getByRole('button', { name: 'বিস্তারিত' }));
     expect(await screen.findByText('তোলার সময়')).toBeInTheDocument();
     expect(screen.getByText('অবস্থান')).toBeInTheDocument();
     expect(screen.getByText('23.8103, 90.4125 · ±8 m')).toBeInTheDocument();
@@ -89,8 +88,7 @@ describe('the photo viewer of the app', () => {
     );
     open();
     const dialog = await screen.findByRole('dialog', { name: 'ছবি' });
-    const button = within(dialog).queryByRole('button', { name: 'বিস্তারিত', expanded: false });
-    if (button) await userEvent.click(button);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'বিস্তারিত' }));
     expect(await screen.findByText('তোলার সময়')).toBeInTheDocument();
     expect(screen.queryByText('অবস্থান')).not.toBeInTheDocument();
     expect(screen.getAllByText('জানা নেই')).toHaveLength(1);
@@ -134,6 +132,40 @@ describe('the photo viewer of the app', () => {
     await user.click(within(dialog).getByRole('button', { name: 'পরের ছবি' }));
     await user.click(within(dialog).getByRole('button', { name: 'লিংক কপি করুন' }));
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/photos/${BACK}`);
+  });
+
+  it('says a blocked photo is blocked, and that its details could not be read', async () => {
+    serve();
+    server.use(
+      http.get(`*/api/v1/files/${FRONT}/content`, () => apiError(410, 'file.infected', 'infected')),
+      // a refusal is not tried again, so its message comes at once
+      http.get(`*/api/v1/files/${FRONT}`, () => apiError(404, 'permission.not_found', 'not found')),
+    );
+    open();
+    expect(
+      await screen.findByText('নিরাপত্তা যাচাইয়ে ফাইলটি আটকে দেওয়া হয়েছে।'),
+    ).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog', { name: 'ছবি' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'বিস্তারিত' }));
+    expect(await screen.findByText('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।')).toBeInTheDocument();
+  });
+
+  it('says so when the download is refused', async () => {
+    serve();
+    server.use(
+      http.get(`*/api/v1/files/${FRONT}/download`, () =>
+        apiError(404, 'permission.not_found', 'not found'),
+      ),
+    );
+    const user = userEvent.setup();
+    open();
+    const dialog = await screen.findByRole('dialog', { name: 'ছবি' });
+    await within(dialog).findByRole('img', { name: 'বাড়ির সামনে' });
+    await user.click(within(dialog).getByRole('button', { name: 'ডাউনলোড' }));
+    expect(
+      await screen.findByText('ছবিটি ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।'),
+    ).toBeInTheDocument();
+    expect(saveFile).not.toHaveBeenCalled();
   });
 
   it('says a photo is still being checked in place of the picture', async () => {

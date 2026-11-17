@@ -19,7 +19,12 @@ export function PhotoDetails({ fileId }: { fileId: string }) {
   const t = useTranslations('photos.details');
   const common = useTranslations('common');
   const locale = useLocale() as Locale;
-  const details = useQuery({ queryKey: detailsKey(fileId), queryFn: () => photoDetails(fileId) });
+  // the details leave the cache with the viewer, as the photo does
+  const details = useQuery({
+    queryKey: detailsKey(fileId),
+    queryFn: () => photoDetails(fileId),
+    gcTime: 0,
+  });
   if (details.isPending) return <Skeleton shape="text" />;
   if (details.isError) return <Text tone="muted">{common('state.error.text')}</Text>;
   const d = details.data;

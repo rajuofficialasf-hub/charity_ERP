@@ -102,10 +102,6 @@ interface Row {
   status: StatusKey;
 }
 
-/**
- * The asf pieces built for the app, each in a section, for a look in both languages and both
- * modes and for the axe check of the gallery spec. Development and the E2E build only.
- */
 /** A drawn photo in the theme's colours, for the gallery's photo viewer. */
 const drawn = (sky: string, sun: string, hill: string) =>
   `data:image/svg+xml,${encodeURIComponent(
@@ -113,11 +109,27 @@ const drawn = (sky: string, sun: string, hill: string) =>
   )}`;
 const { colors } = tokens;
 const SAMPLE_PHOTOS = [
-  { id: 'one', src: drawn(colors.info.lighter, colors.warning.light, colors.primary.main) },
-  { id: 'two', src: drawn(colors.neutral['300'], colors.warning.main, colors.primary.dark) },
-  { id: 'three', src: drawn(colors.primary.lighter, colors.warning.lighter, colors.success.dark) },
-];
+  {
+    id: 'one',
+    alt: 'overlay.photoAlt1',
+    src: drawn(colors.info.lighter, colors.warning.light, colors.primary.main),
+  },
+  {
+    id: 'two',
+    alt: 'overlay.photoAlt2',
+    src: drawn(colors.neutral['300'], colors.warning.main, colors.primary.dark),
+  },
+  {
+    id: 'three',
+    alt: 'overlay.photoAlt3',
+    src: drawn(colors.primary.lighter, colors.warning.lighter, colors.success.dark),
+  },
+] as const;
 
+/**
+ * The asf pieces built for the app, each in a section, for a look in both languages and both
+ * modes and for the axe check of the gallery spec. Development and the E2E build only.
+ */
 export function AsfGallery() {
   const t = useTranslations('gallery');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -564,11 +576,7 @@ export function AsfGallery() {
           <PhotoViewer
             open={open === 'photos'}
             onClose={() => setOpen(null)}
-            photos={SAMPLE_PHOTOS.map((p, i) => ({
-              id: p.id,
-              src: p.src,
-              alt: t(`overlay.photoAlt${i + 1}` as 'overlay.photoAlt1'),
-            }))}
+            photos={SAMPLE_PHOTOS.map((p) => ({ id: p.id, src: p.src, alt: t(p.alt) }))}
             index={photo}
             onIndexChange={setPhoto}
             title={t('overlay.photosTitle')}

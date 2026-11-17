@@ -19,9 +19,9 @@ describe('CORS allowlist', () => {
         .expect(200);
       expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
       expect(res.headers['access-control-allow-credentials']).toBe('true');
-      // the client reads the wait time and the request id across origins
+      // the client reads the wait time, the request id and a saved file's name across origins
       expect(res.headers['access-control-expose-headers']).toBe(
-        'Retry-After,X-Request-Id,Idempotent-Replay',
+        'Retry-After,X-Request-Id,Idempotent-Replay,Content-Disposition',
       );
       const preflight = await request(t.app)
         .options('/api/v1/anything')

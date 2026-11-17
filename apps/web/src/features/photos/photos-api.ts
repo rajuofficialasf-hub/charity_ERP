@@ -16,7 +16,9 @@ export function photoDetails(fileId: string): Promise<FileDetails> {
  */
 export async function downloadPhoto(fileId: string): Promise<void> {
   const saved = await api<SavedFile>(`/files/${fileId}/download`, { file: true });
-  saveFile(saved.blob, saved.fileName ?? `photo-${fileId.slice(0, 8)}`);
+  // the server names the photo; without its name, the photo's own type gives the extension
+  const extension = saved.blob.type.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
+  saveFile(saved.blob, saved.fileName ?? `photo-${fileId.slice(0, 8)}.${extension}`);
 }
 
 /**

@@ -61,6 +61,16 @@ export function PhotoViewer({
   const photo = photos[index];
   const canFullScreen = typeof HTMLElement.prototype.requestFullscreen === 'function';
 
+  /** How far a zoomed photo may move before its edge leaves the stage's edge. */
+  const bound = (scale: number) => {
+    const box = stage.current?.getBoundingClientRect();
+    return {
+      x: box ? ((scale - 1) * box.width) / 2 : 0,
+      y: box ? ((scale - 1) * box.height) / 2 : 0,
+    };
+  };
+  const within = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
+
   // the zoom belongs to the photo it was made on, so another photo starts whole
   const zoom = zoomed.photo === index ? zoomed : { photo: index, ...WHOLE };
   const setZoom = (next: typeof WHOLE | ((z: typeof WHOLE) => typeof WHOLE)) =>
@@ -70,9 +80,13 @@ export function PhotoViewer({
     });
 
   useEffect(() => {
-    const changed = () => setFull(document.fullscreenElement === frame.current);
+    const changed = () => setFull(document.fullscreenElement !== null);
     document.addEventListener('fullscreenchange', changed);
-    return () => document.removeEventListener('fullscreenchange', changed);
+    return () => {
+      document.removeEventListener('fullscreenchange', changed);
+      // a viewer that closes leaves the full screen it asked for
+      if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {});
+    };
   }, []);
 
   const go = useCallback(
@@ -85,14 +99,18 @@ export function PhotoViewer({
   const zoomTo = (scale: number) =>
     setZoom((z) => {
       const next = clampScale(scale);
-      // back at the whole photo it sits in the middle again
-      return next === MIN_SCALE ? WHOLE : { ...z, scale: next };
+      // back at the whole photo it sits in the middle again; a smaller zoom keeps the photo
+      // within the stage's edges
+      if (next === MIN_SCALE) return WHOLE;
+      const limit = bound(next);
+      return { scale: next, x: within(z.x, limit.x), y: within(z.y, limit.y) };
     });
 
   const toggleFull = () => {
     if (full) void document.exitFullscreen?.().catch(() => {});
-    // a browser that refuses keeps the viewer at the window's size, which it already fills
-    else void frame.current?.requestFullscreen?.().catch(() => {});
+    // the whole page goes full screen, so the details sheet and a message drawn over it stay in
+    // view; a browser that refuses keeps the viewer at the window's size, which it already fills
+    else void document.documentElement.requestFullscreen?.().catch(() => {});
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -111,17 +129,9 @@ export function PhotoViewer({
     action();
   };
 
-  /** How far a zoomed photo may move before its edge leaves the stage's edge. */
-  const bound = (scale: number) => {
-    const box = stage.current?.getBoundingClientRect();
-    return {
-      x: box ? ((scale - 1) * box.width) / 2 : 0,
-      y: box ? ((scale - 1) * box.height) / 2 : 0,
-    };
-  };
-  const within = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
-
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    // a press on the stage's own buttons stays theirs, so their click arrives
+    if (event.target instanceof Element && event.target.closest('button')) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     setDragging(true);

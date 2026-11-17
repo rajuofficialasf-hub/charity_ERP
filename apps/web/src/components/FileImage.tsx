@@ -58,8 +58,12 @@ export async function readFileDataUrl(
   variant: 'small' | 'medium' | undefined,
   signal: AbortSignal,
 ): Promise<string> {
-  const path = variant ? `/files/${fileId}/content?variant=${variant}` : `/files/${fileId}/content`;
-  return dataUrl(await api<Blob>(path, { blob: true, signal }));
+  // each path written where it is called, so the contract run can match the app's calls
+  return dataUrl(
+    await (variant
+      ? api<Blob>(`/files/${fileId}/content?variant=${variant}`, { blob: true, signal })
+      : api<Blob>(`/files/${fileId}/content`, { blob: true, signal })),
+  );
 }
 
 /**
