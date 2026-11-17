@@ -98,5 +98,5 @@ export const nisabInForce = () => api<NisabInForce>('/nisab-versions/in-force');
 /** Switches the project's public link on with one form, or off; each switch-on makes a new URL. */
 export const configurePublicLink = (
   projectId: string,
-  body: { enabled: boolean; formId?: string },
+  body: { enabled: boolean; formId?: string; confirm?: boolean },
 ) => api<PublicLink>(`/projects/${projectId}/public-link`, { method: 'PATCH', body });

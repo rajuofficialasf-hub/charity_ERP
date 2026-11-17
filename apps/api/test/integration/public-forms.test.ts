@@ -264,6 +264,63 @@ describe('configuring the link', () => {
     expect(JSON.stringify(await linkSettings(p.id))).not.toContain('token');
   });
 
+  it('asks before moving a live link to another form, naming that form, and moves it once confirmed', async () => {
+    const p = await project();
+    await h.db.query(
+      `UPDATE forms SET title_bn = 'প্রথম ফর্ম', title_en = 'First form' WHERE id = $1`,
+      [p.formId],
+    );
+    const first = await enabled(p.id, p.formId);
+    const second = await publishedForm(p.id, 'second');
+    const asked = await configure(p.id, { enabled: true, formId: second.formId });
+    expect(asked.status, JSON.stringify(asked.body)).toBe(409);
+    expect(asked.body.error.code).toBe('public_link.replaces_live');
+    expect(asked.body.error.params).toEqual({ formId: p.formId, form: 'প্রথম ফর্ম' });
+    expect(asked.body.error.message).toContain('প্রথম ফর্ম');
+    // nothing moved: the first link still opens
+    expect((await read(first.token)).status).toBe(200);
+    expect(await auditRows(p.id, 'form.public_link_change')).toHaveLength(1);
+    // the same form again needs no confirmation
+    const again = await configure(p.id, { enabled: true, formId: p.formId });
+    expect(again.status).toBe(200);
+    const moved = await configure(p.id, { enabled: true, formId: second.formId, confirm: true });
+    expect(moved.status, JSON.stringify(moved.body)).toBe(200);
+    expect(moved.body.data.formId).toBe(second.formId);
+    const url = moved.body.data.url as string;
+    expect((await read(url.slice(url.lastIndexOf('/') + 1))).status).toBe(200);
+    expect((await read(first.token)).status).toBe(404);
+  });
+
+  it("refuses a link manager who may not edit the project's forms, without naming the live form", async () => {
+    const p = await project();
+    await h.db.query(
+      `UPDATE forms SET title_bn = 'গোপন ফর্ম', title_en = 'Hidden form' WHERE id = $1`,
+      [p.formId],
+    );
+    await enabled(p.id, p.formId);
+    const second = await publishedForm(p.id, 'second');
+    const manager = await account(h.db, { kind: 'staff', role: 'finance_team' });
+    accounts.set(manager.id, manager);
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, reason, granted_by)
+       VALUES ($1, $2, 'form.public_link.manage', 'grant', 'GLOBAL', 'Test grant', $2)`,
+      [randomUUID(), manager.id],
+    );
+    for (const body of [
+      { enabled: true, formId: second.formId },
+      { enabled: true, formId: second.formId, confirm: true },
+    ]) {
+      const refused = await configure(p.id, body, await as(manager.id));
+      expect(refused.status, JSON.stringify(refused.body)).toBe(403);
+      expect(refused.body.error.code).toBe('permission.denied');
+      const text = JSON.stringify(refused.body);
+      expect(text).not.toContain('গোপন ফর্ম');
+      expect(text).not.toContain('Hidden form');
+      expect(text).not.toContain(p.formId);
+    }
+    expect(await linkSettings(p.id)).toEqual([expect.objectContaining({ form_ids: [p.formId] })]);
+  });
+
   it('keeps the token out of the audit row and out of the setup read of an RPM', async () => {
     // the fixture project the RPM of Dhaka is placed on
     const form = await publishedForm(world.a1.id, 'public');

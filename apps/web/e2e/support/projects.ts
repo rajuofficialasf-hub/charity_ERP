@@ -178,7 +178,8 @@ export async function placeReadyForm(
   loginId: string,
   projectId: string,
   sections: unknown[] = [IDENTITY_SECTION],
-) {
+  key = 'default',
+): Promise<string> {
   const origin = new URL(page.url()).origin;
   // the API refuses a write without the app's origin, which a browser would send
   const context = await apiRequest.newContext({
@@ -214,9 +215,10 @@ export async function placeReadyForm(
     const placer = await apiAs(context, loginId);
     const placed = await placer.post(`/projects/${projectId}/forms/place`, {
       readyFormId: ready.id,
-      key: 'default',
+      key,
     });
     expect(placed.ok(), await placed.text()).toBe(true);
+    return ((await placed.json()) as { data: { id: string } }).data.id;
   } finally {
     await context.dispose();
   }

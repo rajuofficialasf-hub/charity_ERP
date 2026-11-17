@@ -82,7 +82,7 @@ export function publicRouter(
     status: 201,
     operationId: 'public.photo.upload',
     summary:
-      'Upload one photo of a public application before it is submitted (JPEG or PNG, at most 5 MB, metadata stripped; five per submission, a bounded number per link; swept after a day unless a submission claims it)',
+      'Upload one photo of a public application before it is submitted (JPEG or PNG, at most 5 MB, metadata stripped; five per submission, a bounded share per sender and number per link; swept after a day unless a submission claims it)',
     audit: 'file.uploaded',
     idempotency: 'none',
     params: tokenParams,
@@ -101,6 +101,8 @@ export function publicRouter(
         token: params.token,
         clientUuid: query.clientUuid,
         fieldKey: query.fieldKey,
+        // the app's trust proxy setting decides which forwarded address counts
+        sender: req.ip ?? req.socket.remoteAddress ?? 'unknown',
         body: req.body,
       }),
   });

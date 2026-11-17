@@ -49,6 +49,8 @@ export class ApiFailure extends Error {
     readonly details: ApiErrorDetail[] = [],
     readonly retryAfter?: number,
     readonly requestId?: string,
+    /** The values a few codes name at the error's top level, as for a detail. */
+    readonly params?: Record<string, string>,
   ) {
     super(message);
     this.name = 'ApiFailure';
@@ -211,7 +213,13 @@ async function failure(res: Response): Promise<ApiFailure> {
   const retry = res.headers.get('Retry-After');
   try {
     const body = (await res.json()) as {
-      error?: { code: string; message: string; details?: ApiErrorDetail[]; requestId?: string };
+      error?: {
+        code: string;
+        message: string;
+        details?: ApiErrorDetail[];
+        requestId?: string;
+        params?: Record<string, string>;
+      };
     };
     if (body.error)
       return new ApiFailure(
@@ -221,6 +229,7 @@ async function failure(res: Response): Promise<ApiFailure> {
         body.error.details ?? [],
         retry ? Number(retry) : undefined,
         body.error.requestId,
+        body.error.params,
       );
   } catch {
     // Not an API error body (proxy or network page).

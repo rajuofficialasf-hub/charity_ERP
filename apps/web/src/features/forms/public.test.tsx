@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 
 describe('the link panel', () => {
-  function links(options: { toggle?: () => Response } = {}) {
+  function links(options: { toggle?: () => Response | undefined } = {}) {
     const state = { enabled: false, token: null as string | null };
     const bodies: unknown[] = [];
     server.use(
@@ -50,9 +50,10 @@ describe('the link panel', () => {
         }),
       ),
       http.patch(`*/api/v1/projects/${PROJECT}/public-link`, async ({ request }) => {
-        const body = (await request.json()) as { enabled: boolean };
+        const body = (await request.json()) as { enabled: boolean; confirm?: boolean };
         bodies.push(body);
-        if (options.toggle) return options.toggle();
+        const answer = options.toggle?.();
+        if (answer) return answer;
         state.enabled = body.enabled;
         state.token = body.enabled ? `token_${bodies.length}_abcdefghijklmnop` : null;
         return HttpResponse.json({
@@ -118,6 +119,65 @@ describe('the link panel', () => {
     panel(true, false);
     expect(await screen.findByText('লিংক চালু করার আগে ফর্মটি প্রকাশ করুন।')).toBeInTheDocument();
     expect(screen.getByRole('switch')).toBeDisabled();
+  });
+
+  it('asks before moving a link live on another form, naming it, and moves it once confirmed', async () => {
+    const user = userEvent.setup();
+    let asked = false;
+    const bodies = links({
+      toggle: () => {
+        if (asked) return undefined;
+        asked = true;
+        return HttpResponse.json(
+          {
+            error: {
+              code: 'public_link.replaces_live',
+              message: 'x',
+              params: { formId: '01900000-0000-7000-8000-000000000a09', form: 'শীতের প্রথম ফর্ম' },
+              requestId: 'r',
+            },
+          },
+          { status: 409 },
+        );
+      },
+    });
+    panel();
+    await user.click(await screen.findByRole('switch'));
+    const dialog = await screen.findByRole('alertdialog', { name: 'লিংক বদলাবেন?' });
+    expect(dialog).toHaveTextContent('শীতের প্রথম ফর্ম');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'হ্যাঁ, লিংক বদলান' }));
+    expect(await screen.findByText('লিংক চালু; এই ফর্মটি খোলে।')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(bodies).toEqual([
+      { enabled: true, formId: FORM },
+      { enabled: true, formId: FORM, confirm: true },
+    ]);
+  });
+
+  it('leaves the link where it is when the move is cancelled', async () => {
+    const user = userEvent.setup();
+    const bodies = links({
+      toggle: () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'public_link.replaces_live',
+              message: 'x',
+              params: { formId: '01900000-0000-7000-8000-000000000a09', form: 'শীতের প্রথম ফর্ম' },
+              requestId: 'r',
+            },
+          },
+          { status: 409 },
+        ),
+    });
+    panel();
+    await user.click(await screen.findByRole('switch'));
+    await screen.findByRole('alertdialog', { name: 'লিংক বদলাবেন?' });
+    await user.click(screen.getByRole('button', { name: 'বাতিল' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(screen.getByText('লিংক বন্ধ।')).toBeInTheDocument();
+    expect(bodies).toHaveLength(1);
   });
 
   it('shows a refused switch and changes nothing', async () => {

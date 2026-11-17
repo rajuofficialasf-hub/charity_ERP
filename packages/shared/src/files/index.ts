@@ -149,6 +149,9 @@ export const PUBLIC_PHOTO_LIMITS = {
   perSubmission: 5,
   perLinkFiles: 200,
   perLinkBytes: 500 * MB,
+  /** One sender's share of the link's ceiling, a tenth, so one address cannot fill the link alone. */
+  perSenderFiles: 20,
+  perSenderBytes: 50 * MB,
   unclaimedLifeMs: 24 * 60 * 60_000,
 } as const;
 

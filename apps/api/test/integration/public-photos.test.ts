@@ -103,13 +103,16 @@ const upload = (
   token: string,
   clientUuid: string,
   bytes: Buffer,
-  options: { fieldKey?: string; type?: string } = {},
-) =>
-  api()
+  options: { fieldKey?: string; type?: string; forwardedFor?: string } = {},
+) => {
+  const call = api()
     .post(`/api/v1/public/forms/${token}/photos`)
     .query({ clientUuid, fieldKey: options.fieldKey ?? 'house_photo' })
-    .set('Content-Type', options.type ?? 'image/jpeg')
-    .send(bytes);
+    .set('Content-Type', options.type ?? 'image/jpeg');
+  // the test app trusts the loopback proxy, as the server trusts its own reverse proxy
+  if (options.forwardedFor) call.set('X-Forwarded-For', options.forwardedFor);
+  return call.send(bytes);
+};
 
 const answer = (fieldKey: string, value: unknown) => ({ fieldKey, value });
 function answers(photoIds: string[] = []) {
@@ -210,7 +213,9 @@ describe('uploading', () => {
       entity_id: client,
       slot: 'house_photo',
     });
-    expect(row.object_key).toMatch(/^public\/[0-9a-f]{32}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.jpg$/);
+    expect(row.object_key).toMatch(
+      /^public\/[0-9a-f]{32}\/[0-9a-f]{32}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.jpg$/,
+    );
     expect(row.object_key).not.toContain(token);
     const bytes = await stored(row.object_key);
     expect(bytes).not.toBeNull();
@@ -298,6 +303,53 @@ describe('uploading', () => {
     const full = await upload(token, randomUUID(), jpeg({ pad: 15 }));
     expect(full.status).toBe(429);
     expect(full.body.error.code).toBe('public.link_full');
+  });
+
+  it('holds at most 20 unclaimed photos per sender, while another sender can still add', async () => {
+    const { projectId, token } = await linkedProject();
+    const sender = '203.0.113.5';
+    const first = await upload(token, randomUUID(), jpeg({ pad: 16 }), { forwardedFor: sender });
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    // the sender's own folder under the link's folder
+    const folder = (await fileRow(first.body.data.fileId)).object_key.split('/', 3).join('/');
+    await plantUnclaimed(projectId, folder, 19);
+    const full = await upload(token, randomUUID(), jpeg({ pad: 17 }), { forwardedFor: sender });
+    expect(full.status).toBe(429);
+    expect(full.body.error.code).toBe('public.sender_full');
+    expect(full.headers['retry-after']).toBeDefined();
+    // an address the applicant wrote in front of the proxy's own entry does not make a new sender
+    const spoofed = await upload(token, randomUUID(), jpeg({ pad: 18 }), {
+      forwardedFor: `198.51.100.1, ${sender}`,
+    });
+    expect(spoofed.status).toBe(429);
+    expect(spoofed.body.error.code).toBe('public.sender_full');
+    const other = await upload(token, randomUUID(), jpeg({ pad: 19 }), {
+      forwardedFor: '203.0.113.6',
+    });
+    expect(other.status, JSON.stringify(other.body)).toBe(201);
+  });
+
+  it('holds at most 50 MB of unclaimed photos per sender', async () => {
+    const { projectId, token } = await linkedProject();
+    const sender = '203.0.113.7';
+    const first = await upload(token, randomUUID(), jpeg({ pad: 20 }), { forwardedFor: sender });
+    expect(first.status).toBe(201);
+    const folder = (await fileRow(first.body.data.fileId)).object_key.split('/', 3).join('/');
+    await plantUnclaimed(projectId, folder, 1, 50 * 1024 * 1024);
+    const full = await upload(token, randomUUID(), jpeg({ pad: 21 }), { forwardedFor: sender });
+    expect(full.status).toBe(429);
+    expect(full.body.error.code).toBe('public.sender_full');
+  });
+
+  it('keeps the sender address out of the stored key', async () => {
+    const { token } = await linkedProject();
+    const made = await upload(token, randomUUID(), jpeg({ pad: 22 }), {
+      forwardedFor: '203.0.113.8',
+    });
+    expect(made.status).toBe(201);
+    const key = (await fileRow(made.body.data.fileId)).object_key;
+    expect(key).not.toContain('203.0.113.8');
+    expect(key.split('/')).toHaveLength(5);
   });
 
   it('answers the closed-link 404 on a draft project', async () => {

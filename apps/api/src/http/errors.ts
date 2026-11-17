@@ -45,6 +45,8 @@ export const PUBLIC_PARAMS: ReadonlySet<string> = new Set([
   'beneficiary.merge_conflict',
   // the question whose answer is no longer in its list, in the request's language
   'application.answer_not_in_list',
+  // the form whose live public link an enable would move, named only to a caller who may edit it
+  'public_link.replaces_live',
   // the text of a form that lacks a language: the part or question, which of its texts, and the
   // option, table row or column or result it belongs to
   'form.label_language',

@@ -228,6 +228,13 @@ export class FormsService {
     });
     if (!row) throw new ApiError('permission.not_found', 404);
     await this.reach(viewer, row.form);
+    // an unpublished draft is read only by those who may edit the project's forms
+    if (
+      row.status === 'draft' &&
+      row.form.projectId !== null &&
+      !(await this.editsFormsOf(viewer, row.form.projectId))
+    )
+      throw new ApiError('permission.denied', 403);
     const audience = await this.formAudience(viewer, row.form);
     return {
       version: versionView(row, await readDefinition(this.prisma, row.id, audience)),
@@ -560,6 +567,15 @@ export class FormsService {
     form: { projectId: string | null },
   ): Promise<FormAudience> {
     return form.projectId === null ? 'official' : this.audienceOf(viewer, form.projectId);
+  }
+
+  /** Whether the caller may edit a project's forms: builds forms, or places them on this project. */
+  async editsFormsOf(viewer: ProjectViewer, projectId: string, db?: Tx): Promise<boolean> {
+    if (viewer.principal.kind === 'volunteer') return false;
+    for (const permission of ['form.build', 'form.place'])
+      if (await this.access.holdsOnProject(viewer.principal.userId, permission, projectId, db))
+        return true;
+    return false;
   }
 
   /**
