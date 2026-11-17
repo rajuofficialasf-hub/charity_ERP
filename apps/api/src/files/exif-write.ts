@@ -64,10 +64,13 @@ const rationals = (tag: number, pairs: [number, number][]): Field => {
   return { tag, type: RATIONAL, count: pairs.length, data };
 };
 
+/** A length rounded up to an even number: TIFF values and RIFF chunks both keep that. */
+const padded = (n: number) => n + (n & 1);
+
 /** A directory's size: its entries, the next-directory link, and its values over four bytes. */
 const directorySize = (fields: Field[]) =>
   fields.reduce(
-    (size, f) => size + (f.data.length > 4 ? f.data.length + (f.data.length & 1) : 0),
+    (size, f) => size + (f.data.length > 4 ? padded(f.data.length) : 0),
     2 + fields.length * 12 + 4,
   );
 
@@ -83,7 +86,7 @@ function writeDirectory(out: Buffer, start: number, fields: Field[]): void {
     else {
       out.writeUInt32LE(values, entry + 8);
       f.data.copy(out, values);
-      values += f.data.length + (f.data.length & 1);
+      values += padded(f.data.length);
     }
   });
   out.writeUInt32LE(0, start + 2 + fields.length * 12);
@@ -101,24 +104,42 @@ function degrees(value: number): [number, number][] {
   ];
 }
 
-/** The EXIF block of the time and the position, or null when there is neither to write. */
-export function exifBlock(meta: WrittenMetadata): Buffer | null {
-  const time = meta.capturedAt
-    ? [
-        ascii(0x9003, dhakaClock(meta.capturedAt).replace(/-/g, ':').replace('T', ' ')),
-        ascii(0x9011, '+06:00'),
-      ]
+/** The largest accuracy a rational of hundredths can hold. */
+const MAX_ACCURACY_M = 0xffff_ffff / 100;
+
+/**
+ * The EXIF block of the time and the position, or null when there is neither to write. A value
+ * the server holds that EXIF cannot carry (a time that is no date, a position off the globe, an
+ * accuracy below zero) is left out rather than written wrong.
+ */
+function exifBlock(meta: WrittenMetadata): Buffer | null {
+  const at = meta.capturedAt && Number.isFinite(meta.capturedAt.getTime()) ? meta.capturedAt : null;
+  const place =
+    meta.gps &&
+    Number.isFinite(meta.gps.lat) &&
+    Number.isFinite(meta.gps.lng) &&
+    Math.abs(meta.gps.lat) <= 90 &&
+    Math.abs(meta.gps.lng) <= 180
+      ? meta.gps
+      : null;
+  const accuracy =
+    place?.accuracyM != null &&
+    Number.isFinite(place.accuracyM) &&
+    place.accuracyM >= 0 &&
+    place.accuracyM <= MAX_ACCURACY_M
+      ? place.accuracyM
+      : null;
+  const time = at
+    ? [ascii(0x9003, dhakaClock(at).replace(/-/g, ':').replace('T', ' ')), ascii(0x9011, '+06:00')]
     : [];
-  const gps = meta.gps
+  const gps = place
     ? [
         { tag: 0x0000, type: BYTE, count: 4, data: Buffer.from([2, 3, 0, 0]) },
-        ascii(0x0001, meta.gps.lat < 0 ? 'S' : 'N'),
-        rationals(0x0002, degrees(meta.gps.lat)),
-        ascii(0x0003, meta.gps.lng < 0 ? 'W' : 'E'),
-        rationals(0x0004, degrees(meta.gps.lng)),
-        ...(meta.gps.accuracyM === null
-          ? []
-          : [rationals(0x001f, [[Math.round(meta.gps.accuracyM * 100), 100]])]),
+        ascii(0x0001, place.lat < 0 ? 'S' : 'N'),
+        rationals(0x0002, degrees(place.lat)),
+        ascii(0x0003, place.lng < 0 ? 'W' : 'E'),
+        rationals(0x0004, degrees(place.lng)),
+        ...(accuracy === null ? [] : [rationals(0x001f, [[Math.round(accuracy * 100), 100]])]),
       ]
     : [];
   if (!time.length && !gps.length) return null;
@@ -389,6 +410,11 @@ class PieceReader {
     this.pieces = source[Symbol.asyncIterator]();
   }
 
+  /** Lets the source go, read to its end or not, so a storage read never stays open. */
+  async close(): Promise<void> {
+    await this.pieces.return?.();
+  }
+
   private async more(): Promise<boolean> {
     const next = await this.pieces.next();
     if (next.done) return false;
@@ -417,6 +443,14 @@ class PieceReader {
 /** The first pass over a stored WebP of `size` bytes: its chunks and its canvas. */
 export async function webpLayout(source: AsyncIterable<Buffer>, size: number): Promise<WebpLayout> {
   const reader = new PieceReader(source);
+  try {
+    return await readLayout(reader, size);
+  } finally {
+    await reader.close();
+  }
+}
+
+async function readLayout(reader: PieceReader, size: number): Promise<WebpLayout> {
   const riff = await reader.read(12);
   if (riff.toString('latin1', 0, 4) !== 'RIFF' || riff.toString('latin1', 8, 12) !== 'WEBP')
     throw new UnreadablePhoto('not_webp');
@@ -429,8 +463,8 @@ export async function webpLayout(source: AsyncIterable<Buffer>, size: number): P
     const header = await reader.read(8);
     const type = header.toString('latin1', 0, 4);
     const length = header.readUInt32LE(4);
-    const padded = length + (length & 1);
-    if (at + 8 + padded > size) throw new UnreadablePhoto('chunk');
+    const span = padded(length);
+    if (at + 8 + span > size) throw new UnreadablePhoto('chunk');
     if (!imageSeen && IMAGE_CHUNKS.has(type)) {
       imageSeen = true;
       if (at > HEAD_LIMIT) throw new UnreadablePhoto('metadata_too_large');
@@ -449,15 +483,16 @@ export async function webpLayout(source: AsyncIterable<Buffer>, size: number): P
         layout.alpha = ((bits >>> 28) & 1) === 1;
       }
     }
-    await reader.skip(padded - read);
+    await reader.skip(span - read);
     layout.chunks.push({ type, size: length });
-    at += 8 + padded;
+    at += 8 + span;
   }
   if (!imageSeen) throw new UnreadablePhoto('no_image');
+  // a file without an extended header is given one from its frame, which must have a size
+  if (!layout.chunks.some((c) => c.type === 'VP8X') && (!layout.width || !layout.height))
+    throw new UnreadablePhoto('frame');
   return layout;
 }
-
-const padded = (n: number) => n + (n & 1);
 
 class WebpWriter extends ContainerWriter {
   private state: 'riff' | 'header' | 'data' = 'riff';
@@ -490,6 +525,7 @@ class WebpWriter extends ContainerWriter {
     for (;;) {
       const left = d.length - at;
       if (this.state === 'riff') {
+        if (!this.layout.chunks.length) throw new UnreadablePhoto('no_image');
         if (left < 12) return at;
         const riff = Buffer.from(d.subarray(at, at + 12));
         riff.writeUInt32LE(this.size(), 4);
@@ -505,8 +541,7 @@ class WebpWriter extends ContainerWriter {
         }
         at += 12;
         this.release();
-        this.state = this.layout.chunks.length ? 'header' : 'riff';
-        if (!this.layout.chunks.length) throw new UnreadablePhoto('no_image');
+        this.state = 'header';
       } else if (this.state === 'header') {
         if (this.index >= this.layout.chunks.length) {
           if (left) throw new UnreadablePhoto('changed');
@@ -526,7 +561,9 @@ class WebpWriter extends ContainerWriter {
         this.state = 'data';
       } else {
         if (this.remaining && this.flagsAt === 0) {
-          // the extended header's first byte: an EXIF chunk follows, no XMP chunk does
+          // the extended header's first byte, which may come with the next piece: an EXIF chunk
+          // follows, no XMP chunk does
+          if (!left) return at;
           const flags = (d[at]! & ~VP8X_XMP & ~VP8X_EXIF) | (this.exif ? VP8X_EXIF : 0);
           this.out(Buffer.from([flags]));
           this.flagsAt = null;

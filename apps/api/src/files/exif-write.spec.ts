@@ -73,10 +73,10 @@ describe('the capture time and the position written into a downloaded photo', ()
         capturedAt: TAKEN,
         gps: { lat: expect.closeTo(23.810331, 6), lng: expect.closeTo(90.412521, 6) },
       });
-      const tags = (await exifr.parse(await exifOf(out), { pick: ['GPSHPositioningError'] })) as {
-        GPSHPositioningError: number;
-      };
-      expect(tags.GPSHPositioningError).toBeCloseTo(12.5, 2);
+      const tags: unknown = await exifr.parse(await exifOf(out), {
+        pick: ['GPSHPositioningError'],
+      });
+      expect(tags).toEqual({ GPSHPositioningError: expect.closeTo(12.5, 2) });
       expect(await pixels(out)).toEqual(await pixels(input));
     });
   }
@@ -149,28 +149,68 @@ describe('the capture time and the position written into a downloaded photo', ()
     expect(out.readUInt32LE(4)).toBe(out.length - 8);
   });
 
-  it('gives the same bytes when the photo arrives one byte at a time', async () => {
+  it('gives the same bytes when the photo arrives one byte at a time, or split after a header', async () => {
     for (const [mime, input] of [
       ['image/jpeg', await base().jpeg({ progressive: true }).toBuffer()],
       ['image/png', await base().png().toBuffer()],
       ['image/webp', await base().webp().toBuffer()],
+      // an extended WebP, whose header's first byte may start the next piece
+      [
+        'image/webp',
+        await base()
+          .webp()
+          .withExif({ IFD0: { Make: 'Phone' } })
+          .toBuffer(),
+      ],
+      ['image/webp', await base().ensureAlpha(0.5).webp({ lossless: true }).toBuffer()],
     ] as const)
-      expect(await write(input, mime, META, 1)).toEqual(await write(input, mime));
+      for (const size of [1, 20])
+        expect(await write(input, mime, META, size)).toEqual(await write(input, mime));
+  });
+
+  it('leaves out a stored value EXIF cannot carry', async () => {
+    const input = await base().jpeg().toBuffer();
+    const out = await write(input, 'image/jpeg', {
+      capturedAt: new Date(Number.NaN),
+      gps: { lat: 23.8, lng: 90.4, accuracyM: -3 },
+    });
+    expect(await readBack(out)).toEqual({
+      capturedAt: null,
+      gps: { lat: expect.closeTo(23.8, 6), lng: expect.closeTo(90.4, 6) },
+    });
   });
 });
 
 describe('a stored photo the writer refuses', () => {
-  const refused = (promise: Promise<unknown>) =>
-    expect(promise).rejects.toBeInstanceOf(UnreadablePhoto);
+  const refused = async (promise: Promise<unknown>, reason: string) => {
+    const error: unknown = await promise.then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(UnreadablePhoto);
+    expect((error as UnreadablePhoto).reason).toBe(reason);
+  };
 
-  it('refuses a JPEG segment whose length runs past the end', async () => {
+  it('refuses a JPEG cut off inside a segment or its image data', async () => {
     const input = await base().jpeg().toBuffer();
-    await refused(write(input.subarray(0, 12), 'image/jpeg'));
+    await refused(write(input.subarray(0, 12), 'image/jpeg'), 'truncated');
+    await refused(write(input.subarray(0, input.length - 40), 'image/jpeg'), 'truncated');
   });
 
-  it('refuses a JPEG cut off inside its image data', async () => {
-    const input = await base().jpeg().toBuffer();
-    await refused(write(input.subarray(0, input.length - 40), 'image/jpeg'));
+  it('refuses a JPEG segment whose length cannot hold itself', async () => {
+    const input = Buffer.from(await base().jpeg().toBuffer());
+    input.writeUInt16BE(1, 4);
+    await refused(write(input, 'image/jpeg'), 'segment');
+  });
+
+  it('refuses a JPEG or a PNG that ends before any image data', async () => {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    await refused(write(jpeg, 'image/jpeg'), 'no_image');
+    const png = Buffer.concat([
+      (await base().png().toBuffer()).subarray(0, 33),
+      pngChunk('IEND', Buffer.alloc(0)),
+    ]);
+    await refused(write(png, 'image/png'), 'no_image');
   });
 
   it('refuses more than a megabyte of metadata before the image data', async () => {
@@ -183,22 +223,25 @@ describe('a stored photo the writer refuses', () => {
       ...Array.from({ length: 17 }, () => segment),
       input.subarray(2),
     ]);
-    await refused(write(padded, 'image/jpeg'));
+    await refused(write(padded, 'image/jpeg'), 'metadata_too_large');
   });
 
-  it('refuses a PNG chunk whose length runs past the end', async () => {
+  it('refuses a PNG chunk whose length runs past the end, or past what a PNG allows', async () => {
     const input = Buffer.from(await base().png().toBuffer());
     input.writeUInt32BE(0x7fff_0000, 8);
-    await refused(write(input, 'image/png'));
+    await refused(write(input, 'image/png'), 'truncated');
+    input.writeUInt32BE(0x8000_0000, 8);
+    await refused(write(input, 'image/png'), 'chunk');
   });
 
   it('refuses a WebP whose RIFF length disagrees with its size', async () => {
     const input = Buffer.from(await base().webp().toBuffer());
     input.writeUInt32LE(input.readUInt32LE(4) + 100, 4);
-    await refused(write(input, 'image/webp'));
+    await refused(write(input, 'image/webp'), 'riff_length');
   });
 
   it('refuses bytes that are not the type the file was stored as', async () => {
-    await refused(write(await base().png().toBuffer(), 'image/jpeg'));
+    await refused(write(await base().png().toBuffer(), 'image/jpeg'), 'not_jpeg');
+    await refused(write(await base().jpeg().toBuffer(), 'image/gif' as 'image/jpeg'), 'type');
   });
 });
