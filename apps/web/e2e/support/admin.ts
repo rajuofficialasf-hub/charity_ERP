@@ -22,8 +22,14 @@ export const isPhone = (info: TestInfo) => PHONE_PROJECTS.has(info.project.name)
  * mid-transition colours, which axe would read as a contrast failure.
  */
 export async function scan(page: Page) {
+  // a finished page: no animation running but those that never end (the pulse of a focused
+  // radio's ripple), which would hold the wait for ever
   await page.waitForFunction(() =>
-    document.getAnimations().every((a) => a.playState !== 'running'),
+    document
+      .getAnimations()
+      .every(
+        (a) => a.playState !== 'running' || a.effect?.getComputedTiming().iterations === Infinity,
+      ),
   );
   return new AxeBuilder({ page }).analyze();
 }

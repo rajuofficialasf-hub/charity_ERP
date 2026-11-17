@@ -17,6 +17,16 @@ export const ERR = 'ইমার্জেন্সি রেসপন্স অ�
 export const code = () =>
   `E${Array.from({ length: 3 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('')}`;
 
+let keys = 0;
+/**
+ * A key no other of the run takes: its moment, a count of this worker's keys and a random part
+ * (three random letters alone met an earlier key of the same run now and then).
+ */
+export const uniqueKey = (prefix: string) =>
+  `${prefix}_${Date.now().toString(36)}${(keys++).toString(36)}${Math.floor(Math.random() * 1296)
+    .toString(36)
+    .padStart(2, '0')}`;
+
 export const section = (page: Page, name: string): Locator => page.getByRole('region', { name });
 /** The state badge beside the project's name. */
 export const state = (page: Page, badge: string): Locator =>
@@ -189,7 +199,7 @@ export async function placeReadyForm(
   try {
     const builder = await apiAs(context, MONITORING);
     const made = await builder.post('/ready-forms', {
-      key: `e2e_${code().toLowerCase()}`,
+      key: uniqueKey('e2e'),
       title: { bn: 'আবেদন', en: 'Application' },
       kind: 'beneficiary_application',
       source: { kind: 'blank' },
