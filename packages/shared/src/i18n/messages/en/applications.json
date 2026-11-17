@@ -299,7 +299,7 @@
       "verification": "Waiting for verification"
     },
     "bulk_approve_confirm": {
-      "title": "{count, plural, one {Approve the {count} chosen application?} other {Approve the {count} chosen applications?}}"
+      "title": "{n, plural, one {Approve the {count} chosen application?} other {Approve the {count} chosen applications?}}"
     }
   },
   "unlock": {

@@ -402,7 +402,10 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       {list.isPending ? <Skeleton shape="row" /> : null}
       <ConfirmDialog
         open={confirmingBulk}
-        title={t('bulk_approve_confirm.title', { count: shownSelection.size })}
+        title={t('bulk_approve_confirm.title', {
+          n: shownSelection.size,
+          count: formatCount(shownSelection.size, locale),
+        })}
         consequences={[t('dialog.approve_note')]}
         confirmLabel={t('action.approve')}
         pending={bulk.isPending}

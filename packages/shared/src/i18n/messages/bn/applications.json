@@ -299,7 +299,7 @@
       "verification": "যাচাইয়ের অপেক্ষায়"
     },
     "bulk_approve_confirm": {
-      "title": "{count, plural, other {বাছাই করা {count}টি আবেদন অনুমোদন করবেন?}}"
+      "title": "{n, plural, other {বাছাই করা {count}টি আবেদন অনুমোদন করবেন?}}"
     }
   },
   "unlock": {
