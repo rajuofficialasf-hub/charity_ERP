@@ -33,6 +33,27 @@ describe('the lazy page of a route', () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
+  it('reloads the page when a new attempt fails with the network back', async () => {
+    const load = vi
+      .fn<() => Promise<{ Loaded: typeof Loaded }>>()
+      .mockRejectedValue(new TypeError('Failed to fetch dynamically imported module'));
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const reload = vi.fn();
+    const location = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...location, reload },
+    });
+    try {
+      const { Component } = await page(load, 'Loaded')();
+      renderApp(<Component />);
+      fireEvent.click(await screen.findByRole('button', { name: 'আবার চেষ্টা করুন' }));
+      await vi.waitFor(() => expect(reload).toHaveBeenCalledOnce());
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: location });
+    }
+  });
+
   it('loads again from its button, and a later visit finds the page loaded', async () => {
     const load = vi
       .fn<() => Promise<{ Loaded: typeof Loaded }>>()

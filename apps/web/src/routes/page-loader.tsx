@@ -1,7 +1,5 @@
-import { Button, Page } from '@/ui';
-import { type ComponentType, useCallback, useEffect, useState } from 'react';
-import { useTranslations } from 'use-intl';
-import { DocumentTitle } from '../components/DocumentTitle';
+import { type ComponentType, useCallback, useEffect, useRef, useState } from 'react';
+import { LoadFailed } from '../components/LoadFailed';
 import { withRest } from '../i18n/locale';
 
 /**
@@ -22,7 +20,8 @@ export function page<K extends string, M extends Record<K, ComponentType>>(
     loaded = (await withRest(load()))[name];
     return loaded;
   };
-  const Retrying = () => <LoadAgain attempt={attempt} loaded={() => loaded} />;
+  // drawn anew at each visit, so a visit after a later success finds the page loaded
+  const Retrying = () => <LoadAgain attempt={attempt} loaded={loaded} />;
   return async () => {
     try {
       return { Component: await attempt() };
@@ -39,18 +38,28 @@ function LoadAgain({
   loaded,
 }: {
   attempt: () => Promise<ComponentType>;
-  loaded: () => ComponentType | null;
+  loaded: ComponentType | null;
 }) {
-  const t = useTranslations('common.state');
-  const tc = useTranslations('common.action');
-  const [Loaded, setLoaded] = useState<ComponentType | null>(() => loaded());
+  const [Loaded, setLoaded] = useState<ComponentType | null>(() => loaded);
   const [trying, setTrying] = useState(false);
+  const busy = useRef(false);
   const retry = useCallback(() => {
+    // the network's return and a press of the button may come together: one attempt at a time
+    if (busy.current) return;
+    busy.current = true;
     setTrying(true);
     attempt()
       .then((Component) => setLoaded(() => Component))
-      .catch((error: unknown) => console.error(error))
-      .finally(() => setTrying(false));
+      .catch((error: unknown) => {
+        console.error(error);
+        // a browser may keep a failed module for the page's life: with the network back, a
+        // reload is the one way left to fetch it
+        if (navigator.onLine) window.location.reload();
+      })
+      .finally(() => {
+        busy.current = false;
+        setTrying(false);
+      });
   }, [attempt]);
   useEffect(() => {
     if (Loaded) return;
@@ -58,18 +67,5 @@ function LoadAgain({
     return () => window.removeEventListener('online', retry);
   }, [Loaded, retry]);
   if (Loaded) return <Loaded />;
-  return (
-    <main id="main" className="account-page">
-      <DocumentTitle title={t('error.text')} />
-      <div role="alert">
-        <Page title={t('error.text')} documentTitle={false}>
-          <div>
-            <Button variant="secondary" onClick={retry} loading={trying}>
-              {tc('retry')}
-            </Button>
-          </div>
-        </Page>
-      </div>
-    </main>
-  );
+  return <LoadFailed onRetry={retry} trying={trying} />;
 }

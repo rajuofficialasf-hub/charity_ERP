@@ -466,9 +466,10 @@ test.describe('the offline journeys', () => {
     test.setTimeout(180_000);
     await phoneReady(page);
     await page.goto('/my-applications');
-    const first = page.getByRole('main').getByRole('listitem').first();
+    // the person's name, the heading of the first volunteer's row
+    const first = page.getByRole('main').getByRole('listitem').first().getByRole('heading');
     await expect(first).toBeVisible();
-    const theirs = (await first.innerText()).split('\n')[0]!.trim();
+    const theirs = (await first.innerText()).trim();
     expect(theirs.length).toBeGreaterThan(0);
     await page.getByRole('button', { name: 'প্রোফাইল মেনু' }).click();
     await page.getByRole('menuitem', { name: 'লগআউট' }).click();
@@ -480,7 +481,16 @@ test.describe('the offline journeys', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await goOffline(context);
     await page.reload();
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    // the list drawn from the next one's copy before the absence is read: a row, the empty list,
+    // or, with nothing of theirs on the phone, the notice that the list needs the network (a copy
+    // left by the first volunteer would have drawn that one's rows instead)
+    const own = page
+      .getByRole('main')
+      .getByRole('listitem')
+      .first()
+      .or(page.getByText('এই তালিকায় এখনো কোনো আবেদন নেই।'))
+      .or(page.getByRole('alert').filter({ hasText: 'নেট নেই। এই তথ্য দেখতে সংযোগ লাগবে।' }));
+    await expect(own).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(theirs)).toHaveCount(0);
     await goOnline(context);
   });
