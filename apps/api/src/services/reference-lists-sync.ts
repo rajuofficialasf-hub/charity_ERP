@@ -169,7 +169,8 @@ export const referenceEntryId = (listKey: string, code: string) =>
   stableId(`reference:${listKey}:${code}`);
 
 /**
- * Inserts every shipped list entry whose list and code have no row yet, at its shipped place
+ * Inserts every shipped list entry whose list and code have no row yet, after the list's last
+ * entry, under the list's lock that an administrator's edit of the list takes too
  * (docs/ops/DEPLOYMENT.md, the start-up order). An entry already present, edited by an
  * administrator or not, is left as it is, and so is its place. Idempotent; answers the number of
  * entries inserted and the number already present.
@@ -177,16 +178,19 @@ export const referenceEntryId = (listKey: string, code: string) =>
 export async function syncReferenceLists(db: Tx): Promise<{ inserted: number; present: number }> {
   let inserted = 0;
   let present = 0;
-  for (const [listKey, entries] of Object.entries(REFERENCE_LISTS))
-    for (const [index, [code, bn, en, extra]] of entries.entries()) {
+  for (const [listKey, entries] of Object.entries(REFERENCE_LISTS)) {
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'reference_lists:' + listKey}))`;
+    for (const [code, bn, en, extra] of entries) {
       const written = await db.$executeRaw`
         INSERT INTO reference_lists
           (id, list_key, code, label_bn, label_en, active, sort_order, is_system, attributes)
         VALUES (${referenceEntryId(listKey, code)}::uuid, ${listKey}, ${code}, ${bn}, ${en}, true,
-                ${index + 1}, ${extra?.system ?? false}, ${JSON.stringify(extra?.attributes ?? {})}::jsonb)
+                (SELECT coalesce(max(sort_order), 0) + 1 FROM reference_lists WHERE list_key = ${listKey}),
+                ${extra?.system ?? false}, ${JSON.stringify(extra?.attributes ?? {})}::jsonb)
         ON CONFLICT (list_key, code) DO NOTHING`;
       if (written) inserted += 1;
       else present += 1;
     }
+  }
   return { inserted, present };
 }

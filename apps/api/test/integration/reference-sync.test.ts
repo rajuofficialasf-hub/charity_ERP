@@ -22,11 +22,14 @@ let drop: () => Promise<void>;
 let prisma: PrismaClient;
 
 const sync = () =>
-  prisma.$transaction(async (tx) => ({
-    access: await syncAccessCatalogue(tx),
-    workflows: await syncWorkflowTemplates(tx),
-    lists: await syncReferenceLists(tx),
-  }));
+  prisma.$transaction(
+    async (tx) => ({
+      access: await syncAccessCatalogue(tx),
+      workflows: await syncWorkflowTemplates(tx),
+      lists: await syncReferenceLists(tx),
+    }),
+    { maxWait: 10_000, timeout: 120_000 },
+  );
 const entries = Object.values(REFERENCE_LISTS).reduce((n, list) => n + list.length, 0);
 
 beforeAll(async () => {
@@ -58,9 +61,11 @@ describe('the sync of the shipped templates and lists', () => {
 
   it('keeps an edited list entry and a changed stored template, naming the template', async () => {
     await db.query(
-      `UPDATE reference_lists SET label_bn = 'পুরুষ (সম্পাদিত)', active = false
+      `UPDATE reference_lists SET label_bn = 'পুরুষ (সম্পাদিত)', active = false, sort_order = 50
         WHERE list_key = 'gender' AND code = 'male'`,
     );
+    // a shipped entry the database lacks comes after the list's last entry
+    await db.query(`DELETE FROM reference_lists WHERE list_key = 'gender' AND code = 'female'`);
     await db.query(
       `UPDATE workflow_definitions SET definition = jsonb_set(definition, '{title_en}', '"Edited"')
         WHERE key = 'distribution'`,
@@ -72,6 +77,10 @@ describe('the sync of the shipped templates and lists', () => {
       `SELECT label_bn, active FROM reference_lists WHERE list_key = 'gender' AND code = 'male'`,
     );
     expect(rows).toEqual([{ label_bn: 'পুরুষ (সম্পাদিত)', active: false }]);
+    const added = await db.query(
+      `SELECT sort_order FROM reference_lists WHERE list_key = 'gender' AND code = 'female'`,
+    );
+    expect(added.rows).toEqual([{ sort_order: 51 }]);
     const stored = await db.query(
       `SELECT definition ->> 'title_en' AS title FROM workflow_definitions WHERE key = 'distribution'`,
     );

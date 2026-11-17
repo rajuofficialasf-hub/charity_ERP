@@ -11,12 +11,17 @@ async function main(): Promise<void> {
   if (!url) throw new Error('DATABASE_URL is required');
   const prisma = prismaClientFor(url);
   try {
-    // the permissions first: the workflow transitions point at them
-    const { access, workflows, lists } = await prisma.$transaction(async (tx) => ({
-      access: await syncAccessCatalogue(tx),
-      workflows: await syncWorkflowTemplates(tx),
-      lists: await syncReferenceLists(tx),
-    }));
+    // the permissions first, since the workflow transitions point at them; several hundred
+    // statements one at a time take longer than the default five seconds against a database
+    // across the network
+    const { access, workflows, lists } = await prisma.$transaction(
+      async (tx) => ({
+        access: await syncAccessCatalogue(tx),
+        workflows: await syncWorkflowTemplates(tx),
+        lists: await syncReferenceLists(tx),
+      }),
+      { maxWait: 10_000, timeout: 120_000 },
+    );
     const out: string[] = [
       `roles and permissions synced (${access.roles} roles, ${access.permissions} permissions inserted)`,
       `workflow templates synced (${workflows.inserted.length} inserted, ${workflows.present} present)`,

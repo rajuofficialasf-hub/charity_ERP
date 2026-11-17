@@ -1,8 +1,6 @@
 import { REFERENCE_LISTS, referenceEntryId } from '../../../src/services/reference-lists-sync.js';
 import { json, type SeedContext } from '../../context.js';
 
-export { REFERENCE_LISTS };
-
 /**
  * The shipped reference lists, written as they are in a development or test database
  * (`src/services/reference-lists-sync.ts` holds them, and the sync of `pnpm db:migrate` adds the
