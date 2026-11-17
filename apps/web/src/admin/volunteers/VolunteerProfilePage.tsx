@@ -5,7 +5,6 @@ import {
   Chip,
   ContactList,
   DescriptionList,
-  Dialog,
   EmptyState,
   Icon,
   ProfileSection,
@@ -25,7 +24,7 @@ import { Link, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { FileImage, useFileDataUrl } from '../../components/FileImage';
+import { useFileDataUrl } from '../../components/FileImage';
 import { PersonBanner } from '../../components/PersonPhoto';
 import {
   EducationText,
@@ -56,6 +55,8 @@ import {
 import { VolunteerSessions } from './VolunteerSessions';
 import { PageCrumbs } from '../../components/shell/breadcrumb';
 import { LoadError } from '../../components/LoadError';
+import { OpenablePhoto } from '../../features/photos/OpenablePhoto';
+import { PhotoViewerDialog } from '../../features/photos/PhotoViewerDialog';
 
 /**
  * One volunteer for an official in the one profile layout: the header card with the key facts, the
@@ -342,8 +343,12 @@ function useDocumentSlots(view: View): DocumentSlot[] {
 /** The documents at the top of the profile's side: a thumbnail each, opened larger in a dialog. */
 function DocumentStrip({ view }: { view: View }) {
   const t = useTranslations('admin.volunteers.profile');
-  const [open, setOpen] = useState<{ label: string; fileId: string } | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
   const slots = useDocumentSlots(view).filter((slot) => slot.visible);
+  // the documents the viewer moves between: those with a photo, in their order
+  const photos = slots.flatMap((slot) =>
+    slot.fileId ? [{ fileId: slot.fileId, alt: slot.label }] : [],
+  );
   return (
     <ProfileSection title={t('documents_title', { count: slots.length })} icon="gallery">
       <ul className="admin-docs-list">
@@ -353,7 +358,7 @@ function DocumentStrip({ view }: { view: View }) {
               <Thumb
                 fileId={slot.fileId}
                 label={slot.label}
-                onOpen={(fileId) => setOpen({ label: slot.label, fileId })}
+                onOpen={(fileId) => setOpen(photos.findIndex((p) => p.fileId === fileId))}
               />
             ) : (
               <span className="admin-doc-thumb is-empty">{t('no_photo')}</span>
@@ -362,14 +367,13 @@ function DocumentStrip({ view }: { view: View }) {
           </li>
         ))}
       </ul>
-      <Dialog
-        title={open?.label ?? ''}
-        size="large"
+      <PhotoViewerDialog
         open={open !== null}
         onClose={() => setOpen(null)}
-      >
-        {open && <FileImage fileId={open.fileId} alt={open.label} />}
-      </Dialog>
+        photos={photos}
+        start={open ?? 0}
+        title={t('documents_title', { count: slots.length })}
+      />
     </ProfileSection>
   );
 }
@@ -656,15 +660,23 @@ function RegistrationTimeline({
 
 function DocumentsTab({ view }: { view: View }) {
   const t = useTranslations('admin.volunteers.profile');
+  const slots = useDocumentSlots(view);
+  // the documents the viewer moves between: those the reader may see, with a photo
+  const photos = slots.flatMap((slot) =>
+    slot.visible && slot.fileId ? [{ fileId: slot.fileId, alt: slot.label }] : [],
+  );
   return (
     <div className="admin-photos">
-      {useDocumentSlots(view).map((slot) => (
+      {slots.map((slot) => (
         <figure className="admin-photo" key={slot.id}>
           <figcaption>{slot.label}</figcaption>
           {!slot.visible ? (
             <span>{t('hidden')}</span>
           ) : slot.fileId ? (
-            <FileImage fileId={slot.fileId} alt={slot.label} />
+            <OpenablePhoto
+              photos={photos}
+              index={photos.findIndex((photo) => photo.fileId === slot.fileId)}
+            />
           ) : (
             <span>{t('no_photo')}</span>
           )}

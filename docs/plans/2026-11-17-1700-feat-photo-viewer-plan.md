@@ -52,10 +52,10 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 ## Progress
 - **Branch:** `feat/photo-viewer`
 - **Updated:** 2026-11-17
-- **Next:** U7, every enlarged photo opens the viewer: `VolunteerProfilePage` `DocumentStrip` first
+- **Next:** U8, the in-app link page `/photos/:fileId` and its E2E spec
 - **Reviewed through:** C5 at c616e3f1
 - **Uncommitted:** none
-- **Notes:** the owner said "শুরু করো" and not to wait for a command between units or checkpoints. The branch starts from the tip of `fix/known-issues` (PR #64 still in CI); once #64 is squash-merged into `develop`, `origin/develop` is merged into this branch (never a rebase). U3: `images.ts` only exports its strip's rules for the writer, which strips a WebP itself; exifr reads no WebP, so the spec reads a WebP's EXIF chunk as the raw TIFF block the WebP container holds (libvips reads it too); the Dhaka wall clock is `dhakaClock` in `core/dhaka-day.ts`. C3: the writer refuses before any byte only what it finds in the head; a JPEG or PNG cut inside its image data, or a WebP changed between its two reads, fails after the headers are out, so the download route pipes with `pipeline` and destroys the response on an error (the client sees a failed download, never a short photo) and logs the abort. U6: the texts are a namespace of their own, `photos`, in the rest part of the catalogue; the client's `file: true` answers a download's Blob with the server's name (`SavedFile`), and `lib/save-file.ts` saves it for the exports too; the strip shares the thumbnails' query key with `useFileDataUrl`. The owner added every hardening of the plan's security review ("সব যোগ করো").
+- **Notes:** the owner said "শুরু করো" and not to wait for a command between units or checkpoints. The branch starts from the tip of `fix/known-issues` (PR #64 still in CI); once #64 is squash-merged into `develop`, `origin/develop` is merged into this branch (never a rebase). U3: `images.ts` only exports its strip's rules for the writer, which strips a WebP itself; exifr reads no WebP, so the spec reads a WebP's EXIF chunk as the raw TIFF block the WebP container holds (libvips reads it too); the Dhaka wall clock is `dhakaClock` in `core/dhaka-day.ts`. C3: the writer refuses before any byte only what it finds in the head; a JPEG or PNG cut inside its image data, or a WebP changed between its two reads, fails after the headers are out, so the download route pipes with `pipeline` and destroys the response on an error (the client sees a failed download, never a short photo) and logs the abort. U6: the texts are a namespace of their own, `photos`, in the rest part of the catalogue; the client's `file: true` answers a download's Blob with the server's name (`SavedFile`), and `lib/save-file.ts` saves it for the exports too; the strip shares the thumbnails' query key with `useFileDataUrl`. U7: one `OpenablePhoto` (`features/photos/`) opens the viewer at its own photo of its group, used by the registration's photos, the volunteer's documents tab, one's own profile photo, an answer's photos and the requested photos; the profile banner's avatar stays as it is (it opens nothing large today). The viewer's arrows and zoom buttons stay focusable at their limits (`aria-disabled`), since a disabled button drops the focus out of the dialog. The owner added every hardening of the plan's security review ("সব যোগ করো").
 
 ## Implementation units
 
@@ -151,7 +151,7 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 - **Depends on:** U6
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U8. The in-app link page
 - **Goal:** `/photos/:fileId` opens the viewer for a signed-in person who may see the photo.

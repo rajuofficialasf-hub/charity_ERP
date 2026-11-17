@@ -183,7 +183,16 @@ export function PhotoViewer({
     </IconButton>
   ) : null;
 
-  const control = { color: 'inherit', '&.Mui-disabled': { color: 'grey.600' } } as const;
+  // a control at its limit stays in the tab order, marked and doing nothing, so a press that
+  // takes it there never drops the focus out of the viewer
+  const control = {
+    color: 'inherit',
+    '&[aria-disabled="true"]': { color: 'grey.600', cursor: 'default' },
+  } as const;
+  const atStart = index === 0;
+  const atEnd = index === total - 1;
+  const whole = zoom.scale <= MIN_SCALE;
+  const closest = zoom.scale >= MAX_SCALE;
 
   return (
     <MuiDialog
@@ -308,8 +317,10 @@ export function PhotoViewer({
                 <>
                   <IconButton
                     aria-label={labels.previousPhoto}
-                    disabled={index === 0}
-                    onClick={() => go(index - 1)}
+                    aria-disabled={atStart}
+                    onClick={() => {
+                      if (!atStart) go(index - 1);
+                    }}
                     sx={{
                       ...control,
                       position: 'absolute',
@@ -323,8 +334,10 @@ export function PhotoViewer({
                   </IconButton>
                   <IconButton
                     aria-label={labels.nextPhoto}
-                    disabled={index === total - 1}
-                    onClick={() => go(index + 1)}
+                    aria-disabled={atEnd}
+                    onClick={() => {
+                      if (!atEnd) go(index + 1);
+                    }}
                     sx={{
                       ...control,
                       position: 'absolute',
@@ -344,24 +357,30 @@ export function PhotoViewer({
               <IconButton
                 sx={control}
                 aria-label={labels.zoomOut}
-                disabled={zoom.scale <= MIN_SCALE}
-                onClick={() => zoomTo(zoom.scale - STEP)}
+                aria-disabled={whole}
+                onClick={() => {
+                  if (!whole) zoomTo(zoom.scale - STEP);
+                }}
               >
                 <Icon name="zoom-out" size={22} />
               </IconButton>
               <IconButton
                 sx={control}
                 aria-label={labels.zoomReset}
-                disabled={zoom.scale === MIN_SCALE}
-                onClick={() => setZoom(WHOLE)}
+                aria-disabled={whole}
+                onClick={() => {
+                  if (!whole) setZoom(WHOLE);
+                }}
               >
                 <Icon name="collapse" size={22} />
               </IconButton>
               <IconButton
                 sx={control}
                 aria-label={labels.zoomIn}
-                disabled={zoom.scale >= MAX_SCALE}
-                onClick={() => zoomTo(zoom.scale + STEP)}
+                aria-disabled={closest}
+                onClick={() => {
+                  if (!closest) zoomTo(zoom.scale + STEP);
+                }}
               >
                 <Icon name="zoom-in" size={22} />
               </IconButton>

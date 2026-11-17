@@ -6,9 +6,9 @@ import { DescriptionList, Stack, Text } from '@/ui';
 import type { ReactNode } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
-import { FileImage } from '../../components/FileImage';
 import { ThroughVolunteerChip } from '../../components/PersonMarks';
 import { QuestionTitle } from '../forms/QuestionTitle';
+import { OpenablePhoto } from '../photos/OpenablePhoto';
 
 /** The answer of a question as text, in the reader's language; null for photos and files. */
 export function answerText(
@@ -161,8 +161,13 @@ export function AnswerList({
                 <Stack key={i.key} gap={1}>
                   <QuestionTitle>{i.label}</QuestionTitle>
                   <div className="my-application-photos">
-                    {i.ids.map((fileId) => (
-                      <FileImage key={fileId} fileId={fileId} alt={t('photo_alt')} />
+                    {i.ids.map((fileId, n) => (
+                      <OpenablePhoto
+                        key={fileId}
+                        photos={i.ids.map((id) => ({ fileId: id, alt: t('photo_alt') }))}
+                        index={n}
+                        title={i.label}
+                      />
                     ))}
                   </div>
                 </Stack>

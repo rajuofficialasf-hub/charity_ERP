@@ -15,5 +15,6 @@
     "uploadedBy": "Uploaded by",
     "uploadedAt": "Uploaded",
     "unknown": "Not known"
-  }
+  },
+  "open": "View {name} larger"
 }

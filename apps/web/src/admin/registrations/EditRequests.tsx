@@ -12,9 +12,9 @@ import {
 import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
 import { ApiFailure } from '../../api/client';
 import { type AddressIds, AddressNames } from '../../components/AddressNames';
-import { FileImage } from '../../components/FileImage';
 import { decideEdit, EDITS_KEY, type EditRequestRow, editRequests } from './registrations-api';
 import { LoadError } from '../../components/LoadError';
+import { OpenablePhoto } from '../../features/photos/OpenablePhoto';
 
 const PHOTO_FIELDS = new Set(['photo', 'nid_photo']);
 
@@ -50,7 +50,7 @@ export function EditRequests() {
   const value = (r: EditRequestRow) => {
     if (r.newValue === undefined || r.newValue === null) return tr('hidden');
     if (PHOTO_FIELDS.has(r.field) && typeof r.newValue === 'string')
-      return <FileImage fileId={r.newValue} alt={t('photo')} />;
+      return <OpenablePhoto photos={[{ fileId: r.newValue, alt: t('photo') }]} index={0} />;
     if (r.field === 'address') return <AddressNames address={r.newValue as AddressIds} />;
     // the personal, profession and skills groups are shown as labelled text, never as raw ids or "[object Object]"
     if (r.field === 'profession') {

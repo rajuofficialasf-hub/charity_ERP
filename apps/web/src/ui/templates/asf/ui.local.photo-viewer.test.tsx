@@ -93,15 +93,24 @@ describe('the photo viewer', () => {
     );
     const dialog = screen.getByRole('dialog', { name: 'Photo' });
     expect(within(dialog).getByText('1 of 3')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Previous photo' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Previous photo' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     await user.keyboard('{ArrowLeft}');
     expect(moved).not.toHaveBeenCalled();
     await user.keyboard('{ArrowRight}');
     expect(screen.getByRole('img', { name: 'The roof' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Next photo' }));
     expect(screen.getByText('Being checked')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Next photo' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next photo' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     await user.keyboard('{ArrowRight}');
+    // a press at the end does nothing, and the focus stays on the button
+    await user.click(screen.getByRole('button', { name: 'Next photo' }));
+    expect(screen.getByRole('button', { name: 'Next photo' })).toHaveFocus();
     expect(moved.mock.calls).toEqual([[1], [2]]);
     // the strip names each photo and marks the one shown
     const strip = screen.getByRole('list', { name: 'Photos' });
@@ -121,7 +130,10 @@ describe('the photo viewer', () => {
       </UiProvider>,
     );
     expect(shown().style.transform).toContain('scale(1)');
-    expect(screen.getByRole('button', { name: 'Zoom out' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Zoom out' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     await user.click(screen.getByRole('button', { name: 'Zoom in' }));
     expect(shown().style.transform).toContain('scale(1.5)');
     await user.keyboard('+');
