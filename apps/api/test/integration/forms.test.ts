@@ -510,6 +510,44 @@ describe('drafts, publishing and the field map', () => {
     expect((await auditRows(versionId, 'form.draft_changed')).length).toBe(1);
   });
 
+  it('writes only the question that changed, keeping every other row as it was', async () => {
+    const pm = await as(world.users.monitoring);
+    const { versionId } = await distributionDraft();
+    const rowsOf = async () =>
+      (
+        await h.db.query<{ field_key: string; id: string; updated_at: Date; options: string[] }>(
+          `SELECT f.field_key, f.id, f.updated_at,
+                  coalesce(array_agg(o.id ORDER BY o.sort_order) FILTER (WHERE o.id IS NOT NULL), '{}') AS options
+             FROM form_fields f LEFT JOIN field_options o ON o.form_field_id = f.id
+            WHERE f.form_version_id = $1 GROUP BY f.id`,
+          [versionId],
+        )
+      ).rows;
+    const { etag, sections } = await current(pm, versionId);
+    const before = await rowsOf();
+    // one question's label changed, nothing else
+    const changed = structuredClone(sections) as {
+      fields: { fieldKey: string; label: { bn: string } }[];
+    }[];
+    const target = changed[0]!.fields[0]!;
+    target.label.bn = `${target.label.bn} (বদলানো)`;
+    const saved = await update(pm, versionId, etag, changed);
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    const after = await rowsOf();
+    const touched = after.filter((row) => {
+      const was = before.find((b) => b.field_key === row.field_key)!;
+      return (
+        was.id !== row.id ||
+        was.updated_at.getTime() !== row.updated_at.getTime() ||
+        was.options.join() !== row.options.join()
+      );
+    });
+    expect(touched.map((row) => row.field_key)).toEqual([target.fieldKey]);
+    expect(after).toHaveLength(before.length);
+    // and the read gives back what was sent
+    expect((await current(pm, versionId)).sections).toEqual(changed);
+  });
+
   it('saves and publishes a number table with a calculation over its cells, and reads it back', async () => {
     const pm = await as(world.users.monitoring);
     const { versionId } = await distributionDraft();
