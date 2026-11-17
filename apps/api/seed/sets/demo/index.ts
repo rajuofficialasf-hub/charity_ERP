@@ -453,7 +453,11 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
 
     // one draft winter project (distribution workflow) with its components
     // the project it is the 2026 session of, with the same code and names
-    const seriesId = seedId('project-series:WNT');
+    // a database seeded before the series existed got the project's own series from their
+    // migration (the series id is the project's), so the one with this code is taken as it is
+    const seriesId =
+      (await ctx.db.projectSeries.findUnique({ where: { code: 'WNT' }, select: { id: true } }))
+        ?.id ?? seedId('project-series:WNT');
     await ctx.upsert('project_series', {
       id: seriesId,
       program_id: seedId('program:HUM'),
