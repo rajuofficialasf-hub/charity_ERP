@@ -1,7 +1,7 @@
 ---
 title: The walk-through findings fixed
 type: fix
-status: in-progress
+status: done
 source: plan
 date: 2026-11-17
 ---
@@ -55,10 +55,3 @@ Out: the bank, reference and previous-project fields (removed by O-64 and O-65, 
 
 ## Verification
 `pnpm lint`, `pnpm typecheck`, `pnpm docs:check`, `pnpm test`, `pnpm --filter @css/api contract:coverage`, `pnpm --filter @css/api authz:matrix` when routes change, `pnpm e2e`.
-
-## Progress
-- **Branch:** fix/manual-test-findings
-- **Next:** the full suite and E2E, then the report
-- **Reviewed through:** C3 at ec1b5ffc (T2: security found nothing; logic found that a later registration step showed errors from its first keystroke, fixed by starting each step unchecked with a test; standards asked for the series page's title test, added; the whole-branch check left three P2 leads: two duplicate-code leads, kept, the shared query key and the test fixtures are deliberate, and a moved constant). C2 at e74bd1d4 (T2: security found nothing; standards asked for the reasons in words instead of the decision id and a single typed cast; logic asked for the English locale's lower-case name and the bound messages only on number and amount questions; all applied; E2E 30 passed). C1 at d5dc9a11 (T2: logic and security found nothing; the standards review asked for the widget's failure test, added with a volunteer check of the waiting count; E2E 130 passed)
-- **Uncommitted:** —
-- **Notes:** The E2E width checks compared with `window.innerWidth`, which grows with the content under a phone emulation (Pixel 7 is `isMobile`), so they could not fail; they now compare with the root element's `clientWidth`. Run every spec with such a check at C1 on the mobile project.
