@@ -246,6 +246,14 @@ export function FormRenderer({
     if (!edited.has(path) && !allErrors[path]) allErrors[path] = message;
 
   const messageOf = (code: string, params?: Record<string, unknown>) => {
+    // a value outside its range names the bounds it has, written as given (English digits)
+    if (code === 'validation.out_of_range' && params) {
+      const { min, max } = params;
+      if (min !== undefined && max !== undefined)
+        return te('validation.out_of_range_between', { min: String(min), max: String(max) });
+      if (min !== undefined) return te('validation.out_of_range_min', { min: String(min) });
+      if (max !== undefined) return te('validation.out_of_range_max', { max: String(max) });
+    }
     const key = code as Parameters<typeof te>[0];
     return te.has(key) ? te(key, params as never) : te('validation.failed');
   };
