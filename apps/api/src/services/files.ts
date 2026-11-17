@@ -434,11 +434,13 @@ export class FilesService {
           new: { ownerUserId: owner, metadata: true },
         }),
       );
-    // a volunteer is never told who else uploaded a photo they see
+    // a photo sent with a registration, before its account could sign in, was uploaded by the
+    // person it belongs to; a volunteer is never told who else uploaded a photo they see
+    const uploadedBy = row.uploadedBy ?? owner;
     const uploader =
-      row.uploadedBy && (principal.kind === 'staff' || row.uploadedBy === principal.userId)
+      uploadedBy && (principal.kind === 'staff' || uploadedBy === principal.userId)
         ? await this.prisma.user.findUnique({
-            where: { id: row.uploadedBy },
+            where: { id: uploadedBy },
             select: { displayName: true },
           })
         : null;

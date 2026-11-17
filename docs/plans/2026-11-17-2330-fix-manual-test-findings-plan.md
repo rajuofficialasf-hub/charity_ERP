@@ -46,7 +46,7 @@ Out: the bank, reference and previous-project fields (removed by O-64 and O-65, 
 - **U7** Range message (R7). Files: the web's field error rendering, i18n `errors`. Size S. Status: done
 - **U8** No failed-sync mark after a refused send (R8). Files: `packages/shared/src/i18n/messages/{bn,en}/ui.json`, the shell test. Size S. Status: done
 - **U9** Question placement after the identity questions (R9). Files: `apps/web/src/admin/forms/FormBuilderPage.tsx`. Size S. Status: done
-- **U10** Registration and titles (R10). Files: `apps/web/src/features/registration/form-state.ts`, `packages/shared/src/registration/details.ts`, `apps/api/src/services/files.ts`, the seven pages that let the kit write the title. Size M. Status: todo
+- **U10** Registration and titles (R10). Files: `apps/web/src/features/registration/form-state.ts`, `packages/shared/src/registration/details.ts`, `apps/api/src/services/files.ts`, the two pages that let the kit write the title (the program and the project series). Size M. Status: done
 
 ## Checkpoints
 - C1 after U1–U3 (API contract and scope).
@@ -58,7 +58,7 @@ Out: the bank, reference and previous-project fields (removed by O-64 and O-65, 
 
 ## Progress
 - **Branch:** fix/manual-test-findings
-- **Next:** U10
+- **Next:** C3 (test and review U8–U10, whole-branch check), then the full suite
 - **Reviewed through:** C2 at e74bd1d4 (T2: security found nothing; standards asked for the reasons in words instead of the decision id and a single typed cast; logic asked for the English locale's lower-case name and the bound messages only on number and amount questions; all applied; E2E 30 passed). C1 at d5dc9a11 (T2: logic and security found nothing; the standards review asked for the widget's failure test, added with a volunteer check of the waiting count; E2E 130 passed)
 - **Uncommitted:** —
 - **Notes:** The E2E width checks compared with `window.innerWidth`, which grows with the content under a phone emulation (Pixel 7 is `isMobile`), so they could not fail; they now compare with the root element's `clientWidth`. Run every spec with such a check at C1 on the mobile project.
