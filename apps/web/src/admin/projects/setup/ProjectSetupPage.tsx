@@ -10,6 +10,7 @@ import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
 import { canCreateProjects, canSeeProjects } from '../../roles';
 import { CARDS_KEY, seriesDetail } from '../cards-api';
+import { ActivateConfirm } from '../ActivateConfirm';
 import { ProjectStatusBadge } from '../ProjectStatusBadge';
 import { moveProject, type Project, PROJECTS_KEY } from '../projects-api';
 import { AreasSection } from './AreasSection';
@@ -274,8 +275,12 @@ function ProjectWizard({ projectId }: { projectId: string }) {
     : formList.data
       ? `/admin/projects/${projectId}/forms?new=1`
       : `/admin/projects/${projectId}/forms`;
+  // the activation asks first what follows from it
+  const [confirming, setConfirming] = useState(false);
   const activate = useMutation({
     mutationFn: () => moveProject(projectId, 'activate', one.data!.meta.etag),
+    // a refused activation lists what is missing on the page, under the closed question
+    onError: () => setConfirming(false),
     onSuccess: async () => {
       // the project page shows the new state, not the cached draft
       await queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
@@ -410,7 +415,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
       }
     : // a draft is activated only when what it still needs is known
       project.status === 'draft' && configure && missing !== null
-      ? { label: t('activate'), icon: 'rocket' as const, onPress: () => activate.mutate() }
+      ? { label: t('activate'), icon: 'rocket' as const, onPress: () => setConfirming(true) }
       : { label: t('to_project'), icon: 'arrow-right' as const, onPress: () => void toProject() };
 
   return (
@@ -447,6 +452,12 @@ function ProjectWizard({ projectId }: { projectId: string }) {
           saveExitLabel={project.status === 'draft' ? t('save_exit_draft') : t('save_exit')}
           onSaveExit={editable ? () => void run(toProject) : undefined}
           primary={primary}
+        />
+        <ActivateConfirm
+          open={confirming}
+          pending={activate.isPending}
+          onConfirm={() => activate.mutate()}
+          onCancel={() => setConfirming(false)}
         />
       </div>
     </SetupProvider>

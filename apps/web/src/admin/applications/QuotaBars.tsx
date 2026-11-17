@@ -82,15 +82,18 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
       : undefined;
   // the list of locations that names the area is its parent's
   const untargetedParent = level === 'union' ? area.upazilaId : area.divisionId;
+  // the pull approves the next person, so it asks first (docs/DECISION_LOG.md D-182)
   const start = (areaId?: string) => {
     setNotice(null);
-    pull.mutate({ areaId });
+    pull.reset();
+    setAsking({ areaId, reasons: [] });
   };
   const dialog = asking ? (
     <DecisionDialog
       title={t('pull.title')}
       confirm={t('pull.title')}
       withReason={false}
+      note={t('dialog.approve_note')}
       comments={asking.reasons}
       pending={pull.isPending}
       error={pull.error && !askedComments(pull.error) ? failure(pull.error) : null}

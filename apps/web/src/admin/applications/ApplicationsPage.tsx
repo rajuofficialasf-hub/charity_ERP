@@ -5,6 +5,7 @@ import {
   Alert,
   Button,
   Chip,
+  ConfirmDialog,
   DataTable,
   FilterBar,
   Page,
@@ -110,6 +111,8 @@ function ApplicationTab({ projectId }: { projectId: string }) {
     setTickedView(view);
     setSelected(new Set());
   }
+  // the approval of the ticked rows is asked once more before it is sent
+  const [confirmingBulk, setConfirmingBulk] = useState(false);
   const bulk = useMutation({
     mutationFn: (action: 'review' | 'approve') => {
       const chosen = rows.filter((r) => selected.has(r.id));
@@ -118,6 +121,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         rows: chosen.map((r) => ({ clientUuid: uuidv7(), applicationId: r.id, ifMatch: r.etag })),
       }).then((out) => ({ action, results: out.results }));
     },
+    onSettled: () => setConfirmingBulk(false),
     onSuccess: async (out) => {
       setOutcome(out);
       setSelected(new Set());
@@ -297,7 +301,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
               size="small"
               disabled={!canApproveAll}
               loading={bulk.isPending}
-              onClick={() => bulk.mutate('approve')}
+              onClick={() => setConfirmingBulk(true)}
             >
               {t('action.approve')}
             </Button>
@@ -396,6 +400,15 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         )}
       />
       {list.isPending ? <Skeleton shape="row" /> : null}
+      <ConfirmDialog
+        open={confirmingBulk}
+        title={t('bulk_approve_confirm.title', { count: shownSelection.size })}
+        consequences={[t('dialog.approve_note')]}
+        confirmLabel={t('action.approve')}
+        pending={bulk.isPending}
+        onConfirm={() => bulk.mutate('approve')}
+        onCancel={() => setConfirmingBulk(false)}
+      />
     </>
   );
 }

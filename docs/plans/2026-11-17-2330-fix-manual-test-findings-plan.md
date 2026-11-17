@@ -42,7 +42,7 @@ Out: the bank, reference and previous-project fields (removed by O-64 and O-65, 
 - **U3** Homes (R3). Files: `packages/shared/src/attention.ts`, `apps/api/src/services/attention.ts`, i18n `home`, `apps/web/src/features/home/*`, SCREENS. Tests: API integration of the count and scope, web tests of the widget and item. Size M. Risk: permissions scope. Status: done
 - **U4** Demo seed (R4). Files: `apps/api/seed/sets/demo/index.ts`, `docs/testing/DEMO_ACCOUNTS.md`. Tests: seed test, E2E untouched. Size S. Status: done
 - **U5** Bengali calendar (R5). Files: `apps/web/src/ui/templates/asf/components/{pickers,labels}.tsx`, `ui.json` bn/en, the kit's test. Size S. Status: done
-- **U6** Confirmations (R6). Files: `apps/web/src/admin/applications/ApplicationReviewPage.tsx`, `apps/web/src/admin/projects/LifecycleActions.tsx`, i18n, E2E specs that approve or activate. Size M. Status: todo
+- **U6** Confirmations (R6). Files: `apps/web/src/admin/applications/ApplicationReviewPage.tsx`, `apps/web/src/admin/projects/LifecycleActions.tsx`, i18n, E2E specs that approve or activate. Size M. Status: done
 - **U7** Range message (R7). Files: the web's field error rendering, i18n `errors`. Size S. Status: todo
 - **U8** No failed-sync mark after a refused send (R8). Files: `apps/web/src/offline/applications-store.ts` or the form page. Size S. Status: todo
 - **U9** Question placement after the identity questions (R9). Files: `apps/web/src/admin/forms/{FormBuilderPage,draft}.ts*`. Size S. Status: todo
@@ -58,7 +58,7 @@ Out: the bank, reference and previous-project fields (removed by O-64 and O-65, 
 
 ## Progress
 - **Branch:** fix/manual-test-findings
-- **Next:** U6
+- **Next:** U7
 - **Reviewed through:** C1 at d5dc9a11 (T2: logic and security found nothing; the standards review asked for the widget's failure test, added with a volunteer check of the waiting count; E2E 130 passed)
 - **Uncommitted:** —
 - **Notes:** The E2E width checks compared with `window.innerWidth`, which grows with the content under a phone emulation (Pixel 7 is `isMobile`), so they could not fail; they now compare with the root element's `clientWidth`. Run every spec with such a check at C1 on the mobile project.

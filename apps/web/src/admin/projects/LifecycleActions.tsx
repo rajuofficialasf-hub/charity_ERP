@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../api/client';
 import { cancelProject, type LifecycleAction, moveProject, type Project } from './projects-api';
+import { ActivateConfirm } from './ActivateConfirm';
 import { ReasonDialog } from './ReasonDialog';
 import { useMissingLabel } from './setup/missing';
 
@@ -29,8 +30,9 @@ function movesFor(status: Project['status']): Move[] {
 
 /**
  * The lifecycle buttons of a project for the PM and the global roles: activate a complete draft,
- * cancel a draft, extend the deadline, start closing, close, reopen. Every move but activation asks
- * for a reason; the server checks each move again. A refused activation lists what is missing.
+ * cancel a draft, extend the deadline, start closing, close, reopen. Activation asks to be
+ * confirmed, every other move for a reason; the server checks each move again. A refused
+ * activation lists what is missing.
  */
 export function LifecycleActions({
   project,
@@ -72,14 +74,19 @@ export function LifecycleActions({
             loading={move.isPending && move.variables.to === m}
             onClick={() => {
               move.reset();
-              if (m === 'activate') move.mutate({ to: m });
-              else setAsking(m);
+              setAsking(m);
             }}
           >
             {t(`action.${m}`)}
           </Button>
         ))}
       </div>
+      <ActivateConfirm
+        open={asking === 'activate'}
+        pending={move.isPending}
+        onConfirm={() => move.mutate({ to: 'activate' }, { onError: () => setAsking(null) })}
+        onCancel={() => setAsking(null)}
+      />
       {!asking && error instanceof ApiFailure && (
         <Alert tone="error">
           {missing.length > 0 ? t('missing') : error.message}
@@ -92,7 +99,7 @@ export function LifecycleActions({
           )}
         </Alert>
       )}
-      {asking && (
+      {asking && asking !== 'activate' && (
         <ReasonDialog
           title={t(`title.${asking}`)}
           confirm={t(`action.${asking}`)}

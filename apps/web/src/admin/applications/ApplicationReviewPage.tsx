@@ -72,6 +72,8 @@ const ACTIONS: OfficeAction[] = [
 const VERIFY: OfficeAction[] = ['verify_link', 'verify_create'];
 /** The actions that ask for the office's reason, and the one that asks for the volunteer's message too. */
 const WITH_REASON: OfficeAction[] = ['reject', 'return_to_review', 'reject_unverified', 'waitlist'];
+/** The approvals, asked once more before they are sent (docs/DECISION_LOG.md D-182). */
+const CONFIRMED: OfficeAction[] = ['approve', 'pull_from_waitlist'];
 /** The decisions that end an application's hopes in this project, drawn in the danger tone. */
 const DANGER: OfficeAction[] = ['reject', 'reject_unverified', 'delete'];
 /** The action awaiting its texts, with the comments it asks for. */
@@ -197,7 +199,10 @@ function Review() {
   const verifiable = VERIFY.some(may);
   const hinted = (action: OfficeAction) => a.decisionHints[action] ?? [];
   const start = (action: OfficeAction) =>
-    WITH_REASON.includes(action) || action === 'delete' || hinted(action).length
+    WITH_REASON.includes(action) ||
+    CONFIRMED.includes(action) ||
+    action === 'delete' ||
+    hinted(action).length
       ? setAsking({ action, reasons: hinted(action) })
       : act.mutate({ action });
   const stateLabel = (status: string) => labelOf(ts, status);
@@ -421,6 +426,7 @@ function Review() {
           confirm={t(`action.${asking.action}`)}
           withReason={WITH_REASON.includes(asking.action)}
           withMessage={asking.action === 'reject'}
+          note={CONFIRMED.includes(asking.action) ? t('dialog.approve_note') : undefined}
           comments={asking.reasons}
           danger={DANGER.includes(asking.action)}
           pending={act.isPending}

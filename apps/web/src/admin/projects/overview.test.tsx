@@ -223,6 +223,19 @@ describe('the project overview', () => {
     open();
     const [activate] = await buttons(['সক্রিয় করুন']);
     await user.click(activate!);
+    // a cancelled question sends nothing; the confirmed one is refused with what is missing
+    await user.click(
+      within(
+        await screen.findByRole('alertdialog', { name: 'প্রকল্পটি সক্রিয় করবেন?' }),
+      ).getByRole('button', { name: 'বাতিল' }),
+    );
+    expect(moves).toEqual([]);
+    await user.click(activate!);
+    await user.click(
+      within(
+        await screen.findByRole('alertdialog', { name: 'প্রকল্পটি সক্রিয় করবেন?' }),
+      ).getByRole('button', { name: 'সক্রিয় করুন' }),
+    );
     const alert = await screen.findByRole('alert');
     expect(within(alert).getByText('আরপিএমসহ একটি এলাকা')).toBeInTheDocument();
     expect(within(alert).getByText('ছবির নিয়ম')).toBeInTheDocument();

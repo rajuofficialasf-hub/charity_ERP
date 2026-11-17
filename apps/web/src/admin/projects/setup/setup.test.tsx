@@ -544,6 +544,11 @@ describe('the setup wizard', () => {
 
     await user.click(within(steps()).getByRole('button', { name: /^পর্যালোচনা/ }));
     await user.click(await screen.findByRole('button', { name: 'সক্রিয় করুন' }));
+    // the activation asks first, saying what follows from it, and nothing is sent until then
+    const ask = await screen.findByRole('alertdialog', { name: 'প্রকল্পটি সক্রিয় করবেন?' });
+    expect(ask).toHaveTextContent('কোড, প্রোগ্রাম, বছর ও ওয়ার্কফ্লো আর বদলানো যাবে না।');
+    expect(writes).toEqual([]);
+    await user.click(within(ask).getByRole('button', { name: 'সক্রিয় করুন' }));
     await waitFor(() => expect(router.state.location.pathname).toBe(`/admin/projects/${ID}`));
     expect(writes).toEqual([{ path: 'activate', body: '"p1"' }]);
     expect(router.state.location.state).toEqual({ notice: 'প্রকল্প সক্রিয় হয়েছে।' });
