@@ -395,6 +395,12 @@ export function refreshSession(): Promise<TokenPair | null> {
   return state.refreshing;
 }
 
+/** A file the API sent to be saved, with the name it named it by, if any. */
+export interface SavedFile {
+  blob: Blob;
+  fileName: string | null;
+}
+
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
@@ -403,6 +409,8 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   /** The answer is a file (a streamed photo), returned as a Blob instead of the `data` field. */
   blob?: boolean;
+  /** The answer is a file to save: its Blob and the name the server gives it (`SavedFile`). */
+  file?: boolean;
   /** Returns the whole envelope `{ data, meta }` (for `meta.etag` before an `If-Match` write). */
   envelope?: boolean;
   /** Gives the request up when it aborts (a caller's time limit); the call then rejects. */
@@ -436,6 +444,14 @@ export async function api<T>(path: string, options: RequestOptions = {}, retry =
   if (res.ok) {
     if (res.status === 204) return undefined as T;
     if (options.blob) return (await res.blob()) as T;
+    if (options.file) {
+      const saved: SavedFile = {
+        blob: await res.blob(),
+        fileName:
+          /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? null,
+      };
+      return saved as T;
+    }
     if (options.envelope) return (await res.json()) as T;
     return ((await res.json()) as { data: T }).data;
   }

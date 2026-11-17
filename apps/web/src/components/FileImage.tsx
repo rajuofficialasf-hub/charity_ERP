@@ -48,20 +48,29 @@ export function FileImage({ fileId, alt }: { fileId: string; alt: string }) {
   return <img src={file.data} alt={alt} className="file-image" />;
 }
 
+/** The query key of a photo or one of its thumbnails as a data URL, shared by every reader. */
+export const fileDataUrlKey = (fileId: string | null, variant?: 'small' | 'medium') =>
+  ['files', fileId, variant ?? 'file'] as const;
+
+/** Reads a photo, or one of its thumbnails, as a data URL. */
+export async function readFileDataUrl(
+  fileId: string,
+  variant: 'small' | 'medium' | undefined,
+  signal: AbortSignal,
+): Promise<string> {
+  const path = variant ? `/files/${fileId}/content?variant=${variant}` : `/files/${fileId}/content`;
+  return dataUrl(await api<Blob>(path, { blob: true, signal }));
+}
+
 /**
  * The photo as a data URL for a place that draws it itself (the avatar, a card's cover); idle
  * without a file. `variant` asks for a thumbnail (320 or 1,024 px) instead of the photo.
  */
 export function useFileDataUrl(fileId: string | null, variant?: 'small' | 'medium') {
   return useQuery({
-    queryKey: ['files', fileId, variant ?? 'file'],
+    queryKey: fileDataUrlKey(fileId, variant),
     // a card scrolled away or a screen left cancels its download
-    queryFn: async ({ signal }) =>
-      dataUrl(
-        await (variant
-          ? api<Blob>(`/files/${fileId}/content?variant=${variant}`, { blob: true, signal })
-          : api<Blob>(`/files/${fileId}/content`, { blob: true, signal })),
-      ),
+    queryFn: ({ signal }) => readFileDataUrl(fileId!, variant, signal),
     enabled: fileId !== null,
     // a photo leaves the cache with its screen: opening it again asks the API (and audits an
     // NID photo view) again

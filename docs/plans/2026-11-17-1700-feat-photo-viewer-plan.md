@@ -52,10 +52,10 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 ## Progress
 - **Branch:** `feat/photo-viewer`
 - **Updated:** 2026-11-17
-- **Next:** U6, the app's photo viewer in `apps/web/src/features/photos/`
+- **Next:** checkpoint C5 (U5 and U6), then U7, every enlarged photo opens the viewer
 - **Reviewed through:** C4 at 825d7717
 - **Uncommitted:** none
-- **Notes:** the owner said "শুরু করো" and not to wait for a command between units or checkpoints. The branch starts from the tip of `fix/known-issues` (PR #64 still in CI); once #64 is squash-merged into `develop`, `origin/develop` is merged into this branch (never a rebase). U3: `images.ts` only exports its strip's rules for the writer, which strips a WebP itself; exifr reads no WebP, so the spec reads a WebP's EXIF chunk as the raw TIFF block the WebP container holds (libvips reads it too); the Dhaka wall clock is `dhakaClock` in `core/dhaka-day.ts`. C3: the writer refuses before any byte only what it finds in the head; a JPEG or PNG cut inside its image data, or a WebP changed between its two reads, fails after the headers are out, so the download route pipes with `pipeline` and destroys the response on an error (the client sees a failed download, never a short photo) and logs the abort. The owner added every hardening of the plan's security review ("সব যোগ করো").
+- **Notes:** the owner said "শুরু করো" and not to wait for a command between units or checkpoints. The branch starts from the tip of `fix/known-issues` (PR #64 still in CI); once #64 is squash-merged into `develop`, `origin/develop` is merged into this branch (never a rebase). U3: `images.ts` only exports its strip's rules for the writer, which strips a WebP itself; exifr reads no WebP, so the spec reads a WebP's EXIF chunk as the raw TIFF block the WebP container holds (libvips reads it too); the Dhaka wall clock is `dhakaClock` in `core/dhaka-day.ts`. C3: the writer refuses before any byte only what it finds in the head; a JPEG or PNG cut inside its image data, or a WebP changed between its two reads, fails after the headers are out, so the download route pipes with `pipeline` and destroys the response on an error (the client sees a failed download, never a short photo) and logs the abort. U6: the texts are a namespace of their own, `photos`, in the rest part of the catalogue; the client's `file: true` answers a download's Blob with the server's name (`SavedFile`), and `lib/save-file.ts` saves it for the exports too; the strip shares the thumbnails' query key with `useFileDataUrl`. The owner added every hardening of the plan's security review ("সব যোগ করো").
 
 ## Implementation units
 
@@ -137,7 +137,7 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 - **Depends on:** U2, U4, U5
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U7. Every enlarged photo opens the viewer
 - **Goal:** the pages that show a photo large use the viewer with their group of photos.

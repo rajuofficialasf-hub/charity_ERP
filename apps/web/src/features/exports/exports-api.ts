@@ -1,5 +1,6 @@
 import type { ExportList, ExportRequest } from '@css/shared/exports';
 import { api } from '../../api/client';
+import { saveFile } from '../../lib/save-file';
 import type { ExportColumns, ExportColumnView, ExportJob } from '../../api/schemas';
 
 export type { ExportColumnView, ExportJob };
@@ -67,16 +68,5 @@ export function exportFileName(job: Pick<ExportJob, 'kind' | 'format' | 'created
 export async function downloadExport(job: ExportJob): Promise<void> {
   if (!job.fileId) throw new Error('export file missing');
   const blob = await api<Blob>(`/files/${job.fileId}/content`, { blob: true });
-  const url = URL.createObjectURL(blob);
-  try {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = exportFileName(job);
-    document.body.append(link);
-    link.click();
-    link.remove();
-  } finally {
-    // the save has started; the object is let go once the click is handled
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
+  saveFile(blob, exportFileName(job));
 }

@@ -227,7 +227,19 @@ export function PhotoViewer({
               </Box>
             )}
           </Box>
-          {actions && <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>{actions}</Box>}
+          {actions && (
+            // the page's buttons take the bar's light colour on its dark ground
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 0.5,
+                alignItems: 'center',
+                '& .MuiIconButton-root': { color: 'inherit' },
+              }}
+            >
+              {actions}
+            </Box>
+          )}
           {detailsButton}
           <IconButton color="inherit" aria-label={labels.close} onClick={onClose}>
             <Icon name="close" size={22} />

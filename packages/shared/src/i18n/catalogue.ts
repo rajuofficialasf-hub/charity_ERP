@@ -23,6 +23,7 @@ export const NAMESPACES = [
   'media',
   'nav',
   'notifications',
+  'photos',
   'projects',
   'registration',
   'sync',
