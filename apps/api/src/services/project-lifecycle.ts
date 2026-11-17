@@ -15,6 +15,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { ProjectViewer, ProjectsService } from './projects.js';
 import type { ProjectEvents } from '../notifications/project-events.js';
+import { closeProjectApplications, reopenProjectApplications } from '../workflow/project-close.js';
 
 /**
  * The close guards a workflow may list. A guard whose module exists checks it here; the guards of
@@ -196,11 +197,9 @@ export class ProjectLifecycleService {
   }
 
   /**
-   * Closing to closed, once every close guard of the workflow passes; then read-only. The close
-   * moves none of the project's applications yet (the `project.closed` trigger of
-   * docs/architecture/workflow-templates/_common.yaml is not built), so no person's kept count of
-   * help changes here; the move that builds it recounts the people it touches with `recountHelp`
-   * of services/help-history.ts in this transaction.
+   * Closing to closed, once every close guard of the workflow passes; then read-only. The
+   * project's unfinished applications close with it, through the `project.closed` move of its
+   * workflow, and their people's kept count of help is written again in this transaction.
    */
   async close(
     viewer: ProjectViewer,
@@ -231,12 +230,14 @@ export class ProjectLifecycleService {
           undefined,
           failed.map((g) => ({ path: g, code: 'workflow.guard.template_project_close_guards' })),
         );
+      const now = this.clock.now();
       const result = await this.projects.writeState(tx, projectId, {
         status: to,
-        closedAt: this.clock.now(),
+        closedAt: now,
         closedBy: actor,
         updatedBy: actor,
       });
+      await closeProjectApplications(tx, this.audit, snapshot.data!, { projectId, actor, now });
       await this.audit.record(tx, {
         action: 'project.close',
         entityType: 'project',
@@ -251,8 +252,8 @@ export class ProjectLifecycleService {
   }
 
   /**
-   * A closing or closed project returns to active, with a reason. Like the close, it moves no
-   * application yet (`applications.restore_prior_state` is not built), so no count of help changes.
+   * A closing or closed project returns to active, with a reason. The applications its close
+   * closed return to the states and outcomes they had (from closing there are none).
    */
   async reopen(
     viewer: ProjectViewer,
@@ -262,12 +263,14 @@ export class ProjectLifecycleService {
   ) {
     return this.prisma.$transaction(async (tx) => {
       const { project, from, to } = await this.moving(tx, viewer, projectId, 'reopen', ifMatch);
+      const actor = viewer.principal.userId;
       const result = await this.projects.writeState(tx, projectId, {
         status: to,
         closedAt: null,
         closedBy: null,
-        updatedBy: viewer.principal.userId,
+        updatedBy: actor,
       });
+      await reopenProjectApplications(tx, this.audit, { projectId, actor, now: this.clock.now() });
       await this.audit.record(tx, {
         action: 'project.reopen',
         entityType: 'project',
@@ -276,7 +279,7 @@ export class ProjectLifecycleService {
         new: { status: to },
         reason,
       });
-      await this.events.lifecycle(tx, 'project_reopened', projectId, viewer.principal.userId);
+      await this.events.lifecycle(tx, 'project_reopened', projectId, actor);
       return result;
     });
   }

@@ -1906,6 +1906,9 @@ model Application {
   rejectionMessage                String?                   @map("rejection_message")
   /// which number identifies the person, written by the application service when it resolves the profile at submission
   identityKind                    String?                   @map("identity_kind")
+  /// the state and the outcome the application had when its project's close closed it; the reopen puts them back
+  closedFromStatus                String?                   @map("closed_from_status")
+  closedFromOutcome               String?                   @map("closed_from_outcome")
   deletedAt                       DateTime?                 @map("deleted_at") @db.Timestamptz(6)
   createdAt                       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy                       String?                   @map("created_by") @db.Uuid

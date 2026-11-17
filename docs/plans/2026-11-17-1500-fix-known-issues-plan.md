@@ -52,10 +52,12 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 ## Progress
 - **Branch:** `fix/known-issues`
 - **Updated:** 2026-11-17
-- **Next:** U6: a project's close closes its applications
+- **Next:** U7: a builder question's reference-list options
 - **Reviewed through:** C5 (commit after f75f3a13)
 - **Uncommitted:** none
 - **Notes:** the owner said not to wait for a command between units or checkpoints. U1: a blocked person's draft is refused at the send by the workflow guard `workflow.guard.beneficiary_not_blocked` (409), not by `beneficiary.blocked`. C1 review: a draft not yet tied to anyone whose number later names a blocked person stays refused at its edit (409 `beneficiary.blocked`), because tying it would fill in the blocked person's names, which the lookup never reveals; BR-010 says so. U2: the cause was the scope builder (`resolveInstances` in `apps/api/src/access/scope.ts`) honouring the house-construction condition only for beneficiaries; the web gives the Procurement Team the tab's list only and a session's "আবেদন". The planned e2e journey is covered by `procurement-applications.test.ts` and the tab's component test instead, because the demo seed has no house-construction project. U4: the lookup's uniform refusal past the day's limit holds on the lookup screen only; an application's own gate lets an unknown number through, since that is how a new person is entered (each draft stays on record under its creator). The profile's years already came from every application (`personApplications`), so nothing changed there. The transfer is not refused for a pending consent (the owner's second answer); it answers `consentPending`. C4 left one item for the owner, to go into STATUS's known issues at the end: past the day's limit the application form still tells a known number outside the area (429) from an unknown one (201); counting unknown numbers against the limit would stop new people being entered, so it is recorded, not changed
+  - U6: the prior state is kept on the application row (`closed_from_status`, `closed_from_outcome`, migration `20261117160000_application_closed_from`), not in `workflow_transitions`, which holds the template's transitions, not a history; the close runs in `workflow/project-close.ts`, called by the project's close. The beneficiary check now lets a draft closed with its project stay without a person.
+  - The owner's Docker stack was once started from this worktree (its api mounted the branch); `docker compose` belongs to the main checkout only. The demo seed's winter series collided with the series the project-series migration made for an existing project (fixed, commit 88fd4c66).
 
 ## Implementation units
 
@@ -140,7 +142,7 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 - **Depends on:** none
 - **Size:** L
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U7. A builder question's reference-list options
 - **Goal:** R8.
