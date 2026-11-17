@@ -212,9 +212,10 @@ test.describe('the application cycle', () => {
     await page.getByRole('textbox', { name: /কেন সহায়তা দরকার/ }).fill('শীতের কাপড় দরকার');
     await noViolations(page, 'the form');
     await sendToOffice(page);
-    await expect(
-      page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' }),
-    ).toBeVisible();
+    // the send goes through the phone's outbox; on a busy run it takes a few seconds
+    await expect(page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' })).toBeVisible({
+      timeout: 20_000,
+    });
     const sent = await page.getByText(/^আবেদন নম্বর: /).textContent();
     const appNo = /আবেদন নম্বর: ([A-Z0-9]+-\d{4}-\d{5})/.exec(sent ?? '')?.[1];
     expect(appNo, sent ?? '').toBeTruthy();
@@ -317,9 +318,10 @@ test.describe('the application cycle', () => {
     await expect(page.getByText('খসড়া সংরক্ষিত হয়েছে')).toBeVisible();
     await page.getByRole('textbox', { name: /কেন সহায়তা দরকার/ }).fill('ঘর মেরামত দরকার');
     await sendToOffice(page);
-    await expect(
-      page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' }),
-    ).toBeVisible();
+    // the send goes through the phone's outbox; on a busy run it takes a few seconds
+    await expect(page.getByRole('heading', { level: 2, name: 'আবেদন পাঠানো হয়েছে' })).toBeVisible({
+      timeout: 20_000,
+    });
 
     // another person of the project on the same mobile, brought through the API
     const me = await apiAs(request, FIELD_VOLUNTEER);

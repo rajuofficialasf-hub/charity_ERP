@@ -41,13 +41,18 @@ test('the public link moves to another form only after the PM confirms it', asyn
     await page.getByRole('button', { name: 'পাবলিক আবেদনের লিংক', exact: true }).click();
     return section(page, 'পাবলিক আবেদনের লিংক');
   };
-  const switchOf = (link: ReturnType<typeof section>) =>
-    // the switch's input is visually hidden behind its track
-    link.getByRole('switch', { name: 'এই ফর্মের জন্য পাবলিক লিংক চালু' }).click({ force: true });
+  const switchOf = async (link: ReturnType<typeof section>) => {
+    const toggle = link.getByRole('switch', { name: 'এই ফর্মের জন্য পাবলিক লিংক চালু' });
+    // the switch waits for the project's links to load; its input is hidden behind its track
+    await expect(toggle).toBeEnabled({ timeout: 15_000 });
+    await toggle.click({ force: true });
+  };
+  const live = (link: ReturnType<typeof section>) =>
+    expect(link.getByText('লিংক চালু; এই ফর্মটি খোলে।')).toBeVisible({ timeout: 15_000 });
 
   let link = await linkOf(first);
   await switchOf(link);
-  await expect(link.getByText('লিংক চালু; এই ফর্মটি খোলে।')).toBeVisible();
+  await live(link);
   const oldUrl = await link.getByRole('textbox', { name: 'আবেদনের লিংক' }).inputValue();
 
   link = await linkOf(second);
@@ -56,7 +61,7 @@ test('the public link moves to another form only after the PM confirms it', asyn
   const dialog = page.getByRole('alertdialog', { name: 'লিংক বদলাবেন?' });
   await expect(dialog).toContainText('"আবেদন"');
   await dialog.getByRole('button', { name: 'হ্যাঁ, লিংক বদলান' }).click();
-  await expect(link.getByText('লিংক চালু; এই ফর্মটি খোলে।')).toBeVisible();
+  await live(link);
   const newUrl = await link.getByRole('textbox', { name: 'আবেদনের লিংক' }).inputValue();
   expect(newUrl).not.toBe(oldUrl);
 
