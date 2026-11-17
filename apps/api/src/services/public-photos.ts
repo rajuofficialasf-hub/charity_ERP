@@ -11,7 +11,7 @@ import { ApiError } from '../i18n/api-error.js';
 import { enqueueFileProcess, thumbnailKey } from '../jobs/file-process.js';
 import type { JobRunner } from '../jobs/job-runner.js';
 import type { StorageDriver } from '../storage/index.js';
-import { readDefinition } from './forms.js';
+import { publishedDefinition } from './published-definitions.js';
 import { type OpenLink, resolveOpenLink } from './public-link-rules.js';
 
 const BUCKET = 'photos' as const;
@@ -69,7 +69,7 @@ export class PublicPhotosService {
     body: unknown;
   }): Promise<{ fileId: string }> {
     const link = await resolveOpenLink(this.prisma, this.clock.now(), input.token);
-    const definition = await readDefinition(this.prisma, link.version.id, 'volunteer');
+    const definition = await publishedDefinition(this.prisma, link.version.id);
     const field = definition.sections
       .flatMap((s) => s.fields)
       .find((f) => f.fieldKey === input.fieldKey && f.type === 'photo');

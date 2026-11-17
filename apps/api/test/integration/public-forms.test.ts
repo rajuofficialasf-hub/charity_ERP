@@ -291,6 +291,23 @@ describe('configuring the link', () => {
     expect((await read(first.token)).status).toBe(404);
   });
 
+  it('answers closed for a link switched off or a project no longer running, after its form was read once', async () => {
+    const p = await project();
+    const { token } = await enabled(p.id, p.formId);
+    // read twice: the second read takes the published definition the process kept
+    expect((await read(token)).status).toBe(200);
+    expect((await read(token)).status).toBe(200);
+    await setState(p.id, 'closing', '2099-12-31');
+    expect((await read(token)).status).toBe(404);
+    expect((await submit(token, submission())).status).toBe(404);
+    await setState(p.id, 'active', '2099-12-31');
+    expect((await read(token)).status).toBe(200);
+    expect((await configure(p.id, { enabled: false })).status).toBe(200);
+    const closed = await read(token);
+    expect(closed.status).toBe(404);
+    expect(closed.body.error.code).toBe('public.link_closed');
+  });
+
   it("refuses a link manager who may not edit the project's forms, without naming the live form", async () => {
     const p = await project();
     await h.db.query(

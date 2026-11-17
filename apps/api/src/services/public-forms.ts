@@ -17,9 +17,10 @@ import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import { type BeneficiaryIdentityService, personKeysOf } from './beneficiary-identity.js';
-import { type FormVersionView, readDefinition, versionView } from './forms.js';
+import { type FormVersionView, versionView } from './forms.js';
 import { isAddressChain } from './locations.js';
 import type { NisabService } from './nisab.js';
+import { publishedDefinition } from './published-definitions.js';
 import { resolveOpenLink } from './public-link-rules.js';
 import type { PublicPhotosService } from './public-photos.js';
 import type { Replayable } from './uploads.js';
@@ -87,10 +88,8 @@ export class PublicFormsService {
         // the page marks the document question by it; the submission holds its own check
         identityDocument: link.identityRules.document,
       },
-      form: versionView(
-        link.version,
-        await readDefinition(this.prisma, link.version.id, 'volunteer'),
-      ),
+      // the link's checks ran above on this request; the published definition is read once
+      form: versionView(link.version, await publishedDefinition(this.prisma, link.version.id)),
     };
   }
 
@@ -102,7 +101,7 @@ export class PublicFormsService {
     const earlier = await this.earlier(link.projectId, body.clientUuid);
     if (earlier) return { replay: true, value: earlier };
     const today = isoDateInDhaka(this.clock.now());
-    const definition = await readDefinition(this.prisma, link.version.id, 'volunteer');
+    const definition = await publishedDefinition(this.prisma, link.version.id);
     const checked = validate(definition, body.answers, {
       audience: 'public',
       today,
