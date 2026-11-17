@@ -12,7 +12,6 @@ import {
   maxSizeOf,
   type ProjectRecordType,
   sameFileType,
-  UPLOAD_RECORD_KINDS,
   UPLOAD_RULES,
   type UploadSessionCreate,
   uploadSessionCreateSchema,
@@ -29,6 +28,7 @@ import { photoFlags, projectPhotoSource } from '../files/flags.js';
 import {
   coverWritePermission,
   loadCoverRecord,
+  loadLinkedRecords,
   loadUploadRecord,
   scopeReachesCover,
   scopeReachesRecord,
@@ -469,17 +469,9 @@ export class UploadsService {
       select: { id: true, fileLinksFile: { select: { entityType: true, entityId: true } } },
     });
     if (!other) return;
-    for (const link of other.fileLinksFile) {
-      if (!Object.hasOwn(UPLOAD_RECORD_KINDS, link.entityType) || isCoverRecord(link.entityType))
-        continue;
-      const linked = await loadUploadRecord(
-        this.prisma,
-        link.entityType as ProjectRecordType,
-        link.entityId,
-      );
-      if (linked && (await scopeReachesRecord(this.prisma, scope, linked)))
+    for (const { record } of await loadLinkedRecords(this.prisma, other.fileLinksFile))
+      if (await scopeReachesRecord(this.prisma, scope, record))
         throw new ApiError('file.duplicate', 409, { fileId: other.id });
-    }
     throw new ApiError('file.duplicate', 409);
   }
 

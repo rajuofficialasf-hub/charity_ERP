@@ -309,6 +309,24 @@ describe('GET /files/{fileId}/content', () => {
     expect(await views()).toEqual([{ new: { ownerUserId: owner.id } }]);
   });
 
+  it("audits an official's read of an NID photo's details, which name no record to open", async () => {
+    const { owner, nidPhoto } = await volunteerWithPhotos();
+    const rpm = await login(h, await rpmOf(loc));
+    const details = await request(h.server()).get(`/api/v1/files/${nidPhoto}`).set(bearer(rpm));
+    expect(details.status).toBe(200);
+    expect(details.body.data.records).toEqual([]);
+    const audits = await h.db.query(
+      `SELECT new FROM audit_log WHERE action = 'file.nid_viewed' AND entity_id = $1`,
+      [nidPhoto],
+    );
+    expect(audits.rows).toEqual([{ new: { ownerUserId: owner.id, metadata: true } }]);
+    // an official without the identity class learns nothing of it
+    const daee = await login(h, await account(h.db, { role: 'official_daee' }));
+    expect(
+      (await request(h.server()).get(`/api/v1/files/${nidPhoto}`).set(bearer(daee))).status,
+    ).toBe(404);
+  });
+
   it('serves no photo of an unsubmitted draft', async () => {
     const d = await verifiedDraft(h);
     const photo = (await upload(d, 'photo', jpeg())).body.data.fileId as string;

@@ -4673,7 +4673,7 @@ components:
         height: { type: [integer, 'null'] }
         uploadedBy:
           type: [object, 'null']
-          description: The uploader's name, given to an official and to the uploader only; a volunteer is never told who else uploaded a photo
+          description: The uploader's name, given to an official and to the uploader only; null both when a volunteer may not be told who else uploaded a photo and when the uploader is not known (a public entry), which the app shows alike as not known
           required: [name]
           properties:
             name: { type: string }

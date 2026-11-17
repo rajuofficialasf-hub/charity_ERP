@@ -26,6 +26,7 @@ import { NEAR_DUPLICATE_BITS } from '../files/images-process.js';
 import {
   COVER_VIEW_PERMISSION,
   loadCoverRecord,
+  loadLinkedRecords,
   loadUploadRecord,
   scopeReachesCover,
   scopeReachesRecord,
@@ -152,6 +153,12 @@ function listRow(row: ListedFile, principal: Principal, access: RequestAccess): 
 }
 
 /** A file as the caller may see it; the position only reaches a caller with its class or the uploader. */
+/** A record a file links to, by its type and id. */
+interface RecordRef {
+  entityType: string;
+  entityId: string;
+}
+
 export interface FileView {
   id: string;
   kind: string;
@@ -169,7 +176,7 @@ export interface FileView {
   /** Who uploaded it, named to an official and to the uploader only. */
   uploadedBy: { name: string } | null;
   /** The records the file belongs to that the caller reaches, for the photo's own page. */
-  records: { entityType: string; entityId: string }[];
+  records: RecordRef[];
 }
 
 interface StoredFile {
@@ -216,7 +223,7 @@ export class FilesService {
     const exported = await exportDownload(this.prisma, this.access, principal, fileId);
     if (exported) return this.streamExport(exported, res, variant);
     const file = await this.findFile(fileId);
-    const owner = await this.viewer(principal, file);
+    const { owner } = await this.viewer(principal, file);
     this.refuseQuarantined(file);
     const key = variant
       ? variant === 'small'
@@ -305,7 +312,7 @@ export class FilesService {
   ): Promise<{ view: FileView; fieldClasses: string[] }> {
     const row = await this.prisma.file.findFirst({ where: { id: fileId, deletedAt: null } });
     if (!row) throw new ApiError('permission.not_found', 404);
-    const owner = await this.viewer(principal, row);
+    const { owner, records } = await this.viewer(principal, row);
     if (row.kind === 'nid_photo' && owner && principal.userId !== owner)
       await this.prisma.$transaction((tx) =>
         this.audit.record(tx, {
@@ -347,7 +354,7 @@ export class FilesService {
         width: row.width,
         height: row.height,
         uploadedBy: uploader ? { name: uploader.displayName } : null,
-        records: await this.reachedRecords(principal, row),
+        records,
       },
       fieldClasses: row.uploadedBy === principal.userId ? ['file.location'] : [],
     };
@@ -535,13 +542,17 @@ export class FilesService {
 
   /**
    * Whether the caller may see the file, or 404 (logged as a refusal). Answers the owner of a
-   * registration photo, which the NID audit names.
+   * registration photo, which the NID audit names, and the records the caller reaches through the
+   * file's links (none for a registration photo or an export, which have no list of photos).
    */
-  private async viewer(principal: Principal, file: StoredFile): Promise<string | null> {
+  private async viewer(
+    principal: Principal,
+    file: StoredFile,
+  ): Promise<{ owner: string | null; records: RecordRef[] }> {
     // an export file belongs to its job, whose own checks decide who reads it
     if (file.kind === 'export') {
       await exportDownload(this.prisma, this.access, principal, file.id);
-      return null;
+      return { owner: null, records: [] };
     }
     // a photo on an application (a beneficiary's NID photo, say) follows the application, never
     // the registration rule of a volunteer's own photos
@@ -551,14 +562,17 @@ export class FilesService {
       })) > 0;
     const registration = PHOTO_KINDS.includes(file.kind) && !onApplication;
     const owner = registration ? await this.ownerOf(file) : null;
-    const allowed = registration
-      ? !!owner && (await this.mayViewPhoto(principal, owner, file.kind))
-      : await this.mayViewLinked(principal, file);
-    if (!allowed) {
+    const reach = registration
+      ? {
+          allowed: !!owner && (await this.mayViewPhoto(principal, owner, file.kind)),
+          records: [],
+        }
+      : await this.linkedReach(principal, file);
+    if (!reach.allowed) {
       this.access.denied(principal.userId, 'entity', 'file');
       throw new ApiError('permission.not_found', 404);
     }
-    return owner;
+    return { owner, records: reach.records };
   }
 
   /** 423 while the scan has not cleared the file, 410 once it found a threat. */
@@ -573,86 +587,61 @@ export class FilesService {
     file: StoredFile,
     loaded?: RequestAccess,
   ): Promise<boolean> {
-    const links = await this.prisma.fileLink.findMany({
-      where: { fileId: file.id },
-      select: { entityType: true, entityId: true, slot: true },
-    });
-    const records = [];
-    for (const link of links) {
-      if (!Object.hasOwn(UPLOAD_RECORD_KINDS, link.entityType) || isCoverRecord(link.entityType))
-        continue;
-      const record = await loadUploadRecord(
-        this.prisma,
-        link.entityType as ProjectRecordType,
-        link.entityId,
-      );
-      if (record) records.push(record);
-    }
-    // the uploader reads their own file; one of an application only while they still own the
-    // application, so a transfer takes it from the old volunteer with the rest of the record
-    if (
-      file.uploadedBy === principal.userId &&
-      (!links.some((l) => l.entityType === 'application') ||
-        records.some((r) => r.applicationId && r.owners.includes(principal.userId)))
-    )
-      return true;
-    if (file.kind === 'cover_photo') return this.mayViewCover(principal, links, loaded);
-    if (!records.length) return false;
-    const access = loaded ?? (await this.access.load(principal.userId));
-    // a photo answering a question of an official-only section is read as that section is: only
-    // with the official section's permission, never by a volunteer who views the application
-    const permissions = (await this.inOfficialSection(file.kind, links))
-      ? ['application.view_official_section']
-      : viewPermissions(file.kind);
-    for (const permission of permissions) {
-      if (!access.grants.some((g) => g.permission === permission)) continue;
-      const scope = await this.access.scopeFor(principal, access, permission, 'project');
-      for (const record of records)
-        if (await scopeReachesRecord(this.prisma, scope, record)) return true;
-    }
-    return false;
+    return (await this.linkedReach(principal, file, loaded)).allowed;
   }
 
   /**
-   * The records a file belongs to that the caller reaches, in the order of its links: through the
-   * view permission of its kind as `mayViewLinked` decides, or as the uploader (of an application
-   * only while they still own it). A cover's record and a registration photo's person are never
-   * listed: neither has a list of photos to open.
+   * Whether the caller may see a file through its links, and the records they reach, in the links'
+   * order: the uploader reads their own file (one of an application only while they still own the
+   * application, so a transfer takes it from the old volunteer with the rest of the record); a
+   * cover follows its own rule and lists no record; anyone else needs the view permission of the
+   * file's kind with a scope that reaches the record.
    */
-  private async reachedRecords(
+  private async linkedReach(
     principal: Principal,
     file: StoredFile,
-  ): Promise<{ entityType: string; entityId: string }[]> {
+    loaded?: RequestAccess,
+  ): Promise<{ allowed: boolean; records: RecordRef[] }> {
     const links = await this.prisma.fileLink.findMany({
       where: { fileId: file.id },
-      select: { entityType: true, entityId: true },
+      select: { entityType: true, entityId: true, slot: true },
       orderBy: { id: 'asc' },
     });
-    const access = await this.access.load(principal.userId);
-    const permissions = viewPermissions(file.kind).filter((permission) =>
-      access.grants.some((g) => g.permission === permission),
-    );
-    const reached: { entityType: string; entityId: string }[] = [];
-    for (const link of links) {
-      if (!Object.hasOwn(UPLOAD_RECORD_KINDS, link.entityType) || isCoverRecord(link.entityType))
-        continue;
-      const record = await loadUploadRecord(
-        this.prisma,
-        link.entityType as ProjectRecordType,
-        link.entityId,
-      );
-      if (!record) continue;
-      let reaches =
-        file.uploadedBy === principal.userId &&
-        (link.entityType !== 'application' || record.owners.includes(principal.userId));
+    const linked = await loadLinkedRecords(this.prisma, links);
+    const ownsRecord = ({ link, record }: (typeof linked)[number]) =>
+      link.entityType !== 'application' || record.owners.includes(principal.userId);
+    const uploaderReads =
+      file.uploadedBy === principal.userId &&
+      (!links.some((l) => l.entityType === 'application') ||
+        linked.some((l) => l.record.applicationId && ownsRecord(l)));
+    if (file.kind === 'cover_photo')
+      return {
+        allowed: uploaderReads || (await this.mayViewCover(principal, links, loaded)),
+        records: [],
+      };
+    const reached = new Set(uploaderReads ? linked.filter(ownsRecord) : []);
+    const open = linked.filter((l) => !reached.has(l));
+    if (open.length) {
+      const access = loaded ?? (await this.access.load(principal.userId));
+      // a photo answering a question of an official-only section is read as that section is: only
+      // with the official section's permission, never by a volunteer who views the application
+      const permissions = (await this.inOfficialSection(file.kind, links))
+        ? ['application.view_official_section']
+        : viewPermissions(file.kind);
       for (const permission of permissions) {
-        if (reaches) break;
+        if (!access.grants.some((g) => g.permission === permission)) continue;
         const scope = await this.access.scopeFor(principal, access, permission, 'project');
-        reaches = await scopeReachesRecord(this.prisma, scope, record);
+        for (const l of open)
+          if (!reached.has(l) && (await scopeReachesRecord(this.prisma, scope, l.record)))
+            reached.add(l);
       }
-      if (reaches) reached.push({ entityType: link.entityType, entityId: link.entityId });
     }
-    return reached;
+    return {
+      allowed: uploaderReads || reached.size > 0,
+      records: linked
+        .filter((l) => reached.has(l))
+        .map(({ link }) => ({ entityType: link.entityType, entityId: link.entityId })),
+    };
   }
 
   /**
