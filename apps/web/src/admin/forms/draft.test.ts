@@ -44,6 +44,7 @@ import {
   updateField,
   usesOf,
   usesOfSection,
+  withSaved,
   yesNoOptions,
 } from './draft';
 import * as draftEdits from './draft';
@@ -1924,6 +1925,8 @@ describe('the rest of the definition', () => {
     'textsOf',
     'usesOf',
     'usesOfSection',
+    // the merge of a save's answer, which takes the server's definition whole
+    'withSaved',
     'yesNoOptions',
   ];
 
@@ -1961,5 +1964,28 @@ describe('the rest of the definition', () => {
     const none = setFormScoring(start, undefined);
     expect('scoring' in none).toBe(false);
     expect(none.sections).toBe(start.sections);
+  });
+});
+
+describe('the draft after its own save', () => {
+  it('keeps every part and question the save did not change, and takes what it changed', () => {
+    const held = definition(
+      section('first', [field('name', 'short_text'), field('gender', 'single_select')]),
+      section('second', [field('note', 'long_text')]),
+    );
+    // the server's answer: equal content in new objects, the gender's options from its list
+    const answer = JSON.parse(JSON.stringify(held)) as FormDefinition;
+    answer.sections[0]!.fields[1]!.options = [option('male'), option('female')];
+    const next = withSaved(held, answer);
+    expect(next).toEqual(answer);
+    expect(next.sections[1]).toBe(held.sections[1]);
+    expect(next.sections[0]!.fields[0]).toBe(held.sections[0]!.fields[0]);
+    expect(next.sections[0]!.fields[1]).not.toBe(held.sections[0]!.fields[1]);
+    expect(next.sections[0]).not.toBe(held.sections[0]);
+  });
+
+  it('answers the draft itself when the save changed nothing', () => {
+    const held = definition(section('first', [field('name', 'short_text')]));
+    expect(withSaved(held, JSON.parse(JSON.stringify(held)) as FormDefinition)).toBe(held);
   });
 });

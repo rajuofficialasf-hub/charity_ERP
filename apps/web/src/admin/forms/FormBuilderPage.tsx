@@ -46,6 +46,7 @@ import {
   textsOf,
   usesOf,
   usesOfSection,
+  withSaved,
 } from './draft';
 import { useChangeSentences } from './ChangeSummary';
 import {
@@ -310,10 +311,12 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       setTranslating(null);
     }
     setSeen(read.data);
-    setDraft({
+    const next: FormDefinition = {
       sections: read.data.data.sections,
       ...(read.data.data.scoring ? { scoring: read.data.data.scoring } : {}),
-    });
+    };
+    // the draft's own save keeps what it did not change, so the canvas redraws only that
+    setDraft(ownSave && draft ? withSaved(draft, next) : next);
     setEtag(read.data.meta.etag);
   }
   const fields: LibraryFields = useMemo(
@@ -808,7 +811,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   return (
     <div className="fb-page">
       <DocumentTitle title={title} />
-      <div data-testid="form-head">
+      <div className="fb-head" data-testid="form-head">
         <Page
           title={title}
           actions={

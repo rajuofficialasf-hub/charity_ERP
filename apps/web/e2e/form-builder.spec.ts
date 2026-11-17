@@ -99,8 +99,18 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     await ownQuestion(page, 'অংশ 1', type, label, options);
     await mark(page, role);
   }
-  // Publish does not ask while something is left: it opens the list, which names the role
   await saved(page);
+  // the save state stays in view while the form scrolls under it, the page title gone above
+  // (from the top, a short way: the shell's menu makes the page longer than the form)
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.mouse.move(640, 500);
+  await page.mouse.wheel(0, 600);
+  await expect(page.getByRole('heading', { level: 1 })).not.toBeInViewport();
+  await expect(
+    page.getByTestId('form-head').getByText('সংরক্ষিত', { exact: true }),
+  ).toBeInViewport();
+  await page.mouse.wheel(0, -600);
+  // Publish does not ask while something is left: it opens the list, which names the role
   await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
   const fixes = page.getByRole('dialog', { name: 'প্রকাশের আগে ঠিক করুন' });
   await expect(fixes.getByText('পরিচয়ের প্রশ্ন বাকি: গ্রাম', { exact: true })).toBeVisible();

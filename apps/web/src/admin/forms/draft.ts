@@ -1,4 +1,5 @@
 import { type Condition, isFieldRef } from '@css/shared';
+import { replaceEqualDeep } from '@tanstack/react-query';
 import {
   GUARDIAN_RELATION_COLUMN,
   MOBILE_OWNER_COLUMN,
@@ -1339,4 +1340,13 @@ export function setText(
 export function setFormScoring(def: FormDefinition, points: number | undefined): FormDefinition {
   const { scoring: _old, ...rest } = def;
   return points === undefined ? rest : { ...rest, scoring: { not_previously_assisted: points } };
+}
+
+/**
+ * The draft after its own save: the server's answer, with every part and question whose content did
+ * not change kept as the object the builder already holds, so a save redraws only what the server
+ * changed (a list's options, say) and not the whole canvas.
+ */
+export function withSaved(held: FormDefinition, saved: FormDefinition): FormDefinition {
+  return replaceEqualDeep(held, saved);
 }

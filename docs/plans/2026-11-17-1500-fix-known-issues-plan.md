@@ -52,10 +52,11 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 ## Progress
 - **Branch:** `fix/known-issues`
 - **Updated:** 2026-11-17
-- **Next:** U10: the setup dialog and the builder's redraw and save state
+- **Next:** U11: the server's slow paths
 - **Reviewed through:** C8 (the review fixes after 7e7af1df)
 - **Uncommitted:** none
 - **Notes:** the owner said not to wait for a command between units or checkpoints. U1: a blocked person's draft is refused at the send by the workflow guard `workflow.guard.beneficiary_not_blocked` (409), not by `beneficiary.blocked`. C1 review: a draft not yet tied to anyone whose number later names a blocked person stays refused at its edit (409 `beneficiary.blocked`), because tying it would fill in the blocked person's names, which the lookup never reveals; BR-010 says so. U2: the cause was the scope builder (`resolveInstances` in `apps/api/src/access/scope.ts`) honouring the house-construction condition only for beneficiaries; the web gives the Procurement Team the tab's list only and a session's "আবেদন". The planned e2e journey is covered by `procurement-applications.test.ts` and the tab's component test instead, because the demo seed has no house-construction project. U4: the lookup's uniform refusal past the day's limit holds on the lookup screen only; an application's own gate lets an unknown number through, since that is how a new person is entered (each draft stays on record under its creator). The profile's years already came from every application (`personApplications`), so nothing changed there. The transfer is not refused for a pending consent (the owner's second answer); it answers `consentPending`. C4 left one item for the owner, to go into STATUS's known issues at the end: past the day's limit the application form still tells a known number outside the area (429) from an unknown one (201); counting unknown numbers against the limit would stop new people being entered, so it is recorded, not changed
+  - U10: the builder page is a flex column now (a grid item sticks only inside its own row), the head's box `display: contents`, so the line with the save state sticks under the shell's 72px header while the form scrolls; the page can scroll past the form, since the shell's menu is longer, and there the line leaves with the form. The setup dialog's old values came from the list read before the save: the saved component goes into the list at once.
   - The web suite run whole on this machine (CPU about 70 % busy before it starts) times out 3 to 18 tests at the 5-second default, a different set each run; each passes alone. For U14: the tests near the limit are the builder's keyboard moves, the transfer's tick-all, the permission panel's effective view, the applications' retry and others.
   - U9: the E2E cannot make a route's chunk fail offline, since the service worker precaches every chunk, so the loader's second attempt is proven by its unit test; the offline page test failed without `offlineFirst` and passes with it; one run of three saw the photo journey keep "ছবি এখনো যায়নি" past 30 s (a flake for U14; the next three runs passed).
   - U8: the workflow transitions point at the permissions, which also came only from the seed, so the sync adds the roles and permissions of permissions.yaml first (`src/access/catalogue-sync.ts`); the seed's stable ids moved to `src/core/stable-id.ts`, so the seed run after a sync updates the same rows.
@@ -202,7 +203,7 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U11. The server's slow paths
 - **Goal:** R12 except the statistics and the phone's queue.
