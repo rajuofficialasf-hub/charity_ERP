@@ -3020,6 +3020,8 @@ model UploadSession {
   bytesReceived   BigInt   @default(0) @map("bytes_received")
   expiresAt       DateTime @map("expires_at") @db.Timestamptz(6)
   finalizedFileId String?  @map("finalized_file_id") @db.Uuid
+  /// a finalize holds the session until this moment, so a second one waits and the sweep leaves it
+  finalizingUntil DateTime? @map("finalizing_until") @db.Timestamptz(6)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy       String?  @map("created_by") @db.Uuid
   user            User     @relation("upload_sessions_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)

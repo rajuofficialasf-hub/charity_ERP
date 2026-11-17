@@ -1707,7 +1707,8 @@ Constraints: UNIQUE (file_id, entity_type, entity_id, slot); partial UNIQUE (cli
 | bytes_received | bigint | no | 0 | never more than the declared size |
 | expires_at | timestamptz | no | — | one hour after the last part |
 | finalized_file_id | uuid | yes | — | FK files |
-| [L] | | | | status log: an update may change parts_received, bytes_received, expires_at, finalized_file_id; expired unfinalized rows deleted by the nightly sweep (index on expires_at of the open ones) |
+| finalizing_until | timestamptz | yes | — | the moment a finalize's hold on the session runs out; a second finalize waits until then, the sweep leaves the row alone (migration `20261117180000_upload_finalize_lease`, D-179) |
+| [L] | | | | status log: an update may change parts_received, bytes_received, expires_at, finalized_file_id, finalizing_until; expired unfinalized rows deleted by the nightly sweep (index on expires_at of the open ones) |
 
 ### notifications
 | Column | Type | Null | Default | Comment |

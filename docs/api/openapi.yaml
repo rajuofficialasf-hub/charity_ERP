@@ -11533,6 +11533,7 @@ paths:
         '410': { $ref: '#/components/responses/Gone' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /files/{fileId}:
     parameters:
       - $ref: '#/components/parameters/FileId'
