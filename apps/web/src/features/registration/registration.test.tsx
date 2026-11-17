@@ -366,6 +366,12 @@ describe('the steps after the contacts', () => {
     await verifyContacts(user);
     await next(user);
     expect(stepName()).toBe('2Identity');
+    // a new step shows no error while it is typed into, before its Next
+    await user.type(screen.getByRole('textbox', { name: /NID number/ }), '1');
+    expect(screen.getByRole('textbox', { name: /NID number/ })).not.toHaveAccessibleDescription(
+      /10, 13 or 17 digits/,
+    );
+    await user.clear(screen.getByRole('textbox', { name: /NID number/ }));
     // a step is checked before the next one opens
     await next(user);
     expect(screen.getByRole('textbox', { name: /NID number/ })).toHaveAccessibleDescription(

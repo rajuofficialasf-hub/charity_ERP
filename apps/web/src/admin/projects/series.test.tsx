@@ -314,6 +314,8 @@ describe('a project’s page', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'স্বাবলম্বী প্রকল্প' }),
     ).toBeInTheDocument();
+    // the tab is named by the project alone, as every page of the app names it
+    await waitFor(() => expect(document.title).toBe('স্বাবলম্বী প্রকল্প'));
     expect(screen.getAllByText('অনুমতি নেই').length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: 'সেশন 2025 খুলুন' })[0]).toHaveAttribute(
       'href',

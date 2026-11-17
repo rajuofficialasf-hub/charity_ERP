@@ -1,6 +1,6 @@
 import type { PhotoSlot, RegistrationChannel, RegistrationKind } from '@css/shared/registration';
 import { Alert, Button, Form, Icon, LinkButton, ProgressBar } from '@/ui';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { type Path, useForm } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
@@ -91,6 +91,11 @@ export function RegisterPage() {
     // once a step was checked, a field's error goes as soon as its value is right
     reValidateMode: 'onChange',
   });
+  // each step starts unchecked, so typing into a new step shows no error before its Next; the
+  // values stay, and so does an error the server put on a field of the step shown
+  useEffect(() => {
+    form.reset(form.getValues(), { keepErrors: true, keepDefaultValues: true });
+  }, [step, form]);
   const errors = flatErrors(form.formState.errors);
   const pending = form.formState.isSubmitting;
   /** What a refused call says: its own message, the first field message, else the generic text. */
