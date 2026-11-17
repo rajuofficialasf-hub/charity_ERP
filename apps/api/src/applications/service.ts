@@ -267,7 +267,11 @@ const guardedProject = (project: ProjectRow) => ({
   identityRules: identityRulesOf(project),
 });
 
-const ROW_SELECT = {
+/**
+ * What a list reads of each application: no project, whose workflow definitions are large and
+ * which no list row shows, so a page reads none of them.
+ */
+const LIST_ROW_SELECT = {
   id: true,
   appNo: true,
   projectId: true,
@@ -303,9 +307,15 @@ const ROW_SELECT = {
   totalScore: true,
   applicationScoresApplication: { select: { criteria: true } },
   updatedAt: true,
+} satisfies Prisma.ApplicationSelect;
+
+/** What one application's read and its writes read: the list's row with its project. */
+const ROW_SELECT = {
+  ...LIST_ROW_SELECT,
   project: { select: PROJECT_SELECT },
 } satisfies Prisma.ApplicationSelect;
 
+type ListRow = Prisma.ApplicationGetPayload<{ select: typeof LIST_ROW_SELECT }>;
 type Row = Prisma.ApplicationGetPayload<{ select: typeof ROW_SELECT }>;
 
 /** More own applications than a volunteer can have: a safety cap on the id list of a snapshot. */
@@ -1155,7 +1165,7 @@ export class ApplicationsService {
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         ...(window.afterId ? { cursor: { id: window.afterId }, skip: 1 } : {}),
         take: limit + 1,
-        select: ROW_SELECT,
+        select: LIST_ROW_SELECT,
       }),
       this.prisma.application.findMany({
         where: own,
@@ -1199,7 +1209,7 @@ export class ApplicationsService {
         orderBy: byScore ? scoreOrder(direction) : orderBy(sort, direction),
         skip: offset,
         take: query.limit + 1,
-        select: ROW_SELECT,
+        select: LIST_ROW_SELECT,
       }),
       total: query.include === 'total' ? await tx.application.count({ where: filter }) : undefined,
     }));
@@ -1285,7 +1295,7 @@ export class ApplicationsService {
    * brought the application, on its record).
    */
   private summaryOf(
-    r: Row,
+    r: ListRow,
     now: Date,
     viewer: ApplicationViewer,
     sees: { document?: boolean; contact?: boolean } = {},

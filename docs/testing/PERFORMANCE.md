@@ -283,6 +283,20 @@ share of people helped in several sessions is known, measure again; the next ste
 kept per session by the writes, as the times helped are kept per person, which needs the owner's
 decision first.
 
+### The application lists (D-179; 2026-11-17)
+
+The office's list of one project's applications and the volunteer's own list read each row with
+its project, and with it the project's two workflow definitions (the snapshot and the stored
+definition, the largest JSON of a project), though no list row shows anything of them. The lists
+now read their rows without the project (`LIST_ROW_SELECT` in `apps/api/src/applications/service.ts`);
+one application's read and its writes keep it. Measured by `perf:lists --only applications`, as the
+Department Head on the project with the most applications of the data set, 20 runs each, in ms:
+
+| Case | p50 before | p95 before | p50 after | p95 after |
+|---|---|---|---|---|
+| first page (25 rows) | 28 | 42 | 21 | 30 |
+| 100 rows | 48 | 57 | 37 | 44 |
+
 ## 5. When to measure again
 
 - when a nationwide list gains a filter, a sort or a column read from another table;

@@ -82,6 +82,7 @@ async function viewerOf(email: string, permission: string, entity: string) {
 
 type VolunteerQuery = Parameters<typeof c.volunteerList.list>[0];
 type BeneficiaryQuery = Parameters<typeof c.beneficiaries.list>[0];
+type ApplicationQuery = Parameters<typeof c.applications.list>[2];
 
 const percentile = (sorted: number[], p: number) =>
   sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)]!;
@@ -280,6 +281,21 @@ async function main(): Promise<void> {
     );
     out();
   }
+
+  // the office's list of one project's applications, on the project with the most of them
+  // (docs/testing/PERFORMANCE.md, "The application lists")
+  const busiest = await one<{ id: string }>(Prisma.sql`
+    SELECT project_id AS id FROM applications GROUP BY 1 ORDER BY count(*) DESC LIMIT 1`);
+  const av = await viewerOf('head@example.org', 'application.view', 'application');
+  results.push(
+    await measure('head applications.list first page', () =>
+      c.applications.list(av, busiest.id, { ...page } as ApplicationQuery),
+    ),
+    await measure('head applications.list 100 rows', () =>
+      c.applications.list(av, busiest.id, { limit: 100 } as ApplicationQuery),
+    ),
+  );
+  out();
 
   // a caller who holds sessions by areas: the data set's RPM holds one area of an empty draft, so
   // the largest division and its largest district are held here in the first n running sessions,
