@@ -1,9 +1,8 @@
 import { DescriptionList, Skeleton, Text } from '@/ui';
 import { formatDateTime, formatFileSize, formatGps } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { useQuery } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'use-intl';
-import { detailsKey, photoDetails } from './photos-api';
+import { usePhotoDetails } from './photos-api';
 
 /** The map site's own address of a position; the place leaves the app only when this is pressed. */
 const mapAddress = (lat: number, lng: number) =>
@@ -19,12 +18,7 @@ export function PhotoDetails({ fileId }: { fileId: string }) {
   const t = useTranslations('photos.details');
   const common = useTranslations('common');
   const locale = useLocale() as Locale;
-  // the details leave the cache with the viewer, as the photo does
-  const details = useQuery({
-    queryKey: detailsKey(fileId),
-    queryFn: () => photoDetails(fileId),
-    gcTime: 0,
-  });
+  const details = usePhotoDetails(fileId);
   if (details.isPending) return <Skeleton shape="text" />;
   if (details.isError) return <Text tone="muted">{common('state.error.text')}</Text>;
   const d = details.data;

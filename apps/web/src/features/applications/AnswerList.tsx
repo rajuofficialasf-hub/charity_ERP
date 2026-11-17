@@ -161,14 +161,16 @@ export function AnswerList({
                 <Stack key={i.key} gap={1}>
                   <QuestionTitle>{i.label}</QuestionTitle>
                   <div className="my-application-photos">
-                    {i.ids.map((fileId, n) => (
-                      <OpenablePhoto
-                        key={fileId}
-                        photos={i.ids.map((id) => ({ fileId: id, alt: t('photo_alt') }))}
-                        index={n}
-                        title={i.label}
-                      />
-                    ))}
+                    {i.ids
+                      .map((fileId) => ({ fileId, alt: t('photo_alt') }))
+                      .map((photo, n, photos) => (
+                        <OpenablePhoto
+                          key={photo.fileId}
+                          photos={photos}
+                          index={n}
+                          title={i.label}
+                        />
+                      ))}
                   </div>
                 </Stack>
               ))}

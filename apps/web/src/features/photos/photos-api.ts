@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { api, type SavedFile } from '../../api/client';
 import type { FileDetails } from '../../api/schemas';
 import { saveFile } from '../../lib/save-file';
@@ -8,6 +9,16 @@ export const detailsKey = (fileId: string) => ['files', fileId, 'details'] as co
 /** A file's details: when and where it was taken, its size, who uploaded it, its records. */
 export function photoDetails(fileId: string): Promise<FileDetails> {
   return api<FileDetails>(`/files/${fileId}`);
+}
+
+/** A file's details, read once and let go with the screen that shows them, as the photo is. */
+export function usePhotoDetails(fileId: string, enabled = true) {
+  return useQuery({
+    queryKey: detailsKey(fileId),
+    queryFn: () => photoDetails(fileId),
+    gcTime: 0,
+    enabled,
+  });
 }
 
 /**

@@ -66,6 +66,26 @@ describe('the page of a photo', () => {
   });
 });
 
+describe('the page of a photo that cannot be read', () => {
+  it('says the photo could not be opened when the API fails otherwise', async () => {
+    server.use(
+      http.get(`*/api/v1/files/${PHOTO}`, () => apiError(403, 'permission.denied', 'refused')),
+    );
+    open();
+    expect(
+      await screen.findByText('ছবিটি এখন খোলা গেল না। একটু পরে আবার চেষ্টা করুন।'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('asks the API nothing for an address that names no file', async () => {
+    renderApp(<PhotoPage />, 'bn', { path: '/photos/:fileId', initialPath: '/photos/..%2Fme' });
+    expect(
+      await screen.findByText('ছবিটি পাওয়া যায়নি, অথবা এটি দেখার অনুমতি আপনার নেই।'),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('the return after signing in', () => {
   it("leads back to a photo's page and to nothing else", () => {
     expect(returnPath(`/photos/${PHOTO}`)).toBe(`/photos/${PHOTO}`);

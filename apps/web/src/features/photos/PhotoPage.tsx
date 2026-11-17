@@ -1,14 +1,16 @@
 import type { Me } from '@css/shared/auth';
 import { Button, LinkButton, Skeleton, Stack, Text } from '@/ui';
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../api/client';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { detailsKey, photoDetails } from './photos-api';
+import { usePhotoDetails } from './photos-api';
 import { PhotoViewerDialog } from './PhotoViewerDialog';
+
+/** A file id as the API makes them. */
+const FILE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** The page of a record type the app has, for the link from a photo to its record. */
 function recordPath(entityType: string, entityId: string, volunteer: boolean): string | null {
@@ -41,12 +43,11 @@ function PhotoPageBody({ me }: { me: Me }) {
   const t = useTranslations('photos');
   const { fileId = '' } = useParams();
   const [open, setOpen] = useState(true);
-  const details = useQuery({
-    queryKey: detailsKey(fileId),
-    queryFn: () => photoDetails(fileId),
-    gcTime: 0,
-  });
+  // an address that names no file id is not found, and asks the API nothing
+  const wellFormed = FILE_ID.test(fileId);
+  const details = usePhotoDetails(fileId, wellFormed);
 
+  if (!wellFormed) return <Text>{t('notFound')}</Text>;
   if (details.isPending) return <Skeleton shape="card" />;
   if (details.isError) {
     const missing = details.error instanceof ApiFailure && details.error.status === 404;
