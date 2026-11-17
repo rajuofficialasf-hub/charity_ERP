@@ -52,10 +52,11 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 ## Progress
 - **Branch:** `fix/known-issues`
 - **Updated:** 2026-11-17
-- **Next:** U7: a builder question's reference-list options
+- **Next:** U8: the production sync of the templates and base lists
 - **Reviewed through:** C6 (the review fixes after e6b19cb2)
 - **Uncommitted:** none
 - **Notes:** the owner said not to wait for a command between units or checkpoints. U1: a blocked person's draft is refused at the send by the workflow guard `workflow.guard.beneficiary_not_blocked` (409), not by `beneficiary.blocked`. C1 review: a draft not yet tied to anyone whose number later names a blocked person stays refused at its edit (409 `beneficiary.blocked`), because tying it would fill in the blocked person's names, which the lookup never reveals; BR-010 says so. U2: the cause was the scope builder (`resolveInstances` in `apps/api/src/access/scope.ts`) honouring the house-construction condition only for beneficiaries; the web gives the Procurement Team the tab's list only and a session's "আবেদন". The planned e2e journey is covered by `procurement-applications.test.ts` and the tab's component test instead, because the demo seed has no house-construction project. U4: the lookup's uniform refusal past the day's limit holds on the lookup screen only; an application's own gate lets an unknown number through, since that is how a new person is entered (each draft stays on record under its creator). The profile's years already came from every application (`personApplications`), so nothing changed there. The transfer is not refused for a pending consent (the owner's second answer); it answers `consentPending`. C4 left one item for the owner, to go into STATUS's known issues at the end: past the day's limit the application form still tells a known number outside the area (429) from an unknown one (201); counting unknown numbers against the limit would stop new people being entered, so it is recorded, not changed
+  - U7: the list options themselves were built by D-163 (2026-11-08, after the gate's list of 2026-11-07): the save, the copy and the publish write the list's options, so a refusal at the publish has nothing to refuse and was not added; the unit adds the end of the builder journey, the profile created from the public entry of a builder-made form (`form-builder.spec.ts`, 3 of 3).
   - U6: the prior state is kept on the application row (`closed_from_status`, `closed_from_outcome`, migration `20261117160000_application_closed_from`), not in `workflow_transitions`, which holds the template's transitions, not a history; the close runs in `workflow/project-close.ts`, called by the project's close. The beneficiary check now lets a draft closed with its project stay without a person.
   - The owner's Docker stack was once started from this worktree (its api mounted the branch); `docker compose` belongs to the main checkout only. The demo seed's winter series collided with the series the project-series migration made for an existing project (fixed, commit 88fd4c66).
 
@@ -157,7 +158,7 @@ The identity plan, the Phase 2 gate and the programs and projects work each left
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U8. The production sync of the templates and base lists
 - **Goal:** R9.
