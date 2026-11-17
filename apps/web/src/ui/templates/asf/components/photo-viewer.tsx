@@ -48,7 +48,8 @@ export function PhotoViewer({
   const labels = useLabels();
   const count = useCount();
   const wide = useMediaQuery(WIDE, { noSsr: true });
-  const [zoom, setZoom] = useState(WHOLE);
+  const [zoomed, setZoomed] = useState({ photo: -1, ...WHOLE });
+  const [dragging, setDragging] = useState(false);
   const [paneOpen, setPaneOpen] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [full, setFull] = useState(false);
@@ -60,8 +61,13 @@ export function PhotoViewer({
   const photo = photos[index];
   const canFullScreen = typeof HTMLElement.prototype.requestFullscreen === 'function';
 
-  // another photo starts whole
-  useEffect(() => setZoom(WHOLE), [index]);
+  // the zoom belongs to the photo it was made on, so another photo starts whole
+  const zoom = zoomed.photo === index ? zoomed : { photo: index, ...WHOLE };
+  const setZoom = (next: typeof WHOLE | ((z: typeof WHOLE) => typeof WHOLE)) =>
+    setZoomed((current) => {
+      const base = current.photo === index ? current : { photo: index, ...WHOLE };
+      return { photo: index, ...(typeof next === 'function' ? next(base) : next) };
+    });
 
   useEffect(() => {
     const changed = () => setFull(document.fullscreenElement === frame.current);
@@ -118,6 +124,7 @@ export function PhotoViewer({
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     event.currentTarget.setPointerCapture?.(event.pointerId);
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    setDragging(true);
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()];
       pinch.current = { distance: Math.hypot(a!.x - b!.x, a!.y - b!.y), scale: zoom.scale };
@@ -147,6 +154,7 @@ export function PhotoViewer({
   const onPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
     pointers.current.delete(event.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
+    if (!pointers.current.size) setDragging(false);
   };
 
   const onWheel = (event: WheelEvent<HTMLDivElement>) => {
@@ -260,7 +268,7 @@ export function PhotoViewer({
                     maxWidth: '100%',
                     maxHeight: '100%',
                     objectFit: 'contain',
-                    transition: pointers.current.size ? 'none' : 'transform 0.15s ease-out',
+                    transition: dragging ? 'none' : 'transform 0.15s ease-out',
                     '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
                   }}
                 />
