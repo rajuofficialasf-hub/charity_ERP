@@ -309,6 +309,28 @@ describe('GET /files/{fileId}/content', () => {
     expect(await views()).toEqual([{ new: { ownerUserId: owner.id } }]);
   });
 
+  it('lets only an official with the identity class download an NID photo, audited', async () => {
+    const { owner, nidPhoto } = await volunteerWithPhotos();
+    const rpm = await login(h, await rpmOf(loc));
+    const res = await request(h.server())
+      .get(`/api/v1/files/${nidPhoto}/download`)
+      .set(bearer(rpm));
+    expect(res.status).toBe(200);
+    expect(res.headers['content-disposition']).toMatch(/^attachment; filename="photo-/);
+    const audits = await h.db.query(
+      `SELECT new FROM audit_log WHERE action = 'file.downloaded' AND entity_id = $1`,
+      [nidPhoto],
+    );
+    expect(audits.rows).toEqual([
+      { new: { kind: 'nid_photo', record: null, ownerUserId: owner.id, position: false } },
+    ]);
+    const daee = await login(h, await account(h.db, { role: 'official_daee' }));
+    expect(
+      (await request(h.server()).get(`/api/v1/files/${nidPhoto}/download`).set(bearer(daee)))
+        .status,
+    ).toBe(404);
+  });
+
   it("audits an official's read of an NID photo's details, which name no record to open", async () => {
     const { owner, nidPhoto } = await volunteerWithPhotos();
     const rpm = await login(h, await rpmOf(loc));

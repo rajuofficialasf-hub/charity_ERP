@@ -11606,6 +11606,43 @@ paths:
         '410': { $ref: '#/components/responses/Gone' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '423': { $ref: '#/components/responses/Locked' }
+  /files/{fileId}/download:
+    parameters:
+      - $ref: '#/components/parameters/FileId'
+    get:
+      tags: [files]
+      operationId: files.file.download
+      summary: Save a photo with its capture time and, for a caller who may see the position, its place written into the file as EXIF; whoever may see the photo may save it, every download audited (attachment, Cache-Control private no-store, nosniff)
+      description: >-
+        The same check as the photo's content: its uploader, and whoever holds a view permission of
+        its kind whose scope reaches its record; an NID photo only for an official with the identity
+        class. JPEG, PNG and WebP only (any other file answers 404 and keeps its content route). The
+        stored photo is never changed: the bytes sent drop the metadata the photo still held and carry
+        the capture time and, under the class file.location or for the uploader, the position with
+        its accuracy. The download is audited as file.downloaded with the record it was reached
+        through, derived on the server. A stored photo whose container cannot be walked answers 422
+        file.unreadable before any byte; one that breaks inside its image data ends the connection.
+      x-permission: entity
+      x-scope: file
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: file-download
+      responses:
+        '200':
+          description: The photo as an attachment named photo-<capture time in Dhaka>-<file id prefix>
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /files:
     get:
       tags: [files]

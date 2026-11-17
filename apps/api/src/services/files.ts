@@ -22,6 +22,13 @@ import {
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { PageMeta } from '../http/send.js';
+import { dhakaClock } from '../core/dhaka-day.js';
+import {
+  metadataWriter,
+  UnreadablePhoto,
+  webpLayout,
+  type WrittenMetadata,
+} from '../files/exif-write.js';
 import { NEAR_DUPLICATE_BITS } from '../files/images-process.js';
 import {
   COVER_VIEW_PERMISSION,
@@ -190,7 +197,18 @@ interface StoredFile {
   virusScan: string;
   thumbnailSmallKey: string | null;
   thumbnailMediumKey: string | null;
+  capturedAt: Date | null;
+  latitude: Prisma.Decimal | null;
+  longitude: Prisma.Decimal | null;
+  gpsAccuracyM: Prisma.Decimal | null;
 }
+
+/** The photo types a download writes its metadata into, and the name each is saved under. */
+const DOWNLOAD_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 /**
  * Streams stored files to the people allowed to see them, never through a storage address
@@ -264,6 +282,89 @@ export class FilesService {
     res.setHeader('Cache-Control', file.kind === 'cover_photo' ? COVER_CACHE : 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     await pipeline(body, res);
+  }
+
+  /**
+   * A photo saved by whoever may see it (docs/architecture/FILES_AND_DOCUMENTS.md, "Download of a
+   * photo"): the same check as its content, the capture time and, for a caller who may see the
+   * position, the place written into the file as it streams, and every download audited. The head
+   * of the photo is read through the writer before anything is promised, so a stored photo that
+   * cannot be walked answers 422 with no audit; one that breaks later, inside its image data, ends
+   * the connection, so the client never keeps a short photo.
+   */
+  async streamDownload(principal: Principal, fileId: string, res: Response): Promise<void> {
+    const file = await this.findFile(fileId);
+    const { owner, records } = await this.viewer(principal, file);
+    const extension = Object.hasOwn(DOWNLOAD_EXTENSIONS, file.mime)
+      ? DOWNLOAD_EXTENSIONS[file.mime]
+      : undefined;
+    if (file.kind === 'export' || !extension) throw new ApiError('permission.not_found', 404);
+    this.refuseQuarantined(file);
+    const access = await this.access.load(principal.userId);
+    const place =
+      file.latitude !== null &&
+      file.longitude !== null &&
+      (access.fieldClasses.has('file.location') || file.uploadedBy === principal.userId);
+    const meta: WrittenMetadata = {
+      capturedAt: file.capturedAt,
+      gps: place
+        ? {
+            lat: Number(file.latitude),
+            lng: Number(file.longitude),
+            accuracyM: file.gpsAccuracyM === null ? null : Number(file.gpsAccuracyM),
+          }
+        : null,
+    };
+    const bucket = knownBucket(file.bucket);
+    const size = Number(file.sizeBytes);
+    let photo: AsyncIterator<Buffer>;
+    let first: IteratorResult<Buffer>;
+    try {
+      // a WebP's RIFF length depends on all its chunks: a first read lists them
+      const layout =
+        file.mime === 'image/webp'
+          ? await webpLayout(await this.storage.get(bucket, file.objectKey), size)
+          : undefined;
+      const writer = metadataWriter(file.mime, meta, layout);
+      const body = await this.storage.get(bucket, file.objectKey);
+      body.on('error', (error) => writer.destroy(error));
+      body.pipe(writer);
+      photo = writer[Symbol.asyncIterator]() as AsyncIterator<Buffer>;
+      first = await photo.next();
+    } catch (error) {
+      if (error instanceof NotFoundError) throw new ApiError('permission.not_found', 404);
+      if (error instanceof UnreadablePhoto) throw new ApiError('file.unreadable', 422);
+      throw error;
+    }
+    // the trace of a download that is about to happen, never of one that could not
+    await this.prisma.$transaction((tx) =>
+      this.audit.record(tx, {
+        action: 'file.downloaded',
+        entityType: 'file',
+        entityId: file.id,
+        new: {
+          kind: file.kind,
+          record: records[0] ? { ...records[0] } : null,
+          ...(owner ? { ownerUserId: owner } : {}),
+          position: meta.gps !== null,
+        },
+      }),
+    );
+    const taken = file.capturedAt
+      ? `${dhakaClock(file.capturedAt).replace(/[-:]/g, '').replace('T', '-')}-`
+      : '';
+    res.status(200);
+    res.setHeader('Content-Type', file.mime);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="photo-${taken}${file.id.slice(0, 8)}.${extension}"`,
+    );
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // the rest of the photo as it comes; an error past this point ends the connection
+    await pipeline(async function* () {
+      for (let next = first; !next.done; next = await photo.next()) yield next.value;
+    }, res);
   }
 
   /** An export file to its requester, as an attachment; a sensitive one's download is audited. */
@@ -534,6 +635,10 @@ export class FilesService {
         virusScan: true,
         thumbnailSmallKey: true,
         thumbnailMediumKey: true,
+        capturedAt: true,
+        latitude: true,
+        longitude: true,
+        gpsAccuracyM: true,
       },
     });
     if (!file) throw new ApiError('permission.not_found', 404);

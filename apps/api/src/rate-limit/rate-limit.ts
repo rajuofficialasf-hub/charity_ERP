@@ -21,7 +21,8 @@ export type RateLimitClass =
   | 'sync'
   | 'upload'
   | 'lookup'
-  | 'export';
+  | 'export'
+  | 'file-download';
 
 export interface RateWindow {
   limit: number;
@@ -157,4 +158,7 @@ export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
   ],
   // An export reads up to 100,000 rows in the worker: a person starts at most 30 an hour.
   export: [{ limit: 30, ttlMs: HOUR, key: caller, shared: true }],
+  // A downloaded photo carries its place; a person saves at most 120 an hour, so a loop cannot pull
+  // every photo they may see at full speed (each download is audited besides).
+  'file-download': [{ limit: 120, ttlMs: HOUR, key: caller, shared: true }],
 };

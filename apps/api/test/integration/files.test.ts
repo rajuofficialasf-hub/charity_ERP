@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { Writable } from 'node:stream';
+import { Readable, Writable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { UPLOAD_RULES } from '@css/shared/files';
+import { readPhotoMetadata } from '../../src/files/exif.js';
 import { FilesService } from '../../src/services/files.js';
 import { picture } from '../support/photos.js';
 import { accessWorld } from './support/access-fixtures.js';
@@ -115,6 +116,23 @@ const content = (who: string, fileId: string, variant?: string) =>
       res.on('data', (c: Buffer) => chunks.push(c));
       res.on('end', () => done(null, Buffer.concat(chunks)));
     });
+const download = (who: string, fileId: string) =>
+  request(h.server())
+    .get(`/api/v1/files/${fileId}/download`)
+    .set(as(who))
+    .buffer(true)
+    .parse((res, done) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => done(null, Buffer.concat(chunks)));
+    });
+const downloads = async (fileId: string) =>
+  (
+    await h.db.query(
+      `SELECT actor_user_id, new FROM audit_log WHERE action = 'file.downloaded' AND entity_id = $1`,
+      [fileId],
+    )
+  ).rows as { actor_user_id: string; new: Record<string, unknown> }[];
 const fileRowScan = async (id: string) =>
   (await h.db.query('SELECT virus_scan FROM files WHERE id = $1', [id])).rows[0];
 const info = (who: string, fileId: string) =>
@@ -346,6 +364,111 @@ describe('the metadata of a file', () => {
   });
 });
 
+describe('the download of a photo', () => {
+  const TAKEN = '2026-11-02T04:30:15.000Z';
+
+  it('saves the photo with its time and place for an official, audited once', async () => {
+    const id = await upload('general', await picture({ variant: 12 }), {
+      capturedAt: TAKEN,
+      gps: { lat: 23.81, lng: 90.41, accuracyM: 8 },
+    });
+    await h.container.fileProcessor.process(id);
+    const res = await download('rpmDhaka', id);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('image/jpeg');
+    expect(res.headers['content-disposition']).toBe(
+      `attachment; filename="photo-20261102-103015-${id.slice(0, 8)}.jpg"`,
+    );
+    expect(res.headers['cache-control']).toBe('private, no-store');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(await readPhotoMetadata(res.body as Buffer)).toEqual({
+      capturedAt: new Date(TAKEN),
+      gps: { lat: expect.closeTo(23.81, 6), lng: expect.closeTo(90.41, 6) },
+    });
+    expect(await downloads(id)).toEqual([
+      {
+        actor_user_id: world.users.rpmDhaka,
+        new: {
+          kind: 'distribution_proof',
+          record: { entityType: 'application', entityId: dhakaApplication },
+          position: true,
+        },
+      },
+    ]);
+  });
+
+  it('gives the uploader the place, and another reader of the record the time alone', async () => {
+    const own = await upload('general', await picture({ variant: 13 }), {
+      capturedAt: TAKEN,
+      gps: { lat: 23.7, lng: 90.3, accuracyM: 5 },
+    });
+    await h.container.fileProcessor.process(own);
+    expect((await readPhotoMetadata((await download('general', own)).body as Buffer)).gps).toEqual({
+      lat: expect.closeTo(23.7, 6),
+      lng: expect.closeTo(90.3, 6),
+    });
+    const office = await upload('rpmDhaka', await picture({ variant: 14 }), {
+      capturedAt: TAKEN,
+      gps: { lat: 23.7, lng: 90.3, accuracyM: 5 },
+    });
+    await h.container.fileProcessor.process(office);
+    const res = await download('general', office);
+    expect(res.status).toBe(200);
+    expect(await readPhotoMetadata(res.body as Buffer)).toEqual({
+      capturedAt: new Date(TAKEN),
+      gps: null,
+    });
+    expect((await downloads(office))[0]!.new).toMatchObject({ position: false });
+  });
+
+  it('refuses who may not see it, a photo not yet cleared, and a caller without a session', async () => {
+    const id = await upload('general', await picture({ variant: 15 }));
+    expect((await download('rpmDhaka', id)).status).toBe(423);
+    await h.container.fileProcessor.process(id);
+    expect((await download('rpmRangpur', id)).status).toBe(404);
+    expect((await download('media', id)).status).toBe(404);
+    expect((await request(h.server()).get(`/api/v1/files/${id}/download`)).status).toBe(401);
+    expect(await downloads(id)).toEqual([]);
+  });
+
+  it('answers 404 for a file that is not a photo, which keeps its own route', async () => {
+    // bytes of its own, so the project's identical-file check does not refuse the upload
+    const pdf = Buffer.from(`%PDF-1.7\n% ${randomUUID()}\n1 0 obj << >> endobj\n%%EOF\n`);
+    const id = await upload('general', pdf, {
+      kind: 'voucher',
+      slot: 'voucher',
+      mime: 'application/pdf',
+      source: 'gallery',
+    });
+    await h.container.fileProcessor.process(id);
+    expect((await download('rpmDhaka', id)).status).toBe(404);
+  });
+
+  it('writes no audit for a stored photo that is gone or damaged', async () => {
+    const gone = await upload('general', await picture({ variant: 16 }));
+    await h.container.fileProcessor.process(gone);
+    const goneRow = (await h.db.query('SELECT bucket, object_key FROM files WHERE id = $1', [gone]))
+      .rows[0];
+    await h.container.storage.remove(goneRow.bucket, goneRow.object_key);
+    expect((await download('rpmDhaka', gone)).status).toBe(404);
+    expect(await downloads(gone)).toEqual([]);
+
+    const damaged = await upload('general', await picture({ variant: 17 }));
+    await h.container.fileProcessor.process(damaged);
+    const row = (await h.db.query('SELECT bucket, object_key FROM files WHERE id = $1', [damaged]))
+      .rows[0];
+    const garbage = Buffer.from('not a photo at all');
+    await h.container.storage.put(row.bucket, row.object_key, Readable.from([garbage]), {
+      contentType: 'image/jpeg',
+      size: garbage.length,
+    });
+    const res = await download('rpmDhaka', damaged);
+    expect(res.status).toBe(422);
+    expect(JSON.parse((res.body as Buffer).toString()).error.code).toBe('file.unreadable');
+    expect(await downloads(damaged)).toEqual([]);
+  });
+});
+
 describe('the files of a record', () => {
   const list = (who: string, query: Record<string, string>) =>
     request(h.server())
@@ -539,5 +662,22 @@ describe('the files of a record', () => {
     expect(res.body.data.find((r: { id: string }) => r.id === photo).slot).toBe(
       'distribution_proof',
     );
+  });
+});
+
+describe('the download limit', () => {
+  let limited: AuthHarness;
+  beforeAll(async () => {
+    limited = await authHarness({ realRateLimits: true });
+  });
+  afterAll(async () => limited.close());
+
+  it('stops a person after 120 downloads in an hour', async () => {
+    const rpm = await account(limited.db, { role: 'regional_program_manager' });
+    const s = await login(limited, rpm);
+    const call = () =>
+      request(limited.server()).get(`/api/v1/files/${randomUUID()}/download`).set(bearer(s));
+    for (let i = 0; i < 120; i += 1) expect((await call()).status).toBe(404);
+    expect((await call()).status).toBe(429);
   });
 });

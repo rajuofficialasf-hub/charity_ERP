@@ -111,6 +111,24 @@ export function filesRouter(
   defineRoute<unknown, unknown, { fileId: string }>(router, deps, {
     tag: 'files',
     method: 'get',
+    path: '/files/:fileId/download',
+    operationId: 'files.file.download',
+    summary:
+      'Save a photo with its capture time and, for a caller who may see the position, its place written into the file as EXIF; whoever may see the photo may save it, every download audited (attachment, Cache-Control private no-store, nosniff)',
+    permission: 'entity',
+    scope: 'file',
+    audit: 'none',
+    idempotency: 'none',
+    rateLimit: 'file-download',
+    params: { fileId: z.uuid() },
+    streams: true,
+    responses: { 200: null, 401: null, 404: null, 410: null, 422: null, 423: null, 429: null },
+    handler: ({ params, req, res }) => c.files.streamDownload(principalOf(req), params.fileId, res),
+  });
+
+  defineRoute<unknown, unknown, { fileId: string }>(router, deps, {
+    tag: 'files',
+    method: 'get',
     path: '/files/:fileId',
     operationId: 'files.file.get',
     summary:
