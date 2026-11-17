@@ -233,37 +233,60 @@ export class MediaHomeService {
     private readonly access: AccessService,
   ) {}
 
+  /**
+   * The home's counts, overall and by program, counted in the database: the referrals the caller
+   * reaches grouped by project and state, and their works grouped by stage once per program, so
+   * the read stays a handful of grouped queries however many referrals there are.
+   */
   async summary(scope: Scope): Promise<z.infer<typeof mediaSummaryView>> {
-    const rows = await this.prisma.mediaReferral.findMany({
-      where: mediaReferralWhere(scope),
-      select: {
-        state: true,
-        project: { select: { program: { select: { id: true, nameBn: true, nameEn: true } } } },
-        work: { select: { stageCode: true } },
-      },
+    const where = mediaReferralWhere(scope);
+    const byProject = await this.prisma.mediaReferral.groupBy({
+      by: ['projectId', 'state'],
+      where,
+      _count: { _all: true },
     });
+    const projects = await this.prisma.project.findMany({
+      where: { id: { in: [...new Set(byProject.map((r) => r.projectId))] } },
+      select: { id: true, program: { select: { id: true, nameBn: true, nameEn: true } } },
+    });
+    const programOf = new Map(projects.map((p) => [p.id, p.program]));
     const overall = empty();
     const programs = new Map<
       string,
       { program: { id: string; name: Bilingual }; counts: Counts }
     >();
-    for (const r of rows) {
-      const p = r.project.program;
+    const add = (counts: Counts, group: keyof Counts, n: number) => {
+      // eslint-disable-next-line security/detect-object-injection -- a typed group key
+      counts[group] += n;
+      // eslint-disable-next-line security/detect-object-injection -- a typed group key
+      overall[group] += n;
+    };
+    for (const r of byProject) {
+      const p = programOf.get(r.projectId);
+      if (!p) continue;
       const entry = programs.get(p.id) ?? { program: { id: p.id, name: name(p) }, counts: empty() };
       programs.set(p.id, entry);
-      const groups: (keyof Counts)[] = ['referrals'];
-      if (r.state === 'pending') groups.push('new');
-      if (r.state === 'sent_back') groups.push('inReview');
-      if (r.state === 'rejected') groups.push('rejected');
-      const group = r.work ? groupOf(r.work.stageCode) : null;
-      if (group) groups.push(group);
-      for (const g of groups) {
-        // eslint-disable-next-line security/detect-object-injection -- a typed group key
-        overall[g] += 1;
-        // eslint-disable-next-line security/detect-object-injection -- a typed group key
-        entry.counts[g] += 1;
-      }
+      const n = r._count._all;
+      add(entry.counts, 'referrals', n);
+      if (r.state === 'pending') add(entry.counts, 'new', n);
+      if (r.state === 'sent_back') add(entry.counts, 'inReview', n);
+      if (r.state === 'rejected') add(entry.counts, 'rejected', n);
     }
+    const stages = await Promise.all(
+      [...programs.keys()].map(async (programId) => ({
+        programId,
+        rows: await this.prisma.mediaWork.groupBy({
+          by: ['stageCode'],
+          where: { referral: { AND: [where, { project: { programId } }] } },
+          _count: { _all: true },
+        }),
+      })),
+    );
+    for (const { programId, rows } of stages)
+      for (const r of rows) {
+        const group = groupOf(r.stageCode);
+        if (group) add(programs.get(programId)!.counts, group, r._count._all);
+      }
     return {
       overall,
       programs: [...programs.values()].sort((a, b) =>

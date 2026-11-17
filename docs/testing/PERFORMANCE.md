@@ -297,6 +297,16 @@ Department Head on the project with the most applications of the data set, 20 ru
 | first page (25 rows) | 28 | 42 | 21 | 30 |
 | 100 rows | 48 | 57 | 37 | 44 |
 
+The other slow paths of the same list were changed by reading the code, not measured on the data
+set, since none of them is a list call `perf:lists` makes: an upload's finalize joins its parts
+outside a transaction under a two-minute lease of its session and writes the file's rows in a short
+one (FILES_AND_DOCUMENTS, "Upload pipeline"); a draft's save writes only the parts and questions that
+changed, so a save of one changed question writes that question's row (the integration test of
+`forms.test.ts` counts the rows it touches); the public form keeps the definition of a published
+version in memory by its id after the link's checks of each request; an export's count runs under
+the time limit of the list reads; the Media Team's home counts its referrals grouped by project and
+state and its works grouped by stage once per program, in place of reading every referral.
+
 ## 5. When to measure again
 
 - when a nationwide list gains a filter, a sort or a column read from another table;
