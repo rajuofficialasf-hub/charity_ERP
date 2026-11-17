@@ -52,10 +52,10 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 ## Progress
 - **Branch:** `feat/photo-viewer`
 - **Updated:** 2026-11-17
-- **Next:** U3, the EXIF writer: `apps/api/src/files/exif-write.spec.ts` first
+- **Next:** checkpoint C3 (U3), then U4, the download route
 - **Reviewed through:** C2 at a5fafa6c
 - **Uncommitted:** none
-- **Notes:** the owner said "শুরু করো" and not to wait for a command between units or checkpoints. The branch starts from the tip of `fix/known-issues` (PR #64 still in CI); once #64 is squash-merged into `develop`, `origin/develop` is merged into this branch (never a rebase). The owner added every hardening of the plan's security review ("সব যোগ করো").
+- **Notes:** the owner said "শুরু করো" and not to wait for a command between units or checkpoints. The branch starts from the tip of `fix/known-issues` (PR #64 still in CI); once #64 is squash-merged into `develop`, `origin/develop` is merged into this branch (never a rebase). U3: `images.ts` only exports its strip's rules for the writer, which strips a WebP itself; exifr reads no WebP, so the spec reads a WebP's EXIF chunk as the raw TIFF block the WebP container holds (libvips reads it too); the Dhaka wall clock is `dhakaClock` in `core/dhaka-day.ts`. The owner added every hardening of the plan's security review ("সব যোগ করো").
 
 ## Implementation units
 
@@ -98,7 +98,7 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 - **Depends on:** none
 - **Size:** L
 - **Risk area:** file storage
-- **Status:** todo
+- **Status:** done
 
 ### U4. The download
 - **Goal:** `GET /files/{fileId}/download` saves the photo with its metadata, audited.

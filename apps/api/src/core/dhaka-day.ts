@@ -15,3 +15,8 @@ export function dhakaDayStart(at: Date): Date {
 export function dhakaYear(at: Date): number {
   return new Date(at.getTime() + DHAKA_OFFSET_MS).getUTCFullYear();
 }
+
+/** The wall-clock time of `at` in Dhaka as `YYYY-MM-DDTHH:MM:SS`, the time a camera there shows. */
+export function dhakaClock(at: Date): string {
+  return new Date(at.getTime() + DHAKA_OFFSET_MS).toISOString().slice(0, 19);
+}
