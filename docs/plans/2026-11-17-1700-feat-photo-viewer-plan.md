@@ -52,8 +52,8 @@ The owner found the enlarged photo poor everywhere ("খুব বাজে দ�
 ## Progress
 - **Branch:** `feat/photo-viewer`
 - **Updated:** 2026-11-17
-- **Next:** checkpoint C4 (U4), then U5, the viewer piece of the kit
-- **Reviewed through:** C3 at 8f3cba42
+- **Next:** U5, the viewer piece of the kit: `ui.local.photo-viewer.test.tsx` first, following `flip-card.tsx`
+- **Reviewed through:** C4 at 825d7717
 - **Uncommitted:** none
 - **Notes:** the owner said "শুরু করো" and not to wait for a command between units or checkpoints. The branch starts from the tip of `fix/known-issues` (PR #64 still in CI); once #64 is squash-merged into `develop`, `origin/develop` is merged into this branch (never a rebase). U3: `images.ts` only exports its strip's rules for the writer, which strips a WebP itself; exifr reads no WebP, so the spec reads a WebP's EXIF chunk as the raw TIFF block the WebP container holds (libvips reads it too); the Dhaka wall clock is `dhakaClock` in `core/dhaka-day.ts`. C3: the writer refuses before any byte only what it finds in the head; a JPEG or PNG cut inside its image data, or a WebP changed between its two reads, fails after the headers are out, so the download route pipes with `pipeline` and destroys the response on an error (the client sees a failed download, never a short photo) and logs the abort. The owner added every hardening of the plan's security review ("সব যোগ করো").
 
