@@ -202,8 +202,11 @@ const SCORE_SORT = [
 const DECISIONS = ['approve', 'waitlist', 'reject', 'pull_from_waitlist'] as const;
 /** The states whose answers can still change the score; a decision freezes it. */
 const SCORED_WHILE = ['submitted', 'under_review'];
-/** The states an application takes checklist answers in: before and during the review, and while it awaits approval. */
-const CHECKED_WHILE = ['submitted', 'under_review', 'reviewed'];
+/**
+ * The states an application takes checklist answers in: before and during the review. Once it is
+ * sent for approval the answers stand as sent, so the approver decides on what the reviewer saw.
+ */
+const CHECKED_WHILE = ['submitted', 'under_review'];
 /** The states a list leaves out unless asked for by name. */
 const HIDDEN_STATES = ['deleted'];
 
@@ -918,6 +921,9 @@ export class ApplicationsService {
       ]);
     assertIfMatch(ifMatch, row.updatedAt);
     await this.prisma.$transaction(async (tx) => {
+      // the person before the application, as every writer of a person's applications takes them
+      // (`lockPeople`), so the start of the review this answer may make never waits the other way
+      if (row.beneficiaryId) await lockPeople(tx, [row.beneficiaryId]);
       const [locked] = await tx.$queryRaw<{ status: string; updated_at: Date }[]>`
         SELECT status, updated_at FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
       if (!locked || !CHECKED_WHILE.includes(locked.status))

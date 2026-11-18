@@ -191,13 +191,15 @@ describe('the review checklist of an application', () => {
     expect((await at(executive, 'get', `/applications/${id}`)).body.data.status).toBe('submitted');
   });
 
-  it('takes no answer once the application is decided', async () => {
+  it('takes no answer once the application is sent for approval or decided', async () => {
     const executive = await as(world.users.executive);
-    const id = await submitted();
-    await h.db.query(`UPDATE applications SET status = 'approved' WHERE id = $1`, [id]);
-    const late = await check(executive, id, 'identity', { result: 'ok' });
-    expect(late.status).toBe(409);
-    expect(late.body.error.code).toBe('application.not_editable');
+    for (const status of ['reviewed', 'approved']) {
+      const id = await submitted();
+      await h.db.query(`UPDATE applications SET status = $2 WHERE id = $1`, [id, status]);
+      const late = await check(executive, id, 'identity', { result: 'ok' });
+      expect(late.status, status).toBe(409);
+      expect(late.body.error.code).toBe('application.not_editable');
+    }
   });
 
   it('sends nothing for approval with an item unanswered where the project requires the checklist', async () => {
