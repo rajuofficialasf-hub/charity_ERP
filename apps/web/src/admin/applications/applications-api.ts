@@ -190,7 +190,8 @@ export async function allApplicationRows(
   do {
     const page: OfficeApplicationPage = await api<OfficeApplicationPage>(
       `/projects/${projectId}/applications${listQuery({
-        ...applicationListFilters(filters),
+        // the order does not matter to a bulk action, and only the default order reads by cursor
+        ...applicationListFilters({ ...filters, sort: undefined }),
         q: q || undefined,
         ...(cursor ? { cursor } : {}),
         limit: '100',

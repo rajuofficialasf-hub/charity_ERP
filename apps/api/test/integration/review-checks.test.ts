@@ -264,6 +264,40 @@ describe('the review checklist of an application', () => {
     }
   });
 
+  it('asks only the items the project lists now, and nothing of a required checklist without items', async () => {
+    const executive = await as(world.users.executive);
+    await setChecklist({
+      required: false,
+      items: [
+        { code: 'identity', label: { bn: 'পরিচয় যাচাই', en: 'Identity checked' } },
+        { code: 'address', label: { bn: 'ঠিকানা যাচাই', en: 'Address checked' } },
+      ],
+    });
+    const id = await submitted();
+    expect((await check(executive, id, 'address', { result: 'ok' })).status).toBe(200);
+    // the PM takes the answered item out and requires the rest
+    await setChecklist({
+      required: true,
+      items: [{ code: 'identity', label: { bn: 'পরিচয় যাচাই', en: 'Identity checked' } }],
+    });
+    try {
+      const read = await at(executive, 'get', `/applications/${id}`);
+      expect(read.body.data.reviewChecklist.items.map((i: { code: string }) => i.code)).toEqual([
+        'identity',
+      ]);
+      // the answer of the item taken out does not count for the one still listed
+      expect((await send(executive, id)).body.error?.code).toBe(
+        'workflow.guard.review_checklist_complete',
+      );
+      // a required checklist with no items asks nothing
+      await setChecklist({ required: true, items: [] });
+      const sent = await send(executive, id);
+      expect(sent.status, JSON.stringify(sent.body)).toBe(200);
+    } finally {
+      await setChecklist({ required: false, items: [] });
+    }
+  });
+
   it('sends for approval with nothing answered where the checklist is not required', async () => {
     const executive = await as(world.users.executive);
     await setChecklist({

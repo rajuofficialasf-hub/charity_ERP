@@ -402,7 +402,11 @@ describe('the list', () => {
     await user.click(screen.getByRole('button', { name: 'এই তালিকার সব 120টি বাছুন' }));
     expect(screen.getByText('এই তালিকার সব 120টি বাছাই করা হয়েছে')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }));
-    expect(await screen.findByText('119টি হয়েছে, 1টি হয়নি')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        '119টি হয়েছে, 0টি হয়নি 1টি আবেদন এই কাজের অবস্থায় ছিল না, তাই পাঠানো হয়নি।',
+      ),
+    ).toBeInTheDocument();
     expect(sent).toEqual([50, 50, 19]);
   });
 

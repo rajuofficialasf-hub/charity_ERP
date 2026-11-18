@@ -3,7 +3,6 @@ import { reviewChecklistSettings } from '../jsonb/component-settings.js';
 
 /** A project's review checklist: its items and whether every item must be answered first. */
 export type ReviewChecklist = z.infer<typeof reviewChecklistSettings>;
-export type ReviewChecklistItem = ReviewChecklist['items'][number];
 
 /**
  * The checklist of a project that says nothing: the identity, the address and the eligibility
@@ -36,7 +35,6 @@ export function reviewChecklist(settings: unknown): ReviewChecklist {
 
 /** An official's answer to one item: it was checked and is fine, or there is a problem. */
 export const reviewCheckResult = z.enum(['ok', 'problem']);
-export type ReviewCheckResult = z.infer<typeof reviewCheckResult>;
 
 /**
  * The answer of one checklist item (contract `ReviewCheckAnswer`): a problem always says what it

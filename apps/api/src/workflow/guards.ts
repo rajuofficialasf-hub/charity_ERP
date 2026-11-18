@@ -285,10 +285,12 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
   // every item of the checklist has an answer, a problem with its comment included
   'review_checklist.complete': async (ctx) => {
     const { required, items } = ctx.application.project.reviewChecklist;
-    if (!required || !items.length) return true;
+    // a code listed twice is one item to answer
+    const codes = [...new Set(items.map((i) => i.code))];
+    if (!required || !codes.length) return true;
     const answered = await ctx.tx.applicationReviewCheck.count({
-      where: { applicationId: ctx.application.id, itemCode: { in: items.map((i) => i.code) } },
+      where: { applicationId: ctx.application.id, itemCode: { in: codes } },
     });
-    return answered === items.length;
+    return answered === codes.length;
   },
 };

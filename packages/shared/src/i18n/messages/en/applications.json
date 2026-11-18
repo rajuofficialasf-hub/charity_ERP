@@ -253,7 +253,8 @@
       "all_selected": "All {count} of this list are chosen",
       "clear": "Clear the choice",
       "progress": "Sent {sent} of {total}…",
-      "cap": "At most {max} applications can be chosen at once."
+      "cap": "At most {max} applications can be chosen at once.",
+      "skipped": "{count} applications were not in a state for this action and were left out."
     },
     "sort": {
       "label": "Order",

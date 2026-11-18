@@ -48,11 +48,7 @@ import {
   type UnlockValue,
   unlockValueSchema,
 } from '@css/shared/forms';
-import {
-  type ReviewCheckAnswer,
-  type ReviewCheckAnswerBody,
-  reviewCheckAnswerSchema,
-} from '@css/shared/projects';
+import { type ReviewCheckAnswerBody, reviewCheckAnswerSchema } from '@css/shared/projects';
 
 const uuid = z.uuid();
 const code64 = z.string().regex(/^[a-z0-9_]{1,64}$/);
@@ -253,7 +249,7 @@ export function applicationsRouter(
       ),
   });
 
-  defineRoute<ReviewCheckAnswer, unknown, { applicationId: string; itemCode: string }>(
+  defineRoute<ReviewCheckAnswerBody, unknown, { applicationId: string; itemCode: string }>(
     router,
     deps,
     {
@@ -283,7 +279,7 @@ export function applicationsRouter(
             viewerOf(req),
             params.applicationId,
             params.itemCode,
-            body as unknown as ReviewCheckAnswerBody,
+            body,
             req.get('if-match'),
           ),
           res,

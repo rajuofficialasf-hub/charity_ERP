@@ -67,6 +67,13 @@ const BULK_FROM: Record<'send_for_approval' | 'approve', readonly string[]> = {
   send_for_approval: ['submitted', 'under_review'],
   approve: ['reviewed'],
 };
+/** What a bulk action did: the rows moved, refused and left out, and the failure that stopped it. */
+interface BulkOutcome {
+  done: number;
+  failed: number;
+  skipped: number;
+  stopped: unknown;
+}
 /** The rows one bulk request takes (the API's limit). */
 const BULK_BATCH = 50;
 /** The orders the list offers: as the applications came (the server's default), or the score. */
@@ -113,7 +120,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
     queryFn: () => applicationPage(projectId, filters, q, page, cursor),
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [outcome, setOutcome] = useState<{ action: string; results: BulkRowResult[] } | null>(null);
+  const [outcome, setOutcome] = useState<BulkOutcome | null>(null);
   const rows = list.data?.data ?? [];
   // a tick belongs to the rows it was made on: another page, filter or search starts with none
   const view = JSON.stringify([filters, q, page, cursor]);
@@ -133,41 +140,45 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       const targets = allChosen
         ? await allApplicationRows(projectId, filters, q)
         : rows.filter((r) => selected.has(r.id));
-      // a row the action cannot move is left out and counted as not done
+      // a row the action cannot move is left out and counted on its own, never as a failure
       const sendable = targets.filter((r) => BULK_FROM[action].includes(r.status));
       const results: BulkRowResult[] = [];
-      // the API takes fifty rows a request, each batch under its own key
-      for (let i = 0; i < sendable.length; i += BULK_BATCH) {
+      let stopped: unknown = null;
+      // the API takes fifty rows a request, each batch under its own key; a batch that fails
+      // stops the rest, and what the batches before it did is still told
+      for (let i = 0; i < sendable.length && !stopped; i += BULK_BATCH) {
         setProgress({ sent: i, total: sendable.length });
-        const out = await bulkReview(projectId, uuidv7(), {
-          action,
-          rows: sendable
-            .slice(i, i + BULK_BATCH)
-            .map((r) => ({ clientUuid: uuidv7(), applicationId: r.id, ifMatch: r.etag })),
-        });
-        results.push(...out.results);
+        const batch = sendable.slice(i, i + BULK_BATCH);
+        try {
+          const out = await bulkReview(projectId, uuidv7(), {
+            action,
+            rows: batch.map((r) => ({
+              clientUuid: uuidv7(),
+              applicationId: r.id,
+              ifMatch: r.etag,
+            })),
+          });
+          results.push(...out.results);
+        } catch (error) {
+          stopped = error;
+        }
       }
-      for (const r of targets.filter((t) => !sendable.includes(t)))
-        results.push({
-          clientUuid: uuidv7(),
-          result: 'failed',
-          code: 'workflow.transition_not_allowed',
-          serverId: r.id,
-          status: null,
-          stage: null,
-        });
-      return { action, results };
+      const done = results.filter((r) => r.result === 'done').length;
+      return {
+        done,
+        failed: sendable.length - done,
+        skipped: targets.length - sendable.length,
+        stopped,
+      };
     },
-    onSettled: () => {
+    onSettled: async () => {
       setConfirmingBulk(false);
       setProgress(null);
-    },
-    onSuccess: async (out) => {
-      setOutcome(out);
       setSelected(new Set());
       setAllChosen(false);
       await queryClient.invalidateQueries({ queryKey: APPLICATIONS_KEY });
     },
+    onSuccess: (out) => setOutcome(out),
   });
   const stateLabel = (status: string) => labelOf(ts, status);
   const person = (r: ApplicationSummary) => (
@@ -292,11 +303,17 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   return (
     <>
       {outcome ? (
-        <Alert tone="info" onDismiss={() => setOutcome(null)}>
+        <Alert tone={outcome.stopped ? 'warning' : 'info'} onDismiss={() => setOutcome(null)}>
           {t('bulk.outcome', {
-            done: formatCount(outcome.results.filter((r) => r.result === 'done').length, locale),
-            failed: formatCount(outcome.results.filter((r) => r.result !== 'done').length, locale),
+            done: formatCount(outcome.done, locale),
+            failed: formatCount(outcome.failed, locale),
           })}
+          {outcome.skipped
+            ? ` ${t('bulk.skipped', { count: formatCount(outcome.skipped, locale) })}`
+            : null}
+          {outcome.stopped
+            ? ` ${outcome.stopped instanceof ApiFailure ? outcome.stopped.message : tc('state.error.text')}`
+            : null}
         </Alert>
       ) : null}
       {bulk.error ? (
