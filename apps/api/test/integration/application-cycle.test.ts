@@ -319,6 +319,25 @@ describe('the review and the decision', () => {
     const mobile = fakeMobile();
     const id = await create(s, identity(nid, mobile));
     await moved(s, id, 'submit');
+    // the PM sees the application but holds no review permission: the edit is refused and the
+    // review does not start
+    const pm = await as(world.users.pm);
+    const seen = await at(pm, 'get', `/applications/${id}`);
+    expect(seen.status).toBe(200);
+    const refusedEdit = await at(pm, 'patch', `/applications/${id}`)
+      .set('If-Match', seen.headers.etag as string)
+      .send({ answers: identity(nid, mobile) });
+    expect(refusedEdit.status).toBe(403);
+    expect(refusedEdit.body.error.code).toBe('permission.denied');
+    expect(await auditActions(id)).not.toContain('application.review_started');
+    // a save that changes no answer starts nothing
+    const unchanged = await at(executive, 'get', `/applications/${id}`);
+    const same = await at(executive, 'patch', `/applications/${id}`)
+      .set('If-Match', unchanged.headers.etag as string)
+      .send({ answers: identity(nid, mobile) });
+    expect(same.status, JSON.stringify(same.body)).toBe(200);
+    expect(same.body.data.status).toBe('submitted');
+    expect(await auditActions(id)).not.toContain('application.review_started');
     const read = await at(executive, 'get', `/applications/${id}`);
     const edited = await at(executive, 'patch', `/applications/${id}`)
       .set('If-Match', read.headers.etag as string)

@@ -119,19 +119,17 @@ export class WorkflowEngine {
   ): Promise<TransitionResult> {
     const spec = APPLICATION_ACTIONS[action];
     if ('later' in spec && spec.later) throw new ApiError('workflow.action_not_built', 409);
+    // the person before the application, as every writer of a person's applications takes them
+    // (`lockPeople` of services/help-history.ts): read without a lock, then the person, then the row
+    const [person] = await tx.$queryRaw<{ beneficiary_id: string | null; status: string }[]>`
+      SELECT beneficiary_id, status FROM applications WHERE id = ${applicationId}::uuid`;
     // one press that passes a step: the step's own move comes first, with its permission, scope,
     // version check, guards and audit, then this one on the version that move wrote
-    const [current] = await tx.$queryRaw<{ status: string }[]>`
-      SELECT status FROM applications WHERE id = ${applicationId}::uuid`;
-    const leadIn = current ? leadInOf(action, current.status) : null;
+    const leadIn = person ? leadInOf(action, person.status) : null;
     if (leadIn) {
       await this.transition(tx, principal, applicationId, leadIn, {}, ifMatch);
       return this.transition(tx, principal, applicationId, action, input, undefined, hooks);
     }
-    // the person before the application, as every writer of a person's applications takes them
-    // (`lockPeople` of services/help-history.ts): read without a lock, then the person, then the row
-    const [person] = await tx.$queryRaw<{ beneficiary_id: string | null }[]>`
-      SELECT beneficiary_id FROM applications WHERE id = ${applicationId}::uuid`;
     if (person?.beneficiary_id) await lockPeople(tx, [person.beneficiary_id]);
     await tx.$queryRaw`SELECT id FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
     const row = await tx.application.findUnique({

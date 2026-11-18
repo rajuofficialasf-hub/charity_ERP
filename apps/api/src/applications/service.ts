@@ -565,9 +565,9 @@ export class ApplicationsService {
     const access = await this.access.load(actor);
     const row = await this.reachedRow(viewer.principal, access, applicationId, 'application.view');
     const audience = this.audienceOf(viewer);
-    // an official's first edit of a submitted application is the start of its review
-    const startsReview = row.status === 'submitted' && audience === 'official';
-    const status = startsReview ? 'under_review' : row.status;
+    // an official edits a submitted application under the review permission, and the first edit
+    // that changes an answer is the start of its review
+    const officialOnSubmitted = row.status === 'submitted' && audience === 'official';
     const permission = editPermissionOf(row.status, audience === 'official');
     if (!permission) throw new ApiError('application.not_editable', 409);
     await this.assertMay(viewer.principal, access, permission, applicationId);
@@ -605,8 +605,6 @@ export class ApplicationsService {
         if (!locked || locked.status !== row.status)
           throw new ApiError('application.not_editable', 409);
         assertIfMatch(ifMatch, locked.updated_at);
-        if (startsReview)
-          await this.workflow.transition(tx, viewer.principal, applicationId, 'review');
         // one read of every stored answer: the caller's audience is compared and rewritten, the
         // other audience's answers stay as they are
         const stored = await readAnswers(
@@ -642,6 +640,11 @@ export class ApplicationsService {
           : undefined;
         await this.assertMobile(tx, actor, checked.standard, ownerUser);
         await assertUploadsOwn(tx, actor, applicationId, person.answers);
+        const changes = changedAnswers(before, person.answers);
+        const startsReview = officialOnSubmitted && changes.length > 0;
+        if (startsReview)
+          await this.workflow.transition(tx, viewer.principal, applicationId, 'review');
+        const status = startsReview ? 'under_review' : row.status;
         await writeAnswers(
           tx,
           applicationId,
@@ -674,7 +677,6 @@ export class ApplicationsService {
           },
         });
         if (SCORED_WHILE.includes(status)) await this.scoring.compute(tx, applicationId, actor);
-        const changes = changedAnswers(before, person.answers);
         if (status === 'under_review' && changes.length)
           await tx.fieldChange.createMany({
             data: changes.map((c) => ({
