@@ -9,23 +9,24 @@ import {
 } from '../../src/api/schemas';
 import { expectContract, expectStatus } from './support/expect';
 import { call, contractBase, signIn } from './support/session';
-import { PM_HUM, PNG } from './support/world';
+import { HEAD, PNG } from './support/world';
 
-// The photo viewer's reads: the details of a photo and its download, on a cover photo the PM
-// uploads, read by the PM as its uploader once the E2E API's worker has scanned it.
+// The photo viewer's reads: the details of a photo and its download, on a program's cover photo
+// the Department Head uploads (a program's cover is the global roles' to change), read by the
+// Head as its uploader once the E2E API's worker has scanned it.
 
 describe.skipIf(!contractBase())("the photo viewer's reads", () => {
   it('reads the details of a photo and downloads it once scanned', async () => {
-    const pm = await signIn(PM_HUM);
+    const head = await signIn(HEAD);
     const programs = expectContract(
-      await call(pm, 'GET', '/program-cards'),
+      await call(head, 'GET', '/program-cards'),
       200,
       z.array(programCardSchema),
     );
     const hum = programs.find((p) => p.code === 'HUM');
-    expect(hum, 'the PM sees the program HUM').toBeDefined();
+    expect(hum, 'the Head sees the program HUM').toBeDefined();
     const session = expectContract(
-      await call(pm, 'POST', '/upload-sessions', {
+      await call(head, 'POST', '/upload-sessions', {
         clientUuid: randomUUID(),
         kind: 'cover_photo',
         entityType: 'program',
@@ -40,28 +41,32 @@ describe.skipIf(!contractBase())("the photo viewer's reads", () => {
       uploadSessionSchema,
     );
     expectContract(
-      await call(pm, 'PUT', `/upload-sessions/${session.id}/parts/1`, PNG, {
+      await call(head, 'PUT', `/upload-sessions/${session.id}/parts/1`, PNG, {
         'Content-Type': 'application/octet-stream',
       }),
       200,
       uploadSessionSchema,
     );
     const file = expectContract(
-      await call(pm, 'POST', `/upload-sessions/${session.id}/finalize`),
+      await call(head, 'POST', `/upload-sessions/${session.id}/finalize`),
       201,
       uploadedFileSchema,
     );
     // the worker scans the photo a moment after its upload
     let details = expectContract(
-      await call(pm, 'GET', `/files/${file.id}`),
+      await call(head, 'GET', `/files/${file.id}`),
       200,
       fileDetailsSchema,
     );
     for (let tries = 0; details.virusScan === 'pending' && tries < 60; tries += 1) {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      details = expectContract(await call(pm, 'GET', `/files/${file.id}`), 200, fileDetailsSchema);
+      details = expectContract(
+        await call(head, 'GET', `/files/${file.id}`),
+        200,
+        fileDetailsSchema,
+      );
     }
     expect(details.uploadedBy?.name, 'the uploader reads their own name').toBeTruthy();
-    expectStatus(await call(pm, 'GET', `/files/${file.id}/download`), 200);
+    expectStatus(await call(head, 'GET', `/files/${file.id}/download`), 200);
   });
 });

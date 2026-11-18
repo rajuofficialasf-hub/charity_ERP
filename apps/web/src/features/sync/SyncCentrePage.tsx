@@ -8,6 +8,7 @@ import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { deviceInfo } from '../../api/client';
 import type { OverviewRecord } from '../../offline/applications-store';
+import { useAlive } from '../../lib/use-alive';
 import { useOffline } from '../../offline/OfflineProvider';
 import { storeMessage } from '../applications/use-local-records';
 import { PhotoSection } from './PhotoSection';
@@ -72,17 +73,19 @@ function Centre() {
         storeMessage(error, tSync) ??
         (error instanceof Error ? error.message : t('reason_unknown')),
     });
+  // a send that ends after the page is closed changes nothing on it
+  const alive = useAlive();
   const run = async (key: string, work: () => Promise<void>, done?: string) => {
     setBusy(key);
     setNotice(null);
     try {
       await work();
       await refresh();
-      if (done) setNotice({ tone: 'success', text: done });
+      if (done && alive.current) setNotice({ tone: 'success', text: done });
     } catch (error) {
-      failWith(error);
+      if (alive.current) failWith(error);
     } finally {
-      setBusy(null);
+      if (alive.current) setBusy(null);
     }
   };
 
@@ -189,8 +192,10 @@ function Centre() {
         onConfirm={() => {
           const record = target;
           if (!record || !store) return;
-          void run('delete', () => store.removeLocal(record.clientUuid), t('deleted')).finally(() =>
-            setTarget(null),
+          void run('delete', () => store.removeLocal(record.clientUuid), t('deleted')).finally(
+            () => {
+              if (alive.current) setTarget(null);
+            },
           );
         }}
         onCancel={() => setTarget(null)}

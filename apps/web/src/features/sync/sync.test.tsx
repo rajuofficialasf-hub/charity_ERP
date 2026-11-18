@@ -276,6 +276,39 @@ describe('the sync centre', () => {
     expect(screen.queryByRole('region', { name: /পাঠানোর অপেক্ষায়/ })).toBeNull();
   });
 
+  it('changes nothing on a page closed while its send is still on its way', async () => {
+    await seedPhone();
+    // the server holds its answer until the page is gone
+    let answer!: () => void;
+    const held = new Promise<void>((release) => (answer = release));
+    const posted: string[] = [];
+    acceptBatch(posted);
+    server.use(
+      http.post('*/api/v1/sync/batch', async () => {
+        await held;
+        return HttpResponse.json({
+          data: { serverTime: new Date().toISOString(), results: [] },
+          meta: {},
+        });
+      }),
+    );
+    const rejections: unknown[] = [];
+    const note = (reason: unknown) => rejections.push(reason);
+    process.on('unhandledRejection', note);
+    const user = userEvent.setup();
+    const { unmount } = open();
+    const failed = await screen.findByRole('region', { name: /পাঠানো যায়নি/ });
+    await user.click(within(failed).getByRole('button', { name: 'আবার পাঠান' }));
+    unmount();
+    // a state change after the page is gone needs the window the test run has taken away by then
+    vi.stubGlobal('window', undefined);
+    answer();
+    await new Promise((done) => setTimeout(done, 300));
+    vi.unstubAllGlobals();
+    process.off('unhandledRejection', note);
+    expect(rejections).toEqual([]);
+  });
+
   it('shows the empty state when everything has gone, in both languages', async () => {
     await afterSignIn({ sessionId: TEST_SESSION_ID, userId: ME.id, deviceKey: 'k'.repeat(43) });
     const { container, unmount } = open();
