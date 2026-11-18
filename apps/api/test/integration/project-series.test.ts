@@ -645,6 +645,93 @@ describe('one project series with its sessions', () => {
   });
 });
 
+describe('the counts of one session', () => {
+  const summary = (s: Session, id: string) =>
+    api().get(`/api/v1/projects/${id}/summary`).set(bearer(s));
+  const KEYS = [
+    'applications',
+    'approved',
+    'daysLeft',
+    'districts',
+    'target',
+    'volunteers',
+    'waiting',
+    'waitlisted',
+  ];
+
+  it('gives an RPM of another region the whole session’s counts, the same as its card', async () => {
+    const res = await summary(await as(world.users.rpmRangpur), x.swb.y2026);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({
+      applications: 7,
+      approved: 2,
+      // submitted, under review and reviewed, in both regions
+      waiting: 3,
+      waitlisted: 1,
+      volunteers: 2,
+      districts: 3,
+      target: 600,
+      daysLeft: 45,
+    });
+    // counts only: no person, no budget, no identity number
+    expect(Object.keys(res.body.data).sort()).toEqual(KEYS);
+    const card = cardOf(await seriesList(await as(world.users.head), x.program), x.swb.id);
+    expect(card.current).toMatchObject({
+      applications: res.body.data.applications,
+      approved: res.body.data.approved,
+      volunteers: res.body.data.volunteers,
+      districts: res.body.data.districts,
+      target: res.body.data.target,
+      daysLeft: res.body.data.daysLeft,
+    });
+  });
+
+  it('answers zeros for a draft session and the counts of a cancelled one', async () => {
+    const draft = await summary(await as(world.users.pm), x.swb.y2027);
+    expect(draft.status).toBe(200);
+    expect(draft.body.data).toEqual({
+      applications: 0,
+      approved: 0,
+      waiting: 0,
+      waitlisted: 0,
+      volunteers: 0,
+      districts: 0,
+      target: null,
+      daysLeft: null,
+    });
+    const series = await seriesRow(x.program);
+    const cancelled = await sessionRow(series, 2026, {
+      status: 'cancelled',
+      cancelled_at: new Date(),
+    });
+    await apply(cancelled, 'submitted');
+    const res = await summary(await as(world.users.head), cancelled);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ applications: 1, waiting: 1 });
+  });
+
+  it('refuses a caller without the overview, before telling whether the session exists', async () => {
+    for (const role of ['procurement_team', 'finance_team', 'media_team']) {
+      const s = await as(await staff(role));
+      for (const id of [x.swb.y2026, randomUUID()]) {
+        const res = await summary(s, id);
+        expect(res.status, role).toBe(403);
+        expect(res.body.error.code).toBe('permission.denied');
+      }
+    }
+    expect((await summary(await as(world.users.general), x.swb.y2026)).status).toBe(403);
+    expect((await api().get(`/api/v1/projects/${x.swb.y2026}/summary`)).status).toBe(401);
+  });
+
+  it('answers 404 for a session that does not exist and 422 for an id that is no id', async () => {
+    const s = await as(world.users.head);
+    const missing = await summary(s, randomUUID());
+    expect(missing.status).toBe(404);
+    expect(missing.body.error.code).toBe('permission.not_found');
+    expect((await summary(s, 'not-an-id')).status).toBe(422);
+  });
+});
+
 describe('who reads the cards', () => {
   it('refuses the Finance Team, the Media Team, the Official দায়ী and a volunteer, and a caller who is not signed in', async () => {
     for (const role of ['finance_team', 'media_team', 'official_daee', 'procurement_team']) {

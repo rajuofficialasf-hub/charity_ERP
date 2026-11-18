@@ -96,13 +96,13 @@ Choices made in this plan (the owner may change them at plan review):
 - **Approach:** copy the `read` route shape and `cards()`'s assembly (`project-series.ts:507-565`) for one session: `sessionFigures`, `volunteerCounts`, `districtCounts`, the target from the session, `daysLeft(applyTo)`. Response `{ applications, approved, waiting, waitlisted, volunteers, districts, target, daysLeft }`.
 - **Tests:**
   - unit: `daysLeft` at the window's last day (0), after it (null), with no window (null).
-  - integration: an RPM of another region gets the whole session's counts equal to the card's figures for the current session; a draft session answers zeros; a cancelled session answers its counts; 400 for a malformed `projectId`; 401 without a token; 403 for a Procurement Team member and a volunteer; 404 for an unknown id; the response carries no budget field; the contract recorder validates against `openapi.yaml`.
+  - integration (the repo answers a malformed id with 422, as "answers 422 to a program that is no id" does; 422 replaces the 400 below): an RPM of another region gets the whole session's counts equal to the card's figures for the current session; a draft session answers zeros; a cancelled session answers its counts; 400 for a malformed `projectId`; 401 without a token; 403 for a Procurement Team member and a volunteer; 404 for an unknown id; the response carries no budget field; the contract recorder validates against `openapi.yaml`.
   - existing: the cards' figures covered by `apps/api/test/integration/project-series.test.ts` stay green after `daysLeft` moves.
 - **Done when:** the route answers as above, the drift test, `contract:coverage` and the authorization matrix test pass.
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** auth
-- **Status:** todo
+- **Status:** done
 
 ### U3. asf piece `RecordHeader`
 - **Goal:** A light record header in the set, full and compact, light and dark, stacking on a phone.
@@ -209,7 +209,7 @@ Choices made in this plan (the owner may change them at plan review):
 ## Progress
 - **Branch:** `feat/project-page-frame`
 - **Updated:** 2026-11-18 21:55
-- **Next:** U2, the summary read: integration tests in `apps/api/test/integration/project-series.test.ts` first
+- **Next:** U3 and U4, the asf pieces: tests written and passing; local.json, the screenshots and the browser check remain, then checkpoint C1 (after U2) runs before U3 is committed
 - **Reviewed through:** none
 - **Uncommitted:** none
 - **Notes:** the decision is D-185 (PR #70 took D-184); `docs/STATUS.md` is updated once in U7. The owner approved the plan in chat ("প্রকল্প পেইজ দিলাম। ঐটা শুরু করে দাও তাহলে প্ল্যান তো রেডি আছে"), relayed by the session that started this one; the branch starts from develop at 978d1b47 (PR #70, the review checklist), which took no decision number after D-183.

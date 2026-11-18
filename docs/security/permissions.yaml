@@ -647,7 +647,7 @@ permissions:
       - { role: volunteer_team_member, scope: PROJECT }
       - { role: volunteer_paid, scope: PROJECT }
   - name: project.overview.view
-    description: See every program and every project as cards with counts only (no person but the PM and the RPMs by name, no identity number, no budget) and their cover photos; opening a session stays with project.view
+    description: See every program and every project as cards with counts only (no person but the PM and the RPMs by name, no identity number, no budget) and their cover photos, and the whole counts of any session on its page; every other detail of a session stays with project.view
     module: M06
     sensitive: false
     default:

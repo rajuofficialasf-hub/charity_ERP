@@ -581,6 +581,35 @@ export class ProjectSeriesService {
     return { cards, figures };
   }
 
+  /**
+   * The whole counts of one session for everyone who holds the overview, the same figures its
+   * card counts: never a person, a budget or an identity number. A cancelled session keeps its
+   * counts, which are its history.
+   */
+  async summary(viewer: SeriesViewer, projectId: string) {
+    return boundedRead(this.prisma, async (tx) => {
+      const session = await tx.project.findFirst({
+        where: { id: projectId, program: programWhere(viewer.scope) },
+        select: { id: true, applyTo: true, targetBeneficiaries: true },
+      });
+      if (!session) throw new ApiError('permission.not_found', 404);
+      const ids = [session.id];
+      const counted = figuresOf(await sessionFigures(tx, ids), session.id);
+      const volunteers = await volunteerCounts(tx, ids, ids);
+      const districts = await districtCounts(tx, ids);
+      return {
+        applications: counted.applications,
+        approved: counted.approved,
+        waiting: counted.waiting,
+        waitlisted: counted.waitlisted,
+        volunteers: volunteers.get(session.id) ?? 0,
+        districts: districts.get(session.id) ?? 0,
+        target: session.targetBeneficiaries,
+        daysLeft: this.daysLeft(session.applyTo),
+      };
+    });
+  }
+
   /** The series the route's scope reaches, of one program when asked, by code. */
   async list(viewer: SeriesViewer, filter: ProjectSeriesFilter) {
     return boundedRead(this.prisma, async (tx) => {

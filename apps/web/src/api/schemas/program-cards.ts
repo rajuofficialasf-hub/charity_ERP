@@ -73,6 +73,22 @@ export const projectSeriesCardSchema = z.object({
 });
 export type ProjectSeriesCard = z.infer<typeof projectSeriesCardSchema>;
 
+/**
+ * The whole counts of one session (`GET /projects/{id}/summary`), the same for every holder of
+ * the overview as its card counts them.
+ */
+export const sessionSummarySchema = z.object({
+  applications: count,
+  approved: count,
+  waiting: count,
+  waitlisted: count,
+  volunteers: count,
+  districts: count,
+  target: count.nullable(),
+  daysLeft: count.nullable(),
+});
+export type SessionSummary = z.infer<typeof sessionSummarySchema>;
+
 /** One project series with its program and its sessions, newest first (`GET /project-series/{id}`). */
 export const projectSeriesSchema = projectSeriesCardSchema.extend({
   program: z.object({ id: z.uuid(), name: bilingual }),
