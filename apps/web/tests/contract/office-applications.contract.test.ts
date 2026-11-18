@@ -113,6 +113,21 @@ describe.skipIf(!contractBase())('the office’s applications', () => {
       z.array(fieldChangeSchema),
     );
     expect(changes.length).toBeGreaterThan(0);
+    // one item of the project's starting review checklist, answered while the review runs
+    const checked = expectEnvelope(
+      await call(
+        office,
+        'PUT',
+        at`/applications/${id}/review-checks/${'identity'}`,
+        { result: 'ok' },
+        { 'If-Match': (await read(id)).meta.etag ?? '' },
+      ),
+      200,
+      officeApplicationRecordSchema,
+    );
+    expect(checked.data.reviewChecklist?.items.find((i) => i.code === 'identity')?.result).toBe(
+      'ok',
+    );
     // a distribution project only tells of a family seen before; held, its approval asks a reason
     await identityRulesOn(project.projectId, { repeat_family: 'hold' });
     const reviewed = await decide(id, 'send_for_approval');
