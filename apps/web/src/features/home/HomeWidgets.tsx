@@ -34,6 +34,7 @@ import {
   projectCount,
   runningProjects,
 } from './home-api';
+import { ApiFailure } from '../../api/client';
 import { LoadError } from '../../components/LoadError';
 import { Loaded } from './Loaded';
 import type { LaterWidget, LiveWidget } from './widgets';
@@ -103,7 +104,11 @@ function MyApplications() {
         </LinkButton>
       }
     >
-      {failed ? (
+      {failed?.error instanceof ApiFailure && failed.error.status === 403 ? (
+        // the own applications open only on a project the volunteer works on: without one the
+        // server refuses, and the card says so as the own list does, not of a failure
+        <Text tone="muted">{tl('no_project')}</Text>
+      ) : failed ? (
         // a count that could not be read is never shown as zero
         <LoadError error={failed.error} onRetry={() => counts.forEach((c) => void c.refetch())} />
       ) : counts.some((c) => c.isPending) ? (
