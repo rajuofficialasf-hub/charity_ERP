@@ -300,6 +300,19 @@
     },
     "bulk_approve_confirm": {
       "title": "{n, plural, one {Approve the {count} chosen application?} other {Approve the {count} chosen applications?}}"
+    },
+    "checklist": {
+      "title": "Review checklist",
+      "required": "Every item must be checked before sending for approval.",
+      "optional": "The checklist is optional.",
+      "left": "Items left: {count}",
+      "done": "Every item is checked",
+      "ok": "Ok",
+      "problem": "Problem",
+      "comment": "What is the problem",
+      "save": "Save the problem",
+      "by": "{name}, {time}",
+      "failed": "The answer could not be saved. Try again."
     }
   },
   "unlock": {

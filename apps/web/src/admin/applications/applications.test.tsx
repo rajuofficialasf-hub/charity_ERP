@@ -796,6 +796,126 @@ describe('the review page', () => {
     await waitFor(() => expect(acted.at(-1)).toMatchObject({ action: 'send_for_approval' }));
   });
 
+  it('answers the review checklist item by item, a problem with its comment, and says what is left', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    const checklist = {
+      required: true,
+      items: [
+        {
+          code: 'identity',
+          label: { bn: 'পরিচয় যাচাই', en: 'Identity checked' },
+          result: 'ok',
+          comment: null,
+          checkedBy: { id: '01900000-0000-7000-8000-0000000000f1', name: 'নমুনা এক্সিকিউটিভ' },
+          checkedAt: '2026-11-18T09:00:00Z',
+        },
+        ...(['address', 'eligibility'] as const).map((code) => ({
+          code,
+          label: { bn: code === 'address' ? 'ঠিকানা যাচাই' : 'যোগ্যতা যাচাই', en: code },
+          result: null,
+          comment: null,
+          checkedBy: null,
+          checkedAt: null,
+        })),
+      ],
+    };
+    const answered: { item: string; ifMatch: string | null; body: unknown }[] = [];
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'under_review',
+            availableActions: ['send_for_approval'],
+            reviewChecklist: checklist,
+          }),
+        ),
+      ),
+      http.put(`*/api/v1/applications/${A1}/review-checks/:item`, async ({ params, request }) => {
+        answered.push({
+          item: String(params.item),
+          ifMatch: request.headers.get('If-Match'),
+          body: await request.json(),
+        });
+        return envelope(
+          record({
+            status: 'under_review',
+            availableActions: ['send_for_approval'],
+            reviewChecklist: checklist,
+          }),
+          '"v2"',
+        );
+      }),
+    );
+    const view = openReview();
+    const card = within(
+      (await screen.findByRole('heading', { name: 'রিভিউ চেকলিস্ট' })).closest('section')!,
+    );
+    expect(card.getByText('অনুমোদনের জন্য পাঠানোর আগে সব বিষয় দেখতে হবে।')).toBeInTheDocument();
+    expect(card.getByText('2টি বিষয় বাকি')).toBeInTheDocument();
+    expect(card.getByText(/নমুনা এক্সিকিউটিভ/)).toBeInTheDocument();
+    // a fine item is answered with one press
+    await user.click(
+      within(card.getByRole('radiogroup', { name: 'ঠিকানা যাচাই' })).getByRole('radio', {
+        name: 'ঠিক আছে',
+      }),
+    );
+    await waitFor(() =>
+      expect(answered).toEqual([{ item: 'address', ifMatch: '"v1"', body: { result: 'ok' } }]),
+    );
+    // a problem asks what it is before it is sent
+    await user.click(
+      within(card.getByRole('radiogroup', { name: 'যোগ্যতা যাচাই' })).getByRole('radio', {
+        name: 'সমস্যা আছে',
+      }),
+    );
+    expect(answered).toHaveLength(1);
+    await user.type(card.getByRole('textbox', { name: 'কী সমস্যা' }), 'আয়ের কাগজ নেই');
+    await user.click(card.getByRole('button', { name: 'সমস্যা লিখুন' }));
+    await waitFor(() =>
+      expect(answered.at(-1)).toMatchObject({
+        item: 'eligibility',
+        body: { result: 'problem', comment: 'আয়ের কাগজ নেই' },
+      }),
+    );
+    await expectNoAxeViolations(view.container);
+  });
+
+  it('shows the checklist to read only where the caller may not review', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            availableActions: ['approve'],
+            reviewChecklist: {
+              required: false,
+              items: [
+                {
+                  code: 'identity',
+                  label: { bn: 'পরিচয় যাচাই', en: 'Identity checked' },
+                  result: 'problem',
+                  comment: 'জন্মনিবন্ধনের নাম আলাদা',
+                  checkedBy: { id: '01900000-0000-7000-8000-0000000000f1', name: 'নমুনা' },
+                  checkedAt: '2026-11-18T09:00:00Z',
+                },
+              ],
+            },
+          }),
+        ),
+      ),
+    );
+    openReview();
+    const card = within(
+      (await screen.findByRole('heading', { name: 'রিভিউ চেকলিস্ট' })).closest('section')!,
+    );
+    expect(card.getByText('জন্মনিবন্ধনের নাম আলাদা')).toBeInTheDocument();
+    for (const radio of card.getAllByRole('radio')) expect(radio).toBeDisabled();
+  });
+
   it('edits the answers under review with the version it read, tells of a stale save, and shows a refusal', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);

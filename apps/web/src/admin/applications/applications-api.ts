@@ -172,6 +172,20 @@ export const decideUnlock = (unlockId: string, decision: 'accept' | 'refuse', re
 export const cancelUnlock = (unlockId: string, reason: string) =>
   api<Unlock>(`/application-unlocks/${unlockId}/cancel`, { method: 'POST', body: { reason } });
 
+/** One answer of the review checklist, with the version the page read. */
+export const answerReviewCheck = (
+  id: string,
+  etag: string,
+  itemCode: string,
+  body: { result: 'ok' } | { result: 'problem'; comment: string },
+) =>
+  api<OfficeApplicationRecord>(`/applications/${id}/review-checks/${itemCode}`, {
+    method: 'PUT',
+    body,
+    headers: { 'If-Match': etag },
+    envelope: true,
+  });
+
 export const saveAnswers = (id: string, etag: string, answers: Answer[]) =>
   api<OfficeApplicationRecord>(`/applications/${id}`, {
     method: 'PATCH',

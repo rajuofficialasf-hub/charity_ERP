@@ -51,6 +51,7 @@ import { DecisionDialog, type DecisionTexts } from './DecisionDialog';
 import { UnlockReview } from './UnlockReview';
 import { VerifyDialog } from './VerifyDialog';
 import { ScoreBreakdown } from './ScoreBreakdown';
+import { ReviewChecklist } from './ReviewChecklist';
 import { Signals } from './Signals';
 import './applications.css';
 import { RecordPdfButton } from '../../features/exports/RecordPdfButton';
@@ -337,6 +338,13 @@ function Review() {
         />
       </Card>
       <Signals application={a} />
+      <ReviewChecklist
+        application={a}
+        etag={etag}
+        // the office answers while the review runs or before it starts, under the review permission
+        editable={may('review') || may('send_for_approval')}
+        onAnswered={refresh}
+      />
       {/* the person's help by their other applications, for a role that sees their history */}
       {a.helpedBefore ? (
         <Card title={t('helped_before.title')} headingLevel={2}>
