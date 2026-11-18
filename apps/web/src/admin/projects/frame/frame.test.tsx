@@ -254,6 +254,79 @@ describe('the frame of a session', () => {
     expect(screen.getByRole('link', { name: 'বিতরণ' })).toHaveAttribute('aria-current', 'page');
   });
 
+  it('refuses a volunteer without reading the session', async () => {
+    refreshAs({ ...ME, kind: 'volunteer', roles: ['general_volunteer'] });
+    let reads = 0;
+    server.use(
+      http.get(`*/api/v1/projects/${ID}`, () => {
+        reads += 1;
+        return HttpResponse.json({}, { status: 403 });
+      }),
+    );
+    open();
+    expect(await screen.findByRole('heading', { name: 'প্রবেশাধিকার নেই' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'প্রকল্পের অংশ' })).not.toBeInTheDocument();
+    expect(reads).toBe(0);
+  });
+
+  it('offers to try again when the session cannot be read', async () => {
+    refreshAs(PM);
+    server.use(
+      http.get(`*/api/v1/projects/${ID}`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'server.internal',
+              messageKey: 'errors.server.internal',
+              message: 'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।',
+              requestId: 'req_y',
+            },
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+    open();
+    // a server error is asked again before it shows
+    expect(
+      await screen.findByRole('button', { name: 'আবার চেষ্টা করুন' }, { timeout: 10_000 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'প্রকল্পের অংশ' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the page when the session cannot be read again after a move', async () => {
+    refreshAs(PM);
+    serve('active');
+    const user = userEvent.setup();
+    open();
+    expect(await screen.findByText('the summary')).toBeInTheDocument();
+    server.use(
+      http.post(`*/api/v1/projects/${ID}/:action`, () => HttpResponse.json({ data: {}, meta: {} })),
+      http.get(`*/api/v1/projects/${ID}`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'server.internal',
+              messageKey: 'errors.server.internal',
+              message: 'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।',
+              requestId: 'req_z',
+            },
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: 'বন্ধ শুরু করুন' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'কাজ শেষ');
+    await user.click(within(dialog).getByRole('button', { name: 'বন্ধ শুরু করুন' }));
+    expect(
+      await screen.findByRole('button', { name: 'আবার চেষ্টা করুন' }, { timeout: 10_000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('the summary')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'প্রকল্পের অংশ' })).toBeInTheDocument();
+  });
+
   it('says so when the session does not exist', async () => {
     refreshAs(PM);
     server.use(

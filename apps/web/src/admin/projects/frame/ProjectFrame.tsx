@@ -81,7 +81,9 @@ export function ProjectFrame() {
   if (!allowed) return <ForbiddenContent />;
   const tab = { id: 'tab', label: t('tab.title'), href: '/admin/projects' };
   if (one.isPending) return <Skeleton shape="card" />;
-  if (one.error)
+  // a refetch that fails keeps the page and what it holds (an unsaved step of the setup); only a
+  // session never read takes the error's place
+  if (!one.data)
     return (
       <>
         <PageCrumbs items={[tab]} />
@@ -100,7 +102,7 @@ export function ProjectFrame() {
   const name = localized(p.name, locale);
   const s = series.data;
   const program = s?.program;
-  const description = s?.description ? localized(s.description, locale) : p.description;
+  const description = (s?.description ? localized(s.description, locale) : '') || p.description;
   const managesLifecycle = canCreateProjects(me);
   const menu: MenuItemSpec[] = managesLifecycle
     ? [
@@ -216,6 +218,7 @@ export function ProjectFrame() {
         </Alert>
       )}
       {moves.ui}
+      {one.error && <LoadError error={one.error} onRetry={() => void one.refetch()} />}
       <Outlet context={context} />
       {saving && (
         <SaveTemplateDialog

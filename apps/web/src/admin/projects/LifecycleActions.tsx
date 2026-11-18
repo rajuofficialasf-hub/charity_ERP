@@ -10,7 +10,7 @@ import { ReasonDialog } from './ReasonDialog';
 import { useMissingLabel } from './setup/missing';
 
 /** A lifecycle move, or the deadline extension of an active project. */
-export type Move = ProjectAction | 'extend';
+type Move = ProjectAction | 'extend';
 
 const ROUTE = new Map<Move, LifecycleAction>([
   ['activate', 'activate'],
@@ -40,7 +40,7 @@ const MAIN: Partial<Record<Project['status'], Move>> = {
   closed: 'reopen',
 };
 
-export interface LifecycleMoves {
+interface LifecycleMoves {
   /** The main move of the state, if the state allows it. */
   main: Move | undefined;
   /** Every other move the state allows, in their order. */

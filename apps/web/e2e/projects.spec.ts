@@ -52,10 +52,13 @@ async function openSummary(page: Page) {
  */
 async function move(page: Page, button: string, badge: string) {
   const actions = page.getByRole('region', { name: 'প্রকল্পের কাজ' });
+  const more = actions.getByRole('button', { name: 'আরও কাজ' });
+  // the menu and the main move are drawn together, so once the menu is there the main one is too
+  await expect(more).toBeVisible();
   const main = actions.getByRole('button', { name: button, exact: true });
   if (await main.count()) await main.click();
   else {
-    await actions.getByRole('button', { name: 'আরও কাজ' }).click();
+    await more.click();
     await page.getByRole('menuitem', { name: button, exact: true }).click();
   }
   const dialog = page.getByRole('dialog');
