@@ -221,7 +221,7 @@ test.describe('the application cycle', () => {
     expect(appNo, sent ?? '').toBeTruthy();
     await page.getByRole('link', { name: 'আমার আবেদন দেখুন' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'আমার আবেদন' })).toBeVisible();
-    await page.getByRole('tab', { name: /পেন্ডিং/ }).click();
+    await page.getByRole('tab', { name: /প্রক্রিয়াধীন/ }).click();
     await expect(page.getByText(appNo!)).toBeVisible();
     await noViolations(page, 'the own list');
     await openOwn(page, appNo!);
@@ -231,7 +231,8 @@ test.describe('the application cycle', () => {
     );
     await noViolations(page, 'the own record');
 
-    // the Project Executive: the list, the record, the review and the send for approval
+    // the Project Executive: the list, the record, and the send for approval in one press,
+    // which records the start of the review on its way
     const recordUrl = await onDesk(browser, async (desk) => {
       await signIn(desk, EXECUTIVE);
       await desk.goto(`/admin/projects/${projectId}/applications`);
@@ -240,14 +241,19 @@ test.describe('the application cycle', () => {
       await noViolations(desk, 'the office list');
       await desk.getByRole('link', { name }).first().click();
       await expect(desk.getByRole('heading', { level: 1, name })).toBeVisible();
-      await desk.getByRole('button', { name: 'রিভিউ শুরু' }).click();
-      await expect(desk.getByText('রিভিউ শুরু হয়েছে।')).toBeVisible();
-      const steps = desk.getByRole('list', { name: 'আবেদনের ধাপ' });
-      await expect(steps).toContainText('পর্যালোচনা চলছে');
-      await expect(steps).toContainText('প্রজেক্ট এক্সিকিউটিভ');
+      await expect(desk.getByRole('button', { name: 'রিভিউ শুরু' })).toHaveCount(0);
+      // the project's starting checklist: one item answered starts the review
+      const checklist = desk.getByRole('radiogroup', { name: 'পরিচয় যাচাই' });
+      await checklist.getByRole('radio', { name: 'ঠিক আছে' }).click();
+      await expect(checklist.getByRole('radio', { name: 'ঠিক আছে' })).toBeChecked();
+      await expect(desk.getByText('2টি বিষয় বাকি')).toBeVisible();
       await noViolations(desk, 'the review page');
       await desk.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }).click();
       await expect(desk.getByText('অনুমোদনের জন্য পাঠানো হয়েছে।')).toBeVisible();
+      const steps = desk.getByRole('list', { name: 'আবেদনের ধাপ' });
+      await expect(steps).toContainText('পর্যালোচনা চলছে');
+      await expect(steps).toContainText('অনুমোদনের অপেক্ষায়');
+      await expect(steps).toContainText('প্রজেক্ট এক্সিকিউটিভ');
       return desk.url();
     });
 

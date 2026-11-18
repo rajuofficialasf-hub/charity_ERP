@@ -1,4 +1,4 @@
-import { identityRules, identityRulesDiffer } from '@css/shared/projects';
+import { identityRules, identityRulesDiffer, reviewChecklist } from '@css/shared/projects';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -20,6 +20,10 @@ export const IDENTITY_RULES_SELECT = {
 /** What the application of a project selected with `IDENTITY_RULES_SELECT` asks. */
 export const identityRulesOf = (project: { projectComponentsProject: { settings: unknown }[] }) =>
   identityRules(project.projectComponentsProject[0]?.settings);
+
+/** The review checklist of a project selected with `IDENTITY_RULES_SELECT` (the same settings). */
+export const reviewChecklistOf = (project: { projectComponentsProject: { settings: unknown }[] }) =>
+  reviewChecklist(project.projectComponentsProject[0]?.settings);
 
 /**
  * Records a change of what a project's application asks about identity and contact and of what a

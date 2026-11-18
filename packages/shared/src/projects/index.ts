@@ -4,6 +4,7 @@ export * from './lifecycle.js';
 export * from './setup-check.js';
 export * from './workflow-defaults.js';
 export * from './identity-rules.js';
+export * from './review-checklist.js';
 export * from './programs.js';
 export * from './requests.js';
 export * from './session.js';

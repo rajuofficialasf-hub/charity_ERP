@@ -141,7 +141,8 @@
       "donor_notified": "Not all donors have been notified.",
       "animal_photos_complete": "The three animal photos are not complete.",
       "actor_not_creator": "The person who brought the application cannot decide on it.",
-      "approver_has_permission": "In a house-construction project the PM gives the final approval."
+      "approver_has_permission": "In a house-construction project the PM gives the final approval.",
+      "review_checklist_complete": "Not every item of the review checklist is checked. Check the rest and send again."
     },
     "action_not_built": "This action is not available yet.",
     "effect_not_built": "A result of this step is not built yet, so the step cannot run now.",

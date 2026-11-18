@@ -336,17 +336,78 @@ describe('the list', () => {
     await user.click(await within(grid).findByRole('checkbox', { name: /নমুনা উপকারভোগী/ }));
     await user.click(within(grid).getByRole('checkbox', { name: /দ্বিতীয় জন/ }));
     expect(screen.getByText('2টি বেছে নেওয়া হয়েছে')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'রিভিউ শুরু' }));
+    // no separate start of the review: the ticked rows go for approval in one press
+    expect(screen.queryByRole('button', { name: 'রিভিউ শুরু' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }));
     expect(await screen.findByText('1টি হয়েছে, 1টি হয়নি')).toBeInTheDocument();
     expect(bulkBodies).toHaveLength(1);
     expect(bulkBodies[0]).toMatchObject({
-      action: 'review',
+      action: 'send_for_approval',
       rows: [
         { applicationId: A1, ifMatch: '"v1"' },
         { applicationId: A2, ifMatch: '"v1"' },
       ],
     });
     await expectNoAxeViolations(view.container);
+  });
+
+  it('chooses every application of the filter and sends them fifty at a time, leaving out what cannot go', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    const id = (i: number) => `01900000-0000-7000-8000-${String(i).padStart(12, '0')}`;
+    // 120 applications match; the last one already awaits approval and cannot be sent again
+    const all = Array.from({ length: 120 }, (_, i) =>
+      row(id(i + 1), { status: i === 119 ? 'reviewed' : 'submitted', beneficiaryName: `জন ${i}` }),
+    );
+    const sent: number[] = [];
+    server.use(
+      http.get(`*/api/v1/projects/${PROJECT}/applications`, ({ request }) => {
+        const url = new URL(request.url);
+        if (url.searchParams.get('limit') !== '100')
+          return HttpResponse.json({
+            data: all.slice(0, 2),
+            meta: { requestId: 'r', nextCursor: null, prevCursor: null, total: 120 },
+          });
+        const after = url.searchParams.get('cursor');
+        const data = after ? all.slice(100) : all.slice(0, 100);
+        return HttpResponse.json({
+          data,
+          meta: { requestId: 'r', nextCursor: after ? null : 'c2', prevCursor: null },
+        });
+      }),
+      http.post(`*/api/v1/projects/${PROJECT}/bulk/review`, async ({ request }) => {
+        const body = (await request.json()) as { action: string; rows: { clientUuid: string }[] };
+        expect(body.action).toBe('send_for_approval');
+        sent.push(body.rows.length);
+        return HttpResponse.json({
+          data: {
+            results: body.rows.map((r) => ({
+              clientUuid: r.clientUuid,
+              result: 'done',
+              code: null,
+              serverId: null,
+              status: 'reviewed',
+              stage: null,
+            })),
+          },
+          meta: { requestId: 'r' },
+        });
+      }),
+    );
+    openList();
+    const grid = await screen.findByRole('table');
+    await user.click(await within(grid).findByRole('checkbox', { name: /জন 0/ }));
+    await user.click(within(grid).getByRole('checkbox', { name: /জন 1/ }));
+    await user.click(screen.getByRole('button', { name: 'এই তালিকার সব 120টি বাছুন' }));
+    expect(screen.getByText('এই তালিকার সব 120টি বাছাই করা হয়েছে')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }));
+    expect(
+      await screen.findByText(
+        '119টি হয়েছে, 0টি হয়নি 1টি আবেদন এই কাজের অবস্থায় ছিল না, তাই পাঠানো হয়নি।',
+      ),
+    ).toBeInTheDocument();
+    expect(sent).toEqual([50, 50, 19]);
   });
 
   it('sends the district and the union of the address path only, and takes the approval of ticked reviewed rows', async () => {
@@ -367,7 +428,7 @@ describe('the list', () => {
     const grid = await screen.findByRole('table');
     await user.click(await within(grid).findByRole('checkbox', { name: /নমুনা উপকারভোগী/ }));
     await user.click(within(grid).getByRole('checkbox', { name: /দ্বিতীয় জন/ }));
-    expect(screen.getByRole('button', { name: 'রিভিউ শুরু' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
     // the approval of the ticked rows asks first
     const ask = await screen.findByRole('alertdialog', {
@@ -745,12 +806,12 @@ describe('the review page', () => {
       ),
     );
     openReview();
-    await user.click(await screen.findByRole('button', { name: 'বাতিল করুন' }));
-    const dialog = await screen.findByRole('dialog', { name: 'আবেদন বাতিল করুন' });
+    await user.click(await screen.findByRole('button', { name: 'প্রত্যাখ্যান করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'আবেদন প্রত্যাখ্যান করুন' });
     expect(
       within(dialog).getByText('অফিসের কারণ স্বেচ্ছাসেবকের কাছে কখনো যায় না।'),
     ).toBeInTheDocument();
-    const confirm = within(dialog).getByRole('button', { name: 'বাতিল করুন' });
+    const confirm = within(dialog).getByRole('button', { name: 'প্রত্যাখ্যান করুন' });
     expect(confirm).toBeDisabled();
     await user.type(within(dialog).getByRole('textbox', { name: /অফিসের কারণ/ }), 'আয় সীমার উপরে');
     expect(confirm).toBeDisabled();
@@ -764,7 +825,7 @@ describe('the review page', () => {
       action: 'reject',
       body: { reason: 'আয় সীমার উপরে', message: 'এবার সম্ভব হলো না' },
     });
-    expect(await screen.findByText('আবেদন বাতিল হয়েছে।')).toBeInTheDocument();
+    expect(await screen.findByText('আবেদনটি প্রত্যাখ্যান করা হয়েছে।')).toBeInTheDocument();
     // the approval asks first, then meets a version that changed meanwhile
     await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
     await user.click(
@@ -776,6 +837,143 @@ describe('the review page', () => {
     expect(
       await screen.findByText('আবেদনটি এর মধ্যে বদলেছে। সর্বশেষ তথ্য দেখতে আবার লোড করুন।'),
     ).toBeInTheDocument();
+  });
+
+  it('sends a submitted application for approval in one press and lets the official edit it first', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(record({ availableActions: ['review', 'send_for_approval', 'delete'] })),
+      ),
+    );
+    openReview();
+    expect(await screen.findByRole('button', { name: 'উত্তর সম্পাদনা' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'রিভিউ শুরু' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }));
+    await waitFor(() => expect(acted.at(-1)).toMatchObject({ action: 'send_for_approval' }));
+  });
+
+  it('answers the review checklist item by item, a problem with its comment, and says what is left', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    const checklist = {
+      required: true,
+      items: [
+        {
+          code: 'identity',
+          label: { bn: 'পরিচয় যাচাই', en: 'Identity checked' },
+          result: 'ok',
+          comment: null,
+          checkedBy: { id: '01900000-0000-7000-8000-0000000000f1', name: 'নমুনা এক্সিকিউটিভ' },
+          checkedAt: '2026-11-18T09:00:00Z',
+        },
+        ...(['address', 'eligibility'] as const).map((code) => ({
+          code,
+          label: { bn: code === 'address' ? 'ঠিকানা যাচাই' : 'যোগ্যতা যাচাই', en: code },
+          result: null,
+          comment: null,
+          checkedBy: null,
+          checkedAt: null,
+        })),
+      ],
+    };
+    const answered: { item: string; ifMatch: string | null; body: unknown }[] = [];
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'under_review',
+            availableActions: ['send_for_approval'],
+            reviewChecklist: checklist,
+          }),
+        ),
+      ),
+      http.put(`*/api/v1/applications/${A1}/review-checks/:item`, async ({ params, request }) => {
+        answered.push({
+          item: String(params.item),
+          ifMatch: request.headers.get('If-Match'),
+          body: await request.json(),
+        });
+        return envelope(
+          record({
+            status: 'under_review',
+            availableActions: ['send_for_approval'],
+            reviewChecklist: checklist,
+          }),
+          '"v2"',
+        );
+      }),
+    );
+    const view = openReview();
+    const card = within(
+      (await screen.findByRole('heading', { name: 'রিভিউ চেকলিস্ট' })).closest('section')!,
+    );
+    expect(card.getByText('অনুমোদনের জন্য পাঠানোর আগে সব বিষয় দেখতে হবে।')).toBeInTheDocument();
+    expect(card.getByText('2টি বিষয় বাকি')).toBeInTheDocument();
+    expect(card.getByText(/নমুনা এক্সিকিউটিভ/)).toBeInTheDocument();
+    // a fine item is answered with one press
+    await user.click(
+      within(card.getByRole('radiogroup', { name: 'ঠিকানা যাচাই' })).getByRole('radio', {
+        name: 'ঠিক আছে',
+      }),
+    );
+    await waitFor(() =>
+      expect(answered).toEqual([{ item: 'address', ifMatch: '"v1"', body: { result: 'ok' } }]),
+    );
+    // a problem asks what it is before it is sent
+    await user.click(
+      within(card.getByRole('radiogroup', { name: 'যোগ্যতা যাচাই' })).getByRole('radio', {
+        name: 'সমস্যা আছে',
+      }),
+    );
+    expect(answered).toHaveLength(1);
+    await user.type(card.getByRole('textbox', { name: 'কী সমস্যা' }), 'আয়ের কাগজ নেই');
+    await user.click(card.getByRole('button', { name: 'সমস্যা লিখুন' }));
+    await waitFor(() =>
+      expect(answered.at(-1)).toMatchObject({
+        item: 'eligibility',
+        body: { result: 'problem', comment: 'আয়ের কাগজ নেই' },
+      }),
+    );
+    await expectNoAxeViolations(view.container);
+  });
+
+  it('shows the checklist to read only where the caller may not review', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            availableActions: ['approve'],
+            reviewChecklist: {
+              required: false,
+              items: [
+                {
+                  code: 'identity',
+                  label: { bn: 'পরিচয় যাচাই', en: 'Identity checked' },
+                  result: 'problem',
+                  comment: 'জন্মনিবন্ধনের নাম আলাদা',
+                  checkedBy: { id: '01900000-0000-7000-8000-0000000000f1', name: 'নমুনা' },
+                  checkedAt: '2026-11-18T09:00:00Z',
+                },
+              ],
+            },
+          }),
+        ),
+      ),
+    );
+    openReview();
+    const card = within(
+      (await screen.findByRole('heading', { name: 'রিভিউ চেকলিস্ট' })).closest('section')!,
+    );
+    expect(card.getByText('জন্মনিবন্ধনের নাম আলাদা')).toBeInTheDocument();
+    expect(card.getByText('সমস্যা আছে')).toBeInTheDocument();
+    expect(card.queryAllByRole('radio')).toHaveLength(0);
   });
 
   it('edits the answers under review with the version it read, tells of a stale save, and shows a refusal', async () => {
@@ -826,9 +1024,9 @@ describe('the review page', () => {
       ),
     );
     openReview();
-    await user.click(await screen.findByRole('button', { name: 'বাতিল ফিরিয়ে নিন' }));
+    await user.click(await screen.findByRole('button', { name: 'পুনর্বিবেচনার জন্য পাঠান' }));
     const dialog = await screen.findByRole('dialog', {
-      name: 'বাতিল ফিরিয়ে অনুমোদনের অপেক্ষায় নিন',
+      name: 'পুনর্বিবেচনার জন্য পাঠান',
     });
     expect(
       within(dialog).queryByRole('textbox', { name: /স্বেচ্ছাসেবকের জন্য বার্তা/ }),
@@ -837,7 +1035,7 @@ describe('the review page', () => {
       within(dialog).getByRole('textbox', { name: /অফিসের কারণ/ }),
       'নতুন তথ্য এসেছে',
     );
-    await user.click(within(dialog).getByRole('button', { name: 'বাতিল ফিরিয়ে নিন' }));
+    await user.click(within(dialog).getByRole('button', { name: 'পুনর্বিবেচনার জন্য পাঠান' }));
     await waitFor(() => expect(acted).toHaveLength(1));
     expect(acted[0]).toEqual({ action: 'return_to_review', body: { reason: 'নতুন তথ্য এসেছে' } });
     await user.click(await screen.findByRole('button', { name: 'মুছে ফেলুন' }));
@@ -1353,7 +1551,9 @@ describe('the review page', () => {
       body: { linkBeneficiaryId: PERSON, ownerVolunteerId: VOLUNTEER_ID },
     });
     expect(
-      await screen.findByText('এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন পেন্ডিং।'),
+      await screen.findByText(
+        'এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন প্রক্রিয়াধীন।',
+      ),
     ).toBeInTheDocument();
   });
 
@@ -1424,7 +1624,7 @@ describe('the review page', () => {
     refreshAs(EXECUTIVE);
     serve();
     const view = openReview('en');
-    expect(await screen.findByRole('button', { name: 'Start review' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Edit the answers' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Change log' })).toBeInTheDocument();
     await expectNoAxeViolations(view.container);
   });

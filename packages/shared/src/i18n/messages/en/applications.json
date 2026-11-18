@@ -58,7 +58,7 @@
     "title": "My applications",
     "tabs": "Application status",
     "draft": "Drafts",
-    "pending": "Pending",
+    "pending": "In process",
     "approved": "Approved",
     "rejected": "Rejected",
     "empty": "No applications in this list yet.",
@@ -142,7 +142,7 @@
       "send_for_approval": "Send for approval",
       "approve": "Approve",
       "reject": "Reject",
-      "return_to_review": "Return from rejection",
+      "return_to_review": "Send for reconsideration",
       "reject_unverified": "Refuse the entry",
       "delete": "Delete",
       "waitlist": "Put on the waitlist",
@@ -153,7 +153,7 @@
     },
     "dialog": {
       "reject": "Reject the application",
-      "return_to_review": "Return the rejection to await approval",
+      "return_to_review": "Send for reconsideration",
       "reject_unverified": "Refuse the public entry",
       "delete": "Delete this application?",
       "approve": "Approve the application",
@@ -248,7 +248,13 @@
       "none": "empty"
     },
     "bulk": {
-      "outcome": "{done} done, {failed} not done"
+      "outcome": "{done} done, {failed} not done",
+      "select_all": "Choose all {count} of this list",
+      "all_selected": "All {count} of this list are chosen",
+      "clear": "Clear the choice",
+      "progress": "Sent {sent} of {total}…",
+      "cap": "At most {max} applications can be chosen at once.",
+      "skipped": "{count} applications were not in a state for this action and were left out."
     },
     "sort": {
       "label": "Order",
@@ -300,6 +306,20 @@
     },
     "bulk_approve_confirm": {
       "title": "{n, plural, one {Approve the {count} chosen application?} other {Approve the {count} chosen applications?}}"
+    },
+    "checklist": {
+      "title": "Review checklist",
+      "required": "Every item must be checked before sending for approval.",
+      "optional": "The checklist is optional.",
+      "left": "Items left: {count}",
+      "done": "Every item is checked",
+      "ok": "Ok",
+      "problem": "Problem",
+      "comment": "What is the problem",
+      "save": "Save the problem",
+      "by": "{name}, {time}",
+      "failed": "The answer could not be saved. Try again.",
+      "unanswered": "Not checked yet"
     }
   },
   "unlock": {

@@ -2,6 +2,7 @@ import {
   APPLICATION_ACTIONS,
   APPLICATION_STATES,
   type ApplicationAction,
+  leadInOf,
   scoreCriteriaSchema,
   uuidv7,
   type WorkflowDefinition,
@@ -16,6 +17,7 @@ import {
   optionalIdentityOf,
 } from '@css/shared/forms';
 import { GUARDIAN_RELATION_COLUMN } from '@css/shared/beneficiaries';
+import type { ReviewCheckAnswerBody } from '@css/shared/projects';
 import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
 import { type EffectiveAccess, WORKING_ASSIGNMENT } from '../access/effective.js';
@@ -63,7 +65,11 @@ import {
   PICK_NUMBER_CONFLICT,
   type PickedPerson,
 } from '../services/beneficiary-match.js';
-import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
+import {
+  IDENTITY_RULES_SELECT,
+  identityRulesOf,
+  reviewChecklistOf,
+} from '../services/project-identity-rules.js';
 import {
   helpView,
   lockPeople,
@@ -162,6 +168,13 @@ const EDIT_PERMISSION: Record<string, string> = {
   under_review: 'application.review',
 };
 
+/**
+ * The permission an edit needs: the state's, except that an official edits a submitted
+ * application under the review permission, and the edit starts the review on its way.
+ */
+const editPermissionOf = (status: string, official: boolean): string | undefined =>
+  status === 'submitted' && official ? 'application.review' : EDIT_PERMISSION[status];
+
 /** The identity answers a known person's profile locks: the number, the name, the father or husband. */
 const LOCKED_COLUMNS = [IDENTITY_COLUMN, 'name', 'father_or_husband_name'] as const;
 
@@ -189,6 +202,11 @@ const SCORE_SORT = [
 const DECISIONS = ['approve', 'waitlist', 'reject', 'pull_from_waitlist'] as const;
 /** The states whose answers can still change the score; a decision freezes it. */
 const SCORED_WHILE = ['submitted', 'under_review'];
+/**
+ * The states an application takes checklist answers in: before and during the review. Once it is
+ * sent for approval the answers stand as sent, so the approver decides on what the reviewer saw.
+ */
+const CHECKED_WHILE = ['submitted', 'under_review'];
 /** The states a list leaves out unless asked for by name. */
 const HIDDEN_STATES = ['deleted'];
 
@@ -265,6 +283,7 @@ const guardedProject = (project: ProjectRow) => ({
   ...project,
   approval: null,
   identityRules: identityRulesOf(project),
+  reviewChecklist: reviewChecklistOf(project),
 });
 
 /**
@@ -556,11 +575,14 @@ export class ApplicationsService {
     const actor = viewer.principal.userId;
     const access = await this.access.load(actor);
     const row = await this.reachedRow(viewer.principal, access, applicationId, 'application.view');
-    const permission = EDIT_PERMISSION[row.status];
+    const audience = this.audienceOf(viewer);
+    // an official edits a submitted application under the review permission, and the first edit
+    // that changes an answer is the start of its review
+    const officialOnSubmitted = row.status === 'submitted' && audience === 'official';
+    const permission = editPermissionOf(row.status, audience === 'official');
     if (!permission) throw new ApiError('application.not_editable', 409);
     await this.assertMay(viewer.principal, access, permission, applicationId);
     assertIfMatch(ifMatch, row.updatedAt);
-    const audience = this.audienceOf(viewer);
     const keys = new Set(
       definitionKeys(await readDefinition(this.prisma, row.formVersionId, audience)),
     );
@@ -629,6 +651,11 @@ export class ApplicationsService {
           : undefined;
         await this.assertMobile(tx, actor, checked.standard, ownerUser);
         await assertUploadsOwn(tx, actor, applicationId, person.answers);
+        const changes = changedAnswers(before, person.answers);
+        const startsReview = officialOnSubmitted && changes.length > 0;
+        if (startsReview)
+          await this.workflow.transition(tx, viewer.principal, applicationId, 'review');
+        const status = startsReview ? 'under_review' : row.status;
         await writeAnswers(
           tx,
           applicationId,
@@ -660,9 +687,8 @@ export class ApplicationsService {
             updatedBy: actor,
           },
         });
-        if (SCORED_WHILE.includes(row.status)) await this.scoring.compute(tx, applicationId, actor);
-        const changes = changedAnswers(before, person.answers);
-        if (row.status === 'under_review' && changes.length)
+        if (SCORED_WHILE.includes(status)) await this.scoring.compute(tx, applicationId, actor);
+        if (status === 'under_review' && changes.length)
           await tx.fieldChange.createMany({
             data: changes.map((c) => ({
               id: uuidv7(),
@@ -688,7 +714,7 @@ export class ApplicationsService {
           entityId: applicationId,
           old: { status: row.status },
           new: {
-            status: row.status,
+            status,
             changed: changes.map((c) => c.fieldKey),
             ...(person.beneficiaryId !== row.beneficiaryId
               ? { beneficiaryId: person.beneficiaryId }
@@ -829,6 +855,122 @@ export class ApplicationsService {
       return true;
     });
     return done ? this.read(viewer, access, applicationId) : null;
+  }
+
+  /**
+   * The project's review checklist with this application's answers, in the checklist's order; an
+   * item the project no longer lists keeps its answer in the table but is not shown.
+   */
+  private async reviewChecklistView(
+    applicationId: string,
+    project: { projectComponentsProject: { settings: unknown }[] },
+  ) {
+    const checklist = reviewChecklistOf(project);
+    const answers = await this.prisma.applicationReviewCheck.findMany({
+      where: { applicationId },
+      select: {
+        itemCode: true,
+        result: true,
+        comment: true,
+        checkedAt: true,
+        checkedByRef: { select: { id: true, displayName: true } },
+      },
+    });
+    const byCode = new Map(answers.map((a) => [a.itemCode, a]));
+    return {
+      required: checklist.required,
+      items: checklist.items.map((item) => {
+        const answer = byCode.get(item.code);
+        return {
+          code: item.code,
+          label: item.label,
+          result: (answer?.result ?? null) as 'ok' | 'problem' | null,
+          comment: answer?.comment ?? null,
+          checkedBy: answer
+            ? { id: answer.checkedByRef.id, name: answer.checkedByRef.displayName }
+            : null,
+          checkedAt: answer ? answer.checkedAt.toISOString() : null,
+        };
+      }),
+    };
+  }
+
+  /**
+   * An official's answer to one item of the project's review checklist, under the review
+   * permission and the version the caller read. The first answer of a submitted application starts
+   * its review; a later answer of the same item replaces the earlier one, and the audit log keeps
+   * each. A decided application takes no answer.
+   */
+  async answerReviewCheck(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    itemCode: string,
+    body: ReviewCheckAnswerBody,
+    ifMatch: string | undefined,
+  ): Promise<ApplicationRead> {
+    const actor = viewer.principal.userId;
+    if (await this.blockedCaller(this.prisma, viewer.principal))
+      throw new ApiError('permission.not_found', 404);
+    const access = await this.access.load(actor);
+    const row = await this.reachedRow(viewer.principal, access, applicationId, 'application.view');
+    await this.assertMay(viewer.principal, access, 'application.review', applicationId);
+    const checklist = reviewChecklistOf(row.project);
+    if (!checklist.items.some((item) => item.code === itemCode))
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'itemCode', code: 'validation.option_unknown' },
+      ]);
+    assertIfMatch(ifMatch, row.updatedAt);
+    await this.prisma.$transaction(async (tx) => {
+      // the person before the application, as every writer of a person's applications takes them
+      // (`lockPeople`), so the start of the review this answer may make never waits the other way
+      if (row.beneficiaryId) await lockPeople(tx, [row.beneficiaryId]);
+      const [locked] = await tx.$queryRaw<{ status: string; updated_at: Date }[]>`
+        SELECT status, updated_at FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
+      if (!locked || !CHECKED_WHILE.includes(locked.status))
+        throw new ApiError('application.not_editable', 409);
+      assertIfMatch(ifMatch, locked.updated_at);
+      if (locked.status === 'submitted')
+        await this.workflow.transition(tx, viewer.principal, applicationId, 'review');
+      const now = this.clock.now();
+      const before = await tx.applicationReviewCheck.findUnique({
+        where: { applicationId_itemCode: { applicationId, itemCode } },
+        select: { result: true, comment: true },
+      });
+      await tx.applicationReviewCheck.upsert({
+        where: { applicationId_itemCode: { applicationId, itemCode } },
+        create: {
+          id: uuidv7(),
+          applicationId,
+          itemCode,
+          result: body.result,
+          comment: body.comment,
+          checkedBy: actor,
+          checkedAt: now,
+          createdBy: actor,
+          updatedBy: actor,
+        },
+        update: {
+          result: body.result,
+          comment: body.comment,
+          checkedBy: actor,
+          checkedAt: now,
+          updatedBy: actor,
+        },
+      });
+      // the record's version moves with its checklist, so a screen that read it before sees the change
+      await tx.application.update({
+        where: { id: applicationId },
+        data: { updatedAt: now, updatedBy: actor },
+      });
+      await this.audit.record(tx, {
+        action: 'application.review_check',
+        entityType: 'application',
+        entityId: applicationId,
+        old: before ? { item: itemCode, ...before } : null,
+        new: { item: itemCode, result: body.result, comment: body.comment },
+      });
+    });
+    return this.read(viewer, access, applicationId);
   }
 
   /** A workflow action through the engine, which decides the permission, the scope and the guards. */
@@ -1761,7 +1903,7 @@ export class ApplicationsService {
     applicationId: string,
     status: string,
   ): Promise<boolean> {
-    const permission = EDIT_PERMISSION[status];
+    const permission = editPermissionOf(status, this.audienceOf(viewer) === 'official');
     if (!permission) return false;
     if (await this.blockedCaller(this.prisma, viewer.principal)) return false;
     const access = await this.access.load(viewer.principal.userId);
@@ -2004,6 +2146,10 @@ export class ApplicationsService {
         reviewedAt: iso(row.reviewedAt),
         approvedAt: iso(row.approvedAt),
         decisionComment: row.decisionComment,
+        reviewChecklist:
+          audience === 'official'
+            ? await this.reviewChecklistView(applicationId, row.project)
+            : null,
         scoreItems: row.applicationScoresApplication
           ? scoreItemsOf(row.applicationScoresApplication.criteria)
           : null,
@@ -2157,17 +2303,30 @@ export class ApplicationsService {
         );
       return reached.get(permission)!;
     };
+    const permissionOf = (to: string, from: string) =>
+      (definition.transitions ?? []).find(
+        (t) => t.to === to && (Array.isArray(t.from) ? t.from : [t.from]).includes(from),
+      )?.permission;
     const actions: string[] = [];
     for (const [action, spec] of Object.entries(APPLICATION_ACTIONS)) {
       if ('later' in spec && spec.later) continue;
-      if (!(spec.from as readonly string[]).includes(row.status)) continue;
-      const transition = (definition.transitions ?? []).find(
-        (t) =>
-          t.to === spec.to &&
-          (Array.isArray(t.from) ? t.from : [t.from]).includes(row.status) &&
-          t.permission,
-      );
-      if (transition?.permission && (await reaches(transition.permission))) actions.push(action);
+      // an action that passes a step first is offered where both moves are the caller's
+      const leadIn = leadInOf(action as ApplicationAction, row.status);
+      const steps: { to: string; from: string }[] = leadIn
+        ? [
+            { to: APPLICATION_ACTIONS[leadIn].to, from: row.status },
+            { to: spec.to, from: APPLICATION_ACTIONS[leadIn].to },
+          ]
+        : (spec.from as readonly string[]).includes(row.status)
+          ? [{ to: spec.to, from: row.status }]
+          : [];
+      if (!steps.length) continue;
+      let allowed = true;
+      for (const step of steps) {
+        const permission = permissionOf(step.to, step.from);
+        if (!permission || !(await reaches(permission))) allowed = false;
+      }
+      if (allowed) actions.push(action);
     }
     return actions;
   }

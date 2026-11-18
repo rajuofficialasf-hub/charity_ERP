@@ -129,6 +129,28 @@ export const applicationView = applicationSummary.extend({
   reviewedAt: z.string().nullable(),
   approvedAt: z.string().nullable(),
   decisionComment: sensitive(z.string().nullable(), OFFICIAL_SECTION),
+  /**
+   * The project's review checklist with the answers given on this application, the office's only:
+   * each item with its answer, its comment, and who answered and when, or none yet.
+   */
+  reviewChecklist: sensitive(
+    z
+      .object({
+        required: z.boolean(),
+        items: z.array(
+          z.object({
+            code: z.string(),
+            label: z.object({ bn: z.string(), en: z.string() }),
+            result: z.enum(['ok', 'problem']).nullable(),
+            comment: z.string().nullable(),
+            checkedBy: z.object({ id: z.uuid(), name: z.string() }).nullable(),
+            checkedAt: z.string().nullable(),
+          }),
+        ),
+      })
+      .nullable(),
+    OFFICIAL_SECTION,
+  ),
   /** The priority score's breakdown, frozen with the score at the decision. */
   scoreItems: sensitive(
     z

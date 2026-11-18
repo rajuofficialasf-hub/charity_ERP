@@ -160,6 +160,7 @@ describe('templates and copies', () => {
         'application_form.mobile',
         'application_form.repeat_person',
         'application_form.repeat_family',
+        'application_form.review_checklist',
         'public_link.enabled',
         'volunteer_assignment.team_members_allowed',
         'photo_rule.rule',

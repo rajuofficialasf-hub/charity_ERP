@@ -334,6 +334,13 @@ erDiagram
     uuid field_id FK
     jsonb value
   }
+  application_review_checks {
+    uuid id PK
+    uuid application_id FK
+    text item_code
+    text result
+    uuid checked_by FK
+  }
   application_scores {
     uuid id PK
     uuid application_id FK
@@ -720,6 +727,7 @@ erDiagram
   volunteers ||--o{ applications : owns
   nisab_versions ||--o{ applications : "zakat snapshot"
   applications ||--o{ application_answers : answers
+  applications ||--o{ application_review_checks : "checklist answers"
   form_fields ||--o{ application_answers : "answer to"
   applications ||--o| application_scores : scored
   applications ||--o{ application_transfers : transferred

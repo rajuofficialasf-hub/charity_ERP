@@ -28,12 +28,23 @@ export interface ApplicationActionSpec {
   texts: 'none' | 'reason' | 'reason_and_message';
   /** An action of a later task: the engine refuses it until that task builds it. */
   later?: true;
+  /**
+   * The move the action makes first when the application stands one step before it: the office
+   * sends a submitted application for approval in one press, and the press records the start of
+   * the review on its way (docs/architecture/WORKFLOW_ENGINE.md, "Common application cycle").
+   */
+  leadIn?: { from: ApplicationState; action: string };
 }
 
 export const APPLICATION_ACTIONS = {
   submit: { from: ['draft'], to: 'submitted', texts: 'none' },
   review: { from: ['submitted'], to: 'under_review', texts: 'none' },
-  send_for_approval: { from: ['under_review'], to: 'reviewed', texts: 'none' },
+  send_for_approval: {
+    from: ['under_review'],
+    to: 'reviewed',
+    texts: 'none',
+    leadIn: { from: 'submitted', action: 'review' },
+  },
   approve: { from: ['reviewed'], to: 'approved', texts: 'none' },
   reject: { from: ['reviewed', 'waitlisted'], to: 'rejected', texts: 'reason_and_message' },
   waitlist: { from: ['reviewed'], to: 'waitlisted', texts: 'reason' },
@@ -51,3 +62,11 @@ export const APPLICATION_ACTION_NAMES = Object.keys(APPLICATION_ACTIONS) as Appl
 
 export const isApplicationAction = (value: string): value is ApplicationAction =>
   Object.hasOwn(APPLICATION_ACTIONS, value);
+
+/** The move an action makes first from this state, if any (`leadIn`). */
+export function leadInOf(action: ApplicationAction, status: string): ApplicationAction | null {
+  const spec: ApplicationActionSpec = APPLICATION_ACTIONS[action];
+  return spec.leadIn?.from === status && isApplicationAction(spec.leadIn.action)
+    ? spec.leadIn.action
+    : null;
+}

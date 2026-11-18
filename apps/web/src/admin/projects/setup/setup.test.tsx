@@ -690,6 +690,53 @@ describe('the setup wizard', () => {
       );
     });
 
+    it('shows the starting review checklist, and writes the PM’s items and switch', async () => {
+      serve();
+      withForm({ form_ids: [FORM_ID] });
+      const user = userEvent.setup();
+      const dialog = await openDrawer(user);
+      const list = within(dialog.getByRole('group', { name: 'রিভিউ চেকলিস্ট' }));
+      expect(list.getByDisplayValue('পরিচয় যাচাই')).toBeInTheDocument();
+      expect(list.getByDisplayValue('ঠিকানা যাচাই')).toBeInTheDocument();
+      expect(list.getByDisplayValue('যোগ্যতা যাচাই')).toBeInTheDocument();
+      const required = dialog.getByRole('switch', {
+        name: 'সব বিষয় দেখা না হলে অনুমোদনের জন্য পাঠানো যাবে না',
+      });
+      expect(required).not.toBeChecked();
+      // the address goes, a project item comes, and the checklist becomes required
+      await user.click(list.getByRole('button', { name: 'আইটেম 2 সরান' }));
+      await user.click(list.getByRole('button', { name: /যোগ করুন/ }));
+      const fields = list.getAllByRole('textbox');
+      await user.type(fields.at(-2)!, 'জমির কাগজ দেখা');
+      await user.type(fields.at(-1)!, 'Land papers seen');
+      await user.click(required);
+      await user.click(dialog.getByRole('button', { name: 'সংরক্ষণ' }));
+      await waitFor(() =>
+        expect(writes).toContainEqual({
+          path: 'component:application_form',
+          body: {
+            settings: {
+              form_ids: [FORM_ID],
+              review_checklist: {
+                required: true,
+                items: [
+                  { code: 'identity', label: { bn: 'পরিচয় যাচাই', en: 'Identity checked' } },
+                  {
+                    code: 'eligibility',
+                    label: { bn: 'যোগ্যতা যাচাই', en: 'Eligibility checked' },
+                  },
+                  {
+                    code: expect.stringMatching(/^item_\d+$/),
+                    label: { bn: 'জমির কাগজ দেখা', en: 'Land papers seen' },
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      );
+    });
+
     it('shows the choices the project has stored, and takes one back', async () => {
       serve();
       withForm({

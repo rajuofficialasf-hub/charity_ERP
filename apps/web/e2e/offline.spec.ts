@@ -307,7 +307,7 @@ test.describe('the offline journeys', () => {
       await expect(dialog).toBeVisible();
       await dialog.getByRole('button', { name: 'যুক্ত করুন' }).click();
       await expect(
-        desk.getByText('এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন পেন্ডিং।'),
+        desk.getByText('এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন প্রক্রিয়াধীন।'),
       ).toBeVisible();
     });
     // the phone learns of the decision with its next pull of the data set

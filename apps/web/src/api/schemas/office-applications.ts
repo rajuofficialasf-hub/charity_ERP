@@ -48,9 +48,25 @@ export const scoreItemSchema = z.object({
 });
 export type ScoreItem = z.infer<typeof scoreItemSchema>;
 
+/** One item of the project's review checklist with this application's answer, if any. */
+export const reviewCheckItemSchema = z.object({
+  code: z.string(),
+  label: bilingual,
+  result: z.enum(['ok', 'problem']).nullable(),
+  comment: z.string().nullable(),
+  checkedBy: z.object({ id: z.string(), name: z.string() }).nullable(),
+  checkedAt: z.string().nullable(),
+});
+export type ReviewCheckItem = z.infer<typeof reviewCheckItemSchema>;
+
 /** The record as an official reads it: the volunteer's view plus the office's own fields. */
 export const officeApplicationSchema = applicationSchema.extend({
   decisionComment: z.string().nullable().optional(),
+  /** The project's review checklist with the answers given on this application. */
+  reviewChecklist: z
+    .object({ required: z.boolean(), items: z.array(reviewCheckItemSchema) })
+    .nullable()
+    .optional(),
   totalScore: z.number().nullable().optional(),
   scoreItems: z.array(scoreItemSchema).nullable().optional(),
   /** The comments each decision would ask for now, by action. */

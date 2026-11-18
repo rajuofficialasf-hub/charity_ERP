@@ -51,14 +51,17 @@ import { DecisionDialog, type DecisionTexts } from './DecisionDialog';
 import { UnlockReview } from './UnlockReview';
 import { VerifyDialog } from './VerifyDialog';
 import { ScoreBreakdown } from './ScoreBreakdown';
+import { ReviewChecklist } from './ReviewChecklist';
 import { Signals } from './Signals';
 import './applications.css';
 import { RecordPdfButton } from '../../features/exports/RecordPdfButton';
 import { LoadError } from '../../components/LoadError';
 
-/** The actions an official takes from the record, in the order of the cycle. */
+/**
+ * The actions an official takes from the record, in the order of the cycle. The start of a review
+ * has no button: sending a submitted application for approval, or editing its answers, starts it.
+ */
 const ACTIONS: OfficeAction[] = [
-  'review',
   'send_for_approval',
   'approve',
   'pull_from_waitlist',
@@ -195,6 +198,9 @@ function Review() {
   const a = one.data.data;
   const etag = one.data.meta.etag ?? '';
   const may = (action: OfficeAction) => a.availableActions.includes(action);
+  // the answers are the office's to edit while the review runs, and an official who may start the
+  // review edits a submitted application too: the save starts it
+  const editable = a.status === 'under_review' || (a.status === 'submitted' && may('review'));
   // the entry is checked against the profiles now, so a profile made after the entry still links
   const verifiable = VERIFY.some(may);
   const hinted = (action: OfficeAction) => a.decisionHints[action] ?? [];
@@ -283,7 +289,7 @@ function Review() {
                 {a.media ? tm('referral.resend') : tm('referral.action')}
               </Button>
             ) : null}
-            {a.status === 'under_review' && !editing ? (
+            {editable && !editing ? (
               <Button variant="text" size="small" onClick={() => setEditing(true)}>
                 {t('edit_answers')}
               </Button>
@@ -332,6 +338,13 @@ function Review() {
         />
       </Card>
       <Signals application={a} />
+      <ReviewChecklist
+        application={a}
+        etag={etag}
+        // the office answers while the review runs or before it starts, under the review permission
+        editable={may('review') || may('send_for_approval')}
+        onAnswered={refresh}
+      />
       {/* the person's help by their other applications, for a role that sees their history */}
       {a.helpedBefore ? (
         <Card title={t('helped_before.title')} headingLevel={2}>
@@ -381,7 +394,7 @@ function Review() {
         <ScoreBreakdown total={a.totalScore} items={a.scoreItems} />
       ) : null}
       <Card title={t('answers')} headingLevel={2}>
-        {editing && a.status === 'under_review' ? (
+        {editing && editable ? (
           <FormRenderer
             definition={a.form}
             audience="official"

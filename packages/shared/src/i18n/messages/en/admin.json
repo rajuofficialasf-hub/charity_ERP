@@ -964,7 +964,8 @@
           "issue_types": "Issue types",
           "categories": "Expense categories",
           "questions": "Follow-up questions",
-          "stages": "Stages"
+          "stages": "Stages",
+          "review_checklist": "Review checklist"
         },
         "label_bn": "Item {number} in Bangla",
         "label_en": "Item {number} in English",
@@ -1004,6 +1005,10 @@
             "tell": "Only tell",
             "hold": "A written reason before approval"
           }
+        },
+        "checklist": {
+          "hint": "On every application the office marks each item \"ok\" or \"problem\".",
+          "required": "Every item must be checked before sending for approval"
         }
       },
       "open_forms": "Open the form builder",

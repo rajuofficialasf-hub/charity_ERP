@@ -1,6 +1,7 @@
 import {
   APPLICATION_ACTIONS,
   type ApplicationAction,
+  leadInOf,
   type WorkflowDefinition,
   workflowDefinitionSchema,
 } from '@css/shared';
@@ -15,7 +16,11 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { ApplicationEvents } from '../notifications/application-events.js';
 import { lockPeople, recountAfterMove } from '../services/help-history.js';
-import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
+import {
+  IDENTITY_RULES_SELECT,
+  identityRulesOf,
+  reviewChecklistOf,
+} from '../services/project-identity-rules.js';
 import { z } from 'zod';
 import { readEffects, type SideEffect, type SideEffectRunner } from './effects.js';
 import { type EngineApplication, GuardContext, type GuardInput, GUARDS } from './guards.js';
@@ -83,6 +88,11 @@ const approvalOverride = z.object({ permission: z.string(), require_condition: z
 
 /** The internal guard every template with an approval override gets on that permission's moves. */
 const APPROVER_GUARD = 'approver.has_permission';
+/**
+ * The internal guard of every move that ends a review: the project's checklist decides whether it
+ * must be complete first (docs/BUSINESS_RULES.md, "Application workflow").
+ */
+const CHECKLIST_GUARD = 'review_checklist.complete';
 
 function approvalOf(definition: WorkflowDefinition, permission: string) {
   const parsed = approvalOverride.safeParse(definition.overrides?.approval);
@@ -120,8 +130,15 @@ export class WorkflowEngine {
     if ('later' in spec && spec.later) throw new ApiError('workflow.action_not_built', 409);
     // the person before the application, as every writer of a person's applications takes them
     // (`lockPeople` of services/help-history.ts): read without a lock, then the person, then the row
-    const [person] = await tx.$queryRaw<{ beneficiary_id: string | null }[]>`
-      SELECT beneficiary_id FROM applications WHERE id = ${applicationId}::uuid`;
+    const [person] = await tx.$queryRaw<{ beneficiary_id: string | null; status: string }[]>`
+      SELECT beneficiary_id, status FROM applications WHERE id = ${applicationId}::uuid`;
+    // one press that passes a step: the step's own move comes first, with its permission, scope,
+    // version check, guards and audit, then this one on the version that move wrote
+    const leadIn = person ? leadInOf(action, person.status) : null;
+    if (leadIn) {
+      await this.transition(tx, principal, applicationId, leadIn, {}, ifMatch);
+      return this.transition(tx, principal, applicationId, action, input, undefined, hooks);
+    }
     if (person?.beneficiary_id) await lockPeople(tx, [person.beneficiary_id]);
     await tx.$queryRaw`SELECT id FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
     const row = await tx.application.findUnique({
@@ -166,6 +183,7 @@ export class WorkflowEngine {
         perVolunteerLimit: row.project.perVolunteerLimit,
         approval: approvalOf(definition, permission),
         identityRules: identityRulesOf(row.project),
+        reviewChecklist: reviewChecklistOf(row.project),
       },
     };
 
@@ -206,6 +224,8 @@ export class WorkflowEngine {
     const guards = [...(transition.guards ?? [])];
     if (ctx.application.project.approval && !guards.includes(APPROVER_GUARD))
       guards.push(APPROVER_GUARD);
+    if (ctx.application.status === 'under_review' && transition.to === 'reviewed')
+      guards.push(CHECKLIST_GUARD);
     const asked: string[] = [];
     for (const name of guards) {
       if (!isBuiltGuard(name)) throw new ApiError('workflow.guard_not_built', 409);

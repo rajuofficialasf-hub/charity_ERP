@@ -439,7 +439,7 @@ describe('my applications', () => {
       path: '/my-applications',
       initialPath: '/my-applications?tab=pending',
     });
-    const pending = await screen.findByRole('tab', { name: /পেন্ডিং/ });
+    const pending = await screen.findByRole('tab', { name: /প্রক্রিয়াধীন/ });
     expect(pending).toHaveAttribute('aria-selected', 'true');
     expect(await screen.findByText('WC-2026-00012')).toBeInTheDocument();
     expect(screen.getByText('পর্যালোচনা চলছে')).toBeInTheDocument();

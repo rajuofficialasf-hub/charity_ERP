@@ -271,6 +271,111 @@ describe('the review and the decision', () => {
     ]);
   });
 
+  it('sends a submitted application for approval in one press, recording both steps', async () => {
+    const s = await as(world.users.general);
+    const executive = await as(world.users.executive);
+    const id = await create(s, identity());
+    await moved(s, id, 'submit');
+    // the volunteer holds no review permission; the office sees the one press
+    expect(await refused(s, id, 'send_for_approval')).toEqual({
+      status: 403,
+      code: 'permission.denied',
+    });
+    const offered = await at(executive, 'get', `/applications/${id}`);
+    expect(offered.body.data.availableActions).toContain('send_for_approval');
+    const sent = await moved(executive, id, 'send_for_approval');
+    expect(sent.body.data.status).toBe('reviewed');
+    expect(await auditActions(id)).toEqual([
+      'application.create',
+      'application.person_bound',
+      'application.submit',
+      'application.numbered',
+      'application.review_started',
+      'application.reviewed',
+    ]);
+    const steps = await at(executive, 'get', `/applications/${id}/timeline`);
+    expect(steps.body.data.map((e: { to: string }) => e.to)).toEqual([
+      'draft',
+      'submitted',
+      'under_review',
+      'reviewed',
+    ]);
+    // a stale version refuses the whole press, and nothing of it stays
+    const other = await create(s, identity());
+    await moved(s, other, 'submit');
+    const stale = await at(executive, 'post', `/applications/${other}/actions/send_for_approval`)
+      .set('If-Match', '"stale"')
+      .send({});
+    expect(stale.status).toBe(412);
+    expect((await at(executive, 'get', `/applications/${other}`)).body.data.status).toBe(
+      'submitted',
+    );
+  });
+
+  it('starts the review with an official’s first edit of a submitted application', async () => {
+    const s = await as(world.users.general);
+    const executive = await as(world.users.executive);
+    const nid = fakeNid();
+    const mobile = fakeMobile();
+    const id = await create(s, identity(nid, mobile));
+    await moved(s, id, 'submit');
+    // the PM sees the application but holds no review permission: the edit is refused and the
+    // review does not start
+    const pm = await as(world.users.pm);
+    const seen = await at(pm, 'get', `/applications/${id}`);
+    expect(seen.status).toBe(200);
+    const refusedEdit = await at(pm, 'patch', `/applications/${id}`)
+      .set('If-Match', seen.headers.etag as string)
+      .send({ answers: identity(nid, mobile) });
+    expect(refusedEdit.status).toBe(403);
+    expect(refusedEdit.body.error.code).toBe('permission.denied');
+    expect(await auditActions(id)).not.toContain('application.review_started');
+    // a save that changes no answer starts nothing
+    const unchanged = await at(executive, 'get', `/applications/${id}`);
+    const same = await at(executive, 'patch', `/applications/${id}`)
+      .set('If-Match', unchanged.headers.etag as string)
+      .send({ answers: identity(nid, mobile) });
+    expect(same.status, JSON.stringify(same.body)).toBe(200);
+    expect(same.body.data.status).toBe('submitted');
+    expect(await auditActions(id)).not.toContain('application.review_started');
+    const read = await at(executive, 'get', `/applications/${id}`);
+    const edited = await at(executive, 'patch', `/applications/${id}`)
+      .set('If-Match', read.headers.etag as string)
+      .send({
+        answers: [
+          ...identity(nid, mobile),
+          { fieldKey: 'q_note', value: { t: 'long_text', v: 'যাচাই করা হয়েছে' } },
+        ],
+      });
+    expect(edited.status, JSON.stringify(edited.body)).toBe(200);
+    expect(edited.body.data.status).toBe('under_review');
+    expect((await auditActions(id)).slice(-2)).toEqual([
+      'application.review_started',
+      'application.update',
+    ]);
+    // the edit is logged question by question, as one under review is
+    const changes = await at(executive, 'get', `/applications/${id}/changes`);
+    expect(changes.body.data).toEqual([
+      expect.objectContaining({ field: 'q_note', kind: 'review_edit' }),
+    ]);
+    // the volunteer's own edit of a submitted application leaves it submitted
+    const ownNid = fakeNid();
+    const ownMobile = fakeMobile();
+    const mine = await create(s, identity(ownNid, ownMobile));
+    await moved(s, mine, 'submit');
+    const own = await at(s, 'get', `/applications/${mine}`);
+    const ownEdit = await at(s, 'patch', `/applications/${mine}`)
+      .set('If-Match', own.headers.etag as string)
+      .send({
+        answers: toAnswers({
+          ...IDENTITY_ANSWERS(ownNid, ownMobile, world.dhaka),
+          q_village: { t: 'short_text', v: 'নতুন গ্রাম' },
+        }),
+      });
+    expect(ownEdit.status, JSON.stringify(ownEdit.body)).toBe(200);
+    expect(ownEdit.body.data.status).toBe('submitted');
+  });
+
   it('lets a blocked person’s draft be edited but not sent, and the submitted application go on', async () => {
     const s = await as(world.users.general);
     const executive = await as(world.users.executive);

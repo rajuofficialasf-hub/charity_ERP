@@ -31,12 +31,24 @@ export const identitySettingsShape = {
   repeat_family: repeatRule.optional(),
 };
 
+/**
+ * The review checklist of a project: the items an official checks before sending an application
+ * for approval, and whether every item must be answered first. `reviewChecklist` of
+ * `projects/review-checklist.ts` is the one reader, with the starting items for a project that
+ * says nothing.
+ */
+export const reviewChecklistSettings = z.strictObject({
+  required: z.boolean(),
+  items: codeLabels(20),
+});
+
 export const componentSettingsSchemas = {
   application_form: z.strictObject({
     form_ids: z.array(z.uuid()).max(20).optional(),
     beneficiary_class_options: codeLabels(30).optional(),
     application_kinds: codeLabels(20).optional(),
     ...identitySettingsShape,
+    review_checklist: reviewChecklistSettings.optional(),
   }),
   public_link: z.strictObject({
     enabled: z.boolean(),

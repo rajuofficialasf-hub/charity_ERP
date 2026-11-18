@@ -48,8 +48,10 @@ import {
   type UnlockValue,
   unlockValueSchema,
 } from '@css/shared/forms';
+import { type ReviewCheckAnswerBody, reviewCheckAnswerSchema } from '@css/shared/projects';
 
 const uuid = z.uuid();
+const code64 = z.string().regex(/^[a-z0-9_]{1,64}$/);
 const ifMatch = [{ name: 'If-Match', required: true }];
 const listQuery = pageQuery.extend(pageNumberQuery.shape).extend(applicationFilterSchema.shape);
 const ACTIONS = Object.keys(APPLICATION_ACTIONS) as [ApplicationAction, ...ApplicationAction[]];
@@ -246,6 +248,44 @@ export function applicationsRouter(
         res,
       ),
   });
+
+  defineRoute<ReviewCheckAnswerBody, unknown, { applicationId: string; itemCode: string }>(
+    router,
+    deps,
+    {
+      ...op,
+      method: 'put',
+      path: '/applications/:applicationId/review-checks/:itemCode',
+      operationId: 'applications.reviewCheck.answer',
+      summary:
+        "Answer one item of the project's review checklist, ok or a problem with a comment; the first answer of a submitted application starts its review, and a later answer replaces the item's",
+      permission: 'application.review',
+      scope: 'application',
+      audit: 'application.review_check',
+      sensitiveFields: [
+        'application.official_section',
+        'beneficiary.nid',
+        'beneficiary.contact',
+        'beneficiary.profile_detail',
+        'beneficiary.application_history',
+      ],
+      headers: ifMatch,
+      params: { applicationId: uuid, itemCode: code64 },
+      body: reviewCheckAnswerSchema,
+      responses: { 200: applicationView, 403: null, 404: null, 409: null, 412: null, 422: null },
+      handler: async ({ params, body, req, res }) =>
+        withEtag(
+          await c.applications.answerReviewCheck(
+            viewerOf(req),
+            params.applicationId,
+            params.itemCode,
+            body,
+            req.get('if-match'),
+          ),
+          res,
+        ),
+    },
+  );
 
   defineRoute<ApplicationActionBody, unknown, { applicationId: string; action: ApplicationAction }>(
     router,
@@ -448,7 +488,7 @@ export function applicationsRouter(
     path: '/projects/:projectId/bulk/review',
     operationId: 'applications.bulk.review',
     summary:
-      'The review screen in bulk: up to 50 applications start their review or take their approval, each row on its own (API_STANDARDS section 13)',
+      'The review screen in bulk: up to 50 applications start their review, are sent for approval or take their approval, each row on its own (API_STANDARDS section 13)',
     permission: 'workflow',
     scope: 'application',
     audit: 'application.bulk_review',
