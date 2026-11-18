@@ -968,7 +968,8 @@ describe('the review page', () => {
       (await screen.findByRole('heading', { name: 'রিভিউ চেকলিস্ট' })).closest('section')!,
     );
     expect(card.getByText('জন্মনিবন্ধনের নাম আলাদা')).toBeInTheDocument();
-    for (const radio of card.getAllByRole('radio')) expect(radio).toBeDisabled();
+    expect(card.getByText('সমস্যা আছে')).toBeInTheDocument();
+    expect(card.queryAllByRole('radio')).toHaveLength(0);
   });
 
   it('edits the answers under review with the version it read, tells of a stale save, and shows a refusal', async () => {

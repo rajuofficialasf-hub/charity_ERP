@@ -192,8 +192,8 @@ Behaviour:
 
 ## Progress
 - Branch: `feat/review-one-press-checklist`
-- Unit status: U1–U7 done; U8 todo
-- Next: U8, the documents (SCREENS, WORKFLOW_ENGINE, UAT Phase 2, STATUS) and the E2E of the checklist, then checkpoint C2
+- Unit status: U1–U8 done
+- Next: checkpoint C2 (review of U4–U8), then C3 (the whole branch), the full test run and the pull request
 - Reviewed through: C1 at 69fe281c
 - Uncommitted: none
 - Notes: C1 review (T2): no security finding; an official save with no change no longer starts the review; only volunteers hold application.edit_pending, so an official editing a submitted application under the review permission takes nothing from anyone. The owner approved this plan in chat on 2026-11-18 (plan mode); the default of the checklist switch (off) is recorded as proposed

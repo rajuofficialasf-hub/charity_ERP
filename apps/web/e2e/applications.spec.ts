@@ -242,6 +242,11 @@ test.describe('the application cycle', () => {
       await desk.getByRole('link', { name }).first().click();
       await expect(desk.getByRole('heading', { level: 1, name })).toBeVisible();
       await expect(desk.getByRole('button', { name: 'রিভিউ শুরু' })).toHaveCount(0);
+      // the project's starting checklist: one item answered starts the review
+      const checklist = desk.getByRole('radiogroup', { name: 'পরিচয় যাচাই' });
+      await checklist.getByRole('radio', { name: 'ঠিক আছে' }).click();
+      await expect(checklist.getByRole('radio', { name: 'ঠিক আছে' })).toBeChecked();
+      await expect(desk.getByText('2টি বিষয় বাকি')).toBeVisible();
       await noViolations(desk, 'the review page');
       await desk.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }).click();
       await expect(desk.getByText('অনুমোদনের জন্য পাঠানো হয়েছে।')).toBeVisible();

@@ -1,6 +1,6 @@
 import { formatCount, formatDateTime } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, RadioGroup, Stack, Text, TextField } from '@/ui';
+import { Alert, Button, Card, Chip, RadioGroup, Stack, Text, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -28,6 +28,8 @@ export function ReviewChecklist({
   const t = useTranslations('applications.office.checklist');
   const locale = useLocale() as Locale;
   const [problem, setProblem] = useState<{ code: string; comment: string } | null>(null);
+  // a fine answer shows at once, and stays until the record read again holds it
+  const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
   const answer = useMutation({
     mutationFn: (
       input: { code: string; result: 'ok' } | { code: string; result: 'problem'; comment: string },
@@ -39,6 +41,8 @@ export function ReviewChecklist({
       setProblem(null);
       await onAnswered();
     },
+    onError: (_error, input) =>
+      setChosen((codes) => new Set([...codes].filter((code) => code !== input.code))),
   });
   const checklist = a.reviewChecklist;
   if (!checklist || !checklist.items.length) return null;
@@ -46,8 +50,10 @@ export function ReviewChecklist({
   const failed =
     answer.error instanceof ApiFailure ? answer.error.message : answer.error ? t('failed') : null;
   const choose = (item: ReviewCheckItem, value: string) => {
+    if (answer.isPending) return;
     if (value === 'ok') {
       setProblem(null);
+      setChosen((codes) => new Set(codes).add(item.code));
       answer.mutate({ code: item.code, result: 'ok' });
     } else setProblem({ code: item.code, comment: item.comment ?? '' });
   };
@@ -62,17 +68,36 @@ export function ReviewChecklist({
           const asking = problem?.code === item.code;
           return (
             <Stack key={item.code} gap={1}>
-              <RadioGroup
-                label={label}
-                orientation="horizontal"
-                value={asking ? 'problem' : item.result}
-                onChange={(value) => choose(item, value)}
-                options={[
-                  { value: 'ok', label: t('ok') },
-                  { value: 'problem', label: t('problem') },
-                ]}
-                disabled={!editable || answer.isPending}
-              />
+              {editable ? (
+                <RadioGroup
+                  label={label}
+                  orientation="horizontal"
+                  value={
+                    asking ? 'problem' : (item.result ?? (chosen.has(item.code) ? 'ok' : null))
+                  }
+                  onChange={(value) => choose(item, value)}
+                  options={[
+                    { value: 'ok', label: t('ok') },
+                    { value: 'problem', label: t('problem') },
+                  ]}
+                />
+              ) : (
+                // read only: the answer as a mark beside the item, no choice to make
+                <Stack direction="row" gap={1} wrap align="center">
+                  <Text>{label}</Text>
+                  <Chip
+                    tone={
+                      item.result === 'ok'
+                        ? 'success'
+                        : item.result === 'problem'
+                          ? 'warning'
+                          : 'neutral'
+                    }
+                  >
+                    {item.result ? t(item.result) : t('unanswered')}
+                  </Chip>
+                </Stack>
+              )}
               {item.comment && !asking ? <Text>{item.comment}</Text> : null}
               {item.checkedBy && item.checkedAt ? (
                 <Text tone="muted" size="small">

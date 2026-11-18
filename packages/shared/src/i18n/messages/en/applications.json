@@ -317,7 +317,8 @@
       "comment": "What is the problem",
       "save": "Save the problem",
       "by": "{name}, {time}",
-      "failed": "The answer could not be saved. Try again."
+      "failed": "The answer could not be saved. Try again.",
+      "unanswered": "Not checked yet"
     }
   },
   "unlock": {
