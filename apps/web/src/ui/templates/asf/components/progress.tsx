@@ -118,7 +118,8 @@ export function Timeline({ label, steps, orientation = 'vertical', showActor }: 
             {step.title}
             <Box component="span" sx={srOnly}>{`, ${word(step.status)}`}</Box>
             {step.time && (
-              <Box component="span" sx={{ display: 'block', fontWeight: 400, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+              // the step's own ink: a muted grey on the current step's tint would not read
+              <Box component="span" sx={{ display: 'block', fontWeight: 400, color: 'inherit', fontVariantNumeric: 'tabular-nums' }}>
                 {step.time}
               </Box>
             )}

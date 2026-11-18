@@ -56,13 +56,24 @@ for (const lang of ['bn', 'en'] as const) {
         ),
       );
 
-      // the widest piece wider than the screen, named, when anything scrolls sideways
+      // the widest piece wider than the screen, named, when anything scrolls sideways; what a row
+      // that scrolls by itself (the link tabs) holds beyond the screen moves the row, not the page
       const wide = await page.evaluate(() =>
         [...document.querySelectorAll<HTMLElement>('[data-testid^="piece-"] *')]
-          .filter(
-            (element) =>
-              element.getBoundingClientRect().right > document.documentElement.clientWidth + 1,
-          )
+          .filter((element) => {
+            const edge = document.documentElement.clientWidth + 1;
+            if (element.getBoundingClientRect().right <= edge) return false;
+            for (let up = element.parentElement; up; up = up.parentElement) {
+              const overflow = getComputedStyle(up).overflowX;
+              if (
+                (overflow === 'auto' || overflow === 'scroll' || overflow === 'hidden') &&
+                up.getBoundingClientRect().right <= edge
+              )
+                return false;
+              if (up.matches('[data-testid^="piece-"]')) break;
+            }
+            return true;
+          })
           .slice(0, 3)
           .map(
             (element) =>

@@ -741,6 +741,7 @@ export function AsfGallery() {
           <RecordHeader
             compact
             headingLevel={2}
+            actionsLabel={t('record.compact_actions')}
             title={t('flip.projectTitle')}
             media={<CoverArt seed="series-swb" />}
             status={<Chip tone="success">{t('flip.session')}</Chip>}

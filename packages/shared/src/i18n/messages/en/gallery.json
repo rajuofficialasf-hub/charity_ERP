@@ -255,6 +255,7 @@
     "tabs": "Parts of the project",
     "summary": "Summary",
     "applications": "Applications",
-    "reports": "Reports"
+    "reports": "Reports",
+    "compact_actions": "Compact header actions"
   }
 }

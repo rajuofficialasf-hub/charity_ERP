@@ -300,11 +300,18 @@ test.describe('programs and project setup', () => {
     const phone = info.project.name === 'mobile';
     // read only: the demo seed's draft winter session, opened from the list
     await signIn(page, phone ? 'monitoring@example.org' : 'head@example.org');
-    await page.goto('/admin/projects?view=list');
-    await listRows(page, LIST)
-      .getByRole('link', { name: /শীতবস্ত্র বিতরণ 2026/ })
-      .first()
+    // from the cards: the Humanitarian Program, its winter project, the project's session (the
+    // list of a full run holds many newer sessions before it)
+    await page.goto('/admin/projects');
+    await page
+      .getByRole('article', { name: 'হিউম্যানিটেরিয়ান প্রোগ্রাম' })
+      .getByRole('link', { name: 'হিউম্যানিটেরিয়ান প্রোগ্রাম', exact: true })
       .click();
+    await page
+      .getByRole('article', { name: 'শীতবস্ত্র বিতরণ 2026' })
+      .getByRole('link', { name: 'শীতবস্ত্র বিতরণ 2026', exact: true })
+      .click();
+    await page.getByRole('link', { name: /খুলুন/ }).first().click();
     const heading = page.getByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ 2026' });
     await expect(heading).toBeVisible();
     await expect(state(page, 'খসড়া')).toBeVisible();
