@@ -1629,6 +1629,44 @@ export type FlipCardProps = {
   height?: number;
 };
 
+/** A fact on the line under a record's name, for example its session or its code. */
+export type RecordFact = { id: string; label: string; value: string; icon?: ExtendedIconName };
+
+/**
+ * The head of a record's page, for example a project: a picture beside the name and its state, a
+ * line of facts, a short description and the actions, with the record's tabs under it in the same
+ * card. `compact` keeps a small picture, the name, the state and the actions, for the pages under
+ * the tabs. On a phone the picture stands above the name and the actions under the text.
+ */
+export type RecordHeaderProps = {
+  title: string;
+  headingLevel?: 1 | 2;
+  /** The picture, decorative: a cover photo or a drawing that fills its box. */
+  media?: ReactNode;
+  /** The state chips beside the name. */
+  status?: ReactNode;
+  /** Each value shows with its icon; its label is read out before it. */
+  facts?: readonly RecordFact[];
+  /** Two lines at most show; the whole text is in the element's title. Left out when compact. */
+  description?: string;
+  actions?: ReactNode;
+  /** The name of the action group; labels.actions when left out. */
+  actionsLabel?: string;
+  compact?: boolean;
+  /** Under the header inside its card, for example the record's link tabs. */
+  footer?: ReactNode;
+};
+
+/** One page of a record, reached by a tab. `current` marks the page shown now. */
+export type LinkTab = { to: string; label: string; icon?: ExtendedIconName; current?: boolean };
+
+/**
+ * Tabs that are links to a record's pages, in a navigation named by `label`: the look of the
+ * underline tabs, the current page marked for screen readers, scrolling sideways on a narrow screen
+ * with the current tab kept in view. For panels on one page use `Tabs`.
+ */
+export type LinkTabsProps = { label: string; items: readonly LinkTab[] };
+
 // ---------------------------------------------------------------------------------------------
 
 export type UiTemplateExtended = Omit<
@@ -1708,4 +1746,6 @@ export type UiTemplateExtended = Omit<
   FlipCard: ComponentType<FlipCardProps>;
   SegmentedControl: ComponentType<SegmentedControlProps>;
   PhotoViewer: ComponentType<PhotoViewerProps>;
+  RecordHeader: ComponentType<RecordHeaderProps>;
+  LinkTabs: ComponentType<LinkTabsProps>;
 };

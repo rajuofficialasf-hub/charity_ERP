@@ -1,12 +1,15 @@
-import type { TabsProps } from '@/ui/contract';
+import type { TabsProps, LinkTabsProps } from '@/ui/contract';
 
-import { useId, useState } from 'react';
+import { Link as RouterLink } from 'react-router';
+import { useId, useRef, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
 import Tab from '@mui/material/Tab';
 import MuiTabs from '@mui/material/Tabs';
 
 import { Icon } from './icon';
+import { appPath } from './shared';
 
 // ----------------------------------------------------------------------
 
@@ -106,6 +109,77 @@ export function Tabs({ label, items, value, onChange, variant = 'underline' }: T
           {active.content}
         </Box>
       )}
+    </Box>
+  );
+}
+
+/**
+ * Tabs that are links to a record's pages: the underline look of `Tabs` on a navigation of links,
+ * the current page marked for screen readers and by the line under it. On a narrow screen the row
+ * scrolls sideways and keeps the current tab in view.
+ */
+export function LinkTabs({ label, items }: LinkTabsProps) {
+  const currentRef = useRef<HTMLAnchorElement | null>(null);
+  const currentTo = items.find((item) => item.current)?.to;
+  useEffect(() => {
+    // only the row scrolls; the page stays where it is
+    currentRef.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [currentTo]);
+
+  return (
+    <Box component="nav" aria-label={label}>
+      <Box
+        component="ul"
+        sx={{
+          display: 'flex',
+          gap: { xs: 3, md: 5 },
+          m: 0,
+          px: { xs: 1, md: 0 },
+          listStyle: 'none',
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
+        {items.map((item) => {
+          const to = appPath(item.to);
+          if (!to) return null;
+          return (
+            <Box component="li" key={item.to} sx={{ flex: 'none' }}>
+              <Link
+                component={RouterLink}
+                to={to}
+                ref={item.current ? currentRef : undefined}
+                aria-current={item.current ? 'page' : undefined}
+                underline="none"
+                sx={{
+                  position: 'relative',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  minHeight: 48,
+                  whiteSpace: 'nowrap',
+                  typography: 'body2',
+                  fontWeight: 600,
+                  color: item.current ? 'text.primary' : 'text.secondary',
+                  '&:hover': { color: 'text.primary' },
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    insetInline: 0,
+                    bottom: 0,
+                    height: 2,
+                    bgcolor: item.current ? 'text.primary' : 'transparent',
+                  },
+                }}
+              >
+                {item.icon && <Icon name={item.icon} size={20} />}
+                {item.label}
+              </Link>
+            </Box>
+          );
+        })}
+      </Box>
     </Box>
   );
 }

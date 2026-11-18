@@ -263,6 +263,26 @@
       ],
       "note": "two to four choices side by side, one chosen, each a button that says whether it is pressed, in a group named for a screen reader: the language switch's look under a name of its own, for a switch between views of the same content (the cards and the list of the programs and projects tab); the language switch is now this control with the languages; built for the CSS ERP",
       "screenshot": "docs/ui/asf-pieces/gallery-additions.png"
+    },
+    {
+      "name": "RecordHeader",
+      "files": [
+        "components/record.tsx",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "the head of a record's page on a light card: a picture (a cover photo or a drawing) beside the name and its state chips, a line of facts with icons whose labels are read out, two lines of description and the actions in a named group, with the record's tabs along its foot; the actions move under the text when both do not fit and the picture above the name on a phone; a compact form keeps a small picture, the name, the state and the actions for the pages under the tabs; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/record-header.png"
+    },
+    {
+      "name": "LinkTabs",
+      "files": [
+        "components/tabs.tsx",
+        "components/index.ts",
+        "../../contract.ts"
+      ],
+      "note": "tabs that are links to a record's pages, in a named navigation: the underline look of the tabs, the current page marked with aria-current and the line under it, icons before the labels, and a row that scrolls sideways on a narrow screen with the current tab kept in view; for panels on one page the kit's Tabs stays; built for the CSS ERP",
+      "screenshot": "docs/ui/asf-pieces/record-header.png"
     }
   ]
 }

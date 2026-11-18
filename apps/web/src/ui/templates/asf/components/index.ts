@@ -8,7 +8,7 @@ export { IconTile, CopyButton, PersonCell, ContactList, ProfileBanner, ProfileSe
 export { BulkRow, BulkList, Disclosure, IconButton, StatusChip, ChoiceTiles, AttentionCard, OfflineBanner, StatFilterBar } from './status';
 export { Dialog, ConfirmDialog } from './dialog';
 export { Drawer } from './drawer';
-export { Tabs } from './tabs';
+export { Tabs, LinkTabs } from './tabs';
 export { Page, Breadcrumbs } from './page';
 export { Text, Heading } from './text';
 export { useToast } from './toast-context';
@@ -39,3 +39,4 @@ export { BottomNav } from './shell/bottom-nav';
 export { FlipCard } from './flip-card';
 export { SegmentedControl } from './segmented-control';
 export { PhotoViewer } from './photo-viewer';
+export { RecordHeader } from './record';

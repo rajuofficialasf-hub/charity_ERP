@@ -152,7 +152,15 @@ export function projectSeriesRouter(
     summary:
       "A session's whole counts, the same for every holder of the overview as its card counts them",
     params: { projectId: uuid },
-    responses: { 200: sessionSummary, 401: null, 403: null, 404: null, 422: null, 429: null, 503: null },
+    responses: {
+      200: sessionSummary,
+      401: null,
+      403: null,
+      404: null,
+      422: null,
+      429: null,
+      503: null,
+    },
     handler: async ({ params, req }) =>
       ok(await c.projectSeries.summary(viewerOf(req), params.projectId)),
   });
