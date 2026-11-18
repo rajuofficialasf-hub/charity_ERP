@@ -675,6 +675,10 @@ describe('the counts of one session', () => {
     });
     // counts only: no person, no budget, no identity number
     expect(Object.keys(res.body.data).sort()).toEqual(KEYS);
+    // the overview reaches every program, so the PM of another program reads the same counts
+    const otherPm = await summary(await as(world.users.pm), x.swb.y2026);
+    expect(otherPm.status).toBe(200);
+    expect(otherPm.body.data).toEqual(res.body.data);
     const card = cardOf(await seriesList(await as(world.users.head), x.program), x.swb.id);
     expect(card.current).toMatchObject({
       applications: res.body.data.applications,

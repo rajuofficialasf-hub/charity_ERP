@@ -210,6 +210,6 @@ Choices made in this plan (the owner may change them at plan review):
 - **Branch:** `feat/project-page-frame`
 - **Updated:** 2026-11-18 21:55
 - **Next:** U3 and U4, the asf pieces: tests written and passing; local.json, the screenshots and the browser check remain, then checkpoint C1 (after U2) runs before U3 is committed
-- **Reviewed through:** none
+- **Reviewed through:** C1 at ef571207 (logic and security: no findings; standards: a test that the PM of another program reads the same counts, added; the web `sessionSummary` call waits for its caller in U6)
 - **Uncommitted:** none
-- **Notes:** the decision is D-185 (PR #70 took D-184); `docs/STATUS.md` is updated once in U7. The owner approved the plan in chat ("প্রকল্প পেইজ দিলাম। ঐটা শুরু করে দাও তাহলে প্ল্যান তো রেডি আছে"), relayed by the session that started this one; the branch starts from develop at 978d1b47 (PR #70, the review checklist), which took no decision number after D-183.
+- **Notes:** the decision is D-185 (PR #70 took D-184); `docs/STATUS.md` is updated once in U7. `daysLeft` stayed a private method of the series service (both callers are in it); its cases (last day 0, after the window null) are proved by "gives the days left to the end of the window" in `project-series.test.ts`. Run the API tests with Node 24.22 (`fnm` default) on this machine; 24.15 is refused. The worktree needed `prisma generate` first. The owner approved the plan in chat ("প্রকল্প পেইজ দিলাম। ঐটা শুরু করে দাও তাহলে প্ল্যান তো রেডি আছে"), relayed by the session that started this one; the branch starts from develop at 978d1b47 (PR #70, the review checklist), which took no decision number after D-183.
