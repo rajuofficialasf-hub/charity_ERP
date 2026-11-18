@@ -1357,6 +1357,37 @@
         "reports": "The project's reports and dashboard will show here.",
         "activity": "Who did what on the project, and when, will show here in order."
       }
+    },
+    "summary": {
+      "period": "Project period",
+      "limit": "Application limit per volunteer",
+      "budget": "Planned budget",
+      "target": "Target (people)",
+      "program": "Program",
+      "facts": "Key facts",
+      "counts": "Project summary",
+      "applications": "Total applications",
+      "approved": "Approved",
+      "waiting": "Waiting for review",
+      "waitlisted": "Waitlist",
+      "volunteers": "Volunteers",
+      "districts": "Districts",
+      "progress": "Progress",
+      "stages": "Stages of the session",
+      "stage": {
+        "draft": "Draft",
+        "open": "Taking applications",
+        "ended": "Applications closed",
+        "closing": "Closing",
+        "closed": "Closed"
+      },
+      "window": "{from} – {to}",
+      "starts": "Starts {date}",
+      "approved_bar": "Approved against the target",
+      "days_left": "{days} days left to apply",
+      "last_day": "Today is the last day to apply",
+      "cancelled": "This session was cancelled, so it has no stages.",
+      "months": "{from} – {to}"
     }
   },
   "templates": {

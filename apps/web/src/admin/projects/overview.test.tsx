@@ -132,8 +132,9 @@ describe('the project overview', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('01-11-2026 – 31-12-2026')).toBeInTheDocument();
-    expect(screen.getByText('৳ 1,00,000')).toBeInTheDocument();
+    // the window in the facts and on the stage it belongs to
+    expect(screen.getAllByText('01-11-2026 – 31-12-2026').length).toBeGreaterThan(0);
+    expect(await screen.findByText('৳ 1,00,000')).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'সেটআপ' })).toHaveAttribute(
       'href',
       `/admin/projects/${ID}/setup`,
@@ -183,7 +184,7 @@ describe('the project overview', () => {
     );
     // the facts name the program and the period
     expect(screen.getAllByText('স্বাবলম্বী প্রোগ্রাম').length).toBeGreaterThan(1);
-    expect(screen.getByText('06-2026 থেকে 07-2027')).toBeInTheDocument();
+    expect(screen.getByText('06-2026 – 07-2027')).toBeInTheDocument();
   });
 
   it.each([

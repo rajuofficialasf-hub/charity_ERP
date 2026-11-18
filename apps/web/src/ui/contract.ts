@@ -1182,7 +1182,7 @@ export type TimelineStep = {
   status: TimelineStatus;
 };
 
-/** What happened to a record, in order: a vertical history, or a short strip of stages. */
+/** What happened to a record, in order: a vertical history, or a short strip of stages; a step's time stands under its title in both. */
 export type TimelineProps = {
   label: string;
   steps: readonly TimelineStep[];

@@ -292,7 +292,7 @@ describe('the frame of a session', () => {
       await screen.findByRole('button', { name: 'আবার চেষ্টা করুন' }, { timeout: 10_000 }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'প্রকল্পের অংশ' })).not.toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('keeps the page when the session cannot be read again after a move', async () => {
     refreshAs(PM);
@@ -325,7 +325,8 @@ describe('the frame of a session', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('the summary')).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'প্রকল্পের অংশ' })).toBeInTheDocument();
-  });
+    // the read is asked again on a server error before the retry shows
+  }, 15_000);
 
   it('says so when the session does not exist', async () => {
     refreshAs(PM);

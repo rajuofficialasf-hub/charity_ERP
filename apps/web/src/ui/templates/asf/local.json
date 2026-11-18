@@ -78,7 +78,7 @@
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "progress for an ERP: a stepper whose steps can carry their own done or still-needed mark and open themselves, a record's history as a vertical timeline or a strip of stages with each state read out, a progress bar with its numbers written and up to four stacked parts with a legend, and loading shapes that say they are loading; built for the CSS ERP",
+      "note": "progress for an ERP: a stepper whose steps can carry their own done or still-needed mark and open themselves, a record's history as a vertical timeline or a strip of stages with each state read out and its time under its name, a progress bar with its numbers written and up to four stacked parts with a legend, and loading shapes that say they are loading; built for the CSS ERP",
       "screenshot": "docs/ui/asf-pieces/gallery-progress.png"
     },
     {

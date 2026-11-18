@@ -43,7 +43,7 @@ async function openSummary(page: Page) {
     .getByRole('link', { name: 'সারসংক্ষেপ' })
     .click();
   // the summary has drawn, and the header with it shows the summary's moves
-  await expect(page.getByRole('heading', { name: 'প্রকল্পের তথ্য' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'প্রকল্পের মূল তথ্য' })).toBeVisible();
 }
 
 /**
@@ -319,6 +319,12 @@ test.describe('programs and project setup', () => {
       'রিপোর্ট',
       'কার্যক্রম',
     ]);
+    // the summary: the whole session's counts and its stage; the draft has no application yet
+    await expect(page.getByRole('heading', { name: 'প্রকল্পের সারসংক্ষেপ' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /মোট আবেদন/ })).toBeVisible();
+    const strip = page.getByRole('list', { name: 'সেশনের ধাপ' });
+    await expect(strip.getByRole('listitem').first()).toHaveAttribute('aria-current', 'step');
+    await expect(page.getByRole('heading', { name: 'বাস্তবায়ন অগ্রগতি' })).toBeVisible();
     expect((await scan(page)).violations).toEqual([]);
 
     // another tab keeps the header and the tabs above its own page

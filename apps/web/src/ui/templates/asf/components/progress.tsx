@@ -117,6 +117,11 @@ export function Timeline({ label, steps, orientation = 'vertical', showActor }: 
           >
             {step.title}
             <Box component="span" sx={srOnly}>{`, ${word(step.status)}`}</Box>
+            {step.time && (
+              <Box component="span" sx={{ display: 'block', fontWeight: 400, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                {step.time}
+              </Box>
+            )}
           </Box>
         ))}
       </Box>
