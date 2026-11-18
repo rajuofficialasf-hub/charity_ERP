@@ -348,6 +348,27 @@ describe('the metadata of a file', () => {
     expect(own.records).toEqual([{ entityType: 'application', entityId: dhakaApplication }]);
   });
 
+  it('names the registrant as the uploader of a photo sent with their registration', async () => {
+    // a registration's photo is sent before its account signs in, so it has no uploader of its own
+    const photo = randomUUID();
+    await h.db.query(
+      `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, uploaded_by, source, virus_scan)
+       VALUES ($1, 'profiles', 'nas', $2, 'profile_photo', 'image/jpeg', 10, $3, NULL, 'gallery', 'skipped')`,
+      [photo, `registrations/${photo}.jpg`, sha256(Buffer.from(photo))],
+    );
+    await h.db.query('UPDATE volunteers SET photo_file_id = $1 WHERE user_id = $2', [
+      photo,
+      world.users.general,
+    ]);
+    const name = (
+      await h.db.query('SELECT display_name FROM users WHERE id = $1', [world.users.general])
+    ).rows[0].display_name as string;
+    const official = await info('rpmDhaka', photo);
+    expect(official.status, JSON.stringify(official.body)).toBe(200);
+    expect(official.body.data.uploadedBy).toEqual({ name });
+    expect((await info('general', photo)).body.data.uploadedBy).toEqual({ name });
+  });
+
   it("tells a volunteer neither another person's name nor the position of a photo on their application", async () => {
     const id = await upload('rpmDhaka', await picture({ variant: 9 }), {
       gps: { lat: 23.8, lng: 90.4, accuracyM: 5 },

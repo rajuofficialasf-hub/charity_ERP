@@ -81,7 +81,9 @@ test.describe('admin settings', () => {
     if (isPhone(info)) await expect(page.getByText('এখনো কিছু নেই।').first()).toBeVisible();
     else await expect(page.getByLabel('বাকেট অনুযায়ী স্টোরেজ').first()).toBeAttached();
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
   });
 

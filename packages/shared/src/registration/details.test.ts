@@ -3,6 +3,7 @@ import {
   dateOfBirthSchema,
   EDUCATION_STATUSES,
   educationValueSchema,
+  facebookLink,
   facebookLinkSchema,
   isFacebookLink,
   interestAreasSchema,
@@ -163,6 +164,19 @@ describe('the skills, the emergency contact and the personal values', () => {
   it('the check function itself refuses a leading space (the schema trims before it checks)', () => {
     expect(isFacebookLink(' https://facebook.com/x')).toBe(false);
     expect(isFacebookLink('https://facebook.com/x')).toBe(true);
+  });
+
+  it('a Facebook address typed without https becomes a link, and nothing else is made one', () => {
+    expect(facebookLink('facebook.com/nomuna')).toBe('https://facebook.com/nomuna');
+    expect(facebookLink(' www.facebook.com/nomuna ')).toBe('https://www.facebook.com/nomuna');
+    expect(facebookLink('http://m.facebook.com/nomuna')).toBe('https://m.facebook.com/nomuna');
+    expect(facebookLink('https://facebook.com/nomuna')).toBe('https://facebook.com/nomuna');
+    expect(facebookLink('')).toBe('');
+    // another scheme stays as typed, and the check refuses it
+    expect(facebookLink('javascript:alert(1)')).toBe('javascript:alert(1)');
+    expect(isFacebookLink(facebookLink('javascript:alert(1)'))).toBe(false);
+    expect(isFacebookLink(facebookLink('evil.example/facebook.com'))).toBe(false);
+    expect(isFacebookLink(facebookLink('www.facebook.com/nomuna'))).toBe(true);
   });
 
   it('the Facebook account is an https link to Facebook', () => {

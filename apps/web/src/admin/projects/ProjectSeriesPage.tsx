@@ -142,6 +142,7 @@ export function ProjectSeriesPage() {
         ]}
       />
       <Page
+        documentTitle={false}
         title={name}
         description={s.description ? localized(s.description, locale) : undefined}
         actions={

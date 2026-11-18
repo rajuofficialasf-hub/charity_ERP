@@ -21,7 +21,7 @@ const pairOf = (page: Page, info: TestInfo) =>
     .filter({ hasText: pairName(info) });
 
 const fitsWidth = (page: Page) =>
-  page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
 test.describe('duplicate beneficiary profiles', () => {
   test('the PM merges a suggested pair and the Monitoring Team reverts the merge', async ({

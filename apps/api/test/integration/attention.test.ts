@@ -214,6 +214,57 @@ describe('GET /me/attention', () => {
     expect(countOf(await attention(world.users.pm), 'handovers_open')).toBe(0);
   });
 
+  it('counts the applications waiting for the review or the approval an official may give, inside their reach, opening the oldest', async () => {
+    await h.db.query(`UPDATE projects SET status = 'active' WHERE id = $1`, [world.a1.id]);
+    const officials = [
+      world.users.rpmDhaka,
+      world.users.rpmRangpur,
+      world.users.executive,
+      world.users.outsider,
+    ];
+    const before = new Map<string, number>();
+    for (const id of officials)
+      before.set(id, countOf(await attention(id), 'applications_waiting'));
+    const ctx = { project: world.a1, loc: world.dhaka };
+    const person = async (loc: typeof world.dhaka) => ({
+      beneficiary_id: await f.beneficiary(h.db, loc),
+    });
+    const old = new Date(Date.now() - 30 * 24 * 60 * 60_000);
+    const oldest = await f.application(h.db, ctx, {
+      status: 'submitted',
+      updated_at: old,
+      ...(await person(world.dhaka)),
+    });
+    await f.application(h.db, ctx, { status: 'reviewed', ...(await person(world.dhaka)) });
+    // neither a draft nor an approved one waits for the office
+    await f.application(h.db, ctx, { status: 'draft' });
+    await f.application(h.db, ctx, { status: 'approved', ...(await person(world.dhaka)) });
+    await f.application(
+      h.db,
+      { project: world.a1, loc: world.rangpur },
+      { status: 'under_review', ...(await person(world.rangpur)) },
+    );
+    // a project that is not running does not count
+    await f.application(
+      h.db,
+      { project: world.a2, loc: world.dhaka },
+      { status: 'submitted', ...(await person(world.dhaka)) },
+    );
+    const delta = async (id: string) =>
+      countOf(await attention(id), 'applications_waiting') - before.get(id)!;
+    expect(await delta(world.users.rpmDhaka)).toBe(2);
+    expect(await delta(world.users.executive)).toBe(2);
+    expect(await delta(world.users.rpmRangpur)).toBe(1);
+    // an official on another program's project sees none of them
+    expect(await delta(world.users.outsider)).toBe(0);
+    const item = (await attention(world.users.rpmDhaka)).find(
+      (i) => i.kind === 'applications_waiting',
+    );
+    expect(item?.href).toBe(`/admin/applications/${oldest}`);
+    // a volunteer of the project is never given the office's waiting applications
+    expect(countOf(await attention(world.users.general), 'applications_waiting')).toBe(0);
+  });
+
   it('answers 401 without a session', async () => {
     await api().get('/api/v1/me/attention').expect(401);
   });

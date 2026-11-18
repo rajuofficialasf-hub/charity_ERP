@@ -24,6 +24,9 @@ export const ATTENTION_ROUTES = {
   unlocks_to_verify: '/admin/projects?view=list',
   // the item opens the entry that has waited longest; this is the place when none is named
   verifications_pending: '/admin/projects?view=list',
+  // the applications waiting for the review or the approval the caller may give; the item
+  // opens the one that has waited longest, and this is the place when none is named
+  applications_waiting: '/admin/projects?view=list',
   // the Media Team's home, filtered to what waits
   media_referrals_new: '/media?state=pending',
   media_review_waiting: '/media?stage=ready_to_publish',

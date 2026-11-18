@@ -16,6 +16,7 @@
       "unlocks_to_fill": "{n, plural, one {{count} answer of your applications is open for correction} other {{count} answers of your applications are open for correction}}",
       "unlocks_to_verify": "{n, plural, one {{count} corrected answer awaits verification} other {{count} corrected answers await verification}}",
       "verifications_pending": "{n, plural, one {{count} entry awaits verification} other {{count} entries await verification}}",
+      "applications_waiting": "{n, plural, one {{count} application awaits your review or approval} other {{count} applications await your review or approval}}",
       "media_referrals_new": "{n, plural, one {{count} new media referral waits for a decision} other {{count} new media referrals wait for a decision}}",
       "media_review_waiting": "{n, plural, one {{count} media work waits for the final review} other {{count} media works wait for the final review}}",
       "media_sent_back": "{n, plural, one {{count} media work was sent back for correction} other {{count} media works were sent back for correction}}",
@@ -47,14 +48,12 @@
     "media_work": "Media work",
     "open_media": "Open media work",
     "media_counts": "{new} new · {progress} in progress · {published} published",
-    "session_name": "{name} · session {label}"
+    "session_name": "{name} · session {label}",
+    "my_applications": "My applications",
+    "all_applications": "All applications"
   },
   "later": {
     "badge": "Coming later",
-    "my_applications": {
-      "title": "My applications",
-      "text": "Your draft, pending and approved applications will show here."
-    },
     "today_distribution": {
       "title": "Today's distribution",
       "text": "The people you distribute to today will be listed here."
@@ -74,10 +73,6 @@
     "exam_schedule": {
       "title": "Exam schedule",
       "text": "The dates of the initial and final exams will show here."
-    },
-    "review_queue": {
-      "title": "Review queue",
-      "text": "Applications waiting for review and approval will show here."
     },
     "program_dashboard": {
       "title": "Program dashboard",

@@ -21,7 +21,9 @@ test.describe('officials created by the admin', () => {
     expect((await scan(page)).violations).toEqual([]);
     // the page never scrolls sideways, on a phone neither
     const noSideways = () =>
-      page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+      page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      );
     expect(await noSideways()).toBe(true);
 
     await page.getByRole('button', { name: 'নতুন অফিসিয়াল' }).click();

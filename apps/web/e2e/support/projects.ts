@@ -312,6 +312,10 @@ export async function finishSetup(page: Page, setup: SetupOptions = {}): Promise
   await next(page).click();
   await expect(page.getByText('সক্রিয় করার জন্য দরকারি সব আছে।')).toBeVisible();
   await page.getByRole('button', { name: 'সক্রিয় করুন', exact: true }).click();
+  await page
+    .getByRole('alertdialog', { name: 'প্রকল্পটি সক্রিয় করবেন?' })
+    .getByRole('button', { name: 'সক্রিয় করুন', exact: true })
+    .click();
   await expect(page.getByText('প্রকল্প সক্রিয় হয়েছে।')).toBeVisible();
   const id = /\/admin\/projects\/([0-9a-f-]{36})/.exec(page.url())?.[1];
   if (!id) throw new Error(`no project id in ${page.url()}`);

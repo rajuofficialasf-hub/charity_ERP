@@ -63,6 +63,7 @@ export function ProgramPage() {
       <DocumentTitle title={name} />
       <PageCrumbs items={[tab, { id: 'program', label: name }]} />
       <Page
+        documentTitle={false}
         title={name}
         description={program.description ? localized(program.description, locale) : undefined}
         actions={

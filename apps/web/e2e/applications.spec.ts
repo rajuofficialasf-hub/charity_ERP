@@ -259,6 +259,10 @@ test.describe('the application cycle', () => {
       await rpm.goto(recordUrl);
       await expect(rpm.getByRole('heading', { level: 1, name })).toBeVisible();
       await rpm.getByRole('button', { name: 'অনুমোদন করুন' }).click();
+      // the approval asks once more, saying the answers lock
+      const ask = rpm.getByRole('dialog', { name: 'আবেদন অনুমোদন করুন' });
+      await expect(ask.getByText(/অনুমোদনের পর উত্তরগুলো লক হয়ে যাবে/)).toBeVisible();
+      await ask.getByRole('button', { name: 'অনুমোদন করুন' }).click();
       await expect(rpm.getByText('আবেদন অনুমোদিত হয়েছে।')).toBeVisible();
       await expect(
         rpm.getByRole('definition').filter({ hasText: 'বাস্তবায়ন চলছে' }),
@@ -280,6 +284,12 @@ test.describe('the application cycle', () => {
     // the volunteer reads the outcome without the office's names
     await page.goto('/my-applications?tab=approved');
     await expect(page.getByText(appNo!)).toBeVisible();
+    // the four tabs scroll inside themselves; the page never scrolls sideways on a phone
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
     await openOwn(page, appNo!);
     const own = page.getByRole('list', { name: 'আবেদনের ধাপ' });
     await expect(own.getByRole('listitem')).toHaveCount(6);

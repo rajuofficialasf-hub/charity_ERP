@@ -158,7 +158,8 @@
       "delete": "Delete this application?",
       "approve": "Approve the application",
       "waitlist": "Put on the waitlist",
-      "pull_from_waitlist": "Approve from the waitlist"
+      "pull_from_waitlist": "Approve from the waitlist",
+      "approve_note": "After the approval the answers are locked; an answer changes only when it is opened for correction."
     },
     "done": {
       "review": "The review has started.",
@@ -296,6 +297,9 @@
       "label": "Which applications to show",
       "all": "All applications",
       "verification": "Waiting for verification"
+    },
+    "bulk_approve_confirm": {
+      "title": "{n, plural, one {Approve the {count} chosen application?} other {Approve the {count} chosen applications?}}"
     }
   },
   "unlock": {

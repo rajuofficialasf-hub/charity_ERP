@@ -78,7 +78,9 @@ test.describe('the export service', () => {
     await dialog.getByText('Excel', { exact: true }).click();
     // the dialog fits the phone: nothing scrolls sideways
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
     const workbook = await exported(page, dialog);
     expect(workbook.suggestedFilename()).toMatch(/^beneficiaries-\d{4}-\d{2}-\d{2}\.xlsx$/);

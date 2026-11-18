@@ -16,6 +16,7 @@
       "unlocks_to_fill": "{n, plural, other {আপনার আবেদনে {count}টি উত্তর সংশোধনের জন্য খোলা}}",
       "unlocks_to_verify": "{n, plural, other {{count}টি সংশোধিত উত্তর যাচাইয়ের অপেক্ষায়}}",
       "verifications_pending": "{n, plural, other {{count}টি এন্ট্রি যাচাইয়ের অপেক্ষায়}}",
+      "applications_waiting": "{n, plural, other {{count}টি আবেদন আপনার পর্যালোচনা বা অনুমোদনের অপেক্ষায়}}",
       "media_referrals_new": "{n, plural, other {{count}টি নতুন মিডিয়া রেফারেল সিদ্ধান্তের অপেক্ষায়}}",
       "media_review_waiting": "{n, plural, other {{count}টি মিডিয়া কাজ চূড়ান্ত পর্যালোচনার অপেক্ষায়}}",
       "media_sent_back": "{n, plural, other {{count}টি মিডিয়া কাজ সংশোধনের জন্য ফেরত এসেছে}}",
@@ -47,14 +48,12 @@
     "media_work": "মিডিয়ার কাজ",
     "open_media": "মিডিয়ার কাজ দেখুন",
     "media_counts": "{new} নতুন · {progress} চলমান · {published} প্রকাশিত",
-    "session_name": "{name} · সেশন {label}"
+    "session_name": "{name} · সেশন {label}",
+    "my_applications": "আমার আবেদন",
+    "all_applications": "সব আবেদন"
   },
   "later": {
     "badge": "শিগগিরই আসছে",
-    "my_applications": {
-      "title": "আমার আবেদন",
-      "text": "খসড়া, অপেক্ষমাণ ও অনুমোদিত আবেদন এখানে দেখা যাবে।"
-    },
     "today_distribution": {
       "title": "আজকের বিতরণ",
       "text": "আজ যাঁদের কাছে বিতরণ করবেন, তাঁদের তালিকা এখানে আসবে।"
@@ -74,10 +73,6 @@
     "exam_schedule": {
       "title": "পরীক্ষার সূচি",
       "text": "প্রাথমিক ও চূড়ান্ত পরীক্ষার তারিখ এখানে আসবে।"
-    },
-    "review_queue": {
-      "title": "পর্যালোচনার তালিকা",
-      "text": "পর্যালোচনা ও অনুমোদনের অপেক্ষায় থাকা আবেদন এখানে আসবে।"
     },
     "program_dashboard": {
       "title": "প্রোগ্রাম ড্যাশবোর্ড",

@@ -431,10 +431,11 @@ test('a new application form lists what to fix, gets its identity questions in o
   for (const wording of ['এটি পিতার নাম নাকি স্বামীর নাম?', 'নম্বরটি কার?', 'যাঁর নম্বর, তাঁর নাম'])
     await expect(part.getByRole('button', { name: `${wording} বদলান`, exact: true })).toBeVisible();
   await expect(part.getByRole('button', { name: 'লেখা ছাড়া প্রশ্ন বদলান' })).toHaveCount(0);
-  // the first of them is chosen and in view
+  // the first of them is in view; their part is chosen, so a question added next follows them
   const first = part.getByRole('button', { name: / বদলান$/ }).nth(1);
-  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(first).toHaveAttribute('aria-pressed', 'false');
   await expect(first).toBeInViewport();
+  await first.click();
   await expect(questionTexts(page).bn).toHaveValue('জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর');
   await expect(questionTexts(page).en).toHaveValue('NID or birth registration number');
   await saved(page);

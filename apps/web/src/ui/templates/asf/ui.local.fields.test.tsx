@@ -17,6 +17,7 @@ import { render, screen, within, cleanup, waitFor } from '@testing-library/react
 import {
   Form,
   DateField,
+  MonthField,
   TextField,
   UiProvider,
   FormSection,
@@ -101,7 +102,10 @@ describe('the password', () => {
     expect(box).toHaveAttribute('type', 'password');
     await user.click(screen.getByRole('button', { name: 'Show password' }));
     expect(box).toHaveAttribute('type', 'text');
-    expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 });
 
@@ -111,8 +115,14 @@ describe('the field states', () => {
     const onRequestCorrection = vi.fn();
     render(
       <UiProvider>
-        <TextField label="Name" value="Amina Khatun" onChange={() => {}} locked onRequestCorrection={onRequestCorrection} />
-      </UiProvider>
+        <TextField
+          label="Name"
+          value="Amina Khatun"
+          onChange={() => {}}
+          locked
+          onRequestCorrection={onRequestCorrection}
+        />
+      </UiProvider>,
     );
     const box = screen.getByRole('textbox', { name: 'Name' });
     expect(box).toHaveAttribute('readonly');
@@ -125,8 +135,14 @@ describe('the field states', () => {
   it('marks a changed field with its previous value, and a field only officials see', () => {
     render(
       <UiProvider>
-        <TextField label="Mobile" value="01811000000" onChange={() => {}} previousValue="01711000000" officialOnly />
-      </UiProvider>
+        <TextField
+          label="Mobile"
+          value="01811000000"
+          onChange={() => {}}
+          previousValue="01711000000"
+          officialOnly
+        />
+      </UiProvider>,
     );
     expect(screen.getByText('Changed')).toBeInTheDocument();
     expect(screen.getByText('Previous value: 01711000000')).toBeInTheDocument();
@@ -136,8 +152,14 @@ describe('the field states', () => {
   it('links its error to the control by the id the page gives', () => {
     render(
       <UiProvider>
-        <TextField id="mobile" label="Mobile" value="" onChange={() => {}} error="Enter 11 digits" />
-      </UiProvider>
+        <TextField
+          id="mobile"
+          label="Mobile"
+          value=""
+          onChange={() => {}}
+          error="Enter 11 digits"
+        />
+      </UiProvider>,
     );
     const box = screen.getByRole('textbox', { name: 'Mobile' });
     expect(box).toHaveAttribute('id', 'mobile');
@@ -148,12 +170,27 @@ describe('the field states', () => {
   it('tells a screen reader a field is locked or changed, beside its help', () => {
     render(
       <UiProvider>
-        <TextField label="Name" value="Amina Khatun" onChange={() => {}} locked hint="From the profile" />
-        <TextField label="Mobile" value="01811000000" onChange={() => {}} previousValue="01711000000" />
-      </UiProvider>
+        <TextField
+          label="Name"
+          value="Amina Khatun"
+          onChange={() => {}}
+          locked
+          hint="From the profile"
+        />
+        <TextField
+          label="Mobile"
+          value="01811000000"
+          onChange={() => {}}
+          previousValue="01711000000"
+        />
+      </UiProvider>,
     );
-    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveAccessibleDescription(/From the profile.*Locked/);
-    expect(screen.getByRole('textbox', { name: 'Mobile' })).toHaveAccessibleDescription(/Changed.*Previous value: 01711000000/);
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveAccessibleDescription(
+      /From the profile.*Locked/,
+    );
+    expect(screen.getByRole('textbox', { name: 'Mobile' })).toHaveAccessibleDescription(
+      /Changed.*Previous value: 01711000000/,
+    );
   });
 });
 
@@ -164,23 +201,31 @@ describe('the error summary and the form section', () => {
       <UiProvider>
         <ErrorSummary errors={[{ fieldId: 'mobile', message: 'Enter 11 digits' }]} />
         <FormSection title="Contact" description="How we reach the person">
-          <TextField id="mobile" label="Mobile" value="" onChange={() => {}} error="Enter 11 digits" />
+          <TextField
+            id="mobile"
+            label="Mobile"
+            value=""
+            onChange={() => {}}
+            error="Enter 11 digits"
+          />
         </FormSection>
-      </UiProvider>
+      </UiProvider>,
     );
     const summary = screen.getByRole('alert');
     expect(summary).toHaveFocus();
     expect(within(summary).getByText('Please correct the following:')).toBeInTheDocument();
     await user.click(within(summary).getByRole('link', { name: 'Enter 11 digits' }));
     expect(screen.getByRole('textbox', { name: 'Mobile' })).toHaveFocus();
-    expect(screen.getByRole('group', { name: 'Contact' })).toHaveTextContent('How we reach the person');
+    expect(screen.getByRole('group', { name: 'Contact' })).toHaveTextContent(
+      'How we reach the person',
+    );
   });
 
   it('shows nothing without errors', () => {
     render(
       <UiProvider>
         <ErrorSummary errors={[]} />
-      </UiProvider>
+      </UiProvider>,
     );
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
@@ -191,12 +236,32 @@ describe('the error summary and the form section', () => {
       <UiProvider>
         <ErrorSummary errors={[{ fieldId: 'nid', message: 'Check the NID' }]} />
         <FormSection title="Identity">
-          <TextField id="nid" label="NID" type="nid" value="" onChange={() => {}} error="Check the NID" />
-          <TextField label="Name" value="Amina" onChange={() => {}} locked onRequestCorrection={() => {}} previousValue="Amena" />
+          <TextField
+            id="nid"
+            label="NID"
+            type="nid"
+            value=""
+            onChange={() => {}}
+            error="Check the NID"
+          />
+          <TextField
+            label="Name"
+            value="Amina"
+            onChange={() => {}}
+            locked
+            onRequestCorrection={() => {}}
+            previousValue="Amena"
+          />
           <TextField label="Amount" type="money" value="10" onChange={() => {}} />
-          <TextField label="Password" type="password" value="" onChange={() => {}} autoComplete="new-password" />
+          <TextField
+            label="Password"
+            type="password"
+            value=""
+            onChange={() => {}}
+            autoComplete="new-password"
+          />
         </FormSection>
-      </UiProvider>
+      </UiProvider>,
     );
     await expectNoAxeViolations(container);
   });
@@ -224,9 +289,16 @@ describe('the date field', () => {
   it('shows a date as day-month-year in the words the app gives', async () => {
     const user = userEvent.setup();
     render(
-      <UiProvider labels={{ datePartDay: 'দিন', datePartMonth: 'মাস', datePartYear: 'বছর', openCalendar: 'ক্যালেন্ডার খুলুন' }}>
+      <UiProvider
+        labels={{
+          datePartDay: 'দিন',
+          datePartMonth: 'মাস',
+          datePartYear: 'বছর',
+          openCalendar: 'ক্যালেন্ডার খুলুন',
+        }}
+      >
         <DateField label="আবেদনের তারিখ" value="2026-11-04" onChange={() => {}} />
-      </UiProvider>
+      </UiProvider>,
     );
     const field = screen.getByRole('group', { name: 'আবেদনের তারিখ' });
     expect(field).toHaveTextContent('04-11-2026');
@@ -235,6 +307,47 @@ describe('the date field', () => {
     expect(within(field).getByRole('spinbutton', { name: 'বছর' })).toHaveTextContent('2026');
     await user.click(screen.getByRole('button', { name: /ক্যালেন্ডার খুলুন/ }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
+  it("names the calendar's months and days in the words the app gives, with English digits", async () => {
+    const user = userEvent.setup();
+    const months =
+      'জানুয়ারি,ফেব্রুয়ারি,মার্চ,এপ্রিল,মে,জুন,জুলাই,আগস্ট,সেপ্টেম্বর,অক্টোবর,নভেম্বর,ডিসেম্বর';
+    render(
+      <UiProvider
+        labels={{
+          openCalendar: 'ক্যালেন্ডার খুলুন',
+          monthNames: months,
+          weekdayNames: 'রবি,সোম,মঙ্গল,বুধ,বৃহ,শুক্র,শনি',
+          switchToYearView: 'বছর বেছে নিন',
+        }}
+      >
+        <DateField label="আবেদনের তারিখ" value="2026-11-04" onChange={() => {}} />
+        <MonthField label="শুরুর মাস" value="2026-01" onChange={() => {}} />
+      </UiProvider>,
+    );
+    // the month field writes the month's name, and the year in English digits
+    expect(screen.getByRole('group', { name: 'শুরুর মাস' })).toHaveTextContent('জানুয়ারি 2026');
+    await user.click(screen.getAllByRole('button', { name: /ক্যালেন্ডার খুলুন/ })[0]!);
+    const calendar = await screen.findByRole('dialog');
+    expect(calendar).toHaveTextContent('নভেম্বর 2026');
+    expect(calendar).not.toHaveTextContent('November');
+    expect(within(calendar).getByText('রবি')).toBeInTheDocument();
+    expect(within(calendar).getByRole('button', { name: /বছর বেছে নিন/ })).toBeInTheDocument();
+    expect(within(calendar).getByRole('gridcell', { name: '4' })).toBeInTheDocument();
+  });
+
+  it("uses the given names in English too, not the date library's own", async () => {
+    const user = userEvent.setup();
+    render(
+      <UiProvider labels={{ weekdayNames: 'Sun,Mon,Tue,Wed,Thu,Fri,Sat' }}>
+        <DateField label="Date" value="2026-11-04" onChange={() => {}} />
+      </UiProvider>,
+    );
+    await user.click(screen.getByRole('button', { name: /Open calendar/ }));
+    const calendar = await screen.findByRole('dialog');
+    expect(calendar).toHaveTextContent('November 2026');
+    expect(within(calendar).getByText('Sun')).toBeInTheDocument();
   });
 });
 
@@ -245,7 +358,10 @@ const codeSchema = z.object({
 type CodeForm = z.infer<typeof codeSchema>;
 
 function CodeForm({ onSubmit }: { onSubmit: (values: CodeForm) => void }) {
-  const form = useForm<CodeForm>({ resolver: zodResolver(codeSchema), defaultValues: { code: '', size: '' } });
+  const form = useForm<CodeForm>({
+    resolver: zodResolver(codeSchema),
+    defaultValues: { code: '', size: '' },
+  });
   return (
     <UiProvider>
       <Form form={form} onSubmit={onSubmit} label="Verify">

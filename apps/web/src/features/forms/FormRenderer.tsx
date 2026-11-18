@@ -83,6 +83,9 @@ const NO_ERRORS: Record<string, string> = {};
 /** The key a path names: `key` or `key[row]`. */
 const keyOf = (path: string) => path.replace(/\[\d+\]$/, '');
 
+/** The questions whose own value has a range, as against a count of choices or rows. */
+const VALUED: ReadonlySet<string> = new Set(['number', 'decimal', 'money']);
+
 function usePhone(layout: RendererProps['layout']) {
   const [phone, setPhone] = useState(() =>
     layout === 'auto' ? window.matchMedia?.(PHONE).matches === true : layout === 'steps',
@@ -198,6 +201,10 @@ export function FormRenderer({
     [today, nisabValue],
   );
   const evaluation = useMemo(() => evaluate(form, state.answers, context), [form, state, context]);
+  const typeOf = useMemo(
+    () => new Map(form.sections.flatMap((s) => s.fields.map((f) => [f.fieldKey, f.type] as const))),
+    [form],
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   // the question that stands for the post code column, filled from the union chosen in the
   // address: when it is empty, or still holds the code the earlier union gave it
@@ -245,7 +252,17 @@ export function FormRenderer({
   for (const [path, message] of Object.entries(serverErrors))
     if (!edited.has(path) && !allErrors[path]) allErrors[path] = message;
 
-  const messageOf = (code: string, params?: Record<string, unknown>) => {
+  const messageOf = (code: string, params: Record<string, unknown> | undefined, path: string) => {
+    // a number or an amount outside its range names the bounds it has, written as given
+    // (English digits); a count of choices or rows keeps the general message
+    const type = typeOf.get(keyOf(path));
+    if (code === 'validation.out_of_range' && params && type && VALUED.has(type)) {
+      const { min, max } = params;
+      if (min !== undefined && max !== undefined)
+        return te('validation.out_of_range_between', { min: String(min), max: String(max) });
+      if (min !== undefined) return te('validation.out_of_range_min', { min: String(min) });
+      if (max !== undefined) return te('validation.out_of_range_max', { max: String(max) });
+    }
     const key = code as Parameters<typeof te>[0];
     return te.has(key) ? te(key, params as never) : te('validation.failed');
   };
@@ -256,7 +273,7 @@ export function FormRenderer({
     if (result.ok) return found;
     const keys = new Set(sections.flatMap((s) => s.fields.map((f) => f.fieldKey)));
     for (const e of result.errors)
-      if (keys.has(keyOf(e.path))) found[e.path] = messageOf(e.code, e.params);
+      if (keys.has(keyOf(e.path))) found[e.path] = messageOf(e.code, e.params, e.path);
     return found;
   };
 
@@ -278,7 +295,7 @@ export function FormRenderer({
     const result = validate(form, state.answers, { audience, ...context, optionalIdentity });
     if (result.ok) return result;
     const found: Record<string, string> = {};
-    for (const e of result.errors) found[e.path] = messageOf(e.code, e.params);
+    for (const e of result.errors) found[e.path] = messageOf(e.code, e.params, e.path);
     setErrors(found);
     setSummary(t('fix_before', { count: formatCount(Object.keys(found).length, locale) }));
     // on a phone, go to the first part with a problem

@@ -224,6 +224,10 @@ test.describe('the application rules', () => {
       await desk.goto(`/admin/projects/${projectId}/applications?sort=-score`);
       await desk.getByRole('link', { name: higher }).first().click();
       await desk.getByRole('button', { name: 'অনুমোদন করুন' }).click();
+      await desk
+        .getByRole('dialog', { name: 'আবেদন অনুমোদন করুন' })
+        .getByRole('button', { name: 'অনুমোদন করুন' })
+        .click();
       await expect(desk.getByText('আবেদন অনুমোদিত হয়েছে।')).toBeVisible();
 
       // the quota is full, so the pull asks why before it approves the next one
@@ -237,6 +241,8 @@ test.describe('the application rules', () => {
       await noViolations(desk, 'the quota bars');
       await quotas.getByRole('button', { name: /^পরেরজনকে আনুন/ }).click();
       const pull = desk.getByRole('dialog', { name: 'পরেরজনকে আনুন' });
+      // the pull asks first; the server then asks the comment of the full quota
+      await pull.getByRole('button', { name: 'পরেরজনকে আনুন' }).click();
       await expect(pull.getByText('এই এলাকার কোটা পূর্ণ। তবু কেন অনুমোদন দিচ্ছেন?')).toBeVisible();
       await pull.getByRole('textbox', { name: /মন্তব্য/ }).fill('বাড়তি মালামাল এসেছে');
       await pull.getByRole('button', { name: 'পরেরজনকে আনুন' }).click();

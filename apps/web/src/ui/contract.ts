@@ -505,6 +505,14 @@ export type UiLabels = {
   datePartMonth: string;
   datePartYear: string;
   datePartEmpty: string;
+  /** The twelve month names from January, separated by commas. */
+  monthNames: string;
+  /** The seven short day names from Sunday, separated by commas, for a calendar's head. */
+  weekdayNames: string;
+  /** The calendar's button while it shows the days. */
+  switchToYearView: string;
+  /** The calendar's button while it shows the years. */
+  switchToDayView: string;
   /** The empty state of a table whose page names none of its own. */
   tableEmpty: string;
   /** The Intl locale counts are written in (its grouping; the digits stay English). */

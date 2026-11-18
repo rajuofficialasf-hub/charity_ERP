@@ -125,6 +125,12 @@ test.describe('programs and project setup', () => {
     // the review: everything is there, and activation opens the project
     await expect(page.getByText('সক্রিয় করার জন্য দরকারি সব আছে।')).toBeVisible();
     await page.getByRole('button', { name: 'সক্রিয় করুন', exact: true }).click();
+    // the activation asks first, saying what follows
+    const ask = page.getByRole('alertdialog', { name: 'প্রকল্পটি সক্রিয় করবেন?' });
+    await expect(
+      ask.getByText('কোড, প্রোগ্রাম, বছর ও ওয়ার্কফ্লো আর বদলানো যাবে না।'),
+    ).toBeVisible();
+    await ask.getByRole('button', { name: 'সক্রিয় করুন', exact: true }).click();
     await expect(page.getByText('প্রকল্প সক্রিয় হয়েছে।')).toBeVisible();
     await expect(state(page, 'সক্রিয়')).toBeVisible();
 
@@ -247,7 +253,9 @@ test.describe('programs and project setup', () => {
     await expect(page.getByRole('region', { name: 'প্রোগ্রাম' })).toBeVisible();
     await expect(page.getByText(PHONE_NOTICE)).toHaveCount(0);
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
     expect((await scan(page)).violations).toEqual([]);
     const seriesId = await newSeries(page, 'pm.err@example.org', code(), `ফোন ${code()}`, ERR);
@@ -256,7 +264,9 @@ test.describe('programs and project setup', () => {
     // the setup is desktop first and says so
     await expect(page.getByText(PHONE_NOTICE)).toBeVisible();
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
     ).toBe(true);
     expect((await scan(page)).violations).toEqual([]);
   });
@@ -321,7 +331,9 @@ test.describe('programs and project setup', () => {
       await page.emulateMedia({ colorScheme: 'light' });
       await card.getByRole('button', { name: 'সামনের দিকে ফিরুন' }).click();
       expect(
-        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
       ).toBe(true);
       expect((await scan(page)).violations).toEqual([]);
       await page.evaluate(() => window.scrollTo(0, 0));

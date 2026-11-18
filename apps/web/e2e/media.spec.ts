@@ -151,7 +151,7 @@ const atDesk = <T>(browser: Browser, work: (desk: Page) => Promise<T>) =>
   });
 
 const noSideways = (page: Page) =>
-  page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 const noViolations = async (page: Page, where: string) =>
   expect((await scan(page)).violations, where).toEqual([]);
 

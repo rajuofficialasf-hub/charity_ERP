@@ -1040,7 +1040,12 @@
       "reason_hint": "At least 3 characters; it is kept in the audit log.",
       "new_apply_to": "New end date",
       "after": "After {date}",
-      "missing": "The project cannot be activated yet. Still needed:"
+      "missing": "The project cannot be activated yet. Still needed:",
+      "confirm_activate": {
+        "title": "Activate the project?",
+        "window": "Volunteers can take applications within the application window.",
+        "fixed": "The code, program, year and workflow can no longer change."
+      }
     },
     "wizard": {
       "new_title": "New project",

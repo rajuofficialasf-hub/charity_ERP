@@ -501,29 +501,37 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     bn: t(`identity.wording.${name}_bn`),
     en: t(`identity.wording.${name}_en`),
   });
-  /** The added questions as one step to undo, the first of them chosen and in view. */
-  const placeAdded = (added: {
-    definition: FormDefinition;
-    section: string | null;
-    fieldKeys: string[];
-  }) => {
+  /**
+   * The added questions as one step to undo, the first of them in view and chosen; with `partOnly`
+   * their part is chosen instead, so the next question added from the pane follows all of them.
+   */
+  const placeAdded = (
+    added: {
+      definition: FormDefinition;
+      section: string | null;
+      fieldKeys: string[];
+    },
+    partOnly = false,
+  ) => {
     const first = added.fieldKeys[0];
     if (added.section === null || first === undefined) return;
     change(added.definition);
     setListing(false);
     const chosen = { section: added.section, field: first };
-    setSelected(chosen);
+    setSelected(partOnly ? { section: added.section } : chosen);
     setReveal(chosen);
   };
   /**
    * Adds the identity questions the form lacks, the library's where it has them and a worded one
    * otherwise, with the two questions on whose number the mobile is, and leaves the first of
-   * them chosen and in view. One step to undo.
+   * them in view and their part chosen, so a question added next from the pane follows them all.
+   * One step to undo.
    */
   const addIdentity = () => {
     if (!identityMissing) return;
     placeAdded(
       addIdentityQuestions(draft, fields, { kind, title: newSectionTitle, wording: startWording }),
+      true,
     );
   };
   // a form that asks the mobile and not whose number it is, is offered the two questions for it

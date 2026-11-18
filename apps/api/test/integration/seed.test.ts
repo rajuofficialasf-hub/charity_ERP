@@ -328,6 +328,29 @@ describe('demo set', () => {
       )
     ).rows;
     expect(areas).toEqual([{ own_location: true }]);
+    // a PM can place a published ready form for beneficiary applications in a test; its
+    // questions carry the seven identity marks, and the officials' designations read in Bengali
+    const ready = (
+      await db.query(
+        `SELECT f.kind, v.status, count(q.id)::int AS questions,
+                count(q.standard_column)::int AS marked
+           FROM forms f JOIN form_versions v ON v.form_id = f.id
+           JOIN form_sections s ON s.form_version_id = v.id
+           JOIN form_fields q ON q.form_section_id = s.id
+          WHERE f.project_id IS NULL AND f.key = 'demo_beneficiary_application'
+          GROUP BY f.kind, v.status`,
+      )
+    ).rows;
+    expect(ready).toEqual([
+      { kind: 'beneficiary_application', status: 'published', questions: 8, marked: 7 },
+    ]);
+    expect(
+      (
+        await db.query(
+          `SELECT count(*)::int AS n FROM users WHERE kind = 'staff' AND designation ~ '[A-Za-z]'`,
+        )
+      ).rows[0].n,
+    ).toBe(0);
     const team = (
       await db.query(
         `SELECT t.reference_nid, m.nid FROM volunteers t JOIN volunteers m ON m.id = t.reference_volunteer_id WHERE t.type = 'team_member'`,

@@ -439,9 +439,10 @@ describe('the identity questions in one press', () => {
       'ঠিকানা বদলান',
       'গ্রাম বদলান',
     ]);
-    // the first of them is chosen and brought into view
+    // the first of them is brought into view; their part is chosen, not the first question, so a
+    // question added next from the pane follows them all
     const first = screen.getByRole('button', { name: NID });
-    expect(first).toHaveAttribute('aria-pressed', 'true');
+    expect(first).toHaveAttribute('aria-pressed', 'false');
     expect(scrolled).toEqual([first.closest('li')]);
     expect(
       within(first.closest('li')!).getByText(/^পরিচয়: এনআইডি বা জন্মনিবন্ধন নম্বর/),
@@ -488,6 +489,9 @@ describe('the identity questions in one press', () => {
       required: false,
       label: T('এটি পিতার নাম নাকি স্বামীর নাম?', "Is this the father's or the husband's name?"),
     });
+    await user.click(screen.getByRole('button', { name: 'সংখ্যা প্রশ্ন যোগ করুন' }));
+    await waitFor(() => expect(questions()).toHaveLength(12));
+    expect(questions().slice(-2)[0]).toBe('গ্রাম বদলান');
     expect(relation.logic?.show_if).toBeUndefined();
     expect(ownerQuestion).toMatchObject({
       type: 'single_select',
@@ -507,7 +511,10 @@ describe('the identity questions in one press', () => {
         .closest('li')!;
       expect(within(item).queryByText(/^পরিচয়:/)).not.toBeInTheDocument();
     }
-    // one step back takes all ten away, and the identity line returns
+    // a step back takes the number question away, the next one all ten, and the identity line
+    // returns
+    await user.click(undo());
+    await waitFor(() => expect(questions()).toHaveLength(11));
     await user.click(undo());
     expect(questions()).toEqual(['মন্তব্য বদলান']);
     expect(await listButton(2)).toBeInTheDocument();

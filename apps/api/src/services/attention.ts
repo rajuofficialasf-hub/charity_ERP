@@ -135,6 +135,13 @@ export class AttentionService {
           return count;
         }),
       ],
+      [
+        'applications_waiting',
+        this.applicationsWaiting(principal).then(({ count, first }) => {
+          if (first) hrefs.applications_waiting = `/admin/applications/${first}`;
+          return count;
+        }),
+      ],
       ...this.mediaCounts(principal),
       [
         'unlocks_to_verify',
@@ -175,6 +182,40 @@ export class AttentionService {
       this.prisma.application.findFirst({
         where,
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: { id: true },
+      }),
+    ]);
+    return { count, first: first?.id ?? null };
+  }
+
+  /**
+   * The applications of active projects waiting for what the caller may do next: the submitted
+   * and the ones under review for a holder of the review, the reviewed ones for a holder of the
+   * approval (the transitions of docs/architecture/workflow-templates/_common.yaml), each inside
+   * the scope of its own permission; and the one that has waited longest, which the item opens.
+   */
+  private async applicationsWaiting(
+    principal: Principal,
+  ): Promise<{ count: number; first: string | null }> {
+    if (principal.kind === 'volunteer') return { count: 0, first: null };
+    const access = await this.access.load(principal.userId);
+    const parts: Prisma.ApplicationWhereInput[] = [];
+    const waits: [string, Prisma.StringFilter<'Application'> | string][] = [
+      ['application.review', { in: ['submitted', 'under_review'] }],
+      ['application.approve', 'reviewed'],
+    ];
+    for (const [permission, status] of waits) {
+      if (!holdsPermission(permission, access.grants)) continue;
+      const scope = await this.access.scopeFor(principal, access, permission, 'application');
+      parts.push({ AND: [{ status }, applicationWhere(scope)] });
+    }
+    if (parts.length === 0) return { count: 0, first: null };
+    const where = { AND: [{ project: { status: 'active' } }, { OR: parts }] };
+    const [count, first] = await Promise.all([
+      this.prisma.application.count({ where }),
+      this.prisma.application.findFirst({
+        where,
+        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         select: { id: true },
       }),
     ]);

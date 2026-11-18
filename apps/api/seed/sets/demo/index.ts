@@ -6,9 +6,11 @@ import {
   fakeMobile,
   fakeNid,
 } from '@css/shared';
+import { type FormField, publishDefinitionSchema } from '@css/shared/forms';
 import { hash } from '@node-rs/argon2';
 import { json, SEED_AT, type SeedContext, seedId } from '../../context.js';
 import { workflowVersionOf } from '../base/workflows.js';
+import { writeDefinitionRows } from '../../../src/services/forms.js';
 import { writeHelpCounts } from '../../../src/services/help-history.js';
 import { MatchKeysService, profileKeysWith } from '../../../src/services/match-keys.js';
 
@@ -63,7 +65,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'ডিপার্টমেন্ট হেড',
     email: 'head',
     mobileIndex: 1,
-    designation: 'Department Head',
+    designation: 'ডিপার্টমেন্ট হেড',
     jobId: 'CSS-001',
   },
   {
@@ -72,7 +74,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'মনিটরিং কর্মকর্তা',
     email: 'monitoring',
     mobileIndex: 2,
-    designation: 'Monitoring Team',
+    designation: 'মনিটরিং টিম',
     jobId: 'CSS-002',
     supervisor: 'department_head',
   },
@@ -82,7 +84,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'প্রোগ্রাম ম্যানেজার (স্বাবলম্বী)',
     email: 'pm.ucd',
     mobileIndex: 3,
-    designation: 'Program Manager',
+    designation: 'প্রোগ্রাম ম্যানেজার',
     jobId: 'CSS-101',
     supervisor: 'department_head',
   },
@@ -92,7 +94,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'প্রোগ্রাম ম্যানেজার (মানবিক)',
     email: 'pm.hum',
     mobileIndex: 4,
-    designation: 'Program Manager',
+    designation: 'প্রোগ্রাম ম্যানেজার',
     jobId: 'CSS-102',
     supervisor: 'department_head',
   },
@@ -102,7 +104,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'প্রোগ্রাম ম্যানেজার (জরুরি সাড়া)',
     email: 'pm.err',
     mobileIndex: 5,
-    designation: 'Program Manager',
+    designation: 'প্রোগ্রাম ম্যানেজার',
     jobId: 'CSS-103',
     supervisor: 'department_head',
   },
@@ -112,7 +114,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'আরপিএম ঢাকা',
     email: 'rpm.dhaka',
     mobileIndex: 6,
-    designation: 'Regional Program Manager',
+    designation: 'রিজিওনাল প্রোগ্রাম ম্যানেজার',
     jobId: 'CSS-201',
     supervisor: 'pm_hum',
   },
@@ -122,7 +124,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'আরপিএম রংপুর',
     email: 'rpm.rangpur',
     mobileIndex: 7,
-    designation: 'Regional Program Manager',
+    designation: 'রিজিওনাল প্রোগ্রাম ম্যানেজার',
     jobId: 'CSS-202',
     supervisor: 'pm_ucd',
   },
@@ -133,7 +135,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'আরপিএম হ্যান্ডওভার',
     email: 'handover.rpm',
     mobileIndex: 14,
-    designation: 'Regional Program Manager',
+    designation: 'রিজিওনাল প্রোগ্রাম ম্যানেজার',
     jobId: 'CSS-203',
     supervisor: 'pm_err',
   },
@@ -143,7 +145,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'প্রজেক্ট এক্সিকিউটিভ',
     email: 'executive',
     mobileIndex: 8,
-    designation: 'Project Executive',
+    designation: 'প্রজেক্ট এক্সিকিউটিভ',
     jobId: 'CSS-301',
     supervisor: 'rpm_dhaka',
   },
@@ -153,7 +155,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'অফিসিয়াল দায়ী',
     email: 'daee',
     mobileIndex: 9,
-    designation: 'Official দায়ী',
+    designation: 'অফিশিয়াল দায়ী',
     jobId: 'CSS-302',
     supervisor: 'rpm_dhaka',
   },
@@ -163,7 +165,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'প্রকিউরমেন্ট কর্মকর্তা',
     email: 'procurement',
     mobileIndex: 11,
-    designation: 'Procurement Team',
+    designation: 'প্রকিউরমেন্ট টিম',
     jobId: 'CSS-401',
     supervisor: 'department_head',
   },
@@ -173,7 +175,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'মিডিয়া ডিরেক্টর (নমুনা)',
     email: 'media.director',
     mobileIndex: 15,
-    designation: 'Media Director',
+    designation: 'মিডিয়া ডিরেক্টর',
     jobId: 'CSS-404',
     supervisor: 'department_head',
   },
@@ -183,7 +185,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'মিডিয়া অ্যাসিস্ট্যান্ট ডিরেক্টর (নমুনা)',
     email: 'media.ad',
     mobileIndex: 16,
-    designation: 'Media Assistant Director',
+    designation: 'মিডিয়া সহকারী ডিরেক্টর',
     jobId: 'CSS-405',
     supervisor: 'media_director',
   },
@@ -193,7 +195,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'মিডিয়া কর্মকর্তা',
     email: 'media',
     mobileIndex: 12,
-    designation: 'Media Team',
+    designation: 'মিডিয়া টিম',
     jobId: 'CSS-402',
     supervisor: 'media_ad',
   },
@@ -203,7 +205,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'ফাইন্যান্স কর্মকর্তা',
     email: 'finance',
     mobileIndex: 13,
-    designation: 'Finance Team',
+    designation: 'ফাইন্যান্স টিম',
     jobId: 'CSS-403',
     supervisor: 'department_head',
   },
@@ -726,5 +728,122 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
     );
     // the kept times helped, written only where they differ
     await writeHelpCounts(ctx.db, [helpedId]);
+    await seedReadyForm(ctx, userId('department_head'));
+  });
+}
+
+/** A question of the demo ready form, required unless said otherwise. */
+const question = (
+  fieldKey: string,
+  type: FormField['type'],
+  label: { bn: string; en: string },
+  extra: Partial<FormField> = {},
+): FormField =>
+  ({
+    fieldKey,
+    libraryFieldKey: null,
+    type,
+    label,
+    required: true,
+    standardColumn: null,
+    settings: {},
+    options: [],
+    ...extra,
+  }) as FormField;
+
+/**
+ * A published ready form for beneficiary applications, so a PM can place one on a project in a
+ * test without building it first: the seven identity questions, each marked by its column, and
+ * the family's size. Its rows are written once; a second run leaves a form that exists alone.
+ */
+async function seedReadyForm(ctx: SeedContext, actor: string): Promise<void> {
+  const formId = seedId('form:ready:beneficiary');
+  const versionId = seedId('form-version:ready:beneficiary:1');
+  await ctx.upsert('forms', {
+    id: formId,
+    project_id: null,
+    key: 'demo_beneficiary_application',
+    kind: 'beneficiary_application',
+    title_bn: 'উপকারভোগীর আবেদন (নমুনা)',
+    title_en: 'Beneficiary application (sample)',
+    ...ctx.audit(),
+  });
+  const written = await ctx.db.formSection.count({ where: { formVersionId: versionId } });
+  // the version is written as a draft, takes its rows, and is published once
+  await ctx.upsert('form_versions', {
+    id: versionId,
+    form_id: formId,
+    version_no: 1,
+    ...ctx.audit(),
+  });
+  if (written > 0) return;
+  const definition = publishDefinitionSchema('beneficiary_application').parse({
+    sections: [
+      {
+        key: 'identity',
+        librarySectionKey: null,
+        title: { bn: 'পরিচয়', en: 'Identity' },
+        visibility: 'volunteer',
+        condition: null,
+        fields: [
+          question(
+            'nid_or_birth_reg',
+            'short_text',
+            {
+              bn: 'জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর',
+              en: 'NID or birth registration number',
+            },
+            { standardColumn: 'nid_or_birth_reg' },
+          ),
+          question(
+            'name',
+            'short_text',
+            { bn: 'উপকারভোগীর নাম', en: "Beneficiary's name" },
+            { standardColumn: 'name' },
+          ),
+          question(
+            'father_or_husband_name',
+            'short_text',
+            { bn: 'পিতা বা স্বামীর নাম', en: "Father's or husband's name" },
+            { standardColumn: 'father_or_husband_name' },
+          ),
+          question(
+            'mobile',
+            'phone',
+            { bn: 'মোবাইল নম্বর', en: 'Mobile number' },
+            { standardColumn: 'mobile' },
+          ),
+          question(
+            'gender',
+            'single_select',
+            { bn: 'লিঙ্গ', en: 'Gender' },
+            { standardColumn: 'gender_code' },
+          ),
+          question(
+            'address',
+            'bd_address',
+            { bn: 'ঠিকানা', en: 'Address' },
+            { standardColumn: 'division_id,district_id,upazila_id,union_id' },
+          ),
+          question(
+            'village',
+            'short_text',
+            { bn: 'গ্রাম', en: 'Village' },
+            { standardColumn: 'village' },
+          ),
+          question(
+            'family_size',
+            'number',
+            { bn: 'পরিবারের সদস্য সংখ্যা', en: 'Family members' },
+            { settings: { validation: { min: 1, max: 30 } } },
+          ),
+        ],
+      },
+    ],
+  });
+  await writeDefinitionRows(ctx.db, versionId, definition, actor);
+  await ctx.db.formVersion.update({
+    where: { id: versionId },
+    data: { status: 'published', publishedAt: SEED_AT, publishedBy: actor },
   });
 }

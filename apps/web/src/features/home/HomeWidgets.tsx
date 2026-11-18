@@ -12,7 +12,7 @@ import {
   StatCard,
   Text,
 } from '@/ui';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import {
@@ -23,6 +23,8 @@ import {
 import { TEMPLATES_KEY, templates } from '../../admin/templates/templates-api';
 import { MEDIA_KEY, mediaSummary } from '../media/media-api';
 import { MY_PROJECTS_KEY, myProjects } from '../projects/my-projects-api';
+import { MY_APPLICATIONS_KEY } from '../applications/applications-api';
+import { ownListOf, TAB_IDS } from '../applications/own-lists';
 import {
   HOME_PROJECT_STATES,
   HOME_PROJECTS_KEY,
@@ -74,6 +76,52 @@ function MyProjects() {
           </ul>
         )}
       </Loaded>
+    </Card>
+  );
+}
+
+/** The volunteer's own applications counted by tab, each count opening its tab. */
+function MyApplications() {
+  const t = useTranslations('home.widget');
+  const tl = useTranslations('applications.list');
+  const locale = useLocale() as Locale;
+  // the same queries as the own list, so the counts and the list agree
+  const counts = useQueries({
+    queries: TAB_IDS.map((id) => ({
+      queryKey: [...MY_APPLICATIONS_KEY, id],
+      queryFn: () => ownListOf(id),
+    })),
+  });
+  const failed = counts.find((c) => c.error);
+  return (
+    <Card
+      title={t('my_applications')}
+      headingLevel={2}
+      action={
+        <LinkButton variant="text" to="/my-applications">
+          {t('all_applications')}
+        </LinkButton>
+      }
+    >
+      {failed ? (
+        // a count that could not be read is never shown as zero
+        <LoadError error={failed.error} onRetry={() => counts.forEach((c) => void c.refetch())} />
+      ) : counts.some((c) => c.isPending) ? (
+        <Skeleton shape="text" />
+      ) : (
+        <ul className="my-work-list">
+          {TAB_IDS.map((id, i) => {
+            const page = counts[i]!.data;
+            const total = page ? (page.meta.total ?? page.data.length) : 0;
+            return (
+              <li key={id} className="my-work-row">
+                <Link to={`/my-applications?tab=${id}`}>{tl(id)}</Link>
+                <span className="my-work-muted">{formatCount(total, locale)}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Card>
   );
 }
@@ -341,6 +389,8 @@ export function LiveWidgetCard({ widget, me }: { widget: LiveWidget; me: Me }) {
       return <MyProjects />;
     case 'my_team':
       return <MyTeam />;
+    case 'my_applications':
+      return <MyApplications />;
     case 'official_projects':
       return <OfficialProjects />;
     case 'project_states':

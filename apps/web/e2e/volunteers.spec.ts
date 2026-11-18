@@ -76,7 +76,11 @@ test.describe('the volunteer tab', () => {
     await page.setViewportSize({ width: 360, height: 780 });
     // measured once the phone layout has replaced the table
     await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      )
       .toBe(true);
     expect((await scan(page)).violations).toEqual([]);
   });

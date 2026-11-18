@@ -399,6 +399,23 @@ describe('the checks', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('names the bounds of a number outside its range, the lower or the upper alone where only one is set', async () => {
+    const user = userEvent.setup();
+    open([
+      section('family', [
+        bilingual('members', 'সদস্য সংখ্যা', 'Members', 'number', {
+          settings: { validation: { min: 1, max: 20 } },
+        }),
+        bilingual('rooms', 'ঘর', 'Rooms', 'number', { settings: { validation: { min: 1 } } }),
+      ]),
+    ]);
+    await user.type(screen.getByRole('textbox', { name: /^সদস্য সংখ্যা/ }), '25');
+    await user.type(screen.getByRole('textbox', { name: /^ঘর/ }), '0');
+    await user.click(screen.getByRole('button', { name: 'পাঠান' }));
+    expect(await screen.findByText('1 থেকে 20-এর মধ্যে একটি মান দিন।')).toBeInTheDocument();
+    expect(screen.getByText('1 বা তার বেশি একটি মান দিন।')).toBeInTheDocument();
+  });
+
   it('never draws an official-only section for a volunteer or the public, and does for an official', () => {
     const official = section(
       'office',

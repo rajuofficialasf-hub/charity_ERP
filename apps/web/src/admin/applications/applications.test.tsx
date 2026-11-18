@@ -57,6 +57,8 @@ const row = (id: string, over: Record<string, unknown> = {}) => ({
   flags: [],
   districtId: DISTRICT,
   unionId: UNION,
+  districtName: { bn: 'নমুনা জেলা', en: 'Sample district' },
+  unionName: { bn: 'নমুনা ইউনিয়ন', en: 'Sample union' },
   submittedAt: '2026-11-02T10:00:00Z',
   waitingDays: 3,
   etag: '"v1"',
@@ -325,6 +327,10 @@ describe('the list', () => {
     expect((await screen.findAllByText('WC-2026-00012')).length).toBeGreaterThan(0);
     await waitFor(() => expect(listCalls[0]).toContain('status=submitted'));
     expect(listCalls[0]).toContain('include=total');
+    // the area is named from the row, in the reader's language
+    expect(
+      within(await screen.findByRole('table')).getAllByText('নমুনা ইউনিয়ন, নমুনা জেলা').length,
+    ).toBeGreaterThan(0);
     // the ticked rows take one request; the outcome counts the rows that moved and the ones that did not
     const grid = await screen.findByRole('table');
     await user.click(await within(grid).findByRole('checkbox', { name: /নমুনা উপকারভোগী/ }));
@@ -363,6 +369,12 @@ describe('the list', () => {
     await user.click(within(grid).getByRole('checkbox', { name: /দ্বিতীয় জন/ }));
     expect(screen.getByRole('button', { name: 'রিভিউ শুরু' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
+    // the approval of the ticked rows asks first
+    const ask = await screen.findByRole('alertdialog', {
+      name: 'বাছাই করা 2টি আবেদন অনুমোদন করবেন?',
+    });
+    expect(bulkBodies).toHaveLength(0);
+    await user.click(within(ask).getByRole('button', { name: 'অনুমোদন করুন' }));
     await waitFor(() => expect(bulkBodies).toHaveLength(1));
     expect(bulkBodies[0]).toMatchObject({ action: 'approve' });
   });
@@ -407,6 +419,14 @@ describe('the list', () => {
     expect(within(quotas).getByText('লক্ষ্য 50 · এসেছে 72 · অনুমোদিত 40')).toBeInTheDocument();
     expect(within(quotas).getByText('কোটা পূর্ণ')).toBeInTheDocument();
     await user.click(within(quotas).getByRole('button', { name: 'পরেরজনকে আনুন (নমুনা ইউনিয়ন)' }));
+    // the pull approves the next person, so it asks first and sends nothing until then
+    expect(await screen.findByText(/অনুমোদনের পর উত্তরগুলো লক হয়ে যাবে/)).toBeInTheDocument();
+    expect(pulls).toHaveLength(0);
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'পরেরজনকে আনুন' })).getByRole('button', {
+        name: 'পরেরজনকে আনুন',
+      }),
+    );
     expect(
       await screen.findByText('WC-2026-00013 অপেক্ষমাণ তালিকা থেকে অনুমোদিত হয়েছে।'),
     ).toBeInTheDocument();
@@ -414,6 +434,41 @@ describe('the list', () => {
     expect(pulls[0]?.body).toEqual({ areaId: UNION });
     expect(pulls[0]?.key).toBeTruthy();
     await expectNoAxeViolations(view.container);
+  });
+
+  it('names the area the list is filtered to when it has no target of its own, from its parent', async () => {
+    refreshAs(EXECUTIVE);
+    serve(
+      [row(A1, { status: 'waitlisted' })],
+      [
+        {
+          level: 'union',
+          locationId: '01900000-0000-7000-8000-0000000000a9',
+          locationName: { bn: 'অন্য ইউনিয়ন', en: 'Another union' },
+          target: 10,
+          received: 3,
+          approved: 1,
+          full: false,
+        },
+      ],
+    );
+    server.use(
+      http.get('*/api/v1/locations', ({ request }) =>
+        HttpResponse.json({
+          data:
+            new URL(request.url).searchParams.get('parentId') === 'u1'
+              ? [{ id: UNION, name: { bn: 'নমুনা ইউনিয়ন', en: 'Sample union' } }]
+              : [],
+          meta: { requestId: 'r' },
+        }),
+      ),
+    );
+    openList(
+      `/admin/projects/${PROJECT}/applications?divisionId=d1&districtId=${DISTRICT}&upazilaId=u1&unionId=${UNION}`,
+    );
+    expect(
+      await screen.findByRole('button', { name: 'পরেরজনকে আনুন (নমুনা ইউনিয়ন)' }),
+    ).toBeInTheDocument();
   });
 
   it('shows no score for a form without points, and pulls for the whole project without quotas', async () => {
@@ -425,6 +480,11 @@ describe('the list', () => {
     expect(within(grid).queryByRole('columnheader', { name: 'স্কোর' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'সাজানো' })).toBeNull();
     await user.click(await screen.findByRole('button', { name: 'পরেরজনকে আনুন' }));
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'পরেরজনকে আনুন' })).getByRole('button', {
+        name: 'পরেরজনকে আনুন',
+      }),
+    );
     await waitFor(() => expect(pulls).toHaveLength(1));
     expect(pulls[0]?.body).toEqual({});
   });
@@ -444,8 +504,9 @@ describe('the list', () => {
     openList();
     await user.click(await screen.findByRole('button', { name: 'পরেরজনকে আনুন' }));
     const dialog = await screen.findByRole('dialog', { name: 'পরেরজনকে আনুন' });
+    await user.click(within(dialog).getByRole('button', { name: 'পরেরজনকে আনুন' }));
     expect(
-      within(dialog).getByText('এই এলাকার কোটা পূর্ণ। তবু কেন অনুমোদন দিচ্ছেন?'),
+      await within(dialog).findByText('এই এলাকার কোটা পূর্ণ। তবু কেন অনুমোদন দিচ্ছেন?'),
     ).toBeInTheDocument();
     await user.type(
       within(dialog).getByRole('textbox', { name: /মন্তব্য/ }),
@@ -704,8 +765,14 @@ describe('the review page', () => {
       body: { reason: 'আয় সীমার উপরে', message: 'এবার সম্ভব হলো না' },
     });
     expect(await screen.findByText('আবেদন বাতিল হয়েছে।')).toBeInTheDocument();
-    // the approval meets a version that changed meanwhile
+    // the approval asks first, then meets a version that changed meanwhile
     await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'আবেদন অনুমোদন করুন' })).getByRole(
+        'button',
+        { name: 'অনুমোদন করুন' },
+      ),
+    );
     expect(
       await screen.findByText('আবেদনটি এর মধ্যে বদলেছে। সর্বশেষ তথ্য দেখতে আবার লোড করুন।'),
     ).toBeInTheDocument();
@@ -928,7 +995,7 @@ describe('the review page', () => {
     expect(acted[0]).toEqual({ action: 'approve', body: { comment: 'যাচাই করেছি' } });
   });
 
-  it('approves in one click where the project only tells of the same person', async () => {
+  it('approves after its one question where the project only tells of the same person', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);
     serve();
@@ -957,9 +1024,15 @@ describe('the review page', () => {
       screen.queryByText('এই প্রকল্পে একই ব্যক্তি আবার এলে অনুমোদনের আগে কারণ লিখতে হবে।'),
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
+    // the question says what follows, and asks no text
+    const ask = await screen.findByRole('dialog', { name: 'আবেদন অনুমোদন করুন' });
+    expect(ask).toHaveTextContent('অনুমোদনের পর উত্তরগুলো লক হয়ে যাবে');
+    expect(within(ask).queryByRole('textbox')).toBeNull();
+    expect(acted).toHaveLength(0);
+    await user.click(within(ask).getByRole('button', { name: 'অনুমোদন করুন' }));
     await waitFor(() => expect(acted).toHaveLength(1));
     expect(acted[0]?.action).toBe('approve');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
   it('offers to add the number the application carries to a profile without one, from the answers', async () => {
@@ -1080,8 +1153,10 @@ describe('the review page', () => {
     const dialog = await screen.findByRole('dialog', {
       name: 'অপেক্ষমাণ তালিকা থেকে অনুমোদন করুন',
     });
+    // the pull asks first; the server then asks the comment the screen did not expect
+    await user.click(within(dialog).getByRole('button', { name: 'অপেক্ষমাণ তালিকা থেকে অনুমোদন' }));
     expect(
-      within(dialog).getByText('কেন স্কোরের ক্রম ভেঙে সিদ্ধান্ত নিচ্ছেন?'),
+      await within(dialog).findByText('কেন স্কোরের ক্রম ভেঙে সিদ্ধান্ত নিচ্ছেন?'),
     ).toBeInTheDocument();
     await user.type(within(dialog).getByRole('textbox', { name: /মন্তব্য/ }), 'তিনি আগে এসেছেন');
     await user.click(within(dialog).getByRole('button', { name: 'অপেক্ষমাণ তালিকা থেকে অনুমোদন' }));

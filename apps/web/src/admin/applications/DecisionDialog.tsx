@@ -39,6 +39,7 @@ export function DecisionDialog({
   confirm,
   withReason = true,
   withMessage = false,
+  note,
   comments = [],
   danger = false,
   pending,
@@ -52,6 +53,8 @@ export function DecisionDialog({
   withReason?: boolean;
   /** A rejection needs the volunteer's message beside the office's reason. */
   withMessage?: boolean;
+  /** What follows from the decision, said before it is confirmed. */
+  note?: string;
   /** Why the decision asks for a comment; none asks no comment. */
   comments?: readonly CommentReason[];
   danger?: boolean;
@@ -106,6 +109,7 @@ export function DecisionDialog({
       }
     >
       <Form form={form} onSubmit={send} label={title} error={error ?? undefined}>
+        {note ? <Text>{note}</Text> : null}
         {withReason ? (
           <FormTextField
             name="reason"
