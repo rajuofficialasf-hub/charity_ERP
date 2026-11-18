@@ -12,6 +12,7 @@ import {
   RadioGroup,
   SelectField,
   Skeleton,
+  Text,
   type ActiveFilter,
   type DataTableExtendedColumn,
 } from '@/ui';
@@ -32,8 +33,10 @@ import { project as loadProject, PROJECTS_KEY } from '../projects/projects-api';
 import { canSeeApplications } from '../roles';
 import { useTabView } from '../use-tab-view';
 import {
+  allApplicationRows,
   applicationPage,
   APPLICATIONS_KEY,
+  SELECT_ALL_MAX,
   type ApplicationSummary,
   type BulkRowResult,
   bulkReview,
@@ -58,6 +61,14 @@ const STATES = [
   'rejected',
 ] as const;
 const FLAGS = ['public_entry', 'existing_identity', 'identity_repeated'] as const;
+/** The states each bulk action moves an application from; a row in another state is left out. */
+const BULK_FROM: Record<'send_for_approval' | 'approve', readonly string[]> = {
+  // a submitted row passes the start of its review on the way, in the same press
+  send_for_approval: ['submitted', 'under_review'],
+  approve: ['reviewed'],
+};
+/** The rows one bulk request takes (the API's limit). */
+const BULK_BATCH = 50;
 /** The orders the list offers: as the applications came (the server's default), or the score. */
 const BY_SCORE = '-score';
 
@@ -107,24 +118,54 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   // a tick belongs to the rows it was made on: another page, filter or search starts with none
   const view = JSON.stringify([filters, q, page, cursor]);
   const [tickedView, setTickedView] = useState(view);
+  // the whole list is chosen, beyond the rows the page shows; another view chooses again
+  const [allChosen, setAllChosen] = useState(false);
+  const [progress, setProgress] = useState<{ sent: number; total: number } | null>(null);
   if (tickedView !== view) {
     setTickedView(view);
     setSelected(new Set());
+    setAllChosen(false);
   }
   // the approval of the ticked rows is asked once more before it is sent
   const [confirmingBulk, setConfirmingBulk] = useState(false);
   const bulk = useMutation({
-    mutationFn: (action: 'send_for_approval' | 'approve') => {
-      const chosen = rows.filter((r) => selected.has(r.id));
-      return bulkReview(projectId, uuidv7(), {
-        action,
-        rows: chosen.map((r) => ({ clientUuid: uuidv7(), applicationId: r.id, ifMatch: r.etag })),
-      }).then((out) => ({ action, results: out.results }));
+    mutationFn: async (action: 'send_for_approval' | 'approve') => {
+      const targets = allChosen
+        ? await allApplicationRows(projectId, filters, q)
+        : rows.filter((r) => selected.has(r.id));
+      // a row the action cannot move is left out and counted as not done
+      const sendable = targets.filter((r) => BULK_FROM[action].includes(r.status));
+      const results: BulkRowResult[] = [];
+      // the API takes fifty rows a request, each batch under its own key
+      for (let i = 0; i < sendable.length; i += BULK_BATCH) {
+        setProgress({ sent: i, total: sendable.length });
+        const out = await bulkReview(projectId, uuidv7(), {
+          action,
+          rows: sendable
+            .slice(i, i + BULK_BATCH)
+            .map((r) => ({ clientUuid: uuidv7(), applicationId: r.id, ifMatch: r.etag })),
+        });
+        results.push(...out.results);
+      }
+      for (const r of targets.filter((t) => !sendable.includes(t)))
+        results.push({
+          clientUuid: uuidv7(),
+          result: 'failed',
+          code: 'workflow.transition_not_allowed',
+          serverId: r.id,
+          status: null,
+          stage: null,
+        });
+      return { action, results };
     },
-    onSettled: () => setConfirmingBulk(false),
+    onSettled: () => {
+      setConfirmingBulk(false);
+      setProgress(null);
+    },
     onSuccess: async (out) => {
       setOutcome(out);
       setSelected(new Set());
+      setAllChosen(false);
       await queryClient.invalidateQueries({ queryKey: APPLICATIONS_KEY });
     },
   });
@@ -238,6 +279,16 @@ function ApplicationTab({ projectId }: { projectId: string }) {
     chosen.length > 0 &&
     chosen.every((r) => r.status === 'submitted' || r.status === 'under_review');
   const canApproveAll = chosen.length > 0 && chosen.every((r) => r.status === 'reviewed');
+  const total = typeof meta?.total === 'number' ? meta.total : null;
+  const allCount = Math.min(total ?? 0, SELECT_ALL_MAX);
+  // the whole list is offered once every row the page shows is ticked and more rows match
+  const offerAll =
+    !allChosen &&
+    total !== null &&
+    total > rows.length &&
+    chosen.length > 0 &&
+    chosen.length === rows.length;
+  const bulkCount = allChosen ? allCount : shownSelection.size;
   return (
     <>
       {outcome ? (
@@ -290,10 +341,36 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         onSelectionChange={setSelected}
         bulkActions={
           <>
+            {offerAll ? (
+              <Button variant="text" size="small" onClick={() => setAllChosen(true)}>
+                {t('bulk.select_all', { count: formatCount(allCount, locale) })}
+              </Button>
+            ) : null}
+            {allChosen ? (
+              <>
+                <Text>{t('bulk.all_selected', { count: formatCount(allCount, locale) })}</Text>
+                {total !== null && total > SELECT_ALL_MAX ? (
+                  <Text tone="muted">
+                    {t('bulk.cap', { max: formatCount(SELECT_ALL_MAX, locale) })}
+                  </Text>
+                ) : null}
+                <Button variant="text" size="small" onClick={() => setAllChosen(false)}>
+                  {t('bulk.clear')}
+                </Button>
+              </>
+            ) : null}
+            {progress ? (
+              <Text tone="muted">
+                {t('bulk.progress', {
+                  sent: formatCount(progress.sent, locale),
+                  total: formatCount(progress.total, locale),
+                })}
+              </Text>
+            ) : null}
             <Button
               variant="secondary"
               size="small"
-              disabled={!canSendAll}
+              disabled={!(allChosen || canSendAll)}
               loading={bulk.isPending}
               onClick={() => bulk.mutate('send_for_approval')}
             >
@@ -302,7 +379,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
             <Button
               variant="primary"
               size="small"
-              disabled={!canApproveAll}
+              disabled={!(allChosen || canApproveAll)}
               loading={bulk.isPending}
               onClick={() => setConfirmingBulk(true)}
             >
@@ -406,8 +483,8 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       <ConfirmDialog
         open={confirmingBulk}
         title={t('bulk_approve_confirm.title', {
-          n: shownSelection.size,
-          count: formatCount(shownSelection.size, locale),
+          n: bulkCount,
+          count: formatCount(bulkCount, locale),
         })}
         consequences={[t('dialog.approve_note')]}
         confirmLabel={t('action.approve')}

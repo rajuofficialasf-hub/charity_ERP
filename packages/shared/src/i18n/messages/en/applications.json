@@ -248,7 +248,12 @@
       "none": "empty"
     },
     "bulk": {
-      "outcome": "{done} done, {failed} not done"
+      "outcome": "{done} done, {failed} not done",
+      "select_all": "Choose all {count} of this list",
+      "all_selected": "All {count} of this list are chosen",
+      "clear": "Clear the choice",
+      "progress": "Sent {sent} of {total}…",
+      "cap": "At most {max} applications can be chosen at once."
     },
     "sort": {
       "label": "Order",

@@ -351,6 +351,61 @@ describe('the list', () => {
     await expectNoAxeViolations(view.container);
   });
 
+  it('chooses every application of the filter and sends them fifty at a time, leaving out what cannot go', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    const id = (i: number) => `01900000-0000-7000-8000-${String(i).padStart(12, '0')}`;
+    // 120 applications match; the last one already awaits approval and cannot be sent again
+    const all = Array.from({ length: 120 }, (_, i) =>
+      row(id(i + 1), { status: i === 119 ? 'reviewed' : 'submitted', beneficiaryName: `জন ${i}` }),
+    );
+    const sent: number[] = [];
+    server.use(
+      http.get(`*/api/v1/projects/${PROJECT}/applications`, ({ request }) => {
+        const url = new URL(request.url);
+        if (url.searchParams.get('limit') !== '100')
+          return HttpResponse.json({
+            data: all.slice(0, 2),
+            meta: { requestId: 'r', nextCursor: null, prevCursor: null, total: 120 },
+          });
+        const after = url.searchParams.get('cursor');
+        const data = after ? all.slice(100) : all.slice(0, 100);
+        return HttpResponse.json({
+          data,
+          meta: { requestId: 'r', nextCursor: after ? null : 'c2', prevCursor: null },
+        });
+      }),
+      http.post(`*/api/v1/projects/${PROJECT}/bulk/review`, async ({ request }) => {
+        const body = (await request.json()) as { action: string; rows: { clientUuid: string }[] };
+        expect(body.action).toBe('send_for_approval');
+        sent.push(body.rows.length);
+        return HttpResponse.json({
+          data: {
+            results: body.rows.map((r) => ({
+              clientUuid: r.clientUuid,
+              result: 'done',
+              code: null,
+              serverId: null,
+              status: 'reviewed',
+              stage: null,
+            })),
+          },
+          meta: { requestId: 'r' },
+        });
+      }),
+    );
+    openList();
+    const grid = await screen.findByRole('table');
+    await user.click(await within(grid).findByRole('checkbox', { name: /জন 0/ }));
+    await user.click(within(grid).getByRole('checkbox', { name: /জন 1/ }));
+    await user.click(screen.getByRole('button', { name: 'এই তালিকার সব 120টি বাছুন' }));
+    expect(screen.getByText('এই তালিকার সব 120টি বাছাই করা হয়েছে')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }));
+    expect(await screen.findByText('119টি হয়েছে, 1টি হয়নি')).toBeInTheDocument();
+    expect(sent).toEqual([50, 50, 19]);
+  });
+
   it('sends the district and the union of the address path only, and takes the approval of ticked reviewed rows', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);

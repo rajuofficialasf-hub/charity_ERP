@@ -172,6 +172,37 @@ export const decideUnlock = (unlockId: string, decision: 'accept' | 'refuse', re
 export const cancelUnlock = (unlockId: string, reason: string) =>
   api<Unlock>(`/application-unlocks/${unlockId}/cancel`, { method: 'POST', body: { reason } });
 
+/** The most applications a bulk action takes when the official chooses the whole list. */
+export const SELECT_ALL_MAX = 1000;
+
+/**
+ * Every row of the list the filters and the search give, read by cursor a hundred at a time, at
+ * most `max`: the rows a bulk action over the whole list sends, each with its own version.
+ */
+export async function allApplicationRows(
+  projectId: string,
+  filters: FilterValues,
+  q: string,
+  max = SELECT_ALL_MAX,
+): Promise<ApplicationSummary[]> {
+  const rows: ApplicationSummary[] = [];
+  let cursor: string | null = null;
+  do {
+    const page: OfficeApplicationPage = await api<OfficeApplicationPage>(
+      `/projects/${projectId}/applications${listQuery({
+        ...applicationListFilters(filters),
+        q: q || undefined,
+        ...(cursor ? { cursor } : {}),
+        limit: '100',
+      })}`,
+      { envelope: true },
+    );
+    rows.push(...page.data);
+    cursor = page.meta.nextCursor ?? null;
+  } while (cursor && rows.length < max);
+  return rows.slice(0, max);
+}
+
 /** One answer of the review checklist, with the version the page read. */
 export const answerReviewCheck = (
   id: string,
