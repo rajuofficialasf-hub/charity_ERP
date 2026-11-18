@@ -31,7 +31,8 @@ export function ProjectFacts({
   const cards = useQuery({
     queryKey: [...CARDS_KEY, 'programs'],
     queryFn: programCards,
-    enabled: Boolean(me && canSeeProjectOverview(me)),
+    // read only for the program's name, so not when the page shows the program elsewhere
+    enabled: Boolean(me && canSeeProjectOverview(me)) && !leave.includes('program'),
   });
   const program = cards.data?.find((g) => g.id === p.programId);
   const none = t('detail.none');

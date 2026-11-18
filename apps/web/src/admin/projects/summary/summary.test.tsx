@@ -225,6 +225,74 @@ describe('the summary of a session', () => {
     expect(closed).toHaveTextContent('31-07-2027');
   });
 
+  it('keeps the facts and the stages when the counts cannot be read, and offers to try again', async () => {
+    refreshAs(PM);
+    serve();
+    server.use(
+      http.get(`*/api/v1/projects/${ID}/summary`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'permission.denied',
+              messageKey: 'errors.permission.denied',
+              message: 'অনুমতি নেই',
+              requestId: 'req_c',
+            },
+          },
+          { status: 403 },
+        ),
+      ),
+    );
+    open();
+    expect(await screen.findByRole('button', { name: 'আবার চেষ্টা করুন' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'প্রকল্পের মূল তথ্য' })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'সেশনের ধাপ' })).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('keeps the program among the facts when the project cannot be read for its tile', async () => {
+    refreshAs(PM);
+    serve();
+    server.use(
+      http.get(`*/api/v1/project-series/${SERIES}`, () => HttpResponse.json({}, { status: 404 })),
+      http.get('*/api/v1/program-cards', () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: PROGRAM,
+              code: 'HUM',
+              name: { bn: 'হিউম্যানিটেরিয়ান প্রোগ্রাম', en: 'Humanitarian' },
+              description: null,
+              coverFileId: null,
+              active: true,
+              pm: null,
+              rpms: { people: [], total: 0 },
+              projects: 1,
+              runningProjects: 1,
+              beneficiaries: 0,
+              applications: 0,
+              volunteers: 0,
+              canCreate: false,
+            },
+          ],
+          meta: {},
+        }),
+      ),
+    );
+    open();
+    const facts = (await screen.findByRole('heading', { name: 'প্রকল্পের মূল তথ্য' })).closest(
+      '.MuiCard-root',
+    ) as HTMLElement;
+    expect(await within(facts).findByText('হিউম্যানিটেরিয়ান প্রোগ্রাম')).toBeInTheDocument();
+  });
+
+  it('says one day is left on the day before the window closes', async () => {
+    refreshAs(PM);
+    serve({}, { ...COUNTS, daysLeft: 1 });
+    open();
+    expect(await screen.findByText('আবেদনের আর 1 দিন বাকি')).toBeInTheDocument();
+  });
+
   it('says a cancelled session has no stages', async () => {
     refreshAs(PM);
     serve({ status: 'cancelled' });

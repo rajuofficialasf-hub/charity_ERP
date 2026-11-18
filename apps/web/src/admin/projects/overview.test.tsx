@@ -133,7 +133,12 @@ describe('the project overview', () => {
       await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ' }),
     ).toBeInTheDocument();
     // the window in the facts and on the stage it belongs to
-    expect(screen.getAllByText('01-11-2026 – 31-12-2026').length).toBeGreaterThan(0);
+    const facts = (await screen.findByRole('heading', { name: 'প্রকল্পের মূল তথ্য' })).closest(
+      '.MuiCard-root',
+    ) as HTMLElement;
+    expect(within(facts).getByText('01-11-2026 – 31-12-2026')).toBeInTheDocument();
+    const strip = await screen.findByRole('list', { name: 'সেশনের ধাপ' });
+    expect(within(strip).getByText('01-11-2026 – 31-12-2026')).toBeInTheDocument();
     expect(await screen.findByText('৳ 1,00,000')).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'সেটআপ' })).toHaveAttribute(
       'href',

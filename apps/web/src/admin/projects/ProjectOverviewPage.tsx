@@ -1,13 +1,15 @@
 import { formatCount, formatMonth, formatTaka } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Card, Grid, Stack } from '@/ui';
+import { Card, Grid, Skeleton, Stack } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { LoadError } from '../../components/LoadError';
 import { useAuth } from '../../lib/auth';
 import { canSeeProjectOverview } from '../roles';
 import { CARDS_KEY, seriesDetail, sessionSummary } from './cards-api';
 import { useFramedSession } from './frame/session-context';
+import type { Project } from './projects-api';
 import { ProjectFacts, type SessionFact } from './ProjectFacts';
 import { type Fact, FactTile } from './summary/FactTile';
 import { SessionCounts } from './summary/SessionCounts';
@@ -15,6 +17,36 @@ import { SessionProgress } from './summary/SessionProgress';
 
 /** The facts shown on cards of their own, which the facts card therefore leaves out. */
 const ON_CARDS: readonly SessionFact[] = ['period', 'limit', 'budget', 'program'];
+
+/**
+ * The budget's tile, or the target's for a caller the server leaves the budget out for, or none
+ * when the session has neither.
+ */
+function budgetOrTarget(
+  p: Project,
+  locale: Locale,
+  none: string,
+  ts: (key: 'budget' | 'target') => string,
+): Fact[] {
+  if ('budgetPlanned' in p)
+    return [
+      {
+        label: ts('budget'),
+        value: p.budgetPlanned ? formatTaka(Number(p.budgetPlanned), locale) : none,
+        icon: 'money',
+        tone: 'secondary',
+      },
+    ];
+  if (p.targetBeneficiaries === null || p.targetBeneficiaries === undefined) return [];
+  return [
+    {
+      label: ts('target'),
+      value: formatCount(p.targetBeneficiaries, locale),
+      icon: 'users',
+      tone: 'secondary',
+    },
+  ];
+}
 
 /**
  * The summary tab of a session, inside the session's frame (`frame/ProjectFrame.tsx`), which
@@ -57,26 +89,7 @@ export function ProjectOverviewPage() {
       icon: 'user',
       tone: 'info',
     },
-    // the server leaves the budget out for who may not see it; the target stands in its place
-    ...('budgetPlanned' in p
-      ? [
-          {
-            label: ts('budget'),
-            value: p.budgetPlanned ? formatTaka(Number(p.budgetPlanned), locale) : none,
-            icon: 'money' as const,
-            tone: 'secondary' as const,
-          },
-        ]
-      : p.targetBeneficiaries !== null && p.targetBeneficiaries !== undefined
-        ? [
-            {
-              label: ts('target'),
-              value: formatCount(p.targetBeneficiaries, locale),
-              icon: 'users' as const,
-              tone: 'secondary' as const,
-            },
-          ]
-        : []),
+    ...budgetOrTarget(p, locale, none, ts),
     ...(program
       ? [
           {
@@ -101,10 +114,20 @@ export function ProjectOverviewPage() {
       </Grid>
       <Grid columns={{ base: 1, lg: 2 }} gap={3}>
         <Card title={ts('facts')} headingLevel={3}>
-          <ProjectFacts project={p} leave={ON_CARDS} />
+          {/* the program stays among the facts while its tile has no name to show */}
+          <ProjectFacts
+            project={p}
+            leave={program ? ON_CARDS : ON_CARDS.filter((f) => f !== 'program')}
+          />
         </Card>
         <Stack gap={3}>
           {summary.data && <SessionCounts projectId={p.id} counts={summary.data} />}
+          {summary.isPending && overview && <Skeleton shape="card" />}
+          {summary.error && (
+            <Card title={ts('counts')} headingLevel={3}>
+              <LoadError error={summary.error} onRetry={() => void summary.refetch()} />
+            </Card>
+          )}
           <SessionProgress project={p} counts={summary.data} />
         </Stack>
       </Grid>

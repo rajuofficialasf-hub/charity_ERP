@@ -62,7 +62,9 @@ export function SessionProgress({
           <Text tone="muted">
             {daysLeft === 0
               ? t('last_day')
-              : t('days_left', { days: formatCount(daysLeft, locale) })}
+              : daysLeft === 1
+                ? t('one_day_left')
+                : t('days_left', { days: formatCount(daysLeft, locale) })}
           </Text>
         )}
       </Stack>
