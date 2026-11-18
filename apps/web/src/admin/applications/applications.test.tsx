@@ -1371,7 +1371,9 @@ describe('the review page', () => {
       body: { linkBeneficiaryId: PERSON, ownerVolunteerId: VOLUNTEER_ID },
     });
     expect(
-      await screen.findByText('এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন প্রক্রিয়াধীন।'),
+      await screen.findByText(
+        'এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন প্রক্রিয়াধীন।',
+      ),
     ).toBeInTheDocument();
   });
 

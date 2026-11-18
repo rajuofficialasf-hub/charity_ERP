@@ -92,7 +92,9 @@ describe('My Work home', () => {
     // the own applications are counted by tab, each count opening its tab
     const own = screen.getByRole('heading', { name: 'আমার আবেদন' }).closest('section')!;
     expect(own).not.toHaveTextContent('শিগগিরই আসছে');
-    const pending = (await within(own).findByRole('link', { name: 'প্রক্রিয়াধীন' })).closest('li')!;
+    const pending = (await within(own).findByRole('link', { name: 'প্রক্রিয়াধীন' })).closest(
+      'li',
+    )!;
     expect(pending).toHaveTextContent('3');
     expect(within(own).getByRole('link', { name: 'প্রক্রিয়াধীন' })).toHaveAttribute(
       'href',
