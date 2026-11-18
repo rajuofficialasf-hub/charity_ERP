@@ -1,9 +1,12 @@
 # CI for the CSS ERP on GitHub Actions (stages from docs/testing/TEST_STRATEGY.md, "CI gate").
 # Every pull request and every push to main or develop: install, lint, typecheck, document checks,
-# unit and API tests against PostgreSQL 17, build, dependency audit and secret scan. Pushes to main
-# and develop also run E2E: develop gets every merged change, main every release. A push to any
-# other branch runs nothing, so a branch with a pull request runs once per push
-# and the free monthly minutes of a private repository last.
+# unit and API tests against PostgreSQL 17, build, dependency audit and secret scan. E2E runs on
+# every pull request into develop, so a change is merged only after the whole suite, and on pushes
+# to main and develop: develop gets every merged change, main every release. A push to any other
+# branch runs nothing, so a branch with a pull request runs once per push. E2E starts beside the
+# unit and API job, after the short audit and secret scan, so a pull request's run ends when the
+# longer of the two does (about 19 minutes); the four shards spend about 52 runner minutes of a
+# private repository's free monthly minutes on each run.
 # E2E runs as four shards side by side (`--shard=i/4`). The hosted runner of a private repository
 # has two cores, so Playwright runs one worker, and the whole suite on one runner takes about
 # 29 minutes, more than the job's limit; each shard has its own PostgreSQL service and its own
@@ -135,9 +138,17 @@ jobs:
 
   e2e:
     name: E2E (Playwright ${{ matrix.shard }}/4)
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    # A secret or an unaccepted advisory stops the pipeline before E2E.
-    needs: [checks, security]
+    # the trigger is `pull_request`, never `pull_request_target`: the job runs a pull request's
+    # code with a read-only token and no secret, only the throwaway values below (the demo
+    # accounts, the service database, local storage), also for a pull request from a fork
+    if: >-
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'))
+      || (github.event_name == 'pull_request' && github.base_ref == 'develop')
+    # A secret or an unaccepted advisory stops the pipeline before E2E. The unit and API job runs
+    # beside it; a merge waits for both.
+    needs: [security]
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     # one shard: about 3 minutes of setup and builds, then up to about 10 minutes of tests, and up
     # to half as long again on a slow runner
