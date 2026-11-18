@@ -80,14 +80,14 @@ Choices made in this plan (the owner may change them at plan review):
 ### U1. Record the decision
 - **Goal:** The owner's answers and this plan's choices are in the decision log before code.
 - **Requirements:** all (record)
-- **Files:** `docs/DECISION_LOG.md` (next free number, D-184 today; the review-checklist branch may take it first, so renumber at merge), `docs/STATUS.md` (in work).
+- **Files:** `docs/DECISION_LOG.md` (D-185; PR #70 took D-184), `docs/STATUS.md` (in work).
 - **Approach:** as D-176 and D-181: the owner's words, the five answers, the choices of this plan, affects-list (the new read, permissions.yaml description, the two asf pieces, SCREENS, DESIGN_SYSTEM, openapi.yaml, AUTHORIZATION_MATRIX).
 - **Tests:** none (document); `pnpm docs:check` passes.
 - **Done when:** the entry is in, its state "approved" only after the owner confirms the plan in chat.
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. A session's counts: `GET /projects/{projectId}/summary`
 - **Goal:** One read gives the whole-session counts to the overview roles.
@@ -209,7 +209,7 @@ Choices made in this plan (the owner may change them at plan review):
 ## Progress
 - **Branch:** `feat/project-page-frame`
 - **Updated:** 2026-11-18 21:55
-- **Next:** U1, the decision entry in `docs/DECISION_LOG.md`
+- **Next:** U2, the summary read: integration tests in `apps/api/test/integration/project-series.test.ts` first
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner approved the plan in chat ("প্রকল্প পেইজ দিলাম। ঐটা শুরু করে দাও তাহলে প্ল্যান তো রেডি আছে"), relayed by the session that started this one; the branch starts from develop at 978d1b47 (PR #70, the review checklist), which took no decision number after D-183.
+- **Notes:** the decision is D-185 (PR #70 took D-184); `docs/STATUS.md` is updated once in U7. The owner approved the plan in chat ("প্রকল্প পেইজ দিলাম। ঐটা শুরু করে দাও তাহলে প্ল্যান তো রেডি আছে"), relayed by the session that started this one; the branch starts from develop at 978d1b47 (PR #70, the review checklist), which took no decision number after D-183.
