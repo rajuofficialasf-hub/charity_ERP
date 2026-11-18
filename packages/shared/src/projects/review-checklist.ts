@@ -1,4 +1,4 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 import { reviewChecklistSettings } from '../jsonb/component-settings.js';
 
 /** A project's review checklist: its items and whether every item must be answered first. */
@@ -33,3 +33,28 @@ export function reviewChecklist(settings: unknown): ReviewChecklist {
   const parsed = reviewChecklistSettings.safeParse(stored);
   return parsed.success ? parsed.data : DEFAULT_REVIEW_CHECKLIST;
 }
+
+/** An official's answer to one item: it was checked and is fine, or there is a problem. */
+export const reviewCheckResult = z.enum(['ok', 'problem']);
+export type ReviewCheckResult = z.infer<typeof reviewCheckResult>;
+
+/**
+ * The answer of one checklist item (contract `ReviewCheckAnswer`): a problem always says what it
+ * is, in at most 500 characters; an answer that is fine keeps no comment.
+ */
+export const reviewCheckAnswerSchema = z
+  .strictObject({
+    result: reviewCheckResult,
+    comment: z.string().trim().max(500).optional(),
+  })
+  .superRefine((answer, ctx) => {
+    if (answer.result === 'problem' && !answer.comment)
+      ctx.addIssue({ code: 'custom', path: ['comment'], message: 'validation.required' });
+  })
+  .transform((answer) => ({
+    result: answer.result,
+    comment: answer.result === 'problem' ? (answer.comment ?? null) : null,
+  }));
+export type ReviewCheckAnswer = z.input<typeof reviewCheckAnswerSchema>;
+/** The answer as the server takes it: the comment only with a problem. */
+export type ReviewCheckAnswerBody = z.output<typeof reviewCheckAnswerSchema>;

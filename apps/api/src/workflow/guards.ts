@@ -8,7 +8,7 @@ import {
 } from '../applications/pending-photos.js';
 import { type Answer, type FormDefinition, optionalIdentityOf, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
-import type { IdentityRules } from '@css/shared/projects';
+import type { IdentityRules, ReviewChecklist } from '@css/shared/projects';
 import type { EffectiveAccess } from '../access/effective.js';
 import type { Clock } from '../core/clock.js';
 import type { Tx } from '../core/prisma.service.js';
@@ -56,6 +56,8 @@ export interface EngineApplication {
      * stored settings for this check; never from the request or the record.
      */
     identityRules: IdentityRules;
+    /** The project's review checklist, read from its stored settings for this check. */
+    reviewChecklist: ReviewChecklist;
   };
 }
 
@@ -278,5 +280,15 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
       where: { projectId: ctx.application.projectId, source: 'zakat' },
     });
     return zakat === 0 || ctx.application.zakatDecision === 'eligible';
+  },
+  // a project that requires its review checklist sends an application for approval only once
+  // every item of the checklist has an answer, a problem with its comment included
+  'review_checklist.complete': async (ctx) => {
+    const { required, items } = ctx.application.project.reviewChecklist;
+    if (!required || !items.length) return true;
+    const answered = await ctx.tx.applicationReviewCheck.count({
+      where: { applicationId: ctx.application.id, itemCode: { in: items.map((i) => i.code) } },
+    });
+    return answered === items.length;
   },
 };

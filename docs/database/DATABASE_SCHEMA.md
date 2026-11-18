@@ -1062,6 +1062,22 @@ Constraints: partial UNIQUE (project_id, beneficiary_id) WHERE status <> 'delete
 
 Constraints: UNIQUE (application_id, field_id, repeat_index). Index: GIN (value jsonb_path_ops) only if reports need it (deferred).
 
+### application_review_checks
+The answers of an application's review checklist (D-184, BR-319): one row per item an official answered. A later answer of the same item replaces the row's values; the audit log (`application.review_check`) keeps every answer, so no row is deleted. The checklist itself is the `review_checklist` key of the project's application form component settings.
+
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| application_id | uuid | no | — | FK applications |
+| item_code | text | no | — | code of an item of the project's checklist (`^[a-z0-9_]{1,64}$`) |
+| result | text | no | — | `ok` or `problem` |
+| comment | text | yes | — | what the problem is; required with `problem`, at most 500 characters |
+| checked_by | uuid | no | — | FK users; who answered last |
+| checked_at | timestamptz | no | — | when |
+| [A] | | | | |
+
+Constraints: UNIQUE (application_id, item_code); CHECK result IN (ok, problem); CHECK a problem carries a non-blank comment. Indexes: checked_by, created_by, updated_by.
+
 ### application_scores
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|

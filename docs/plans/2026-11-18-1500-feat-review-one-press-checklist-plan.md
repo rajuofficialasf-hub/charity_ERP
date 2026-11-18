@@ -192,8 +192,8 @@ Behaviour:
 
 ## Progress
 - Branch: `feat/review-one-press-checklist`
-- Unit status: U1–U4 done; U5–U8 todo
-- Next: U5, the checklist answers (migration, route, record field, the gate before sending)
+- Unit status: U1–U5 done; U6–U8 todo
+- Next: U6, the checklist card on the review page (web schema reviewChecklist, answer API, card beside Signals)
 - Reviewed through: C1 at 69fe281c
 - Uncommitted: none
 - Notes: C1 review (T2): no security finding; an official save with no change no longer starts the review; only volunteers hold application.edit_pending, so an official editing a submitted application under the review permission takes nothing from anyone. The owner approved this plan in chat on 2026-11-18 (plan mode); the default of the checklist switch (off) is recorded as proposed

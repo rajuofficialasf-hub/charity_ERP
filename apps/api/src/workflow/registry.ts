@@ -23,6 +23,7 @@ export const BUILT_GUARDS = [
   'quota.comment_if_full',
   'family.comment_if_match',
   'zakat.eligible_if_zakat_fund',
+  'review_checklist.complete',
 ] as const;
 export type BuiltGuard = (typeof BUILT_GUARDS)[number];
 

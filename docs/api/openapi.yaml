@@ -3857,6 +3857,14 @@ components:
           maxItems: 2000
           description: Answers in the shape of Answer; the engine checks each one and names the field it refuses
           items: {}
+    ReviewCheckAnswer:
+      type: object
+      additionalProperties: false
+      required: [result]
+      description: The answer of one review checklist item; a problem needs its comment (BR-319)
+      properties:
+        result: { type: string, enum: [ok, problem] }
+        comment: { type: string, maxLength: 500, description: What the problem is; dropped when the item is ok }
     ApplicationUpdate:
       type: object
       additionalProperties: false
@@ -3886,6 +3894,30 @@ components:
             reviewedAt: { type: [string, 'null'], format: date-time }
             approvedAt: { type: [string, 'null'], format: date-time }
             decisionComment: { type: [string, 'null'], x-sensitive-class: application.official_section, description: The office's reason of a decision }
+            reviewChecklist:
+              type: [object, 'null']
+              x-sensitive-class: application.official_section
+              description: The project's review checklist with the answers given on this application (BR-319); each item with its answer, its comment, and who answered and when, or none yet; the office's only
+              required: [required, items]
+              properties:
+                required: { type: boolean, description: Whether every item must be answered before sending for approval }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [code, label, result, comment, checkedBy, checkedAt]
+                    properties:
+                      code: { type: string, pattern: '^[a-z0-9_]{1,64}$' }
+                      label: { $ref: '#/components/schemas/Bilingual' }
+                      result: { type: [string, 'null'], enum: [ok, problem, null] }
+                      comment: { type: [string, 'null'] }
+                      checkedBy:
+                        type: [object, 'null']
+                        required: [id, name]
+                        properties:
+                          id: { type: string, format: uuid }
+                          name: { type: string }
+                      checkedAt: { type: [string, 'null'], format: date-time }
             scoreItems:
               type: [array, 'null']
               x-sensitive-class: application.official_section
@@ -10287,6 +10319,44 @@ paths:
       responses:
         '200':
           description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /applications/{applicationId}/review-checks/{itemCode}:
+    parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+      - name: itemCode
+        in: path
+        required: true
+        description: The code of an item of the project's review checklist
+        schema: { type: string, pattern: '^[a-z0-9_]{1,64}$' }
+    put:
+      tags: [applications]
+      operationId: applications.reviewCheck.answer
+      summary: >-
+        Answer one item of the project's review checklist, ok or a problem with a comment; the first answer of a
+        submitted application starts its review, and a later answer replaces the item's
+      x-permission: application.review
+      x-scope: application
+      x-audit: application.review_check
+      x-idempotency: none
+      x-rate-limit: default
+      x-sensitive-fields: [application.official_section, beneficiary.nid, beneficiary.contact, beneficiary.profile_detail, beneficiary.application_history]
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewCheckAnswer' }
+      responses:
+        '200':
+          description: Answered
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApplicationResponse' }

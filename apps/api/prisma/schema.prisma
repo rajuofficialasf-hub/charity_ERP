@@ -202,6 +202,9 @@ model User {
   applicationsCreatedBy                Application[]              @relation("applications_created_by")
   applicationsUpdatedBy                Application[]              @relation("applications_updated_by")
   applicationAnswersCreatedBy          ApplicationAnswer[]        @relation("application_answers_created_by")
+  applicationReviewChecksCheckedBy     ApplicationReviewCheck[]   @relation("application_review_checks_checked_by")
+  applicationReviewChecksCreatedBy     ApplicationReviewCheck[]   @relation("application_review_checks_created_by")
+  applicationReviewChecksUpdatedBy     ApplicationReviewCheck[]   @relation("application_review_checks_updated_by")
   applicationAnswersUpdatedBy          ApplicationAnswer[]        @relation("application_answers_updated_by")
   applicationScoresCreatedBy           ApplicationScore[]         @relation("application_scores_created_by")
   applicationScoresUpdatedBy           ApplicationScore[]         @relation("application_scores_updated_by")
@@ -1292,7 +1295,7 @@ model Beneficiary {
   helpCount                            Int                        @default(0) @map("help_count")
   /// the most of those in one project year; more than one is "helped more than once in a year"
   maxHelpsInYear                       Int                        @default(0) @map("max_helps_in_year")
-  gender                            ReferenceList?             @relation("beneficiaries_gender_code", fields: [genderList, genderCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
+  gender                               ReferenceList?             @relation("beneficiaries_gender_code", fields: [genderList, genderCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   maritalStatus                        ReferenceList?             @relation("beneficiaries_marital_status_code", fields: [maritalStatusList, maritalStatusCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   education                            ReferenceList?             @relation("beneficiaries_education_code", fields: [educationList, educationCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
   mobileOwner                          ReferenceList?             @relation("beneficiaries_mobile_owner_code", fields: [mobileOwnerList, mobileOwnerCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
@@ -1933,6 +1936,7 @@ model Application {
   createdByRef                    User?                     @relation("applications_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   updatedByRef                    User?                     @relation("applications_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   applicationAnswersApplication   ApplicationAnswer[]       @relation("application_answers_application_id")
+  reviewChecksApplication         ApplicationReviewCheck[]  @relation("application_review_checks_application_id")
   applicationScoresApplication    ApplicationScore?         @relation("application_scores_application_id")
   applicationTransfersApplication ApplicationTransfer[]     @relation("application_transfers_application_id")
   activitiesApplication           Activity[]                @relation("activities_application_id")
@@ -1995,6 +1999,31 @@ model ApplicationAnswer {
   @@index([createdBy], map: "application_answers_created_by_idx")
   @@index([updatedBy], map: "application_answers_updated_by_idx")
   @@map("application_answers")
+}
+
+/// The answers of an application's review checklist, one row per answered item (docs/database/DATABASE_SCHEMA.md).
+model ApplicationReviewCheck {
+  id            String      @id @db.Uuid
+  applicationId String      @map("application_id") @db.Uuid
+  itemCode      String      @map("item_code")
+  result        String
+  comment       String?
+  checkedBy     String      @map("checked_by") @db.Uuid
+  checkedAt     DateTime    @map("checked_at") @db.Timestamptz(6)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy     String?     @map("created_by") @db.Uuid
+  updatedAt     DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy     String?     @map("updated_by") @db.Uuid
+  application   Application @relation("application_review_checks_application_id", fields: [applicationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  checkedByRef  User        @relation("application_review_checks_checked_by", fields: [checkedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef  User?       @relation("application_review_checks_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef  User?       @relation("application_review_checks_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([applicationId, itemCode], map: "application_review_checks_application_id_item_code_key")
+  @@index([checkedBy], map: "application_review_checks_checked_by_idx")
+  @@index([createdBy], map: "application_review_checks_created_by_idx")
+  @@index([updatedBy], map: "application_review_checks_updated_by_idx")
+  @@map("application_review_checks")
 }
 
 model ApplicationScore {
@@ -3013,24 +3042,24 @@ model FileLink {
 }
 
 model UploadSession {
-  id              String   @id @db.Uuid
-  userId          String   @map("user_id") @db.Uuid
+  id              String    @id @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
   declared        Json
-  clientUuid      String   @map("client_uuid") @db.Uuid
+  clientUuid      String    @map("client_uuid") @db.Uuid
   bucket          String
-  objectKey       String   @map("object_key")
-  partCount       Int      @map("part_count")
-  partsReceived   Int[]    @default([]) @map("parts_received")
-  bytesReceived   BigInt   @default(0) @map("bytes_received")
-  expiresAt       DateTime @map("expires_at") @db.Timestamptz(6)
-  finalizedFileId String?  @map("finalized_file_id") @db.Uuid
+  objectKey       String    @map("object_key")
+  partCount       Int       @map("part_count")
+  partsReceived   Int[]     @default([]) @map("parts_received")
+  bytesReceived   BigInt    @default(0) @map("bytes_received")
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(6)
+  finalizedFileId String?   @map("finalized_file_id") @db.Uuid
   /// a finalize holds the session until this moment, so a second one waits and the sweep leaves it
   finalizingUntil DateTime? @map("finalizing_until") @db.Timestamptz(6)
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy       String?  @map("created_by") @db.Uuid
-  user            User     @relation("upload_sessions_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  finalizedFile   File?    @relation("upload_sessions_finalized_file_id", fields: [finalizedFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef    User?    @relation("upload_sessions_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?   @map("created_by") @db.Uuid
+  user            User      @relation("upload_sessions_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  finalizedFile   File?     @relation("upload_sessions_finalized_file_id", fields: [finalizedFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef    User?     @relation("upload_sessions_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([userId, clientUuid], map: "upload_sessions_user_id_client_uuid_key")
   @@index([userId], map: "upload_sessions_user_id_idx")
