@@ -1,7 +1,7 @@
 ---
 title: A session's page as a project frame, with a header, tabs and a summary
 type: feat
-status: ready
+status: in-progress
 source: brainstorm
 date: 2026-11-18
 doc_review: 2026-11-18
@@ -205,3 +205,11 @@ Choices made in this plan (the owner may change them at plan review):
 - Verification commands pass
 - `ae-review` has run, with no open P0 or P1
 - Code from abandoned attempts is removed
+
+## Progress
+- **Branch:** `feat/project-page-frame`
+- **Updated:** 2026-11-18 21:55
+- **Next:** U1, the decision entry in `docs/DECISION_LOG.md`
+- **Reviewed through:** none
+- **Uncommitted:** none
+- **Notes:** the owner approved the plan in chat ("প্রকল্প পেইজ দিলাম। ঐটা শুরু করে দাও তাহলে প্ল্যান তো রেডি আছে"), relayed by the session that started this one; the branch starts from develop at 978d1b47 (PR #70, the review checklist), which took no decision number after D-183.
