@@ -1334,7 +1334,30 @@
       "max_size": "5 MB",
       "not_cleared": "The photo has not cleared the safety check yet. Set the cover again a little later."
     },
-    "period_value": "{from} to {to}"
+    "period_value": "{from} to {to}",
+    "frame": {
+      "tabs": "Parts of the project",
+      "tab": {
+        "summary": "Summary",
+        "setup": "Setup",
+        "volunteers": "Volunteers",
+        "applications": "Applications",
+        "distribution": "Distribution",
+        "reports": "Reports",
+        "activity": "Activity"
+      },
+      "actions": "Project actions",
+      "more": "More actions",
+      "edit": "Edit",
+      "link": "Link",
+      "doc_title": "{tab} · {name}",
+      "soon": {
+        "title": "Coming soon",
+        "distribution": "Distribution lists, photos and the stock balance will show here.",
+        "reports": "The project's reports and dashboard will show here.",
+        "activity": "Who did what on the project, and when, will show here in order."
+      }
+    }
   },
   "templates": {
     "title": "Project templates",

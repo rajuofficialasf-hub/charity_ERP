@@ -88,7 +88,7 @@ test.describe('a program’s page and a project’s page', () => {
     await chooseIn(page, basics, 'ওয়ার্কফ্লো', 'বিতরণ');
     await next(page).click();
     await expect(
-      page.getByRole('heading', { level: 1, name: `সেটআপ: ${name} · সেশন 2090` }),
+      page.getByRole('heading', { level: 2, name: `সেটআপ: ${name} · সেশন 2090` }),
     ).toBeVisible();
     await expect(state(page, 'খসড়া')).toBeVisible();
 
@@ -103,7 +103,7 @@ test.describe('a program’s page and a project’s page', () => {
     await expect(next2.getByRole('region', { name: 'কপি হবে' })).toBeVisible();
     await next2.getByRole('button', { name: 'খসড়া তৈরি করুন' }).click();
     await expect(
-      page.getByRole('heading', { level: 1, name: `সেটআপ: ${name} · সেশন 2027-28` }),
+      page.getByRole('heading', { level: 2, name: `সেটআপ: ${name} · সেশন 2027-28` }),
     ).toBeVisible();
     await page.goto(`/admin/projects/series/${seriesId}`);
     const row = page.getByRole('row', { name: /সেশন 2027-28/ });

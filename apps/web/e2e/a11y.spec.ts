@@ -290,6 +290,10 @@ test.describe('accessibility of the Phase 1 screens', () => {
         `/admin/projects/${projectId}/setup`,
         `/admin/projects/${projectId}/volunteers`,
         `/admin/projects/${projectId}/applications`,
+        // the tabs of a session whose pages are not built yet
+        `/admin/projects/${projectId}/distribution`,
+        `/admin/projects/${projectId}/reports`,
+        `/admin/projects/${projectId}/activity`,
         // the quota section of the areas step, the verification queue and the transfer
         `/admin/projects/${projectId}/setup?step=areas`,
         `/admin/projects/${projectId}/applications?status=needs_verification`,

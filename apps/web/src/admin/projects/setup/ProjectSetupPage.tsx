@@ -11,7 +11,6 @@ import { ForbiddenContent } from '../../AdminLayout';
 import { canCreateProjects, canSeeProjects } from '../../roles';
 import { CARDS_KEY, seriesDetail } from '../cards-api';
 import { ActivateConfirm } from '../ActivateConfirm';
-import { ProjectStatusBadge } from '../ProjectStatusBadge';
 import { moveProject, type Project, PROJECTS_KEY } from '../projects-api';
 import { AreasSection } from './AreasSection';
 import { QuotasSection } from './QuotasSection';
@@ -116,6 +115,7 @@ function WizardHead({
   title,
   badge,
   back,
+  framed = false,
   steps,
   current,
   marks,
@@ -123,7 +123,9 @@ function WizardHead({
 }: {
   title: string;
   badge?: ReactNode;
-  back: ReactNode;
+  back?: ReactNode;
+  /** Inside a session's frame, which names the project, shows its state and leads back. */
+  framed?: boolean;
   steps: StepId[];
   current: number;
   marks?: StepMark[];
@@ -133,9 +135,15 @@ function WizardHead({
   const ts = useTranslations('admin.projects.setup.section');
   return (
     <header className="admin-wizard-head">
-      {back}
-      <Page title={title} documentTitle={false} />
-      {badge && <div data-testid="project-state">{badge}</div>}
+      {framed ? (
+        <h2 className="app-sr-only">{title}</h2>
+      ) : (
+        <>
+          {back}
+          <Page title={title} documentTitle={false} />
+          {badge && <div data-testid="project-state">{badge}</div>}
+        </>
+      )}
       <Stepper
         label={t('steps')}
         steps={steps.map((s) => ts(s))}
@@ -432,8 +440,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
             name: localized(project.name, locale),
             label: project.sessionLabel,
           })}
-          badge={<ProjectStatusBadge status={project.status} />}
-          back={back}
+          framed
           steps={steps}
           current={index}
           marks={marksFor(steps, missing)}
