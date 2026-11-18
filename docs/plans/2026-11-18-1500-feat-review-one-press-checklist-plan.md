@@ -1,7 +1,7 @@
 ---
 title: Fewer clicks in the application review, a per-project review checklist, clearer names
 type: feat
-status: in-progress
+status: done
 source: plan
 date: 2026-11-18
 ---
@@ -189,11 +189,3 @@ Behaviour:
 - C1 after U1–U3 (one press and the labels): `ae-review` on the range.
 - C2 after U4–U7 (the checklist and the select-all bulk): `ae-review`, T2 (a migration, a route, personal data masking).
 - C3 after U8: the whole branch through `ae-check`, then the full test run before the pull request.
-
-## Progress
-- Branch: `feat/review-one-press-checklist`
-- Unit status: U1–U8 done
-- Next: the pull request into develop; merge after green CI
-- Reviewed through: C2 at e416d00c
-- Uncommitted: none
-- Notes: C1 review (T2): no security finding; an official save with no change no longer starts the review; only volunteers hold application.edit_pending, so an official editing a submitted application under the review permission takes nothing from anyone. The owner approved this plan in chat on 2026-11-18 (plan mode); the default of the checklist switch (off) is recorded as proposed
