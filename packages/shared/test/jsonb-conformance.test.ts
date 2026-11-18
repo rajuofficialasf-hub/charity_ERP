@@ -272,6 +272,30 @@ conform('form-field-logic', '#/$defs/settings', fieldSettingsSchema, [
 const componentCases: Record<string, Case[]> = {
   application_form: [
     [
+      'review checklist',
+      {
+        review_checklist: {
+          required: true,
+          items: [{ code: 'land_papers', label: { bn: 'জমির কাগজ দেখা', en: 'Land papers seen' } }],
+        },
+      },
+      true,
+    ],
+    ['review checklist without its switch', { review_checklist: { items: [] } }, false],
+    [
+      'twenty-one checklist items',
+      {
+        review_checklist: {
+          required: false,
+          items: Array.from({ length: 21 }, (_, i) => ({
+            code: `c${i}`,
+            label: { bn: 'ক', en: 'C' },
+          })),
+        },
+      },
+      false,
+    ],
+    [
       'class options',
       { beneficiary_class_options: [{ code: 'widow', label: { bn: 'বিধবা', en: 'Widow' } }] },
       true,

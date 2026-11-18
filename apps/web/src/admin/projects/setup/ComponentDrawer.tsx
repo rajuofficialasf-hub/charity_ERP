@@ -5,7 +5,12 @@ import {
   photoSource,
   repeatRule,
 } from '@css/shared';
-import { IDENTITY_RULE_SETTINGS, identityRules } from '@css/shared/projects';
+import {
+  IDENTITY_RULE_SETTINGS,
+  identityRules,
+  type ReviewChecklist,
+  reviewChecklist,
+} from '@css/shared/projects';
 import {
   Button,
   Checkbox,
@@ -46,7 +51,8 @@ type ListKey =
   | 'criteria'
   | 'issue_types'
   | 'categories'
-  | 'questions';
+  | 'questions'
+  | 'review_checklist';
 type FlagKey =
   'enabled' | 'team_members_allowed' | 'family_attendance' | 'gender_split' | 'dedup_identical';
 
@@ -175,6 +181,13 @@ export function ComponentDrawer({
         )}
         {key === 'application_form' && (
           <ApplicationAsks settings={settings} onChange={set} readOnly={readOnly} />
+        )}
+        {key === 'application_form' && (
+          <ReviewChecklistPart
+            checklist={reviewChecklist(settings)}
+            onChange={(checklist) => set('review_checklist', checklist)}
+            readOnly={readOnly}
+          />
         )}
         {key === 'stages' && (
           <Stages
@@ -306,6 +319,44 @@ function ApplicationAsks({
         ))}
       </Stack>
     </fieldset>
+  );
+}
+
+/**
+ * The review checklist of the project: the items the office checks on every application, the
+ * starting three until the PM changes them, and whether every item must be checked before an
+ * application goes for approval. Nothing is written until the PM changes something.
+ */
+function ReviewChecklistPart({
+  checklist,
+  onChange,
+  readOnly,
+}: {
+  checklist: ReviewChecklist;
+  onChange: (checklist: ReviewChecklist) => void;
+  readOnly: boolean;
+}) {
+  const t = useTranslations('admin.projects.setup.drawer.checklist');
+  return (
+    <Stack gap={1}>
+      <CodeLabelList
+        name="review_checklist"
+        max={20}
+        withActive={false}
+        items={checklist.items}
+        onChange={(items) =>
+          onChange({ ...checklist, items: items.map(({ code, label }) => ({ code, label })) })
+        }
+        readOnly={readOnly}
+      />
+      <Text tone="muted">{t('hint')}</Text>
+      <Switch
+        label={t('required')}
+        checked={checklist.required}
+        onChange={(required) => onChange({ ...checklist, required })}
+        disabled={readOnly}
+      />
+    </Stack>
   );
 }
 
