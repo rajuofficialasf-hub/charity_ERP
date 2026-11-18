@@ -119,18 +119,24 @@ export function Tabs({ label, items, value, onChange, variant = 'underline' }: T
  * scrolls sideways and keeps the current tab in view.
  */
 export function LinkTabs({ label, items }: LinkTabsProps) {
+  const rowRef = useRef<HTMLUListElement | null>(null);
   const currentRef = useRef<HTMLAnchorElement | null>(null);
   const currentTo = items.find((item) => item.current)?.to;
   useEffect(() => {
-    // only the row scrolls; the page stays where it is
-    currentRef.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    // the row alone scrolls, never the page, so a tab opened from a link keeps the page at its top
+    const row = rowRef.current;
+    const link = currentRef.current;
+    if (!row || !link) return;
+    row.scrollLeft = Math.max(0, link.offsetLeft - (row.clientWidth - link.offsetWidth) / 2);
   }, [currentTo]);
 
   return (
     <Box component="nav" aria-label={label}>
       <Box
         component="ul"
+        ref={rowRef}
         sx={{
+          position: 'relative',
           display: 'flex',
           gap: { xs: 3, md: 5 },
           m: 0,
@@ -163,6 +169,8 @@ export function LinkTabs({ label, items }: LinkTabsProps) {
                   fontWeight: 600,
                   color: item.current ? 'text.primary' : 'text.secondary',
                   '&:hover': { color: 'text.primary' },
+                  // inside the row that scrolls sideways, so the ring is drawn within the link
+                  '&:focus-visible': { outlineOffset: -2 },
                   '&::after': {
                     content: '""',
                     position: 'absolute',

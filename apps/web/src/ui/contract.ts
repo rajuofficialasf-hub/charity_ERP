@@ -1657,7 +1657,10 @@ export type RecordHeaderProps = {
   footer?: ReactNode;
 };
 
-/** One page of a record, reached by a tab. `current` marks the page shown now. */
+/**
+ * One page of a record, reached by a tab. `to` is a path of this app starting with one slash; any
+ * other address is left out of the row. `current` marks the page shown now.
+ */
 export type LinkTab = { to: string; label: string; icon?: ExtendedIconName; current?: boolean };
 
 /**

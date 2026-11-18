@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { it, expect, describe, afterEach, beforeEach } from 'vitest';
+import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
 import { render, screen, within, cleanup } from '@testing-library/react';
 
 import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
@@ -93,6 +93,17 @@ describe('the record header', () => {
     expect(screen.queryByText('শীতকালে অসহায় মানুষের মাঝে শীতবস্ত্র বিতরণ।')).not.toBeInTheDocument();
   });
 
+  it('reaches its actions by the keyboard', async () => {
+    const user = userEvent.setup();
+    render(
+      <UiProvider>
+        <Header />
+      </UiProvider>
+    );
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'সম্পাদনা' })).toHaveFocus();
+  });
+
   it('draws no empty picture box and no fact list when it has neither', () => {
     const { container } = render(
       <UiProvider>
@@ -121,6 +132,44 @@ describe('the link tabs', () => {
     expect(within(nav).getByRole('link', { name: 'আবেদন' })).not.toHaveAttribute('aria-current');
     expect(within(nav).getByRole('link', { name: 'আবেদন' })).toHaveAttribute('href', '/projects/7/applications');
     await expectNoAxeViolations(container);
+  });
+
+  it('leaves out a tab whose address is not a path of this app', () => {
+    renderInApp(
+      <LinkTabs
+        label="প্রকল্পের অংশ"
+        items={[...TABS, { to: '//elsewhere.example/x', label: 'বাইরে' }, { to: 'javascript:alert(1)', label: 'স্ক্রিপ্ট' }]}
+      />
+    );
+    const nav = screen.getByRole('navigation', { name: 'প্রকল্পের অংশ' });
+    expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['সারসংক্ষেপ', 'আবেদন', 'রিপোর্ট']);
+  });
+
+  it('scrolls the row, not the page, to keep the current tab in view', () => {
+    // jsdom lays nothing out, so the row and the current link get the sizes a phone would give
+    const kept = new Map<string, PropertyDescriptor | undefined>();
+    const sizes = (name: string, value: (el: HTMLElement) => number) => {
+      kept.set(name, Object.getOwnPropertyDescriptor(HTMLElement.prototype, name));
+      Object.defineProperty(HTMLElement.prototype, name, { configurable: true, get() { return value(this as HTMLElement); } });
+    };
+    sizes('clientWidth', (el) => (el.tagName === 'UL' ? 300 : 0));
+    sizes('offsetWidth', (el) => (el.tagName === 'A' ? 100 : 0));
+    sizes('offsetLeft', (el) => (el.textContent === 'রিপোর্ট' ? 500 : 0));
+    const page = vi.spyOn(window, 'scrollTo');
+    try {
+      renderInApp(
+        <LinkTabs label="প্রকল্পের অংশ" items={TABS.map((tab) => ({ ...tab, current: tab.label === 'রিপোর্ট' }))} />
+      );
+      const row = screen.getByRole('navigation', { name: 'প্রকল্পের অংশ' }).querySelector('ul')!;
+      // the current tab in the middle of the row: 500 - (300 - 100) / 2
+      expect(row.scrollLeft).toBe(400);
+      expect(page).not.toHaveBeenCalled();
+    } finally {
+      for (const [name, descriptor] of kept) {
+        if (descriptor) Object.defineProperty(HTMLElement.prototype, name, descriptor);
+        else delete (HTMLElement.prototype as unknown as Record<string, unknown>)[name];
+      }
+    }
   });
 
   it('opens a tab’s page by the keyboard', async () => {
