@@ -747,12 +747,12 @@ describe('the review page', () => {
       ),
     );
     openReview();
-    await user.click(await screen.findByRole('button', { name: 'বাতিল করুন' }));
-    const dialog = await screen.findByRole('dialog', { name: 'আবেদন বাতিল করুন' });
+    await user.click(await screen.findByRole('button', { name: 'প্রত্যাখ্যান করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'আবেদন প্রত্যাখ্যান করুন' });
     expect(
       within(dialog).getByText('অফিসের কারণ স্বেচ্ছাসেবকের কাছে কখনো যায় না।'),
     ).toBeInTheDocument();
-    const confirm = within(dialog).getByRole('button', { name: 'বাতিল করুন' });
+    const confirm = within(dialog).getByRole('button', { name: 'প্রত্যাখ্যান করুন' });
     expect(confirm).toBeDisabled();
     await user.type(within(dialog).getByRole('textbox', { name: /অফিসের কারণ/ }), 'আয় সীমার উপরে');
     expect(confirm).toBeDisabled();
@@ -766,7 +766,7 @@ describe('the review page', () => {
       action: 'reject',
       body: { reason: 'আয় সীমার উপরে', message: 'এবার সম্ভব হলো না' },
     });
-    expect(await screen.findByText('আবেদন বাতিল হয়েছে।')).toBeInTheDocument();
+    expect(await screen.findByText('আবেদনটি প্রত্যাখ্যান করা হয়েছে।')).toBeInTheDocument();
     // the approval asks first, then meets a version that changed meanwhile
     await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
     await user.click(
@@ -844,9 +844,9 @@ describe('the review page', () => {
       ),
     );
     openReview();
-    await user.click(await screen.findByRole('button', { name: 'বাতিল ফিরিয়ে নিন' }));
+    await user.click(await screen.findByRole('button', { name: 'পুনর্বিবেচনার জন্য পাঠান' }));
     const dialog = await screen.findByRole('dialog', {
-      name: 'বাতিল ফিরিয়ে অনুমোদনের অপেক্ষায় নিন',
+      name: 'পুনর্বিবেচনার জন্য পাঠান',
     });
     expect(
       within(dialog).queryByRole('textbox', { name: /স্বেচ্ছাসেবকের জন্য বার্তা/ }),
@@ -855,7 +855,7 @@ describe('the review page', () => {
       within(dialog).getByRole('textbox', { name: /অফিসের কারণ/ }),
       'নতুন তথ্য এসেছে',
     );
-    await user.click(within(dialog).getByRole('button', { name: 'বাতিল ফিরিয়ে নিন' }));
+    await user.click(within(dialog).getByRole('button', { name: 'পুনর্বিবেচনার জন্য পাঠান' }));
     await waitFor(() => expect(acted).toHaveLength(1));
     expect(acted[0]).toEqual({ action: 'return_to_review', body: { reason: 'নতুন তথ্য এসেছে' } });
     await user.click(await screen.findByRole('button', { name: 'মুছে ফেলুন' }));
@@ -1371,7 +1371,7 @@ describe('the review page', () => {
       body: { linkBeneficiaryId: PERSON, ownerVolunteerId: VOLUNTEER_ID },
     });
     expect(
-      await screen.findByText('এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন পেন্ডিং।'),
+      await screen.findByText('এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন প্রক্রিয়াধীন।'),
     ).toBeInTheDocument();
   });
 

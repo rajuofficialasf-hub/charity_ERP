@@ -92,9 +92,9 @@ describe('My Work home', () => {
     // the own applications are counted by tab, each count opening its tab
     const own = screen.getByRole('heading', { name: 'আমার আবেদন' }).closest('section')!;
     expect(own).not.toHaveTextContent('শিগগিরই আসছে');
-    const pending = (await within(own).findByRole('link', { name: 'পেন্ডিং' })).closest('li')!;
+    const pending = (await within(own).findByRole('link', { name: 'প্রক্রিয়াধীন' })).closest('li')!;
     expect(pending).toHaveTextContent('3');
-    expect(within(own).getByRole('link', { name: 'পেন্ডিং' })).toHaveAttribute(
+    expect(within(own).getByRole('link', { name: 'প্রক্রিয়াধীন' })).toHaveAttribute(
       'href',
       '/my-applications?tab=pending',
     );
@@ -262,7 +262,7 @@ describe('My Work home', () => {
     expect(
       await within(own).findByRole('button', { name: /আবার চেষ্টা/ }, { timeout: 5000 }),
     ).toBeInTheDocument();
-    expect(within(own).queryByRole('link', { name: 'পেন্ডিং' })).toBeNull();
+    expect(within(own).queryByRole('link', { name: 'প্রক্রিয়াধীন' })).toBeNull();
   });
 
   it('tells a volunteer on no project where applications come from, not of a failure', async () => {

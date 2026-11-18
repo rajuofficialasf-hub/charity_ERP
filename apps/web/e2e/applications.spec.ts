@@ -221,7 +221,7 @@ test.describe('the application cycle', () => {
     expect(appNo, sent ?? '').toBeTruthy();
     await page.getByRole('link', { name: 'আমার আবেদন দেখুন' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'আমার আবেদন' })).toBeVisible();
-    await page.getByRole('tab', { name: /পেন্ডিং/ }).click();
+    await page.getByRole('tab', { name: /প্রক্রিয়াধীন/ }).click();
     await expect(page.getByText(appNo!)).toBeVisible();
     await noViolations(page, 'the own list');
     await openOwn(page, appNo!);

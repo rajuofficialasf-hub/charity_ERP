@@ -192,8 +192,8 @@ Behaviour:
 
 ## Progress
 - Branch: `feat/review-one-press-checklist`
-- Unit status: U1, U2 done; U3–U8 todo
-- Next: U3, the labels (tabs and buttons)
+- Unit status: U1–U3 done; U4–U8 todo
+- Next: checkpoint C1 (review of U1–U3), then U4, the checklist settings of a project
 - Reviewed through: none
 - Uncommitted: none
 - Notes: the owner approved this plan in chat on 2026-11-18 (plan mode); the default of the checklist switch (off) is recorded as proposed
