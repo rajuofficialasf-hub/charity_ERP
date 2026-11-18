@@ -193,7 +193,7 @@ Behaviour:
 ## Progress
 - Branch: `feat/review-one-press-checklist`
 - Unit status: U1–U3 done; U4–U8 todo
-- Next: checkpoint C1 (review of U1–U3), then U4, the checklist settings of a project
-- Reviewed through: none
+- Next: U4, the checklist settings of a project (shared reader beside identity-rules.ts, the drawer part)
+- Reviewed through: C1 at 69fe281c
 - Uncommitted: none
-- Notes: the owner approved this plan in chat on 2026-11-18 (plan mode); the default of the checklist switch (off) is recorded as proposed
+- Notes: C1 review (T2): no security finding; an official save with no change no longer starts the review; only volunteers hold application.edit_pending, so an official editing a submitted application under the review permission takes nothing from anyone. The owner approved this plan in chat on 2026-11-18 (plan mode); the default of the checklist switch (off) is recorded as proposed
