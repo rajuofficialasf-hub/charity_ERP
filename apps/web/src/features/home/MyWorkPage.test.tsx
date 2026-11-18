@@ -265,6 +265,25 @@ describe('My Work home', () => {
     expect(within(own).queryByRole('link', { name: 'পেন্ডিং' })).toBeNull();
   });
 
+  it('tells a volunteer on no project where applications come from, not of a failure', async () => {
+    server.use(
+      http.get('*/api/v1/me/projects', () => ok([])),
+      // the own applications open only on a project the volunteer works on
+      http.get('*/api/v1/me/applications', () =>
+        apiError(403, 'permission.denied', 'Permission denied'),
+      ),
+    );
+    openHome(VOLUNTEER);
+    const own = (await screen.findByRole('heading', { name: 'আমার আবেদন' })).closest('section')!;
+    expect(
+      await within(own).findByText(/আপনি এখনো কোনো প্রকল্পে যুক্ত নন/, undefined, {
+        timeout: 5000,
+      }),
+    ).toBeInTheDocument();
+    expect(within(own).queryByRole('button', { name: /আবার চেষ্টা/ })).toBeNull();
+    expect(within(own).queryByText(/অনুরোধ নম্বর/)).toBeNull();
+  });
+
   it('gives the Department Head the shortcuts', async () => {
     openHome({ ...ME, roles: ['department_head'] });
     const main = await screen.findByRole('main');
