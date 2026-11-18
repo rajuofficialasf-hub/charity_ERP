@@ -1,6 +1,7 @@
 import type { AttentionItem } from '@css/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../lib/auth';
+import { useAlive } from '../../lib/use-alive';
 import type { Overview } from '../../offline/applications-store';
 import type { Reminder } from '../../offline/reminders';
 import { loadStore } from '../applications/use-local-records';
@@ -25,17 +26,21 @@ export function useOverview(): {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [settled, setSettled] = useState(false);
 
+  // a read that ends after the screen is gone changes nothing
+  const alive = useAlive();
   const refresh = useCallback(async () => {
     if (!store) return;
+    let read: Overview | null;
     try {
-      setOverview(await store.overview());
+      read = await store.overview();
     } catch {
       // the store is not open for this session: nothing is held locally
-      setOverview(null);
-    } finally {
-      setSettled(true);
+      read = null;
     }
-  }, [store]);
+    if (!alive.current) return;
+    setOverview(read);
+    setSettled(true);
+  }, [store, alive]);
 
   useEffect(() => {
     if (!volunteer) return;

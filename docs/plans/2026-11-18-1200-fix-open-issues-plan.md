@@ -94,7 +94,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. The E2E suite on every pull request
 - **Goal:** a pull request into develop runs the four E2E shards beside the unit and API job and cannot merge before they pass, and the specs that failed on develop after PR #63 pass.
@@ -352,7 +352,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 
 ## Progress
 - **Branch:** fix/open-issues (U1 and U2 ship first as their own pull request, so the UAT starts on a green develop; the other units follow, per the owner's choice of 2026-11-18)
-- **Next:** U1
+- **Next:** U2: push, open the pull request and read the four shards on it; fix a failing spec at its cause
 - **Reviewed through:** —
 - **Uncommitted:** —
-- **Notes:** PR #66 merged as ece97080 before this branch started; its own CI run passed the unit and API job, so the unhandled rejection of the sync test is intermittent.
+- **Notes:** U1 also guards the overview read of `use-sync-store.ts` (it set state after its await too) and adds `apps/web/src/lib/use-alive.ts`; the whole web suite then ran with 0 unhandled errors, 8 tests timed out under load and passed when their 5 files ran alone (U5). PR #66 merged as ece97080 before this branch started; its own CI run passed the unit and API job, so the unhandled rejection of the sync test is intermittent.
