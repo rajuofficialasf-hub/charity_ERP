@@ -336,11 +336,13 @@ describe('the list', () => {
     await user.click(await within(grid).findByRole('checkbox', { name: /নমুনা উপকারভোগী/ }));
     await user.click(within(grid).getByRole('checkbox', { name: /দ্বিতীয় জন/ }));
     expect(screen.getByText('2টি বেছে নেওয়া হয়েছে')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'রিভিউ শুরু' }));
+    // no separate start of the review: the ticked rows go for approval in one press
+    expect(screen.queryByRole('button', { name: 'রিভিউ শুরু' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }));
     expect(await screen.findByText('1টি হয়েছে, 1টি হয়নি')).toBeInTheDocument();
     expect(bulkBodies).toHaveLength(1);
     expect(bulkBodies[0]).toMatchObject({
-      action: 'review',
+      action: 'send_for_approval',
       rows: [
         { applicationId: A1, ifMatch: '"v1"' },
         { applicationId: A2, ifMatch: '"v1"' },
@@ -367,7 +369,7 @@ describe('the list', () => {
     const grid = await screen.findByRole('table');
     await user.click(await within(grid).findByRole('checkbox', { name: /নমুনা উপকারভোগী/ }));
     await user.click(within(grid).getByRole('checkbox', { name: /দ্বিতীয় জন/ }));
-    expect(screen.getByRole('button', { name: 'রিভিউ শুরু' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
     // the approval of the ticked rows asks first
     const ask = await screen.findByRole('alertdialog', {
@@ -776,6 +778,22 @@ describe('the review page', () => {
     expect(
       await screen.findByText('আবেদনটি এর মধ্যে বদলেছে। সর্বশেষ তথ্য দেখতে আবার লোড করুন।'),
     ).toBeInTheDocument();
+  });
+
+  it('sends a submitted application for approval in one press and lets the official edit it first', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(record({ availableActions: ['review', 'send_for_approval', 'delete'] })),
+      ),
+    );
+    openReview();
+    expect(await screen.findByRole('button', { name: 'উত্তর সম্পাদনা' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'রিভিউ শুরু' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }));
+    await waitFor(() => expect(acted.at(-1)).toMatchObject({ action: 'send_for_approval' }));
   });
 
   it('edits the answers under review with the version it read, tells of a stale save, and shows a refusal', async () => {
@@ -1424,7 +1442,7 @@ describe('the review page', () => {
     refreshAs(EXECUTIVE);
     serve();
     const view = openReview('en');
-    expect(await screen.findByRole('button', { name: 'Start review' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Edit the answers' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Change log' })).toBeInTheDocument();
     await expectNoAxeViolations(view.container);
   });

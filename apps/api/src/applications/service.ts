@@ -2,6 +2,7 @@ import {
   APPLICATION_ACTIONS,
   APPLICATION_STATES,
   type ApplicationAction,
+  leadInOf,
   scoreCriteriaSchema,
   uuidv7,
   type WorkflowDefinition,
@@ -161,6 +162,13 @@ const EDIT_PERMISSION: Record<string, string> = {
   submitted: 'application.edit_pending',
   under_review: 'application.review',
 };
+
+/**
+ * The permission an edit needs: the state's, except that an official edits a submitted
+ * application under the review permission, and the edit starts the review on its way.
+ */
+const editPermissionOf = (status: string, official: boolean): string | undefined =>
+  status === 'submitted' && official ? 'application.review' : EDIT_PERMISSION[status];
 
 /** The identity answers a known person's profile locks: the number, the name, the father or husband. */
 const LOCKED_COLUMNS = [IDENTITY_COLUMN, 'name', 'father_or_husband_name'] as const;
@@ -556,11 +564,14 @@ export class ApplicationsService {
     const actor = viewer.principal.userId;
     const access = await this.access.load(actor);
     const row = await this.reachedRow(viewer.principal, access, applicationId, 'application.view');
-    const permission = EDIT_PERMISSION[row.status];
+    const audience = this.audienceOf(viewer);
+    // an official's first edit of a submitted application is the start of its review
+    const startsReview = row.status === 'submitted' && audience === 'official';
+    const status = startsReview ? 'under_review' : row.status;
+    const permission = editPermissionOf(row.status, audience === 'official');
     if (!permission) throw new ApiError('application.not_editable', 409);
     await this.assertMay(viewer.principal, access, permission, applicationId);
     assertIfMatch(ifMatch, row.updatedAt);
-    const audience = this.audienceOf(viewer);
     const keys = new Set(
       definitionKeys(await readDefinition(this.prisma, row.formVersionId, audience)),
     );
@@ -594,6 +605,8 @@ export class ApplicationsService {
         if (!locked || locked.status !== row.status)
           throw new ApiError('application.not_editable', 409);
         assertIfMatch(ifMatch, locked.updated_at);
+        if (startsReview)
+          await this.workflow.transition(tx, viewer.principal, applicationId, 'review');
         // one read of every stored answer: the caller's audience is compared and rewritten, the
         // other audience's answers stay as they are
         const stored = await readAnswers(
@@ -660,9 +673,9 @@ export class ApplicationsService {
             updatedBy: actor,
           },
         });
-        if (SCORED_WHILE.includes(row.status)) await this.scoring.compute(tx, applicationId, actor);
+        if (SCORED_WHILE.includes(status)) await this.scoring.compute(tx, applicationId, actor);
         const changes = changedAnswers(before, person.answers);
-        if (row.status === 'under_review' && changes.length)
+        if (status === 'under_review' && changes.length)
           await tx.fieldChange.createMany({
             data: changes.map((c) => ({
               id: uuidv7(),
@@ -688,7 +701,7 @@ export class ApplicationsService {
           entityId: applicationId,
           old: { status: row.status },
           new: {
-            status: row.status,
+            status,
             changed: changes.map((c) => c.fieldKey),
             ...(person.beneficiaryId !== row.beneficiaryId
               ? { beneficiaryId: person.beneficiaryId }
@@ -1761,7 +1774,7 @@ export class ApplicationsService {
     applicationId: string,
     status: string,
   ): Promise<boolean> {
-    const permission = EDIT_PERMISSION[status];
+    const permission = editPermissionOf(status, this.audienceOf(viewer) === 'official');
     if (!permission) return false;
     if (await this.blockedCaller(this.prisma, viewer.principal)) return false;
     const access = await this.access.load(viewer.principal.userId);
@@ -2157,17 +2170,30 @@ export class ApplicationsService {
         );
       return reached.get(permission)!;
     };
+    const permissionOf = (to: string, from: string) =>
+      (definition.transitions ?? []).find(
+        (t) => t.to === to && (Array.isArray(t.from) ? t.from : [t.from]).includes(from),
+      )?.permission;
     const actions: string[] = [];
     for (const [action, spec] of Object.entries(APPLICATION_ACTIONS)) {
       if ('later' in spec && spec.later) continue;
-      if (!(spec.from as readonly string[]).includes(row.status)) continue;
-      const transition = (definition.transitions ?? []).find(
-        (t) =>
-          t.to === spec.to &&
-          (Array.isArray(t.from) ? t.from : [t.from]).includes(row.status) &&
-          t.permission,
-      );
-      if (transition?.permission && (await reaches(transition.permission))) actions.push(action);
+      // an action that passes a step first is offered where both moves are the caller's
+      const leadIn = leadInOf(action as ApplicationAction, row.status);
+      const steps: { to: string; from: string }[] = leadIn
+        ? [
+            { to: APPLICATION_ACTIONS[leadIn].to, from: row.status },
+            { to: spec.to, from: APPLICATION_ACTIONS[leadIn].to },
+          ]
+        : (spec.from as readonly string[]).includes(row.status)
+          ? [{ to: spec.to, from: row.status }]
+          : [];
+      if (!steps.length) continue;
+      let allowed = true;
+      for (const step of steps) {
+        const permission = permissionOf(step.to, step.from);
+        if (!permission || !(await reaches(permission))) allowed = false;
+      }
+      if (allowed) actions.push(action);
     }
     return actions;
   }

@@ -448,7 +448,7 @@ export function applicationsRouter(
     path: '/projects/:projectId/bulk/review',
     operationId: 'applications.bulk.review',
     summary:
-      'The review screen in bulk: up to 50 applications start their review or take their approval, each row on its own (API_STANDARDS section 13)',
+      'The review screen in bulk: up to 50 applications start their review, are sent for approval or take their approval, each row on its own (API_STANDARDS section 13)',
     permission: 'workflow',
     scope: 'application',
     audit: 'application.bulk_review',

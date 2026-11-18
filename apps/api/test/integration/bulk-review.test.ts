@@ -201,6 +201,34 @@ describe('the review screen in bulk', () => {
     expect(Number(moved.rows[0]!.n)).toBe(5);
   });
 
+  it('sends submitted and reviewed-in-progress applications for approval in one request', async () => {
+    const executive = await as(world.users.executive);
+    const ids = await Promise.all([submitted(), submitted(), submitted()]);
+    // one of them has had its review started already
+    await h.db.query(`UPDATE applications SET status = 'under_review' WHERE id = $1`, [ids[2]]);
+    const body = { action: 'send_for_approval', rows: await rows(executive, ids) };
+    const res = await bulk(executive, randomUUID(), body);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(
+      (res.body.data.results as { result: string; status: string }[]).map((r) => [
+        r.result,
+        r.status,
+      ]),
+    ).toEqual([
+      ['done', 'reviewed'],
+      ['done', 'reviewed'],
+      ['done', 'reviewed'],
+    ]);
+    const started = await h.db.query<{ n: string }>(
+      `SELECT count(*) AS n FROM audit_log WHERE action = 'application.review_started' AND entity_id = ANY($1::uuid[])`,
+      [ids],
+    );
+    expect(Number(started.rows[0]!.n)).toBe(2);
+    // a volunteer holds no review permission for the action as a whole
+    const volunteer = await as(world.users.general);
+    expect((await bulk(volunteer, randomUUID(), body)).status).toBe(403);
+  });
+
   it('approves the reviewed ones, a person blocked on the way too, failing a stale row on its own', async () => {
     const executive = await as(world.users.executive);
     const rpm = await as(world.users.rpmDhaka);

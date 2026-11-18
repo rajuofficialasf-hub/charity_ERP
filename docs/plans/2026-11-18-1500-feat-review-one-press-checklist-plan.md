@@ -192,8 +192,8 @@ Behaviour:
 
 ## Progress
 - Branch: `feat/review-one-press-checklist`
-- Unit status: U1 done; U2–U8 todo
-- Next: U2, one press from submitted to reviewed (service, bulk, review page, list)
+- Unit status: U1, U2 done; U3–U8 todo
+- Next: U3, the labels (tabs and buttons)
 - Reviewed through: none
 - Uncommitted: none
 - Notes: the owner approved this plan in chat on 2026-11-18 (plan mode); the default of the checklist switch (off) is recorded as proposed

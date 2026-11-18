@@ -185,7 +185,7 @@ export const bulkReview = (
   projectId: string,
   key: string,
   body: {
-    action: 'review' | 'approve';
+    action: 'send_for_approval' | 'approve';
     rows: { clientUuid: string; applicationId: string; ifMatch: string }[];
   },
 ) =>

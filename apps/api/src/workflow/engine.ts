@@ -1,6 +1,7 @@
 import {
   APPLICATION_ACTIONS,
   type ApplicationAction,
+  leadInOf,
   type WorkflowDefinition,
   workflowDefinitionSchema,
 } from '@css/shared';
@@ -118,6 +119,15 @@ export class WorkflowEngine {
   ): Promise<TransitionResult> {
     const spec = APPLICATION_ACTIONS[action];
     if ('later' in spec && spec.later) throw new ApiError('workflow.action_not_built', 409);
+    // one press that passes a step: the step's own move comes first, with its permission, scope,
+    // version check, guards and audit, then this one on the version that move wrote
+    const [current] = await tx.$queryRaw<{ status: string }[]>`
+      SELECT status FROM applications WHERE id = ${applicationId}::uuid`;
+    const leadIn = current ? leadInOf(action, current.status) : null;
+    if (leadIn) {
+      await this.transition(tx, principal, applicationId, leadIn, {}, ifMatch);
+      return this.transition(tx, principal, applicationId, action, input, undefined, hooks);
+    }
     // the person before the application, as every writer of a person's applications takes them
     // (`lockPeople` of services/help-history.ts): read without a lock, then the person, then the row
     const [person] = await tx.$queryRaw<{ beneficiary_id: string | null }[]>`

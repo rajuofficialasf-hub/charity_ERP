@@ -114,7 +114,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   // the approval of the ticked rows is asked once more before it is sent
   const [confirmingBulk, setConfirmingBulk] = useState(false);
   const bulk = useMutation({
-    mutationFn: (action: 'review' | 'approve') => {
+    mutationFn: (action: 'send_for_approval' | 'approve') => {
       const chosen = rows.filter((r) => selected.has(r.id));
       return bulkReview(projectId, uuidv7(), {
         action,
@@ -233,7 +233,10 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   // counts only the rows the buttons act on
   const chosen = rows.filter((r) => selected.has(r.id));
   const shownSelection = new Set(chosen.map((r) => r.id));
-  const canReviewAll = chosen.length > 0 && chosen.every((r) => r.status === 'submitted');
+  // a submitted row passes the start of its review on the way, in the same press
+  const canSendAll =
+    chosen.length > 0 &&
+    chosen.every((r) => r.status === 'submitted' || r.status === 'under_review');
   const canApproveAll = chosen.length > 0 && chosen.every((r) => r.status === 'reviewed');
   return (
     <>
@@ -290,11 +293,11 @@ function ApplicationTab({ projectId }: { projectId: string }) {
             <Button
               variant="secondary"
               size="small"
-              disabled={!canReviewAll}
+              disabled={!canSendAll}
               loading={bulk.isPending}
-              onClick={() => bulk.mutate('review')}
+              onClick={() => bulk.mutate('send_for_approval')}
             >
-              {t('action.review')}
+              {t('action.send_for_approval')}
             </Button>
             <Button
               variant="primary"

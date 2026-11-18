@@ -231,7 +231,8 @@ test.describe('the application cycle', () => {
     );
     await noViolations(page, 'the own record');
 
-    // the Project Executive: the list, the record, the review and the send for approval
+    // the Project Executive: the list, the record, and the send for approval in one press,
+    // which records the start of the review on its way
     const recordUrl = await onDesk(browser, async (desk) => {
       await signIn(desk, EXECUTIVE);
       await desk.goto(`/admin/projects/${projectId}/applications`);
@@ -240,14 +241,14 @@ test.describe('the application cycle', () => {
       await noViolations(desk, 'the office list');
       await desk.getByRole('link', { name }).first().click();
       await expect(desk.getByRole('heading', { level: 1, name })).toBeVisible();
-      await desk.getByRole('button', { name: 'রিভিউ শুরু' }).click();
-      await expect(desk.getByText('রিভিউ শুরু হয়েছে।')).toBeVisible();
-      const steps = desk.getByRole('list', { name: 'আবেদনের ধাপ' });
-      await expect(steps).toContainText('পর্যালোচনা চলছে');
-      await expect(steps).toContainText('প্রজেক্ট এক্সিকিউটিভ');
+      await expect(desk.getByRole('button', { name: 'রিভিউ শুরু' })).toHaveCount(0);
       await noViolations(desk, 'the review page');
       await desk.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }).click();
       await expect(desk.getByText('অনুমোদনের জন্য পাঠানো হয়েছে।')).toBeVisible();
+      const steps = desk.getByRole('list', { name: 'আবেদনের ধাপ' });
+      await expect(steps).toContainText('পর্যালোচনা চলছে');
+      await expect(steps).toContainText('অনুমোদনের অপেক্ষায়');
+      await expect(steps).toContainText('প্রজেক্ট এক্সিকিউটিভ');
       return desk.url();
     });
 

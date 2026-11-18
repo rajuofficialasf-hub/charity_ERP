@@ -233,7 +233,7 @@ describe.skipIf(!contractBase())('the office’s applications', () => {
         office,
         'POST',
         `/projects/${project.projectId}/bulk/review`,
-        { action: 'review', rows },
+        { action: 'send_for_approval', rows },
         { 'Idempotency-Key': randomUUID() },
       ),
       200,
