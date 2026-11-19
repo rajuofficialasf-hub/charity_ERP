@@ -249,7 +249,8 @@ export class AccessService {
     projectId: string,
     db: Tx = this.prisma,
   ): Promise<boolean> {
-    const access = await this.load(userId);
+    // in `db`, so a granter whose access changed in this transaction is read as it now is
+    const access = await this.load(userId, db);
     const grants = access.grants.filter((g) => g.permission === permission);
     if (!grants.length) return false;
     const revokes = access.instanceRevokes.filter((r) => r.permission === permission);

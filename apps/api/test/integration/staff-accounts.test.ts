@@ -14,6 +14,7 @@ import {
   PASSWORD,
   type Session,
 } from './support/auth-app.js';
+import { seedAccessCatalogue } from './support/access-fixtures.js';
 import * as f from './support/fixtures.js';
 
 // Officials created by the admin with a set-password link, login by job ID, staff self-registration
@@ -87,6 +88,42 @@ const tokenOf = (link: string) => link.slice(link.indexOf('#') + 1);
 const check = (token: string) => api().post('/api/v1/auth/invitations/check').send({ token });
 const accept = (token: string, password = PASSWORD) =>
   api().post('/api/v1/auth/invitations/accept').send({ token, password });
+
+describe('who gives a role with the whole reach', () => {
+  it('lets the Department Head create a Monitoring Team account, and refuses anyone else who may create accounts', async () => {
+    await seedAccessCatalogue(h.db);
+    const made = await create(official({ roleKey: 'monitoring_team' }));
+    expect(made.status).toBe(201);
+    // a Program Manager whom an Admin gave the creation of accounts
+    const admin = await account(h.db, { role: 'admin' });
+    const manager = await account(h.db, { role: 'program_manager' });
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, reason, granted_by)
+       VALUES ($1, $2, 'user.create', 'grant', 'GLOBAL', 'Test grant', $3)`,
+      [randomUUID(), manager.id, admin.id],
+    );
+    const session = await login(h, manager);
+    const ordinary = await create(official(), session);
+    expect(ordinary.status).toBe(201);
+    const body = official({ roleKey: 'monitoring_team' });
+    const res = await create(body, session);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatchObject({
+      code: 'permission.grant_refused',
+      params: { rule: 'role_admin_only' },
+    });
+    const account_ = await h.db.query('SELECT 1 FROM users WHERE email = $1', [body.email]);
+    expect(account_.rowCount).toBe(0);
+    const refusals = await h.db.query(
+      `SELECT new FROM audit_log WHERE entity_id = $1 AND action = 'permission_change_refused'`,
+      [manager.id],
+    );
+    expect(refusals.rows).toEqual([{ new: { role: 'monitoring_team', rule: 'role_admin_only' } }]);
+    // an Admin and the Department Head come from a role change, whoever asks
+    for (const roleKey of ['admin', 'department_head'])
+      expect((await create(official({ roleKey }), await login(h, admin))).status).toBe(422);
+  });
+});
 
 describe('creating an official', () => {
   it('creates a pending account without a password, with its role and an emailed link', async () => {

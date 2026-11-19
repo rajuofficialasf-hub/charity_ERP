@@ -192,8 +192,10 @@ export async function scopeReachesRecord(
   record: UploadRecord,
 ): Promise<boolean> {
   const i = scope.instances;
-  // a revoked project is out of reach whichever grant would reach it
+  // a revoked project is out of reach whichever grant would reach it, and so is a record placed
+  // in a revoked location
   if (i.revokedProjectIds.includes(record.projectId)) return false;
+  if (record.locations.some((location) => i.revokedLocationIds.includes(location))) return false;
   if (
     i.global ||
     i.programIds.includes(record.programId) ||

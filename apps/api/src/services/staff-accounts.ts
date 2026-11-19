@@ -12,6 +12,7 @@ import {
 } from '@css/shared/auth';
 import { type Locale, renderNotification } from '@css/shared/i18n';
 import type { Logger } from 'pino';
+import { roleRefusal } from '../access/hard-rules.js';
 import type { AccessRegistry } from '../access/registry.js';
 import type { Scope } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
@@ -26,7 +27,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import { DeliveryError, type EmailAdapter } from '../notifications/adapters.js';
 import type { SettingsService } from './settings.js';
-import { isGivableOfficialRole } from './registrations.js';
+import { isGivableOfficialRole, refuseRole } from './registrations.js';
 
 /** The set-password link: 72 hours, once. */
 export const INVITATION_RULES = { validMs: 72 * 3_600_000 } as const;
@@ -68,6 +69,15 @@ export class StaffAccountsService {
   async create(actor: Principal, body: StaffCreateRequest): Promise<InvitationIssued> {
     if (!isGivableOfficialRole(this.registry, body.roleKey))
       throw invalid('roleKey', 'validation.option_unknown');
+    // no account exists yet, so the refusal is kept on the account of the person who asked
+    const rule = roleRefusal(this.registry, actor.roles, body.roleKey);
+    if (rule)
+      await refuseRole(
+        { prisma: this.prisma, audit: this.audit },
+        rule,
+        body.roleKey,
+        actor.userId,
+      );
     const id = uuidv7();
     // an official without a chosen language gets the system default language
     const language = body.language ?? (await this.settings.get('localization')).defaultLanguage;

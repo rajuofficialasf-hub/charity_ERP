@@ -199,7 +199,7 @@ These change the constitution: `docs/MASTER_PROMPT.md` §5 makes the Department 
 - **Depends on:** U2
 - **Size:** L
 - **Risk area:** auth and permissions
-- **Status:** todo
+- **Status:** done
 
 ### U6. The role change and the owner transfer (API)
 - **Goal:** an Admin or the Head changes the role of an official after the handover; the Main Admin hands the flag to another Admin.
@@ -305,7 +305,7 @@ These change the constitution: `docs/MASTER_PROMPT.md` §5 makes the Department 
 ## Progress
 - **Branch:** `feat/admin-role-and-permissions`
 - **Updated:** 2026-11-19
-- **Next:** U5: the hard rules of the panel, starting with `apps/api/src/access/hard-rules.spec.ts`; then checkpoint C3 over U4 and U5
+- **Next:** checkpoint C3 over U4 and U5 (`7dbbe935` and the U5 commit), then U6: the role change and the owner transfer, starting with its integration tests
 - **Reviewed through:** C2 at 9e008e10
 - **Uncommitted:** none
-- **Notes:** U4 offers `admin` and `department_head` to nobody in the new-account and the registration dialogs, an Admin included: the server refuses both there (`isGivableOfficialRole`) and `docs/security/RBAC.md` "Roles" gives them by a role change alone, so an Admin makes another Admin or the Head through the role change of U6 and U7. The Monitoring Team keeps the reads of the panel (`permission.view`); the screens and the menu hide the panel from it. The owner asked for two pull requests in spirit (U1 to U6 first, then the screens); the decision is D-187 (D-186 belongs to PR #72). A separate plan will follow for who sees which volunteers and beneficiaries (areas on an official's profile, the chain Executive, RPM, PM); it is not part of this plan and comes between the two pull requests.
+- **Notes:** U5: the request of several permissions refused whole belongs to U8, where the request gains `permissions[]`; the rules already refuse each change on its own. The end of an override asks the rules too (`endRefusal`): lifting a revoke of a key permission is an Admin's. An area revoke leaves out the records placed in the location (an application by its place, a beneficiary and a volunteer by the address, a user by the home division or the address); a project and a program lie in no single place and keep the existing rule. The integration cases of the area revoke are in the new `apps/api/test/integration/access-area-revoke.test.ts`, those of the registration's approval in `registration-approval.test.ts` (there is no `staff-registrations.test.ts`). U4 offers `admin` and `department_head` to nobody in the new-account and the registration dialogs, an Admin included: the server refuses both there (`isGivableOfficialRole`) and `docs/security/RBAC.md` "Roles" gives them by a role change alone, so an Admin makes another Admin or the Head through the role change of U6 and U7. The Monitoring Team keeps the reads of the panel (`permission.view`); the screens and the menu hide the panel from it. The owner asked for two pull requests in spirit (U1 to U6 first, then the screens); the decision is D-187 (D-186 belongs to PR #72). A separate plan will follow for who sees which volunteers and beneficiaries (areas on an official's profile, the chain Executive, RPM, PM); it is not part of this plan and comes between the two pull requests.

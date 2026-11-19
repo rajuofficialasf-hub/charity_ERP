@@ -152,7 +152,7 @@ Lifting a block or reactivating never restores revoked device sessions; the user
 ## 9. Role or permission change forces a session refresh (O-05)
 
 - Each user has a `permission_version` incremented whenever their roles, project assignments, permission sets, permission-panel overrides, blocklist state or account state change.
-- The access token carries `pv`; on every request the server compares it with the stored version (same cached lookup as the session check). A mismatch returns 401 `token_stale`; the PWA silently refreshes, receives a token with the new version, and reloads its cached roles and menu. The user never has to log in again for a permission change.
+- The access token carries `pv`; on every request the server compares it with the stored version (same cached lookup as the session check). A mismatch returns 401 `token_stale`; the PWA silently refreshes, receives a token with the new version, and reloads its cached roles and menu. The user never has to log in again for a permission change. The cached lookup of a person is dropped when the version is raised and once more after that transaction commits (`PermissionVersionService.settled`, called by the permission panel and the project grants), so a request that read the old version in between leaves nothing behind.
 - Removal of all roles or deactivation revokes all sessions outright.
 - Offline: the PWA keeps working with its cached permissions until it next syncs; the server re-checks every permission at sync time, so a volunteer whose permission was revoked while offline gets per-record failures with reasons, never a silent acceptance (SYSTEM_ARCHITECTURE §7).
 

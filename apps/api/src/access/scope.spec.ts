@@ -58,6 +58,7 @@ describe('scope instances', () => {
     volunteerAreas: [{ projectId: P1, locationId: DHAKA }],
     revokedProjectIds: [],
     revokedProgramIds: [],
+    revokedLocationIds: [],
   });
 
   it('subtracts a revoked region, project and program from the resolved instances', () => {
@@ -189,6 +190,128 @@ describe('the revoked projects in every filter', () => {
         scope('beneficiary', { areas: [{ projectId: null, locationId: RANGPUR }] }),
       ),
     ).toEqual(outside);
+  });
+});
+
+// A revoke of an area under a broader grant: a district inside a region, an area under GLOBAL, a
+// program or a project (docs/security/RBAC.md, "Permission panel").
+describe('the revoked locations in every filter', () => {
+  const DISTRICT = '00000000-0000-7000-8000-0000000000e1';
+  const UNION = '00000000-0000-7000-8000-0000000000e2';
+  const inRevoked = (ids: string[]) => ({
+    NOT: {
+      OR: [
+        { divisionId: { in: ids } },
+        { districtId: { in: ids } },
+        { upazilaId: { in: ids } },
+        { unionId: { in: ids } },
+      ],
+    },
+  });
+  const scope = (entity: string, i: Partial<ScopeInstances>) =>
+    makeScope('actor', 'application.view', entity, {
+      ...NO_INSTANCES,
+      revokedLocationIds: [DISTRICT],
+      ...i,
+    });
+
+  it('keeps a district revoked under a region, and an area revoked under GLOBAL', () => {
+    const region: ScopeInstances = {
+      ...NO_INSTANCES,
+      areas: [{ projectId: P1, locationId: DHAKA }],
+    };
+    const narrowed = applyInstanceRevokes(region, [
+      revoke({ scopeType: 'DISTRICT', scopeRef: DISTRICT }),
+      revoke({ scopeType: 'UNION', scopeRef: UNION }),
+      // a scope type without an instance removes every grant of that type, not one place
+      revoke({ scopeType: 'UPAZILA', scopeRef: null }),
+    ]);
+    // the region stays: the district is taken out of it by the filters
+    expect(narrowed.areas).toEqual(region.areas);
+    expect(narrowed.revokedLocationIds).toEqual([DISTRICT, UNION]);
+    const everywhere = applyInstanceRevokes({ ...NO_INSTANCES, global: true }, [
+      revoke({ scopeRef: DHAKA }),
+    ]);
+    expect(everywhere.global).toBe(true);
+    expect(everywhere.revokedLocationIds).toEqual([DHAKA]);
+  });
+
+  it('leaves the applications placed there out of a region, a program, a project and GLOBAL', () => {
+    const placed = {
+      NOT: {
+        OR: [
+          { regionLocationId: DISTRICT },
+          { districtId: DISTRICT },
+          { unionId: DISTRICT },
+          { union: { parentId: DISTRICT } },
+        ],
+      },
+    };
+    expect(applicationWhere(scope('application', { global: true }))).toEqual({
+      AND: [{}, placed],
+    });
+    for (const i of [
+      { areas: [{ projectId: P1, locationId: DHAKA }] },
+      { programIds: [P1] },
+      { projectIds: [P1] },
+    ]) {
+      const w = applicationWhere(scope('application', i)) as { AND: unknown[] };
+      expect(w.AND).toHaveLength(3);
+      expect(w.AND[2]).toEqual(placed);
+    }
+    // a revoked project and a revoked location together
+    const both = applicationWhere(
+      scope('application', { global: true, revokedProjectIds: [P2] }),
+    ) as { AND: unknown[] };
+    expect(both.AND).toEqual([{ projectId: { notIn: [P2] } }, placed]);
+    // nothing is reached without an instance, with or without a revoke
+    expect(applicationWhere(scope('application', {}))).toEqual({ id: { in: [] } });
+  });
+
+  it('leaves the beneficiaries and the volunteers whose address is there out of every grant', () => {
+    const outside = inRevoked([DISTRICT]);
+    expect(beneficiaryWhere(scope('beneficiary', { global: true }))).toEqual(outside);
+    expect(volunteerWhere(scope('volunteer', { global: true }))).toEqual(outside);
+    const region = { areas: [{ projectId: null, locationId: DHAKA }] };
+    for (const w of [
+      beneficiaryWhere(scope('beneficiary', region)),
+      volunteerWhere(scope('volunteer', region)),
+      beneficiaryWhere(scope('beneficiary', { programIds: [P1] })),
+      beneficiaryWhere(scope('beneficiary', { projectIds: [P1] })),
+      volunteerWhere(scope('volunteer', { projectIds: [P1] })),
+    ]) {
+      const and = (w as { AND: unknown[] }).AND;
+      expect(and).toHaveLength(2);
+      expect(and[1]).toEqual(outside);
+    }
+    expect(beneficiaryWhere(scope('beneficiary', {}))).toEqual({ id: { in: [] } });
+    expect(volunteerWhere(scope('volunteer', {}))).toEqual({ id: { in: [] } });
+  });
+
+  it('leaves out the people whose own place is there, and keeps an official without a home division', () => {
+    const outside = {
+      AND: [
+        { OR: [{ homeDivisionId: null }, { homeDivisionId: { notIn: [DISTRICT] } }] },
+        { NOT: { volunteersUser: { is: { OR: inRevoked([DISTRICT]).NOT.OR } } } },
+      ],
+    };
+    expect(userWhere(scope('user', { global: true }))).toEqual(outside);
+    const w = userWhere(scope('user', { programIds: [P1] })) as { AND: unknown[] };
+    expect(w.AND).toHaveLength(2);
+    expect(w.AND[1]).toEqual(outside);
+    expect(userWhere(scope('user', {}))).toEqual({ id: { in: [] } });
+  });
+
+  it('changes no filter while no location is revoked', () => {
+    const none = (entity: string, i: Partial<ScopeInstances>) =>
+      makeScope('actor', 'application.view', entity, { ...NO_INSTANCES, ...i });
+    expect(applicationWhere(none('application', { global: true }))).toEqual({});
+    expect(beneficiaryWhere(none('beneficiary', { global: true }))).toEqual({});
+    expect(volunteerWhere(none('volunteer', { global: true }))).toEqual({});
+    expect(userWhere(none('user', { global: true }))).toEqual({});
+    expect(beneficiaryWhere(none('beneficiary', { projectIds: [P1] }))).toEqual({
+      OR: [{ applicationsBeneficiary: { some: { projectId: { in: [P1] } } } }],
+    });
   });
 });
 

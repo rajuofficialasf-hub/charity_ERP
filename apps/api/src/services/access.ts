@@ -5,13 +5,15 @@ import type {
   ScopeTypeName,
 } from '@css/shared/access';
 import { uuidv7 } from '@css/shared';
+import { type EffectiveGrant, effectiveAccess, loadAccessFacts } from '../access/effective.js';
 import {
-  ADMIN_ROLE,
-  type EffectiveGrant,
-  effectiveAccess,
-  loadAccessFacts,
-  OWNER_TRANSFER,
-} from '../access/effective.js';
+  type AccessChange,
+  changeRefusal,
+  endRefusal,
+  type HardRule,
+  type RuleActor,
+  rpmGrantable,
+} from '../access/hard-rules.js';
 import type { Scope } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
@@ -23,15 +25,12 @@ import { ApiError, type ApiErrorDetail } from '../i18n/api-error.js';
 import type { AccountEvents } from '../notifications/account-events.js';
 import type { ProjectEvents } from '../notifications/project-events.js';
 
-/** Rules of `permission.grant_refused` (docs/security/RBAC.md, "Permission panel"). */
-export type RefusalRule =
-  | 'owner_transfer_only_admin'
-  | 'global_scope_protected'
-  | 'sensitive_to_volunteer'
-  | 'not_held_by_granter'
-  | 'not_rpm_grantable';
+/**
+ * Rules of `permission.grant_refused` (docs/security/RBAC.md, "Permission panel"): the hard rules,
+ * and the two of the project extras.
+ */
+export type RefusalRule = HardRule | 'not_held_by_granter' | 'not_rpm_grantable';
 
-const IF_RPM_GRANTS = 'if_rpm_grants';
 /**
  * The location level a scope reference must have (the location levels of
  * docs/database/DATABASE_SCHEMA.md, "Fixed system codes").
@@ -65,11 +64,12 @@ const byName = (a: EffectivePermission, b: EffectivePermission) =>
 
 /**
  * The permission panel and project grants (docs/ui/SCREENS.md "Permission panel"): reads of the
- * catalogue and of a user's effective permissions, panel overrides by the Department Head and the
- * Monitoring Team, and the RPM's "if RPM grants" extras on a project. Every change runs in one
- * transaction, writes a `permission_change` audit entry with the old and new effective grants and
- * bumps the target's permission version (docs/architecture/AUTH.md, "Role or permission change
- * forces a session refresh"). Refusals are audited as `permission_change_refused`.
+ * catalogue and of a user's effective permissions, panel overrides by an Admin and the Department
+ * Head, and the RPM's "if RPM grants" extras on a project. Every change is asked against the hard
+ * rules (`access/hard-rules.ts`), runs in one transaction, writes a `permission_change` audit
+ * entry with the old and new effective grants and bumps the target's permission version
+ * (docs/architecture/AUTH.md, "Role or permission change forces a session refresh"). Refusals are
+ * audited as `permission_change_refused`.
  */
 export class AccessPanelService {
   constructor(
@@ -144,28 +144,20 @@ export class AccessPanelService {
   }
 
   /**
-   * The hard rules shared by the panel and project grants: the owner transfer only for an
-   * Admin, no removal of the GLOBAL scope of a global role, and no sensitive permission
-   * for a volunteer, whatever the catalogue says.
+   * The person who asks for a change, with the roles they hold now: read inside the transaction
+   * of the change, so a role that ended a moment ago gives nothing.
    */
-  private refusal(
-    target: Target,
-    change: { permission: string; effect: 'grant' | 'revoke'; scopeType: ScopeTypeName },
-  ): RefusalRule | null {
-    if (
-      change.effect === 'grant' &&
-      change.permission === OWNER_TRANSFER &&
-      !target.roles.includes(ADMIN_ROLE)
-    )
-      return 'owner_transfer_only_admin';
-    const globalRole = target.roles.some((r) => this.registry.roles.get(r)?.globalScope);
-    if (change.effect === 'revoke' && change.scopeType === 'GLOBAL' && globalRole)
-      return 'global_scope_protected';
-    const official = target.roles.some((r) => this.registry.roles.get(r)?.kind === 'official');
-    const sensitive = this.registry.permissions.get(change.permission)?.sensitive === true;
-    if (change.effect === 'grant' && sensitive && (target.kind === 'volunteer' || !official))
-      return 'sensitive_to_volunteer';
-    return null;
+  private async actorOf(db: Tx, actor: Principal): Promise<RuleActor> {
+    const roles = await db.userRole.findMany({
+      where: { userId: actor.userId, revokedAt: null },
+      select: { roleKey: true },
+    });
+    return { id: actor.userId, roles: roles.map((r) => r.roleKey) };
+  }
+
+  /** The hard rule that refuses one change of the panel or of the project extras, or null. */
+  private refusal(actor: RuleActor, target: Target, change: AccessChange): RefusalRule | null {
+    return changeRefusal(this.registry, actor, target, change);
   }
 
   /**
@@ -201,7 +193,10 @@ export class AccessPanelService {
     const details: ApiErrorDetail[] = [];
     if (!this.registry.permissions.has(body.permission))
       details.push({ path: 'permission', code: 'validation.option_unknown' });
-    if (body.condition !== undefined && !this.registry.conditions.has(body.condition))
+    // a revoke takes the permission away as it stands: a condition would leave part of it
+    if (body.condition !== undefined && body.effect === 'revoke')
+      details.push({ path: 'condition', code: 'validation.unknown_parameter' });
+    else if (body.condition !== undefined && !this.registry.conditions.has(body.condition))
       details.push({ path: 'condition', code: 'validation.option_unknown' });
     if (body.expiresAt !== undefined && new Date(body.expiresAt) <= this.clock.now())
       details.push({ path: 'expiresAt', code: 'validation.out_of_range' });
@@ -228,7 +223,7 @@ export class AccessPanelService {
     return details;
   }
 
-  /** Creates a panel override (grant or revoke) for any user (Department Head, Monitoring Team). */
+  /** Creates a panel override (grant or revoke) for a user (an Admin, the Department Head). */
   async grant(actor: Principal, body: PermissionGrantRequest) {
     const attempted = {
       permission: body.permission,
@@ -245,7 +240,7 @@ export class AccessPanelService {
       if (target.isSystemOwner) return { refused: 'system_owner_protected' as const };
       const details = await this.invalid(tx, body);
       if (details.length) throw new ApiError('validation.failed', 422, undefined, details);
-      const rule = this.refusal(target, body);
+      const rule = this.refusal(await this.actorOf(tx, actor), target, body);
       if (rule) return { refused: rule };
       const old = await this.grantsOf(target.id, tx);
       const created = await tx.userPermission.create({
@@ -280,6 +275,7 @@ export class AccessPanelService {
       return { refused: null, created };
     });
     if (outcome.refused) return this.refuse(body.userId, outcome.refused, attempted, body.reason);
+    this.versions.settled(body.userId);
     const row = outcome.created;
     return {
       id: row.id,
@@ -302,12 +298,19 @@ export class AccessPanelService {
     const outcome = await this.prisma.$transaction(async (tx) => {
       const grant = await tx.userPermission.findFirst({
         where: { id: grantId, revokedAt: null },
-        select: { id: true, userId: true, permissionName: true },
+        select: { id: true, userId: true, permissionName: true, effect: true },
       });
       if (!grant) throw new ApiError('permission.not_found', 404);
       await this.lockUser(tx, grant.userId);
       const target = await this.target(tx, grant.userId);
-      if (target?.isSystemOwner) return { refused: grant.userId };
+      if (target?.isSystemOwner)
+        return { refused: 'system_owner_protected' as const, userId: grant.userId };
+      const rule = endRefusal(
+        await this.actorOf(tx, actor),
+        { id: grant.userId },
+        { permission: grant.permissionName, effect: grant.effect },
+      );
+      if (rule) return { refused: rule, userId: grant.userId };
       const old = await this.grantsOf(grant.userId, tx);
       // conditional: of two concurrent requests only the first ends the override
       const ended = await tx.userPermission.updateMany({
@@ -328,17 +331,19 @@ export class AccessPanelService {
         grant.permissionName,
         actor.userId,
       );
-      return { refused: null };
+      return { refused: null, userId: grant.userId };
     });
     if (outcome.refused)
-      await this.refuse(outcome.refused, 'system_owner_protected', { override: grantId }, reason);
+      await this.refuse(outcome.userId, outcome.refused, { override: grantId }, reason);
+    this.versions.settled(outcome.userId);
   }
 
   /**
    * Sets the "if RPM grants" extras of a staff member or volunteer on one project (replaces the
    * list). The project is found inside the caller's scope and the target must work on it. Each
-   * newly added permission must be one the catalogue lets an RPM grant and one the caller holds
-   * there; extras already on the target may stay or be removed without that check.
+   * newly added permission must be one the catalogue lets an RPM grant to the target's own role
+   * (the role of the staff place, or the volunteer's roles) and one the caller holds there; extras
+   * already on the target may stay or be removed without that check.
    */
   async setProjectGrants(
     actor: Principal,
@@ -359,7 +364,7 @@ export class AccessPanelService {
         ? await Promise.all([
             tx.projectStaff.findFirst({
               where: { projectId, userId: target.id, endedAt: null },
-              select: { id: true, extraPermissions: true },
+              select: { id: true, roleKey: true, extraPermissions: true },
             }),
             tx.projectVolunteer.findFirst({
               where: { projectId, endedAt: null, volunteer: { userId: target.id } },
@@ -381,12 +386,13 @@ export class AccessPanelService {
           { path: 'permissions', code: 'validation.option_unknown' },
         ]);
       const existing = new Set((staff ?? volunteer)!.extraPermissions);
+      const granter = await this.actorOf(tx, actor);
+      // an extra counts for the role the place is held in, as the evaluation reads it
+      const holderRoles = staff ? [staff.roleKey] : target.roles;
       for (const permission of permissions.filter((p) => !existing.has(p))) {
-        const grantable = this.registry.permissions
-          .get(permission)!
-          .defaults.some((d) => d.condition === IF_RPM_GRANTS);
+        const grantable = rpmGrantable(this.registry, holderRoles, permission);
         const rule =
-          this.refusal(target, { permission, effect: 'grant', scopeType: 'PROJECT' }) ??
+          this.refusal(granter, target, { permission, effect: 'grant', scopeType: 'PROJECT' }) ??
           (grantable ? null : 'not_rpm_grantable') ??
           ((await this.access.holdsOnProject(actor.userId, permission, projectId, tx))
             ? null
@@ -426,6 +432,7 @@ export class AccessPanelService {
         { permission: outcome.permission, projectId, effect: 'grant' },
         body.reason,
       );
+    this.versions.settled(body.userId);
     return this.grantsOf(body.userId, this.prisma, projectId);
   }
 }

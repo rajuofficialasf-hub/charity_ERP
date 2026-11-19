@@ -148,7 +148,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | otp | otp.attempts_exceeded | 429 | more than 5 attempts on one code |
 | permission | permission.denied | 403 | the action needs a permission the caller lacks |
 | permission | permission.not_found | 404 | record does not exist **or** is outside the caller's scope (no existence leak, RBAC.md §8) |
-| permission | permission.grant_refused | 403 | the permission panel or a project grant refuses the change; `params.rule` names the rule: `owner_transfer_only_admin`, `global_scope_protected`, `sensitive_to_volunteer`, `not_held_by_granter`, `not_rpm_grantable` (RBAC.md §6, §7; D-078) |
+| permission | permission.grant_refused | 403 | the permission panel or a project grant refuses the change; `params.rule` names the rule: `self_change`, `top_role_protected`, `key_permission_admin_only`, `owner_transfer_only_admin`, `global_scope_protected`, `sensitive_to_volunteer`, `not_held_by_granter`, `not_rpm_grantable`; a new account and the approval of an official's registration answer it with `role_admin_only` for a role the caller may not give (RBAC.md §6, §7; D-078, D-187) |
 | validation | validation.failed | 422 | see details |
 | validation | validation.unknown_parameter | 400 | unknown query parameter |
 | validation | validation.malformed | 400 | unparsable JSON or wrong content type |

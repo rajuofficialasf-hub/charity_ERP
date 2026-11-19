@@ -215,6 +215,7 @@ describe('an applicant who is probably a member of an earlier family', () => {
       volunteerAreas: [],
       revokedProjectIds: [],
       revokedProgramIds: [],
+      revokedLocationIds: [],
     });
 
   it('finds the family whose head is the applicant’s father or husband and whose list holds the applicant', async () => {

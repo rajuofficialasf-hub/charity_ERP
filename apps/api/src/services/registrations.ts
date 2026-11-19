@@ -7,7 +7,7 @@ import {
   type RegistrationCorrectionCreate,
   type StaffDecision,
 } from '@css/shared/registration';
-import { ADMIN_ROLE, HEAD_ROLE } from '../access/effective.js';
+import { type HardRule, madeByRoleChange, roleRefusal } from '../access/hard-rules.js';
 import type { AccessRegistry } from '../access/registry.js';
 import { type Scope, volunteerWhere } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
@@ -47,15 +47,34 @@ export const UNFINISHED = ['open', 'submitted'];
 const MAX_REFUSED_ANSWERS = 10;
 const REFUSAL_WINDOW_MS = 3_600_000;
 /**
- * Roles a staff decision or a new account may not give: an Admin and the Department Head are
- * made by an Admin through a role change (docs/security/RBAC.md, "Roles").
+ * An official role that a staff decision or the admin's new account may give: an Admin and the
+ * Department Head are made by an Admin through a role change (docs/security/RBAC.md, "Roles").
  */
-const NOT_BY_DECISION = new Set<string>([ADMIN_ROLE, HEAD_ROLE]);
-
-/** An official role that a staff decision or the admin's new account may give. */
 export function isGivableOfficialRole(registry: AccessRegistry, roleKey: string): boolean {
   const role = registry.roles.get(roleKey);
-  return Boolean(role && role.kind === 'official' && !NOT_BY_DECISION.has(role.key));
+  return Boolean(role && role.kind === 'official' && !madeByRoleChange(role.key));
+}
+
+/**
+ * Answers a role the actor may not give (docs/security/RBAC.md, "Roles": the Monitoring Team is
+ * given by an Admin or the Department Head): the refusal is audited on `entityId` in a transaction
+ * of its own, then answered 403 with the rule.
+ */
+export async function refuseRole(
+  deps: { prisma: PrismaService; audit: AuditWriter },
+  rule: HardRule,
+  roleKey: string,
+  entityId: string,
+): Promise<never> {
+  await deps.prisma.$transaction((tx) =>
+    deps.audit.record(tx, {
+      action: 'permission_change_refused',
+      entityType: 'user',
+      entityId,
+      new: { role: roleKey, rule },
+    }),
+  );
+  throw new ApiError('permission.grant_refused', 403, { rule });
 }
 
 /**
@@ -562,7 +581,7 @@ export class RegistrationsService {
           { path: 'roleKey', code: 'validation.option_unknown' },
         ]);
     }
-    await this.prisma.$transaction(async (tx) => {
+    const refused = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       const user = await tx.user.findFirst({
         where: { id: userId, kind: 'staff', state: 'pending', ...SELF_REGISTERED },
@@ -572,6 +591,10 @@ export class RegistrationsService {
         this.access.denied(actor.userId, 'staff.registration.approve', 'global');
         throw new ApiError('permission.not_found', 404);
       }
+      // the role must be one this person may give; nothing is written when it is not
+      const rule =
+        body.decision === 'approve' ? roleRefusal(this.registry, actor.roles, body.roleKey!) : null;
+      if (rule) return rule;
       if (body.decision === 'reject') {
         await this.events.registrationDecided(
           tx,
@@ -579,7 +602,8 @@ export class RegistrationsService {
           { approved: false, reason: body.reason! },
           actor.userId,
         );
-        return this.close(tx, actor, userId, body.reason!);
+        await this.close(tx, actor, userId, body.reason!);
+        return null;
       }
       // a role with global scope asks for 12 characters; the 8 of the registration are not enough,
       // so the person chooses a new password at the next sign-in
@@ -601,7 +625,10 @@ export class RegistrationsService {
         new: { kind: 'staff', role: body.roleKey },
       });
       await this.events.registrationDecided(tx, userId, { approved: true }, actor.userId);
+      return null;
     });
+    if (refused)
+      await refuseRole({ prisma: this.prisma, audit: this.audit }, refused, body.roleKey!, userId);
     // `bump` evicted inside the transaction; a request in between may have cached the old facts
     this.sessions.evictUser(userId);
   }

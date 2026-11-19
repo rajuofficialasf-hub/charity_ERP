@@ -803,6 +803,7 @@ describe('the open probable pairs of one person, at review', () => {
       volunteerAreas: [],
       revokedProjectIds: [],
       revokedProgramIds: [],
+      revokedLocationIds: [],
     });
   const openPairs = (id: string, scopes: Scope[] | null) =>
     h.container.prisma.$transaction((tx) =>

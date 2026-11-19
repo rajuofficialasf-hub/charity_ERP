@@ -112,6 +112,30 @@ describe('project grants', () => {
     expect(row.rows[0].extra_permissions).toEqual([]);
   });
 
+  it("refuses an extra the target's own role may not hold, though another role may", async () => {
+    // the catalogue lets an RPM give `exam.record` to a Local দায়ী, never to a Project Executive
+    const res = await setGrants(world.a1.id, world.users.executive, [
+      'application.approve',
+      'exam.record',
+    ]);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatchObject({
+      code: 'permission.grant_refused',
+      params: { rule: 'not_rpm_grantable' },
+    });
+    const row = await h.db.query(
+      'SELECT extra_permissions FROM project_staff WHERE project_id = $1 AND user_id = $2',
+      [world.a1.id, world.users.executive],
+    );
+    expect(row.rows[0].extra_permissions).not.toContain('exam.record');
+  });
+
+  it('refuses an RPM the extras of the own place', async () => {
+    const res = await setGrants(world.a1.id, world.users.rpmDhaka, ['application.approve']);
+    // the RPM holds no staff place on the project, so nothing of the own is reached at all
+    expect([403, 404]).toContain(res.status);
+  });
+
   it('refuses a permission without "if RPM grants" and one the RPM does not hold there', async () => {
     const plain = await setGrants(world.a1.id, world.users.executive, ['permission.view']);
     expect(plain.status).toBe(403);

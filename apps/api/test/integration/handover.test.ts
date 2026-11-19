@@ -221,13 +221,14 @@ describe('the handover of an official', () => {
     expect(await notificationsOf(h.db, 'handover_completed', world.users.admin)).toEqual([]);
   });
 
-  it('a project staff row moves to an official holding the same role', async () => {
+  it('a project staff row moves to an official holding the same role, with the extras that role may hold', async () => {
     const leaving = await official('project_executive');
     const project = await f.project(h.db);
     const staffRow = randomUUID();
     await h.db.query(
-      `INSERT INTO project_staff (id, project_id, user_id, role_key, granted_by) VALUES ($1, $2, $3, 'project_executive', $3)`,
-      [staffRow, project.id, leaving.id],
+      `INSERT INTO project_staff (id, project_id, user_id, role_key, extra_permissions, granted_by) VALUES ($1, $2, $3, 'project_executive', $4, $3)`,
+      // an RPM may give an Executive the approval; the exam record is a stray row of another role
+      [staffRow, project.id, leaving.id, ['application.approve', 'exam.record']],
     );
     const target = await official('regional_program_manager');
     await grantRole(h.db, target.id, 'project_executive');
@@ -235,13 +236,14 @@ describe('the handover of an official', () => {
     const res = await assign(head, leaving.id, { toUserId: target.id });
     expect(res.status).toBe(200);
     const rows = await h.db.query(
-      'SELECT user_id, ended_at FROM project_staff WHERE project_id = $1 ORDER BY created_at',
+      'SELECT user_id, ended_at, extra_permissions FROM project_staff WHERE project_id = $1 ORDER BY created_at',
       [project.id],
     );
     expect(rows.rows.map((r) => [r.user_id, r.ended_at === null])).toEqual([
       [leaving.id, false],
       [target.id, true],
     ]);
+    expect(rows.rows[1].extra_permissions).toEqual(['application.approve']);
   });
 
   it('a PM gets 403 on every handover step and nothing moves', async () => {

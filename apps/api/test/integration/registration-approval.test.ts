@@ -532,6 +532,35 @@ describe('staff registrations', () => {
     expect(await notificationsOf(h.db, 'registration_approved', staff.userId)).toHaveLength(1);
   });
 
+  it('the Monitoring Team role is given by an Admin or the Head; anyone else who may approve is refused', async () => {
+    const staff = await registerStaff();
+    // a Program Manager whom an Admin gave the approval of officials
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, reason, granted_by)
+       VALUES ($1, $2, 'staff.registration.approve', 'grant', 'GLOBAL', 'Test grant', $3)`,
+      [randomUUID(), world.users.pm, world.users.admin],
+    );
+    const pm = await as(world.users.pm);
+    const res = await decide(pm, staff.userId, { decision: 'approve', roleKey: 'monitoring_team' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatchObject({
+      code: 'permission.grant_refused',
+      params: { rule: 'role_admin_only' },
+    });
+    // nothing was written: the registration still waits, and the refusal is on its record
+    const row = await h.db.query('SELECT state FROM users WHERE id = $1', [staff.userId]);
+    expect(row.rows[0].state).toBe('pending');
+    expect((await auditOf(staff.userId)).map((a) => a.action)).toContain(
+      'permission_change_refused',
+    );
+    const approved = await decide(await as(world.users.head), staff.userId, {
+      decision: 'approve',
+      roleKey: 'monitoring_team',
+    });
+    expect(approved.status).toBe(200);
+    expect(approved.body.data.roles).toEqual(['monitoring_team']);
+  });
+
   it('staff registrations are listed for staff approvers only', async () => {
     const staff = await registerStaff();
     const ids = async (s: Session) =>
