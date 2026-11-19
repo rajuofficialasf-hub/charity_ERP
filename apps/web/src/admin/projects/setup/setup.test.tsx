@@ -266,7 +266,8 @@ const open = (step?: string) =>
 const section = async (name: string) => screen.findByRole('region', { name });
 const steps = () => screen.getByRole('list', { name: 'সেটআপের ধাপ' });
 const next = () => screen.getByRole('button', { name: 'পরের ধাপ' });
-const heading = () => screen.getByRole('heading', { level: 1 });
+// the session's frame holds the page's main heading; the setup names its own page under it
+const heading = () => screen.getByRole('heading', { level: 2, name: /^সেটআপ:/ });
 /** The first step of a new session of the series. */
 const openNew = (search = `?seriesId=${SERIES}`) =>
   renderApp(<ProjectSetupPage />, 'bn', {

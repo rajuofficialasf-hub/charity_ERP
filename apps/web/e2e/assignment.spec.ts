@@ -38,7 +38,7 @@ test.describe('assigning volunteers and their consent', () => {
     await signIn(desk, RPM);
     await desk.goto(`/admin/projects/${projectId}/volunteers`);
     await expect(
-      desk.getByRole('heading', { level: 1, name: `স্বেচ্ছাসেবক: ${name}` }),
+      desk.getByRole('heading', { level: 2, name: `স্বেচ্ছাসেবক: ${name}` }),
     ).toBeVisible();
     await desk.getByRole('button', { name: 'স্বেচ্ছাসেবক অ্যাসাইন করুন' }).click();
     const dialog = desk.getByRole('dialog');

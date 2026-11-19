@@ -83,6 +83,8 @@ describe('the timeline', () => {
     );
     const items = within(screen.getByRole('list', { name: 'Stages' })).getAllByRole('listitem');
     expect(items[2]).toHaveTextContent('Approved, Upcoming');
+    // a stage's time stands under its name, as on the vertical timeline
+    expect(within(items[0]!).getByText('1 Nov 2026, 10:00')).toBeInTheDocument();
   });
 });
 

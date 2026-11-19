@@ -240,5 +240,22 @@
     "label": "View",
     "cards": "Cards",
     "list": "List"
+  },
+  "record": {
+    "section": "Record header and link tabs",
+    "session": "Session",
+    "sessionValue": "2026",
+    "code": "Code",
+    "codeValue": "WNT",
+    "program": "Program",
+    "programValue": "Humanitarian program",
+    "description": "Warm clothes for people in need through the winter.",
+    "edit": "Edit",
+    "actions": "Project actions",
+    "tabs": "Parts of the project",
+    "summary": "Summary",
+    "applications": "Applications",
+    "reports": "Reports",
+    "compact_actions": "Compact header actions"
   }
 }

@@ -321,9 +321,7 @@ describe('the list', () => {
     refreshAs(EXECUTIVE);
     serve();
     const view = openList(`/admin/projects/${PROJECT}/applications?status=submitted`);
-    expect(
-      await screen.findByRole('heading', { level: 1, name: /আবেদন: শীতবস্ত্র/ }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'আবেদন' })).toBeInTheDocument();
     expect((await screen.findAllByText('WC-2026-00012')).length).toBeGreaterThan(0);
     await waitFor(() => expect(listCalls[0]).toContain('status=submitted'));
     expect(listCalls[0]).toContain('include=total');

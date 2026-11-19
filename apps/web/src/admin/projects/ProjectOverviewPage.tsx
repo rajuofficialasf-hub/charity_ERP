@@ -1,171 +1,136 @@
+import { formatCount, formatMonth, formatTaka } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, LinkButton, Page, Skeleton } from '@/ui';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router';
+import { Card, Grid, Skeleton, Stack } from '@/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { PageCrumbs } from '../../components/shell/breadcrumb';
-import { ApiFailure } from '../../api/client';
-import { useAuth } from '../../lib/auth';
-import { ForbiddenContent } from '../AdminLayout';
-import {
-  canCreateProjects,
-  canListProjects,
-  canSeeProjectOverview,
-  canSeeProjects,
-} from '../roles';
-import { SaveTemplateDialog } from '../templates/SaveTemplateDialog';
-import { CARDS_KEY, programCards } from './cards-api';
-import { LifecycleActions } from './LifecycleActions';
-import { ProjectFacts } from './ProjectFacts';
-import { ProjectStatusBadge } from './ProjectStatusBadge';
-import { projectWithEtag, PROJECTS_KEY } from './projects-api';
 import { LoadError } from '../../components/LoadError';
+import { useAuth } from '../../lib/auth';
+import { canSeeProjectOverview } from '../roles';
+import { CARDS_KEY, seriesDetail, sessionSummary } from './cards-api';
+import { useFramedSession } from './frame/session-context';
+import type { Project } from './projects-api';
+import { ProjectFacts, type SessionFact } from './ProjectFacts';
+import { type Fact, FactTile } from './summary/FactTile';
+import { SessionCounts } from './summary/SessionCounts';
+import { SessionProgress } from './summary/SessionProgress';
+
+/** The facts shown on cards of their own, which the facts card therefore leaves out. */
+const ON_CARDS: readonly SessionFact[] = ['period', 'limit', 'budget', 'program'];
 
 /**
- * A session at a glance: its name with the session's label, the trail up to its program and its
- * project, its state, program, workflow, application window, limit and budget, the way to its
- * setup, and the lifecycle buttons for the PM and the global roles. The progress figures come
- * with the dashboards.
+ * The budget's tile, or the target's for a caller the server leaves the budget out for, or none
+ * when the session has neither.
+ */
+function budgetOrTarget(
+  p: Project,
+  locale: Locale,
+  none: string,
+  ts: (key: 'budget' | 'target') => string,
+): Fact[] {
+  if ('budgetPlanned' in p)
+    return [
+      {
+        label: ts('budget'),
+        value: p.budgetPlanned ? formatTaka(Number(p.budgetPlanned), locale) : none,
+        icon: 'money',
+        tone: 'secondary',
+      },
+    ];
+  if (p.targetBeneficiaries === null || p.targetBeneficiaries === undefined) return [];
+  return [
+    {
+      label: ts('target'),
+      value: formatCount(p.targetBeneficiaries, locale),
+      icon: 'users',
+      tone: 'secondary',
+    },
+  ];
+}
+
+/**
+ * The summary tab of a session, inside the session's frame (`frame/ProjectFrame.tsx`), which
+ * reads the session and draws its header, its actions and its tabs: the period, the limit, the
+ * budget (or the target for who may not see the budget) and the program as cards of their own, the other
+ * facts once, the whole session's counts for the holders of the overview, and how far the session
+ * has come.
  */
 export function ProjectOverviewPage() {
   const { me } = useAuth();
-  const { projectId = '' } = useParams();
   const t = useTranslations('admin.projects');
-  const tt = useTranslations('admin.templates.save');
+  const ts = useTranslations('admin.projects.summary');
   const locale = useLocale() as Locale;
-  const queryClient = useQueryClient();
-  const location = useLocation();
-  const navigate = useNavigate();
-  // the setup wizard says what it did: the draft saved, or the project activated
-  const notice = (location.state as { notice?: string } | null)?.notice;
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState<string>();
-  // the Procurement Team reads its house-construction sessions too, and opens only their
-  // applications from here
-  const allowed = Boolean(me && canListProjects(me));
-  const manager = Boolean(me && canSeeProjects(me));
+  const session = useFramedSession();
+  const p = session?.project;
   const overview = Boolean(me && canSeeProjectOverview(me));
-  const one = useQuery({
-    queryKey: [...PROJECTS_KEY, 'one', projectId],
-    queryFn: () => projectWithEtag(projectId),
-    enabled: allowed,
+  const summary = useQuery({
+    queryKey: [...CARDS_KEY, 'session-summary', p?.id],
+    queryFn: () => sessionSummary(p!.id),
+    enabled: overview && Boolean(p),
   });
-  // the program's name for the trail, from the cards every official of a session may read
-  const cards = useQuery({
-    queryKey: [...CARDS_KEY, 'programs'],
-    queryFn: programCards,
-    enabled: overview,
+  // the program's name, read with the cover by the frame under the same key
+  const series = useQuery({
+    queryKey: [...CARDS_KEY, 'series-detail', p?.seriesId],
+    queryFn: () => seriesDetail(p!.seriesId!),
+    enabled: overview && Boolean(p?.seriesId),
   });
-  if (!me) return null;
-  if (!allowed) return <ForbiddenContent />;
-  const tab = { id: 'tab', label: t('tab.title'), href: '/admin/projects' };
-  if (one.isPending) return <Skeleton shape="card" />;
-  if (one.error)
-    return (
-      <>
-        <PageCrumbs items={[tab]} />
-        {one.error instanceof ApiFailure && one.error.status === 404 ? (
-          <p>{t('detail.not_found')}</p>
-        ) : (
-          <LoadError error={one.error} onRetry={() => void one.refetch()} />
-        )}
-      </>
-    );
-  const { data: p, meta } = one.data;
-  const name = localized(p.name, locale);
-  const heading = t('detail.heading', { name, label: p.sessionLabel });
-  const program = cards.data?.find((g) => g.id === p.programId);
+  if (!p) return null;
+  const none = t('detail.none');
+  const program = series.data?.program;
+  const stats: Fact[] = [
+    {
+      label: ts('period'),
+      value: ts('months', { from: formatMonth(p.periodFrom), to: formatMonth(p.periodTo) }),
+      icon: 'calendar',
+    },
+    {
+      label: ts('limit'),
+      value: p.perVolunteerLimit === null ? none : formatCount(p.perVolunteerLimit, locale),
+      icon: 'user',
+      tone: 'info',
+    },
+    ...budgetOrTarget(p, locale, none, ts),
+    ...(program
+      ? [
+          {
+            label: ts('program'),
+            value: localized(program.name, locale),
+            icon: 'hand-heart' as const,
+            tone: 'warning' as const,
+          },
+        ]
+      : []),
+  ];
   return (
     <>
-      <DocumentTitle title={heading} />
-      <PageCrumbs
-        items={[
-          tab,
-          ...(program
-            ? [
-                {
-                  id: 'program',
-                  label: localized(program.name, locale),
-                  href: `/admin/projects/programs/${program.id}`,
-                },
-              ]
-            : []),
-          // the project's page belongs to the overview; the Procurement Team sees its name only
-          ...(p.seriesId
-            ? [
-                overview
-                  ? { id: 'series', label: name, href: `/admin/projects/series/${p.seriesId}` }
-                  : { id: 'series', label: name },
-              ]
-            : []),
-          { id: 'session', label: t('list.session', { label: p.sessionLabel }) },
-        ]}
+      <DocumentTitle
+        title={t('detail.heading', { name: localized(p.name, locale), label: p.sessionLabel })}
       />
-      <Page title={heading} documentTitle={false} />
-      <div data-testid="project-state">
-        <ProjectStatusBadge status={p.status} />
-      </div>
-      {notice && (
-        <Alert
-          tone="success"
-          onDismiss={() => void navigate(location.pathname, { replace: true, state: null })}
-        >
-          {notice}
-        </Alert>
-      )}
-      {saved && (
-        <Alert tone="success" onDismiss={() => setSaved(undefined)}>
-          {saved}
-        </Alert>
-      )}
-      {canCreateProjects(me) && (
-        <LifecycleActions
-          project={p}
-          etag={meta.etag}
-          onMoved={() => void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })}
-        />
-      )}
-      <Card
-        title={t('detail.facts')}
-        headingLevel={2}
-        action={
-          <>
-            {manager && (
-              <>
-                <LinkButton variant="secondary" to={`/admin/projects/${p.id}/setup`}>
-                  {t('detail.setup')}
-                </LinkButton>
-                <LinkButton variant="secondary" to={`/admin/projects/${p.id}/volunteers`}>
-                  {t('volunteers.open')}
-                </LinkButton>
-              </>
-            )}
-            <LinkButton variant="secondary" to={`/admin/projects/${p.id}/applications`}>
-              {t('detail.applications')}
-            </LinkButton>
-            {/* the template managers are the project creators (organisation-wide templates) */}
-            {canCreateProjects(me) && (
-              <Button variant="text" size="small" onClick={() => setSaving(true)}>
-                {tt('open')}
-              </Button>
-            )}
-          </>
-        }
-      >
-        <ProjectFacts project={p} />
-      </Card>
-      {saving && (
-        <SaveTemplateDialog
-          projectId={p.id}
-          onClose={() => setSaving(false)}
-          onDone={(template) => {
-            setSaving(false);
-            setSaved(tt('notice', { name: localized(template.name, locale) }));
-          }}
-        />
-      )}
+      <h2 className="app-sr-only">{t('frame.tab.summary')}</h2>
+      <Grid columns={{ base: 1, sm: 2, lg: 4 }} gap={2}>
+        {stats.map((stat) => (
+          <FactTile key={stat.label} {...stat} />
+        ))}
+      </Grid>
+      <Grid columns={{ base: 1, lg: 2 }} gap={3}>
+        <Card title={ts('facts')} headingLevel={3}>
+          {/* the program stays among the facts while its tile has no name to show */}
+          <ProjectFacts
+            project={p}
+            leave={program ? ON_CARDS : ON_CARDS.filter((f) => f !== 'program')}
+          />
+        </Card>
+        <Stack gap={3}>
+          {summary.data && <SessionCounts projectId={p.id} counts={summary.data} />}
+          {summary.isPending && overview && <Skeleton shape="card" />}
+          {summary.error && (
+            <Card title={ts('counts')} headingLevel={3}>
+              <LoadError error={summary.error} onRetry={() => void summary.refetch()} />
+            </Card>
+          )}
+          <SessionProgress project={p} counts={summary.data} />
+        </Stack>
+      </Grid>
     </>
   );
 }

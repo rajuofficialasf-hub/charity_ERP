@@ -8,7 +8,6 @@ import {
   ConfirmDialog,
   DataTable,
   FilterBar,
-  Page,
   RadioGroup,
   SelectField,
   Skeleton,
@@ -91,7 +90,7 @@ export function ApplicationsPage() {
   const t = useTranslations('applications.office');
   const locale = useLocale() as Locale;
   const one = useQuery({
-    queryKey: [...PROJECTS_KEY, 'one', projectId],
+    queryKey: [...PROJECTS_KEY, 'one-plain', projectId],
     queryFn: () => loadProject(projectId),
     enabled: Boolean(me && canSeeApplications(me)),
   });
@@ -101,8 +100,8 @@ export function ApplicationsPage() {
   return (
     <>
       <DocumentTitle title={name ? `${t('title')} · ${name}` : t('title')} />
-      <Link to={`/admin/projects/${projectId}`}>{t('back')}</Link>
-      <Page title={name ? `${t('title')}: ${name}` : t('title')} documentTitle={false} />
+      {/* the session's frame names the project and draws the tabs; this names the tab's page */}
+      <h2 className="app-sr-only">{t('title')}</h2>
       <ApplicationTab projectId={projectId} />
     </>
   );

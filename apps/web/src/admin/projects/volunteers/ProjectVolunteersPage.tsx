@@ -6,14 +6,14 @@ import {
   Chip,
   DataTable,
   IconButton,
-  Page,
   Skeleton,
+  Stack,
   Switch,
   type DataTableExtendedColumn,
 } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
 import { useAuth } from '../../../lib/auth';
@@ -166,18 +166,15 @@ export function ProjectVolunteersPage() {
   return (
     <>
       <DocumentTitle title={t('title', { name })} />
-      <Link to={`/admin/projects/${projectId}`}>{t('back')}</Link>
-      <Page
-        title={t('title', { name })}
-        actions={
-          assigns && (
-            <Button startIcon="user-add" onClick={() => setAssigning(true)}>
-              {t('assign')}
-            </Button>
-          )
-        }
-        documentTitle={false}
-      />
+      {/* the session's frame names the project and draws the tabs; this names the tab's page */}
+      <h2 className="app-sr-only">{t('title', { name })}</h2>
+      {assigns && (
+        <Stack direction="row" justify="end">
+          <Button startIcon="user-add" onClick={() => setAssigning(true)}>
+            {t('assign')}
+          </Button>
+        </Stack>
+      )}
       {notice && (
         <Alert tone="success" onDismiss={() => setNotice(undefined)}>
           {notice}

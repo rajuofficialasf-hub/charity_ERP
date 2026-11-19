@@ -36,9 +36,31 @@ const LIST = 'প্রকল্প';
 const RPM = 'rpm.dhaka@example.org';
 const UCD_NAME = 'আন্ডারপ্রিভিলেজড কমিউনিটি ডেভেলপমেন্ট প্রোগ্রাম';
 
-/** A lifecycle move with its reason, then the new state badge. */
+/** Opens the session's summary, a tab of the frame above every page of the session. */
+async function openSummary(page: Page) {
+  await page
+    .getByRole('navigation', { name: 'প্রকল্পের অংশ' })
+    .getByRole('link', { name: 'সারসংক্ষেপ' })
+    .click();
+  // the summary has drawn, and the header with it shows the summary's moves
+  await expect(page.getByRole('heading', { name: 'প্রকল্পের মূল তথ্য' })).toBeVisible();
+}
+
+/**
+ * A lifecycle move with its reason, then the new state badge: the main move of the state is the
+ * header's button, the others are in its "more actions" menu.
+ */
 async function move(page: Page, button: string, badge: string) {
-  await page.getByRole('button', { name: button, exact: true }).click();
+  const actions = page.getByRole('region', { name: 'প্রকল্পের কাজ' });
+  const more = actions.getByRole('button', { name: 'আরও কাজ' });
+  // the menu and the main move are drawn together, so once the menu is there the main one is too
+  await expect(more).toBeVisible();
+  const main = actions.getByRole('button', { name: button, exact: true });
+  if (await main.count()) await main.click();
+  else {
+    await more.click();
+    await page.getByRole('menuitem', { name: button, exact: true }).click();
+  }
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('textbox', { name: /কারণ/ }).fill('পরীক্ষার কারণ');
   await dialog.getByRole('button', { name: button, exact: true }).click();
@@ -146,7 +168,7 @@ test.describe('programs and project setup', () => {
         .getByRole('spinbutton')
         .first(),
     ).toHaveAttribute('aria-disabled', 'true');
-    await page.getByRole('link', { name: 'প্রকল্পে ফিরে যান' }).click();
+    await openSummary(page);
 
     // close in two steps, then every field is read-only
     await move(page, 'বন্ধ শুরু করুন', 'বন্ধ হচ্ছে');
@@ -160,7 +182,7 @@ test.describe('programs and project setup', () => {
     await expect(
       section(page, 'মৌলিক তথ্য').getByRole('textbox', { name: /বাংলায় নাম/ }),
     ).toHaveAttribute('readonly', '');
-    await page.getByRole('link', { name: 'প্রকল্পে ফিরে যান' }).click();
+    await openSummary(page);
 
     // reopen
     await move(page, 'আবার খুলুন', 'সক্রিয়');
@@ -217,7 +239,7 @@ test.describe('programs and project setup', () => {
       .getByRole('option', { name: new RegExp(`^${name} · সেশন`) })
       .click();
     await next(page).click();
-    await expect(page.getByRole('heading', { level: 1, name: `সেটআপ: ${copyName}` })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: `সেটআপ: ${copyName}` })).toBeVisible();
     await expect(page).toHaveURL(/step=components/);
     await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();
     await expect(
@@ -269,6 +291,70 @@ test.describe('programs and project setup', () => {
       ),
     ).toBe(true);
     expect((await scan(page)).violations).toEqual([]);
+  });
+
+  test('a session opens in its frame: the header and the tabs stay on every tab', async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name === 'iphone', 'the phone is checked on the mobile project');
+    const phone = info.project.name === 'mobile';
+    // read only: the demo seed's draft winter session, opened from the list
+    await signIn(page, phone ? 'monitoring@example.org' : 'head@example.org');
+    // from the cards: the Humanitarian Program, its winter project, the project's session (the
+    // list of a full run holds many newer sessions before it)
+    await page.goto('/admin/projects');
+    await page
+      .getByRole('article', { name: 'হিউম্যানিটেরিয়ান প্রোগ্রাম' })
+      .getByRole('link', { name: 'হিউম্যানিটেরিয়ান প্রোগ্রাম', exact: true })
+      .click();
+    await page
+      .getByRole('article', { name: 'শীতবস্ত্র বিতরণ 2026' })
+      .getByRole('link', { name: 'শীতবস্ত্র বিতরণ 2026', exact: true })
+      .click();
+    await page.getByRole('link', { name: /খুলুন/ }).first().click();
+    const heading = page.getByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ 2026' });
+    await expect(heading).toBeVisible();
+    await expect(state(page, 'খসড়া')).toBeVisible();
+    const id = projectIdOf(page);
+    const tabs = page.getByRole('navigation', { name: 'প্রকল্পের অংশ' });
+    await expect(tabs.getByRole('link')).toHaveText([
+      'সারসংক্ষেপ',
+      'সেটআপ',
+      'স্বেচ্ছাসেবক',
+      'আবেদন',
+      'বিতরণ',
+      'রিপোর্ট',
+      'কার্যক্রম',
+    ]);
+    // the summary: the whole session's counts and its stage; the draft has no application yet
+    await expect(page.getByRole('heading', { name: 'প্রকল্পের সারসংক্ষেপ' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /মোট আবেদন/ })).toBeVisible();
+    const strip = page.getByRole('list', { name: 'সেশনের ধাপ' });
+    await expect(strip.getByRole('listitem').first()).toHaveAttribute('aria-current', 'step');
+    await expect(page.getByRole('heading', { name: 'বাস্তবায়ন অগ্রগতি' })).toBeVisible();
+    expect((await scan(page)).violations).toEqual([]);
+
+    // another tab keeps the header and the tabs above its own page
+    await tabs.getByRole('link', { name: 'আবেদন' }).click();
+    await expect(page).toHaveURL(new RegExp(`/admin/projects/${id}/applications`));
+    await expect(heading).toBeVisible();
+    await expect(tabs.getByRole('link', { name: 'আবেদন' })).toHaveAttribute('aria-current', 'page');
+    await tabs.getByRole('link', { name: 'বিতরণ' }).click();
+    await expect(page.getByText('শীঘ্রই আসছে')).toBeVisible();
+
+    // back on the summary: the main move of a draft, the others in the menu
+    await tabs.getByRole('link', { name: 'সারসংক্ষেপ' }).click();
+    const actions = page.getByRole('region', { name: 'প্রকল্পের কাজ' });
+    await expect(actions.getByRole('button', { name: 'সক্রিয় করুন', exact: true })).toBeVisible();
+    await actions.getByRole('button', { name: 'আরও কাজ' }).click();
+    await expect(page.getByRole('menuitem', { name: 'টেমপ্লেট হিসেবে সংরক্ষণ' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    if (phone)
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
   });
 
   test('the programs and projects tab: one destination, the cards and the list', async ({

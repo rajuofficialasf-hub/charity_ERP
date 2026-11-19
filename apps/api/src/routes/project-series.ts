@@ -87,6 +87,18 @@ const seriesDetail = seriesCard.extend({
   ),
 });
 
+/** The whole counts of one session: counts only, never a person, a budget or an identity number. */
+const sessionSummary = z.object({
+  applications: count,
+  approved: count,
+  waiting: count,
+  waitlisted: count,
+  volunteers: count,
+  districts: count,
+  target: count.nullable(),
+  daysLeft: count.nullable(),
+});
+
 const viewerOf = (req: AuthedRequest) => ({ principal: principalOf(req), scope: scopeOf(req) });
 const withEtag = (
   res: { setHeader: (k: string, v: string) => void },
@@ -130,6 +142,27 @@ export function projectSeriesRouter(
       const rows = await c.projectSeries.list(viewerOf(req), query);
       return ok(rows, { limit: rows.length, nextCursor: null, prevCursor: null });
     },
+  });
+
+  defineRoute<unknown, unknown, { projectId: string }>(router, deps, {
+    ...read,
+    method: 'get',
+    path: '/projects/:projectId/summary',
+    operationId: 'projectSeries.session.summary',
+    summary:
+      "A session's whole counts, the same for every holder of the overview as its card counts them",
+    params: { projectId: uuid },
+    responses: {
+      200: sessionSummary,
+      401: null,
+      403: null,
+      404: null,
+      422: null,
+      429: null,
+      503: null,
+    },
+    handler: async ({ params, req }) =>
+      ok(await c.projectSeries.summary(viewerOf(req), params.projectId)),
   });
 
   defineRoute<ProjectSeriesCreate>(router, deps, {

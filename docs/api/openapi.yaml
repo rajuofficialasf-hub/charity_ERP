@@ -3045,6 +3045,28 @@ components:
       properties:
         data: { $ref: '#/components/schemas/ProjectSeries' }
         meta: { $ref: '#/components/schemas/Meta' }
+    SessionSummary:
+      type: object
+      description: >-
+        The whole counts of one session, the same for every holder of project.overview.view as its
+        card counts them: counts only, never a person, a budget or an identity number.
+      required: [applications, approved, waiting, waitlisted, volunteers, districts, target, daysLeft]
+      additionalProperties: false
+      properties:
+        applications: { type: integer, description: 'Applications received, drafts and deleted ones left out' }
+        approved: { type: integer, description: Applications approved at some time }
+        waiting: { type: integer, description: Applications waiting for a review or a verification }
+        waitlisted: { type: integer }
+        volunteers: { type: integer, description: Volunteers working in the session now }
+        districts: { type: integer, description: Districts the areas of the session cover }
+        target: { type: [integer, 'null'], description: The target number of people }
+        daysLeft: { type: [integer, 'null'], description: 'Whole days left to apply; null without a window or after it' }
+    SessionSummaryResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/SessionSummary' }
+        meta: { $ref: '#/components/schemas/Meta' }
     SessionMonth:
       type: string
       pattern: '^\d{4}-(0[1-9]|1[0-2])$'
@@ -8909,6 +8931,35 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/summary:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [project-series]
+      operationId: projectSeries.session.summary
+      summary: A session's whole counts, the same for every holder of the overview as its card counts them
+      description: >-
+        The counts the summary tab of a session's page shows: applications, approved, waiting,
+        waitlisted, volunteers, districts, the target and the days left to apply. They count the
+        whole session for every holder of project.overview.view, as the project cards do; every
+        detail of a session stays with project.view. A cancelled session keeps its counts.
+      x-permission: project.overview.view
+      x-scope: program
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      responses:
+        '200':
+          description: The session's counts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionSummaryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /projects/{projectId}/cancel:
     parameters:
       - $ref: '#/components/parameters/ProjectId'

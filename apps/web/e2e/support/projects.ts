@@ -100,7 +100,7 @@ export async function newDraft(
   await next(page).click();
   const year = new Date().getFullYear();
   await expect(
-    page.getByRole('heading', { level: 1, name: `সেটআপ: ${name} · সেশন ${year}` }),
+    page.getByRole('heading', { level: 2, name: `সেটআপ: ${name} · সেশন ${year}` }),
   ).toBeVisible();
   await expect(page).toHaveURL(/step=components/);
   await expect(state(page, 'খসড়া')).toBeVisible();

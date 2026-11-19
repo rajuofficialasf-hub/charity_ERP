@@ -9,9 +9,11 @@ import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
 import { CARDS_KEY, programCards } from './cards-api';
+import { ProjectFrame } from './frame/ProjectFrame';
 import { ProjectOverviewPage } from './ProjectOverviewPage';
 
-// The project overview with its lifecycle buttons. Test data only.
+// A session's summary inside its frame, with the lifecycle moves of the header: the main move as a
+// button, the others and the template in the menu. Test data only.
 const PM: Me = { ...ME, roles: ['program_manager'] };
 const RPM: Me = { ...ME, roles: ['regional_program_manager'] };
 const ID = '01900000-0000-7000-8000-0000000000c1';
@@ -49,6 +51,28 @@ function serve(status: string) {
       }),
     ),
     http.get('*/api/v1/programs', () => HttpResponse.json({ data: [], meta: {} })),
+    http.get('*/api/v1/project-series/01900000-0000-7000-8000-0000000000d1', () =>
+      HttpResponse.json({
+        data: {
+          id: '01900000-0000-7000-8000-0000000000d1',
+          programId: '01900000-0000-7000-8000-0000000000b1',
+          code: 'WC',
+          name: { bn: 'শীতবস্ত্র বিতরণ', en: 'Winter clothing' },
+          description: null,
+          coverFileId: null,
+          sessionCount: 1,
+          beneficiaries: 0,
+          current: null,
+          canCreate: true,
+          program: {
+            id: '01900000-0000-7000-8000-0000000000b1',
+            name: { bn: 'স্বাবলম্বী প্রোগ্রাম', en: 'Self-reliance' },
+          },
+          sessions: [],
+        },
+        meta: {},
+      }),
+    ),
     http.post(`*/api/v1/projects/${ID}/:action`, async ({ request, params }) => {
       const text = await request.text();
       moves.push({
@@ -63,12 +87,38 @@ function serve(status: string) {
 }
 
 const open = () =>
-  renderApp(<ProjectOverviewPage />, 'bn', {
+  renderApp(<ProjectFrame />, 'bn', {
     path: '/admin/projects/:projectId',
     initialPath: `/admin/projects/${ID}`,
+    children: [{ index: true, element: <ProjectOverviewPage /> }],
   });
 const buttons = (names: string[]) =>
   Promise.all(names.map((name) => screen.findByRole('button', { name })));
+/** The moves on offer: the main one as a button, the others in the "more actions" menu. */
+async function offered(user: ReturnType<typeof userEvent.setup>) {
+  const actions = await screen.findByRole('region', { name: 'প্রকল্পের কাজ' });
+  await waitFor(() => expect(within(actions).getAllByRole('button').length).toBeGreaterThan(1));
+  const main = within(actions)
+    .getAllByRole('button')
+    .map((b) => b.textContent ?? '')
+    .filter((text) => text && text !== 'আরও কাজ');
+  const more = within(actions).queryByRole('button', { name: 'আরও কাজ' });
+  if (!more) return main;
+  await user.click(more);
+  const items = within(await screen.findByRole('menu'))
+    .getAllByRole('menuitem')
+    .map((item) => item.textContent ?? '');
+  await user.keyboard('{Escape}');
+  return [...main, ...items];
+}
+/** Starts a move from the main button or from the menu. */
+async function startMove(user: ReturnType<typeof userEvent.setup>, name: string) {
+  const actions = await screen.findByRole('region', { name: 'প্রকল্পের কাজ' });
+  const button = within(actions).queryByRole('button', { name });
+  if (button) return user.click(button);
+  await user.click(await within(actions).findByRole('button', { name: 'আরও কাজ' }));
+  await user.click(await screen.findByRole('menuitem', { name }));
+}
 
 beforeEach(() => {
   resetClientForTests();
@@ -80,11 +130,17 @@ describe('the project overview', () => {
     serve('draft');
     const { container } = open();
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ · সেশন 2026-27' }),
+      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('01-11-2026 – 31-12-2026')).toBeInTheDocument();
-    expect(screen.getByText('৳ 1,00,000')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'সেটআপ' })).toHaveAttribute(
+    // the window in the facts and on the stage it belongs to
+    const facts = (await screen.findByRole('heading', { name: 'প্রকল্পের মূল তথ্য' })).closest(
+      '.MuiCard-root',
+    ) as HTMLElement;
+    expect(within(facts).getByText('01-11-2026 – 31-12-2026')).toBeInTheDocument();
+    const strip = await screen.findByRole('list', { name: 'সেশনের ধাপ' });
+    expect(within(strip).getByText('01-11-2026 – 31-12-2026')).toBeInTheDocument();
+    expect(await screen.findByText('৳ 1,00,000')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'সেটআপ' })).toHaveAttribute(
       'href',
       `/admin/projects/${ID}/setup`,
     );
@@ -121,7 +177,7 @@ describe('the project overview', () => {
     );
     open();
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ · সেশন 2026-27' }),
+      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ' }),
     ).toBeInTheDocument();
     const trail = await screen.findByRole('navigation', { name: /অবস্থান|Breadcrumb|পথ/ });
     expect(
@@ -133,21 +189,20 @@ describe('the project overview', () => {
     );
     // the facts name the program and the period
     expect(screen.getAllByText('স্বাবলম্বী প্রোগ্রাম').length).toBeGreaterThan(1);
-    expect(screen.getByText('06-2026 থেকে 07-2027')).toBeInTheDocument();
+    expect(screen.getByText('06-2026 – 07-2027')).toBeInTheDocument();
   });
 
   it.each([
-    ['draft', ['সক্রিয় করুন', 'বাতিল করুন'], ['আবার খুলুন']],
-    ['active', ['সময়সীমা বাড়ান', 'বন্ধ শুরু করুন'], ['সক্রিয় করুন']],
-    ['closing', ['প্রকল্প বন্ধ করুন', 'আবার খুলুন'], ['বন্ধ শুরু করুন']],
-    ['closed', ['আবার খুলুন'], ['প্রকল্প বন্ধ করুন']],
-  ])('offers the moves of a %s project', async (status, shown, hidden) => {
+    ['draft', ['সক্রিয় করুন', 'বাতিল করুন', 'টেমপ্লেট হিসেবে সংরক্ষণ']],
+    ['active', ['বন্ধ শুরু করুন', 'সময়সীমা বাড়ান', 'টেমপ্লেট হিসেবে সংরক্ষণ']],
+    ['closing', ['প্রকল্প বন্ধ করুন', 'আবার খুলুন', 'টেমপ্লেট হিসেবে সংরক্ষণ']],
+    ['closed', ['আবার খুলুন', 'টেমপ্লেট হিসেবে সংরক্ষণ']],
+  ])('offers the moves of a %s project', async (status, shown) => {
     refreshAs(PM);
     serve(status);
+    const user = userEvent.setup();
     open();
-    await buttons(shown);
-    for (const name of hidden)
-      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    expect(await offered(user)).toEqual(shown);
   });
 
   it('asks for a reason before a move and sends it with the version', async () => {
@@ -189,11 +244,15 @@ describe('the project overview', () => {
     const user = userEvent.setup();
     renderApp(
       <>
-        <ProjectOverviewPage />
+        <ProjectFrame />
         <Cards />
       </>,
       'bn',
-      { path: '/admin/projects/:projectId', initialPath: `/admin/projects/${ID}` },
+      {
+        path: '/admin/projects/:projectId',
+        initialPath: `/admin/projects/${ID}`,
+        children: [{ index: true, element: <ProjectOverviewPage /> }],
+      },
     );
     await waitFor(() => expect(cardReads).toBe(1));
     await user.click(await screen.findByRole('button', { name: 'বন্ধ শুরু করুন' }));
@@ -247,7 +306,7 @@ describe('the project overview', () => {
     serve('active');
     open();
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ · সেশন 2026-27' }),
+      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'বন্ধ শুরু করুন' })).not.toBeInTheDocument();
   });
@@ -257,8 +316,7 @@ describe('the project overview', () => {
     serve('active');
     const user = userEvent.setup();
     open();
-    const [extend] = await buttons(['সময়সীমা বাড়ান']);
-    await user.click(extend!);
+    await startMove(user, 'সময়সীমা বাড়ান');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: 'সময়সীমা বাড়ান' });
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'শীত বেশি');
@@ -287,8 +345,7 @@ describe('the project overview', () => {
     serve('draft');
     const user = userEvent.setup();
     open();
-    const [cancel] = await buttons(['বাতিল করুন']);
-    await user.click(cancel!);
+    await startMove(user, 'বাতিল করুন');
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'ভুল প্রকল্প');
     await user.click(within(dialog).getByRole('button', { name: 'বাতিল করুন' }));
@@ -325,7 +382,7 @@ describe('save as template', () => {
     );
     const user = userEvent.setup();
     open();
-    await user.click(await screen.findByRole('button', { name: 'টেমপ্লেট হিসেবে সংরক্ষণ' }));
+    await startMove(user, 'টেমপ্লেট হিসেবে সংরক্ষণ');
     const dialog = await screen.findByRole('dialog');
     await user.type(
       within(dialog).getByRole('textbox', { name: /বাংলায় নাম/ }),
@@ -348,8 +405,6 @@ describe('save as template', () => {
     serve('active');
     open();
     expect(await screen.findByRole('link', { name: 'সেটআপ' })).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'টেমপ্লেট হিসেবে সংরক্ষণ' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'আরও কাজ' })).not.toBeInTheDocument();
   });
 });

@@ -198,25 +198,51 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   ),
                 },
                 {
+                  // a session's pages share its frame: the header and the tabs stay on top
                   path: 'projects/:projectId',
-                  lazy: page(
-                    () => import('../admin/projects/ProjectOverviewPage'),
-                    'ProjectOverviewPage',
-                  ),
-                },
-                {
-                  path: 'projects/:projectId/setup',
-                  lazy: page(
-                    () => import('../admin/projects/setup/ProjectSetupPage'),
-                    'ProjectSetupPage',
-                  ),
-                },
-                {
-                  path: 'projects/:projectId/applications',
-                  lazy: page(
-                    () => import('../admin/applications/ApplicationsPage'),
-                    'ApplicationsPage',
-                  ),
+                  lazy: page(() => import('../admin/projects/frame/ProjectFrame'), 'ProjectFrame'),
+                  children: [
+                    {
+                      index: true,
+                      handle: { phoneReady: true } satisfies AdminRouteHandle,
+                      lazy: page(
+                        () => import('../admin/projects/ProjectOverviewPage'),
+                        'ProjectOverviewPage',
+                      ),
+                    },
+                    {
+                      path: 'setup',
+                      lazy: page(
+                        () => import('../admin/projects/setup/ProjectSetupPage'),
+                        'ProjectSetupPage',
+                      ),
+                    },
+                    {
+                      path: 'applications',
+                      lazy: page(
+                        () => import('../admin/applications/ApplicationsPage'),
+                        'ApplicationsPage',
+                      ),
+                    },
+                    {
+                      path: 'volunteers',
+                      lazy: page(
+                        () => import('../admin/projects/volunteers/ProjectVolunteersPage'),
+                        'ProjectVolunteersPage',
+                      ),
+                    },
+                    ...(
+                      [
+                        ['distribution', 'DistributionSoonPage'],
+                        ['reports', 'ReportsSoonPage'],
+                        ['activity', 'ActivitySoonPage'],
+                      ] as const
+                    ).map(([path, name]) => ({
+                      path,
+                      handle: { phoneReady: true } satisfies AdminRouteHandle,
+                      lazy: page(() => import('../admin/projects/frame/ComingSoonPage'), name),
+                    })),
+                  ],
                 },
                 {
                   path: 'applications/:applicationId',
@@ -232,13 +258,6 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 {
                   path: 'projects/:projectId/forms/:formId',
                   lazy: page(() => import('../admin/forms/FormBuilderPage'), 'FormBuilderPage'),
-                },
-                {
-                  path: 'projects/:projectId/volunteers',
-                  lazy: page(
-                    () => import('../admin/projects/volunteers/ProjectVolunteersPage'),
-                    'ProjectVolunteersPage',
-                  ),
                 },
                 {
                   path: 'projects/:projectId/transfer',

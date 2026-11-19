@@ -32,6 +32,8 @@ import {
   Page,
   PersonCell,
   ProfileBanner,
+  RecordHeader,
+  LinkTabs,
   ProfileSection,
   ProgressBar,
   RadioGroup,
@@ -692,6 +694,63 @@ export function AsfGallery() {
               }
             />
           </div>
+        </Section>
+        <Section id="record" title={t('record.section')}>
+          <RecordHeader
+            headingLevel={2}
+            title={t('flip.projectTitle')}
+            media={<CoverArt seed="series-swb" />}
+            status={<Chip tone="success">{t('flip.session')}</Chip>}
+            facts={[
+              {
+                id: 'session',
+                label: t('record.session'),
+                value: t('record.sessionValue'),
+                icon: 'calendar',
+              },
+              { id: 'code', label: t('record.code'), value: t('record.codeValue'), icon: 'hash' },
+              {
+                id: 'program',
+                label: t('record.program'),
+                value: t('record.programValue'),
+                icon: 'hand-heart',
+              },
+            ]}
+            description={t('record.description')}
+            actionsLabel={t('record.actions')}
+            actions={
+              <Button variant="secondary" startIcon="edit">
+                {t('record.edit')}
+              </Button>
+            }
+            footer={
+              <LinkTabs
+                label={t('record.tabs')}
+                items={[
+                  { to: '/dev/asf', label: t('record.summary'), icon: 'home', current: true },
+                  {
+                    to: '/dev/asf#applications',
+                    label: t('record.applications'),
+                    icon: 'clipboard',
+                  },
+                  { to: '/dev/asf#reports', label: t('record.reports'), icon: 'chart' },
+                ]}
+              />
+            }
+          />
+          <RecordHeader
+            compact
+            headingLevel={2}
+            actionsLabel={t('record.compact_actions')}
+            title={t('flip.projectTitle')}
+            media={<CoverArt seed="series-swb" />}
+            status={<Chip tone="success">{t('flip.session')}</Chip>}
+            actions={
+              <Button variant="secondary" startIcon="edit">
+                {t('record.edit')}
+              </Button>
+            }
+          />
         </Section>
         <Section id="additions" title={t('asf.sections.additions')}>
           <SummaryBanner

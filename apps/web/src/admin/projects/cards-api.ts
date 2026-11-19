@@ -6,11 +6,12 @@ import type {
   ProjectSeries,
   ProjectSeriesCard,
   ProjectSeriesRecord,
+  SessionSummary,
 } from '../../api/schemas';
 import { listQuery } from '../list-query';
 import { PROJECTS_KEY } from './projects-api';
 
-export type { ProgramCard, ProjectSeries, ProjectSeriesCard };
+export type { ProgramCard, ProjectSeries, ProjectSeriesCard, SessionSummary };
 
 /**
  * The cards of the programs and projects tab (docs/ui/SCREENS.md, "Project list and project
@@ -30,6 +31,10 @@ export const seriesCards = (programId?: string) =>
 
 /** GET /project-series/{seriesId}: one project series with its program and its sessions. */
 export const seriesDetail = (seriesId: string) => api<ProjectSeries>(`/project-series/${seriesId}`);
+
+/** GET /projects/{projectId}/summary: a session's whole counts, for the holders of the overview. */
+export const sessionSummary = (projectId: string) =>
+  api<SessionSummary>(`/projects/${projectId}/summary`);
 
 /** The series with its version, for the If-Match of its edit. */
 export const seriesWithEtag = (seriesId: string) =>

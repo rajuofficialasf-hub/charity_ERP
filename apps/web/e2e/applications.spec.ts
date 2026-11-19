@@ -236,7 +236,7 @@ test.describe('the application cycle', () => {
     const recordUrl = await onDesk(browser, async (desk) => {
       await signIn(desk, EXECUTIVE);
       await desk.goto(`/admin/projects/${projectId}/applications`);
-      await expect(desk.getByRole('heading', { level: 1, name: /^আবেদন: / })).toBeVisible();
+      await expect(desk.getByRole('heading', { level: 2, name: 'আবেদন' })).toBeVisible();
       await expect(desk.getByText(appNo!).first()).toBeVisible();
       await noViolations(desk, 'the office list');
       await desk.getByRole('link', { name }).first().click();

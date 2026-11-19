@@ -169,7 +169,7 @@ async function assign(desk: Page, projectId: string, name: string, mobile: strin
   await signIn(desk, RPM, DEMO_PASSWORD);
   await desk.goto(`/admin/projects/${projectId}/volunteers`);
   await expect(
-    desk.getByRole('heading', { level: 1, name: `স্বেচ্ছাসেবক: ${name}` }),
+    desk.getByRole('heading', { level: 2, name: `স্বেচ্ছাসেবক: ${name}` }),
   ).toBeVisible();
   await desk.getByRole('button', { name: 'স্বেচ্ছাসেবক অ্যাসাইন করুন' }).click();
   const dialog = desk.getByRole('dialog');

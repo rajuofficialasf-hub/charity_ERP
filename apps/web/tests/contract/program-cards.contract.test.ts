@@ -5,14 +5,15 @@ import {
   projectPageSchema,
   projectSeriesCardSchema,
   projectSeriesSchema,
+  sessionSummarySchema,
 } from '../../src/api/schemas';
 import { expectContract } from './support/expect';
 import { call, contractBase, signIn } from './support/session';
 import { HEAD, PM_HUM, RPM_DHAKA } from './support/world';
 
 // The reads of the programs and projects tab: the program cards, the project series of a program
-// and of all, one series with its sessions, and the list of the sessions with their labels, as the
-// Department Head, a PM and an RPM read them.
+// and of all, one series with its sessions, the list of the sessions with their labels and the
+// counts of one session, as the Department Head, a PM and an RPM read them.
 describe.skipIf(!contractBase())('the programs and projects tab', () => {
   it('reads the program cards and the series cards as every role of the tab sees them', async () => {
     for (const who of [HEAD, PM_HUM, RPM_DHAKA]) {
@@ -61,5 +62,27 @@ describe.skipIf(!contractBase())('the programs and projects tab', () => {
       projectPageSchema.shape.data,
     );
     expect(page.every((p) => p.seriesId === series!.id && p.sessionLabel.length > 0)).toBe(true);
+  });
+
+  it('reads the whole counts of a session, the same for the Head, a PM and an RPM', async () => {
+    const pm = await signIn(PM_HUM);
+    const [series] = expectContract(
+      await call(pm, 'GET', '/project-series'),
+      200,
+      z.array(projectSeriesCardSchema),
+    );
+    const sessionId = series?.current?.id;
+    expect(sessionId, 'a session of the demo seed').toBeDefined();
+    const counts = [];
+    for (const who of [HEAD, PM_HUM, RPM_DHAKA])
+      counts.push(
+        expectContract(
+          await call(await signIn(who), 'GET', `/projects/${sessionId}/summary`),
+          200,
+          sessionSummarySchema,
+        ),
+      );
+    expect(counts[1]).toEqual(counts[0]);
+    expect(counts[2]).toEqual(counts[0]);
   });
 });

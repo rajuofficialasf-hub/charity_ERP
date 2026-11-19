@@ -67,6 +67,14 @@ async function cardPages(page: Page): Promise<[string, string]> {
   return [programPage, (await project.getAttribute('href'))!];
 }
 
+/** A session's page, opened from the project's page: its first session the caller may open. */
+async function sessionPage(page: Page, projectPage: string): Promise<string> {
+  await page.goto(projectPage);
+  const open = page.getByRole('link', { name: /খুলুন/ }).first();
+  await expect(open).toBeAttached();
+  return (await open.getAttribute('href'))!;
+}
+
 /** Opens the page at each width, waits for its heading and its data, and keeps a full shot. */
 async function shoot(page: Page, mode: Mode, name: string, path: string): Promise<void> {
   for (const width of WIDTHS) {
@@ -99,6 +107,10 @@ for (const mode of MODES) {
     const [programPage, projectPage] = await cardPages(page);
     await shoot(page, mode, '25-program', programPage);
     await shoot(page, mode, '26-project', projectPage);
+    // a session in its frame: the summary, and a tab under the same header
+    const session = await sessionPage(page, projectPage);
+    await shoot(page, mode, '27-session', session);
+    await shoot(page, mode, '28-session-applications', `${session}/applications`);
   });
 }
 

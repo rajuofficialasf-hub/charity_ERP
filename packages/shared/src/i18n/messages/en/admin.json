@@ -1334,7 +1334,62 @@
       "max_size": "5 MB",
       "not_cleared": "The photo has not cleared the safety check yet. Set the cover again a little later."
     },
-    "period_value": "{from} to {to}"
+    "period_value": "{from} to {to}",
+    "frame": {
+      "tabs": "Parts of the project",
+      "tab": {
+        "summary": "Summary",
+        "setup": "Setup",
+        "volunteers": "Volunteers",
+        "applications": "Applications",
+        "distribution": "Distribution",
+        "reports": "Reports",
+        "activity": "Activity"
+      },
+      "actions": "Project actions",
+      "more": "More actions",
+      "edit": "Edit",
+      "link": "Link",
+      "doc_title": "{tab} · {name}",
+      "soon": {
+        "title": "Coming soon",
+        "distribution": "Distribution lists, photos and the stock balance will show here.",
+        "reports": "The project's reports and dashboard will show here.",
+        "activity": "Who did what on the project, and when, will show here in order."
+      }
+    },
+    "summary": {
+      "period": "Project period",
+      "limit": "Application limit per volunteer",
+      "budget": "Planned budget",
+      "target": "Target (people)",
+      "program": "Program",
+      "facts": "Key facts",
+      "counts": "Project summary",
+      "applications": "Total applications",
+      "approved": "Approved",
+      "waiting": "Waiting for review",
+      "waitlisted": "Waitlist",
+      "volunteers": "Volunteers",
+      "districts": "Districts",
+      "progress": "Progress",
+      "stages": "Stages of the session",
+      "stage": {
+        "draft": "Draft",
+        "open": "Taking applications",
+        "ended": "Applications closed",
+        "closing": "Closing",
+        "closed": "Closed"
+      },
+      "window": "{from} – {to}",
+      "starts": "Starts {date}",
+      "approved_bar": "Approved against the target",
+      "days_left": "{days} days left to apply",
+      "one_day_left": "1 day left to apply",
+      "last_day": "Today is the last day to apply",
+      "cancelled": "This session was cancelled, so it has no stages.",
+      "months": "{from} – {to}"
+    }
   },
   "templates": {
     "title": "Project templates",
