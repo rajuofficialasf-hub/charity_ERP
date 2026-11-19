@@ -28,8 +28,9 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 
 | Role key | Kind | global_scope | Notes |
 |---|---|---|---|
-| department_head | official | yes | Main Admin; only holder of `system.owner.transfer` |
-| monitoring_team | official | yes | Same access as the Department Head everywhere (Q-02, BR-184) except `system.owner.transfer` |
+| admin | official | yes | Maintains the system; the Main Admin is an Admin; only holder of `system.owner.transfer`; appoints the Department Head (D-187) |
+| department_head | official | yes | Head of the department; every permission except `system.owner.transfer`; one at a time, appointed by an Admin (D-187) |
+| monitoring_team | official | yes | Reads everything and keeps the oversight work; excluded from the administration permissions of D-187 (BR-184) |
 | program_manager | official | no | PROGRAM scope; approver on house construction (BD-24); `nisab.set` at GLOBAL (Q-29: PM or above) |
 | regional_program_manager | official | no | REGION scope; grants "if RPM grants" extras; revokes volunteers' sessions in own region (O-25) |
 | project_executive | official | no | REGION scope; review, edit, registration approval, field unlock; also the implementer of a safe-water project (the SOP's Implementer role is retired, D-162) |
@@ -207,7 +208,7 @@ Stock reconciliation and the Qurbani animal photos are not in the base sets beca
 
 ## 7. Permission panel
 
-- Available only to the Department Head and the Monitoring Team (`permission.panel.manage`, implied by `global_scope`). PMs and RPMs may view effective permissions (`permission.view`) but change them only through the project-level grants of section 6.
+- Available only to an Admin and the Department Head (`permission.panel.manage`, implied by `global_scope`; the Monitoring Team is excluded since D-187). The key permissions (the administration list of D-187) are granted by an Admin only, nobody grants to themselves, and no revoke is written against an Admin or the Head (BR-322). PMs and RPMs may view effective permissions (`permission.view`) but change them only through the project-level grants of section 6.
 - The panel grants or revokes any permission for any user at a chosen scope instance (GLOBAL, a program, a project, a region/district, ASSIGNED, SELF). A revoke override beats every grant source. A revoke of one project (or of a program, for each of its projects) takes that project out of the caller's reach for the permission whatever grant reaches it: PROGRAM, an area without a project, or GLOBAL; people reached only through that project drop out too, while a person still reached through another project, an address, a home program or division, or a GLOBAL grant stays (D-120). Overrides live in `user_permissions` with granted_by, reason, time, optional expiry.
 - Every change writes an audit entry (`permission_change`) with old and new effective grants (BR-180) and bumps `permission_version` so active sessions refresh immediately (AUTH.md §9).
 - The panel cannot: give `system.owner.transfer` to anyone but the Department Head; remove the Department Head's or Monitoring Team's global scope; grant a sensitive permission to a volunteer role (hard rule: volunteers never see ratings, categories, NID, bank, donor data, official sections, BR-046, BR-183). Attempts are refused and audited.

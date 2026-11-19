@@ -165,9 +165,9 @@ Lifting a block or reactivating never restores revoked device sessions; the user
 
 ## 11. Main Admin protection (constitution §5, BR-035)
 
-- The Department Head account is flagged `is_system_owner`. It cannot be deleted, deactivated, blocked, demoted or have its sessions revoked by anyone else through the API; the only path is transferring the flag to another active official (Department Head confirms with password; audited), after which the previous holder becomes an ordinary account.
-- At least one active Department Head must exist at all times; the transfer is the only operation that changes who it is.
-- The Monitoring Team has the same functional access as the Department Head everywhere (BR-184) except this one operation.
+- One Admin account is flagged `is_system_owner` (D-187; before it, the Department Head account). It cannot be deleted, deactivated, blocked, demoted or have its sessions revoked by anyone else through the API; the only path is transferring the flag to another active Admin (the Main Admin alone confirms with their password, checked under the login throttle; audited), after which the previous holder is an ordinary Admin.
+- A system owner exists at all times (the database refuses a state without one); the transfer is the only operation that changes who it is. The Department Head is appointed and replaced by an Admin; the department may be without a Head between two appointments.
+- A role change (an Admin or the Department Head, BR-321) bumps the person's permission version, so their sessions refresh at once.
 
 ## 12. Rate limiting (NFR-41, BR-209)
 

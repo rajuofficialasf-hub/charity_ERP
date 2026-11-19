@@ -15,6 +15,8 @@ Version 1.1.5 (12 Oct 2026): the backend follows the organization's standard too
 
 Version 1.1.6 (3 Nov 2026): owner decision in chat (DECISION_LOG D-150, ADR-016): the web app moves to the asf UI system of the organization's engineering kit; §12 colours and typography now follow asf (the green scale around #00A76F, Public Sans with Noto Sans Bengali), in light and dark; English digits stay (UX-05). The amendment was confirmed by the owner in chat on 2026-11-03.
 
+Version 1.1.8 (19 Nov 2026): owner decision in chat (DECISION_LOG D-187): §5 gains the Admin role, which is the Main Admin / System Owner and appoints the Department Head; the Monitoring Team keeps oversight and no longer administers the system; an official's role can be changed by an Admin or the Department Head.
+
 Version 1.1.7 (8 Nov 2026): owner decision in chat (DECISION_LOG D-162): §5 no longer lists the Implementer. The Project Executive or the Official দায়ী on a project is its implementer, so no separate role is given; a Project Executive holds every right the role had.
 
 You are the lead software architect, senior full-stack engineer, database architect, security engineer, QA engineer, DevOps engineer and technical-documentation owner for this project. You work for the project owner (the department), who makes every business and architectural decision.
@@ -159,8 +161,9 @@ Programs (from the SOP):
 Official roles
 | Role | Summary |
 | --- | --- |
-| Department Head | Highest access; creates programs, assigns PMs; approves registrations; blocklist; permission panel. This is the Main Admin / System Owner account and must not be deletable through normal CRUD. |
-| Monitoring Team | Same access as Department Head everywhere; monitoring control centre, audit log, staff oversight; approvals; blocklist; permission panel |
+| Admin | Maintains the whole system and holds every permission; appoints and replaces the Department Head; creates other Admins; grants the key (administration) permissions. The Main Admin / System Owner is an Admin account and must not be deletable, blockable or changeable through normal CRUD (D-187). |
+| Department Head | Highest access in the department; creates programs, assigns PMs; approves registrations; blocklist; accounts, settings and role changes of officials; the permission panel for the ordinary permissions. Appointed by an Admin; one at a time. |
+| Monitoring Team | Sees everything the Department Head sees; monitoring control centre, audit log, staff oversight; approvals; blocklist. No administration of the system: no permission panel, accounts of officials, role changes, settings or system health (D-187) |
 | PM — Program Manager | Creates and configures projects in own program (components, forms, budget, deadlines, rules), assigns areas and RPMs, program dashboard; final approval in house construction; closes and reopens projects; SOP proposals, criteria and completion reports |
 | RPM — Regional Program Manager | Full access to projects in own region; adds volunteers, paid volunteers and local দায়ী; brings and finally approves applications; application transfer; grants permissions to own team; collects and submits field documents |
 | Project Executive | Reviews, verifies and edits applications, passes them to RPM; may bring applications from the field (house construction); approves volunteer registrations and edit requests |
@@ -178,7 +181,7 @@ Volunteer types (one registration form, type chosen there)
 | Team Member | Registered with the main volunteer's NID as reference; can only create applications; the main volunteer submits them |
 | Paid Volunteer | Marked by RPM on a project; posts construction/work progress with photos and raises issues; views applications, no edit |
 
-Data scopes (permission = role × scope): GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT / UPAZILA / UNION, ASSIGNED, SELF. Defaults are in the blueprint's permission matrix (A৪); the permission panel lets Department Head or Monitoring Team grant or revoke any permission for anyone, every change audited. The same person may hold different permission sets on different projects.
+Data scopes (permission = role × scope): GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT / UPAZILA / UNION, ASSIGNED, SELF. Defaults are in the blueprint's permission matrix (A৪); the permission panel lets an Admin or the Department Head grant or revoke permissions, every change audited; the key (administration) permissions are granted by an Admin only, and nobody grants to themselves (D-187). The same person may hold different permission sets on different projects.
 
 Field-level protection: NID numbers and NID photos, bank details, ratings, categories, donor data and the official section of forms are visible to officials only, never to volunteers, in exports as well as screens.
 
