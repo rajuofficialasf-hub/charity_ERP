@@ -180,31 +180,36 @@ describe('the program choices', () => {
 });
 
 describe('who decides', () => {
-  it('is the Department Head or the Monitoring Team: an RPM and an Executive are refused', async () => {
+  it('is an Admin or the Department Head: the Monitoring Team, an RPM and an Executive are refused', async () => {
     const asking = await official();
     const created = await ask(asking.session, { field: 'designation', newValue: 'নতুন' });
-    for (const role of ['regional_program_manager', 'project_executive', 'program_manager']) {
+    for (const role of [
+      'monitoring_team',
+      'regional_program_manager',
+      'project_executive',
+      'program_manager',
+    ]) {
       const other = await official(role);
       expect((await waiting(other.session)).status, role).toBe(403);
       expect(
         (await decide(other.session, created.body.data.id, { decision: 'approve' })).status,
       ).toBe(403);
     }
-    const monitoring = await official('monitoring_team');
+    const admin = await official('admin');
     expect(
-      (await decide(monitoring.session, created.body.data.id, { decision: 'approve' })).status,
+      (await decide(admin.session, created.body.data.id, { decision: 'approve' })).status,
     ).toBe(200);
   });
 
-  it("never the person who asked: the Head's own request waits for the Monitoring Team", async () => {
+  it("never the person who asked: the Head's own request waits for an Admin", async () => {
     const own = await official('department_head');
     const created = await ask(own.session, { field: 'designation', newValue: 'বিভাগীয় প্রধান' });
     expect(created.status).toBe(201);
     const refused = await decide(own.session, created.body.data.id, { decision: 'approve' });
     expect(refused.status).toBe(403);
-    const monitoring = await official('monitoring_team');
+    const admin = await official('admin');
     expect(
-      (await decide(monitoring.session, created.body.data.id, { decision: 'approve' })).status,
+      (await decide(admin.session, created.body.data.id, { decision: 'approve' })).status,
     ).toBe(200);
   });
 

@@ -173,7 +173,9 @@ describe('the handover of an official', () => {
 
   it('completes only without outstanding items; then the state change deactivates', async () => {
     const { leaving, target } = await leavingRpm();
-    const monitoring = await as(world.users.monitoring);
+    // the handover is the administration's: the Monitoring Team is refused
+    expect((await complete(await as(world.users.monitoring), leaving.id)).status).toBe(403);
+    const monitoring = await as(world.users.admin);
     const early = await complete(monitoring, leaving.id);
     expect(early.status).toBe(409);
     expect(early.body.error.code).toBe('handover.items_outstanding');
@@ -211,12 +213,12 @@ describe('the handover of an official', () => {
       await h.db.query(`SELECT action FROM audit_log WHERE entity_id = $1`, [leaving.id])
     ).rows.map((r) => r.action as string);
     expect(actions).toContain('auth.handover_completed');
-    // the Department Head is told how much was handed over; the Monitoring Team member who acted is not
+    // the Department Head is told how much was handed over; the Admin who acted is not
     const headTold = (await notificationsOf(h.db, 'handover_completed', world.users.head)).filter(
       (n) => n.params.count === 2,
     );
     expect(headTold.length).toBeGreaterThan(0);
-    expect(await notificationsOf(h.db, 'handover_completed', world.users.monitoring)).toEqual([]);
+    expect(await notificationsOf(h.db, 'handover_completed', world.users.admin)).toEqual([]);
   });
 
   it('a project staff row moves to an official holding the same role', async () => {

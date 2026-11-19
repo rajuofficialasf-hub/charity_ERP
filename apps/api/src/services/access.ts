@@ -5,7 +5,13 @@ import type {
   ScopeTypeName,
 } from '@css/shared/access';
 import { uuidv7 } from '@css/shared';
-import { type EffectiveGrant, effectiveAccess, loadAccessFacts } from '../access/effective.js';
+import {
+  ADMIN_ROLE,
+  type EffectiveGrant,
+  effectiveAccess,
+  loadAccessFacts,
+  OWNER_TRANSFER,
+} from '../access/effective.js';
 import type { Scope } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
@@ -19,13 +25,12 @@ import type { ProjectEvents } from '../notifications/project-events.js';
 
 /** Rules of `permission.grant_refused` (docs/security/RBAC.md, "Permission panel"). */
 export type RefusalRule =
-  | 'owner_transfer_only_head'
+  | 'owner_transfer_only_admin'
   | 'global_scope_protected'
   | 'sensitive_to_volunteer'
   | 'not_held_by_granter'
   | 'not_rpm_grantable';
 
-const OWNER_TRANSFER = 'system.owner.transfer';
 const IF_RPM_GRANTS = 'if_rpm_grants';
 /**
  * The location level a scope reference must have (the location levels of
@@ -139,8 +144,8 @@ export class AccessPanelService {
   }
 
   /**
-   * The hard rules shared by the panel and project grants: the owner transfer only for the
-   * Department Head, no removal of the GLOBAL scope of a global role, and no sensitive permission
+   * The hard rules shared by the panel and project grants: the owner transfer only for an
+   * Admin, no removal of the GLOBAL scope of a global role, and no sensitive permission
    * for a volunteer, whatever the catalogue says.
    */
   private refusal(
@@ -150,9 +155,9 @@ export class AccessPanelService {
     if (
       change.effect === 'grant' &&
       change.permission === OWNER_TRANSFER &&
-      !target.roles.includes('department_head')
+      !target.roles.includes(ADMIN_ROLE)
     )
-      return 'owner_transfer_only_head';
+      return 'owner_transfer_only_admin';
     const globalRole = target.roles.some((r) => this.registry.roles.get(r)?.globalScope);
     if (change.effect === 'revoke' && change.scopeType === 'GLOBAL' && globalRole)
       return 'global_scope_protected';

@@ -195,23 +195,29 @@ describe('grant and revoke', () => {
 
 describe('refusals', () => {
   const refused = async (body: Record<string, unknown>, rule: string, target: string) => {
-    const monitoring = await as(world.users.monitoring);
+    const head = await as(world.users.head);
     const before = (await audits(target, 'permission_change_refused')).length;
     const res = await api()
       .post('/api/v1/permission-grants')
-      .set(bearer(monitoring))
+      .set(bearer(head))
       .send({ effect: 'grant', scopeType: 'GLOBAL', reason: REASON, userId: target, ...body })
       .expect(403);
     expect(res.body.error).toMatchObject({ code: 'permission.grant_refused', params: { rule } });
     expect(await audits(target, 'permission_change_refused')).toHaveLength(before + 1);
   };
 
-  it('refuses the owner transfer to anyone but the Department Head', async () => {
-    await refused(
-      { permission: 'system.owner.transfer' },
-      'owner_transfer_only_head',
-      world.users.monitoring,
-    );
+  it('refuses the owner transfer to anyone but an Admin', async () => {
+    for (const target of [world.users.monitoring, world.users.pm])
+      await refused({ permission: 'system.owner.transfer' }, 'owner_transfer_only_admin', target);
+  });
+
+  it('refuses the Monitoring Team the panel itself', async () => {
+    const monitoring = await as(world.users.monitoring);
+    const res = await grant(monitoring, {
+      userId: world.users.pm,
+      permission: 'permission.view',
+    }).expect(403);
+    expect(res.body.error.code).toBe('permission.denied');
   });
 
   it('refuses to remove the GLOBAL scope of the Monitoring Team', async () => {
@@ -233,8 +239,8 @@ describe('refusals', () => {
   it('answers 409 for any change that targets the Main Admin, before every other rule', async () => {
     // a Main Admin of its own, so no other test depends on the flag (it cannot be unset)
     const owner = await account(h.db, { role: 'department_head' });
-    const monitoring = await as(world.users.monitoring);
-    const live = await grant(monitoring, {
+    const head = await as(world.users.head);
+    const live = await grant(head, {
       userId: owner.id,
       permission: 'form.library.manage',
     }).expect(201);
@@ -246,7 +252,7 @@ describe('refusals', () => {
     ]) {
       const res = await api()
         .post('/api/v1/permission-grants')
-        .set(bearer(monitoring))
+        .set(bearer(head))
         .send({
           effect: 'grant',
           scopeType: 'GLOBAL',
@@ -260,7 +266,7 @@ describe('refusals', () => {
     // ending a grant of the Main Admin is refused too, and the grant stays live
     const end = await api()
       .post(`/api/v1/permission-grants/${live.body.data.id}/revoke`)
-      .set(bearer(monitoring))
+      .set(bearer(head))
       .send({ reason: 'Trying to strip the owner' })
       .expect(409);
     expect(end.body.error.code).toBe('user.system_owner_protected');

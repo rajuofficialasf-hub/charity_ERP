@@ -91,12 +91,17 @@ describe('effective permissions from the database', () => {
     );
   });
 
-  it('gives the Department Head the owner transfer and the Monitoring Team everything else', async () => {
-    const head = new Set((await grantsOf(world.users.head)).map((g) => g.permission));
-    const monitoring = new Set((await grantsOf(world.users.monitoring)).map((g) => g.permission));
-    expect(head).toContain('system.owner.transfer');
+  it('gives an Admin the owner transfer, the Head the rest, and the Monitoring Team no administration', async () => {
+    const of = async (userId: string) => new Set((await grantsOf(userId)).map((g) => g.permission));
+    const admin = await of(world.users.admin);
+    const head = await of(world.users.head);
+    const monitoring = await of(world.users.monitoring);
+    expect(admin).toContain('system.owner.transfer');
+    expect(head).not.toContain('system.owner.transfer');
+    expect(head).toContain('permission.panel.manage');
     expect(monitoring).not.toContain('system.owner.transfer');
-    expect(monitoring).toContain('permission.panel.manage');
+    expect(monitoring).not.toContain('permission.panel.manage');
+    expect(monitoring).toContain('audit.view');
   });
 
   it('applies a panel revoke and ignores revoked or expired overrides', async () => {

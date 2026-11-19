@@ -67,7 +67,7 @@ describe('the settings page', () => {
   });
 
   it('changes a threshold with an audit entry holding the old and the new value', async () => {
-    const monitoring = await as(world.users.monitoring);
+    const monitoring = await as(world.users.admin);
     const res = await patchSetting(monitoring, 'monitoring.thresholds', {
       ...thresholds,
       reviewPendingDays: 8,
@@ -113,8 +113,13 @@ describe('the settings page', () => {
     expect((await patchSetting(head, 'seed.marker.base', {})).status).toBe(404);
   });
 
-  it('refuses a PM, an RPM and a volunteer, reading and writing', async () => {
-    for (const userId of [world.users.pm, world.users.rpmDhaka, world.users.general]) {
+  it('refuses the Monitoring Team, a PM, an RPM and a volunteer, reading and writing', async () => {
+    for (const userId of [
+      world.users.monitoring,
+      world.users.pm,
+      world.users.rpmDhaka,
+      world.users.general,
+    ]) {
       const s = await as(userId);
       expect((await api().get('/api/v1/settings').set(bearer(s))).status).toBe(403);
       expect((await patchSetting(s, 'monitoring.thresholds', thresholds)).status).toBe(403);

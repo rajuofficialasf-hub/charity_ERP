@@ -171,8 +171,8 @@ describe('base set', () => {
         // the code-point order of the database's "C" collation, so '.' and '_' sort alike on both sides
         .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
     );
-    expect(roles).toHaveLength(16);
-    expect(permissions).toHaveLength(159);
+    expect(roles).toHaveLength(17);
+    expect(permissions).toHaveLength(160);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {

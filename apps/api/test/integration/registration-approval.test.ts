@@ -510,9 +510,14 @@ describe('staff registrations', () => {
   const decide = (s: Session, userId: string, body: object) =>
     api().post(`/api/v1/staff-registrations/${userId}/decision`).set(bearer(s)).send(body);
 
-  it('the Monitoring Team approves with a role; the account becomes active', async () => {
+  it('an Admin approves with a role; the account becomes active, and the Monitoring Team is refused', async () => {
     const staff = await registerStaff();
-    const monitoring = await as(world.users.monitoring);
+    const refused = await decide(await as(world.users.monitoring), staff.userId, {
+      decision: 'approve',
+      roleKey: 'project_executive',
+    });
+    expect(refused.status).toBe(403);
+    const monitoring = await as(world.users.admin);
     const res = await decide(monitoring, staff.userId, {
       decision: 'approve',
       roleKey: 'project_executive',

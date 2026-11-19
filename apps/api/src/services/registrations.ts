@@ -7,6 +7,7 @@ import {
   type RegistrationCorrectionCreate,
   type StaffDecision,
 } from '@css/shared/registration';
+import { ADMIN_ROLE, HEAD_ROLE } from '../access/effective.js';
 import type { AccessRegistry } from '../access/registry.js';
 import { type Scope, volunteerWhere } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
@@ -46,10 +47,10 @@ export const UNFINISHED = ['open', 'submitted'];
 const MAX_REFUSED_ANSWERS = 10;
 const REFUSAL_WINDOW_MS = 3_600_000;
 /**
- * Roles a staff decision or a new account may not give: the Main Admin's role
- * (docs/architecture/AUTH.md, "Main Admin protection").
+ * Roles a staff decision or a new account may not give: an Admin and the Department Head are
+ * made by an Admin through a role change (docs/security/RBAC.md, "Roles").
  */
-const NOT_BY_DECISION = new Set(['department_head']);
+const NOT_BY_DECISION = new Set<string>([ADMIN_ROLE, HEAD_ROLE]);
 
 /** An official role that a staff decision or the admin's new account may give. */
 export function isGivableOfficialRole(registry: AccessRegistry, roleKey: string): boolean {

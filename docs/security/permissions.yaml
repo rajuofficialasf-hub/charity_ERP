@@ -33,6 +33,7 @@ conditions:
   no_open_applications: "Only when the target volunteer has no open applications (O-25)"
 
 roles:
+  admin: { name_en: Admin, name_bn: "অ্যাডমিন", kind: official, global_scope: true }
   department_head: { name_en: Department Head, name_bn: "ডিপার্টমেন্ট হেড", kind: official, global_scope: true }
   monitoring_team: { name_en: Monitoring Team, name_bn: "মনিটরিং টিম", kind: official, global_scope: true }
   program_manager: { name_en: Program Manager, name_bn: "প্রোগ্রাম ম্যানেজার", kind: official, global_scope: false }
@@ -92,7 +93,7 @@ permission_sets:
       - session.revoke_own
 
 # Protected field classes. visible_to lists the roles that may receive the field on screens and in exports.
-# global_scope roles (department_head, monitoring_team) are always included.
+# global_scope roles (admin, department_head, monitoring_team) are always included.
 sensitive_fields:
   - key: beneficiary.nid
     fields: [beneficiaries.nid, beneficiaries.birth_reg, "files where kind = nid_photo (beneficiary)", "hasDocument (whether an NID or a birth registration number is on file; told with the class alone, the numbers themselves only inside the beneficiary.view_nid scope; D-172)"]
@@ -178,26 +179,31 @@ permissions:
     sensitive: false
     default:
       - { role: regional_program_manager, scope: REGION, condition: own_region }   # volunteers in own region (O-25)
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: user.state.change
     description: Change an account state (pending/active/blocked/deactivated) with reason; blocklist uses volunteer.block
     module: M01
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: user.lock.clear
     description: Clear a login lock (5 failed attempts) on a user's account with reason (O-59, AUTH.md 6)
     module: M01
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: user.create
     description: Create an official's account with job ID, role and place, and send or renew its set-password link (D-097)
     module: M01
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: user.profile.manage
     description: Edit an official's job ID, name, designation, affiliation, program, division and supervisor (D-097)
     module: M01
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: user.deactivate_volunteer
     description: Deactivate a volunteer who has no open applications
     module: M03
@@ -210,13 +216,14 @@ permissions:
     module: M03
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: system.owner.transfer
-    description: Transfer the Main Admin (system owner) flag to another official
+    description: Hand the Main Admin (system owner) flag to another Admin; the Main Admin's own act (D-187)
     module: M01
     sensitive: false
     default:
-      - { role: department_head, scope: GLOBAL }
-    global_roles_excluded: [monitoring_team]
+      - { role: admin, scope: GLOBAL }
+    global_roles_excluded: [monitoring_team, department_head]
 
   # ---- M02 Users, Roles & Permissions --------------------------------------------------------------
   - name: permission.panel.manage
@@ -224,6 +231,13 @@ permissions:
     module: M02
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
+  - name: user.role.change
+    description: Change an official's role with a reason, after the handover of the old role's work (D-187)
+    module: M02
+    sensitive: false
+    default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: permission.view
     description: View a user's effective permissions
     module: M02
@@ -267,6 +281,7 @@ permissions:
     module: M03
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: edit_request.approve
     description: Approve a volunteer's profile edit request and open the field
     module: M03
@@ -303,6 +318,7 @@ permissions:
     module: M03
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
 
   # ---- M04 Volunteer Management --------------------------------------------------------------------
   - name: volunteer.view_all
@@ -1274,6 +1290,7 @@ permissions:
     module: M17
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
 
   - name: notification.delivery.view
     description: See the delivery state of outbound emails and SMS (addresses partly hidden; never an OTP)
@@ -1361,6 +1378,7 @@ permissions:
     module: M19
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
 
   # ---- M21 Admin & Settings ------------------------------------------------------------------------
   - name: settings.manage
@@ -1368,6 +1386,7 @@ permissions:
     module: M21
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: nisab.set
     description: Add a nisab version
     module: M21
@@ -1379,16 +1398,19 @@ permissions:
     module: M21
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: provider.settings.manage
     description: See the SMTP settings and configure the SMS provider adapter (secrets stay in the environment)
     module: M21
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: system.health.view
     description: See the system health page (database, storage, queue, dummy OTP, audit partitions, storage growth)
     module: M21
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
   - name: template.checklist.manage
     description: Edit document checklist templates
     module: M21
@@ -1402,6 +1424,7 @@ permissions:
     module: M20
     sensitive: false
     default: []
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-187)
 
   # ---- M22 Offline Sync ----------------------------------------------------------------------------
   - name: sync.batch

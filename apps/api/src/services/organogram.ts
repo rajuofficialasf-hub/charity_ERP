@@ -1,3 +1,4 @@
+import { ADMIN_ROLE, HEAD_ROLE } from '../access/effective.js';
 import type { Scope } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
 import { type PrismaService } from '../core/prisma.service.js';
@@ -33,7 +34,8 @@ export interface Organogram {
 
 /** The order of officials under one another: the PM first, then the RPMs, then field staff. */
 const ROLE_RANK = new Map<string, number>([
-  ['department_head', 0],
+  [ADMIN_ROLE, -1],
+  [HEAD_ROLE, 0],
   ['monitoring_team', 1],
   ['program_manager', 2],
   ['media_director', 2],

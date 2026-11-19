@@ -99,8 +99,8 @@ const KEEPERS = [
     freedOther: 'ইব্রাহীমু',
   },
   {
-    role: 'the Monitoring Team',
-    user: () => world.users.monitoring,
+    role: 'an Admin',
+    user: () => world.users.admin,
     first: 'ইউসুফ',
     others: ['ইউসূফ', 'ইয়ুসুফ'],
     swap: ['ইউসূফ', 'ইউছুফ'],
@@ -196,7 +196,7 @@ describe('two officials change one group', () => {
 
   it('refuses the second save made from the same read, and takes a save after a fresh read', async () => {
     const head = await as(world.users.head);
-    const monitoring = await as(world.users.monitoring);
+    const monitoring = await as(world.users.admin);
     expect((await add(head, { canonical: 'ইসমাইল', variants: ['ইসমাঈল'] })).status).toBe(201);
     // both open the page and read the group at one version
     const seenByHead = await read(head);

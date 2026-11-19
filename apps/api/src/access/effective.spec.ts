@@ -29,15 +29,58 @@ const on = (grants: EffectiveGrant[], projectId: string) =>
 
 // Effective permissions from their four sources (docs/security/RBAC.md, "Model").
 describe('effective permissions', () => {
-  it('gives GLOBAL roles every permission at GLOBAL, except system.owner.transfer for the Monitoring Team', () => {
+  it('gives an Admin every permission at GLOBAL, and the Department Head all but the owner transfer', () => {
+    const admin = effectivePermissions(registry, facts({ roles: ['admin'] }), NOW);
     const head = effectivePermissions(registry, facts({ roles: ['department_head'] }), NOW);
+    const all = registry.permissions.size;
+    expect(names(admin).size).toBe(all);
+    const globalOnes = admin.filter((g) => g.scopeType === 'GLOBAL' && g.source === 'global_role');
+    expect(new Set(globalOnes.map((g) => g.permission)).size).toBe(all);
+    expect(names(admin)).toContain('system.owner.transfer');
+    expect(names(admin)).toContain('user.role.change');
+    expect(names(head)).not.toContain('system.owner.transfer');
+    expect(names(head).size).toBe(all - 1);
+    expect(names(head)).toContain('user.role.change');
+    expect(names(head)).toContain('permission.panel.manage');
+  });
+
+  it('leaves the Monitoring Team the oversight and none of the administration', () => {
     const monitoring = effectivePermissions(registry, facts({ roles: ['monitoring_team'] }), NOW);
-    expect(names(head).size).toBe(159);
-    const globalOnes = head.filter((g) => g.scopeType === 'GLOBAL' && g.source === 'global_role');
-    expect(new Set(globalOnes.map((g) => g.permission)).size).toBe(159);
-    expect(names(head)).toContain('system.owner.transfer');
-    expect(names(monitoring)).not.toContain('system.owner.transfer');
-    expect(names(monitoring).size).toBe(158);
+    const moved = [
+      'user.create',
+      'user.profile.manage',
+      'user.state.change',
+      'user.lock.clear',
+      'session.revoke_user',
+      'user.handover',
+      'permission.panel.manage',
+      'user.role.change',
+      'system.owner.transfer',
+      'staff.registration.approve',
+      'staff_edit_request.approve',
+      'settings.manage',
+      'holiday.manage',
+      'provider.settings.manage',
+      'system.health.view',
+      'notification.template.manage',
+      'location.manage',
+      'i18n.manage',
+    ];
+    for (const permission of moved) expect(names(monitoring), permission).not.toContain(permission);
+    expect(names(monitoring).size).toBe(registry.permissions.size - moved.length);
+    for (const kept of [
+      'permission.view',
+      'audit.view',
+      'audit.export',
+      'monitoring.view',
+      'volunteer.block',
+      'beneficiary.merge.revert',
+      'registration.approve',
+      'nisab.set',
+      'application.approve',
+      'beneficiary.view_all',
+    ])
+      expect(names(monitoring), kept).toContain(kept);
   });
 
   it('keeps role defaults with their scope and condition, and leaves out if_rpm_grants defaults', () => {
@@ -84,12 +127,13 @@ describe('effective permissions', () => {
         .map((g) => [g.scopeType, g.source, g.condition ?? null]);
     for (const role of ['program_manager', 'regional_program_manager', 'project_executive'])
       expect(overview(role), role).toEqual([['GLOBAL', 'role_default', null]]);
-    for (const role of ['department_head', 'monitoring_team'])
+    for (const role of ['admin', 'department_head', 'monitoring_team'])
       expect(overview(role), role).toEqual([['GLOBAL', 'global_role', null]]);
     // default deny for every other role, official or volunteer
     for (const role of registry.roles.keys())
       if (
         ![
+          'admin',
           'department_head',
           'monitoring_team',
           'program_manager',
@@ -189,7 +233,7 @@ describe('effective permissions', () => {
     }
   });
 
-  it('gives the owner transfer only to a Department Head and never strips a Department Head', () => {
+  it('gives the owner transfer only to an Admin, and never strips an Admin or the Department Head', () => {
     const transfer = {
       id: 'o5',
       permission: 'system.owner.transfer',
@@ -199,18 +243,36 @@ describe('effective permissions', () => {
       condition: null,
       expiresAt: null,
     };
-    const monitoring = effectivePermissions(
+    // a stray grant row gives the transfer to nobody but an Admin
+    for (const role of ['monitoring_team', 'department_head']) {
+      const granted = effectivePermissions(
+        registry,
+        facts({ roles: [role], overrides: [transfer] }),
+        NOW,
+      );
+      expect(names(granted), role).not.toContain('system.owner.transfer');
+    }
+    // a stray revoke row strips neither an Admin nor the Head
+    const revoke = (permission: string) => ({ ...transfer, permission, effect: 'revoke' as const });
+    const admin = effectivePermissions(
       registry,
-      facts({ roles: ['monitoring_team'], overrides: [transfer] }),
+      facts({ roles: ['admin'], overrides: [revoke('system.owner.transfer')] }),
       NOW,
     );
-    expect(names(monitoring)).not.toContain('system.owner.transfer');
+    expect(names(admin)).toContain('system.owner.transfer');
     const head = effectivePermissions(
       registry,
-      facts({ roles: ['department_head'], overrides: [{ ...transfer, effect: 'revoke' }] }),
+      facts({ roles: ['department_head'], overrides: [revoke('permission.panel.manage')] }),
       NOW,
     );
-    expect(names(head)).toContain('system.owner.transfer');
+    expect(names(head)).toContain('permission.panel.manage');
+    // the Monitoring Team is no top role: a revoke takes effect
+    const monitoring = effectivePermissions(
+      registry,
+      facts({ roles: ['monitoring_team'], overrides: [revoke('audit.view')] }),
+      NOW,
+    );
+    expect(names(monitoring)).not.toContain('audit.view');
   });
 
   it('binds permission sets to their project, so two projects give different permissions', () => {

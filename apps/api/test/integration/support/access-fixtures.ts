@@ -63,6 +63,7 @@ export async function accessWorld(db: Client, makers: Partial<AccountMakers> = {
   const a2 = await project(db, { program_id: a1.program });
   const b1 = await project(db);
 
+  const admin = await staffUser('admin');
   const head = await staffUser('department_head');
   const monitoring = await staffUser('monitoring_team');
   const pm = await staffUser('program_manager');
@@ -122,6 +123,7 @@ export async function accessWorld(db: Client, makers: Partial<AccountMakers> = {
     a2,
     b1,
     users: {
+      admin,
       head,
       monitoring,
       pm,

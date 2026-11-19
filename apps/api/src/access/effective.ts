@@ -42,7 +42,14 @@ export interface AccessFacts {
 }
 
 export const IF_RPM_GRANTS = 'if_rpm_grants';
-const OWNER_TRANSFER = 'system.owner.transfer';
+export const OWNER_TRANSFER = 'system.owner.transfer';
+/** The role that maintains the system; the Main Admin is one of its holders. */
+export const ADMIN_ROLE = 'admin';
+/** The head of the department, appointed by an Admin. */
+export const HEAD_ROLE = 'department_head';
+/** Whether the roles include one no panel revoke may strip: an Admin or the Department Head. */
+export const isTopRole = (roles: readonly string[]) =>
+  roles.includes(ADMIN_ROLE) || roles.includes(HEAD_ROLE);
 
 const sameGrant = (g: EffectiveGrant) =>
   [g.permission, g.scopeType, g.scopeRef, g.condition, g.source, g.projectId].join('|');
@@ -205,16 +212,17 @@ export function effectiveAccess(
         grantId: o.id,
       });
   // Hard rules kept here too so a stray row cannot break them (docs/security/RBAC.md, "Permission
-  // panel" and "Special cases"): revokes never strip the Department Head (Main Admin); only the
-  // Department Head holds the owner transfer; volunteers never hold a sensitive permission.
-  const head = facts.roles.includes('department_head');
-  const revocations = head ? [] : live.filter((o) => o.effect === 'revoke');
+  // panel" and "Special cases"): revokes never strip an Admin or the Department Head; only an
+  // Admin holds the owner transfer; volunteers never hold a sensitive permission.
+  const admin = facts.roles.includes(ADMIN_ROLE);
+  const top = isTopRole(facts.roles);
+  const revocations = top ? [] : live.filter((o) => o.effect === 'revoke');
   const official = facts.roles.some((r) => registry.roles.get(r)?.kind === 'official');
   return {
     grants: [...grants.values()].filter(
       (g) =>
         !revocations.some((r) => revokes(r, g)) &&
-        (g.permission !== OWNER_TRANSFER || head) &&
+        (g.permission !== OWNER_TRANSFER || admin) &&
         (official || !registry.permissions.get(g.permission)?.sensitive),
     ),
     instanceRevokes: revocations.filter((r) => r.scopeRef !== null && r.scopeType !== 'GLOBAL'),

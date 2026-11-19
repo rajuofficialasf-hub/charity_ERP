@@ -29,6 +29,7 @@ export class TestClock {
 export const PASSWORD = 'Nadi kul 2026';
 
 const ROLES = [
+  { key: 'admin', kind: 'official', global: true },
   { key: 'department_head', kind: 'official', global: true },
   { key: 'monitoring_team', kind: 'official', global: true },
   { key: 'program_manager', kind: 'official', global: false },

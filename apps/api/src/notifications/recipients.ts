@@ -1,3 +1,4 @@
+import { ADMIN_ROLE, HEAD_ROLE } from '../access/effective.js';
 import type { AccessRegistry } from '../access/registry.js';
 import type { AccessService, RecordTarget } from '../access/service.js';
 import type { Clock } from '../core/clock.js';
@@ -44,8 +45,8 @@ export interface Recipient {
   email: string | null;
 }
 
-/** The roles of the Department Head and the Monitoring Team. */
-export const MONITORING: readonly string[] = ['department_head', 'monitoring_team'];
+/** The roles told of what the whole department must know: the Admins, the Department Head and the Monitoring Team. */
+export const MONITORING: readonly string[] = [ADMIN_ROLE, HEAD_ROLE, 'monitoring_team'];
 
 const SELECT = { id: true, kind: true, language: true, email: true } as const;
 
