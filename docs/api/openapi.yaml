@@ -3543,8 +3543,11 @@ components:
           description: >-
             The placed form becomes the project's one application form: the published version of
             every other form of the kind is retired (never deleted), the application form
-            component and a public link name the new form, and the audit names the forms retired.
-            Only while the project is a draft; otherwise 409 form.replace_draft_only.
+            component names the new form, a public link that opened a retired form is switched
+            off (it opens again through its own route), and the audit names the forms retired and
+            the link switched off. Only while the project is a draft (otherwise 409
+            form.replace_draft_only) and only for a ready application form (otherwise 422
+            form.replace_not_application).
     FormList:
       type: object
       required: [data, meta]

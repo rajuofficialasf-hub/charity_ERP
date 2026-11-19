@@ -1,4 +1,5 @@
 import { uuidv7 } from '@css/shared';
+import { z } from 'zod';
 import {
   blankDefinition,
   type FormDefinition,
@@ -180,6 +181,9 @@ export class ReadyFormsService {
         select: { key: true, kind: true, titleBn: true, titleEn: true },
       });
       if (!source) throw new ApiError('permission.not_found', 404);
+      // only an application form takes the place of the project's application form
+      if (body.replace && source.kind !== 'beneficiary_application')
+        throw new ApiError('form.replace_not_application', 422);
       const published = await this.publishedOf(tx, body.readyFormId, 'form.nothing_published', 422);
       const key = body.key ?? (await freeKey(tx, projectId, source.key));
       const taken = await tx.form.findFirst({ where: { projectId, key }, select: { id: true } });
@@ -202,9 +206,9 @@ export class ReadyFormsService {
         }),
       );
       const versionId = await this.copyPublished(tx, formId, 1, published.id, actor);
-      const replacedFormIds = body.replace
+      const replaced = body.replace
         ? await retireApplicationForms(tx, projectId, formId, actor)
-        : [];
+        : { ids: [], linkOff: false };
       await nameFormOnComponent(tx, projectId, formId, actor);
       await this.audit.record(tx, {
         action: 'form.place',
@@ -216,7 +220,8 @@ export class ReadyFormsService {
           readyFormId: body.readyFormId,
           versionNo: published.versionNo,
           versionId,
-          ...(replacedFormIds.length ? { replacedFormIds } : {}),
+          ...(replaced.ids.length ? { replacedFormIds: replaced.ids } : {}),
+          ...(replaced.linkOff ? { publicLinkOff: true } : {}),
         },
       });
       return formView(
@@ -359,17 +364,22 @@ function withoutIdentityMarks(definition: FormDefinition): FormDefinition {
   };
 }
 
+/** A component's settings as far as the forms it names go; every other setting is kept. */
+const FORM_IDS = z.looseObject({ form_ids: z.array(z.string()).optional() });
+
 /**
  * Leaves `keep` the project's one application form: the published version of every other form of
- * the kind is retired (one way, never deleted), the application form component forgets them and a
- * public link that opened one of them opens `keep`. Returns the forms retired.
+ * the kind is retired (one way, never deleted) and the application form component forgets them.
+ * A public link that opened one of them is switched off, as its own switch turns it off: opening
+ * it on the new form belongs to the link's own route, with its permission and its check that the
+ * public can fill the form. Returns the forms retired and whether the link went off.
  */
 async function retireApplicationForms(
   tx: Tx,
   projectId: string,
   keep: string,
   actor: string,
-): Promise<string[]> {
+): Promise<{ ids: string[]; linkOff: boolean }> {
   const others = await tx.form.findMany({
     where: {
       projectId,
@@ -380,7 +390,7 @@ async function retireApplicationForms(
     select: { id: true },
   });
   const ids = others.map((f) => f.id);
-  if (!ids.length) return ids;
+  if (!ids.length) return { ids, linkOff: false };
   await tx.formVersion.updateMany({
     where: { formId: { in: ids }, status: 'published' },
     data: { status: 'retired', updatedBy: actor },
@@ -389,21 +399,28 @@ async function retireApplicationForms(
     where: { projectId, componentKey: { in: ['application_form', 'public_link'] } },
     select: { componentKey: true, settings: true },
   });
+  let linkOff = false;
   for (const c of components) {
-    const settings =
-      c.settings && typeof c.settings === 'object' && !Array.isArray(c.settings)
-        ? (c.settings as Record<string, unknown>)
-        : {};
-    if (!Array.isArray(settings.form_ids)) continue;
-    const listed = settings.form_ids.filter((x): x is string => typeof x === 'string');
-    const kept = listed.filter((id) => !ids.includes(id));
-    // the public link moves to the new form; the component of the form names it on the place
-    const next =
-      c.componentKey === 'public_link' && kept.length < listed.length ? [keep, ...kept] : kept;
-    await tx.projectComponent.update({
-      where: { projectId_componentKey: { projectId, componentKey: c.componentKey } },
-      data: { settings: { ...settings, form_ids: next }, updatedBy: actor },
-    });
+    const parsed = FORM_IDS.safeParse(c.settings);
+    if (!parsed.success || !parsed.data.form_ids) continue;
+    const listed = parsed.data.form_ids;
+    if (!listed.some((id) => ids.includes(id))) continue;
+    const where = { projectId_componentKey: { projectId, componentKey: c.componentKey } };
+    if (c.componentKey === 'public_link') {
+      linkOff = true;
+      await tx.projectComponent.update({
+        where,
+        data: { enabled: false, settings: { enabled: false }, updatedBy: actor },
+      });
+    } else {
+      await tx.projectComponent.update({
+        where,
+        data: {
+          settings: { ...parsed.data, form_ids: listed.filter((id) => !ids.includes(id)) },
+          updatedBy: actor,
+        },
+      });
+    }
   }
-  return ids;
+  return { ids, linkOff };
 }

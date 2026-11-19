@@ -1,7 +1,7 @@
 ---
 title: The project's application form chosen from the ready forms in the setup
 type: feat
-status: in-progress
+status: done
 source: plan
 date: 2026-11-19
 ---
@@ -20,7 +20,7 @@ The owner, in chat on 2026-11-19: "আমি চাই আবেদন ফর্
 
 - **R1** The row of the component "আবেদন ফর্ম" in the setup's components step shows a dropdown "আবেদন ফর্ম" with the published ready forms of the kind "beneficiary application", each as "<title> (সংস্করণ <n>)".
 - **R2** With no application form on the project, choosing a ready form places its published version on the project (the existing place, its key `default`), and the dropdown then shows it as chosen.
-- **R3** With an application form already placed and the project a draft, choosing another asks to confirm ("আবেদন ফর্ম বদলাবেন?"), then places the new one and retires the old one's published version; the component and a public link that named the old form name the new one. Nothing is deleted; the old copy stays with its versions, retired.
+- **R3** With an application form already placed and the project a draft, choosing another asks to confirm ("আবেদন ফর্ম বদলাবেন?"), then places the new one and retires the old one's published version; the component names the new one, and a public link that opened the old form is switched off (it opens again only through its own route and checks). Nothing is deleted; the old copy stays with its versions, retired.
 - **R4** Once the project is not a draft the dropdown is read-only and shows the placed form's name; the server refuses a replacement with 409 `form.replace_draft_only`.
 - **R5** "ফর্ম বিল্ডার খুলুন" stays as a small link under the dropdown, to the project's forms page (own forms, a newer version of a placed form).
 - **R6** A project form the PM built in the builder (no ready-form source) shows in the dropdown as the current choice by its own title.

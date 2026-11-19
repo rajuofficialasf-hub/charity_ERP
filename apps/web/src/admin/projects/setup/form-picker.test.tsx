@@ -181,6 +181,54 @@ describe('the application form picker', () => {
     await waitFor(() => expect(sent).toEqual([{ readyFormId: IFTAR, replace: true }]));
   });
 
+  it('shows the server’s refusal and keeps the chosen form', async () => {
+    server.use(
+      http.post(`*/api/v1/projects/${PROJECT}/forms/place`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'form.replace_draft_only',
+              messageKey: 'errors.form.replace_draft_only',
+              message: 'প্রকল্প চালু হওয়ার পর আবেদন ফর্ম বদলানো যায় না।',
+              requestId: 'req_r',
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    open('draft', [placed(WINTER)]);
+    const select = await screen.findByRole('combobox', { name: 'আবেদন ফর্ম' });
+    await waitFor(() => expect(select).toHaveTextContent('শীতবস্ত্রের আবেদন (সংস্করণ 2)'));
+    await user.click(select);
+    await user.click(await screen.findByRole('option', { name: 'ইফতারের আবেদন (সংস্করণ 1)' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog', { name: 'আবেদন ফর্ম বদলাবেন?' })).getByRole(
+        'button',
+        { name: 'বদলান' },
+      ),
+    );
+    expect(
+      await screen.findByText('প্রকল্প চালু হওয়ার পর আবেদন ফর্ম বদলানো যায় না।'),
+    ).toBeInTheDocument();
+    expect(select).toHaveTextContent('শীতবস্ত্রের আবেদন (সংস্করণ 2)');
+  });
+
+  it('leaves the key to the server when an unpublished form already holds the default one', async () => {
+    const user = userEvent.setup();
+    open('draft', [
+      {
+        ...placed(null),
+        publishedVersionId: null,
+        draftVersionId: '01900000-0000-7000-8000-0000000000e3',
+      },
+    ]);
+    await user.click(await screen.findByRole('combobox', { name: 'আবেদন ফর্ম' }));
+    await user.click(await screen.findByRole('option', { name: 'ইফতারের আবেদন (সংস্করণ 1)' }));
+    await waitFor(() => expect(sent).toEqual([{ readyFormId: IFTAR }]));
+  });
+
   it('shows the form of a running project read-only', async () => {
     open('active', [placed(WINTER)]);
     expect(await screen.findByText('আবেদন ফর্ম: শীতবস্ত্রের আবেদন')).toBeInTheDocument();

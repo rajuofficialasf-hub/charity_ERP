@@ -1028,7 +1028,7 @@
         "current": "Application form: {title}",
         "unset": "No application form is chosen yet.",
         "confirm_title": "Change the application form?",
-        "confirm_text": "The new form becomes the project's application form and the old one is retired. It can be changed again until the project is activated.",
+        "confirm_text": "The new form becomes the project's application form and the old one is retired. A public link that is on goes off; open it again on the new form. It can be changed again until the project is activated.",
         "confirm": "Change"
       }
     },

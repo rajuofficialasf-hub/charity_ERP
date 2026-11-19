@@ -13,7 +13,8 @@ const OWN = 'own';
 
 /**
  * The application form of the project, chosen in the setup from the published ready application
- * forms (docs/DECISION_LOG.md, D-186): the first choice places it; while the project is a draft
+ * forms (docs/DECISION_LOG.md, the entry on choosing the application form in the setup): the
+ * first choice places it; while the project is a draft
  * another choice replaces it after a confirmation, the old copy retired by the server; once the
  * project runs the choice only shows. The project's forms page stays a small link for its own
  * forms and a newer version of a placed one.
@@ -46,12 +47,19 @@ export function ApplicationFormPicker({
     mutationFn: (readyFormId: string) =>
       placeForm(
         project.id,
-        current ? { readyFormId, replace: true } : { readyFormId, key: 'default' },
+        current
+          ? { readyFormId, replace: true }
+          : // the key `default` names the application form, unless an unpublished form holds it
+            forms?.some((f) => f.key === 'default')
+            ? { readyFormId }
+            : { readyFormId, key: 'default' },
       ),
     onSuccess: async () => {
       setAsking(null);
       await Promise.all([refresh(), queries.invalidateQueries({ queryKey: FORMS_KEY })]);
     },
+    // the refusal shows on the page, not behind the open question
+    onError: () => setAsking(null),
   });
   const value = current ? (current.sourceFormId ?? OWN) : '';
   const options = [
@@ -78,7 +86,8 @@ export function ApplicationFormPicker({
           value={value}
           onChange={choose}
           options={options}
-          disabled={place.isPending}
+          // the project's forms decide between a first place and a replacement, so they come first
+          disabled={place.isPending || forms === undefined}
           hint={ready.isSuccess && offered.length === 0 ? tp('none') : undefined}
         />
       ) : (
@@ -95,6 +104,7 @@ export function ApplicationFormPicker({
         title={tp('confirm_title')}
         message={tp('confirm_text')}
         confirmLabel={tp('confirm')}
+        pending={place.isPending}
         onConfirm={() => asking && place.mutate(asking)}
         onCancel={() => setAsking(null)}
       />
