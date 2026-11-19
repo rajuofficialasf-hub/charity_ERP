@@ -305,7 +305,7 @@ These change the constitution: `docs/MASTER_PROMPT.md` §5 makes the Department 
 ## Progress
 - **Branch:** `feat/admin-role-and-permissions`
 - **Updated:** 2026-11-19
-- **Next:** checkpoint C1 (review of U2), then U3: the migration that gives the system owner the admin role, the demo seed's Admin account and the fixtures
-- **Reviewed through:** none
+- **Next:** U3: the migration that gives the system owner the admin role, the demo seed's Admin account and the fixtures
+- **Reviewed through:** C1 at 85bb0b88
 - **Uncommitted:** none
 - **Notes:** the owner asked for two pull requests in spirit (U1 to U6 first, then the screens); the decision is D-187 (D-186 belongs to PR #72). A separate plan will follow for who sees which volunteers and beneficiaries (areas on an official's profile, the chain Executive, RPM, PM); it is not part of this plan and comes between the two pull requests.
