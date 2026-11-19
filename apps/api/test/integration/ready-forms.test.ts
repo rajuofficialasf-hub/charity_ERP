@@ -503,6 +503,100 @@ describe('the question library', () => {
   });
 });
 
+describe('replacing the application form of a draft', () => {
+  const placeAs = (s: Session, project: string, body: Record<string, unknown>) =>
+    at(s, 'post', `/projects/${project}/forms/place`).send(body);
+  /** The forms of a project whose published version is a beneficiary application. */
+  async function publishedApplicationForms(project: string) {
+    const { rows } = await h.db.query<{ id: string }>(
+      `SELECT f.id FROM forms f JOIN form_versions v ON v.form_id = f.id AND v.status = 'published'
+       WHERE f.project_id = $1 AND f.kind = 'beneficiary_application'`,
+      [project],
+    );
+    return rows.map((r) => r.id);
+  }
+  async function formIdsOf(project: string, component: string) {
+    const { rows } = await h.db.query<{ settings: { form_ids?: string[] } }>(
+      'SELECT settings FROM project_components WHERE project_id = $1 AND component_key = $2',
+      [project, component],
+    );
+    return rows[0]?.settings.form_ids;
+  }
+
+  it('retires the old copy, names the new one on the component and the public link, and audits the replaced form', async () => {
+    const pm = await as(world.users.pm);
+    const project = await draftProject();
+    const first = await placeAs(pm, project, {
+      readyFormId: (await publishedReady()).id,
+      key: 'default',
+    });
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    const old = first.body.data.id as string;
+    const link = await at(pm, 'patch', `/projects/${project}/public-link`).send({
+      enabled: true,
+      formId: old,
+    });
+    expect(link.status, JSON.stringify(link.body)).toBe(200);
+
+    const replaced = await placeAs(pm, project, {
+      readyFormId: (await publishedReady()).id,
+      replace: true,
+    });
+    expect(replaced.status, JSON.stringify(replaced.body)).toBe(201);
+    const fresh = replaced.body.data.id as string;
+    // the old copy stays, its published version retired; the project has one application form
+    const versions = await h.db.query<{ status: string }>(
+      'SELECT status FROM form_versions WHERE form_id = $1',
+      [old],
+    );
+    expect(versions.rows.map((r) => r.status)).toEqual(['retired']);
+    expect(await publishedApplicationForms(project)).toEqual([fresh]);
+    expect(await formIdsOf(project, 'application_form')).toEqual([fresh]);
+    expect(await formIdsOf(project, 'public_link')).toEqual([fresh]);
+    const [audit] = await auditRows(fresh, 'form.place');
+    expect(audit?.new).toMatchObject({ replacedFormIds: [old] });
+  });
+
+  it('refuses a replacement once the project is active, and changes nothing', async () => {
+    const pm = await as(world.users.pm);
+    const project = await draftProject();
+    const first = await placeAs(pm, project, {
+      readyFormId: (await publishedReady()).id,
+      key: 'default',
+    });
+    const old = first.body.data.id as string;
+    await h.db.query(`UPDATE projects SET status = 'active' WHERE id = $1`, [project]);
+    const refused = await placeAs(pm, project, {
+      readyFormId: (await publishedReady()).id,
+      replace: true,
+    });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('form.replace_draft_only');
+    expect(await publishedApplicationForms(project)).toEqual([old]);
+    expect(await formIdsOf(project, 'application_form')).toEqual([old]);
+  });
+
+  it('refuses a replacement by an RPM and on another program', async () => {
+    const ready = await publishedReady();
+    expect(
+      (
+        await placeAs(await as(world.users.pm), world.b1.id, {
+          readyFormId: ready.id,
+          replace: true,
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await placeAs(await as(world.users.rpmDhaka), world.a1.id, {
+          readyFormId: ready.id,
+          replace: true,
+        })
+      ).status,
+    ).toBe(403);
+  });
+});
+
 describe('a project that takes no more changes', () => {
   it('refuses the placement and the take, and writes nothing', async () => {
     const pm = await as(world.users.pm);

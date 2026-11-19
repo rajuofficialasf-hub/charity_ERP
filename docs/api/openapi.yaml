@@ -3538,6 +3538,13 @@ components:
       properties:
         readyFormId: { $ref: '#/components/schemas/Uuid' }
         key: { type: string, pattern: '^[a-z][a-z0-9_]*$', maxLength: 40, description: The key on the project; the ready form's key when absent }
+        replace:
+          type: boolean
+          description: >-
+            The placed form becomes the project's one application form: the published version of
+            every other form of the kind is retired (never deleted), the application form
+            component and a public link name the new form, and the audit names the forms retired.
+            Only while the project is a draft; otherwise 409 form.replace_draft_only.
     FormList:
       type: object
       required: [data, meta]

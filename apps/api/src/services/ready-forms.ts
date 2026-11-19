@@ -172,6 +172,9 @@ export class ReadyFormsService {
       const project = await this.projects.locked(tx, viewer, projectId);
       if (!editableIn(projectStatusOf(project.status), 'components'))
         throw new ApiError('project.read_only', 409);
+      // the application form is changed only before anyone could apply with the old one
+      if (body.replace && project.status !== 'draft')
+        throw new ApiError('form.replace_draft_only', 409);
       const source = await tx.form.findFirst({
         where: { id: body.readyFormId, ...READY },
         select: { key: true, kind: true, titleBn: true, titleEn: true },
@@ -199,6 +202,9 @@ export class ReadyFormsService {
         }),
       );
       const versionId = await this.copyPublished(tx, formId, 1, published.id, actor);
+      const replacedFormIds = body.replace
+        ? await retireApplicationForms(tx, projectId, formId, actor)
+        : [];
       await nameFormOnComponent(tx, projectId, formId, actor);
       await this.audit.record(tx, {
         action: 'form.place',
@@ -210,6 +216,7 @@ export class ReadyFormsService {
           readyFormId: body.readyFormId,
           versionNo: published.versionNo,
           versionId,
+          ...(replacedFormIds.length ? { replacedFormIds } : {}),
         },
       });
       return formView(
@@ -350,4 +357,53 @@ function withoutIdentityMarks(definition: FormDefinition): FormDefinition {
       fields: s.fields.map((f) => (identityRoleOf(f) ? { ...f, standardColumn: null } : f)),
     })),
   };
+}
+
+/**
+ * Leaves `keep` the project's one application form: the published version of every other form of
+ * the kind is retired (one way, never deleted), the application form component forgets them and a
+ * public link that opened one of them opens `keep`. Returns the forms retired.
+ */
+async function retireApplicationForms(
+  tx: Tx,
+  projectId: string,
+  keep: string,
+  actor: string,
+): Promise<string[]> {
+  const others = await tx.form.findMany({
+    where: {
+      projectId,
+      kind: 'beneficiary_application',
+      id: { not: keep },
+      formVersionsForm: { some: { status: 'published' } },
+    },
+    select: { id: true },
+  });
+  const ids = others.map((f) => f.id);
+  if (!ids.length) return ids;
+  await tx.formVersion.updateMany({
+    where: { formId: { in: ids }, status: 'published' },
+    data: { status: 'retired', updatedBy: actor },
+  });
+  const components = await tx.projectComponent.findMany({
+    where: { projectId, componentKey: { in: ['application_form', 'public_link'] } },
+    select: { componentKey: true, settings: true },
+  });
+  for (const c of components) {
+    const settings =
+      c.settings && typeof c.settings === 'object' && !Array.isArray(c.settings)
+        ? (c.settings as Record<string, unknown>)
+        : {};
+    if (!Array.isArray(settings.form_ids)) continue;
+    const listed = settings.form_ids.filter((x): x is string => typeof x === 'string');
+    const kept = listed.filter((id) => !ids.includes(id));
+    // the public link moves to the new form; the component of the form names it on the place
+    const next =
+      c.componentKey === 'public_link' && kept.length < listed.length ? [keep, ...kept] : kept;
+    await tx.projectComponent.update({
+      where: { projectId_componentKey: { projectId, componentKey: c.componentKey } },
+      data: { settings: { ...settings, form_ids: next }, updatedBy: actor },
+    });
+  }
+  return ids;
 }
