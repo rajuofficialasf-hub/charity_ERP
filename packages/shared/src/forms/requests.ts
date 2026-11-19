@@ -36,6 +36,11 @@ export type ReadyFormCreate = z.infer<typeof readyFormCreateSchema>;
 export const formPlaceSchema = z.strictObject({
   readyFormId: z.uuid(),
   key: snakeKey.max(40).optional(),
+  /**
+   * The placed form becomes the project's one application form: the others of that kind are
+   * retired. Only while the project is a draft.
+   */
+  replace: z.boolean().optional(),
 });
 export type FormPlace = z.infer<typeof formPlaceSchema>;
 

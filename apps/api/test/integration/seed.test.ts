@@ -418,7 +418,7 @@ describe('demo set', () => {
       media_director: 1,
       media_assistant_director: 1,
       finance_team: 1,
-      volunteer_general: 16,
+      volunteer_general: 17,
       volunteer_both: 1,
       volunteer_local_daee: 1,
       volunteer_team_member: 1,

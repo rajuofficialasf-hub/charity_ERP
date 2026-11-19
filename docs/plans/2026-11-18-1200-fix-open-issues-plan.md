@@ -108,7 +108,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** U1
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U3. Each E2E account changed by one spec only
 - **Goal:** no spec signs in with an account that another spec revokes, signs out or changes.
@@ -123,7 +123,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U4. A sign-out that a refresh in flight cannot undo
 - **Goal:** after a sign-out, a refresh already on its way never restores the session (the cause recorded for the password change spec's failure, `docs/STATUS.md` T1.9d).
@@ -351,8 +351,8 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - U13: the `down.sql` restores the column with its default and check.
 
 ## Progress
-- **Branch:** fix/open-issues (U1 and U2 ship first as their own pull request, so the UAT starts on a green develop; the other units follow, per the owner's choice of 2026-11-18)
-- **Next:** U2: push, open the pull request and read the four shards on it; fix a failing spec at its cause
-- **Reviewed through:** —
+- **Branch:** U3 ships alone from `test/e2e-own-accounts` (the owner's word of 2026-11-19); U4 and U5 start on a new branch from develop; U1 and U2 merged as PR #67 (fb6d6e34), the UAT scripts as PR #68
+- **Next:** U4 (characterize first: a refresh in flight at the sign-out), then U5, then C2
+- **Reviewed through:** C1 at fb6d6e34 (U1 and U2 went through the pull request's own six checks and develop's run after the merge, all green; no reviewer run: two small units, one a workflow change)
 - **Uncommitted:** —
-- **Notes:** The pull request's first shard run failed in the web contract test, not in E2E: `tests/contract/photos.contract.test.ts` (added with the photo viewer) uploaded a program's cover as the PM, whom `program.update` refuses (403). It skips without `CONTRACT_API_URL`, so it had never run; it now signs in as the Department Head and passed against the E2E API (65 of 65). A contract test is run with the API's address before it is called passing. U1 also guards the overview read of `use-sync-store.ts` (it set state after its await too) and adds `apps/web/src/lib/use-alive.ts`; the whole web suite then ran with 0 unhandled errors, 8 tests timed out under load and passed when their 5 files ran alone (U5). PR #66 merged as ece97080 before this branch started; its own CI run passed the unit and API job, so the unhandled rejection of the sync test is intermittent.
+- **Notes:** U2: develop is protected on GitHub since 2026-11-18 (the six checks required, no force push, no deletion; admins may pass). The pull request's third shard took 25 minutes once and 7 the next time; watch it. U3: the offline journeys got a demo volunteer of their own (21, 01700000121), `photo-viewer.spec.ts` (mobile) and `volunteers.spec.ts` (desktop) read their refusal as volunteer 3, and `admin.spec.ts` keeps volunteers 11 and 12, whose saved language it switches; the six specs ran together, 40 passed. The three full runs in a row of U3's Done-when are left for C2, with U4 and U5. The pull request's first shard run failed in the web contract test, not in E2E: `tests/contract/photos.contract.test.ts` (added with the photo viewer) uploaded a program's cover as the PM, whom `program.update` refuses (403). It skips without `CONTRACT_API_URL`, so it had never run; it now signs in as the Department Head and passed against the E2E API (65 of 65). A contract test is run with the API's address before it is called passing. U1 also guards the overview read of `use-sync-store.ts` (it set state after its await too) and adds `apps/web/src/lib/use-alive.ts`; the whole web suite then ran with 0 unhandled errors, 8 tests timed out under load and passed when their 5 files ran alone (U5). PR #66 merged as ece97080 before this branch started; its own CI run passed the unit and API job, so the unhandled rejection of the sync test is intermittent.

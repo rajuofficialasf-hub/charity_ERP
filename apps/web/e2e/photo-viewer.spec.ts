@@ -8,7 +8,7 @@ import { fromProfileMenu, scan, signIn } from './support/admin';
 // volunteer who may not see it is told so. The projects share the database, so each uses an
 // official of its own.
 const OFFICIAL = { desktop: 'executive@example.org', mobile: 'daee@example.org' } as const;
-const VOLUNTEER = { desktop: '01700000101', mobile: '01700000102' } as const;
+const VOLUNTEER = { desktop: '01700000101', mobile: '01700000103' } as const;
 const HEAD = 'head@example.org';
 
 /** A tiny valid PNG (1 x 1 pixel) as the new photo. */
