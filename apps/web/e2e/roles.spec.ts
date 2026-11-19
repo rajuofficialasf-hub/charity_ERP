@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { apiAs, signIn } from './support/admin';
+import { apiAs, isPhone, mainMenu, signIn } from './support/admin';
 
 // Role-based denial for every demo role (docs/MASTER_PROMPT.md, the first critical E2E journey;
 // docs/testing/DEMO_ACCOUNTS.md): each role opens a page of another role and sees the forbidden
 // screen, and the API refuses an operation the role does not hold with 403 `permission.denied`
-// (docs/security/AUTHORIZATION_MATRIX.md). The Department Head and the Monitoring Team hold every
-// permission; their one exception, the Main Admin transfer, has no endpoint yet, so they have no
-// row. The accounts are only read here; both projects sign in with the same ones, chosen among
+// (docs/security/AUTHORIZATION_MATRIX.md). An Admin and the Department Head hold every permission
+// (the Head's one exception, the Main Admin transfer, has no endpoint yet), so they have no row.
+// The Monitoring Team reads everything and administers nothing: the panel and the settings refuse
+// it. The accounts are only read here; both projects sign in with the same ones, chosen among
 // those whose sessions and passwords no other spec depends on (docs/testing/DEMO_ACCOUNTS.md).
 const DENIED = 'এই পাতায় আপনার প্রবেশাধিকার নেই।';
 /** An id no record has. */
@@ -105,6 +106,26 @@ const ROLES: { role: string; loginId: string; page: string; api: string }[] = [
     page: '/admin/permissions',
     api: '/roles',
   },
+  // the panel's own reads stay open to the Monitoring Team (it reads every permission); what it
+  // cannot do is administer: the active sessions and the system health refuse it
+  {
+    role: 'the Monitoring Team',
+    loginId: 'monitoring@example.org',
+    page: '/admin/permissions',
+    api: '/sessions/active',
+  },
+  {
+    role: 'the Monitoring Team',
+    loginId: 'monitoring@example.org',
+    page: '/admin/health',
+    api: '/admin/health',
+  },
+  {
+    role: 'the Monitoring Team',
+    loginId: 'monitoring@example.org',
+    page: '/admin/settings',
+    api: '/settings',
+  },
 ];
 
 test.describe('role-based denial', () => {
@@ -123,4 +144,32 @@ test.describe('role-based denial', () => {
       expect(await res.json()).toMatchObject({ error: { code: 'permission.denied' } });
     });
   }
+});
+
+test.describe('the administration and the oversight', () => {
+  test('the Monitoring Team has the audit log in its menu, and neither the panel nor the settings', async ({
+    page,
+  }, info) => {
+    test.skip(isPhone(info), 'the sidebar is for desktops');
+    await signIn(page, 'monitoring@example.org');
+    const nav = mainMenu(page);
+    await expect(nav.getByRole('link', { name: 'অডিট লগ' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'পারমিশন' })).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'সেটিংস' })).toHaveCount(0);
+    await nav.getByRole('link', { name: 'অডিট লগ' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'অডিট লগ' })).toBeVisible();
+  });
+
+  test('an Admin has the panel, the settings and the audit log in the menu', async ({
+    page,
+  }, info) => {
+    test.skip(isPhone(info), 'the sidebar is for desktops');
+    await signIn(page, 'admin@example.org');
+    const nav = mainMenu(page);
+    for (const name of ['পারমিশন', 'সেটিংস', 'অডিট লগ'])
+      await expect(nav.getByRole('link', { name })).toBeVisible();
+    await nav.getByRole('link', { name: 'পারমিশন' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByText(DENIED)).toHaveCount(0);
+  });
 });

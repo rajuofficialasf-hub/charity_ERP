@@ -70,6 +70,7 @@ export const ROLE_WIDGETS: Readonly<Record<string, readonly Widget[]>> = {
   project_executive: ['official_projects', 'notifications'],
   regional_program_manager: ['official_projects', 'notifications'],
   program_manager: ['project_states', 'templates', 'program_dashboard', 'notifications'],
+  admin: ['shortcuts', 'work_progress', 'alerts', 'notifications'],
   department_head: ['shortcuts', 'work_progress', 'alerts', 'notifications'],
   monitoring_team: ['shortcuts', 'work_progress', 'alerts', 'notifications'],
   media_team: ['media_work', 'notifications'],

@@ -184,7 +184,7 @@ These change the constitution: `docs/MASTER_PROMPT.md` §5 makes the Department 
 - **Depends on:** U2
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U5. The hard rules of the panel and the enforcement fixes
 - **Goal:** the panel cannot raise access, and a revoke always does what it says.
@@ -305,7 +305,7 @@ These change the constitution: `docs/MASTER_PROMPT.md` §5 makes the Department 
 ## Progress
 - **Branch:** `feat/admin-role-and-permissions`
 - **Updated:** 2026-11-19
-- **Next:** U4: the role lists of the web app, starting with `apps/web/src/admin/roles.test.ts`
+- **Next:** U5: the hard rules of the panel, starting with `apps/api/src/access/hard-rules.spec.ts`; then checkpoint C3 over U4 and U5
 - **Reviewed through:** C2 at 9e008e10
 - **Uncommitted:** none
-- **Notes:** the owner asked for two pull requests in spirit (U1 to U6 first, then the screens); the decision is D-187 (D-186 belongs to PR #72). A separate plan will follow for who sees which volunteers and beneficiaries (areas on an official's profile, the chain Executive, RPM, PM); it is not part of this plan and comes between the two pull requests.
+- **Notes:** U4 offers `admin` and `department_head` to nobody in the new-account and the registration dialogs, an Admin included: the server refuses both there (`isGivableOfficialRole`) and `docs/security/RBAC.md` "Roles" gives them by a role change alone, so an Admin makes another Admin or the Head through the role change of U6 and U7. The Monitoring Team keeps the reads of the panel (`permission.view`); the screens and the menu hide the panel from it. The owner asked for two pull requests in spirit (U1 to U6 first, then the screens); the decision is D-187 (D-186 belongs to PR #72). A separate plan will follow for who sees which volunteers and beneficiaries (areas on an official's profile, the chain Executive, RPM, PM); it is not part of this plan and comes between the two pull requests.

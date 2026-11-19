@@ -37,13 +37,9 @@ import {
   updateProfile,
 } from './staff-api';
 import './staff.css';
+import { TOP_ROLES } from '../roles';
 import { LoadError } from '../../components/LoadError';
 
-/**
- * The Main Admin's role is never given to a new account (docs/architecture/AUTH.md, "Main Admin
- * protection").
- */
-const NOT_GIVEN = 'department_head';
 const NONE = 'none';
 /** The fields of the first step (identity and contacts). */
 const FIRST_STEP = ['jobId', 'displayName', 'designation', 'email', 'mobile'];
@@ -274,7 +270,8 @@ function OfficialForm({
     (affiliation === 'department' || unit.trim() !== '') &&
     (official ? etag !== undefined : roleKey !== '');
   const roleOptions = (roleList.data ?? [])
-    .filter((r) => r.kind === 'official' && r.key !== NOT_GIVEN)
+    // an Admin and the Department Head are made by a role change, never by a new account
+    .filter((r) => r.kind === 'official' && !TOP_ROLES.includes(r.key))
     .map((r) => ({ value: r.key, label: localized(r.name, locale) }));
   const programOptions = [
     { value: NONE, label: t('no_program') },

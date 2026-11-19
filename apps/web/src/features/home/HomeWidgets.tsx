@@ -19,6 +19,7 @@ import {
   PERMISSION_PANEL_ROLES,
   STAFF_DIRECTORY_ROLES,
   SYSTEM_ADMIN_ROLES,
+  GLOBAL_ROLES,
 } from '../../admin/roles';
 import { TEMPLATES_KEY, templates } from '../../admin/templates/templates-api';
 import { MEDIA_KEY, mediaSummary } from '../media/media-api';
@@ -270,7 +271,7 @@ const SHORTCUTS = [
     roles: PERMISSION_PANEL_ROLES,
     home: 'permission_panel',
   },
-  { href: '/admin/audit', icon: 'notebook', roles: SYSTEM_ADMIN_ROLES, nav: 'audit' },
+  { href: '/admin/audit', icon: 'notebook', roles: GLOBAL_ROLES, nav: 'audit' },
   { href: '/admin/staff', icon: 'id-card', roles: STAFF_DIRECTORY_ROLES, nav: 'staff' },
   { href: '/admin/settings', icon: 'settings', roles: SYSTEM_ADMIN_ROLES, nav: 'settings' },
 ] as const satisfies readonly ({

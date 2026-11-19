@@ -3,7 +3,10 @@ import { attentionCounts, moreFor, placeOf, sidebarFor, tabsFor } from './naviga
 
 const HEAD = { kind: 'staff' as const, roles: ['department_head'] };
 const PM = { kind: 'staff' as const, roles: ['program_manager'] };
+const ADMIN = { kind: 'staff' as const, roles: ['admin'] };
+const MONITORING = { kind: 'staff' as const, roles: ['monitoring_team'] };
 const ROLES = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
@@ -31,6 +34,35 @@ describe('placeOf', () => {
   });
 });
 
+describe('the administration items', () => {
+  const keysOf = (me: { kind: 'staff'; roles: string[] }) =>
+    sidebarFor(me)
+      .flatMap((g) => g.items)
+      .map((i) => i.key);
+
+  it('shows an Admin and the Department Head the same sidebar', () => {
+    expect(keysOf(ADMIN)).toEqual(keysOf(HEAD));
+    for (const key of ['permissions', 'settings', 'sessions', 'health', 'handover', 'audit'])
+      expect(keysOf(ADMIN), key).toContain(key);
+  });
+
+  it('keeps the administration from the Monitoring Team and leaves it the oversight', () => {
+    const keys = keysOf(MONITORING);
+    for (const key of [
+      'permissions',
+      'settings',
+      'sessions',
+      'health',
+      'handover',
+      'notification_templates',
+    ])
+      expect(keys, key).not.toContain(key);
+    for (const key of ['audit', 'deliveries', 'nisab', 'staff', 'volunteers', 'beneficiaries'])
+      expect(keys, key).toContain(key);
+    expect(placeOf(MONITORING, '/admin/permissions')).toBeNull();
+  });
+});
+
 describe('the programs and projects tab', () => {
   it('is one destination: no role has the programs of their own in the sidebar or "more"', () => {
     for (const role of ROLES) {
@@ -44,6 +76,7 @@ describe('the programs and projects tab', () => {
         role,
       ).toHaveLength(
         [
+          'admin',
           'department_head',
           'monitoring_team',
           'program_manager',

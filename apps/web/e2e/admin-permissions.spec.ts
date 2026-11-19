@@ -14,7 +14,7 @@ const CASES = {
     name: 'প্রজেক্ট এক্সিকিউটিভ (নমুনা)',
   },
   mobile: {
-    manager: 'monitoring@example.org',
+    manager: 'admin@example.org',
     target: 'daee@example.org',
     name: 'অফিসিয়াল দায়ী (নমুনা)',
   },

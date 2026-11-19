@@ -22,7 +22,7 @@ import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { canAdministerSystem } from '../roles';
+import { canOversee } from '../roles';
 import { useTabView } from '../use-tab-view';
 import { type PanelUser, UserSearch } from '../UserSearch';
 import { AuditDetail } from './AuditDetail';
@@ -88,7 +88,7 @@ export function AuditPage() {
   const { filters, setFilters, change, cursor, setCursor } = useTabView(AUDIT_FILTERS);
   const [open, setOpen] = useState<AuditEntry | null>(null);
   const [actor, setActor] = useState<PanelUser | null>(null);
-  const allowed = Boolean(me && canAdministerSystem(me));
+  const allowed = Boolean(me && canOversee(me));
   const page = useQuery({
     queryKey: [...AUDIT_KEY, filters, cursor],
     queryFn: () => auditPage(filters, cursor),

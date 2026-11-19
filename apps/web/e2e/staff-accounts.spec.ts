@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { choose, isPhone, PASSWORD, scan, signIn } from './support/admin';
 
-// Officials created by the admin: the Department Head (the Monitoring Team on a phone) creates an
+// Officials created by the admin: the Department Head (an Admin on a phone) creates an
 // official, copies the set-password link, the official sets a password through it in another
 // browser, logs in with the job ID, and appears in the organogram.
-const ADMIN = { desktop: 'head@example.org', mobile: 'monitoring@example.org' } as const;
+const ADMIN = { desktop: 'head@example.org', mobile: 'admin@example.org' } as const;
 const NEW_PASSWORD = `${PASSWORD} New`;
 
 test.describe('officials created by the admin', () => {

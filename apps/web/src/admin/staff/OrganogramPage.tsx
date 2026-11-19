@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { canSeeStaff } from '../roles';
+import { canSeeStaff, GLOBAL_ROLES, TOP_ROLES } from '../roles';
 import { StatisticsBar } from '../StatisticsBar';
 import './organogram.css';
 import { type Organogram, type OrganogramNode, organogram, STAFF_KEY } from './staff-api';
@@ -27,7 +27,7 @@ const PADDING = 24;
 
 /** The colour band of a card by the highest role: leadership, PM, RPM, field staff. */
 function tone(roles: string[]): 'lead' | 'pm' | 'rpm' | 'field' {
-  if (roles.includes('department_head') || roles.includes('monitoring_team')) return 'lead';
+  if (GLOBAL_ROLES.some((role) => roles.includes(role))) return 'lead';
   if (roles.includes('program_manager')) return 'pm';
   if (roles.includes('regional_program_manager')) return 'rpm';
   return 'field';
@@ -180,10 +180,11 @@ export function OrganogramPage() {
     if (!leadership.length && !programs.length && !unplaced.length)
       return <EmptyState title={t('empty')} />;
     const shown = program === ALL ? programs : programs.filter((p) => p.programId === program);
-    // the Department Head on top; the Monitoring Team reports to the Head and stands beside the
-    // programs, one level below (owner, 2026-10-17)
-    const heads = leadership.filter((n) => n.roles.includes('department_head'));
-    const monitoring = leadership.filter((n) => !n.roles.includes('department_head'));
+    // an Admin and the Department Head on top; the Monitoring Team reports to the Head and stands
+    // beside the programs, one level below (owner, 2026-10-17)
+    const atTop = (n: { roles: string[] }) => TOP_ROLES.some((role) => n.roles.includes(role));
+    const heads = leadership.filter(atTop);
+    const monitoring = leadership.filter((n) => !atTop(n));
     const showMonitoring = program === ALL && monitoring.length > 0;
     const groups = showMonitoring ? 1 : 0;
     const foldable = withReports(chart.data);

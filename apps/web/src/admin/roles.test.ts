@@ -20,6 +20,15 @@ import {
   canSeePrograms,
   canSeeProjects,
   canSeeVolunteers,
+  canAdministerSystem,
+  canDecideStaffEdits,
+  canEndSessions,
+  canEndStaffSessions,
+  canKeepNisab,
+  canManageOfficials,
+  canOversee,
+  canSeeStaff,
+  holdsGlobalRole,
 } from './roles';
 
 // What the admin area shows per role (permissions.yaml role defaults; the server decides anyway).
@@ -28,6 +37,7 @@ const as = (...roles: string[]) => ({ roles });
 describe('admin role lists', () => {
   it('opens the admin area for every role with a destination there', () => {
     for (const role of [
+      'admin',
       'department_head',
       'monitoring_team',
       'program_manager',
@@ -61,12 +71,54 @@ describe('admin role lists', () => {
     expect(canSeeCategories(as('official_daee'))).toBe(false);
   });
 
-  it('keeps the panel, the staff decision and the handover for the global roles', () => {
-    for (const check of [canManagePermissions, canApproveStaff, canHandOver]) {
+  it('keeps the administration for an Admin and the Department Head, and from the Monitoring Team', () => {
+    for (const check of [
+      canManagePermissions,
+      canApproveStaff,
+      canDecideStaffEdits,
+      canHandOver,
+      canManageOfficials,
+      canAdministerSystem,
+      canEndStaffSessions,
+    ]) {
+      expect(check(as('admin'))).toBe(true);
       expect(check(as('department_head'))).toBe(true);
-      expect(check(as('monitoring_team'))).toBe(true);
+      expect(check(as('monitoring_team'))).toBe(false);
       expect(check(as('program_manager', 'regional_program_manager'))).toBe(false);
     }
+    // an RPM ends the sessions of the region's volunteers; the Monitoring Team ends nobody's
+    expect(canEndSessions(as('regional_program_manager'))).toBe(true);
+    expect(canEndSessions(as('monitoring_team'))).toBe(false);
+  });
+
+  it('leaves the Monitoring Team the oversight: the audit log, the message deliveries, the nisab and the staff list', () => {
+    for (const role of ['admin', 'department_head', 'monitoring_team']) {
+      expect(canOversee(as(role)), role).toBe(true);
+      expect(canKeepNisab(as(role)), role).toBe(true);
+      expect(canSeeStaff(as(role)), role).toBe(true);
+      expect(holdsGlobalRole(as(role)), role).toBe(true);
+    }
+    expect(canOversee(as('program_manager'))).toBe(false);
+    expect(holdsGlobalRole(as('program_manager'))).toBe(false);
+  });
+
+  it('gives an Admin everything the Department Head has', () => {
+    for (const check of [
+      canManagePrograms,
+      canCreateProjects,
+      canAssignVolunteers,
+      canMarkPaid,
+      canGrantOnProject,
+      canBuildForms,
+      canPlaceForms,
+      canManagePublicLink,
+      canBlock,
+      canDecideEdits,
+      canSeeVolunteers,
+      canSeeBeneficiaries,
+      canApproveRegistrations,
+    ])
+      expect(check(as('admin'))).toBe(check(as('department_head')));
   });
 
   it('gives edit decisions to the RPM and the Executive, the blocklist to the PM and the RPM', () => {

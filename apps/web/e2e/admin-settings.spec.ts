@@ -4,9 +4,9 @@ import { typeDate } from './support/projects';
 
 // The admin and settings core: a threshold is changed and found in the audit log, the dummy OTP
 // warning is red, the sessions and the health pages answer, and a Program Manager adds a nisab
-// version with its effective date. The Department Head works on a desktop and the Monitoring Team
-// on a phone (docs/testing/DEMO_ACCOUNTS.md).
-const ADMIN = { desktop: 'head@example.org', mobile: 'monitoring@example.org' } as const;
+// version with its effective date. The Department Head works on a desktop and an Admin on a phone
+// (docs/testing/DEMO_ACCOUNTS.md).
+const ADMIN = { desktop: 'head@example.org', mobile: 'admin@example.org' } as const;
 const PM = 'pm.hum@example.org';
 
 /** dd-mm-yyyy of a Dhaka day some days from now, as the date field takes it. */

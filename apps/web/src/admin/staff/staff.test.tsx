@@ -701,7 +701,7 @@ describe('the official profile', () => {
     serve();
     openProfile(official().id);
     await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
-    expect(screen.queryByRole('group', { name: 'কাজ' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'প্রোফাইল সম্পাদনা' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'ডিভাইস' })).not.toBeInTheDocument();
   });
 
@@ -710,7 +710,7 @@ describe('the official profile', () => {
     serve();
     openProfile(official().id);
     await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
-    expect(screen.queryByRole('group', { name: 'কাজ' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'প্রোফাইল সম্পাদনা' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'ডিভাইস' })).not.toBeInTheDocument();
   });
 
@@ -768,12 +768,22 @@ describe('the official profile', () => {
     expect(workReads).toBe(0);
   });
 
-  it('shows the devices to the Monitoring Team', async () => {
-    refreshAs({ ...ME, roles: ['monitoring_team'] });
+  it('shows the devices to an Admin', async () => {
+    refreshAs({ ...ME, roles: ['admin'] });
     serve();
     openProfile(official().id);
     await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
     expect(screen.getByRole('region', { name: 'ডিভাইস' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'প্রোফাইল সম্পাদনা' })).toBeInTheDocument();
+  });
+
+  it('shows the Monitoring Team the profile, without the actions or the devices', async () => {
+    refreshAs({ ...ME, roles: ['monitoring_team'] });
+    serve();
+    openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    expect(screen.queryByRole('button', { name: 'প্রোফাইল সম্পাদনা' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'ডিভাইস' })).not.toBeInTheDocument();
   });
 
   it("says the official was not found, for a missing id and for a volunteer's id", async () => {

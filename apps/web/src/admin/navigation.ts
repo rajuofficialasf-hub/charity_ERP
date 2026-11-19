@@ -14,6 +14,7 @@ import {
   NISAB_ROLES,
   STAFF_APPROVER_ROLES,
   SYSTEM_ADMIN_ROLES,
+  GLOBAL_ROLES,
   VOLUNTEER_TAB_ROLES,
 } from './roles';
 
@@ -120,7 +121,7 @@ export const SIDEBAR: readonly { group: NavGroup; items: readonly NavDestination
       },
       { key: 'settings', href: '/admin/settings', icon: 'settings', roles: SYSTEM_ADMIN_ROLES },
       { key: 'nisab', href: '/admin/nisab', icon: 'scale', roles: NISAB_ROLES },
-      { key: 'audit', href: '/admin/audit', icon: 'notebook', roles: SYSTEM_ADMIN_ROLES },
+      { key: 'audit', href: '/admin/audit', icon: 'notebook', roles: GLOBAL_ROLES },
       {
         key: 'sessions',
         href: '/admin/sessions',
@@ -134,7 +135,7 @@ export const SIDEBAR: readonly { group: NavGroup; items: readonly NavDestination
         icon: 'message',
         roles: SYSTEM_ADMIN_ROLES,
       },
-      { key: 'deliveries', href: '/admin/deliveries', icon: 'send', roles: SYSTEM_ADMIN_ROLES },
+      { key: 'deliveries', href: '/admin/deliveries', icon: 'send', roles: GLOBAL_ROLES },
     ],
   },
 ];

@@ -8,6 +8,7 @@ import type { Me } from '@css/shared/auth';
  * endpoint checks its own permission and scope on the server (default deny).
  */
 export const ADMIN_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
@@ -57,6 +58,7 @@ export const BENEFICIARY_LOOKUP_ROLES: readonly string[] = ADMIN_ROLES;
  * Whether a merge or a proposal is offered follows the action flags of the two profiles.
  */
 export const DUPLICATE_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
@@ -70,17 +72,22 @@ export const CATEGORY_ROLES: readonly string[] = ADMIN_ROLES;
  * The permission panel is for the Department Head and the Monitoring Team only
  * (docs/security/RBAC.md, "Permission panel").
  */
-export const PERMISSION_PANEL_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+export const PERMISSION_PANEL_ROLES: readonly string[] = ['admin', 'department_head'];
 
 /** Who sees the programs (`program.view`; the global roles and the PMs, each its own program). */
 export const PROGRAM_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
 ];
 
 /** Who creates, renames, deactivates programs and assigns their PM (the global roles). */
-export const PROGRAM_ADMIN_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+export const PROGRAM_ADMIN_ROLES: readonly string[] = [
+  'admin',
+  'department_head',
+  'monitoring_team',
+];
 
 /** Who sees projects in the admin area (`project.view`: the PM, the RPM and the Executive). */
 export const PROJECT_ROLES: readonly string[] = ADMIN_ROLES;
@@ -108,16 +115,17 @@ export const PROJECT_CREATE_ROLES: readonly string[] = PROGRAM_ROLES;
 export const REGISTRATION_ROLES: readonly string[] = ADMIN_ROLES;
 
 /** Staff registration approvers (`staff.registration.approve`). */
-export const STAFF_APPROVER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+export const STAFF_APPROVER_ROLES: readonly string[] = ['admin', 'department_head'];
 
 /**
  * Who decides an official's own change request (`staff_edit_request.approve`; docs/DECISION_LOG.md,
  * the official's own profile of 2026-11-02): the two global roles, never the person who asked.
  */
-export const STAFF_EDIT_DECIDER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+export const STAFF_EDIT_DECIDER_ROLES: readonly string[] = ['admin', 'department_head'];
 
 /** Edit request approvers (`edit_request.approve`). */
 export const EDIT_REQUEST_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'regional_program_manager',
@@ -126,6 +134,7 @@ export const EDIT_REQUEST_ROLES: readonly string[] = [
 
 /** Volunteer blocklist (`volunteer.block`, `volunteer.unblock`). */
 export const BLOCKLIST_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
@@ -137,6 +146,7 @@ export const BLOCKLIST_ROLES: readonly string[] = [
  * executive only with the RPM's grant, and the global roles; the server decides per project).
  */
 export const ASSIGN_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'regional_program_manager',
@@ -144,12 +154,14 @@ export const ASSIGN_ROLES: readonly string[] = [
 ];
 /** Who marks a volunteer as paid on a project (`volunteer.mark_paid`). */
 export const MARK_PAID_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'regional_program_manager',
 ];
 /** Who grants "if RPM grants" extras to the staff of a project (`project.volunteer_grant.manage`). */
 export const PROJECT_GRANT_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'regional_program_manager',
@@ -160,22 +172,24 @@ export const PROJECT_GRANT_ROLES: readonly string[] = [
  * program, the RPM in its region).
  */
 export const STAFF_DIRECTORY_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
   'regional_program_manager',
 ];
 /** Who creates officials, edits their profile and renews their link (`user.create`, `user.profile.manage`). */
-export const OFFICIAL_ADMIN_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+export const OFFICIAL_ADMIN_ROLES: readonly string[] = ['admin', 'department_head'];
 
 /**
  * The settings page, the audit log, the active sessions and the system health: the global roles
  * only (`settings.manage`, `provider.settings.manage`, `audit.view` and `session.revoke_user` at
  * global scope, `system.health.view`; docs/DECISION_LOG.md, the admin and settings decision).
  */
-export const SYSTEM_ADMIN_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+export const SYSTEM_ADMIN_ROLES: readonly string[] = ['admin', 'department_head'];
 /** The nisab versions: the Program Manager and above (`nisab.set`). */
 export const NISAB_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
@@ -184,11 +198,11 @@ export const NISAB_ROLES: readonly string[] = [
 /** The staff handover and the deactivation after it (`user.handover`, `user.state.change`). */
 /** Who may see and end another person's device sessions (the permission `session.revoke_user`). */
 export const SESSION_ROLES: readonly string[] = [
+  'admin',
   'department_head',
-  'monitoring_team',
   'regional_program_manager',
 ];
-export const HANDOVER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+export const HANDOVER_ROLES: readonly string[] = ['admin', 'department_head'];
 
 const holds = (me: Pick<Me, 'roles'>, roles: readonly string[]) =>
   me.roles.some((role) => roles.includes(role));
@@ -199,6 +213,7 @@ const holds = (me: Pick<Me, 'roles'>, roles: readonly string[]) =>
  * protected column again.
  */
 export const EXPORT_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
@@ -214,6 +229,7 @@ export const EXPORT_ROLES: readonly string[] = [
 
 /** The beneficiary's 360° profile as a PDF (`report.beneficiary_journey`) and the global roles. */
 export const JOURNEY_PDF_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
@@ -227,6 +243,19 @@ export const canPrintProfile = (me: Pick<Me, 'roles'>) => holds(me, JOURNEY_PDF_
 
 export const canManagePermissions = (me: Pick<Me, 'roles'>) => holds(me, PERMISSION_PANEL_ROLES);
 export const canAdministerSystem = (me: Pick<Me, 'roles'>) => holds(me, SYSTEM_ADMIN_ROLES);
+/**
+ * The roles that hold every scope: an Admin, the Department Head and the Monitoring Team. They
+ * read everything, and the server holds them to the longer password.
+ */
+export const GLOBAL_ROLES: readonly string[] = ['admin', 'department_head', 'monitoring_team'];
+export const holdsGlobalRole = (me: Pick<Me, 'roles'>) => holds(me, GLOBAL_ROLES);
+/**
+ * The two roles at the top: an Admin, who maintains the system, and the Department Head. Neither
+ * is given by a new account or a registration's approval: an Admin gives them by a role change.
+ */
+export const TOP_ROLES: readonly string[] = ['admin', 'department_head'];
+/** The oversight the Monitoring Team keeps beside them: the audit log and the message deliveries. */
+export const canOversee = (me: Pick<Me, 'roles'>) => holds(me, GLOBAL_ROLES);
 export const canKeepNisab = (me: Pick<Me, 'roles'>) => holds(me, NISAB_ROLES);
 /** Everyone with at least one destination in the admin area. */
 export const canOpenAdmin = (me: Pick<Me, 'roles'>) => holds(me, BENEFICIARY_TAB_ROLES);
@@ -255,6 +284,7 @@ export const canDecideStaffEdits = (me: Pick<Me, 'roles'>) => holds(me, STAFF_ED
  * global roles, and the Program Manager for the projects of their program (the server narrows it).
  */
 export const STAFF_WORK_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
@@ -279,12 +309,14 @@ export const canAssignVolunteers = (me: Pick<Me, 'roles'>) => holds(me, ASSIGN_R
  * (`volunteer.team.transfer`): the RPM and the global roles. The server decides each by area.
  */
 export const TRANSFER_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'regional_program_manager',
   'project_executive',
 ];
 export const TEAM_TRANSFER_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'regional_program_manager',
@@ -300,7 +332,11 @@ export const canManageOfficials = (me: Pick<Me, 'roles'>) => holds(me, OFFICIAL_
  * Who builds and publishes forms and the question library: the two global roles (`form.build`,
  * `form.publish`, `form.library.manage`). A PM places a ready form on a project instead.
  */
-export const FORM_BUILDER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+export const FORM_BUILDER_ROLES: readonly string[] = [
+  'admin',
+  'department_head',
+  'monitoring_team',
+];
 export const canBuildForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_BUILDER_ROLES);
 
 /**
@@ -308,6 +344,7 @@ export const canBuildForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_BUILDER_R
  * program and the two global roles. The server decides each change by the scope of the grant.
  */
 export const PUBLIC_LINK_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
@@ -319,6 +356,7 @@ export const canManagePublicLink = (me: Pick<Me, 'roles'>) => holds(me, PUBLIC_L
  * PM of the program and the two global roles. The server decides each placement by its scope.
  */
 export const FORM_PLACE_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
@@ -335,6 +373,7 @@ export const canSeeApplications = (me: Pick<Me, 'roles'>) => holds(me, APPLICATI
  * decides each project by its scope and grants.
  */
 export const DECISION_ROLES: readonly string[] = [
+  'admin',
   'department_head',
   'monitoring_team',
   'program_manager',
@@ -359,6 +398,7 @@ export const MEDIA_WORK_ROLES: readonly string[] = [
   ...MEDIA_ROLES,
   'program_manager',
   'regional_program_manager',
+  'admin',
   'department_head',
   'monitoring_team',
 ];
